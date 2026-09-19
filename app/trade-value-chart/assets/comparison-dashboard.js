@@ -116,9 +116,7 @@
     const raw = combo?.values || combo?.reindexed || {};
     const native = combo?.native || {};
     const values = new Map();
-    const pricedIds = key === "espn" ? new Set(data.sources?.espn?.espn_priced_pids || []) : null;
     Object.entries(raw).forEach(([sourceId, rawValue]) => {
-      if (pricedIds && !pricedIds.has(sourceId)) return;
       if (["fantasypros","fantasypros_adjusted"].includes(key) && !has(native,sourceId)) return;
       const mapped = data.player_keys?.[sourceId];
       const playerKey = Number(mapped);

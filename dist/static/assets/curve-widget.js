@@ -151,9 +151,7 @@
       const raw = combo?.values || combo?.reindexed || {};
       const native = combo?.native || {};
       const values = new Map();
-      const pricedIds = key === "espn" ? new Set(data.sources?.espn?.espn_priced_pids || []) : null;
       Object.entries(raw).forEach(([sourceId, rawValue]) => {
-        if (pricedIds && !pricedIds.has(sourceId)) return;
         if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
         const playerKey = Number(data.player_keys?.[sourceId]);
         const player = canonicalByKey.get(playerKey);
@@ -424,41 +422,62 @@
     const counts = allocationCounts();
     if (position === "ALL") return {
       starter: teams * (6 + FLEX_STARTERS),
-      bench: teams * (6 + FLEX_STARTERS + BENCH_SPOTS),
-      waiver: fullRankMax()
+      bench: teams * (6 + FLEX_STARTERS + BENCH_SPOTS)
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,
-      bench: counts.rostered.RB + counts.rostered.WR + counts.rostered.TE,
-      waiver: fullRankMax()
+      bench: counts.rostered.RB + counts.rostered.WR + counts.rostered.TE
     };
     return {
       starter: counts.lineup[position],
-      bench: counts.rostered[position],
-      waiver: fullRankMax()
+      bench: counts.rostered[position]
     };
   }
 
   function markerDefinitions() {
     const ordinals = rosterOrdinals();
+    const rows = displayRows();
+    const lastPositive = rows.reduce((last, row, index) => {
+      const hasPositiveValue = SOURCE_KEYS.some(key => Number.isFinite(row.values[key]) && row.values[key] > 0);
+      return hasPositiveValue ? index + 1 : last;
+    }, 1);
     return [
-      {key:"starter", ordinal:ordinals.starter, label:"Starter", color:"#238a52"},
-      {key:"bench", ordinal:ordinals.bench, label:"Bench", color:"#d36a16"},
-      {key:"waiver", ordinal:ordinals.waiver, label:"Waiver", color:"#c43d32", dotted:true}
+      {key:"starter_to_bench", ordinal:ordinals.starter, value:ordinals.starter + 0.5, label:"Starter → Bench", color:"#238a52"},
+      {key:"bench_to_waiver", ordinal:lastPositive, value:lastPositive + 0.5, label:"Bench → Waiver", color:"#c43d32", dotted:true}
     ];
   }
 
   // Vertical roster rank cutoffs under EVERY lock (2026-09-19, user
-  // directive): Starter, Bench, and Waiver are always vertical lines at
-  // the last player of their division -- last startable (dedicated +
-  // flex), last benchable (last rostered), last waiver player shown.
-  // No horizontal value thresholds under any lock.
+  // directive): show the transitions between roster zones. Starter-to-
+  // Bench sits after the last startable player; Bench-to-Waiver sits after
+  // the last player with any positive indexed value, so waiver territory is
+  // the zero-value pool to the right of the second line. No horizontal value
+  // thresholds under any lock.
   function boundaryMarkers() {
+    const maximum = fullRankMax();
     return markerDefinitions().map(marker => ({
       ...marker,
       axis:"x",
-      value:Math.max(1, Math.min(fullRankMax(), marker.ordinal))
+      value:Math.max(1, Math.min(maximum, marker.value))
     }));
+  }
+
+  function fixedPieDiagnostics() {
+    const tolerance = 2;
+    const checks = [];
+    SOURCE_KEYS.forEach(key => {
+      const combo = data.sources?.[key]?.combos?.[comboKey(key)];
+      const targets = combo?.index_total || {};
+      POSITION_ORDER.forEach(pos => {
+        const target = Number(targets[pos]?.target_total);
+        if (!Number.isFinite(target)) return;
+        const total = [...sourceMaps.get(key).entries()]
+          .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
+          .reduce((sum, [, value]) => sum + value, 0);
+        checks.push({source:key, pos, total, target, delta:total - target, ok:Math.abs(total - target) <= tolerance});
+      });
+    });
+    return {tolerance, checks, ok:checks.every(check => check.ok)};
   }
 
   function yAxisScale(rows) {
@@ -587,9 +606,9 @@
       const lineStyle = key.endsWith("_adjusted") ? "dashed" : "solid";
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
-    const markerText = markers.map(marker => `${marker.label} rank ${marker.value}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSources.size} of 8 sources shown · missing values break a line · vertical roster boundaries: ${markerText}.`;
-    canvas.setAttribute("aria-label", "Eight independently toggleable trade value curves with player rank on the horizontal axis, trade value on the vertical axis, and vertical starter, bench, and waiver rank boundaries. Use Home or End, then the left and right arrow keys, to inspect each player.");
+    const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
+    $("#curveFootnote").textContent = `${activeSources.size} of 8 sources shown · fixed-pie indexed values · missing values break a line · roster transitions: ${markerText}.`;
+    canvas.setAttribute("aria-label", "Eight independently toggleable trade value curves with player rank on the horizontal axis, trade value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
 
   function nearestRank(clientX) {
@@ -669,11 +688,12 @@
     const visiblePeak = Math.max(...rows.flatMap(row => [...activeSources].map(key => row.values[key])).filter(Number.isFinite));
     const dynamicAxisCoversData = scale.max >= visiblePeak;
     const markers = boundaryMarkers();
-    const rosterMarkers = markers.length === 3
-      && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter", "Bench", "Waiver"][index]);
-    const diagnostics = {eightSources, eightToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterMarkers, rosterMarkerAxis:"x", lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSources.size, curveCount:activeSources.size};
+    const rosterTransitions = markers.length === 2
+      && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
+    const fixedPie = fixedPieDiagnostics();
+    const diagnostics = {eightSources, eightToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSources.size, curveCount:activeSources.size};
     window.DDFCurveDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "eightToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "rosterMarkers"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "eightToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).join(", ")}`);
   }
 

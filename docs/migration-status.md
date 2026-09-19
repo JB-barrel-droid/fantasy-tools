@@ -41,6 +41,7 @@ Last updated: 2026-09-19.
 - Local documentation was created from the handoff PDF.
 - Static dashboard source and current data fixtures were imported from the Muse ZIP.
 - Initial dependency-free regression tests were added under `tests/`.
+- User feedback captured: the chart is intended to compare fixed-pie indexed trade-value charts, with source totals matching the same value-pie logic and roster lines showing Starter-to-Bench and Bench-to-Waiver transitions.
 
 ## Tests Passed/Failed
 
@@ -57,6 +58,7 @@ Last updated: 2026-09-19.
 - The handoff identifies a live public-copy issue: `FantasyPros` is displayed where the standing product rule requires `ECR`.
 - The handoff identifies documentation drift in older cron/runbook material.
 - The handoff says missing values are null. The exported implementation sometimes omits missing optional fields instead of storing explicit JSON `null`; the frontend treats both `undefined` and `null` as missing and does not zero-fill them.
+- The exported frontend had an ESPN allowlist filter that removed values after fixed-pie reindexing, causing plotted ESPN totals to drift from baked `index_total` metadata. The frontend now uses the baked ESPN values directly so the chart/table match the fixed-pie artifact.
 
 ## Blockers
 
