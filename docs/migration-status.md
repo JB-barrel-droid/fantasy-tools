@@ -13,7 +13,8 @@ Last updated: 2026-09-19.
 - Local static server works at `http://localhost:8000`.
 - Browser snapshot verification confirms the local dashboard renders the validated chart, eight source entries, comparison tab, source-health header, and build stamp.
 - Browser click smoke test confirms the position filter can switch from QB to RB and updates context/boundary ranks.
-- A private Sites project has been created for a hosted Codex/ChatGPT preview artifact.
+- A private Sites project has been created and deployed for a hosted Codex/ChatGPT preview artifact:
+  `https://trade-value-dashboard-preview.jeremyburstyn.chatgpt.site`
 - Initial discovery docs exist:
   - `docs/architecture-current.md`
   - `docs/migration-plan.md`
@@ -49,6 +50,7 @@ Last updated: 2026-09-19.
 - Passed: Playwright MCP position-filter click smoke test (`QB` to `RB`).
 - Not completed: mobile viewport screenshot. Browser resize/select tools are approval-gated in this session.
 - Not completed: Playwright CLI/browser direct launch. Local npm/browser cache and headless launch paths failed, but Playwright MCP worked for page verification.
+- Expected: unauthenticated HTTP/browser checks against the private Sites URL return `401 Sign in required`.
 
 ## Known Discrepancies
 
@@ -63,4 +65,4 @@ Last updated: 2026-09-19.
 
 ## Next Highest-Leverage Step
 
-Finish publishing the private Sites preview, then use that hosted artifact for review instead of `localhost`.
+Review the private hosted Sites preview, then continue equivalence testing against Muse.
