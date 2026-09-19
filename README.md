@@ -2,7 +2,7 @@
 
 This repository is the migration target for the fantasy-football Trade Value Dashboard currently running in Muse.
 
-Current status: discovery has started from the migration handoff PDF. The Muse ZIP/code/data export has not yet been present in this workspace, so source-file inspection and local dashboard reproduction are pending that artifact.
+Current status: the Muse export has been imported into `app/trade-value-chart/` with current finished data fixtures under `data/fixtures/current/`.
 
 ## Goals
 
@@ -24,7 +24,7 @@ The exact source layout may be adjusted after the Muse ZIP is inspected. Existin
 
 ## Local Run
 
-Pending the Muse export. The minimum viable local target is expected to be:
+Serve the static dashboard locally:
 
 ```bash
 python3 -m http.server 8000 --directory app/trade-value-chart
@@ -38,10 +38,10 @@ http://localhost:8000
 
 ## Tests
 
-Pending the Muse export. The first regression suite should cover static dashboard behavior and JSON fixtures before any business logic is moved:
+Run the current dependency-free regression checks:
 
 ```bash
-python3 -m pytest
+python3 -m unittest discover -s tests
 ```
 
 ## Git Note

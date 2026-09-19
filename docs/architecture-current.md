@@ -2,7 +2,7 @@
 
 Last updated: 2026-09-19.
 
-Source basis: `trade-value-migration-handoff.pdf`, extracted locally for discovery. The Muse ZIP/code export is not present yet, so this document records handoff-verified facts and flags source-file verification as pending.
+Source basis: `trade-value-migration-handoff.pdf` plus the Muse ZIP export uploaded on 2026-09-19.
 
 ## Product Surface
 
@@ -42,7 +42,11 @@ Required files:
 - `assets/dashboard-integration.css` - product-tab sticky rule.
 - `space.json` - Muse static runtime metadata.
 
-The first local reproduction should copy this static runtime outside Muse and serve it as a normal static web app.
+The active static runtime has been imported to:
+
+```text
+app/trade-value-chart/
+```
 
 ## Finished Data Artifacts
 
@@ -51,9 +55,9 @@ The first migration target should consume finished artifacts rather than rebuild
 - `players.json`, currently embedded into `index.html` as `<script id="players-data">`.
 - `comparison-sources-data.json`, currently loaded from `assets/comparison-sources-data.json`.
 
-The handoff reports `players.json` includes 596 skill players and metadata such as `as_of`, ECR snapshot dates, player keys, preseason ECR rank, ECR/ESPN/PM values, prior values, games remaining, and pricing notes.
+The export includes `football-signal/trade-value/players.json`, now copied to `data/fixtures/current/players.json`. It includes 596 skill players and metadata such as `as_of`, ECR snapshot dates, player keys, preseason ECR rank, ECR/ESPN/PM values, prior values, games remaining, and pricing notes. The imported `index.html` inline `players-data` blob matches this file exactly by parsed JSON equality.
 
-The handoff reports `comparison-sources-data.json` includes:
+The export includes `assets/comparison-sources-data.json`, now copied both into the app and to `data/fixtures/current/comparison-sources-data.json`. It includes:
 
 - `built_at`.
 - `value_weeks`.
@@ -131,11 +135,14 @@ For migration, this upstream system should remain in Muse until the static dashb
 
 ## Source-Verified Gaps
 
-Pending the ZIP export, these items are not yet verified from source files:
+Verified from the ZIP:
 
-- Exact current file contents.
-- Exact `players.json` and `comparison-sources-data.json` data values.
+- `curve_data.json`, `curve_extra_sources.json`, and `source_bias_fits.json` do not exist as separate files in the export.
+- The active comparison asset has 8 live chart sources.
+- The full `sources_data.json` fixture has 11 source sections and is larger than the staged subset.
+
+Still pending:
+
 - Exact dependency manifests.
-- Whether any internal imports are missing from the export.
-- Whether local commands in the handoff still run outside Muse.
-
+- Full upstream pipeline source files, which were not included in this ZIP.
+- Whether local commands beyond the static frontend run outside Muse.

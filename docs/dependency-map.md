@@ -86,12 +86,15 @@ Supabase production writes are not required for the first local reproduction.
 
 ## Missing From Workspace
 
-Currently missing:
+Now present from the Muse ZIP:
 
-- Muse ZIP/code/data export.
 - Actual static dashboard source files.
 - Current `players.json`.
 - Current `comparison-sources-data.json`.
+- Current full `sources_data.json`.
+- Current `compare_data.json`.
+
+Still missing:
+
 - Pipeline scripts and existing tests.
 - Dependency manifests.
-
