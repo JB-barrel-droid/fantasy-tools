@@ -21,7 +21,7 @@ Source basis: handoff PDF. Source export verification is pending.
 | `trade-value/sync_chart_data.py` | REWRITE | Muse artifact injection should become a deterministic local build step. |
 | `trade-value/publish_chart.sh` | REWRITE | Muse publish path should be replaced by host-specific deploy and verification. |
 | `trade-value/dataset_status.py` | MIGRATE LATER | Needed when rebuilding data-health output outside Muse. |
-| `lottery/bin/starter_model.py` | MIGRATE LATER | Canonical DDF valuation engine; migrate after golden tests exist. |
+| `lottery/bin/starter_model.py` | MIGRATE LATER | Legacy DDF/value-above-waivers engine. User clarified this projection-derived approach is outdated in-season; migrate only if a refreshed product need is confirmed. |
 | `lottery/bin/build_sources_dashboard.py` | MIGRATE LATER | Source reindex/fixed-pie generation; needed after frontend independence. |
 | `lottery/bin/fit_source_variants.py` | MIGRATE LATER | Bias-adjusted variants; migrate after source data tests exist. |
 | `lottery/bin/audit_curve_locks.js` | MIGRATE LATER | Useful regression gate; port after source files are available. |

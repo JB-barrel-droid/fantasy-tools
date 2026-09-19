@@ -45,7 +45,8 @@ Last updated: 2026-09-19.
 - Static dashboard source and current data fixtures were imported from the Muse ZIP.
 - Initial dependency-free regression tests were added under `tests/`.
 - User feedback captured: the chart is intended to compare fixed-pie indexed trade-value charts, with source totals matching the same value-pie logic and roster lines showing Starter-to-Bench and Bench-to-Waiver transitions.
-- Fixed-pie diagnostics were added to the frontend and exposed as `window.DDFCurveDiagnostics`.
+- Fixed-pie diagnostics were added to the frontend and exposed as `window.TradeValueCurveDiagnostics`.
+- User clarified that DDF/projection-derived values are outdated in-season; they should be treated as legacy/stale context unless refreshed and revalidated, not as the current source of truth.
 - The stale ESPN post-index allowlist filter was removed from both chart and comparison views so displayed values match the fixed-pie artifact totals.
 - Boundary labels were changed from three rank labels to the two intended roster transition lines.
 

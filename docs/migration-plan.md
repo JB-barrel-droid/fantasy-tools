@@ -10,6 +10,7 @@ Last updated: 2026-09-19.
 - Do not rebuild scrapers first.
 - Preserve numerical behavior before improving architecture.
 - Prefer small, reversible changes and commits.
+- Treat DDF/projection-derived values as legacy/stale in-season until refreshed and revalidated. The current migration target is the fixed-pie comparison dashboard behavior, not resurrecting stale preseason projection logic.
 
 ## Phase 1 - Discovery
 
@@ -132,12 +133,13 @@ Priority:
 
 1. Canonical player identity.
 2. Scoring.
-3. Value-above-waivers model.
+3. Current fixed-pie source comparison and source-level normalization.
 4. Source normalization.
 5. Source comparison calculations.
 6. Source reindexing/fixed-pie logic.
 7. Bias-adjusted variants.
-8. Final JSON/data artifact generation.
+8. Legacy value-above-waivers/DDF logic only if it is still needed after a freshness and product-use review.
+9. Final JSON/data artifact generation.
 
 ## Phase 8 - Move Source Collectors Last
 
@@ -154,4 +156,3 @@ Credential and session handling must remain outside source control.
 ## Current Blocker
 
 The Muse ZIP/code/data export is not present in this workspace. The handoff PDF is enough to plan the minimum viable path, but not enough to verify implementation or reproduce the dashboard locally.
-

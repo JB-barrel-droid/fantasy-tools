@@ -17,6 +17,7 @@ Last updated: 2026-09-19.
 | Muse publish path is nondeterministic. | Medium | Existing | Replacement should use deterministic static build/deploy, but only after equivalence. |
 | Manual curation gap from `sources_data.json` to `comparison-sources-data.json`. | Medium | Existing | Script the copy/curation later; do not block static reproduction. |
 | ECR content freshness gate currently blocks full rebuilds. | Medium | Existing | Preserve fail-closed behavior; static reproduction should use current finished artifacts first. |
+| DDF/projection-derived values are stale in-season. | High | Open | Do not use DDF as the current source of truth. Preserve existing exported behavior for equivalence, but prioritize fixed-pie source comparison and require freshness validation before reviving projection-derived values. |
 | Public copy currently says `FantasyPros` where product rule says `ECR`. | Low | Known defect | Track for later; do not fix during discovery/local equivalence unless explicitly scoped. |
 
 ## Known Issues Not To Fix First
@@ -35,4 +36,3 @@ Stop for user approval before:
 - Any public cutover from Muse to the replacement.
 - Any credential/login action.
 - Any business-rule change not inferable from current implementation.
-

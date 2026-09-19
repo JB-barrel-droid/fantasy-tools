@@ -134,6 +134,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
         self.assertIn("fixed-pie indexed values", text)
+        self.assertIn("window.TradeValueCurveDiagnostics", text)
 
     def test_default_qb_waiver_transition_is_zero_value_boundary(self):
         players = load_json(FIXTURES / "players.json")["players"]

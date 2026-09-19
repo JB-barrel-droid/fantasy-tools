@@ -692,7 +692,8 @@
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
     const fixedPie = fixedPieDiagnostics();
     const diagnostics = {eightSources, eightToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSources.size, curveCount:activeSources.size};
-    window.DDFCurveDiagnostics = Object.freeze(diagnostics);
+    window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
+    window.DDFCurveDiagnostics = window.TradeValueCurveDiagnostics;
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "eightToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).join(", ")}`);
   }
