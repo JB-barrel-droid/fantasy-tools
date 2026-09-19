@@ -13,6 +13,7 @@ Last updated: 2026-09-19.
 - Local static server works at `http://localhost:8000`.
 - Browser snapshot verification confirms the local dashboard renders the validated chart, eight source entries, comparison tab, source-health header, and build stamp.
 - Browser click smoke test confirms the position filter can switch from QB to RB and updates context/boundary ranks.
+- A private Sites project has been created for a hosted Codex/ChatGPT preview artifact.
 - Initial discovery docs exist:
   - `docs/architecture-current.md`
   - `docs/migration-plan.md`
@@ -62,4 +63,4 @@ Last updated: 2026-09-19.
 
 ## Next Highest-Leverage Step
 
-Run the local static dashboard and browser-check that the chart and comparison table render against the imported fixtures.
+Finish publishing the private Sites preview, then use that hosted artifact for review instead of `localhost`.
