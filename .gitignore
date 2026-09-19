@@ -1,0 +1,23 @@
+.DS_Store
+.env
+.env.*
+!.env.example
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+coverage/
+dist/
+build/
+tmp/
+.gitstore/
+*.log
+
+# Local data exports and credentials must not be committed.
+data/raw/
+data/private/
+secrets/
+*.key
+*.pem
