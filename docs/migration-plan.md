@@ -100,6 +100,7 @@ Initial tests:
 - Source disagreement.
 - Source-value preservation.
 - Frontend regression guards, preferably via Playwright.
+- Configurable player table behavior: every visible field is sortable, source/metadata fields can be shown or hidden, player rows expand, and news timing preserves pre-value versus post-value context.
 
 ## Phase 5 - Supabase Read-Only Connection
 
@@ -140,6 +141,7 @@ Priority:
 7. Bias-adjusted variants.
 8. Legacy value-above-waivers/DDF logic only if it is still needed after a freshness and product-use review.
 9. Final JSON/data artifact generation.
+10. Player news ingestion keyed by canonical `player_key`, with `published_at` compared against the trade-value artifact timestamp.
 
 ## Phase 8 - Move Source Collectors Last
 

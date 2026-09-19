@@ -40,8 +40,16 @@
     combos: {},
     sort: {column: "preseason", direction: "asc"},
     filters: {position: "ALL", search: ""},
-    columns: null
+    columns: null,
+    expanded: new Set()
   };
+  const FIELD_COLUMNS = [
+    {key:"pos", label:"Pos", badge:"field"},
+    {key:"team", label:"Team", badge:"field"},
+    {key:"preseason", label:"Preseason", badge:"rank"},
+    {key:"disagreement", label:"Disagreement", badge:"spread"},
+    {key:"latest_news", label:"Latest news", badge:"context"}
+  ];
 
   const root = document.getElementById("comparisonDashboard");
   if (!root) return;
@@ -75,12 +83,28 @@
     return window.DDFComparisonDataPromise;
   }
 
+  function loadPlayerNews() {
+    if (window.TradeValuePlayerNews) return Promise.resolve(window.TradeValuePlayerNews);
+    if (!window.TradeValuePlayerNewsPromise) {
+      window.TradeValuePlayerNewsPromise = fetch("assets/player-news.json")
+        .then(response => response.ok ? response.json() : {meta:{}, news_by_player_key:{}})
+        .catch(() => ({meta:{}, news_by_player_key:{}}))
+        .then(payload => {
+          window.TradeValuePlayerNews = payload;
+          return payload;
+        });
+    }
+    return window.TradeValuePlayerNewsPromise;
+  }
+
   let data = null;
   let canonicalByKey = new Map();
   let universeSize = 0;
   let renderKeys = [];
   let sourceMaps = new Map();
   let referenceSource = "usatoday";
+  let newsMeta = {};
+  let newsByPlayerKey = new Map();
 
   function comboKeyFor(key) {
     const score = (key.endsWith("_adjusted") && state.scoring === "standard") ? "std" : state.scoring;
@@ -135,9 +159,15 @@
     sourceMaps = new Map(renderKeys.map(key => [key, buildSourceMap(key)]));
   }
 
-  function visibleKeys() {
-    const cols = Array.isArray(state.columns) ? state.columns.filter(key => renderKeys.includes(key)) : renderKeys;
-    return cols.length ? cols : renderKeys;
+  function allColumnKeys() {
+    return [...FIELD_COLUMNS.map(column => column.key), ...renderKeys];
+  }
+
+  function visibleColumns() {
+    const allowed = new Set(allColumnKeys());
+    const defaults = ["pos", "team", "preseason", "disagreement", ...renderKeys];
+    const cols = Array.isArray(state.columns) ? state.columns.filter(key => allowed.has(key)) : defaults;
+    return cols.length ? cols : defaults;
   }
 
   function sourceValue(key, playerKey) {
@@ -159,6 +189,70 @@
   function sourceMeta(key) {
     const coverage = sourceMaps.get(key)?.size || 0;
     return `${coverage}/${universeSize} · ${sourceDate(key)}`;
+  }
+
+  function columnLabel(key) {
+    return FIELD_COLUMNS.find(column => column.key === key)?.label || sourceLabel(key);
+  }
+
+  function columnBadge(key) {
+    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "projection-derived" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
+  }
+
+  function tradePublishedAt() {
+    const raw = newsMeta.trade_values_published_at || data?.built_at || "";
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  function normalizeNewsEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const title = String(entry.title || entry.headline || "").trim();
+    if (!title) return null;
+    const published = new Date(entry.published_at || entry.published || "");
+    const publishedAt = Number.isNaN(published.getTime()) ? null : published;
+    const valueDate = tradePublishedAt();
+    const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "post-value" : "pre-value") : "timing unavailable";
+    return {
+      title,
+      url: String(entry.url || "").trim(),
+      source: String(entry.source || "News").trim(),
+      publishedAt,
+      timing
+    };
+  }
+
+  function playerNews(playerKey) {
+    return (newsByPlayerKey.get(Number(playerKey)) || []).map(normalizeNewsEntry).filter(Boolean);
+  }
+
+  function latestNews(row) {
+    return playerNews(row.player_key)[0] || null;
+  }
+
+  function formatDate(value) {
+    if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "date unavailable";
+    return new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(value);
+  }
+
+  function sortValue(row, column) {
+    if (column === "name") return row.name;
+    if (column === "preseason") return row.preseasonRank;
+    if (column === "latest_news") return latestNews(row)?.publishedAt?.getTime() ?? null;
+    return row[column];
+  }
+
+  function displayValue(row, column) {
+    if (column === "pos") return row.pos;
+    if (column === "team") return row.team;
+    if (column === "preseason") return Number.isFinite(row.preseasonRank) ? String(row.preseasonRank) : "—";
+    if (column === "disagreement") return formatValue(row.disagreement);
+    if (column === "latest_news") {
+      const latest = latestNews(row);
+      return latest ? `${formatDate(latest.publishedAt)} · ${latest.timing}` : "—";
+    }
+    return formatValue(row[column]);
   }
 
   function segments(container, options, active, onClick, className = "") {
@@ -199,13 +293,14 @@
   function renderColumnToggles() {
     const container = $("#columnToggles");
     if (!container) return;
-    const visible = visibleKeys();
-    container.innerHTML = renderKeys.map(key => `<button type="button" class="column-chip" data-column="${esc(key)}" aria-pressed="${String(visible.includes(key))}" title="${esc(TIPS[key])}">${esc(sourceLabel(key))}</button>`).join("");
+    const visible = visibleColumns();
+    const columns = allColumnKeys();
+    container.innerHTML = columns.map(key => `<button type="button" class="column-chip" data-column="${esc(key)}" aria-pressed="${String(visible.includes(key))}" title="${esc(TIPS[key] || `Show ${columnLabel(key)} in the player table`)}">${esc(columnLabel(key))}</button>`).join("");
     container.querySelectorAll("[data-column]").forEach(button => button.addEventListener("click", () => {
       const key = button.dataset.column;
-      let next = visibleKeys().filter(item => item !== key);
-      if (!visible.includes(key)) next = [...visibleKeys(), key].filter((item, index, all) => all.indexOf(item) === index);
-      next = renderKeys.filter(item => next.includes(item));
+      let next = visibleColumns().filter(item => item !== key);
+      if (!visible.includes(key)) next = [...visibleColumns(), key].filter((item, index, all) => all.indexOf(item) === index);
+      next = columns.filter(item => next.includes(item));
       if (!next.length) return;
       state.columns = next;
       renderColumnToggles();
@@ -263,7 +358,7 @@
       if (!player?.name || !POSITIONS.includes(player.pos)) return null;
       const values = Object.fromEntries(renderKeys.map(key => [key, sourceValue(key, playerKey)]));
       const priced = renderKeys.map(key => values[key]).filter(Number.isFinite);
-      return {...player, ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null};
+      return {...player, ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null, newsCount:playerNews(playerKey).length};
     }).filter(Boolean);
   }
 
@@ -284,8 +379,8 @@
         if (!aMissing && av !== bv) return av - bv;
         return POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
       }
-      const av = column === "name" ? a.name : a[column];
-      const bv = column === "name" ? b.name : b[column];
+      const av = sortValue(a, column);
+      const bv = sortValue(b, column);
       const aMissing = av === null || av === undefined || (typeof av === "number" && !Number.isFinite(av));
       const bMissing = bv === null || bv === undefined || (typeof bv === "number" && !Number.isFinite(bv));
       if (aMissing && bMissing) return a.name.localeCompare(b.name);
@@ -297,11 +392,41 @@
   }
 
   function sortHeader(key, label) {
-    if (key === "name") return `<th><span class="sort-label">${esc(label)}</span></th>`;
     const active = state.sort.column === key;
     const aria = active ? state.sort.direction === "asc" ? "ascending" : "descending" : "none";
-    const badge = key === "espn" ? "projection-derived" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
-    return `<th aria-sort="${aria}"><button class="sortable" type="button" data-sort="${esc(key)}" title="Lock order to ${esc(sourceLabel(key))} values, highest first"><span class="sort-label">${esc(label)}</span><span class="source-badge">${esc(badge)}</span></button></th>`;
+    return `<th aria-sort="${aria}"><button class="sortable ${key === "name" ? "left" : ""}" type="button" data-sort="${esc(key)}" title="Sort table by ${esc(label)}"><span class="sort-label">${esc(label)}</span>${key === "name" ? "" : `<span class="source-badge">${esc(columnBadge(key))}</span>`}</button></th>`;
+  }
+
+  function nextSortDirection(key) {
+    if (state.sort.column === key) return state.sort.direction === "asc" ? "desc" : "asc";
+    return ["name", "pos", "team", "preseason"].includes(key) ? "asc" : "desc";
+  }
+
+  function setTableSort(key) {
+    if (!["name", ...allColumnKeys()].includes(key)) return;
+    if (SOURCE_KEYS.includes(key)) {
+      referenceSource = key;
+      window.DDF_REFERENCE_SOURCE = key;
+      window.dispatchEvent(new CustomEvent("ddf-reference-source-change", {detail:{source:key}}));
+      window.DDF_LOCK_ORDER = key;
+      window.DDFCurveControls?.setLockOrder(key, false);
+    }
+    if (["preseason", "disagreement", ...SOURCE_KEYS].includes(key)) state.compareSource = key;
+    state.sort = {column:key, direction:nextSortDirection(key)};
+    renderViewControls();
+    renderTable();
+  }
+
+  function renderNewsList(row) {
+    const items = playerNews(row.player_key);
+    if (!items.length) return '<p class="news-empty">No news artifact is loaded for this player yet.</p>';
+    return `<ul class="news-list">${items.slice(0, 5).map(item => `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a><span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}</span></li>`).join("")}</ul>`;
+  }
+
+  function renderExpandedRow(row, colSpan) {
+    const sourceDetails = renderKeys.map(key => `<article class="source-detail"><h3><span>${esc(sourceLabel(key))}</span><span class="detail-value">${formatValue(row[key])}</span></h3><p>${esc(TIPS[key])}</p><p class="provenance-line">${esc(sourceMeta(key))}</p></article>`).join("");
+    const open = state.expanded.has(row.player_key);
+    return `<tr class="expand-row ${open ? "open" : ""}" data-expand-for="${row.player_key}"><td id="player-detail-${row.player_key}" colspan="${colSpan}"><div class="player-detail-grid"><section><h3>Source values</h3><div class="detail-grid">${sourceDetails}</div></section><section><h3>Latest news</h3>${renderNewsList(row)}</section></div></td></tr>`;
   }
 
   function renderTable() {
@@ -317,26 +442,32 @@
           ? "Locked by widest cross-source spread first"
           : state.sort.column === "name"
             ? `Sorted by player, ${state.sort.direction === "asc" ? "A to Z" : "Z to A"}`
-            : `Locked to ${sourceLabel(state.sort.column)} value, high to low; missing values last`;
+            : SOURCE_KEYS.includes(state.sort.column)
+              ? `Locked to ${sourceLabel(state.sort.column)} value, ${state.sort.direction === "asc" ? "low to high" : "high to low"}; missing values last`
+              : `Sorted by ${columnLabel(state.sort.column)}, ${state.sort.direction === "asc" ? "ascending" : "descending"}; missing values last`;
     }
     const wrap = $("#tableWrap");
     if (!list.length) {
       wrap.innerHTML = '<div class="empty">No players match these filters.</div>';
       return;
     }
-    const keys = visibleKeys();
-    const head = `<tr>${sortHeader("name", "Player")}${keys.map(key => sortHeader(key, sourceLabel(key))).join("")}</tr>`;
-    const body = list.map(row => `<tr class="row-main"><td data-label="Player"><strong>${esc(row.name)}</strong><span class="name-sub">${esc(row.pos)} · ${esc(row.team)}${Number.isFinite(row.preseasonRank) ? ` · preseason rank ${row.preseasonRank}` : " · preseason unranked"}</span></td>${keys.map(key => `<td data-label="${esc(sourceLabel(key))}">${formatValue(row[key])}</td>`).join("")}</tr>`).join("");
+    const keys = visibleColumns();
+    const head = `<tr>${sortHeader("name", "Player")}${keys.map(key => sortHeader(key, columnLabel(key))).join("")}</tr>`;
+    const colSpan = keys.length + 1;
+    const body = list.map(row => {
+      const open = state.expanded.has(row.player_key);
+      const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player"><button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button><span class="name-sub">${esc(row.pos)} · ${esc(row.team)}${Number.isFinite(row.preseasonRank) ? ` · preseason rank ${row.preseasonRank}` : " · preseason unranked"}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
+      return main + renderExpandedRow(row, colSpan);
+    }).join("");
     wrap.innerHTML = `<table class="all-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
     wrap.querySelectorAll("[data-sort]").forEach(button => button.addEventListener("click", () => {
-      const key = button.dataset.sort;
-      if (key !== "name") {
-        setLockOrder(key);
-        return;
-      }
-      if (state.sort.column === key) state.sort.direction = state.sort.direction === "asc" ? "desc" : "asc";
-      else state.sort = {column:key, direction:"asc"};
-      renderViewControls();
+      setTableSort(button.dataset.sort);
+    }));
+    wrap.querySelectorAll("[data-expand]").forEach(button => button.addEventListener("click", event => {
+      event.stopPropagation();
+      const key = Number(button.dataset.expand);
+      if (state.expanded.has(key)) state.expanded.delete(key);
+      else state.expanded.add(key);
       renderTable();
     }));
   }
@@ -346,7 +477,7 @@
   }
 
   function exportState() {
-    return {version:5, settings:{scoring:state.scoring, teams:state.teams}, sort:{...state.sort}, filters:{...state.filters}, columns:[...visibleKeys()]};
+    return {version:6, settings:{scoring:state.scoring, teams:state.teams}, sort:{...state.sort}, filters:{...state.filters}, columns:[...visibleColumns()]};
   }
 
   function applyImport(raw) {
@@ -358,13 +489,14 @@
     state.teams = teams;
     if (["ALL","QB","RB","WR","TE","FLEX"].includes(raw.filters?.position)) state.filters.position = raw.filters.position;
     state.filters.search = String(raw.filters?.search || "").slice(0, 80);
-    if (["preseason","disagreement",...renderKeys].includes(raw.sort?.column)) {
+    if (["name","pos","team","preseason","disagreement","latest_news",...renderKeys].includes(raw.sort?.column)) {
       state.sort.column = raw.sort.column;
       state.compareSource = raw.sort.column;
-      state.sort.direction = raw.sort.column === "preseason" ? "asc" : "desc";
+      state.sort.direction = raw.sort.direction === "asc" ? "asc" : raw.sort.direction === "desc" ? "desc" : (raw.sort.column === "preseason" ? "asc" : "desc");
     }
-    const columns = Array.isArray(raw.columns) ? raw.columns.filter(key => renderKeys.includes(key)) : null;
-    state.columns = columns && columns.length ? columns : [...renderKeys];
+    const allowed = new Set(allColumnKeys());
+    const columns = Array.isArray(raw.columns) ? raw.columns.filter(key => allowed.has(key)) : null;
+    state.columns = columns && columns.length ? columns : visibleColumns();
     SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
     rebuildSourceMaps();
     renderAll();
@@ -460,20 +592,23 @@
     const eightSources = renderKeys.length === 8 && SOURCE_KEYS.every(key => renderKeys.includes(key));
     const fullPpr12TeamQbs = state.scoring === "full" && state.teams === 12 && rows().filter(row => row.pos === "QB").length;
     const fullPpr12TeamQbsAvailable = fullPpr12TeamQbs > 0;
-    const diagnostics = {ranksAscending, missingLast, positionGrouped, eightSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, sourceCount:renderKeys.length};
+    const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && SOURCE_KEYS.every(key => allColumnKeys().includes(key));
+    const diagnostics = {ranksAscending, missingLast, positionGrouped, eightSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, sourceCount:renderKeys.length};
     window.DDFComparisonDiagnostics = Object.freeze(diagnostics);
-    if (!ranksAscending || !missingLast || !positionGrouped || !eightSources || !fullPpr12TeamQbsAvailable) throw new Error("Comparison regression guard failed.");
+    if (!ranksAscending || !missingLast || !positionGrouped || !eightSources || !fullPpr12TeamQbsAvailable || !configurableColumns) throw new Error("Comparison regression guard failed.");
   }
 
   async function init() {
     try {
-      data = await loadComparisonData();
+      [data, window.TradeValuePlayerNews] = await Promise.all([loadComparisonData(), loadPlayerNews()]);
+      newsMeta = window.TradeValuePlayerNews?.meta || {};
+      newsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.news_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
       universeSize = Object.keys(data.player_keys || {}).length;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       renderKeys = SOURCE_KEYS.filter(key => data.source_validation?.[key] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
-      if (!Array.isArray(state.columns)) state.columns = [...renderKeys];
+      if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.DDF_REFERENCE_SOURCE)) referenceSource = window.DDF_REFERENCE_SOURCE;
       window.DDF_REFERENCE_SOURCE = referenceSource;
       SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });

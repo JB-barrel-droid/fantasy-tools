@@ -13,6 +13,7 @@ Source basis: handoff PDF. Source export verification is pending.
 | `assets/curve-widget.js` | MIGRATE NOW | Owns chart behavior, lock modes, null handling, boundaries, and guards. |
 | `assets/comparison-dashboard.js` | MIGRATE NOW | Owns comparison board, filters, sorting, disagreement, and state import/export. |
 | `assets/comparison-sources-data.json` | MIGRATE NOW | Primary finished source-comparison data artifact. |
+| `assets/player-news.json` | MIGRATE NOW | Empty schema-ready artifact for expandable player news. Needs a collector later before headlines appear. |
 | `assets/*.css` | MIGRATE NOW | Required to preserve responsive behavior and visual equivalence. |
 | `space.json` | DELETE/IGNORE | Muse-specific runtime metadata; keep only as reference if needed. |
 | `.space-build/` | DELETE/IGNORE | Muse staging output; replacement should build/deploy from source. |
@@ -46,11 +47,13 @@ The local dashboard needs:
 - Static app files.
 - `players.json` or equivalent inline `players-data`.
 - `comparison-sources-data.json`.
+- `player-news.json`, currently empty but schema-ready for latest headlines keyed by canonical numeric `player_key`.
 
 It does not initially need:
 
 - Supabase write access.
 - Scrapers.
+- Live news scraping.
 - Pipeline rebuilds.
 - Muse artifact editing.
 - Historical trade designer/calculator code.

@@ -19,6 +19,7 @@ class StaticExportTest(unittest.TestCase):
         cls.index = (APP / "index.html").read_text(encoding="utf-8")
         cls.players = load_json(FIXTURES / "players.json")
         cls.comparison = load_json(FIXTURES / "comparison-sources-data.json")
+        cls.news = load_json(FIXTURES / "player-news.json")
 
     def test_inline_players_match_fixture(self):
         match = re.search(
@@ -135,6 +136,42 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("Bench → Waiver", text)
         self.assertIn("fixed-pie indexed values", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
+
+    def test_curve_defaults_are_grouped_and_include_pure_vorp(self):
+        text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
+        html = (APP / "index.html").read_text(encoding="utf-8")
+        self.assertIn("Bottom-up indexed", text)
+        self.assertIn("Adjusted source projects", text)
+        self.assertIn("Direct published charts", text)
+        self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]', text)
+        self.assertIn("espn_vorp", text)
+        self.assertIn("valueModeSeg", html)
+
+    def test_top_indexed_values_preserve_high_overall_scale(self):
+        gibbs_values = []
+        for source, source_data in self.comparison["sources"].items():
+            combo = source_data["combos"].get("full_12") or source_data["combos"].get("full_12_qb1")
+            if not combo:
+                continue
+            values = combo.get("values") or combo.get("reindexed") or {}
+            value = values.get("jahmyr gibbs")
+            if isinstance(value, (int, float)):
+                gibbs_values.append(value)
+        self.assertGreaterEqual(min(gibbs_values), 78)
+        self.assertGreaterEqual(max(gibbs_values), 84)
+
+    def test_player_table_supports_configurable_expandable_fields(self):
+        text = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
+        self.assertIn('key:"latest_news"', text)
+        self.assertIn("visibleColumns()", text)
+        self.assertIn("setTableSort", text)
+        self.assertIn("renderExpandedRow", text)
+        self.assertIn("TradeValuePlayerNews", text)
+
+    def test_player_news_fixture_is_empty_but_schema_ready(self):
+        self.assertEqual("player-news-v1", self.news["meta"]["schema"])
+        self.assertEqual({}, self.news["news_by_player_key"])
+        self.assertIn("trade_values_published_at", self.news["meta"])
 
     def test_default_qb_waiver_transition_is_zero_value_boundary(self):
         players = load_json(FIXTURES / "players.json")["players"]

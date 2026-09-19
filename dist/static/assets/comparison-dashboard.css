@@ -169,8 +169,17 @@
 #comparisonDashboard .column-chips{display:flex;flex-wrap:wrap;gap:8px}
 #comparisonDashboard .column-chip{padding:7px 12px;border:1px solid var(--line);border-radius:999px;background:var(--white);color:var(--muted);font:600 11px/1.2 "IBM Plex Sans",sans-serif;cursor:pointer}
 #comparisonDashboard .column-chip[aria-pressed="true"]{background:var(--dark);border-color:var(--dark);color:#fff}
+#comparisonDashboard .player-detail-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.75fr);gap:14px;padding:12px}
+#comparisonDashboard .player-detail-grid h3{margin:0 0 9px;font-size:13px;letter-spacing:-.01em}
+#comparisonDashboard .news-empty{margin:0;padding:12px;border:1px solid var(--line);background:var(--white);color:var(--muted);font-size:12px;line-height:1.45}
+#comparisonDashboard .news-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+#comparisonDashboard .news-list li{padding:11px 12px;border-left:3px solid var(--blue);background:var(--white)}
+#comparisonDashboard .news-list a{display:block;color:var(--ink);font-weight:700;text-decoration:none}
+#comparisonDashboard .news-list a:hover{text-decoration:underline;text-underline-offset:2px}
+#comparisonDashboard .news-list span{display:block;margin-top:5px;color:var(--muted);font:600 10px/1.35 "IBM Plex Mono",monospace}
 @media(max-width:620px){
   #comparisonDashboard .column-toggles{padding:4px 10px 0}
+  #comparisonDashboard .player-detail-grid{grid-template-columns:1fr;padding:10px}
 }
 
 /* Mobile comparison rows reflow into labeled cards instead of a sideways table. */

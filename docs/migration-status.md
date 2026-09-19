@@ -18,6 +18,10 @@ Last updated: 2026-09-19.
 - Private Sites version 2 is deployed from commit `341169284b4fd12cf715b8c2cd0570942015116a`.
 - The chart now preserves fixed-pie display semantics in the exported frontend:
   source totals are checked against baked `index_total` metadata, ESPN no longer gets filtered after reindexing, and roster boundary markers show the two transitions from Starter-to-Bench and Bench-to-Waiver.
+- The player comparison table now supports configurable metadata/source fields, sorting on visible fields, expandable player rows, and a schema-ready latest-news section.
+- The curve widget now defaults to All positions with bottom-up ESPN indexed values plus the three adjusted source projects active; direct published third-party charts are available but off by default.
+- The curve widget has a separate Pure VORP basis, currently ESPN-only, computed as ESPN PPG above a positional waiver baseline.
+- Mobile tooltip positioning now clamps against the browser visual viewport so touch/hold popups stay on screen.
 - Initial discovery docs exist:
   - `docs/architecture-current.md`
   - `docs/migration-plan.md`
@@ -49,14 +53,18 @@ Last updated: 2026-09-19.
 - User clarified that DDF/projection-derived values are outdated in-season; they should be treated as legacy/stale context unless refreshed and revalidated, not as the current source of truth.
 - The stale ESPN post-index allowlist filter was removed from both chart and comparison views so displayed values match the fixed-pie artifact totals.
 - Boundary labels were changed from three rank labels to the two intended roster transition lines.
+- Added an empty `player-news.json` artifact so news can be connected later without changing the table UI contract.
+- Reorganized source-curve controls into Bottom-up indexed, Adjusted source projects, Direct published charts, and Pure VORP groups.
 
 ## Tests Passed/Failed
 
-- Passed: `python3 -m unittest discover -s tests` (`9` tests).
+- Passed: `python3 -m unittest discover -s tests` (`13` tests).
 - Passed: HTTP checks for `/` and `/assets/comparison-sources-data.json` return `200`.
 - Passed: Playwright MCP desktop render snapshot.
 - Passed: Playwright MCP position-filter click smoke test (`QB` to `RB`).
 - Passed: Playwright MCP fixed-pie/zero-boundary snapshot confirms the default QB view renders `Bench → Waiver after rank 33`.
+- Passed: Playwright MCP local render check confirms the default chart starts on All positions, grouped source toggles render, and only ESPN plus adjusted curves are active by default.
+- Passed: Playwright MCP local render check confirms Pure VORP mode renders `ESPN pure VORP`.
 - Not completed: mobile viewport screenshot. Browser resize/select tools are approval-gated in this session.
 - Not completed: Playwright CLI/browser direct launch. Local npm/browser cache and headless launch paths failed, but Playwright MCP worked for page verification.
 - Expected: unauthenticated HTTP/browser checks against the private Sites URL return `401 Sign in required`.

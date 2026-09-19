@@ -28,7 +28,9 @@
 #curve-widget .src-toggle.is-disabled input{cursor:not-allowed}
 #curve-widget .src-group{display:flex;flex-wrap:wrap;margin:0 10px 8px 0;padding:6px 8px 2px;border:1px solid var(--line);border-radius:6px}
 #curve-widget .src-group>legend{padding:0 6px;color:var(--muted);font-family:"IBM Plex Mono",monospace;font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase}
-#curve-widget .source-toggles{display:flex;flex-wrap:wrap;gap:3px 0}
+#curve-widget .source-toggles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 10px;width:100%}
+#curve-widget .source-toggle-group{min-width:0;padding:7px 8px 3px;border:1px solid var(--line);border-radius:5px;background:rgba(255,255,255,.48)}
+#curve-widget .source-toggle-heading{display:block;margin:0 0 6px;color:var(--muted);font:600 9px/1.2 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em}
 #curve-widget .source-toggles .src-toggle{min-height:32px;margin:0 13px 3px 0;padding:4px 2px;font-weight:700}
 #curve-widget .source-line{display:inline-block;width:20px;border-top-width:3px;border-top-color:currentColor}
 #curve-widget .src-text{display:inline-flex;flex-direction:column;line-height:1.35}
@@ -38,7 +40,7 @@
 #curve-widget .legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:7px;color:var(--muted);font-size:11px}
 #curve-widget .sw{display:inline-block;width:18px;height:3px;margin-right:4px;vertical-align:middle}
 #curve-widget .note{margin-top:8px;color:var(--muted);font-size:10px;line-height:1.5}
-#curve-widget #tip{position:fixed;z-index:100;display:none;max-width:250px;padding:8px 10px;border-radius:7px;background:rgba(18,32,44,.96);color:#fff;font-size:11px;line-height:1.5;pointer-events:none;box-shadow:0 8px 24px rgba(18,32,44,.24)}
+#curve-widget #tip{position:fixed;z-index:100;display:none;width:max-content;max-width:min(250px,calc(100vw - 24px));padding:8px 10px;border-radius:7px;background:rgba(18,32,44,.96);color:#fff;font-size:11px;line-height:1.5;pointer-events:none;box-shadow:0 8px 24px rgba(18,32,44,.24)}
 #curve-widget #tip b{font-size:12px}
 #curve-widget #tip>strong{display:block;font-size:12px}
 #curve-widget .tip-meta{display:block;margin:2px 0 6px;color:#cbd6dd;font-size:9px}
@@ -69,7 +71,7 @@
 #curve-widget .tail-toggle{min-height:34px;margin-right:4px;padding:0 9px;border:1px solid var(--line-strong);border-radius:5px;background:#f8faf8;font-family:"IBM Plex Mono",monospace;font-weight:600}
 #curve-widget .tail-toggle input{margin:0}
 #curve-widget #footnote{min-height:16px}
-@media(max-width:700px){#curve-widget{margin-left:-4px;margin-right:-4px;padding:17px 14px 14px}#curve-widget h2{font-size:20px}#curve-widget #modelTabs{grid-template-columns:1fr}#curve-widget #modelTabs .tab{text-align:left}#curve-widget #chart{height:340px}#curve-widget .seg{max-width:100%;flex-wrap:wrap}#curve-widget #tauSeg button{flex:1 1 110px;border-bottom:1px solid var(--line)}#curve-widget .zslider{flex-basis:100%;max-width:none;order:2}#curve-widget .zlabel{order:3;width:100%}#curve-widget .src-group{flex:1 1 100%;margin-right:0}#curve-widget .lock-row{align-items:stretch}#curve-widget .lock-control{grid-template-columns:1fr;width:100%}#curve-widget .lock-note{flex-basis:100%}}
+@media(max-width:700px){#curve-widget{margin-left:-4px;margin-right:-4px;padding:17px 14px 14px}#curve-widget h2{font-size:20px}#curve-widget #modelTabs{grid-template-columns:1fr}#curve-widget #modelTabs .tab{text-align:left}#curve-widget #chart{height:340px}#curve-widget .seg{max-width:100%;flex-wrap:wrap}#curve-widget #tauSeg button{flex:1 1 110px;border-bottom:1px solid var(--line)}#curve-widget .zslider{flex-basis:100%;max-width:none;order:2}#curve-widget .zlabel{order:3;width:100%}#curve-widget .src-group{flex:1 1 100%;margin-right:0}#curve-widget .source-toggles{grid-template-columns:1fr}#curve-widget .lock-row{align-items:stretch}#curve-widget .lock-control{grid-template-columns:1fr;width:100%}#curve-widget .lock-note{flex-basis:100%}}
 @media(prefers-reduced-motion:reduce){#curve-widget *{scroll-behavior:auto!important}}
 /* Interaction and mobile legibility */
 #curve-widget .tab,#curve-widget .seg button{min-height:44px}
