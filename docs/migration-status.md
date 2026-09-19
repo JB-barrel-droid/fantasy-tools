@@ -15,6 +15,9 @@ Last updated: 2026-09-19.
 - Browser click smoke test confirms the position filter can switch from QB to RB and updates context/boundary ranks.
 - A private Sites project has been created and deployed for a hosted Codex/ChatGPT preview artifact:
   `https://trade-value-dashboard-preview.jeremyburstyn.chatgpt.site`
+- Private Sites version 2 is deployed from commit `341169284b4fd12cf715b8c2cd0570942015116a`.
+- The chart now preserves fixed-pie display semantics in the exported frontend:
+  source totals are checked against baked `index_total` metadata, ESPN no longer gets filtered after reindexing, and roster boundary markers show the two transitions from Starter-to-Bench and Bench-to-Waiver.
 - Initial discovery docs exist:
   - `docs/architecture-current.md`
   - `docs/migration-plan.md`
@@ -42,13 +45,17 @@ Last updated: 2026-09-19.
 - Static dashboard source and current data fixtures were imported from the Muse ZIP.
 - Initial dependency-free regression tests were added under `tests/`.
 - User feedback captured: the chart is intended to compare fixed-pie indexed trade-value charts, with source totals matching the same value-pie logic and roster lines showing Starter-to-Bench and Bench-to-Waiver transitions.
+- Fixed-pie diagnostics were added to the frontend and exposed as `window.DDFCurveDiagnostics`.
+- The stale ESPN post-index allowlist filter was removed from both chart and comparison views so displayed values match the fixed-pie artifact totals.
+- Boundary labels were changed from three rank labels to the two intended roster transition lines.
 
 ## Tests Passed/Failed
 
-- Passed: `python3 -m unittest discover -s tests` (`6` tests).
+- Passed: `python3 -m unittest discover -s tests` (`9` tests).
 - Passed: HTTP checks for `/` and `/assets/comparison-sources-data.json` return `200`.
 - Passed: Playwright MCP desktop render snapshot.
 - Passed: Playwright MCP position-filter click smoke test (`QB` to `RB`).
+- Passed: Playwright MCP fixed-pie/zero-boundary snapshot confirms the default QB view renders `Bench → Waiver after rank 33`.
 - Not completed: mobile viewport screenshot. Browser resize/select tools are approval-gated in this session.
 - Not completed: Playwright CLI/browser direct launch. Local npm/browser cache and headless launch paths failed, but Playwright MCP worked for page verification.
 - Expected: unauthenticated HTTP/browser checks against the private Sites URL return `401 Sign in required`.
