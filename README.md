@@ -52,6 +52,18 @@ python3 pipelines/check_reference_freshness.py --today YYYY-MM-DD
 
 The report is written to ignored `output/reference-freshness.json` and records when a reference date is unchanged from the prior run.
 
+Ingest play/value news when a raw JSON or JSONL feed is available:
+
+```bash
+python3 pipelines/ingest_player_news.py --input data/raw/player-news.jsonl
+```
+
+Sync the finished fixtures into the static dashboard and deployable `dist/` output:
+
+```bash
+python3 pipelines/sync_dashboard_artifacts.py
+```
+
 ## Git Note
 
 This workspace currently rejects creating `.git`. A persistent external Git directory is being used at `.gitstore/` until normal repository metadata can be created.

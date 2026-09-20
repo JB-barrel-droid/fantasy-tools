@@ -99,6 +99,12 @@
     @media(prefers-reduced-motion:reduce){#comparisonDashboard *{scroll-behavior:auto!important}#comparisonDashboard .switch::after{transition:none}}
   
 #comparisonDashboard{--ink:#12202c;--muted:#5c6a76;--paper:#f7f8f5;--white:#fff;--line:#dbe0dc;--green:#176c4d;--green-soft:#e8f5ee;--red:#b63a2f;--red-soft:#f9e4df;--gold:#e9bd3f;--blue:#315b7a;--blue-soft:#e9f0f5;--dark:#17364c;--shadow:0 10px 28px rgba(23,54,76,.08);margin:0;color:var(--ink);background:transparent;font-family:"Archivo",sans-serif}
+#comparisonDashboard{display:block;margin:0 0 22px;border-top:4px solid var(--dark);background:var(--white);box-shadow:var(--shadow)}
+#comparisonDashboard>.comparison-section-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;list-style:none;color:var(--dark);font-weight:800;cursor:pointer}
+#comparisonDashboard>.comparison-section-summary::-webkit-details-marker{display:none}
+#comparisonDashboard>.comparison-section-summary::after{content:"+";color:#a83e12;font:700 20px/1 "IBM Plex Mono",monospace}
+#comparisonDashboard[open]>.comparison-section-summary::after{content:"−"}
+#comparisonDashboard>.comparison-section-summary:hover,#comparisonDashboard>.comparison-section-summary:focus-visible{background:#eef1ed;outline:2px solid #e96528;outline-offset:-2px}
 #comparisonDashboard .shell{width:100%;margin:0;padding:26px 0 12px}
 #comparisonDashboard .hero{grid-template-columns:minmax(0,1fr) 300px;padding-bottom:20px;border-bottom:3px solid var(--navy)}
 #comparisonDashboard .hero h2{max-width:800px;margin:7px 0 0;font-size:clamp(30px,5vw,50px);line-height:1;letter-spacing:-.04em;text-wrap:balance}
@@ -132,7 +138,13 @@
 #comparisonDashboard .switch[aria-pressed="true"]::after{transform:translateX(22px)}
 #comparisonDashboard .source-grid,
 #comparisonDashboard .source-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#comparisonDashboard .source-card.is-disabled{opacity:.52;filter:saturate(.45)}
+#comparisonDashboard .source-card.is-disabled .source-kind{color:#7d6262;font-weight:700}
 #comparisonDashboard .source-control:nth-child(2){padding-right:0;border-right:0}
+#comparisonDashboard .table-wrap{max-height:680px;overflow:auto}
+#comparisonDashboard .table-wrap th{position:sticky;top:0;z-index:4;background:#eef1ed}
+#comparisonDashboard .table-wrap thead th:first-child,#comparisonDashboard .table-wrap tbody>.row-main>td:first-child{position:sticky;left:0;z-index:3;background:var(--white);box-shadow:1px 0 0 var(--line)}
+#comparisonDashboard .table-wrap thead th:first-child{z-index:6;background:#eef1ed}
 @media(max-width:860px){
   #comparisonDashboard .source-grid,#comparisonDashboard .source-control-grid{grid-template-columns:1fr}
   #comparisonDashboard .source-control{padding:0 0 12px;border-right:0;border-bottom:1px solid var(--line)}
@@ -171,11 +183,14 @@
 #comparisonDashboard .column-chip[aria-pressed="true"]{background:var(--dark);border-color:var(--dark);color:#fff}
 #comparisonDashboard .player-detail-grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.75fr);gap:14px;padding:12px}
 #comparisonDashboard .player-detail-grid h3{margin:0 0 9px;font-size:13px;letter-spacing:-.01em}
+#comparisonDashboard .player-news-detail{padding:13px 14px}
+#comparisonDashboard .player-news-detail h3{margin:0 0 9px;color:var(--dark);font-size:13px;letter-spacing:-.01em}
 #comparisonDashboard .news-empty{margin:0;padding:12px;border:1px solid var(--line);background:var(--white);color:var(--muted);font-size:12px;line-height:1.45}
 #comparisonDashboard .news-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
 #comparisonDashboard .news-list li{padding:11px 12px;border-left:3px solid var(--blue);background:var(--white)}
 #comparisonDashboard .news-list a{display:block;color:var(--ink);font-weight:700;text-decoration:none}
 #comparisonDashboard .news-list a:hover{text-decoration:underline;text-underline-offset:2px}
+#comparisonDashboard .news-list p{margin:5px 0 0;color:#465662;font-size:11px;line-height:1.4}
 #comparisonDashboard .news-list span{display:block;margin-top:5px;color:var(--muted);font:600 10px/1.35 "IBM Plex Mono",monospace}
 @media(max-width:620px){
   #comparisonDashboard .column-toggles{padding:4px 10px 0}
@@ -200,4 +215,24 @@
   #comparisonDashboard .table-wrap tr.row-main td:first-child{grid-column:1/-1;display:block;padding:11px 10px;border-top:3px solid var(--dark);text-align:left}
   #comparisonDashboard .table-wrap tr.row-main td:nth-child(even){border-right:1px solid var(--line)}
   #comparisonDashboard .name-sub{margin-left:0}
+}
+
+/* Final mobile table contract: keep the player grid as a real sortable table. */
+@media(max-width:620px){
+  #comparisonDashboard .scroll-cue{display:block}
+  #comparisonDashboard .table-wrap{max-width:100%;padding:0 10px 14px;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch}
+  #comparisonDashboard .table-wrap table,
+  #comparisonDashboard .table-wrap .all-table,
+  #comparisonDashboard .table-wrap .consensus-table,
+  #comparisonDashboard .table-wrap table:not(.all-table):not(.consensus-table){display:table;width:980px;min-width:980px;table-layout:fixed}
+  #comparisonDashboard .table-wrap thead{display:table-header-group}
+  #comparisonDashboard .table-wrap tbody{display:table-row-group}
+  #comparisonDashboard .table-wrap tr.row-main{display:table-row;border:0;background:transparent}
+  #comparisonDashboard .table-wrap tr.row-main td,
+  #comparisonDashboard .table-wrap tr.row-main td:first-child{display:table-cell;position:static;width:auto!important;min-width:0;padding:10px 9px;border:0;border-bottom:1px solid var(--line);background:var(--white);box-shadow:none;text-align:right;white-space:nowrap}
+  #comparisonDashboard .table-wrap tr.row-main td:first-child{position:sticky;left:0;z-index:2;width:210px!important;text-align:left;box-shadow:1px 0 0 var(--line)}
+  #comparisonDashboard .table-wrap tr.row-main td:not(:first-child)::before{content:none}
+  #comparisonDashboard .table-wrap tr.row-main td:nth-child(even){border-right:0}
+  #comparisonDashboard .table-wrap .expand-row.open{display:table-row}
+  #comparisonDashboard .table-wrap .expand-row td{white-space:normal}
 }

@@ -123,11 +123,15 @@
 
   function comboKeyFor(key) {
     const score = (key.endsWith("_adjusted") && state.scoring === "standard") ? "std" : state.scoring;
-    if (key === "fantasycalc") return `${score}_${state.teams}_qb1`;
+    if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${state.teams}_qb1`;
     if (key === "espn") return `${score}_${state.teams}`;
-    if (key === "fantasycalc_adjusted") return `${score}_12_qb1`;
     if (key === "cbs_adjusted") return comboKeyFor("cbs");
-    return `${score}_12`;
+    return `${score}_${state.teams}`;
+  }
+
+  function sourceComboExists(key) {
+    if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
+    return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
   }
 
   function canonicalPlayers() {
@@ -236,6 +240,7 @@
 
   function sourceMeta(key) {
     const coverage = sourceMaps.get(key)?.size || 0;
+    if (!sourceComboExists(key)) return `Not available for ${scoreLabel(state.scoring)} · ${state.teams} teams`;
     return `${coverage}/${universeSize} · ${sourceDate(key)}`;
   }
 
@@ -332,8 +337,7 @@
     }, "three");
     segments($("#ourTeams"), [[8,"8"],[10,"10"],[12,"12"],[14,"14"]], state.teams, value => {
       state.teams = Number(value);
-      state.combos.fantasycalc = comboKeyFor("fantasycalc");
-      state.combos.espn = comboKeyFor("espn");
+      SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
       rebuildSourceMaps();
       renderAll();
       window.DDFCurveControls?.setTeams(value);
@@ -345,7 +349,7 @@
   function renderSourceCards() {
     const container = $("#sourceCards");
     if (!container) return;
-    container.innerHTML = renderKeys.map(key => `<article class="source-card" title="${esc(TIPS[key])}"><div><h2 class="source-title">${esc(sourceLabel(key))}</h2><p class="source-kind">${esc(sourceMeta(key))}</p></div></article>`).join("");
+    container.innerHTML = renderKeys.map(key => `<article class="source-card${sourceComboExists(key) ? "" : " is-disabled"}" title="${esc(sourceComboExists(key) ? TIPS[key] : sourceMeta(key))}"><div><h2 class="source-title">${esc(sourceLabel(key))}</h2><p class="source-kind">${esc(sourceMeta(key))}</p></div></article>`).join("");
   }
 
   function renderColumnToggles() {

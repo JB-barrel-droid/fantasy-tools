@@ -138,6 +138,8 @@
 #comparisonDashboard .switch[aria-pressed="true"]::after{transform:translateX(22px)}
 #comparisonDashboard .source-grid,
 #comparisonDashboard .source-control-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+#comparisonDashboard .source-card.is-disabled{opacity:.52;filter:saturate(.45)}
+#comparisonDashboard .source-card.is-disabled .source-kind{color:#7d6262;font-weight:700}
 #comparisonDashboard .source-control:nth-child(2){padding-right:0;border-right:0}
 #comparisonDashboard .table-wrap{max-height:680px;overflow:auto}
 #comparisonDashboard .table-wrap th{position:sticky;top:0;z-index:4;background:#eef1ed}

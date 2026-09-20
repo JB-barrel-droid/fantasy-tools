@@ -49,6 +49,7 @@
   const DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const SPECIALIST_POSITIONS = ["K", "DST"];
+  const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
   const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
   const VALUE_BANDS = {
     all: {label:"Full", min:0, max:null},
@@ -150,19 +151,23 @@
   const lockLabel = key => key === "preseason" ? "Preseason positional rank" : key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
   const isPosition = player => position === "ALL" || (position === "FLEX" ? ["RB", "WR", "TE"].includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
-  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && isWeekCurrent(key);
+  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && isWeekCurrent(key) && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
+  const sourceComboExists = key => {
+    if (key === "espn_vorp") return true;
+    if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
+    return Boolean(data?.sources?.[key]?.combos?.[comboKey(key)]);
+  };
 
   function comboKey(key) {
     const compact = scoring === "ppr" ? "full" : scoring === "half_ppr" ? "half" : "standard";
     const score = key.endsWith("_adjusted") && compact === "standard" ? "std" : compact;
-    if (key === "fantasycalc") return `${score}_${teams}_qb1`;
+    if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${teams}_qb1`;
     if (key === "espn") return `${score}_${teams}`;
-    if (key === "fantasycalc_adjusted") return `${score}_12_qb1`;
     if (key === "espn_vorp") return null;
-    return `${score}_12`;
+    return `${score}_${teams}`;
   }
 
   function buildCanonicalMap() {
@@ -171,16 +176,20 @@
     (payload.players || []).forEach(player => {
       const playerKey = Number(player.player_key);
       const name = String(player.full_name || player.name || "").trim();
-      if (!Number.isInteger(playerKey) || !name || ![...POSITION_ORDER, ...SPECIALIST_POSITIONS].includes(player.pos)) return;
+      if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;
       const rankValue = player.preseasonRank ?? player.preseason_ecr_rank;
       const rank = Number(rankValue);
+      const specialistProjection = SPECIALIST_POSITIONS.includes(player.pos)
+        ? (player.espn_ppg || player.kdst_ppg || player.blend_ppg || player.ecr_ppg || null)
+        : null;
       map.set(playerKey, {
         player_key: playerKey,
         name,
         team: String(player.team || "—"),
         pos: player.pos,
         preseasonRank: Number.isFinite(rank) && rank > 0 ? rank : null,
-        espn_ppg: player.espn_ppg || null
+        espn_ppg: player.espn_ppg || specialistProjection,
+        projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
       });
     });
     return map;
@@ -263,7 +272,7 @@
     const field = scoringField();
     const counts = allocationCountsFor([...canonicalByKey.values()]);
     const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
-    POSITION_ORDER.forEach(pos => {
+    CHART_POSITIONS.forEach(pos => {
       const priced = [...canonicalByKey.values()]
         .filter(player => player.pos === pos)
         .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
@@ -456,7 +465,9 @@
       ["WR", "WR"],
       ["TE", "TE"],
       ["FLEX", "Flex"],
-      ["BENCH", "Bench"]
+      ["BENCH", "Bench"],
+      ["K", "K"],
+      ["DST", "DST"]
     ];
     grid.replaceChildren();
     controls.forEach(([key, label]) => {
@@ -466,8 +477,8 @@
       text.textContent = label;
       const input = document.createElement("input");
       input.type = "number";
-      input.min = key === "BENCH" ? "0" : "1";
-      input.max = key === "BENCH" ? "14" : "5";
+      input.min = ["BENCH", "K", "DST"].includes(key) ? "0" : "1";
+      input.max = key === "BENCH" ? "14" : key === "K" || key === "DST" ? "3" : "5";
       input.step = "1";
       input.value = rosterShape[key];
       input.dataset.rosterKey = key;
@@ -478,12 +489,18 @@
     });
     const specialistToggle = $("#includeSpecialists");
     const specialistNote = $("#specialistNote");
-    const hasEspnSpecialists = [...canonicalByKey.values()].some(player => SPECIALIST_POSITIONS.includes(player.pos) && player.espn_ppg && Object.values(player.espn_ppg).some(Number.isFinite));
+    const specialistPlayers = [...canonicalByKey.values()].filter(player => SPECIALIST_POSITIONS.includes(player.pos));
+    const hasSpecialists = specialistPlayers.some(player => player.espn_ppg && Object.values(player.espn_ppg).some(Number.isFinite));
+    const hasTrueEspnSpecialists = specialistPlayers.some(player => player.projectionSource === "ESPN");
     if (specialistToggle) {
-      specialistToggle.checked = includeSpecialists && hasEspnSpecialists;
-      specialistToggle.disabled = !hasEspnSpecialists;
+      specialistToggle.checked = includeSpecialists && hasSpecialists;
+      specialistToggle.disabled = !hasSpecialists;
       specialistToggle.onchange = event => {
-        includeSpecialists = event.target.checked && hasEspnSpecialists;
+        includeSpecialists = event.target.checked && hasSpecialists;
+        if (includeSpecialists) {
+          if (!rosterShape.K) rosterShape.K = 1;
+          if (!rosterShape.DST) rosterShape.DST = 1;
+        }
         if (!includeSpecialists && SPECIALIST_POSITIONS.includes(position)) position = "ALL";
         rebuildDomain();
         makeTabs();
@@ -492,9 +509,11 @@
       };
     }
     if (specialistNote) {
-      specialistNote.textContent = hasEspnSpecialists
-        ? "K/DST will use ESPN projection-derived values only."
-        : "K/DST are waiting for ESPN projection-derived values in the artifact; the old preseason FantasyPros projection wiring is not used.";
+      specialistNote.textContent = hasSpecialists
+        ? (hasTrueEspnSpecialists
+          ? "K/DST use ESPN projection-derived values only."
+          : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
+        : "K/DST are waiting for projection-derived values in the artifact; preseason ranks are not used.";
     }
   }
 
@@ -620,8 +639,8 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const min = key === "BENCH" ? 0 : 1;
-    const max = key === "BENCH" ? 14 : 5;
+    const min = ["BENCH", "K", "DST"].includes(key) ? 0 : 1;
+    const max = key === "BENCH" ? 14 : key === "K" || key === "DST" ? 3 : 5;
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();

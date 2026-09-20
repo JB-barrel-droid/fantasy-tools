@@ -152,6 +152,31 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('let position = "ALL"', text)
         self.assertIn('let lockOrder = "espn"', text)
 
+    def test_dashboard_copy_does_not_surface_old_branding(self):
+        html = (APP / "index.html").read_text(encoding="utf-8")
+        self.assertIn("<title>Trade Value Dashboard</title>", html)
+        self.assertNotIn("Data Driven Football", html)
+        self.assertNotIn("legacy model", html.lower())
+        self.assertNotIn('"key":"ddf"', html)
+
+    def test_source_compatibility_uses_selected_league_shape(self):
+        curve = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
+        comparison = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
+        self.assertIn("sourceComboExists", curve)
+        self.assertIn('return `${score}_${teams}`', curve)
+        self.assertIn("Not available for", comparison)
+        self.assertIn('return `${score}_${state.teams}`', comparison)
+
+    def test_kdst_projection_path_is_available_without_preseason_rank(self):
+        text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
+        players = load_json(FIXTURES / "players.json")["players"]
+        specialists = [player for player in players if player.get("pos") in {"K", "DST"}]
+        self.assertTrue(specialists)
+        self.assertTrue(any(max((value for value in (player.get("ecr_ppg") or {}).values() if isinstance(value, (int, float))), default=0) > 0 for player in specialists))
+        self.assertIn('"K", "K"', text)
+        self.assertIn('"DST", "DST"', text)
+        self.assertIn("K/DST projection artifact", text)
+
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn('position === "ALL" && lockOrder === "preseason"', text)
@@ -181,6 +206,7 @@ class StaticExportTest(unittest.TestCase):
 
     def test_player_news_fixture_is_empty_but_schema_ready(self):
         self.assertEqual("player-news-v1", self.news["meta"]["schema"])
+        self.assertIsNotNone(self.news["meta"]["generated_at"])
         self.assertEqual({}, self.news["news_by_player_key"])
         self.assertIn("trade_values_published_at", self.news["meta"])
 
