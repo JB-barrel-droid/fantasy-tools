@@ -102,8 +102,8 @@
     if (window.TradeValuePlayerNews) return Promise.resolve(window.TradeValuePlayerNews);
     if (!window.TradeValuePlayerNewsPromise) {
       window.TradeValuePlayerNewsPromise = fetch("assets/player-news.json")
-        .then(response => response.ok ? response.json() : {meta:{}, news_by_player_key:{}})
-        .catch(() => ({meta:{}, news_by_player_key:{}}))
+        .then(response => response.ok ? response.json() : {meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}})
+        .catch(() => ({meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}}))
         .then(payload => {
           window.TradeValuePlayerNews = payload;
           return payload;
@@ -120,6 +120,7 @@
   let referenceSource = "usatoday";
   let newsMeta = {};
   let newsByPlayerKey = new Map();
+  let adjustmentsByPlayerKey = new Map();
 
   function comboKeyFor(key) {
     const score = (key.endsWith("_adjusted") && state.scoring === "standard") ? "std" : state.scoring;
@@ -277,6 +278,7 @@
     const valueDate = tradePublishedAt();
     const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "fresher than values" : "older than values") : "timing unavailable";
     return {
+      type: "news",
       title,
       url: String(entry.url || "").trim(),
       source: String(entry.source || "News").trim(),
@@ -286,12 +288,49 @@
     };
   }
 
+  function normalizeAdjustmentEntry(entry) {
+    if (!entry || typeof entry !== "object") return null;
+    const kind = String(entry.kind || "adjustment").trim();
+    const status = String(entry.status || "").trim();
+    const injury = String(entry.injury || "").trim();
+    const title = `${kind.charAt(0).toUpperCase()}${kind.slice(1)} adjustment${status ? ` · ${status}` : ""}${injury ? ` · ${injury}` : ""}`;
+    const published = new Date(entry.date || "");
+    const publishedAt = Number.isNaN(published.getTime()) ? null : published;
+    const valueDate = tradePublishedAt();
+    const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "pending after current values" : "priced or older than values") : "timing unavailable";
+    const weeks = Array.isArray(entry.weeks_out_range) ? entry.weeks_out_range.filter(value => value !== null && value !== undefined).join("-") : "";
+    const detail = [
+      entry.note,
+      weeks ? `Missed-games estimate: ${weeks}` : (entry.weeks_out !== null && entry.weeks_out !== undefined ? `Missed-games estimate: ${entry.weeks_out}` : ""),
+      entry.skip_form ? "Skip most recent game form when pricing." : "",
+      entry.beneficiary_review ? `Beneficiary review: ${entry.beneficiary_review}` : ""
+    ].filter(Boolean).join(" ");
+    return {
+      type: "adjustment",
+      title,
+      url: "",
+      source: String(entry.source || "Adjustment log").trim(),
+      publishedAt,
+      timing,
+      summary: detail,
+      consumed: Boolean(entry.consumed)
+    };
+  }
+
   function playerNews(playerKey) {
     return (newsByPlayerKey.get(Number(playerKey)) || []).map(normalizeNewsEntry).filter(Boolean);
   }
 
+  function playerAdjustments(playerKey) {
+    return (adjustmentsByPlayerKey.get(Number(playerKey)) || []).map(normalizeAdjustmentEntry).filter(Boolean);
+  }
+
+  function playerContext(playerKey) {
+    return [...playerAdjustments(playerKey), ...playerNews(playerKey)].sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
+  }
+
   function latestNews(row) {
-    return playerNews(row.player_key)[0] || null;
+    return playerContext(row.player_key)[0] || null;
   }
 
   function formatDate(value) {
@@ -415,7 +454,7 @@
       if (!player?.name || !POSITIONS.includes(player.pos)) return null;
       const values = Object.fromEntries(renderKeys.map(key => [key, sourceValue(key, playerKey)]));
       const priced = renderKeys.map(key => values[key]).filter(Number.isFinite);
-      return {...player, ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null, newsCount:playerNews(playerKey).length};
+      return {...player, ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null, newsCount:playerContext(playerKey).length};
     }).filter(Boolean);
   }
 
@@ -480,9 +519,15 @@
     return `<ul class="news-list">${items.slice(0, 6).map(item => `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}</span></li>`).join("")}</ul>`;
   }
 
+  function renderAdjustmentList(row) {
+    const items = playerAdjustments(row.player_key);
+    if (!items.length) return "";
+    return `<div class="adjustment-block"><h4>Valuation adjustments</h4><ul class="news-list adjustment-list">${items.slice(0, 4).map(item => `<li><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}${item.consumed ? " · consumed" : " · pending"}</span></li>`).join("")}</ul></div>`;
+  }
+
   function renderExpandedRow(row, colSpan) {
     const open = state.expanded.has(row.player_key);
-    return `<tr class="expand-row ${open ? "open" : ""}" data-expand-for="${row.player_key}"><td id="player-detail-${row.player_key}" colspan="${colSpan}"><div class="player-news-detail"><h3>Recent player-value news</h3>${renderNewsList(row)}</div></td></tr>`;
+    return `<tr class="expand-row ${open ? "open" : ""}" data-expand-for="${row.player_key}"><td id="player-detail-${row.player_key}" colspan="${colSpan}"><div class="player-news-detail"><h3>Recent player-value news</h3>${renderAdjustmentList(row)}${renderNewsList(row)}</div></td></tr>`;
   }
 
   function renderTable() {
@@ -661,6 +706,7 @@
       [data, window.TradeValuePlayerNews] = await Promise.all([loadComparisonData(), loadPlayerNews()]);
       newsMeta = window.TradeValuePlayerNews?.meta || {};
       newsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.news_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
+      adjustmentsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.adjustments_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
       universeSize = Object.keys(data.player_keys || {}).length;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");

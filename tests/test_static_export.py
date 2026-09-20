@@ -3,6 +3,8 @@ import re
 import unittest
 from pathlib import Path
 
+from pipelines import ingest_player_news
+
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
@@ -204,11 +206,33 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("renderExpandedRow", text)
         self.assertIn("TradeValuePlayerNews", text)
 
-    def test_player_news_fixture_is_empty_but_schema_ready(self):
-        self.assertEqual("player-news-v1", self.news["meta"]["schema"])
+    def test_player_news_fixture_schema_supports_muse_review_layer(self):
+        self.assertEqual("player-news-v2", self.news["meta"]["schema"])
         self.assertIsNotNone(self.news["meta"]["generated_at"])
         self.assertEqual({}, self.news["news_by_player_key"])
+        self.assertEqual({}, self.news["adjustments_by_player_key"])
+        self.assertEqual([], self.news["checked_but_not_adjusted"])
         self.assertIn("trade_values_published_at", self.news["meta"])
+
+    def test_player_news_matching_is_full_name_precision_first(self):
+        players, by_name, _ = ingest_player_news.load_players()
+        entry = {
+            "title": "A.J. Brown limited in practice after high-ankle sprain",
+            "summary": "Team says A.J. Brown is questionable for Sunday.",
+            "source": "Team report",
+        }
+        tags = ingest_player_news.topic_tags(entry)
+        player, reason, candidates = ingest_player_news.matched_player(entry, players, by_name)
+        self.assertIsNone(reason)
+        self.assertEqual(468, player.player_key)
+        self.assertIn("injury", tags)
+        self.assertEqual([468], [candidate.player_key for candidate in candidates])
+
+        vague_entry = {"title": "Packers love the new-look passing game", "source": "Example"}
+        player, reason, candidates = ingest_player_news.matched_player(vague_entry, players, by_name)
+        self.assertIsNone(player)
+        self.assertEqual("no_full_name_match", reason)
+        self.assertEqual([], candidates)
 
     def test_default_qb_waiver_transition_is_zero_value_boundary(self):
         players = load_json(FIXTURES / "players.json")["players"]

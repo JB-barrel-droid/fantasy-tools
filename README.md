@@ -58,6 +58,20 @@ Ingest play/value news when a raw JSON or JSONL feed is available:
 python3 pipelines/ingest_player_news.py --input data/raw/player-news.jsonl
 ```
 
+Pull the free league-wide RSS feeds into the raw article store, then rebuild the dashboard fixture and review queues:
+
+```bash
+python3 pipelines/ingest_player_news.py --fetch-rss
+```
+
+Add the daily per-player Google News layer for the top watchlist players:
+
+```bash
+python3 pipelines/ingest_player_news.py --fetch-rss --fetch-google-news --watchlist-top 200
+```
+
+Curated news adjustments are read from `data/raw/player-news-adjustments.json` and the checked-but-not-adjusted log is read from `data/raw/news-checked.json`. Ambiguous full-name matches are written to `output/player-news-unmatched.json`; injury and suspension items that need a reviewer are written to `output/player-news-review-queue.json`.
+
 Sync the finished fixtures into the static dashboard and deployable `dist/` output:
 
 ```bash
