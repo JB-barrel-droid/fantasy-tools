@@ -13,10 +13,11 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, time as day_time, timedelta, timezone
 from email.utils import parsedate_to_datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,6 +29,7 @@ DEFAULT_CONSUMED = ROOT / "data" / "raw" / "news-consumed.json"
 DEFAULT_OUTPUT = ROOT / "data" / "fixtures" / "current" / "player-news.json"
 DEFAULT_UNMATCHED = ROOT / "output" / "player-news-unmatched.json"
 DEFAULT_REVIEW = ROOT / "output" / "player-news-review-queue.json"
+DEFAULT_MUSE_RAW = ROOT / "data" / "raw" / "muse-player-news"
 PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 COMPARISON = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 
@@ -208,6 +210,16 @@ def parse_datetime(value: Any) -> str | None:
     return dt.astimezone(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
+def parse_datetime_object(value: Any) -> datetime | None:
+    parsed = parse_datetime(value)
+    if not parsed:
+        return None
+    try:
+        return datetime.fromisoformat(parsed.replace("Z", "+00:00")).astimezone(timezone.utc)
+    except ValueError:
+        return None
+
+
 def strip_markup(value: Any) -> str:
     text = html.unescape(str(value or ""))
     text = re.sub(r"<[^>]+>", " ", text)
@@ -302,6 +314,27 @@ def fetch_rss_entries(include_google: bool, watchlist: list[PlayerIdentity], del
             fetched.extend(fetch_feed(f"Google News: {player.name}", GOOGLE_NEWS_URL.format(query=query)))
             time.sleep(delay)
     return fetched
+
+
+def latest_default_watchlist_path() -> Path | None:
+    if not DEFAULT_MUSE_RAW.exists():
+        return None
+    matches = sorted(DEFAULT_MUSE_RAW.glob("news-watchlist*.json"))
+    return matches[-1] if matches else None
+
+
+def load_watchlist(path: Path | None, identities: list[PlayerIdentity], by_name: dict[str, PlayerIdentity], top: int) -> list[PlayerIdentity]:
+    if path and path.exists():
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        names = payload.get("players", []) if isinstance(payload, dict) else payload
+        players: dict[int, PlayerIdentity] = {}
+        for name in names if isinstance(names, list) else []:
+            player = by_name.get(normalize_phrase(name))
+            if player:
+                players[player.player_key] = player
+        if players:
+            return list(players.values())[: max(0, top)]
+    return identities[: max(0, top)]
 
 
 def topic_tags(entry: dict[str, Any]) -> list[str]:
@@ -462,6 +495,66 @@ def load_checked(path: Path) -> list[dict[str, Any]]:
     return checked
 
 
+def adjustment_cover_dates(adjustments: dict[str, list[dict[str, Any]]]) -> dict[int, datetime]:
+    covered: dict[int, datetime] = {}
+    for player_key, entries in adjustments.items():
+        for entry in entries:
+            parsed = parse_datetime_object(entry.get("date"))
+            if parsed is None:
+                continue
+            key = int(player_key)
+            covered[key] = max(covered.get(key, parsed), parsed)
+    return covered
+
+
+def checked_cover_dates(checked: list[dict[str, Any]], by_name: dict[str, PlayerIdentity]) -> dict[int, datetime]:
+    covered: dict[int, datetime] = {}
+    for entry in checked:
+        player = explicit_player(entry, by_name)
+        parsed = parse_datetime_object(entry.get("date_checked") or entry.get("asof"))
+        if player is None or parsed is None:
+            continue
+        covered[player.player_key] = max(covered.get(player.player_key, parsed), parsed)
+    return covered
+
+
+def suppress_review_item(player_key: int, published_at: str | None, adjusted: dict[int, datetime], checked: dict[int, datetime]) -> bool:
+    published = parse_datetime_object(published_at)
+    if published is None:
+        return False
+    if player_key in adjusted and published.date() <= (adjusted[player_key] + timedelta(days=2)).date():
+        return True
+    if player_key in checked and published.date() <= checked[player_key].date():
+        return True
+    return False
+
+
+def assert_injury_data_fresh(args: argparse.Namespace) -> None:
+    if not args.require_fresh_injury_data:
+        return
+    zone = ZoneInfo(args.timezone)
+    now = datetime.fromisoformat(args.today.replace("Z", "+00:00")) if args.today else datetime.now(zone)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=zone)
+    now = now.astimezone(zone)
+    friday_evening = now.weekday() > 4 or (now.weekday() == 4 and now.time() >= day_time(18, 0))
+    if not friday_evening:
+        return
+    raw_freshness = args.injury_data_updated_at
+    if args.injury_freshness_file and args.injury_freshness_file.exists():
+        payload = json.loads(args.injury_freshness_file.read_text(encoding="utf-8"))
+        raw_freshness = payload.get("updated_at") or payload.get("generated_at") or payload.get("as_of") or raw_freshness
+    updated = parse_datetime_object(raw_freshness)
+    if updated is None:
+        raise SystemExit("Refusing to build after Friday evening: injury data freshness is unknown.")
+    updated_local = updated.astimezone(zone)
+    if updated_local.weekday() < 4 or (updated_local.weekday() == 4 and updated_local.time() < day_time(18, 0)):
+        raise SystemExit(
+            f"Refusing to build after Friday evening: injury data is stale "
+            f"({updated_local.isoformat(timespec='minutes')})."
+        )
+
+
 def write_json(path: Path, payload: Any) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -480,15 +573,25 @@ def main() -> int:
     parser.add_argument("--fetch-rss", action="store_true", help="Fetch the four league-wide keyless RSS feeds.")
     parser.add_argument("--fetch-google-news", action="store_true", help="Also fetch Google News RSS for the top watchlist players.")
     parser.add_argument("--watchlist-top", type=int, default=200, help="Player count for Google News watchlist.")
+    parser.add_argument("--watchlist", type=Path, default=None, help="Optional Muse-style JSON watchlist for Google News pulls.")
+    parser.add_argument("--require-fresh-injury-data", action="store_true", help="After Friday 6pm local time, fail closed unless injury data freshness is Friday evening or newer.")
+    parser.add_argument("--injury-data-updated-at", default=None, help="Timestamp proving supplemental injury data freshness.")
+    parser.add_argument("--injury-freshness-file", type=Path, default=None, help="JSON file carrying updated_at/generated_at/as_of for injury data.")
+    parser.add_argument("--today", default=None, help="Override current time for freshness checks.")
+    parser.add_argument("--timezone", default="America/Chicago", help="Local timezone for late-week injury freshness checks.")
     parser.add_argument("--delay", type=float, default=1.0, help="Delay between feed requests, in seconds.")
     args = parser.parse_args()
 
     identities, by_name, player_snapshot = load_players()
+    assert_injury_data_fresh(args)
     entries = dedupe_entries(load_entries(args.raw_store) + load_entries(args.input))
 
     fetched_count = 0
+    watchlist_path = args.watchlist or latest_default_watchlist_path()
+    watchlist_count = 0
     if args.fetch_rss or args.fetch_google_news:
-        watchlist = identities[: max(0, args.watchlist_top)] if args.fetch_google_news else []
+        watchlist = load_watchlist(watchlist_path, identities, by_name, args.watchlist_top) if args.fetch_google_news else []
+        watchlist_count = len(watchlist)
         fetched = fetch_rss_entries(args.fetch_google_news, watchlist, args.delay)
         fetched_count = len(fetched)
         entries = dedupe_entries(entries + fetched)
@@ -496,7 +599,7 @@ def main() -> int:
 
     grouped: dict[str, list[dict[str, Any]]] = {}
     unmatched: list[dict[str, Any]] = []
-    review_queue: list[dict[str, Any]] = []
+    review_candidates: list[dict[str, Any]] = []
     matched_count = 0
     value_count = 0
 
@@ -526,7 +629,7 @@ def main() -> int:
             grouped.setdefault(str(player.player_key), []).append(cleaned)
             matched_count += 1
             if ACTIONABLE_TOPICS.intersection(tags):
-                review_queue.append(
+                review_candidates.append(
                     {
                         "player": player.name,
                         "player_key": player.player_key,
@@ -562,6 +665,13 @@ def main() -> int:
     consumed = load_consumed(args.consumed_log)
     adjustments, invalid_adjustments = load_adjustments(args.adjustments, by_name, consumed)
     checked = load_checked(args.checked_log)
+    adjusted_cover = adjustment_cover_dates(adjustments)
+    checked_cover = checked_cover_dates(checked, by_name)
+    review_queue = [
+        item for item in review_candidates
+        if not suppress_review_item(int(item["player_key"]), item.get("published_at"), adjusted_cover, checked_cover)
+    ]
+    suppressed_review_count = len(review_candidates) - len(review_queue)
 
     payload = {
         "meta": {
@@ -570,6 +680,8 @@ def main() -> int:
             "schema": "player-news-v2",
             "feeds": [{"source": source, "url": url} for source, url in RSS_FEEDS],
             "google_news_watchlist_top": args.watchlist_top if args.fetch_google_news else 0,
+            "google_news_watchlist_path": str(watchlist_path) if args.fetch_google_news and watchlist_path else None,
+            "google_news_watchlist_count": watchlist_count,
             "fetched_count": fetched_count,
             "raw_item_count": len(entries),
             "value_item_count": value_count,
@@ -578,6 +690,8 @@ def main() -> int:
             "adjustment_count": sum(len(values) for values in adjustments.values()),
             "invalid_adjustment_count": len(invalid_adjustments),
             "checked_but_not_adjusted_count": len(checked),
+            "review_queue_count": len(review_queue),
+            "suppressed_review_count": suppressed_review_count,
             "note": "Generated from play/value related news only. Personal items are filtered out; ambiguous player names are not guessed.",
         },
         "news_by_player_key": grouped,

@@ -1,6 +1,7 @@
 import json
 import re
 import unittest
+from argparse import Namespace
 from pathlib import Path
 
 from pipelines import ingest_player_news
@@ -212,6 +213,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertGreater(self.news["meta"]["matched_item_count"], 400)
         self.assertEqual(16, self.news["meta"]["adjustment_count"])
         self.assertEqual(4, self.news["meta"]["checked_but_not_adjusted_count"])
+        self.assertEqual(196, self.news["meta"]["review_queue_count"])
+        self.assertEqual(89, self.news["meta"]["suppressed_review_count"])
         self.assertGreaterEqual(len(self.news["news_by_player_key"]), 100)
         self.assertEqual(16, len(self.news["adjustments_by_player_key"]))
         self.assertEqual(4, len(self.news["checked_but_not_adjusted"]))
@@ -240,6 +243,38 @@ class StaticExportTest(unittest.TestCase):
         self.assertIsNone(player)
         self.assertEqual("no_full_name_match", reason)
         self.assertEqual([], candidates)
+
+    def test_muse_watchlist_loader_and_review_suppression(self):
+        players, by_name, _ = ingest_player_news.load_players()
+        watchlist_path = ROOT / "data" / "raw" / "muse-player-news" / "news-watchlist-week2-2026-09-20.json"
+        watchlist = ingest_player_news.load_watchlist(watchlist_path, players, by_name, 10)
+        self.assertEqual(10, len(watchlist))
+        self.assertEqual("Ladd McConkey", watchlist[0].name)
+
+        adjusted = {468: ingest_player_news.parse_datetime_object("2026-09-11")}
+        checked = {}
+        self.assertTrue(ingest_player_news.suppress_review_item(468, "2026-09-13T00:12:08Z", adjusted, checked))
+        self.assertFalse(ingest_player_news.suppress_review_item(468, "2026-09-14T00:12:08Z", adjusted, checked))
+
+    def test_late_week_injury_freshness_gate(self):
+        passing = Namespace(
+            require_fresh_injury_data=True,
+            today="2026-09-20T12:00:00-05:00",
+            timezone="America/Chicago",
+            injury_data_updated_at="2026-09-18T18:30:00-05:00",
+            injury_freshness_file=None,
+        )
+        ingest_player_news.assert_injury_data_fresh(passing)
+
+        failing = Namespace(
+            require_fresh_injury_data=True,
+            today="2026-09-20T12:00:00-05:00",
+            timezone="America/Chicago",
+            injury_data_updated_at="2026-09-18T12:00:00-05:00",
+            injury_freshness_file=None,
+        )
+        with self.assertRaises(SystemExit):
+            ingest_player_news.assert_injury_data_fresh(failing)
 
     def test_default_qb_waiver_transition_is_zero_value_boundary(self):
         players = load_json(FIXTURES / "players.json")["players"]
