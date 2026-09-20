@@ -3,6 +3,7 @@ import re
 import unittest
 from argparse import Namespace
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from pipelines import ingest_player_news
 
@@ -213,8 +214,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertGreater(self.news["meta"]["matched_item_count"], 400)
         self.assertEqual(16, self.news["meta"]["adjustment_count"])
         self.assertEqual(4, self.news["meta"]["checked_but_not_adjusted_count"])
-        self.assertEqual(196, self.news["meta"]["review_queue_count"])
-        self.assertEqual(89, self.news["meta"]["suppressed_review_count"])
+        self.assertEqual(138, self.news["meta"]["review_queue_count"])
+        self.assertEqual(147, self.news["meta"]["suppressed_review_count"])
+        self.assertEqual({"already_reviewed": 89, "duplicate": 30, "low_signal": 28}, self.news["meta"]["review_suppression_counts"])
         self.assertGreaterEqual(len(self.news["news_by_player_key"]), 100)
         self.assertEqual(16, len(self.news["adjustments_by_player_key"]))
         self.assertEqual(4, len(self.news["checked_but_not_adjusted"]))
@@ -246,15 +248,28 @@ class StaticExportTest(unittest.TestCase):
 
     def test_muse_watchlist_loader_and_review_suppression(self):
         players, by_name, _ = ingest_player_news.load_players()
-        watchlist_path = ROOT / "data" / "raw" / "muse-player-news" / "news-watchlist-week2-2026-09-20.json"
-        watchlist = ingest_player_news.load_watchlist(watchlist_path, players, by_name, 10)
-        self.assertEqual(10, len(watchlist))
-        self.assertEqual("Ladd McConkey", watchlist[0].name)
+        with TemporaryDirectory() as directory:
+            watchlist_path = Path(directory) / "watchlist.json"
+            watchlist_path.write_text(json.dumps({"players": ["Ladd McConkey", "Josh Allen"]}), encoding="utf-8")
+            watchlist = ingest_player_news.load_watchlist(watchlist_path, players, by_name, 10)
+        self.assertEqual(["Ladd McConkey", "Josh Allen"], [player.name for player in watchlist])
 
         adjusted = {468: ingest_player_news.parse_datetime_object("2026-09-11")}
         checked = {}
         self.assertTrue(ingest_player_news.suppress_review_item(468, "2026-09-13T00:12:08Z", adjusted, checked))
         self.assertFalse(ingest_player_news.suppress_review_item(468, "2026-09-14T00:12:08Z", adjusted, checked))
+        pruned, counts = ingest_player_news.prune_review_queue(
+            [
+                {"player_key": 468, "published_at": "2026-09-13T00:12:08Z", "headline": "A.J. Brown out", "matched_player_count": 1},
+                {"player_key": 869, "published_at": "2026-09-14T00:12:08Z", "headline": "NFL Week 2 injury report: Josh Allen and others", "matched_player_count": 2},
+                {"player_key": 869, "published_at": "2026-09-14T00:12:08Z", "headline": "Josh Allen injury update", "matched_player_count": 1},
+                {"player_key": 869, "published_at": "2026-09-14T00:12:08Z", "headline": "Josh Allen injury update", "matched_player_count": 1},
+            ],
+            adjusted,
+            checked,
+        )
+        self.assertEqual(1, len(pruned))
+        self.assertEqual({"already_reviewed": 1, "low_signal": 1, "duplicate": 1}, counts)
 
     def test_late_week_injury_freshness_gate(self):
         passing = Namespace(

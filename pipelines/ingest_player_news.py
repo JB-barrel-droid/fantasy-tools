@@ -85,6 +85,11 @@ VALUE_WORDS = re.compile(
     re.I,
 )
 PERSONAL_ONLY = re.compile(r"\b(birthday|wedding|charity|family|vacation|podcast|interview only)\b", re.I)
+LOW_SIGNAL_REVIEW = re.compile(
+    r"\b(injury report|injur(?:y|ies) tracker|live updates|in-game injury updates|"
+    r"panic meter|schedule, inactives|week \d+ injuries)\b",
+    re.I,
+)
 TRUSTED_SOURCES = re.compile(
     r"\b(schefter|rapoport|garafolo|fowler|pelissero|team statement|coach|press conference|official)\b",
     re.I,
@@ -529,6 +534,36 @@ def suppress_review_item(player_key: int, published_at: str | None, adjusted: di
     return False
 
 
+def review_key(item: dict[str, Any]) -> tuple[int, str]:
+    title = normalize_phrase(item.get("headline") or item.get("url") or "")
+    return int(item["player_key"]), title
+
+
+def prune_review_queue(
+    candidates: list[dict[str, Any]],
+    adjusted: dict[int, datetime],
+    checked: dict[int, datetime],
+) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    kept: list[dict[str, Any]] = []
+    seen: set[tuple[int, str]] = set()
+    counts = {"already_reviewed": 0, "low_signal": 0, "duplicate": 0}
+    for item in candidates:
+        player_key = int(item["player_key"])
+        if suppress_review_item(player_key, item.get("published_at"), adjusted, checked):
+            counts["already_reviewed"] += 1
+            continue
+        if int(item.get("matched_player_count") or 1) > 1 and LOW_SIGNAL_REVIEW.search(str(item.get("headline") or "")):
+            counts["low_signal"] += 1
+            continue
+        key = review_key(item)
+        if key in seen:
+            counts["duplicate"] += 1
+            continue
+        seen.add(key)
+        kept.append({key: value for key, value in item.items() if key != "matched_player_count"})
+    return kept, counts
+
+
 def assert_injury_data_fresh(args: argparse.Namespace) -> None:
     if not args.require_fresh_injury_data:
         return
@@ -636,6 +671,7 @@ def main() -> int:
                         "team": player.team,
                         "pos": player.pos,
                         "topics": tags,
+                        "matched_player_count": len(players),
                         "source_reliability": cleaned["source_reliability"],
                         "headline": cleaned["title"],
                         "url": cleaned["url"],
@@ -667,11 +703,8 @@ def main() -> int:
     checked = load_checked(args.checked_log)
     adjusted_cover = adjustment_cover_dates(adjustments)
     checked_cover = checked_cover_dates(checked, by_name)
-    review_queue = [
-        item for item in review_candidates
-        if not suppress_review_item(int(item["player_key"]), item.get("published_at"), adjusted_cover, checked_cover)
-    ]
-    suppressed_review_count = len(review_candidates) - len(review_queue)
+    review_queue, review_suppression_counts = prune_review_queue(review_candidates, adjusted_cover, checked_cover)
+    suppressed_review_count = sum(review_suppression_counts.values())
 
     payload = {
         "meta": {
@@ -692,6 +725,7 @@ def main() -> int:
             "checked_but_not_adjusted_count": len(checked),
             "review_queue_count": len(review_queue),
             "suppressed_review_count": suppressed_review_count,
+            "review_suppression_counts": review_suppression_counts,
             "note": "Generated from play/value related news only. Personal items are filtered out; ambiguous player names are not guessed.",
         },
         "news_by_player_key": grouped,
