@@ -8,6 +8,7 @@
     "fantasycalc",
     "fantasypros",
     "cbs",
+    "cbs_adjusted",
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",
@@ -18,16 +19,18 @@
     fantasycalc: "FantasyCalc",
     fantasypros: "FantasyPros",
     cbs: "CBS",
+    cbs_adjusted: "CBS Adjusted",
     fantasycalc_adjusted: "FC Adjusted",
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
-    espn: "ESPN"
+    espn: "ESPN live"
   };
   const TIPS = {
     usatoday: "Editorial chart, as published and reindexed",
     fantasycalc: "Crowd-sourced values, as published and reindexed",
     fantasypros: "Analyst-consensus chart, as published and reindexed",
     cbs: "Editorial chart, as published and reindexed",
+    cbs_adjusted: "Derived from CBS values and the current adjustment ratios, then rescaled to the common value pie",
     fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
@@ -63,7 +66,19 @@
     return Number.isFinite(number) ? Math.max(0, number) : null;
   };
   const formatValue = value => value === null ? "—" : Number(value).toFixed(1);
-  const sourceLabel = key => LABELS[key] || key;
+  const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
+  function weekForSource(key) {
+    if (!WEEKED_SOURCE_KEYS.has(key)) return null;
+    const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
+    const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
+    if (fitWeek) return Number(fitWeek[1]);
+    return Number(data?.value_weeks?.monday) || null;
+  }
+  function sourceLabel(key) {
+    const base = LABELS[key] || key;
+    const week = weekForSource(key);
+    return week && key !== "espn" ? `${base} Wk ${week}` : base;
+  }
   const lockLabel = key => key === "preseason" ? "Preseason rank" : key === "disagreement" ? "Largest disagreement" : sourceLabel(key);
   const isLockKey = key => ["preseason","disagreement",...SOURCE_KEYS].includes(key);
 
@@ -111,6 +126,7 @@
     if (key === "fantasycalc") return `${score}_${state.teams}_qb1`;
     if (key === "espn") return `${score}_${state.teams}`;
     if (key === "fantasycalc_adjusted") return `${score}_12_qb1`;
+    if (key === "cbs_adjusted") return comboKeyFor("cbs");
     return `${score}_12`;
   }
 
@@ -136,6 +152,7 @@
   }
 
   function buildSourceMap(key) {
+    if (key === "cbs_adjusted") return buildCbsAdjustedMap();
     const combo = selectedCombo(key);
     const raw = combo?.values || combo?.reindexed || {};
     const native = combo?.native || {};
@@ -153,6 +170,37 @@
       values.set(playerKey, value);
     });
     return values;
+  }
+
+  function buildCbsAdjustedMap() {
+    const direct = buildSourceMap("cbs");
+    if (!direct.size) return new Map();
+    const pairs = [
+      ["fantasycalc", "fantasycalc_adjusted"],
+      ["usatoday", "usatoday_adjusted"],
+      ["fantasypros", "fantasypros_adjusted"]
+    ];
+    const existingMaps = new Map();
+    pairs.flat().forEach(key => existingMaps.set(key, buildSourceMap(key)));
+    const adjusted = new Map();
+    direct.forEach((directValue, playerKey) => {
+      const ratios = pairs.map(([rawKey, adjustedKey]) => {
+        const raw = existingMaps.get(rawKey)?.get(playerKey);
+        const adj = existingMaps.get(adjustedKey)?.get(playerKey);
+        return Number.isFinite(raw) && raw > 0 && Number.isFinite(adj) ? adj / raw : null;
+      }).filter(Number.isFinite);
+      const ratio = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 1;
+      adjusted.set(playerKey, Math.max(0, directValue * ratio));
+    });
+    const targetCombo = data.sources?.cbs?.combos?.[comboKeyFor("cbs")];
+    POSITION_ORDER.forEach(pos => {
+      const rows = [...adjusted.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos);
+      const total = rows.reduce((sum, [, value]) => sum + value, 0);
+      const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+      const scale = total > 0 && Number.isFinite(target) && target > 0 ? target / total : 1;
+      rows.forEach(([playerKey, value]) => adjusted.set(playerKey, value * scale));
+    });
+    return adjusted;
   }
 
   function rebuildSourceMaps() {
@@ -175,7 +223,7 @@
   }
 
   function sourceDate(key) {
-    const source = data.sources[key] || {};
+    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : {}) || {};
     if (key.endsWith("_adjusted")) {
       const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
       return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
@@ -210,16 +258,26 @@
     if (!entry || typeof entry !== "object") return null;
     const title = String(entry.title || entry.headline || "").trim();
     if (!title) return null;
+    const tags = [
+      ...(Array.isArray(entry.tags) ? entry.tags : []),
+      entry.category,
+      entry.topic
+    ].map(value => String(value || "").toLowerCase());
+    const valueWords = /\b(injury|injured|practice|limited|out|questionable|doubtful|suspend|suspension|discipline|snap|role|starter|backup|depth|target|touch|carry|route|usage|trade|contract|holdout|return|active|inactive|bench|waiver|fantasy|value)\b/i;
+    const personalOnly = /\b(birthday|wedding|charity|family|vacation|podcast|interview only)\b/i;
+    const valueRelated = tags.some(tag => ["injury","availability","role","usage","depth","discipline","suspension","transaction","fantasy","player_value"].includes(tag)) || valueWords.test(title) || valueWords.test(String(entry.summary || ""));
+    if (!valueRelated || personalOnly.test(title)) return null;
     const published = new Date(entry.published_at || entry.published || "");
     const publishedAt = Number.isNaN(published.getTime()) ? null : published;
     const valueDate = tradePublishedAt();
-    const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "post-value" : "pre-value") : "timing unavailable";
+    const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "fresher than values" : "older than values") : "timing unavailable";
     return {
       title,
       url: String(entry.url || "").trim(),
       source: String(entry.source || "News").trim(),
       publishedAt,
-      timing
+      timing,
+      summary: String(entry.summary || "").trim()
     };
   }
 
@@ -327,7 +385,7 @@
   }
 
   function renderViewControls() {
-    segments($("#viewTabs"), [["all","Source series"],["source","Legacy projection comparison",true,"Only available at start of season"]], "all", () => {}, "two");
+    segments($("#viewTabs"), [["all","Source series"]], "all", () => {}, "two");
     $("#sourcePickerWrap")?.classList.remove("active");
     $("#sourcePicker")?.replaceChildren();
   }
@@ -414,20 +472,19 @@
 
   function renderNewsList(row) {
     const items = playerNews(row.player_key);
-    if (!items.length) return '<p class="news-empty">No news artifact is loaded for this player yet.</p>';
-    return `<ul class="news-list">${items.slice(0, 5).map(item => `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a><span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}</span></li>`).join("")}</ul>`;
+    if (!items.length) return '<p class="news-empty">No player-value news is loaded for this player yet.</p>';
+    return `<ul class="news-list">${items.slice(0, 6).map(item => `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}</span></li>`).join("")}</ul>`;
   }
 
   function renderExpandedRow(row, colSpan) {
-    const sourceDetails = renderKeys.map(key => `<article class="source-detail"><h3><span>${esc(sourceLabel(key))}</span><span class="detail-value">${formatValue(row[key])}</span></h3><p>${esc(TIPS[key])}</p><p class="provenance-line">${esc(sourceMeta(key))}</p></article>`).join("");
     const open = state.expanded.has(row.player_key);
-    return `<tr class="expand-row ${open ? "open" : ""}" data-expand-for="${row.player_key}"><td id="player-detail-${row.player_key}" colspan="${colSpan}"><div class="player-detail-grid"><section><h3>Source values</h3><div class="detail-grid">${sourceDetails}</div></section><section><h3>Latest news</h3>${renderNewsList(row)}</section></div></td></tr>`;
+    return `<tr class="expand-row ${open ? "open" : ""}" data-expand-for="${row.player_key}"><td id="player-detail-${row.player_key}" colspan="${colSpan}"><div class="player-news-detail"><h3>Recent player-value news</h3>${renderNewsList(row)}</div></td></tr>`;
   }
 
   function renderTable() {
     const list = filteredRows();
-    if ($("#boardTitle")) $("#boardTitle").textContent = "Eight-source trade value board";
-    if ($("#boardDescription")) $("#boardDescription").textContent = "A source comparison with five independent series and three adjusted best-estimate series. FC Adjusted, USAT Adjusted, and FP Adjusted shift the weighting to our view of value.";
+    if ($("#boardTitle")) $("#boardTitle").textContent = "Trade value source board";
+    if ($("#boardDescription")) $("#boardDescription").textContent = "A sortable player table with direct charts, ESPN live, and adjusted source projects. Adjusted curves shift the weighting to our view of value while preserving missing values.";
     if ($("#consensusNote")) $("#consensusNote").textContent = "No median or blended composite is shown. Missing values show as —, never zero.";
     if ($("#resultCount")) $("#resultCount").textContent = `${list.length} player${list.length === 1 ? "" : "s"}`;
     if ($("#sortNote")) {
@@ -585,13 +642,13 @@
       return firstMissing === -1 || group.slice(firstMissing).every(row => !Number.isFinite(row.preseasonRank));
     });
     const positionGrouped = !preseasonSort || !["ALL","FLEX"].includes(state.filters.position) || list.every((row, index) => index === 0 || POSITION_ORDER.indexOf(list[index - 1].pos) <= POSITION_ORDER.indexOf(row.pos));
-    const eightSources = renderKeys.length === 8 && SOURCE_KEYS.every(key => renderKeys.includes(key));
+    const allSources = renderKeys.length === SOURCE_KEYS.length && SOURCE_KEYS.every(key => renderKeys.includes(key));
     const fullPpr12TeamQbs = state.scoring === "full" && state.teams === 12 && rows().filter(row => row.pos === "QB").length;
     const fullPpr12TeamQbsAvailable = fullPpr12TeamQbs > 0;
     const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && SOURCE_KEYS.every(key => allColumnKeys().includes(key));
-    const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, eightSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, sourceCount:renderKeys.length};
+    const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, sourceCount:renderKeys.length};
     window.DDFComparisonDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "eightSources", "fullPpr12TeamQbsAvailable", "configurableColumns"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "allSources", "fullPpr12TeamQbsAvailable", "configurableColumns"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Comparison regression guard failed: ${failed.map(([key]) => key).join(", ")}`);
   }
 
@@ -603,7 +660,7 @@
       universeSize = Object.keys(data.player_keys || {}).length;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
-      renderKeys = SOURCE_KEYS.filter(key => data.source_validation?.[key] === "live");
+      renderKeys = SOURCE_KEYS.filter(key => key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : data.source_validation?.[key] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.DDF_REFERENCE_SOURCE)) referenceSource = window.DDF_REFERENCE_SOURCE;

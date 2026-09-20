@@ -1,20 +1,21 @@
 (() => {
   "use strict";
 
-  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];
+  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"];
   const SCORINGS = [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]];
   const SOURCE_LABELS = {
     usatoday: "USA Today",
     fantasycalc: "FantasyCalc",
     fantasypros: "FantasyPros",
     cbs: "CBS",
-    espn: "ESPN",
+    espn: "ESPN live",
     fantasycalc_adjusted: "FC Adjusted",
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     cbs_adjusted: "CBS Adjusted",
     espn_vorp: "ESPN pure VORP"
   };
+  const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
   const SOURCE_KEYS = [
     "usatoday",
     "fantasycalc",
@@ -45,11 +46,16 @@
   ];
   const PURE_VORP_KEYS = ["espn_vorp"];
   const EXTRA_SOURCE_KEYS = ["cbs_adjusted"];
-  const DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"];
+  const DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
-  const STARTERS = {QB: 1, RB: 2, WR: 2, TE: 1};
-  const FLEX_STARTERS = 2;
-  const BENCH_SPOTS = 6;
+  const SPECIALIST_POSITIONS = ["K", "DST"];
+  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
+  const VALUE_BANDS = {
+    all: {label:"Full", min:0, max:null},
+    elite: {label:"Elite", min:40, max:null},
+    starter: {label:"Starter value", min:15, max:45},
+    bench: {label:"Bench value", min:0, max:18}
+  };
 
   const root = document.getElementById("curve-widget");
   if (!root) return;
@@ -81,6 +87,9 @@
   let position = "ALL";
   let scoring = "ppr";
   let teams = 12;
+  let rosterShape = {...DEFAULT_ROSTER};
+  let valueBand = "all";
+  let includeSpecialists = false;
   let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   let hideZeroTail = false;
@@ -95,11 +104,53 @@
     return Number.isFinite(number) ? Math.max(0, number) : null;
   };
   const scoreLabel = () => SCORINGS.find(([key]) => key === scoring)?.[1] || scoring;
-  const sourceLabel = key => SOURCE_LABELS[key] || key;
+  function weekForSource(key) {
+    if (!WEEKED_SOURCE_KEYS.has(key)) return null;
+    const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
+    const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
+    if (fitWeek) return Number(fitWeek[1]);
+    return Number(data?.value_weeks?.monday) || null;
+  }
+
+  function rolloverDate() {
+    const built = new Date(data?.built_at || "");
+    if (Number.isNaN(built.getTime())) return null;
+    const next = new Date(Date.UTC(built.getUTCFullYear(), built.getUTCMonth(), built.getUTCDate()));
+    const daysUntilMonday = (8 - next.getUTCDay()) % 7 || 7;
+    next.setUTCDate(next.getUTCDate() + daysUntilMonday);
+    return next;
+  }
+
+  function todayDate() {
+    const override = window.TRADE_VALUE_TODAY;
+    const raw = override ? new Date(`${String(override).slice(0, 10)}T00:00:00Z`) : new Date();
+    return Number.isNaN(raw.getTime()) ? new Date() : raw;
+  }
+
+  function activeReferenceWeek() {
+    const base = Number(data?.value_weeks?.monday);
+    if (!Number.isFinite(base)) return null;
+    const rollover = rolloverDate();
+    if (!rollover) return base;
+    return todayDate() >= rollover ? base + 1 : base;
+  }
+
+  function isWeekCurrent(key) {
+    const week = weekForSource(key);
+    const activeWeek = activeReferenceWeek();
+    return !week || !activeWeek || week >= activeWeek;
+  }
+
+  function sourceLabel(key) {
+    const base = SOURCE_LABELS[key] || key;
+    const week = weekForSource(key);
+    if (!week || key === "espn") return base;
+    return `${base} Wk ${week}`;
+  }
   const lockLabel = key => key === "preseason" ? "Preseason positional rank" : key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
   const isPosition = player => position === "ALL" || (position === "FLEX" ? ["RB", "WR", "TE"].includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
-  const sourceAvailable = key => sourceMaps.get(key)?.size > 0;
+  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && isWeekCurrent(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
@@ -120,7 +171,7 @@
     (payload.players || []).forEach(player => {
       const playerKey = Number(player.player_key);
       const name = String(player.full_name || player.name || "").trim();
-      if (!Number.isInteger(playerKey) || !name || !POSITION_ORDER.includes(player.pos)) return;
+      if (!Number.isInteger(playerKey) || !name || ![...POSITION_ORDER, ...SPECIALIST_POSITIONS].includes(player.pos)) return;
       const rankValue = player.preseasonRank ?? player.preseason_ecr_rank;
       const rank = Number(rankValue);
       map.set(playerKey, {
@@ -144,7 +195,7 @@
     const bMissing = !Number.isFinite(b.preseasonRank);
     if (aMissing !== bMissing) return aMissing ? 1 : -1;
     if (!aMissing && a.preseasonRank !== b.preseasonRank) return a.preseasonRank - b.preseasonRank;
-    return POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
+    return [...POSITION_ORDER, ...SPECIALIST_POSITIONS].indexOf(a.pos) - [...POSITION_ORDER, ...SPECIALIST_POSITIONS].indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
   }
 
   function disagreement(row) {
@@ -173,11 +224,15 @@
     return scoring === "ppr" ? "ppr" : scoring === "half_ppr" ? "half_ppr" : "standard";
   }
 
-  function allocationCountsFor(pool) {
-    const direct = {QB: teams * STARTERS.QB, RB: teams * STARTERS.RB, WR: teams * STARTERS.WR, TE: teams * STARTERS.TE};
+  function rosterIsDefault() {
+    return Object.keys(DEFAULT_ROSTER).every(key => Number(rosterShape[key]) === Number(DEFAULT_ROSTER[key]));
+  }
+
+  function allocationCountsFor(pool, shape = rosterShape) {
+    const direct = {QB: teams * shape.QB, RB: teams * shape.RB, WR: teams * shape.WR, TE: teams * shape.TE};
     const lineup = {...direct};
     const rostered = {...direct};
-    const ranked = pool.filter(player => Number.isFinite(player.preseasonRank)).sort((a, b) => {
+    const ranked = pool.filter(player => POSITION_ORDER.includes(player.pos) && Number.isFinite(player.preseasonRank)).sort((a, b) => {
       const aMissing = !Number.isFinite(a.preseasonRank), bMissing = !Number.isFinite(b.preseasonRank);
       if (aMissing !== bMissing) return aMissing ? 1 : -1;
       return (a.preseasonRank || 0) - (b.preseasonRank || 0) || POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos);
@@ -186,14 +241,19 @@
     Object.entries(direct).forEach(([pos, count]) => {
       ranked.filter(player => player.pos === pos).slice(0, count).forEach(player => used.add(player.player_key));
     });
-    ranked.filter(player => ["RB", "WR", "TE"].includes(player.pos) && !used.has(player.player_key)).slice(0, teams * FLEX_STARTERS).forEach(player => {
+    ranked.filter(player => ["RB", "WR", "TE"].includes(player.pos) && !used.has(player.player_key)).slice(0, teams * shape.FLEX).forEach(player => {
       used.add(player.player_key);
       lineup[player.pos] += 1;
       rostered[player.pos] += 1;
     });
-    ranked.filter(player => !used.has(player.player_key)).slice(0, teams * BENCH_SPOTS).forEach(player => {
+    ranked.filter(player => !used.has(player.player_key)).slice(0, teams * shape.BENCH).forEach(player => {
       used.add(player.player_key);
       rostered[player.pos] += 1;
+    });
+    SPECIALIST_POSITIONS.forEach(pos => {
+      direct[pos] = teams * Number(shape[pos] || 0);
+      lineup[pos] = direct[pos];
+      rostered[pos] = direct[pos];
     });
     return {direct, lineup, rostered};
   }
@@ -202,6 +262,7 @@
     const values = new Map();
     const field = scoringField();
     const counts = allocationCountsFor([...canonicalByKey.values()]);
+    const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
     POSITION_ORDER.forEach(pos => {
       const priced = [...canonicalByKey.values()]
         .filter(player => player.pos === pos)
@@ -211,31 +272,99 @@
       if (!priced.length) return;
       const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
       const baseline = priced[baselineIndex].ppg;
-      priced.forEach(({player, ppg}) => {
-        values.set(player.player_key, Math.max(0, ppg - baseline));
+      const rawRows = priced.map(({player, ppg}) => ({player, value:Math.max(0, ppg - baseline)}));
+      const rawTotal = rawRows.reduce((sum, row) => sum + row.value, 0);
+      const espnMap = sourceMaps.get("espn");
+      const espnTotal = espnMap
+        ? [...espnMap.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos).reduce((sum, [, value]) => sum + value, 0)
+        : 0;
+      const targetTotal = Number(targetCombo?.index_total?.[pos]?.target_total) || espnTotal || rawTotal;
+      const scale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
+      rawRows.forEach(({player, value}) => {
+        values.set(player.player_key, value * scale);
       });
     });
     return values;
   }
 
+  function buildSourceMap(key) {
+    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
+    const raw = combo?.values || combo?.reindexed || {};
+    const native = combo?.native || {};
+    const values = new Map();
+    Object.entries(raw).forEach(([sourceId, rawValue]) => {
+      if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
+      const playerKey = Number(data.player_keys?.[sourceId]);
+      const player = canonicalByKey.get(playerKey);
+      const value = clampValue(rawValue);
+      if (!player || value === null) return;
+      if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)}.`);
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
+  function applyRosterShape(values, key) {
+    if (rosterIsDefault() || key === "espn_vorp") return values;
+    const shaped = new Map(values);
+    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], DEFAULT_ROSTER);
+    const customCounts = allocationCountsFor([...canonicalByKey.values()], rosterShape);
+    const totalBefore = [...values.values()].reduce((sum, value) => sum + value, 0);
+    POSITION_ORDER.forEach(pos => {
+      const rows = [...values.entries()]
+        .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
+        .map(([playerKey, value]) => ({playerKey, value}))
+        .sort((a, b) => b.value - a.value);
+      if (!rows.length) return;
+      const defaultDepth = Math.max(1, Math.min(rows.length, defaultCounts.rostered[pos] || 1));
+      const customDepth = Math.max(1, Math.min(rows.length, customCounts.rostered[pos] || 1));
+      const averageTop = depth => rows.slice(0, depth).reduce((sum, row) => sum + row.value, 0) / depth;
+      const defaultAverage = averageTop(defaultDepth);
+      const customAverage = averageTop(customDepth);
+      const factor = defaultAverage > 0 ? Math.max(0.25, Math.min(1.8, customAverage / defaultAverage)) : 1;
+      rows.forEach(row => shaped.set(row.playerKey, row.value * factor));
+    });
+    const totalAfter = [...shaped.values()].reduce((sum, value) => sum + value, 0);
+    const fixedPieScale = totalBefore > 0 && totalAfter > 0 ? totalBefore / totalAfter : 1;
+    shaped.forEach((value, playerKey) => shaped.set(playerKey, value * fixedPieScale));
+    return shaped;
+  }
+
+  function buildCbsAdjustedMap() {
+    const direct = sourceMaps.get("cbs");
+    if (!direct?.size) return new Map();
+    const pairs = [
+      ["fantasycalc", "fantasycalc_adjusted"],
+      ["usatoday", "usatoday_adjusted"],
+      ["fantasypros", "fantasypros_adjusted"]
+    ];
+    const multipliers = new Map();
+    direct.forEach((directValue, playerKey) => {
+      const player = canonicalByKey.get(playerKey);
+      if (!player || !Number.isFinite(directValue)) return;
+      const ratios = pairs.map(([rawKey, adjustedKey]) => {
+        const raw = sourceMaps.get(rawKey)?.get(playerKey);
+        const adjusted = sourceMaps.get(adjustedKey)?.get(playerKey);
+        return Number.isFinite(raw) && raw > 0 && Number.isFinite(adjusted) ? adjusted / raw : null;
+      }).filter(Number.isFinite);
+      const ratio = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 1;
+      multipliers.set(playerKey, Math.max(0, directValue * ratio));
+    });
+    const targetCombo = data.sources?.cbs?.combos?.[comboKey("cbs")];
+    POSITION_ORDER.forEach(pos => {
+      const rows = [...multipliers.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos);
+      const total = rows.reduce((sum, [, value]) => sum + value, 0);
+      const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+      const scale = total > 0 && Number.isFinite(target) && target > 0 ? target / total : 1;
+      rows.forEach(([playerKey, value]) => multipliers.set(playerKey, value * scale));
+    });
+    return multipliers;
+  }
+
   function rebuildDomain() {
     sourceMaps = new Map();
-    SOURCE_KEYS.forEach(key => {
-      const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-      const raw = combo?.values || combo?.reindexed || {};
-      const native = combo?.native || {};
-      const values = new Map();
-      Object.entries(raw).forEach(([sourceId, rawValue]) => {
-        if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
-        const playerKey = Number(data.player_keys?.[sourceId]);
-        const player = canonicalByKey.get(playerKey);
-        const value = clampValue(rawValue);
-        if (!player || value === null) return;
-        if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)}.`);
-        values.set(playerKey, value);
-      });
-      sourceMaps.set(key, values);
-    });
+    SOURCE_KEYS.forEach(key => sourceMaps.set(key, applyRosterShape(buildSourceMap(key), key)));
+    sourceMaps.set("cbs_adjusted", applyRosterShape(buildCbsAdjustedMap(), "cbs_adjusted"));
     sourceMaps.set("espn_vorp", buildEspnVorpMap());
 
     const keys = new Set();
@@ -246,7 +375,7 @@
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null]));
       return {...player, values};
     }).filter(Boolean);
-    orderedRows = universe.filter(isPosition).sort(orderComparator);
+    orderedRows = universe.filter(row => (includeSpecialists || !SPECIALIST_POSITIONS.includes(row.pos)) && isPosition(row)).sort(orderComparator);
     syncContext();
   }
 
@@ -254,7 +383,7 @@
     if (!hideZeroTail) return orderedRows;
     let lastPriced = -1;
     orderedRows.forEach((row, index) => {
-      if (activeSourceKeys().some(key => Number.isFinite(row.values[key]) && row.values[key] > 0)) lastPriced = index;
+      if (Number.isFinite(row.values.espn_vorp) && row.values.espn_vorp > 0) lastPriced = index;
     });
     return lastPriced >= 0 ? orderedRows.slice(0, lastPriced + 1) : orderedRows.slice(0, 1);
   }
@@ -263,7 +392,11 @@
     const context = $("#curveContext");
     if (!context) return;
     const positionLabel = position === "ALL" ? "All positions" : position === "FLEX" ? "RB / WR / TE" : position;
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${positionLabel} · indexed values with optional pure VORP · locked to ${lockLabel(lockOrder)}`;
+    const week = activeReferenceWeek();
+    const weekLabel = week ? `Week ${week} references` : "current references";
+    const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/${rosterShape.BENCH}BN`;
+    const band = VALUE_BANDS[valueBand]?.label || "Full";
+    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${positionLabel} · ${band} y-axis · ${weekLabel} plus ESPN live · locked to ${lockLabel(lockOrder)}`;
   }
 
   function makeTabs() {
@@ -275,6 +408,10 @@
       button.className = "tab";
       button.dataset.value = key;
       button.textContent = key === "ALL" ? "All" : key === "FLEX" ? "Flex" : key;
+      if (SPECIALIST_POSITIONS.includes(key) && !includeSpecialists) {
+        button.disabled = true;
+        button.title = "K/DST need ESPN projection-derived values before they can be charted.";
+      }
       button.addEventListener("click", () => setPosition(key));
       posTabs.appendChild(button);
     });
@@ -310,6 +447,72 @@
     }
   }
 
+  function makeRosterControls() {
+    const grid = $("#rosterShapeControls");
+    if (!grid) return;
+    const controls = [
+      ["QB", "QB"],
+      ["RB", "RB"],
+      ["WR", "WR"],
+      ["TE", "TE"],
+      ["FLEX", "Flex"],
+      ["BENCH", "Bench"]
+    ];
+    grid.replaceChildren();
+    controls.forEach(([key, label]) => {
+      const wrapper = document.createElement("label");
+      wrapper.className = "roster-step";
+      const text = document.createElement("span");
+      text.textContent = label;
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = key === "BENCH" ? "0" : "1";
+      input.max = key === "BENCH" ? "14" : "5";
+      input.step = "1";
+      input.value = rosterShape[key];
+      input.dataset.rosterKey = key;
+      input.setAttribute("aria-label", `${label} roster spots`);
+      input.addEventListener("change", () => setRosterSpot(key, input.value));
+      wrapper.append(text, input);
+      grid.appendChild(wrapper);
+    });
+    const specialistToggle = $("#includeSpecialists");
+    const specialistNote = $("#specialistNote");
+    const hasEspnSpecialists = [...canonicalByKey.values()].some(player => SPECIALIST_POSITIONS.includes(player.pos) && player.espn_ppg && Object.values(player.espn_ppg).some(Number.isFinite));
+    if (specialistToggle) {
+      specialistToggle.checked = includeSpecialists && hasEspnSpecialists;
+      specialistToggle.disabled = !hasEspnSpecialists;
+      specialistToggle.onchange = event => {
+        includeSpecialists = event.target.checked && hasEspnSpecialists;
+        if (!includeSpecialists && SPECIALIST_POSITIONS.includes(position)) position = "ALL";
+        rebuildDomain();
+        makeTabs();
+        resetZoom();
+        draw();
+      };
+    }
+    if (specialistNote) {
+      specialistNote.textContent = hasEspnSpecialists
+        ? "K/DST will use ESPN projection-derived values only."
+        : "K/DST are waiting for ESPN projection-derived values in the artifact; the old preseason FantasyPros projection wiring is not used.";
+    }
+  }
+
+  function makeValueBandControl() {
+    const container = $("#valueBandSeg");
+    if (!container) return;
+    container.replaceChildren();
+    Object.entries(VALUE_BANDS).forEach(([key, config]) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = config.label;
+      button.classList.toggle("active", valueBand === key);
+      button.setAttribute("aria-pressed", String(valueBand === key));
+      button.addEventListener("click", () => setValueBand(key));
+      container.appendChild(button);
+    });
+  }
+
   function syncTabs() {
     $("#posTabs")?.querySelectorAll("button").forEach(button => {
       const active = button.dataset.value === position;
@@ -340,21 +543,25 @@
       label.className = "src-toggle";
       const input = document.createElement("input");
       input.type = "checkbox";
-      const available = sourceAvailable(key);
+      const hasData = sourceMaps.get(key)?.size > 0;
+      const freshWeek = isWeekCurrent(key);
+      const available = hasData && freshWeek;
       input.checked = activeSources.has(key) && available;
       input.disabled = !available;
       input.dataset.source = key;
       input.setAttribute("aria-label", `Show ${sourceLabel(key)} curve`);
       if (!available) {
         label.classList.add("is-disabled");
-        label.title = `${sourceLabel(key)} is not available for ${scoreLabel()} / ${teams} teams in the current artifact.`;
+        label.title = hasData && !freshWeek
+          ? `${sourceLabel(key)} is past the active Week ${activeReferenceWeek()} reference window; waiting for a refreshed artifact.`
+          : `${sourceLabel(key)} is not available for ${scoreLabel()} / ${teams} teams in the current artifact.`;
       }
       input.addEventListener("change", () => {
         if (input.checked) activeSources.add(key);
         else if (activeSourceKeys().length > 1) activeSources.delete(key);
         else input.checked = true;
         crossRank = null;
-        resetZoom();
+        syncZoom();
         makeSourceToggles();
         draw();
       });
@@ -364,6 +571,12 @@
       swatch.style.borderTopStyle = key.endsWith("_adjusted") ? "dashed" : "solid";
       const text = document.createElement("span");
       text.textContent = sourceLabel(key);
+      if (!freshWeek && hasData) {
+        const meta = document.createElement("span");
+        meta.className = "src-meta";
+        meta.textContent = `waiting Wk ${activeReferenceWeek()}`;
+        text.appendChild(meta);
+      }
       label.append(input, swatch, text);
       groupNode.appendChild(label);
       });
@@ -400,9 +613,37 @@
   }
 
   function publishShared() {
-    const detail = {scoring, teams, position, model: "monday", lockOrder};
+    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}};
     window.DDF_SHARED_STATE = detail;
     window.dispatchEvent(new CustomEvent("ddf-shared-change", {detail}));
+  }
+
+  function setRosterSpot(key, raw, publish = true) {
+    if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
+    const min = key === "BENCH" ? 0 : 1;
+    const max = key === "BENCH" ? 14 : 5;
+    const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
+    if (!Number.isFinite(next) || next === rosterShape[key]) {
+      makeRosterControls();
+      return;
+    }
+    rosterShape[key] = next;
+    crossRank = null;
+    rebuildDomain();
+    makeRosterControls();
+    makeLockControl();
+    resetZoom();
+    draw();
+    if (publish) publishShared();
+  }
+
+  function setValueBand(key) {
+    if (!Object.prototype.hasOwnProperty.call(VALUE_BANDS, key) || key === valueBand) return;
+    valueBand = key;
+    crossRank = null;
+    makeValueBandControl();
+    syncContext();
+    draw();
   }
 
   function setPosition(value, publish = true) {
@@ -426,6 +667,8 @@
     rebuildDomain();
     if (![ "preseason", "disagreement" ].includes(lockOrder) && !sourceAvailable(lockOrder)) lockOrder = defaultValueLock();
     makeLeagueControls();
+    makeRosterControls();
+    makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
     resetZoom();
@@ -441,6 +684,8 @@
     rebuildDomain();
     if (![ "preseason", "disagreement" ].includes(lockOrder) && !sourceAvailable(lockOrder)) lockOrder = defaultValueLock();
     makeLeagueControls();
+    makeRosterControls();
+    makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
     resetZoom();
@@ -549,8 +794,8 @@
   function rosterOrdinals() {
     const counts = allocationCounts();
     if (position === "ALL") return {
-      starter: teams * (6 + FLEX_STARTERS),
-      bench: teams * (6 + FLEX_STARTERS + BENCH_SPOTS)
+      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0)),
+      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0))
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,
@@ -566,7 +811,7 @@
     const ordinals = rosterOrdinals();
     const rows = orderedRows;
     const lastPositive = rows.reduce((last, row, index) => {
-      const hasPositiveValue = activeSourceKeys().some(key => Number.isFinite(row.values[key]) && row.values[key] > 0);
+      const hasPositiveValue = Number.isFinite(row.values.espn_vorp) && row.values.espn_vorp > 0;
       return hasPositiveValue ? index + 1 : last;
     }, 1);
     return [
@@ -609,18 +854,22 @@
   }
 
   function yAxisScale(rows) {
+    const band = VALUE_BANDS[valueBand] || VALUE_BANDS.all;
     const values = rows
       .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
       .flatMap(row => activeSourceKeys().map(key => row.values[key]))
       .filter(Number.isFinite);
     const dataMax = values.length ? Math.max(...values) : 0;
-    if (dataMax <= 0) return {max: 10, step: 1};
-    const roughStep = dataMax / 9;
+    const bandMin = Number(band.min) || 0;
+    const cappedMax = band.max !== null && band.max !== undefined && Number.isFinite(Number(band.max)) ? Number(band.max) : dataMax;
+    const effectiveMax = Math.max(cappedMax, bandMin + 1);
+    if (dataMax <= 0) return {min:bandMin, max:Math.max(10, effectiveMax), step:1};
+    const roughStep = (effectiveMax - bandMin) / 9;
     const magnitude = 10 ** Math.floor(Math.log10(roughStep));
     const normalized = roughStep / magnitude;
     const niceFactor = [1, 2, 2.5, 5, 10].find(candidate => candidate >= normalized) || 10;
     const step = niceFactor * magnitude;
-    return {max: Math.ceil(dataMax / step) * step, step};
+    return {min:bandMin, max: Math.max(bandMin + step, Math.ceil(effectiveMax / step) * step), step};
   }
 
   function formatScore(value) {
@@ -661,15 +910,18 @@
     const innerHeight = Math.max(1, height - pad.top - pad.bottom);
     const x = rank => pad.left + (rank - zoomLow) / Math.max(1, zoomHigh - zoomLow) * innerWidth;
     const axis = yAxisScale(rows);
-    const y = value => pad.top + innerHeight - clampValue(value) / axis.max * innerHeight;
-    geometry = {width, height, pad, innerWidth, innerHeight, zoomLow, zoomHigh, yMax:axis.max};
+    const y = value => {
+      const clamped = Math.max(axis.min, Math.min(axis.max, clampValue(value)));
+      return pad.top + innerHeight - (clamped - axis.min) / Math.max(1, axis.max - axis.min) * innerHeight;
+    };
+    geometry = {width, height, pad, innerWidth, innerHeight, zoomLow, zoomHigh, yMin:axis.min, yMax:axis.max};
 
     context.font = '9px "IBM Plex Mono", monospace';
     context.textAlign = "right";
     context.strokeStyle = grid;
     context.fillStyle = text;
     context.lineWidth = 1;
-    for (let value = 0; value <= axis.max + axis.step / 2; value += axis.step) {
+    for (let value = axis.min; value <= axis.max + axis.step / 2; value += axis.step) {
       context.beginPath();
       context.moveTo(pad.left, y(value));
       context.lineTo(width - pad.right, y(value));
@@ -876,8 +1128,10 @@
       if (isLockKey(window.DDF_LOCK_ORDER)) lockOrder = window.DDF_LOCK_ORDER;
       rebuildDomain();
       makeLeagueControls();
+      makeRosterControls();
       makeTabs();
       makeValueModeControl();
+      makeValueBandControl();
       makeSourceToggles();
       makeLockControl();
       bindZoom();
@@ -885,7 +1139,7 @@
       runRegressionGuards();
       draw();
       $("#curve-status").classList.add("validated");
-      $("#curve-status").innerHTML = "<strong>Validated:</strong> bottom-up ESPN indexed values plus three bias-adjusted source projects are shown by default. Direct published charts are available but off by default. Pure ESPN VORP is available as a separate basis.";
+      $("#curve-status").innerHTML = "<strong>Validated:</strong> ESPN live plus four adjusted source projects are shown by default. Direct published charts are available but off by default. Pure ESPN VORP can be enabled on the same chart.";
       publishShared();
     } catch (error) {
       $("#curve-status").innerHTML = `<strong>Curves unavailable:</strong> ${String(error.message)}`;

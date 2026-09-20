@@ -155,7 +155,14 @@
     .vintage-expert.is-stale .vintage-status { color: #8c2418; }
     .vintage-expert.is-unknown { border-color: #b17b2a; background: #fff4df; }
     .vintage-expert.is-unknown .vintage-status { color: #704b12; }
-    .hero { padding: 34px 0 24px; }
+    .section-details { margin: 0 0 22px; border-top: 4px solid var(--navy); background: var(--white); box-shadow: var(--shadow); }
+    .section-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; list-style: none; color: var(--navy); font-weight: 800; cursor: pointer; }
+    .section-details > summary::-webkit-details-marker { display: none; }
+    .section-details > summary::after { content: "+"; color: var(--orange-dark); font: 700 20px/1 "IBM Plex Mono", monospace; }
+    .section-details[open] > summary::after { content: "−"; }
+    .section-details > summary:hover, .section-details > summary:focus-visible { background: #eef1ed; outline: 2px solid var(--orange); outline-offset: -2px; }
+    .section-details-body { padding: 0 18px 20px; }
+    .hero { padding: 18px 0 4px; border-top-color: var(--orange); }
     .kicker { color: var(--orange-dark); font-weight: 800; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
     h1 { font-size: clamp(34px, 5.1vw, 68px); line-height: .98; letter-spacing: -.055em; margin: 0; max-width: 980px; }
     .hero-support { display: flex; align-items: center; gap: 10px; width: max-content; max-width: 100%; margin-top: 16px; }
@@ -1489,7 +1496,9 @@
       </div>
     </details>
 
-    <section class="hero">
+    <details class="hero section-details" open>
+      <summary><span>Trade-value decision guide</span></summary>
+      <div class="section-details-body">
       <div class="hero-heading">
         <div class="kicker">Rest-of-season trade guide</div>
         <h1 id="page-title">Fantasy trade values with source health in view.</h1>
@@ -1508,9 +1517,12 @@
           </div>
         </div>
       </div>
-    </section>
+      </div>
+    </details>
 
-<section id="curve-widget" aria-labelledby="curve-title" aria-describedby="curve-summary curve-status">
+<details id="curve-widget" open aria-labelledby="curve-title" aria-describedby="curve-summary curve-status">
+  <summary><span>Trade value curves</span></summary>
+  <div class="curve-body">
   <h2 id="curve-title">Trade value curves</h2>
   <div class="sub" id="curve-summary">Bottom-up, adjusted, direct, and pure VORP series can be compared on the same player order. League settings determine which source curves are available.</div>
   <p class="curve-status" id="curve-status"><strong>Loading:</strong> validating source value series…</p>
@@ -1521,6 +1533,14 @@
     <span class="lbl">Teams:</span>
     <div class="seg" id="curveTeams" aria-label="Chart league size"></div>
   </div>
+  <details class="roster-shape-panel">
+    <summary>Roster shape</summary>
+    <div class="roster-shape-body">
+      <div class="roster-shape-grid" id="rosterShapeControls"></div>
+      <label class="tail-toggle specialist-toggle"><input type="checkbox" id="includeSpecialists" aria-label="Include kickers and defenses"> Include K/DST</label>
+      <p class="roster-shape-note" id="specialistNote"></p>
+    </div>
+  </details>
   <div class="row lock-row">
     <label class="lock-control" for="curveLockOrder"><span class="lbl">Lock player order</span><select id="curveLockOrder" aria-label="Lock every curve to one player order"></select></label>
     <span class="lock-note" id="curveLockNote"></span>
@@ -1535,6 +1555,10 @@
     <span class="lbl">Zoom:</span>
     <div class="seg" id="zoomSeg"></div>
     <label class="tail-toggle src-toggle"><input type="checkbox" id="hideZeroTail" aria-label="Hide zero-value tail"> Hide zero-value tail</label>
+  </div>
+  <div class="row curve-tools">
+    <span class="lbl">Value band:</span>
+    <div class="seg" id="valueBandSeg" aria-label="Y-axis value band"></div>
   </div>
   <div class="row">
     <div class="zslider" id="zslider">
@@ -1558,19 +1582,11 @@
     <p>Solid lines are as-published values reindexed to the shared scale plus ESPN’s projection-derived series. Dashed adjusted lines shift the weighting to our view of value. Missing values break that source’s line rather than becoming zero.</p>
   </details>
   <div id="tip"></div>
-</section>
+  </div>
+</details>
 
-    <nav class="product-tabs" aria-label="Dashboard views" role="tablist">
-      <button class="product-tab" type="button" role="tab" id="productTabValues" aria-controls="productPanelValues" aria-selected="false" data-product-tab="values" disabled title="Legacy projection comparison — start of season only">Legacy projection comparison — start of season only</button>
-      <button class="product-tab" type="button" role="tab" id="productTabComparison" aria-controls="productPanelComparison" aria-selected="true" data-product-tab="comparison" title="Compare independent published charts side by side">Chart Comparison</button>
-    </nav>
-
-    <section class="product-panel" id="productPanelValues" role="tabpanel" aria-labelledby="productTabValues" hidden>
-      <div class="stale-disabled-view"><h2>Legacy projection output — start of season only</h2><p>The house curve is only available at start of season. In-season, compare the independent published sources below.</p></div>
-    </section>
-
-    <section class="product-panel" id="productPanelComparison" role="tabpanel" aria-labelledby="productTabComparison">
-<section id="comparisonDashboard" aria-label="Trade value chart comparison">
+<details id="comparisonDashboard" open aria-label="Trade value chart comparison">
+  <summary class="comparison-section-summary"><span>Player table and source comparison</span></summary>
 <div class="shell">
     <header class="comparison-lead chart-lead">
       <h2>Where the charts disagree</h2>
@@ -1621,17 +1637,16 @@
     </details>
 
   </div>
-</section>
-    </section>
+</details>
 
     <section class="page-notes" id="footnote" aria-label="Notes and definitions">
       <details class="notes-details">
         <summary><h2>Notes &amp; source definitions</h2></summary>
         <ol class="notes-list">
           <li><strong>Scale and missing values.</strong> Values measure value above waivers on a shared scale whose true top is 87 in Standard, 86 in Half PPR, and 84 in Full PPR. Missing or unpriced values remain blank and are never converted to zero.</li>
-          <li><strong>Series taxonomy.</strong> As-published values are reindexed only onto the common scoring-specific scale. FC Adjusted, USAT Adjusted, and FP Adjusted are adjusted best-estimate values that shift the weighting to our view of value; missing adjusted values stay blank.</li>
+          <li><strong>Series taxonomy.</strong> As-published values are reindexed only onto the common scoring-specific scale. FC Adjusted, USAT Adjusted, FP Adjusted, and CBS Adjusted are adjusted best-estimate values that shift the weighting to our view of value; missing adjusted values stay blank.</li>
           <li><strong>Sources.</strong> <a href="https://www.usatoday.com/story/sports/fantasy/football/2026/09/15/fantasy-football-trade-value-chart-week-2-ros-rankings/91770884007/" target="_blank" rel="noopener noreferrer">USA Today</a> is an editorial chart; <a href="https://fantasycalc.com" target="_blank" rel="noopener noreferrer">FantasyCalc</a> reflects completed fantasy trades; <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-2-2026/" target="_blank" rel="noopener noreferrer">FantasyPros</a> is an analyst-consensus chart; <a href="https://sportsfly.cbsistatic.com/fantasy/football/news/dave-richards-week-2-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/" target="_blank" rel="noopener noreferrer">CBS</a> is an editorial chart; ESPN uses its season projections translated to the same scale.</li>
-          <li><strong>Freshness.</strong> Content date is when a source's published numbers last changed; fit date identifies the bias-adjustment bake. Only records validated as live are rendered. Legacy projection output is start-of-season only.</li>
+          <li><strong>Freshness.</strong> Content date is when a source's published numbers last changed; fit date identifies the bias-adjustment bake. Week-specific references disable after the weekend rollover until the next week's artifact is present. ESPN remains live.</li>
         </ol>
       </details>
     </section>
@@ -1643,8 +1658,8 @@
   <script>
   (() => {
     "use strict";
-    const labels={usatoday:"USA Today",fantasycalc:"FantasyCalc",fantasypros:"FantasyPros",cbs:"CBS",fantasycalc_adjusted:"FC Adjusted",usatoday_adjusted:"USAT Adjusted",fantasypros_adjusted:"FP Adjusted",espn:"ESPN"};
-    const order=["usatoday","fantasycalc","fantasypros","cbs","fantasycalc_adjusted","usatoday_adjusted","fantasypros_adjusted","espn"];
+    const labels={usatoday:"USA Today",fantasycalc:"FantasyCalc",fantasypros:"FantasyPros",cbs:"CBS",cbs_adjusted:"CBS Adjusted",fantasycalc_adjusted:"FC Adjusted",usatoday_adjusted:"USAT Adjusted",fantasypros_adjusted:"FP Adjusted",espn:"ESPN live"};
+    const order=["usatoday","fantasycalc","fantasypros","cbs","cbs_adjusted","fantasycalc_adjusted","usatoday_adjusted","fantasypros_adjusted","espn"];
     const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
     const monthDay=raw=>{
       if(!raw)return "unavailable";
@@ -1662,27 +1677,26 @@
         if(!response.ok)throw new Error(`Source snapshot request failed (${response.status})`);
         const data=await response.json();
         const universe=(embedded.players||[]).length;
-        const live=order.filter(key=>data.source_validation?.[key]==="live");
+        const live=order.filter(key=>key==="cbs_adjusted"?data.source_validation?.cbs==="live":data.source_validation?.[key]==="live");
         if(live.length!==order.length)throw new Error("One or more required sources did not pass validation.");
-        document.getElementById("dataHealthTitle").textContent="Eight live value series from five sources, plus one historical house model";
-        document.getElementById("dataHealthCounts").innerHTML='<span class="health-count">8 live</span><span class="health-count stale">1 historical</span>';
+        document.getElementById("dataHealthTitle").textContent="Current source artifacts and derived adjusted curves";
+        document.getElementById("dataHealthCounts").innerHTML='<span class="health-count">9 shown</span>';
         document.getElementById("dataHealthIntro").textContent="Coverage is measured against the 596-player canonical snapshot. Content and fit dates identify the data actually shown.";
         const cards=live.map(key=>{
-          const source=data.sources[key]||{};
+          const source=data.sources[key]||data.sources.cbs||{};
           const combo=source.combos?.[comboKey(key)]||{};
           const coverage=Number.isFinite(Number(combo.n))?Number(combo.n):Object.keys(combo.values||combo.reindexed||{}).length;
           const match=String(source.fit_bake_id||"").match(/(\d{4}-\d{2}-\d{2})/);
           const contentDate=String(source.published||source.espn_snapshot||source.fetched_at||"").slice(0,10)||"unavailable";
           const freshness=key.endsWith("_adjusted")?`fit ${monthDay(match?.[1])}`:`content ${contentDate}`;
-          const role=key === "espn" ? "Projection-derived · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : "As published · reindexed";
+          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : "As published · reindexed";
           return `<article class="dataset-card status-live"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">Live</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div></dl></article>`;
         });
-        cards.push('<article class="dataset-card status-historical"><div class="dataset-card-head"><h3>Legacy projection output — start of season only</h3><span class="dataset-badge">Historical</span></div><p class="dataset-role">The house model is disabled in-season.</p><dl class="dataset-facts"><div><dt>Availability</dt><dd>Start of season only</dd></div></dl></article>');
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
         document.getElementById("asOfDate").textContent=monthDay(data.built_at);
         document.getElementById("expertVintageLabel").textContent="Source snapshot";
         document.getElementById("ecrContentDate").textContent=monthDay(data.built_at);
-        document.getElementById("ecrFreshnessBadge").textContent="8 live";
+        document.getElementById("ecrFreshnessBadge").textContent="9 shown";
       }catch(error){
         document.getElementById("dataHealthTitle").textContent="Dataset health unavailable";
         document.getElementById("dataHealthCounts").innerHTML='<span class="health-count stale">Unavailable</span>';
@@ -1690,8 +1704,6 @@
         console.error(error);
       }
     }
-    document.getElementById("productPanelValues").hidden=true;
-    document.getElementById("productPanelComparison").hidden=false;
     renderHealth();
   })();
   </script>
