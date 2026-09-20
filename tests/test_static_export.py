@@ -209,10 +209,17 @@ class StaticExportTest(unittest.TestCase):
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
         self.assertIsNotNone(self.news["meta"]["generated_at"])
-        self.assertEqual({}, self.news["news_by_player_key"])
-        self.assertEqual({}, self.news["adjustments_by_player_key"])
-        self.assertEqual([], self.news["checked_but_not_adjusted"])
+        self.assertGreater(self.news["meta"]["matched_item_count"], 400)
+        self.assertEqual(16, self.news["meta"]["adjustment_count"])
+        self.assertEqual(4, self.news["meta"]["checked_but_not_adjusted_count"])
+        self.assertGreaterEqual(len(self.news["news_by_player_key"]), 100)
+        self.assertEqual(16, len(self.news["adjustments_by_player_key"]))
+        self.assertEqual(4, len(self.news["checked_but_not_adjusted"]))
         self.assertIn("trade_values_published_at", self.news["meta"])
+        adjustments = [entry for entries in self.news["adjustments_by_player_key"].values() for entry in entries]
+        by_id = {entry["id"]: entry for entry in adjustments}
+        self.assertTrue(by_id["aj-brown-high-ankle-ir-20260911"]["consumed"])
+        self.assertFalse(by_id["zay-flowers-hamstring-20260918"]["consumed"])
 
     def test_player_news_matching_is_full_name_precision_first(self):
         players, by_name, _ = ingest_player_news.load_players()

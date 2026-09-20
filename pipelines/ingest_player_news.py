@@ -24,6 +24,7 @@ DEFAULT_INPUT = ROOT / "data" / "raw" / "player-news.jsonl"
 DEFAULT_RAW_STORE = ROOT / "data" / "raw" / "player-news-articles.json"
 DEFAULT_ADJUSTMENTS = ROOT / "data" / "raw" / "player-news-adjustments.json"
 DEFAULT_CHECKED = ROOT / "data" / "raw" / "news-checked.json"
+DEFAULT_CONSUMED = ROOT / "data" / "raw" / "news-consumed.json"
 DEFAULT_OUTPUT = ROOT / "data" / "fixtures" / "current" / "player-news.json"
 DEFAULT_UNMATCHED = ROOT / "output" / "player-news-unmatched.json"
 DEFAULT_REVIEW = ROOT / "output" / "player-news-review-queue.json"
@@ -88,6 +89,12 @@ TRUSTED_SOURCES = re.compile(
 )
 ACTIONABLE_TOPICS = {"injury", "suspension"}
 CHECKED_DISPOSITIONS = {"already-priced", "monitoring", "not-material"}
+FEED_LABELS = {
+    "pft": "ProFootballTalk",
+    "espn-nfl": "ESPN NFL",
+    "cbs-nfl": "CBS Sports NFL",
+    "yahoo-nfl": "Yahoo Sports NFL",
+}
 
 
 @dataclass(frozen=True)
@@ -170,7 +177,14 @@ def load_entries(path: Path) -> list[dict[str, Any]]:
     if isinstance(payload, list):
         return [item for item in payload if isinstance(item, dict)]
     if isinstance(payload, dict):
-        entries = payload.get("items") or payload.get("news") or payload.get("articles") or []
+        entries = (
+            payload.get("items")
+            or payload.get("news")
+            or payload.get("articles")
+            or payload.get("entries")
+            or payload.get("checked")
+            or []
+        )
         return [item for item in entries if isinstance(item, dict)]
     return []
 
@@ -318,6 +332,18 @@ def explicit_player(entry: dict[str, Any], by_name: dict[str, PlayerIdentity]) -
     return by_name.get(name)
 
 
+def matched_list_players(entry: dict[str, Any], by_name: dict[str, PlayerIdentity]) -> list[PlayerIdentity]:
+    matched = entry.get("matched")
+    if not isinstance(matched, list):
+        return []
+    players: dict[int, PlayerIdentity] = {}
+    for name in matched:
+        player = by_name.get(normalize_phrase(name))
+        if player:
+            players[player.player_key] = player
+    return sorted(players.values(), key=lambda item: (item.rank_score, item.name))
+
+
 def headline_matches(entry: dict[str, Any], identities: list[PlayerIdentity]) -> list[PlayerIdentity]:
     text = normalize_phrase(" ".join(str(entry.get(key) or "") for key in ("title", "headline", "summary", "description")))
     if not text:
@@ -333,20 +359,35 @@ def headline_matches(entry: dict[str, Any], identities: list[PlayerIdentity]) ->
 
 
 def matched_player(entry: dict[str, Any], identities: list[PlayerIdentity], by_name: dict[str, PlayerIdentity]) -> tuple[PlayerIdentity | None, str | None, list[PlayerIdentity]]:
+    players, reason, candidates = entry_players(entry, identities, by_name)
+    if len(players) == 1:
+        return players[0], None, players
+    if len(players) > 1:
+        return None, "multiple_full_name_matches", players
+    return None, reason, candidates
+
+
+def entry_players(entry: dict[str, Any], identities: list[PlayerIdentity], by_name: dict[str, PlayerIdentity]) -> tuple[list[PlayerIdentity], str | None, list[PlayerIdentity]]:
     explicit = explicit_player(entry, by_name)
     if explicit:
-        return explicit, None, [explicit]
+        return [explicit], None, [explicit]
+    matched = matched_list_players(entry, by_name)
+    if matched:
+        return matched, None, matched
     matches = headline_matches(entry, identities)
-    if len(matches) == 1:
-        return matches[0], None, matches
-    if len(matches) > 1:
-        return None, "ambiguous_player_name", matches
-    return None, "no_full_name_match", []
+    if matches:
+        return matches, None, matches
+    return [], "no_full_name_match", []
 
 
 def source_reliability(entry: dict[str, Any]) -> str:
     text = " ".join(str(entry.get(key) or "") for key in ("source", "title", "summary", "description"))
     return "trusted" if TRUSTED_SOURCES.search(text) else "standard"
+
+
+def source_name(entry: dict[str, Any]) -> str:
+    raw = str(entry.get("source") or entry.get("feed") or "News").strip()
+    return FEED_LABELS.get(raw, raw)
 
 
 def clean_entry(entry: dict[str, Any], player: PlayerIdentity, tags: list[str]) -> dict[str, Any]:
@@ -356,7 +397,7 @@ def clean_entry(entry: dict[str, Any], player: PlayerIdentity, tags: list[str]) 
         "title": title,
         "summary": summary,
         "url": str(entry.get("url") or entry.get("link") or "").strip(),
-        "source": str(entry.get("source") or "News").strip(),
+        "source": source_name(entry),
         "published_at": parse_datetime(entry.get("published_at") or entry.get("published")),
         "tags": tags,
         "player": player.name,
@@ -365,7 +406,16 @@ def clean_entry(entry: dict[str, Any], player: PlayerIdentity, tags: list[str]) 
     }
 
 
-def load_adjustments(path: Path, by_name: dict[str, PlayerIdentity]) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
+def load_consumed(path: Path) -> dict[str, str]:
+    if not path.exists():
+        return {}
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        return {}
+    return {str(key): str(value) for key, value in payload.items() if key and value}
+
+
+def load_adjustments(path: Path, by_name: dict[str, PlayerIdentity], consumed: dict[str, str]) -> tuple[dict[str, list[dict[str, Any]]], list[dict[str, Any]]]:
     grouped: dict[str, list[dict[str, Any]]] = {}
     invalid: list[dict[str, Any]] = []
     for entry in load_entries(path):
@@ -391,7 +441,8 @@ def load_adjustments(path: Path, by_name: dict[str, PlayerIdentity]) -> tuple[di
             "beneficiary_review": str(entry.get("beneficiary_review") or ""),
             "source": str(entry.get("source") or ""),
             "note": str(entry.get("note") or ""),
-            "consumed": bool(entry.get("consumed", False)),
+            "consumed": bool(entry.get("consumed", False)) or str(entry["id"]) in consumed,
+            "consumed_at": consumed.get(str(entry["id"])),
         }
         grouped.setdefault(str(player.player_key), []).append(normalized)
     for entries in grouped.values():
@@ -403,6 +454,9 @@ def load_checked(path: Path) -> list[dict[str, Any]]:
     checked = []
     for entry in load_entries(path):
         disposition = str(entry.get("disposition") or "").strip()
+        if disposition == "no-action":
+            entry = {**entry, "disposition": "not-material", "original_disposition": disposition}
+            disposition = "not-material"
         if disposition in CHECKED_DISPOSITIONS:
             checked.append(entry)
     return checked
@@ -419,6 +473,7 @@ def main() -> int:
     parser.add_argument("--raw-store", type=Path, default=DEFAULT_RAW_STORE, help="Persistent raw article store keyed by URL.")
     parser.add_argument("--adjustments", type=Path, default=DEFAULT_ADJUSTMENTS, help="Curated adjustment JSON/JSONL file.")
     parser.add_argument("--checked-log", type=Path, default=DEFAULT_CHECKED, help="Checked-but-not-adjusted JSON/JSONL log.")
+    parser.add_argument("--consumed-log", type=Path, default=DEFAULT_CONSUMED, help="Consumed adjustment id map.")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--unmatched-output", type=Path, default=DEFAULT_UNMATCHED)
     parser.add_argument("--review-output", type=Path, default=DEFAULT_REVIEW)
@@ -452,13 +507,13 @@ def main() -> int:
         if not is_value_news(entry, tags):
             continue
         value_count += 1
-        player, reason, candidates = matched_player(entry, identities, by_name)
-        if player is None:
+        players, reason, candidates = entry_players(entry, identities, by_name)
+        if not players:
             unmatched.append(
                 {
                     "title": str(entry.get("title") or entry.get("headline") or "").strip(),
                     "url": str(entry.get("url") or entry.get("link") or "").strip(),
-                    "source": str(entry.get("source") or "News").strip(),
+                    "source": source_name(entry),
                     "published_at": parse_datetime(entry.get("published_at") or entry.get("published")),
                     "tags": tags,
                     "reason": reason,
@@ -466,44 +521,46 @@ def main() -> int:
                 }
             )
             continue
-        cleaned = clean_entry(entry, player, tags)
-        grouped.setdefault(str(player.player_key), []).append(cleaned)
-        matched_count += 1
-        if ACTIONABLE_TOPICS.intersection(tags):
-            review_queue.append(
-                {
-                    "player": player.name,
-                    "player_key": player.player_key,
-                    "team": player.team,
-                    "pos": player.pos,
-                    "topics": tags,
-                    "source_reliability": cleaned["source_reliability"],
-                    "headline": cleaned["title"],
-                    "url": cleaned["url"],
-                    "published_at": cleaned["published_at"],
-                    "adjustment_schema_hint": {
-                        "id": "player-event-date",
-                        "date": "YYYY-MM-DD",
+        for player in players:
+            cleaned = clean_entry(entry, player, tags)
+            grouped.setdefault(str(player.player_key), []).append(cleaned)
+            matched_count += 1
+            if ACTIONABLE_TOPICS.intersection(tags):
+                review_queue.append(
+                    {
                         "player": player.name,
+                        "player_key": player.player_key,
                         "team": player.team,
-                        "kind": "injury or suspension",
-                        "injury": None,
-                        "status": None,
-                        "weeks_out": None,
-                        "weeks_out_range": [None, None],
-                        "skip_form": False,
-                        "beneficiaries": [],
-                        "beneficiary_review": "",
-                        "source": "reporter/outlet, YYYY-MM-DD",
-                        "note": "",
-                    },
-                }
-            )
+                        "pos": player.pos,
+                        "topics": tags,
+                        "source_reliability": cleaned["source_reliability"],
+                        "headline": cleaned["title"],
+                        "url": cleaned["url"],
+                        "published_at": cleaned["published_at"],
+                        "adjustment_schema_hint": {
+                            "id": "player-event-date",
+                            "date": "YYYY-MM-DD",
+                            "player": player.name,
+                            "team": player.team,
+                            "kind": "injury or suspension",
+                            "injury": None,
+                            "status": None,
+                            "weeks_out": None,
+                            "weeks_out_range": [None, None],
+                            "skip_form": False,
+                            "beneficiaries": [],
+                            "beneficiary_review": "",
+                            "source": "reporter/outlet, YYYY-MM-DD",
+                            "note": "",
+                        },
+                    }
+                )
 
     for entries_for_player in grouped.values():
         entries_for_player.sort(key=lambda item: str(item.get("published_at") or ""), reverse=True)
 
-    adjustments, invalid_adjustments = load_adjustments(args.adjustments, by_name)
+    consumed = load_consumed(args.consumed_log)
+    adjustments, invalid_adjustments = load_adjustments(args.adjustments, by_name, consumed)
     checked = load_checked(args.checked_log)
 
     payload = {

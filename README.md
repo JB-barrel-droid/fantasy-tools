@@ -72,6 +72,8 @@ python3 pipelines/ingest_player_news.py --fetch-rss --fetch-google-news --watchl
 
 Curated news adjustments are read from `data/raw/player-news-adjustments.json` and the checked-but-not-adjusted log is read from `data/raw/news-checked.json`. Ambiguous full-name matches are written to `output/player-news-unmatched.json`; injury and suspension items that need a reviewer are written to `output/player-news-review-queue.json`.
 
+Muse player-news bundles can be unpacked under `data/raw/muse-player-news/`; copy `poll_log.jsonl`, `news_adjustments.json`, `news_checked.json`, and `news_consumed.json` to the default raw filenames above before running the ingester.
+
 Sync the finished fixtures into the static dashboard and deployable `dist/` output:
 
 ```bash
