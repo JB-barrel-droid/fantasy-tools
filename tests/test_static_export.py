@@ -146,6 +146,14 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]', text)
         self.assertIn("espn_vorp", text)
         self.assertIn("valueModeSeg", html)
+        self.assertIn('let position = "ALL"', text)
+        self.assertIn('let lockOrder = "espn"', text)
+
+    def test_all_position_order_and_y_axis_use_visible_window(self):
+        text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
+        self.assertIn('position === "ALL" && lockOrder === "preseason"', text)
+        self.assertIn("one mixed overall curve", text)
+        self.assertIn("slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))", text)
 
     def test_top_indexed_values_preserve_high_overall_scale(self):
         gibbs_values = []

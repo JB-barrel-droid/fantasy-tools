@@ -22,6 +22,8 @@ Last updated: 2026-09-19.
 - The curve widget now defaults to All positions with bottom-up ESPN indexed values plus the three adjusted source projects active; direct published third-party charts are available but off by default.
 - The curve widget has a separate Pure VORP basis, currently ESPN-only, computed as ESPN PPG above a positional waiver baseline.
 - Mobile tooltip positioning now clamps against the browser visual viewport so touch/hold popups stay on screen.
+- All positions now defaults to one mixed overall value curve order, locked to ESPN value, instead of positional preseason chunks.
+- The chart Y-axis now rescales to the currently visible zoom window as the X-axis slider changes.
 - Initial discovery docs exist:
   - `docs/architecture-current.md`
   - `docs/migration-plan.md`
@@ -58,13 +60,14 @@ Last updated: 2026-09-19.
 
 ## Tests Passed/Failed
 
-- Passed: `python3 -m unittest discover -s tests` (`13` tests).
+- Passed: `python3 -m unittest discover -s tests` (`14` tests).
 - Passed: HTTP checks for `/` and `/assets/comparison-sources-data.json` return `200`.
 - Passed: Playwright MCP desktop render snapshot.
 - Passed: Playwright MCP position-filter click smoke test (`QB` to `RB`).
 - Passed: Playwright MCP fixed-pie/zero-boundary snapshot confirms the default QB view renders `Bench → Waiver after rank 33`.
 - Passed: Playwright MCP local render check confirms the default chart starts on All positions, grouped source toggles render, and only ESPN plus adjusted curves are active by default.
 - Passed: Playwright MCP local render check confirms Pure VORP mode renders `ESPN pure VORP`.
+- Passed: Playwright MCP local render check confirms the fresh-script preview starts `All positions · fixed-pie indexed values · locked to ESPN value`.
 - Not completed: mobile viewport screenshot. Browser resize/select tools are approval-gated in this session.
 - Not completed: Playwright CLI/browser direct launch. Local npm/browser cache and headless launch paths failed, but Playwright MCP worked for page verification.
 - Expected: unauthenticated HTTP/browser checks against the private Sites URL return `401 Sign in required`.

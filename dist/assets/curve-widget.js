@@ -78,7 +78,7 @@
   let scoring = "ppr";
   let teams = 12;
   let valueMode = "indexed";
-  let lockOrder = "preseason";
+  let lockOrder = "espn";
   let activeSources = new Set([...DEFAULT_INDEXED_SOURCES, ...PURE_VORP_KEYS]);
   let hideZeroTail = false;
   let zoomLow = 1;
@@ -98,6 +98,7 @@
   const visibleSourceKeys = () => valueMode === "pure_vorp" ? PURE_VORP_KEYS : SOURCE_KEYS;
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
+  const defaultValueLock = () => valueMode === "pure_vorp" ? "espn_vorp" : "espn";
 
   function comboKey(key) {
     const compact = scoring === "ppr" ? "full" : scoring === "half_ppr" ? "half" : "standard";
@@ -130,7 +131,7 @@
   }
 
   function preseasonComparator(a, b) {
-    if (["ALL", "FLEX"].includes(position)) {
+    if (position === "FLEX") {
       const posDifference = POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos);
       if (posDifference) return posDifference;
     }
@@ -147,6 +148,12 @@
   }
 
   function orderComparator(a, b) {
+    if (lockOrder === "preseason" && position === "ALL") {
+      const aBest = Math.max(...activeSourceKeys().map(key => a.values[key]).filter(Number.isFinite), -Infinity);
+      const bBest = Math.max(...activeSourceKeys().map(key => b.values[key]).filter(Number.isFinite), -Infinity);
+      if (aBest !== bBest) return bBest - aBest;
+      return preseasonComparator(a, b);
+    }
     if (lockOrder === "preseason") return preseasonComparator(a, b);
     const aValue = lockOrder === "disagreement" ? disagreement(a) : a.values[lockOrder];
     const bValue = lockOrder === "disagreement" ? disagreement(b) : b.values[lockOrder];
@@ -290,7 +297,7 @@
       button.addEventListener("click", () => {
         if (valueMode === key) return;
         valueMode = key;
-        if (!visibleSourceKeys().includes(lockOrder)) lockOrder = "preseason";
+        if (!visibleSourceKeys().includes(lockOrder) || (position === "ALL" && lockOrder === "preseason")) lockOrder = defaultValueLock();
         crossRank = null;
         rebuildDomain();
         makeValueModeControl();
@@ -365,11 +372,13 @@
     if (select) select.value = lockOrder;
     const note = $("#curveLockNote");
     if (!note) return;
-    note.textContent = SOURCE_KEYS.includes(lockOrder)
+    note.textContent = [...SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
       ? `Every curve follows ${sourceLabel(lockOrder)}’s player order; players missing from that source sort last.`
       : lockOrder === "disagreement"
         ? "Players with the widest available cross-source spread appear first."
-        : "Preseason ranks are positional, so All and Flex group players by position before rank.";
+        : position === "ALL"
+          ? "All positions use one mixed overall curve, sorted by the best visible value when preseason is selected."
+          : "Preseason ranks are positional, so Flex groups players by position before rank.";
   }
 
   function publishShared() {
@@ -381,9 +390,11 @@
   function setPosition(value, publish = true) {
     if (!POSITIONS.includes(value) || value === position) return;
     position = value;
+    if (position === "ALL" && lockOrder === "preseason") lockOrder = defaultValueLock();
     crossRank = null;
     rebuildDomain();
     syncTabs();
+    makeLockControl();
     resetZoom();
     draw();
     if (publish) publishShared();
@@ -560,7 +571,10 @@
   }
 
   function yAxisScale(rows) {
-    const values = rows.flatMap(row => activeSourceKeys().map(key => row.values[key])).filter(Number.isFinite);
+    const values = rows
+      .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
+      .flatMap(row => activeSourceKeys().map(key => row.values[key]))
+      .filter(Number.isFinite);
     const dataMax = values.length ? Math.max(...values) : 0;
     if (dataMax <= 0) return {max: 10, step: 1};
     const roughStep = dataMax / 9;

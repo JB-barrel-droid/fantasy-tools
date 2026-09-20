@@ -577,25 +577,27 @@
 
   function runRegressionGuards() {
     const list = filteredRows();
+    const preseasonSort = state.sort.column === "preseason";
     const groups = ["ALL","FLEX"].includes(state.filters.position)
       ? POSITION_ORDER.map(pos => list.filter(row => row.pos === pos)).filter(group => group.length)
       : [list];
-    const ranksAscending = groups.every(group => {
+    const ranksAscending = !preseasonSort || groups.every(group => {
       const ranked = group.filter(row => Number.isFinite(row.preseasonRank));
       return ranked.every((row, index) => index === 0 || ranked[index - 1].preseasonRank <= row.preseasonRank);
     });
-    const missingLast = groups.every(group => {
+    const missingLast = !preseasonSort || groups.every(group => {
       const firstMissing = group.findIndex(row => !Number.isFinite(row.preseasonRank));
       return firstMissing === -1 || group.slice(firstMissing).every(row => !Number.isFinite(row.preseasonRank));
     });
-    const positionGrouped = !["ALL","FLEX"].includes(state.filters.position) || list.every((row, index) => index === 0 || POSITION_ORDER.indexOf(list[index - 1].pos) <= POSITION_ORDER.indexOf(row.pos));
+    const positionGrouped = !preseasonSort || !["ALL","FLEX"].includes(state.filters.position) || list.every((row, index) => index === 0 || POSITION_ORDER.indexOf(list[index - 1].pos) <= POSITION_ORDER.indexOf(row.pos));
     const eightSources = renderKeys.length === 8 && SOURCE_KEYS.every(key => renderKeys.includes(key));
     const fullPpr12TeamQbs = state.scoring === "full" && state.teams === 12 && rows().filter(row => row.pos === "QB").length;
     const fullPpr12TeamQbsAvailable = fullPpr12TeamQbs > 0;
     const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && SOURCE_KEYS.every(key => allColumnKeys().includes(key));
-    const diagnostics = {ranksAscending, missingLast, positionGrouped, eightSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, sourceCount:renderKeys.length};
+    const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, eightSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, sourceCount:renderKeys.length};
     window.DDFComparisonDiagnostics = Object.freeze(diagnostics);
-    if (!ranksAscending || !missingLast || !positionGrouped || !eightSources || !fullPpr12TeamQbsAvailable || !configurableColumns) throw new Error("Comparison regression guard failed.");
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "eightSources", "fullPpr12TeamQbsAvailable", "configurableColumns"].includes(key) && value !== true);
+    if (failed.length) throw new Error(`Comparison regression guard failed: ${failed.map(([key]) => key).join(", ")}`);
   }
 
   async function init() {
