@@ -61,6 +61,7 @@
 #curve-widget .explainer summary{padding:12px 0 3px;color:var(--navy);font-weight:700;cursor:pointer}
 #curve-widget .explainer p{margin:8px 0;line-height:1.55}
 #curve-widget .explainer b{color:var(--ink)}
+#curve-widget .league-row{gap:6px 9px;margin:4px 0 8px}
 #curve-widget .lock-row{align-items:flex-end;gap:10px;margin:4px 0 12px;padding:11px 12px;border-top:3px solid var(--navy);background:#eef2f3}
 #curve-widget .lock-control{display:grid;grid-template-columns:auto minmax(210px,330px);align-items:center;gap:8px;min-width:0}
 #curve-widget .lock-control .lbl{margin:0;color:var(--navy)}
@@ -71,6 +72,16 @@
 #curve-widget .tail-toggle{min-height:34px;margin-right:4px;padding:0 9px;border:1px solid var(--line-strong);border-radius:5px;background:#f8faf8;font-family:"IBM Plex Mono",monospace;font-weight:600}
 #curve-widget .tail-toggle input{margin:0}
 #curve-widget #footnote{min-height:16px}
+#curve-widget .visible-players-panel{margin-top:11px;border-top:1px solid var(--line);font-size:11px}
+#curve-widget .visible-players-panel>summary{padding:10px 0 6px;color:var(--navy);font-weight:700;cursor:pointer}
+#curve-widget .visible-note,.visible-empty{margin:0 0 8px;color:var(--muted);line-height:1.45}
+#curve-widget .visible-table-wrap{max-height:300px;overflow:auto;border:1px solid var(--line)}
+#curve-widget .visible-table-wrap table{width:100%;min-width:520px;border-collapse:collapse;background:var(--white)}
+#curve-widget .visible-table-wrap th,#curve-widget .visible-table-wrap td{padding:7px 8px;border-bottom:1px solid var(--line);font-size:10px;text-align:right}
+#curve-widget .visible-table-wrap th{position:sticky;top:0;background:#eef1ed;color:var(--muted);font-family:"IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.04em}
+#curve-widget .visible-table-wrap th:nth-child(2),#curve-widget .visible-table-wrap td:nth-child(2){text-align:left}
+#curve-widget .visible-table-wrap td:first-child{font-family:"IBM Plex Mono",monospace;color:var(--muted)}
+#curve-widget .visible-table-wrap td span{display:block;margin-top:2px;color:var(--muted);font-size:9px}
 @media(max-width:700px){#curve-widget{margin-left:-4px;margin-right:-4px;padding:17px 14px 14px}#curve-widget h2{font-size:20px}#curve-widget #modelTabs{grid-template-columns:1fr}#curve-widget #modelTabs .tab{text-align:left}#curve-widget #chart{height:340px}#curve-widget .seg{max-width:100%;flex-wrap:wrap}#curve-widget #tauSeg button{flex:1 1 110px;border-bottom:1px solid var(--line)}#curve-widget .zslider{flex-basis:100%;max-width:none;order:2}#curve-widget .zlabel{order:3;width:100%}#curve-widget .src-group{flex:1 1 100%;margin-right:0}#curve-widget .source-toggles{grid-template-columns:1fr}#curve-widget .lock-row{align-items:stretch}#curve-widget .lock-control{grid-template-columns:1fr;width:100%}#curve-widget .lock-note{flex-basis:100%}}
 @media(prefers-reduced-motion:reduce){#curve-widget *{scroll-behavior:auto!important}}
 /* Interaction and mobile legibility */

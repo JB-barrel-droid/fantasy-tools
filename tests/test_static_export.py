@@ -143,9 +143,10 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("Bottom-up indexed", text)
         self.assertIn("Adjusted source projects", text)
         self.assertIn("Direct published charts", text)
+        self.assertIn("Pure VORP", text)
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]', text)
         self.assertIn("espn_vorp", text)
-        self.assertIn("valueModeSeg", html)
+        self.assertIn("visiblePlayersList", html)
         self.assertIn('let position = "ALL"', text)
         self.assertIn('let lockOrder = "espn"', text)
 

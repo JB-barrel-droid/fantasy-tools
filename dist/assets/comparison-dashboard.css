@@ -201,3 +201,23 @@
   #comparisonDashboard .table-wrap tr.row-main td:nth-child(even){border-right:1px solid var(--line)}
   #comparisonDashboard .name-sub{margin-left:0}
 }
+
+/* Final mobile table contract: keep the player grid as a real sortable table. */
+@media(max-width:620px){
+  #comparisonDashboard .scroll-cue{display:block}
+  #comparisonDashboard .table-wrap{max-width:100%;padding:0 10px 14px;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch}
+  #comparisonDashboard .table-wrap table,
+  #comparisonDashboard .table-wrap .all-table,
+  #comparisonDashboard .table-wrap .consensus-table,
+  #comparisonDashboard .table-wrap table:not(.all-table):not(.consensus-table){display:table;width:980px;min-width:980px;table-layout:fixed}
+  #comparisonDashboard .table-wrap thead{display:table-header-group}
+  #comparisonDashboard .table-wrap tbody{display:table-row-group}
+  #comparisonDashboard .table-wrap tr.row-main{display:table-row;border:0;background:transparent}
+  #comparisonDashboard .table-wrap tr.row-main td,
+  #comparisonDashboard .table-wrap tr.row-main td:first-child{display:table-cell;position:static;width:auto!important;min-width:0;padding:10px 9px;border:0;border-bottom:1px solid var(--line);background:var(--white);box-shadow:none;text-align:right;white-space:nowrap}
+  #comparisonDashboard .table-wrap tr.row-main td:first-child{position:sticky;left:0;z-index:2;width:210px!important;text-align:left;box-shadow:1px 0 0 var(--line)}
+  #comparisonDashboard .table-wrap tr.row-main td:not(:first-child)::before{content:none}
+  #comparisonDashboard .table-wrap tr.row-main td:nth-child(even){border-right:0}
+  #comparisonDashboard .table-wrap .expand-row.open{display:table-row}
+  #comparisonDashboard .table-wrap .expand-row td{white-space:normal}
+}

@@ -28,9 +28,9 @@
     fantasycalc: "Crowd-sourced values, as published and reindexed",
     fantasypros: "Analyst-consensus chart, as published and reindexed",
     cbs: "Editorial chart, as published and reindexed",
-    fantasycalc_adjusted: "Bias-corrected best estimate accounting for poor math by the other rankers",
-    usatoday_adjusted: "Bias-corrected best estimate accounting for poor math by the other rankers",
-    fantasypros_adjusted: "Bias-corrected best estimate accounting for poor math by the other rankers",
+    fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
+    usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
+    fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     espn: "ESPN projections translated to the common scale"
   };
   const state = {
@@ -327,14 +327,9 @@
   }
 
   function renderViewControls() {
-    segments($("#viewTabs"), [["all","Source series"],["source","DDF comparison — start of season only",true,"Only available at start of season"]], "all", () => {}, "two");
-    $("#sourcePickerWrap")?.classList.add("active");
-    const options = [
-      ["preseason","Preseason rank",false,"Position-grouped preseason rank; unranked players last within each position"],
-      ["disagreement","Largest disagreement",false,"Widest spread across all available source values first"],
-      ...SOURCE_KEYS.filter(key => renderKeys.includes(key)).map(key => [key, sourceLabel(key), false, TIPS[key]])
-    ];
-    segments($("#sourcePicker"), options, state.compareSource, value => setLockOrder(value), "lock-options");
+    segments($("#viewTabs"), [["all","Source series"],["source","Legacy projection comparison",true,"Only available at start of season"]], "all", () => {}, "two");
+    $("#sourcePickerWrap")?.classList.remove("active");
+    $("#sourcePicker")?.replaceChildren();
   }
 
   function renderFilters() {
@@ -432,7 +427,7 @@
   function renderTable() {
     const list = filteredRows();
     if ($("#boardTitle")) $("#boardTitle").textContent = "Eight-source trade value board";
-    if ($("#boardDescription")) $("#boardDescription").textContent = "A source comparison with five independent series and three bias-corrected best-estimate series. FC Adjusted, USAT Adjusted, and FP Adjusted account for poor math by the other rankers.";
+    if ($("#boardDescription")) $("#boardDescription").textContent = "A source comparison with five independent series and three adjusted best-estimate series. FC Adjusted, USAT Adjusted, and FP Adjusted shift the weighting to our view of value.";
     if ($("#consensusNote")) $("#consensusNote").textContent = "No median or blended composite is shown. Missing values show as —, never zero.";
     if ($("#resultCount")) $("#resultCount").textContent = `${list.length} player${list.length === 1 ? "" : "s"}`;
     if ($("#sortNote")) {

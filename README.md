@@ -44,6 +44,14 @@ Run the current dependency-free regression checks:
 python3 -m unittest discover -s tests
 ```
 
+Check reference freshness without mutating source artifacts:
+
+```bash
+python3 pipelines/check_reference_freshness.py --today YYYY-MM-DD
+```
+
+The report is written to ignored `output/reference-freshness.json` and records when a reference date is unchanged from the prior run.
+
 ## Git Note
 
 This workspace currently rejects creating `.git`. A persistent external Git directory is being used at `.gitstore/` until normal repository metadata can be created.
