@@ -308,15 +308,19 @@ def fetch_feed(source: str, url: str) -> list[dict[str, Any]]:
     return parse_rss(fetch_url(url), source, url)
 
 
+def stamp_fetched(entries: list[dict[str, Any]], fetched_at: str) -> list[dict[str, Any]]:
+    return [{**entry, "fetched_at": entry.get("fetched_at") or fetched_at} for entry in entries]
+
+
 def fetch_rss_entries(include_google: bool, watchlist: list[PlayerIdentity], delay: float) -> list[dict[str, Any]]:
     fetched: list[dict[str, Any]] = []
     for source, url in RSS_FEEDS:
-        fetched.extend(fetch_feed(source, url))
+        fetched.extend(stamp_fetched(fetch_feed(source, url), utc_now()))
         time.sleep(delay)
     if include_google:
         for player in watchlist:
             query = urllib.parse.quote_plus(f"{player.name} NFL")
-            fetched.extend(fetch_feed(f"Google News: {player.name}", GOOGLE_NEWS_URL.format(query=query)))
+            fetched.extend(stamp_fetched(fetch_feed(f"Google News: {player.name}", GOOGLE_NEWS_URL.format(query=query)), utc_now()))
             time.sleep(delay)
     return fetched
 
@@ -343,12 +347,26 @@ def load_watchlist(path: Path | None, identities: list[PlayerIdentity], by_name:
 
 
 def topic_tags(entry: dict[str, Any]) -> list[str]:
-    raw_tags = [str(value or "").lower() for value in (entry.get("tags") or []) if value]
+    raw_tags = [
+        str(value or "").lower()
+        for field in ("tags", "topics")
+        for value in (entry.get(field) or [])
+        if value
+    ]
     raw_tags.extend(str(entry.get(key) or "").lower() for key in ("category", "topic", "kind"))
     text = " ".join(str(entry.get(key) or "") for key in ("title", "headline", "summary", "description", "note"))
     tags = {tag for tag in raw_tags if tag in VALUE_TAGS}
     tags.update(topic for topic, rule in TOPIC_RULES.items() if rule.search(text))
     return sorted(tags)
+
+
+def actionable_topic_tags(entry: dict[str, Any], tags: list[str]) -> set[str]:
+    text = " ".join(str(entry.get(key) or "") for key in ("title", "headline", "summary", "description", "note"))
+    return {
+        topic
+        for topic in tags
+        if topic in ACTIONABLE_TOPICS and TOPIC_RULES[topic].search(text)
+    }
 
 
 def is_value_news(entry: dict[str, Any], tags: list[str]) -> bool:
@@ -564,9 +582,38 @@ def prune_review_queue(
     return kept, counts
 
 
-def assert_injury_data_fresh(args: argparse.Namespace) -> None:
+def latest_source_refresh(entries: list[dict[str, Any]]) -> str | None:
+    latest: datetime | None = None
+    for entry in entries:
+        updated = parse_datetime_object(entry.get("fetched_at") or entry.get("updated_at") or entry.get("generated_at"))
+        if updated is not None and (latest is None or updated > latest):
+            latest = updated
+    return latest.isoformat(timespec="seconds").replace("+00:00", "Z") if latest else None
+
+
+def latest_actionable_news(entries: list[dict[str, Any]]) -> str | None:
+    latest: datetime | None = None
+    for entry in entries:
+        tags = topic_tags(entry)
+        if not actionable_topic_tags(entry, tags):
+            continue
+        updated = parse_datetime_object(entry.get("published_at") or entry.get("published"))
+        if updated is not None and (latest is None or updated > latest):
+            latest = updated
+    return latest.isoformat(timespec="seconds").replace("+00:00", "Z") if latest else None
+
+
+def injury_freshness_value(args: argparse.Namespace, entries: list[dict[str, Any]] | None = None) -> str | None:
+    raw_freshness = args.injury_data_updated_at
+    if args.injury_freshness_file and args.injury_freshness_file.exists():
+        payload = json.loads(args.injury_freshness_file.read_text(encoding="utf-8"))
+        raw_freshness = payload.get("updated_at") or payload.get("generated_at") or payload.get("as_of") or raw_freshness
+    return raw_freshness or latest_source_refresh(entries or [])
+
+
+def assert_injury_data_fresh(args: argparse.Namespace, entries: list[dict[str, Any]] | None = None) -> str | None:
     if not args.require_fresh_injury_data:
-        return
+        return injury_freshness_value(args, entries)
     zone = ZoneInfo(args.timezone)
     now = datetime.fromisoformat(args.today.replace("Z", "+00:00")) if args.today else datetime.now(zone)
     if now.tzinfo is None:
@@ -574,11 +621,8 @@ def assert_injury_data_fresh(args: argparse.Namespace) -> None:
     now = now.astimezone(zone)
     friday_evening = now.weekday() > 4 or (now.weekday() == 4 and now.time() >= day_time(18, 0))
     if not friday_evening:
-        return
-    raw_freshness = args.injury_data_updated_at
-    if args.injury_freshness_file and args.injury_freshness_file.exists():
-        payload = json.loads(args.injury_freshness_file.read_text(encoding="utf-8"))
-        raw_freshness = payload.get("updated_at") or payload.get("generated_at") or payload.get("as_of") or raw_freshness
+        return injury_freshness_value(args, entries)
+    raw_freshness = injury_freshness_value(args, entries)
     updated = parse_datetime_object(raw_freshness)
     if updated is None:
         raise SystemExit("Refusing to build after Friday evening: injury data freshness is unknown.")
@@ -588,6 +632,7 @@ def assert_injury_data_fresh(args: argparse.Namespace) -> None:
             f"Refusing to build after Friday evening: injury data is stale "
             f"({updated_local.isoformat(timespec='minutes')})."
         )
+    return updated.isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
 def write_json(path: Path, payload: Any) -> None:
@@ -618,7 +663,6 @@ def main() -> int:
     args = parser.parse_args()
 
     identities, by_name, player_snapshot = load_players()
-    assert_injury_data_fresh(args)
     entries = dedupe_entries(load_entries(args.raw_store) + load_entries(args.input))
 
     fetched_count = 0
@@ -631,6 +675,9 @@ def main() -> int:
         fetched_count = len(fetched)
         entries = dedupe_entries(entries + fetched)
         write_json(args.raw_store, {"items": entries, "meta": {"updated_at": utc_now(), "schema": "raw-player-news-v1"}})
+    injury_data_updated_at = assert_injury_data_fresh(args, entries)
+    source_refresh_at = latest_source_refresh(entries)
+    actionable_news_at = latest_actionable_news(entries)
 
     grouped: dict[str, list[dict[str, Any]]] = {}
     unmatched: list[dict[str, Any]] = []
@@ -663,7 +710,7 @@ def main() -> int:
             cleaned = clean_entry(entry, player, tags)
             grouped.setdefault(str(player.player_key), []).append(cleaned)
             matched_count += 1
-            if ACTIONABLE_TOPICS.intersection(tags):
+            if actionable_topic_tags(entry, tags):
                 review_candidates.append(
                     {
                         "player": player.name,
@@ -716,6 +763,9 @@ def main() -> int:
             "google_news_watchlist_path": str(watchlist_path) if args.fetch_google_news and watchlist_path else None,
             "google_news_watchlist_count": watchlist_count,
             "fetched_count": fetched_count,
+            "source_refresh_at": source_refresh_at,
+            "latest_actionable_news_at": actionable_news_at,
+            "injury_data_updated_at": injury_data_updated_at,
             "raw_item_count": len(entries),
             "value_item_count": value_count,
             "matched_item_count": matched_count,

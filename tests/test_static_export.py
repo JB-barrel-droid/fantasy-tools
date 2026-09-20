@@ -219,12 +219,15 @@ class StaticExportTest(unittest.TestCase):
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
         self.assertIsNotNone(self.news["meta"]["generated_at"])
-        self.assertGreater(self.news["meta"]["matched_item_count"], 400)
+        self.assertEqual(544, self.news["meta"]["matched_item_count"])
         self.assertEqual(16, self.news["meta"]["adjustment_count"])
         self.assertEqual(4, self.news["meta"]["checked_but_not_adjusted_count"])
         self.assertEqual(138, self.news["meta"]["review_queue_count"])
         self.assertEqual(147, self.news["meta"]["suppressed_review_count"])
         self.assertEqual({"already_reviewed": 89, "duplicate": 30, "low_signal": 28}, self.news["meta"]["review_suppression_counts"])
+        self.assertIn("source_refresh_at", self.news["meta"])
+        self.assertIn("latest_actionable_news_at", self.news["meta"])
+        self.assertIn("injury_data_updated_at", self.news["meta"])
         self.assertGreaterEqual(len(self.news["news_by_player_key"]), 100)
         self.assertEqual(16, len(self.news["adjustments_by_player_key"]))
         self.assertEqual(4, len(self.news["checked_but_not_adjusted"]))
@@ -246,6 +249,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIsNone(reason)
         self.assertEqual(468, player.player_key)
         self.assertIn("injury", tags)
+        self.assertIn("injury", ingest_player_news.topic_tags({"title": "Beat update on Josh Allen", "topics": ["injury"]}))
+        self.assertEqual(set(), ingest_player_news.actionable_topic_tags({"title": "Beat update on Josh Allen", "topics": ["injury"]}, ["injury"]))
         self.assertEqual([468], [candidate.player_key for candidate in candidates])
 
         vague_entry = {"title": "Packers love the new-look passing game", "source": "Example"}
@@ -288,6 +293,20 @@ class StaticExportTest(unittest.TestCase):
             injury_freshness_file=None,
         )
         ingest_player_news.assert_injury_data_fresh(passing)
+        derived = Namespace(
+            require_fresh_injury_data=True,
+            today="2026-09-20T12:00:00-05:00",
+            timezone="America/Chicago",
+            injury_data_updated_at=None,
+            injury_freshness_file=None,
+        )
+        self.assertEqual(
+            "2026-09-18T23:30:00Z",
+            ingest_player_news.assert_injury_data_fresh(
+                derived,
+                [{"fetched_at": "2026-09-18T18:30:00-05:00", "title": "Fresh injury sweep"}],
+            ),
+        )
 
         failing = Namespace(
             require_fresh_injury_data=True,

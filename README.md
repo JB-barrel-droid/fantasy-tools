@@ -84,6 +84,12 @@ For late-week builds, fail closed unless supplemental injury data is fresh as of
 python3 pipelines/ingest_player_news.py --require-fresh-injury-data --injury-data-updated-at 2026-09-18T18:30:00-05:00
 ```
 
+When the raw player-news store contains `fetched_at` timestamps, the ingester can derive that freshness proof automatically:
+
+```bash
+python3 pipelines/ingest_player_news.py --require-fresh-injury-data
+```
+
 Sync the finished fixtures into the static dashboard and deployable `dist/` output:
 
 ```bash
