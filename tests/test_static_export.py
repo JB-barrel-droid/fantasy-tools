@@ -208,6 +208,14 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("renderExpandedRow", text)
         self.assertIn("TradeValuePlayerNews", text)
 
+    def test_data_health_surfaces_player_news_pipeline(self):
+        html = (APP / "index.html").read_text(encoding="utf-8")
+        self.assertIn('fetch("assets/player-news.json")', html)
+        self.assertIn("Player news pipeline", html)
+        self.assertIn("review_queue_count", html)
+        self.assertIn("review_suppression_counts", html)
+        self.assertIn("news matches", html)
+
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
         self.assertIsNotNone(self.news["meta"]["generated_at"])

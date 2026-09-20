@@ -1406,10 +1406,12 @@
     .dataset-card { min-width: 0; padding: 12px 13px; border-top: 4px solid var(--green); background: #fafbf9; }
     .dataset-card.status-stale { border-color: #b63a2f; background: #fff7f5; }
     .dataset-card.status-pending, .dataset-card.status-caution { border-color: #b17b2a; background: #fffaf0; }
+    .dataset-card.status-news { border-color: var(--navy); background: #f5f8fa; }
     .dataset-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
     .dataset-card h3 { margin: 0; font-size: 14px; line-height: 1.25; }
     .dataset-badge { flex: 0 0 auto; padding: 3px 6px; background: var(--green-soft); color: var(--green); font: 700 8px/1.2 "IBM Plex Mono", monospace; text-transform: uppercase; }
     .status-stale .dataset-badge { background: #fee4df; color: #8c2418; }
+    .status-news .dataset-badge { background: #dae8ef; color: var(--navy); }
     .dataset-card.status-historical { border-color: var(--line-strong); background: #eef1ed; color: var(--muted); opacity: .78; }
     .status-historical .dataset-badge { background: #dde3e4; color: #465662; }
     .status-pending .dataset-badge, .status-caution .dataset-badge { background: #fff0cf; color: #704b12; }
@@ -1673,15 +1675,21 @@
       const startCollapsed=embedded.meta?.dataset_status?.ui_hint?.start_collapsed;
       health.open=startCollapsed===false;
       try{
-        const response=await fetch("assets/comparison-sources-data.json");
+        const [response,newsResponse]=await Promise.all([
+          fetch("assets/comparison-sources-data.json"),
+          fetch("assets/player-news.json").catch(()=>null)
+        ]);
         if(!response.ok)throw new Error(`Source snapshot request failed (${response.status})`);
         const data=await response.json();
+        const news=newsResponse?.ok?await newsResponse.json():null;
+        const newsMeta=news?.meta||{};
         const universe=(embedded.players||[]).length;
         const live=order.filter(key=>key==="cbs_adjusted"?data.source_validation?.cbs==="live":data.source_validation?.[key]==="live");
         if(live.length!==order.length)throw new Error("One or more required sources did not pass validation.");
-        document.getElementById("dataHealthTitle").textContent="Current source artifacts and derived adjusted curves";
-        document.getElementById("dataHealthCounts").innerHTML='<span class="health-count">9 shown</span>';
-        document.getElementById("dataHealthIntro").textContent="Coverage is measured against the 596-player canonical snapshot. Content and fit dates identify the data actually shown.";
+        const reviewCount=Number(newsMeta.review_queue_count||0);
+        document.getElementById("dataHealthTitle").textContent="Current source artifacts, adjusted curves, and player news monitor";
+        document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${news?`<span class="health-count">${Number(newsMeta.matched_item_count||0)} news matches</span><span class="health-count ${reviewCount?"pending":""}">${reviewCount} review</span>`:""}`;
+        document.getElementById("dataHealthIntro").textContent="Coverage is measured against the 596-player canonical snapshot. Content, fit, and news dates identify the data actually powering the dashboard.";
         const cards=live.map(key=>{
           const source=data.sources[key]||data.sources.cbs||{};
           const combo=source.combos?.[comboKey(key)]||{};
@@ -1692,6 +1700,12 @@
           const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : "As published · reindexed";
           return `<article class="dataset-card status-live"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">Live</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div></dl></article>`;
         });
+        if(news){
+          const adjustments=Object.values(news.adjustments_by_player_key||{}).flat();
+          const pendingAdjustments=adjustments.filter(entry=>entry&&entry.consumed===false).length;
+          const suppressionCounts=newsMeta.review_suppression_counts||{};
+          cards.push(`<article class="dataset-card status-news"><div class="dataset-card-head"><h3>Player news pipeline</h3><span class="dataset-badge">Monitor</span></div><p class="dataset-role">${esc(newsMeta.note||"Play/value related news only; personal items are filtered out.")}</p><dl class="dataset-facts"><div><dt>Matched news</dt><dd>${Number(newsMeta.matched_item_count||0)}/${Number(newsMeta.value_item_count||0)} value items</dd></div><div><dt>Generated</dt><dd>${esc(monthDay(newsMeta.generated_at))}</dd></div><div><dt>Adjustments</dt><dd>${Number(newsMeta.adjustment_count||0)} total · ${pendingAdjustments} pending</dd></div><div><dt>Review queue</dt><dd>${reviewCount} open · ${Number(newsMeta.suppressed_review_count||0)} suppressed</dd></div><div><dt>Suppression detail</dt><dd>${Number(suppressionCounts.already_reviewed||0)} reviewed · ${Number(suppressionCounts.duplicate||0)} dupes · ${Number(suppressionCounts.low_signal||0)} low signal</dd></div><div><dt>Model timestamp</dt><dd>${esc(monthDay(newsMeta.trade_values_published_at))}</dd></div></dl></article>`);
+        }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
         document.getElementById("asOfDate").textContent=monthDay(data.built_at);
         document.getElementById("expertVintageLabel").textContent="Source snapshot";
