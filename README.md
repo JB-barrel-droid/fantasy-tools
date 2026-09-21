@@ -27,7 +27,7 @@ The exact source layout may be adjusted after the Muse ZIP is inspected. Existin
 Serve the static dashboard locally:
 
 ```bash
-python3 -m http.server 8000 --directory app/trade-value-chart
+make serve
 ```
 
 Then open:
@@ -38,10 +38,19 @@ http://localhost:8000
 
 ## Tests
 
+Run the normal validation path:
+
+```bash
+make validate
+```
+
+That validates the finished reference artifacts, syncs them into the static
+dashboard output, and runs the regression tests.
+
 Run the current dependency-free regression checks:
 
 ```bash
-python3 -m unittest discover -s tests
+make test
 ```
 
 Check reference freshness without mutating source artifacts:
@@ -93,8 +102,25 @@ python3 pipelines/ingest_player_news.py --require-fresh-injury-data
 Sync the finished fixtures into the static dashboard and deployable `dist/` output:
 
 ```bash
-python3 pipelines/sync_dashboard_artifacts.py
+make sync
 ```
+
+## Modular Pipeline
+
+The project should move in four stages:
+
+```text
+source data -> reference compute -> dashboard build -> frontend/site
+```
+
+- `source data`: collect raw snapshots from feeds, public pages, APIs, or Muse.
+- `reference compute`: turn raw/source snapshots into stable fixtures under
+  `data/fixtures/current/`.
+- `dashboard build`: copy finished fixtures into `app/trade-value-chart/` and
+  `dist/`.
+- `frontend/site`: display the finished artifacts and handle user interaction.
+
+See `docs/modular-pipeline.md` for the working boundary rules.
 
 ## Git Note
 

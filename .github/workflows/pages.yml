@@ -25,8 +25,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: python3 -m unittest discover -s tests
-      - run: python3 pipelines/sync_dashboard_artifacts.py
+      - run: make validate
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

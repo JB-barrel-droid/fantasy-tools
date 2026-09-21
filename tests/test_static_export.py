@@ -1,5 +1,6 @@
 import json
 import re
+import subprocess
 import unittest
 from argparse import Namespace
 from pathlib import Path
@@ -33,6 +34,32 @@ class StaticExportTest(unittest.TestCase):
         )
         self.assertIsNotNone(match, "index.html must contain players-data")
         self.assertEqual(json.loads(match.group(1)), self.players)
+
+    def test_reference_build_command_validates_finished_artifacts(self):
+        with TemporaryDirectory() as tmp:
+            output = Path(tmp) / "reference-build-report.json"
+            freshness = Path(tmp) / "reference-freshness.json"
+            subprocess.run(
+                [
+                    "python3",
+                    "pipelines/build_reference_data.py",
+                    "--output",
+                    str(output),
+                    "--freshness-output",
+                    str(freshness),
+                    "--today",
+                    "2026-09-20",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            report = load_json(output)
+            self.assertEqual("ok", report["status"])
+            self.assertEqual(596, report["players"]["player_count"])
+            self.assertEqual(8, report["comparison"]["source_count"])
+            self.assertIn("artifact_hashes", report)
 
     def test_expected_player_universe_and_identity(self):
         players = self.players["players"]
