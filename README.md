@@ -80,6 +80,12 @@ Match an imported source snapshot to canonical player keys:
 make source-match SNAPSHOT_FILE=data/raw/sources/fantasycalc/2026-09-21/fantasycalc-ppr-12-2026-09-21T120000z.json
 ```
 
+Build a source-reference artifact from matched rows:
+
+```bash
+make source-reference MATCH_FILE=output/source-matches/fantasycalc/2026-09-21/fantasycalc-ppr-12-matched.json
+```
+
 Pull the free league-wide RSS feeds into the raw article store, then rebuild the dashboard fixture and review queues:
 
 ```bash

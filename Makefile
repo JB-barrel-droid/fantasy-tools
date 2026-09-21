@@ -1,9 +1,10 @@
-.PHONY: help source-import source-match source-news reference sync test validate serve deploy-status
+.PHONY: help source-import source-match source-reference source-news reference sync test validate serve deploy-status
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
 SOURCE_FILE ?=
 SNAPSHOT_FILE ?=
+MATCH_FILE ?=
 SOURCE ?=
 SCORING ?= ppr
 TEAMS ?= 12
@@ -12,6 +13,7 @@ help:
 	@echo "Modular dashboard commands:"
 	@echo "  make source-import     Import SOURCE_FILE into standard raw source format"
 	@echo "  make source-match      Match SNAPSHOT_FILE rows to canonical player_key values"
+	@echo "  make source-reference  Build a source reference artifact from MATCH_FILE"
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make reference         Validate current reference artifacts"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
@@ -28,6 +30,10 @@ source-import:
 source-match:
 	@test -n "$(SNAPSHOT_FILE)" || (echo "Set SNAPSHOT_FILE=data/raw/sources/.../snapshot.json" && exit 1)
 	python3 pipelines/match_source_snapshot.py --input "$(SNAPSHOT_FILE)"
+
+source-reference:
+	@test -n "$(MATCH_FILE)" || (echo "Set MATCH_FILE=output/source-matches/.../matched.json" && exit 1)
+	python3 pipelines/build_source_reference.py --input "$(MATCH_FILE)"
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss

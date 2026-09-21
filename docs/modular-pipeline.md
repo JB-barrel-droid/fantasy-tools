@@ -45,6 +45,16 @@ The matcher writes a `trade-value-source-matches-v1` file under
 `output/source-matches/`. Unmatched or ambiguous names stay in `review_rows`.
 They are not guessed.
 
+Build a source-reference artifact from matched rows:
+
+```bash
+make source-reference MATCH_FILE=output/source-matches/fantasycalc/2026-09-21/fantasycalc-ppr-12-matched.json
+```
+
+The source-reference artifact has one row per canonical `player_key` and keeps
+source values separate from dashboard display math. Duplicate player-key rows
+with conflicting values are sent to review instead of being merged.
+
 Muse may stay responsible for difficult page scraping if it is free and stable,
 but its output should be treated as raw input to this repo.
 
