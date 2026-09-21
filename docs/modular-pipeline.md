@@ -25,6 +25,16 @@ Current repo-owned source job:
 make source-news
 ```
 
+Import a scraped trade-value page from Muse or another scraper:
+
+```bash
+make source-import SOURCE_FILE=/path/to/scrape.csv SOURCE=fantasycalc SCORING=ppr TEAMS=12
+```
+
+The importer writes a `trade-value-source-snapshot-v1` JSON file under
+`data/raw/sources/`. That snapshot is raw source input; it is not player-key
+matched and it is not safe to publish directly.
+
 Muse may stay responsible for difficult page scraping if it is free and stable,
 but its output should be treated as raw input to this repo.
 

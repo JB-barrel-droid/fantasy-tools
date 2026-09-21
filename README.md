@@ -67,6 +67,13 @@ Ingest play/value news when a raw JSON or JSONL feed is available:
 python3 pipelines/ingest_player_news.py --input data/raw/player-news.jsonl
 ```
 
+Import a scraped trade-value page from Muse or another scraper into the standard
+raw source format:
+
+```bash
+make source-import SOURCE_FILE=/path/to/scrape.csv SOURCE=fantasycalc SCORING=ppr TEAMS=12
+```
+
 Pull the free league-wide RSS feeds into the raw article store, then rebuild the dashboard fixture and review queues:
 
 ```bash
