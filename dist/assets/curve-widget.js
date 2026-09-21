@@ -52,7 +52,7 @@
   const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
   const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
-  const DEFAULT_ABSENCE_RATE = 0.15;
+  const DEFAULT_BENCH_SHARE = 0.15;
 
   const root = document.getElementById("curve-widget");
   if (!root) return;
@@ -85,7 +85,9 @@
   let scoring = "ppr";
   let teams = 12;
   let rosterShape = {...DEFAULT_ROSTER};
-  let absenceRate = DEFAULT_ABSENCE_RATE;
+  let benchShare = DEFAULT_BENCH_SHARE;
+  let espnRowsCache = null;
+  let espnRoleByKey = new Map();
   let yAxisAuto = true;
   let yLow = 0;
   let yHigh = 100;
@@ -274,94 +276,92 @@
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
-  function combinedProbability(paths) {
-    return 1 - paths.reduce((remaining, path) => remaining * (1 - Math.max(0, Math.min(1, Number(path) || 0))), 1);
+  function espnTargetPool(fallback) {
+    const total = POSITION_ORDER
+      .map(pos => espnTargetTotal(pos, 0))
+      .reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
+    return total > 0 ? total : fallback;
   }
 
-  function smoothPathUtilization(rank, starterDepth, rosterDepth) {
-    const starterCount = Math.max(0, Math.round(Number(starterDepth) || 0));
-    const rosterCount = Math.max(starterCount, Math.round(Number(rosterDepth) || 0));
-    const cappedStarter = 1 - absenceRate;
-    if (!Number.isFinite(rank) || rank <= 0 || rosterCount <= 0) return 0;
-    if (rank <= starterCount) return cappedStarter;
-    if (rank > rosterCount) return 0;
-    const benchDepth = Math.max(1, rosterCount - starterCount);
-    const benchIndex = Math.max(1, Math.min(benchDepth, rank - starterCount));
-    const shape = 1.35;
-    let denominator = 0;
-    for (let index = 1; index <= benchDepth; index += 1) denominator += ((benchDepth - index + 1) / benchDepth) ** shape;
-    const raw = ((benchDepth - benchIndex + 1) / benchDepth) ** shape;
-    const benchOpportunity = starterCount * absenceRate * raw / Math.max(denominator, 1);
-    return Math.max(0, Math.min(cappedStarter, benchOpportunity));
+  function compareEspnPlayers(a, b) {
+    return b.ppg - a.ppg || preseasonComparator(a.player, b.player);
   }
 
-  function espnStartWeight(rank, counts, pos, flexRank = null) {
-    const cappedStarter = 1 - absenceRate;
-    const starterDepth = Math.max(0, Number(counts.lineup[pos] || 0));
-    const rosterDepth = Math.max(starterDepth, Number(counts.rostered[pos] || 0));
-    if (rank <= starterDepth) return cappedStarter;
-    const paths = [smoothPathUtilization(rank, Number(counts.direct[pos] || 0), rosterDepth)];
-    if (flexEligiblePositions().includes(pos) && Number.isFinite(flexRank)) {
-      const flexSlots = teams * Number(rosterShape.FLEX || 0);
-      const eligible = flexEligiblePositions();
-      const directStarters = eligible.reduce((sum, key) => sum + Number(counts.direct[key] || 0), 0);
-      const eligibleRostered = eligible.reduce((sum, key) => sum + Number(counts.rostered[key] || 0), 0);
-      paths.push(smoothPathUtilization(flexRank, flexSlots, Math.max(flexSlots, eligibleRostered - directStarters)));
-    }
-    return Math.min(cappedStarter, combinedProbability(paths));
+  function espnPricedRows() {
+    const field = scoringField();
+    return [...canonicalByKey.values()]
+      .filter(player => POSITION_ORDER.includes(player.pos))
+      .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+      .filter(item => Number.isFinite(item.ppg))
+      .sort(compareEspnPlayers);
+  }
+
+  function buildEspnRows() {
+    if (espnRowsCache) return espnRowsCache;
+    const priced = espnPricedRows();
+    const assigned = new Map();
+    POSITION_ORDER.forEach(pos => {
+      priced
+        .filter(row => row.player.pos === pos)
+        .slice(0, teams * Number(rosterShape[pos] || 0))
+        .forEach(row => assigned.set(row.player.player_key, "starter"));
+    });
+    priced
+      .filter(row => flexEligiblePositions().includes(row.player.pos) && !assigned.has(row.player.player_key))
+      .slice(0, teams * Number(rosterShape.FLEX || 0))
+      .forEach(row => assigned.set(row.player.player_key, "starter"));
+    priced
+      .filter(row => !assigned.has(row.player.player_key))
+      .slice(0, teams * Number(rosterShape.BENCH || 0))
+      .forEach(row => assigned.set(row.player.player_key, "bench"));
+
+    const tiered = priced.map(row => ({
+      ...row,
+      role: assigned.get(row.player.player_key) || "waiver"
+    }));
+    const baselineByPos = new Map();
+    POSITION_ORDER.forEach(pos => {
+      const waiver = tiered
+        .filter(row => row.player.pos === pos && row.role === "waiver")
+        .sort(compareEspnPlayers)[0];
+      const fallback = tiered.filter(row => row.player.pos === pos).sort(compareEspnPlayers).at(-1);
+      baselineByPos.set(pos, Number(waiver?.ppg ?? fallback?.ppg ?? 0));
+    });
+    const withRaw = tiered.map(row => ({
+      ...row,
+      rawVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
+    }));
+    const starterRaw = withRaw.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
+    const benchRaw = withRaw.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
+    const rawTotal = starterRaw + benchRaw;
+    const targetTotal = espnTargetPool(rawTotal);
+    const starterShare = Math.max(0, Math.min(1, 1 - benchShare));
+    const normalizedBenchShare = Math.max(0, Math.min(1, benchShare));
+    const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
+    const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
+    const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
+    espnRowsCache = withRaw.map(row => ({
+      ...row,
+      pure: row.rawVorp * rawScale,
+      adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
+    }));
+    espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
+    return espnRowsCache;
   }
 
   function espnVorpRows(pos) {
-    const field = scoringField();
-    const counts = allocationCountsFor([...canonicalByKey.values()]);
-    const flexRanks = new Map(
-      [...canonicalByKey.values()]
-        .filter(player => flexEligiblePositions().includes(player.pos))
-        .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
-        .filter(item => Number.isFinite(item.ppg))
-        .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player))
-        .map((item, index) => [item.player.player_key, index + 1])
-    );
-    const priced = [...canonicalByKey.values()]
-      .filter(player => player.pos === pos)
-      .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
-      .filter(item => Number.isFinite(item.ppg))
-      .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player));
-    if (!priced.length) return [];
-    const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
-    const baseline = priced[baselineIndex].ppg;
-    return priced.map(({player, ppg}, index) => {
-      const rank = index + 1;
-      const pure = Math.max(0, ppg - baseline);
-      const startWeight = pure > 0 ? espnStartWeight(rank, counts, pos, flexRanks.get(player.player_key)) : 0;
-      return {player, ppg, rank, pure, startWeight, weighted:pure * startWeight};
-    });
-  }
-
-  function scaleEspnPureRows(rows, pos) {
-    const values = new Map();
-    const rawTotal = rows.reduce((sum, row) => sum + row.pure, 0);
-    const targetTotal = espnTargetTotal(pos, rawTotal);
-    const scale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
-    rows.forEach(row => values.set(row.player.player_key, row.pure * scale));
-    return values;
+    return buildEspnRows().filter(row => row.player.pos === pos);
   }
 
   function buildEspnVorpMap() {
     const values = new Map();
-    CHART_POSITIONS.forEach(pos => {
-      scaleEspnPureRows(espnVorpRows(pos), pos).forEach((value, playerKey) => values.set(playerKey, value));
-    });
+    buildEspnRows().forEach(row => values.set(row.player.player_key, row.pure));
     return values;
   }
 
   function buildEspnIndexedMap() {
     const values = new Map();
-    CHART_POSITIONS.forEach(pos => {
-      const rows = espnVorpRows(pos);
-      const scaledPure = scaleEspnPureRows(rows, pos);
-      rows.forEach(row => values.set(row.player.player_key, (scaledPure.get(row.player.player_key) || 0) * row.startWeight));
-    });
+    buildEspnRows().forEach(row => values.set(row.player.player_key, row.adjusted));
     return values;
   }
 
@@ -440,6 +440,8 @@
   }
 
   function rebuildDomain() {
+    espnRowsCache = null;
+    espnRoleByKey = new Map();
     sourceMaps = new Map();
     SOURCE_KEYS.forEach(key => sourceMaps.set(key, key === "espn" ? buildEspnIndexedMap() : applyRosterShape(buildSourceMap(key), key)));
     sourceMaps.set("cbs_adjusted", applyRosterShape(buildCbsAdjustedMap(), "cbs_adjusted"));
@@ -451,7 +453,7 @@
       const player = canonicalByKey.get(playerKey);
       if (!player) return null;
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null]));
-      return {...player, values};
+      return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values};
     }).filter(Boolean);
     orderedRows = universe.filter(row => (includeSpecialists || !SPECIALIST_POSITIONS.includes(row.pos)) && isPosition(row)).sort(orderComparator);
     syncPlayerOptions();
@@ -477,7 +479,7 @@
     const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
     const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(absenceRate * 100)}% absence · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
+    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(benchShare * 100)}% bench share · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
   }
 
   function makeTabs() {
@@ -562,15 +564,15 @@
     const absenceWrapper = document.createElement("label");
     absenceWrapper.className = "roster-step absence-step";
     const absenceText = document.createElement("span");
-    absenceText.textContent = "Absence %";
+    absenceText.textContent = "Bench %";
     const absenceInput = document.createElement("input");
     absenceInput.type = "number";
     absenceInput.min = "0";
     absenceInput.max = "50";
     absenceInput.step = "1";
-    absenceInput.value = String(Math.round(absenceRate * 100));
-    absenceInput.setAttribute("aria-label", "Uniform starter absence percentage");
-    absenceInput.addEventListener("change", () => setAbsenceRate(absenceInput.value));
+    absenceInput.value = String(Math.round(benchShare * 100));
+    absenceInput.setAttribute("aria-label", "Bench value share percentage");
+    absenceInput.addEventListener("change", () => setBenchShare(absenceInput.value));
     absenceWrapper.append(absenceText, absenceInput);
     grid.appendChild(absenceWrapper);
     const specialistToggle = $("#includeSpecialists");
@@ -601,7 +603,7 @@
           ? "K/DST use ESPN projection-derived values only."
           : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
         : "K/DST are waiting for projection-derived values in the artifact; preseason ranks are not used.";
-      specialistNote.textContent += ` ESPN adjusted multiplies raw VORP by lineup probability using a ${Math.round(absenceRate * 100)}% uniform starter absence rate.`;
+      specialistNote.textContent += ` ESPN adjusted labels every player as starter, bench, or waiver; starters receive ${Math.round((1 - benchShare) * 100)}% of ESPN trade-value points and bench receives ${Math.round(benchShare * 100)}%.`;
     }
   }
 
@@ -719,19 +721,20 @@
   }
 
   function publishShared() {
-    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, absenceRate};
+    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare};
     window.TradeValueSharedState = detail;
     window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
 
-  function setAbsenceRate(raw, publish = true) {
+  function setBenchShare(raw, publish = true) {
     const next = Math.max(0, Math.min(0.5, Number(raw) / 100));
-    if (!Number.isFinite(next) || Math.abs(next - absenceRate) < 0.0001) {
+    if (!Number.isFinite(next) || Math.abs(next - benchShare) < 0.0001) {
       makeRosterControls();
       return;
     }
-    absenceRate = next;
+    benchShare = next;
     crossRank = null;
+    espnRowsCache = null;
     rebuildDomain();
     makeRosterControls();
     makeValueBandControl();
@@ -823,11 +826,12 @@
     setPosition,
     setScoring,
     setTeams,
-    setAbsenceRate,
+    setBenchShare,
+    setAbsenceRate: setBenchShare,
     setLockOrder,
     setModel: () => {},
     redraw: () => draw(),
-    getState: () => ({position, scoring, teams, model: "monday", valueMode:"indexed", lockOrder, absenceRate, activeSources:activeSourceKeys()}),
+    getState: () => ({position, scoring, teams, model: "monday", valueMode:"indexed", lockOrder, benchShare, absenceRate:benchShare, activeSources:activeSourceKeys()}),
     getLockedDomain: () => displayRows().map((row, index) => ({rank:index + 1, player_key:row.player_key, name:row.name})),
     getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value]))
   };
@@ -1051,10 +1055,10 @@
       container.innerHTML = `<p class="visible-empty">No players or active scores in the current view.</p>`;
       return;
     }
-    const head = `<tr><th>Rank</th><th>Player</th>${keys.map(key => `<th>${sourceLabel(key)}</th>`).join("")}</tr>`;
+    const head = `<tr><th>Rank</th><th>Player</th><th>ESPN tier</th>${keys.map(key => `<th>${sourceLabel(key)}</th>`).join("")}</tr>`;
     const body = rows.map(row => {
       const rank = displayRows().findIndex(candidate => candidate.player_key === row.player_key) + 1;
-      return `<tr><td>${rank}</td><td><strong>${row.name}</strong><span>${row.pos} · ${row.team}</span></td>${keys.map(key => `<td>${formatScore(row.values[key])}</td>`).join("")}</tr>`;
+      return `<tr><td>${rank}</td><td><strong>${row.name}</strong><span>${row.pos} · ${row.team}</span></td><td>${row.espnRole}</td>${keys.map(key => `<td>${formatScore(row.values[key])}</td>`).join("")}</tr>`;
     }).join("");
     container.innerHTML = `<p class="visible-note">Players shown match the X zoom and current Y axis. Reset Y axis to restore the full value range.</p><div class="visible-table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }
@@ -1216,7 +1220,7 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · ESPN adjusted = raw VORP × lineup probability (${Math.round(absenceRate * 100)}% starter absence); pure VORP uses ESPN PPG above waiver when enabled · missing values break a line · roster transitions: ${markerText}.`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · ESPN adjusted labels each player starter/bench/waiver; starter values sum to ${Math.round((1 - benchShare) * 100)}% of ESPN trade-value points, bench to ${Math.round(benchShare * 100)}%, waiver to 0 · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
@@ -1234,7 +1238,7 @@
     if (!row) return "";
     const rankLabel = `${lockLabel(lockOrder)} rank ${rank}`;
     const values = activeSourceKeys().map(key => `<span class="tip-source"><i style="background:${SOURCE_STYLES[key].color}"></i>${sourceLabel(key)}</span><b>${Number.isFinite(row.values[key]) ? Number(row.values[key]).toFixed(1) : "—"}</b>`).join("");
-    return `<strong>${rank}. ${row.name}</strong><span class="tip-meta">${row.pos} · ${row.team} · ${rankLabel}</span><span class="tip-grid">${values}</span>`;
+    return `<strong>${rank}. ${row.name}</strong><span class="tip-meta">${row.pos} · ${row.team} · ESPN ${row.espnRole} · ${rankLabel}</span><span class="tip-grid">${values}</span>`;
   }
 
   function showTooltip(rank, clientX, clientY, above) {
@@ -1319,11 +1323,12 @@
     const fixedPie = fixedPieDiagnostics();
     const defaultGroupedSources = DEFAULT_INDEXED_SOURCES.every(key => activeSources.has(key));
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
-    const adjustableAbsenceRate = DEFAULT_ABSENCE_RATE === 0.15 && Number.isFinite(absenceRate) && typeof setAbsenceRate === "function";
-    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableAbsenceRate, valueMode:"indexed", lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length};
+    const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
+    const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
+    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
-    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableAbsenceRate) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableAbsenceRate ? [] : ["adjustableAbsenceRate"]).join(", ")}`);
+    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
   }
 
   async function init() {
