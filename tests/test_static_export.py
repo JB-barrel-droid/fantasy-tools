@@ -219,6 +219,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("review_queue_count", html)
         self.assertIn("review_suppression_counts", html)
         self.assertIn("news matches", html)
+        self.assertIn("source_refresh_at", html)
+        self.assertIn("latest_actionable_news_at", html)
+        self.assertIn("injury_data_updated_at", html)
 
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
