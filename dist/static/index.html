@@ -49,13 +49,13 @@
     }
     button, input, select { font: inherit; }
     button { color: inherit; }
-    .app-shell { max-width: 1240px; margin: 0 auto; padding: 18px 24px 64px; }
+    .app-shell { max-width: 1240px; margin: 0 auto; padding: 14px 24px 64px; }
     .topbar {
       display: flex;
-      justify-content: flex-end;
+      justify-content: space-between;
       align-items: center;
       gap: 18px;
-      padding: 8px 0 24px;
+      padding: 6px 0 14px;
       border-bottom: 1px solid var(--line-strong);
     }
     .brand-lockup { display: inline-flex; align-items: center; gap: 10px; color: var(--navy); }
@@ -146,8 +146,8 @@
     .nav-tab[aria-selected="true"] { background: var(--white); color: var(--navy); box-shadow: 0 1px 4px rgba(18,32,44,.12); }
     .freshness-line { margin: -8px 0 7px; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 10px; text-align: right; }
     .week-data-error { margin: 0 0 12px; padding: 11px 14px; border: 2px solid var(--red); background: var(--red-soft); color: var(--ink); font-size: 12px; font-weight: 700; line-height: 1.45; }
-    .data-vintage { display: grid; grid-template-columns: auto auto; gap: 8px; align-items: stretch; }
-    .vintage-item { display: grid; align-content: center; gap: 1px; min-width: 116px; padding: 8px 10px; border: 1px solid var(--line-strong); background: var(--white); text-align: left; }
+    .data-vintage { display: grid; grid-template-columns: auto auto; gap: 6px; align-items: stretch; }
+    .vintage-item { display: grid; align-content: center; gap: 1px; min-width: 110px; padding: 7px 9px; border: 1px solid var(--line-strong); background: var(--white); text-align: left; }
     .vintage-item > span { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .vintage-item strong { color: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
     .vintage-status { display: block; margin-top: 3px; color: var(--green); font-family: "IBM Plex Mono", monospace; font-size: 8px; font-style: normal; font-weight: 700; letter-spacing: .035em; text-transform: uppercase; }
@@ -155,18 +155,18 @@
     .vintage-expert.is-stale .vintage-status { color: #8c2418; }
     .vintage-expert.is-unknown { border-color: #b17b2a; background: #fff4df; }
     .vintage-expert.is-unknown .vintage-status { color: #704b12; }
-    .section-details { margin: 0 0 22px; border-top: 4px solid var(--navy); background: var(--white); box-shadow: var(--shadow); }
-    .section-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 18px; list-style: none; color: var(--navy); font-weight: 800; cursor: pointer; }
+    .section-details { margin: 0 0 16px; border: 1px solid var(--line-strong); border-top: 3px solid var(--navy); background: var(--white); box-shadow: 0 8px 22px rgba(23,54,76,.06); }
+    .section-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 16px; list-style: none; color: var(--navy); font-weight: 800; cursor: pointer; }
     .section-details > summary::-webkit-details-marker { display: none; }
     .section-details > summary::after { content: "+"; color: var(--orange-dark); font: 700 20px/1 "IBM Plex Mono", monospace; }
     .section-details[open] > summary::after { content: "−"; }
     .section-details > summary:hover, .section-details > summary:focus-visible { background: #eef1ed; outline: 2px solid var(--orange); outline-offset: -2px; }
-    .section-details-body { padding: 0 18px 20px; }
-    .hero { padding: 18px 0 4px; border-top-color: var(--orange); }
-    .kicker { color: var(--orange-dark); font-weight: 800; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 10px; }
-    h1 { font-size: clamp(34px, 5.1vw, 68px); line-height: .98; letter-spacing: -.055em; margin: 0; max-width: 980px; }
-    .hero-support { display: flex; align-items: center; gap: 10px; width: max-content; max-width: 100%; margin-top: 16px; }
-    .hero-copy { color: #465662; font-size: 17px; line-height: 1.6; max-width: 620px; margin: 0; }
+    .section-details-body { padding: 0 16px 16px; }
+    .hero { margin: 14px 0 12px; padding: 0; border-top-color: var(--orange); }
+    .kicker { color: var(--orange-dark); font-weight: 800; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 7px; }
+    h1 { font-size: clamp(28px, 3.6vw, 44px); line-height: 1.04; letter-spacing: -.03em; margin: 0; max-width: 800px; }
+    .hero-support { display: grid; grid-template-columns: minmax(0, 700px) auto; align-items: start; gap: 10px; width: 100%; max-width: 100%; margin-top: 10px; }
+    .hero-copy { color: #465662; font-size: 14px; line-height: 1.52; max-width: 700px; margin: 0; }
     .hero-copy strong { color: var(--ink); }
     .info-wrap { position: relative; flex: 0 0 auto; }
     .info-button {
@@ -1103,12 +1103,12 @@
     .import-preview p { margin: 0 0 10px; color: var(--muted); font-size: 9px; line-height: 1.45; }
 
     @media (max-width: 900px) {
-      .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; padding-top: 34px; }
+      .hero { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; padding-top: 0; }
       .hero-heading, .hero-support { display: contents; }
       .kicker { grid-column: 1 / -1; }
       h1 { grid-column: 1; }
       .info-wrap { grid-column: 2; grid-row: 2; align-self: center; margin-top: 5px; }
-      .hero-copy { grid-column: 1 / -1; max-width: 700px; margin: 16px 0 4px; }
+      .hero-copy { grid-column: 1 / -1; max-width: 700px; margin: 10px 0 0; }
       .settings-grid { grid-template-columns: repeat(4, 1fr); }
       .blend-control { grid-column: span 2; }
       .value-row { grid-template-columns: 62px minmax(170px,1fr) 118px 58px 58px 82px; gap: 8px; }
@@ -1124,7 +1124,7 @@
     }
     @media (max-width: 620px) {
       .app-shell { padding: 10px 14px 44px; }
-      .topbar { align-items: center; flex-direction: row; gap: 12px; padding-bottom: 16px; }
+      .topbar { align-items: flex-start; flex-direction: column; gap: 10px; padding-bottom: 12px; }
       .brand-lockup { gap: 7px; }
       .brand-mark { width: 26px; height: 26px; border-radius: 6px; }
       .brand-mark::before { inset: 5px 6px; }
@@ -1151,15 +1151,16 @@
       .nav-tabs { grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
       .nav-tab { min-width: 0; padding: 9px 6px; font-size: 10px; }
       .freshness-line { text-align: left; line-height: 1.4; }
-      .data-vintage { grid-template-columns: 1fr; gap: 4px; min-width: 146px; }
+      .data-vintage { width: 100%; grid-template-columns: 1fr 1fr; gap: 4px; min-width: 0; }
       .vintage-item { min-width: 0; padding: 5px 7px; }
       .vintage-item > span { font-size: 7px; }
       .vintage-item strong { font-size: 9px; }
       .vintage-status { margin-top: 1px; font-size: 7px; }
       .site-footer { align-items: flex-start; flex-direction: column; gap: 4px; }
-      .hero { padding: 30px 0 24px; }
-      h1 { font-size: 42px; }
-      .hero-copy { font-size: 15px; }
+      .hero { display: block; margin: 12px 0; padding: 0; }
+      h1 { font-size: 30px; line-height: 1.06; }
+      .hero-support { display: flex; align-items: flex-start; gap: 8px; margin-top: 9px; }
+      .hero-copy { font-size: 13px; line-height: 1.5; }
       .hero-title-row { gap: 8px; }
       .info-wrap { margin-top: 3px; }
       .info-popover { position: fixed; top: 76px; left: 14px; right: 14px; width: auto; max-height: calc(100vh - 96px); overflow-y: auto; }
@@ -1386,21 +1387,21 @@
     @media (max-width: 560px) { .navigation-stack { top: 54px; } }
 
     /* Dataset trust and source-method map */
-    .data-health { margin: 18px 0 0; border: 2px solid #b76543; background: var(--white); box-shadow: 0 10px 28px rgba(18,32,44,.08); }
+    .data-health { margin: 0 0 18px; border: 1px solid var(--line-strong); border-top: 3px solid #b76543; background: var(--white); box-shadow: 0 8px 22px rgba(18,32,44,.06); }
     .data-health > summary { list-style: none; cursor: pointer; }
     .data-health > summary::-webkit-details-marker { display: none; }
-    .data-health-summary { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px 20px; align-items: center; min-height: 68px; padding: 13px 48px 13px 16px; background: #fff4ee; }
+    .data-health-summary { position: relative; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 12px 20px; align-items: center; min-height: 58px; padding: 11px 46px 11px 14px; background: #fbfcfa; }
     .data-health-summary::after { content: "+"; position: absolute; right: 17px; top: 50%; transform: translateY(-50%); color: #8c2418; font: 700 22px/1 "IBM Plex Mono", monospace; }
     .data-health[open] > .data-health-summary::after { content: "−"; }
     .data-health-summary:focus-visible { outline: 3px solid var(--orange); outline-offset: 2px; }
     .data-health-heading { min-width: 0; }
     .data-health-heading span { display: block; color: #8c2418; font: 700 9px/1.25 "IBM Plex Mono", monospace; letter-spacing: .055em; text-transform: uppercase; }
-    .data-health-heading strong { display: block; margin-top: 3px; color: var(--ink); font-size: 16px; line-height: 1.25; }
+    .data-health-heading strong { display: block; margin-top: 3px; color: var(--ink); font-size: 14px; line-height: 1.25; }
     .health-counts { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
     .health-count { padding: 4px 7px; border: 1px solid #d7b49f; background: var(--white); color: #6f3321; font: 700 9px/1.2 "IBM Plex Mono", monospace; white-space: nowrap; }
     .health-count.stale { border-color: #c75242; background: #feece8; color: #8c2418; }
     .health-count.pending { border-color: #b17b2a; background: #fff4df; color: #704b12; }
-    .data-health-body { padding: 16px; border-top: 1px solid #d7b49f; }
+    .data-health-body { padding: 14px; border-top: 1px solid var(--line); }
     .data-health-intro { margin: 0 0 13px; color: #465662; font-size: 12px; line-height: 1.5; }
     .dataset-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
     .dataset-card { min-width: 0; padding: 12px 13px; border-top: 4px solid var(--green); background: #fafbf9; }
@@ -1473,6 +1474,10 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
+      <div class="brand-lockup" aria-label="Trade Value Dashboard">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-wordmark"><strong>Trade Value</strong><span>Dashboard</span></span>
+      </div>
       <div class="data-vintage" aria-label="Data freshness">
         <div class="vintage-item">
           <span>Chart build</span>
@@ -1485,18 +1490,6 @@
         </div>
       </div>
     </header>
-
-    <details class="data-health" id="dataHealth" aria-labelledby="dataHealthTitle">
-      <summary class="data-health-summary">
-        <span class="data-health-heading"><span>Dataset health</span><strong id="dataHealthTitle">Checking source coverage and freshness…</strong></span>
-        <span class="health-counts" id="dataHealthCounts" aria-live="polite"></span>
-      </summary>
-      <div class="data-health-body">
-        <p class="data-health-intro" id="dataHealthIntro">Freshness is based on the date the source content actually changed—not merely when it was downloaded. Missing prior snapshots are shown as unavailable, never treated as no change.</p>
-        <div class="dataset-grid" id="datasetHealthRows"></div>
-
-      </div>
-    </details>
 
     <details class="hero section-details" open>
       <summary><span>Trade-value decision guide</span></summary>
@@ -1586,6 +1579,18 @@
   <div id="tip"></div>
   </div>
 </details>
+
+    <details class="data-health" id="dataHealth" aria-labelledby="dataHealthTitle">
+      <summary class="data-health-summary">
+        <span class="data-health-heading"><span>Dataset health</span><strong id="dataHealthTitle">Checking source coverage and freshness...</strong></span>
+        <span class="health-counts" id="dataHealthCounts" aria-live="polite"></span>
+      </summary>
+      <div class="data-health-body">
+        <p class="data-health-intro" id="dataHealthIntro">Freshness is based on the date the source content actually changed, not merely when it was downloaded. Missing prior snapshots are shown as unavailable, never treated as no change.</p>
+        <div class="dataset-grid" id="datasetHealthRows"></div>
+
+      </div>
+    </details>
 
 <details id="comparisonDashboard" open aria-label="Trade value chart comparison">
   <summary class="comparison-section-summary"><span>Player table and source comparison</span></summary>
