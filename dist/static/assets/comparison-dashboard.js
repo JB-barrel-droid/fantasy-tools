@@ -39,6 +39,7 @@
   const state = {
     scoring: "full",
     teams: 12,
+    rosterShape: {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6},
     compareSource: "preseason",
     combos: {},
     sort: {column: "preseason", direction: "asc"},
@@ -60,6 +61,7 @@
   const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
   const has = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
   const scoreLabel = score => ({standard:"Standard", half:"Half PPR", full:"Full PPR"}[score] || score);
+  const scoreField = () => state.scoring === "full" ? "ppr" : state.scoring === "half" ? "half_ppr" : "standard";
   const clampValue = value => {
     if (value === null || value === undefined || value === "") return null;
     const number = Number(value);
@@ -182,9 +184,120 @@
       if (!name || !POSITIONS.includes(player.pos)) return;
       const preseasonRank = Number(player.preseasonRank ?? player.preseason_ecr_rank);
       const ros = player.ecr_ros || {};
-      next.set(key, {player_key:key, name, pos:player.pos, team:String(player.team || "—"), preseasonRank:Number.isFinite(preseasonRank) && preseasonRank > 0 ? preseasonRank : null, preseasonValue:{standard:Number(ros.standard), half_ppr:Number(ros.half_ppr), ppr:Number(ros.ppr)}});
+      next.set(key, {
+        player_key:key,
+        name,
+        pos:player.pos,
+        team:String(player.team || "—"),
+        preseasonRank:Number.isFinite(preseasonRank) && preseasonRank > 0 ? preseasonRank : null,
+        preseasonValue:{standard:Number(ros.standard), half_ppr:Number(ros.half_ppr), ppr:Number(ros.ppr)},
+        espn_ppg:player.espn_ppg || null
+      });
     });
     return next;
+  }
+
+  function preseasonComparator(a, b) {
+    const aMissing = !Number.isFinite(a.preseasonRank);
+    const bMissing = !Number.isFinite(b.preseasonRank);
+    if (aMissing !== bMissing) return aMissing ? 1 : -1;
+    if (!aMissing && a.preseasonRank !== b.preseasonRank) return a.preseasonRank - b.preseasonRank;
+    return POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
+  }
+
+  function allocationCountsFor(pool, shape = state.rosterShape) {
+    const direct = {QB:state.teams * shape.QB, RB:state.teams * shape.RB, WR:state.teams * shape.WR, TE:state.teams * shape.TE};
+    const lineup = {...direct};
+    const rostered = {...direct};
+    const ranked = pool.filter(player => POSITION_ORDER.includes(player.pos) && Number.isFinite(player.preseasonRank)).sort(preseasonComparator);
+    const used = new Set();
+    Object.entries(direct).forEach(([pos, count]) => {
+      ranked.filter(player => player.pos === pos).slice(0, count).forEach(player => used.add(player.player_key));
+    });
+    ranked.filter(player => ["RB", "WR", "TE"].includes(player.pos) && !used.has(player.player_key)).slice(0, state.teams * shape.FLEX).forEach(player => {
+      used.add(player.player_key);
+      lineup[player.pos] += 1;
+      rostered[player.pos] += 1;
+    });
+    ranked.filter(player => !used.has(player.player_key)).slice(0, state.teams * shape.BENCH).forEach(player => {
+      used.add(player.player_key);
+      rostered[player.pos] += 1;
+    });
+    return {direct, lineup, rostered};
+  }
+
+  function rosterIsDefault() {
+    const base = {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6};
+    return Object.keys(base).every(key => Number(state.rosterShape[key]) === base[key]);
+  }
+
+  function applyRosterShape(values, key) {
+    if (rosterIsDefault() || key === "espn") return values;
+    const shaped = new Map(values);
+    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6});
+    const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
+    const totalBefore = [...values.values()].reduce((sum, value) => sum + value, 0);
+    POSITION_ORDER.forEach(pos => {
+      const rows = [...values.entries()]
+        .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
+        .map(([playerKey, value]) => ({playerKey, value}))
+        .sort((a, b) => b.value - a.value);
+      if (!rows.length) return;
+      const defaultDepth = Math.max(1, Math.min(rows.length, defaultCounts.rostered[pos] || 1));
+      const customDepth = Math.max(1, Math.min(rows.length, customCounts.rostered[pos] || 1));
+      const averageTop = depth => rows.slice(0, depth).reduce((sum, row) => sum + row.value, 0) / depth;
+      const defaultAverage = averageTop(defaultDepth);
+      const customAverage = averageTop(customDepth);
+      const factor = defaultAverage > 0 ? Math.max(0.25, Math.min(1.8, customAverage / defaultAverage)) : 1;
+      rows.forEach(row => shaped.set(row.playerKey, row.value * factor));
+    });
+    const totalAfter = [...shaped.values()].reduce((sum, value) => sum + value, 0);
+    const scale = totalBefore > 0 && totalAfter > 0 ? totalBefore / totalAfter : 1;
+    shaped.forEach((value, playerKey) => shaped.set(playerKey, value * scale));
+    return shaped;
+  }
+
+  function espnTargetTotal(pos, fallback) {
+    const combo = data.sources?.espn?.combos?.[comboKeyFor("espn")];
+    const target = Number(combo?.index_total?.[pos]?.target_total);
+    return Number.isFinite(target) && target > 0 ? target : fallback;
+  }
+
+  function espnStartWeight(rank, counts, pos) {
+    const starterDepth = Math.max(0, Number(counts.lineup[pos] || 0));
+    const rosterDepth = Math.max(starterDepth, Number(counts.rostered[pos] || 0));
+    if (rank <= starterDepth) return 1;
+    if (rank > rosterDepth) return 0;
+    const benchDepth = Math.max(1, rosterDepth - starterDepth);
+    const benchIndex = Math.max(1, rank - starterDepth);
+    const fraction = benchDepth <= 1 ? 0 : (benchIndex - 1) / (benchDepth - 1);
+    return Math.max(0.12, 0.58 - (0.43 * fraction));
+  }
+
+  function buildEspnIndexedMap() {
+    const values = new Map();
+    const counts = allocationCountsFor([...canonicalByKey.values()]);
+    const field = scoreField();
+    POSITION_ORDER.forEach(pos => {
+      const priced = [...canonicalByKey.values()]
+        .filter(player => player.pos === pos)
+        .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+        .filter(item => Number.isFinite(item.ppg))
+        .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player));
+      if (!priced.length) return;
+      const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
+      const baseline = priced[baselineIndex].ppg;
+      const rows = priced.map(({player, ppg}, index) => {
+        const rank = index + 1;
+        const pure = Math.max(0, ppg - baseline);
+        return {player, value:pure * (pure > 0 ? espnStartWeight(rank, counts, pos) : 0)};
+      });
+      const rawTotal = rows.reduce((sum, row) => sum + row.value, 0);
+      const target = espnTargetTotal(pos, rawTotal);
+      const scale = rawTotal > 0 && target > 0 ? target / rawTotal : 1;
+      rows.forEach(row => values.set(row.player.player_key, row.value * scale));
+    });
+    return values;
   }
 
   function selectedCombo(key) {
@@ -193,6 +306,7 @@
   }
 
   function buildSourceMap(key) {
+    if (key === "espn") return buildEspnIndexedMap();
     if (key === "cbs_adjusted") return buildCbsAdjustedMap();
     const combo = selectedCombo(key);
     const raw = combo?.values || combo?.reindexed || {};
@@ -245,7 +359,7 @@
   }
 
   function rebuildSourceMaps() {
-    sourceMaps = new Map(renderKeys.map(key => [key, buildSourceMap(key)]));
+    sourceMaps = new Map(renderKeys.map(key => [key, applyRosterShape(buildSourceMap(key), key)]));
   }
 
   function allColumnKeys() {
@@ -671,6 +785,24 @@
     renderAll();
   }
 
+  function normalizeRosterShape(shape) {
+    if (!shape || typeof shape !== "object") return null;
+    const next = {};
+    const limits = {
+      QB:[1, 5],
+      RB:[1, 5],
+      WR:[1, 5],
+      TE:[1, 5],
+      FLEX:[1, 5],
+      BENCH:[0, 14]
+    };
+    Object.entries(limits).forEach(([key, [min, max]]) => {
+      const value = Math.round(Number(shape[key]));
+      next[key] = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : state.rosterShape[key];
+    });
+    return next;
+  }
+
   function bindStatic() {
     $("#playerSearch")?.addEventListener("input", event => { state.filters.search = event.target.value; renderTable(); });
     $("#exportButton")?.addEventListener("click", () => {
@@ -735,6 +867,12 @@
         state.filters.position = shared.position;
         renderFilters();
         renderTable();
+      }
+      const rosterShape = normalizeRosterShape(shared?.rosterShape);
+      if (rosterShape && Object.keys(rosterShape).some(key => rosterShape[key] !== state.rosterShape[key])) {
+        state.rosterShape = rosterShape;
+        rebuildSourceMaps();
+        renderAll();
       }
       if (isLockKey(shared?.lockOrder)) setLockOrder(shared.lockOrder, false);
     }

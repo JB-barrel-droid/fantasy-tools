@@ -218,6 +218,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("setTableSort", text)
         self.assertIn("renderExpandedRow", text)
         self.assertIn("TradeValuePlayerNews", text)
+        self.assertIn("buildEspnIndexedMap", text)
+        self.assertIn("normalizeRosterShape", text)
+        self.assertIn("espnStartWeight", text)
 
     def test_data_health_surfaces_player_news_pipeline(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
