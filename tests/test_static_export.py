@@ -162,10 +162,16 @@ class StaticExportTest(unittest.TestCase):
 
     def test_dashboard_copy_does_not_surface_old_branding(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
+        assets = "\n".join(
+            (APP / "assets" / name).read_text(encoding="utf-8")
+            for name in ["curve-widget.js", "comparison-dashboard.js", "comparison-dashboard.css"]
+        )
         self.assertIn("<title>Trade Value Dashboard</title>", html)
         self.assertNotIn("Data Driven Football", html)
         self.assertNotIn("legacy model", html.lower())
         self.assertNotIn('"key":"ddf"', html)
+        self.assertNotIn("DDF", assets)
+        self.assertNotIn("sourcePicker", assets)
 
     def test_source_compatibility_uses_selected_league_shape(self):
         curve = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")

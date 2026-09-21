@@ -59,19 +59,19 @@
   const tip = $("#tip");
 
   function loadComparisonData() {
-    if (window.DDFComparisonData) return Promise.resolve(window.DDFComparisonData);
-    if (!window.DDFComparisonDataPromise) {
-      window.DDFComparisonDataPromise = fetch("assets/comparison-sources-data.json")
+    if (window.TradeValueComparisonData) return Promise.resolve(window.TradeValueComparisonData);
+    if (!window.TradeValueComparisonDataPromise) {
+      window.TradeValueComparisonDataPromise = fetch("assets/comparison-sources-data.json")
         .then(response => {
           if (!response.ok) throw new Error(`Data request failed (${response.status})`);
           return response.json();
         })
         .then(payload => {
-          window.DDFComparisonData = payload;
+          window.TradeValueComparisonData = payload;
           return payload;
         });
     }
-    return window.DDFComparisonDataPromise;
+    return window.TradeValueComparisonDataPromise;
   }
 
   let data = null;
@@ -664,8 +664,8 @@
 
   function publishShared() {
     const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}};
-    window.DDF_SHARED_STATE = detail;
-    window.dispatchEvent(new CustomEvent("ddf-shared-change", {detail}));
+    window.TradeValueSharedState = detail;
+    window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
 
   function setRosterSpot(key, raw, publish = true) {
@@ -737,16 +737,16 @@
   function setLockOrder(value, publish = true) {
     if (!isLockKey(value) || value === lockOrder) return;
     lockOrder = value;
-    window.DDF_LOCK_ORDER = value;
+    window.TradeValueLockOrder = value;
     crossRank = null;
     rebuildDomain();
     syncLockNote();
     resetZoom();
     draw();
-    if (publish) window.dispatchEvent(new CustomEvent("ddf-lock-order-change", {detail: {lockOrder:value}}));
+    if (publish) window.dispatchEvent(new CustomEvent("trade-value-lock-order-change", {detail: {lockOrder:value}}));
   }
 
-  window.DDFCurveControls = {
+  window.TradeValueCurveControls = {
     setPosition,
     setScoring,
     setTeams,
@@ -1230,7 +1230,7 @@
     const eightSources = SOURCE_KEYS.length === 8 && SOURCE_KEYS.every(key => sourceMaps.has(key));
     const expectedToggleCount = SOURCE_GROUPS.reduce((sum, group) => sum + group.keys.length, 0);
     const sourceToggles = $("#sourceToggles")?.querySelectorAll("input[type=checkbox]").length === expectedToggleCount;
-    const noAggregate = !Object.prototype.hasOwnProperty.call(window, "DDFCurveMedian");
+    const noAggregate = !Object.prototype.hasOwnProperty.call(window, "TradeValueCurveMedian");
     const stableDomain = rows.every((row, index) => index === 0 || row.player_key !== rows[index - 1].player_key);
     const validValues = SOURCE_KEYS.every(key => [...sourceMaps.get(key).values()].every(value => Number.isFinite(value) && value >= 0));
     const sourcePeaks = Object.fromEntries(SOURCE_KEYS.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
@@ -1247,7 +1247,6 @@
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, valueMode:"indexed", lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
-    window.DDFCurveDiagnostics = window.TradeValueCurveDiagnostics;
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"]).join(", ")}`);
   }
@@ -1259,7 +1258,7 @@
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       const invalid = SOURCE_KEYS.filter(key => data.source_validation?.[key] !== "live");
       if (invalid.length) throw new Error("One or more required comparison sources did not pass validation.");
-      if (isLockKey(window.DDF_LOCK_ORDER)) lockOrder = window.DDF_LOCK_ORDER;
+      if (isLockKey(window.TradeValueLockOrder)) lockOrder = window.TradeValueLockOrder;
       rebuildDomain();
       makeLeagueControls();
       makeRosterControls();

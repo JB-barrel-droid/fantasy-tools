@@ -115,19 +115,19 @@
   const isLockKey = key => ["preseason","disagreement",...SOURCE_KEYS].includes(key);
 
   function loadComparisonData() {
-    if (window.DDFComparisonData) return Promise.resolve(window.DDFComparisonData);
-    if (!window.DDFComparisonDataPromise) {
-      window.DDFComparisonDataPromise = fetch("assets/comparison-sources-data.json")
+    if (window.TradeValueComparisonData) return Promise.resolve(window.TradeValueComparisonData);
+    if (!window.TradeValueComparisonDataPromise) {
+      window.TradeValueComparisonDataPromise = fetch("assets/comparison-sources-data.json")
         .then(response => {
           if (!response.ok) throw new Error(`Data request failed (${response.status})`);
           return response.json();
         })
         .then(payload => {
-          window.DDFComparisonData = payload;
+          window.TradeValueComparisonData = payload;
           return payload;
         });
     }
-    return window.DDFComparisonDataPromise;
+    return window.TradeValueComparisonDataPromise;
   }
 
   function loadPlayerNews() {
@@ -520,20 +520,6 @@
   }
 
   function renderLeagueControls() {
-    segments($("#ourScoring"), [["standard","Standard"],["half","Half PPR"],["full","Full PPR"]], state.scoring, value => {
-      state.scoring = value;
-      SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-      rebuildSourceMaps();
-      renderAll();
-      window.DDFCurveControls?.setScoring(value);
-    }, "three");
-    segments($("#ourTeams"), [[8,"8"],[10,"10"],[12,"12"],[14,"14"]], state.teams, value => {
-      state.teams = Number(value);
-      SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-      rebuildSourceMaps();
-      renderAll();
-      window.DDFCurveControls?.setTeams(value);
-    }, "four");
     if ($("#ourContext")) $("#ourContext").textContent = `${scoreLabel(state.scoring)} · ${state.teams} teams · common source scale`;
     if ($("#leagueSummary")) $("#leagueSummary").textContent = `League settings: ${scoreLabel(state.scoring)} · ${state.teams} teams`;
   }
@@ -571,8 +557,8 @@
     if (SOURCE_KEYS.includes(value) && !sourceAvailable(value)) return;
     if (SOURCE_KEYS.includes(value)) {
       referenceSource = value;
-      window.DDF_REFERENCE_SOURCE = referenceSource;
-      if (publish) window.dispatchEvent(new CustomEvent("ddf-reference-source-change", {detail:{source:referenceSource}}));
+      window.TradeValueReferenceSource = referenceSource;
+      if (publish) window.dispatchEvent(new CustomEvent("trade-value-reference-source-change", {detail:{source:referenceSource}}));
     }
     if (value === state.compareSource) return;
     state.compareSource = value;
@@ -580,15 +566,12 @@
     renderViewControls();
     renderTable();
     if (publish) {
-      window.DDF_LOCK_ORDER = value;
-      window.DDFCurveControls?.setLockOrder(value, false);
+      window.TradeValueLockOrder = value;
+      window.TradeValueCurveControls?.setLockOrder(value, false);
     }
   }
 
   function renderViewControls() {
-    segments($("#viewTabs"), [["all","Source series"]], "all", () => {}, "two");
-    $("#sourcePickerWrap")?.classList.remove("active");
-    $("#sourcePicker")?.replaceChildren();
   }
 
   function renderFilters() {
@@ -596,7 +579,7 @@
       state.filters.position = value;
       renderFilters();
       renderTable();
-      window.DDFCurveControls?.setPosition(value);
+      window.TradeValueCurveControls?.setPosition(value);
     }, "six");
     $("#directionField")?.classList.add("is-hidden");
     $("#minDeltaField")?.classList.add("is-hidden");
@@ -661,10 +644,10 @@
     if (SOURCE_KEYS.includes(key) && !sourceAvailable(key)) return;
     if (SOURCE_KEYS.includes(key)) {
       referenceSource = key;
-      window.DDF_REFERENCE_SOURCE = key;
-      window.dispatchEvent(new CustomEvent("ddf-reference-source-change", {detail:{source:key}}));
-      window.DDF_LOCK_ORDER = key;
-      window.DDFCurveControls?.setLockOrder(key, false);
+      window.TradeValueReferenceSource = key;
+      window.dispatchEvent(new CustomEvent("trade-value-reference-source-change", {detail:{source:key}}));
+      window.TradeValueLockOrder = key;
+      window.TradeValueCurveControls?.setLockOrder(key, false);
     }
     if (["preseason", "disagreement", ...SOURCE_KEYS].includes(key)) state.compareSource = key;
     state.sort = {column:key, direction:nextSortDirection(key)};
@@ -751,7 +734,7 @@
     if (SOURCE_KEYS.includes(state.compareSource) && !sourceAvailable(state.compareSource)) state.compareSource = "preseason";
     if (SOURCE_KEYS.includes(referenceSource) && !sourceAvailable(referenceSource)) {
       referenceSource = renderKeys.find(sourceAvailable) || "espn";
-      window.DDF_REFERENCE_SOURCE = referenceSource;
+      window.TradeValueReferenceSource = referenceSource;
     }
     if (Array.isArray(state.columns)) {
       const allowed = new Set(allColumnKeys());
@@ -845,7 +828,7 @@
     renderTable();
   }
 
-  window.DDFComparisonControls = {
+  window.TradeValueComparisonControls = {
     refresh: () => data && renderAll(),
     setLockOrder: value => data && setLockOrder(value, false),
     applyShared: shared => {
@@ -877,9 +860,9 @@
       if (isLockKey(shared?.lockOrder)) setLockOrder(shared.lockOrder, false);
     }
   };
-  window.addEventListener("ddf-shared-change", event => window.DDFComparisonControls.applyShared(event.detail));
-  window.addEventListener("ddf-lock-order-change", event => window.DDFComparisonControls.setLockOrder(event.detail?.lockOrder));
-  window.addEventListener("ddf-reference-source-change", event => {
+  window.addEventListener("trade-value-shared-change", event => window.TradeValueComparisonControls.applyShared(event.detail));
+  window.addEventListener("trade-value-lock-order-change", event => window.TradeValueComparisonControls.setLockOrder(event.detail?.lockOrder));
+  window.addEventListener("trade-value-reference-source-change", event => {
     if (SOURCE_KEYS.includes(event.detail?.source)) referenceSource = event.detail.source;
   });
 
@@ -905,7 +888,7 @@
     const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && availableSources.every(key => allColumnKeys().includes(key));
     const rolloverAware = renderKeys.every(key => !isWeekCurrent(key) || sourceAvailable(key));
     const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
-    window.DDFComparisonDiagnostics = Object.freeze(diagnostics);
+    window.TradeValueComparisonDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "allSources", "fullPpr12TeamQbsAvailable", "configurableColumns", "rolloverAware"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Comparison regression guard failed: ${failed.map(([key]) => key).join(", ")}`);
   }
@@ -922,15 +905,15 @@
       renderKeys = SOURCE_KEYS.filter(key => key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : data.source_validation?.[key] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (!Array.isArray(state.columns)) state.columns = visibleColumns();
-      if (SOURCE_KEYS.includes(window.DDF_REFERENCE_SOURCE)) referenceSource = window.DDF_REFERENCE_SOURCE;
-      window.DDF_REFERENCE_SOURCE = referenceSource;
+      if (SOURCE_KEYS.includes(window.TradeValueReferenceSource)) referenceSource = window.TradeValueReferenceSource;
+      window.TradeValueReferenceSource = referenceSource;
       SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
       rebuildSourceMaps();
       bindStatic();
       renderAll();
-      if (window.DDF_SHARED_STATE) window.DDFComparisonControls.applyShared(window.DDF_SHARED_STATE);
+      if (window.TradeValueSharedState) window.TradeValueComparisonControls.applyShared(window.TradeValueSharedState);
       runRegressionGuards();
-      if (isLockKey(window.DDF_LOCK_ORDER)) setLockOrder(window.DDF_LOCK_ORDER, false);
+      if (isLockKey(window.TradeValueLockOrder)) setLockOrder(window.TradeValueLockOrder, false);
     } catch (error) {
       const message = `Source dates unavailable · ${error.message}`;
       if ($("#freshness")) $("#freshness").textContent = message;
