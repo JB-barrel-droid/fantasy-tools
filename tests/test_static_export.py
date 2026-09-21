@@ -126,59 +126,69 @@ class StaticExportTest(unittest.TestCase):
                         f"{source} {key} {pos} total {total:.1f} should match fixed-pie target {target}",
                     )
 
-    def test_espn_bottoms_up_vorp_is_position_calibrated(self):
+    def test_espn_adjusted_values_track_peer_sources(self):
         players = load_json(FIXTURES / "players.json")["players"]
+        by_name = {player["name"]: player for player in players}
+        by_key = {player["player_key"]: player for player in players}
         position_order = ["QB", "RB", "WR", "TE"]
         roster = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6}
         teams = 12
+        bench_share = 0.15
 
         def player_rank(player):
             return player.get("preseason_ecr_rank") or 9999
 
-        priced = sorted(
-            [
-                {"player": player, "ppg": player.get("espn_ppg", {}).get("ppr")}
-                for player in players
-                if player.get("pos") in position_order and isinstance(player.get("espn_ppg", {}).get("ppr"), (int, float))
-            ],
-            key=lambda row: (-row["ppg"], player_rank(row["player"]), row["player"]["name"]),
-        )
-        assigned = {}
-        for pos in position_order:
-            for row in [item for item in priced if item["player"]["pos"] == pos][: teams * roster[pos]]:
-                assigned[row["player"]["player_key"]] = "starter"
-        for row in [item for item in priced if item["player"]["pos"] in {"RB", "WR", "TE"} and item["player"]["player_key"] not in assigned][: teams * roster["FLEX"]]:
-            assigned[row["player"]["player_key"]] = "starter"
-        for row in [item for item in priced if item["player"]["player_key"] not in assigned][: teams * roster["BENCH"]]:
-            assigned[row["player"]["player_key"]] = "bench"
-
-        tiered = [{**row, "role": assigned.get(row["player"]["player_key"], "waiver")} for row in priced]
-        baselines = {}
-        for pos in position_order:
-            pos_rows = [row for row in tiered if row["player"]["pos"] == pos]
-            waiver_rows = [row for row in pos_rows if row["role"] == "waiver"]
-            baselines[pos] = (waiver_rows or pos_rows)[0]["ppg"]
-        raw_rows = [
-            {**row, "raw_vorp": 0 if row["role"] == "waiver" else max(0, row["ppg"] - baselines[row["player"]["pos"]])}
-            for row in tiered
-        ]
-        raw_by_pos = {
-            pos: sum(row["raw_vorp"] for row in raw_rows if row["player"]["pos"] == pos)
-            for pos in position_order
-        }
-        targets = self.comparison["sources"]["espn"]["combos"]["full_12"]["index_total"]
-        adjusted_rows = []
-        for row in raw_rows:
-            pos = row["player"]["pos"]
-            position_scale = targets[pos]["target_total"] / raw_by_pos[pos]
-            adjusted_rows.append({**row, "position_scaled_vorp": row["raw_vorp"] * position_scale})
-
-        starter_total = sum(row["position_scaled_vorp"] for row in adjusted_rows if row["role"] == "starter")
-        bench_total = sum(row["position_scaled_vorp"] for row in adjusted_rows if row["role"] == "bench")
         def combo_key(source):
             if source in {"fantasycalc", "fantasycalc_adjusted"}:
                 return "full_12_qb1"
             return "full_12"
+
+        def source_values(source):
+            combo = self.comparison["sources"][source]["combos"][combo_key(source)]
+            raw = combo.get("values") or combo.get("reindexed") or {}
+            return {
+                self.comparison["player_keys"][source_id]: value
+                for source_id, value in raw.items()
+                if isinstance(value, (int, float))
+            }
+
+        def roles_from_values(values):
+            rows = sorted(
+                [
+                    (player_key, value, by_key[player_key])
+                    for player_key, value in values.items()
+                    if player_key in by_key and by_key[player_key]["pos"] in position_order and value > 0
+                ],
+                key=lambda row: (-row[1], player_rank(row[2]), row[2]["name"]),
+            )
+            roles = {}
+            for pos in position_order:
+                for player_key, _, _ in [row for row in rows if row[2]["pos"] == pos][: teams * roster[pos]]:
+                    roles[player_key] = "starter"
+            for player_key, _, player in [row for row in rows if row[2]["pos"] in {"RB", "WR", "TE"} and row[0] not in roles][: teams * roster["FLEX"]]:
+                roles[player_key] = "starter"
+            for player_key, _, _ in [row for row in rows if row[0] not in roles][: teams * roster["BENCH"]]:
+                roles[player_key] = "bench"
+            return roles
+
+        def espn_projection_roles():
+            rows = sorted(
+                [
+                    (player["player_key"], player.get("espn_ppg", {}).get("ppr"), player)
+                    for player in players
+                    if player["pos"] in position_order and isinstance(player.get("espn_ppg", {}).get("ppr"), (int, float))
+                ],
+                key=lambda row: (-row[1], player_rank(row[2]), row[2]["name"]),
+            )
+            roles = {}
+            for pos in position_order:
+                for player_key, _, _ in [row for row in rows if row[2]["pos"] == pos][: teams * roster[pos]]:
+                    roles[player_key] = "starter"
+            for player_key, _, player in [row for row in rows if row[2]["pos"] in {"RB", "WR", "TE"} and row[0] not in roles][: teams * roster["FLEX"]]:
+                roles[player_key] = "starter"
+            for player_key, _, _ in [row for row in rows if row[0] not in roles][: teams * roster["BENCH"]]:
+                roles[player_key] = "bench"
+            return roles
 
         fixed_pies = sorted(
             sum(item["target_total"] for item in source_data["combos"][combo_key(source)]["index_total"].values())
@@ -187,19 +197,35 @@ class StaticExportTest(unittest.TestCase):
         )
         middle = len(fixed_pies) // 2
         target_total = fixed_pies[middle] if len(fixed_pies) % 2 else (fixed_pies[middle - 1] + fixed_pies[middle]) / 2
-        scored = []
-        for row in adjusted_rows:
-            if row["role"] == "starter":
-                adjusted = row["position_scaled_vorp"] * (target_total * 0.85 / starter_total)
-            elif row["role"] == "bench":
-                adjusted = row["position_scaled_vorp"] * (target_total * 0.15 / bench_total)
-            else:
-                adjusted = 0
-            scored.append({**row, "adjusted": adjusted})
 
-        top_24 = sorted(scored, key=lambda row: row["adjusted"], reverse=True)[:24]
-        self.assertEqual(0, sum(1 for row in top_24 if row["player"]["pos"] == "QB"))
-        self.assertGreater(top_24[0]["adjusted"], 70)
+        def split_to_fixed_pie(values, roles):
+            starter_total = sum(max(0, value) for player_key, value in values.items() if roles.get(player_key) == "starter")
+            bench_total = sum(max(0, value) for player_key, value in values.items() if roles.get(player_key) == "bench")
+            adjusted = {}
+            for player_key, value in values.items():
+                if roles.get(player_key) == "starter":
+                    adjusted[player_key] = max(0, value) * (target_total * (1 - bench_share) / starter_total)
+                elif roles.get(player_key) == "bench":
+                    adjusted[player_key] = max(0, value) * (target_total * bench_share / bench_total)
+                else:
+                    adjusted[player_key] = 0
+            return adjusted
+
+        espn = split_to_fixed_pie(source_values("espn"), espn_projection_roles())
+        peers = {
+            source: split_to_fixed_pie(source_values(source), roles_from_values(source_values(source)))
+            for source in ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]
+        }
+
+        for name in ["Josh Allen", "Jahmyr Gibbs", "Bijan Robinson", "Puka Nacua", "Ja'Marr Chase", "Trey McBride"]:
+            player_key = by_name[name]["player_key"]
+            peer_values = sorted(values[player_key] for values in peers.values())
+            peer_median = peer_values[len(peer_values) // 2]
+            self.assertLess(
+                abs(espn[player_key] - peer_median) / peer_median,
+                0.18,
+                f"ESPN adjusted value for {name} should stay near the adjusted-source cluster",
+            )
 
     def test_nulls_are_not_silently_zero_filled(self):
         by_name = {player["name"]: player for player in self.players["players"]}
@@ -213,7 +239,7 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        self.assertIn("same fixed pie of starter + bench value", text)
+        self.assertIn("same fixed pie split", text)
         self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
@@ -230,8 +256,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("buildEspnRows", text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn("setBenchShare", text)
-        self.assertIn("positionScaledVorp", text)
-        self.assertIn("espnTargetTotal(pos", text)
+        self.assertIn("buildPublishedSourceMap", text)
+        self.assertIn("rawProjectionVorp", text)
         self.assertIn("Bench %", text)
         self.assertIn("espn_vorp", text)
         self.assertIn("visiblePlayersList", html)

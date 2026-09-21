@@ -297,6 +297,23 @@
     return commonFixedPieTotal(fallback);
   }
 
+  function buildPublishedSourceMap(key) {
+    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
+    const raw = combo?.values || combo?.reindexed || {};
+    const native = combo?.native || {};
+    const values = new Map();
+    Object.entries(raw).forEach(([sourceId, rawValue]) => {
+      if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
+      const playerKey = Number(data.player_keys?.[sourceId]);
+      const player = canonicalByKey.get(playerKey);
+      const value = clampValue(rawValue);
+      if (!player || value === null) return;
+      if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)}.`);
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
   function roleMapForValues(values) {
     const rows = [...values.entries()]
       .map(([playerKey, value]) => ({playerKey, value:Number(value), player:canonicalByKey.get(playerKey)}))
@@ -322,15 +339,23 @@
 
   function normalizeTradeChartToFixedPie(values) {
     const roles = roleMapForValues(values);
-    const eligibleTotal = [...values.entries()]
-      .filter(([playerKey]) => ["starter", "bench"].includes(roles.get(playerKey)))
+    const starterTotal = [...values.entries()]
+      .filter(([playerKey]) => roles.get(playerKey) === "starter")
       .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
+    const benchTotal = [...values.entries()]
+      .filter(([playerKey]) => roles.get(playerKey) === "bench")
+      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
+    const eligibleTotal = starterTotal + benchTotal;
     const target = commonFixedPieTotal(eligibleTotal);
-    const scale = eligibleTotal > 0 && target > 0 ? target / eligibleTotal : 1;
+    const starterShare = Math.max(0, Math.min(1, 1 - benchShare));
+    const normalizedBenchShare = Math.max(0, Math.min(1, benchShare));
+    const starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
+    const benchScale = benchTotal > 0 && target > 0 ? (target * normalizedBenchShare) / benchTotal : 0;
     const normalized = new Map();
     values.forEach((value, playerKey) => {
       const role = roles.get(playerKey) || "waiver";
-      normalized.set(playerKey, role === "waiver" ? 0 : Math.max(0, value) * scale);
+      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+      normalized.set(playerKey, role === "starter" ? safeValue * starterScale : role === "bench" ? safeValue * benchScale : 0);
     });
     return normalized;
   }
@@ -381,27 +406,15 @@
     });
     const withRaw = tiered.map(row => ({
       ...row,
-      rawVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
+      rawProjectionVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
     }));
-    const rawByPos = new Map(POSITION_ORDER.map(pos => [
-      pos,
-      withRaw.filter(row => row.player.pos === pos).reduce((sum, row) => sum + row.rawVorp, 0)
-    ]));
-    const targetByPos = new Map(POSITION_ORDER.map(pos => [
-      pos,
-      espnTargetTotal(pos, rawByPos.get(pos) || 0)
-    ]));
-    const withPositionValue = withRaw.map(row => {
-      const rawPosTotal = rawByPos.get(row.player.pos) || 0;
-      const targetPosTotal = targetByPos.get(row.player.pos) || rawPosTotal;
-      const positionScale = rawPosTotal > 0 && targetPosTotal > 0 ? targetPosTotal / rawPosTotal : 0;
-      return {
-        ...row,
-        positionScaledVorp: row.rawVorp * positionScale
-      };
-    });
-    const starterRaw = withPositionValue.filter(row => row.role === "starter").reduce((sum, row) => sum + row.positionScaledVorp, 0);
-    const benchRaw = withPositionValue.filter(row => row.role === "bench").reduce((sum, row) => sum + row.positionScaledVorp, 0);
+    const publishedVorp = buildPublishedSourceMap("espn");
+    const withVorp = withRaw.map(row => ({
+      ...row,
+      rawVorp: row.role === "waiver" ? 0 : Math.max(0, publishedVorp.get(row.player.player_key) ?? row.rawProjectionVorp)
+    }));
+    const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
+    const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
     const rawTotal = starterRaw + benchRaw;
     const targetTotal = espnTargetPool(rawTotal);
     const starterShare = Math.max(0, Math.min(1, 1 - benchShare));
@@ -409,10 +422,10 @@
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
-    espnRowsCache = withPositionValue.map(row => ({
+    espnRowsCache = withVorp.map(row => ({
       ...row,
-      pure: row.positionScaledVorp * rawScale,
-      adjusted: row.role === "starter" ? row.positionScaledVorp * starterScale : row.role === "bench" ? row.positionScaledVorp * benchScale : 0
+      pure: row.rawVorp * rawScale,
+      adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
     }));
     espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
     return espnRowsCache;
@@ -435,20 +448,7 @@
   }
 
   function buildSourceMap(key) {
-    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-    const raw = combo?.values || combo?.reindexed || {};
-    const native = combo?.native || {};
-    const values = new Map();
-    Object.entries(raw).forEach(([sourceId, rawValue]) => {
-      if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
-      const playerKey = Number(data.player_keys?.[sourceId]);
-      const player = canonicalByKey.get(playerKey);
-      const value = clampValue(rawValue);
-      if (!player || value === null) return;
-      if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)}.`);
-      values.set(playerKey, value);
-    });
-    return values;
+    return buildPublishedSourceMap(key);
   }
 
   function applyRosterShape(values, key) {
@@ -683,7 +683,7 @@
           ? "K/DST use ESPN projection-derived values only."
           : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
         : "K/DST are waiting for projection-derived values in the artifact; preseason ranks are not used.";
-      specialistNote.textContent += ` ESPN adjusted labels every player as starter, bench, or waiver; starters receive ${Math.round((1 - benchShare) * 100)}% of ESPN trade-value points and bench receives ${Math.round(benchShare * 100)}%.`;
+      specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - benchShare) * 100)}% of trade-value points and bench receives ${Math.round(benchShare * 100)}%.`;
     }
   }
 
@@ -1296,7 +1296,7 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; each chart uses the same fixed pie of starter + bench value; ESPN adjusted splits that pie ${Math.round((1 - benchShare) * 100)}% starter / ${Math.round(benchShare * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts use the same fixed pie split ${Math.round((1 - benchShare) * 100)}% starter / ${Math.round(benchShare * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with the selected player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }

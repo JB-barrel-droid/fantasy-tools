@@ -297,6 +297,26 @@
     return commonFixedPieTotal(fallback);
   }
 
+  function buildPublishedSourceMap(key) {
+    const combo = selectedCombo(key);
+    const raw = combo?.values || combo?.reindexed || {};
+    const native = combo?.native || {};
+    const values = new Map();
+    Object.entries(raw).forEach(([sourceId, rawValue]) => {
+      if (["fantasypros","fantasypros_adjusted"].includes(key) && !has(native,sourceId)) return;
+      const mapped = data.player_keys?.[sourceId];
+      const playerKey = Number(mapped);
+      if (!Number.isInteger(playerKey) || !canonicalByKey.has(playerKey)) return;
+      const value = clampValue(rawValue);
+      if (value === null) return;
+      if (values.has(playerKey) && values.get(playerKey) !== value) {
+        throw new Error(`Conflicting values for canonical player ${playerKey} in ${sourceLabel(key)}.`);
+      }
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
   function roleMapForValues(values) {
     const rows = [...values.entries()]
       .map(([playerKey, value]) => ({playerKey, value:Number(value), player:canonicalByKey.get(playerKey)}))
@@ -322,15 +342,23 @@
 
   function normalizeTradeChartToFixedPie(values) {
     const roles = roleMapForValues(values);
-    const eligibleTotal = [...values.entries()]
-      .filter(([playerKey]) => ["starter", "bench"].includes(roles.get(playerKey)))
+    const starterTotal = [...values.entries()]
+      .filter(([playerKey]) => roles.get(playerKey) === "starter")
       .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
+    const benchTotal = [...values.entries()]
+      .filter(([playerKey]) => roles.get(playerKey) === "bench")
+      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
+    const eligibleTotal = starterTotal + benchTotal;
     const target = commonFixedPieTotal(eligibleTotal);
-    const scale = eligibleTotal > 0 && target > 0 ? target / eligibleTotal : 1;
+    const starterShare = Math.max(0, Math.min(1, 1 - state.benchShare));
+    const normalizedBenchShare = Math.max(0, Math.min(1, state.benchShare));
+    const starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
+    const benchScale = benchTotal > 0 && target > 0 ? (target * normalizedBenchShare) / benchTotal : 0;
     const normalized = new Map();
     values.forEach((value, playerKey) => {
       const role = roles.get(playerKey) || "waiver";
-      normalized.set(playerKey, role === "waiver" ? 0 : Math.max(0, value) * scale);
+      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+      normalized.set(playerKey, role === "starter" ? safeValue * starterScale : role === "bench" ? safeValue * benchScale : 0);
     });
     return normalized;
   }
@@ -381,27 +409,15 @@
     });
     const withRaw = tiered.map(row => ({
       ...row,
-      rawVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
+      rawProjectionVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
     }));
-    const rawByPos = new Map(POSITION_ORDER.map(pos => [
-      pos,
-      withRaw.filter(row => row.player.pos === pos).reduce((sum, row) => sum + row.rawVorp, 0)
-    ]));
-    const targetByPos = new Map(POSITION_ORDER.map(pos => [
-      pos,
-      espnTargetTotal(pos, rawByPos.get(pos) || 0)
-    ]));
-    const withPositionValue = withRaw.map(row => {
-      const rawPosTotal = rawByPos.get(row.player.pos) || 0;
-      const targetPosTotal = targetByPos.get(row.player.pos) || rawPosTotal;
-      const positionScale = rawPosTotal > 0 && targetPosTotal > 0 ? targetPosTotal / rawPosTotal : 0;
-      return {
-        ...row,
-        positionScaledVorp: row.rawVorp * positionScale
-      };
-    });
-    const starterRaw = withPositionValue.filter(row => row.role === "starter").reduce((sum, row) => sum + row.positionScaledVorp, 0);
-    const benchRaw = withPositionValue.filter(row => row.role === "bench").reduce((sum, row) => sum + row.positionScaledVorp, 0);
+    const publishedVorp = buildPublishedSourceMap("espn");
+    const withVorp = withRaw.map(row => ({
+      ...row,
+      rawVorp: row.role === "waiver" ? 0 : Math.max(0, publishedVorp.get(row.player.player_key) ?? row.rawProjectionVorp)
+    }));
+    const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
+    const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
     const rawTotal = starterRaw + benchRaw;
     const targetTotal = espnTargetPool(rawTotal);
     const starterShare = Math.max(0, Math.min(1, 1 - state.benchShare));
@@ -409,10 +425,10 @@
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
-    espnRowsCache = withPositionValue.map(row => ({
+    espnRowsCache = withVorp.map(row => ({
       ...row,
-      pure: row.positionScaledVorp * rawScale,
-      adjusted: row.role === "starter" ? row.positionScaledVorp * starterScale : row.role === "bench" ? row.positionScaledVorp * benchScale : 0
+      pure: row.rawVorp * rawScale,
+      adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
     }));
     espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
     return espnRowsCache;
@@ -443,23 +459,7 @@
     if (key === "espn") return buildEspnIndexedMap();
     if (key === "espn_vorp") return buildEspnVorpMap();
     if (key === "cbs_adjusted") return buildCbsAdjustedMap();
-    const combo = selectedCombo(key);
-    const raw = combo?.values || combo?.reindexed || {};
-    const native = combo?.native || {};
-    const values = new Map();
-    Object.entries(raw).forEach(([sourceId, rawValue]) => {
-      if (["fantasypros","fantasypros_adjusted"].includes(key) && !has(native,sourceId)) return;
-      const mapped = data.player_keys?.[sourceId];
-      const playerKey = Number(mapped);
-      if (!Number.isInteger(playerKey) || !canonicalByKey.has(playerKey)) return;
-      const value = clampValue(rawValue);
-      if (value === null) return;
-      if (values.has(playerKey) && values.get(playerKey) !== value) {
-        throw new Error(`Conflicting values for canonical player ${playerKey} in ${sourceLabel(key)}.`);
-      }
-      values.set(playerKey, value);
-    });
-    return values;
+    return buildPublishedSourceMap(key);
   }
 
   function buildCbsAdjustedMap() {
