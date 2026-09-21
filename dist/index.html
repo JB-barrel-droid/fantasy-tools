@@ -1680,20 +1680,23 @@
       const startCollapsed=embedded.meta?.dataset_status?.ui_hint?.start_collapsed;
       health.open=startCollapsed===false;
       try{
-        const [response,newsResponse]=await Promise.all([
+        const [response,newsResponse,freshnessResponse]=await Promise.all([
           fetch("assets/comparison-sources-data.json"),
-          fetch("assets/player-news.json").catch(()=>null)
+          fetch("assets/player-news.json").catch(()=>null),
+          fetch("assets/reference-freshness.json").catch(()=>null)
         ]);
         if(!response.ok)throw new Error(`Source snapshot request failed (${response.status})`);
         const data=await response.json();
         const news=newsResponse?.ok?await newsResponse.json():null;
+        const freshness=freshnessResponse?.ok?await freshnessResponse.json():null;
         const newsMeta=news?.meta||{};
         const universe=(embedded.players||[]).length;
         const live=order.filter(key=>key==="cbs_adjusted"?data.source_validation?.cbs==="live":data.source_validation?.[key]==="live");
         if(live.length!==order.length)throw new Error("One or more required sources did not pass validation.");
         const reviewCount=Number(newsMeta.review_queue_count||0);
         document.getElementById("dataHealthTitle").textContent="Current source artifacts, adjusted curves, and player news monitor";
-        document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${news?`<span class="health-count">${Number(newsMeta.matched_item_count||0)} news matches</span><span class="health-count ${reviewCount?"pending":""}">${reviewCount} review</span>`:""}`;
+        const staleRefs=Number(freshness?.summary?.stale_count||0);
+        document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${freshness?`<span class="health-count ${staleRefs?"pending":""}">${staleRefs} stale refs</span>`:""}${news?`<span class="health-count">${Number(newsMeta.matched_item_count||0)} news matches</span><span class="health-count ${reviewCount?"pending":""}">${reviewCount} review</span>`:""}`;
         document.getElementById("dataHealthIntro").textContent="Coverage is measured against the 596-player canonical snapshot. Content, fit, and news dates identify the data actually powering the dashboard.";
         const cards=live.map(key=>{
           const source=data.sources[key]||data.sources.cbs||{};
@@ -1710,6 +1713,11 @@
           const pendingAdjustments=adjustments.filter(entry=>entry&&entry.consumed===false).length;
           const suppressionCounts=newsMeta.review_suppression_counts||{};
           cards.push(`<article class="dataset-card status-news"><div class="dataset-card-head"><h3>Player news pipeline</h3><span class="dataset-badge">Monitor</span></div><p class="dataset-role">${esc(newsMeta.note||"Play/value related news only; personal items are filtered out.")}</p><dl class="dataset-facts"><div><dt>Matched news</dt><dd>${Number(newsMeta.matched_item_count||0)}/${Number(newsMeta.value_item_count||0)} value items</dd></div><div><dt>Source refresh</dt><dd>${esc(monthDay(newsMeta.source_refresh_at||newsMeta.generated_at))}</dd></div><div><dt>Actionable news</dt><dd>${esc(monthDay(newsMeta.latest_actionable_news_at))}</dd></div><div><dt>Injury proof</dt><dd>${esc(monthDay(newsMeta.injury_data_updated_at))}</dd></div><div><dt>Adjustments</dt><dd>${Number(newsMeta.adjustment_count||0)} total · ${pendingAdjustments} pending</dd></div><div><dt>Review queue</dt><dd>${reviewCount} open · ${Number(newsMeta.suppressed_review_count||0)} suppressed</dd></div><div><dt>Suppression detail</dt><dd>${Number(suppressionCounts.already_reviewed||0)} reviewed · ${Number(suppressionCounts.duplicate||0)} dupes · ${Number(suppressionCounts.low_signal||0)} low signal</dd></div><div><dt>Model timestamp</dt><dd>${esc(monthDay(newsMeta.trade_values_published_at))}</dd></div></dl></article>`);
+        }
+        if(freshness){
+          const summary=freshness.summary||{};
+          const staleItems=(freshness.items||[]).filter(item=>item.status==="stale").slice(0,4).map(item=>`${item.label}: ${monthDay(item.value)} (${item.note||"unchanged"})`);
+          cards.push(`<article class="dataset-card ${Number(summary.stale_count||0)?"status-caution":"status-news"}"><div class="dataset-card-head"><h3>Reference freshness pipe</h3><span class="dataset-badge">${Number(summary.stale_count||0)?"Watch":"Same day"}</span></div><p class="dataset-role">Same-day audit runs during dashboard sync; unchanged references are recorded rather than silently refreshed.</p><dl class="dataset-facts"><div><dt>Audit date</dt><dd>${esc(freshness.today||"unavailable")}</dd></div><div><dt>Same-day</dt><dd>${summary.all_known_dates_same_day?"yes":"no"}</dd></div><div><dt>Stale refs</dt><dd>${Number(summary.stale_count||0)}</dd></div><div><dt>Unchanged</dt><dd>${Number(summary.unchanged_count||0)}</dd></div></dl>${staleItems.length?`<p class="dataset-caveat">${esc(staleItems.join(" · "))}</p>`:""}</article>`);
         }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
         document.getElementById("asOfDate").textContent=monthDay(data.built_at);

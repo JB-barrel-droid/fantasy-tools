@@ -5,13 +5,17 @@ from __future__ import annotations
 
 import json
 import shutil
+from datetime import date
 from pathlib import Path
+
+from check_reference_freshness import build_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
 DIST = ROOT / "dist"
+REFERENCE_FRESHNESS = ROOT / "output" / "reference-freshness.json"
 
 
 def read_json(path: Path) -> dict:
@@ -35,9 +39,14 @@ def copy_tree(source: Path, target: Path) -> None:
 
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
+    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, date.today())
+    REFERENCE_FRESHNESS.parent.mkdir(parents=True, exist_ok=True)
+    REFERENCE_FRESHNESS.write_text(json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
     (APP / "assets").mkdir(parents=True, exist_ok=True)
     shutil.copy2(FIXTURES / "comparison-sources-data.json", APP / "assets" / "comparison-sources-data.json")
     shutil.copy2(FIXTURES / "player-news.json", APP / "assets" / "player-news.json")
+    shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
 
     index_path = APP / "index.html"
     index_path.write_text(replace_inline_players(index_path.read_text(encoding="utf-8"), players), encoding="utf-8")
