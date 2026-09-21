@@ -203,7 +203,9 @@ class StaticExportTest(unittest.TestCase):
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn('position === "ALL" && lockOrder === "preseason"', text)
-        self.assertIn("one mixed overall curve", text)
+        self.assertIn("sourceCurveRows", text)
+        self.assertIn("each curve is sorted by its own source rank", text)
+        self.assertIn("sourceCurveMonotonic", text)
         self.assertIn("slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))", text)
         self.assertIn("syncYAxis", text)
         self.assertIn("yAxisAuto", text)

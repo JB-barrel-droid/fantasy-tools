@@ -524,6 +524,18 @@
     return lastPriced >= 0 ? orderedRows.slice(0, lastPriced + 1) : orderedRows.slice(0, 1);
   }
 
+  function sourceCurveRows(key, rows = displayRows()) {
+    return rows
+      .filter(row => Number.isFinite(row.values[key]))
+      .slice()
+      .sort((a, b) => b.values[key] - a.values[key] || preseasonComparator(a, b));
+  }
+
+  function sourceRankForPlayer(key, playerKey) {
+    const index = sourceCurveRows(key).findIndex(row => row.player_key === playerKey);
+    return index >= 0 ? index + 1 : null;
+  }
+
   function syncContext() {
     const context = $("#curveContext");
     if (!context) return;
@@ -663,9 +675,10 @@
   }
 
   function chartValueExtent(rows = displayRows()) {
-    const values = rows
-      .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
-      .flatMap(row => activeSourceKeys().map(key => row.values[key]))
+    const values = activeSourceKeys()
+      .flatMap(key => sourceCurveRows(key, rows)
+        .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
+        .map(row => row.values[key]))
       .filter(Number.isFinite);
     const max = values.length ? Math.max(...values) : 10;
     return {min:0, max:Math.max(10, Math.ceil(max / 5) * 5)};
@@ -767,12 +780,12 @@
     const note = $("#curveLockNote");
     if (!note) return;
     note.textContent = [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
-      ? `Every curve follows ${sourceLabel(lockOrder)}’s player order; players missing from that source sort last.`
+      ? `Curves use each source’s own value rank; player lookup and the player list use ${sourceLabel(lockOrder)} as the context order.`
       : lockOrder === "disagreement"
-        ? "Players with the widest available cross-source spread appear first."
+        ? "Curves use each source’s own value rank; player context starts with the widest available cross-source spreads."
         : position === "ALL"
-          ? "All positions use one mixed overall curve, sorted by the best visible value when preseason is selected."
-          : "Preseason ranks are positional, so Flex groups players by position before rank.";
+          ? "Curves use each source’s own value rank; player context uses one mixed overall preseason view."
+          : "Curves use each source’s own value rank; player context follows positional preseason order.";
   }
 
   function publishShared() {
@@ -934,7 +947,7 @@
     const percent = value => maximum <= 1 ? 0 : (value - 1) / (maximum - 1) * 100;
     $("#zfill").style.left = `calc(8px + (100% - 16px) * ${percent(zoomLow) / 100})`;
     $("#zfill").style.width = `calc((100% - 16px) * ${(percent(zoomHigh) - percent(zoomLow)) / 100})`;
-    $("#zlabel").textContent = `Player rank ${zoomLow}–${zoomHigh}`;
+    $("#zlabel").textContent = `Source rank ${zoomLow}–${zoomHigh}`;
     syncYAxis();
     renderVisiblePlayers();
   }
@@ -1070,9 +1083,10 @@
   }
 
   function yAxisScale(rows) {
-    const values = rows
-      .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
-      .flatMap(row => activeSourceKeys().map(key => row.values[key]))
+    const values = activeSourceKeys()
+      .flatMap(key => sourceCurveRows(key, rows)
+        .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
+        .map(row => row.values[key]))
       .filter(Number.isFinite);
     const dataMax = values.length ? Math.max(...values) : 0;
     const bandMin = yAxisAuto ? 0 : yLow;
@@ -1098,19 +1112,28 @@
     const axis = yAxisScale(displayRows());
     const axisMin = yAxisAuto ? axis.min : yLow;
     const axisMax = yAxisAuto ? axis.max : yHigh;
-    const rows = displayRows()
-      .slice(Math.max(0, zoomLow - 1), zoomHigh)
-      .filter(row => keys.some(key => Number.isFinite(row.values[key]) && row.values[key] >= axisMin && row.values[key] <= axisMax));
-    if (!rows.length || !keys.length) {
+    const rankRows = [];
+    keys.forEach(key => {
+      sourceCurveRows(key)
+        .slice(Math.max(0, zoomLow - 1), zoomHigh)
+        .forEach((row, index) => {
+          const value = row.values[key];
+          if (Number.isFinite(value) && value >= axisMin && value <= axisMax) {
+            rankRows.push({rank:zoomLow + index, key, row, value});
+          }
+        });
+    });
+    if (!rankRows.length || !keys.length) {
       container.innerHTML = `<p class="visible-empty">No players or active scores in the current view.</p>`;
       return;
     }
-    const head = `<tr><th>Rank</th><th>Player</th><th>ESPN tier</th>${keys.map(key => `<th>${sourceLabel(key)}</th>`).join("")}</tr>`;
-    const body = rows.map(row => {
-      const rank = displayRows().findIndex(candidate => candidate.player_key === row.player_key) + 1;
-      return `<tr><td>${rank}</td><td><strong>${row.name}</strong><span>${row.pos} · ${row.team}</span></td><td>${row.espnRole}</td>${keys.map(key => `<td>${formatScore(row.values[key])}</td>`).join("")}</tr>`;
+    rankRows.sort((a, b) => a.rank - b.rank || keys.indexOf(a.key) - keys.indexOf(b.key));
+    const head = `<tr><th>Rank</th><th>Source</th><th>Player</th><th>ESPN tier</th><th>Value</th></tr>`;
+    const body = rankRows.map(item => {
+      const row = item.row;
+      return `<tr><td>${item.rank}</td><td>${sourceLabel(item.key)}</td><td><strong>${row.name}</strong><span>${row.pos} · ${row.team}</span></td><td>${row.espnRole}</td><td>${formatScore(item.value)}</td></tr>`;
     }).join("");
-    container.innerHTML = `<p class="visible-note">Players shown match the X zoom and current Y axis. Reset Y axis to restore the full value range.</p><div class="visible-table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    container.innerHTML = `<p class="visible-note">Players shown match each source curve’s rank order plus the current X and Y view. Reset Y axis to restore the full value range.</p><div class="visible-table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
   }
 
   function syncPlayerOptions() {
@@ -1138,7 +1161,11 @@
       if (status) status.textContent = "No match in this view.";
       return;
     }
-    const rank = rows.findIndex(row => row.player_key === match.player_key) + 1;
+    const sourceRanks = activeSourceKeys()
+      .map(key => ({key, rank:sourceRankForPlayer(key, match.player_key)}))
+      .filter(item => Number.isFinite(item.rank));
+    const lockRank = rows.findIndex(row => row.player_key === match.player_key) + 1;
+    const rank = sourceRanks.length ? Math.min(...sourceRanks.map(item => item.rank)) : lockRank;
     const windowSize = Math.min(28, Math.max(12, Math.round(fullRankMax() * 0.08)));
     zoomLow = Math.max(1, rank - Math.floor(windowSize / 2));
     zoomHigh = Math.min(fullRankMax(), zoomLow + windowSize);
@@ -1149,7 +1176,10 @@
     const rect = canvas.getBoundingClientRect();
     const clientX = rect.left + geometry.pad.left + (rank - zoomLow) / Math.max(1, zoomHigh - zoomLow) * geometry.innerWidth;
     showTooltip(rank, clientX, rect.top + geometry.pad.top + 18, false);
-    if (status) status.textContent = `${match.name}: rank ${rank}.`;
+    if (status) {
+      const rankText = sourceRanks.slice(0, 4).map(item => `${sourceLabel(item.key)} ${item.rank}`).join(" · ");
+      status.textContent = `${match.name}: ${rankText || `context rank ${lockRank}`}.`;
+    }
   }
 
   function draw() {
@@ -1196,7 +1226,7 @@
       context.fillText(String(rank), x(rank), height - 24);
     }
     context.font = '600 10px "IBM Plex Mono", monospace';
-    context.fillText("Player rank", pad.left + innerWidth / 2, height - 7);
+    context.fillText("Source rank", pad.left + innerWidth / 2, height - 7);
     context.save();
     context.translate(10, pad.top + innerHeight / 2);
     context.rotate(-Math.PI / 2);
@@ -1236,7 +1266,7 @@
       context.setLineDash(style.dash);
       context.beginPath();
       let drawing = false;
-      rows.forEach((row, index) => {
+      sourceCurveRows(key, rows).forEach((row, index) => {
         const rank = index + 1;
         const value = row.values[key];
         if (rank < zoomLow || rank > zoomHigh || !Number.isFinite(value)) {
@@ -1270,9 +1300,9 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · each chart uses the same fixed pie of starter + bench value; ESPN adjusted splits that pie ${Math.round((1 - benchShare) * 100)}% starter / ${Math.round(benchShare * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · each curve is sorted by its own source rank and uses the same fixed pie of starter + bench value; ESPN adjusted splits that pie ${Math.round((1 - benchShare) * 100)}% starter / ${Math.round(benchShare * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
-    canvas.setAttribute("aria-label", "Trade value curves with player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
+    canvas.setAttribute("aria-label", "Trade value curves with source rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each rank.");
   }
 
   function nearestRank(clientX) {
@@ -1284,11 +1314,13 @@
   }
 
   function tooltipHtml(rank) {
-    const row = displayRows()[rank - 1];
-    if (!row) return "";
-    const rankLabel = `${lockLabel(lockOrder)} rank ${rank}`;
-    const values = activeSourceKeys().map(key => `<span class="tip-source"><i style="background:${SOURCE_STYLES[key].color}"></i>${sourceLabel(key)}</span><b>${Number.isFinite(row.values[key]) ? Number(row.values[key]).toFixed(1) : "—"}</b>`).join("");
-    return `<strong>${rank}. ${row.name}</strong><span class="tip-meta">${row.pos} · ${row.team} · ESPN ${row.espnRole} · ${rankLabel}</span><span class="tip-grid">${values}</span>`;
+    const values = activeSourceKeys().map(key => {
+      const row = sourceCurveRows(key)[rank - 1];
+      const playerLabel = row ? `${row.name} · ${row.pos} · ${row.team}` : "No player";
+      const value = row ? Number(row.values[key]).toFixed(1) : "—";
+      return `<span class="tip-source"><i style="background:${SOURCE_STYLES[key].color}"></i>${sourceLabel(key)}<em>${playerLabel}</em></span><b>${value}</b>`;
+    }).join("");
+    return `<strong>Source rank ${rank}</strong><span class="tip-meta">Each curve is ranked independently on the shared fixed-pie scale.</span><span class="tip-grid">${values}</span>`;
   }
 
   function showTooltip(rank, clientX, clientY, above) {
@@ -1367,6 +1399,10 @@
     const scale = yAxisScale(rows);
     const visiblePeak = Math.max(...rows.flatMap(row => activeSourceKeys().map(key => row.values[key])).filter(Number.isFinite));
     const dynamicAxisCoversData = scale.max >= visiblePeak;
+    const sourceCurveMonotonic = activeSourceKeys().every(key => {
+      const values = sourceCurveRows(key).map(row => row.values[key]).filter(Number.isFinite);
+      return values.every((value, index) => index === 0 || value <= values[index - 1] + 0.0001);
+    });
     const markers = boundaryMarkers();
     const rosterTransitions = markers.length === 2
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
@@ -1375,9 +1411,9 @@
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length};
+    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sourceCurveMonotonic, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "sourceCurveMonotonic", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
   }
 
