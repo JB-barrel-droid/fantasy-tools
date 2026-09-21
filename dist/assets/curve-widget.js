@@ -276,11 +276,63 @@
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
+  function sourceTargetTotal(key) {
+    const sourceKey = key === "cbs_adjusted" ? "cbs" : key;
+    const combo = data.sources?.[sourceKey]?.combos?.[comboKey(sourceKey)];
+    const totals = Object.values(combo?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
+    return totals.reduce((sum, value) => sum + value, 0);
+  }
+
+  function commonFixedPieTotal(fallback) {
+    const totals = [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS]
+      .map(sourceTargetTotal)
+      .filter(value => Number.isFinite(value) && value > 0)
+      .sort((a, b) => a - b);
+    if (!totals.length) return fallback;
+    const middle = Math.floor(totals.length / 2);
+    return totals.length % 2 ? totals[middle] : (totals[middle - 1] + totals[middle]) / 2;
+  }
+
   function espnTargetPool(fallback) {
-    const total = POSITION_ORDER
-      .map(pos => espnTargetTotal(pos, 0))
-      .reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-    return total > 0 ? total : fallback;
+    return commonFixedPieTotal(fallback);
+  }
+
+  function roleMapForValues(values) {
+    const rows = [...values.entries()]
+      .map(([playerKey, value]) => ({playerKey, value:Number(value), player:canonicalByKey.get(playerKey)}))
+      .filter(row => row.player && POSITION_ORDER.includes(row.player.pos) && Number.isFinite(row.value) && row.value > 0)
+      .sort((a, b) => b.value - a.value || preseasonComparator(a.player, b.player));
+    const roles = new Map();
+    POSITION_ORDER.forEach(pos => {
+      rows
+        .filter(row => row.player.pos === pos)
+        .slice(0, teams * Number(rosterShape[pos] || 0))
+        .forEach(row => roles.set(row.playerKey, "starter"));
+    });
+    rows
+      .filter(row => flexEligiblePositions().includes(row.player.pos) && !roles.has(row.playerKey))
+      .slice(0, teams * Number(rosterShape.FLEX || 0))
+      .forEach(row => roles.set(row.playerKey, "starter"));
+    rows
+      .filter(row => !roles.has(row.playerKey))
+      .slice(0, teams * Number(rosterShape.BENCH || 0))
+      .forEach(row => roles.set(row.playerKey, "bench"));
+    return roles;
+  }
+
+  function normalizeTradeChartToFixedPie(values) {
+    const roles = roleMapForValues(values);
+    const eligibleTotal = [...values.entries()]
+      .filter(([playerKey]) => ["starter", "bench"].includes(roles.get(playerKey)))
+      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
+    const target = commonFixedPieTotal(eligibleTotal);
+    const scale = eligibleTotal > 0 && target > 0 ? target / eligibleTotal : 1;
+    const normalized = new Map();
+    values.forEach((value, playerKey) => {
+      const role = roles.get(playerKey) || "waiver";
+      normalized.set(playerKey, role === "waiver" ? 0 : Math.max(0, value) * scale);
+    });
+    return normalized;
   }
 
   function compareEspnPlayers(a, b) {
@@ -443,8 +495,11 @@
     espnRowsCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
-    SOURCE_KEYS.forEach(key => sourceMaps.set(key, key === "espn" ? buildEspnIndexedMap() : applyRosterShape(buildSourceMap(key), key)));
-    sourceMaps.set("cbs_adjusted", applyRosterShape(buildCbsAdjustedMap(), "cbs_adjusted"));
+    SOURCE_KEYS.forEach(key => {
+      const sourceMap = key === "espn" ? buildEspnIndexedMap() : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key));
+      sourceMaps.set(key, sourceMap);
+    });
+    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(buildCbsAdjustedMap(), "cbs_adjusted")));
     sourceMaps.set("espn_vorp", buildEspnVorpMap());
 
     const keys = new Set();
@@ -1003,18 +1058,13 @@
 
   function fixedPieDiagnostics() {
     const tolerance = 2;
+    const target = commonFixedPieTotal(0);
     const checks = [];
-    SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
-      const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-      const targets = combo?.index_total || {};
-      POSITION_ORDER.forEach(pos => {
-        const target = Number(targets[pos]?.target_total);
-        if (!Number.isFinite(target)) return;
-        const total = [...sourceMaps.get(key).entries()]
-          .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
-          .reduce((sum, [, value]) => sum + value, 0);
-        checks.push({source:key, pos, total, target, delta:total - target, ok:Math.abs(total - target) <= tolerance});
-      });
+    visibleSourceKeys().forEach(key => {
+      const total = [...sourceMaps.get(key).entries()]
+        .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
+        .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
+      checks.push({source:key, total, target, delta:total - target, ok:Math.abs(total - target) <= tolerance});
     });
     return {tolerance, checks, ok:checks.every(check => check.ok)};
   }
@@ -1220,7 +1270,7 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · ESPN adjusted labels each player starter/bench/waiver; starter values sum to ${Math.round((1 - benchShare) * 100)}% of ESPN trade-value points, bench to ${Math.round(benchShare * 100)}%, waiver to 0 · roster transitions: ${markerText}.`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · each chart uses the same fixed pie of starter + bench value; ESPN adjusted splits that pie ${Math.round((1 - benchShare) * 100)}% starter / ${Math.round(benchShare * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }

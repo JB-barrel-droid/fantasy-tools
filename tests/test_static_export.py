@@ -138,8 +138,8 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        self.assertIn("starter/bench/waiver", text)
-        self.assertIn("starter values sum", text)
+        self.assertIn("same fixed pie of starter + bench value", text)
+        self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
     def test_curve_defaults_are_grouped_and_include_pure_vorp(self):

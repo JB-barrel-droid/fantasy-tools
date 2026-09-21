@@ -276,11 +276,63 @@
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
+  function sourceTargetTotal(key) {
+    const sourceKey = key === "cbs_adjusted" ? "cbs" : key;
+    const combo = data.sources?.[sourceKey]?.combos?.[comboKeyFor(sourceKey)];
+    const totals = Object.values(combo?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
+    return totals.reduce((sum, value) => sum + value, 0);
+  }
+
+  function commonFixedPieTotal(fallback) {
+    const totals = SOURCE_KEYS
+      .map(sourceTargetTotal)
+      .filter(value => Number.isFinite(value) && value > 0)
+      .sort((a, b) => a - b);
+    if (!totals.length) return fallback;
+    const middle = Math.floor(totals.length / 2);
+    return totals.length % 2 ? totals[middle] : (totals[middle - 1] + totals[middle]) / 2;
+  }
+
   function espnTargetPool(fallback) {
-    const total = POSITION_ORDER
-      .map(pos => espnTargetTotal(pos, 0))
-      .reduce((sum, value) => sum + (Number.isFinite(value) ? value : 0), 0);
-    return total > 0 ? total : fallback;
+    return commonFixedPieTotal(fallback);
+  }
+
+  function roleMapForValues(values) {
+    const rows = [...values.entries()]
+      .map(([playerKey, value]) => ({playerKey, value:Number(value), player:canonicalByKey.get(playerKey)}))
+      .filter(row => row.player && POSITION_ORDER.includes(row.player.pos) && Number.isFinite(row.value) && row.value > 0)
+      .sort((a, b) => b.value - a.value || preseasonComparator(a.player, b.player));
+    const roles = new Map();
+    POSITION_ORDER.forEach(pos => {
+      rows
+        .filter(row => row.player.pos === pos)
+        .slice(0, state.teams * Number(state.rosterShape[pos] || 0))
+        .forEach(row => roles.set(row.playerKey, "starter"));
+    });
+    rows
+      .filter(row => flexEligiblePositions().includes(row.player.pos) && !roles.has(row.playerKey))
+      .slice(0, state.teams * Number(state.rosterShape.FLEX || 0))
+      .forEach(row => roles.set(row.playerKey, "starter"));
+    rows
+      .filter(row => !roles.has(row.playerKey))
+      .slice(0, state.teams * Number(state.rosterShape.BENCH || 0))
+      .forEach(row => roles.set(row.playerKey, "bench"));
+    return roles;
+  }
+
+  function normalizeTradeChartToFixedPie(values) {
+    const roles = roleMapForValues(values);
+    const eligibleTotal = [...values.entries()]
+      .filter(([playerKey]) => ["starter", "bench"].includes(roles.get(playerKey)))
+      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
+    const target = commonFixedPieTotal(eligibleTotal);
+    const scale = eligibleTotal > 0 && target > 0 ? target / eligibleTotal : 1;
+    const normalized = new Map();
+    values.forEach((value, playerKey) => {
+      const role = roles.get(playerKey) || "waiver";
+      normalized.set(playerKey, role === "waiver" ? 0 : Math.max(0, value) * scale);
+    });
+    return normalized;
   }
 
   function compareEspnPlayers(a, b) {
@@ -427,7 +479,10 @@
   function rebuildSourceMaps() {
     espnRowsCache = null;
     espnRoleByKey = new Map();
-    sourceMaps = new Map(renderKeys.map(key => [key, applyRosterShape(buildSourceMap(key), key)]));
+    sourceMaps = new Map(renderKeys.map(key => {
+      const sourceMap = ["espn", "espn_vorp"].includes(key) ? buildSourceMap(key) : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key));
+      return [key, sourceMap];
+    }));
   }
 
   function allColumnKeys() {
