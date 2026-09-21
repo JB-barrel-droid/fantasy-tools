@@ -162,7 +162,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("yslider", html)
         self.assertNotIn("Legacy projection comparison", html)
         self.assertIn('let position = "ALL"', text)
-        self.assertIn('let lockOrder = "espn"', text)
+        self.assertIn('let lockOrder = "fantasycalc_adjusted"', text)
+        self.assertIn('sourceAvailable("fantasycalc_adjusted")', text)
 
     def test_dashboard_copy_does_not_surface_old_branding(self):
         html = (APP / "index.html").read_text(encoding="utf-8")

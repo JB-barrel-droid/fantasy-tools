@@ -92,7 +92,7 @@
   let yLow = 0;
   let yHigh = 100;
   let includeSpecialists = false;
-  let lockOrder = "espn";
+  let lockOrder = "fantasycalc_adjusted";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   let hideZeroTail = false;
   let zoomLow = 1;
@@ -157,7 +157,7 @@
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
-  const defaultValueLock = () => "espn";
+  const defaultValueLock = () => sourceAvailable("fantasycalc_adjusted") ? "fantasycalc_adjusted" : "espn";
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
@@ -527,6 +527,7 @@
 
   function selectedRankSourceKey() {
     if (visibleSourceKeys().includes(lockOrder) && sourceAvailable(lockOrder)) return lockOrder;
+    if (sourceAvailable("fantasycalc_adjusted")) return "fantasycalc_adjusted";
     if (sourceAvailable("espn")) return "espn";
     return activeSourceKeys()[0] || "espn";
   }
