@@ -170,6 +170,10 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('return `${score}_${teams}`', curve)
         self.assertIn("Not available for", comparison)
         self.assertIn('return `${score}_${state.teams}`', comparison)
+        self.assertIn("activeReferenceWeek", comparison)
+        self.assertIn("isWeekCurrent", comparison)
+        self.assertIn("sourceAvailable", comparison)
+        self.assertIn("Waiting for Week", comparison)
 
     def test_kdst_projection_path_is_available_without_preseason_rank(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")

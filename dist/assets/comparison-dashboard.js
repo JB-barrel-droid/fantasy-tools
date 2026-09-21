@@ -74,6 +74,36 @@
     if (fitWeek) return Number(fitWeek[1]);
     return Number(data?.value_weeks?.monday) || null;
   }
+
+  function rolloverDate() {
+    const built = new Date(data?.built_at || "");
+    if (Number.isNaN(built.getTime())) return null;
+    const next = new Date(Date.UTC(built.getUTCFullYear(), built.getUTCMonth(), built.getUTCDate()));
+    const daysUntilMonday = (8 - next.getUTCDay()) % 7 || 7;
+    next.setUTCDate(next.getUTCDate() + daysUntilMonday);
+    return next;
+  }
+
+  function todayDate() {
+    const override = window.TRADE_VALUE_TODAY;
+    const raw = override ? new Date(`${String(override).slice(0, 10)}T00:00:00Z`) : new Date();
+    return Number.isNaN(raw.getTime()) ? new Date() : raw;
+  }
+
+  function activeReferenceWeek() {
+    const base = Number(data?.value_weeks?.monday);
+    if (!Number.isFinite(base)) return null;
+    const rollover = rolloverDate();
+    if (!rollover) return base;
+    return todayDate() >= rollover ? base + 1 : base;
+  }
+
+  function isWeekCurrent(key) {
+    const week = weekForSource(key);
+    const activeWeek = activeReferenceWeek();
+    return !week || !activeWeek || week >= activeWeek;
+  }
+
   function sourceLabel(key) {
     const base = LABELS[key] || key;
     const week = weekForSource(key);
@@ -133,6 +163,10 @@
   function sourceComboExists(key) {
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
     return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
+  }
+
+  function sourceAvailable(key) {
+    return sourceComboExists(key) && isWeekCurrent(key);
   }
 
   function canonicalPlayers() {
@@ -213,7 +247,7 @@
   }
 
   function allColumnKeys() {
-    return [...FIELD_COLUMNS.map(column => column.key), ...renderKeys];
+    return [...FIELD_COLUMNS.map(column => column.key), ...renderKeys.filter(sourceAvailable)];
   }
 
   function visibleColumns() {
@@ -224,6 +258,7 @@
   }
 
   function sourceValue(key, playerKey) {
+    if (!sourceAvailable(key)) return null;
     return sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null;
   }
 
@@ -241,6 +276,7 @@
 
   function sourceMeta(key) {
     const coverage = sourceMaps.get(key)?.size || 0;
+    if (!isWeekCurrent(key)) return `Waiting for Week ${activeReferenceWeek()} artifact`;
     if (!sourceComboExists(key)) return `Not available for ${scoreLabel(state.scoring)} · ${state.teams} teams`;
     return `${coverage}/${universeSize} · ${sourceDate(key)}`;
   }
@@ -388,7 +424,10 @@
   function renderSourceCards() {
     const container = $("#sourceCards");
     if (!container) return;
-    container.innerHTML = renderKeys.map(key => `<article class="source-card${sourceComboExists(key) ? "" : " is-disabled"}" title="${esc(sourceComboExists(key) ? TIPS[key] : sourceMeta(key))}"><div><h2 class="source-title">${esc(sourceLabel(key))}</h2><p class="source-kind">${esc(sourceMeta(key))}</p></div></article>`).join("");
+    container.innerHTML = renderKeys.map(key => {
+      const available = sourceAvailable(key);
+      return `<article class="source-card${available ? "" : " is-disabled"}" title="${esc(available ? TIPS[key] : sourceMeta(key))}"><div><h2 class="source-title">${esc(sourceLabel(key))}</h2><p class="source-kind">${esc(sourceMeta(key))}</p></div></article>`;
+    }).join("");
   }
 
   function renderColumnToggles() {
@@ -411,6 +450,7 @@
 
   function setLockOrder(value, publish = true) {
     if (!isLockKey(value)) return;
+    if (SOURCE_KEYS.includes(value) && !sourceAvailable(value)) return;
     if (SOURCE_KEYS.includes(value)) {
       referenceSource = value;
       window.DDF_REFERENCE_SOURCE = referenceSource;
@@ -448,7 +488,7 @@
 
   function rows() {
     const ids = new Set();
-    sourceMaps.forEach(map => map.forEach((_, key) => ids.add(key)));
+    renderKeys.filter(sourceAvailable).forEach(sourceKey => sourceMaps.get(sourceKey)?.forEach((_, key) => ids.add(key)));
     return [...ids].map(playerKey => {
       const player = canonicalByKey.get(playerKey);
       if (!player?.name || !POSITIONS.includes(player.pos)) return null;
@@ -500,6 +540,7 @@
 
   function setTableSort(key) {
     if (!["name", ...allColumnKeys()].includes(key)) return;
+    if (SOURCE_KEYS.includes(key) && !sourceAvailable(key)) return;
     if (SOURCE_KEYS.includes(key)) {
       referenceSource = key;
       window.DDF_REFERENCE_SOURCE = key;
@@ -577,6 +618,22 @@
     if ($("#freshness")) $("#freshness").textContent = `Full PPR default · ${renderKeys.map(key => `${sourceLabel(key)} ${sourceMeta(key)}`).join(" · ")}`;
   }
 
+  function ensureAvailableSelection() {
+    if (SOURCE_KEYS.includes(state.sort.column) && !sourceAvailable(state.sort.column)) {
+      state.sort = {column:"preseason", direction:"asc"};
+      state.compareSource = "preseason";
+    }
+    if (SOURCE_KEYS.includes(state.compareSource) && !sourceAvailable(state.compareSource)) state.compareSource = "preseason";
+    if (SOURCE_KEYS.includes(referenceSource) && !sourceAvailable(referenceSource)) {
+      referenceSource = renderKeys.find(sourceAvailable) || "espn";
+      window.DDF_REFERENCE_SOURCE = referenceSource;
+    }
+    if (Array.isArray(state.columns)) {
+      const allowed = new Set(allColumnKeys());
+      state.columns = state.columns.filter(key => allowed.has(key));
+    }
+  }
+
   function exportState() {
     return {version:6, settings:{scoring:state.scoring, teams:state.teams}, sort:{...state.sort}, filters:{...state.filters}, columns:[...visibleColumns()]};
   }
@@ -635,6 +692,7 @@
   }
 
   function renderAll() {
+    ensureAvailableSelection();
     renderLeagueControls();
     renderSourceCards();
     renderColumnToggles();
@@ -694,10 +752,12 @@
     const allSources = renderKeys.length === SOURCE_KEYS.length && SOURCE_KEYS.every(key => renderKeys.includes(key));
     const fullPpr12TeamQbs = state.scoring === "full" && state.teams === 12 && rows().filter(row => row.pos === "QB").length;
     const fullPpr12TeamQbsAvailable = fullPpr12TeamQbs > 0;
-    const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && SOURCE_KEYS.every(key => allColumnKeys().includes(key));
-    const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, sourceCount:renderKeys.length};
+    const availableSources = renderKeys.filter(sourceAvailable);
+    const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && availableSources.every(key => allColumnKeys().includes(key));
+    const rolloverAware = renderKeys.every(key => !isWeekCurrent(key) || sourceAvailable(key));
+    const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
     window.DDFComparisonDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "allSources", "fullPpr12TeamQbsAvailable", "configurableColumns"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "allSources", "fullPpr12TeamQbsAvailable", "configurableColumns", "rolloverAware"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Comparison regression guard failed: ${failed.map(([key]) => key).join(", ")}`);
   }
 
