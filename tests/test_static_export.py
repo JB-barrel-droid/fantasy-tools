@@ -150,8 +150,12 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("Pure VORP", text)
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]', text)
         self.assertIn("buildCbsAdjustedMap", text)
+        self.assertIn("buildEspnIndexedMap", text)
+        self.assertIn("espnStartWeight", text)
         self.assertIn("espn_vorp", text)
         self.assertIn("visiblePlayersList", html)
+        self.assertIn("curvePlayerSearch", html)
+        self.assertIn("yslider", html)
         self.assertNotIn("Legacy projection comparison", html)
         self.assertIn('let position = "ALL"', text)
         self.assertIn('let lockOrder = "espn"', text)
@@ -173,7 +177,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("activeReferenceWeek", comparison)
         self.assertIn("isWeekCurrent", comparison)
         self.assertIn("sourceAvailable", comparison)
-        self.assertIn("Waiting for Week", comparison)
+        self.assertIn("sourceIsStale", comparison)
+        self.assertIn("stale", comparison)
 
     def test_kdst_projection_path_is_available_without_preseason_rank(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
@@ -190,6 +195,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('position === "ALL" && lockOrder === "preseason"', text)
         self.assertIn("one mixed overall curve", text)
         self.assertIn("slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))", text)
+        self.assertIn("syncYAxis", text)
+        self.assertIn("yAxisAuto", text)
 
     def test_top_indexed_values_preserve_high_overall_scale(self):
         gibbs_values = []

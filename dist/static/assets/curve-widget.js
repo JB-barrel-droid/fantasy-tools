@@ -51,12 +51,6 @@
   const SPECIALIST_POSITIONS = ["K", "DST"];
   const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
   const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
-  const VALUE_BANDS = {
-    all: {label:"Full", min:0, max:null},
-    elite: {label:"Elite", min:40, max:null},
-    starter: {label:"Starter value", min:15, max:45},
-    bench: {label:"Bench value", min:0, max:18}
-  };
 
   const root = document.getElementById("curve-widget");
   if (!root) return;
@@ -89,7 +83,9 @@
   let scoring = "ppr";
   let teams = 12;
   let rosterShape = {...DEFAULT_ROSTER};
-  let valueBand = "all";
+  let yAxisAuto = true;
+  let yLow = 0;
+  let yHigh = 100;
   let includeSpecialists = false;
   let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
@@ -141,6 +137,7 @@
     const activeWeek = activeReferenceWeek();
     return !week || !activeWeek || week >= activeWeek;
   }
+  const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && !isWeekCurrent(key);
 
   function sourceLabel(key) {
     const base = SOURCE_LABELS[key] || key;
@@ -151,7 +148,7 @@
   const lockLabel = key => key === "preseason" ? "Preseason positional rank" : key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
   const isPosition = player => position === "ALL" || (position === "FLEX" ? ["RB", "WR", "TE"].includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
-  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && isWeekCurrent(key) && sourceComboExists(key);
+  const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
@@ -267,31 +264,63 @@
     return {direct, lineup, rostered};
   }
 
-  function buildEspnVorpMap() {
-    const values = new Map();
+  function espnTargetTotal(pos, fallback) {
+    const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
+    const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+    return Number.isFinite(target) && target > 0 ? target : fallback;
+  }
+
+  function espnStartWeight(rank, counts, pos) {
+    const starterDepth = Math.max(0, Number(counts.lineup[pos] || 0));
+    const rosterDepth = Math.max(starterDepth, Number(counts.rostered[pos] || 0));
+    if (rank <= starterDepth) return 1;
+    if (rank > rosterDepth) return 0;
+    const benchDepth = Math.max(1, rosterDepth - starterDepth);
+    const benchIndex = Math.max(1, rank - starterDepth);
+    const fraction = benchDepth <= 1 ? 0 : (benchIndex - 1) / (benchDepth - 1);
+    return Math.max(0.12, 0.58 - (0.43 * fraction));
+  }
+
+  function espnVorpRows(pos) {
     const field = scoringField();
     const counts = allocationCountsFor([...canonicalByKey.values()]);
-    const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
+    const priced = [...canonicalByKey.values()]
+      .filter(player => player.pos === pos)
+      .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+      .filter(item => Number.isFinite(item.ppg))
+      .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player));
+    if (!priced.length) return [];
+    const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
+    const baseline = priced[baselineIndex].ppg;
+    return priced.map(({player, ppg}, index) => {
+      const rank = index + 1;
+      const pure = Math.max(0, ppg - baseline);
+      const startWeight = pure > 0 ? espnStartWeight(rank, counts, pos) : 0;
+      return {player, ppg, rank, pure, startWeight, weighted:pure * startWeight};
+    });
+  }
+
+  function scaleEspnRows(rows, valueKey, pos) {
+    const values = new Map();
+    const rawTotal = rows.reduce((sum, row) => sum + row[valueKey], 0);
+    const targetTotal = espnTargetTotal(pos, rawTotal);
+    const scale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
+    rows.forEach(row => values.set(row.player.player_key, row[valueKey] * scale));
+    return values;
+  }
+
+  function buildEspnVorpMap() {
+    const values = new Map();
     CHART_POSITIONS.forEach(pos => {
-      const priced = [...canonicalByKey.values()]
-        .filter(player => player.pos === pos)
-        .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
-        .filter(item => Number.isFinite(item.ppg))
-        .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player));
-      if (!priced.length) return;
-      const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
-      const baseline = priced[baselineIndex].ppg;
-      const rawRows = priced.map(({player, ppg}) => ({player, value:Math.max(0, ppg - baseline)}));
-      const rawTotal = rawRows.reduce((sum, row) => sum + row.value, 0);
-      const espnMap = sourceMaps.get("espn");
-      const espnTotal = espnMap
-        ? [...espnMap.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos).reduce((sum, [, value]) => sum + value, 0)
-        : 0;
-      const targetTotal = Number(targetCombo?.index_total?.[pos]?.target_total) || espnTotal || rawTotal;
-      const scale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
-      rawRows.forEach(({player, value}) => {
-        values.set(player.player_key, value * scale);
-      });
+      scaleEspnRows(espnVorpRows(pos), "pure", pos).forEach((value, playerKey) => values.set(playerKey, value));
+    });
+    return values;
+  }
+
+  function buildEspnIndexedMap() {
+    const values = new Map();
+    CHART_POSITIONS.forEach(pos => {
+      scaleEspnRows(espnVorpRows(pos), "weighted", pos).forEach((value, playerKey) => values.set(playerKey, value));
     });
     return values;
   }
@@ -372,7 +401,7 @@
 
   function rebuildDomain() {
     sourceMaps = new Map();
-    SOURCE_KEYS.forEach(key => sourceMaps.set(key, applyRosterShape(buildSourceMap(key), key)));
+    SOURCE_KEYS.forEach(key => sourceMaps.set(key, key === "espn" ? buildEspnIndexedMap() : applyRosterShape(buildSourceMap(key), key)));
     sourceMaps.set("cbs_adjusted", applyRosterShape(buildCbsAdjustedMap(), "cbs_adjusted"));
     sourceMaps.set("espn_vorp", buildEspnVorpMap());
 
@@ -385,6 +414,7 @@
       return {...player, values};
     }).filter(Boolean);
     orderedRows = universe.filter(row => (includeSpecialists || !SPECIALIST_POSITIONS.includes(row.pos)) && isPosition(row)).sort(orderComparator);
+    syncPlayerOptions();
     syncContext();
   }
 
@@ -404,8 +434,10 @@
     const week = activeReferenceWeek();
     const weekLabel = week ? `Week ${week} references` : "current references";
     const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/${rosterShape.BENCH}BN`;
-    const band = VALUE_BANDS[valueBand]?.label || "Full";
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${positionLabel} · ${band} y-axis · ${weekLabel} plus ESPN live · locked to ${lockLabel(lockOrder)}`;
+    const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
+    const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
+    const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
+    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
   }
 
   function makeTabs() {
@@ -517,19 +549,17 @@
     }
   }
 
+  function chartValueExtent(rows = displayRows()) {
+    const values = rows
+      .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
+      .flatMap(row => activeSourceKeys().map(key => row.values[key]))
+      .filter(Number.isFinite);
+    const max = values.length ? Math.max(...values) : 10;
+    return {min:0, max:Math.max(10, Math.ceil(max / 5) * 5)};
+  }
+
   function makeValueBandControl() {
-    const container = $("#valueBandSeg");
-    if (!container) return;
-    container.replaceChildren();
-    Object.entries(VALUE_BANDS).forEach(([key, config]) => {
-      const button = document.createElement("button");
-      button.type = "button";
-      button.textContent = config.label;
-      button.classList.toggle("active", valueBand === key);
-      button.setAttribute("aria-pressed", String(valueBand === key));
-      button.addEventListener("click", () => setValueBand(key));
-      container.appendChild(button);
-    });
+    syncYAxis();
   }
 
   function syncTabs() {
@@ -563,17 +593,18 @@
       const input = document.createElement("input");
       input.type = "checkbox";
       const hasData = sourceMaps.get(key)?.size > 0;
-      const freshWeek = isWeekCurrent(key);
-      const available = hasData && freshWeek;
+      const staleWeek = sourceIsStale(key);
+      const available = hasData && sourceComboExists(key);
       input.checked = activeSources.has(key) && available;
       input.disabled = !available;
       input.dataset.source = key;
       input.setAttribute("aria-label", `Show ${sourceLabel(key)} curve`);
+      label.classList.toggle("is-stale", staleWeek && available);
       if (!available) {
         label.classList.add("is-disabled");
-        label.title = hasData && !freshWeek
-          ? `${sourceLabel(key)} is past the active Week ${activeReferenceWeek()} reference window; waiting for a refreshed artifact.`
-          : `${sourceLabel(key)} is not available for ${scoreLabel()} / ${teams} teams in the current artifact.`;
+        label.title = `${sourceLabel(key)} is not available for ${scoreLabel()} / ${teams} teams in the current artifact.`;
+      } else if (staleWeek) {
+        label.title = `${sourceLabel(key)} is stale. It remains available until Week ${activeReferenceWeek()} values are present.`;
       }
       input.addEventListener("change", () => {
         if (input.checked) activeSources.add(key);
@@ -590,10 +621,10 @@
       swatch.style.borderTopStyle = key.endsWith("_adjusted") ? "dashed" : "solid";
       const text = document.createElement("span");
       text.textContent = sourceLabel(key);
-      if (!freshWeek && hasData) {
+      if (staleWeek && hasData) {
         const meta = document.createElement("span");
         meta.className = "src-meta";
-        meta.textContent = `waiting Wk ${activeReferenceWeek()}`;
+        meta.textContent = `stale · waiting Wk ${activeReferenceWeek()}`;
         text.appendChild(meta);
       }
       label.append(input, swatch, text);
@@ -654,15 +685,6 @@
     resetZoom();
     draw();
     if (publish) publishShared();
-  }
-
-  function setValueBand(key) {
-    if (!Object.prototype.hasOwnProperty.call(VALUE_BANDS, key) || key === valueBand) return;
-    valueBand = key;
-    crossRank = null;
-    makeValueBandControl();
-    syncContext();
-    draw();
   }
 
   function setPosition(value, publish = true) {
@@ -780,7 +802,30 @@
     $("#zfill").style.left = `calc(8px + (100% - 16px) * ${percent(zoomLow) / 100})`;
     $("#zfill").style.width = `calc((100% - 16px) * ${(percent(zoomHigh) - percent(zoomLow)) / 100})`;
     $("#zlabel").textContent = `Player rank ${zoomLow}–${zoomHigh}`;
+    syncYAxis();
     renderVisiblePlayers();
+  }
+
+  function syncYAxis() {
+    const low = $("#yLo"), high = $("#yHi"), fill = $("#yfill"), label = $("#ylabel");
+    if (!low || !high || !fill || !label) return;
+    const extent = chartValueExtent();
+    low.max = extent.max;
+    high.max = extent.max;
+    if (yAxisAuto) {
+      yLow = extent.min;
+      yHigh = extent.max;
+    } else {
+      yLow = Math.max(extent.min, Math.min(yLow, yHigh - 1));
+      yHigh = Math.min(extent.max, Math.max(yHigh, yLow + 1));
+    }
+    low.value = yLow;
+    high.value = yHigh;
+    const pct = value => extent.max <= 0 ? 0 : value / extent.max * 100;
+    fill.style.left = `calc(8px + (100% - 16px) * ${pct(yLow) / 100})`;
+    fill.style.width = `calc((100% - 16px) * ${(pct(yHigh) - pct(yLow)) / 100})`;
+    label.textContent = yAxisAuto ? `Y axis auto · 0–${extent.max}` : `Y value ${Math.round(yLow)}–${Math.round(yHigh)}`;
+    $("#yReset")?.toggleAttribute("disabled", yAxisAuto);
   }
 
   function bindZoom() {
@@ -799,6 +844,30 @@
       crossRank = null;
       resetZoom();
       draw();
+    });
+    $("#yLo")?.addEventListener("input", event => {
+      yAxisAuto = false;
+      yLow = Math.min(Number(event.target.value), yHigh - 1);
+      syncYAxis();
+      draw();
+    });
+    $("#yHi")?.addEventListener("input", event => {
+      yAxisAuto = false;
+      yHigh = Math.max(Number(event.target.value), yLow + 1);
+      syncYAxis();
+      draw();
+    });
+    $("#yReset")?.addEventListener("click", () => {
+      yAxisAuto = true;
+      syncYAxis();
+      draw();
+    });
+    $("#curveFindPlayer")?.addEventListener("click", findPlayerByName);
+    $("#curvePlayerSearch")?.addEventListener("keydown", event => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        findPlayerByName();
+      }
     });
   }
 
@@ -873,14 +942,13 @@
   }
 
   function yAxisScale(rows) {
-    const band = VALUE_BANDS[valueBand] || VALUE_BANDS.all;
     const values = rows
       .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
       .flatMap(row => activeSourceKeys().map(key => row.values[key]))
       .filter(Number.isFinite);
     const dataMax = values.length ? Math.max(...values) : 0;
-    const bandMin = Number(band.min) || 0;
-    const cappedMax = band.max !== null && band.max !== undefined && Number.isFinite(Number(band.max)) ? Number(band.max) : dataMax;
+    const bandMin = yAxisAuto ? 0 : yLow;
+    const cappedMax = yAxisAuto ? dataMax : yHigh;
     const effectiveMax = Math.max(cappedMax, bandMin + 1);
     if (dataMax <= 0) return {min:bandMin, max:Math.max(10, effectiveMax), step:1};
     const roughStep = (effectiveMax - bandMin) / 9;
@@ -898,15 +966,62 @@
   function renderVisiblePlayers() {
     const container = $("#visiblePlayersList");
     if (!container) return;
-    const rows = displayRows().slice(Math.max(0, zoomLow - 1), zoomHigh);
     const keys = activeSourceKeys();
+    const axis = yAxisScale(displayRows());
+    const axisMin = yAxisAuto ? axis.min : yLow;
+    const axisMax = yAxisAuto ? axis.max : yHigh;
+    const rows = displayRows()
+      .slice(Math.max(0, zoomLow - 1), zoomHigh)
+      .filter(row => keys.some(key => Number.isFinite(row.values[key]) && row.values[key] >= axisMin && row.values[key] <= axisMax));
     if (!rows.length || !keys.length) {
       container.innerHTML = `<p class="visible-empty">No players or active scores in the current view.</p>`;
       return;
     }
     const head = `<tr><th>Rank</th><th>Player</th>${keys.map(key => `<th>${sourceLabel(key)}</th>`).join("")}</tr>`;
-    const body = rows.map((row, index) => `<tr><td>${zoomLow + index}</td><td><strong>${row.name}</strong><span>${row.pos} · ${row.team}</span></td>${keys.map(key => `<td>${formatScore(row.values[key])}</td>`).join("")}</tr>`).join("");
-    container.innerHTML = `<p class="visible-note">Shown scores follow the active source toggles. Player order follows ${lockLabel(lockOrder)}.</p><div class="visible-table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+    const body = rows.map(row => {
+      const rank = displayRows().findIndex(candidate => candidate.player_key === row.player_key) + 1;
+      return `<tr><td>${rank}</td><td><strong>${row.name}</strong><span>${row.pos} · ${row.team}</span></td>${keys.map(key => `<td>${formatScore(row.values[key])}</td>`).join("")}</tr>`;
+    }).join("");
+    container.innerHTML = `<p class="visible-note">Players shown match the X zoom and current Y axis. Reset Y axis to restore the full value range.</p><div class="visible-table-wrap"><table><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
+  }
+
+  function syncPlayerOptions() {
+    const list = $("#curvePlayerOptions");
+    if (!list || !universe.length) return;
+    list.innerHTML = universe
+      .slice()
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(row => `<option value="${row.name}">${row.pos} · ${row.team}</option>`)
+      .join("");
+  }
+
+  function findPlayerByName() {
+    const input = $("#curvePlayerSearch");
+    const status = $("#curveFindStatus");
+    const query = String(input?.value || "").trim().toLowerCase();
+    if (!query) {
+      if (status) status.textContent = "Type a player name.";
+      return;
+    }
+    const rows = displayRows();
+    const exact = rows.find(row => row.name.toLowerCase() === query);
+    const match = exact || rows.find(row => row.name.toLowerCase().includes(query));
+    if (!match) {
+      if (status) status.textContent = "No match in this view.";
+      return;
+    }
+    const rank = rows.findIndex(row => row.player_key === match.player_key) + 1;
+    const windowSize = Math.min(28, Math.max(12, Math.round(fullRankMax() * 0.08)));
+    zoomLow = Math.max(1, rank - Math.floor(windowSize / 2));
+    zoomHigh = Math.min(fullRankMax(), zoomLow + windowSize);
+    zoomLow = Math.max(1, Math.min(zoomLow, Math.max(1, zoomHigh - windowSize)));
+    crossRank = rank;
+    syncZoom();
+    draw();
+    const rect = canvas.getBoundingClientRect();
+    const clientX = rect.left + geometry.pad.left + (rank - zoomLow) / Math.max(1, zoomHigh - zoomLow) * geometry.innerWidth;
+    showTooltip(rank, clientX, rect.top + geometry.pad.top + 18, false);
+    if (status) status.textContent = `${match.name}: rank ${rank}.`;
   }
 
   function draw() {

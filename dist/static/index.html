@@ -1551,9 +1551,22 @@
     <div class="seg" id="zoomSeg"></div>
     <label class="tail-toggle src-toggle"><input type="checkbox" id="hideZeroTail" aria-label="Hide zero-value tail"> Hide zero-value tail</label>
   </div>
-  <div class="row curve-tools">
-    <span class="lbl">Value band:</span>
-    <div class="seg" id="valueBandSeg" aria-label="Y-axis value band"></div>
+  <div class="row curve-tools y-axis-tools">
+    <span class="lbl">Y axis:</span>
+    <div class="zslider yslider" id="yslider">
+      <div class="track"></div>
+      <div class="fill" id="yfill"></div>
+      <input type="range" id="yLo" min="0" value="0" aria-label="Y-axis lower value" title="Y-axis lower value">
+      <input type="range" id="yHi" min="0" value="100" aria-label="Y-axis upper value" title="Y-axis upper value">
+    </div>
+    <span class="zlabel" id="ylabel"></span>
+    <button class="axis-reset" id="yReset" type="button">Reset</button>
+  </div>
+  <div class="row curve-tools find-row">
+    <label class="player-find" for="curvePlayerSearch"><span class="lbl">Find player:</span><input type="search" id="curvePlayerSearch" list="curvePlayerOptions" placeholder="Player name" autocomplete="off"></label>
+    <datalist id="curvePlayerOptions"></datalist>
+    <button class="axis-reset" id="curveFindPlayer" type="button">Find</button>
+    <span class="find-status" id="curveFindStatus" aria-live="polite"></span>
   </div>
   <div class="row">
     <div class="zslider" id="zslider">
@@ -1564,6 +1577,7 @@
     </div>
     <span class="zlabel" id="zlabel"></span>
   </div>
+  <p class="touch-hint">Touch and hold the graph to inspect a player.</p>
   <canvas id="chart" tabindex="0" role="img" aria-label="Toggleable trade value series, with player rank on the horizontal axis and trade value on the vertical axis. Starter, bench, and waiver boundaries are vertical rank boundaries under every lock. Use Home or End, then the left and right arrow keys, to inspect each player."></canvas>
   <div class="legend" id="legend"></div>
   <div class="note" id="curveFootnote"></div>
@@ -1596,26 +1610,10 @@
   <summary class="comparison-section-summary"><span>Player table and source comparison</span></summary>
 <div class="shell">
     <header class="comparison-lead chart-lead">
-      <h2>Where the charts disagree</h2>
-      <p>A source comparison with five independent series and three adjusted best-estimate series on one scoring-specific scale. FC Adjusted, USAT Adjusted, and FP Adjusted shift the weighting to our view of value.</p>
+      <h2>Player table</h2>
+      <p>Sort, search, and expand players using the same league settings as the graph.</p>
     </header>
     <p class="freshness" id="freshness">Loading source dates…</p>
-
-    <details class="panel league-panel" aria-labelledby="ourLeagueTitle">
-      <summary class="mobile-panel-summary" id="leagueSummary">League settings: Full PPR · 12 teams</summary>
-      <div class="league-body">
-        <div class="panel-head"><h2 id="ourLeagueTitle">League settings</h2><p id="ourContext">Settings load with the data.</p></div>
-        <div class="settings">
-          <div class="setting-group"><span class="control-label" title="Scoring format for comparison values">Scoring</span><div class="segments three" id="ourScoring"></div></div>
-          <div class="setting-group"><span class="control-label" title="Team count for comparison values">Teams</span><div class="segments three" id="ourTeams"></div></div>
-        </div>
-      </div>
-    </details>
-
-    <section class="viewbar" aria-label="Comparison view">
-      <div class="setting-group view-tabs"><span class="control-label">View</span><div class="segments three" id="viewTabs"></div></div>
-      <div class="setting-group source-picker" id="sourcePickerWrap"><span class="control-label">Lock order</span><div class="segments lock-options" id="sourcePicker"></div></div>
-    </section>
 
     <details class="panel comparison-panel" open aria-labelledby="boardTitle">
       <summary class="panel-head"><h2 id="boardTitle">All sources</h2><p id="boardDescription"></p></summary>

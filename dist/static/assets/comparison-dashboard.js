@@ -165,8 +165,10 @@
     return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
   }
 
+  const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && !isWeekCurrent(key);
+
   function sourceAvailable(key) {
-    return sourceComboExists(key) && isWeekCurrent(key);
+    return sourceComboExists(key);
   }
 
   function canonicalPlayers() {
@@ -252,7 +254,7 @@
 
   function visibleColumns() {
     const allowed = new Set(allColumnKeys());
-    const defaults = ["pos", "team", "preseason", "disagreement", ...renderKeys];
+    const defaults = ["pos", "team", "preseason", "disagreement", "latest_news", "espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
     const cols = Array.isArray(state.columns) ? state.columns.filter(key => allowed.has(key)) : defaults;
     return cols.length ? cols : defaults;
   }
@@ -276,8 +278,9 @@
 
   function sourceMeta(key) {
     const coverage = sourceMaps.get(key)?.size || 0;
-    if (!isWeekCurrent(key)) return `Waiting for Week ${activeReferenceWeek()} artifact`;
     if (!sourceComboExists(key)) return `Not available for ${scoreLabel(state.scoring)} · ${state.teams} teams`;
+    const stale = sourceIsStale(key) ? ` · stale, waiting Week ${activeReferenceWeek()}` : "";
+    if (sourceIsStale(key)) return `${coverage}/${universeSize} · ${sourceDate(key)}${stale}`;
     return `${coverage}/${universeSize} · ${sourceDate(key)}`;
   }
 
@@ -426,7 +429,8 @@
     if (!container) return;
     container.innerHTML = renderKeys.map(key => {
       const available = sourceAvailable(key);
-      return `<article class="source-card${available ? "" : " is-disabled"}" title="${esc(available ? TIPS[key] : sourceMeta(key))}"><div><h2 class="source-title">${esc(sourceLabel(key))}</h2><p class="source-kind">${esc(sourceMeta(key))}</p></div></article>`;
+      const stale = sourceIsStale(key) && available;
+      return `<article class="source-card${available ? "" : " is-disabled"}${stale ? " is-stale" : ""}" title="${esc(available ? TIPS[key] : sourceMeta(key))}"><div><h2 class="source-title">${esc(sourceLabel(key))}</h2><p class="source-kind">${esc(sourceMeta(key))}</p></div></article>`;
     }).join("");
   }
 
@@ -573,9 +577,9 @@
 
   function renderTable() {
     const list = filteredRows();
-    if ($("#boardTitle")) $("#boardTitle").textContent = "Trade value source board";
-    if ($("#boardDescription")) $("#boardDescription").textContent = "A sortable player table with direct charts, ESPN live, and adjusted source projects. Adjusted curves shift the weighting to our view of value while preserving missing values.";
-    if ($("#consensusNote")) $("#consensusNote").textContent = "No median or blended composite is shown. Missing values show as —, never zero.";
+    if ($("#boardTitle")) $("#boardTitle").textContent = "Compare player values";
+    if ($("#boardDescription")) $("#boardDescription").textContent = "Search, sort, and expand players using the graph's league settings.";
+    if ($("#consensusNote")) $("#consensusNote").textContent = "Missing source values stay blank.";
     if ($("#resultCount")) $("#resultCount").textContent = `${list.length} player${list.length === 1 ? "" : "s"}`;
     if ($("#sortNote")) {
       $("#sortNote").textContent = state.sort.column === "preseason"
@@ -615,7 +619,14 @@
   }
 
   function renderDataNotes() {
-    if ($("#freshness")) $("#freshness").textContent = `Full PPR default · ${renderKeys.map(key => `${sourceLabel(key)} ${sourceMeta(key)}`).join(" · ")}`;
+    if ($("#freshness")) {
+      const staleKeys = renderKeys.filter(sourceIsStale);
+      const staleWeeks = [...new Set(staleKeys.map(weekForSource).filter(Boolean))].sort((a, b) => a - b);
+      const staleLabel = staleKeys.length
+        ? `${staleKeys.length} stale ${staleWeeks.map(week => `Week ${week}`).join("/")} source${staleKeys.length === 1 ? "" : "s"} shown until Week ${activeReferenceWeek()} arrives`
+        : "sources current";
+      $("#freshness").textContent = `${scoreLabel(state.scoring)} · ${state.teams} teams · ${staleLabel}`;
+    }
   }
 
   function ensureAvailableSelection() {
@@ -779,6 +790,7 @@
       rebuildSourceMaps();
       bindStatic();
       renderAll();
+      if (window.DDF_SHARED_STATE) window.DDFComparisonControls.applyShared(window.DDF_SHARED_STATE);
       runRegressionGuards();
       if (isLockKey(window.DDF_LOCK_ORDER)) setLockOrder(window.DDF_LOCK_ORDER, false);
     } catch (error) {
