@@ -12,8 +12,11 @@
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",
-    "espn"
+    "espn",
+    "espn_vorp"
   ];
+  const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
+  const DEFAULT_ABSENCE_RATE = 0.15;
   const LABELS = {
     usatoday: "USA Today",
     fantasycalc: "FantasyCalc",
@@ -23,7 +26,8 @@
     fantasycalc_adjusted: "FC Adjusted",
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
-    espn: "ESPN live"
+    espn: "ESPN adjusted",
+    espn_vorp: "ESPN raw VORP"
   };
   const TIPS = {
     usatoday: "Editorial chart, as published and reindexed",
@@ -34,12 +38,14 @@
     fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
-    espn: "ESPN projections translated to the common scale"
+    espn: "ESPN raw VORP multiplied by lineup probability from the shared league settings",
+    espn_vorp: "ESPN points above replacement before starter/bench utilization"
   };
   const state = {
     scoring: "full",
     teams: 12,
     rosterShape: {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6},
+    absenceRate: DEFAULT_ABSENCE_RATE,
     compareSource: "preseason",
     combos: {},
     sort: {column: "preseason", direction: "asc"},
@@ -158,11 +164,13 @@
     const score = (key.endsWith("_adjusted") && state.scoring === "standard") ? "std" : state.scoring;
     if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${state.teams}_qb1`;
     if (key === "espn") return `${score}_${state.teams}`;
+    if (key === "espn_vorp") return null;
     if (key === "cbs_adjusted") return comboKeyFor("cbs");
     return `${score}_${state.teams}`;
   }
 
   function sourceComboExists(key) {
+    if (key === "espn_vorp") return Boolean(data?.sources?.espn?.combos?.[comboKeyFor("espn")]);
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
     return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
   }
@@ -205,6 +213,8 @@
     return POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
   }
 
+  const flexEligiblePositions = (shape = state.rosterShape) => shape.SUPERFLEX ? ["QB", ...DEFAULT_FLEX_ELIGIBLE] : [...DEFAULT_FLEX_ELIGIBLE];
+
   function allocationCountsFor(pool, shape = state.rosterShape) {
     const direct = {QB:state.teams * shape.QB, RB:state.teams * shape.RB, WR:state.teams * shape.WR, TE:state.teams * shape.TE};
     const lineup = {...direct};
@@ -214,7 +224,7 @@
     Object.entries(direct).forEach(([pos, count]) => {
       ranked.filter(player => player.pos === pos).slice(0, count).forEach(player => used.add(player.player_key));
     });
-    ranked.filter(player => ["RB", "WR", "TE"].includes(player.pos) && !used.has(player.player_key)).slice(0, state.teams * shape.FLEX).forEach(player => {
+    ranked.filter(player => flexEligiblePositions(shape).includes(player.pos) && !used.has(player.player_key)).slice(0, state.teams * shape.FLEX).forEach(player => {
       used.add(player.player_key);
       lineup[player.pos] += 1;
       rostered[player.pos] += 1;
@@ -232,7 +242,7 @@
   }
 
   function applyRosterShape(values, key) {
-    if (rosterIsDefault() || key === "espn") return values;
+    if (rosterIsDefault() || key === "espn" || key === "espn_vorp") return values;
     const shaped = new Map(values);
     const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6});
     const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
@@ -263,39 +273,91 @@
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
-  function espnStartWeight(rank, counts, pos) {
+  function combinedProbability(paths) {
+    return 1 - paths.reduce((remaining, path) => remaining * (1 - Math.max(0, Math.min(1, Number(path) || 0))), 1);
+  }
+
+  function smoothPathUtilization(rank, starterDepth, rosterDepth) {
+    const starterCount = Math.max(0, Math.round(Number(starterDepth) || 0));
+    const rosterCount = Math.max(starterCount, Math.round(Number(rosterDepth) || 0));
+    const cappedStarter = 1 - state.absenceRate;
+    if (!Number.isFinite(rank) || rank <= 0 || rosterCount <= 0) return 0;
+    if (rank <= starterCount) return cappedStarter;
+    if (rank > rosterCount) return 0;
+    const benchDepth = Math.max(1, rosterCount - starterCount);
+    const benchIndex = Math.max(1, Math.min(benchDepth, rank - starterCount));
+    const shape = 1.35;
+    let denominator = 0;
+    for (let index = 1; index <= benchDepth; index += 1) denominator += ((benchDepth - index + 1) / benchDepth) ** shape;
+    const raw = ((benchDepth - benchIndex + 1) / benchDepth) ** shape;
+    const benchOpportunity = starterCount * state.absenceRate * raw / Math.max(denominator, 1);
+    return Math.max(0, Math.min(cappedStarter, benchOpportunity));
+  }
+
+  function espnStartWeight(rank, counts, pos, flexRank = null) {
+    const cappedStarter = 1 - state.absenceRate;
     const starterDepth = Math.max(0, Number(counts.lineup[pos] || 0));
     const rosterDepth = Math.max(starterDepth, Number(counts.rostered[pos] || 0));
-    if (rank <= starterDepth) return 1;
-    if (rank > rosterDepth) return 0;
-    const benchDepth = Math.max(1, rosterDepth - starterDepth);
-    const benchIndex = Math.max(1, rank - starterDepth);
-    const fraction = benchDepth <= 1 ? 0 : (benchIndex - 1) / (benchDepth - 1);
-    return Math.max(0.12, 0.58 - (0.43 * fraction));
+    if (rank <= starterDepth) return cappedStarter;
+    const paths = [smoothPathUtilization(rank, Number(counts.direct[pos] || 0), rosterDepth)];
+    if (flexEligiblePositions().includes(pos) && Number.isFinite(flexRank)) {
+      const flexSlots = state.teams * Number(state.rosterShape.FLEX || 0);
+      const eligible = flexEligiblePositions();
+      const directStarters = eligible.reduce((sum, key) => sum + Number(counts.direct[key] || 0), 0);
+      const eligibleRostered = eligible.reduce((sum, key) => sum + Number(counts.rostered[key] || 0), 0);
+      paths.push(smoothPathUtilization(flexRank, flexSlots, Math.max(flexSlots, eligibleRostered - directStarters)));
+    }
+    return Math.min(cappedStarter, combinedProbability(paths));
+  }
+
+  function espnVorpRows(pos) {
+    const counts = allocationCountsFor([...canonicalByKey.values()]);
+    const field = scoreField();
+    const flexRanks = new Map(
+      [...canonicalByKey.values()]
+        .filter(player => flexEligiblePositions().includes(player.pos))
+        .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+        .filter(item => Number.isFinite(item.ppg))
+        .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player))
+        .map((item, index) => [item.player.player_key, index + 1])
+    );
+    const priced = [...canonicalByKey.values()]
+      .filter(player => player.pos === pos)
+      .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+      .filter(item => Number.isFinite(item.ppg))
+      .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player));
+    if (!priced.length) return [];
+    const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
+    const baseline = priced[baselineIndex].ppg;
+    return priced.map(({player, ppg}, index) => {
+      const rank = index + 1;
+      const pure = Math.max(0, ppg - baseline);
+      const startWeight = pure > 0 ? espnStartWeight(rank, counts, pos, flexRanks.get(player.player_key)) : 0;
+      return {player, ppg, rank, pure, startWeight};
+    });
+  }
+
+  function scaleEspnPureRows(rows, pos) {
+    const values = new Map();
+    const rawTotal = rows.reduce((sum, row) => sum + row.pure, 0);
+    const target = espnTargetTotal(pos, rawTotal);
+    const scale = rawTotal > 0 && target > 0 ? target / rawTotal : 1;
+    rows.forEach(row => values.set(row.player.player_key, row.pure * scale));
+    return values;
+  }
+
+  function buildEspnVorpMap() {
+    const values = new Map();
+    POSITION_ORDER.forEach(pos => scaleEspnPureRows(espnVorpRows(pos), pos).forEach((value, playerKey) => values.set(playerKey, value)));
+    return values;
   }
 
   function buildEspnIndexedMap() {
     const values = new Map();
-    const counts = allocationCountsFor([...canonicalByKey.values()]);
-    const field = scoreField();
     POSITION_ORDER.forEach(pos => {
-      const priced = [...canonicalByKey.values()]
-        .filter(player => player.pos === pos)
-        .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
-        .filter(item => Number.isFinite(item.ppg))
-        .sort((a, b) => b.ppg - a.ppg || preseasonComparator(a.player, b.player));
-      if (!priced.length) return;
-      const baselineIndex = Math.max(0, Math.min(priced.length - 1, counts.rostered[pos]));
-      const baseline = priced[baselineIndex].ppg;
-      const rows = priced.map(({player, ppg}, index) => {
-        const rank = index + 1;
-        const pure = Math.max(0, ppg - baseline);
-        return {player, value:pure * (pure > 0 ? espnStartWeight(rank, counts, pos) : 0)};
-      });
-      const rawTotal = rows.reduce((sum, row) => sum + row.value, 0);
-      const target = espnTargetTotal(pos, rawTotal);
-      const scale = rawTotal > 0 && target > 0 ? target / rawTotal : 1;
-      rows.forEach(row => values.set(row.player.player_key, row.value * scale));
+      const rows = espnVorpRows(pos);
+      const scaledPure = scaleEspnPureRows(rows, pos);
+      rows.forEach(row => values.set(row.player.player_key, (scaledPure.get(row.player.player_key) || 0) * row.startWeight));
     });
     return values;
   }
@@ -307,6 +369,7 @@
 
   function buildSourceMap(key) {
     if (key === "espn") return buildEspnIndexedMap();
+    if (key === "espn_vorp") return buildEspnVorpMap();
     if (key === "cbs_adjusted") return buildCbsAdjustedMap();
     const combo = selectedCombo(key);
     const raw = combo?.values || combo?.reindexed || {};
@@ -368,7 +431,7 @@
 
   function visibleColumns() {
     const allowed = new Set(allColumnKeys());
-    const defaults = ["pos", "team", "preseason", "disagreement", "latest_news", "espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
+    const defaults = ["pos", "team", "preseason", "disagreement", "latest_news", "espn", "espn_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
     const cols = Array.isArray(state.columns) ? state.columns.filter(key => allowed.has(key)) : defaults;
     return cols.length ? cols : defaults;
   }
@@ -379,7 +442,7 @@
   }
 
   function sourceDate(key) {
-    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : {}) || {};
+    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : key === "espn_vorp" ? data.sources.espn : {}) || {};
     if (key.endsWith("_adjusted")) {
       const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
       return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
@@ -403,7 +466,7 @@
   }
 
   function columnBadge(key) {
-    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "projection-derived" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw VORP" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }
 
@@ -601,7 +664,7 @@
 
   function filteredRows() {
     const query = state.filters.search.trim().toLowerCase();
-    const list = rows().filter(row => state.filters.position === "ALL" || (state.filters.position === "FLEX" ? ["RB","WR","TE"].includes(row.pos) : row.pos === state.filters.position)).filter(row => !query || row.name.toLowerCase().includes(query));
+    const list = rows().filter(row => state.filters.position === "ALL" || (state.filters.position === "FLEX" ? flexEligiblePositions().includes(row.pos) : row.pos === state.filters.position)).filter(row => !query || row.name.toLowerCase().includes(query));
     const {column, direction} = state.sort;
     const sign = direction === "asc" ? 1 : -1;
     return list.sort((a, b) => {
@@ -743,7 +806,7 @@
   }
 
   function exportState() {
-    return {version:6, settings:{scoring:state.scoring, teams:state.teams}, sort:{...state.sort}, filters:{...state.filters}, columns:[...visibleColumns()]};
+    return {version:7, settings:{scoring:state.scoring, teams:state.teams, absenceRate:state.absenceRate}, sort:{...state.sort}, filters:{...state.filters}, columns:[...visibleColumns()]};
   }
 
   function applyImport(raw) {
@@ -753,6 +816,8 @@
     if (!["standard","half","full"].includes(scoring) || ![8,10,12,14].includes(teams)) throw new Error("League scoring or team count is not valid.");
     state.scoring = scoring;
     state.teams = teams;
+    const importedAbsenceRate = Number(raw.settings?.absenceRate);
+    if (Number.isFinite(importedAbsenceRate)) state.absenceRate = Math.max(0, Math.min(0.5, importedAbsenceRate));
     if (["ALL","QB","RB","WR","TE","FLEX"].includes(raw.filters?.position)) state.filters.position = raw.filters.position;
     state.filters.search = String(raw.filters?.search || "").slice(0, 80);
     if (["name","pos","team","preseason","disagreement","latest_news",...renderKeys].includes(raw.sort?.column)) {
@@ -857,6 +922,15 @@
         rebuildSourceMaps();
         renderAll();
       }
+      const sharedAbsenceRate = Number(shared?.absenceRate);
+      if (Number.isFinite(sharedAbsenceRate)) {
+        const nextAbsenceRate = Math.max(0, Math.min(0.5, sharedAbsenceRate));
+        if (Math.abs(nextAbsenceRate - state.absenceRate) > 0.0001) {
+          state.absenceRate = nextAbsenceRate;
+          rebuildSourceMaps();
+          renderAll();
+        }
+      }
       if (isLockKey(shared?.lockOrder)) setLockOrder(shared.lockOrder, false);
     }
   };
@@ -902,7 +976,7 @@
       universeSize = Object.keys(data.player_keys || {}).length;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
-      renderKeys = SOURCE_KEYS.filter(key => key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : data.source_validation?.[key] === "live");
+      renderKeys = SOURCE_KEYS.filter(key => key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : key === "espn_vorp" ? data.source_validation?.espn === "live" : data.source_validation?.[key] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.TradeValueReferenceSource)) referenceSource = window.TradeValueReferenceSource;

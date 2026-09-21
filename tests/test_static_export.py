@@ -138,7 +138,8 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        self.assertIn("fixed-pie indexed values", text)
+        self.assertIn("ESPN adjusted = raw VORP", text)
+        self.assertIn("lineup probability", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
     def test_curve_defaults_are_grouped_and_include_pure_vorp(self):
@@ -152,6 +153,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("buildCbsAdjustedMap", text)
         self.assertIn("buildEspnIndexedMap", text)
         self.assertIn("espnStartWeight", text)
+        self.assertIn("DEFAULT_ABSENCE_RATE = 0.15", text)
+        self.assertIn("setAbsenceRate", text)
+        self.assertIn("Absence %", text)
         self.assertIn("espn_vorp", text)
         self.assertIn("visiblePlayersList", html)
         self.assertIn("curvePlayerSearch", html)
@@ -225,8 +229,11 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("renderExpandedRow", text)
         self.assertIn("TradeValuePlayerNews", text)
         self.assertIn("buildEspnIndexedMap", text)
+        self.assertIn("buildEspnVorpMap", text)
         self.assertIn("normalizeRosterShape", text)
         self.assertIn("espnStartWeight", text)
+        self.assertIn("DEFAULT_ABSENCE_RATE = 0.15", text)
+        self.assertIn("ESPN raw VORP", text)
 
     def test_data_health_surfaces_player_news_pipeline(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
