@@ -1,8 +1,9 @@
-.PHONY: help source-import source-news reference sync test validate serve deploy-status
+.PHONY: help source-import source-match source-news reference sync test validate serve deploy-status
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
 SOURCE_FILE ?=
+SNAPSHOT_FILE ?=
 SOURCE ?=
 SCORING ?= ppr
 TEAMS ?= 12
@@ -10,6 +11,7 @@ TEAMS ?= 12
 help:
 	@echo "Modular dashboard commands:"
 	@echo "  make source-import     Import SOURCE_FILE into standard raw source format"
+	@echo "  make source-match      Match SNAPSHOT_FILE rows to canonical player_key values"
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make reference         Validate current reference artifacts"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
@@ -22,6 +24,10 @@ source-import:
 	@test -n "$(SOURCE_FILE)" || (echo "Set SOURCE_FILE=/path/to/scrape.csv or .json" && exit 1)
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc, cbs, usatoday, etc." && exit 1)
 	python3 pipelines/import_source_snapshot.py --input "$(SOURCE_FILE)" --source "$(SOURCE)" --scoring "$(SCORING)" --teams "$(TEAMS)"
+
+source-match:
+	@test -n "$(SNAPSHOT_FILE)" || (echo "Set SNAPSHOT_FILE=data/raw/sources/.../snapshot.json" && exit 1)
+	python3 pipelines/match_source_snapshot.py --input "$(SNAPSHOT_FILE)"
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss

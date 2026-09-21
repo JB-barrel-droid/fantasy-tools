@@ -35,6 +35,16 @@ The importer writes a `trade-value-source-snapshot-v1` JSON file under
 `data/raw/sources/`. That snapshot is raw source input; it is not player-key
 matched and it is not safe to publish directly.
 
+Match an imported source snapshot to canonical `player_key` values:
+
+```bash
+make source-match SNAPSHOT_FILE=data/raw/sources/fantasycalc/2026-09-21/fantasycalc-ppr-12-2026-09-21T120000z.json
+```
+
+The matcher writes a `trade-value-source-matches-v1` file under
+`output/source-matches/`. Unmatched or ambiguous names stay in `review_rows`.
+They are not guessed.
+
 Muse may stay responsible for difficult page scraping if it is free and stable,
 but its output should be treated as raw input to this repo.
 

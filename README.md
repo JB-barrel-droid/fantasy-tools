@@ -74,6 +74,12 @@ raw source format:
 make source-import SOURCE_FILE=/path/to/scrape.csv SOURCE=fantasycalc SCORING=ppr TEAMS=12
 ```
 
+Match an imported source snapshot to canonical player keys:
+
+```bash
+make source-match SNAPSHOT_FILE=data/raw/sources/fantasycalc/2026-09-21/fantasycalc-ppr-12-2026-09-21T120000z.json
+```
+
 Pull the free league-wide RSS feeds into the raw article store, then rebuild the dashboard fixture and review queues:
 
 ```bash
