@@ -27,7 +27,7 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     espn: "ESPN adjusted",
-    espn_vorp: "ESPN raw VORP"
+    espn_vorp: "ESPN raw value above waivers"
   };
   const TIPS = {
     usatoday: "Editorial chart, as published and reindexed",
@@ -38,8 +38,8 @@
     fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
-    espn: "ESPN VORP split by starter, bench, and waiver tier from the shared league settings",
-    espn_vorp: "ESPN points above replacement before starter/bench utilization"
+    espn: "ESPN value above waivers split by starter, bench, and waiver tier from the shared league settings",
+    espn_vorp: "ESPN value above waivers before starter/bench utilization"
   };
   const state = {
     scoring: "full",
@@ -543,7 +543,7 @@
   }
 
   function columnBadge(key) {
-    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw VORP" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }
 

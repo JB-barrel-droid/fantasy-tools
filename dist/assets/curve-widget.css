@@ -123,3 +123,15 @@
   #curve-widget #modelTabs{grid-template-columns:1fr}
   #curve-widget #modelTabs .tab{padding:7px 10px;text-align:left;font-size:11px;line-height:1.25}
 }
+#curve-widget .bench-share-block{grid-column:1/-1;display:grid;gap:7px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--white)}
+#curve-widget .bench-share-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+#curve-widget .bench-share-title{color:var(--muted);font:700 9px/1.2 "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.05em}
+#curve-widget .bench-share-value{color:var(--navy);font:700 13px/1 "Archivo",sans-serif}
+#curve-widget .bench-share-reset{margin-left:auto;min-height:30px;padding:4px 10px;border:1px solid var(--line-strong);border-radius:5px;background:#f8faf8;color:var(--navy);font-size:10px;font-weight:700;cursor:pointer}
+#curve-widget .bench-share-reset:hover,#curve-widget .bench-share-reset:focus-visible{border-color:var(--orange);outline:0}
+#curve-widget .bench-share-reset:disabled{opacity:.45;cursor:not-allowed}
+#curve-widget .bench-share-slider{flex:1 1 100%;min-width:0;max-width:none;margin:0}
+#curve-widget .bench-share-slider .bench-share-tick{position:absolute;top:9px;width:2px;height:10px;background:var(--navy);pointer-events:none}
+#curve-widget .bench-share-slider input[type=range]:disabled::-webkit-slider-thumb{border-color:#9aa7ae;cursor:not-allowed}
+#curve-widget .bench-share-slider input[type=range]:disabled::-moz-range-thumb{border-color:#9aa7ae;cursor:not-allowed}
+#curve-widget .bench-share-readout{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
