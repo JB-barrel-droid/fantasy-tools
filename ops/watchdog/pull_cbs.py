@@ -73,7 +73,9 @@ def pull(url, fetch_fn=fetch):
         for tr in re.finditer(r"<tr.*?>(.*?)</tr>", body, re.S):
             cells = [re.sub(r"<.*?>", "", c).strip()
                      for c in re.findall(r"<td.*?>(.*?)</td>", tr.group(1), re.S)]
-            if cells and cells[0].strip().isdigit():
+            # CBS tables have no rank column: first cell is the player name.
+            # (An isdigit() filter here silently dropped every row.)
+            if cells and cells[0].strip():
                 rows.append(cells)
         tables.append({"title": title, "headers": headers, "rows": rows})
     if len(tables) < 4:

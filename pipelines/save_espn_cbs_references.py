@@ -77,6 +77,8 @@ from import_source_snapshot import parse_float  # noqa: E402
 # DDF two-tier leg). Verified against players.full_name 2026-09-22; the map
 # here and in build_ddf_two_tier_leg.py must never diverge.
 from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
+from _common import nfl_week  # noqa: E402 -- current week for the CBS save grain
 
 
 def utc_now() -> str:
@@ -273,7 +275,7 @@ CBS_QB_SPLIT_NOTE = (
 )
 
 
-def build_cbs_rows(json_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     index = build_name_index(fetch_players())
     clean: list[dict[str, Any]] = []
@@ -327,7 +329,7 @@ def build_cbs_rows(json_path: Path) -> tuple[list[dict[str, Any]], list[dict[str
                         "league_teams": 12,
                         "qb_slots": 1,
                         "season": 2026,
-                        "week": 2,
+                        "week": week,
                         "position": canonical_pos or pos,
                         "team": team or None,
                         "value": value,
@@ -347,7 +349,8 @@ ESPN_UPSERT_CONFLICT = "season,week,player_key"
 CBS_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key"
 
 
-def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path, cbs_json: Path) -> dict[str, Any]:
+def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
+                cbs_json: Path, week: int | None = None) -> dict[str, Any]:
     name = str(source or "").strip().lower()
     if name not in ("espn", "cbs"):
         raise SystemExit(f"Unknown source '{source}': save_espn_cbs_references.py handles espn|cbs only.")
@@ -358,10 +361,12 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path, 
         conflict = ESPN_UPSERT_CONFLICT
         count_params = "?select=player_key&season=eq.2026&week=eq.2"
     else:
+        week = week or nfl_week()
         table = "cbs_trade_values"
-        clean, review, _pulled_at, _url = build_cbs_rows(cbs_json)
+        clean, review, _pulled_at, _url = build_cbs_rows(cbs_json, week)
         conflict = CBS_UPSERT_CONFLICT
-        count_params = "?select=player_key&source=eq.cbs&variant=eq.as_published&season=eq.2026&week=eq.2"
+        count_params = ("?select=player_key&source=eq.cbs&variant=eq.as_published"
+                        f"&season=eq.2026&week=eq.{week}")
 
     if not clean:
         raise SystemExit(f"Fail closed: source '{name}' resolved to zero clean rows. Never writing an empty save.")
@@ -374,7 +379,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path, 
     live = count_rows(table, count_params)
     if live != len(clean):
         raise SystemExit(
-            f"Fail closed: {table} holds {live} rows for the (2026, week 2) grain after upsert, "
+            f"Fail closed: {table} holds {live} rows for the (2026, week {week if name == 'cbs' else 2}) grain after upsert, "
             f"expected {len(clean)}. The write did not land as planned; investigate before re-running."
         )
 
@@ -385,7 +390,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path, 
         "written": len(clean),
         "review_count": len(review),
         "review": review,
-        "vintage": vintage if name == "espn" else "Week 2",
+        "vintage": vintage if name == "espn" else f"Week {week}",
     }
 
 
@@ -401,6 +406,12 @@ def main() -> int:
     parser.add_argument("--espn-meta", type=Path, default=DEFAULT_ESPN_META)
     parser.add_argument("--cbs-json", type=Path, default=DEFAULT_CBS_JSON)
     parser.add_argument(
+        "--week",
+        type=int,
+        default=None,
+        help="NFL week for the CBS save grain (default: current week from ops/watchdog/_common.nfl_week). ESPN path ignores this.",
+    )
+    parser.add_argument(
         "--review-out",
         type=Path,
         default=None,
@@ -414,6 +425,7 @@ def main() -> int:
         espn_csv=args.espn_csv,
         espn_meta=args.espn_meta,
         cbs_json=args.cbs_json,
+        week=args.week,
     )
 
     if result["review"]:

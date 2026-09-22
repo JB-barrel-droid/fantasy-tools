@@ -39,12 +39,27 @@ class DiscoveryFailed(RuntimeError):
 
 
 def sitemap_urls_for_month(year, month, fetch_fn=fetch):
-    """All <loc> URLs in one monthly web sitemap. [] on fetch failure."""
+    """All <loc> URLs in one monthly web sitemap.
+
+    Fail-closed on truncation: a sitemap body that does not end with the
+    closing </urlset> tag is a truncated fetch, not a short month. We retry
+    once, then raise DiscoveryFailed -- a truncated sitemap can silently
+    drop the current week's article while still containing last week's,
+    which would make discovery "succeed" on stale data. Never returns a
+    partial URL list.
+    """
     url = SITEMAP_MONTH % (year, month)
-    st, body = fetch_fn(url)
-    if st != 200 or not body:
-        return []
-    return re.findall(r"<loc>([^<]+)</loc>", body)
+    last_err = None
+    for attempt in (1, 2):
+        st, body = fetch_fn(url)
+        if st == 200 and body and "</urlset>" in body:
+            return re.findall(r"<loc>([^<]+)</loc>", body)
+        last_err = "status=%r len=%d truncated=%s" % (
+            st, len(body or ""),
+            bool(body) and "</urlset>" not in body)
+    raise DiscoveryFailed(
+        "USA Today sitemap fetch failed/truncated for %04d-%02d (%s); "
+        "refusing to discover from a partial sitemap" % (year, month, last_err))
 
 
 def discover_url(week=None, fetch_fn=fetch):

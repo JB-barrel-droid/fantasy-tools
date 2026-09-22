@@ -512,7 +512,7 @@
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
-  const defaultValueLock = () => !isAdjustedCurvePaused("fantasycalc_adjusted") && sourceAvailable("fantasycalc_adjusted") ? "fantasycalc_adjusted" : "espn";
+  const defaultValueLock = () => "espn";
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
