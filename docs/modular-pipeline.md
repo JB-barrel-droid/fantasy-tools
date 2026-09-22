@@ -119,6 +119,44 @@ Today this validates the finished artifacts and writes
 `output/reference-build-report.json`. As collectors move into the repo, this is
 the command that should grow into the real compute step.
 
+### Comparison source pipeline (candidate -> reference compute)
+
+A candidate source section (schema `trade-value-source-reference-v1`, built by
+`make comparison-section`) carries only native published values. The reference
+compute stage translates it onto the chart's canonical scale:
+
+```bash
+make comparison-reindex CANDIDATE_FILE=output/comparison-candidates/.../section.json
+```
+
+`pipelines/reindex_comparison_section.py` runs two steps per (combo, position):
+
+1. **Isotonic reindex.** Per-position non-decreasing (PAVA) fit of the source's
+   native values onto the anchor scale, preserving rank order and
+   within-position relative shape. The anchor is the fixture's ESPN leg for
+   the same combo -- the repo-owned equivalent of the retired Monday rail.
+   Fewer than 10 anchor-matched pairs per position fails closed (no pooled
+   cross-position fit, ever).
+2. **Fixed-pie indexing.** Each combo's total over its OWN priced set is
+   compared to the anchor's total over that SAME set:
+   `factor = anchor_total(priced) / reindexed_total(priced)`, recorded as
+   `index_total {target_total, pre_total, factor, n_priced}` per position.
+   Per-player comparisons are pure allocation disagreements.
+
+Output schema `trade-value-comparison-section-reindexed-v1` mirrors the
+fixture's combo shape (`reindexed`, `native`, `fit`, `n`, `index_total`) so the
+promotion path is a mechanical slice. Written under
+`output/comparison-reference/` only -- never under `data/`.
+
+Notes:
+
+- Genuine source zeros stay zero; nulls stay absent. K/DST are not indexed.
+- Identity resolves slug -> numeric `player_key` -> position from
+  `players.json`; never by name normalization.
+- Existing fixture sections were baked against the retired Monday rail; repo
+  candidates anchor to the ESPN leg. The promotion review must surface that
+  anchor change explicitly -- legacy equality is NOT asserted.
+
 ## 3. Dashboard Build
 
 The dashboard build copies finished reference artifacts into the static app and

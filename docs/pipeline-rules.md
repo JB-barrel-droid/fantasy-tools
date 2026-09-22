@@ -45,6 +45,9 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
 
 - The candidate bridge (`build_comparison_source_section.py`,
   `merge_comparison_candidate.py`) writes ONLY under `output/`.
+- The reference-compute reindex stage (`reindex_comparison_section.py`,
+  `isotonic.py`) also writes ONLY under `output/` (`output/comparison-reference/`);
+  its `--out` refuses any path inside `data/`.
 - The live fixture `data/fixtures/current/comparison-sources-data.json` is
   never replaced by candidate output.
 - Promotion checklist (all required before a candidate touches the fixture):
@@ -59,6 +62,14 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
 - Candidate sections carry `reindex_status: "pending"`: fixed-pie reindexing is
   reference-compute math and must be reviewed before promotion. Native values
   are carried as scraped; they are never presented as finished chart values.
+- Reindexed sections (`reindex_status: "complete"`) carry `reindexed`,
+  `native`, `fit`, `n`, and per-position `index_total` mirroring the fixture
+  shape. The reindex anchor is the fixture's ESPN leg -- NOT the retired
+  Monday rail the existing fixture sections were baked against. Promotion
+  review must surface that anchor change; legacy equality is not asserted.
+- The isotonic fit is strictly per position (QB/RB/WR/TE) with at least 10
+  anchor-matched pairs; fewer fails closed. Cross-position pooling is never
+  allowed to happen silently.
 
 ## 4. Null, never zero
 
