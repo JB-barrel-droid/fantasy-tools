@@ -98,6 +98,58 @@
     return { keys: keys, target: target };
   }
 
+  // The share of a value set's own pie that sits on bench players, measured
+  // with the SAME role model the charts are normalised with.
+  //
+  // Why this is not a constant: the anchor is the two-tier leg, built by
+  // the pipeline at its own starter/bench split. Forcing every chart to a
+  // hardcoded 0.15 re-splits them AWAY from the anchor they are supposed to
+  // match -- the charts' bench ends up marked up relative to the anchor's,
+  // for no reason except that the constant disagreed with the leg.
+  // Returns null when there is nothing to measure, so the caller can fall
+  // back rather than invent a split.
+  function benchShareOf(opts) {
+    var values = opts.values;
+    var roles = opts.roles || roleMap(opts);
+    var starter = 0, bench = 0;
+    values.forEach(function (value, playerKey) {
+      var v = isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+      var role = roles.get(playerKey);
+      if (role === "starter") starter += v;
+      else if (role === "bench") bench += v;
+    });
+    var total = starter + bench;
+    if (!(total > 0) || !(bench > 0)) return null;
+    return bench / total;
+  }
+
+  // Scale a series onto the anchor's pie WITHOUT re-splitting its tiers.
+  //
+  // For the raw value-above-waivers series this is the whole job: its shape
+  // is deliberately its own (it is the un-adjusted curve), but its LEVEL has
+  // to be the anchor's or it is not on the same chart. Scaling it to the sum
+  // of the positional targets instead left it 15.7 points above the anchor's
+  // total over the players they share, because the anchor prices players the
+  // raw series has no projection for.
+  function scaleToSharedTotal(opts) {
+    var values = opts.values;
+    var basis = sharedPieBasis(opts);
+    if (!basis) return new Map(values);
+    var total = 0;
+    values.forEach(function (value, playerKey) {
+      if (!basis.keys.has(playerKey)) return;
+      var v = Number(value);
+      if (isFinite(v) && v > 0) total += v;
+    });
+    var scale = total > 0 ? basis.target / total : 1;
+    var out = new Map();
+    values.forEach(function (value, playerKey) {
+      var v = Number(value);
+      out.set(playerKey, isFinite(v) ? Math.max(0, v) * scale : 0);
+    });
+    return out;
+  }
+
   // Starters marked up, bench marked down, to the shared-set target.
   function normalizeToFixedPie(opts) {
     var values = opts.values;
@@ -132,6 +184,48 @@
         : role === "bench" ? safe * benchScale : 0);
     });
     return out;
+  }
+
+  // Cross-source scale agreement, as a pure comparison so it can be tested
+  // against the numbers the defect actually produced.
+  //
+  // Every pie check compares TOTALS, and the totals agreed to a rounding
+  // error while the ESPN line was a different valuation model: RB peak 99.1
+  // against the published charts' 75-80, QB peak 12.5 against their
+  // 16.0-16.9. A total is blind to shape. This compares where each
+  // position's curve starts, which is what a reader is looking at.
+  //
+  // Band: healthy peak ratios span 0.94-1.05 on live data; the defect ran to
+  // 1.39 (QB) and 1.61 (TE). 0.80/1.25 clears the healthy spread four times
+  // over and still catches the defect on every position it touched.
+  var PEAK_AGREEMENT_LOW = 0.80;
+  var PEAK_AGREEMENT_HIGH = 1.25;
+
+  function peakAgreement(opts) {
+    var anchorPeaks = opts.anchorPeaks || {};
+    var sources = opts.sources || {};
+    var low = isFinite(Number(opts.low)) ? Number(opts.low) : PEAK_AGREEMENT_LOW;
+    var high = isFinite(Number(opts.high)) ? Number(opts.high) : PEAK_AGREEMENT_HIGH;
+    var label = opts.labelOf || function (key) { return key; };
+    var offenders = [];
+    var compared = 0;
+    Object.keys(sources).forEach(function (key) {
+      var peaks = sources[key] || {};
+      POSITION_ORDER.forEach(function (pos) {
+        var a = Number(anchorPeaks[pos]), v = Number(peaks[pos]);
+        // A position the anchor or the source does not price is not evidence
+        // either way; a NaN peak is a different failure (validValues).
+        if (!isFinite(a) || !(a > 0) || !isFinite(v) || !(v > 0)) return;
+        compared += 1;
+        var ratio = v / a;
+        if (ratio < low || ratio > high) {
+          offenders.push(label(key) + " " + pos + " " + v.toFixed(1) +
+            " vs anchor " + a.toFixed(1) + " (" + ratio.toFixed(2) + "x)");
+        }
+      });
+    });
+    return {ok: compared > 0 && offenders.length === 0, compared: compared,
+            offenders: offenders, band: [low, high]};
   }
 
   // Roster allocation. `rankOf` returns a sortable projection for a player --
@@ -270,6 +364,11 @@
     projectionRoles: projectionRoles,
     positionalTierScales: positionalTierScales,
     sharedPieBasis: sharedPieBasis,
+    benchShareOf: benchShareOf,
+    scaleToSharedTotal: scaleToSharedTotal,
+    PEAK_AGREEMENT_LOW: PEAK_AGREEMENT_LOW,
+    PEAK_AGREEMENT_HIGH: PEAK_AGREEMENT_HIGH,
+    peakAgreement: peakAgreement,
     normalizeToFixedPie: normalizeToFixedPie,
     allocationCounts: allocationCounts
   };

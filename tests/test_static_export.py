@@ -331,7 +331,14 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        self.assertIn("same fixed pie split", text)
+        # Copy changed 2026-09-22: the split is now MEASURED off the ESPN leg
+        # rather than asserted as a constant 85/15, because the leg the
+        # pipeline builds does not divide 85/15 and the footnote was stating
+        # a number the curves did not use.
+        self.assertIn("are put on the ESPN leg", text)
+        self.assertIn("lastDisplayShare", text)
+        self.assertNotIn("same fixed pie split", text,
+                         "footnote must not claim a fixed split the curves are not on")
         self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 

@@ -7,6 +7,7 @@
 const fs = require("fs");
 const path = require("path");
 
+require(path.join(__dirname, "..", "app", "trade-value-chart", "assets", "value-model.js"));
 require(path.join(__dirname, "..", "app", "trade-value-chart", "assets", "curve-widget.js"));
 
 const T = globalThis.TradeValueTwoTier;
@@ -183,6 +184,44 @@ switch (cmd) {
       process.exit(1);
     }
     out = input.cases.map(c => P.defaultIndexedSourceKeys(c.inputs === undefined ? undefined : c.inputs));
+    break;
+  }
+  case "peakagreement": {
+    // Cross-source scale agreement over (anchorPeaks, sources) cases.
+    // Proves the guard catches the defect it names: the ESPN line priced by
+    // a second, browser-side valuation instead of the leg the pipeline built.
+    const V = globalThis.ValueModel;
+    out = {
+      band: [V.PEAK_AGREEMENT_LOW, V.PEAK_AGREEMENT_HIGH],
+      results: input.cases.map(c => V.peakAgreement({
+        anchorPeaks: c.anchorPeaks, sources: c.sources,
+        low: c.low, high: c.high
+      }))
+    };
+    break;
+  }
+  case "scaletoshared": {
+    // values/anchor come in as {playerKey: value}; pos comes from `positions`.
+    const V = globalThis.ValueModel;
+    const positions = input.positions || {};
+    const toMap = o => new Map(Object.entries(o).map(([k, v]) => [Number(k), v]));
+    const scaled = V.scaleToSharedTotal({
+      values: toMap(input.values),
+      anchor: toMap(input.anchor),
+      playerOf: key => ({player_key: key, pos: positions[key] || "RB"})
+    });
+    out = Object.fromEntries(scaled);
+    break;
+  }
+  case "benchshare": {
+    const V = globalThis.ValueModel;
+    const positions = input.positions || {};
+    const toMap = o => new Map(Object.entries(o).map(([k, v]) => [Number(k), v]));
+    out = V.benchShareOf({
+      values: toMap(input.values),
+      playerOf: key => ({player_key: key, pos: positions[key] || "RB", name: String(key)}),
+      teams: input.teams, shape: input.shape
+    });
     break;
   }
   case "collapse": {

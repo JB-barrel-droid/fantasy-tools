@@ -590,6 +590,10 @@
   let twoTierCalCache = new Map();
   let liveCellsCache = null;
   let espnRowsCache = null;
+  let espnFixtureLegCache = null;
+  // The split the charts were actually matched to, for the footnote. Measured
+  // off the anchor each rebuild; DISPLAY_BENCH_SHARE is only the fall-back.
+  let lastDisplayShare = DEFAULT_BENCH_SHARE;
   let espnRoleByKey = new Map();
   let yAxisAuto = true;
   let yLow = 0;
@@ -901,9 +905,19 @@
     // starter-heavy (>= target share), the pie inverts -- the exact defect
     // this guards against. These run on every build; failures are visible,
     // never silent.
+    // These two describe the FALL-BACK leg: the browser-derived pricing that
+    // `adjusted` carries. While the pipeline's built leg is present that is
+    // what the ESPN line renders, so a wobble in the fall-back is a note, not
+    // a failure -- recording it as a failure is how a 1.048-vs-1.05 markup on
+    // an undisplayed curve came to sit red in the health panel.
+    const legIsFallback = espnLegIsFallback();
+    const recordLeg = legIsFallback
+      ? (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail)
+      : (id, label, ok, detail) => (ok ? ChartHealth.record(id, label, true, detail)
+                                       : ChartHealth.warn(id, label, `${detail} -- fall-back leg only; the ESPN line renders the built leg`));
     if (rawTotal > 0 && starterRaw > 0 && benchRaw > 0) {
       const rawStarterShare = starterRaw / rawTotal;
-      ChartHealth.record(
+      recordLeg(
         "espn-fixed-pie-direction",
         "ESPN fixed-pie direction (starters up, bench down)",
         rawStarterShare < starterShare && starterScale > rawScale && benchScale < rawScale,
@@ -914,7 +928,7 @@
       // Flag it if it collapses toward 1.0 (curves nearly identical) or
       // inverts (< 1.0) -- both mean the adjustment is not doing its job.
       const markup = starterScale / rawScale;
-      ChartHealth.record(
+      recordLeg(
         "espn-starter-markup",
         "ESPN starter markup ratio sane",
         markup > 1.05,
@@ -956,10 +970,61 @@
     return values;
   }
 
+  // The ESPN line IS the two-tier leg the pipeline built, read from the
+  // fixture like every other source. It used to be re-derived here from raw
+  // ESPN per-game projections (ppg minus a positional waiver line, then
+  // scaled onto the positional pie), and that re-derivation is a SECOND,
+  // cruder valuation wearing the anchor's name: no softplus glide, no
+  // two-tier slice pricing, and a bench assigned by surplus-over-baseline
+  // that handed 17 of 72 bench slots to quarterbacks in a 1QB league.
+  //
+  // The two models do not agree, and the published charts are isotonically
+  // reindexed onto the PIPELINE leg at build time, so the re-derivation left
+  // exactly one curve off-shape: RB peak 99.1 against the charts' 79-82,
+  // QB peak 12.5 against their 16.6-16.9 -- with every positional total
+  // matching to a rounding error, which is why the pie guards stayed green.
+  // The charts were right. The anchor was a different model.
+  //
+  // buildEspnRows() still runs: it prices the raw value-above-waivers series
+  // (a deliberately separate, labelled curve) and assigns the ESPN tier shown
+  // in the table. Its `adjusted` field is the fail-safe used only when the
+  // fixture carries no leg for this combo.
+  // Memoised so the guards in buildEspnRows can ask whether the built leg is
+  // present without rebuilding it. Cleared with the rest of the domain.
+  function espnFixtureLeg() {
+    if (!espnFixtureLegCache) espnFixtureLegCache = buildPublishedSourceMap("espn");
+    return espnFixtureLegCache;
+  }
+
+  function espnLegIsFallback() {
+    return espnFixtureLeg().size < ValueModel.MIN_SHARED_FOR_PIE;
+  }
+
   function buildEspnIndexedMap() {
+    const leg = espnFixtureLeg();
+    if (leg.size >= ValueModel.MIN_SHARED_FOR_PIE) return new Map(leg);
+    ChartHealth.warn(
+      "espn-leg-source",
+      "ESPN anchor read from the built leg",
+      `fixture leg for ${comboKey("espn")} has ${leg.size} players (< ${ValueModel.MIN_SHARED_FOR_PIE}); ` +
+      "falling back to the browser-derived leg, which is a different model"
+    );
     const values = new Map();
     buildEspnRows().forEach(row => values.set(row.player.player_key, row.adjusted));
     return values;
+  }
+
+  // Match the charts to the anchor's OWN starter/bench split rather than to a
+  // constant. DISPLAY_BENCH_SHARE stays the two-tier calibration parameter;
+  // it is not a claim about how the built leg happens to divide.
+  function anchorDisplayShare(anchor) {
+    const measured = ValueModel.benchShareOf({
+      values: anchor,
+      playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams,
+      shape: rosterShape
+    });
+    return Number.isFinite(measured) ? measured : DISPLAY_BENCH_SHARE;
   }
 
   function buildSourceMap(key) {
@@ -971,7 +1036,14 @@
     const shaped = new Map(values);
     const defaultCounts = allocationCountsFor([...canonicalByKey.values()], DEFAULT_ROSTER);
     const customCounts = allocationCountsFor([...canonicalByKey.values()], rosterShape);
-    const totalBefore = [...values.values()].reduce((sum, value) => sum + value, 0);
+    // Totals are taken over QB/RB/WR/TE only, and the correction is applied
+    // to the same set. Kickers and defenses sit outside the skill pie: rolling
+    // them into the before/after totals let them dilute the correction, which
+    // left the anchor's skill total 7.9 short of its positional targets the
+    // moment a roster slot moved. They pass through unshaped, which is right --
+    // a WR slot does not reprice a kicker.
+    const inPie = playerKey => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos);
+    const totalBefore = [...values.entries()].reduce((sum, [playerKey, value]) => sum + (inPie(playerKey) ? value : 0), 0);
     POSITION_ORDER.forEach(pos => {
       const rows = [...values.entries()]
         .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
@@ -986,9 +1058,9 @@
       const factor = defaultAverage > 0 ? Math.max(0.25, Math.min(1.8, customAverage / defaultAverage)) : 1;
       rows.forEach(row => shaped.set(row.playerKey, row.value * factor));
     });
-    const totalAfter = [...shaped.values()].reduce((sum, value) => sum + value, 0);
+    const totalAfter = [...shaped.entries()].reduce((sum, [playerKey, value]) => sum + (inPie(playerKey) ? value : 0), 0);
     const fixedPieScale = totalBefore > 0 && totalAfter > 0 ? totalBefore / totalAfter : 1;
-    shaped.forEach((value, playerKey) => shaped.set(playerKey, value * fixedPieScale));
+    shaped.forEach((value, playerKey) => { if (inPie(playerKey)) shaped.set(playerKey, value * fixedPieScale); });
     return shaped;
   }
 
@@ -1073,26 +1145,37 @@
   // live-adjusted path normalizes at the ACTIVE slider share; every fallback
   // path stays frozen at the stage-1 display share so moving the slider
   // cannot change a fallback curve.
-  function adjustedShareFor(key) {
+  function adjustedShareFor(key, fallbackShare = DISPLAY_BENCH_SHARE) {
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
-    return adjustmentCellsFor(rawKey) ? benchShare : DISPLAY_BENCH_SHARE;
+    return adjustmentCellsFor(rawKey) ? benchShare : fallbackShare;
   }
 
   function rebuildDomain() {
     espnRowsCache = null;
+    espnFixtureLegCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
-    const anchorMap = buildEspnIndexedMap();
+    buildEspnRows();
+    const anchorMap = applyRosterShape(buildEspnIndexedMap(), "espn");
     sourceMaps.set("espn", anchorMap);
+    const displayShare = anchorDisplayShare(anchorMap);
+    lastDisplayShare = displayShare;
     SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
       const sourceMap = key.endsWith("_adjusted")
-        ? normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor(key), key), adjustedShareFor(key), anchorMap)
-        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), DISPLAY_BENCH_SHARE, anchorMap);
+        ? normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor(key), key), adjustedShareFor(key, displayShare), anchorMap)
+        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap);
       sourceMaps.set(key, sourceMap);
     });
-    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor("cbs_adjusted"), "cbs_adjusted"), adjustedShareFor("cbs_adjusted"), anchorMap));
-    sourceMaps.set("espn_vorp", buildEspnVorpMap());
+    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor("cbs_adjusted"), "cbs_adjusted"), adjustedShareFor("cbs_adjusted", displayShare), anchorMap));
+    // Level-matched to the anchor over the players they share; its SHAPE is
+    // deliberately its own. Scaling it to the positional-target sum instead
+    // put it 15.7 above the anchor on the shared set and failed the pie guard.
+    sourceMaps.set("espn_vorp", ValueModel.scaleToSharedTotal({
+      values: buildEspnVorpMap(),
+      anchor: anchorMap,
+      playerOf: playerKey => canonicalByKey.get(playerKey)
+    }));
 
     const keys = new Set();
     visibleSourceKeys().forEach(key => sourceMaps.get(key)?.forEach((_, playerKey) => keys.add(playerKey)));
@@ -1999,6 +2082,55 @@
     return {tolerance, checks, ok:checks.every(check => check.ok)};
   }
 
+  // Cross-source scale agreement. The band and the comparison live in the
+  // shared value model so they can be tested against the numbers the defect
+  // actually produced; this only supplies the peaks.
+  //
+  // Scope is the DIRECT published charts. The *_adjusted series are
+  // deliberately re-weighted away from their source and the raw
+  // value-above-waivers series is deliberately un-adjusted, so neither is
+  // evidence about the anchor's shape.
+  const DIRECT_CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+  // The adjusted series are deliberately re-weighted, so they get a wider
+  // band and a warning rather than a failure -- but "re-weighted" is not a
+  // licence to leave the scale, and the hero copy promises one trade-value
+  // scale. As of 2026-09-22 their QB peaks run 26.6-34.1 against the ESPN
+  // leg's 17.2 (1.5x-2.0x), which is a known open flaw in the stage-2
+  // adjustment cells, not in this file.
+  const ADJUSTED_CHART_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted",
+                               "fantasypros_adjusted", "cbs_adjusted"];
+  const ADJUSTED_AGREEMENT_LOW = 0.6;
+  const ADJUSTED_AGREEMENT_HIGH = 1.4;
+
+  function positionalPeaks(values) {
+    const peaks = {};
+    POSITION_ORDER.forEach(pos => { peaks[pos] = 0; });
+    values?.forEach((value, playerKey) => {
+      const pos = canonicalByKey.get(playerKey)?.pos;
+      if (!POSITION_ORDER.includes(pos) || !Number.isFinite(value)) return;
+      if (value > peaks[pos]) peaks[pos] = value;
+    });
+    return peaks;
+  }
+
+  function agreementFor(keys, low, high) {
+    const sources = {};
+    keys.filter(key => sourceMaps.get(key)?.size)
+      .forEach(key => { sources[key] = positionalPeaks(sourceMaps.get(key)); });
+    return ValueModel.peakAgreement({
+      anchorPeaks: positionalPeaks(sourceMaps.get("espn")),
+      sources, low, high, labelOf: sourceLabel
+    });
+  }
+
+  function scaleAgreementDiagnostics() {
+    return agreementFor(DIRECT_CHART_KEYS);
+  }
+
+  function adjustedAgreementDiagnostics() {
+    return agreementFor(ADJUSTED_CHART_KEYS, ADJUSTED_AGREEMENT_LOW, ADJUSTED_AGREEMENT_HIGH);
+  }
+
   function yAxisScale(rows) {
     const values = rows
       .slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))
@@ -2213,7 +2345,7 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts use the same fixed pie split ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% starter / ${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts are put on the ESPN leg’s pie and its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% bench split, waiver to 0 · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with the selected player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
@@ -2336,13 +2468,40 @@
     const rosterTransitions = markers.length === 2
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
     const fixedPie = fixedPieDiagnostics();
+    const scaleAgreement = scaleAgreementDiagnostics();
+    const adjustedAgreement = adjustedAgreementDiagnostics();
+    // Visible, not blocking: these curves are on by default, so a scale
+    // problem in them has to be on the page rather than in a backlog only.
+    if (adjustedAgreement.compared > 0 && !adjustedAgreement.ok) {
+      ChartHealth.warn(
+        "adjusted-scale-agreement",
+        "Adjusted series agree with the anchor's scale",
+        `positional peaks outside ${adjustedAgreement.band.join("-")}x of the anchor: ` +
+        `${adjustedAgreement.offenders.join("; ")} -- open issue in the stage-2 adjustment cells`
+      );
+    } else {
+      ChartHealth.record(
+        "adjusted-scale-agreement",
+        "Adjusted series agree with the anchor's scale",
+        adjustedAgreement.ok,
+        `${adjustedAgreement.compared} positional peaks within ${adjustedAgreement.band.join("-")}x of the anchor`
+      );
+    }
+    ChartHealth.record(
+      "source-scale-agreement",
+      "Published charts agree with the anchor's scale",
+      scaleAgreement.ok,
+      scaleAgreement.offenders.length
+        ? `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ${scaleAgreement.offenders.join("; ")}`
+        : `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
+    );
     const defaultGroupedSources = defaultIndexedSourceKeys(adjustmentInputs).every(key => activeSources.has(key));
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
+    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "sourceScaleAgreement"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
     guardsPassed = true;
   }

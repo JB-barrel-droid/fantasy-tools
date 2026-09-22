@@ -223,11 +223,19 @@
   }
 
   function applyRosterShape(values, key) {
-    if (rosterIsDefault() || key === "espn" || key === "espn_vorp") return values;
+    // "espn" is no longer exempt: it used to be re-derived per roster shape,
+    // so shaping it here would have double-counted. It is now a fixture read
+    // like every other source and must be shaped the same way.
+    if (rosterIsDefault() || key === "espn_vorp") return values;
     const shaped = new Map(values);
     const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6});
     const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
-    const totalBefore = [...values.values()].reduce((sum, value) => sum + value, 0);
+    // Totals over QB/RB/WR/TE only, correction applied to the same set.
+    // Kickers and defenses sit outside the skill pie; rolling them into the
+    // before/after totals let them dilute the correction and left the anchor's
+    // skill total short of its positional targets whenever a slot moved.
+    const inPie = playerKey => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos);
+    const totalBefore = [...values.entries()].reduce((sum, [playerKey, value]) => sum + (inPie(playerKey) ? value : 0), 0);
     POSITION_ORDER.forEach(pos => {
       const rows = [...values.entries()]
         .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
@@ -242,9 +250,9 @@
       const factor = defaultAverage > 0 ? Math.max(0.25, Math.min(1.8, customAverage / defaultAverage)) : 1;
       rows.forEach(row => shaped.set(row.playerKey, row.value * factor));
     });
-    const totalAfter = [...shaped.values()].reduce((sum, value) => sum + value, 0);
+    const totalAfter = [...shaped.entries()].reduce((sum, [playerKey, value]) => sum + (inPie(playerKey) ? value : 0), 0);
     const scale = totalBefore > 0 && totalAfter > 0 ? totalBefore / totalAfter : 1;
-    shaped.forEach((value, playerKey) => shaped.set(playerKey, value * scale));
+    shaped.forEach((value, playerKey) => { if (inPie(playerKey)) shaped.set(playerKey, value * scale); });
     return shaped;
   }
 
@@ -305,11 +313,11 @@
     });
   }
 
-  function normalizeTradeChartToFixedPie(values, anchor = null) {
+  function normalizeTradeChartToFixedPie(values, anchor = null, share = state.benchShare) {
     return ValueModel.normalizeToFixedPie({
       values,
       anchor,
-      share: state.benchShare,
+      share,
       playerOf: playerKey => canonicalByKey.get(playerKey),
       teams: state.teams,
       shape: state.rosterShape,
@@ -413,10 +421,30 @@
     return values;
   }
 
+  // Must stay identical to the widget's: the ESPN line is the two-tier
+  // leg the pipeline built, read from the fixture, not re-derived here. The
+  // re-derivation is a different valuation model -- it put this table's ESPN
+  // column at an RB peak of 99.1 while every published column, reindexed onto
+  // the built leg, topped out at 79-82.
   function buildEspnIndexedMap() {
+    const leg = buildPublishedSourceMap("espn");
+    if (leg.size >= ValueModel.MIN_SHARED_FOR_PIE) return leg;
     const values = new Map();
     buildEspnRows().forEach(row => values.set(row.player.player_key, row.adjusted));
     return values;
+  }
+
+  // Match the columns to the anchor's OWN starter/bench split, not to the
+  // slider's calibration parameter. Same rule as the widget, so the two
+  // renderers cannot drift.
+  function anchorDisplayShare(anchor) {
+    const measured = ValueModel.benchShareOf({
+      values: anchor,
+      playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams: state.teams,
+      shape: state.rosterShape
+    });
+    return Number.isFinite(measured) ? measured : state.benchShare;
   }
 
   function selectedCombo(key) {
@@ -469,12 +497,19 @@
     // The anchor must exist before anything normalises against it. A source
     // normalised with no anchor silently falls back to the full-total basis,
     // which is what made a 124-player chart sit 30% above the anchor.
-    const anchorMap = buildSourceMap("espn");
+    buildEspnRows();
+    const anchorMap = applyRosterShape(buildSourceMap("espn"), "espn");
     sourceMaps.set("espn", anchorMap);
+    const displayShare = anchorDisplayShare(anchorMap);
     renderKeys.filter(key => key !== "espn").forEach(key => {
       sourceMaps.set(key, key === "espn_vorp"
-        ? buildSourceMap(key)
-        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), anchorMap));
+        // Level-matched to the anchor over the shared players; shape is its own.
+        ? ValueModel.scaleToSharedTotal({
+            values: buildSourceMap(key),
+            anchor: anchorMap,
+            playerOf: playerKey => canonicalByKey.get(playerKey)
+          })
+        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), anchorMap, displayShare));
     });
   }
 

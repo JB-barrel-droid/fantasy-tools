@@ -674,5 +674,251 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                          "rawVorp must be the raw projection-minus-waiver value")
 
 
+class EspnAnchorIsTheBuiltLegTest(unittest.TestCase):
+    """The ESPN line must be the leg the pipeline built, not a second model.
+
+    What went wrong: the widget re-derived the ESPN leg in the browser from
+    raw per-game projections (ppg minus a positional waiver line, scaled onto
+    the positional pie). That is a different valuation from the two-tier leg
+    the pipeline builds -- no softplus glide, no slice pricing, and a bench
+    assigned by surplus-over-baseline that gave 17 of 72 bench slots to
+    quarterbacks in a 1QB league. Because the published charts are
+    isotonically reindexed onto the PIPELINE leg at build time, exactly one
+    curve ended up off-shape: measured on the live page, ESPN peaked at 99.1
+    (RB) and 12.5 (QB) against the charts' 75-80 and 16.0-16.9 -- with every
+    positional pie total agreeing to a rounding error, which is why every
+    existing guard stayed green.
+    """
+
+    @staticmethod
+    def _anchor_source(text):
+        """The anchor body, plus the fixture-leg helper it may read through."""
+        body = extract_function(text, "buildEspnIndexedMap") or ""
+        helper = extract_function(text, "espnFixtureLeg") or ""
+        return body, body + helper
+
+    def test_anchor_reads_the_built_leg_in_both_renderers(self):
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            text = (APP / "assets" / name).read_text(encoding="utf-8")
+            body, resolved = self._anchor_source(text)
+            self.assertTrue(body, "buildEspnIndexedMap missing from %s" % name)
+            self.assertIn('buildPublishedSourceMap("espn")', resolved,
+                          "%s: the ESPN anchor must read the built leg from the fixture, "
+                          "not a browser-side re-derivation" % name)
+
+    def test_derived_leg_is_only_the_fall_back(self):
+        """`adjusted` may still be reachable, but only below the shared-set
+        minimum -- i.e. when the fixture carries no leg for this combo."""
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            text = (APP / "assets" / name).read_text(encoding="utf-8")
+            body, _ = self._anchor_source(text)
+            self.assertIn("MIN_SHARED_FOR_PIE", body,
+                          "%s: the fall-back must be gated on the built leg being absent" % name)
+            self.assertIn("row.adjusted", body,
+                          "%s: the derived leg must remain as the fall-back" % name)
+            leg_at = min(i for i in (body.find('buildPublishedSourceMap("espn")'),
+                                     body.find("espnFixtureLeg()")) if i != -1)
+            self.assertLess(leg_at, body.index("row.adjusted"),
+                            "%s: the built leg must be preferred over the derived one" % name)
+
+    def test_roster_shaping_holds_the_skill_pie_not_the_grand_total(self):
+        """Kickers and defenses sit outside the skill pie.
+
+        Rolling them into the before/after totals let them dilute the
+        correction, and because the anchor is not re-normalised afterwards its
+        skill total came up 7.9 short of its positional targets the moment a
+        roster slot moved -- while every published chart, which IS re-anchored
+        after shaping, stayed at delta 0 and hid it.
+        """
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
+                                    "applyRosterShape")
+            self.assertIsNotNone(body)
+            self.assertIn("inPie", body,
+                          "%s: roster shaping must total over the skill positions only" % name)
+            self.assertNotIn("[...values.values()].reduce", body,
+                             "%s: the before-total must exclude K/DST" % name)
+            self.assertNotIn("[...shaped.values()].reduce", body,
+                             "%s: the after-total must exclude K/DST" % name)
+
+    def test_espn_is_roster_shaped_like_every_other_source(self):
+        """It used to be exempt because it was re-derived per roster shape.
+        A fixture read is static, so skipping it freezes the ESPN line while
+        every other curve moves with the roster controls."""
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
+                                    "applyRosterShape")
+            self.assertIsNotNone(body)
+            self.assertNotIn('key === "espn"', body,
+                             "%s: the ESPN anchor must not be exempt from roster shaping" % name)
+
+    def test_built_leg_positional_peaks_agree_across_the_shipped_sources(self):
+        """The invariant on real data: every direct source's positional peak
+        sits inside the agreement band of the ESPN leg's, in the fixture as
+        shipped. This is what the runtime guard checks; pinning it here means
+        a bad promotion fails the build rather than the page."""
+        comparison = json.loads(COMPARE.read_text(encoding="utf-8"))
+        players = json.loads(PLAYERS.read_text(encoding="utf-8"))["players"]
+        pos_by_key = {int(p["player_key"]): p["pos"] for p in players}
+        key_by_slug = {str(k): int(v) for k, v in comparison["player_keys"].items()}
+        positions = ("QB", "RB", "WR", "TE")
+
+        def peaks(source_key):
+            combos = comparison["sources"][source_key].get("combos") or {}
+            combo = combos.get("full_12") or combos.get("full_12_qb1")
+            if not combo:
+                return None
+            values = combo.get("values") or combo.get("reindexed") or {}
+            out = {pos: 0.0 for pos in positions}
+            for slug, raw in values.items():
+                key = key_by_slug.get(slug)
+                pos = pos_by_key.get(key) if key is not None else None
+                if pos in out:
+                    out[pos] = max(out[pos], float(raw))
+            return out
+
+        anchor = peaks("espn")
+        self.assertIsNotNone(anchor, "no ESPN leg in the shipped fixture")
+        band = run_harness("peakagreement", {"cases": [{"anchorPeaks": anchor, "sources": {}}]})["band"]
+        low, high = band
+        for key in ("usatoday", "fantasycalc", "fantasypros", "cbs"):
+            source = peaks(key)
+            if not source:
+                continue
+            for pos in positions:
+                if not (anchor[pos] > 0 and source[pos] > 0):
+                    continue
+                ratio = source[pos] / anchor[pos]
+                self.assertTrue(
+                    low <= ratio <= high,
+                    f"{key} {pos} peaks {source[pos]:.1f} against the ESPN leg's "
+                    f"{anchor[pos]:.1f} ({ratio:.2f}x), outside {low}-{high}x")
+
+
+class PeakAgreementGuardTest(unittest.TestCase):
+    """Negative-tested 2026-09-22 against the numbers the defect produced."""
+
+    def agree(self, cases):
+        return run_harness("peakagreement", {"cases": cases})
+
+    def test_band_clears_the_healthy_spread_and_catches_the_defect(self):
+        band = self.agree([{"anchorPeaks": {}, "sources": {}}])["band"]
+        self.assertLessEqual(band[0], 0.90, "low edge is tight enough to trip on healthy data")
+        self.assertGreaterEqual(band[1], 1.10, "high edge is tight enough to trip on healthy data")
+        self.assertGreaterEqual(band[0], 0.60, "low edge is so loose the defect passes")
+        self.assertLessEqual(band[1], 1.30, "high edge is so loose the defect passes")
+
+    def test_the_broken_anchor_trips_the_guard(self):
+        """Peaks measured on the live page while the ESPN line was the
+        browser-derived leg. Every one of the four direct charts trips it."""
+        broken = {"QB": 12.5, "RB": 99.1, "WR": 63.0, "TE": 17.3}
+        charts = {
+            "usatoday": {"QB": 17.3, "RB": 80.4, "WR": 59.7, "TE": 25.2},
+            "fantasycalc": {"QB": 17.0, "RB": 78.8, "WR": 57.0, "TE": 27.6},
+            "fantasypros": {"QB": 17.2, "RB": 79.6, "WR": 59.1, "TE": 27.9},
+            "cbs": {"QB": 16.4, "RB": 77.4, "WR": 54.5, "TE": 26.4},
+        }
+        for key, peaks in charts.items():
+            got = self.agree([{"anchorPeaks": broken, "sources": {key: peaks}}])["results"][0]
+            self.assertFalse(got["ok"], f"{key} did not trip the guard against the broken anchor")
+            self.assertTrue(got["offenders"])
+
+    def test_the_fixed_anchor_passes(self):
+        """The same page after the anchor was pointed at the built leg."""
+        anchor = {"QB": 17.2, "RB": 81.8, "WR": 62.6, "TE": 27.9}
+        charts = {
+            "usatoday": {"QB": 18.0, "RB": 85.4, "WR": 63.4, "TE": 26.1},
+            "fantasycalc": {"QB": 17.6, "RB": 83.7, "WR": 60.5, "TE": 28.5},
+            "fantasypros": {"QB": 17.8, "RB": 84.8, "WR": 62.9, "TE": 28.9},
+            "cbs": {"QB": 17.3, "RB": 81.9, "WR": 59.2, "TE": 27.9},
+        }
+        got = self.agree([{"anchorPeaks": anchor, "sources": charts}])["results"][0]
+        self.assertTrue(got["ok"], f"healthy peaks tripped the guard: {got['offenders']}")
+        self.assertEqual(16, got["compared"])
+
+    def test_nothing_to_compare_is_not_a_pass(self):
+        """An empty comparison means the peaks never arrived -- reporting that
+        as agreement is how a guard stops guarding."""
+        self.assertFalse(self.agree([{"anchorPeaks": {}, "sources": {}}])["results"][0]["ok"])
+        self.assertFalse(self.agree([
+            {"anchorPeaks": {"RB": 80.0}, "sources": {"cbs": {"RB": 0}}}])["results"][0]["ok"])
+
+    def test_positions_neither_side_prices_are_not_evidence(self):
+        got = self.agree([{"anchorPeaks": {"QB": 17.2, "RB": 81.8},
+                           "sources": {"cbs": {"RB": 81.9}}}])["results"][0]
+        self.assertTrue(got["ok"])
+        self.assertEqual(1, got["compared"], "an unpriced position must not be counted")
+
+
+class RawSeriesLevelMatchTest(unittest.TestCase):
+    """The raw value-above-waivers series keeps its own SHAPE but not its own
+    LEVEL: scaled to the positional-target sum it sat 15.7 above the anchor's
+    total over the players they share, and failed the shared-set pie check."""
+
+    def test_scale_to_shared_total_matches_the_anchor_on_the_overlap(self):
+        # 50 shared players so the shared-set minimum is met, plus one the
+        # anchor does not price at all.
+        values = {str(i): 2.0 for i in range(50)}
+        anchor = {str(i): 3.0 for i in range(50)}
+        values["99"] = 2.0
+        out = run_harness("scaletoshared", {"values": values, "anchor": anchor})
+        shared = sum(out[str(i)] for i in range(50))
+        self.assertAlmostEqual(150.0, shared, places=6,
+                               msg="shared-set total must equal the anchor's")
+        self.assertAlmostEqual(3.0, out["99"], places=6,
+                               msg="players outside the overlap take the same scale, not zero")
+
+    def test_below_the_shared_minimum_the_series_is_left_alone(self):
+        values = {str(i): 2.0 for i in range(10)}
+        anchor = {str(i): 3.0 for i in range(10)}
+        out = run_harness("scaletoshared", {"values": values, "anchor": anchor})
+        self.assertEqual([2.0] * 10, [out[str(i)] for i in range(10)],
+                         "too thin an overlap must not invent a scale")
+
+    def test_raw_series_is_level_matched_in_both_renderers(self):
+        for name, fn in (("curve-widget.js", "rebuildDomain"),
+                         ("comparison-dashboard.js", "rebuildSourceMaps")):
+            body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"), fn)
+            self.assertIsNotNone(body)
+            self.assertIn("scaleToSharedTotal", body,
+                          "%s: the raw series must be level-matched to the anchor" % name)
+
+
+class AnchorDisplayShareTest(unittest.TestCase):
+    """The charts are matched to the anchor's OWN starter/bench split.
+
+    A hardcoded 0.15 re-split every chart away from the anchor it is supposed
+    to match, for no reason except that the constant disagreed with the leg
+    the pipeline built.
+    """
+
+    def test_bench_share_is_measured_not_assumed(self):
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            text = (APP / "assets" / name).read_text(encoding="utf-8")
+            body = extract_function(text, "anchorDisplayShare")
+            self.assertIsNotNone(body, "%s: anchorDisplayShare missing" % name)
+            self.assertIn("ValueModel.benchShareOf", body,
+                          "%s: the display share must be measured off the anchor" % name)
+
+    def test_measured_share_is_the_bench_tier_over_starter_plus_bench(self):
+        # 12 teams, 1 starting slot, 2 bench slots, one position: the top 12
+        # are starters, the next 24 bench, the rest waiver and excluded.
+        values = {str(i): (10.0 if i < 12 else 1.0 if i < 36 else 0.5) for i in range(60)}
+        got = run_harness("benchshare", {
+            "values": values, "teams": 12,
+            "shape": {"QB": 0, "RB": 1, "WR": 0, "TE": 0, "FLEX": 0, "BENCH": 2}})
+        self.assertAlmostEqual(24.0 / (120.0 + 24.0), got, places=9)
+
+    def test_no_bench_tier_returns_null_rather_than_zero(self):
+        """A zero share would mark the whole pie onto starters. The caller
+        needs to know it could not be measured."""
+        values = {str(i): 10.0 for i in range(12)}
+        got = run_harness("benchshare", {
+            "values": values, "teams": 12,
+            "shape": {"QB": 0, "RB": 1, "WR": 0, "TE": 0, "FLEX": 0, "BENCH": 0}})
+        self.assertIsNone(got)
+
+
+
 if __name__ == "__main__":
     unittest.main()
