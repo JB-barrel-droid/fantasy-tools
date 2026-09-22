@@ -15,11 +15,19 @@ Scoring: USA Today publishes one QB column (1QB); it is reused for all
 three scorings (documented as IMPLIED, mirroring the CBS fixture). RB/WR/TE
 use the STD / Half / PPR columns.
 
-Values: value == native_value == the published number (USA Today's ~0-75
-chart scale). Reindexing onto the canonical chart scale is a bake-time
-operation (see the dashboard builder), not a pull-time one. The one-off
-fit-bake rows (bake_id like 'fitwk2_...') carry reindexed values; pull rows
-use bake_id like 'pullwk2_2026-09-22' so the two are never confused.
+Values: the DB's `value` column always carries chart-scale numbers. USA Today
+publishes on its own ~0-75 chart scale, so at write time the published
+numbers are translated onto the chart's canonical scale with the repo's
+isotonic reindex (pipelines/reindex_comparison_section.reindex_section,
+anchored to the fixture's ESPN leg -- the repo-owned equivalent of the old
+build_sources_dashboard.reindex_values). `native_value` preserves the raw
+published number; `value` is the reindexed chart-scale number. This matches
+the existing fit-bake rows (bake_id like 'fitwk2_...'), whose `value` is
+also reindexed -- the dashboard builder (import_supabase_references)
+reads `value` directly with no reindex step, so writing raw published
+numbers into `value` would corrupt the chart. New pulls use bake_id like
+'usatwk2_2026-09-22_v1' (wrapper-generated; the saver's standalone default
+mirrors the scheme) so pulls are never confused with fit-bakes.
 
 Grain: (source, variant, scoring, league_teams, qb_slots, season, week,
 player_key). Upserts are idempotent per weekly grain; prior weeks are
@@ -190,18 +198,145 @@ def build_usatoday_rows(
     return clean, review, pulled_at, url
 
 
+# Repo scoring label -> ESPN fixture combo stem. The fixture's combos are
+# named like standard_12 / half_12 / full_12 (scoring_teams); the anchor
+# lookup is an exact match, so the mapping is explicit, never guessed.
+FIXTURE_SCORING = {"std": "standard", "half": "half", "full": "full"}
+
+
+def build_reindex_candidate(
+    clean_rows: list[dict[str, Any]], bake_id: str
+) -> dict[str, Any]:
+    """Build a trade-value-source-reference-v1 candidate from clean pull rows.
+
+    One combo per (fixture scoring, league_teams); native values are the raw
+    published numbers keyed by fixture-style slug (player_norm). Fail closed
+    when a row's shape has no valid anchor mapping (unexpected scoring,
+    qb_slots != 1, or league_teams with no fixture combo): the reindex math
+    is only defined against the ESPN anchor for the standard 1QB shapes.
+    """
+    combos: dict[str, dict[str, Any]] = {}
+    for r in clean_rows:
+        stem = FIXTURE_SCORING.get(r["scoring"])
+        if stem is None:
+            raise SystemExit(
+                f"Fail closed: scoring {r['scoring']!r} has no ESPN fixture "
+                "combo mapping -- refusing to guess an anchor."
+            )
+        if r.get("qb_slots") != 1:
+            raise SystemExit(
+                f"Fail closed: qb_slots={r.get('qb_slots')} has no ESPN anchor "
+                "mapping (fixture combos are 1QB) -- refusing to guess."
+            )
+        combo = f"{stem}_{r['league_teams']}"
+        slot = combos.setdefault(combo, {"native": {}, "player_keys": {}})
+        slot["native"][r["player_norm"]] = r["native_value"]
+        slot["player_keys"][r["player_norm"]] = r["player_key"]
+    return {
+        "schema": "trade-value-source-reference-v1",
+        "source_key": "usatoday",
+        "asof": bake_id,
+        "combos": combos,
+    }
+
+
+def apply_reindex(
+    clean_rows: list[dict[str, Any]], review_rows: list[dict[str, Any]],
+    bake_id: str,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Translate clean rows' `value` onto the chart scale via reindex_section.
+
+    `native_value` is untouched (raw published number). Rows with no
+    reindexed value (no ESPN anchor pair -- reported in the reindex review)
+    move to review: never written with an un-reindexed value, never guessed.
+    Uses pipelines/reindex_comparison_section.reindex_section directly --
+    the isotonic math lives in exactly one place.
+    """
+    import tempfile
+
+    from reindex_comparison_section import reindex_section
+
+    candidate = build_reindex_candidate(clean_rows, bake_id)
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".json", prefix="usatoday-reindex-", delete=False
+    ) as fh:
+        json.dump(candidate, fh)
+        tmp = fh.name
+    try:
+        section, reindex_review = reindex_section(tmp)
+    finally:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+    reindexed: dict[tuple[str, str], float] = {}
+    for combo_name, combo in section.get("combos", {}).items():
+        for slug, val in (combo.get("reindexed") or {}).items():
+            reindexed[(combo_name, slug)] = val
+
+    final_clean: list[dict[str, Any]] = []
+    final_review: list[dict[str, Any]] = list(review_rows)
+    for r in reindex_review:
+        final_review.append(
+            {
+                "player_key": r.get("player_key"),
+                "player_norm": r.get("slug"),
+                "scoring": None,
+                "reason": f"reindex: {r.get('reason')}",
+                "detail": f"combo {r.get('combo')}; value left unwritten, never guessed",
+            }
+        )
+    for r in clean_rows:
+        combo = f"{FIXTURE_SCORING[r['scoring']]}_{r['league_teams']}"
+        val = reindexed.get((combo, r["player_norm"]))
+        if val is None:
+            final_review.append(
+                {
+                    "player_key": r["player_key"],
+                    "player_norm": r["player_norm"],
+                    "scoring": r["scoring"],
+                    "reason": "reindex: no reindexed value (no ESPN anchor pair)",
+                    "detail": "value left unwritten, never guessed",
+                }
+            )
+            continue
+        row = dict(r)
+        row["value"] = val
+        final_clean.append(row)
+    return final_clean, final_review
+
+
+def build_usatoday_rows_final(
+    json_path: Path, week: int, bake_id: str, *, reindex: bool = True
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+    """-> (clean_rows, review_rows, pulled_at, url), values on chart scale.
+
+    Single entry point for both the cron wrapper's verification pass and
+    save_usatoday's write pass, so the counted rows and the written rows
+    are always the same objects.
+    """
+    clean, review, pulled_at, url = build_usatoday_rows(json_path, week, bake_id)
+    if reindex:
+        clean, review = apply_reindex(clean, review, bake_id)
+    return clean, review, pulled_at, url
+
+
 def save_usatoday(
     json_path: Path,
     *,
     dry_run: bool,
     week: int | None = None,
     bake_id: str | None = None,
+    reindex: bool = True,
 ) -> dict[str, Any]:
     week = week or nfl_week()
     today = datetime.now(timezone.utc).date().isoformat()
-    bake_id = bake_id or f"pullwk{week}_{today}"
+    bake_id = bake_id or f"usatwk{week}_{today}_v1"
 
-    clean, review, pulled_at, url = build_usatoday_rows(json_path, week, bake_id)
+    clean, review, pulled_at, url = build_usatoday_rows_final(
+        json_path, week, bake_id, reindex=reindex
+    )
 
     if not clean:
         raise SystemExit(
@@ -266,12 +401,17 @@ def main() -> int:
     parser.add_argument(
         "--bake-id",
         default=None,
-        help="Override the bake_id (default: pullwk<week>_<utc-date>).",
+        help="Override the bake_id (default: usatwk<week>_<utc-date>_v1).",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Resolve and report without writing (default is a live, idempotent write).",
+    )
+    parser.add_argument(
+        "--no-reindex",
+        action="store_true",
+        help="Skip the isotonic chart-scale reindex (debugging only: values stay raw).",
     )
     parser.add_argument(
         "--review-out",
@@ -286,6 +426,7 @@ def main() -> int:
         dry_run=args.dry_run,
         week=args.week,
         bake_id=args.bake_id,
+        reindex=not args.no_reindex,
     )
 
     print(

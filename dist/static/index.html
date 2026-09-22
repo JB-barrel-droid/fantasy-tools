@@ -1521,6 +1521,11 @@
   <h2 id="curve-title">Trade value curves</h2>
   <div class="sub" id="curve-summary">Bottom-up, adjusted, direct, and raw value-above-waivers series can be compared on the same player order. League settings determine which source curves are available.</div>
   <p class="curve-status" id="curve-status"><strong>Loading:</strong> validating source value series…</p>
+  <details class="health-panel" id="chartHealth">
+    <summary>Chart health <span class="health-badge" id="chartHealthBadge" data-status="ok">Health: OK</span></summary>
+    <ul class="health-list" id="chartHealthList"><li class="health-empty">No checks have run yet.</li></ul>
+    <p class="health-note">Active runtime checks validate every curve build. A red FAIL means the rendered numbers are wrong — the detail names the violated invariant.</p>
+  </details>
   <div class="sub" id="curveContext">Full PPR · 12 teams · All positions · fixed-pie indexed values · locked to ESPN value</div>
   <div class="row league-row">
     <span class="lbl">Scoring:</span>

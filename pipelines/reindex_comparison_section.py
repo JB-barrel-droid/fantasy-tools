@@ -107,6 +107,12 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
 
     espn = fixture["sources"].get("espn", {})
     espn_combos = espn.get("combos", {})
+    # The fixture declares its own slug -> canonical player_key map. Anchor
+    # pairing joins on the numeric key, never on raw slug strings: the
+    # candidate's slugs and the fixture's slugs come from different
+    # normalizers ('c j stroud' vs 'cj stroud'), so exact-slug matching
+    # silently drops real players. The key join is exact, not a guess.
+    fixture_key_by_slug = fixture.get("player_keys", {})
     source = cand.get("source_key") or cand.get("section_key")
     if not source:
         raise SystemExit("reindex: candidate is missing source_key/section_key")
@@ -117,6 +123,11 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
         anchor_name, anchor_mapping = resolve_anchor_combo(combo_name, espn_combos)
         espn_combo = espn_combos[anchor_name]
         anchor = espn_combo.get("values", {})
+        anchor_by_key = {}
+        for slug, val in anchor.items():
+            key = fixture_key_by_slug.get(slug)
+            if key is not None:
+                anchor_by_key[key] = val
         native = combo.get("native", {})
         key_by_slug = combo.get("player_keys", {})
         pos_by_slug = {}
@@ -140,16 +151,18 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 p = pos_by_slug.get(slug)
                 if p != pos:
                     continue
-                if slug not in anchor:
+                key = combo.get("player_keys", {}).get(slug)
+                anchor_v_raw = anchor_by_key.get(key)
+                if anchor_v_raw is None:
                     review.append(
-                        {"player_key": combo.get("player_keys", {}).get(slug),
+                        {"player_key": key,
                          "slug": slug, "combo": combo_name,
-                         "reason": "no anchor value for this position -- skipped, never imputed"}
+                         "reason": "no anchor value for this player_key -- skipped, never imputed"}
                     )
                     continue
                 try:
                     native_v = float(val)
-                    anchor_v = float(anchor[slug])
+                    anchor_v = float(anchor_v_raw)
                 except (TypeError, ValueError):
                     review.append(
                         {"player_key": combo.get("player_keys", {}).get(slug),
@@ -169,7 +182,9 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             reindexed = {slug: _round1(isotonic_predict(fit_x, fit_y, float(native[slug])))
                          for slug in priced}
             pre_total = sum(reindexed.values())
-            target_total = sum(float(anchor[s]) for s in priced)
+            key_by_slug = combo.get("player_keys", {})
+            target_total = sum(
+                float(anchor_by_key[key_by_slug[s]]) for s in priced)
             if pre_total <= 0:
                 raise SystemExit(
                     f"reindex: {source}/{combo_name}/{pos} pre_total={pre_total} -- cannot index the pie"

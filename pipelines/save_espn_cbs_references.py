@@ -123,9 +123,18 @@ def _default_count(table: str, params: str) -> int:
     return len(rows) if isinstance(rows, list) else -1
 
 
+def _default_fetch(table: str, params: str) -> list[dict[str, Any]]:
+    sbclient = _sb()
+    rows = sbclient.get_all(table, params=params)
+    if not isinstance(rows, list):
+        raise SystemExit(f"Unexpected Supabase response for {table}")
+    return [r for r in rows if isinstance(r, dict)]
+
+
 fetch_players: Callable[[], list[dict[str, Any]]] = _default_fetch_players
 upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
+fetch_rows: Callable[[str, str], list[dict[str, Any]]] = _default_fetch
 
 
 # ---------------------------------------------------------------------------

@@ -194,13 +194,25 @@ class TestWeeklyArticleChecks(unittest.TestCase):
 
 
 class TestFantasyCalcWednesday(unittest.TestCase):
+    def _fc(self, tmp, combo_age_days, n_rows=210):
+        snap = {"week": "Week 2",
+                "combos": ["half_12_qb1", "half_12_qb2"]}
+        _write(os.path.join(tmp, "fantasycalc_snapshot.json"),
+               json.dumps(snap), mtime=_ts(combo_age_days))
+        for c in snap["combos"]:
+            _write(os.path.join(tmp, "fantasycalc_%s.json" % c),
+                   json.dumps({"fetched_at": "2026-09-16T14:00:48Z",
+                               "rows": [{"name": "P%d" % i, "pos": "RB",
+                                         "value": 100.0} for i in range(n_rows)]}),
+                   mtime=_ts(combo_age_days))
+        old = wd.CACHE
+        wd.CACHE = tmp
+        return old
+
     def test_wednesday_requires_this_weeks_snapshot(self):
         wednesday = date(2026, 9, 23)
         with tempfile.TemporaryDirectory() as tmp:
-            p = os.path.join(tmp, "fantasycalc_half_12.json")
-            _write(p, json.dumps([{"x": 1}] * 10), mtime=_ts(5))  # 5 days old
-            old = wd.CACHE
-            wd.CACHE = tmp
+            old = self._fc(tmp, 5)  # 5 days old
             try:
                 v = wd.check_fantasycalc(wednesday, 3)
             finally:
@@ -209,15 +221,49 @@ class TestFantasyCalcWednesday(unittest.TestCase):
 
     def test_non_wednesday_allows_weekly_cadence(self):
         with tempfile.TemporaryDirectory() as tmp:
-            p = os.path.join(tmp, "fantasycalc_half_12.json")
-            _write(p, json.dumps([{"x": 1}] * 10), mtime=_ts(5))
-            old = wd.CACHE
-            wd.CACHE = tmp
+            old = self._fc(tmp, 5)
             try:
                 v = wd.check_fantasycalc(DAY, 2)  # Tuesday
             finally:
                 wd.CACHE = old
             self.assertEqual(v["status"], "ok")
+
+    def test_legacy_dead_file_is_never_checked(self):
+        # 2026-09-22 live miss: the check read the dead legacy
+        # fantasycalc_half_12.json (frozen since 2026-09-16 cache split)
+        # while the real per-combo files were fresh. A fresh legacy file
+        # must not mask missing real artifacts, and a stale legacy file
+        # must not stale a fresh real snapshot.
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._fc(tmp, 1)
+            try:
+                _write(os.path.join(tmp, "fantasycalc_half_12.json"),
+                       json.dumps([{"x": 1}] * 10), mtime=_ts(0))
+                self.assertEqual(wd.check_fantasycalc(DAY, 2)["status"], "ok")
+                os.remove(os.path.join(tmp, "fantasycalc_half_12_qb1.json"))
+                self.assertEqual(wd.check_fantasycalc(DAY, 2)["status"],
+                                 "failed")
+            finally:
+                wd.CACHE = old
+
+    def test_zero_rows_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._fc(tmp, 1, n_rows=0)
+            try:
+                v = wd.check_fantasycalc(DAY, 2)
+            finally:
+                wd.CACHE = old
+            self.assertEqual(v["status"], "failed")
+
+    def test_missing_combo_file_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            old = self._fc(tmp, 1)
+            try:
+                os.remove(os.path.join(tmp, "fantasycalc_half_12_qb2.json"))
+                v = wd.check_fantasycalc(DAY, 2)
+            finally:
+                wd.CACHE = old
+            self.assertEqual(v["status"], "failed")
 
 
 class TestSupabaseLanded(unittest.TestCase):

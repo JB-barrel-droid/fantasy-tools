@@ -206,18 +206,44 @@ def check_fantasypros_chart(day, week):
 
 def check_fantasycalc(day, week):
     """FantasyCalc weekly API snapshot. Wednesday cadence: on Wednesdays the
-    snapshot must be from this week (<=2 days old); otherwise <=7 days."""
+    snapshot must be from this week (<=2 days old); otherwise <=7 days.
+
+    Since 2026-09-16 build_sources_dashboard.py writes per-combo cache files
+    fantasycalc_{scoring}_{teams}_qb{qbs}.json (24 combos) and re-stamps the
+    fantasycalc_snapshot.json manifest on --refresh-fc. The bare
+    fantasycalc_half_12.json is a DEAD legacy file (last written 2026-09-14;
+    no pipeline reads it) — it is deliberately never checked.
+    Health follows the manifest plus the representative half/12/1QB combo.
+    """
     v = {"label": "FantasyCalc", "expected": "weekly (Wednesday)"}
-    p = os.path.join(CACHE, "fantasycalc_half_12.json")
-    d = read_json(p)
-    age = age_days(p)
-    v["rows"] = len(d) if isinstance(d, list) else (len(d.get("players", [])) if d else None)
-    v["content_vintage"] = "pull %.1f days ago (API current values)" % age if age is not None else None
+    snap = read_json(os.path.join(CACHE, "fantasycalc_snapshot.json"))
+    combo_p = os.path.join(CACHE, "fantasycalc_half_12_qb1.json")
+    d = read_json(combo_p)
+    combos = (snap or {}).get("combos", [])
+    rows = d.get("rows") if isinstance(d, dict) else None
+    n_rows = len(rows) if isinstance(rows, list) else None
+    missing = [c for c in combos
+               if not os.path.exists(os.path.join(CACHE, "fantasycalc_%s.json" % c))]
+    age = age_days(combo_p)
+    week_label = (snap or {}).get("week")
+    v["rows"] = n_rows
+    v["n_combos"] = len(combos)
+    v["content_vintage"] = (
+        "%s snapshot, pull %.1f days ago (API current values)" % (week_label, age)
+        if week_label and age is not None else None)
     limit = 2 if day.weekday() == 2 else 7  # Wednesday == 2
-    if d is None:
-        v["status"], v["detail"] = "failed", "snapshot missing: %s" % p
+    MIN_ROWS = 100  # live representative combo holds ~210 rows
+    if snap is None or d is None:
+        v["status"], v["detail"] = "failed", "snapshot manifest or half/12/1QB combo cache missing"
+    elif not n_rows or n_rows < MIN_ROWS:
+        v["status"], v["detail"] = (
+            "failed", "representative combo row count %s (min %d)" % (n_rows, MIN_ROWS))
+    elif missing:
+        v["status"], v["detail"] = (
+            "failed", "%d/%d combo cache files missing" % (len(missing), len(combos)))
     elif age is not None and age <= limit:
-        v["status"], v["detail"] = "ok", "snapshot refreshed %.1f days ago" % age
+        v["status"], v["detail"] = (
+            "ok", "%s snapshot refreshed %.1f days ago, %d combos" % (week_label, age, len(combos)))
     else:
         v["status"], v["detail"] = "stale", "snapshot age %.1f days (limit %d)" % (age or -1, limit)
     v["fail_closed"] = None

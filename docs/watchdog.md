@@ -24,7 +24,7 @@ same machine) — it never modifies them. New pull logic lives here in
 | `ops/watchdog/_common.py` | Shared: CT clock, NFL-week calendar, curl fetch, runs-log classification. |
 | `ops/watchdog/pull_usatoday.py` | NEW USA Today pull with sitemap-based auto-discovery (replaces the hardcoded article URL). Dry-run by default; `--write` saves a provisional repo-local pull. |
 | `ops/watchdog/pull_cbs.py` | NEW CBS pull with week-slug auto-discovery + TableBuilder validation. Dry-run by default; `--write` saves a provisional repo-local pull. |
-| `tests/test_pull_watchdog.py` | 31 negative tests (see below). |
+| `tests/test_pull_watchdog.py` | 34 negative tests (see below). |
 | `output/source-import-health.json` | Stage-1 contract (`trade-value-import-health-v1`) consumed for the "landed in Supabase" check. The watchdog refreshes it via `make import-health NFL_WEEK=<n>` before reading. |
 
 ## Per-source checks
@@ -50,7 +50,12 @@ run — otherwise the failure poisoned downstream and the watchdog flags it
 CRITICAL.
 
 **Wednesday rule:** on Wednesdays the FantasyCalc snapshot must be ≤2 days
-old (Wednesday cadence); other days ≤7 days.
+old (Wednesday cadence); other days ≤7 days. The check reads the weekly
+`fantasycalc_snapshot.json` manifest (week label + combo list) and the
+representative `fantasycalc_half_12_qb1.json` per-combo cache file — never
+the bare `fantasycalc_half_12.json`, which has been a dead legacy file since
+the 2026-09-16 per-combo cache split (checking it false-alarmed STALE on
+2026-09-22). Zero rows or any missing combo fails closed.
 
 **NFL week convention:** the watchdog passes the pull scripts'
 Thursday-flip `nfl_week()` to `make import-health`. Passing a week whose
@@ -101,6 +106,9 @@ network. Each test simulates the historical miss its check must catch:
 - stale weekly article; missing cache; thin tables; zero rows; zero priced;
 - Wednesday FantasyCalc rule (5-day-old snapshot stale on Wednesday, ok
   on Tuesday);
+- FantasyCalc dead-legacy-file guard: fresh-but-dead `fantasycalc_half_12.json`
+  does not mask missing real artifacts; stale legacy file does not stale a
+  fresh snapshot; zero rows / missing combos fail closed;
 - USA Today discovery finds the new article; fails closed when the
   sitemap has nothing; rejects markup mismatches and thin pages;
 - CBS discovery falls back to the latest live week; fails closed when

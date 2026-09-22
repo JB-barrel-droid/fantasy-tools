@@ -32,13 +32,20 @@ def make_players(tmp, per_pos=12):
 
 
 def make_fixture(tmp, players, anchor_fn):
-    """Anchor leg shaped like the fixture's ESPN section."""
+    """Anchor leg shaped like the fixture's ESPN section.
+
+    Mirrors the real fixture shape: the fixture declares its own
+    slug -> canonical player_key map at top level, and the reindex
+    pairs anchors by numeric key (never by raw slug)."""
     combos = {"full_12": {"values": {}, "native": {}, "n": {}, "index_total": {}}}
+    player_keys = {}
     for pl in players["players"]:
         slug = pl["name"].lower()
         combos["full_12"]["values"][slug] = anchor_fn(pl)
         combos["full_12"]["native"][slug] = anchor_fn(pl)
-    fx = {"sources": {"espn": {"combos": combos}}}
+        player_keys[slug] = pl["player_key"]
+    fx = {"player_keys": player_keys,
+          "sources": {"espn": {"combos": combos}}}
     p = tmp / "fixture.json"
     p.write_text(json.dumps(fx))
     return p
@@ -368,11 +375,15 @@ class TestBuilderToReindexInterface(unittest.TestCase):
             cand_p.write_text(json.dumps(section))
 
             # Synthetic ESPN anchor leg with distinct values per slug.
+            anchor_slugs = {f"iface {pos} {j}": 1001 + i * 12 + j
+                            for i, pos in enumerate(POS) for j in range(12)}
             combos = {"full_12": {"values": {
-                f"iface {pos} {j}": float(40 + j * 2 + i)
-                for i, pos in enumerate(POS) for j in range(12)}}}
+                slug: float(40 + (key - 1001) % 12 * 2 + (key - 1001) // 12)
+                for slug, key in anchor_slugs.items()}}}
             fx_p = tmp / "fixture.json"
-            fx_p.write_text(json.dumps({"sources": {"espn": {"combos": combos}}}))
+            fx_p.write_text(json.dumps(
+                {"player_keys": anchor_slugs,
+                 "sources": {"espn": {"combos": combos}}}))
 
             section_out, review = rcs.reindex_section(str(cand_p), str(fx_p), str(players_p))
             self.assertEqual(section_out["reindex_status"], "complete")
@@ -429,12 +440,15 @@ class TestQBAnchorResolution(unittest.TestCase):
             players_p = tmp / "players.json"
             players_p.write_text(json.dumps(plist))
             anchor_vals = {}
+            fixture_keys = {}
             for pl in plist["players"]:
                 slug = pl["name"].lower()
                 anchor_vals[slug] = 30.0 if pl["pos"] == "QB" else 50.0
+                fixture_keys[slug] = pl["player_key"]
             fx_p = tmp / "fixture.json"
             fx_p.write_text(json.dumps(
-                {"sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
+                {"player_keys": fixture_keys,
+                 "sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
             cand = make_candidate(tmp, "qbsrc", plist,
                                   lambda pl: 100.0, combos=("full_12_qb2",))
             section, review = rcs.reindex_section(str(cand), str(fx_p), str(players_p))
