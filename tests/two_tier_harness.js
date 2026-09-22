@@ -150,6 +150,22 @@ switch (cmd) {
     out = input.cases.map(c => P.defaultIndexedSourceKeys(c.inputs === undefined ? undefined : c.inputs));
     break;
   }
+  case "collapse": {
+    // Collapse guard over (peaks) cases. Each case: {peaks, floor?}.
+    // Answers the question the module dashboard flags as untested: does the
+    // guard still trip on genuinely broken data after being loosened?
+    const G = globalThis.TradeValueCurveGuards;
+    if (!G || typeof G.peaksAboveCollapseFloor !== "function") {
+      console.error("TradeValueCurveGuards.peaksAboveCollapseFloor test surface missing");
+      process.exit(1);
+    }
+    out = {
+      floor: G.CURVE_COLLAPSE_FLOOR,
+      results: input.cases.map(c => G.peaksAboveCollapseFloor(
+        c.peaks, c.floor === undefined ? undefined : c.floor)),
+    };
+    break;
+  }
   default:
     console.error(`unknown command: ${cmd}`);
     process.exit(2);

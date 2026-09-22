@@ -11,16 +11,22 @@ Current status: the Muse export has been imported into `app/trade-value-chart/` 
 - Keep Supabase as the production database.
 - Move calculations and collectors out of Muse incrementally only after equivalence tests exist.
 
-## Intended Structure
+## Structure
 
-- `app/` - lightweight web dashboard outside Muse.
-- `trade_value/` - Trade Value domain logic and adapters.
-- `pipelines/` - reproducible build and data-artifact generation steps.
-- `shared/` - shared identity, scoring, team, and Supabase access helpers.
+- `app/trade-value-chart/` - the dashboard source: `index.html` plus `assets/`.
+- `dist/` - generated. Exactly what GitHub Pages publishes; never edit by hand.
+- `data/fixtures/current/` - the finished artifacts everything else builds from.
+- `data/inputs/`, `data/raw/` - vendored source inputs and raw pulls (`raw/` is ignored).
+- `pipelines/` - build and data-artifact generation steps; shared helpers in `pipelines/lib/`.
+- `modules/` - the module monitor (`dashboard.html`), published to `dist/modules/`.
+- `ops/watchdog/` - source-pull watchdog and per-source ingesters.
 - `tests/` - regression and golden-output tests.
 - `docs/` - migration documentation and status.
 
-The exact source layout may be adjusted after the Muse ZIP is inspected. Existing paths should be preserved initially if that makes behavioral verification easier.
+An earlier plan also called for top-level `trade_value/` and `shared/` packages.
+Neither was ever used: domain logic lives in `pipelines/` and the shared identity,
+scoring, and naming helpers live in `pipelines/lib/`. The empty placeholders were
+removed rather than left standing as structure that does not exist.
 
 ## Local Run
 
@@ -141,14 +147,21 @@ source data -> reference compute -> dashboard build -> frontend/site
 
 See `docs/modular-pipeline.md` for the working boundary rules.
 
-## Git Note
+## Publishing
 
-This workspace currently rejects creating `.git`. A persistent external Git directory is being used at `.gitstore/` until normal repository metadata can be created.
+There is one publish path. Pushing to `main` runs `.github/workflows/pages.yml`,
+which runs `make validate` and deploys `dist/` to GitHub Pages.
 
-Use:
+`make validate` is the same gate locally: it checks naming drift, validates the
+reference artifacts, regenerates `dist/` from `app/` and the current fixtures,
+and runs the test suite. Because `sync` regenerates `dist/`, editing anything
+under `dist/` by hand is always wrong -- edit `app/trade-value-chart/` (or the
+fixtures) and re-run `make sync`.
+
+After a deploy, confirm the live site matches the repo:
 
 ```bash
-git --git-dir=.gitstore --work-tree=. status
+python3 verify_live.py
 ```
 
 ## Secrets

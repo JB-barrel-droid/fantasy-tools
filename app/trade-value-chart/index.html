@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20260922-1439-cbbcefe">
+<meta name="trade-chart-build" content="tv-20260922-1039-854483e">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
@@ -1731,7 +1731,16 @@
           cards.push(`<article class="dataset-card ${Number(summary.stale_count||0)?"status-caution":"status-news"}"><div class="dataset-card-head"><h3>Reference freshness pipe</h3><span class="dataset-badge">${Number(summary.stale_count||0)?"Watch":"Same day"}</span></div><p class="dataset-role">Same-day audit runs during dashboard sync; unchanged references are recorded rather than silently refreshed.</p><dl class="dataset-facts"><div><dt>Audit date</dt><dd>${esc(freshness.today||"unavailable")}</dd></div><div><dt>Same-day</dt><dd>${summary.all_known_dates_same_day?"yes":"no"}</dd></div><div><dt>Stale refs</dt><dd>${Number(summary.stale_count||0)}</dd></div><div><dt>Unchanged</dt><dd>${Number(summary.unchanged_count||0)}</dd></div></dl>${staleItems.length?`<p class="dataset-caveat">${esc(staleItems.join(" · "))}</p>`:""}</article>`);
         }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
-        document.getElementById("asOfDate").textContent=monthDayTime(data.built_at);
+        // "Chart build" and "Source snapshot" are different facts and were
+        // both being filled from data.built_at, so the header showed the same
+        // timestamp twice under two labels. The build date comes from the
+        // build tag stamped at sync (tv-YYYYMMDD-HHMM-<sha>); the source
+        // snapshot is when the comparison fixture was baked.
+        const buildTag=document.querySelector('meta[name="trade-chart-build"]')?.content||"";
+        const tagStamp=/^tv-(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(buildTag);
+        document.getElementById("asOfDate").textContent=tagStamp
+          ?monthDayTime(`${tagStamp[1]}-${tagStamp[2]}-${tagStamp[3]}T${tagStamp[4]}:${tagStamp[5]}:00Z`)
+          :monthDay(embedded.meta?.as_of);
         document.getElementById("expertVintageLabel").textContent="Source snapshot";
         document.getElementById("ecrContentDate").textContent=monthDayTime(data.built_at);
         document.getElementById("ecrFreshnessBadge").textContent="9 shown";
@@ -1745,5 +1754,5 @@
     renderHealth();
   })();
   </script>
-<footer style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span id="buildStamp">Build tv-20260922-1439-cbbcefe</span></footer></body>
+<footer style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span id="buildStamp">Build tv-20260922-1039-854483e</span></footer></body>
 </html>

@@ -294,6 +294,75 @@ class TestTwoTierConfigs(unittest.TestCase):
                         f"{pos} rates did not move with the share")
 
 
+class TestCurveCollapseGuard(unittest.TestCase):
+    """Negative tests for the curve collapse guard.
+
+    The guard was loosened on 2026-09-22 (it had been a literal `> 70`, which
+    the ESPN leg legitimately falls below after Week 2 re-anchoring, so it
+    threw on every load and left the chart blank). Loosening a guard is only
+    safe if something proves it still fails closed -- the module dashboard
+    called that out as the gap. These are that proof.
+    """
+
+    def peaks(self, cases):
+        return run_harness("collapse", {"cases": cases})
+
+    def test_floor_is_below_live_curves_and_far_above_collapse(self):
+        floor = self.peaks([{"peaks": {}}])["floor"]
+        # Live ESPN leg peaks ~67.8; a fixed pie of ~3197 over ~596 players
+        # means a collapsed curve peaks near the ~5.4 mean.
+        self.assertLess(floor, 60, "floor is close enough to live peaks to trip on real data")
+        self.assertGreater(floor, 12, "floor is so low a collapsed curve would pass")
+
+    def test_healthy_peaks_pass(self):
+        got = self.peaks([{"peaks": {
+            "espn": 67.8, "fantasycalc_adjusted": 84.7,
+            "usatoday_adjusted": 92.0, "fantasypros_adjusted": 87.4,
+            "cbs_adjusted": 92.1,
+        }}])
+        self.assertEqual([True], got["results"])
+
+    def test_collapsed_curve_trips_the_guard(self):
+        cases = [
+            {"peaks": {"espn": 5.4, "usatoday_adjusted": 92.0}},   # collapsed to the pie mean
+            {"peaks": {"espn": 0, "usatoday_adjusted": 92.0}},     # zeroed out entirely
+            {"peaks": {"espn": 0.94, "usatoday_adjusted": 92.0}},  # normalized to 0-1 by mistake
+            {"peaks": {"espn": 67.8, "usatoday_adjusted": 1.0}},   # a single bad source is enough
+        ]
+        self.assertEqual([False, False, False, False], self.peaks(cases)["results"])
+
+    def test_non_finite_peaks_trip_the_guard(self):
+        # A NaN peak means every value in that map was NaN or the map was
+        # empty; `NaN > floor` is false, but assert it rather than rely on it.
+        got = self.peaks([{"peaks": {"espn": None}}, {"peaks": {"espn": 67.8, "cbs_adjusted": None}}])
+        self.assertEqual([False, False], got["results"])
+
+    def test_empty_peak_set_is_vacuously_true(self):
+        # No active source with data is a different failure (validValues /
+        # eightSources); the collapse guard must not double-report it.
+        self.assertEqual([True], self.peaks([{"peaks": {}}])["results"])
+
+    def test_live_fixture_curves_clear_the_floor(self):
+        """The shipped fixture must not be anywhere near the floor.
+
+        Catches the inverse of the old bug: a future re-anchor that quietly
+        pushes a real curve down toward collapse territory.
+        """
+        comparison = json.loads(COMPARE.read_text(encoding="utf-8"))
+        floor = self.peaks([{"peaks": {}}])["floor"]
+        for key, source in comparison["sources"].items():
+            combos = source.get("combos") or {}
+            combo = combos.get("full_12") or combos.get("full_12_qb1")
+            if not combo:
+                continue
+            values = combo.get("values") or combo.get("reindexed") or {}
+            if not values:
+                continue
+            peak = max(values.values())
+            self.assertGreater(peak, floor * 1.5,
+                               f"{key} peaks at {peak}, uncomfortably close to the collapse floor {floor}")
+
+
 class TestTwoTierFailClosed(unittest.TestCase):
     def test_global_share_object_shape_and_fallback(self):
         # The slider writes one global object to all skill positions; each

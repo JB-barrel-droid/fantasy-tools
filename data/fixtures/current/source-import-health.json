@@ -1,0 +1,62 @@
+{
+  "checked_at": "2026-09-22T12:12:00Z",
+  "nfl_week": 2,
+  "schema": "trade-value-import-health-v1",
+  "sources": {
+    "cbs": {
+      "content_vintage": "Week 2",
+      "failure_reason": null,
+      "last_successful_import": "2026-09-22T12:12:00Z",
+      "row_count": 372,
+      "snapshot_path": "data/raw/sources/cbs/week-2/snapshot.json",
+      "status": "ok",
+      "supabase_landing": true,
+      "supabase_table": "public.cbs_trade_values",
+      "vintage_kind": "week_designated"
+    },
+    "espn": {
+      "content_vintage": "2026-09-21",
+      "failure_reason": null,
+      "last_successful_import": "2026-09-22T12:12:00Z",
+      "row_count": 349,
+      "snapshot_path": "data/raw/sources/espn/2026-09-21/snapshot.json",
+      "status": "ok",
+      "supabase_landing": true,
+      "supabase_table": "public.espn_season_projections",
+      "vintage_kind": "file_meta"
+    },
+    "fantasycalc": {
+      "content_vintage": "Week 2",
+      "failure_reason": null,
+      "last_successful_import": "2026-09-22T12:12:00Z",
+      "row_count": 594,
+      "snapshot_path": "data/raw/sources/fantasycalc/week-2/snapshot.json",
+      "status": "ok",
+      "supabase_landing": true,
+      "supabase_table": "public.source_trade_values",
+      "vintage_kind": "week_designated"
+    },
+    "fantasypros": {
+      "content_vintage": "2026-09-15",
+      "failure_reason": null,
+      "last_successful_import": "2026-09-22T12:12:00Z",
+      "row_count": 534,
+      "snapshot_path": "data/raw/sources/fantasypros/2026-09-15/snapshot.json",
+      "status": "ok",
+      "supabase_landing": true,
+      "supabase_table": "public.source_trade_values",
+      "vintage_kind": "source_content_date"
+    },
+    "usatoday": {
+      "content_vintage": "2026-09-15",
+      "failure_reason": null,
+      "last_successful_import": "2026-09-22T12:12:00Z",
+      "row_count": 714,
+      "snapshot_path": "data/raw/sources/usatoday/2026-09-15/snapshot.json",
+      "status": "ok",
+      "supabase_landing": true,
+      "supabase_table": "public.source_trade_values",
+      "vintage_kind": "source_content_date"
+    }
+  }
+}

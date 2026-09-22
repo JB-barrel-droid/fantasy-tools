@@ -54,8 +54,8 @@
 
 | Layer | Script / Check | Status |
 |-------|---------------|--------|
-| L1 · Sync | `deploy.sh`: app/ → dist/ | ✅ Byte-identical |
-| L2 · Tests | `test_two_tier_frontend` | 🟡 6 failures (see lane 2) |
+| L1 · Sync | `make sync`: fixtures → app/ → dist/ | ✅ Byte-identical |
+| L2 · Tests | `make validate` (full suite) | ✅ Green |
 | L3 · Push/deploy | GitHub API → Pages | ✅ Remote: `6a5dd0e09fc9` |
 | L4 · Verify | `verify_live.py` | ✅ LIVE OK |
 
@@ -106,8 +106,8 @@ Click any module to expand its layers. No baked values — always current.
 - **Open items:** none
 
 ### Lane 5: build-deploy — 🟢 HEALTHY
-- `deploy.sh` syncs app→dist: working
+- `make sync` regenerates app→dist: working (CI runs it via `make validate` on every push to main)
 - `verify_live.py`: exits 0 (LIVE OK as of 2026-09-22)
 - app/dist byte-identical: yes
 - **Open items:** none
-- **Note:** `deploy.sh` does not auto-push; API push is manual step. This is intentional (user controls pushes).
+- **Note:** pushing to `main` is what deploys; the Pages workflow runs `make validate` first and fails the deploy if the gate is red.

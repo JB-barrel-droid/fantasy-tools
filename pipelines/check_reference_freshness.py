@@ -75,6 +75,14 @@ def make_item(key: str, label: str, value: Any, today: date, prior: dict[str, di
     }
 
 
+def _relative_to_root(path: Path) -> str:
+    """Path as written in the repo, falling back to absolute when outside it."""
+    try:
+        return Path(path).resolve().relative_to(ROOT).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def build_report(fixtures: Path, output: Path, today: date) -> dict[str, Any]:
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
@@ -104,7 +112,10 @@ def build_report(fixtures: Path, output: Path, today: date) -> dict[str, Any]:
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "today": today.isoformat(),
-        "fixture_dir": str(fixtures),
+        # Repo-relative. This shipped as an absolute path, so the artifact
+        # committed into app/ and dist/ carried whichever machine last ran
+        # sync (e.g. /home/hatch/workspace/...) and churned on every run.
+        "fixture_dir": _relative_to_root(fixtures),
         "summary": {
             "all_known_dates_same_day": all_same_day,
             "stale_count": len(stale),

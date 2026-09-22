@@ -5,7 +5,7 @@ Last updated: 2026-09-20.
 ## What Now Works
 
 - Handoff PDF was found and extracted locally for inspection.
-- A persistent Git metadata workaround exists at `.gitstore/` because normal `.git` creation is blocked in this workspace.
+- ~~A persistent Git metadata workaround exists at `.gitstore/`.~~ Resolved: the repo has normal `.git` metadata and a GitHub remote; use plain `git` commands.
 - Muse ZIP export was found and extracted into ignored `tmp/` for inspection.
 - Active static dashboard files were imported into `app/trade-value-chart/`.
 - Current finished data fixtures were imported into `data/fixtures/current/`.
@@ -108,7 +108,7 @@ Last updated: 2026-09-20.
 
 ## Blockers
 
-- `.git` creation in this workspace is currently blocked by filesystem permissions, so normal Git commands require `git --git-dir=.gitstore --work-tree=.` for now.
+- ~~`.git` creation is blocked, so Git commands require `--git-dir=.gitstore`.~~ Resolved; plain `git` works.
 - Full source pipeline scripts are not included in the ZIP, only static app files and selected finished artifacts.
 
 ## Next Highest-Leverage Step

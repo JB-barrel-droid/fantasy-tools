@@ -166,8 +166,15 @@ const FIXTURE_PATHS = [
   "../assets/comparison-sources-data.json",
   "assets/comparison-sources-data.json",
 ];
+// Freshest first: a local watchdog run (output/ is gitignored, so it exists
+// only on a machine that just ran `make import-health`), then the committed
+// fixture, then the copy sync publishes next to this file in dist/.
+// The fixture entry is what stops this dashboard reporting 24 unknown checks
+// on any clone or CI run -- all three old paths resolved only on the author's
+// machine, so the page shipped permanently blind.
 const HEALTH_PATHS = [
   "../output/source-import-health.json",
+  "../data/fixtures/current/source-import-health.json",
   "source-import-health.json",
   "output/source-import-health.json",
 ];
@@ -229,6 +236,15 @@ async function main(){
   const [curveJs, dashJs, indexHtml] = await Promise.all([
     firstOk(TEXT_PATHS.curveJs,true), firstOk(TEXT_PATHS.dashJs,true), firstOk(TEXT_PATHS.index,true)
   ]);
+  // Both copies of index.html, fetched explicitly so module 5 can check
+  // app/->dist/ drift for real instead of reporting a permanent unknown.
+  // Only the repo layout can see both; dist/ does not publish app/.
+  const [appIdx, distIdx] = await Promise.all([
+    firstOk(["../app/trade-value-chart/index.html"],true),
+    firstOk(["../dist/index.html"],true),
+  ]);
+  const appIndexForDrift = appIdx?appIdx.text:null;
+  const distIndexForDrift = distIdx?distIdx.text:null;
   document.getElementById("dataSrc").textContent =
     "fixture: "+(fx?fx.path:"NOT FOUND")+" · health: "+(hh?hh.path:"NOT FOUND");
   document.getElementById("checkedAt").textContent =
@@ -244,7 +260,12 @@ async function main(){
     const combos = fsec.combos||{};
     let values=0; const perCombo=[];
     for(const [cn,c] of Object.entries(combos)){
-      const v=c.values; const n=(v&&typeof v==="object")?Object.keys(v).length:0;
+      // A promoted source stores its numbers under `reindexed`, not `values`
+      // -- every consumer in the repo reads `values || reindexed`. Counting
+      // only `values` made this monitor report all four promoted sources as
+      // BROKEN/STUCK with a confident root-cause story telling you to re-run
+      // build -> review -> promote stages that had already run.
+      const v=c.values||c.reindexed; const n=(v&&typeof v==="object")?Object.keys(v).length:0;
       values+=n; perCombo.push(cn+":"+n);
     }
     const hsec = health&&health.sources?health.sources[s]||null:null;
@@ -323,9 +344,17 @@ async function main(){
       js.includes("activeKeysForGuard")?"marker present in deployed bytes":"marker MISSING from deployed bytes",
       js.includes("activeKeysForGuard")?"":"<b>Root cause:</b> the deployed curve-widget.js does not contain the empty-source guard fix. The curve renders (or fails) on sources with 0 values.",
       js.includes("activeKeysForGuard")?"":"Redeploy <b>curve-widget.js</b> from app/.");
-    add(M2,"L1 · guard logic","guard negative-tested",WARN,"no live signal — needs a deliberate broken-fixture test",
-      "<b>Root cause (process):</b> the guard was changed to let rendering continue when no active source has values. No test proves it <i>fails closed</i> on genuinely invalid data. A guard that asserts current behavior without checking which state is right is worse than no guard.",
-      "Add a fixture with a deliberately corrupt source and assert the guard trips.");
+    // Now a live check, not a standing warning: the collapse guard is pure
+    // and exported, so tests/test_two_tier_frontend.py drives it through the
+    // Node harness with deliberately collapsed peak sets and asserts it
+    // trips. The exported surface is the marker that those tests can exist.
+    const guardTestable = js.includes("peaksAboveCollapseFloor") && js.includes("TradeValueCurveGuards");
+    add(M2,"L1 · guard logic","guard negative-tested", guardTestable?OK:WARN,
+      guardTestable
+        ? "collapse guard exported as a pure helper — driven with corrupt peaks by TestCurveCollapseGuard"
+        : "no live signal — needs a deliberate broken-fixture test",
+      guardTestable?"":"<b>Root cause (process):</b> the guard was changed to let rendering continue when no active source has values. No test proves it <i>fails closed</i> on genuinely invalid data. A guard that asserts current behavior without checking which state is right is worse than no guard.",
+      guardTestable?"":"Add a fixture with a deliberately corrupt source and assert the guard trips.");
     add(M2,"L2 · rendering","canvas smoothing (quadraticCurveTo)", js.includes("quadraticCurveTo")?OK:BAD,
       js.includes("quadraticCurveTo")?"marker present in deployed bytes":"marker MISSING",
       js.includes("quadraticCurveTo")?"":"<b>Root cause:</b> deployed JS predates the smoothing change — sharp segment joints on the curve.",
@@ -337,7 +366,7 @@ async function main(){
       "","Check the network path / filename.");
     add(M2,"L2 · rendering","deployed curve-widget.js",UNK,"could not fetch the JS file");
   }
-  add(M2,"L3 · fixed-pie math","test_two_tier_frontend (20 tests)",UNK,"no live signal — run locally",
+  add(M2,"L3 · fixed-pie math","test_two_tier_frontend (26 tests)",UNK,"no live signal — run locally",
     "<b>Last local run 2026-09-22:</b> 6 failures (WR feasible-interval + slider recompute). A stash test proved the failures come from <b>data-fixture drift</b> (background workstreams changed players.json), not the guard fix — but they are still red and block the deploy gate.",
     "Run <b>python3 -m unittest tests.test_two_tier_frontend</b>; reconcile fixtures or tests. Do <b>not</b> weaken the guard to make tests pass.");
 
@@ -367,8 +396,8 @@ async function main(){
     const tag=m?m[1]:"NOT FOUND";
     add(M4,"L2 · build tag","build identity", m?OK:BAD,
       "deployed tag: "+tag,
-      m?"":"<b>Root cause:</b> the deployed index.html has no build tag — deploy.sh never stamped it, so 'is this the fixed one?' is unanswerable.",
-      m?"":"Run <b>deploy.sh</b> to stamp + sync.");
+      m?"":"<b>Root cause:</b> the deployed index.html has no build tag, so 'is this the fixed one?' is unanswerable.",
+      m?"":"Stamp the tag and run <b>make sync</b>.");
     add(M4,"L1 · header dates","monthDayTime formatter", html.includes("monthDayTime")?OK:BAD,
       html.includes("monthDayTime")?"present — header shows date + time":"MISSING — header date has no time",
       html.includes("monthDayTime")?"":"<b>Root cause:</b> deployed index.html predates the time formatter.",
@@ -381,11 +410,21 @@ async function main(){
 
   /* ================= MODULE 5 · build-deploy ================= */
   const M5="build-deploy";
-  add(M5,"L1 · sync","app/ → dist/ byte-identical",UNK,"no live signal — run deploy.sh",
-    "","Run <b>deploy.sh</b>; it diffs every synced file and fails loudly on drift.");
-  add(M5,"L2 · tests","test gate",WARN,"last local run 2026-09-22: 6/20 failing",
-    "<b>Root cause:</b> same 6 failures as module 2·L3 — data-fixture drift, not code. The deploy gate is red until this is green.",
-    "Fix the fixtures or the tests (see module 2).");
+  // Live drift check, not a standing UNK. In the repo layout both copies are
+  // reachable, so compare them for real; in the dist layout app/ is not
+  // published, so stay honest and report no signal.
+  if(appIndexForDrift && distIndexForDrift){
+    const identical = appIndexForDrift === distIndexForDrift;
+    add(M5,"L1 · sync","app/ → dist/ byte-identical", identical?OK:BAD,
+      identical?"index.html identical in app/ and dist/":"index.html DIFFERS between app/ and dist/",
+      identical?"":"<b>Root cause:</b> dist/ is the published site and it has drifted from app/. Whatever you are looking at locally is not what deploys.",
+      identical?"":"Run <b>make sync</b> to regenerate dist/ from app/ and the current fixtures.");
+  }else{
+    add(M5,"L1 · sync","app/ → dist/ byte-identical",UNK,"no live signal — app/ is not published in this layout",
+      "","Open this page from the repo root (<b>modules/dashboard.html</b>) to compare, or run <b>make sync</b>.");
+  }
+  add(M5,"L2 · tests","test gate",UNK,"no live signal — run locally",
+    "","<b>make validate</b> runs naming drift, reference validation, sync, and the full suite. CI runs the same gate on every push to main.");
   add(M5,"L3 · push/deploy","GitHub Pages deploy",UNK,"no live signal from browser",
     "","Push via the GitHub API, then confirm the Pages workflow run is green.");
   add(M5,"L4 · verify","verify_live.py",UNK,"run locally after deploy",

@@ -20,7 +20,8 @@ HTML_MARKERS = [
 ]
 JS_MARKERS = {
     "assets/curve-widget.js": [
-        ("activeKeysForGuard", "valuesAbove70 guard fix"),
+        ("activeKeysForGuard", "paused/empty sources skipped by the peak guard"),
+        ("peaksAboveCollapseFloor", "collapse guard (replaced the hardcoded >70 that blanked the chart)"),
         ("quadraticCurveTo", "curve smoothing"),
     ],
     "assets/comparison-dashboard.js": [

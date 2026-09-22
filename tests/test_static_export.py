@@ -100,24 +100,19 @@ class StaticExportTest(unittest.TestCase):
     def test_known_full_ppr_12_team_source_values(self):
         sources = self.comparison["sources"]
 
-        def value(source, combo):
+        def value(source, combo, player="josh allen"):
             combo_data = sources[source]["combos"][combo]
             values = combo_data.get("values") or combo_data.get("reindexed")
-            return values["josh allen"]
+            return values[player]
 
+        # The adjusted (bias-corrected) series are the dashboard's own product,
+        # so they keep hard pins. Raw published charts do NOT: every promoted
+        # raw source is re-anchored onto the ESPN leg, so its top value is the
+        # anchor's, not its own. Pinning raw tops to pre-promotion numbers is
+        # what made an earlier commit revert good fixture data to green the
+        # suite -- assert the anchoring rule instead. See
+        # test_promoted_raw_sources_share_the_espn_anchor below.
         expected = {
-            # usatoday re-anchored from the retired Monday rail to the fixture
-            # ESPN leg (promotion 2026-09-21); the old pin 22.3 was the
-            # Monday-rail value. Allen is the #1 QB in both, so he takes the
-            # anchor's top value.
-            # fantasycalc, fantasypros, cbs re-anchored the same way
-            # (promotions 2026-09-22); their old pins (24.0, 26.0, 22.1)
-            # were Monday-rail values. CBS's isotonic fit lands Allen at
-            # 17.3, a tick above the anchor's 17.2.
-            ("usatoday", "full_12"): 17.2,
-            ("fantasycalc", "full_12_qb1"): 17.2,
-            ("fantasypros", "full_12"): 17.2,
-            ("cbs", "full_12"): 17.3,
             ("espn", "full_12"): 17.2,
             ("fantasycalc_adjusted", "full_12_qb1"): 19.0,
             ("usatoday_adjusted", "full_12"): 21.2,
@@ -125,6 +120,65 @@ class StaticExportTest(unittest.TestCase):
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
+
+    def test_promoted_raw_sources_share_the_espn_anchor(self):
+        """Promotion re-anchors each raw chart's scale onto the ESPN leg.
+
+        Replaces the per-source magic numbers that rotted at every promotion:
+        the invariant is that a promoted raw source tops out at the anchor.
+        """
+        sources = self.comparison["sources"]
+        espn_combo = sources["espn"]["combos"]["full_12"]
+        anchor_peak = max((espn_combo.get("values") or espn_combo.get("reindexed")).values())
+
+        promoted = [
+            key for key in ("usatoday", "fantasycalc", "fantasypros", "cbs")
+            if sources[key].get("promoted_at")
+        ]
+        self.assertTrue(promoted, "no raw source is promoted; fixture lost its promotions")
+
+        for key in promoted:
+            combos = sources[key]["combos"]
+            combo = combos.get("full_12") or combos.get("full_12_qb1")
+            values = combo.get("values") or combo.get("reindexed")
+            self.assertAlmostEqual(
+                anchor_peak,
+                max(values.values()),
+                delta=0.3,
+                msg=f"{key} is promoted but its peak does not sit on the ESPN anchor",
+            )
+            self.assertEqual(
+                "espn_leg",
+                sources[key].get("reindex_anchor"),
+                msg=f"{key} is promoted without recording its reindex anchor",
+            )
+
+    def test_promoted_sources_still_disagree_below_the_anchor(self):
+        """Anchoring pins the top of each curve, never the whole curve.
+
+        The dashboard's entire claim is that the signal lives where independent
+        sources disagree. If a re-anchor ever flattened the raw charts onto the
+        ESPN curve, this fails -- the old peak pins could not have caught it.
+        """
+        sources = self.comparison["sources"]
+
+        def series(key):
+            combos = sources[key]["combos"]
+            combo = combos.get("full_12") or combos.get("full_12_qb1")
+            return combo.get("values") or combo.get("reindexed") or {}
+
+        espn = series("espn")
+        for key in ("usatoday", "fantasycalc", "fantasypros", "cbs"):
+            other = series(key)
+            shared = set(espn) & set(other)
+            self.assertGreater(len(shared), 50, f"{key} shares too few players with ESPN to compare")
+            identical = sum(1 for player in shared if abs(other[player] - espn[player]) < 0.05)
+            self.assertLess(
+                identical / len(shared),
+                0.5,
+                f"{key} tracks the ESPN curve on {identical}/{len(shared)} players -- "
+                "re-anchoring collapsed it instead of only pinning its top",
+            )
 
     def test_fixed_pie_totals_match_source_metadata(self):
         players = load_json(FIXTURES / "players.json")["players"]
@@ -360,8 +414,12 @@ class StaticExportTest(unittest.TestCase):
             value = values.get("jahmyr gibbs")
             if isinstance(value, (int, float)):
                 gibbs_values.append(value)
+        # Guards against an indexed scale collapsing toward zero. The ceiling
+        # is set by the ESPN anchor every promoted source is reindexed onto,
+        # so it must not be pinned above it -- the old `max >= 84` recorded a
+        # pre-anchor FantasyCalc peak and failed the moment promotion worked.
         self.assertGreaterEqual(min(gibbs_values), 78)
-        self.assertGreaterEqual(max(gibbs_values), 84)
+        self.assertGreaterEqual(max(gibbs_values), 80)
 
     def test_player_table_supports_configurable_expandable_fields(self):
         text = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")

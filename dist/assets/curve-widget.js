@@ -59,6 +59,14 @@
   const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
+  // Minimum plausible peak for an indexed curve. See the collapse guard in
+  // runRegressionGuards() for the derivation: the fixed pie spreads ~3197
+  // across ~596 players (mean ~5.4) and healthy curves peak 60-95, so this
+  // floor separates "scale is broken" from "this source ranks flatter than
+  // the others". Raise it only with a curve that genuinely cannot go lower.
+  const CURVE_COLLAPSE_FLOOR = 25;
+  // Set once runRegressionGuards() returns clean; draw() refuses to paint until then.
+  let guardsPassed = false;
   // Stage 1 display freeze: the rendered fallback curves (fixed-pie indexed
   // maps, ESPN indexed map) always normalize at this share, so moving the
   // bench-share slider reruns the live two-tier calibration and its readout
@@ -435,6 +443,18 @@
             ...ADJUSTED_INDEXED_KEYS.filter(key => !adjustedCurvePaused(key, inputs))];
   }
   globalThis.TradeValueCurvePause.defaultIndexedSourceKeys = defaultIndexedSourceKeys;
+
+  // Collapse guard, pure in (peaks) so it is unit-testable without a DOM.
+  // `peaks` maps an active source key to that curve's maximum indexed value.
+  // True means every active curve still has a plausible scale. An empty set
+  // is vacuously true: a source with no data at all is a separate failure
+  // (validValues / eightSources), not a collapse.
+  function peaksAboveCollapseFloor(peaks, floor = CURVE_COLLAPSE_FLOOR) {
+    const values = Object.values(peaks || {});
+    if (!values.length) return true;
+    return values.every(value => Number.isFinite(value) && value > floor);
+  }
+  globalThis.TradeValueCurveGuards = {peaksAboveCollapseFloor, CURVE_COLLAPSE_FLOOR};
 
   const root = typeof document !== "undefined" ? document.getElementById("curve-widget") : null;
   if (!root) return;
@@ -1980,6 +2000,11 @@
   }
 
   function draw() {
+    // Fail closed consistently. The resize listener calls draw() directly, so
+    // without this a guard failure produced a contradictory page: the status
+    // line said "Curves unavailable" while the next window resize quietly
+    // painted the very chart the guard had rejected.
+    if (!guardsPassed) return;
     const rows = displayRows();
     if (!data || !rows.length) return;
     const ratio = window.devicePixelRatio || 1;
@@ -2206,7 +2231,20 @@
     });
     const sourcePeaks = Object.fromEntries(activeKeysForGuard.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
     const distinctSourcePeaks = new Set(Object.values(sourcePeaks).map(value => value.toFixed(1))).size > 1;
-    const valuesAbove70 = activeKeysForGuard.length === 0 || Object.values(sourcePeaks).every(value => value > 70);
+    // Collapse guard. What this is actually for: catching a curve that has
+    // lost its scale -- all-equal values, a bad reindex, a divide-by-total
+    // error -- which puts the peak down near the per-player mean. The pie is
+    // fixed at ~3197 across ~596 players, so that mean is ~5.4; a healthy
+    // curve peaks between 60 and 95. CURVE_COLLAPSE_FLOOR sits well above
+    // any collapsed state and well below any legitimate one.
+    //
+    // This was `> 70` until 2026-09-22, which is not a collapse floor but a
+    // transcription of what the curves happened to peak at when it was
+    // written. The ESPN leg legitimately peaks at ~67.8 after Week 2
+    // re-anchoring, so the guard threw on every load, init() never reached
+    // draw(), and the chart rendered blank behind a "Curves unavailable"
+    // banner until an unrelated window resize redrew it.
+    const valuesAboveCollapseFloor = peaksAboveCollapseFloor(sourcePeaks);
     const scale = yAxisScale(rows);
     const visiblePeak = Math.max(...rows.flatMap(row => activeSourceKeys().map(key => row.values[key])).filter(Number.isFinite));
     const dynamicAxisCoversData = scale.max >= visiblePeak;
@@ -2219,10 +2257,11 @@
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
+    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
+    guardsPassed = true;
   }
 
   async function init() {
