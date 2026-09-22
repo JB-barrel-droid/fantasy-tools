@@ -32,6 +32,7 @@ Writes (under output/ only):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from datetime import date
@@ -55,6 +56,19 @@ def _check(name, status, detail=""):
     return {"name": name, "status": status, "detail": detail}
 
 
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sha256_canonical(obj):
+    return hashlib.sha256(
+        json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                      players_path=None):
     cand = _load_json(reindexed_path)
@@ -67,6 +81,7 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
     players_path = players_path or REPO / "data/fixtures/current/players.json"
     pos_by_key = {p["player_key"]: p["pos"]
                   for p in _load_json(players_path)["players"]}
+    player_keys = fixture.get("player_keys", {})
     source = cand["source_key"]
     fx_section = fixture["sources"].get(source)
 
@@ -87,6 +102,18 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         checks.append(_check("review_rows_triaged", "pass",
                              f"{len(cand.get('review_rows', []))} rows, all triaged"))
 
+    # --- identity closure: every candidate slug must already exist in the
+    # fixture's player_keys (promotion never introduces a new identity) ---
+    unknown = sorted({s for combo in cand["combos"].values()
+                      for s in combo["native"] if s not in player_keys})
+    if unknown:
+        checks.append(_check("identity_closure", "fail",
+                             f"{len(unknown)} candidate slugs not in fixture "
+                             f"player_keys (e.g. {unknown[:3]})"))
+    else:
+        checks.append(_check("identity_closure", "pass",
+                             "all candidate slugs resolve in fixture player_keys"))
+
     # --- pie factor sanity (no fixture needed) ---
     sane, bad = True, []
     for combo_name, combo in cand["combos"].items():
@@ -106,8 +133,11 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                              f"source {source!r} not in fixture -- new source, "
                              "no baseline comparison possible"))
         fx_combos = {}
+        fixture_native_sha256 = None
     else:
         fx_combos = fx_section.get("combos", {})
+        fixture_native_sha256 = _sha256_canonical(
+            {c: fx_combos[c]["native"] for c in fx_combos})
 
     # --- combos match ---
     if fx_section is not None:
@@ -224,6 +254,8 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         "review_rows": cand.get("review_rows", []),
         "triaged": triaged,
         "reindexed_source_file": str(reindexed_path),
+        "reindexed_sha256": _sha256_file(reindexed_path),
+        "fixture_native_sha256": fixture_native_sha256,
         "note": ("'ready' means the candidate MAY be promoted by a human. "
                  "This script never writes under data/."),
     }

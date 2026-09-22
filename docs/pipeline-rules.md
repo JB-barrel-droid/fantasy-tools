@@ -74,6 +74,14 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
   The review never promotes and never writes under `data/`; the promotion
   itself is a separate, explicitly approved step. `review_rows` must be
   triaged (via `--triage`), not ignored.
+- Promotion is the ONLY stage that may write under `data/`, and only via
+  `promote_comparison_section.py` with `--approve "<name> <YYYY-MM-DD>
+  <reason>"`. It refuses on: non-`ready` verdict, reindexed bytes changed
+  since the review, fixture natives changed since the review, or a candidate
+  slug outside the fixture's `player_keys`. Natives carry over byte-identical
+  (vintage untouched); only the reindex anchor changes, recorded on the
+  section. The replaced section is kept in the promotion record as a rollback
+  record.
 
 ## 4. Null, never zero
 

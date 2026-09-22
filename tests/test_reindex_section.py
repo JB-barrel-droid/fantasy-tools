@@ -86,6 +86,27 @@ class TestIsotonicMath(unittest.TestCase):
         with self.assertRaises(ValueError):
             isotonic_fit([], [])
 
+    def test_tied_inputs_share_one_fitted_value(self):
+        # Tied x values must map to ONE fitted value (their mean). Without
+        # tie-pooling, tied inputs with increasing y never violate PAVA and
+        # receive different values -- inventing rank the source didn't state.
+        xs = [3.0, 3.0, 1.0, 2.0]
+        ys = [9.0, 7.0, 1.0, 5.0]
+        fit_x, fit_y = isotonic_fit(xs, ys)
+        p1 = isotonic_predict(fit_x, fit_y, 3.0)
+        self.assertEqual(p1, 8.0)  # mean of the tied pair
+        self.assertTrue(all(b >= a for a, b in zip(fit_y, fit_y[1:])),
+                        "fitted values must stay non-decreasing")
+
+    def test_tied_inputs_preserve_sum(self):
+        # The fixed-pie invariant at the math level: fitted values must sum
+        # to the anchor total. The unpooled-tie defect broke this.
+        xs = [3.0, 3.0, 3.0, 1.0, 2.0, 2.0]
+        ys = [9.0, 7.0, 8.0, 1.0, 5.0, 4.0]
+        fit_x, fit_y = isotonic_fit(xs, ys)
+        preds = [isotonic_predict(fit_x, fit_y, x) for x in xs]
+        self.assertAlmostEqual(sum(preds), sum(ys), places=9)
+
 
 class TestReindexStage(unittest.TestCase):
     def setUp(self):
@@ -209,6 +230,33 @@ class TestReindexStage(unittest.TestCase):
         self.assertEqual(it["n_priced"], 12)
         # every native maps to the same anchor-median-ish value; totals consistent
         self.assertGreater(it["pre_total"], 0)
+
+    def test_stored_values_sum_to_target_total(self):
+        # The fixed-pie invariant: the STORED reindexed values (not just the
+        # recorded factor) must sum to target_total per position. Recording
+        # the factor without applying it silently breaks the pie.
+        players = self.players
+        def anchor_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return 10.0 + j
+        fx = make_fixture(self.tmp, players, anchor_fn)
+        # Tied natives (real sources publish ties): exercises both the
+        # tie-pooling in the PAVA fit and the fixed-pie factor application.
+        cand = make_candidate(self.tmp, "syn", players,
+                              lambda pl: 50.0 + (int(''.join(
+                                  c for c in pl["name"] if c.isdigit())) // 2))
+        section, _ = run_stage(cand, fx, self.players_path)
+        combo = section["combos"]["full_12"]
+        pos_of = {pl["name"].lower(): pl["pos"] for pl in players["players"]}
+        totals = {}
+        for slug, val in combo["reindexed"].items():
+            totals[pos_of[slug]] = totals.get(pos_of[slug], 0.0) + val
+        for pos, total in totals.items():
+            target = combo["index_total"][pos]["target_total"]
+            # 1-decimal rounding can drift at most 0.05 * n_priced
+            slack = 0.05 * combo["index_total"][pos]["n_priced"] + 1e-9
+            self.assertLessEqual(abs(total - target), slack,
+                                 f"{pos}: stored sum {total} vs target {target}")
 
     def test_output_never_under_data(self):
         players = self.players

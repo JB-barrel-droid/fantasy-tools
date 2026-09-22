@@ -18,14 +18,28 @@ def isotonic_fit(xs: list[float], ys: list[float]) -> tuple[list[float], list[fl
 
     Returns (fit_x, fit_y): the fitted step values, one (x, y) pair per input
     point, sorted by x, with y non-decreasing. Requires at least one point.
+
+    Tied x values are pooled FIRST (their y values averaged): a fit must be
+    a function, so equal inputs share one fitted value. Without this, tied
+    inputs with increasing y never trigger a PAVA violation and receive
+    different fitted values -- inventing a distinction the data didn't make
+    and breaking sum preservation (the fixed-pie invariant).
     """
     if not xs or len(xs) != len(ys):
         raise ValueError("isotonic_fit needs non-empty xs and ys of equal length")
     pts = sorted(zip(xs, ys))
+    # Pre-pool tied x values: one block per distinct x.
+    pooled: list[list] = []  # [x, weight, y_sum]
+    for x, y in pts:
+        if pooled and pooled[-1][0] == x:
+            pooled[-1][1] += 1.0
+            pooled[-1][2] += y
+        else:
+            pooled.append([x, 1.0, y])
     # Each block: [x_sum, weight, y_sum, [x values in block]]
     blocks: list[list] = []
-    for x, y in pts:
-        blocks.append([x, 1.0, y, [x]])
+    for x, w, y_sum in pooled:
+        blocks.append([x * w, w, y_sum, [x] * int(w)])
         while len(blocks) >= 2 and blocks[-2][2] / blocks[-2][1] > blocks[-1][2] / blocks[-1][1]:
             b2 = blocks.pop()
             b1 = blocks.pop()
