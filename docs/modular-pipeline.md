@@ -1,5 +1,10 @@
 # Modular Pipeline
 
+Standing rules for every stage live in `docs/pipeline-rules.md` (naming
+authority, fail-closed identity, candidate promotion, null-not-zero, content
+vintage, public copy). GitHub is the store of record; if a rule is not written
+there, it does not exist.
+
 The dashboard should run in four plain stages. Each stage owns one job and hands
 files to the next stage.
 
@@ -54,6 +59,42 @@ make source-reference MATCH_FILE=output/source-matches/fantasycalc/2026-09-21/fa
 The source-reference artifact has one row per canonical `player_key` and keeps
 source values separate from dashboard display math. Duplicate player-key rows
 with conflicting values are sent to review instead of being merged.
+
+Build a candidate comparison source section from the reference artifact:
+
+```bash
+make comparison-section REFERENCE_FILE=output/source-references/fantasycalc/2026-09-21/fantasycalc-ppr-12-reference.json
+```
+
+The section builder emits a `trade-value-comparison-section-candidate-v1` file
+under `output/comparison-candidates/`, shaped like one entry of the comparison
+fixture's `sources{}` map. It carries native source values only
+(`reindex_status: "pending"` -- fixed-pie reindexing is reference-compute math
+and must be reviewed before promotion). Player keys with no canonical fixture
+slug and non-numeric values go to `review_rows`; nothing is guessed and nothing
+is zero-filled.
+
+Merge the candidate section into a reviewable candidate artifact:
+
+```bash
+make comparison-merge CANDIDATE_FILE=output/comparison-candidates/fantasycalc/2026-09-21/fantasycalc-full-12-section.json
+```
+
+This writes `output/comparison-sources-data-candidate.json` (a deep copy of the
+live fixture with the candidate section installed and marked `"candidate"`)
+plus `output/comparison-candidate-report.json` (native-value deltas against the
+current baseline for the same section key, when one exists). It refuses to
+write anywhere under `data/` -- the live fixture is read-only here.
+
+Do not promote a candidate into `data/fixtures/current/` until the checklist in
+`docs/pipeline-rules.md` ("Candidate artifacts stay in output/") is complete.
+
+Combo keys map the reference artifact's scoring vocabulary (`ppr`/`half_ppr`/
+`standard`) onto the fixture's (`full`/`half`/`standard`). The reference
+artifact carries no QB-count split, so candidate combos are QB-unspecified and
+will show zero overlap against QB-suffixed baseline combos in the report until
+that split is modeled -- another reason the report is for review, not for
+silent promotion.
 
 Muse may stay responsible for difficult page scraping if it is free and stable,
 but its output should be treated as raw input to this repo.
