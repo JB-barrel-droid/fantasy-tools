@@ -398,7 +398,13 @@ class StaticExportTest(unittest.TestCase):
 
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
-        self.assertIn('position === "ALL" && lockOrder === "preseason"', text)
+        # The preseason lock is gone: player order follows the ACTIVE LOCK.
+        # A positional rank is not an overall order -- four players share
+        # rank 1 -- so ordering by it put the QB1 ahead of the RB1 at x=1.
+        self.assertNotIn("lockOrder === \"preseason\"", text,
+                         "preseason lock must not come back")
+        self.assertNotIn("preseasonRank", text,
+                         "preseason rank must not order the board")
         self.assertIn("selectedRankSourceKey", text)
         self.assertIn("every curve shares", text)
         self.assertIn("sharedPlayerAxis", text)

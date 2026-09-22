@@ -46,9 +46,9 @@
     teams: 12,
     rosterShape: {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6},
     benchShare: DEFAULT_BENCH_SHARE,
-    compareSource: "preseason",
+    compareSource: "espn",
     combos: {},
-    sort: {column: "preseason", direction: "asc"},
+    sort: {column: "espn", direction: "desc"},
     filters: {position: "ALL", search: ""},
     columns: null,
     expanded: new Set()
@@ -56,7 +56,6 @@
   const FIELD_COLUMNS = [
     {key:"pos", label:"Pos", badge:"field"},
     {key:"team", label:"Team", badge:"field"},
-    {key:"preseason", label:"Preseason", badge:"rank"},
     {key:"espn_role", label:"ESPN tier", badge:"role"},
     {key:"disagreement", label:"Disagreement", badge:"spread"},
     {key:"latest_news", label:"Latest news", badge:"context"}
@@ -118,8 +117,8 @@
     const week = weekForSource(key);
     return week && key !== "espn" ? `${base} Wk ${week}` : base;
   }
-  const lockLabel = key => key === "preseason" ? "Preseason rank" : key === "disagreement" ? "Largest disagreement" : sourceLabel(key);
-  const isLockKey = key => ["preseason","disagreement",...SOURCE_KEYS].includes(key);
+  const lockLabel = key => key === "disagreement" ? "Largest disagreement" : sourceLabel(key);
+  const isLockKey = key => ["disagreement",...SOURCE_KEYS].includes(key);
 
   function loadComparisonData() {
     if (window.TradeValueComparisonData) return Promise.resolve(window.TradeValueComparisonData);
@@ -193,50 +192,29 @@
       if (!Number.isInteger(key) || key <= 0) return;
       const name = String(player.full_name || player.name || "").trim();
       if (!name || !POSITIONS.includes(player.pos)) return;
-      const preseasonRank = Number(player.preseasonRank ?? player.preseason_ecr_rank);
       const ros = player.ecr_ros || {};
       next.set(key, {
         player_key:key,
         name,
         pos:player.pos,
         team:String(player.team || "—"),
-        preseasonRank:Number.isFinite(preseasonRank) && preseasonRank > 0 ? preseasonRank : null,
-        preseasonValue:{standard:Number(ros.standard), half_ppr:Number(ros.half_ppr), ppr:Number(ros.ppr)},
         espn_ppg:player.espn_ppg || null
       });
     });
     return next;
   }
 
-  function preseasonComparator(a, b) {
-    const aMissing = !Number.isFinite(a.preseasonRank);
-    const bMissing = !Number.isFinite(b.preseasonRank);
-    if (aMissing !== bMissing) return aMissing ? 1 : -1;
-    if (!aMissing && a.preseasonRank !== b.preseasonRank) return a.preseasonRank - b.preseasonRank;
-    return POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
-  }
-
   const flexEligiblePositions = (shape = state.rosterShape) => shape.SUPERFLEX ? ["QB", ...DEFAULT_FLEX_ELIGIBLE] : [...DEFAULT_FLEX_ELIGIBLE];
 
+  // Ranked by ESPN projected points, not a preseason positional rank.
   function allocationCountsFor(pool, shape = state.rosterShape) {
-    const direct = {QB:state.teams * shape.QB, RB:state.teams * shape.RB, WR:state.teams * shape.WR, TE:state.teams * shape.TE};
-    const lineup = {...direct};
-    const rostered = {...direct};
-    const ranked = pool.filter(player => POSITION_ORDER.includes(player.pos) && Number.isFinite(player.preseasonRank)).sort(preseasonComparator);
-    const used = new Set();
-    Object.entries(direct).forEach(([pos, count]) => {
-      ranked.filter(player => player.pos === pos).slice(0, count).forEach(player => used.add(player.player_key));
+    const field = scoreField();
+    return ValueModel.allocationCounts({
+      pool,
+      teams: state.teams,
+      shape,
+      rankOf: player => Number(player.espn_ppg?.[field])
     });
-    ranked.filter(player => flexEligiblePositions(shape).includes(player.pos) && !used.has(player.player_key)).slice(0, state.teams * shape.FLEX).forEach(player => {
-      used.add(player.player_key);
-      lineup[player.pos] += 1;
-      rostered[player.pos] += 1;
-    });
-    ranked.filter(player => !used.has(player.player_key)).slice(0, state.teams * shape.BENCH).forEach(player => {
-      used.add(player.player_key);
-      rostered[player.pos] += 1;
-    });
-    return {direct, lineup, rostered};
   }
 
   function rosterIsDefault() {
@@ -247,7 +225,7 @@
   function applyRosterShape(values, key) {
     if (rosterIsDefault() || key === "espn" || key === "espn_vorp") return values;
     const shaped = new Map(values);
-    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6});
+    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6});
     const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
     const totalBefore = [...values.values()].reduce((sum, value) => sum + value, 0);
     POSITION_ORDER.forEach(pos => {
@@ -317,54 +295,30 @@
     return values;
   }
 
+  // Shared with the curve widget via ValueModel -- one implementation only.
   function roleMapForValues(values) {
-    const rows = [...values.entries()]
-      .map(([playerKey, value]) => ({playerKey, value:Number(value), player:canonicalByKey.get(playerKey)}))
-      .filter(row => row.player && POSITION_ORDER.includes(row.player.pos) && Number.isFinite(row.value) && row.value > 0)
-      .sort((a, b) => b.value - a.value || preseasonComparator(a.player, b.player));
-    const roles = new Map();
-    POSITION_ORDER.forEach(pos => {
-      rows
-        .filter(row => row.player.pos === pos)
-        .slice(0, state.teams * Number(state.rosterShape[pos] || 0))
-        .forEach(row => roles.set(row.playerKey, "starter"));
+    return ValueModel.roleMap({
+      values,
+      playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams: state.teams,
+      shape: state.rosterShape
     });
-    rows
-      .filter(row => flexEligiblePositions().includes(row.player.pos) && !roles.has(row.playerKey))
-      .slice(0, state.teams * Number(state.rosterShape.FLEX || 0))
-      .forEach(row => roles.set(row.playerKey, "starter"));
-    rows
-      .filter(row => !roles.has(row.playerKey))
-      .slice(0, state.teams * Number(state.rosterShape.BENCH || 0))
-      .forEach(row => roles.set(row.playerKey, "bench"));
-    return roles;
   }
 
-  function normalizeTradeChartToFixedPie(values) {
-    const roles = roleMapForValues(values);
-    const starterTotal = [...values.entries()]
-      .filter(([playerKey]) => roles.get(playerKey) === "starter")
-      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
-    const benchTotal = [...values.entries()]
-      .filter(([playerKey]) => roles.get(playerKey) === "bench")
-      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
-    const eligibleTotal = starterTotal + benchTotal;
-    const target = commonFixedPieTotal(eligibleTotal);
-    const starterShare = Math.max(0, Math.min(1, 1 - state.benchShare));
-    const normalizedBenchShare = Math.max(0, Math.min(1, state.benchShare));
-    const starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
-    const benchScale = benchTotal > 0 && target > 0 ? (target * normalizedBenchShare) / benchTotal : 0;
-    const normalized = new Map();
-    values.forEach((value, playerKey) => {
-      const role = roles.get(playerKey) || "waiver";
-      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
-      normalized.set(playerKey, role === "starter" ? safeValue * starterScale : role === "bench" ? safeValue * benchScale : 0);
+  function normalizeTradeChartToFixedPie(values, anchor = null) {
+    return ValueModel.normalizeToFixedPie({
+      values,
+      anchor,
+      share: state.benchShare,
+      playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams: state.teams,
+      shape: state.rosterShape,
+      fallbackTarget: commonFixedPieTotal
     });
-    return normalized;
   }
 
   function compareEspnPlayers(a, b) {
-    return b.ppg - a.ppg || preseasonComparator(a.player, b.player);
+    return b.ppg - a.ppg || ValueModel.stableTiebreak(a.player, b.player);
   }
 
   function espnPricedRows() {
@@ -379,22 +333,17 @@
   function buildEspnRows() {
     if (espnRowsCache) return espnRowsCache;
     const priced = espnPricedRows();
-    const assigned = new Map();
-    POSITION_ORDER.forEach(pos => {
-      priced
-        .filter(row => row.player.pos === pos)
-        .slice(0, state.teams * Number(state.rosterShape[pos] || 0))
-        .forEach(row => assigned.set(row.player.player_key, "starter"));
-    });
-    priced
-      .filter(row => flexEligiblePositions().includes(row.player.pos) && !assigned.has(row.player.player_key))
-      .slice(0, state.teams * Number(state.rosterShape.FLEX || 0))
-      .forEach(row => assigned.set(row.player.player_key, "starter"));
-    priced
-      .filter(row => !assigned.has(row.player.player_key))
-      .slice(0, state.teams * Number(state.rosterShape.BENCH || 0))
-      .forEach(row => assigned.set(row.player.player_key, "bench"));
-
+    // Roles come from the shared model, ranked on surplus over each
+    // position's dedicated-starter baseline. Assigning them here by raw
+    // per-game points filled the bench with quarterbacks, collapsed the QB
+    // waiver line and made Josh Allen the most valuable asset in a 1QB league.
+    const ppgByKey = new Map(priced.map(row => [row.player.player_key, row.ppg]));
+    const assigned = ValueModel.projectionRoles({
+      pool: priced.map(row => row.player),
+      teams: state.teams,
+      shape: state.rosterShape,
+      rankOf: player => Number(ppgByKey.get(player.player_key))
+    }).roles;
     const tiered = priced.map(row => ({
       ...row,
       role: assigned.get(row.player.player_key) || "waiver"
@@ -411,10 +360,14 @@
       ...row,
       rawProjectionVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
     }));
-    const publishedVorp = buildPublishedSourceMap("espn");
+    // Raw projection-minus-waiver VORP only. The published "ESPN-implied"
+    // combo values are already run through a valuation model and carry a ~91%
+    // starter share, which INVERTS the 85/15 fixed pie -- starters get marked
+    // down instead of up. The curve widget was fixed for this; the table kept
+    // the bug, which is why the same source read 76.5 here and 69.5 there.
     const withVorp = withRaw.map(row => ({
       ...row,
-      rawVorp: row.role === "waiver" ? 0 : Math.max(0, publishedVorp.get(row.player.player_key) ?? row.rawProjectionVorp)
+      rawVorp: row.role === "waiver" ? 0 : Math.max(0, row.rawProjectionVorp)
     }));
     const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
     const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
@@ -425,10 +378,20 @@
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
+    // Per-position, per-tier scales: each position lands on its own pie and
+    // splits state.benchShare the same way, so the pool-level identity holds too.
+    // A single global pair of scales cannot do both, and skipping the pie is
+    // what left quarterbacks at roughly double the published charts.
+    const tierScales = ValueModel.positionalTierScales(
+      withVorp.map(row => ({pos: row.player.pos, role: row.role, value: row.rawVorp})),
+      pos => espnTargetTotal(pos, NaN),
+      state.benchShare
+    );
     espnRowsCache = withVorp.map(row => ({
       ...row,
       pure: row.rawVorp * rawScale,
-      adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
+      adjusted: row.role === "starter" ? row.rawVorp * (tierScales.starter[row.player.pos] || 0)
+        : row.role === "bench" ? row.rawVorp * (tierScales.bench[row.player.pos] || 0) : 0
     }));
     espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
     return espnRowsCache;
@@ -496,10 +459,17 @@
   function rebuildSourceMaps() {
     espnRowsCache = null;
     espnRoleByKey = new Map();
-    sourceMaps = new Map(renderKeys.map(key => {
-      const sourceMap = ["espn", "espn_vorp"].includes(key) ? buildSourceMap(key) : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key));
-      return [key, sourceMap];
-    }));
+    sourceMaps = new Map();
+    // The anchor must exist before anything normalises against it. A source
+    // normalised with no anchor silently falls back to the full-total basis,
+    // which is what made a 124-player chart sit 30% above the anchor.
+    const anchorMap = buildSourceMap("espn");
+    sourceMaps.set("espn", anchorMap);
+    renderKeys.filter(key => key !== "espn").forEach(key => {
+      sourceMaps.set(key, key === "espn_vorp"
+        ? buildSourceMap(key)
+        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), anchorMap));
+    });
   }
 
   function allColumnKeys() {
@@ -508,7 +478,7 @@
 
   function visibleColumns() {
     const allowed = new Set(allColumnKeys());
-    const defaults = ["pos", "team", "espn_role", "preseason", "disagreement", "latest_news", "espn", "espn_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
+    const defaults = ["pos", "team", "espn_role", "disagreement", "latest_news", "espn", "espn_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
     const cols = Array.isArray(state.columns) ? state.columns.filter(key => allowed.has(key)) : defaults;
     return cols.length ? cols : defaults;
   }
@@ -633,7 +603,6 @@
 
   function sortValue(row, column) {
     if (column === "name") return row.name;
-    if (column === "preseason") return row.preseasonRank;
     if (column === "espn_role") return row.espn_role;
     if (column === "latest_news") return latestNews(row)?.publishedAt?.getTime() ?? null;
     return row[column];
@@ -642,7 +611,6 @@
   function displayValue(row, column) {
     if (column === "pos") return row.pos;
     if (column === "team") return row.team;
-    if (column === "preseason") return Number.isFinite(row.preseasonRank) ? String(row.preseasonRank) : "—";
     if (column === "espn_role") return row.espn_role || "waiver";
     if (column === "disagreement") return formatValue(row.disagreement);
     if (column === "latest_news") {
@@ -704,7 +672,7 @@
     }
     if (value === state.compareSource) return;
     state.compareSource = value;
-    state.sort = {column:value, direction:value === "preseason" ? "asc" : "desc"};
+    state.sort = {column:value, direction:"desc"};
     renderViewControls();
     renderTable();
     if (publish) {
@@ -747,17 +715,6 @@
     const {column, direction} = state.sort;
     const sign = direction === "asc" ? 1 : -1;
     return list.sort((a, b) => {
-      if (column === "preseason") {
-        if (["ALL","FLEX"].includes(state.filters.position)) {
-          const posDifference = POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos);
-          if (posDifference) return posDifference;
-        }
-        const av = a.preseasonRank, bv = b.preseasonRank;
-        const aMissing = !Number.isFinite(av), bMissing = !Number.isFinite(bv);
-        if (aMissing !== bMissing) return aMissing ? 1 : -1;
-        if (!aMissing && av !== bv) return av - bv;
-        return POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
-      }
       const av = sortValue(a, column);
       const bv = sortValue(b, column);
       const aMissing = av === null || av === undefined || (typeof av === "number" && !Number.isFinite(av));
@@ -778,7 +735,7 @@
 
   function nextSortDirection(key) {
     if (state.sort.column === key) return state.sort.direction === "asc" ? "desc" : "asc";
-    return ["name", "pos", "team", "preseason"].includes(key) ? "asc" : "desc";
+    return ["name", "pos", "team"].includes(key) ? "asc" : "desc";
   }
 
   function setTableSort(key) {
@@ -791,7 +748,7 @@
       window.TradeValueLockOrder = key;
       window.TradeValueCurveControls?.setLockOrder(key, false);
     }
-    if (["preseason", "disagreement", ...SOURCE_KEYS].includes(key)) state.compareSource = key;
+    if (["disagreement", ...SOURCE_KEYS].includes(key)) state.compareSource = key;
     state.sort = {column:key, direction:nextSortDirection(key)};
     renderViewControls();
     renderTable();
@@ -826,9 +783,7 @@
     if ($("#consensusNote")) $("#consensusNote").textContent = "Missing source values stay blank.";
     if ($("#resultCount")) $("#resultCount").textContent = `${list.length} player${list.length === 1 ? "" : "s"}`;
     if ($("#sortNote")) {
-      $("#sortNote").textContent = state.sort.column === "preseason"
-        ? (["ALL","FLEX"].includes(state.filters.position) ? "Grouped by position, then preseason rank (unranked players last)" : "Locked to preseason positional rank, ascending (unranked players last)")
-        : state.sort.column === "disagreement"
+      $("#sortNote").textContent = state.sort.column === "disagreement"
           ? "Locked by widest cross-source spread first"
           : state.sort.column === "name"
             ? `Sorted by player, ${state.sort.direction === "asc" ? "A to Z" : "Z to A"}`
@@ -846,7 +801,7 @@
     const colSpan = keys.length + 1;
     const body = list.map(row => {
       const open = state.expanded.has(row.player_key);
-      const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player"><button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button><span class="name-sub">${esc(row.pos)} · ${esc(row.team)}${Number.isFinite(row.preseasonRank) ? ` · preseason rank ${row.preseasonRank}` : " · preseason unranked"}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
+      const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player"><button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button><span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
       return main + renderExpandedRow(row, colSpan);
     }).join("");
     wrap.innerHTML = `<table class="all-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -873,12 +828,17 @@
     }
   }
 
+  // The board's default follows the chart's default lock.
+  function defaultBoardSource() {
+    return SOURCE_KEYS.includes("espn") ? "espn" : (renderKeys.find(sourceAvailable) || "espn");
+  }
+
   function ensureAvailableSelection() {
     if (SOURCE_KEYS.includes(state.sort.column) && !sourceAvailable(state.sort.column)) {
-      state.sort = {column:"preseason", direction:"asc"};
-      state.compareSource = "preseason";
+      state.sort = {column:defaultBoardSource(), direction:"desc"};
+      state.compareSource = defaultBoardSource();
     }
-    if (SOURCE_KEYS.includes(state.compareSource) && !sourceAvailable(state.compareSource)) state.compareSource = "preseason";
+    if (SOURCE_KEYS.includes(state.compareSource) && !sourceAvailable(state.compareSource)) state.compareSource = defaultBoardSource();
     if (SOURCE_KEYS.includes(referenceSource) && !sourceAvailable(referenceSource)) {
       referenceSource = renderKeys.find(sourceAvailable) || "espn";
       window.TradeValueReferenceSource = referenceSource;
@@ -904,10 +864,10 @@
     if (Number.isFinite(importedBenchShare)) state.benchShare = Math.max(0, Math.min(0.5, importedBenchShare));
     if (["ALL","QB","RB","WR","TE","FLEX"].includes(raw.filters?.position)) state.filters.position = raw.filters.position;
     state.filters.search = String(raw.filters?.search || "").slice(0, 80);
-    if (["name","pos","team","preseason","espn_role","disagreement","latest_news",...renderKeys].includes(raw.sort?.column)) {
+    if (["name","pos","team","espn_role","disagreement","latest_news",...renderKeys].includes(raw.sort?.column)) {
       state.sort.column = raw.sort.column;
       state.compareSource = raw.sort.column;
-      state.sort.direction = raw.sort.direction === "asc" ? "asc" : raw.sort.direction === "desc" ? "desc" : (raw.sort.column === "preseason" ? "asc" : "desc");
+      state.sort.direction = raw.sort.direction === "asc" ? "asc" : "desc";
     }
     const allowed = new Set(allColumnKeys());
     const columns = Array.isArray(raw.columns) ? raw.columns.filter(key => allowed.has(key)) : null;
@@ -1026,26 +986,28 @@
 
   function runRegressionGuards() {
     const list = filteredRows();
-    const preseasonSort = state.sort.column === "preseason";
-    const groups = ["ALL","FLEX"].includes(state.filters.position)
-      ? POSITION_ORDER.map(pos => list.filter(row => row.pos === pos)).filter(group => group.length)
-      : [list];
-    const ranksAscending = !preseasonSort || groups.every(group => {
-      const ranked = group.filter(row => Number.isFinite(row.preseasonRank));
-      return ranked.every((row, index) => index === 0 || ranked[index - 1].preseasonRank <= row.preseasonRank);
+    // Rank follows the ACTIVE LOCK. These replace the old preseason-sort
+    // guards: a positional rank is not an overall order (four players share
+    // rank 1), so ordering by it put the QB1 ahead of the RB1 at x=1.
+    const lockSort = SOURCE_KEYS.includes(state.sort.column);
+    const lockDescending = !lockSort || list.every((row, index) => {
+      if (index === 0) return true;
+      const prev = Number(list[index - 1].values?.[state.sort.column]);
+      const here = Number(row.values?.[state.sort.column]);
+      if (!Number.isFinite(prev) || !Number.isFinite(here)) return true;
+      return prev >= here;
     });
-    const missingLast = !preseasonSort || groups.every(group => {
-      const firstMissing = group.findIndex(row => !Number.isFinite(row.preseasonRank));
-      return firstMissing === -1 || group.slice(firstMissing).every(row => !Number.isFinite(row.preseasonRank));
-    });
-    const positionGrouped = !preseasonSort || !["ALL","FLEX"].includes(state.filters.position) || list.every((row, index) => index === 0 || POSITION_ORDER.indexOf(list[index - 1].pos) <= POSITION_ORDER.indexOf(row.pos));
+    const missingLast = !lockSort || (() => {
+      const firstMissing = list.findIndex(row => !Number.isFinite(Number(row.values?.[state.sort.column])));
+      return firstMissing === -1 || list.slice(firstMissing).every(row => !Number.isFinite(Number(row.values?.[state.sort.column])));
+    })();
     const allSources = renderKeys.length === SOURCE_KEYS.length && SOURCE_KEYS.every(key => renderKeys.includes(key));
     const fullPpr12TeamQbs = state.scoring === "full" && state.teams === 12 && rows().filter(row => row.pos === "QB").length;
     const fullPpr12TeamQbsAvailable = fullPpr12TeamQbs > 0;
     const availableSources = renderKeys.filter(sourceAvailable);
     const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && availableSources.every(key => allColumnKeys().includes(key));
     const rolloverAware = renderKeys.every(key => !isWeekCurrent(key) || sourceAvailable(key));
-    const diagnostics = {preseasonSort, ranksAscending, missingLast, positionGrouped, allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
+    const diagnostics = {lockSort, lockDescending, missingLast, allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
     window.TradeValueComparisonDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["ranksAscending", "missingLast", "positionGrouped", "allSources", "fullPpr12TeamQbsAvailable", "configurableColumns", "rolloverAware"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Comparison regression guard failed: ${failed.map(([key]) => key).join(", ")}`);

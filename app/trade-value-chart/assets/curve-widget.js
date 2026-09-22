@@ -653,13 +653,13 @@
     if (!week || key === "espn") return base;
     return `${base} Wk ${week}`;
   }
-  const lockLabel = key => key === "preseason" ? "Preseason positional rank" : key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
+  const lockLabel = key => key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
   const flexEligiblePositions = (shape = rosterShape) => shape.SUPERFLEX ? ["QB", ...DEFAULT_FLEX_ELIGIBLE] : [...DEFAULT_FLEX_ELIGIBLE];
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
-  const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
+  const isLockKey = key => ["disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
@@ -683,8 +683,6 @@
       const playerKey = Number(player.player_key);
       const name = String(player.full_name || player.name || "").trim();
       if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;
-      const rankValue = player.preseasonRank ?? player.preseason_ecr_rank;
-      const rank = Number(rankValue);
       const specialistProjection = SPECIALIST_POSITIONS.includes(player.pos)
         // ECR is out of the build: no ECR fallback may reach a curve labelled ESPN.
         ? (player.espn_ppg || player.kdst_ppg || null)
@@ -694,24 +692,11 @@
         name,
         team: String(player.team || "—"),
         pos: player.pos,
-        preseasonRank: Number.isFinite(rank) && rank > 0 ? rank : null,
         espn_ppg: player.espn_ppg || specialistProjection,
         projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
       });
     });
     return map;
-  }
-
-  function preseasonComparator(a, b) {
-    if (position === "FLEX") {
-      const posDifference = POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos);
-      if (posDifference) return posDifference;
-    }
-    const aMissing = !Number.isFinite(a.preseasonRank);
-    const bMissing = !Number.isFinite(b.preseasonRank);
-    if (aMissing !== bMissing) return aMissing ? 1 : -1;
-    if (!aMissing && a.preseasonRank !== b.preseasonRank) return a.preseasonRank - b.preseasonRank;
-    return [...POSITION_ORDER, ...SPECIALIST_POSITIONS].indexOf(a.pos) - [...POSITION_ORDER, ...SPECIALIST_POSITIONS].indexOf(b.pos) || a.name.localeCompare(b.name) || a.player_key - b.player_key;
   }
 
   function disagreement(row) {
@@ -720,20 +705,13 @@
   }
 
   function orderComparator(a, b) {
-    if (lockOrder === "preseason" && position === "ALL") {
-      const aBest = Math.max(...activeSourceKeys().map(key => a.values[key]).filter(Number.isFinite), -Infinity);
-      const bBest = Math.max(...activeSourceKeys().map(key => b.values[key]).filter(Number.isFinite), -Infinity);
-      if (aBest !== bBest) return bBest - aBest;
-      return preseasonComparator(a, b);
-    }
-    if (lockOrder === "preseason") return preseasonComparator(a, b);
     const aValue = lockOrder === "disagreement" ? disagreement(a) : a.values[lockOrder];
     const bValue = lockOrder === "disagreement" ? disagreement(b) : b.values[lockOrder];
     const aMissing = !Number.isFinite(aValue);
     const bMissing = !Number.isFinite(bValue);
     if (aMissing !== bMissing) return aMissing ? 1 : -1;
     if (!aMissing && aValue !== bValue) return bValue - aValue;
-    return preseasonComparator(a, b);
+    return ValueModel.stableTiebreak(a, b);
   }
 
   function scoringField() {
@@ -744,34 +722,18 @@
     return Object.keys(DEFAULT_ROSTER).every(key => Number(rosterShape[key]) === Number(DEFAULT_ROSTER[key]));
   }
 
+  // Roster order comes from ESPN projected points. It used to come from
+  // preseason_ecr_rank, which is a POSITIONAL rank -- four players share
+  // rank 1 -- so the QB1 sorted ahead of the RB1 and Josh Allen landed at
+  // x=1 on a 1QB board.
   function allocationCountsFor(pool, shape = rosterShape) {
-    const direct = {QB: teams * shape.QB, RB: teams * shape.RB, WR: teams * shape.WR, TE: teams * shape.TE};
-    const lineup = {...direct};
-    const rostered = {...direct};
-    const ranked = pool.filter(player => POSITION_ORDER.includes(player.pos) && Number.isFinite(player.preseasonRank)).sort((a, b) => {
-      const aMissing = !Number.isFinite(a.preseasonRank), bMissing = !Number.isFinite(b.preseasonRank);
-      if (aMissing !== bMissing) return aMissing ? 1 : -1;
-      return (a.preseasonRank || 0) - (b.preseasonRank || 0) || POSITION_ORDER.indexOf(a.pos) - POSITION_ORDER.indexOf(b.pos);
+    const field = scoringField();
+    return ValueModel.allocationCounts({
+      pool,
+      teams,
+      shape,
+      rankOf: player => Number(player.espn_ppg?.[field])
     });
-    const used = new Set();
-    Object.entries(direct).forEach(([pos, count]) => {
-      ranked.filter(player => player.pos === pos).slice(0, count).forEach(player => used.add(player.player_key));
-    });
-    ranked.filter(player => flexEligiblePositions(shape).includes(player.pos) && !used.has(player.player_key)).slice(0, teams * shape.FLEX).forEach(player => {
-      used.add(player.player_key);
-      lineup[player.pos] += 1;
-      rostered[player.pos] += 1;
-    });
-    ranked.filter(player => !used.has(player.player_key)).slice(0, teams * shape.BENCH).forEach(player => {
-      used.add(player.player_key);
-      rostered[player.pos] += 1;
-    });
-    SPECIALIST_POSITIONS.forEach(pos => {
-      direct[pos] = teams * Number(shape[pos] || 0);
-      lineup[pos] = direct[pos];
-      rostered[pos] = direct[pos];
-    });
-    return {direct, lineup, rostered};
   }
 
   function espnTargetTotal(pos, fallback) {
@@ -818,27 +780,16 @@
     return values;
   }
 
+  // Delegates to the shared value model. Both renderers must agree here; a
+  // second implementation is what put the curve at 69.5 and the table at 76.5
+  // for the same source on the same page load.
   function roleMapForValues(values) {
-    const rows = [...values.entries()]
-      .map(([playerKey, value]) => ({playerKey, value:Number(value), player:canonicalByKey.get(playerKey)}))
-      .filter(row => row.player && POSITION_ORDER.includes(row.player.pos) && Number.isFinite(row.value) && row.value > 0)
-      .sort((a, b) => b.value - a.value || preseasonComparator(a.player, b.player));
-    const roles = new Map();
-    POSITION_ORDER.forEach(pos => {
-      rows
-        .filter(row => row.player.pos === pos)
-        .slice(0, teams * Number(rosterShape[pos] || 0))
-        .forEach(row => roles.set(row.playerKey, "starter"));
+    return ValueModel.roleMap({
+      values,
+      playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams,
+      shape: rosterShape
     });
-    rows
-      .filter(row => flexEligiblePositions().includes(row.player.pos) && !roles.has(row.playerKey))
-      .slice(0, teams * Number(rosterShape.FLEX || 0))
-      .forEach(row => roles.set(row.playerKey, "starter"));
-    rows
-      .filter(row => !roles.has(row.playerKey))
-      .slice(0, teams * Number(rosterShape.BENCH || 0))
-      .forEach(row => roles.set(row.playerKey, "bench"));
-    return roles;
   }
 
   // share defaults to the frozen stage-1 display share: fallback curves never
@@ -861,48 +812,20 @@
   // scale short by whatever sits outside the overlap -- a source whose players
   // are all in the anchor (CBS) still balances, so the error hides until a
   // source carries players the anchor lacks.
-  function sharedPieBasis(values, anchor) {
-    if (!anchor || !anchor.size) return null;
-    const keys = new Set();
-    let target = 0;
-    values.forEach((value, playerKey) => {
-      if (!POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos)) return;
-      const anchorValue = anchor.get(playerKey);
-      if (!Number.isFinite(anchorValue) || !Number.isFinite(value)) return;
-      keys.add(playerKey);
-      target += Math.max(0, anchorValue);
-    });
-    // Too thin an overlap to anchor against: fail closed to the common pie
-    // rather than inventing a scale from a handful of players.
-    if (keys.size < MIN_SHARED_FOR_PIE || !(target > 0)) return null;
-    return {keys, target};
-  }
-
   function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE, anchor = null) {
-    const roles = roleMapForValues(values);
-    const basis = sharedPieBasis(values, anchor);
-    const inBasis = playerKey => !basis || basis.keys.has(playerKey);
-    const totalFor = role => [...values.entries()]
-      .filter(([playerKey]) => roles.get(playerKey) === role && inBasis(playerKey))
-      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
-    const starterTotal = totalFor("starter");
-    const benchTotal = totalFor("bench");
-    const target = basis ? basis.target : commonFixedPieTotal(starterTotal + benchTotal);
-    const starterShare = Math.max(0, Math.min(1, 1 - share));
-    const normalizedBenchShare = Math.max(0, Math.min(1, share));
-    const starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
-    const benchScale = benchTotal > 0 && target > 0 ? (target * normalizedBenchShare) / benchTotal : 0;
-    const normalized = new Map();
-    values.forEach((value, playerKey) => {
-      const role = roles.get(playerKey) || "waiver";
-      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
-      normalized.set(playerKey, role === "starter" ? safeValue * starterScale : role === "bench" ? safeValue * benchScale : 0);
+    return ValueModel.normalizeToFixedPie({
+      values,
+      anchor,
+      share,
+      playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams,
+      shape: rosterShape,
+      fallbackTarget: commonFixedPieTotal
     });
-    return normalized;
   }
 
   function compareEspnPlayers(a, b) {
-    return b.ppg - a.ppg || preseasonComparator(a.player, b.player);
+    return b.ppg - a.ppg || ValueModel.stableTiebreak(a.player, b.player);
   }
 
   function espnPricedRows() {
@@ -917,22 +840,17 @@
   function buildEspnRows() {
     if (espnRowsCache) return espnRowsCache;
     const priced = espnPricedRows();
-    const assigned = new Map();
-    POSITION_ORDER.forEach(pos => {
-      priced
-        .filter(row => row.player.pos === pos)
-        .slice(0, teams * Number(rosterShape[pos] || 0))
-        .forEach(row => assigned.set(row.player.player_key, "starter"));
-    });
-    priced
-      .filter(row => flexEligiblePositions().includes(row.player.pos) && !assigned.has(row.player.player_key))
-      .slice(0, teams * Number(rosterShape.FLEX || 0))
-      .forEach(row => assigned.set(row.player.player_key, "starter"));
-    priced
-      .filter(row => !assigned.has(row.player.player_key))
-      .slice(0, teams * Number(rosterShape.BENCH || 0))
-      .forEach(row => assigned.set(row.player.player_key, "bench"));
-
+    // Roles come from the shared model, ranked on surplus over each
+    // position's dedicated-starter baseline. Assigning them here by raw
+    // per-game points filled the bench with quarterbacks, collapsed the QB
+    // waiver line and made Josh Allen the most valuable asset in a 1QB league.
+    const ppgByKey = new Map(priced.map(row => [row.player.player_key, row.ppg]));
+    const assigned = ValueModel.projectionRoles({
+      pool: priced.map(row => row.player),
+      teams: teams,
+      shape: rosterShape,
+      rankOf: player => Number(ppgByKey.get(player.player_key))
+    }).roles;
     const tiered = priced.map(row => ({
       ...row,
       role: assigned.get(row.player.player_key) || "waiver"
@@ -1003,10 +921,20 @@
         `skipped: degenerate pool (rawTotal=${rawTotal.toFixed(1)}, starterRaw=${starterRaw.toFixed(1)}, benchRaw=${benchRaw.toFixed(1)})`
       );
     }
+    // Per-position, per-tier scales: each position lands on its own pie and
+    // splits DISPLAY_BENCH_SHARE the same way, so the pool-level identity holds too.
+    // A single global pair of scales cannot do both, and skipping the pie is
+    // what left quarterbacks at roughly double the published charts.
+    const tierScales = ValueModel.positionalTierScales(
+      withVorp.map(row => ({pos: row.player.pos, role: row.role, value: row.rawVorp})),
+      pos => espnTargetTotal(pos, NaN),
+      DISPLAY_BENCH_SHARE
+    );
     espnRowsCache = withVorp.map(row => ({
       ...row,
       pure: row.rawVorp * rawScale,
-      adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
+      adjusted: row.role === "starter" ? row.rawVorp * (tierScales.starter[row.player.pos] || 0)
+        : row.role === "bench" ? row.rawVorp * (tierScales.bench[row.player.pos] || 0) : 0
     }));
     espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
     return espnRowsCache;
@@ -1590,7 +1518,7 @@
         ? (hasTrueEspnSpecialists
           ? "K/DST use ESPN projection-derived values only."
           : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
-        : "K/DST are waiting for projection-derived values in the artifact; preseason ranks are not used.";
+        : "K/DST are waiting for projection-derived values in the artifact.";
       specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% of trade-value points and bench receives ${Math.round(DISPLAY_BENCH_SHARE * 100)}%.`;
     }
     syncBenchShareControl();
@@ -1696,7 +1624,6 @@
     const select = $("#curveLockOrder");
     if (!select) return;
     const options = [
-      ["preseason", "Preseason positional rank"],
       ["disagreement", "Largest disagreement"],
       ...visibleSourceKeys().filter(sourceAvailable).map(key => [key, sourceLabel(key)])
     ];
@@ -1780,7 +1707,6 @@
   function setPosition(value, publish = true) {
     if (!POSITIONS.includes(value) || value === position) return;
     position = value;
-    if (position === "ALL" && lockOrder === "preseason") lockOrder = defaultValueLock();
     crossRank = null;
     rebuildDomain();
     syncTabs();
@@ -1796,7 +1722,7 @@
     scoring = normalized;
     crossRank = null;
     rebuildDomain();
-    if (![ "preseason", "disagreement" ].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
+    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
     makeLeagueControls();
     makeRosterControls();
     makeValueBandControl();
@@ -1813,7 +1739,7 @@
     teams = normalized;
     crossRank = null;
     rebuildDomain();
-    if (![ "preseason", "disagreement" ].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
+    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
     makeLeagueControls();
     makeRosterControls();
     makeValueBandControl();

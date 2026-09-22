@@ -19,6 +19,7 @@ HARNESS = Path(__file__).resolve().parent / "two_tier_harness.js"
 GOLDEN = Path(os.path.expanduser(
     "~/workspace/goals/football-signal-database-and-app/tests/golden/two_tier_vectors.json"))
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
+APP = REPO / "app" / "trade-value-chart"
 COMPARE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 
 TOL = 1e-9
@@ -514,18 +515,28 @@ class TestStage1FallbackFrozen(unittest.TestCase):
     # total agreed to 1e-12. Totals agreeing is not curves being comparable.
 
     def test_normalisation_takes_an_anchor(self):
-        text = WIDGET.read_text()
-        self.assertIn("function sharedPieBasis(", text,
-                      "shared-set pie basis missing")
-        body = extract_function(text, "normalizeTradeChartToFixedPie")
+        """The basis now lives in the shared model; the widget delegates to it."""
+        model = (APP / "assets" / "value-model.js").read_text(encoding="utf-8")
+        self.assertIn("function sharedPieBasis(", model,
+                      "shared-set pie basis missing from the shared model")
+        body = extract_function(WIDGET.read_text(), "normalizeTradeChartToFixedPie")
         self.assertIsNotNone(body)
         self.assertIn("anchor", body, "normalisation must accept an anchor")
-        self.assertIn("sharedPieBasis", body,
-                      "normalisation must take its target from the shared set")
+        self.assertIn("ValueModel.normalizeToFixedPie", body,
+                      "normalisation must delegate to the shared model")
 
     def test_every_normalised_source_is_passed_the_anchor(self):
         """A source normalised with no anchor silently falls back to the old
-        full-total basis -- the exact bug. Every call site must pass one."""
+        full-total basis -- the exact bug. Every call site must pass one,
+        in BOTH renderers."""
+        for name, fn in (("curve-widget.js", "rebuildDomain"),
+                         ("comparison-dashboard.js", "rebuildSourceMaps")):
+            b = extract_function((APP / "assets" / name).read_text(encoding="utf-8"), fn)
+            self.assertIsNotNone(b, "%s missing %s" % (name, fn))
+            for line in b.splitlines():
+                if "normalizeTradeChartToFixedPie(" in line:
+                    self.assertIn("anchorMap", line,
+                                  "%s normalises without an anchor: %s" % (name, line.strip()[:80]))
         body = extract_function(WIDGET.read_text(), "rebuildDomain")
         self.assertIsNotNone(body)
         calls = []
@@ -572,6 +583,65 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         leaks = re.findall(r"ecr_(?:ppg|ros|share)", text)
         self.assertEqual(leaks, [], f"ECR value field(s) still read by the widget: {leaks}")
 
+
+    # ---- one value model, two renderers ------------------------------------
+    # These exist because the two files DID drift: the curve rendered the ESPN
+    # leg at 69.5 while the table rendered the same source at 76.5, on the same
+    # page load, because each carried its own copy of the pie math.
+
+    VALUE_MODEL_FNS = ("roleMap", "normalizeToFixedPie", "allocationCounts",
+                       "sharedPieBasis", "stableTiebreak")
+
+    def test_shared_model_is_the_only_implementation(self):
+        model = (APP / "assets" / "value-model.js").read_text(encoding="utf-8")
+        for fn in self.VALUE_MODEL_FNS:
+            self.assertIn("function %s(" % fn, model, "%s missing from shared model" % fn)
+        # Neither renderer may re-implement the scaling.
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            text = (APP / "assets" / name).read_text(encoding="utf-8")
+            body = extract_function(text, "normalizeTradeChartToFixedPie")
+            self.assertIsNotNone(body, "%s lost its normalisation entry point" % name)
+            self.assertIn("ValueModel.normalizeToFixedPie", body,
+                          "%s must delegate, not re-implement" % name)
+            self.assertNotIn("starterScale = starterTotal", body,
+                             "%s re-implements the starter/bench scaling" % name)
+            role = extract_function(text, "roleMapForValues")
+            self.assertIn("ValueModel.roleMap", role,
+                          "%s must delegate its role map" % name)
+            alloc = extract_function(text, "allocationCountsFor")
+            self.assertIn("ValueModel.allocationCounts", alloc,
+                          "%s must delegate its roster allocation" % name)
+
+    def test_shared_model_loads_before_its_consumers(self):
+        html = (APP / "index.html").read_text(encoding="utf-8")
+        order = [html.find("value-model.js"), html.find("curve-widget.js"),
+                 html.find("comparison-dashboard.js")]
+        self.assertTrue(all(i > -1 for i in order), "a renderer script is not loaded")
+        self.assertEqual(order, sorted(order),
+                         "value-model.js must load before both renderers")
+
+    def test_roster_allocation_ranks_on_espn_projections(self):
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
+                                    "allocationCountsFor")
+            self.assertIn("espn_ppg", body,
+                          "%s must rank the roster pool on ESPN projections" % name)
+            self.assertNotIn("preseasonRank", body,
+                             "%s still ranks on a preseason positional rank" % name)
+
+    @staticmethod
+    def _strip_js_comments(text):
+        text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+        return re.sub(r"(?m)^\s*//.*$", "", text)
+
+    def test_no_preseason_rank_anywhere_in_the_frontend(self):
+        """Checks CODE, not prose -- the comments explaining why the rank was
+        removed are allowed to name it."""
+        for name in ("curve-widget.js", "comparison-dashboard.js", "value-model.js"):
+            code = self._strip_js_comments((APP / "assets" / name).read_text(encoding="utf-8"))
+            hits = re.findall(r"preseason(?:Rank|_ecr_rank|Comparator)", code)
+            self.assertEqual(hits, [], "%s still reads preseason rank: %s" % (name, hits))
+
     def test_espn_rows_use_raw_projection_vorp(self):
         # Negative-tested 2026-09-22: buildEspnRows used the modeled
         # "ESPN-implied" combo values (buildPublishedSourceMap("espn")) as the
@@ -581,13 +651,19 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         # (rawProjectionVorp from ESPN projections only), whose ~69% starter
         # share makes the fixed-pie correctly mark starters up and bench down.
         # Reintroducing `publishedVorp` into buildEspnRows must fail this test.
+        # BOTH renderers. The widget was fixed for this in Sep 2026 and the
+        # table was not, so the same source rendered 69.5 on the curve and
+        # 76.5 in the table until the guard was widened to cover both.
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
+                                    "buildEspnRows")
+            self.assertIsNotNone(body, "buildEspnRows missing from %s" % name)
+            self.assertNotIn("publishedVorp", body,
+                             "%s: buildEspnRows must not use modeled published values" % name)
+            self.assertNotIn('buildPublishedSourceMap("espn")', body,
+                             "%s: buildEspnRows must not read the ESPN-implied combo" % name)
         text = WIDGET.read_text()
         body = extract_function(text, "buildEspnRows")
-        self.assertIsNotNone(body, "buildEspnRows missing from widget")
-        self.assertNotIn("publishedVorp", body,
-                         "buildEspnRows must not use modeled published ESPN values")
-        self.assertNotIn('buildPublishedSourceMap("espn")', body,
-                         "buildEspnRows must not read the ESPN-implied combo")
         self.assertIn("rawProjectionVorp", body,
                       "buildEspnRows must compute raw projection-minus-waiver VORP")
         self.assertRegex(body, r"rawVorp:\s*row\.rawProjectionVorp",
