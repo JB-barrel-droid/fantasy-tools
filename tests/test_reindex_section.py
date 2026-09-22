@@ -319,5 +319,67 @@ class TestRealFixtureSmoke(unittest.TestCase):
         self.assertEqual(review, [])
 
 
+class TestBuilderToReindexInterface(unittest.TestCase):
+    """The candidate builder's output must be directly consumable by the
+    reindex stage. Regression: the builder was reworked to emit
+    trade-value-comparison-section-candidate-v1 while the reindex still
+    demanded the legacy shape -- every real run died with
+    "unsupported candidate schema". This test runs the REAL builder into
+    the REAL reindex; it fails on the pre-fix code."""
+
+    def test_builder_output_feeds_reindex(self):
+        import build_comparison_source_section as bcss
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            # Synthetic universe: 12 players x 4 positions.
+            players_doc = {"players": []}
+            rows = []
+            pkey = 1000
+            for i, pos in enumerate(POS):
+                for j in range(12):
+                    pkey += 1
+                    name = f"iface {pos} {j}"
+                    players_doc["players"].append(
+                        {"player_key": pkey, "name": name.title(), "pos": pos})
+                    rows.append({"player_key": pkey, "canonical_name": name.title(),
+                                 "source_player_name": name.title(),
+                                 "value": float(50 + j * 3 + i),
+                                 "scoring": "full", "teams": 12})
+            players_p = tmp / "players.json"
+            players_p.write_text(json.dumps(players_doc))
+            comparison = {"player_keys": {f"iface {pos} {j}": 1001 + i * 12 + j
+                                          for i, pos in enumerate(POS)
+                                          for j in range(12)}}
+            comp_p = tmp / "comparison.json"
+            comp_p.write_text(json.dumps(comparison))
+            reference = {"schema": "trade-value-source-reference-v1",
+                         "source": "iface-source", "fetched_at": "2026-09-21T00:00:00Z",
+                         "rows": rows}
+            ref_p = tmp / "reference.json"
+            ref_p.write_text(json.dumps(reference))
+
+            section = bcss.build_section(ref_p, comp_p, section_key="ifacesrc", meta={})
+            # The reindex stage's contract: source_key + per-combo player_keys.
+            self.assertIn("source_key", section)
+            for combo in section["combos"].values():
+                self.assertIn("player_keys", combo)
+                self.assertEqual(set(combo["player_keys"]), set(combo["native"]))
+            cand_p = tmp / "candidate.json"
+            cand_p.write_text(json.dumps(section))
+
+            # Synthetic ESPN anchor leg with distinct values per slug.
+            combos = {"full_12": {"values": {
+                f"iface {pos} {j}": float(40 + j * 2 + i)
+                for i, pos in enumerate(POS) for j in range(12)}}}
+            fx_p = tmp / "fixture.json"
+            fx_p.write_text(json.dumps({"sources": {"espn": {"combos": combos}}}))
+
+            section_out, review = rcs.reindex_section(str(cand_p), str(fx_p), str(players_p))
+            self.assertEqual(section_out["reindex_status"], "complete")
+            self.assertEqual(review, [])
+            got = section_out["combos"]["full_12"]["reindexed"]
+            self.assertEqual(len(got), 48)
+
+
 if __name__ == "__main__":
     unittest.main()

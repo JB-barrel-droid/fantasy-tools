@@ -98,6 +98,7 @@ def build_section(
     key = section_key or slug(source)
 
     combos: dict[str, dict[str, float]] = {}
+    keys_by_combo: dict[str, dict[str, int]] = {}
     review_rows: list[dict[str, Any]] = []
     seen_keys: set[int] = set()
     placed = 0
@@ -144,6 +145,7 @@ def build_section(
         seen_keys.add(player_key)
         combo = combo_key_for(row.get("scoring"), row.get("teams"))
         combos.setdefault(combo, {})[name] = float(value)
+        keys_by_combo.setdefault(combo, {})[name] = player_key
         placed += 1
 
     inherited = reference.get("review_rows") if isinstance(reference.get("review_rows"), list) else []
@@ -153,6 +155,9 @@ def build_section(
     combo_payload = {
         combo: {
             "native": dict(sorted(values.items())),
+            # slug -> numeric player_key, pinned at collection. The reindex
+            # stage resolves identity fail-closed from these; never by name.
+            "player_keys": dict(sorted(keys_by_combo[combo].items())),
             "n": len(values),
             "value_provenance": "published",
         }
@@ -164,6 +169,10 @@ def build_section(
         "generated_at": utc_now(),
         "input_reference": str(reference_path),
         "section_key": key,
+        # source_key aliases section_key: the reindex stage reads source_key.
+        # Both names are kept so the merge stage (section_key) and the reindex
+        # stage (source_key) consume the same artifact.
+        "source_key": key,
         "reindex_status": "pending",
         "name": meta.get("name") or source,
         "kind": meta.get("kind") or "candidate source section (kind unspecified)",
