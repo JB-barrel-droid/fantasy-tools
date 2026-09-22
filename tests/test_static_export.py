@@ -274,14 +274,14 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
-    def test_curve_defaults_are_grouped_and_include_pure_vorp(self):
+    def test_curve_defaults_are_grouped_and_include_raw_value_above_waivers(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         html = (APP / "index.html").read_text(encoding="utf-8")
         self.assertIn("Bottom-up indexed", text)
         self.assertIn("Adjusted source projects", text)
         self.assertIn("Direct published charts", text)
-        self.assertIn("Pure VORP", text)
-        self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]', text)
+        self.assertIn("Raw value above waivers", text)
+        self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn"]', text)
         self.assertIn("buildCbsAdjustedMap", text)
         self.assertIn("buildEspnIndexedMap", text)
         self.assertIn("buildEspnRows", text)
@@ -296,7 +296,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("yslider", html)
         self.assertNotIn("Legacy projection comparison", html)
         self.assertIn('let position = "ALL"', text)
-        self.assertIn('let lockOrder = "fantasycalc_adjusted"', text)
+        self.assertIn('let lockOrder = "espn"', text)
         self.assertIn('sourceAvailable("fantasycalc_adjusted")', text)
 
     def test_dashboard_copy_does_not_surface_old_branding(self):
@@ -372,7 +372,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("buildEspnRows", text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn('key:"espn_role"', text)
-        self.assertIn("ESPN raw VORP", text)
+        self.assertIn("ESPN raw value above waivers", text)
 
     def test_data_health_surfaces_player_news_pipeline(self):
         html = (APP / "index.html").read_text(encoding="utf-8")

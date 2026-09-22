@@ -1,0 +1,73 @@
+{
+  "schema": "trade-value-adjustment-inputs-v1",
+  "version": "stage1-empty",
+  "status": "pending-stage2",
+  "generated_at": "2026-09-22T02:14:28Z",
+  "sources": {
+    "fantasycalc": {
+      "status": "pending-stage2",
+      "fit_bake_id": null,
+      "cells": []
+    },
+    "usatoday": {
+      "status": "pending-stage2",
+      "fit_bake_id": null,
+      "cells": []
+    },
+    "fantasypros": {
+      "status": "pending-stage2",
+      "fit_bake_id": null,
+      "cells": []
+    },
+    "cbs": {
+      "status": "pending-stage2",
+      "fit_bake_id": null,
+      "cells": []
+    }
+  },
+  "stage2_cell_format": {
+    "description": "Stage 2 will publish one adjustment cell per (position, tier) per source, fitted against the Monday reassessed methodology leg (the same fit universe the current baked *_adjusted fixture sections were fitted against). Each cell is an affine map from the source's as-published fixture value to its adjusted value.",
+    "cell_fields": {
+      "position": "QB | RB | WR | TE. The *_adjusted sources cover QB/RB/WR/TE only (no K/DST).",
+      "tier": "starter | bench. Waiver-tier players are never adjusted; the fixed-pie normalization still zeroes them.",
+      "alpha": "number. Intercept of the affine map.",
+      "beta": "number. Slope on the published value."
+    },
+    "formula": "adjusted = max(0, alpha + beta * published_value)",
+    "example_cell": {
+      "position": "RB",
+      "tier": "starter",
+      "alpha": 1.5,
+      "beta": 0.92
+    },
+    "fail_closed_rules": [
+      "Players with no matching (position, tier) cell keep their as-published value (no adjustment).",
+      "Cells with an unknown position, a tier other than starter/bench, or non-finite alpha/beta are ignored.",
+      "The browser applies cells to the fixture raw refs (the as-published combos), then runs the same normalizeTradeChartToFixedPie / applyRosterShape treatment as the baked path."
+    ],
+    "live_refit_recipe": {
+      "description": "The browser refits every eligible (source, position, tier) cell live from the fixture ESPN projections whenever the bench share or league config changes. Stage 1 refits for inspection but still renders the exact inherited fallback branch (no baked cells -> no display change).",
+      "independent_input": "The source's as-published fixture value for the active scoring/teams combo.",
+      "target": "The live two-tier value: the full-precision two-tier value at the active bench share (marginal rates solved per position against the frozen pool lines) times the single shared 70/max(raw) scale. Rounding is display-only and never enters the fit.",
+      "method": "Ordinary least squares per (source, position, tier): beta = cov(published, target) / var(published); alpha = mean(target) - beta * mean(published).",
+      "formula": "adjusted = max(0, alpha + beta * published_value)",
+      "tiers": "starter | bench from the two-tier model's own starter/bench partition (flex starters count as starters). Waiver-tier players are never adjusted; the fixed-pie normalization still zeroes them.",
+      "eligibility": "A cell is emitted only with >= 2 finite (published, target) pairs and positive published-value variance; otherwise no cell is emitted and players keep their as-published value.",
+      "fail_closed": [
+        "Positions whose calibration is invalid at the active share (starter rate <= bench rate) are withheld from the fit: no cells, no targets, values priced at zero.",
+        "Cells with non-finite alpha/beta are dropped.",
+        "The per-position fail-closed guard in the 2x2 solve stays as a backstop behind the bounded slider."
+      ],
+      "recompute_triggers": [
+        "bench share slider moves",
+        "scoring changes",
+        "team count changes"
+      ],
+      "slider": "One global bounded slider writes the same bench share to all skill positions (each position falls back to the shared default); K/DST are excluded. Bounds are the maximal contiguous feasible interval containing 0.15, rounded inward so endpoints stay strictly feasible; the current value clamps if a config change moves it outside. Recommended tick at 0.15 with a reset affordance."
+    }
+  },
+  "notes": [
+    "Stage 1 is architecture staging only: every source has status pending-stage2 and an empty cells list, so the dashboard falls back exactly to current behavior (baked *_adjusted fixture sections for fantasycalc/usatoday/fantasypros, browser-derived buildCbsAdjustedMap for cbs).",
+    "Repo source of truth: data/adjustment-inputs/adjustment-inputs-<version>.json. Served copy: app/trade-value-chart/assets/adjustment-inputs.json."
+  ]
+}

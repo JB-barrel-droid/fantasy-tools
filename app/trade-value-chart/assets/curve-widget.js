@@ -13,7 +13,7 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     cbs_adjusted: "CBS Adjusted",
-    espn_vorp: "ESPN raw VORP"
+    espn_vorp: "ESPN raw value above waivers"
   };
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
   const SOURCE_KEYS = [
@@ -41,20 +41,335 @@
   const SOURCE_GROUPS = [
     {label:"Bottom-up indexed", keys:["espn"]},
     {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
-    {label:"Pure VORP", keys:["espn_vorp"]},
+    {label:"Raw value above waivers", keys:["espn_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
   const PURE_VORP_KEYS = ["espn_vorp"];
   const EXTRA_SOURCE_KEYS = ["cbs_adjusted"];
-  const DEFAULT_INDEXED_SOURCES = ["espn", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
+  // Fixture-transition Option B (staged 2026-09-22): the *_adjusted curves
+  // are paused while their sources lack live adjustment cells, so the
+  // default active set is the live ESPN adjusted leg only. A paused curve
+  // returns to the toggle list automatically when stage-2 cells land.
+  const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const SPECIALIST_POSITIONS = ["K", "DST"];
   const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
   const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
+  // Stage 1 display freeze: the rendered fallback curves (fixed-pie indexed
+  // maps, ESPN indexed map) always normalize at this share, so moving the
+  // bench-share slider reruns the live two-tier calibration and its readout
+  // WITHOUT changing any fallback curve. Only live-derived stage-2 paths
+  // (baked adjustment cells present) normalize at the active slider share.
+  const DISPLAY_BENCH_SHARE = DEFAULT_BENCH_SHARE;
 
-  const root = document.getElementById("curve-widget");
+  // Two-tier marginal-price model: pure browser port of
+  // lottery/bin/starter_model.py (reference implementation). No DOM, no
+  // widget state -- safe to load in Node for tests. See the reference
+  // module docstring for the economics; the port notes below call out the
+  // JS-specific decisions.
+  const TwoTier = (() => {
+    const POSITIONS = ["QB", "RB", "WR", "TE"];
+    const DEFAULT_BENCH_SHARE_TT = 0.15;
+    const GLIDE_WIDTH_FRAC = 0.25;
+    const FEAS_TOL = 1e-4;
+    // 12-team reference bench depths (elboberto-aligned). Scaled by
+    // teams / 12 with round-half-up for other league sizes.
+    const BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
+    // Reference league shape for the calibration pool (fixed; the slider
+    // bounds are per scoring x teams, not per custom roster shape).
+    const REF_SLOTS = {QB: 1, RB: 2, WR: 3, TE: 1};
+    const REF_FLEX_COUNT = 1;
+    const REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"];
+    // Visible fail-closed flag: a position whose calibration is infeasible
+    // at the active share is withheld, never zero-filled or guessed.
+    const WITHHELD_FLAG = "withheld: calibration failed closed";
+
+    // log(1 + e^z), numerically stable. d/dz softplus = sigmoid.
+    const softplus = z => Math.log1p(Math.exp(-Math.abs(z))) + (z > 0 ? z : 0);
+
+    // Bench-rate (A) and starter-rate (B) exposures of one player's surplus:
+    // value(x) = p_bench * A + p_starter * B, marginal price gliding from
+    // p_bench to p_starter across the starter line rs. Returns [0, 0] at or
+    // below the waiver line.
+    function sliceExposures(x, rw, rs, tau) {
+      if (!(x > rw)) return [0, 0];
+      const glide = tau * (softplus((x - rs) / tau) - softplus((rw - rs) / tau));
+      return [(x - rw) - glide, glide];
+    }
+
+    // A bench share is a fraction of the pie: strictly between 0 and 1.
+    function checkShare(share, pos = "?") {
+      const s = Number(share);
+      if (!Number.isFinite(s) || !(s > 0 && s < 1)) {
+        throw new Error(`cannot calibrate ${pos}: bench share ${String(share)} is not between 0 and 1 (exclusive)`);
+      }
+      return s;
+    }
+
+    // Solve the per-position 2x2 system from the fixed-pie identity:
+    //   a_bench * p_b + b_bench * p_s = bench_share * pie        (bench total)
+    //   a_start * p_b + b_start * p_s = (1-bench_share) * pie    (starter total)
+    // Fail closed: degenerate exposures, a non-(0,1) share, a non-positive
+    // bench rate, a starter rate that does not exceed the bench rate, or a
+    // solved split that misses the identity pre-rounding all throw. This
+    // guard is the backstop behind the bounded slider.
+    function solveTierPrices(aBench, bBench, aStart, bStart, pie, pos = "?", benchShare = DEFAULT_BENCH_SHARE_TT) {
+      const share = checkShare(benchShare, pos);
+      const starterShare = 1 - share;
+      if (!(pie > 0)) throw new Error(`cannot calibrate ${pos}: non-positive pie ${pie}`);
+      const det = aBench * bStart - aStart * bBench;
+      if (det === 0) {
+        throw new Error(`cannot calibrate ${pos}: degenerate slice exposures (a_bench=${aBench} b_bench=${bBench} a_start=${aStart} b_start=${bStart})`);
+      }
+      const pb = (share * pie * bStart - bBench * starterShare * pie) / det;
+      const ps = (aBench * starterShare * pie - share * pie * aStart) / det;
+      if (!(pb > 0)) throw new Error(`cannot calibrate ${pos} at bench share ${share}: bench rate ${pb} not positive`);
+      if (!(ps > pb)) {
+        throw new Error(`cannot calibrate ${pos} at bench share ${share}: starter rate ${ps} does not exceed bench rate ${pb} -- the economics break (bench slices would pay more than starter slices)`);
+      }
+      // Exactness: the solved rates must reproduce the split pre-rounding.
+      const tol = 1e-9 * pie;
+      if (Math.abs(pb * aBench + ps * bBench - share * pie) > tol ||
+          Math.abs(pb * aStart + ps * bStart - starterShare * pie) > tol) {
+        throw new Error(`cannot calibrate ${pos} at bench share ${share}: solved rates miss the split (bench=${pb * aBench + ps * bBench} starter=${pb * aStart + ps * bStart} pie=${pie})`);
+      }
+      return {pb, ps};
+    }
+
+    function feasibleAt(aBench, bBench, aStart, bStart, pie, share, pos = "?") {
+      try {
+        solveTierPrices(aBench, bBench, aStart, bStart, pie, pos, share);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    // The bench-share range where the economics hold, via bisection.
+    // Returns [lo, hi] or null when the recommended default (0.15) is
+    // itself infeasible. Bisection mirrors the reference exactly (same
+    // tolerance, same start points) so pinned vectors match to 1e-9.
+    function feasibleBenchShareInterval(aBench, bBench, aStart, bStart, pie, pos = "?") {
+      if (!feasibleAt(aBench, bBench, aStart, bStart, pie, DEFAULT_BENCH_SHARE_TT, pos)) return null;
+      let lo = 1e-6, hi = DEFAULT_BENCH_SHARE_TT;
+      while (hi - lo > FEAS_TOL) {
+        const mid = (lo + hi) / 2;
+        if (feasibleAt(aBench, bBench, aStart, bStart, pie, mid, pos)) hi = mid;
+        else lo = mid;
+      }
+      const loEdge = hi;
+      lo = DEFAULT_BENCH_SHARE_TT; hi = 1 - 1e-6;
+      while (hi - lo > FEAS_TOL) {
+        const mid = (lo + hi) / 2;
+        if (feasibleAt(aBench, bBench, aStart, bStart, pie, mid, pos)) lo = mid;
+        else hi = mid;
+      }
+      return [loEdge, lo];
+    }
+
+    // Slider min/max for the active league config: the INTERSECTION across
+    // positions, so no reachable setting can break any position's
+    // economics. Returns [lo, hi], or null when the intersection is empty
+    // (fail closed -- no valid setting exists for this config).
+    function sliderBounds(intervals) {
+      let lo = -Infinity, hi = Infinity, seen = 0;
+      for (const pos of Object.keys(intervals)) {
+        const iv = intervals[pos];
+        if (!iv) return null;
+        seen += 1;
+        if (iv[0] > lo) lo = iv[0];
+        if (iv[1] < hi) hi = iv[1];
+      }
+      if (!seen || lo > hi) return null;
+      return [lo, hi];
+    }
+
+    // Round-half-even (matches Python round(), the reference display step).
+    function roundHalfEven(x) {
+      const n = Math.floor(x), d = x - n;
+      if (d < 0.5) return n;
+      if (d > 0.5) return n + 1;
+      return n % 2 === 0 ? n : n + 1;
+    }
+
+    // One raw value -> display int. The shared normalize-then-round step:
+    // the pool's single 70-max multiplier applies to the full-precision
+    // raw value BEFORE rounding; rounding is display-only (min 1 when above
+    // the waiver line, else 0).
+    function displayValue(rawValue, scale, aboveWaiver) {
+      if (!aboveWaiver) return 0;
+      return Math.max(1, roundHalfEven(rawValue * scale));
+    }
+
+    // Normalize-then-round over a pool: scale = 70 / max(raw), applied to
+    // full-precision raw values BEFORE rounding. rawByKey: Map id -> raw.
+    // aboveWaiverByKey: id -> boolean. Returns {values: Map, scale}.
+    function normalizeThenRound(rawByKey, aboveWaiverByKey) {
+      let mx = 0;
+      rawByKey.forEach(v => { if (v > mx) mx = v; });
+      const scale = mx > 0 ? 70 / mx : 1;
+      const values = new Map();
+      rawByKey.forEach((v, k) => values.set(k, displayValue(v, scale, aboveWaiverByKey(k))));
+      return {values, scale};
+    }
+
+    // Round-half-up config scaling for bench depths (JS Math.round
+    // semantics for non-negative inputs; Python round() would banker's-round
+    // 22.5 to 22 and break Standard/10 RB -- hence explicit half-up here).
+    function benchMixForTeams(teams) {
+      const out = {};
+      for (const pos of POSITIONS) out[pos] = Math.round(BENCH_MIX_12[pos] * teams / 12);
+      return out;
+    }
+
+    // Round slider bounds INWARD (lo up, hi down) so the reachable
+    // endpoints remain strictly feasible.
+    function inwardBounds(lo, hi, step = 0.001) {
+      return [Math.ceil(lo / step - 1e-12) * step, Math.floor(hi / step + 1e-12) * step];
+    }
+
+    // Build the frozen pool structure for one league config.
+    // lists: {pos: [{id, x}]} per-game projections (unsorted ok).
+    // cfg: {teams, slots, flexCount, flexEligible, benchMix}.
+    // Returns {tiers, starters: Set, bench: Set, rostered: Set}.
+    // tiers[pos] = {rw, rs, tau, aBench, bBench, aStart, bStart, surplus}
+    // or null when the position has no players.
+    function buildPositionTiers(lists, cfg) {
+      const {teams, slots, flexCount, flexEligible, benchMix} = cfg;
+      const byPos = {};
+      for (const pos of POSITIONS) {
+        byPos[pos] = (lists[pos] || [])
+          .map(d => ({id: d.id, x: d.x}))
+          .filter(d => Number.isFinite(d.x))
+          .sort((a, b) => b.x - a.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      }
+      const dedicated = new Set(), starters = new Set();
+      for (const pos of POSITIONS) {
+        byPos[pos].slice(0, teams * (slots[pos] || 0)).forEach(d => { dedicated.add(d.id); starters.add(d.id); });
+      }
+      const flexPool = [];
+      for (const pos of POSITIONS) {
+        if (!flexEligible.includes(pos)) continue;
+        byPos[pos].forEach(d => { if (!dedicated.has(d.id)) flexPool.push(d); });
+      }
+      flexPool.sort((a, b) => b.x - a.x || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+      flexPool.slice(0, teams * (flexCount || 0)).forEach(d => starters.add(d.id));
+      const rostered = new Set(starters);
+      const bench = new Set();
+      for (const pos of POSITIONS) {
+        byPos[pos].filter(d => !rostered.has(d.id)).slice(0, benchMix[pos] || 0)
+          .forEach(d => { rostered.add(d.id); bench.add(d.id); });
+      }
+      const tiers = {};
+      for (const pos of POSITIONS) {
+        const lst = byPos[pos];
+        if (!lst.length) { tiers[pos] = null; continue; }
+        const nxt = lst.find(d => !rostered.has(d.id));
+        const rw = nxt ? nxt.x : 0;
+        const sProjs = lst.filter(d => starters.has(d.id)).map(d => d.x);
+        const bProjs = lst.filter(d => !starters.has(d.id)).map(d => d.x);
+        let rs;
+        if (!sProjs.length) rs = lst[0].x + 1;
+        else if (!bProjs.length) rs = lst[lst.length - 1].x - 1;
+        else rs = (Math.min(...sProjs) + Math.max(...bProjs)) / 2;
+        if (!(rs > rw)) throw new Error(`buildPositionTiers: starter line ${rs} must exceed waiver line ${rw} at ${pos}`);
+        const tau = GLIDE_WIDTH_FRAC * (rs - rw);
+        let aBench = 0, bBench = 0, aStart = 0, bStart = 0, surplus = 0;
+        for (const d of lst) {
+          if (!(d.x > rw)) continue;
+          surplus += d.x - rw;
+          const [a, b] = sliceExposures(d.x, rw, rs, tau);
+          if (starters.has(d.id)) { aStart += a; bStart += b; }
+          else { aBench += a; bBench += b; }
+        }
+        tiers[pos] = {rw, rs, tau, aBench, bBench, aStart, bStart, surplus};
+      }
+      return {tiers, starters, bench, rostered};
+    }
+
+    // Calibrate one position at a bench share. Fail closed per position:
+    // infeasible -> {invalid: true, invalidReason} with pb/ps null (values
+    // withheld downstream), never a guessed rate. Empty tier (no surplus)
+    // -> zero rates, every value zero.
+    function calibratePosition(tier, pie, benchShare = DEFAULT_BENCH_SHARE_TT) {
+      if (!tier) return null;
+      if (!(tier.surplus > 0)) {
+        return {...tier, pb: 0, ps: 0, invalid: false, invalidReason: null, benchRaw: 0, starterRaw: 0};
+      }
+      if (!(pie > 0)) {
+        return {...tier, pb: null, ps: null, invalid: true, invalidReason: `cannot calibrate: non-positive pie ${pie}`};
+      }
+      try {
+        const {pb, ps} = solveTierPrices(tier.aBench, tier.bBench, tier.aStart, tier.bStart, pie, "?", benchShare);
+        return {...tier, pb, ps, invalid: false, invalidReason: null,
+          benchRaw: pb * tier.aBench + ps * tier.bBench,
+          starterRaw: pb * tier.aStart + ps * tier.bStart};
+      } catch (e) {
+        return {...tier, pb: null, ps: null, invalid: true, invalidReason: String((e && e.message) || e)};
+      }
+    }
+
+    // Two-tier value of a hypothetical per-game projection x against a
+    // frozen calibrated position. Invalid positions price at zero -- never
+    // a guessed value.
+    function priceForProjection(x, cal) {
+      if (!cal || cal.invalid || cal.pb === null || cal.pb === undefined) return 0;
+      if (!(x > cal.rw)) return 0;
+      const [a, b] = sliceExposures(x, cal.rw, cal.rs, cal.tau);
+      return cal.pb * a + cal.ps * b;
+    }
+
+    // Global bench-share object: one slider writes the same share to every
+    // skill position (each position falls back to `default`). K/DST are
+    // excluded (never keys here; the two-tier model does not price them).
+    // Per-position sliders are the documented future extension: they would
+    // set individual position keys on this object.
+    function skillBenchShares(share) {
+      const s = checkShare(share);
+      return {default: s, QB: s, RB: s, WR: s, TE: s};
+    }
+    function skillBenchShare(shares, pos) {
+      if (!shares || typeof shares !== "object") return DEFAULT_BENCH_SHARE_TT;
+      const v = shares[pos];
+      if (typeof v === "number" && Number.isFinite(v)) return checkShare(v);
+      const d = shares.default;
+      if (typeof d === "number" && Number.isFinite(d)) return checkShare(d);
+      return DEFAULT_BENCH_SHARE_TT;
+    }
+
+    return {
+      POSITIONS, DEFAULT_BENCH_SHARE: DEFAULT_BENCH_SHARE_TT, GLIDE_WIDTH_FRAC,
+      REF_SLOTS, REF_FLEX_COUNT, REF_FLEX_ELIGIBLE, WITHHELD_FLAG,
+      softplus, sliceExposures, checkShare, solveTierPrices, feasibleAt,
+      feasibleBenchShareInterval, sliderBounds, roundHalfEven,
+      displayValue, normalizeThenRound, benchMixForTeams, inwardBounds,
+      buildPositionTiers, calibratePosition, priceForProjection,
+      skillBenchShares, skillBenchShare
+    };
+  })();
+
+  // Test surface: pure helpers loadable in Node (no DOM) before the
+  // widget's root early-return below.
+  globalThis.TradeValueTwoTier = TwoTier;
+
+  // Fixture-transition Option B (staged 2026-09-22): an *_adjusted curve is
+  // PAUSED while its source has no live adjustment cells in
+  // adjustment-inputs.json. espn ("ESPN adjusted") is the live bottom-up leg
+  // and is never paused. Pure in (key, inputs) so it is unit-testable; the
+  // widget calls it with the loaded adjustmentInputs. When stage-2 cells
+  // land for a source, its curve un-pauses automatically — no re-bake, no
+  // code change.
+  function adjustedCurvePaused(key, inputs) {
+    if (key === "espn" || !key.endsWith("_adjusted")) return false;
+    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const entry = inputs && inputs.sources ? inputs.sources[rawKey] : null;
+    return !(entry && Array.isArray(entry.cells) && entry.cells.length);
+  }
+  globalThis.TradeValueCurvePause = {adjustedCurvePaused};
+
+  const root = typeof document !== "undefined" ? document.getElementById("curve-widget") : null;
   if (!root) return;
   const $ = selector => root.querySelector(selector);
   const canvas = $("#chart");
@@ -76,7 +391,29 @@
     return window.TradeValueComparisonDataPromise;
   }
 
+  // Versioned adjustment inputs (trade-value-adjustment-inputs-v1). Stage 1 ships
+  // the stage1-empty asset: every source is pending-stage2 with no cells, so
+  // every *_adjusted curve falls back exactly to today's behavior. A missing or
+  // unparsable asset also falls back (fail-open) rather than breaking the chart.
+  function loadAdjustmentInputs() {
+    if (window.TradeValueAdjustmentInputs) return Promise.resolve(window.TradeValueAdjustmentInputs);
+    if (!window.TradeValueAdjustmentInputsPromise) {
+      window.TradeValueAdjustmentInputsPromise = fetch("assets/adjustment-inputs.json")
+        .then(response => {
+          if (!response.ok) throw new Error(`Adjustment inputs request failed (${response.status})`);
+          return response.json();
+        })
+        .then(payload => {
+          window.TradeValueAdjustmentInputs = payload?.schema === "trade-value-adjustment-inputs-v1" ? payload : null;
+          return window.TradeValueAdjustmentInputs;
+        })
+        .catch(() => null);
+    }
+    return window.TradeValueAdjustmentInputsPromise;
+  }
+
   let data = null;
+  let adjustmentInputs = null;
   let canonicalByKey = new Map();
   let sourceMaps = new Map();
   let universe = [];
@@ -86,13 +423,19 @@
   let teams = 12;
   let rosterShape = {...DEFAULT_ROSTER};
   let benchShare = DEFAULT_BENCH_SHARE;
+  // Two-tier calibration caches. Bounds/intervals depend only on the league
+  // config (scoring x teams; reference pool shape); calibrations and live
+  // cells additionally depend on the active bench share.
+  let twoTierConfigCache = new Map();
+  let twoTierCalCache = new Map();
+  let liveCellsCache = null;
   let espnRowsCache = null;
   let espnRoleByKey = new Map();
   let yAxisAuto = true;
   let yLow = 0;
   let yHigh = 100;
   let includeSpecialists = false;
-  let lockOrder = "fantasycalc_adjusted";
+  let lockOrder = "espn"; // Fixture-transition Option B: fantasycalc_adjusted is paused; espn is the live default lock.
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   let hideZeroTail = false;
   let zoomLow = 1;
@@ -155,9 +498,9 @@
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
-  const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key));
+  const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
   const isLockKey = key => ["preseason", "disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
-  const defaultValueLock = () => sourceAvailable("fantasycalc_adjusted") ? "fantasycalc_adjusted" : "espn";
+  const defaultValueLock = () => !isAdjustedCurvePaused("fantasycalc_adjusted") && sourceAvailable("fantasycalc_adjusted") ? "fantasycalc_adjusted" : "espn";
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
@@ -337,7 +680,10 @@
     return roles;
   }
 
-  function normalizeTradeChartToFixedPie(values) {
+  // share defaults to the frozen stage-1 display share: fallback curves never
+  // move with the bench-share slider. Live-derived stage-2 paths (baked
+  // adjustment cells present) pass the active slider share explicitly.
+  function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE) {
     const roles = roleMapForValues(values);
     const starterTotal = [...values.entries()]
       .filter(([playerKey]) => roles.get(playerKey) === "starter")
@@ -347,8 +693,8 @@
       .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
     const eligibleTotal = starterTotal + benchTotal;
     const target = commonFixedPieTotal(eligibleTotal);
-    const starterShare = Math.max(0, Math.min(1, 1 - benchShare));
-    const normalizedBenchShare = Math.max(0, Math.min(1, benchShare));
+    const starterShare = Math.max(0, Math.min(1, 1 - share));
+    const normalizedBenchShare = Math.max(0, Math.min(1, share));
     const starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
     const benchScale = benchTotal > 0 && target > 0 ? (target * normalizedBenchShare) / benchTotal : 0;
     const normalized = new Map();
@@ -417,8 +763,10 @@
     const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
     const rawTotal = starterRaw + benchRaw;
     const targetTotal = espnTargetPool(rawTotal);
-    const starterShare = Math.max(0, Math.min(1, 1 - benchShare));
-    const normalizedBenchShare = Math.max(0, Math.min(1, benchShare));
+    // Frozen stage-1 display share: the ESPN indexed map is a fallback
+    // curve and never moves with the bench-share slider.
+    const starterShare = Math.max(0, Math.min(1, 1 - DISPLAY_BENCH_SHARE));
+    const normalizedBenchShare = Math.max(0, Math.min(1, DISPLAY_BENCH_SHARE));
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
@@ -508,15 +856,74 @@
     return multipliers;
   }
 
+  // Generic live-adjust path (stage 1: architecture only; behavior unchanged).
+  // When a source HAS cells in adjustment-inputs.json, its *_adjusted curve is
+  // rendered from the fixture raw refs plus those cells. With no cells (stage 1:
+  // all four sources), adjustedMapFor falls back EXACTLY to today: the baked
+  // *_adjusted fixture sections for fantasycalc/usatoday/fantasypros, and the
+  // browser-derived buildCbsAdjustedMap() for CBS.
+  function adjustmentCellsFor(rawKey) {
+    const entry = adjustmentInputs?.sources?.[rawKey];
+    return entry && Array.isArray(entry.cells) && entry.cells.length ? entry.cells : null;
+  }
+
+  // Widget-scope pause check: bound to the loaded adjustmentInputs.
+  // Fail-closed: before inputs load (or when absent), adjusted curves read
+  // as paused.
+  const isAdjustedCurvePaused = key => adjustedCurvePaused(key, adjustmentInputs);
+
+  function buildLiveAdjustedMap(rawKey, cells) {
+    const raw = buildPublishedSourceMap(rawKey);
+    const roles = roleMapForValues(raw);
+    const cellByPosTier = new Map();
+    cells.forEach(cell => {
+      const pos = String(cell.position || "").toUpperCase();
+      const tier = String(cell.tier || "").toLowerCase();
+      const alpha = Number(cell.alpha);
+      const beta = Number(cell.beta);
+      if (!POSITION_ORDER.includes(pos) || !["starter", "bench"].includes(tier) || !Number.isFinite(alpha) || !Number.isFinite(beta)) return;
+      cellByPosTier.set(`${pos}|${tier}`, {alpha, beta});
+    });
+    const adjusted = new Map();
+    raw.forEach((value, playerKey) => {
+      const player = canonicalByKey.get(playerKey);
+      const role = roles.get(playerKey);
+      const cell = player && role ? cellByPosTier.get(`${player.pos}|${role}`) : null;
+      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+      adjusted.set(playerKey, cell ? Math.max(0, cell.alpha + cell.beta * safeValue) : safeValue);
+    });
+    return adjusted;
+  }
+
+  function adjustedMapFor(key) {
+    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const cells = adjustmentCellsFor(rawKey);
+    if (cells) return buildLiveAdjustedMap(rawKey, cells);
+    return key === "cbs_adjusted" ? buildCbsAdjustedMap() : buildSourceMap(key);
+  }
+
+  // Stage-2 activation: when baked adjustment cells exist for a source, its
+  // live-adjusted path normalizes at the ACTIVE slider share; every fallback
+  // path stays frozen at the stage-1 display share so moving the slider
+  // cannot change a fallback curve.
+  function adjustedShareFor(key) {
+    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    return adjustmentCellsFor(rawKey) ? benchShare : DISPLAY_BENCH_SHARE;
+  }
+
   function rebuildDomain() {
     espnRowsCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
     SOURCE_KEYS.forEach(key => {
-      const sourceMap = key === "espn" ? buildEspnIndexedMap() : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key));
+      const sourceMap = key === "espn"
+        ? buildEspnIndexedMap()
+        : key.endsWith("_adjusted")
+          ? normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor(key), key), adjustedShareFor(key))
+          : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key));
       sourceMaps.set(key, sourceMap);
     });
-    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(buildCbsAdjustedMap(), "cbs_adjusted")));
+    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor("cbs_adjusted"), "cbs_adjusted"), adjustedShareFor("cbs_adjusted")));
     sourceMaps.set("espn_vorp", buildEspnVorpMap());
 
     const keys = new Set();
@@ -543,8 +950,8 @@
   }
 
   function selectedRankSourceKey() {
-    if (visibleSourceKeys().includes(lockOrder) && sourceAvailable(lockOrder)) return lockOrder;
-    if (sourceAvailable("fantasycalc_adjusted")) return "fantasycalc_adjusted";
+    if (visibleSourceKeys().includes(lockOrder) && sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder)) return lockOrder;
+    if (!isAdjustedCurvePaused("fantasycalc_adjusted") && sourceAvailable("fantasycalc_adjusted")) return "fantasycalc_adjusted";
     if (sourceAvailable("espn")) return "espn";
     return activeSourceKeys()[0] || "espn";
   }
@@ -559,7 +966,7 @@
     const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
     const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(benchShare * 100)}% bench share · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
+    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
   }
 
   function makeTabs() {
@@ -610,6 +1017,239 @@
     }
   }
 
+  // ---- Live two-tier calibration (bench-share slider) ----
+  // The calibration pool uses the fixed reference league shape (QB1 / RB2 /
+  // WR3 / TE1 / 1 FLEX over RB-WR-TE, bench depths scaled by teams); the
+  // slider bounds are therefore per scoring x teams, cached here. 0.15 is
+  // feasible in all 12 supported combos (verified); if a config ever has no
+  // feasible interval the UI fails closed instead of clamping silently.
+  function twoTierConfigKey() {
+    return `${scoring}|${teams}`;
+  }
+
+  function espnProjectionsByPos() {
+    const field = scoringField();
+    const lists = {QB: [], RB: [], WR: [], TE: []};
+    canonicalByKey.forEach(player => {
+      if (!TwoTier.POSITIONS.includes(player.pos)) return;
+      const x = Number(player.espn_ppg?.[field]);
+      if (!Number.isFinite(x)) return;
+      lists[player.pos].push({id: player.player_key, x});
+    });
+    return lists;
+  }
+
+  function twoTierPieByPos() {
+    const combo = data.sources?.espn?.combos?.[comboKey("espn")];
+    const pies = {};
+    TwoTier.POSITIONS.forEach(pos => {
+      pies[pos] = Number(combo?.index_total?.[pos]?.target_total);
+    });
+    return pies;
+  }
+
+  function twoTierConfig() {
+    const key = twoTierConfigKey();
+    let entry = twoTierConfigCache.get(key);
+    if (!entry) {
+      entry = {lists: null, pool: null, pies: null, intervals: null, bounds: null, error: null};
+      try {
+        if (!data || !canonicalByKey.size) throw new Error("comparison data unavailable");
+        const lists = espnProjectionsByPos();
+        const pies = twoTierPieByPos();
+        const pool = TwoTier.buildPositionTiers(lists, {
+          teams,
+          slots: {...TwoTier.REF_SLOTS},
+          flexCount: TwoTier.REF_FLEX_COUNT,
+          flexEligible: [...TwoTier.REF_FLEX_ELIGIBLE],
+          benchMix: TwoTier.benchMixForTeams(teams)
+        });
+        const intervals = {};
+        TwoTier.POSITIONS.forEach(pos => {
+          const tier = pool.tiers[pos];
+          const pie = pies[pos];
+          intervals[pos] = tier && Number.isFinite(pie) && pie > 0
+            ? TwoTier.feasibleBenchShareInterval(tier.aBench, tier.bBench, tier.aStart, tier.bStart, pie, pos)
+            : null;
+        });
+        entry.lists = lists;
+        entry.pool = pool;
+        entry.pies = pies;
+        entry.intervals = intervals;
+        entry.bounds = TwoTier.sliderBounds(intervals);
+      } catch (e) {
+        entry.error = String((e && e.message) || e);
+      }
+      twoTierConfigCache.set(key, entry);
+    }
+    return entry;
+  }
+
+  function twoTierCalibration(share = benchShare) {
+    const cfg = twoTierConfig();
+    if (!cfg.pool) return null;
+    const key = `${twoTierConfigKey()}@${Number(share).toFixed(6)}`;
+    let cal = twoTierCalCache.get(key);
+    if (!cal) {
+      cal = {};
+      // The slider writes one global share object; every skill position
+      // reads through the shared default (per-position sliders would set
+      // individual keys later).
+      const shares = TwoTier.skillBenchShares(share);
+      TwoTier.POSITIONS.forEach(pos => {
+        cal[pos] = TwoTier.calibratePosition(cfg.pool.tiers[pos], cfg.pies[pos],
+          TwoTier.skillBenchShare(shares, pos));
+      });
+      if (twoTierCalCache.size > 64) twoTierCalCache.delete(twoTierCalCache.keys().next().value);
+      twoTierCalCache.set(key, cal);
+    }
+    return cal;
+  }
+
+  // Live two-tier values: full-precision two-tier value per player at
+  // the ACTIVE bench share against the frozen pool lines, times the single
+  // shared 70/max(raw) scale. Rounding is display-only and never enters the
+  // OLS fit below. Invalid positions contribute no targets (withheld).
+  function ddfTwoTierValues() {
+    const cfg = twoTierConfig();
+    const cal = twoTierCalibration(benchShare);
+    if (!cfg.pool || !cal) return null;
+    const raw = new Map(), posOf = new Map();
+    TwoTier.POSITIONS.forEach(pos => {
+      const c = cal[pos];
+      (cfg.lists[pos] || []).forEach(d => {
+        posOf.set(d.id, pos);
+        raw.set(d.id, TwoTier.priceForProjection(d.x, c));
+      });
+    });
+    let mx = 0;
+    raw.forEach(v => { if (v > mx) mx = v; });
+    const scale = mx > 0 ? 70 / mx : 1;
+    const values = new Map();
+    raw.forEach((v, id) => values.set(id, v * scale));
+    return {values, scale, posOf, starters: cfg.pool.starters, bench: cfg.pool.bench, calibration: cal};
+  }
+
+  // Browser-side refit of every eligible (source, position, tier) cell.
+  // Independent input: the source's as-published fixture value for the
+  // active scoring/teams combo. Target: the live two-tier model value.
+  // OLS per cell: beta = cov(x, y) / var(x), alpha = mean(y) - beta*mean(x);
+  // applied as adjusted = max(0, alpha + beta * published). A cell is
+  // emitted only with >= 2 finite pairs and positive x variance; positions
+  // withheld at the active share fit no cells. Recomputed whenever the
+  // bench share or league config changes (cache key).
+  function refitLiveCells() {
+    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}`;
+    if (liveCellsCache && liveCellsCache.key === key) return liveCellsCache.cells;
+    const cells = [];
+    const ddf = ddfTwoTierValues();
+    if (ddf) {
+      ["fantasycalc", "usatoday", "fantasypros", "cbs"].forEach(rawKey => {
+        const published = buildPublishedSourceMap(rawKey);
+        if (!published.size) return;
+        TwoTier.POSITIONS.forEach(pos => {
+          if (ddf.calibration[pos]?.invalid) return;
+          ["starter", "bench"].forEach(tier => {
+            const xs = [], ys = [];
+            published.forEach((pub, playerKey) => {
+              if (ddf.posOf.get(playerKey) !== pos) return;
+              // Bench tier = the two-tier model's own bench partition only;
+              // waiver-tier players are never adjusted.
+              const inTier = tier === "starter"
+                ? ddf.starters.has(playerKey)
+                : ddf.bench.has(playerKey);
+              if (!inTier) return;
+              const y = ddf.values.get(playerKey);
+              if (!Number.isFinite(pub) || !Number.isFinite(y)) return;
+              xs.push(pub); ys.push(y);
+            });
+            if (xs.length < 2) return;
+            const n = xs.length;
+            const mx = xs.reduce((s, v) => s + v, 0) / n;
+            const my = ys.reduce((s, v) => s + v, 0) / n;
+            let sxx = 0, sxy = 0;
+            for (let i = 0; i < n; i++) { sxx += (xs[i] - mx) * (xs[i] - mx); sxy += (xs[i] - mx) * (ys[i] - my); }
+            if (!(sxx > 0)) return;
+            const beta = sxy / sxx, alpha = my - beta * mx;
+            if (!Number.isFinite(alpha) || !Number.isFinite(beta)) return;
+            cells.push({source: rawKey, position: pos, tier, alpha, beta, n});
+          });
+        });
+      });
+    }
+    liveCellsCache = {key, cells};
+    return cells;
+  }
+
+  function benchSharePct(share) {
+    return `${(share * 100).toFixed(1)}%`;
+  }
+
+  // Recompute slider bounds for the active config, clamp the current value
+  // if a config change moved it outside the feasible interval, and refresh
+  // the slider, the recommended tick, and the readout (feasible interval +
+  // per-position rates, or the visible withheld flag).
+  function syncBenchShareControl() {
+    const block = $("#benchShareBlock");
+    if (!block) return;
+    const input = block.querySelector("input[type=range]");
+    const valueEl = block.querySelector(".bench-share-value");
+    const readout = block.querySelector(".bench-share-readout");
+    const tick = block.querySelector(".bench-share-tick");
+    const fill = block.querySelector(".fill");
+    const resetBtn = block.querySelector(".bench-share-reset");
+    const cfg = twoTierConfig();
+    const failClosed = reason => {
+      if (input) input.disabled = true;
+      if (resetBtn) resetBtn.disabled = true;
+      if (readout) readout.textContent = reason;
+    };
+    if (cfg.error || !cfg.bounds) {
+      failClosed(cfg.error
+        ? `Two-tier calibration unavailable: ${cfg.error}`
+        : "The bench-share slider has no valid setting for this league setup: no bench share keeps every position's starter rate above its bench rate. No values are shown rather than wrong ones.");
+      return;
+    }
+    let [lo, hi] = cfg.bounds;
+    [lo, hi] = TwoTier.inwardBounds(lo, hi);
+    if (!(hi > lo)) {
+      failClosed("The bench-share slider has no valid setting for this league setup: the feasible interval is empty after rounding. No values are shown rather than wrong ones.");
+      return;
+    }
+    if (benchShare < lo) benchShare = lo;
+    if (benchShare > hi) benchShare = hi;
+    if (input) {
+      input.disabled = false;
+      input.min = String(lo);
+      input.max = String(hi);
+      input.step = "0.001";
+      input.value = String(benchShare);
+      input.setAttribute("aria-label", `Bench share, feasible ${benchSharePct(lo)} to ${benchSharePct(hi)}, recommended 15 percent`);
+    }
+    if (resetBtn) {
+      resetBtn.disabled = false;
+      resetBtn.title = "Restore the recommended 15% bench share";
+    }
+    const frac = value => (value - lo) / (hi - lo);
+    if (tick) tick.style.left = `calc(8px + ${frac(TwoTier.DEFAULT_BENCH_SHARE)} * (100% - 16px) - 1px)`;
+    if (fill) {
+      fill.style.left = "8px";
+      fill.style.width = `calc(${frac(benchShare)} * (100% - 16px))`;
+    }
+    if (valueEl) valueEl.textContent = benchSharePct(benchShare);
+    const cal = twoTierCalibration(benchShare);
+    if (readout && cal) {
+      const parts = TwoTier.POSITIONS.map(pos => {
+        const c = cal[pos];
+        if (!c || c.invalid) return `${pos} ${TwoTier.WITHHELD_FLAG}`;
+        return `${pos} starter ${c.ps.toFixed(2)} > bench ${c.pb.toFixed(2)}`;
+      });
+      readout.textContent = `Feasible ${benchSharePct(lo)}–${benchSharePct(hi)} · recommended 15%. ` + parts.join(" · ");
+      readout.title = "Per-position marginal rates: each point above the starter line pays the starter rate; points between the waiver and starter lines pay the bench rate.";
+    }
+    refitLiveCells();
+  }
+
   function makeRosterControls() {
     const grid = $("#rosterShapeControls");
     if (!grid) return;
@@ -641,20 +1281,50 @@
       wrapper.append(text, input);
       grid.appendChild(wrapper);
     });
-    const absenceWrapper = document.createElement("label");
-    absenceWrapper.className = "roster-step absence-step";
-    const absenceText = document.createElement("span");
-    absenceText.textContent = "Bench %";
-    const absenceInput = document.createElement("input");
-    absenceInput.type = "number";
-    absenceInput.min = "0";
-    absenceInput.max = "50";
-    absenceInput.step = "1";
-    absenceInput.value = String(Math.round(benchShare * 100));
-    absenceInput.setAttribute("aria-label", "Bench value share percentage");
-    absenceInput.addEventListener("change", () => setBenchShare(absenceInput.value));
-    absenceWrapper.append(absenceText, absenceInput);
-    grid.appendChild(absenceWrapper);
+    // Bench share: one global bounded slider (not a free input). It writes the
+    // same share to all skill positions (each falls back to the shared
+    // default); K/DST are excluded. Bounds are the maximal feasible interval
+    // containing 0.15 where every position solves with starter rate above
+    // bench rate, rounded inward; the tick marks the recommended 15%.
+    const shareBlock = document.createElement("div");
+    shareBlock.className = "bench-share-block";
+    shareBlock.id = "benchShareBlock";
+    const shareHead = document.createElement("div");
+    shareHead.className = "bench-share-head";
+    const shareTitle = document.createElement("span");
+    shareTitle.className = "bench-share-title";
+    shareTitle.textContent = "Bench %";
+    const shareValue = document.createElement("span");
+    shareValue.className = "bench-share-value";
+    shareValue.textContent = benchSharePct(benchShare);
+    const shareReset = document.createElement("button");
+    shareReset.type = "button";
+    shareReset.className = "bench-share-reset";
+    shareReset.textContent = "Reset to 15%";
+    shareReset.addEventListener("click", () => setBenchShareFraction(TwoTier.DEFAULT_BENCH_SHARE));
+    shareHead.append(shareTitle, shareValue, shareReset);
+    const slider = document.createElement("div");
+    slider.className = "zslider bench-share-slider";
+    const track = document.createElement("div");
+    track.className = "track";
+    const tick = document.createElement("div");
+    tick.className = "bench-share-tick";
+    tick.title = "Recommended 15% bench share";
+    const fill = document.createElement("div");
+    fill.className = "fill";
+    const shareInput = document.createElement("input");
+    shareInput.type = "range";
+    shareInput.step = "0.001";
+    shareInput.value = String(benchShare);
+    shareInput.setAttribute("aria-label", "Bench share");
+    shareInput.addEventListener("input", () => setBenchShareFraction(Number(shareInput.value), false));
+    shareInput.addEventListener("change", () => { setBenchShareFraction(Number(shareInput.value), false); publishShared(); });
+    shareInput.addEventListener("dblclick", () => setBenchShareFraction(TwoTier.DEFAULT_BENCH_SHARE));
+    slider.append(track, tick, fill, shareInput);
+    const readout = document.createElement("p");
+    readout.className = "bench-share-readout";
+    shareBlock.append(shareHead, slider, readout);
+    grid.appendChild(shareBlock);
     const specialistToggle = $("#includeSpecialists");
     const specialistNote = $("#specialistNote");
     const specialistPlayers = [...canonicalByKey.values()].filter(player => SPECIALIST_POSITIONS.includes(player.pos));
@@ -683,8 +1353,9 @@
           ? "K/DST use ESPN projection-derived values only."
           : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
         : "K/DST are waiting for projection-derived values in the artifact; preseason ranks are not used.";
-      specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - benchShare) * 100)}% of trade-value points and bench receives ${Math.round(benchShare * 100)}%.`;
+      specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% of trade-value points and bench receives ${Math.round(DISPLAY_BENCH_SHARE * 100)}%.`;
     }
+    syncBenchShareControl();
   }
 
   function chartValueExtent(rows = displayRows()) {
@@ -732,13 +1403,19 @@
       input.type = "checkbox";
       const hasData = sourceMaps.get(key)?.size > 0;
       const staleWeek = sourceIsStale(key);
-      const available = hasData && sourceComboExists(key);
+      // Fixture-transition Option B: a paused adjusted curve stays listed
+      // but greyed out until stage-2 adjustment cells land for its source.
+      const paused = isAdjustedCurvePaused(key);
+      const available = hasData && sourceComboExists(key) && !paused;
       input.checked = activeSources.has(key) && available;
       input.disabled = !available;
       input.dataset.source = key;
       input.setAttribute("aria-label", `Show ${sourceLabel(key)} curve`);
       label.classList.toggle("is-stale", staleWeek && available);
-      if (!available) {
+      if (paused) {
+        label.classList.add("is-disabled");
+        label.title = `${sourceLabel(key)} is paused while it waits on fresh adjustment inputs. It will return automatically once they land.`;
+      } else if (!available) {
         label.classList.add("is-disabled");
         label.title = `${sourceLabel(key)} is not available for ${scoreLabel()} / ${teams} teams in the current artifact.`;
       } else if (staleWeek) {
@@ -759,7 +1436,12 @@
       swatch.style.borderTopStyle = key.endsWith("_adjusted") ? "dashed" : "solid";
       const text = document.createElement("span");
       text.textContent = sourceLabel(key);
-      if (staleWeek && hasData) {
+      if (paused) {
+        const meta = document.createElement("span");
+        meta.className = "src-meta";
+        meta.textContent = "paused · waiting on fresh adjustment inputs";
+        text.appendChild(meta);
+      } else if (staleWeek && hasData) {
         const meta = document.createElement("span");
         meta.className = "src-meta";
         meta.textContent = `stale · waiting Wk ${activeReferenceWeek()}`;
@@ -806,22 +1488,36 @@
     window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
 
-  function setBenchShare(raw, publish = true) {
-    const next = Math.max(0, Math.min(0.5, Number(raw) / 100));
-    if (!Number.isFinite(next) || Math.abs(next - benchShare) < 0.0001) {
-      makeRosterControls();
+  // Bench share is the two-tier calibration parameter: one global bounded
+  // slider writing the same share to all skill positions (K/DST excluded).
+  // The slider cannot leave the feasible interval, so the per-position
+  // fail-closed guard in the solver stays as a backstop (defense in depth).
+  // Displayed fallback curves are frozen at DISPLAY_BENCH_SHARE, so moving
+  // the slider only reruns the live calibration and its readout.
+  function setBenchShareFraction(share, publish = true) {
+    const cfg = twoTierConfig();
+    const bounds = cfg.bounds;
+    let next = Number(share);
+    if (!Number.isFinite(next) || !bounds) {
+      syncBenchShareControl();
+      return;
+    }
+    const [lo, hi] = TwoTier.inwardBounds(bounds[0], bounds[1]);
+    next = Math.min(hi, Math.max(lo, next));
+    if (Math.abs(next - benchShare) < 1e-9) {
+      syncBenchShareControl();
       return;
     }
     benchShare = next;
     crossRank = null;
-    espnRowsCache = null;
-    rebuildDomain();
-    makeRosterControls();
-    makeValueBandControl();
-    makeSourceToggles();
-    resetZoom();
-    draw();
+    syncBenchShareControl();
     if (publish) publishShared();
+  }
+
+  // Backward-compatible entry: the retired free input passed an integer
+  // percent; external callers may still do so.
+  function setBenchShare(raw, publish = true) {
+    setBenchShareFraction(Number(raw) / 100, publish);
   }
 
   function setRosterSpot(key, raw, publish = true) {
@@ -862,7 +1558,7 @@
     scoring = normalized;
     crossRank = null;
     rebuildDomain();
-    if (![ "preseason", "disagreement" ].includes(lockOrder) && !sourceAvailable(lockOrder)) lockOrder = defaultValueLock();
+    if (![ "preseason", "disagreement" ].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
     makeLeagueControls();
     makeRosterControls();
     makeValueBandControl();
@@ -879,7 +1575,7 @@
     teams = normalized;
     crossRank = null;
     rebuildDomain();
-    if (![ "preseason", "disagreement" ].includes(lockOrder) && !sourceAvailable(lockOrder)) lockOrder = defaultValueLock();
+    if (![ "preseason", "disagreement" ].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
     makeLeagueControls();
     makeRosterControls();
     makeValueBandControl();
@@ -1296,7 +1992,7 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts use the same fixed pie split ${Math.round((1 - benchShare) * 100)}% starter / ${Math.round(benchShare * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts use the same fixed pie split ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% starter / ${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench, waiver to 0 · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with the selected player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
@@ -1402,7 +2098,7 @@
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length};
+    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAbove70, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAbove70", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
@@ -1411,6 +2107,7 @@
   async function init() {
     try {
       data = await loadComparisonData();
+      adjustmentInputs = await loadAdjustmentInputs();
       canonicalByKey = buildCanonicalMap();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       const invalid = SOURCE_KEYS.filter(key => data.source_validation?.[key] !== "live");
@@ -1429,8 +2126,21 @@
       runRegressionGuards();
       draw();
       $("#curve-status").classList.add("validated");
-      $("#curve-status").innerHTML = "<strong>Validated:</strong> ESPN live plus four adjusted source projects are shown by default. Direct published charts are available but off by default. Pure ESPN VORP can be enabled on the same chart.";
+      const pausedKeys = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(isAdjustedCurvePaused);
+      $("#curve-status").innerHTML = pausedKeys.length
+        ? `<strong>Validated:</strong> ESPN adjusted is shown by default. ${pausedKeys.length} adjusted source projects are paused while they wait on fresh adjustment inputs. Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`
+        : "<strong>Validated:</strong> ESPN live plus four adjusted source projects are shown by default. Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.";
       publishShared();
+      window.TradeValueTwoTierLive = {
+        configKey: twoTierConfigKey,
+        bounds: () => twoTierConfig().bounds,
+        intervals: () => twoTierConfig().intervals,
+        calibration: share => twoTierCalibration(share),
+        benchShares: () => TwoTier.skillBenchShares(benchShare),
+        ddfValues: ddfTwoTierValues,
+        liveCells: refitLiveCells,
+        setBenchShareFraction
+      };
     } catch (error) {
       $("#curve-status").innerHTML = `<strong>Curves unavailable:</strong> ${String(error.message)}`;
       console.error(error);

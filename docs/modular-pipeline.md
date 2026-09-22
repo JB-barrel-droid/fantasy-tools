@@ -40,6 +40,45 @@ The importer writes a `trade-value-source-snapshot-v1` JSON file under
 `data/raw/sources/`. That snapshot is raw source input; it is not player-key
 matched and it is not safe to publish directly.
 
+Supabase import stage (dashboard sources only):
+
+```bash
+make supabase-import SOURCE=fantasycalc
+make supabase-import SOURCE=espn FROM_FILE=/path/to/espn_projections.csv
+```
+
+Scraped references are saved to Supabase first (workspace scrapes), then the
+repo imports from Supabase — never from ad-hoc files. The importer writes the
+same `trade-value-source-snapshot-v1` JSON under
+`data/raw/sources/<source>/<content-vintage>/` with a `snapshot-manifest.json`
+sidecar (source, Supabase table, content vintage and how it was derived, pull
+time labeled as such, row counts, sha256 of the snapshot bytes). Content
+vintage is when the SOURCE last changed its numbers, never pull time.
+Dashboard sources only: espn, usatoday, fantasycalc, fantasypros, cbs — ECR,
+Vegas/prediction-markets, and Razzball are never imported here. The full
+table mapping lives in `docs/supabase-source-mapping.md`.
+
+ESPN and CBS have no Supabase table yet (stage1b gap): they import via
+`FROM_FILE` from the workspace saved references, stamped identically, with
+`save_gap: "no-supabase-table-stage1b"` in the manifest. DDL for the two
+missing tables is written for review at
+`pipelines/sql/create_espn_cbs_reference_tables.sql` (not executed).
+
+Import health gate:
+
+```bash
+make import-health NFL_WEEK=3
+```
+
+Verifies every active source's snapshot landed with fresh content vintage
+(bytes match the manifest, Supabase row counts/vintage agree, week-designated
+charts match the NFL week). A missing, stale, or failed import fails closed:
+non-zero exit, loud signal, and NO match/reference/section/reindex/review/
+promote step may run on a red gate. Per-source health (last successful import,
+content vintage, row counts, failure reason) is written to
+`output/source-import-health.json` (schema: `docs/import-health-schema.md`)
+for the pull watchdog.
+
 Match an imported source snapshot to canonical `player_key` values:
 
 ```bash
@@ -56,15 +95,37 @@ Build a source-reference artifact from matched rows:
 make source-reference MATCH_FILE=output/source-matches/fantasycalc/2026-09-21/fantasycalc-ppr-12-matched.json
 ```
 
-The source-reference artifact has one row per canonical `player_key` and keeps
-source values separate from dashboard display math. Duplicate player-key rows
-with conflicting values are sent to review instead of being merged.
+The source-reference stage emits one artifact per (scoring, teams, qb) group
+found in the matched rows -- a source that publishes the same player under
+several scorings (e.g. USA Today's standard/half_ppr/ppr rows) gets one
+reference file per scoring, each with its own `combo_key` and a combo-suffixed
+output path (`<source>-<combo>-reference.json`) so files never collide. Rows
+are never compared across scorings: grouping by player_key alone used to turn
+one player_key's three scoring rows into spurious "duplicate_player_key"
+review groups. Genuine duplicates (same player_key AND same scoring/teams/qb
+with conflicting values) still become duplicate review rows. Rows whose
+scoring cannot be resolved (neither row-level nor match defaults) are never
+placed and never guessed into a group -- they become `missing_scoring` review
+rows, the same fail-closed convention as the match stage's no_match/ambiguous
+rows.
 
-Build a candidate comparison source section from the reference artifact:
+The source-reference artifact has one row per canonical `player_key` per
+group and keeps source values separate from dashboard display math. Duplicate
+player-key rows with conflicting values are sent to review instead of being
+merged.
+
+Build a candidate comparison source section from the reference artifact(s):
 
 ```bash
 make comparison-section REFERENCE_FILE=output/source-references/fantasycalc/2026-09-21/fantasycalc-ppr-12-reference.json
+# ...or pass every per-group artifact for a multi-scoring source:
+make comparison-section REFERENCE_FILES="output/source-references/usatoday/2026-09-21/usatoday-standard-12-reference.json output/source-references/usatoday/2026-09-21/usatoday-half-ppr-12-reference.json output/source-references/usatoday/2026-09-21/usatoday-ppr-12-reference.json"
 ```
+
+The section builder accepts one or more reference inputs and unions them into
+a single candidate (inputs must agree on source and fetched_at -- mixing
+sources or vintages fails closed); identical inherited review rows are
+deduped. A single input behaves exactly as before.
 
 The section builder emits a `trade-value-comparison-section-candidate-v1` file
 under `output/comparison-candidates/`, shaped like one entry of the comparison
@@ -230,6 +291,23 @@ roster-shape inspection.
 
 It should not be the long-term home for source scraping, player identity
 matching, or canonical reference-data computation.
+
+Adjusted curves render live in the browser. The fixture carries RAW source
+sections only; each `*_adjusted` curve is derived live from the fixture's raw
+refs plus the versioned adjustment-inputs asset (`data/adjustment-inputs/` →
+`app/trade-value-chart/assets/adjustment-inputs.json`, schema
+`trade-value-adjustment-inputs-v1`). Stage 1 ships the architecture with an
+empty inputs asset (`stage1-empty`, all sources `pending-stage2`) and falls
+back exactly to current behavior; stage 2 fills per-source/per-position/
+per-tier fit cells (fit against the DDF two-tier leg).
+
+Bench share is a UI parameter (bounded slider, default 0.15, per position).
+Moving it re-runs the per-position two-tier calibration live in the browser,
+per league-size config; the slider bounds are the feasible interval where
+every position's calibration yields starter rate > bench rate (recomputed on
+config change), with a recommended tick at 0.15. Fail-closed per position:
+starter rate ≤ bench rate withholds that position's derived values with a
+visible flag — never zero-filled, never guessed.
 
 Local run:
 

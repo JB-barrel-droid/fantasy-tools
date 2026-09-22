@@ -9,8 +9,10 @@ Two steps, run per (combo, position):
    the chart's canonical scale with a per-position non-decreasing (isotonic)
    fit, preserving rank order and within-position relative shape. The anchor is
    the fixture's ESPN leg for the same combo -- the repo-owned equivalent of
-   the retired Monday rail. Fit needs >= 10 anchor-matched pairs per position;
-   fewer fails closed (no pooled cross-position fit, ever).
+   the retired Monday rail. A candidate combo carrying the league QB dimension
+   (qb1/qb2) anchors to its QB-stripped base combo; the mapping is explicit
+   and recorded per combo, never guessed. Fit needs >= 10 anchor-matched
+   pairs per position; fewer fails closed (no pooled cross-position fit, ever).
 
 2. FIXED-PIE INDEXING. After translation, each combo's total over its OWN
    priced set is compared to the anchor's total over that SAME set:
@@ -34,6 +36,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -45,6 +48,28 @@ REPO = Path(__file__).resolve().parent.parent
 SCHEMA = "trade-value-comparison-section-reindexed-v1"
 POSITIONS = ("QB", "RB", "WR", "TE")
 MIN_FIT_PAIRS = 10
+# A candidate combo may carry the league's QB dimension (qb1 = start 1 QB,
+# qb2 = start 2 QBs). The ESPN anchor leg has no QB-split combos, so such a
+# combo anchors to its QB-stripped base combo. This mapping is EXPLICIT and
+# recorded per combo -- never a silent guess.
+QB_SUFFIX = re.compile(r"_qb[12]$")
+
+
+def resolve_anchor_combo(combo_name: str, espn_combos: dict) -> tuple[str, str]:
+    """Return (anchor_combo_name, mapping_note).
+
+    Exact match first; else strip a trailing _qb1/_qb2 and retry. Raises
+    SystemExit (fail closed) when neither resolves -- the pipeline refuses
+    to guess an anchor.
+    """
+    if combo_name in espn_combos:
+        return combo_name, "exact"
+    stripped = QB_SUFFIX.sub("", combo_name)
+    if stripped != combo_name and stripped in espn_combos:
+        return stripped, f"qb_suffix_strip:{combo_name}->{stripped}"
+    raise SystemExit(
+        f"reindex: combo {combo_name!r} has no anchor in the ESPN leg -- refusing to guess"
+    )
 
 
 def _load_json(path):
@@ -89,11 +114,8 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
     out_combos = {}
 
     for combo_name, combo in cand.get("combos", {}).items():
-        espn_combo = espn_combos.get(combo_name)
-        if espn_combo is None:
-            raise SystemExit(
-                f"reindex: combo {combo_name!r} has no anchor in the ESPN leg -- refusing to guess"
-            )
+        anchor_name, anchor_mapping = resolve_anchor_combo(combo_name, espn_combos)
+        espn_combo = espn_combos[anchor_name]
         anchor = espn_combo.get("values", {})
         native = combo.get("native", {})
         key_by_slug = combo.get("player_keys", {})
@@ -109,6 +131,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
 
         out_combo = {"reindexed": {}, "native": dict(native), "fit": {}, "n": {},
                        "index_total": {},
+                       "anchor_combo": anchor_name, "anchor_mapping": anchor_mapping,
                        "player_keys": {s: key_by_slug.get(s) for s in native}}
         for pos in POSITIONS:
             pairs = []

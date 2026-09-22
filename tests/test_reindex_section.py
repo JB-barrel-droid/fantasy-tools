@@ -381,5 +381,70 @@ class TestBuilderToReindexInterface(unittest.TestCase):
             self.assertEqual(len(got), 48)
 
 
+class TestQBAnchorResolution(unittest.TestCase):
+    """QB-suffixed combos (qb1/qb2 = leagues starting 1/2 QBs) anchor to
+    their QB-stripped base combo on the ESPN leg, explicitly and recorded --
+    never silently. Unknown combos still fail closed."""
+
+    def test_exact_combo_still_preferred(self):
+        anchor, mapping = rcs.resolve_anchor_combo("full_12", {"full_12": {}, "half_12": {}})
+        self.assertEqual((anchor, mapping), ("full_12", "exact"))
+
+    def test_qb_suffix_strips_to_base_anchor(self):
+        anchor, mapping = rcs.resolve_anchor_combo("full_12_qb2", {"full_12": {}})
+        self.assertEqual(anchor, "full_12")
+        self.assertEqual(mapping, "qb_suffix_strip:full_12_qb2->full_12")
+
+    def test_qb1_suffix_also_strips(self):
+        anchor, mapping = rcs.resolve_anchor_combo("half_14_qb1", {"half_14": {}})
+        self.assertEqual((anchor, mapping), ("half_14", "qb_suffix_strip:half_14_qb1->half_14"))
+
+    def test_unknown_combo_still_refuses(self):
+        # The fail-closed rule survives: no anchor, no guess.
+        with self.assertRaises(SystemExit):
+            rcs.resolve_anchor_combo("weird_99", {"full_12": {}})
+
+    def test_qb3_suffix_does_not_strip(self):
+        # Only qb1/qb2 are real league settings; qb3 must not resolve.
+        with self.assertRaises(SystemExit):
+            rcs.resolve_anchor_combo("full_12_qb3", {"full_12": {}})
+
+    def test_qb_suffix_never_overrides_exact_anchor(self):
+        # If the anchor ever gains a real full_12_qb2 combo, exact wins.
+        anchor, mapping = rcs.resolve_anchor_combo(
+            "full_12_qb2", {"full_12": {}, "full_12_qb2": {}})
+        self.assertEqual((anchor, mapping), ("full_12_qb2", "exact"))
+
+    def test_end_to_end_qb_combo_records_mapping(self):
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            # 12 QB + 12 RB so the per-position minimum is met.
+            plist = {"players": []}
+            key = 7000
+            for pos in ("QB", "RB", "WR", "TE"):
+                for j in range(12):
+                    key += 1
+                    plist["players"].append(
+                        {"player_key": key, "name": f"Qb {pos} {j}".title(), "pos": pos})
+            players_p = tmp / "players.json"
+            players_p.write_text(json.dumps(plist))
+            anchor_vals = {}
+            for pl in plist["players"]:
+                slug = pl["name"].lower()
+                anchor_vals[slug] = 30.0 if pl["pos"] == "QB" else 50.0
+            fx_p = tmp / "fixture.json"
+            fx_p.write_text(json.dumps(
+                {"sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
+            cand = make_candidate(tmp, "qbsrc", plist,
+                                  lambda pl: 100.0, combos=("full_12_qb2",))
+            section, review = rcs.reindex_section(str(cand), str(fx_p), str(players_p))
+            self.assertEqual(section["reindex_status"], "complete")
+            combo = section["combos"]["full_12_qb2"]
+            self.assertEqual(combo["anchor_combo"], "full_12")
+            self.assertEqual(combo["anchor_mapping"],
+                             "qb_suffix_strip:full_12_qb2->full_12")
+            self.assertEqual(review, [])
+
+
 if __name__ == "__main__":
     unittest.main()

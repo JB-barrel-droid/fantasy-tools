@@ -111,6 +111,46 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
   conversation. Internally the ECR feed still supplies rank and expert point
   projections.
 
+## 7. Scraped references are saved in Supabase; the repo imports from Supabase
+
+- Every scraped reference backing the dashboard is piped via Supabase and
+  saved, stamped with content vintage (when the source last changed its
+  numbers, never pull time).
+- The repo's import stage (`make supabase-import`) reads from Supabase into
+  versioned snapshots under `data/raw/`; it never ingests ad-hoc files except
+  the documented `--from-file` gap path (ESPN/CBS until their Supabase tables
+  exist), which is stamped identically and flagged `save_gap` in the manifest.
+- Dashboard sources only: espn, usatoday, fantasycalc, fantasypros, cbs. ECR,
+  Vegas/prediction-markets, and Razzball are never imported as comparison
+  sources.
+
+## 8. Import health gates fixture updates
+
+- `make import-health NFL_WEEK=<n>` verifies every active source's snapshot:
+  bytes match the manifest, Supabase counts/vintage agree, week-designated
+  charts match the NFL week.
+- Missing, stale, or failed imports fail closed: no match, reference, section,
+  reindex, review, or promote step runs on a red gate. The gate exits non-zero
+  with a loud signal.
+- Per-source health is written to `output/source-import-health.json`
+  (schema: `docs/import-health-schema.md`); it is the pull watchdog's input.
+  The watchdog reads; it never writes this file.
+
+## 9. Adjusted curves render live; the fixture carries raw sections only
+
+- No `*_adjusted` section is baked into the fixture going forward. Adjusted
+  curves are derived live in the browser from fixture raw refs plus the
+  versioned adjustment-inputs asset (`trade-value-adjustment-inputs-v1`).
+  (The three legacy baked `*_adjusted` sections from the old workspace fit
+  predate this rule; their removal is Jeremy's transition decision —
+  see `docs/fixture-transition-proposal.md`.)
+- Adjustment cells are fit against the DDF two-tier leg (stage 2); the asset
+  is versioned and the fit recipe is documented in-asset.
+- Bench share is a UI parameter (default 0.15, per position; bounded slider
+  with feasibility-derived bounds, recommended tick at 0.15). Calibration is
+  parametric in (league config × bench share) and re-solves live; fail closed
+  per position when starter rate ≤ bench rate.
+
 ## Operating notes
 
 - LLMs (Muse, ChatGPT, Codex, or any other) may collect raw source data and

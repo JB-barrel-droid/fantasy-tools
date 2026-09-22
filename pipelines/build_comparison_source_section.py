@@ -1,9 +1,16 @@
 #!/usr/bin/env python3
-"""Build a candidate comparison source section from a source-reference artifact.
+"""Build a candidate comparison source section from source-reference artifact(s).
 
-Reads a trade-value-source-reference-v1 artifact and emits a candidate
-comparison-source section shaped like one entry of the comparison fixture's
-``sources{}`` map.
+Reads one or more trade-value-source-reference-v1 artifacts and emits a
+candidate comparison-source section shaped like one entry of the comparison
+fixture's ``sources{}`` map. Multiple reference inputs (e.g. the per-scoring
+artifacts the reference stage emits for one source) are unioned into a single
+candidate: rows accumulate across inputs and per-row scoring/teams/qb maps to
+combo keys as before. Inherited review rows identical across inputs are
+deduped so the candidate carries each once.
+
+All inputs must agree on source and fetched_at -- mixing sources or vintages
+in one candidate fails closed.
 
 The candidate carries NATIVE source values only. Fixed-pie reindexing and any
 other reference-compute math are intentionally NOT applied here; they must be
@@ -74,33 +81,88 @@ def canonical_slugs(comparison_path: Path) -> dict[int, str]:
     return inverted
 
 
-def combo_key_for(scoring: Any, teams: Any) -> str:
+def combo_key_for(scoring: Any, teams: Any, qb: Any = None) -> str:
     word = SCORING_WORDS.get(str(scoring or "").strip().lower(), str(scoring or "mixed").strip().lower())
-    return f"{word}_{teams or 'mixed'}"
+    base = f"{word}_{teams or 'mixed'}"
+    # QB dimension: qb1 = start 1 QB, qb2 = start 2 QBs. Carried explicitly;
+    # never collapsed or silently mapped.
+    try:
+        q = int(qb)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        return base
+    return f"{base}_qb{q}" if q in (1, 2) else base
 
 
 def build_section(
-    reference_path: Path,
+    reference_path: Path | list[Path] | list[str],
     comparison_path: Path,
     *,
     section_key: str | None,
     meta: dict[str, Any],
 ) -> dict[str, Any]:
-    reference = load_json(reference_path)
-    if reference.get("schema") != INPUT_SCHEMA:
-        raise SystemExit(f"{reference_path} is not a {INPUT_SCHEMA} file")
-    rows = reference.get("rows")
-    if not isinstance(rows, list):
-        raise SystemExit(f"{reference_path} must contain rows[]")
+    paths = (
+        [reference_path]
+        if isinstance(reference_path, (str, Path))
+        else list(reference_path)
+    )
+    if not paths:
+        raise SystemExit("build_section requires at least one reference input")
+
+    rows: list[dict[str, Any]] = []
+    inherited: list[dict[str, Any]] = []
+    sources: set[Any] = set()
+    fetched_ats: set[Any] = set()
+    input_strs: list[str] = []
+    for raw in paths:
+        reference = load_json(Path(raw))
+        if reference.get("schema") != INPUT_SCHEMA:
+            raise SystemExit(f"{raw} is not a {INPUT_SCHEMA} file")
+        ref_rows = reference.get("rows")
+        if not isinstance(ref_rows, list):
+            raise SystemExit(f"{raw} must contain rows[]")
+        sources.add(reference.get("source"))
+        fetched_ats.add(reference.get("fetched_at"))
+        input_strs.append(str(raw))
+        rows.extend(ref_rows)
+        ref_review = reference.get("review_rows")
+        if isinstance(ref_review, list):
+            inherited.extend(ref_review)
+
+    if len(sources) > 1:
+        raise SystemExit(
+            "reference inputs disagree on source "
+            f"({sorted(str(s) for s in sources)}); refusing to mix sources "
+            "in one candidate section"
+        )
+    if len(fetched_ats) > 1:
+        raise SystemExit(
+            "reference inputs disagree on fetched_at "
+            f"({sorted(str(f) for f in fetched_ats)}); refusing to mix "
+            "vintages in one candidate section"
+        )
+    source = str(next(iter(sources)) or "source")
+    fetched_at = next(iter(fetched_ats))
+    # Per-group reference artifacts replicate the input-level review rows, so
+    # identical inherited rows are deduped (first-seen order kept).
+    deduped: list[dict[str, Any]] = []
+    seen_json: set[str] = set()
+    for row in inherited:
+        key = json.dumps(row, sort_keys=True, separators=(",", ":"))
+        if key not in seen_json:
+            seen_json.add(key)
+            deduped.append(row)
+    inherited = deduped
 
     slugs = canonical_slugs(comparison_path)
-    source = str(reference.get("source") or "source")
     key = section_key or slug(source)
 
     combos: dict[str, dict[str, float]] = {}
     keys_by_combo: dict[str, dict[str, int]] = {}
     review_rows: list[dict[str, Any]] = []
-    seen_keys: set[int] = set()
+    # Identity is (player_key, combo): the same player_key legitimately
+    # appears once per combo when several per-group reference artifacts are
+    # unioned. A repeat within one combo is still a duplicate.
+    seen_keys: set[tuple[int, str]] = set()
     placed = 0
 
     for row in rows:
@@ -109,12 +171,14 @@ def build_section(
         if not isinstance(player_key, int):
             review_rows.append({"reason": "missing_player_key", "row": row})
             continue
-        if player_key in seen_keys:
+        combo = combo_key_for(row.get("scoring"), row.get("teams"), row.get("qb"))
+        if (player_key, combo) in seen_keys:
             review_rows.append(
                 {
                     "reason": "duplicate_player_key",
                     "player_key": player_key,
                     "canonical_name": row.get("canonical_name"),
+                    "combo": combo,
                     "stage": "comparison-section",
                 }
             )
@@ -142,13 +206,11 @@ def build_section(
                 }
             )
             continue
-        seen_keys.add(player_key)
-        combo = combo_key_for(row.get("scoring"), row.get("teams"))
+        seen_keys.add((player_key, combo))
         combos.setdefault(combo, {})[name] = float(value)
         keys_by_combo.setdefault(combo, {})[name] = player_key
         placed += 1
 
-    inherited = reference.get("review_rows") if isinstance(reference.get("review_rows"), list) else []
     for row in inherited:
         review_rows.append({**row, "stage": row.get("stage", "source-reference")})
 
@@ -167,7 +229,7 @@ def build_section(
     return {
         "schema": OUTPUT_SCHEMA,
         "generated_at": utc_now(),
-        "input_reference": str(reference_path),
+        "input_reference": input_strs[0] if len(input_strs) == 1 else input_strs,
         "section_key": key,
         # source_key aliases section_key: the reindex stage reads source_key.
         # Both names are kept so the merge stage (section_key) and the reindex
@@ -187,8 +249,8 @@ def build_section(
         ),
         "update_cadence": meta.get("update_cadence"),
         "week_designated": meta.get("week_designated"),
-        "url": meta.get("url") or reference.get("source_url"),
-        "fetched_at": reference.get("fetched_at"),
+        "url": meta.get("url"),
+        "fetched_at": fetched_at,
         "native_unit": meta.get("native_unit") or "source published value (as scraped)",
         "combos": combo_payload,
         "summary": {
@@ -212,7 +274,9 @@ def default_output_path(section: dict[str, Any], output_dir: Path) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, required=True, help="trade-value-source-reference-v1 file")
+    parser.add_argument("--input", type=Path, nargs="+", required=True,
+                        help="one or more trade-value-source-reference-v1 files; "
+                             "multiple inputs must share source and fetched_at")
     parser.add_argument("--comparison", type=Path, default=DEFAULT_COMPARISON,
                         help="current comparison fixture (canonical slug authority, read-only)")
     parser.add_argument("--section-key", help="key under sources{}; defaults to the slugged source name")

@@ -216,12 +216,16 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         detail["anchor_divergence"] = div
         combos_detail[combo_name] = detail
 
-    checks.append(_check(
-        "anchor_disclosure", "info",
-        "candidate anchors to the fixture ESPN leg; the fixture's existing "
-        "sections were baked against the retired Monday rail. Reindexed "
-        "divergence above is measured, not asserted -- promotion must note "
-        "the anchor change."))
+    qb_mappings = sorted({c.get("anchor_mapping") for c in cand["combos"].values()}
+                         - {"exact", None})
+    disclosure = ("candidate anchors to the fixture ESPN leg; the fixture's existing "
+                  "sections were baked against the retired Monday rail. Reindexed "
+                  "divergence above is measured, not asserted -- promotion must note "
+                  "the anchor change.")
+    if qb_mappings:
+        disclosure += (" QB-dimension anchor mappings (explicit, not guessed): "
+                       + "; ".join(qb_mappings) + ".")
+    checks.append(_check("anchor_disclosure", "info", disclosure))
 
     # coverage check (needs fixture positions; approximate from fixture combo keys)
     if fx_section is not None:

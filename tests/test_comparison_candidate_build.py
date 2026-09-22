@@ -57,10 +57,13 @@ def comparison_fixture():
     }
 
 
-def ref_row(key, name, value, scoring="ppr", teams=12):
-    return {"player_key": key, "canonical_name": name, "source_player_name": name,
-            "source": "fantasycalc", "value": value, "scoring": scoring, "teams": teams,
-            "pos": "QB", "team": "BUF", "source_player_id": None}
+def ref_row(key, name, value, scoring="ppr", teams=12, qb=None):
+    row = {"player_key": key, "canonical_name": name, "source_player_name": name,
+           "source": "fantasycalc", "value": value, "scoring": scoring, "teams": teams,
+           "pos": "QB", "team": "BUF", "source_player_id": None}
+    if qb is not None:
+        row["qb"] = qb
+    return row
 
 
 class ComparisonCandidateBuildTest(unittest.TestCase):
@@ -213,6 +216,34 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             report = json.loads(report_out.read_text(encoding="utf-8"))
             self.assertEqual("none (new section key)", report["combo_comparison"]["baseline"])
 
+
+    def test_qb_dimension_carried_in_combo_key_never_collapsed(self):
+        # qb2 = leagues starting 2 QBs. The QB dimension must survive as its
+        # own combo (full_12_qb2), never collapsed into full_12 or silently
+        # mapped. Regression: the builder ignored the qb field entirely.
+        with TemporaryDirectory() as td:
+            tmp = Path(td)
+            rows = [ref_row(869, "Josh Allen", 20.0, qb=1),
+                    ref_row(101, "Bijan Robinson", 60.0, qb=1),
+                    ref_row(869, "Josh Allen", 40.0, qb=2),
+                    ref_row(101, "Bijan Robinson", 55.0, qb=2)]
+            # duplicate player_keys across qb splits must not collapse: build
+            # one section per qb split (the pipeline's per-combo reference rule)
+            for qb in (1, 2):
+                qrows = [r for r in rows if r["qb"] == qb]
+                section, _ = self.build_section(tmp, qrows)
+                combo = f"full_12_qb{qb}"
+                self.assertEqual(sorted(section["combos"].keys()), [combo],
+                                 f"qb={qb} rows must land in {combo} only")
+                self.assertIn("player_keys", section["combos"][combo])
+
+    def test_rows_without_qb_keep_unsuffixed_combo(self):
+        with TemporaryDirectory() as td:
+            tmp = Path(td)
+            rows = [ref_row(869, "Josh Allen", 20.0), ref_row(101, "Bijan Robinson", 60.0)]
+            section, _ = self.build_section(tmp, rows)
+            self.assertEqual(sorted(section["combos"].keys()), ["full_12"])
+
     def test_merge_refuses_to_write_inside_data(self):
         with TemporaryDirectory() as tmp:
             tmp = Path(tmp)
@@ -230,6 +261,124 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Refusing to write inside data/", result.stderr)
             self.assertFalse(evil.exists())
+
+    def test_multiple_reference_inputs_union_into_single_candidate(self):
+        # The reference stage emits one artifact per (scoring, teams, qb)
+        # group; the section builder must consume all of a source's artifacts
+        # into ONE candidate section (union of combos), not one section per
+        # artifact.
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            rows_ppr = [ref_row(869, "Josh Allen", 24.0, scoring="ppr"),
+                        ref_row(101, "Bijan Robinson", 67.5, scoring="ppr")]
+            rows_half = [ref_row(869, "Josh Allen", 20.0, scoring="half_ppr"),
+                         ref_row(101, "Bijan Robinson", 60.0, scoring="half_ppr")]
+            review = [{"reason": "no_match", "source_player_name": "Unknown Player",
+                       "value": 1.0}]
+            ref1 = tmp / "ref-ppr.json"
+            ref2 = tmp / "ref-half.json"
+            # Both artifacts replicate the same input-level review rows, as
+            # the reference builder does per group.
+            write_json(ref1, reference_artifact(rows_ppr, review, source="usatoday"))
+            write_json(ref2, reference_artifact(rows_half, review, source="usatoday"))
+            fixture = tmp / "comparison.json"
+            write_json(fixture, comparison_fixture())
+            section_path = tmp / "section.json"
+            self.run_script("build_comparison_source_section.py",
+                            "--input", str(ref1), str(ref2),
+                            "--comparison", str(fixture),
+                            "--section-key", "usatoday",
+                            "--output", str(section_path))
+            section = json.loads(section_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(["full_12", "half_12"], sorted(section["combos"]))
+            self.assertEqual({"josh allen": 24.0, "bijan robinson": 67.5},
+                             section["combos"]["full_12"]["native"])
+            self.assertEqual({"josh allen": 20.0, "bijan robinson": 60.0},
+                             section["combos"]["half_12"]["native"])
+            # Identical inherited review rows are deduped, not doubled.
+            no_match = [r for r in section["review_rows"] if r["reason"] == "no_match"]
+            self.assertEqual(1, len(no_match))
+            self.assertEqual(1, section["summary"]["inherited_review_count"])
+            self.assertEqual(4, section["summary"]["reference_row_count"])
+            self.assertEqual(4, section["summary"]["placed_count"])
+            # Both inputs are recorded for provenance.
+            self.assertEqual([str(ref1), str(ref2)], section["input_reference"])
+
+    def test_duplicate_within_one_combo_still_flagged_across_inputs(self):
+        # The dedupe key widened to (player_key, combo) so one player can
+        # appear once per combo; a repeat WITHIN one combo (even across two
+        # reference inputs) is still a genuine duplicate.
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            ref1 = tmp / "r1.json"
+            ref2 = tmp / "r2.json"
+            write_json(ref1, reference_artifact(
+                [ref_row(869, "Josh Allen", 24.0, scoring="ppr")], source="usatoday"))
+            write_json(ref2, reference_artifact(
+                [ref_row(869, "Josh Allen", 25.0, scoring="ppr")], source="usatoday"))
+            fixture = tmp / "comparison.json"
+            write_json(fixture, comparison_fixture())
+            section_path = tmp / "section.json"
+            self.run_script("build_comparison_source_section.py",
+                            "--input", str(ref1), str(ref2),
+                            "--comparison", str(fixture),
+                            "--output", str(section_path))
+            section = json.loads(section_path.read_text(encoding="utf-8"))
+            self.assertEqual(["full_12"], sorted(section["combos"]))
+            self.assertEqual({"josh allen": 24.0},
+                             section["combos"]["full_12"]["native"])
+            dupes = [r for r in section["review_rows"]
+                     if r["reason"] == "duplicate_player_key"]
+            self.assertEqual(1, len(dupes))
+            self.assertEqual("full_12", dupes[0]["combo"])
+
+    def test_single_reference_input_keeps_string_input_reference(self):
+        # One input behaves exactly as before: input_reference stays a plain
+        # string path.
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            rows = [ref_row(869, "Josh Allen", 24.0)]
+            section, _ = self.build_section(tmp, rows)
+            self.assertIsInstance(section["input_reference"], str)
+            self.assertTrue(section["input_reference"].endswith("reference.json"))
+
+    def test_multiple_reference_inputs_must_agree_on_source_and_vintage(self):
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fixture = tmp / "comparison.json"
+            write_json(fixture, comparison_fixture())
+
+            ref_a = tmp / "a.json"
+            write_json(ref_a, reference_artifact(
+                [ref_row(869, "Josh Allen", 24.0)], source="usatoday"))
+            ref_b = tmp / "b.json"
+            payload_b = reference_artifact(
+                [ref_row(869, "Josh Allen", 24.0)], source="fantasycalc")
+            write_json(ref_b, payload_b)
+            out = tmp / "section.json"
+            result = subprocess.run(
+                ["python3", "pipelines/build_comparison_source_section.py",
+                 "--input", str(ref_a), str(ref_b),
+                 "--comparison", str(fixture), "--output", str(out)],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("refusing to mix sources", result.stderr)
+
+            ref_c = tmp / "c.json"
+            payload_c = reference_artifact(
+                [ref_row(869, "Josh Allen", 24.0)], source="usatoday")
+            payload_c["fetched_at"] = "2026-09-20T12:00:00Z"
+            write_json(ref_c, payload_c)
+            result = subprocess.run(
+                ["python3", "pipelines/build_comparison_source_section.py",
+                 "--input", str(ref_a), str(ref_c),
+                 "--comparison", str(fixture), "--output", str(out)],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("refusing to mix vintages", result.stderr)
 
 
 if __name__ == "__main__":
