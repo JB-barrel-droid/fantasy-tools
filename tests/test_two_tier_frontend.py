@@ -208,13 +208,86 @@ class TestTwoTierPort(unittest.TestCase):
         vals = [got["values"]["a"], got["values"]["b"], got["values"]["c"]]
         self.assertEqual(vals, sorted(vals, reverse=True), "rounding must not invert order")
 
-    def test_bench_mix_scaling_round_half_up(self):
-        expected = {8: {"QB": 7, "RB": 18, "WR": 22, "TE": 7},
-                    10: {"QB": 8, "RB": 23, "WR": 28, "TE": 8},
-                    12: {"QB": 10, "RB": 27, "WR": 33, "TE": 10},
-                    14: {"QB": 12, "RB": 32, "WR": 39, "TE": 12}}
-        for teams, mix in expected.items():
-            self.assertEqual(run_harness("benchmix", {"teams": teams}), mix)
+    # ---- bench mix: invariants, not pinned magic numbers -------------------
+    # The previous version of this test pinned the exact output of the
+    # hardcoded BENCH_MIX_12. That constant summed to 80 across 12 teams --
+    # 6.67 bench spots per team, a league nobody can field -- and the pin
+    # asserted it as correct. These guards assert the properties that decide
+    # whether the mix is RIGHT, and each is negative-tested below against the
+    # constant it replaced.
+
+    @staticmethod
+    def _pools():
+        with PLAYERS.open() as f:
+            players = json.load(f)["players"]
+        pools = {}
+        for pos in ("QB", "RB", "WR", "TE"):
+            xs = [max(0.0, p["ecr_ppg"]["half_ppr"]) for p in players
+                  if p["pos"] == pos
+                  and isinstance((p.get("ecr_ppg") or {}).get("half_ppr"), (int, float))]
+            pools[pos] = sorted(xs, reverse=True)
+        return pools
+
+    def test_bench_mix_sums_to_league_bench_capacity(self):
+        """The parts must partition teams * bench_slots exactly."""
+        pools = self._pools()
+        for teams in (8, 10, 12, 14):
+            for bench in (4, 6, 8):
+                mix = run_harness("benchmix", {"teams": teams, "benchSlots": bench,
+                                               "pools": pools})
+                self.assertEqual(sum(mix.values()), teams * bench,
+                                 f"teams={teams} bench={bench} mix={mix}")
+
+    def test_legacy_constant_fails_the_capacity_invariant(self):
+        """Negative test: the guard above must REJECT the constant it replaced."""
+        legacy = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+        self.assertNotEqual(sum(legacy.values()), 12 * 6,
+                            "legacy mix would have passed -- guard proves nothing")
+        self.assertEqual(sum(legacy.values()), 80)
+
+    def test_bench_mix_never_rosters_past_the_irrelevance_floor(self):
+        """ROSTERED depth (starters + bench) must stay at or above the floor rank.
+
+        Comparing the bench COUNT to the floor RANK is vacuously true -- the
+        counts are far smaller than the ranks either way. The cap binds on the
+        rostered total, so that is what this asserts.
+        """
+        pools = self._pools()
+        for teams in (10, 12):
+            d = run_harness("benchmixdetail", {"teams": teams, "benchSlots": 6, "pools": pools})
+            bound = False
+            for pos, n in d["mix"].items():
+                rostered = d["starters"][pos] + n
+                self.assertLessEqual(
+                    rostered, d["floor"][pos],
+                    f"{pos}: rostered {rostered} passes irrelevance floor #{d['floor'][pos]}")
+                if rostered == d["floor"][pos]:
+                    bound = True
+            if teams == 12:
+                self.assertTrue(bound, "no position reached its floor -- cap is untested here")
+
+    def test_bench_mix_responds_to_roster_shape(self):
+        """Superflex must raise bench QB; a pinned constant cannot."""
+        pools = self._pools()
+        base = run_harness("benchmix", {"teams": 12, "benchSlots": 6, "pools": pools})
+        sflex = run_harness("benchmix", {"teams": 12, "benchSlots": 6, "pools": pools,
+                                         "flexEligible": ["QB", "RB", "WR", "TE"]})
+        self.assertGreater(sflex["QB"], base["QB"],
+                           f"superflex did not deepen QB: {base} -> {sflex}")
+
+    def test_tail_floor_scans_from_the_bottom(self):
+        """A top-down scan returns the UPPER plateau; this must not."""
+        # steep head, long flat tail: the floor belongs at the end of the decline
+        # steep head, decline ending at rank 10, then a long flat tail
+        xs = [20.0, 19.9, 19.8, 19.7, 19.6, 15.0, 10.0, 6.0, 3.0, 1.0] + [0.9] * 30
+        floor = run_harness("tailfloor", {"xs": xs})
+        self.assertGreater(floor, 5, "floor landed on the head plateau (top-down scan)")
+        # The smoothing window makes the floor land at most FLOOR_WINDOW ranks
+        # into the flat zone. It errs deep, which is the safe direction for a
+        # cap -- it never truncates live players.
+        self.assertLessEqual(floor, 10 + 5, f"floor {floor} is more than a window past the decline")
+        self.assertTrue(all(x <= 1.0 for x in xs[floor - 1:]),
+                        "everything at or below the floor must be flat-tail value")
 
 
 def build_configs():

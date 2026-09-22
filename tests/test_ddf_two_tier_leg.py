@@ -39,7 +39,8 @@ from build_ddf_two_tier_leg import (  # noqa: E402
     REF_FLEX_COUNT,
     REF_FLEX_ELIGIBLE,
     REF_SLOTS,
-    bench_mix_for_teams,
+    bench_mix_for,
+    REF_BENCH_SLOTS,
     build_leg,
     build_position_tiers,
     calibrate_position,
@@ -90,6 +91,13 @@ def rel_close(a, b, tol=TOL):
     return abs(a - b) <= tol * max(1.0, abs(a), abs(b))
 
 
+
+def _bench_mix_12(pool_lists):
+    """Derived bench mix for the 12-team reference shape (see bench_mix_for)."""
+    return bench_mix_for(12, REF_BENCH_SLOTS, dict(REF_SLOTS), REF_FLEX_COUNT,
+                         list(REF_FLEX_ELIGIBLE),
+                         {pos: [d["x"] for d in pool_lists[pos]] for pos in POSITIONS})
+
 class TestPythonPortMatchesBrowser(unittest.TestCase):
     def test_pinned_solve_vectors(self):
         for vec in HAND_SOLVE:
@@ -116,7 +124,7 @@ class TestPythonPortMatchesBrowser(unittest.TestCase):
     def test_full_pipeline_parity_on_real_espn_inputs(self):
         """Tiers AND calibrations at 0.15 bit-exact vs the browser code."""
         _, pool_lists, pies = real_inputs()
-        bench_mix = bench_mix_for_teams(12)
+        bench_mix = _bench_mix_12(pool_lists)
         pool = build_position_tiers(pool_lists, 12, dict(REF_SLOTS),
                                     REF_FLEX_COUNT, list(REF_FLEX_ELIGIBLE), bench_mix)
         cfg = {"teams": 12, "slots": dict(REF_SLOTS), "flexCount": REF_FLEX_COUNT,
@@ -245,7 +253,7 @@ class TestFailClosed(unittest.TestCase):
     def test_nonpositive_pie_raises(self):
         _, pool_lists, _ = real_inputs()
         pool = build_position_tiers(pool_lists, 12, dict(REF_SLOTS), REF_FLEX_COUNT,
-                                    list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(12))
+                                    list(REF_FLEX_ELIGIBLE), _bench_mix_12(pool_lists))
         for bad_pie in (0.0, -5.0):
             with self.assertRaises(ValueError, msg=f"pie={bad_pie}"):
                 calibrate_position(pool["tiers"]["QB"], bad_pie, DEFAULT_BENCH_SHARE)

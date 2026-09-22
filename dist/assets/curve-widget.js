@@ -56,7 +56,10 @@
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const SPECIALIST_POSITIONS = ["K", "DST"];
   const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
-  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6, K:0, DST:0});
+  // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
+  // TwoTier below and build_ddf_two_tier_leg.py). The previous WR:2/FLEX:2
+  // default disagreed with the shape every published number was priced under.
+  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6, K:0, DST:0});
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
   // Minimum plausible peak for an indexed curve. See the collapse guard in
@@ -141,7 +144,11 @@
     const FEAS_TOL = 1e-4;
     // 12-team reference bench depths (elboberto-aligned). Scaled by
     // teams / 12 with round-half-up for other league sizes.
-    const BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
+    const REF_BENCH_SLOTS = 6;
+    // Kept only as the regression anchor for the pinned-constant test.
+    const LEGACY_BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
+    const FLOOR_SLOPE_FRAC = 0.01;
+    const FLOOR_WINDOW = 5;
     // Reference league shape for the calibration pool (fixed; the slider
     // bounds are per scoring x teams, not per custom roster shape).
     const REF_SLOTS = {QB: 1, RB: 2, WR: 3, TE: 1};
@@ -280,12 +287,75 @@
       return {values, scale};
     }
 
-    // Round-half-up config scaling for bench depths (JS Math.round
-    // semantics for non-negative inputs; Python round() would banker's-round
-    // 22.5 to 22 and break Standard/10 RB -- hence explicit half-up here).
-    function benchMixForTeams(teams) {
+    // Rank where a position's projections stop separating (1-based). Scanned
+    // from the BOTTOM up -- scanning top-down finds the UPPER plateau (QB is
+    // flat from ~#6-20 too) and returns nonsense.
+    function tailFloor(xs, frac = FLOOR_SLOPE_FRAC, win = FLOOR_WINDOW) {
+      if (xs.length <= win) return xs.length;
+      const thr = frac * (xs[0] - xs[xs.length - 1]);
+      if (!(thr > 0)) return xs.length;
+      for (let s = xs.length - win - 1; s >= 0; s--) {
+        if ((xs[s] - xs[s + win]) / win >= thr) return s + win + 1;
+      }
+      return 1;
+    }
+
+    // Bench spots per position, derived. Exact port of bench_mix_for() in
+    // pipelines/build_ddf_two_tier_leg.py -- keep the two in lockstep.
+    //
+    // A bench spot covers a starting slot when its starter is out, so cover
+    // demand at a position is the expected number of simultaneous absences
+    // among its starters: sum_n P(>= n out) == lambda == S_p * q. Demand is
+    // therefore EXACTLY proportional to S_p, the starting-slot load, and q
+    // cancels in the normalisation -- no free parameter, no injury rate to
+    // estimate. The irrelevance floor caps each position and largest-remainder
+    // rounding makes the parts sum EXACTLY to teams * benchSlots, which the
+    // pinned constant never did (80 across 12 teams = 6.67 spots per team).
+    function benchMixFor(teams, benchSlots, slots, flexCount, flexEligible, pools) {
+      const capacity = teams * benchSlots;
       const out = {};
-      for (const pos of POSITIONS) out[pos] = Math.round(BENCH_MIX_12[pos] * teams / 12);
+      for (const pos of POSITIONS) out[pos] = 0;
+      if (capacity <= 0) return out;
+
+      const ranked = {};
+      for (const pos of POSITIONS) ranked[pos] = (pools[pos] || []).slice().sort((a, b) => b - a);
+      const taken = {}, flexHits = {};
+      for (const pos of POSITIONS) { taken[pos] = teams * (slots[pos] || 0); flexHits[pos] = 0; }
+      const flexPool = [];
+      for (const pos of POSITIONS) {
+        if (!flexEligible.includes(pos)) continue;
+        for (const x of ranked[pos].slice(taken[pos])) flexPool.push([x, pos]);
+      }
+      flexPool.sort((a, b) => b[0] - a[0]);
+      for (const [, pos] of flexPool.slice(0, teams * flexCount)) flexHits[pos] += 1;
+
+      const starters = {}, load = {}, cap = {};
+      for (const pos of POSITIONS) {
+        starters[pos] = taken[pos] + flexHits[pos];
+        load[pos] = (slots[pos] || 0) + flexHits[pos] / teams;
+        cap[pos] = Math.max(0, tailFloor(ranked[pos]) - starters[pos]);
+      }
+
+      const alloc = {};
+      for (const pos of POSITIONS) alloc[pos] = 0;
+      let remaining = capacity;
+      for (let i = 0; i < 8; i++) {
+        const open = POSITIONS.filter(p => alloc[p] < cap[p] - 1e-9 && load[p] > 0);
+        const weight = open.reduce((sum, p) => sum + load[p], 0);
+        if (!open.length || weight <= 0 || remaining < 1e-9) break;
+        for (const p of open) alloc[p] = Math.min(cap[p], alloc[p] + remaining * load[p] / weight);
+        remaining = capacity - POSITIONS.reduce((sum, p) => sum + alloc[p], 0);
+      }
+
+      for (const pos of POSITIONS) out[pos] = Math.floor(alloc[pos]);
+      const order = POSITIONS.slice().sort((a, b) =>
+        (alloc[b] - Math.floor(alloc[b])) - (alloc[a] - Math.floor(alloc[a])));
+      let guard = 0;
+      while (POSITIONS.reduce((sum, p) => sum + out[p], 0) < capacity && guard < 10000) {
+        const p = order[guard % order.length];
+        if (out[p] < cap[p]) out[p] += 1;
+        guard += 1;
+      }
       return out;
     }
 
@@ -409,7 +479,8 @@
       REF_SLOTS, REF_FLEX_COUNT, REF_FLEX_ELIGIBLE, WITHHELD_FLAG,
       softplus, sliceExposures, checkShare, solveTierPrices, feasibleAt,
       feasibleBenchShareInterval, sliderBounds, roundHalfEven,
-      displayValue, normalizeThenRound, benchMixForTeams, inwardBounds,
+      displayValue, normalizeThenRound, benchMixFor, tailFloor,
+      REF_BENCH_SLOTS, LEGACY_BENCH_MIX_12, inwardBounds,
       buildPositionTiers, calibratePosition, priceForProjection,
       skillBenchShares, skillBenchShare
     };
@@ -1187,7 +1258,11 @@
           slots: {...TwoTier.REF_SLOTS},
           flexCount: TwoTier.REF_FLEX_COUNT,
           flexEligible: [...TwoTier.REF_FLEX_ELIGIBLE],
-          benchMix: TwoTier.benchMixForTeams(teams)
+          benchMix: TwoTier.benchMixFor(
+            teams, TwoTier.REF_BENCH_SLOTS, {...TwoTier.REF_SLOTS},
+            TwoTier.REF_FLEX_COUNT, [...TwoTier.REF_FLEX_ELIGIBLE],
+            Object.fromEntries(TwoTier.POSITIONS.map(pos =>
+              [pos, (lists[pos] || []).map(d => d.x)])))
         });
         const intervals = {};
         TwoTier.POSITIONS.forEach(pos => {

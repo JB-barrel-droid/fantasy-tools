@@ -67,7 +67,16 @@ GAMES_DIVISOR = 16  # weeks 3-18; the same divisor the pie measurement used
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
 REF_FLEX_COUNT = 1
 REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
-BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+REF_BENCH_SLOTS = 6            # bench spots per team in the reference shape
+# Retained only as the pre-derivation reference point for the regression test
+# that pins benchMixFor against the constant it replaced. Never read at runtime.
+LEGACY_BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
+# Slope threshold for the irrelevance floor: the rank below which a position's
+# projections stop separating and the players are interchangeable. Cross-checked
+# against a Kneedle elbow (agrees within a few ranks at QB/WR/TE; RB decays
+# smoothly and has no sharp bend, so the floor there is advisory, not binding).
+FLOOR_SLOPE_FRAC = 0.01
+FLOOR_WINDOW = 5
 
 # Verified spelling aliases: csv player_norm -> fixture player_keys id.
 # (Same humans; verified 2026-09-19, re-confirmed vs players.full_name.)
@@ -133,9 +142,85 @@ def solve_tier_prices(a_bench: float, b_bench: float, a_start: float, b_start: f
     return pb, ps
 
 
-def bench_mix_for_teams(teams: int) -> dict[str, int]:
-    # Round-half-up (matches the widget; Python round() would banker's-round).
-    return {pos: int(math.floor(BENCH_MIX_12[pos] * teams / 12 + 0.5)) for pos in POSITIONS}
+def tail_floor(xs: list[float], frac: float = FLOOR_SLOPE_FRAC,
+               win: int = FLOOR_WINDOW) -> int:
+    """Rank where a position's projections stop separating (1-based).
+
+    Scanned from the BOTTOM up: the floor is the last rank whose smoothed
+    drop/rank still clears the threshold. Scanning top-down instead finds the
+    UPPER plateau (QB is flat from ~#6-20 as well) and returns nonsense.
+    """
+    if len(xs) <= win:
+        return len(xs)
+    thr = frac * (xs[0] - xs[-1])
+    if not (thr > 0):
+        return len(xs)
+    for s in range(len(xs) - win - 1, -1, -1):
+        if (xs[s] - xs[s + win]) / win >= thr:
+            return s + win + 1
+    return 1
+
+
+def bench_mix_for(teams: int, bench_slots: int, slots: dict[str, int],
+                  flex_count: int, flex_eligible: list[str],
+                  pools: dict[str, list[float]]) -> dict[str, int]:
+    """Bench spots per position, derived rather than pinned.
+
+    A bench spot exists to cover a starting slot when its starter is out, so
+    total cover demand at a position is the expected number of simultaneous
+    absences among its starters. For absences at per-starter rate q, that is
+    sum_n P(>= n out) == lambda == S_p * q. Demand is therefore EXACTLY
+    proportional to S_p, the starting-slot load, and q cancels in the
+    normalisation -- the model carries no free parameter and never has to
+    estimate an injury rate.
+
+    S_p is dedicated slots plus the position's realised share of the flex, so
+    the mix responds to the league shape the user actually selected. The
+    irrelevance floor caps each position (never roster into dead pool), and
+    largest-remainder rounding makes the parts sum EXACTLY to the league's
+    bench capacity -- teams * bench_slots -- which the pinned constant never
+    did (it totalled 80 across 12 teams, i.e. 6.67 bench spots per team, and
+    drifted to a different implied depth at every other team count).
+    """
+    capacity = teams * bench_slots
+    if capacity <= 0:
+        return {pos: 0 for pos in POSITIONS}
+
+    ranked = {pos: sorted(pools.get(pos, []), reverse=True) for pos in POSITIONS}
+    # Starters, by the same rule build_position_tiers uses, to get S_p.
+    taken = {pos: teams * slots.get(pos, 0) for pos in POSITIONS}
+    flex_pool: list[tuple[float, str]] = []
+    for pos in POSITIONS:
+        if pos in flex_eligible:
+            flex_pool.extend((x, pos) for x in ranked[pos][taken[pos]:])
+    flex_pool.sort(key=lambda t: -t[0])
+    flex_hits = {pos: 0 for pos in POSITIONS}
+    for _, pos in flex_pool[: teams * flex_count]:
+        flex_hits[pos] += 1
+    starters = {pos: taken[pos] + flex_hits[pos] for pos in POSITIONS}
+    load = {pos: slots.get(pos, 0) + flex_hits[pos] / teams for pos in POSITIONS}
+
+    cap = {pos: max(0, tail_floor(ranked[pos]) - starters[pos]) for pos in POSITIONS}
+    alloc = {pos: 0.0 for pos in POSITIONS}
+    remaining = float(capacity)
+    for _ in range(8):
+        open_pos = [p for p in POSITIONS if alloc[p] < cap[p] - 1e-9 and load[p] > 0]
+        weight = sum(load[p] for p in open_pos)
+        if not open_pos or weight <= 0 or remaining < 1e-9:
+            break
+        for p in open_pos:
+            alloc[p] = min(float(cap[p]), alloc[p] + remaining * load[p] / weight)
+        remaining = capacity - sum(alloc.values())
+
+    out = {pos: int(alloc[pos]) for pos in POSITIONS}
+    order = sorted(POSITIONS, key=lambda p: -(alloc[p] - int(alloc[p])))
+    guard = 0
+    while sum(out.values()) < capacity and guard < 10000:
+        p = order[guard % len(order)]
+        if out[p] < cap[p]:
+            out[p] += 1
+        guard += 1
+    return out
 
 
 def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,
@@ -357,8 +442,17 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
     # Tier pool keyed by canonical player_key (stable total order by key).
     pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]] for pos in POSITIONS}
 
+    # Bench depth is DERIVED from the league shape and the projection pools
+    # (see bench_mix_for), not pinned to a 12-team constant.
+    bench_mix = bench_mix_for(teams, REF_BENCH_SLOTS, dict(REF_SLOTS),
+                              REF_FLEX_COUNT, list(REF_FLEX_ELIGIBLE),
+                              {pos: [d["x"] for d in pool_lists[pos]] for pos in POSITIONS})
+    if sum(bench_mix.values()) != teams * REF_BENCH_SLOTS:
+        raise ValueError(
+            f"bench mix {bench_mix} sums to {sum(bench_mix.values())}, "
+            f"not the league's {teams * REF_BENCH_SLOTS} bench spots")
     pool = build_position_tiers(pool_lists, teams, dict(REF_SLOTS), REF_FLEX_COUNT,
-                                list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(teams))
+                                list(REF_FLEX_ELIGIBLE), bench_mix)
     calibration: dict[str, Any] = {}
     for pos in POSITIONS:
         tier = pool["tiers"][pos]
@@ -428,7 +522,9 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
         "reference_shape": {
             "slots": REF_SLOTS, "flex_count": REF_FLEX_COUNT,
             "flex_eligible": REF_FLEX_ELIGIBLE,
-            "bench_mix": bench_mix_for_teams(teams),
+            "bench_slots": REF_BENCH_SLOTS,
+            "bench_mix": bench_mix,
+            "bench_mix_source": "derived: starting-slot load, capped by irrelevance floor",
         },
         "calibration": {
             pos: {

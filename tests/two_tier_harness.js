@@ -50,8 +50,43 @@ switch (cmd) {
     out = {values: Object.fromEntries(values), scale};
     break;
   }
+  case "benchmixdetail": {
+    const teams = input.teams, slots = input.slots || {...T.REF_SLOTS};
+    const flexEligible = input.flexEligible || [...T.REF_FLEX_ELIGIBLE];
+    const flexCount = input.flexCount === undefined ? T.REF_FLEX_COUNT : input.flexCount;
+    const ranked = {};
+    for (const pos of T.POSITIONS) ranked[pos] = (input.pools[pos] || []).slice().sort((a,b)=>b-a);
+    const taken = {}, flexHits = {};
+    for (const pos of T.POSITIONS) { taken[pos] = teams * (slots[pos] || 0); flexHits[pos] = 0; }
+    const fp = [];
+    for (const pos of T.POSITIONS) {
+      if (!flexEligible.includes(pos)) continue;
+      for (const x of ranked[pos].slice(taken[pos])) fp.push([x, pos]);
+    }
+    fp.sort((a,b)=>b[0]-a[0]);
+    for (const [, pos] of fp.slice(0, teams*flexCount)) flexHits[pos] += 1;
+    const starters = {}, floor = {};
+    for (const pos of T.POSITIONS) {
+      starters[pos] = taken[pos] + flexHits[pos];
+      floor[pos] = T.tailFloor(ranked[pos]);
+    }
+    out = {mix: T.benchMixFor(teams,
+             input.benchSlots === undefined ? T.REF_BENCH_SLOTS : input.benchSlots,
+             slots, flexCount, flexEligible, input.pools),
+           starters, floor};
+    break;
+  }
   case "benchmix":
-    out = T.benchMixForTeams(input.teams);
+    out = T.benchMixFor(
+      input.teams,
+      input.benchSlots === undefined ? T.REF_BENCH_SLOTS : input.benchSlots,
+      input.slots || {...T.REF_SLOTS},
+      input.flexCount === undefined ? T.REF_FLEX_COUNT : input.flexCount,
+      input.flexEligible || [...T.REF_FLEX_ELIGIBLE],
+      input.pools);
+    break;
+  case "tailfloor":
+    out = T.tailFloor(input.xs);
     break;
   case "multipool":
     // configs: [{name, lists, cfg, pies, shares}]
