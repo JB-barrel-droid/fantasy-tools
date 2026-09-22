@@ -161,7 +161,7 @@ class TestLegGuarantees(unittest.TestCase):
         cls.tmp.cleanup()
 
     def test_espn_vintage_recorded(self):
-        self.assertEqual(self.leg["inputs"]["espn_snapshot_date"], "2026-09-21")
+        self.assertEqual(self.leg["inputs"]["espn_snapshot_date"], "2026-09-22")
         self.assertEqual(self.leg["schema"], "trade-value-ddf-leg-v1")
 
     def test_pie_identity_pre_rounding(self):
@@ -260,7 +260,7 @@ class TestFailClosed(unittest.TestCase):
         header, rows = src[0], src[1:]
         half = len(rows) // 2
         doctored = [header] + rows[:half] + [
-            r.replace("2026-09-21", "2026-09-20") for r in rows[half:]]
+            r.replace("2026-09-22", "2026-09-20") for r in rows[half:]]
         bad = tmp / "mixed.csv"
         bad.write_text("".join(doctored), encoding="utf-8")
         with self.assertRaises(SystemExit):

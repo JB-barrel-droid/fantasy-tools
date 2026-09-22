@@ -18,14 +18,14 @@
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
   const LABELS = {
-    usatoday: "USA Today",
-    fantasycalc: "FantasyCalc",
-    fantasypros: "FantasyPros",
-    cbs: "CBS",
-    cbs_adjusted: "CBS Adjusted",
-    fantasycalc_adjusted: "FC Adjusted",
-    usatoday_adjusted: "USAT Adjusted",
-    fantasypros_adjusted: "FP Adjusted",
+    usatoday: "USA Today (Week 2)",
+    fantasycalc: "FantasyCalc (Week 2)",
+    fantasypros: "FantasyPros (Week 2)",
+    cbs: "CBS (Week 2)",
+    cbs_adjusted: "CBS Adjusted (Week 2)",
+    fantasycalc_adjusted: "FC Adjusted (Week 2)",
+    usatoday_adjusted: "USAT Adjusted (Week 2)",
+    fantasypros_adjusted: "FP Adjusted (Week 2)",
     espn: "ESPN adjusted",
     espn_vorp: "ESPN raw value above waivers"
   };
@@ -800,7 +800,12 @@
   function renderNewsList(row) {
     const items = playerNews(row.player_key);
     if (!items.length) return '<p class="news-empty">No player-value news is loaded for this player yet.</p>';
-    return `<ul class="news-list">${items.slice(0, 6).map(item => `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}</span></li>`).join("")}</ul>`;
+    // Very brief: max 3 items, truncated summaries, pre/post-values timing prominent.
+    return `<ul class="news-list">${items.slice(0, 3).map(item => {
+      const brief = item.summary ? (item.summary.length > 120 ? item.summary.slice(0, 117) + "…" : item.summary) : "";
+      const timingBadge = item.timing === "fresher than values" ? "post-values" : item.timing === "older than values" ? "pre-values" : "timing n/a";
+      return `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a>${brief ? `<p>${esc(brief)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · <strong>${esc(timingBadge)}</strong></span></li>`;
+    }).join("")}</ul>`;
   }
 
   function renderAdjustmentList(row) {

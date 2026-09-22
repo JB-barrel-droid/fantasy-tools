@@ -2063,6 +2063,7 @@
       context.setLineDash(style.dash);
       context.beginPath();
       let drawing = false;
+      let prevPx = 0, prevPy = 0;
       rows.forEach((row, index) => {
         const rank = index + 1;
         const value = row.values[key];
@@ -2071,8 +2072,15 @@
           return;
         }
         const px = x(rank), py = y(value);
-        if (!drawing) context.moveTo(px, py);
-        else context.lineTo(px, py);
+        if (!drawing) {
+          context.moveTo(px, py);
+        } else {
+          // Quadratic smoothing: curve through midpoints for a smoother
+          // visual without changing the underlying data values.
+          const midX = (prevPx + px) / 2, midY = (prevPy + py) / 2;
+          context.quadraticCurveTo(prevPx, prevPy, midX, midY);
+        }
+        prevPx = px; prevPy = py;
         drawing = true;
       });
       context.stroke();
@@ -2188,9 +2196,17 @@
     const noAggregate = !Object.prototype.hasOwnProperty.call(window, "TradeValueCurveMedian");
     const stableDomain = rows.every((row, index) => index === 0 || row.player_key !== rows[index - 1].player_key);
     const validValues = SOURCE_KEYS.every(key => [...sourceMaps.get(key).values()].every(value => Number.isFinite(value) && value >= 0));
-    const sourcePeaks = Object.fromEntries(SOURCE_KEYS.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
+    // Only check active (non-paused) sources for the peak guard. Paused
+    // adjusted curves carry stale fixture data and must not block the
+    // live curves from rendering. Sources with no data (empty maps)
+    // are skipped rather than failing the guard.
+    const activeKeysForGuard = activeSourceKeys().filter(key => {
+      const vals = sourceMaps.get(key);
+      return vals && vals.size > 0;
+    });
+    const sourcePeaks = Object.fromEntries(activeKeysForGuard.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
     const distinctSourcePeaks = new Set(Object.values(sourcePeaks).map(value => value.toFixed(1))).size > 1;
-    const valuesAbove70 = Object.values(sourcePeaks).every(value => value > 70);
+    const valuesAbove70 = activeKeysForGuard.length === 0 || Object.values(sourcePeaks).every(value => value > 70);
     const scale = yAxisScale(rows);
     const visiblePeak = Math.max(...rows.flatMap(row => activeSourceKeys().map(key => row.values[key])).filter(Number.isFinite));
     const dynamicAxisCoversData = scale.max >= visiblePeak;
