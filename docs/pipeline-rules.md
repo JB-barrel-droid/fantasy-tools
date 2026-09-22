@@ -70,6 +70,10 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
 - The isotonic fit is strictly per position (QB/RB/WR/TE) with at least 10
   anchor-matched pairs; fewer fails closed. Cross-position pooling is never
   allowed to happen silently.
+- Promotion requires a `ready` verdict from `review_comparison_candidate.py`.
+  The review never promotes and never writes under `data/`; the promotion
+  itself is a separate, explicitly approved step. `review_rows` must be
+  triaged (via `--triage`), not ignored.
 
 ## 4. Null, never zero
 

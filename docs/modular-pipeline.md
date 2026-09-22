@@ -157,6 +157,30 @@ Notes:
   candidates anchor to the ESPN leg. The promotion review must surface that
   anchor change explicitly -- legacy equality is NOT asserted.
 
+### Promotion review
+
+A reindexed section is reviewed before any human promotion decision:
+
+```bash
+make comparison-review REINDEXED_FILE=output/comparison-reference/...-reindexed.json
+```
+
+`pipelines/review_comparison_candidate.py` compares the candidate against the
+fixture's existing section for the same source and writes a
+`trade-value-comparison-review-v1` report under `output/comparison-review/`
+with verdict `ready` or `hold`:
+
+- `combos_match`, `native_drift` (the source moved since the fixture was baked?),
+  `coverage` (lost players?), `zero_preservation`, `pie_factors_sane`
+- `review_rows_triaged`: every review row must be triaged via `--triage`
+  (a JSON slug -> note map) before the verdict can be `ready`
+- `anchor_disclosure`: always informational -- the anchor change (ESPN leg vs
+  Monday rail) is measured as per-position divergence, never asserted equal
+
+The script never promotes anything and never writes under `data/`. `ready`
+means a human MAY promote; the promotion itself is a separate, explicitly
+approved step.
+
 ## 3. Dashboard Build
 
 The dashboard build copies finished reference artifacts into the static app and

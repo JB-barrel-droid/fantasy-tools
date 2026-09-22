@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-merge source-news naming reference sync test validate serve deploy-status
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-merge source-news naming reference sync test validate serve deploy-status
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -19,6 +19,7 @@ help:
 	@echo "  make comparison-section Build a candidate comparison section from REFERENCE_FILE"
 	@echo "  make comparison-merge  Merge CANDIDATE_FILE into a candidate comparison artifact"
 	@echo "  make comparison-reindex Reindex CANDIDATE_FILE onto the anchor scale (fixed pie)"
+	@echo "  make comparison-review Review REINDEXED_FILE for promotion (verdict: ready/hold)"
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
@@ -52,6 +53,10 @@ comparison-merge:
 comparison-reindex:
 	@test -n "$(CANDIDATE_FILE)" || (echo "Set CANDIDATE_FILE=output/comparison-candidates/.../section.json" && exit 1)
 	python3 pipelines/reindex_comparison_section.py "$(CANDIDATE_FILE)"
+
+comparison-review:
+	@test -n "$(REINDEXED_FILE)" || (echo "Set REINDEXED_FILE=output/comparison-reference/...-reindexed.json" && exit 1)
+	python3 pipelines/review_comparison_candidate.py "$(REINDEXED_FILE)" $(if $(TRIAGE_FILE),--triage "$(TRIAGE_FILE)")
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss

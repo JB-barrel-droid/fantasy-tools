@@ -100,7 +100,9 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             else:
                 pos_by_slug[slug] = pos
 
-        out_combo = {"reindexed": {}, "native": dict(native), "fit": {}, "n": {}, "index_total": {}}
+        out_combo = {"reindexed": {}, "native": dict(native), "fit": {}, "n": {},
+                       "index_total": {},
+                       "player_keys": {s: key_by_slug.get(s) for s in native}}
         for pos in POSITIONS:
             pairs = []
             priced = []
