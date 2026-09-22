@@ -178,10 +178,32 @@ class TestReviewStage(unittest.TestCase):
 
 class TestRealFixtureReview(unittest.TestCase):
     def test_usatoday_demo_reaches_ready(self):
+        import reindex_comparison_section as rcs
         repo = Path(__file__).resolve().parent.parent
-        reidx = repo / "output/comparison-reference/usatoday-2026-09-21-reindexed.json"
-        self.assertTrue(reidx.exists(), "run the stage-2 demo first")
-        report = rvw.review_candidate(str(reidx))
+        fixture = repo / "data/fixtures/current/comparison-sources-data.json"
+        players_p = repo / "data/fixtures/current/players.json"
+        c = json.loads(fixture.read_text())
+        fkeys = c.get("player_keys", {})
+        # Build the candidate from the fixture's own usatoday natives, then
+        # run the real stage-2 reindex on it -- fully hermetic, no local
+        # output/ artifacts required (CI starts with a clean checkout).
+        tmp = Path(tempfile.mkdtemp())
+        cand = {"schema": "trade-value-source-reference-v1",
+                "source_key": "usatoday", "asof": "2026-09-19",
+                "reindex_status": "pending", "combos": {}}
+        for combo_name, combo in c["sources"]["usatoday"]["combos"].items():
+            cand["combos"][combo_name] = {
+                "native": dict(combo["native"]),
+                "player_keys": {s: fkeys.get(s) for s in combo["native"]},
+            }
+        cp = tmp / "usa-candidate.json"
+        cp.write_text(json.dumps(cand))
+        section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
+        self.assertEqual(review_rows, [])
+        rp = tmp / "usa-reindexed.json"
+        rp.write_text(json.dumps(section))
+        report = rvw.review_candidate(str(rp), fixture_path=str(fixture),
+                                      players_path=str(players_p))
         # The demo candidate was built FROM the fixture natives: no drift,
         # no coverage change, no review rows -> ready, with the anchor
         # change disclosed and divergence measured.
