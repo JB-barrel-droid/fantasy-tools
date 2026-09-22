@@ -2,15 +2,69 @@
 
 **Rule: One instruction → one lane. Never touch two modules for one fix. Never create branching conflicts within a module.**
 
-## The 5 Modules
+## The 5 Modules — With Layers
 
-| # | Module | Files | What it owns | Health check |
-|---|--------|-------|--------------|--------------|
-| 1 | **data-pipeline** | `app/trade-value-chart/assets/comparison-sources-data.json` | Source snapshots, per-player values, `built_at` | Every source has >0 values; snapshot date is current |
-| 2 | **curve-widget** | `app/trade-value-chart/assets/curve-widget.js`, `curve-widget.css` | Chart rendering, regression guards, smoothing, fixed-pie, bench share | `verify_live.py` markers present; `test_two_tier_frontend` green |
-| 3 | **comparison-dashboard** | `app/trade-value-chart/assets/comparison-dashboard.js` | Player news (max 3, timing badges), health panel, dataset status | News capped at 3; timing badges present |
-| 4 | **page-shell** | `app/trade-value-chart/index.html` | Header dates with time, build tag, footer, layout | Build tag current; `monthDayTime` present |
-| 5 | **build-deploy** | `deploy.sh`, `verify_live.py`, `.github/workflows/pages.yml` | Sync app→dist, tests, push, deploy, live verification | `verify_live.py` exits 0; app/dist byte-identical |
+### 1. data-pipeline — 🔴 DEGRADED
+**Owns:** Source snapshots → live fixture (`comparison-sources-data.json`)
+
+| Layer | Script / File | Status |
+|-------|---------------|--------|
+| L1 · Source pulls | `data/raw/sources/<source>/` | ✅ All 5 have snapshots |
+| L2 · Import → Supabase | `import_source_snapshot.py`, `save_espn_cbs_references.py` | ✅ Tables populated |
+| L3 · Health gate | `verify_import_health.py` → `output/source-import-health.json` | ✅ All 5 "ok" |
+| L4 · Build section | `build_comparison_source_section.py` → candidate | ❓ Unknown for 4 sources |
+| L5 · Review | `review_comparison_candidate.py` | ❓ Unknown |
+| L6 · Promote → live | `promote_comparison_section.py` → `comparison-sources-data.json` | 🔴 Only ESPN promoted |
+| L7 · Bake players | `bake_players.py` → `data/fixtures/current/players.json` | ❓ Check needed |
+
+**Live data (2026-09-22):**
+- ESPN: 7,152 values, snapshot 2026-09-21 — ✅
+- CBS: 0 values (372 rows in Supabase, Week 2) — 🔴 not promoted
+- FantasyCalc: 0 values (594 rows in Supabase, Week 2) — 🔴 not promoted
+- FantasyPros: 0 values (534 rows in Supabase, 2026-09-15) — 🔴 not promoted
+- USA Today: 0 values (714 rows in Supabase, 2026-09-15) — 🔴 not promoted
+
+### 2. curve-widget — 🟡 NEEDS ATTENTION
+**Owns:** Chart rendering, guards, smoothing, fixed-pie
+
+| Layer | File / Check | Status |
+|-------|--------------|--------|
+| L1 · Guard logic | `activeKeysForGuard`, empty-source skip | ✅ Present, needs negative test |
+| L2 · Rendering | `quadraticCurveTo` smoothing | ✅ Present |
+| L3 · Fixed-pie math | Two-tier, bench share | 🔴 6 test failures (data drift) |
+
+### 3. comparison-dashboard — 🟢 HEALTHY
+**Owns:** Player news, health panel, dataset status
+
+| Layer | File / Check | Status |
+|-------|--------------|--------|
+| L1 · Player news | `ingest_player_news.py` → max 3 + timing badges | ✅ |
+| L2 · Health panel | Dataset health display | ✅ |
+
+### 4. page-shell — 🟢 HEALTHY
+**Owns:** Header dates, build tag, layout
+
+| Layer | File / Check | Status |
+|-------|--------------|--------|
+| L1 · Header/dates | `monthDayTime`, asOfDate + ecrContentDate | ✅ Dates show time |
+| L2 · Build tag | `trade-chart-build` meta + footer | ✅ Current |
+
+### 5. build-deploy — 🟢 HEALTHY
+**Owns:** Sync, tests, push, deploy, verify
+
+| Layer | Script / Check | Status |
+|-------|---------------|--------|
+| L1 · Sync | `deploy.sh`: app/ → dist/ | ✅ Byte-identical |
+| L2 · Tests | `test_two_tier_frontend` | 🟡 6 failures (see lane 2) |
+| L3 · Push/deploy | GitHub API → Pages | ✅ Remote: `6a5dd0e09fc9` |
+| L4 · Verify | `verify_live.py` | ✅ LIVE OK |
+
+## Live Dashboard
+
+**URL:** https://jb-barrel-droid.github.io/fantasy-tools/modules/dashboard.html
+
+Fetches live `comparison-sources-data.json` + `source-import-health.json` via JavaScript.
+Click any module to expand its layers. No baked values — always current.
 
 ## Lane Rules
 
