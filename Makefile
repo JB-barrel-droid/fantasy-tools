@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-merge source-news naming reference sync test validate serve deploy-status
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync test validate serve deploy-status
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -20,6 +20,7 @@ help:
 	@echo "  make comparison-merge  Merge CANDIDATE_FILE into a candidate comparison artifact"
 	@echo "  make comparison-reindex Reindex CANDIDATE_FILE onto the anchor scale (fixed pie)"
 	@echo "  make comparison-review Review REINDEXED_FILE for promotion (verdict: ready/hold)"
+	@echo "  make comparison-promote Promote REVIEW_FILE into the live fixture (needs APPROVE)"
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
@@ -57,6 +58,11 @@ comparison-reindex:
 comparison-review:
 	@test -n "$(REINDEXED_FILE)" || (echo "Set REINDEXED_FILE=output/comparison-reference/...-reindexed.json" && exit 1)
 	python3 pipelines/review_comparison_candidate.py "$(REINDEXED_FILE)" $(if $(TRIAGE_FILE),--triage "$(TRIAGE_FILE)")
+
+comparison-promote:
+	@test -n "$(REVIEW_FILE)" || (echo "Set REVIEW_FILE=output/comparison-review/...-review.json" && exit 1)
+	@test -n "$(APPROVE)" || (echo "Set APPROVE=\"<name> <YYYY-MM-DD> <reason>\"" && exit 1)
+	python3 pipelines/promote_comparison_section.py "$(REVIEW_FILE)" --approve "$(APPROVE)"
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss

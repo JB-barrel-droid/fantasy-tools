@@ -181,6 +181,32 @@ The script never promotes anything and never writes under `data/`. `ready`
 means a human MAY promote; the promotion itself is a separate, explicitly
 approved step.
 
+### Promotion
+
+The only stage allowed to write under `data/`:
+
+```bash
+make comparison-promote \
+  REVIEW_FILE=output/comparison-review/usatoday-2026-09-21-review.json \
+  APPROVE="Jeremy 2026-09-21 re-anchor usatoday to the ESPN leg"
+```
+
+`pipelines/promote_comparison_section.py` refuses unless ALL hold:
+
+1. the review verdict is `ready`
+2. the reindexed section bytes still match the review's `reindexed_sha256`
+3. the fixture's current natives still match the review's
+   `fixture_native_sha256` (nothing moved under the review)
+4. every candidate slug already exists in the fixture's `player_keys`
+5. `--approve "<name> <YYYY-MM-DD> <reason>"` is given (recorded verbatim)
+
+Promotion replaces the source's `reindexed` values, `fit`, and `index_total`
+with the candidate's, carries natives over byte-identical (vintage
+`fetched_at` untouched -- only the anchor changes), records
+`reindex_anchor: espn_leg` + `promoted_at` on the section, preserves the
+fixture's compact serialization, and writes a promotion record (with the
+replaced section as a rollback record) under `output/comparison-promotions/`.
+
 ## 3. Dashboard Build
 
 The dashboard build copies finished reference artifacts into the static app and

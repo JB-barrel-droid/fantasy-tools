@@ -52,7 +52,9 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
                                 "factor": 0.952381, "n_priced": per_pos}
                             for p in POS},
         }
-    fx = {"sources": {source: {"combos": fx_combos}}, "player_keys": {}}
+    fx = {"sources": {source: {"combos": fx_combos}},
+          "player_keys": {f"player {p.lower()}{j}": 5000 + i * 100 + j
+                          for i, p in enumerate(POS) for j in range(per_pos)}}
     fx_path = tmp / "fixture.json"
     fx_path.write_text(json.dumps(fx))
 
@@ -161,7 +163,11 @@ class TestReviewStage(unittest.TestCase):
     def test_new_source_has_no_baseline(self):
         cand, _ = build(self.tmp, source="brand_new")
         fx_path = self.tmp / "fx2.json"
-        fx_path.write_text(json.dumps({"sources": {}, "player_keys": {}}))
+        fx_path.write_text(json.dumps({
+            "sources": {},
+            "player_keys": {f"player {p.lower()}{j}": 5000 + i * 100 + j
+                            for i, p in enumerate(POS) for j in range(12)},
+        }))
         report = rvw.review_candidate(str(cand), fixture_path=str(fx_path))
         self.assertEqual(report["verdict"], "ready")
         self.assertEqual(statuses(report)["baseline"], "info")

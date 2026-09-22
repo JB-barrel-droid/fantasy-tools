@@ -145,7 +145,13 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                     f"reindex: {source}/{combo_name}/{pos} pre_total={pre_total} -- cannot index the pie"
                 )
             factor = target_total / pre_total
-            out_combo["reindexed"].update(reindexed)
+            # The pie is fixed: the stored reindexed values are the
+            # isotonic outputs SCALED by the factor, so they sum to
+            # target_total (within rounding). Recording the factor without
+            # applying it silently breaks the fixed-pie invariant.
+            scaled = {slug: _round1(val * factor)
+                      for slug, val in reindexed.items()}
+            out_combo["reindexed"].update(scaled)
             out_combo["fit"][pos] = {
                 "method": "isotonic_pava",
                 "anchor": "espn_leg",

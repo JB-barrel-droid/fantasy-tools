@@ -106,7 +106,11 @@ class StaticExportTest(unittest.TestCase):
             return values["josh allen"]
 
         expected = {
-            ("usatoday", "full_12"): 22.3,
+            # usatoday re-anchored from the retired Monday rail to the fixture
+            # ESPN leg (promotion 2026-09-21); the old pin 22.3 was the
+            # Monday-rail value. Allen is the #1 QB in both, so he takes the
+            # anchor's top value.
+            ("usatoday", "full_12"): 17.2,
             ("fantasycalc", "full_12_qb1"): 24.0,
             ("fantasypros", "full_12"): 26.0,
             ("cbs", "full_12"): 22.1,
