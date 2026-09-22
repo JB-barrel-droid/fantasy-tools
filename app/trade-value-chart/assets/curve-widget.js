@@ -68,6 +68,8 @@
   // floor separates "scale is broken" from "this source ranks flatter than
   // the others". Raise it only with a curve that genuinely cannot go lower.
   const CURVE_COLLAPSE_FLOOR = 25;
+  // Minimum shared players before a source may be anchored on the shared set.
+  const MIN_SHARED_FOR_PIE = 40;
   // Set once runRegressionGuards() returns clean; draw() refuses to paint until then.
   let guardsPassed = false;
   // Stage 1 display freeze: the rendered fallback curves (fixed-pie indexed
@@ -684,7 +686,8 @@
       const rankValue = player.preseasonRank ?? player.preseason_ecr_rank;
       const rank = Number(rankValue);
       const specialistProjection = SPECIALIST_POSITIONS.includes(player.pos)
-        ? (player.espn_ppg || player.kdst_ppg || player.blend_ppg || player.ecr_ppg || null)
+        // ECR is out of the build: no ECR fallback may reach a curve labelled ESPN.
+        ? (player.espn_ppg || player.kdst_ppg || null)
         : null;
       map.set(playerKey, {
         player_key: playerKey,
@@ -841,16 +844,50 @@
   // share defaults to the frozen stage-1 display share: fallback curves never
   // move with the bench-share slider. Live-derived stage-2 paths (baked
   // adjustment cells present) pass the active slider share explicitly.
-  function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE) {
+  // Players the anchor prices but this source does not are NOT part of this
+  // source's pie. Scaling a 124-player chart and a 350-player anchor to the
+  // SAME total forces the thinner chart's curve taller everywhere -- that is
+  // why the published charts peaked at 85-92 against the anchor's 69.5 while
+  // every pie total agreed to 1e-12. The pie basis is the SHARED set: the
+  // target is the anchor's total over exactly the players both price.
+  // Players the anchor prices but this source does not are NOT part of this
+  // source's pie. Scaling a 124-player chart and a 350-player anchor to the
+  // SAME total forces the thinner chart's curve taller everywhere -- that is
+  // why the published charts peaked at 85-92 against the anchor's 69.5 while
+  // every pie total agreed to 1e-12. The pie basis is the SHARED set.
+  //
+  // Both sides must be measured on that same basis. Taking the target from the
+  // shared set while totalling the source over ALL its players leaves the
+  // scale short by whatever sits outside the overlap -- a source whose players
+  // are all in the anchor (CBS) still balances, so the error hides until a
+  // source carries players the anchor lacks.
+  function sharedPieBasis(values, anchor) {
+    if (!anchor || !anchor.size) return null;
+    const keys = new Set();
+    let target = 0;
+    values.forEach((value, playerKey) => {
+      if (!POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos)) return;
+      const anchorValue = anchor.get(playerKey);
+      if (!Number.isFinite(anchorValue) || !Number.isFinite(value)) return;
+      keys.add(playerKey);
+      target += Math.max(0, anchorValue);
+    });
+    // Too thin an overlap to anchor against: fail closed to the common pie
+    // rather than inventing a scale from a handful of players.
+    if (keys.size < MIN_SHARED_FOR_PIE || !(target > 0)) return null;
+    return {keys, target};
+  }
+
+  function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE, anchor = null) {
     const roles = roleMapForValues(values);
-    const starterTotal = [...values.entries()]
-      .filter(([playerKey]) => roles.get(playerKey) === "starter")
+    const basis = sharedPieBasis(values, anchor);
+    const inBasis = playerKey => !basis || basis.keys.has(playerKey);
+    const totalFor = role => [...values.entries()]
+      .filter(([playerKey]) => roles.get(playerKey) === role && inBasis(playerKey))
       .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
-    const benchTotal = [...values.entries()]
-      .filter(([playerKey]) => roles.get(playerKey) === "bench")
-      .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? Math.max(0, value) : 0), 0);
-    const eligibleTotal = starterTotal + benchTotal;
-    const target = commonFixedPieTotal(eligibleTotal);
+    const starterTotal = totalFor("starter");
+    const benchTotal = totalFor("bench");
+    const target = basis ? basis.target : commonFixedPieTotal(starterTotal + benchTotal);
     const starterShare = Math.max(0, Math.min(1, 1 - share));
     const normalizedBenchShare = Math.max(0, Math.min(1, share));
     const starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
@@ -1111,15 +1148,16 @@
     espnRowsCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
-    SOURCE_KEYS.forEach(key => {
-      const sourceMap = key === "espn"
-        ? buildEspnIndexedMap()
-        : key.endsWith("_adjusted")
-          ? normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor(key), key), adjustedShareFor(key))
-          : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key));
+    // The anchor must exist before anything normalises against it.
+    const anchorMap = buildEspnIndexedMap();
+    sourceMaps.set("espn", anchorMap);
+    SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
+      const sourceMap = key.endsWith("_adjusted")
+        ? normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor(key), key), adjustedShareFor(key), anchorMap)
+        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), DISPLAY_BENCH_SHARE, anchorMap);
       sourceMaps.set(key, sourceMap);
     });
-    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor("cbs_adjusted"), "cbs_adjusted"), adjustedShareFor("cbs_adjusted")));
+    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor("cbs_adjusted"), "cbs_adjusted"), adjustedShareFor("cbs_adjusted"), anchorMap));
     sourceMaps.set("espn_vorp", buildEspnVorpMap());
 
     const keys = new Set();
@@ -1978,15 +2016,36 @@
     }));
   }
 
+  // Checks the SHARED-set invariant, which is the one that decides whether two
+  // curves are comparable: over the players a source and the anchor both
+  // price, their totals must agree. The old check compared every source's
+  // FULL total to one number, which a source passes no matter how far its
+  // level drifts from the anchor's on the players they share.
   function fixedPieDiagnostics() {
     const tolerance = 2;
-    const target = commonFixedPieTotal(0);
+    const anchor = sourceMaps.get("espn");
     const checks = [];
     visibleSourceKeys().forEach(key => {
-      const total = [...sourceMaps.get(key).entries()]
-        .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
-        .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
-      checks.push({source:key, total, target, delta:total - target, ok:Math.abs(total - target) <= tolerance});
+      const values = sourceMaps.get(key);
+      if (!values) return;
+      if (key === "espn") {
+        const target = commonFixedPieTotal(0);
+        const total = [...values.entries()]
+          .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
+          .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
+        checks.push({source:key, basis:"anchor", shared:null, total, target, delta:total - target,
+                     ok:Math.abs(total - target) <= tolerance});
+        return;
+      }
+      let total = 0, target = 0, shared = 0;
+      values.forEach((value, playerKey) => {
+        if (!POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos)) return;
+        const anchorValue = anchor?.get(playerKey);
+        if (!Number.isFinite(anchorValue) || !Number.isFinite(value)) return;
+        total += value; target += Math.max(0, anchorValue); shared += 1;
+      });
+      checks.push({source:key, basis:"shared", shared, total, target, delta:total - target,
+                   ok:shared >= MIN_SHARED_FOR_PIE && Math.abs(total - target) <= tolerance});
     });
     return {tolerance, checks, ok:checks.every(check => check.ok)};
   }

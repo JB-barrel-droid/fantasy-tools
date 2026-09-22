@@ -494,12 +494,83 @@ class TestStage1FallbackFrozen(unittest.TestCase):
     def test_display_share_frozen(self):
         text = WIDGET.read_text()
         self.assertIn("const DISPLAY_BENCH_SHARE = DEFAULT_BENCH_SHARE;", text)
-        self.assertIn("function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE)", text)
+        # Assert the INVARIANT (share defaults to the frozen display share) rather
+        # than the literal signature, so adding a parameter cannot fail this.
+        self.assertRegex(
+            text,
+            r"function normalizeTradeChartToFixedPie\(\s*values\s*,\s*share\s*=\s*DISPLAY_BENCH_SHARE",
+            "normalizeTradeChartToFixedPie must default share to DISPLAY_BENCH_SHARE")
         body = extract_function(text, "buildEspnRows")
         self.assertIsNotNone(body)
         self.assertNotRegex(body, r"(?<!DISPLAY_)benchShare",
                             "buildEspnRows must not read the live slider share")
         self.assertIn("DISPLAY_BENCH_SHARE", body)
+
+
+    # ---- shared-set pie: the anchor basis ------------------------------------
+    # A 124-player chart and a 350-player anchor scaled to the SAME total forces
+    # the thinner chart taller everywhere. Measured on the live page before this
+    # changed: anchor peaked 69.48, published charts 84.8-92.1, while every pie
+    # total agreed to 1e-12. Totals agreeing is not curves being comparable.
+
+    def test_normalisation_takes_an_anchor(self):
+        text = WIDGET.read_text()
+        self.assertIn("function sharedPieBasis(", text,
+                      "shared-set pie basis missing")
+        body = extract_function(text, "normalizeTradeChartToFixedPie")
+        self.assertIsNotNone(body)
+        self.assertIn("anchor", body, "normalisation must accept an anchor")
+        self.assertIn("sharedPieBasis", body,
+                      "normalisation must take its target from the shared set")
+
+    def test_every_normalised_source_is_passed_the_anchor(self):
+        """A source normalised with no anchor silently falls back to the old
+        full-total basis -- the exact bug. Every call site must pass one."""
+        body = extract_function(WIDGET.read_text(), "rebuildDomain")
+        self.assertIsNotNone(body)
+        calls = []
+        needle = "normalizeTradeChartToFixedPie("
+        idx = body.find(needle)
+        while idx != -1:
+            # scan to the matching close paren so nested calls do not truncate
+            depth, j = 0, idx + len(needle) - 1
+            while j < len(body):
+                if body[j] == "(":
+                    depth += 1
+                elif body[j] == ")":
+                    depth -= 1
+                    if depth == 0:
+                        break
+                j += 1
+            calls.append(body[idx:j + 1])
+            idx = body.find(needle, j)
+        self.assertTrue(calls, "no normalisation calls found in rebuildDomain")
+        for call in calls:
+            self.assertIn("anchorMap", call,
+                          f"normalisation call without an anchor: {call.strip()[:90]}")
+
+    def test_anchor_is_built_before_the_sources_that_use_it(self):
+        body = extract_function(WIDGET.read_text(), "rebuildDomain")
+        self.assertIsNotNone(body)
+        built = body.index("const anchorMap")
+        first_use = body.index("normalizeTradeChartToFixedPie")
+        self.assertLess(built, first_use,
+                        "anchor must be built before any source normalises against it")
+
+    def test_pie_diagnostic_checks_the_shared_set(self):
+        body = extract_function(WIDGET.read_text(), "fixedPieDiagnostics")
+        self.assertIsNotNone(body)
+        self.assertIn('basis:"shared"', body,
+                      "diagnostic must report a shared-set basis")
+        self.assertIn("anchor", body,
+                      "diagnostic must compare each source against the anchor, not one global total")
+
+    def test_no_ecr_value_reaches_the_widget(self):
+        """ECR is out of the build. preseason_ecr_rank is an ordering input,
+        not a value, so only *_ppg / *_ros value fields are forbidden."""
+        text = WIDGET.read_text()
+        leaks = re.findall(r"ecr_(?:ppg|ros|share)", text)
+        self.assertEqual(leaks, [], f"ECR value field(s) still read by the widget: {leaks}")
 
     def test_espn_rows_use_raw_projection_vorp(self):
         # Negative-tested 2026-09-22: buildEspnRows used the modeled
