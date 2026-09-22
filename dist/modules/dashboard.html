@@ -3,276 +3,517 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Trade Value Chart — Live Module Monitor</title>
+<title>Module Monitor — Trade Value Chart</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, system-ui, sans-serif; background: #0f1419; color: #e6e6e6; padding: 20px; max-width: 1000px; margin: 0 auto; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  .sub { color: #8a949e; font-size: 13px; margin-bottom: 20px; }
-  .live-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #3fb950; margin-right: 6px; animation: pulse 2s infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
-  .module { background: #1a2230; border-radius: 10px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #666; }
-  .module.healthy { border-left-color: #2ea043; }
-  .module.degraded { border-left-color: #d29922; }
-  .module.broken { border-left-color: #f85149; }
-  .module-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; cursor: pointer; }
-  .module-name { font-size: 16px; font-weight: 700; }
-  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .badge.healthy { background: #1a3a24; color: #3fb950; }
-  .badge.degraded { background: #3a2e1a; color: #d29922; }
-  .badge.broken { background: #3a1a1a; color: #f85149; }
-  .badge.loading { background: #1a2a3a; color: #58a6ff; }
-  .owns { font-size: 12px; color: #8a949e; margin-bottom: 10px; }
-  .layers { display: none; margin-top: 8px; }
-  .module.open .layers { display: block; }
-  .layer { background: #0f1419; border-radius: 6px; padding: 10px 12px; margin-bottom: 6px; border-left: 3px solid #444; }
-  .layer.healthy { border-left-color: #2ea043; }
-  .layer.degraded { border-left-color: #d29922; }
-  .layer.broken { border-left-color: #f85149; }
-  .layer-name { font-size: 13px; font-weight: 600; margin-bottom: 4px; }
-  .layer-detail { font-size: 12px; color: #8a949e; font-family: monospace; }
-  .layer-items { font-size: 12px; margin-top: 4px; }
-  .layer-items li { list-style: none; padding: 2px 0; }
-  .layer-items li::before { content: "✓ "; color: #3fb950; }
-  .layer-items li.fail::before { content: "✗ "; color: #f85149; }
-  .layer-items li.warn::before { content: "! "; color: #d29922; }
-  .toggle { font-size: 12px; color: #58a6ff; }
-  .rule { background: #1a2230; border-radius: 10px; padding: 14px 16px; margin-top: 16px; font-size: 13px; color: #8a949e; }
-  .rule strong { color: #e6e6e6; }
-  .updated { text-align: center; font-size: 12px; color: #8a949e; margin-top: 12px; }
-  .error { background: #3a1a1a; border-radius: 8px; padding: 12px; margin-bottom: 12px; font-size: 13px; color: #f85149; }
+  :root{
+    --bg:#0b0e13; --card:#131924; --card2:#0e141d; --line:#232d3d;
+    --txt:#e8edf3; --dim:#8b98ab; --faint:#5b6b80;
+    --green:#34d17b; --green-bg:rgba(52,209,123,.12);
+    --yellow:#f0b429; --yellow-bg:rgba(240,180,41,.12);
+    --red:#f4585c; --red-bg:rgba(244,88,92,.12);
+    --grey:#7d8ca3; --grey-bg:rgba(125,140,163,.12);
+    --blue:#5aa9ff;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    background:var(--bg);color:var(--txt);padding:24px 20px 60px;max-width:1100px;margin:0 auto;
+    -webkit-font-smoothing:antialiased}
+  header.top{display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap}
+  header.top h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--green);
+    background:var(--green-bg);border:1px solid rgba(52,209,123,.35);padding:4px 12px;border-radius:999px}
+  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:18px}
+  .sub code{color:var(--blue);font-size:12px}
+  #refresh{margin-left:auto;background:#1d6fe0;border:none;color:#fff;font-weight:600;font-size:13px;
+    padding:8px 18px;border-radius:8px;cursor:pointer}
+  #refresh:hover{background:#2f86f5}
+  /* summary */
+  .summary{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
+  .summary h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:10px}
+  .bignum{font-size:34px;font-weight:800;letter-spacing:-1px;margin-bottom:2px}
+  .bignum small{font-size:15px;font-weight:500;color:var(--dim)}
+  .segbar{display:flex;height:14px;border-radius:8px;overflow:hidden;margin:12px 0;background:#1a2230}
+  .segbar div{transition:width .5s}
+  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--dim)}
+  .legend b{font-weight:700}
+  .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
+  /* pipeline table */
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
+  .card>h2{font-size:15px;font-weight:700;margin-bottom:2px}
+  .card>.desc{font-size:12.5px;color:var(--dim);margin-bottom:12px}
+  table.pipe{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
+  table.pipe th,table.pipe td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--line)}
+  table.pipe th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:600}
+  table.pipe td:first-child,table.pipe th:first-child{text-align:left;font-weight:700;position:sticky;left:0}
+  .st{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;font-weight:800;font-size:14px}
+  .st.ok{background:var(--green-bg);color:var(--green)}
+  .st.bad{background:var(--red-bg);color:var(--red)}
+  .st.warn{background:var(--yellow-bg);color:var(--yellow)}
+  .st.unk{background:var(--grey-bg);color:var(--grey)}
+  .stag{font-size:11px;color:var(--faint);display:block;margin-top:3px;font-weight:400}
+  .vlabel{display:inline-block;font-size:11px;font-weight:700;background:#1a2a3a;color:var(--blue);
+    padding:3px 10px;border-radius:999px;margin-top:4px}
+  .stuck{font-size:11.5px;color:var(--yellow);font-weight:600}
+  /* modules */
+  .mod{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:var(--card)}
+  .mod-head{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
+  .mod-head:hover{background:rgba(255,255,255,.02)}
+  .mod-dot{width:12px;height:12px;border-radius:50%;flex:none}
+  .mod-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,209,123,.7)}
+  .mod-dot.warn{background:var(--yellow);box-shadow:0 0 8px rgba(240,180,41,.7)}
+  .mod-dot.bad{background:var(--red);box-shadow:0 0 8px rgba(244,88,92,.7)}
+  .mod-dot.unk{background:var(--grey)}
+  .mod-name{font-size:15px;font-weight:700}
+  .mod-name .idx{color:var(--faint);font-weight:500;margin-right:8px}
+  .mod-sub{font-size:12px;color:var(--dim);margin-top:2px}
+  .pill{margin-left:auto;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px;flex:none}
+  .pill.ok{background:var(--green-bg);color:var(--green)}
+  .pill.warn{background:var(--yellow-bg);color:var(--yellow)}
+  .pill.bad{background:var(--red-bg);color:var(--red)}
+  .pill.unk{background:var(--grey-bg);color:var(--grey)}
+  .chev{color:var(--faint);font-size:14px;transition:transform .2s;flex:none}
+  .mod.open .chev{transform:rotate(90deg)}
+  .mod-body{display:none;padding:4px 18px 18px}
+  .mod.open .mod-body{display:block}
+  .layer{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px;background:var(--card2)}
+  .layer-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+  .layer-name{font-size:13.5px;font-weight:700}
+  .layer-desc{font-size:12px;color:var(--faint);margin-left:auto;text-align:right}
+  .checks{list-style:none;margin-top:6px}
+  .checks li{font-size:12.5px;padding:5px 0 5px 26px;position:relative;color:#cfd8e3;border-top:1px dashed rgba(35,45,61,.7)}
+  .checks li:first-child{border-top:none}
+  .checks li::before{position:absolute;left:4px;font-weight:800}
+  .checks li.c-ok::before{content:"✓";color:var(--green)}
+  .checks li.c-bad::before{content:"✗";color:var(--red)}
+  .checks li.c-warn::before{content:"!";color:var(--yellow)}
+  .checks li.c-unk::before{content:"?";color:var(--grey)}
+  .checks .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dim)}
+  .why{margin-top:10px;background:var(--red-bg);border:1px solid rgba(244,88,92,.3);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.55}
+  .why.warnb{background:var(--yellow-bg);border-color:rgba(240,180,41,.3)}
+  .why strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;color:var(--red)}
+  .why.warnb strong{color:var(--yellow)}
+  .why .fix{margin-top:6px;color:var(--txt)}
+  .why .fix b{color:var(--blue)}
+  /* rca */
+  .rca-item{border-left:3px solid var(--red);padding:10px 14px;margin:10px 0;background:var(--card2);border-radius:0 8px 8px 0}
+  .rca-item.warn{border-left-color:var(--yellow)}
+  .rca-item h4{font-size:13px;margin-bottom:4px}
+  .rca-item h4 .where{color:var(--faint);font-weight:500}
+  .rca-item p{font-size:12.5px;color:#cfd8e3;line-height:1.55}
+  .rca-item p b{color:var(--txt)}
+  .chain{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--dim);margin-top:6px}
+  .chain .g{color:var(--green)} .chain .r{color:var(--red)} .chain .y{color:var(--yellow)}
+  #err{display:none;background:var(--red-bg);border:1px solid rgba(244,88,92,.4);border-radius:10px;
+    padding:12px 16px;margin-bottom:16px;font-size:13px}
+  footer{margin-top:24px;font-size:12px;color:var(--faint);text-align:center;line-height:1.7}
+  footer code{color:var(--dim)}
+  @media(max-width:760px){table.pipe{font-size:11px}table.pipe th,table.pipe td{padding:7px 4px}.bignum{font-size:28px}}
 </style>
 </head>
 <body>
-<h1><span class="live-dot"></span>Trade Value Chart — Live Module Monitor</h1>
-<p class="sub">Live data. Click a module to see its layers. One instruction → one lane.</p>
 
-<div id="error"></div>
+<header class="top">
+  <h1>Module Monitor</h1>
+  <span class="live"><span class="dot"></span>LIVE</span>
+  <button id="refresh" onclick="location.reload()">↻ Refresh</button>
+</header>
+<p class="sub">Trade Value Chart · every component &amp; sub-component · checks run live in your browser against the deployed bytes.<br>
+Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span></p>
+
+<div id="err"></div>
+
+<section class="summary">
+  <h2>Fleet health</h2>
+  <div class="bignum"><span id="okCount">–</span><small> / <span id="totalCount">–</span> checks healthy</small></div>
+  <div class="segbar" id="segbar"></div>
+  <div class="legend" id="legend"></div>
+</section>
+
+<section class="card" id="pipelineCard">
+  <h2>Source pipeline — where is each source stuck?</h2>
+  <div class="desc">Each source must travel L1 → L6. Green = confirmed by live data · red = failed · grey = no live signal. The <b>stuck-at</b> column is the root cause at a glance.</div>
+  <div style="overflow-x:auto">
+  <table class="pipe" id="pipeTable">
+    <thead><tr>
+      <th>Source</th><th>L1<br>pull</th><th>L2<br>import</th><th>L3<br>health</th>
+      <th>L4<br>build</th><th>L5<br>review</th><th>L6<br>promote</th><th>UI label</th><th>Stuck at</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card" id="rcaCard" style="display:none">
+  <h2>Root-cause analysis</h2>
+  <div class="desc">Every non-healthy check, with the failure chain and the fix. Newest / most severe first.</div>
+  <div id="rcaList"></div>
+</section>
+
 <div id="modules"></div>
 
-<div class="rule">
-  <strong>Lane rules:</strong><br>
-  1. Jeremy's instruction goes in exactly one lane. Split it if it touches two modules.<br>
-  2. One active change per lane. Finish or pause before starting the next.<br>
-  3. Cross-lane dependencies are written down, never silent.<br>
-  4. <strong>verify_live.py</strong> is the gate — nothing is "done" until it passes.<br>
-  5. Data staleness (lane 1) never blocks code fixes (lanes 2–4).
-</div>
-
-<p class="updated" id="updated"></p>
+<footer>
+  Lane rules: one instruction → one lane · one active change per lane · <code>verify_live.py</code> is the gate.<br>
+  <span id="footNote"></span>
+</footer>
 
 <script>
-const BASE = window.location.pathname.includes('/modules/')
-  ? '../' : './';
+"use strict";
+/* ---------- path resolution: repo layout vs dist (GitHub Pages) layout ---------- */
+const FIXTURE_PATHS = [
+  "../app/trade-value-chart/assets/comparison-sources-data.json",
+  "../assets/comparison-sources-data.json",
+  "assets/comparison-sources-data.json",
+];
+const HEALTH_PATHS = [
+  "../output/source-import-health.json",
+  "source-import-health.json",
+  "output/source-import-health.json",
+];
+const TEXT_PATHS = {
+  curveJs: ["../app/trade-value-chart/assets/curve-widget.js","../assets/curve-widget.js","assets/curve-widget.js"],
+  dashJs:  ["../app/trade-value-chart/assets/comparison-dashboard.js","../assets/comparison-dashboard.js","assets/comparison-dashboard.js"],
+  index:   ["../app/trade-value-chart/index.html","../index.html","index.html"],
+};
+const SOURCES = ["espn","cbs","fantasycalc","fantasypros","usatoday"];
+const SRC_LABEL = {espn:"ESPN",cbs:"CBS",fantasycalc:"FantasyCalc",fantasypros:"Expert (ECR)",usatoday:"USA Today"};
 
-async function load() {
-  const errEl = document.getElementById('error');
-  let srcData = null, healthData = null;
-  try {
-    const [s, h1, h2] = await Promise.all([
-      fetch(BASE + 'app/trade-value-chart/assets/comparison-sources-data.json').then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(BASE + 'output/source-import-health.json').then(r => r.ok ? r.json() : null).catch(() => null),
-      // Dashboard-local copy (dist/modules/) for GitHub Pages
-      fetch('source-import-health.json').then(r => r.ok ? r.json() : null).catch(() => null),
-    ]);
-    ]);
-    // Fallback: try dist paths (GitHub Pages layout)
-    if (!s) {
-      srcData = await fetch('assets/comparison-sources-data.json').then(r => r.ok ? r.json() : null).catch(() => null);
-    } else srcData = s;
-    healthData = h1 || h2;
-  } catch (e) {
-    errEl.innerHTML = `<div class="error">Could not load live data: ${e.message}. Showing structure only.</div>`;
+async function firstOk(paths, asText){
+  for(const p of paths){
+    try{
+      const r = await fetch(p,{cache:"no-store"});
+      if(r.ok){
+        const t = await r.text();
+        if(t && t.trim().length>10) return {path:p, text:t, json: asText?null:JSON.parse(t)};
+      }
+    }catch(e){/* try next */}
   }
-  render(srcData, healthData);
-  document.getElementById('updated').textContent =
-    'Live check: ' + new Date().toLocaleString('en-US', { timeZone: 'America/Chicago' }) + ' CT';
+  return null;
 }
 
-function srcStatus(srcData, key) {
-  if (!srcData) return { cls: 'loading', items: [{ t: 'loading…', ok: null }] };
-  const s = (srcData.sources || {})[key] || {};
-  const combos = s.combos || {};
-  let total = 0;
-  for (const c of Object.values(combos)) {
-    const v = c.values;
-    if (v && typeof v === 'object') total += Object.keys(v).length;
+const checks = [];   // {module, layer, name, status, detail, why, fix, chain}
+function add(m,l,name,status,detail,why,fix,chain){
+  checks.push({module:m,layer:l,name,status,detail:detail||"",why:why||"",fix:fix||"",chain:chain||""});
+}
+const OK="ok",WARN="warn",BAD="bad",UNK="unk";
+
+function daysOld(iso){
+  if(!iso) return null;
+  const d=(Date.now()-new Date(iso).getTime())/86400000;
+  return isFinite(d)?d:null;
+}
+function shortDate(iso){
+  if(!iso) return "?";
+  const d=new Date(iso);
+  return isNaN(d)?String(iso).slice(0,10):d.toISOString().slice(0,10);
+}
+function uiLabel(health,nflWeek){
+  if(!health) return "—";
+  if(health.vintage_kind==="week_designated") return "Week "+(nflWeek||"?");
+  const v=health.content_vintage||"";
+  const m=/(\d{4}-\d{2}-\d{2})/.exec(v);
+  return m?m[1]:"?";
+}
+
+async function main(){
+  const errEl=document.getElementById("err");
+  if(location.protocol==="file:"){
+    errEl.style.display="block";
+    errEl.innerHTML="<b>Live checks unavailable:</b> this page was opened as a file. Serve it over HTTP (or open the deployed GitHub Pages URL) so it can fetch the data files.";
   }
-  const snap = s.snapshot_date || s.fetched_at || '?';
-  if (total > 0) return { cls: 'healthy', items: [
-    { t: `${total} values across ${Object.keys(combos).length} combos`, ok: true },
-    { t: `snapshot: ${String(snap).slice(0, 10)}`, ok: true },
-  ]};
-  return { cls: 'broken', items: [
-    { t: `0 values — EMPTY (combos: ${Object.keys(combos).length})`, ok: false },
-    { t: `snapshot: ${String(snap).slice(0, 10)}`, ok: false },
-  ]};
-}
 
-function healthStatus(healthData, key) {
-  if (!healthData) return null;
-  const h = (healthData.sources || {})[key];
-  if (!h) return null;
-  return { status: h.status, rows: h.row_count, vintage: h.content_vintage };
-}
+  /* ---------- load live data ---------- */
+  const [fx, hh] = await Promise.all([firstOk(FIXTURE_PATHS), firstOk(HEALTH_PATHS)]);
+  const fixture = fx?fx.json:null, health = hh?hh.json:null;
+  const [curveJs, dashJs, indexHtml] = await Promise.all([
+    firstOk(TEXT_PATHS.curveJs,true), firstOk(TEXT_PATHS.dashJs,true), firstOk(TEXT_PATHS.index,true)
+  ]);
+  document.getElementById("dataSrc").textContent =
+    "fixture: "+(fx?fx.path:"NOT FOUND")+" · health: "+(hh?hh.path:"NOT FOUND");
+  document.getElementById("checkedAt").textContent =
+    new Date().toLocaleString("en-US",{timeZone:"America/Chicago"})+" CT";
 
-function render(srcData, healthData) {
-  const builtAt = srcData ? (srcData.built_at || '?') : '?';
-  const modules = [
-    {
-      id: 1, name: 'data-pipeline', status: 'degraded',
-      owns: 'Source snapshots → live fixture (comparison-sources-data.json)',
-      layers: [
-        { name: 'L1 · Source pulls', desc: 'Raw snapshots in data/raw/sources/<source>/',
-          detail: () => {
-            const hs = ['espn','cbs','fantasycalc','fantasypros','usatoday'].map(k => {
-              const h = healthStatus(healthData, k);
-              return h ? `${k}: ${h.rows} rows, vintage ${h.vintage} [${h.status}]` : `${k}: ?`;
-            });
-            return hs;
-          }, cls: healthData ? 'healthy' : 'loading' },
-        { name: 'L2 · Import → Supabase', desc: 'import_source_snapshot.py, save_espn_cbs_references.py',
-          detail: () => ['Tables: public.espn_season_projections, public.cbs_trade_values, public.source_trade_values'],
-          cls: 'healthy' },
-        { name: 'L3 · Health gate', desc: 'verify_import_health.py → output/source-import-health.json',
-          detail: () => healthData ? [`checked_at: ${healthData.checked_at}`, `nfl_week: ${healthData.nfl_week}`] : ['not loaded'],
-          cls: healthData ? 'healthy' : 'loading' },
-        { name: 'L4 · Build section', desc: 'build_comparison_source_section.py → candidate',
-          detail: () => ['Status: unknown — check if candidates exist for cbs/fantasycalc/fantasypros/usatoday'],
-          cls: 'degraded' },
-        { name: 'L5 · Review', desc: 'review_comparison_candidate.py',
-          detail: () => ['Status: unknown'],
-          cls: 'degraded' },
-        { name: 'L6 · Promote → live fixture', desc: 'promote_comparison_section.py → comparison-sources-data.json',
-          detail: () => [`built_at: ${builtAt}`, 'ESPN promoted. CBS/FantasyCalc/FantasyPros/USA Today NOT promoted (0 values).'],
-          cls: 'broken' },
-        { name: 'L7 · Bake players', desc: 'bake_players.py → data/fixtures/current/players.json',
-          detail: () => ['Fixture bake status: check data/fixtures/current/players.json'],
-          cls: 'degraded' },
-      ],
-      lane: [
-        { t: 'Run build → review → promote for cbs, fantasycalc, fantasypros, usatoday', done: false },
-        { t: 'Rebuild comparison-sources-data.json with all 5 sources', done: false },
-      ]
-    },
-    {
-      id: 2, name: 'curve-widget', status: 'degraded',
-      owns: 'Chart rendering, regression guards, smoothing, fixed-pie math',
-      layers: [
-        { name: 'L1 · Guard logic', desc: 'Regression guard, empty-source skip (activeKeysForGuard)',
-          detail: () => ['Guard fix present', 'Empty-source skip present', 'Needs negative-test proof'],
-          cls: 'degraded' },
-        { name: 'L2 · Rendering', desc: 'Canvas drawing, quadraticCurveTo smoothing',
-          detail: () => ['Smoothing present'],
-          cls: 'healthy' },
-        { name: 'L3 · Fixed-pie math', desc: 'Two-tier, bench share, starter/bench glide',
-          detail: () => ['test_two_tier_frontend: 6 failures (data drift from background workstreams)'],
-          cls: 'broken' },
-      ],
-      lane: [
-        { t: 'Resolve 6 test failures (data fixtures changed)', done: false },
-        { t: 'Negative-test guard against simulated empty-source', done: false },
-      ]
-    },
-    {
-      id: 3, name: 'comparison-dashboard', status: 'healthy',
-      owns: 'Player news, health panel, dataset status',
-      layers: [
-        { name: 'L1 · Player news', desc: 'ingest_player_news.py → player-news.json → max 3 + timing badges',
-          detail: () => ['Max-3 cap present', 'Timing badges (pre/post-values) present'],
-          cls: 'healthy' },
-        { name: 'L2 · Health panel', desc: 'Dataset health display',
-          detail: () => ['OK'], cls: 'healthy' },
-      ],
-      lane: []
-    },
-    {
-      id: 4, name: 'page-shell', status: 'healthy',
-      owns: 'Header dates with time, build tag, footer, layout',
-      layers: [
-        { name: 'L1 · Header/dates', desc: 'monthDayTime formatter, asOfDate + ecrContentDate',
-          detail: () => ['Dates show time: yes'],
-          cls: 'healthy' },
-        { name: 'L2 · Build tag', desc: 'trade-chart-build meta + footer span',
-          detail: () => ['Build tag: current'],
-          cls: 'healthy' },
-      ],
-      lane: []
-    },
-    {
-      id: 5, name: 'build-deploy', status: 'healthy',
-      owns: 'Sync app→dist, tests, push, deploy, live verification',
-      layers: [
-        { name: 'L1 · Sync', desc: 'deploy.sh: app/trade-value-chart/ → dist/',
-          detail: () => ['app/dist byte-identical: yes'],
-          cls: 'healthy' },
-        { name: 'L2 · Tests', desc: 'python3 -m unittest tests.test_two_tier_frontend',
-          detail: () => ['6 failures (see lane 2)'],
-          cls: 'degraded' },
-        { name: 'L3 · Push/deploy', desc: 'GitHub API push → Pages workflow',
-          detail: () => ['Remote main: 6a5dd0e09fc9 (module system pushed)'],
-          cls: 'healthy' },
-        { name: 'L4 · Verify', desc: 'verify_live.py: HTTP + build tag + markers',
-          detail: () => ['LIVE OK'],
-          cls: 'healthy' },
-      ],
-      lane: []
-    },
-  ];
+  const nflWeek = health?health.nfl_week:null;
+  const builtAt = fixture?(fixture.built_at||null):null;
+  const builtDays = daysOld(builtAt);
 
-  // Per-source layer detail for module 1
-  if (srcData) {
-    const srcLayer = {
-      name: 'L6b · Per-source values (live)', desc: 'From comparison-sources-data.json',
-      cls: 'degraded', detail: () => [],
-    };
-    const items = [];
-    let allOk = true;
-    for (const k of ['espn','cbs','fantasycalc','fantasypros','usatoday']) {
-      const st = srcStatus(srcData, k);
-      if (st.cls !== 'healthy') allOk = false;
-      st.items.forEach(i => items.push(`${k}: ${i.t}`));
+  const srcInfo = {};
+  for(const s of SOURCES){
+    const fsec = fixture&&fixture.sources?fixture.sources[s]||{}:{};
+    const combos = fsec.combos||{};
+    let values=0; const perCombo=[];
+    for(const [cn,c] of Object.entries(combos)){
+      const v=c.values; const n=(v&&typeof v==="object")?Object.keys(v).length:0;
+      values+=n; perCombo.push(cn+":"+n);
     }
-    srcLayer.detail = () => items;
-    srcLayer.cls = allOk ? 'healthy' : 'broken';
-    modules[0].layers.push(srcLayer);
+    const hsec = health&&health.sources?health.sources[s]||null:null;
+    srcInfo[s]={values, combos:Object.keys(combos).length, perCombo,
+      snap: fsec.snapshot_date||fsec.fetched_at||null, health:hsec,
+      label: uiLabel(hsec,nflWeek)};
   }
 
-  const el = document.getElementById('modules');
-  el.innerHTML = '';
-  modules.forEach(m => {
-    const div = document.createElement('div');
-    div.className = `module ${m.status}`;
-    const layers = m.layers.map(l => {
-      const det = l.detail();
-      const items = det.map(d => {
-        const isFail = /0 values|EMPTY|NOT promoted|failures/i.test(d);
-        return `<li class="${isFail ? 'fail' : ''}">${d}</li>`;
-      }).join('');
-      return `<div class="layer ${l.cls}">
-        <div class="layer-name">${l.name}</div>
-        <div class="layer-detail">${l.desc}</div>
-        <ul class="layer-items">${items}</ul>
-      </div>`;
-    }).join('');
-    const lane = m.lane.length
-      ? m.lane.map(i => `<li class="${i.done ? '' : 'warn'}">${i.t}</li>`).join('')
-      : `<li>No open items</li>`;
-    div.innerHTML = `
-      <div class="module-head" onclick="this.parentElement.classList.toggle('open')">
-        <span class="module-name">${m.id}. ${m.name}</span>
-        <span><span class="badge ${m.status}">${m.status}</span> <span class="toggle">▸ layers</span></span>
-      </div>
-      <div class="owns">${m.owns}</div>
-      <div class="layers">${layers}
-        <div class="layer"><div class="layer-name">Lane ${m.id} — open items</div>
-        <ul class="layer-items">${lane}</ul></div>
-      </div>`;
-    el.appendChild(div);
-  });
+  /* ================= MODULE 1 · data-pipeline ================= */
+  const M1="data-pipeline";
+  // L1/L2/L3 per source from health gate
+  for(const s of SOURCES){
+    const h=srcInfo[s].health;
+    const nm=SRC_LABEL[s];
+    if(h&&h.status==="ok"){
+      add(M1,"L1 · source pulls",nm+" raw snapshot",OK,
+        "snapshot_path: "+(h.snapshot_path||"?"),
+        "", "",
+        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span>`);
+      add(M1,"L2 · import → Supabase",nm+" in "+(h.supabase_table||"?"),OK,
+        h.row_count+" rows · landing="+(h.supabase_landing?"yes":"NO"));
+      add(M1,"L3 · health gate",nm+" verified",OK,
+        "status=ok · vintage="+h.content_vintage+" · checked "+shortDate(health.checked_at));
+    }else if(h){
+      add(M1,"L1 · source pulls",nm+" raw snapshot",BAD,"health status: "+h.status,
+        "The import health gate reports <b>"+h.status+"</b> for "+nm+(h.failure_reason?": "+h.failure_reason:"")+". Nothing downstream can be trusted.",
+        "Fix the pull/import for <b>"+nm+"</b>, then re-run <b>verify_import_health.py</b>.");
+      add(M1,"L2 · import → Supabase",nm+" import",BAD,"blocked by L1 failure");
+      add(M1,"L3 · health gate",nm+" verified",BAD,"status="+h.status);
+    }else{
+      add(M1,"L1 · source pulls",nm+" raw snapshot",UNK,"no health record for "+s+" (health file "+(hh?"loaded but source missing":"not loaded")+")",
+        "","Check <b>output/source-import-health.json</b>.");
+      add(M1,"L2 · import → Supabase",nm+" import",UNK,"no health record");
+      add(M1,"L3 · health gate",nm+" verified",UNK,"no health record");
+    }
+  }
+  // L4/L5/L6 per source from fixture
+  for(const s of SOURCES){
+    const info=srcInfo[s], nm=SRC_LABEL[s], h=info.health;
+    const inDb = h&&h.status==="ok";
+    if(info.values>0){
+      add(M1,"L6 · promote → live fixture",nm+" live values",OK,
+        info.values.toLocaleString()+" values across "+info.combos+" combos · UI label: "+info.label,
+        "","",
+        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span> → <span class="g">L4 ✓</span> → <span class="g">L5 ✓</span> → <span class="g">L6 ✓</span>`);
+    }else if(inDb){
+      add(M1,"L4–L6 · build → review → promote",nm+" STUCK",BAD,
+        "0 values in live fixture · but "+h.row_count+" rows sit in "+h.supabase_table,
+        "<b>Root cause:</b> data cleared L1–L3 (pull ✓, Supabase ✓ with "+h.row_count+" rows, health gate ✓) but the <b>build → review → promote</b> stages never ran for "+nm+". The fixture still carries the old build from "+shortDate(builtAt)+", so the dashboard renders empty combo shells for this source. This is also what trips the curve regression guard.",
+        "Run <b>build_comparison_source_section.py</b> → <b>review_comparison_candidate.py</b> → <b>promote_comparison_section.py</b> for <b>"+s+"</b>, rebuild the fixture, redeploy.",
+        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span> → <span class="r">L4 ✗ never ran</span> → <span class="r">L5 ✗</span> → <span class="r">L6 ✗</span>`);
+    }else{
+      add(M1,"L4–L6 · build → review → promote",nm+" STUCK",UNK,"0 values; upstream health unknown",
+        "Cannot determine where "+nm+" is stuck — the health gate has no record of it.",
+        "Run <b>verify_import_health.py</b> to locate the break.");
+    }
+  }
+  // fixture freshness
+  if(builtDays===null){
+    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",UNK,"fixture "+(fx?"loaded but built_at missing":"not loaded"));
+  }else if(builtDays>2){
+    const newer=SOURCES.filter(s=>{const h=srcInfo[s].health;return h&&h.status==="ok"&&!/^Week/.test(h.content_vintage)&&daysOld(h.content_vintage)<builtDays;});
+    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",WARN,
+      "built "+shortDate(builtAt)+" ("+builtDays.toFixed(1)+" days ago)",
+      "<b>Root cause:</b> the live fixture was baked "+builtDays.toFixed(1)+" days ago. Newer source vintages exist upstream ("+(newer.length?newer.map(s=>SRC_LABEL[s]+" "+srcInfo[s].health.content_vintage).join(", "):"none newer")+") but were never promoted, so the UI shows stale numbers.",
+      "Re-run the <b>promote</b> stage and rebuild the fixture after promoting the stuck sources.");
+  }else{
+    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",OK,"built "+shortDate(builtAt)+" ("+builtDays.toFixed(1)+"d ago)");
+  }
+
+  /* ================= MODULE 2 · curve-widget ================= */
+  const M2="curve-widget";
+  if(curveJs){
+    const js=curveJs.text;
+    add(M2,"L1 · guard logic","regression guard (activeKeysForGuard)", js.includes("activeKeysForGuard")?OK:BAD,
+      js.includes("activeKeysForGuard")?"marker present in deployed bytes":"marker MISSING from deployed bytes",
+      js.includes("activeKeysForGuard")?"":"<b>Root cause:</b> the deployed curve-widget.js does not contain the empty-source guard fix. The curve renders (or fails) on sources with 0 values.",
+      js.includes("activeKeysForGuard")?"":"Redeploy <b>curve-widget.js</b> from app/.");
+    add(M2,"L1 · guard logic","guard negative-tested",WARN,"no live signal — needs a deliberate broken-fixture test",
+      "<b>Root cause (process):</b> the guard was changed to let rendering continue when no active source has values. No test proves it <i>fails closed</i> on genuinely invalid data. A guard that asserts current behavior without checking which state is right is worse than no guard.",
+      "Add a fixture with a deliberately corrupt source and assert the guard trips.");
+    add(M2,"L2 · rendering","canvas smoothing (quadraticCurveTo)", js.includes("quadraticCurveTo")?OK:BAD,
+      js.includes("quadraticCurveTo")?"marker present in deployed bytes":"marker MISSING",
+      js.includes("quadraticCurveTo")?"":"<b>Root cause:</b> deployed JS predates the smoothing change — sharp segment joints on the curve.",
+      js.includes("quadraticCurveTo")?"":"Redeploy <b>curve-widget.js</b> from app/.");
+    add(M2,"L2 · rendering","diagnostics hook (TradeValueCurveDiagnostics)", js.includes("TradeValueCurveDiagnostics")?OK:WARN,
+      js.includes("TradeValueCurveDiagnostics")?"present — open devtools to inspect sourcePeaks":"missing");
+  }else{
+    add(M2,"L1 · guard logic","deployed curve-widget.js",UNK,"could not fetch the JS file",
+      "","Check the network path / filename.");
+    add(M2,"L2 · rendering","deployed curve-widget.js",UNK,"could not fetch the JS file");
+  }
+  add(M2,"L3 · fixed-pie math","test_two_tier_frontend (20 tests)",UNK,"no live signal — run locally",
+    "<b>Last local run 2026-09-22:</b> 6 failures (WR feasible-interval + slider recompute). A stash test proved the failures come from <b>data-fixture drift</b> (background workstreams changed players.json), not the guard fix — but they are still red and block the deploy gate.",
+    "Run <b>python3 -m unittest tests.test_two_tier_frontend</b>; reconcile fixtures or tests. Do <b>not</b> weaken the guard to make tests pass.");
+
+  /* ================= MODULE 3 · comparison-dashboard ================= */
+  const M3="comparison-dashboard";
+  if(dashJs){
+    const js=dashJs.text;
+    add(M3,"L1 · player news","max-3 cap (slice(0, 3))", js.includes("slice(0, 3)")?OK:BAD,
+      js.includes("slice(0, 3)")?"marker present":"marker MISSING — news list uncapped",
+      js.includes("slice(0, 3)")?"":"<b>Root cause:</b> deployed comparison-dashboard.js predates the news cap; player panels can flood.",
+      js.includes("slice(0, 3)")?"":"Redeploy <b>comparison-dashboard.js</b> from app/.");
+    add(M3,"L1 · player news","timing badges (pre/post-values)", js.includes("post-values")?OK:BAD,
+      js.includes("post-values")?"marker present":"marker MISSING",
+      js.includes("post-values")?"":"<b>Root cause:</b> deployed JS predates timing badges; users can't tell if news is priced in.",
+      js.includes("post-values")?"":"Redeploy <b>comparison-dashboard.js</b> from app/.");
+  }else{
+    add(M3,"L1 · player news","deployed comparison-dashboard.js",UNK,"could not fetch the JS file");
+  }
+  add(M3,"L2 · health panel","dataset status render",UNK,"no live signal — visual check",
+    "","Open the dashboard and confirm the health panel renders without errors.");
+
+  /* ================= MODULE 4 · page-shell ================= */
+  const M4="page-shell";
+  if(indexHtml){
+    const html=indexHtml.text;
+    const m=/trade-chart-build"\s+content="([^"]+)"/.exec(html);
+    const tag=m?m[1]:"NOT FOUND";
+    add(M4,"L2 · build tag","build identity", m?OK:BAD,
+      "deployed tag: "+tag,
+      m?"":"<b>Root cause:</b> the deployed index.html has no build tag — deploy.sh never stamped it, so 'is this the fixed one?' is unanswerable.",
+      m?"":"Run <b>deploy.sh</b> to stamp + sync.");
+    add(M4,"L1 · header dates","monthDayTime formatter", html.includes("monthDayTime")?OK:BAD,
+      html.includes("monthDayTime")?"present — header shows date + time":"MISSING — header date has no time",
+      html.includes("monthDayTime")?"":"<b>Root cause:</b> deployed index.html predates the time formatter.",
+      html.includes("monthDayTime")?"":"Redeploy <b>index.html</b> from app/.");
+    window.__buildTag=tag;
+  }else{
+    add(M4,"L1/L2 · page shell","deployed index.html",UNK,"could not fetch index.html");
+    window.__buildTag=null;
+  }
+
+  /* ================= MODULE 5 · build-deploy ================= */
+  const M5="build-deploy";
+  add(M5,"L1 · sync","app/ → dist/ byte-identical",UNK,"no live signal — run deploy.sh",
+    "","Run <b>deploy.sh</b>; it diffs every synced file and fails loudly on drift.");
+  add(M5,"L2 · tests","test gate",WARN,"last local run 2026-09-22: 6/20 failing",
+    "<b>Root cause:</b> same 6 failures as module 2·L3 — data-fixture drift, not code. The deploy gate is red until this is green.",
+    "Fix the fixtures or the tests (see module 2).");
+  add(M5,"L3 · push/deploy","GitHub Pages deploy",UNK,"no live signal from browser",
+    "","Push via the GitHub API, then confirm the Pages workflow run is green.");
+  add(M5,"L4 · verify","verify_live.py",UNK,"run locally after deploy",
+    "","<b>python3 verify_live.py</b> — asserts HTTP 200, build tag, and code markers on the live URL.");
+
+  render(srcInfo, builtAt, builtDays, !!fixture, !!health);
 }
 
-load();
+/* ================= RENDER ================= */
+const MODMETA=[
+  {id:"data-pipeline", n:1, sub:"Source snapshots → live fixture"},
+  {id:"curve-widget", n:2, sub:"Rendering, guards, fixed-pie math"},
+  {id:"comparison-dashboard", n:3, sub:"Player news, health panel"},
+  {id:"page-shell", n:4, sub:"Header dates, build tag, layout"},
+  {id:"build-deploy", n:5, sub:"Sync, tests, push, verify"},
+];
+const rank={bad:0,warn:1,unk:2,ok:3};
+const pillTxt={ok:"healthy",warn:"degraded",bad:"broken",unk:"unknown"};
+
+function modStatus(id){
+  const cs=checks.filter(c=>c.module===id).map(c=>c.status);
+  if(cs.includes("bad"))return"bad";
+  if(cs.includes("warn"))return"warn";
+  if(cs.includes("unk")&&!cs.includes("ok"))return"unk";
+  if(cs.includes("unk"))return"warn";
+  return"ok";
+}
+
+function render(srcInfo, builtAt, builtDays, fxOk, hOk){
+  /* summary */
+  const counts={ok:0,warn:0,bad:0,unk:0};
+  checks.forEach(c=>counts[c.status]++);
+  const total=checks.length;
+  document.getElementById("okCount").textContent=counts.ok;
+  document.getElementById("totalCount").textContent=total;
+  const seg=document.getElementById("segbar");
+  const cols={ok:"var(--green)",warn:"var(--yellow)",bad:"var(--red)",unk:"var(--grey)"};
+  seg.innerHTML=["ok","warn","bad","unk"].map(k=>
+    `<div style="width:${(counts[k]/total*100).toFixed(1)}%;background:${cols[k]}" title="${k}: ${counts[k]}"></div>`).join("");
+  document.getElementById("legend").innerHTML=["ok","warn","bad","unk"].map(k=>
+    `<span><span class="swatch" style="background:${cols[k]}"></span><b>${counts[k]}</b> ${pillTxt[k]}</span>`).join("");
+
+  /* pipeline table */
+  const tb=document.querySelector("#pipeTable tbody");
+  tb.innerHTML=SOURCES.map(s=>{
+    const info=srcInfo[s], h=info.health, nm=SRC_LABEL[s];
+    const cell=(st,tag)=>`<td><span class="st ${st}">${st==="ok"?"✓":st==="bad"?"✗":st==="warn"?"!":"?"}</span>${tag?`<span class="stag">${tag}</span>`:""}</td>`;
+    const L1=h&&h.snapshot_path?cell("ok",h.snapshot_path.split("/").slice(-2).join("/")):cell("unk");
+    const L2=h&&h.supabase_landing?cell("ok",(h.row_count||"?")+" rows"):cell(h?"bad":"unk");
+    const L3=h&&h.status==="ok"?cell("ok","vintage "+(h.content_vintage||"?")):cell(h?"bad":"unk");
+    const L4=info.values>0?cell("ok"):cell("unk","no live signal");
+    const L5=info.values>0?cell("ok"):cell("unk","no live signal");
+    const L6=info.values>0?cell("ok",info.values.toLocaleString()+" vals"):cell("bad","0 vals");
+    let stuck;
+    if(info.values>0) stuck=`<span style="color:var(--green);font-size:11.5px;font-weight:600">— flowing</span>`;
+    else if(h&&h.status==="ok") stuck=`<span class="stuck">L4–L6: in Supabase, never promoted</span>`;
+    else stuck=`<span class="stuck">unknown — check health gate</span>`;
+    return `<tr><td>${nm}<div class="stag">${s}</div></td>${L1}${L2}${L3}${L4}${L5}${L6}
+      <td><span class="vlabel">${info.label}</span></td><td style="text-align:left">${stuck}</td></tr>`;
+  }).join("");
+  if(!fxOk||!hOk){
+    const w=document.createElement("div");
+    w.style.cssText="margin-top:10px;font-size:12.5px;color:var(--yellow)";
+    w.textContent="⚠ Live data incomplete ("+[fxOk?"":"comparison-sources-data.json",hOk?"":"source-import-health.json"].filter(Boolean).join(", ")+" not reachable). Grey cells = no live signal, not proof of health.";
+    document.getElementById("pipelineCard").appendChild(w);
+  }
+
+  /* root cause list */
+  const bad=checks.filter(c=>c.status==="bad"||c.status==="warn")
+    .sort((a,b)=>rank[a.status]-rank[b.status]);
+  if(bad.length){
+    document.getElementById("rcaCard").style.display="block";
+    document.getElementById("rcaList").innerHTML=bad.map(c=>`
+      <div class="rca-item ${c.status==="warn"?"warn":""}">
+        <h4>${c.status==="bad"?"🔴":"🟡"} ${c.name} <span class="where">· ${c.module} / ${c.layer}</span></h4>
+        <p>${c.why||c.detail}</p>
+        ${c.fix?`<p style="margin-top:6px"><b>Fix:</b> ${c.fix}</p>`:""}
+        ${c.chain?`<div class="chain">${c.chain}</div>`:""}
+      </div>`).join("");
+  }
+
+  /* modules */
+  const host=document.getElementById("modules");
+  host.innerHTML=MODMETA.map(mm=>{
+    const st=modStatus(mm.id);
+    const cs=checks.filter(c=>c.module===mm.id);
+    const layers={};
+    cs.forEach(c=>{(layers[c.layer]=layers[c.layer]||[]).push(c);});
+    const layerHtml=Object.entries(layers).map(([lname,items])=>{
+      const lcls={ok:"c-ok",warn:"c-warn",bad:"c-bad",unk:"c-unk"};
+      const itemsHtml=items.map(c=>`
+        <li class="${lcls[c.status]}"><b>${c.name}</b> — ${c.status.toUpperCase()}
+          ${c.detail?`<br><span class="mono">${c.detail}</span>`:""}
+        </li>`).join("");
+      const whys=items.filter(c=>c.why).map(c=>`
+        <div class="why ${c.status==="warn"?"warnb":""}"><strong>Why — ${c.name}</strong>${c.why}
+        ${c.fix?`<div class="fix"><b>Fix:</b> ${c.fix}</div>`:""}
+        ${c.chain?`<div class="chain" style="margin-top:6px">${c.chain}</div>`:""}</div>`).join("");
+      return `<div class="layer"><div class="layer-top"><span class="layer-name">${lname}</span>
+        <span class="layer-desc">${items.length} check${items.length>1?"s":""}</span></div>
+        <ul class="checks">${itemsHtml}</ul>${whys}</div>`;
+    }).join("");
+    const counts2={ok:0,warn:0,bad:0,unk:0}; cs.forEach(c=>counts2[c.status]++);
+    return `<div class="mod" id="mod-${mm.id}">
+      <div class="mod-head" onclick="document.getElementById('mod-${mm.id}').classList.toggle('open')">
+        <span class="mod-dot ${st}"></span>
+        <div><div class="mod-name"><span class="idx">${mm.n}.</span>${mm.id}</div>
+        <div class="mod-sub">${mm.sub} · ${counts2.ok}✓ ${counts2.warn}! ${counts2.bad}✗ ${counts2.unk}?</div></div>
+        <span class="pill ${st}">${pillTxt[st]}</span><span class="chev">▸</span>
+      </div>
+      <div class="mod-body">${layerHtml}</div>
+    </div>`;
+  }).join("");
+  // auto-open the worst module
+  const worst=MODMETA.map(m=>({m,s:modStatus(m.id)})).sort((a,b)=>rank[a.s]-rank[b.s])[0];
+  if(worst&&worst.s!=="ok") document.getElementById("mod-"+worst.m.id).classList.add("open");
+
+  document.getElementById("footNote").innerHTML=
+    "fixture built_at: <code>"+(builtAt||"unknown")+"</code>"+
+    (window.__buildTag?` · deployed build tag: <code>${window.__buildTag}</code>`:"")+
+    " · module map: <code>docs/MODULES.md</code>";
+}
+
+main().catch(e=>{
+  const el=document.getElementById("err");
+  el.style.display="block";
+  el.innerHTML="<b>Dashboard failed to initialize:</b> "+String(e).slice(0,300);
+});
 </script>
 </body>
 </html>
