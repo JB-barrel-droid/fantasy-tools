@@ -766,10 +766,17 @@
       ...row,
       rawProjectionVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
     }));
-    const publishedVorp = buildPublishedSourceMap("espn");
+    // The ESPN curves use the true raw projection-minus-waiver VORP computed
+    // from ESPN projections above. We intentionally do NOT use the published
+    // "ESPN-implied" combo values here: those are already run through a
+    // valuation model (and can carry a ~91% starter share), which inverts
+    // the fixed-pie direction. Raw VORP keeps starters at ~69% of the pie,
+    // so the 85/15 fixed-pie correctly marks starters up and bench down.
+    // This also keeps the ESPN curves ESPN-pure (projections only, no
+    // expert/model blending).
     const withVorp = withRaw.map(row => ({
       ...row,
-      rawVorp: row.role === "waiver" ? 0 : Math.max(0, publishedVorp.get(row.player.player_key) ?? row.rawProjectionVorp)
+      rawVorp: row.rawProjectionVorp
     }));
     const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
     const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);

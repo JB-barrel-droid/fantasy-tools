@@ -359,6 +359,27 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                             "buildEspnRows must not read the live slider share")
         self.assertIn("DISPLAY_BENCH_SHARE", body)
 
+    def test_espn_rows_use_raw_projection_vorp(self):
+        # Negative-tested 2026-09-22: buildEspnRows used the modeled
+        # "ESPN-implied" combo values (buildPublishedSourceMap("espn")) as the
+        # raw input. Those already carry a ~91% starter share, so the 85/15
+        # fixed-pie inverted: starters were marked DOWN (Achane 54.8 -> 51.0).
+        # The ESPN curves must use the true raw projection-minus-waiver VORP
+        # (rawProjectionVorp from ESPN projections only), whose ~69% starter
+        # share makes the fixed-pie correctly mark starters up and bench down.
+        # Reintroducing `publishedVorp` into buildEspnRows must fail this test.
+        text = WIDGET.read_text()
+        body = extract_function(text, "buildEspnRows")
+        self.assertIsNotNone(body, "buildEspnRows missing from widget")
+        self.assertNotIn("publishedVorp", body,
+                         "buildEspnRows must not use modeled published ESPN values")
+        self.assertNotIn('buildPublishedSourceMap("espn")', body,
+                         "buildEspnRows must not read the ESPN-implied combo")
+        self.assertIn("rawProjectionVorp", body,
+                      "buildEspnRows must compute raw projection-minus-waiver VORP")
+        self.assertRegex(body, r"rawVorp:\s*row\.rawProjectionVorp",
+                         "rawVorp must be the raw projection-minus-waiver value")
+
 
 if __name__ == "__main__":
     unittest.main()
