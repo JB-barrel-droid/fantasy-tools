@@ -396,6 +396,20 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('"DST", "DST"', text)
         self.assertIn("K/DST projection artifact", text)
 
+    def test_asset_urls_are_busted_by_the_build_tag(self):
+        """A hand-written ?v= token never gets bumped, so a returning browser
+        keeps serving the cached file and a deploy that fixes a blank chart
+        leaves it blank. Every local asset URL must carry the build tag."""
+        for where in (APP / "index.html", ROOT / "dist" / "index.html"):
+            html = where.read_text(encoding="utf-8")
+            tag = re.search(r'<meta name="trade-chart-build" content="([^"]+)"', html)
+            self.assertIsNotNone(tag, "%s has no build tag" % where.name)
+            srcs = re.findall(r'<script src="(assets/[^"]+\.js)(\?v=[^"]*)?"', html)
+            self.assertTrue(srcs, "%s loads no local scripts" % where.name)
+            for path, version in srcs:
+                self.assertEqual(version, "?v=" + tag.group(1),
+                                 "%s: %s is not busted by the build tag" % (where.name, path))
+
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         # The preseason lock is gone: player order follows the ACTIVE LOCK.

@@ -67,9 +67,23 @@ def stamp_build_tag(index_html: str, tag: str) -> str:
         lambda m: m.group(1) + tag + m.group(2),
         index_html,
     )
-    return re.sub(
+    stamped = re.sub(
         r'(<span id="buildStamp">)Build [^<]*(</span>)',
         lambda m: m.group(1) + "Build " + tag + m.group(2),
+        stamped,
+    )
+    # Cache-bust every local asset with the SAME build tag.
+    #
+    # These ?v= tokens used to be hand-written strings ("20260920-curve-all-
+    # scale"). They were never bumped, so the asset URL stayed byte-identical
+    # across deploys and returning browsers kept serving the cached file. A
+    # deploy that fixed a blank chart therefore left the chart blank for
+    # anyone who had loaded the page before -- the server had the fix and the
+    # browser would not ask for it. Tying the token to the build tag means a
+    # new commit always produces a new URL.
+    return re.sub(
+        r'(<script src="assets/[A-Za-z0-9._-]+\.js)(\?v=[^"]*)?(")',
+        lambda m: m.group(1) + "?v=" + tag + m.group(3),
         stamped,
     )
 
