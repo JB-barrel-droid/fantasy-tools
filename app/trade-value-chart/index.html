@@ -1676,6 +1676,14 @@
       const date=new Date(String(raw).slice(0,10)+"T00:00:00Z");
       return Number.isNaN(date.getTime())?"unavailable":new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",timeZone:"UTC"}).format(date);
     };
+    const monthDayTime=raw=>{
+      if(!raw)return "unavailable";
+      const date=new Date(raw);
+      if(Number.isNaN(date.getTime()))return "unavailable";
+      const datePart=new Intl.DateTimeFormat("en-US",{month:"short",day:"numeric",timeZone:"America/Chicago"}).format(date);
+      const timePart=new Intl.DateTimeFormat("en-US",{hour:"numeric",minute:"2-digit",timeZone:"America/Chicago",timeZoneName:"short"}).format(date);
+      return `${datePart}, ${timePart}`;
+    };
     const comboKey=key=>key==="fantasycalc"||key==="fantasycalc_adjusted"?"full_12_qb1":"full_12";
     async function renderHealth(){
       const health=document.getElementById("dataHealth");
@@ -1723,9 +1731,9 @@
           cards.push(`<article class="dataset-card ${Number(summary.stale_count||0)?"status-caution":"status-news"}"><div class="dataset-card-head"><h3>Reference freshness pipe</h3><span class="dataset-badge">${Number(summary.stale_count||0)?"Watch":"Same day"}</span></div><p class="dataset-role">Same-day audit runs during dashboard sync; unchanged references are recorded rather than silently refreshed.</p><dl class="dataset-facts"><div><dt>Audit date</dt><dd>${esc(freshness.today||"unavailable")}</dd></div><div><dt>Same-day</dt><dd>${summary.all_known_dates_same_day?"yes":"no"}</dd></div><div><dt>Stale refs</dt><dd>${Number(summary.stale_count||0)}</dd></div><div><dt>Unchanged</dt><dd>${Number(summary.unchanged_count||0)}</dd></div></dl>${staleItems.length?`<p class="dataset-caveat">${esc(staleItems.join(" · "))}</p>`:""}</article>`);
         }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
-        document.getElementById("asOfDate").textContent=monthDay(data.built_at);
+        document.getElementById("asOfDate").textContent=monthDayTime(data.built_at);
         document.getElementById("expertVintageLabel").textContent="Source snapshot";
-        document.getElementById("ecrContentDate").textContent=monthDay(data.built_at);
+        document.getElementById("ecrContentDate").textContent=monthDayTime(data.built_at);
         document.getElementById("ecrFreshnessBadge").textContent="9 shown";
       }catch(error){
         document.getElementById("dataHealthTitle").textContent="Dataset health unavailable";
