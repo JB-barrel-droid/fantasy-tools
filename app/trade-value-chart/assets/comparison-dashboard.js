@@ -372,7 +372,13 @@
     const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
     const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
     const rawTotal = starterRaw + benchRaw;
-    const targetTotal = espnTargetPool(rawTotal);
+    // Same total as the per-position pie the adjusted curves are priced on,
+    // so the raw curve sits on a comparable scale. Using the single common
+    // pie here left it 26 points short of the anchor and failed the guard.
+    const targetTotal = POSITION_ORDER.reduce((sum, pos) => {
+      const t = Number(espnTargetTotal(pos, NaN));
+      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+    }, 0) || espnTargetPool(rawTotal);
     const starterShare = Math.max(0, Math.min(1, 1 - state.benchShare));
     const normalizedBenchShare = Math.max(0, Math.min(1, state.benchShare));
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;

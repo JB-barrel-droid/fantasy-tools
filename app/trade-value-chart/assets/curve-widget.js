@@ -882,7 +882,13 @@
     const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
     const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
     const rawTotal = starterRaw + benchRaw;
-    const targetTotal = espnTargetPool(rawTotal);
+    // Same total as the per-position pie the adjusted curves are priced on,
+    // so the raw curve sits on a comparable scale. Using the single common
+    // pie here left it 26 points short of the anchor and failed the guard.
+    const targetTotal = POSITION_ORDER.reduce((sum, pos) => {
+      const t = Number(espnTargetTotal(pos, NaN));
+      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+    }, 0) || espnTargetPool(rawTotal);
     // Frozen stage-1 display share: the ESPN indexed map is a fallback
     // curve and never moves with the bench-share slider.
     const starterShare = Math.max(0, Math.min(1, 1 - DISPLAY_BENCH_SHARE));
@@ -1955,7 +1961,14 @@
       const values = sourceMaps.get(key);
       if (!values) return;
       if (key === "espn") {
-        const target = commonFixedPieTotal(0);
+        // The anchor is now priced per position against its own pie, so its
+        // total is the SUM of the positional targets -- not the single common
+        // pie figure. Checking it against the common total failed the guard
+        // in every league config and blanked the chart.
+        const target = POSITION_ORDER.reduce((sum, pos) => {
+          const t = Number(espnTargetTotal(pos, NaN));
+          return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+        }, 0) || commonFixedPieTotal(0);
         const total = [...values.entries()]
           .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
           .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
@@ -1963,15 +1976,25 @@
                      ok:Math.abs(total - target) <= tolerance});
         return;
       }
-      let total = 0, target = 0, shared = 0;
+      let sharedTotal = 0, sharedTarget = 0, shared = 0, fullTotal = 0;
       values.forEach((value, playerKey) => {
         if (!POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos)) return;
+        if (Number.isFinite(value)) fullTotal += value;
         const anchorValue = anchor?.get(playerKey);
         if (!Number.isFinite(anchorValue) || !Number.isFinite(value)) return;
-        total += value; target += Math.max(0, anchorValue); shared += 1;
+        sharedTotal += value; sharedTarget += Math.max(0, anchorValue); shared += 1;
       });
-      checks.push({source:key, basis:"shared", shared, total, target, delta:total - target,
-                   ok:shared >= MIN_SHARED_FOR_PIE && Math.abs(total - target) <= tolerance});
+      // Below MIN_SHARED_FOR_PIE the normalisation deliberately falls back to
+      // the common pie rather than inventing a scale from a handful of
+      // players. The diagnostic MUST check whichever basis was actually used:
+      // demanding the shared basis regardless marked the fallback as failed,
+      // which threw the regression guard and left "Curves unavailable" on the
+      // live page for any league config with a thin overlap.
+      const usedShared = shared >= MIN_SHARED_FOR_PIE && sharedTarget > 0;
+      const total = usedShared ? sharedTotal : fullTotal;
+      const target = usedShared ? sharedTarget : commonFixedPieTotal(fullTotal);
+      checks.push({source:key, basis:usedShared ? "shared" : "fallback", shared, total, target,
+                   delta:total - target, ok:Math.abs(total - target) <= tolerance});
     });
     return {tolerance, checks, ok:checks.every(check => check.ok)};
   }

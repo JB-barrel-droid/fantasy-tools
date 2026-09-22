@@ -571,8 +571,12 @@ class TestStage1FallbackFrozen(unittest.TestCase):
     def test_pie_diagnostic_checks_the_shared_set(self):
         body = extract_function(WIDGET.read_text(), "fixedPieDiagnostics")
         self.assertIsNotNone(body)
-        self.assertIn('basis:"shared"', body,
+        self.assertIn('"shared"', body,
                       "diagnostic must report a shared-set basis")
+        self.assertIn('"fallback"', body,
+                      "diagnostic must also report the fallback basis -- checking the "
+                      "shared basis when the normalisation fell back threw the "
+                      "regression guard and blanked the live chart")
         self.assertIn("anchor", body,
                       "diagnostic must compare each source against the anchor, not one global total")
 
