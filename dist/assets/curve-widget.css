@@ -135,3 +135,21 @@
 #curve-widget .bench-share-slider input[type=range]:disabled::-webkit-slider-thumb{border-color:#9aa7ae;cursor:not-allowed}
 #curve-widget .bench-share-slider input[type=range]:disabled::-moz-range-thumb{border-color:#9aa7ae;cursor:not-allowed}
 #curve-widget .bench-share-readout{margin:0;color:var(--muted);font-size:10px;line-height:1.5}
+/* Chart health panel: active runtime invariant checks */
+#curve-widget .health-panel{margin:0 0 12px;border:1px solid var(--line);border-radius:6px;background:var(--white)}
+#curve-widget .health-panel>summary{padding:8px 12px;cursor:pointer;font-size:11px;font-weight:700;color:var(--navy);list-style:none;display:flex;align-items:center;gap:8px}
+#curve-widget .health-panel>summary::-webkit-details-marker{display:none}
+#curve-widget .health-badge{font:700 9px/1 "IBM Plex Mono",monospace;padding:3px 8px;border-radius:10px;letter-spacing:.04em}
+#curve-widget .health-badge[data-status="ok"]{background:#e6f4ea;color:#137333}
+#curve-widget .health-badge[data-status="warn"]{background:#fef7e0;color:#b06000}
+#curve-widget .health-badge[data-status="fail"]{background:#fce8e6;color:#a50e0e}
+#curve-widget .health-list{list-style:none;margin:0;padding:0 12px 8px;display:grid;gap:6px}
+#curve-widget .health-list li{display:grid;grid-template-columns:20px 1fr;gap:8px;padding:6px 8px;border-radius:4px;font-size:10px;line-height:1.4}
+#curve-widget .health-pass{background:#f0f9f2;color:#137333}
+#curve-widget .health-warn{background:#fef9e7;color:#7a4a00}
+#curve-widget .health-fail{background:#fdecea;color:#a50e0e;border:1px solid #f5c6cb}
+#curve-widget .health-icon{font-weight:700;font-size:12px}
+#curve-widget .health-name{font-weight:700}
+#curve-widget .health-detail{grid-column:2;color:inherit;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:9px}
+#curve-widget .health-empty{color:var(--muted);font-style:italic}
+#curve-widget .health-note{margin:0;padding:0 12px 10px;font-size:9px;color:var(--muted);line-height:1.4}
