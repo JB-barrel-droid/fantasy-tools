@@ -20,7 +20,8 @@ Current status: the Muse export has been imported into `app/trade-value-chart/` 
 - `pipelines/` - build and data-artifact generation steps; shared helpers in `pipelines/lib/`.
 - `modules/` - the module monitor (`dashboard.html`), published to `dist/modules/`.
 - `ops/watchdog/` - source-pull watchdog and per-source ingesters.
-- `weekly_signals/` - Weekly Signals dashboard + its build pipeline (bin/, collectors/, engine/, v4/, loaders/, sql/, docs/, research/); a sibling tree to the trade-value chart. See `weekly_signals/README.md`.
+- `weekly_vegas/` - Weekly Vegas dashboard (Vegas-vs-ECR disagreement signals) + its build pipeline (bin/, collectors/, engine/, v4/, loaders/, sql/, docs/, research/); a segmented sibling tree to the trade-value chart, not part of it. See `weekly_vegas/README.md`.
+- `waiver_wire/` - Waiver dashboard (weekly add / don't-add / drop board) + its build pipeline (bin/, engine/, sql/); a segmented sibling tree to both the trade-value chart and `weekly_vegas/`. Its only cross-tree relationship is a read-only input from the published chart fixture `data/fixtures/current/players.json`. See `waiver_wire/README.md`.
 - `tests/` - regression and golden-output tests.
 - `docs/` - migration documentation and status.
 

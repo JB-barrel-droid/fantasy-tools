@@ -17,7 +17,8 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
 MODULES = ROOT / "modules"
-WEEKLY_SIGNALS = ROOT / "weekly_signals" / "dashboard"
+WEEKLY_VEGAS = ROOT / "weekly_vegas" / "dashboard"
+WAIVER_WIRE = ROOT / "waiver_wire" / "dashboard"
 DIST = ROOT / "dist"
 REFERENCE_FRESHNESS = ROOT / "output" / "reference-freshness.json"
 
@@ -110,11 +111,14 @@ def main() -> int:
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
     shutil.copy2(FIXTURES / "source-import-health.json", dist_modules / "source-import-health.json")
 
-    weekly_page = WEEKLY_SIGNALS / "index.html"
-    for slug in ("weekly-signals", "waiver-dashboard"):
+    # Each dashboard publishes from its own segmented source tree:
+    # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).
+    # The published dist/ slugs are unchanged.
+    for slug, source_dir in (("weekly-signals", WEEKLY_VEGAS), ("waiver-dashboard", WAIVER_WIRE)):
+        source = source_dir / "index.html"
         target = DIST / slug
         target.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(weekly_page, target / "index.html")
+        shutil.copy2(source, target / "index.html")
 
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0

@@ -13,7 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
 DIST = ROOT / "dist"
-WEEKLY_SIGNALS = ROOT / "weekly_signals" / "dashboard"
+WEEKLY_VEGAS = ROOT / "weekly_vegas" / "dashboard"
+WAIVER_WIRE = ROOT / "waiver_wire" / "dashboard"
 
 
 def load_json(path):
@@ -453,8 +454,8 @@ class StaticExportTest(unittest.TestCase):
         self.assertTrue((APP / "assets" / "reference-freshness.json").exists())
 
     def test_weekly_signals_dashboard_is_in_pages_output(self):
-        source = (WEEKLY_SIGNALS / "index.html").read_text(encoding="utf-8")
-        for slug in ("weekly-signals", "waiver-dashboard"):
+        for slug, source_dir in (("weekly-signals", WEEKLY_VEGAS), ("waiver-dashboard", WAIVER_WIRE)):
+            source = (source_dir / "index.html").read_text(encoding="utf-8")
             target = DIST / slug / "index.html"
             self.assertTrue(target.exists(), f"{target} must be published to GitHub Pages output")
             self.assertEqual(source, target.read_text(encoding="utf-8"))
