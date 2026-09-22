@@ -1,0 +1,275 @@
+"""Tests for the reference-compute stage: isotonic reindex + fixed-pie indexing.
+
+Every audit is negative-tested against its named defect. Hermetic: synthetic
+fixtures only, except the final smoke test which runs the real fixture pair
+(usatoday candidate -> ESPN-leg anchor) and asserts internal consistency.
+"""
+import json
+import math
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+PIPELINES = Path(__file__).resolve().parent.parent / "pipelines"
+sys.path.insert(0, str(PIPELINES))
+from isotonic import isotonic_fit, isotonic_predict  # noqa: E402
+import reindex_comparison_section as rcs  # noqa: E402
+
+POS = ("QB", "RB", "WR", "TE")
+
+
+def make_players(tmp, per_pos=12):
+    players = {"meta": {}, "players": []}
+    for i, pos in enumerate(POS):
+        for j in range(per_pos):
+            players["players"].append(
+                {"name": f"Player {pos}{j}", "pos": pos,
+                 "player_key": 1000 + i * 100 + j})
+    p = tmp / "players.json"
+    p.write_text(json.dumps(players))
+    return p, players
+
+
+def make_fixture(tmp, players, anchor_fn):
+    """Anchor leg shaped like the fixture's ESPN section."""
+    combos = {"full_12": {"values": {}, "native": {}, "n": {}, "index_total": {}}}
+    for pl in players["players"]:
+        slug = pl["name"].lower()
+        combos["full_12"]["values"][slug] = anchor_fn(pl)
+        combos["full_12"]["native"][slug] = anchor_fn(pl)
+    fx = {"sources": {"espn": {"combos": combos}}}
+    p = tmp / "fixture.json"
+    p.write_text(json.dumps(fx))
+    return p
+
+
+def make_candidate(tmp, source, players, native_fn, combos=("full_12",)):
+    cand = {"schema": "trade-value-source-reference-v1", "source_key": source,
+            "asof": "2026-09-21", "combos": {}}
+    for combo in combos:
+        native, keys = {}, {}
+        for pl in players["players"]:
+            slug = pl["name"].lower()
+            v = native_fn(pl)
+            if v is not None:
+                native[slug] = v
+                keys[slug] = pl["player_key"]
+        cand["combos"][combo] = {"native": native, "player_keys": keys}
+    p = tmp / f"{source}-candidate.json"
+    p.write_text(json.dumps(cand))
+    return p
+
+
+def run_stage(candidate, fixture, players):
+    return rcs.reindex_section(str(candidate), str(fixture), str(players))
+
+
+class TestIsotonicMath(unittest.TestCase):
+    def test_fit_is_non_decreasing(self):
+        xs = [5, 1, 4, 2, 3, 0]
+        ys = [9, 1, 2, 8, 3, 0]
+        fx, fy = isotonic_fit(xs, ys)
+        self.assertTrue(all(b >= a for a, b in zip(fy, fy[1:])),
+                        "fitted values must be non-decreasing")
+
+    def test_predict_monotone_and_clamped(self):
+        fx, fy = isotonic_fit([1, 2, 3], [10, 5, 7])
+        lo = isotonic_predict(fx, fy, -100)
+        hi = isotonic_predict(fx, fy, 100)
+        mid = [isotonic_predict(fx, fy, x) for x in (1, 1.5, 2, 2.5, 3)]
+        self.assertTrue(all(b >= a for a, b in zip(mid, mid[1:])))
+        self.assertEqual(lo, fy[0])
+        self.assertEqual(hi, fy[-1])
+
+    def test_rejects_empty(self):
+        with self.assertRaises(ValueError):
+            isotonic_fit([], [])
+
+
+class TestReindexStage(unittest.TestCase):
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.players_path, self.players = make_players(self.tmp)
+
+    def test_rank_order_preserved_within_position(self):
+        players = self.players
+        def anchor_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return {"QB": 5, "RB": 40, "WR": 30, "TE": 10}[pl["pos"]] + j
+        def native_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return 100 + 3 * j  # different scale, same order
+        fx = make_fixture(self.tmp, players, anchor_fn)
+        cand = make_candidate(self.tmp, "syn", players, native_fn)
+        section, review = run_stage(cand, fx, self.players_path)
+        self.assertEqual(review, [])
+        for pos in POS:
+            slugs = [pl["name"].lower() for pl in players["players"] if pl["pos"] == pos]
+            reidx = [section["combos"]["full_12"]["reindexed"][s] for s in slugs]
+            self.assertTrue(all(b >= a for a, b in zip(reidx, reidx[1:])),
+                            f"{pos}: reindexed order must follow native order")
+            self.assertEqual(section["combos"]["full_12"]["n"][pos], 12)
+
+    def test_positions_never_pooled(self):
+        # QB native values are HUGE vs RB anchor scale; a pooled fit would
+        # drag RB predictions up. Per-position fits must not cross-contaminate.
+        players = self.players
+        def anchor_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return {"QB": 5, "RB": 40, "WR": 30, "TE": 10}[pl["pos"]] + j
+        def native_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return {"QB": 1000, "RB": 10, "WR": 10, "TE": 10}[pl["pos"]] + j
+        fx = make_fixture(self.tmp, players, anchor_fn)
+        cand = make_candidate(self.tmp, "syn", players, native_fn)
+        section, _ = run_stage(cand, fx, self.players_path)
+        rb_reidx = [section["combos"]["full_12"]["reindexed"][pl["name"].lower()]
+                    for pl in players["players"] if pl["pos"] == "RB"]
+        # RB anchor tops out at 51; a pooled fit with QB's 1000-scale natives
+        # would predict far above it.
+        self.assertLess(max(rb_reidx), 60,
+                        "RB predictions must come from the RB fit only")
+
+    def test_fewer_than_ten_pairs_fails_closed(self):
+        tmp_players = {"meta": {}, "players": [
+            {"name": f"Player QB{j}", "pos": "QB", "player_key": 2000 + j} for j in range(9)]}
+        pp = self.tmp / "players9.json"
+        pp.write_text(json.dumps(tmp_players))
+        def anchor_fn(pl):
+            return 5.0
+        fx = make_fixture(self.tmp, tmp_players, anchor_fn)
+        cand = make_candidate(self.tmp, "syn", tmp_players, lambda pl: 100.0)
+        with self.assertRaises(SystemExit):
+            run_stage(cand, fx, pp)
+
+    def test_missing_anchor_combo_fails_closed(self):
+        players = self.players
+        fx = make_fixture(self.tmp, players, lambda pl: 5.0)
+        cand = make_candidate(self.tmp, "syn", players, lambda pl: 100.0,
+                              combos=("full_99",))
+        with self.assertRaises(SystemExit):
+            run_stage(cand, fx, self.players_path)
+
+    def test_wrong_schema_fails_closed(self):
+        bad = self.tmp / "bad.json"
+        bad.write_text(json.dumps({"schema": "something-else"}))
+        fx = make_fixture(self.tmp, self.players, lambda pl: 5.0)
+        with self.assertRaises(SystemExit):
+            rcs.reindex_section(str(bad), str(fx), str(self.players_path))
+
+    def test_nulls_stay_absent_and_zeros_stay_zero(self):
+        players = self.players
+        def anchor_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return 0.0 if j in (0, 1) else 10.0 + j
+        def native_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            if j == 11:
+                return None  # null: absent from native
+            return 0.0 if j in (0, 1) else 100.0 + j
+        fx = make_fixture(self.tmp, players, anchor_fn)
+        cand = make_candidate(self.tmp, "syn", players, native_fn)
+        section, review = run_stage(cand, fx, self.players_path)
+        rei = section["combos"]["full_12"]["reindexed"]
+        for pos in POS:
+            zero_slugs = [f"player {pos.lower()}{j}" for j in (0, 1)]
+            null_slug = f"player {pos.lower()}11"
+            for s in zero_slugs:
+                self.assertIn(s, rei, "genuine zero must be carried")
+                self.assertEqual(rei[s], 0.0, "genuine zero must stay zero")
+            self.assertNotIn(null_slug, rei, "null must stay absent")
+            self.assertEqual(section["combos"]["full_12"]["n"][pos], 11)
+
+    def test_kdst_goes_to_review_not_indexed(self):
+        players = {"meta": {}, "players": [
+            {"name": f"Player {pos}{j}", "pos": pos, "player_key": 3000 + i * 100 + j}
+            for i, pos in enumerate(("QB", "RB", "WR", "TE", "K", "DST"))
+            for j in range(12)]}
+        pp = self.tmp / "players_k.json"
+        pp.write_text(json.dumps(players))
+        fx = make_fixture(self.tmp, players, lambda pl: 5.0)
+        cand = make_candidate(self.tmp, "syn", players, lambda pl: 100.0)
+        section, review = run_stage(cand, fx, pp)
+        rei = section["combos"]["full_12"]["reindexed"]
+        kdst = [s for s in rei if s.startswith("player k") or s.startswith("player dst")]
+        self.assertEqual(kdst, [], "K/DST must never be indexed")
+        self.assertEqual(len([r for r in review if "not indexed" in r["reason"]]), 24)
+
+    def test_fixed_pie_factor_math(self):
+        players = self.players
+        def anchor_fn(pl):
+            j = int(''.join(c for c in pl["name"] if c.isdigit()))
+            return 10.0 + j
+        fx = make_fixture(self.tmp, players, anchor_fn)
+        cand = make_candidate(self.tmp, "syn", players, lambda pl: 50.0)
+        section, _ = run_stage(cand, fx, self.players_path)
+        it = section["combos"]["full_12"]["index_total"]["RB"]
+        self.assertAlmostEqual(it["factor"], it["target_total"] / it["pre_total"], places=5)
+        self.assertEqual(it["n_priced"], 12)
+        # every native maps to the same anchor-median-ish value; totals consistent
+        self.assertGreater(it["pre_total"], 0)
+
+    def test_output_never_under_data(self):
+        players = self.players
+        fx = make_fixture(self.tmp, players, lambda pl: 5.0)
+        cand = make_candidate(self.tmp, "syn", players, lambda pl: 100.0)
+        with self.assertRaises(SystemExit):
+            rcs.main([str(cand), "--out", str(rcs.REPO / "data" / "evil.json")])
+
+    def test_candidate_input_not_mutated(self):
+        players = self.players
+        fx = make_fixture(self.tmp, players, lambda pl: 5.0)
+        cand = make_candidate(self.tmp, "syn", players, lambda pl: 100.0)
+        before = cand.read_text()
+        run_stage(cand, fx, self.players_path)
+        self.assertEqual(cand.read_text(), before)
+
+
+class TestRealFixtureSmoke(unittest.TestCase):
+    """Runs the stage against the real fixture pair; asserts internal
+    consistency (not legacy equality -- the anchor moved to the ESPN leg)."""
+
+    def test_usatoday_reindexes_clean(self):
+        repo = Path(__file__).resolve().parent.parent
+        fixture = repo / "data/fixtures/current/comparison-sources-data.json"
+        players_p = repo / "data/fixtures/current/players.json"
+        c = json.loads(fixture.read_text())
+        # Build a candidate straight from the fixture's usatoday native values.
+        tmp = Path(tempfile.mkdtemp())
+        cand = {
+            "schema": "trade-value-source-reference-v1",
+            "source_key": "usatoday",
+            "asof": "2026-09-19",
+            "combos": {},
+        }
+        for combo_name, combo in c["sources"]["usatoday"]["combos"].items():
+            keys = c.get("player_keys", {})
+            cand["combos"][combo_name] = {
+                "native": dict(combo["native"]),
+                "player_keys": {s: keys.get(s) for s in combo["native"]},
+            }
+        cp = tmp / "usa-candidate.json"
+        cp.write_text(json.dumps(cand))
+        section, review = rcs.reindex_section(str(cp), str(fixture), str(players_p))
+        self.assertEqual(section["reindex_status"], "complete")
+        # Every combo's pie target == ESPN-leg total over the same priced set.
+        espn = c["sources"]["espn"]["combos"]
+        fkeys = c.get("player_keys", {})
+        ppos = {p["player_key"]: p["pos"]
+                for p in json.loads(players_p.read_text())["players"]}
+        pos_by_slug = {s: ppos[k] for s, k in fkeys.items() if k in ppos}
+        for combo_name, combo in section["combos"].items():
+            anchor = espn[combo_name]["values"]
+            for pos in POS:
+                priced = [s for s in combo["reindexed"] if pos_by_slug.get(s) == pos]
+                target = sum(anchor[s] for s in priced if s in anchor)
+                self.assertAlmostEqual(
+                    combo["index_total"][pos]["target_total"], round(target, 1),
+                    places=0, msg=f"{combo_name}/{pos} pie target")
+        # No review rows expected on the real pair (all slugs resolve).
+        self.assertEqual(review, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
