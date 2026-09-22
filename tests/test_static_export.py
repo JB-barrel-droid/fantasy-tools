@@ -110,10 +110,14 @@ class StaticExportTest(unittest.TestCase):
             # ESPN leg (promotion 2026-09-21); the old pin 22.3 was the
             # Monday-rail value. Allen is the #1 QB in both, so he takes the
             # anchor's top value.
+            # fantasycalc, fantasypros, cbs re-anchored the same way
+            # (promotions 2026-09-22); their old pins (24.0, 26.0, 22.1)
+            # were Monday-rail values. CBS's isotonic fit lands Allen at
+            # 17.3, a tick above the anchor's 17.2.
             ("usatoday", "full_12"): 17.2,
-            ("fantasycalc", "full_12_qb1"): 24.0,
-            ("fantasypros", "full_12"): 26.0,
-            ("cbs", "full_12"): 22.1,
+            ("fantasycalc", "full_12_qb1"): 17.2,
+            ("fantasypros", "full_12"): 17.2,
+            ("cbs", "full_12"): 17.3,
             ("espn", "full_12"): 17.2,
             ("fantasycalc_adjusted", "full_12_qb1"): 19.0,
             ("usatoday_adjusted", "full_12"): 21.2,

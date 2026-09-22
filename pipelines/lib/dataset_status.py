@@ -337,7 +337,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         "method": _METHOD_TV[0],
         "method_group": _METHOD_TV[1],
         "method_description": (
-            "Expert (ECR) stat projections translated to fantasy points, "
+            "ECR stat projections translated to fantasy points, "
             "then run through the current value-above-waivers methodology: "
             "positional waiver lines, smoothed starter/bench lineup weights, "
             "70-point scale. Since 2026-09-16 the primary value is 100% "
