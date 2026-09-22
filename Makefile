@@ -1,10 +1,12 @@
-.PHONY: help source-import source-match source-reference source-news reference sync test validate serve deploy-status
+.PHONY: help source-import source-match source-reference comparison-section comparison-merge source-news naming reference sync test validate serve deploy-status
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
 SOURCE_FILE ?=
 SNAPSHOT_FILE ?=
 MATCH_FILE ?=
+REFERENCE_FILE ?=
+CANDIDATE_FILE ?=
 SOURCE ?=
 SCORING ?= ppr
 TEAMS ?= 12
@@ -14,11 +16,14 @@ help:
 	@echo "  make source-import     Import SOURCE_FILE into standard raw source format"
 	@echo "  make source-match      Match SNAPSHOT_FILE rows to canonical player_key values"
 	@echo "  make source-reference  Build a source reference artifact from MATCH_FILE"
+	@echo "  make comparison-section Build a candidate comparison section from REFERENCE_FILE"
+	@echo "  make comparison-merge  Merge CANDIDATE_FILE into a candidate comparison artifact"
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
+	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
 	@echo "  make test              Run regression tests"
-	@echo "  make validate          Run reference, sync, and tests"
+	@echo "  make validate          Run naming, reference, sync, and tests"
 	@echo "  make serve             Serve the local dashboard"
 	@echo "  make deploy-status     Show recent GitHub deploy runs"
 
@@ -35,8 +40,19 @@ source-reference:
 	@test -n "$(MATCH_FILE)" || (echo "Set MATCH_FILE=output/source-matches/.../matched.json" && exit 1)
 	python3 pipelines/build_source_reference.py --input "$(MATCH_FILE)"
 
+comparison-section:
+	@test -n "$(REFERENCE_FILE)" || (echo "Set REFERENCE_FILE=output/source-references/.../reference.json" && exit 1)
+	python3 pipelines/build_comparison_source_section.py --input "$(REFERENCE_FILE)"
+
+comparison-merge:
+	@test -n "$(CANDIDATE_FILE)" || (echo "Set CANDIDATE_FILE=output/comparison-candidates/.../section.json" && exit 1)
+	python3 pipelines/merge_comparison_candidate.py --candidate "$(CANDIDATE_FILE)"
+
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss
+
+naming:
+	python3 pipelines/check_naming_drift.py
 
 reference:
 	python3 pipelines/build_reference_data.py --today $(TODAY)
@@ -47,7 +63,7 @@ sync:
 test:
 	python3 -m unittest discover -s tests
 
-validate: reference sync test
+validate: naming reference sync test
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
