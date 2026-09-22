@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Value Chart — Module Monitor</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0f1419; color: #e6e6e6; padding: 20px; max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .sub { color: #8a949e; font-size: 13px; margin-bottom: 20px; }
+  .module { background: #1a2230; border-radius: 10px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #666; }
+  .module.healthy { border-left-color: #2ea043; }
+  .module.degraded { border-left-color: #d29922; }
+  .module.broken { border-left-color: #f85149; }
+  .module-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .module-name { font-size: 16px; font-weight: 700; }
+  .badge { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .badge.healthy { background: #1a3a24; color: #3fb950; }
+  .badge.degraded { background: #3a2e1a; color: #d29922; }
+  .badge.broken { background: #3a1a1a; color: #f85149; }
+  .files { font-size: 12px; color: #8a949e; font-family: monospace; margin-bottom: 8px; }
+  .checks { list-style: none; font-size: 13px; }
+  .checks li { padding: 3px 0; }
+  .checks li::before { content: "✓ "; color: #3fb950; font-weight: bold; }
+  .checks li.fail::before { content: "✗ "; color: #f85149; }
+  .checks li.warn::before { content: "! "; color: #d29922; }
+  .lane { margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a3444; }
+  .lane-title { font-size: 12px; font-weight: 700; color: #8a949e; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .lane-item { font-size: 13px; padding: 4px 0 4px 20px; position: relative; }
+  .lane-item::before { content: "○"; position: absolute; left: 4px; color: #8a949e; }
+  .lane-item.done::before { content: "●"; color: #3fb950; }
+  .rule { background: #1a2230; border-radius: 10px; padding: 14px 16px; margin-top: 16px; font-size: 13px; color: #8a949e; }
+  .rule strong { color: #e6e6e6; }
+  #refresh { display: block; margin: 16px auto; padding: 10px 24px; background: #1f6feb; color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+  #refresh:hover { background: #388bfd; }
+  .updated { text-align: center; font-size: 12px; color: #8a949e; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>Trade Value Chart — Module Monitor</h1>
+<p class="sub">One instruction → one lane. Never touch two modules for one fix.</p>
+
+<div id="modules"></div>
+
+<button id="refresh" onclick="location.reload()">↻ Refresh status</button>
+<p class="updated" id="updated"></p>
+
+<div class="rule">
+  <strong>Lane rules:</strong><br>
+  1. Jeremy's instruction goes in exactly one lane. Split it if it touches two modules.<br>
+  2. One active change per lane. Finish or pause before starting the next.<br>
+  3. Cross-lane dependencies are written down, never silent.<br>
+  4. <strong>verify_live.py</strong> is the gate — nothing is "done" until it passes.<br>
+  5. Data staleness (lane 1) never blocks code fixes (lanes 2–4).
+</div>
+
+<script>
+// Module status is baked at build time by the monitor script.
+// To regenerate: python3 modules/monitor.py > modules/dashboard.html (this file)
+const MODULES = [
+  {
+    id: 1, name: "data-pipeline", status: "degraded",
+    files: "assets/comparison-sources-data.json",
+    owns: "Source snapshots, per-player values, built_at",
+    checks: [
+      { ok: true, text: "built_at: 2026-09-19T15:48:29Z" },
+      { ok: true, text: "ESPN: 596 values, max 81.8" },
+      { ok: false, text: "CBS: 0 values — EMPTY" },
+      { ok: false, text: "FantasyPros: 0 values — EMPTY" },
+      { ok: false, text: "USA Today: 0 values — EMPTY" },
+    ],
+    lane: [
+      { done: false, text: "Refresh source data (blocked on pipeline source pulls)" },
+      { done: false, text: "OR explicitly mark empty sources as paused in UI" },
+    ]
+  },
+  {
+    id: 2, name: "curve-widget", status: "degraded",
+    files: "assets/curve-widget.js, curve-widget.css",
+    owns: "Chart rendering, regression guards, smoothing, fixed-pie",
+    checks: [
+      { ok: true, text: "Guard fix (activeKeysForGuard): present" },
+      { ok: true, text: "Empty-source skip: present" },
+      { ok: true, text: "Smoothing (quadraticCurveTo): present" },
+      { ok: false, text: "test_two_tier_frontend: 6 failures (data drift, not guard)" },
+    ],
+    lane: [
+      { done: false, text: "Resolve 6 test failures (data fixtures changed by background workstreams)" },
+      { done: false, text: "Negative-test guard against simulated empty-source defect" },
+    ]
+  },
+  {
+    id: 3, name: "comparison-dashboard", status: "healthy",
+    files: "assets/comparison-dashboard.js",
+    owns: "Player news, health panel, dataset status",
+    checks: [
+      { ok: true, text: "News max-3 cap: present" },
+      { ok: true, text: "Timing badges (pre/post-values): present" },
+    ],
+    lane: []
+  },
+  {
+    id: 4, name: "page-shell", status: "healthy",
+    files: "index.html",
+    owns: "Header dates with time, build tag, footer, layout",
+    checks: [
+      { ok: true, text: "Build tag: tv-20260922-1439-cbbcefe (current)" },
+      { ok: true, text: "monthDayTime formatter: present" },
+    ],
+    lane: []
+  },
+  {
+    id: 5, name: "build-deploy", status: "healthy",
+    files: "deploy.sh, verify_live.py, .github/workflows/pages.yml",
+    owns: "Sync app→dist, tests, push, deploy, live verification",
+    checks: [
+      { ok: true, text: "deploy.sh sync: working" },
+      { ok: true, text: "verify_live.py: LIVE OK" },
+      { ok: true, text: "app/dist byte-identical: yes" },
+    ],
+    lane: []
+  },
+];
+
+const el = document.getElementById("modules");
+MODULES.forEach(m => {
+  const div = document.createElement("div");
+  div.className = `module ${m.status}`;
+  const checks = m.checks.map(c =>
+    `<li class="${c.ok ? "" : "fail"}">${c.text}</li>`).join("");
+  const lane = m.lane.length
+    ? `<div class="lane"><div class="lane-title">Lane ${m.id} — open items</div>` +
+      m.lane.map(i => `<div class="lane-item ${i.done ? "done" : ""}">${i.text}</div>`).join("") + `</div>`
+    : `<div class="lane"><div class="lane-title">Lane ${m.id}</div><div class="lane-item done">No open items</div></div>`;
+  div.innerHTML = `
+    <div class="module-head">
+      <span class="module-name">${m.id}. ${m.name}</span>
+      <span class="badge ${m.status}">${m.status}</span>
+    </div>
+    <div class="files">${m.files}</div>
+    <div style="font-size:13px;color:#8a949e;margin-bottom:8px;">Owns: ${m.owns}</div>
+    <ul class="checks">${checks}</ul>
+    ${lane}`;
+  el.appendChild(div);
+});
+document.getElementById("updated").textContent =
+  "Baked " + new Date().toLocaleString("en-US", { timeZone: "America/Chicago" }) + " CT";
+</script>
+</body>
+</html>
