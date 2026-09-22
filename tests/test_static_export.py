@@ -12,6 +12,8 @@ from pipelines import ingest_player_news
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
+DIST = ROOT / "dist"
+WEEKLY_SIGNALS = ROOT / "weekly_signals" / "dashboard"
 
 
 def load_json(path):
@@ -449,6 +451,13 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('fetch("assets/reference-freshness.json")', html)
         self.assertIn("Reference freshness pipe", html)
         self.assertTrue((APP / "assets" / "reference-freshness.json").exists())
+
+    def test_weekly_signals_dashboard_is_in_pages_output(self):
+        source = (WEEKLY_SIGNALS / "index.html").read_text(encoding="utf-8")
+        for slug in ("weekly-signals", "waiver-dashboard"):
+            target = DIST / slug / "index.html"
+            self.assertTrue(target.exists(), f"{target} must be published to GitHub Pages output")
+            self.assertEqual(source, target.read_text(encoding="utf-8"))
 
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])

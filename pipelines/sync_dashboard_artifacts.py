@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
 MODULES = ROOT / "modules"
+WEEKLY_SIGNALS = ROOT / "weekly_signals" / "dashboard"
 DIST = ROOT / "dist"
 REFERENCE_FRESHNESS = ROOT / "output" / "reference-freshness.json"
 
@@ -108,6 +109,12 @@ def main() -> int:
     dist_modules.mkdir(parents=True, exist_ok=True)
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
     shutil.copy2(FIXTURES / "source-import-health.json", dist_modules / "source-import-health.json")
+
+    weekly_page = WEEKLY_SIGNALS / "index.html"
+    for slug in ("weekly-signals", "waiver-dashboard"):
+        target = DIST / slug
+        target.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(weekly_page, target / "index.html")
 
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0
