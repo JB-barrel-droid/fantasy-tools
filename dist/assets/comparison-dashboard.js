@@ -18,14 +18,14 @@
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
   const LABELS = {
-    usatoday: "USA Today",
-    fantasycalc: "FantasyCalc",
-    fantasypros: "FantasyPros",
-    cbs: "CBS",
-    cbs_adjusted: "CBS Adjusted",
-    fantasycalc_adjusted: "FC Adjusted",
-    usatoday_adjusted: "USAT Adjusted",
-    fantasypros_adjusted: "FP Adjusted",
+    usatoday: "USA Today (Week 2)",
+    fantasycalc: "FantasyCalc (Week 2)",
+    fantasypros: "FantasyPros (Week 2)",
+    cbs: "CBS (Week 2)",
+    cbs_adjusted: "CBS Adjusted (Week 2)",
+    fantasycalc_adjusted: "FC Adjusted (Week 2)",
+    usatoday_adjusted: "USAT Adjusted (Week 2)",
+    fantasypros_adjusted: "FP Adjusted (Week 2)",
     espn: "ESPN adjusted",
     espn_vorp: "ESPN raw value above waivers"
   };

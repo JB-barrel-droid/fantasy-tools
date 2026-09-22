@@ -7,13 +7,13 @@
   "espn_snapshot": "2026-09-22",
   "pm_snapshot": "2026-09-22",
   "rz_snapshot": "2026-09-22",
-  "n_players": 610,
-  "n_espn_complete": 424,
+  "n_players": 608,
+  "n_espn_complete": 422,
   "n_pm_complete": 37,
   "n_pm_covered": 125,
   "n_rz_complete": 508,
   "n_k": 45,
-  "n_dst": 32,
+  "n_dst": 30,
   "kdst_snapshot": "?",
   "kdst_note": "Kickers and team defenses price from ESPN projections only (ESPN-purity directive, 2026-09-21): no expert/ECR data anywhere in the K/DST leg. K ROS = ESPN per-game rates x 16 (weeks 3-18); DST ROS = ESPN per-game rates x 15 (all byes in weeks 3-18). Scoring-invariant: one number serves standard/half/full.",
   "actuals_note": "YTD actuals subtracted from the ECR leg only (288 players with banked stats). The ESPN intake is already rest-of-season \u2014 no actuals subtraction on the ESPN leg. Actuals exclude INTs/fumbles by design (scoring_note).",
@@ -40,7 +40,7 @@
   "disagree_baseline_note": "Empirical ESPN-vs-ECR direction, measured as mean(ecr_ppg - espn_filled_ppg) over espn_complete players (full-PPR /g: QB -0.012 (level), RB -0.018 (level), WR +0.386 (ESPN cooler), TE +0.528 (ESPN cooler)). Positive shade = ESPN cooler than ECR; negative = ESPN warmer. delta_espn_ecr_demeaned subtracts the player's positional baseline, and espn_adj_ppg translates ESPN points onto the experts' level, so the disagreement section's rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are per-position: 'experts_only' for QB/RB/WR/TE (primary value 100% ECR), 'espn_only' for K/DST (ESPN-purity directive). The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-09-22T14:29:18Z",
+   "built_at": "2026-09-22T14:27:32Z",
    "as_of": "2026-09-22",
    "summary": {
     "live": 6,
@@ -63,8 +63,8 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 610,
-      "universe": 610,
+      "priced": 608,
+      "universe": 608,
       "note": "Every charted player carries a current value model value."
      },
      "freshness": {
@@ -74,9 +74,8 @@
      },
      "prior": {
       "available": true,
-      "prior_date": "2026-09-17",
-      "delta_summary": "Genuine prior bake (players_2026-09-17.json): 67 of 595 players changed value vs the 2026-09-17 bake; median move +0.0, mean absolute move 2.69 full-PPR trade-value points.",
-      "expert_leg_note": "Separately, prior_blend_ros measures the EXPERT-LEG move only (ECR-laden, no ESPN): 279 of 532 players moved vs the 2026-09-21 expert snapshot \u2014 projections byte-identical."
+      "prior_date": "2026-09-21",
+      "delta_summary": "No dated bake snapshot found \u2014 falling back to the expert-leg move only (prior_blend_ros is ECR-laden, no ESPN): 279 of 532 players moved vs the 2026-09-21 expert snapshot (full-PPR legs)."
      },
      "stale": false,
      "stale_reason": null,
@@ -93,8 +92,8 @@
      "status": "live",
      "shown_in_ui": false,
      "completeness": {
-      "priced": 610,
-      "universe": 610,
+      "priced": 608,
+      "universe": 608,
       "note": "Full universe coverage when live."
      },
      "freshness": {
@@ -122,8 +121,8 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 424,
-      "universe": 610,
+      "priced": 422,
+      "universe": 608,
       "note": "Pure read over priced components only \u2014 never zero-filled. espn_filled_* fills the rest from ECR."
      },
      "freshness": {
@@ -152,7 +151,7 @@
      "shown_in_ui": true,
      "completeness": {
       "priced": 37,
-      "universe": 610,
+      "universe": 608,
       "note": "125 players have at least one priced component. Season receptions ladders have no liquid two-sided market, so pass-catchers' pure reads exclude reception points by construction. Never zero-filled."
      },
      "freshness": {
@@ -167,7 +166,7 @@
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": "Thin coverage is the story here: only 37 of 610 players are fully priced. Treat unpriced players as 'no market read', not as zeros.",
+     "caveat": "Thin coverage is the story here: only 37 of 608 players are fully priced. Treat unpriced players as 'no market read', not as zeros.",
      "ui_note": "Curve widget source toggle (off by default)."
     },
     {
@@ -355,7 +354,7 @@
      "shown_in_ui": true,
      "completeness": {
       "priced": 508,
-      "universe": 610,
+      "universe": 608,
       "note": "Razzball where priced, ECR fallback. Rank correlation vs ECR 0.78\u20130.91, never 0.99+ \u2014 verified independent 2026-09-17."
      },
      "freshness": {
@@ -383,9 +382,9 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 77,
+      "priced": 75,
       "universe": null,
-      "note": "45 kickers + 32 defenses. Scoring-invariant: one number serves standard/half/full."
+      "note": "45 kickers + 30 defenses. Scoring-invariant: one number serves standard/half/full."
      },
      "freshness": {
       "snapshot_date": "?",
@@ -29112,50 +29111,6 @@
    "preseason_ecr_rank": null
   },
   {
-   "player_key": 72,
-   "name": "Los Angeles Rams",
-   "pos": "DST",
-   "team": "LAR",
-   "ecr_ros": null,
-   "blend_ros": {
-    "standard": 69.9,
-    "half_ppr": 69.9,
-    "ppr": 69.9
-   },
-   "ecr_ppg": null,
-   "blend_ppg": {
-    "standard": 4.66,
-    "half_ppr": 4.66,
-    "ppr": 4.66
-   },
-   "espn_ppg": {
-    "standard": 4.66,
-    "half_ppr": 4.66,
-    "ppr": 4.66
-   },
-   "espn_ros": {
-    "standard": 69.9,
-    "half_ppr": 69.9,
-    "ppr": 69.9
-   },
-   "games_remaining": 15,
-   "pricing": "espn_only",
-   "espn_complete": true,
-   "espn_comp_count": 1,
-   "espn_covered": [
-    "dst"
-   ],
-   "pm_complete": false,
-   "pm_comp_count": 0,
-   "pm_covered": [],
-   "rz_complete": false,
-   "rz_comp_count": 0,
-   "rz_covered": [],
-   "prior_ecr_ros": null,
-   "prior_blend_ros": null,
-   "preseason_ecr_rank": null
-  },
-  {
    "player_key": 96,
    "name": "Cincinnati Bengals",
    "pos": "DST",
@@ -33468,50 +33423,6 @@
    },
    "delta_rz_ecr_ppg_demeaned": -2.24,
    "preseason_ecr_rank": 74
-  },
-  {
-   "player_key": 140,
-   "name": "Washington Commanders",
-   "pos": "DST",
-   "team": "WSH",
-   "ecr_ros": null,
-   "blend_ros": {
-    "standard": 50.1,
-    "half_ppr": 50.1,
-    "ppr": 50.1
-   },
-   "ecr_ppg": null,
-   "blend_ppg": {
-    "standard": 3.34,
-    "half_ppr": 3.34,
-    "ppr": 3.34
-   },
-   "espn_ppg": {
-    "standard": 3.34,
-    "half_ppr": 3.34,
-    "ppr": 3.34
-   },
-   "espn_ros": {
-    "standard": 50.1,
-    "half_ppr": 50.1,
-    "ppr": 50.1
-   },
-   "games_remaining": 15,
-   "pricing": "espn_only",
-   "espn_complete": true,
-   "espn_comp_count": 1,
-   "espn_covered": [
-    "dst"
-   ],
-   "pm_complete": false,
-   "pm_comp_count": 0,
-   "pm_covered": [],
-   "rz_complete": false,
-   "rz_comp_count": 0,
-   "rz_covered": [],
-   "prior_ecr_ros": null,
-   "prior_blend_ros": null,
-   "preseason_ecr_rank": null
   },
   {
    "player_key": 1309,

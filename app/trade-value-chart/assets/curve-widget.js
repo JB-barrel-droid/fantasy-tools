@@ -2198,11 +2198,15 @@
     const validValues = SOURCE_KEYS.every(key => [...sourceMaps.get(key).values()].every(value => Number.isFinite(value) && value >= 0));
     // Only check active (non-paused) sources for the peak guard. Paused
     // adjusted curves carry stale fixture data and must not block the
-    // live curves from rendering.
-    const activeKeysForGuard = activeSourceKeys();
+    // live curves from rendering. Sources with no data (empty maps)
+    // are skipped rather than failing the guard.
+    const activeKeysForGuard = activeSourceKeys().filter(key => {
+      const vals = sourceMaps.get(key);
+      return vals && vals.size > 0;
+    });
     const sourcePeaks = Object.fromEntries(activeKeysForGuard.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
     const distinctSourcePeaks = new Set(Object.values(sourcePeaks).map(value => value.toFixed(1))).size > 1;
-    const valuesAbove70 = Object.values(sourcePeaks).every(value => value > 70);
+    const valuesAbove70 = activeKeysForGuard.length === 0 || Object.values(sourcePeaks).every(value => value > 70);
     const scale = yAxisScale(rows);
     const visiblePeak = Math.max(...rows.flatMap(row => activeSourceKeys().map(key => row.values[key])).filter(Number.isFinite));
     const dynamicAxisCoversData = scale.max >= visiblePeak;

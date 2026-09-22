@@ -1,0 +1,252 @@
+{
+ "meta": {
+  "as_of": "2026-09-21",
+  "source": "ESPN fantasy D/ST projections (kona_player_info, statSourceId=1/statSplitTypeId=1), pulled 2026-09-21 ~20:55 CT; content moved vs the 2026-09-19 pull (week-3 games played in between), so this is a new vintage",
+  "method": "Expected fantasy pts per remaining week = sacks*1 + INT*2 + FR*2 + returnTD*6 + safety*2 + E[PA bracket] + E[YA bracket], where bracket expectations use ESPN's own PA/YA bracket probabilities (stat ids 89-92/121-125, 128-136). PA 18-21 bracket straddles the 20/21 scoring line -> scored 0.5. Standard D/ST scoring. Uses stat 99 (sacks) only; 100 is the duplicate half-sack key.",
+  "coverage": "Weeks 3-18. ESPN projects every week incl. byes, so per-game = mean over the 16 ROS weeks (bye included); ros = ppg x actual games remaining (15 for every team; all 32 byes verified inside weeks 3-18 via kicker bye-week detection).",
+  "replacement": "DST16 (NO) - waiver line in a 12-team league; VORP = ROS pts above it",
+  "played_weeks_empirical": [
+   1,
+   2
+  ],
+  "appliedTotal_crosscheck": "component math vs ESPN block appliedTotal over 511 team-weeks: mean|diff| = 0.93 (appliedTotal systematically higher; ESPN default scoring includes extra categories). The documented standard-scoring recipe is used, not appliedTotal.",
+  "stat_ids": {
+   "99": "sacks",
+   "95": "INT",
+   "96": "fum rec",
+   "105": "total return TD (=101+102+103+104+93)",
+   "98": "safety",
+   "94": "DEF return TD (=103+104)",
+   "89-92,121-125": "PA bracket probs",
+   "128-136": "YA bracket probs",
+   "120": "exp PA",
+   "127": "exp YA"
+  }
+ },
+ "defenses": [
+  {
+   "abbr": "BAL",
+   "ros": 84.2,
+   "games": 15,
+   "ppg": 5.61,
+   "vorp": 22.4
+  },
+  {
+   "abbr": "PIT",
+   "ros": 83.9,
+   "games": 15,
+   "ppg": 5.59,
+   "vorp": 22.1
+  },
+  {
+   "abbr": "SEA",
+   "ros": 83.6,
+   "games": 15,
+   "ppg": 5.57,
+   "vorp": 21.8
+  },
+  {
+   "abbr": "HOU",
+   "ros": 83.1,
+   "games": 15,
+   "ppg": 5.54,
+   "vorp": 21.3
+  },
+  {
+   "abbr": "DEN",
+   "ros": 81.6,
+   "games": 15,
+   "ppg": 5.44,
+   "vorp": 19.8
+  },
+  {
+   "abbr": "MIN",
+   "ros": 81.1,
+   "games": 15,
+   "ppg": 5.41,
+   "vorp": 19.3
+  },
+  {
+   "abbr": "NE",
+   "ros": 71.9,
+   "games": 15,
+   "ppg": 4.8,
+   "vorp": 10.1
+  },
+  {
+   "abbr": "PHI",
+   "ros": 71.9,
+   "games": 15,
+   "ppg": 4.79,
+   "vorp": 10.1
+  },
+  {
+   "abbr": "NYJ",
+   "ros": 70.9,
+   "games": 15,
+   "ppg": 4.72,
+   "vorp": 9.1
+  },
+  {
+   "abbr": "LAR",
+   "ros": 70.0,
+   "games": 15,
+   "ppg": 4.66,
+   "vorp": 8.2
+  },
+  {
+   "abbr": "CIN",
+   "ros": 68.6,
+   "games": 15,
+   "ppg": 4.57,
+   "vorp": 6.8
+  },
+  {
+   "abbr": "NYG",
+   "ros": 67.4,
+   "games": 15,
+   "ppg": 4.49,
+   "vorp": 5.6
+  },
+  {
+   "abbr": "KC",
+   "ros": 67.0,
+   "games": 15,
+   "ppg": 4.47,
+   "vorp": 5.2
+  },
+  {
+   "abbr": "CLE",
+   "ros": 66.2,
+   "games": 15,
+   "ppg": 4.41,
+   "vorp": 4.4
+  },
+  {
+   "abbr": "SF",
+   "ros": 66.1,
+   "games": 15,
+   "ppg": 4.41,
+   "vorp": 4.3
+  },
+  {
+   "abbr": "NO",
+   "ros": 61.8,
+   "games": 15,
+   "ppg": 4.12,
+   "vorp": 0.0
+  },
+  {
+   "abbr": "DET",
+   "ros": 59.1,
+   "games": 15,
+   "ppg": 3.94,
+   "vorp": -2.7
+  },
+  {
+   "abbr": "IND",
+   "ros": 59.0,
+   "games": 15,
+   "ppg": 3.93,
+   "vorp": -2.8
+  },
+  {
+   "abbr": "GB",
+   "ros": 59.0,
+   "games": 15,
+   "ppg": 3.93,
+   "vorp": -2.8
+  },
+  {
+   "abbr": "JAX",
+   "ros": 58.6,
+   "games": 15,
+   "ppg": 3.91,
+   "vorp": -3.2
+  },
+  {
+   "abbr": "TB",
+   "ros": 57.0,
+   "games": 15,
+   "ppg": 3.8,
+   "vorp": -4.8
+  },
+  {
+   "abbr": "DAL",
+   "ros": 56.5,
+   "games": 15,
+   "ppg": 3.77,
+   "vorp": -5.3
+  },
+  {
+   "abbr": "LV",
+   "ros": 55.4,
+   "games": 15,
+   "ppg": 3.7,
+   "vorp": -6.4
+  },
+  {
+   "abbr": "BUF",
+   "ros": 54.7,
+   "games": 15,
+   "ppg": 3.65,
+   "vorp": -7.1
+  },
+  {
+   "abbr": "TEN",
+   "ros": 54.5,
+   "games": 15,
+   "ppg": 3.63,
+   "vorp": -7.3
+  },
+  {
+   "abbr": "LAC",
+   "ros": 50.6,
+   "games": 15,
+   "ppg": 3.37,
+   "vorp": -11.2
+  },
+  {
+   "abbr": "WSH",
+   "ros": 50.1,
+   "games": 15,
+   "ppg": 3.34,
+   "vorp": -11.7
+  },
+  {
+   "abbr": "CHI",
+   "ros": 46.0,
+   "games": 15,
+   "ppg": 3.07,
+   "vorp": -15.8
+  },
+  {
+   "abbr": "CAR",
+   "ros": 42.4,
+   "games": 15,
+   "ppg": 2.82,
+   "vorp": -19.4
+  },
+  {
+   "abbr": "ATL",
+   "ros": 40.8,
+   "games": 15,
+   "ppg": 2.72,
+   "vorp": -21.0
+  },
+  {
+   "abbr": "ARI",
+   "ros": 31.1,
+   "games": 15,
+   "ppg": 2.08,
+   "vorp": -30.7
+  },
+  {
+   "abbr": "MIA",
+   "ros": 24.4,
+   "games": 15,
+   "ppg": 1.63,
+   "vorp": -37.4
+  }
+ ]
+}
