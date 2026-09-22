@@ -66,6 +66,61 @@
   // (baked adjustment cells present) normalize at the active slider share.
   const DISPLAY_BENCH_SHARE = DEFAULT_BENCH_SHARE;
 
+  // ---------------------------------------------------------------------------
+  // ChartHealth: active runtime invariant checks that root out errors.
+  //
+  // These are NOT passive unit tests. They run on every curve build in the
+  // live page, validate the computed values against known invariants, and
+  // surface failures visibly in the Health panel and console. A check that
+  // fails means the rendered numbers are wrong -- the panel shows it in red
+  // and the console carries the full detail. Silence is not an option.
+  // ---------------------------------------------------------------------------
+  const ChartHealth = (() => {
+    const checks = new Map(); // id -> {name, status, detail, at}
+    function record(id, name, ok, detail) {
+      const status = ok ? "pass" : "fail";
+      checks.set(id, {name, status, detail: detail || "", at: new Date().toISOString()});
+      if (!ok) {
+        console.error("[ChartHealth] FAIL:", name, "--", detail);
+      }
+      render();
+    }
+    function warn(id, name, detail) {
+      checks.set(id, {name, status: "warn", detail: detail || "", at: new Date().toISOString()});
+      console.warn("[ChartHealth] WARN:", name, "--", detail);
+      render();
+    }
+    function render() {
+      const el = document.getElementById("chartHealthList");
+      if (!el) return;
+      const rows = [...checks.values()];
+      const fails = rows.filter(r => r.status === "fail").length;
+      const warns = rows.filter(r => r.status === "warn").length;
+      const badge = document.getElementById("chartHealthBadge");
+      if (badge) {
+        badge.textContent = fails > 0 ? `Health: ${fails} FAIL` : warns > 0 ? `Health: ${warns} warn` : "Health: OK";
+        badge.dataset.status = fails > 0 ? "fail" : warns > 0 ? "warn" : "ok";
+      }
+      el.innerHTML = rows.length === 0
+        ? '<li class="health-empty">No checks have run yet.</li>'
+        : rows.map(r => {
+            const icon = r.status === "pass" ? "✓" : r.status === "fail" ? "✗" : "!";
+            return `<li class="health-${r.status}"><span class="health-icon">${icon}</span><span class="health-name">${r.name}</span><span class="health-detail">${r.detail}</span></li>`;
+          }).join("");
+    }
+    function summary() {
+      const rows = [...checks.values()];
+      return {
+        total: rows.length,
+        pass: rows.filter(r => r.status === "pass").length,
+        fail: rows.filter(r => r.status === "fail").length,
+        warn: rows.filter(r => r.status === "warn").length,
+        checks: Object.fromEntries(checks),
+      };
+    }
+    return {record, warn, render, summary};
+  })();
+
   // Two-tier marginal-price model: pure browser port of
   // lottery/bin/starter_model.py (reference implementation). No DOM, no
   // widget state -- safe to load in Node for tests. See the reference
@@ -789,6 +844,37 @@
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
+    // Active invariant checks: the fixed-pie must mark starters UP and bench
+    // DOWN relative to the raw curve. If the raw pool is already
+    // starter-heavy (>= target share), the pie inverts -- the exact defect
+    // this guards against. These run on every build; failures are visible,
+    // never silent.
+    if (rawTotal > 0 && starterRaw > 0 && benchRaw > 0) {
+      const rawStarterShare = starterRaw / rawTotal;
+      ChartHealth.record(
+        "espn-fixed-pie-direction",
+        "ESPN fixed-pie direction (starters up, bench down)",
+        rawStarterShare < starterShare && starterScale > rawScale && benchScale < rawScale,
+        `raw starter share ${(rawStarterShare * 100).toFixed(1)}% vs target ${(starterShare * 100).toFixed(1)}%; ` +
+        `starter scale ${starterScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}, bench scale ${benchScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}`
+      );
+      // The starter markup ratio is deterministic: target_share / raw_share.
+      // Flag it if it collapses toward 1.0 (curves nearly identical) or
+      // inverts (< 1.0) -- both mean the adjustment is not doing its job.
+      const markup = starterScale / rawScale;
+      ChartHealth.record(
+        "espn-starter-markup",
+        "ESPN starter markup ratio sane",
+        markup > 1.05,
+        `starter adjusted/pure = ${markup.toFixed(3)} (expected > 1.05; ~${(starterShare / Math.max(rawStarterShare, 1e-9)).toFixed(2)} at ${(rawStarterShare * 100).toFixed(1)}% raw starter share)`
+      );
+    } else {
+      ChartHealth.warn(
+        "espn-fixed-pie-direction",
+        "ESPN fixed-pie direction (starters up, bench down)",
+        `skipped: degenerate pool (rawTotal=${rawTotal.toFixed(1)}, starterRaw=${starterRaw.toFixed(1)}, benchRaw=${benchRaw.toFixed(1)})`
+      );
+    }
     espnRowsCache = withVorp.map(row => ({
       ...row,
       pure: row.rawVorp * rawScale,
