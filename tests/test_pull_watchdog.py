@@ -291,9 +291,9 @@ class TestSupabaseLanded(unittest.TestCase):
 
 def _sitemap_fetch(url):
     if "web-sitemap-2026-09" in url:
-        return (200, "<loc>https://www.usatoday.com/story/sports/fantasy/football/"
+        return (200, "<urlset><url><loc>https://www.usatoday.com/story/sports/fantasy/football/"
                      "2026/09/22/fantasy-football-trade-value-chart-week-3-"
-                     "ros-rankings/999/</loc>")
+                     "ros-rankings/999/</loc></url></urlset>")
     return (404, "")
 
 
