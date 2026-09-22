@@ -1,0 +1,141 @@
+{
+ "meta": {
+  "vintage": {
+   "skill": {
+    "espn_snapshot_date": "2026-09-21",
+    "payload_hash": "fbb4bba48de291b7b22c565cbbc9cd08",
+    "prev_payload_hash": "22578f8f096e668100952f7e8a3d5672",
+    "content_changed_vs_prev": true,
+    "prev_vintage": "2026-09-21 06:10 CDT pull",
+    "rows": 492
+   },
+   "kickers": {
+    "pull_date": "2026-09-21",
+    "source": "ESPN kona_player_info filterSlotIds [17]",
+    "note": "new pull; no prior kicker file"
+   },
+   "dst": {
+    "pull_date": "2026-09-21",
+    "source": "ESPN kona_player_info filterSlotIds [16]",
+    "content_changed_vs_2026_09_19": true
+   }
+  },
+  "method": "pie = sum(max(0, per-game - waiver_pg)); waiver = next-unrostered per-game; rostered = teams*slots + flex (teams flex from RB/WR/TE pool after dedicated) + bench_mix scaled by teams/12 (round-half-up). Skill pg = ROS components rescored per scoring / 16 (weeks 3-18). K pg = mean weekly appliedTotal w3-18 (bye 0 included). DST pg = mean w3-18 of 9/19 component recipe (bye included). Skill pies recomputed 2026-09-22 with workbook-aligned bench_mix (QB10/TE10), calibrate=False pool measurement.",
+  "source_files": [
+   "files/espn_projections.csv",
+   "files/espn_weekly_projections.csv",
+   "football-signal/data/espn_k_ros_2026-09-21.json",
+   "football-signal/data/espn_dst_ros_2026-09-21.json"
+  ],
+  "content_hashes": {
+   "files/espn_projections.csv": "1923e93910c83781009e5fcc04cafe9170434db7f8927f7fbe271c2750d7878e",
+   "files/espn_weekly_projections.csv": "ff3a06f893cd7e9ddb8c0a651c1ceae3ab28397e92d31f44fc0ffd3bdb80af69",
+   "football-signal/data/espn_k_ros_2026-09-21.json": "77005c0931e27d6ac4f4e2e9d399f0d20f0cc5af6583235758226674baf84f58",
+   "football-signal/data/espn_dst_ros_2026-09-21.json": "69cdedb4a24ce9bfd29e454325fb28eadb3b2ba5673cb6cf7f19e36d6d9d0318"
+  }
+ },
+ "pies": {
+  "standard": {
+   "8": {
+    "QB": 27.12,
+    "RB": 186.84,
+    "WR": 110.7,
+    "TE": 22.32,
+    "K": 3.97,
+    "DST": 6.44
+   },
+   "10": {
+    "QB": 39.88,
+    "RB": 295.15,
+    "WR": 170.32,
+    "TE": 28.16,
+    "K": 4.53,
+    "DST": 8.32
+   },
+   "12": {
+    "QB": 58.99,
+    "RB": 405.31,
+    "WR": 221.25,
+    "TE": 37.96,
+    "K": 6.56,
+    "DST": 8.57
+   },
+   "14": {
+    "QB": 78.88,
+    "RB": 455.99,
+    "WR": 253.53,
+    "TE": 49.16,
+    "K": 11.72,
+    "DST": 15.98
+   }
+  },
+  "half_ppr": {
+   "8": {
+    "QB": 27.12,
+    "RB": 198.06,
+    "WR": 108.69,
+    "TE": 24.41,
+    "K": 3.97,
+    "DST": 6.44
+   },
+   "10": {
+    "QB": 39.88,
+    "RB": 328.88,
+    "WR": 195.58,
+    "TE": 32.0,
+    "K": 4.53,
+    "DST": 8.32
+   },
+   "12": {
+    "QB": 58.99,
+    "RB": 393.59,
+    "WR": 290.04,
+    "TE": 45.93,
+    "K": 6.56,
+    "DST": 8.57
+   },
+   "14": {
+    "QB": 78.88,
+    "RB": 500.39,
+    "WR": 334.32,
+    "TE": 64.88,
+    "K": 11.72,
+    "DST": 15.98
+   }
+  },
+  "ppr": {
+   "8": {
+    "QB": 27.12,
+    "RB": 209.5,
+    "WR": 142.72,
+    "TE": 28.86,
+    "K": 3.97,
+    "DST": 6.44
+   },
+   "10": {
+    "QB": 39.88,
+    "RB": 324.56,
+    "WR": 255.04,
+    "TE": 37.87,
+    "K": 4.53,
+    "DST": 8.32
+   },
+   "12": {
+    "QB": 58.99,
+    "RB": 408.0,
+    "WR": 362.12,
+    "TE": 55.02,
+    "K": 6.56,
+    "DST": 8.57
+   },
+   "14": {
+    "QB": 78.88,
+    "RB": 529.39,
+    "WR": 419.77,
+    "TE": 77.44,
+    "K": 11.72,
+    "DST": 15.98
+   }
+  }
+ }
+}

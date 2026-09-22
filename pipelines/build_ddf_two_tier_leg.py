@@ -51,8 +51,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CSV = Path.home() / "workspace" / "goals" / "football-signal-database-and-app" / "files" / "espn_projections.csv"
-DEFAULT_PIES = Path.home() / "workspace" / "goals" / "football-signal-database-and-app" / "lottery" / "bin" / "espn_pies.json"
+DEFAULT_CSV = ROOT / "data" / "inputs" / "espn_projections.csv"
+DEFAULT_PIES = ROOT / "data" / "inputs" / "espn_pies.json"
 DEFAULT_FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 DEFAULT_OUTPUT_DIR = ROOT / "data" / "ddf-two-tier"
 
