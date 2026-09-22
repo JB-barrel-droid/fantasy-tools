@@ -63,7 +63,12 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
     {player_key, slug, combo, reason}.
     """
     cand = _load_json(candidate_path)
-    if cand.get("schema") != "trade-value-source-reference-v1":
+    # Accepts the candidate-section artifact (current builder shape) and the
+    # legacy source-reference shape the stage was first written against.
+    if cand.get("schema") not in (
+        "trade-value-comparison-section-candidate-v1",
+        "trade-value-source-reference-v1",
+    ):
         raise SystemExit(f"reindex: unsupported candidate schema {cand.get('schema')}")
     fixture_path = fixture_path or REPO / "data/fixtures/current/comparison-sources-data.json"
     players_path = players_path or REPO / "data/fixtures/current/players.json"
@@ -77,7 +82,9 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
 
     espn = fixture["sources"].get("espn", {})
     espn_combos = espn.get("combos", {})
-    source = cand["source_key"]
+    source = cand.get("source_key") or cand.get("section_key")
+    if not source:
+        raise SystemExit("reindex: candidate is missing source_key/section_key")
     review = []
     out_combos = {}
 
