@@ -20,9 +20,14 @@ DIST_DIR="$REPO_ROOT/dist"
 MSG="${1:-Deploy chart updates}"
 
 echo "=== Step 1: Sync app/ -> dist/ ==="
+# Stamp the build tag with today's date and current commit
+BUILD_TAG="tv-$(date -u +%Y%m%d-%H%M)-$(git rev-parse --short HEAD)"
+echo "  build tag: $BUILD_TAG"
+sed -i "s|<meta name=\"trade-chart-build\" content=\"[^\"]*\">|<meta name=\"trade-chart-build\" content=\"$BUILD_TAG\">|" "$APP_DIR/index.html"
+sed -i "s|<span id=\"buildStamp\">Build [^<]*</span>|<span id=\"buildStamp\">Build $BUILD_TAG</span>|" "$APP_DIR/index.html"
 # Sync the files that make up the published site.
 # Add new files here if the published site grows.
-for f in index.html assets/curve-widget.js assets/curve-widget.css; do
+for f in index.html assets/curve-widget.js assets/curve-widget.css assets/comparison-dashboard.js; do
   src="$APP_DIR/$f"
   dst="$DIST_DIR/$f"
   if [[ ! -f "$src" ]]; then
@@ -52,7 +57,7 @@ cd "$REPO_ROOT"
 python3 -m unittest tests.test_two_tier_frontend 2>&1 | tail -3
 
 echo "=== Step 4: Commit and push ==="
-git add dist/index.html dist/assets/curve-widget.js dist/assets/curve-widget.css
+git add dist/index.html dist/assets/curve-widget.js dist/assets/curve-widget.css dist/assets/comparison-dashboard.js
 if git diff --cached --quiet; then
   echo "  nothing new to deploy (dist/ already current)"
   exit 0
