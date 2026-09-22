@@ -48,8 +48,10 @@
   const EXTRA_SOURCE_KEYS = ["cbs_adjusted"];
   // Fixture-transition Option B (staged 2026-09-22): the *_adjusted curves
   // are paused while their sources lack live adjustment cells, so the
-  // default active set is the live ESPN adjusted leg only. A paused curve
-  // returns to the toggle list automatically when stage-2 cells land.
+  // default active set is the live ESPN adjusted leg only. When stage-2
+  // cells land for a source, its curve un-pauses AND returns to the default
+  // active set automatically — no re-bake, no code change.
+  const ADJUSTED_INDEXED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const SPECIALIST_POSITIONS = ["K", "DST"];
@@ -367,7 +369,17 @@
     const entry = inputs && inputs.sources ? inputs.sources[rawKey] : null;
     return !(entry && Array.isArray(entry.cells) && entry.cells.length);
   }
-  globalThis.TradeValueCurvePause = {adjustedCurvePaused};
+  globalThis.TradeValueCurvePause = {adjustedCurvePaused, defaultIndexedSourceKeys};
+
+  // Default active set: ESPN adjusted plus every *_adjusted curve with live
+  // stage-2 cells. Pure in (inputs) so it is unit-testable; init() applies it
+  // on fresh load, which is what makes the "shown by default" banner copy
+  // true once cells land.
+  function defaultIndexedSourceKeys(inputs) {
+    return [...DEFAULT_INDEXED_SOURCES,
+            ...ADJUSTED_INDEXED_KEYS.filter(key => !adjustedCurvePaused(key, inputs))];
+  }
+  globalThis.TradeValueCurvePause.defaultIndexedSourceKeys = defaultIndexedSourceKeys;
 
   const root = typeof document !== "undefined" ? document.getElementById("curve-widget") : null;
   if (!root) return;
@@ -2094,7 +2106,7 @@
     const rosterTransitions = markers.length === 2
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
     const fixedPie = fixedPieDiagnostics();
-    const defaultGroupedSources = DEFAULT_INDEXED_SOURCES.every(key => activeSources.has(key));
+    const defaultGroupedSources = defaultIndexedSourceKeys(adjustmentInputs).every(key => activeSources.has(key));
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
@@ -2108,6 +2120,10 @@
     try {
       data = await loadComparisonData();
       adjustmentInputs = await loadAdjustmentInputs();
+      // Fresh-load default: ESPN adjusted plus every *_adjusted curve with
+      // live stage-2 cells (fixture-transition Option B auto-return). The
+      // banner's "shown by default" copy is only true when this matches it.
+      activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs));
       canonicalByKey = buildCanonicalMap();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       const invalid = SOURCE_KEYS.filter(key => data.source_validation?.[key] !== "live");

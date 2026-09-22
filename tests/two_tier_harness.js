@@ -139,6 +139,17 @@ switch (cmd) {
     out = input.cases.map(c => P.adjustedCurvePaused(c.key, c.inputs === undefined ? undefined : c.inputs));
     break;
   }
+  case "defaultset": {
+    // Default active set over (inputs) cases: ESPN adjusted plus every
+    // *_adjusted curve with live stage-2 cells. Empty/null inputs fail
+    // closed to ["espn"].
+    if (!P || typeof P.defaultIndexedSourceKeys !== "function") {
+      console.error("TradeValueCurvePause.defaultIndexedSourceKeys test surface missing");
+      process.exit(1);
+    }
+    out = input.cases.map(c => P.defaultIndexedSourceKeys(c.inputs === undefined ? undefined : c.inputs));
+    break;
+  }
   default:
     console.error(`unknown command: ${cmd}`);
     process.exit(2);
