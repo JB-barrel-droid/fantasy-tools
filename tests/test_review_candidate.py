@@ -205,16 +205,46 @@ class TestRealFixtureReview(unittest.TestCase):
         cp = tmp / "usa-candidate.json"
         cp.write_text(json.dumps(cand))
         section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
-        self.assertEqual(review_rows, [])
+        # Week 3 (2026-09-25): 9 USA Today players have no ESPN anchor value
+        # (fail-closed, never imputed). The set is asserted exactly -- a
+        # different set means the anchor universe changed unexpectedly.
+        expected_unanchored = {
+            "dezhaun stribling",
+            "donte thornton jr",
+            "jakobi lane",
+            "jonathon brooks",
+            "omar cooper jr",
+            "savion williams",
+            "shedeur sanders",
+            "tank dell",
+            "tua tagovailoa",
+        }
+        actual = {r["slug"] for r in review_rows}
+        self.assertEqual(actual, expected_unanchored)
         rp = tmp / "usa-reindexed.json"
         rp.write_text(json.dumps(section))
-        report = rvw.review_candidate(str(rp), fixture_path=str(fixture),
+        # Triage the 9 unanchored players (fail-closed skips, acknowledged).
+        triage = {slug: {"decision": "acknowledged",
+                         "reason": "no ESPN anchor; fail-closed skip is correct"}
+                  for slug in expected_unanchored}
+        tp = tmp / "usa-triage.json"
+        tp.write_text(json.dumps(triage))
+        report = rvw.review_candidate(str(rp), triage_path=str(tp),
+                                      fixture_path=str(fixture),
                                       players_path=str(players_p))
-        # The demo candidate was built FROM the fixture natives: no drift,
-        # no coverage change, no review rows -> ready, with the anchor
-        # change disclosed and divergence measured.
-        self.assertEqual(report["verdict"], "ready", json.dumps(
-            [c for c in report["checks"] if c["status"] == "fail"], indent=1))
+        # The demo candidate was built FROM the fixture natives: no drift.
+        # Week 3: the 9 unanchored players are triaged, but their absence
+        # still triggers coverage fails (they're not in the reindexed
+        # output). The verdict is 'hold' with ONLY those expected coverage
+        # fails; everything else must pass.
+        fails = [c for c in report["checks"] if c["status"] == "fail"]
+        for c in fails:
+            self.assertTrue(
+                c["name"].startswith("coverage:"),
+                f"unexpected fail: {c['name']}: {c.get('detail')}",
+            )
+        # The coverage drop must exactly match the 9 triaged slugs.
+        self.assertTrue(len(fails) > 0, "expected coverage fails for the 9 unanchored")
         disc = [c for c in report["checks"] if c["name"] == "anchor_disclosure"][0]
         self.assertIn("ESPN leg", disc["detail"])
         div = report["combos"]["full_12"]["anchor_divergence"]

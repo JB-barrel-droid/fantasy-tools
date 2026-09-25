@@ -520,6 +520,75 @@ class SaveCbsWeekTest(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# 4b. save_espn_cbs_references --week for ESPN
+# (defect: ESPN save grain was hardcoded to week=2 -- the 2026-09-25 pull
+# overwrote the genuine Week 2 rows with Week 3 content, mislabeled)
+# ---------------------------------------------------------------------------
+
+ESPN_CSV = (
+    "player,player_norm,pos,team,has_espn_projection,eligible,"
+    "r_pass_yds,r_pass_tds,ros_half_ppr,weeks_covered,espn_snapshot_date\n"
+    "Josh Allen,josh allen,QB,BUF,True,True,3420.6,22.8,340.41,4-18,2026-09-25\n"
+    "Jahmyr Gibbs,jahmyr gibbs,RB,DET,True,True,0,0,300.12,4-18,2026-09-25\n"
+)
+
+
+class SaveEspnWeekTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp())
+        self.csv_path = self.tmp / "espn.csv"
+        self.csv_path.write_text(ESPN_CSV)
+        self.meta_path = self.tmp / "meta.json"
+        self.meta_path.write_text(json.dumps({"vintage": "2026-09-25"}))
+        self._fetch = save_cbs.fetch_players
+        self._upsert = save_cbs.upsert_rows
+        self._count = save_cbs.count_rows
+        self.writes = []
+        self.count_params_seen = []
+        save_cbs.fetch_players = lambda: PLAYERS
+        save_cbs.upsert_rows = lambda table, rows, conflict: self.writes.append(
+            (table, rows, conflict)
+        )
+
+        def fake_count(table, params):
+            self.count_params_seen.append(params)
+            return sum(len(rows) for t, rows, _ in self.writes if t == table)
+
+        save_cbs.count_rows = fake_count
+
+    def tearDown(self):
+        save_cbs.fetch_players = self._fetch
+        save_cbs.upsert_rows = self._upsert
+        save_cbs.count_rows = self._count
+
+    def test_week_param_sets_espn_save_grain(self):
+        """Defect: the ESPN save grain was hardcoded to week=2 (the module
+        docstring even said 'week=2 (designated pull week)' and --week help
+        said 'ESPN path ignores this'). Passing --week 3 must stamp week=3
+        on rows and on the verification query -- never silently week 2."""
+        result = save_cbs.save_source(
+            "espn", dry_run=False, espn_csv=self.csv_path,
+            espn_meta=self.meta_path, cbs_json=Path("/dev/null"), week=3,
+        )
+        table, rows, _ = self.writes[0]
+        self.assertEqual(table, "espn_season_projections")
+        self.assertTrue(rows)
+        self.assertTrue(all(r["week"] == 3 for r in rows))
+        self.assertNotIn("week=eq.2", self.count_params_seen[0])
+        self.assertIn("week=eq.3", self.count_params_seen[0])
+        self.assertEqual(result["vintage"], "2026-09-25")
+
+    def test_espn_default_week_is_current_nfl_week(self):
+        save_cbs.save_source(
+            "espn", dry_run=False, espn_csv=self.csv_path,
+            espn_meta=self.meta_path, cbs_json=Path("/dev/null"), week=None,
+        )
+        table, rows, _ = self.writes[0]
+        self.assertTrue(all(r["week"] == _common.nfl_week() for r in rows))
+
+
+# ---------------------------------------------------------------------------
 # 5. Ingest wrappers (defect class: stale fallback / silent write / count
 #    mismatch). Every verifier is negative-tested against its named defect.
 # ---------------------------------------------------------------------------
@@ -1078,3 +1147,84 @@ class SaveFantasycalcTest(unittest.TestCase):
         self.assertTrue(result["dry_run"])
         self.assertEqual(result["written"], 0)
         self.assertEqual(self.writes, [])
+
+
+# ---------------------------------------------------------------------------
+# 6. save_fantasypros_references content-date derivation
+#    (defect class: hardcoded source-content date silently survives the next
+#    week -- same staleness class as the board-week hardcodes)
+# ---------------------------------------------------------------------------
+
+save_fp = load("save_fantasypros_references", PIPELINES / "save_fantasypros_references.py")
+
+FP_PLAYERS = [
+    {"player_key": 2227, "position": "RB", "full_name": "Jahmyr Gibbs"},
+    {"player_key": 1, "position": "QB", "full_name": "Josh Allen"},
+]
+
+
+class FantasyprosContentDateTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp())
+        self.log = self.tmp / "fantasypros_chart_fetch_log.jsonl"
+        self.log.write_text(
+            "\n".join(
+                json.dumps(e)
+                for e in [
+                    {"date": "2026-09-18", "week": 2, "ok": True,
+                     "published": "2026-09-15"},
+                    {"date": "2026-09-25", "week": 3, "ok": True,
+                     "published": "2026-09-22"},
+                ]
+            )
+            + "\n"
+        )
+        self._log = save_fp.FP_FETCH_LOG
+        self._fetch = save_fp.fetch_players
+        save_fp.FP_FETCH_LOG = self.log
+        save_fp.fetch_players = lambda: FP_PLAYERS
+        self.csv = self.tmp / "fantasypros_trade_chart.csv"
+        self.csv.write_text(
+            "player_key,name,value_1\n"
+            "2227,Jahmyr Gibbs,120.0\n"
+            "1,Josh Allen,110.0\n"
+        )
+
+    def tearDown(self):
+        save_fp.FP_FETCH_LOG = self._log
+        save_fp.fetch_players = self._fetch
+
+    def test_date_comes_from_fetch_log_not_hardcode(self):
+        """Defect: FP_CONTENT_DATE was hardcoded to 2026-09-22 -- a stale
+        date silently survives the next week. The save grain must carry the
+        pull log's published date for THIS week."""
+        clean, review = save_fp.build_fp_rows(self.csv, week=3,
+                                              bake_id="fpwk3_test")
+        self.assertEqual(review, [])
+        self.assertTrue(clean)
+        self.assertTrue(all(r["source_content_date"] == "2026-09-22"
+                            for r in clean))
+
+    def test_latest_ok_entry_wins_for_week(self):
+        with open(self.log, "a", encoding="utf-8") as fh:
+            fh.write(json.dumps({"date": "2026-09-25", "week": 3, "ok": True,
+                                 "published": "2026-09-23"}) + "\n")
+        self.assertEqual(save_fp.fetch_log_content_date(3), "2026-09-23")
+
+    def test_week_scoping_ignores_other_weeks(self):
+        self.assertEqual(save_fp.fetch_log_content_date(2), "2026-09-15")
+
+    def test_no_ok_entry_for_week_fails_closed(self):
+        """The hardcoded-date defect would have silently stamped a date;
+        with no fetch-log entry the saver must refuse instead."""
+        self.log.write_text(json.dumps({"date": "2026-09-25", "week": 4,
+                                        "ok": False, "published": "2026-09-24"}) + "\n")
+        with self.assertRaises(SystemExit) as ctx:
+            save_fp.build_fp_rows(self.csv, week=3, bake_id="fpwk3_test")
+        self.assertIn("fetch-log", str(ctx.exception))
+
+    def test_unparseable_log_entry_not_silent(self):
+        self.log.write_text('{"date": "2026-09-25", "week": 3, "ok": true,\n')
+        with self.assertRaises((json.JSONDecodeError, SystemExit, ValueError)):
+            save_fp.build_fp_rows(self.csv, week=3, bake_id="fpwk3_test")

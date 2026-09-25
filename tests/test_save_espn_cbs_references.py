@@ -83,9 +83,11 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         return csv_path, meta_path, json_path
 
     def save(self, source, **kwargs):
+        week = kwargs.pop("week", None)
         csv_path, meta_path, json_path = self.write_inputs(**kwargs)
         return mod.save_source(
-            source, dry_run=False, espn_csv=csv_path, espn_meta=meta_path, cbs_json=json_path
+            source, dry_run=False, espn_csv=csv_path, espn_meta=meta_path, cbs_json=json_path,
+            week=week,
         )
 
     # -- guard: unknown source -------------------------------------------------
@@ -175,7 +177,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
                 "Cam Wardle,cam wardle,QB,TEN,True,True,1,2,3,4,0,0,0,299.0,3-18,2026-09-21",
             ]
         )
-        clean, review, _vintage = mod.build_espn_rows(csv_path, meta_path)
+        clean, review, _vintage = mod.build_espn_rows(csv_path, meta_path, week=3)
         self.assertEqual(clean, [])
         self.assertEqual(len(review), 2)
         self.assertTrue(
@@ -219,8 +221,11 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
 
     # -- ESPN row shape -----------------------------------------------------------
     def test_espn_row_shape_and_grain(self):
+        # The week grain follows the passed --week (regression: it was
+        # hardcoded to 2, so the 2026-09-25 pull overwrote Week 2 rows).
         result = self.save(
             "espn",
+            week=3,
             csv_rows=[
                 "Josh Allen,josh allen,QB,BUF,True,True,3674.1,24.6,517.7,11.5,0,0,0,366.13,3-18,2026-09-21",
             ],
@@ -233,7 +238,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         row = rows[0]
         self.assertEqual(row["player_key"], 869)
         self.assertEqual(row["season"], 2026)
-        self.assertEqual(row["week"], 2)
+        self.assertEqual(row["week"], 3)
         self.assertEqual(row["scoring"], "half_ppr")
         self.assertEqual(row["ros_half_ppr"], 366.13)
         self.assertEqual(row["r_pass_yds"], 3674.1)

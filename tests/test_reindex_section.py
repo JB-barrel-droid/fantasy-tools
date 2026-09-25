@@ -322,8 +322,22 @@ class TestRealFixtureSmoke(unittest.TestCase):
                 self.assertAlmostEqual(
                     combo["index_total"][pos]["target_total"], round(target, 1),
                     places=0, msg=f"{combo_name}/{pos} pie target")
-        # No review rows expected on the real pair (all slugs resolve).
-        self.assertEqual(review, [])
+        # Week 3 (2026-09-25): 9 USA Today players have no ESPN anchor value
+        # (fail-closed, never imputed). The set is asserted exactly -- a
+        # different set means the anchor universe changed unexpectedly.
+        expected_unanchored = {
+            "dezhaun stribling",
+            "donte thornton jr",
+            "jakobi lane",
+            "jonathon brooks",
+            "omar cooper jr",
+            "savion williams",
+            "shedeur sanders",
+            "tank dell",
+            "tua tagovailoa",
+        }
+        actual = {r["slug"] for r in review}
+        self.assertEqual(actual, expected_unanchored)
 
 
 class TestBuilderToReindexInterface(unittest.TestCase):

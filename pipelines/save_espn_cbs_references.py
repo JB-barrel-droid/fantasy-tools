@@ -8,7 +8,7 @@ stage-1 importer becomes DB-backed for espn/cbs (save_gap=None).
 
 Tables (grain = upsert key; writes are idempotent on the grain):
   ESPN -> public.espn_season_projections (season, week, player_key):
-    season=2026, week=2 (designated pull week), scoring='half_ppr',
+    season=2026, week=<--week | current NFL week>, scoring='half_ppr',
     r_* component columns verbatim, ros_half_ppr, weeks_covered,
     espn_snapshot_date (the CSV's unanimous vintage = source-content vintage,
     never pull time), pulled_at=now, player_norm as join label.
@@ -59,6 +59,7 @@ import argparse
 import csv
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -221,7 +222,7 @@ def espn_vintage(csv_path: Path, meta_path: Path) -> str:
     )
 
 
-def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
+def build_espn_rows(csv_path: Path, meta_path: Path, week: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     vintage = espn_vintage(csv_path, meta_path)
     with csv_path.open(newline="", encoding="utf-8") as handle:
         raw = list(csv.DictReader(handle))
@@ -258,7 +259,7 @@ def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any
                 "player_key": key,
                 "player_norm": str(row.get("player_norm") or normalize_name(name)),
                 "season": 2026,
-                "week": 2,
+                "week": week,
                 "scoring": "half_ppr",
                 **{col: parse_float(row.get(col)) for col in ESPN_COMPONENT_COLS},
                 "ros_half_ppr": value,
@@ -296,7 +297,12 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
     for table in payload.get("tables", []):
-        mapping = CBS_TABLES.get(str(table.get("title")))
+        # CBS changed their h2 text in Week 3 ("Quarterback trade values"
+        # vs the old "Quarterback"); normalize the suffix before matching.
+        title = re.sub(
+            r"\s+trade values\s*$", "", str(table.get("title")), flags=re.I
+        ).strip()
+        mapping = CBS_TABLES.get(title)
         if not mapping:
             review.append({"reason": "unknown_table", "title": table.get("title")})
             continue
@@ -370,10 +376,11 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         raise SystemExit(f"Unknown source '{source}': save_espn_cbs_references.py handles espn|cbs only.")
 
     if name == "espn":
+        week = week or nfl_week()
         table = "espn_season_projections"
-        clean, review, vintage = build_espn_rows(espn_csv, espn_meta)
+        clean, review, vintage = build_espn_rows(espn_csv, espn_meta, week)
         conflict = ESPN_UPSERT_CONFLICT
-        count_params = "?select=player_key&season=eq.2026&week=eq.2"
+        count_params = f"?select=player_key&season=eq.2026&week=eq.{week}"
     else:
         week = week or nfl_week()
         table = "cbs_trade_values"
@@ -393,7 +400,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
     live = count_rows(table, count_params)
     if live != len(clean):
         raise SystemExit(
-            f"Fail closed: {table} holds {live} rows for the (2026, week {week if name == 'cbs' else 2}) grain after upsert, "
+            f"Fail closed: {table} holds {live} rows for the (2026, week {week}) grain after upsert, "
             f"expected {len(clean)}. The write did not land as planned; investigate before re-running."
         )
 
@@ -423,7 +430,7 @@ def main() -> int:
         "--week",
         type=int,
         default=None,
-        help="NFL week for the CBS save grain (default: current week from ops/watchdog/_common.nfl_week). ESPN path ignores this.",
+        help="NFL week for the save grain (default: current week from ops/watchdog/_common.nfl_week). Applies to ESPN and CBS.",
     )
     parser.add_argument(
         "--review-out",

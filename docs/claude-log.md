@@ -108,6 +108,11 @@ untouched). HTTPS git works; SSH blocked by environment.
   have genuine Week 3 data. Week 2 CBS was NOT promoted as Week 3.
 - Snapshots stamped: data/raw/sources/{fantasycalc/week-3,usatoday/2026-09-23,
   fantasypros/2026-09-15,espn/2026-09-25,cbs/week-2}/snapshot.json.
+- **Pushed to main** (2026-09-25 ~22:20 UTC): commit `51092c60` (local
+  `f9a63c1`, content-identical; SSH blocked so pushed via GitHub API —
+  branch + fast-forward main + branch deleted). Deploy workflow
+  "Deploy dashboard" completed success on the new SHA. The module monitor
+  (modules/dashboard.html) redeploys with it.
 
 ### Claimed, unverified
 
@@ -240,3 +245,50 @@ supported.
   session's authorized sources would remove this step.
 - `verify_live.py` cannot reach github.io from the container (egress). Use the
   in-app browser to read the live page instead.
+
+## 2026-09-25 — Week 3 source refresh (all five sources)
+
+Pulled Jeremy-supplied Week 3 URLs: CBS trade chart (138 players: 34 QB / 41 RB / 47 WR / 16 TE) and FantasyPros Week 3 chart (178 players, article date 2026-09-22). USA Today (238), FantasyCalc (591), ESPN (349) completed earlier in the day. `make import-health NFL_WEEK=3`: 5 ok / 0 stale / 0 missing / 0 failed. Match → reference → section → reindex → review → promote ran; `make validate`: 367 tests OK.
+
+Defects found and fixed this session:
+- **ESPN save grain hardcoded to week=2.** `save_espn_cbs_references.py` stamped every ESPN save as week 2, so the 2026-09-25 pull overwrote the genuine Week 2 rows with Week 3 content (ROS weeks 4-18), mislabeled. The genuine Week 2 ESPN snapshot is unrecoverable (daily CSVs overwritten; no archive). Repaired: week is now dynamic (`--week`, defaults to current NFL week); mislabeled week=2 rows deleted from `espn_season_projections`; 2026-09-25 data re-saved honestly as week 3 (349 rows). Regression tests in `test_cbs_usatoday_recurring.py::SaveEspnWeekTest` (would fail under the old hardcode) and updated `test_save_espn_cbs_references.py` (one test had pinned `week == 2`).
+- **FantasyPros saver hardcoded `FP_CONTENT_DATE = "2026-09-22"`.** Now derives the article date from the puller's fetch log (latest ok entry for the week), fail-closed when absent. 5 regression tests added.
+- **ESPN fixture promotion only covered half_12** (the pull is half-PPR only). The other 11 ESPN combos retain prior-week values — the fixture's ESPN section is mixed-vintage until ESPN publishes all scorings. Same for FantasyCalc (12-team only; 8/10/14-team combos retain prior values).
+- **Legacy `values` shadowed promoted `reindexed`** on ESPN half_12 (596 stale vs 348 new). Synced `values = reindexed` on the promoted combo; promotion code still needs the regression fix.
+- Review verdicts for all five sources came back `hold` (native drift vs Week 2 fixtures, coverage changes) and were manually overridden to `ready` with audit notes after verifying each hold traced to genuine source movement, not corruption. The drift check compares Week 3 candidates against Week 2 fixtures, so fresh data predictably trips it — the review methodology needs a same-vintage comparison, not hand-edits. Tracked as follow-up.
+- USA Today reindex now has 9 unanchored players (Stribling, Thornton, Lane, Brooks, Cooper, Williams, Sanders, Dell, Tagovailoa) — they sit in USA Today's Week 3 set but outside ESPN's 348-player Week 3 half-PPR pull (down from 596). Fail-closed to review; tests pin the exact set.
+
+## 2026-09-26 — Mac command-center recovery and dashboard verification
+
+### Verified
+
+- The bundle commit object `1b6af96` was recoverable, but its prerequisite
+  parent was not on GitHub main. The recovered patch applied cleanly onto
+  `origin/main` after extracting the thin pack and diffing the object against
+  the live remote commit. [`git index-pack --fix-thin`, `git apply --index`]
+- Supabase production holds Week 3 rows for all five dashboard sources:
+  CBS week 3 (355 rows), ESPN week 3 (349 rows, snapshot 2026-09-25),
+  FantasyCalc week 3 (591 rows), FantasyPros week 3 (534 rows, content
+  2026-09-22), and USA Today week 3 (702 rows, content 2026-09-23).
+  [Supabase SQL summary query]
+- The recovered comparison artifact contained Week 3 direct-source value
+  changes but stale Week 2 metadata/labels (`built_at`, `fetched_at`,
+  `week_designated`, hardcoded comparison labels). Repaired the metadata and
+  UI labels so the dashboard reports 5 Week 3 rails and source snapshot
+  2026-09-25 22:38:27Z. [local JSON inspection + Playwright snapshot]
+- `make validate` passed: naming check, reference build, sync, and 367 tests
+  OK (6 skipped). [local command]
+- The required 12-combo headless curve sweep passed against regenerated `dist/`:
+  all 3 scoring modes × 4 league sizes reported `fixedPieIndexed=true`,
+  `sourceScaleAgreement=true`, and no chart-health FAIL entries. [Playwright
+  run-code over local `dist/`]
+
+### Open
+
+- Week 3 direct rails are current; adjusted source projects remain paused until
+  fresh stage-2 adjustment-input fits land. The page now says this explicitly
+  rather than rendering stale adjusted curves as if they were current.
+- The repo-local Supabase helper path (`~/workspace/skills/supabase-football-signal/bin`)
+  is missing on this Mac, so `make supabase-import` cannot run locally yet.
+  Supabase verification in this session used the connected Supabase tool
+  instead of the repo's `sbclient` path.

@@ -665,8 +665,13 @@ class StaticExportTest(unittest.TestCase):
             if max_value > 0:
                 last_positive = index
 
-        self.assertEqual(33, last_positive)
-        self.assertEqual(34, last_positive + 1)
+        # Week 3 (2026-09-25): 45 QBs carry positive values across the five
+        # sources (was 33 in Week 2). The boundary moved because Week-3
+        # sources price deeper QB lists; the last positive is Marcus Mariota
+        # (preseason ECR 45). If this moves again, verify it's a genuine
+        # source-coverage change, not a data bug.
+        self.assertEqual(45, last_positive)
+        self.assertEqual(46, last_positive + 1)
 
 
 if __name__ == "__main__":
