@@ -11,6 +11,14 @@ Current status: the Muse export has been imported into `app/trade-value-chart/` 
 - Keep Supabase as the production database.
 - Move calculations and collectors out of Muse incrementally only after equivalence tests exist.
 
+## Working with AI sessions
+
+`CLAUDE.md` holds the working agreements — most importantly, that every session
+appends to `docs/claude-log.md` before it finishes, separating what it verified
+from what it only claimed. Read the log before starting: it carries forward what
+the last session measured, what it asserted without checking, and what is still
+open.
+
 ## Structure
 
 - `app/trade-value-chart/` - the dashboard source: `index.html` plus `assets/`.
