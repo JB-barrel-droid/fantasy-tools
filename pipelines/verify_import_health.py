@@ -44,6 +44,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCES_ROOT = ROOT / "data" / "raw" / "sources"
 DEFAULT_OUTPUT = ROOT / "output" / "source-import-health.json"
 HEALTH_SCHEMA = "trade-value-import-health-v1"
+SUPABASE_SKILL_BIN = os.environ.get(
+    "SUPABASE_FOOTBALL_SIGNAL_BIN",
+    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
+)
 
 DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs")
 DASHBOARD_SOURCES = DB_SOURCES
@@ -152,7 +156,8 @@ def check_source(source: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _default_table_summary(table: str, params: str) -> list[dict[str, Any]]:
-    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
+    if SUPABASE_SKILL_BIN not in sys.path:
+        sys.path.insert(0, SUPABASE_SKILL_BIN)
     from sbclient import get_all  # noqa: E402
 
     rows = get_all(table, params=params)

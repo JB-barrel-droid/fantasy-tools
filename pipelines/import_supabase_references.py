@@ -56,6 +56,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUTPUT_DIR = ROOT / "data" / "raw" / "sources"
 MANIFEST_SCHEMA = "trade-value-source-manifest-v1"
 SUPABASE_TABLE = "public.source_trade_values"
+SUPABASE_SKILL_BIN = os.environ.get(
+    "SUPABASE_FOOTBALL_SIGNAL_BIN",
+    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
+)
 
 sys.path.insert(0, str(ROOT / "pipelines"))
 from import_source_snapshot import (  # noqa: E402
@@ -123,7 +127,8 @@ def check_source(source: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _default_supabase_rows(table: str, params: str) -> list[dict[str, Any]]:
-    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
+    if SUPABASE_SKILL_BIN not in sys.path:
+        sys.path.insert(0, SUPABASE_SKILL_BIN)
     from sbclient import get_all  # noqa: E402
 
     rows = get_all(table, params=params)
@@ -134,7 +139,8 @@ def _default_supabase_rows(table: str, params: str) -> list[dict[str, Any]]:
 
 def _default_player_names(keys: list[int]) -> dict[int, str]:
     """Resolve canonical full_name for numeric player_keys via the players table."""
-    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
+    if SUPABASE_SKILL_BIN not in sys.path:
+        sys.path.insert(0, SUPABASE_SKILL_BIN)
     from sbclient import get_all  # noqa: E402
 
     names: dict[int, str] = {}
@@ -158,7 +164,8 @@ def _default_player_positions(keys: list[int]) -> dict[int, str]:
     (see fixture_pos_team). Documented choice: canonical position from the
     naming-authority table; team from the fixture map.
     """
-    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
+    if SUPABASE_SKILL_BIN not in sys.path:
+        sys.path.insert(0, SUPABASE_SKILL_BIN)
     from sbclient import get_all  # noqa: E402
 
     positions: dict[int, str] = {}

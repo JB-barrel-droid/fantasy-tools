@@ -89,9 +89,14 @@ def utc_now() -> str:
 # Supabase access (vault-backed skill client). Module-level callables so tests
 # can inject recorded fixtures without touching the network.
 # ---------------------------------------------------------------------------
+SUPABASE_SKILL_BIN = os.environ.get(
+    "SUPABASE_FOOTBALL_SIGNAL_BIN",
+    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
+)
 
 def _sb():
-    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
+    if SUPABASE_SKILL_BIN not in sys.path:
+        sys.path.insert(0, SUPABASE_SKILL_BIN)
     import sbclient  # noqa: E402
 
     return sbclient

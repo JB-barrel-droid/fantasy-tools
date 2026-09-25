@@ -17,10 +17,14 @@ except Exception:  # pragma: no cover
     CT = None
 
 HOME = os.path.expanduser("~")
+DEFAULT_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 WS = os.path.join(HOME, "workspace")
-REPO = os.path.join(WS, "fantasy-tools")
-GOAL = os.path.join(WS, "goals/football-signal-database-and-app")
-FS = os.path.join(WS, "football-signal")
+REPO = os.environ.get("FANTASY_TOOLS_REPO", DEFAULT_REPO)
+GOAL = os.environ.get(
+    "FANTASY_GOAL_DIR",
+    os.path.join(WS, "goals", "football-signal-database-and-app"),
+)
+FS = os.environ.get("FANTASY_SIGNAL_DIR", os.path.join(WS, "football-signal"))
 
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")

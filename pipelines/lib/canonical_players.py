@@ -44,8 +44,10 @@ _REPO = os.path.dirname(os.path.dirname(_LIB))
 IDENTITY_SNAPSHOT = os.path.join(_REPO, "data", "inputs",
                                  "player_identity_map.json")
 
-SKILL_BIN = os.path.expanduser(
-    "~/workspace/skills/supabase-football-signal/bin")
+SKILL_BIN = os.environ.get(
+    "SUPABASE_FOOTBALL_SIGNAL_BIN",
+    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
+)
 
 _SUFFIX_RE = re.compile(r"\s+(jr|sr|ii|iii|iv|v)$")
 

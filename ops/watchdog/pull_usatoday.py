@@ -32,10 +32,32 @@ SECTION_SLUG = "fantasy-football-trade-value-chart-week-%d-ros-rankings"
 SITEMAP_INDEX = "https://www.usatoday.com/web-sitemap-index.xml"
 SITEMAP_MONTH = "https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-%04d-%02d.xml"
 TABLE_MARK = "gnt_ar_b_tbl"
+POSITION_TITLE_PATTERNS = (
+    r"\bquarterbacks?\b", r"\bqbs?\b",
+    r"\brunning backs?\b", r"\brbs?\b",
+    r"\bwide receivers?\b", r"\bwrs?\b",
+    r"\btight ends?\b", r"\btes?\b",
+)
 
 
 class DiscoveryFailed(RuntimeError):
     pass
+
+
+def table_title(title, headers):
+    """Normalize table title enough for the ingestion validator.
+
+    USA Today's Week 3 page changed the QB heading to the generic
+    "Week 3 fantasy trade charts"; the position is still unambiguous from
+    QB-only headers. Keep fail-closed behavior for anything not inferable.
+    """
+    clean = re.sub(r"<.*?>", "", title or "").strip()
+    if any(re.search(pattern, clean, re.IGNORECASE) for pattern in POSITION_TITLE_PATTERNS):
+        return clean
+    header_text = " ".join(re.sub(r"<.*?>", "", h or "").strip() for h in headers)
+    if re.search(r"\b1QB\b", header_text, re.IGNORECASE) and re.search(r"\bSFLEX\b", header_text, re.IGNORECASE):
+        return f"Quarterback {clean}".strip()
+    return clean
 
 
 def sitemap_urls_for_month(year, month, fetch_fn=fetch):
@@ -110,9 +132,9 @@ def pull(url, fetch_fn=fetch):
             cells = re.findall(r"<td>(.*?)</td>", tr.group(1))
             if cells and cells[0].strip().isdigit():
                 rows.append([re.sub(r"<.*?>", "", c).strip() for c in cells])
-        tables.append({"title": re.sub(r"<.*?>", "", title).strip(),
-                       "headers": [re.sub(r"<.*?>", "", h).strip()
-                                   for h in headers],
+        clean_headers = [re.sub(r"<.*?>", "", h).strip() for h in headers]
+        tables.append({"title": table_title(title, clean_headers),
+                       "headers": clean_headers,
                        "rows": rows})
     if len(tables) < 4:
         raise RuntimeError("expected >=4 position tables, got %d at %s"

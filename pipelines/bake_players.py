@@ -65,7 +65,10 @@ from preseason_ecr import (  # noqa: E402
     load_preseason_ecr_ranks, annotate_rows, provenance_note as pecr_note,
 )
 
-SKILL_BIN = os.path.expanduser("~/workspace/skills/supabase-football-signal/bin")
+SKILL_BIN = os.environ.get(
+    "SUPABASE_FOOTBALL_SIGNAL_BIN",
+    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
+)
 
 FIXTURE_DIR = ROOT / "data" / "fixtures" / "current"
 SNAPSHOT_DIR = ROOT / "data" / "fixtures" / "snapshots"

@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import pull_watchdog as wd
 import pull_usatoday as usat
 import pull_cbs as cbs
-from _common import classify_run_line, todays_run_lines
+from _common import REPO, classify_run_line, todays_run_lines
 
 DAY = date(2026, 9, 22)  # a Tuesday; nfl_week == 2
 
@@ -70,6 +70,12 @@ def _daily_cfg(tmp, log_text, csv_rows=500, csv_age_days=0,
 
 
 class TestRunLogClassification(unittest.TestCase):
+    def test_watchdog_repo_path_is_this_checkout(self):
+        self.assertEqual(
+            os.path.abspath(os.path.join(os.path.dirname(__file__), "..")),
+            os.path.abspath(REPO),
+        )
+
     def test_failed_token_detected(self):
         self.assertEqual(classify_run_line(
             "2026-09-22 06:20 CDT | FAILED | source=razzball; pull failed"), "failed")
@@ -397,6 +403,25 @@ class TestUsatodayDiscovery(unittest.TestCase):
                            fetch_fn=lambda u: (200, html))
         self.assertEqual(len(tables), 4)
         self.assertEqual(tables[0]["rows"][0][1], "Josh Allen")
+
+    def test_pull_inferrs_qb_from_week3_generic_heading(self):
+        html = (
+            '<h2 class=gnt_ar_b_h2>Week 3 fantasy trade charts</h2>'
+            '<table class=gnt_ar_b_tbl><tr><th>RK</th><th>Player</th><th>1QB</th><th>6/TD</th><th>SFLEX</th></tr>'
+            '<tr><td>1</td><td>Josh Allen</td><td>33.2</td><td>38.0</td><td>66.0</td></tr></table>'
+            '<h2 class=gnt_ar_b_h2>Running back trade value chart</h2>'
+            '<table class=gnt_ar_b_tbl><tr><th>RK</th><th>Player</th><th>STD</th></tr>'
+            '<tr><td>1</td><td>Bijan Robinson</td><td>77</td></tr></table>'
+            '<h2 class=gnt_ar_b_h2>Wide receiver trade value chart</h2>'
+            '<table class=gnt_ar_b_tbl><tr><th>RK</th><th>Player</th><th>STD</th></tr>'
+            '<tr><td>1</td><td>JaMarr Chase</td><td>75</td></tr></table>'
+            '<h2 class=gnt_ar_b_h2>Tight end trade value chart</h2>'
+            '<table class=gnt_ar_b_tbl><tr><th>RK</th><th>Player</th><th>STD</th></tr>'
+            '<tr><td>1</td><td>Brock Bowers</td><td>30</td></tr></table>'
+        )
+        tables = usat.pull("https://example.com/x",
+                           fetch_fn=lambda u: (200, html))
+        self.assertIn("Quarterback", tables[0]["title"])
 
     def test_pull_rejects_thin_page(self):
         html = ('<h2 class=gnt_ar_b_h2>QB</h2><table class=gnt_ar_b_tbl>'
