@@ -158,6 +158,7 @@
   let espnRowsCache = null;
   let espnRoleByKey = new Map();
   let referenceSource = "usatoday";
+  let pendingSharedState = null;
   let newsMeta = {};
   let newsByPlayerKey = new Map();
   let adjustmentsByPlayerKey = new Map();
@@ -982,6 +983,10 @@
     refresh: () => data && renderAll(),
     setLockOrder: value => data && setLockOrder(value, false),
     applyShared: shared => {
+      if (!data || !canonicalByKey.size || !sourceMaps.size) {
+        pendingSharedState = shared;
+        return;
+      }
       const scoring = ({standard:"standard", half_ppr:"half", ppr:"full", half:"half", full:"full"})[shared?.scoring];
       if (scoring && scoring !== state.scoring) {
         state.scoring = scoring;
@@ -1072,7 +1077,11 @@
       rebuildSourceMaps();
       bindStatic();
       renderAll();
-      if (window.TradeValueSharedState) window.TradeValueComparisonControls.applyShared(window.TradeValueSharedState);
+      if (pendingSharedState || window.TradeValueSharedState) {
+        const shared = pendingSharedState || window.TradeValueSharedState;
+        pendingSharedState = null;
+        window.TradeValueComparisonControls.applyShared(shared);
+      }
       runRegressionGuards();
       if (isLockKey(window.TradeValueLockOrder)) setLockOrder(window.TradeValueLockOrder, false);
     } catch (error) {

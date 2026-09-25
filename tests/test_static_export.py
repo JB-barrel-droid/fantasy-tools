@@ -466,6 +466,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn('key:"espn_role"', text)
         self.assertIn("ESPN raw value above waivers", text)
+        self.assertIn("let pendingSharedState = null", text)
+        self.assertIn("if (!data || !canonicalByKey.size || !sourceMaps.size)", text)
+        self.assertIn("pendingSharedState || window.TradeValueSharedState", text)
 
     def test_data_health_surfaces_player_news_pipeline(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
