@@ -272,6 +272,41 @@ class VerifyImportHealthTest(unittest.TestCase):
         self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
         self.assertIn("Week 2", entry["failure_reason"])
 
+    def test_multi_week_table_verifies_when_scoped_to_manifest_vintage(self):
+        # defect: the gate re-queried the whole multi-week table, so a
+        # retained older week read as TABLE_DRIFT. The gate now scopes the
+        # re-query to the manifest's vintage; the injected fetch simulates
+        # PostgREST by honoring the week=eq.N filter.
+        def postgrest(table, params):
+            if "week=eq.3" in params:
+                return db_rows(10, source_content_date="2026-09-23", week=3)
+            return (db_rows(10, source_content_date="2026-09-15", week=2)
+                    + db_rows(10, source_content_date="2026-09-23", week=3))
+        mod.fetch_table_summary = postgrest
+        make_snapshot(self.root, "usatoday", "2026-09-23",
+                      content_vintage="2026-09-23", week_designated=3)
+        entry, _ = mod.verify_source(
+            "usatoday", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "ok", entry["failure_reason"])
+        self.assertEqual(entry["row_count"], 10)
+
+    def test_multi_week_table_still_catches_drift_within_scoped_week(self):
+        # scoping must not blind the gate: rows changed *within* the stamped
+        # week still fail as TABLE_DRIFT.
+        def postgrest(table, params):
+            return db_rows(8, source_content_date="2026-09-23", week=3)
+        mod.fetch_table_summary = postgrest
+        make_snapshot(self.root, "usatoday", "2026-09-23",
+                      content_vintage="2026-09-23", week_designated=3)
+        entry, _ = mod.verify_source(
+            "usatoday", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+
     def test_table_query_failure_fails_closed(self):
         def boom(table, params):
             raise RuntimeError("connection refused")

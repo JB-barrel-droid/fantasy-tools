@@ -32,6 +32,102 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-25 — Week 3 source refresh: USA Today ingested; multi-week scoping fixed; CBS Week 3 not published
+
+Task: Jeremy's Week 3 source-data refresh (commit+push pre-authorized).
+Worktree: clean detached `~/workspace/fantasy-tools-refresh` at `5f89fc2`
+(original `~/workspace/fantasy-tools` checkout was dirty/diverged — left
+untouched). HTTPS git works; SSH blocked by environment.
+
+### Verified
+
+- **USA Today Week 3 ingested to live Supabase** (`pipelines/save_usatoday_references.py`):
+  article dated 2026-09-23, 238 source rows (QB 36 / RB 59 / WR 106 / TE 37),
+  702 table rows (234 players × 3 scorings), bake `usatwk3_2026-09-25_v1`,
+  verified via Supabase count query (week=3, variant=as_published). Week 2
+  rows (714, 2026-09-15) retained in the table.
+- **USA Today upsert grain fix**: first ingest 400'd — code's conflict spec
+  used `player_key` but the live `source_trade_values_grain` is
+  `(source, player_norm, scoring, league_teams, qb_slots, season, week,
+  variant)`. `USAT_UPSERT_CONFLICT` now uses `player_norm`; rows still carry
+  numeric `player_key`. `test_rows_land_with_correct_grain` updated to assert
+  `player_norm` in / `player_key` not in the conflict (negative guard).
+- **CBS Week 3 does not exist yet** (checked 2026-09-25): the expected Week 3
+  slug 404s with no TableBuilder markup; Dave Richard's author profile still
+  lists Week 2 as latest; web search found no current CBS Week 3 trade chart.
+  Never promoted stale Week 2 as Week 3.
+- **Multi-week scoping defect fixed** (would have blocked the refresh):
+  `import_supabase_references.py` + `verify_import_health.py` queried ALL
+  historical rows per source; with USA Today now holding weeks 2+3,
+  `derive_db_vintage()` fails closed on the mixed history and the health
+  gate's unscoped re-query would TABLE_DRIFT on retained older weeks. Fix:
+  `_select_latest_week()` / `_select_latest_snapshot_date()` scope reads to
+  the latest complete vintage deterministically (never blended); the manifest
+  records the scoping and `week_designated` (fallback to scoped week for dated
+  sources); the health gate scopes its table re-query with `week=eq.N` /
+  `espn_snapshot_date=eq.DATE`. `derive_db_vintage()` / `table_vintage()`
+  themselves were NOT weakened — direct unit tests prove they still fail
+  closed on multi-week/multi-date rows. Mixed dates *within* the selected
+  week still fail closed. New tests: latest-wins for CBS/ESPN/Week-3-USA
+  Today, no-blend, health-scopes-OK, health-still-catches-within-week-drift.
+- **Full suite green**: 356 unittest tests pass (`python3 -m unittest
+  discover -s tests`).
+- Source state in live Supabase (2026-09-25): fantasycalc max week 2;
+  fantasypros max week 2; usatoday max week 3 (702 rows); cbs_trade_values
+  max week 2; espn_season_projections now 349 rows at vintage 2026-09-25
+  (saved this session). FantasyCalc cache manifest is fresh Week 3
+  (2026-09-23) but Supabase rows are still bake `fitwk2_2026-09-17_v3`.
+- **ESPN orphan rows**: the 2026-09-25 save failed closed at first — the
+  table held 355 rows at the (2026, week 2) grain vs 349 expected. Six
+  players (Dart, Njoku, Jonathon Brooks, Tracy, Bagent, Manhertz) were
+  eligible on 9/21 but are `eligible=False`/0.00 in the 9/25 pull, so the
+  pipeline correctly routed them to review and left their old rows orphaned.
+  Deleted the six superseded 2026-09-21 rows; re-ran the save; count check
+  green (349 rows, all 2026-09-25). Upsert is idempotent, so if a player
+  regains eligibility a later pull re-inserts him.
+- **FantasyCalc Week 3 saved** (2026-09-25): no saver script existed (Week 2
+  was an ad-hoc load), so wrote `pipelines/save_fantasycalc_references.py`
+  following the USA Today pattern — 591 as_published rows, bake
+  `fcwk3_2026-09-25_v1`, native_value=raw API value, value=isotonic-reindexed
+  chart scale. 12 review rows: Kenny Gainwell (no canonical identity —
+  "Kenny" vs fixture's "Kenneth") and Carson Wentz (has player_key but not
+  in the comparison fixture's universe, so no ESPN anchor for the reindex).
+  **as_published only**: the bias_adjusted variant is a derived calibration
+  whose fit target (Monday reassessed methodology leg) is stale in-season —
+  re-fitting now would be dishonest, and the importer never consumes
+  bias_adjusted. Regression tests added (SaveFantasycalcTest, 4 tests);
+  full suite 360/360 green.
+- **Import health is RED (2026-09-25 22:17 UTC)** — 3 ok / 2 stale / 0 missing:
+  ok: fantasycalc (591 rows, Week 3), usatoday (702 rows, 2026-09-23),
+  espn (349 rows, 2026-09-25).
+  STALE: fantasypros (534 rows, vintage 2026-09-15 = Week 2 — no Week 3
+  trade-chart source file exists); cbs (372 rows, Week 2 — Week 3 article
+  not published/found despite discovery + web search + author-profile check).
+  Per the hard gate, the match/reference/section/reindex/review/promote
+  chain, fixture rebuild, and make validate are BLOCKED until both sources
+  have genuine Week 3 data. Week 2 CBS was NOT promoted as Week 3.
+- Snapshots stamped: data/raw/sources/{fantasycalc/week-3,usatoday/2026-09-23,
+  fantasypros/2026-09-15,espn/2026-09-25,cbs/week-2}/snapshot.json.
+
+### Claimed, unverified
+
+- None this entry; CBS Week 3 absence is a negative web result, recheck before
+  declaring the refresh complete.
+
+### Open / next
+
+- Save ESPN 2026-09-25 CSV → Supabase; run the Week 3 FantasyCalc save
+  (cache manifest is fresh); FantasyPros Week 3 needs a genuine source file;
+  CBS import stays Week 2 until CBS publishes Week 3.
+- Then `make supabase-import` ×5 → `make import-health NFL_WEEK=3` →
+  match/reference/section/reindex/review/promote → fixture rebuild →
+  `make validate` → commit + push (authorized).
+- `pipelines/save_espn_cbs_references.py` still hardcodes ESPN's designated
+  table week and count query to week 2 — understand before saving/importing
+  ESPN.
+
+---
+
 ## 2026-09-25 — ESPN anchor priced from the built leg; clock-coupled tests
 
 Commits: `cb4e921`, `0f1eccc`, `a297922`. Live build `tv-20260925-1449-a297922`

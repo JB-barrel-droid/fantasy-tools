@@ -30,8 +30,9 @@ numbers into `value` would corrupt the chart. New pulls use bake_id like
 mirrors the scheme) so pulls are never confused with fit-bakes.
 
 Grain: (source, variant, scoring, league_teams, qb_slots, season, week,
-player_key). Upserts are idempotent per weekly grain; prior weeks are
-retained.
+player_norm) -- the shared table's source_trade_values_grain constraint.
+Rows also carry the resolved numeric player_key for downstream matching.
+Upserts are idempotent per weekly grain; prior weeks are retained.
 
 Usage:
     python3 save_usatoday_references.py --usatoday-json ops/watchdog/pulls/usatoday-2026-09-22.json [--week 2] [--dry-run]
@@ -65,7 +66,14 @@ from save_espn_cbs_references import (  # noqa: E402
     count_rows,
 )
 
-USAT_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key"
+USAT_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_norm"
+# NOTE: source_trade_values is the shared goal-workspace table whose grain
+# constraint is source_trade_values_grain =
+#   (source, player_norm, scoring, league_teams, qb_slots, season, week, variant).
+# The conflict target MUST name exactly those columns; a player_key target
+# 400s ("no unique or exclusion constraint matching the ON CONFLICT
+# specification"). Rows still carry the resolved numeric player_key for the
+# downstream importer -- player_norm is only the upsert match key.
 
 # scoring label used in source_trade_values for USA Today (matches the fit-bake).
 SCORING_LABELS = ("std", "half", "full")

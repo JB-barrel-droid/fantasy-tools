@@ -225,7 +225,11 @@ class SaveUsatodayTest(unittest.TestCase):
         self.assertEqual(result["review_count"], 3)
         table, rows, conflict = self.writes[0]
         self.assertEqual(table, "source_trade_values")
-        self.assertIn("player_key", conflict)
+        # The live grain is (source, player_norm, scoring, league_teams,
+        # qb_slots, season, week, variant): conflict must use player_norm,
+        # NOT player_key, or the upsert 400s (no unique constraint matches).
+        self.assertIn("player_norm", conflict)
+        self.assertNotIn("player_key", conflict)
         allen = [r for r in rows if r["player_key"] == 869]
         self.assertEqual(len(allen), 3)
         self.assertEqual({r["scoring"] for r in allen}, {"std", "half", "full"})
@@ -976,3 +980,101 @@ class UsatodaySameWeekGuardTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+# ---------------------------------------------------------------------------
+# 5. save_fantasycalc_references (Week 3 refresh; no saver existed before --
+#    the Week 2 load was ad-hoc, so the contract itself is the guard)
+# ---------------------------------------------------------------------------
+
+save_fc = load("save_fantasycalc_references", PIPELINES / "save_fantasycalc_references.py")
+
+FC_CACHE = {
+    "fantasycalc_standard_12_qb1": [
+        {"name": "Jahmyr Gibbs", "pos": "RB", "value": 10656.0},
+        {"name": "Mystery Player", "pos": "WR", "value": 100.0},
+    ],
+    "fantasycalc_half_12_qb1": [
+        {"name": "Jahmyr Gibbs", "pos": "RB", "value": 10589.0},
+    ],
+    "fantasycalc_full_12_qb1": [
+        {"name": "Jahmyr Gibbs", "pos": "RB", "value": 10595.0},
+    ],
+}
+
+
+class SaveFantasycalcTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp())
+        for stem, rows in FC_CACHE.items():
+            (self.tmp / f"{stem}.json").write_text(json.dumps(
+                {"fetched_at": "2026-09-23T12:09:59Z", "rows": rows, "snapshot": {}}))
+        self._cache_dir = save_fc.CACHE_DIR
+        self._fetch = save_fc.fetch_players
+        self._upsert = save_fc.upsert_rows
+        self._count = save_fc.count_rows
+        save_fc.CACHE_DIR = self.tmp
+        self.writes = []
+        save_fc.fetch_players = lambda: PLAYERS
+        save_fc.upsert_rows = lambda table, rows, conflict: self.writes.append(
+            (table, rows, conflict)
+        )
+        save_fc.count_rows = lambda table, params: sum(
+            len(rows) for t, rows, _ in self.writes if t == table
+        )
+
+    def tearDown(self):
+        save_fc.CACHE_DIR = self._cache_dir
+        save_fc.fetch_players = self._fetch
+        save_fc.upsert_rows = self._upsert
+        save_fc.count_rows = self._count
+
+    def test_rows_land_with_correct_grain(self):
+        result = save_fc.save_fantasycalc(
+            dry_run=False, week=3, bake_id="fcwk3_2026-09-25_v1",
+            reindex=False,  # grain/identity scope; reindex is shared code
+        )
+        self.assertFalse(result["dry_run"])
+        # Gibbs: 3 scorings. Mystery Player: no identity -> review.
+        self.assertEqual(result["written"], 3)
+        self.assertEqual(result["review_count"], 1)
+        table, rows, conflict = self.writes[0]
+        self.assertEqual(table, "source_trade_values")
+        # Same live grain as the other savers: player_norm, NOT player_key.
+        self.assertIn("player_norm", conflict)
+        self.assertNotIn("player_key", conflict)
+        gibbs = [r for r in rows if r["player_key"] == 2227]
+        self.assertEqual(len(gibbs), 3)
+        self.assertEqual({r["scoring"] for r in gibbs}, {"std", "half", "full"})
+        self.assertTrue(all(r["source"] == "fantasycalc" for r in rows))
+        self.assertTrue(all(r["variant"] == "as_published" for r in rows))
+        self.assertTrue(all(r["week"] == 3 for r in rows))
+        self.assertTrue(all(r["league_teams"] == 12 and r["qb_slots"] == 1 for r in rows))
+        # as_published only: the bias_adjusted fit bake is never written here.
+        self.assertTrue(all(r["bake_id"] == "fcwk3_2026-09-25_v1" for r in rows))
+        self.assertFalse(any("fitwk" in r["bake_id"] for r in rows))
+        # Raw published preserved as native; value==native pre-reindex.
+        by_scoring = {r["scoring"]: r for r in gibbs}
+        self.assertEqual(by_scoring["half"]["native_value"], 10589.0)
+        self.assertEqual(by_scoring["half"]["value"], 10589.0)
+        # Weekly snapshot: no article date.
+        self.assertTrue(all(r["source_content_date"] is None for r in rows))
+
+    def test_missing_cache_file_fails_closed(self):
+        (self.tmp / "fantasycalc_half_12_qb1.json").unlink()
+        with self.assertRaises(SystemExit):
+            save_fc.save_fantasycalc(dry_run=True, week=3, reindex=False)
+        self.assertEqual(self.writes, [])
+
+    def test_zero_clean_rows_fails_closed(self):
+        for stem in FC_CACHE:
+            (self.tmp / f"{stem}.json").write_text(json.dumps(
+                {"fetched_at": "2026-09-23T12:09:59Z", "rows": [], "snapshot": {}}))
+        with self.assertRaises(SystemExit):
+            save_fc.save_fantasycalc(dry_run=True, week=3, reindex=False)
+
+    def test_dry_run_writes_nothing(self):
+        result = save_fc.save_fantasycalc(dry_run=True, week=3, reindex=False)
+        self.assertTrue(result["dry_run"])
+        self.assertEqual(result["written"], 0)
+        self.assertEqual(self.writes, [])

@@ -384,11 +384,25 @@ def verify_source(
     # 4. DB sources: table row count / vintage still matches the manifest -----
     config = SOURCE_CONFIGS[source]
     table_label = f"public.{config['api_table']}"
+    # Scope the re-query to the manifest's vintage. The tables accumulate one
+    # row-set per published week (prior weeks retained), but the snapshot
+    # represents exactly one vintage; without scoping, a second published
+    # week would read as TABLE_DRIFT. This mirrors the importer's
+    # latest-vintage selection: the gate verifies the table's rows FOR the
+    # stamped vintage, never the whole table.
+    scoped_params = config["params"]
+    if source in WEEK_DESIGNATED_SOURCES and vintage_week is not None:
+        scoped_params += f"&week=eq.{vintage_week}"
+    elif source == "espn":
+        if vintage_kind in ("file_meta", "source_content_date"):
+            scoped_params += f"&espn_snapshot_date=eq.{str(vintage_display).strip()[:10]}"
+        elif vintage_week is not None:
+            scoped_params += f"&week=eq.{vintage_week}"
     try:
         # sbclient builds /rest/v1/<table> with PostgREST's default schema,
         # so it takes the bare table name; the manifest keeps the
         # schema-qualified name for the health JSON contract.
-        rows = fetch_table_summary(config["api_table"], config["params"])
+        rows = fetch_table_summary(config["api_table"], scoped_params)
     except Exception as exc:  # noqa: BLE001 -- any query failure fails closed
         return fail("IMPORT_FAILED", f"Supabase re-query of {table_label} failed: {exc}")
     expected = expected_table_rows(manifest, source)

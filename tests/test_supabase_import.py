@@ -149,22 +149,56 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         self.assertEqual(self.snapshot_files(), [])
 
     def test_mixed_vintage_fails_closed(self):
+        # Same week, two article dates: the week scoping keeps both rows and
+        # the mixed dates are genuine ambiguity -> still fail closed.
         rows = [dated_row(), dated_row(source_content_date="2026-09-14")]
         with self.assertRaises(SystemExit):
             self.import_with(rows, source="usatoday")
         self.assertEqual(self.snapshot_files(), [])
 
-    def test_espn_mixed_snapshot_dates_fail_closed(self):
+    def test_espn_latest_snapshot_date_wins(self):
+        # Two ESPN snapshot dates: the import selects the latest date
+        # deterministically and never blends them into one snapshot.
         rows = [espn_row(), espn_row(player_key=2227, espn_snapshot_date="2026-09-20")]
-        with self.assertRaises(SystemExit):
-            self.import_with(rows, source="espn")
-        self.assertEqual(self.snapshot_files(), [])
+        result = self.import_with(rows, source="espn")
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(result["content_vintage"], "2026-09-21")
+        self.assertEqual(snapshot["row_count"], 1)
+        self.assertEqual(snapshot["rows"][0]["source_player_id"], 869)
+        manifest = json.loads(result["manifest_path"].read_text())
+        self.assertIn("latest snapshot date present (2026-09-21)", manifest["filter"])
 
-    def test_cbs_mixed_weeks_fail_closed(self):
+    def test_cbs_latest_week_wins(self):
+        # Two CBS weeks: the import selects the latest week deterministically
+        # and never blends them into one snapshot.
         rows = [cbs_row(), cbs_row(player_key=869, week=3)]
-        with self.assertRaises(SystemExit):
-            self.import_with(rows, source="cbs")
-        self.assertEqual(self.snapshot_files(), [])
+        result = self.import_with(rows, source="cbs")
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(result["content_vintage"], "Week 3")
+        self.assertEqual(snapshot["row_count"], 1)
+        self.assertEqual(snapshot["rows"][0]["source_player_id"], 869)
+        manifest = json.loads(result["manifest_path"].read_text())
+        self.assertEqual(manifest["week_designated"], 3)
+        self.assertIn("latest week present (week=3)", manifest["filter"])
+
+    def test_multi_week_snapshot_never_blends(self):
+        # defect: two published weeks merged into one snapshot and stamped
+        # as a single vintage. The latest week wins; older-week rows are
+        # excluded, and the manifest records the scoping.
+        rows = [
+            dated_row(player_key=2227, week=2, source_content_date="2026-09-15"),
+            dated_row(player_key=869, week=2, source_content_date="2026-09-15"),
+            dated_row(player_key=2227, week=3, source_content_date="2026-09-23"),
+            dated_row(player_key=869, week=3, source_content_date="2026-09-23"),
+        ]
+        result = self.import_with(rows, source="usatoday")
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(result["content_vintage"], "2026-09-23")
+        self.assertEqual(result["manifest"]["week_designated"], 3)
+        self.assertEqual(snapshot["row_count"], 2)
+        keys = {r["source_player_id"] for r in snapshot["rows"]}
+        self.assertEqual(keys, {2227, 869})
+        self.assertIn("latest week present (week=3)", result["manifest"]["filter"])
 
     # -- guard 4: stamped snapshot with different bytes -> fail closed --------
     # defect: stamped snapshot silently replaced
@@ -412,6 +446,51 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         self.assertEqual(mod.repo_scoring("half"), "half_ppr")
         self.assertEqual(mod.repo_scoring("std"), "standard")
         self.assertEqual(mod.repo_scoring("half_ppr"), "half_ppr")
+
+
+class LatestVintageScopingTest(unittest.TestCase):
+    """Direct unit tests for the latest-vintage scoping layer.
+
+    Negative contract: derive_db_vintage (the unchanged fail-closed core)
+    still rejects multi-week / multi-date rows passed to it directly. The
+    scoping helpers are what make multi-vintage table reads importable; the
+    core was NOT weakened to get there.
+    """
+
+    def test_derive_db_vintage_still_fails_on_multi_week(self):
+        rows = [db_row(week=2), db_row(week=3)]
+        with self.assertRaises(SystemExit):
+            mod.derive_db_vintage(rows)
+
+    def test_derive_db_vintage_still_fails_on_multi_date(self):
+        rows = [
+            dated_row(source_content_date="2026-09-15", week=3),
+            dated_row(source_content_date="2026-09-23", week=3),
+        ]
+        with self.assertRaises(SystemExit):
+            mod.derive_db_vintage(rows)
+
+    def test_select_latest_week_picks_max_and_excludes_older(self):
+        rows = [db_row(week=2), db_row(week=3), db_row(player_key=869, week=3)]
+        scoped, latest = mod._select_latest_week(rows)
+        self.assertEqual(latest, 3)
+        self.assertEqual(len(scoped), 2)
+        self.assertTrue(all(r["week"] == 3 for r in scoped))
+
+    def test_select_latest_week_no_week_falls_through(self):
+        rows = [db_row(week=None), db_row(week=None)]
+        scoped, latest = mod._select_latest_week(rows)
+        self.assertIsNone(latest)
+        self.assertEqual(scoped, rows)  # unscoped -> core fails closed
+
+    def test_select_latest_snapshot_date_picks_max(self):
+        rows = [espn_row(espn_snapshot_date="2026-09-20"),
+                espn_row(espn_snapshot_date="2026-09-25")]
+        scoped, latest = mod._select_latest_snapshot_date(
+            rows, date_key="espn_snapshot_date")
+        self.assertEqual(latest, "2026-09-25")
+        self.assertEqual(len(scoped), 1)
+        self.assertEqual(scoped[0]["espn_snapshot_date"], "2026-09-25")
 
 
 if __name__ == "__main__":

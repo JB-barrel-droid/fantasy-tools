@@ -304,6 +304,41 @@ def derive_db_vintage(rows: list[dict[str, Any]], *, date_column: str = "source_
     )
 
 
+def _select_latest_week(
+    rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], int | None]:
+    """Scope a multi-week table read to the latest week present.
+
+    The dashboard tables accumulate one row-set per published week ("prior
+    weeks are retained"); a snapshot must still represent exactly one
+    content vintage, so the import deterministically selects the latest
+    week. This never blends vintages: rows from older weeks are excluded,
+    not merged. Mixed dates *within* the selected week still fail closed
+    in derive_db_vintage (genuine ambiguity). Rows carrying no week at all
+    fall through unscoped to the old fail-closed path.
+    """
+    weeks = sorted({r.get("week") for r in rows if r.get("week") is not None})
+    if not weeks:
+        return rows, None
+    latest = weeks[-1]
+    return [r for r in rows if r.get("week") == latest], latest
+
+
+def _select_latest_snapshot_date(
+    rows: list[dict[str, Any]], *, date_key: str
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Scope a multi-vintage table read to the latest snapshot date present.
+
+    Same contract as _select_latest_week, for tables (ESPN) whose vintage
+    is a snapshot date rather than a designated week.
+    """
+    dates = sorted({r.get(date_key) for r in rows if r.get(date_key)})
+    if not dates:
+        return rows, None
+    latest = dates[-1]
+    return [r for r in rows if r.get(date_key) == latest], latest
+
+
 def vintage_dir_slug(content_vintage: str) -> str:
     return slug(content_vintage)
 
@@ -333,6 +368,14 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
             f"Fail closed: source '{source}' resolved to zero usable rows "
             f"({len(ecr_dropped)} ECR-flavored rows dropped). Never writing an empty snapshot."
         )
+
+    # Multi-week tables: prior weeks are retained, but the snapshot is one
+    # vintage -- select the latest week deterministically (never blended).
+    rows, scoped_week = _select_latest_week(rows)
+    week_scope_note = (
+        f" import scoped to latest week present (week={scoped_week})"
+        if scoped_week is not None else ""
+    )
 
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 
@@ -379,10 +422,15 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
             f"select=*&source=eq.{source}&variant=eq.as_published "
             f"(as_published only: the source's own scraped value); "
             f"python backstop dropped {len(ecr_dropped)} ECR-flavored row(s)"
+            f"{week_scope_note}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,
-        "week_designated": week,
+        # Dated sources (usatoday/fantasypros) derive a date vintage, so
+        # derive_db_vintage returns no week; the designated week is the
+        # scoped week (unanimous across the selected rows). The health gate
+        # scopes its table re-query to this week.
+        "week_designated": week if week is not None else scoped_week,
         "save_gap": None,
         "fetched_at_note": "snapshot.fetched_at is the table's pulled_at (pull time), not content vintage",
     }
@@ -405,6 +453,15 @@ def build_espn_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "Fail closed: source 'espn' resolved to zero rows in "
             "public.espn_season_projections. Never writing an empty snapshot."
         )
+
+    # Multi-vintage tables: the snapshot is one vintage -- select the latest
+    # snapshot date deterministically (never blended). (The save currently
+    # upserts in place so only one date is present; this is defense in depth.)
+    rows, scoped_date = _select_latest_snapshot_date(rows, date_key="espn_snapshot_date")
+    date_scope_note = (
+        f" import scoped to latest snapshot date present ({scoped_date})"
+        if scoped_date is not None else ""
+    )
 
     content_vintage, vintage_note, table_week = derive_db_vintage(rows, date_column="espn_snapshot_date")
 
@@ -485,9 +542,10 @@ def build_espn_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "supabase_table": SOURCE_TABLES["espn"],
         "from_file": None,
         "filter": (
-            "public.espn_season_projections (all rows); value=ros_half_ppr "
+            "public.espn_season_projections (latest snapshot date); value=ros_half_ppr "
             "(Mike Clay ROS half-PPR points); pos from public.players.position, "
             "team from the repo fixture players.json map (players carries no team)"
+            f"{date_scope_note}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,
@@ -520,6 +578,14 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             f"Fail closed: source 'cbs' resolved to zero usable rows "
             f"({len(ecr_dropped)} ECR-flavored rows dropped). Never writing an empty snapshot."
         )
+
+    # Multi-week tables: prior weeks are retained, but the snapshot is one
+    # vintage -- select the latest week deterministically (never blended).
+    rows, scoped_week = _select_latest_week(rows)
+    week_scope_note = (
+        f" import scoped to latest week present (week={scoped_week})"
+        if scoped_week is not None else ""
+    )
 
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 
@@ -567,6 +633,7 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "split, so the 1QB-4 value is stored once per scoring "
             "(standard/half_ppr/ppr) -- the live fixture's cbs convention; "
             f"python backstop dropped {len(ecr_dropped)} ECR-flavored row(s)"
+            f"{week_scope_note}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,
