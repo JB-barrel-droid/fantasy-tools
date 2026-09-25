@@ -245,6 +245,13 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
     # defect: storing scoring=NULL (violates the CHECK) or silently fabricating
     # a per-scoring split. The documented decision: the single published 1QB-4
     # column is written once per scoring, labeled IMPLIED.
+    #
+    # The week is NOT pinned to a literal. save_source defaults it to
+    # mod.nfl_week(), so a literal 2 was a time bomb: it passed all week 2 and
+    # failed the moment the calendar rolled to week 3 (2026-09-25), taking
+    # `make validate` -- and therefore the Pages deploy -- down with it on a
+    # commit that had nothing to do with it. Asserting against the same
+    # derivation keeps the default path under test without the clock coupling.
     def test_cbs_qb_gets_one_row_per_scoring_with_1qb4_value(self):
         result = self.save(
             "cbs",
@@ -265,7 +272,28 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
             self.assertEqual(row["source"], "cbs")
             self.assertEqual(row["variant"], "as_published")
             self.assertEqual(row["season"], 2026)
-            self.assertEqual(row["week"], 2)
+            self.assertEqual(row["week"], mod.nfl_week())
+
+    def test_cbs_week_defaults_to_the_current_nfl_week(self):
+        """The default is the derivation, and an explicit week still wins.
+
+        Negative-tested 2026-09-25: hardcoding the default to a constant, or
+        ignoring an explicit --week, both fail here.
+        """
+        result = self.save(
+            "cbs",
+            tables=[
+                {"title": "Quarterback", "headers": ["Player", "tm", "1QB-4", "1QB-6", "2QB"],
+                 "rows": [["Josh Allen", "BUF", "20", "20", "44"]]},
+            ],
+        )
+        self.assertEqual(result["written"], 3)
+        _, rows, _ = self.writes[0]
+        self.assertTrue(rows)
+        current = mod.nfl_week()
+        self.assertGreaterEqual(current, 1)
+        for row in rows:
+            self.assertEqual(row["week"], current)
 
     def test_cbs_skill_positions_map_columns_to_scoring(self):
         result = self.save(

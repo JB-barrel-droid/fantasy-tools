@@ -8,6 +8,7 @@ fetch) — no network, no dependency on live pull outputs.
 """
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
@@ -33,6 +34,26 @@ def _write(path, text, mtime=None):
 
 def _ts(days_ago=0, hour=6, minute=10):
     base = datetime(2026, 9, 22, hour, minute, tzinfo=timezone.utc)
+    return (base - timedelta(days=days_ago)).timestamp()
+
+
+def _age_ts(days_ago=0, hour=6, minute=10):
+    """An mtime `days_ago` old RIGHT NOW, for fixtures whose freshness the
+    check measures with age_days().
+
+    The checks take an explicit `day` but measure age against the real clock,
+    so a fixture stamped relative to the frozen scenario day drifts further
+    from it every day the suite is not run. That is what broke
+    test_non_wednesday_allows_weekly_cadence on 2026-09-25: a snapshot written
+    as "5 days old" was really 8 days old, crossed the 7-day non-Wednesday
+    limit, and took `make validate` -- and the Pages deploy behind it -- down
+    on an unrelated commit.
+
+    The weekday still comes from the frozen DAY, the age from here. They are
+    independent inputs to the check, so the scenario keeps its meaning.
+    """
+    base = datetime.now(timezone.utc).replace(hour=hour, minute=minute,
+                                              second=0, microsecond=0)
     return (base - timedelta(days=days_ago)).timestamp()
 
 
@@ -154,7 +175,7 @@ class TestWeeklyArticleChecks(unittest.TestCase):
             "tables": [{"title": "QB", "headers": [], "rows": [["1"] * 3] * rows_per}
                        for _ in range(tables)],
         }
-        _write(p, json.dumps(payload), mtime=_ts(age_days))
+        _write(p, json.dumps(payload), mtime=_age_ts(age_days))
         return p
 
     def test_current_week_ok(self):
@@ -198,13 +219,13 @@ class TestFantasyCalcWednesday(unittest.TestCase):
         snap = {"week": "Week 2",
                 "combos": ["half_12_qb1", "half_12_qb2"]}
         _write(os.path.join(tmp, "fantasycalc_snapshot.json"),
-               json.dumps(snap), mtime=_ts(combo_age_days))
+               json.dumps(snap), mtime=_age_ts(combo_age_days))
         for c in snap["combos"]:
             _write(os.path.join(tmp, "fantasycalc_%s.json" % c),
                    json.dumps({"fetched_at": "2026-09-16T14:00:48Z",
                                "rows": [{"name": "P%d" % i, "pos": "RB",
                                          "value": 100.0} for i in range(n_rows)]}),
-                   mtime=_ts(combo_age_days))
+                   mtime=_age_ts(combo_age_days))
         old = wd.CACHE
         wd.CACHE = tmp
         return old
@@ -238,7 +259,7 @@ class TestFantasyCalcWednesday(unittest.TestCase):
             old = self._fc(tmp, 1)
             try:
                 _write(os.path.join(tmp, "fantasycalc_half_12.json"),
-                       json.dumps([{"x": 1}] * 10), mtime=_ts(0))
+                       json.dumps([{"x": 1}] * 10), mtime=_age_ts(0))
                 self.assertEqual(wd.check_fantasycalc(DAY, 2)["status"], "ok")
                 os.remove(os.path.join(tmp, "fantasycalc_half_12_qb1.json"))
                 self.assertEqual(wd.check_fantasycalc(DAY, 2)["status"],
@@ -336,7 +357,15 @@ class TestSupabaseLanded(unittest.TestCase):
 # --- USA Today discovery (mocked fetch) -------------------------------------
 
 def _sitemap_fetch(url):
-    if "web-sitemap-2026-09" in url:
+    """Serve the article from whichever monthly sitemap discovery asks for.
+
+    discover_url builds the sitemap URL from the CURRENT month, so pinning the
+    mock to "web-sitemap-2026-09" made the test pass only during September:
+    from 2026-10-01 it 404s and discovery fails closed on a fixture that was
+    meant to succeed. Matching the shape instead of the month keeps the test
+    about discovery, not about what month it is run in.
+    """
+    if re.search(r"web-sitemap-\d{4}-\d{2}", url):
         return (200, "<urlset><url><loc>https://www.usatoday.com/story/sports/fantasy/football/"
                      "2026/09/22/fantasy-football-trade-value-chart-week-3-"
                      "ros-rankings/999/</loc></url></urlset>")
