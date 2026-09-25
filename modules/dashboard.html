@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Module Monitor — Trade Value Chart</title>
+<link rel="icon" href="data:,">
 <style>
   :root{
     --bg:#0b0e13; --card:#131924; --card2:#0e141d; --line:#232d3d;
@@ -162,9 +163,9 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 "use strict";
 /* ---------- path resolution: repo layout vs dist (GitHub Pages) layout ---------- */
 const FIXTURE_PATHS = [
-  "../app/trade-value-chart/assets/comparison-sources-data.json",
   "../assets/comparison-sources-data.json",
   "assets/comparison-sources-data.json",
+  "../app/trade-value-chart/assets/comparison-sources-data.json",
 ];
 // Freshest first: a local watchdog run (output/ is gitignored, so it exists
 // only on a machine that just ran `make import-health`), then the committed
@@ -173,15 +174,17 @@ const FIXTURE_PATHS = [
 // on any clone or CI run -- all three old paths resolved only on the author's
 // machine, so the page shipped permanently blind.
 const HEALTH_PATHS = [
+  "source-import-health.json",
+  "../source-import-health.json",
+  "assets/source-import-health.json",
   "../output/source-import-health.json",
   "../data/fixtures/current/source-import-health.json",
-  "source-import-health.json",
   "output/source-import-health.json",
 ];
 const TEXT_PATHS = {
-  curveJs: ["../app/trade-value-chart/assets/curve-widget.js","../assets/curve-widget.js","assets/curve-widget.js"],
-  dashJs:  ["../app/trade-value-chart/assets/comparison-dashboard.js","../assets/comparison-dashboard.js","assets/comparison-dashboard.js"],
-  index:   ["../app/trade-value-chart/index.html","../index.html","index.html"],
+  curveJs: ["../assets/curve-widget.js","assets/curve-widget.js","../app/trade-value-chart/assets/curve-widget.js"],
+  dashJs:  ["../assets/comparison-dashboard.js","assets/comparison-dashboard.js","../app/trade-value-chart/assets/comparison-dashboard.js"],
+  index:   ["../index.html","index.html","../app/trade-value-chart/index.html"],
 };
 const SOURCES = ["espn","cbs","fantasycalc","fantasypros","usatoday"];
 const SRC_LABEL = {espn:"ESPN",cbs:"CBS",fantasycalc:"FantasyCalc",fantasypros:"Expert (ECR)",usatoday:"USA Today"};
@@ -236,13 +239,15 @@ async function main(){
   const [curveJs, dashJs, indexHtml] = await Promise.all([
     firstOk(TEXT_PATHS.curveJs,true), firstOk(TEXT_PATHS.dashJs,true), firstOk(TEXT_PATHS.index,true)
   ]);
-  // Both copies of index.html, fetched explicitly so module 5 can check
-  // app/->dist/ drift for real instead of reporting a permanent unknown.
-  // Only the repo layout can see both; dist/ does not publish app/.
-  const [appIdx, distIdx] = await Promise.all([
+  // Both copies of index.html can only be fetched from a repo-root dev server.
+  // In the published GitHub Pages layout, app/ and dist/ are intentionally not
+  // deployed, so probing them creates noisy 404 console errors and makes the
+  // monitor look broken even when the published assets are healthy.
+  const shouldCheckLocalDrift = fx && fx.path === "../app/trade-value-chart/assets/comparison-sources-data.json";
+  const [appIdx, distIdx] = shouldCheckLocalDrift ? await Promise.all([
     firstOk(["../app/trade-value-chart/index.html"],true),
     firstOk(["../dist/index.html"],true),
-  ]);
+  ]) : [null, null];
   const appIndexForDrift = appIdx?appIdx.text:null;
   const distIndexForDrift = distIdx?distIdx.text:null;
   document.getElementById("dataSrc").textContent =

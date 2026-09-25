@@ -15,6 +15,7 @@ FIXTURES = ROOT / "data" / "fixtures" / "current"
 DIST = ROOT / "dist"
 WEEKLY_VEGAS = ROOT / "weekly_vegas" / "dashboard"
 WAIVER_WIRE = ROOT / "waiver_wire" / "dashboard"
+MODULE_MONITOR = ROOT / "modules" / "dashboard.html"
 
 
 def load_json(path):
@@ -486,6 +487,26 @@ class StaticExportTest(unittest.TestCase):
             target = DIST / slug / "index.html"
             self.assertTrue(target.exists(), f"{target} must be published to GitHub Pages output")
             self.assertEqual(source, target.read_text(encoding="utf-8"))
+
+    def test_module_monitor_prefers_published_paths(self):
+        html = MODULE_MONITOR.read_text(encoding="utf-8")
+        self.assertLess(
+            html.index('"../assets/comparison-sources-data.json"'),
+            html.index('"../app/trade-value-chart/assets/comparison-sources-data.json"'),
+        )
+        self.assertLess(
+            html.index('"source-import-health.json"'),
+            html.index('"../output/source-import-health.json"'),
+        )
+        self.assertLess(
+            html.index('"../assets/curve-widget.js"'),
+            html.index('"../app/trade-value-chart/assets/curve-widget.js"'),
+        )
+        self.assertIn(
+            'const shouldCheckLocalDrift = fx && fx.path === "../app/trade-value-chart/assets/comparison-sources-data.json";',
+            html,
+        )
+        self.assertIn('<link rel="icon" href="data:,">', html)
 
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
