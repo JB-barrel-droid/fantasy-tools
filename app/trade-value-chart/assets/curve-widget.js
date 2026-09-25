@@ -49,8 +49,8 @@
   // Fixture-transition Option B (staged 2026-09-22): the *_adjusted curves
   // are paused while their sources lack live adjustment cells, so the
   // default active set is the live ESPN adjusted leg only. When stage-2
-  // cells land for a source, its curve un-pauses AND returns to the default
-  // active set automatically — no re-bake, no code change.
+  // cells pass model-quality review and the source status becomes "live", its
+  // curve returns to the default active set automatically.
   const ADJUSTED_INDEXED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
@@ -493,17 +493,16 @@
   globalThis.TradeValueTwoTier = TwoTier;
 
   // Fixture-transition Option B (staged 2026-09-22): an *_adjusted curve is
-  // PAUSED while its source has no live adjustment cells in
+  // PAUSED while its source has no validated-live adjustment cells in
   // adjustment-inputs.json. espn ("ESPN adjusted") is the live bottom-up leg
   // and is never paused. Pure in (key, inputs) so it is unit-testable; the
-  // widget calls it with the loaded adjustmentInputs. When stage-2 cells
-  // land for a source, its curve un-pauses automatically — no re-bake, no
-  // code change.
+  // widget calls it with the loaded adjustmentInputs. Cells may exist while a
+  // source stays pending model-quality review; only status:"live" activates.
   function adjustedCurvePaused(key, inputs) {
     if (key === "espn" || !key.endsWith("_adjusted")) return false;
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
     const entry = inputs && inputs.sources ? inputs.sources[rawKey] : null;
-    return !(entry && Array.isArray(entry.cells) && entry.cells.length);
+    return !(entry && entry.status === "live" && Array.isArray(entry.cells) && entry.cells.length);
   }
   globalThis.TradeValueCurvePause = {adjustedCurvePaused, defaultIndexedSourceKeys};
 
@@ -1103,7 +1102,7 @@
   // browser-derived buildCbsAdjustedMap() for CBS.
   function adjustmentCellsFor(rawKey) {
     const entry = adjustmentInputs?.sources?.[rawKey];
-    return entry && Array.isArray(entry.cells) && entry.cells.length ? entry.cells : null;
+    return entry && entry.status === "live" && Array.isArray(entry.cells) && entry.cells.length ? entry.cells : null;
   }
 
   // Widget-scope pause check: bound to the loaded adjustmentInputs.
@@ -2445,7 +2444,8 @@
       return vals && vals.size > 0;
     });
     const sourcePeaks = Object.fromEntries(activeKeysForGuard.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
-    const distinctSourcePeaks = new Set(Object.values(sourcePeaks).map(value => value.toFixed(1))).size > 1;
+    const distinctSourcePeaks = activeKeysForGuard.length <= 1
+      || new Set(Object.values(sourcePeaks).map(value => value.toFixed(1))).size > 1;
     // Collapse guard. What this is actually for: catching a curve that has
     // lost its scale -- all-equal values, a bad reindex, a divide-by-total
     // error -- which puts the peak down near the per-player mean. The pie is

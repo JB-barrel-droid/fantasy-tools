@@ -39,20 +39,19 @@ class TestPausePredicate(unittest.TestCase):
         got = run_pause([{"key": k, "inputs": EMPTY_INPUTS} for k in PAUSED_KEYS])
         self.assertEqual(got, [True] * 4)
 
-    def test_stage2_live_asset_unpauses_all_four(self):
-        # Stage 2 (2026-09-22): the live asset carries validated cells for
-        # every source, so every *_adjusted curve returns to the toggle
-        # list with NO widget code change. The pause mechanism itself is
-        # unchanged: any source whose cells array empties pauses again
-        # (see test_empty_cells_array_stays_paused).
+    def test_stage2_asset_cells_stay_paused_until_model_quality_is_live(self):
+        # Cells can be baked and reviewable while still failing the dashboard
+        # scale-quality gate. A source must say status="live" before the
+        # widget renders its *_adjusted curve.
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
-        self.assertEqual(asset["status"], "live")
+        self.assertEqual(asset["status"], "pending-model-quality")
         for key in PAUSED_KEYS:
             raw = key[:-len("_adjusted")] if key != "cbs_adjusted" else "cbs"
             self.assertTrue(asset["sources"][raw]["cells"],
                             f"{key} has no live cells")
+            self.assertEqual(asset["sources"][raw]["status"], "pending-model-quality")
         got = run_pause([{"key": k, "inputs": asset} for k in PAUSED_KEYS])
-        self.assertEqual(got, [False] * 4)
+        self.assertEqual(got, [True] * 4)
 
     def test_espn_never_paused(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
@@ -68,9 +67,11 @@ class TestPausePredicate(unittest.TestCase):
 
     def test_auto_return_when_cells_land(self):
         cells = {"sources": {
-            "fantasycalc": {"cells": [{"position": "QB", "tier": "starter",
+            "fantasycalc": {"status": "live",
+                            "cells": [{"position": "QB", "tier": "starter",
                                        "alpha": 0.0, "beta": 1.0}]},
-            "cbs": {"cells": [{"position": "RB", "tier": "bench",
+            "cbs": {"status": "live",
+                    "cells": [{"position": "RB", "tier": "bench",
                                "alpha": 1.0, "beta": 0.9}]},
         }}
         got = run_pause([{"key": "fantasycalc_adjusted", "inputs": cells},
@@ -82,7 +83,17 @@ class TestPausePredicate(unittest.TestCase):
 
     def test_empty_cells_array_stays_paused(self):
         got = run_pause([{"key": "fantasycalc_adjusted",
-                          "inputs": {"sources": {"fantasycalc": {"cells": []}}}}])
+                          "inputs": {"sources": {"fantasycalc": {"status": "live",
+                                                                 "cells": []}}}}])
+        self.assertEqual(got, [True])
+
+    def test_cells_without_live_status_stay_paused(self):
+        cells = {"sources": {"fantasycalc": {
+            "status": "pending-model-quality",
+            "cells": [{"position": "QB", "tier": "starter",
+                       "alpha": 0.0, "beta": 1.0}],
+        }}}
+        got = run_pause([{"key": "fantasycalc_adjusted", "inputs": cells}])
         self.assertEqual(got, [True])
 
     def test_missing_inputs_fail_closed_to_paused(self):
@@ -110,13 +121,11 @@ class TestDefaultActiveSet(unittest.TestCase):
     while the curves render enabled-yet-unchecked.
     """
 
-    def test_live_asset_defaults_include_all_five(self):
+    def test_pending_asset_defaults_to_espn_only(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
-        self.assertEqual(asset["status"], "live")
+        self.assertEqual(asset["status"], "pending-model-quality")
         got = run_defaultset([{"inputs": asset}])
-        self.assertEqual(got, [["espn", "fantasycalc_adjusted",
-                                "usatoday_adjusted", "fantasypros_adjusted",
-                                "cbs_adjusted"]])
+        self.assertEqual(got, [["espn"]])
 
     def test_empty_inputs_default_to_espn_only(self):
         got = run_defaultset([{"inputs": EMPTY_INPUTS}])
@@ -129,19 +138,21 @@ class TestDefaultActiveSet(unittest.TestCase):
 
     def test_partial_cells_restore_only_live_sources(self):
         cells = {"sources": {
-            "fantasycalc": {"cells": [{"position": "QB", "tier": "starter",
+            "fantasycalc": {"status": "live",
+                            "cells": [{"position": "QB", "tier": "starter",
                                        "alpha": 0.0, "beta": 1.0}]},
-            "cbs": {"cells": [{"position": "RB", "tier": "bench",
+            "cbs": {"status": "pending-model-quality",
+                    "cells": [{"position": "RB", "tier": "bench",
                                "alpha": 1.0, "beta": 0.9}]},
         }}
         got = run_defaultset([{"inputs": cells}])
-        self.assertEqual(got, [["espn", "fantasycalc_adjusted", "cbs_adjusted"]])
+        self.assertEqual(got, [["espn", "fantasycalc_adjusted"]])
 
     def test_empty_cells_array_does_not_restore(self):
         # Negative test of the named defect's quieter cousin: a source whose
         # cells array emptied must NOT come back into the default set.
         got = run_defaultset([{"inputs": {"sources": {
-            "fantasycalc": {"cells": []}}}}])
+            "fantasycalc": {"status": "live", "cells": []}}}}])
         self.assertEqual(got, [["espn"]])
     @classmethod
     def setUpClass(cls):
@@ -208,6 +219,10 @@ class TestPauseWiring(unittest.TestCase):
         self.assertIn(
             "defaultIndexedSourceKeys(adjustmentInputs).every(key => activeSources.has(key))",
             self.text)
+
+    def test_peak_distinctness_allows_single_active_source(self):
+        self.assertIn("const distinctSourcePeaks = activeKeysForGuard.length <= 1",
+                      self.text)
 
 
 if __name__ == "__main__":

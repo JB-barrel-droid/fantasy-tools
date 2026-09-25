@@ -21,7 +21,7 @@ Fit design (mirrors the widget exactly):
     entry are skipped, exactly like buildPublishedSourceMap.
   - Tiers are the render-time roles: roleMapForValues() assigns
     starter/bench from each SOURCE's OWN published values at the reference
-    roster shape (12 teams; QB 1 / RB 2 / WR 2 / TE 1 / FLEX 2 / BENCH 6).
+    roster shape (12 teams; QB 1 / RB 2 / WR 3 / TE 1 / FLEX 1 / BENCH 6).
     The baked cells are (position, role)-conditional, so the widget applies
     them under whatever roster shape the user selects at render time.
   - y (target) is the DDF leg's full-precision value (70/max scaled, never
@@ -44,10 +44,10 @@ Fail-closed rules:
   - Unresolvable source ids become review rows, never guesses.
   - Missing values stay absent; no zero-filling.
 
-Writing the live asset with non-empty cells automatically un-pauses that
-source's *_adjusted curve (the pause predicate reads only entry.cells);
-no widget code change is needed, and a source with no fittable cells
-stays paused and greyed.
+Writing cells into the live asset is no longer enough to un-pause that
+source's *_adjusted curve. The pause predicate requires both non-empty cells
+and status "live"; this bake currently leaves cell outputs pending model
+quality review until the dashboard scale guard is satisfied.
 """
 
 from __future__ import annotations
@@ -86,9 +86,14 @@ POSITION_ORDER = ["QB", "RB", "WR", "TE"]
 # (pos, tier) simply gets no cell; the widget falls back to the source's
 # raw published value for those players.
 MIN_FIT_PAIRS = 5
+# Cells are reviewable model output, not automatically publishable chart data.
+# The 2026-09-25 dashboard guard showed these fits still inflate adjusted QB
+# peaks after fixed-pie normalization, so generated sources stay pending until
+# a downstream scale-quality gate explicitly promotes them to "live".
+CELL_STATUS_WITH_OUTPUT = "pending-model-quality"
 # Reference roster shape (widget DEFAULT_ROSTER) for role assignment.
 ROLE_TEAMS = 12
-ROLE_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6}
+ROLE_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
 ROLE_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
 
 
@@ -289,6 +294,7 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
     sources_out: dict[str, dict] = {}
     review_rows: list[dict] = list(leg.get("review_rows") or [])
     any_cells = False
+    any_live = False
     for source, combo_name in REFERENCE_COMBOS.items():
         section = (fixture.get("sources") or {}).get(source) or {}
         combo = (section.get("combos") or {}).get(combo_name)
@@ -308,8 +314,9 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
         cells, diagnostics = fit_cells(published, roles, leg_values, canonical)
         for cell in cells:
             cell["source"] = source
-        status = "live" if cells else "pending-stage2"
+        status = CELL_STATUS_WITH_OUTPUT if cells else "pending-stage2"
         any_cells = any_cells or bool(cells)
+        any_live = any_live or status == "live"
         role_counts = {"starter": sum(1 for r in roles.values() if r == "starter"),
                        "bench": sum(1 for r in roles.values() if r == "bench")}
         sources_out[source] = {
@@ -325,7 +332,7 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
     return {
         "schema": SCHEMA,
         "version": leg["bake_id"],
-        "status": "live" if any_cells else "pending-stage2",
+        "status": "live" if any_live else (CELL_STATUS_WITH_OUTPUT if any_cells else "pending-stage2"),
         "generated_at": utc_now(),
         "fit": {
             "ddf_leg_bake_id": leg["bake_id"],

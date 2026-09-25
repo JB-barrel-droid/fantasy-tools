@@ -44,7 +44,7 @@
   const state = {
     scoring: "full",
     teams: 12,
-    rosterShape: {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6},
+    rosterShape: {QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6},
     benchShare: DEFAULT_BENCH_SHARE,
     compareSource: "espn",
     combos: {},
@@ -219,7 +219,7 @@
   }
 
   function rosterIsDefault() {
-    const base = {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6};
+    const base = {QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6};
     return Object.keys(base).every(key => Number(state.rosterShape[key]) === base[key]);
   }
 

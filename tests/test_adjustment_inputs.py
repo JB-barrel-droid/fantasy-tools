@@ -7,7 +7,7 @@ into DDF-leg values:
 
 per (source, position, tier). Tiers are the render-time roles assigned from
 each source's OWN published values at the reference roster shape (12 teams;
-QB 1 / RB 2 / WR 2 / TE 1 / FLEX 2 / BENCH 6) -- exactly what the widget's
+QB 1 / RB 2 / WR 3 / TE 1 / FLEX 1 / BENCH 6) -- exactly what the widget's
 roleMapForValues does at render time.
 
 Every guard is negative-tested against the defect it names:
@@ -23,7 +23,7 @@ Every guard is negative-tested against the defect it names:
 
 Also asserts the OLS math recovers known coefficients, the role port
 assigns starters/bench per the reference shape, and the pause predicate
-un-pauses exactly the sources with live cells (no widget change needed).
+keeps pending model-quality cells paused until status is explicitly live.
 """
 import json
 import math
@@ -204,7 +204,7 @@ class TestBakedArtifact(unittest.TestCase):
     def test_versioned_artifact_shape(self):
         self.assertEqual(self.doc["schema"], "trade-value-adjustment-inputs-v1")
         self.assertEqual(self.doc["version"], "ddf-20260921-espn-ppr-12t-0p15")
-        self.assertEqual(self.doc["status"], "live")
+        self.assertEqual(self.doc["status"], "pending-model-quality")
         fit = self.doc["fit"]
         self.assertEqual(fit["espn_snapshot_date"], "2026-09-21")
         self.assertEqual(fit["scoring"], "ppr")
@@ -212,9 +212,9 @@ class TestBakedArtifact(unittest.TestCase):
         self.assertEqual(fit["bench_share"], 0.15)
         self.assertEqual(fit["reference_combos"], REFERENCE_COMBOS)
 
-    def test_all_sources_live_with_guarded_cells(self):
+    def test_all_sources_carry_guarded_cells_pending_model_quality(self):
         for source, entry in self.doc["sources"].items():
-            self.assertEqual(entry["status"], "live", source)
+            self.assertEqual(entry["status"], "pending-model-quality", source)
             self.assertTrue(entry["cells"], source)
             for cell in entry["cells"]:
                 self.assertIn(cell["position"], POSITION_ORDER)
@@ -232,13 +232,21 @@ class TestBakedArtifact(unittest.TestCase):
     def test_missing_cells_are_diagnosed_not_silent(self):
         missing = {s: [k for k, v in e["diagnostics"].items() if not v["cell"]]
                    for s, e in self.doc["sources"].items()}
-        self.assertEqual(missing["cbs"], ["QB|bench", "TE|bench"])
-        self.assertEqual(missing["fantasycalc"], ["TE|bench"])
-        self.assertEqual(missing["fantasypros"], ["QB|bench"])
+        self.assertEqual(missing["cbs"], ["QB|bench", "RB|bench", "TE|bench"])
+        self.assertEqual(missing["fantasycalc"], [])
+        self.assertEqual(missing["fantasypros"], [])
         self.assertEqual(missing["usatoday"], ["QB|bench"])
 
-    def test_pause_predicate_unpauses_live_sources(self):
+    def test_pause_predicate_keeps_pending_cells_paused(self):
         got = run_pause([{"key": k, "inputs": self.doc} for k in PAUSED_KEYS])
+        self.assertEqual(got, [True] * 4)
+
+    def test_pause_predicate_unpauses_explicitly_live_sources(self):
+        doc = json.loads(json.dumps(self.doc))
+        doc["status"] = "live"
+        for entry in doc["sources"].values():
+            entry["status"] = "live"
+        got = run_pause([{"key": k, "inputs": doc} for k in PAUSED_KEYS])
         self.assertEqual(got, [False] * 4)
 
     def test_empty_cells_still_pause(self):
@@ -249,7 +257,7 @@ class TestBakedArtifact(unittest.TestCase):
     def test_live_asset_matches_versioned(self):
         live = json.loads(LIVE_ASSET.read_text(encoding="utf-8"))
         self.assertEqual(live["version"], self.doc["version"])
-        self.assertEqual(live["status"], "live")
+        self.assertEqual(live["status"], "pending-model-quality")
         self.assertEqual(
             {s: len(e["cells"]) for s, e in live["sources"].items()},
             {s: len(e["cells"]) for s, e in self.doc["sources"].items()})
