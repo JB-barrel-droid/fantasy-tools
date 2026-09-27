@@ -36,6 +36,11 @@ useful than a tidy file.
 
 ### Verified
 
+- Follow-up after push: tightened adjusted-source copy so dashboard health cards
+  and comparison table badges call them derived adjusted projects rather than
+  native/bias-adjusted source publications. Added
+  `test_adjusted_copy_names_derived_projects` to prevent the old wording from
+  returning. `make validate` passed afterward: 382 tests OK, 6 skipped.
 - Added the missing repo entrypoints named by `AGENTS.md`:
   `SYSTEM_MAP.md`, `docs/methodology.md`,
   `docs/director_operating_model.md`, and `execution/current-plan.md`.

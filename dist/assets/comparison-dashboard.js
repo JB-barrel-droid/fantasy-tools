@@ -34,10 +34,10 @@
     fantasycalc: "Crowd-sourced values, as published and reindexed",
     fantasypros: "Analyst-consensus chart, as published and reindexed",
     cbs: "Editorial chart, as published and reindexed",
-    cbs_adjusted: "Derived from CBS values and the current adjustment ratios, then rescaled to the common value pie",
-    fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
-    usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
-    fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
+    cbs_adjusted: "Derived adjusted project from CBS values and the current adjustment cells, then rescaled to the common value pie",
+    fantasycalc_adjusted: "Derived adjusted project from FantasyCalc values and current adjustment cells",
+    usatoday_adjusted: "Derived adjusted project from USA Today values and current adjustment cells",
+    fantasypros_adjusted: "Derived adjusted project from ECR values and current adjustment cells",
     espn: "ESPN value above waivers split by starter, bench, and waiver tier from the shared league settings",
     espn_vorp: "ESPN value above waivers before starter/bench utilization"
   };
@@ -645,7 +645,7 @@
   }
 
   function columnBadge(key) {
-    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "derived project" : "as published · reindexed");
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }
 

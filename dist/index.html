@@ -1723,7 +1723,7 @@
           const match=String(source.fit_bake_id||"").match(/(\d{4}-\d{2}-\d{2})/);
           const contentDate=String(source.published||source.espn_snapshot||source.fetched_at||"").slice(0,10)||"unavailable";
           const freshness=key.endsWith("_adjusted")?`fit ${monthDay(match?.[1])}`:`content ${contentDate}`;
-          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : "As published · reindexed";
+          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted project · common scale" : key.endsWith("_adjusted") ? "Derived adjusted project · common scale" : "As published · reindexed";
           return `<article class="dataset-card status-live"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">Live</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div></dl></article>`;
         });
         if(news){

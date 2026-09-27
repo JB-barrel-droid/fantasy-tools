@@ -381,6 +381,15 @@ class StaticExportTest(unittest.TestCase):
         self.assertNotIn("DDF", assets)
         self.assertNotIn("sourcePicker", assets)
 
+    def test_adjusted_copy_names_derived_projects(self):
+        html = (APP / "index.html").read_text(encoding="utf-8")
+        comparison = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
+        combined = html + "\n" + comparison
+        self.assertIn("Derived adjusted project", combined)
+        self.assertIn("derived project", comparison)
+        self.assertNotIn("Bias-corrected best estimate", combined)
+        self.assertNotIn("bias adjusted", comparison)
+
     def test_source_compatibility_uses_selected_league_shape(self):
         curve = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         comparison = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
