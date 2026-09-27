@@ -75,12 +75,17 @@
   };
   const formatValue = value => value === null ? "—" : Number(value).toFixed(1);
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
+  const rawKeyForAdjusted = key => key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
-    const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
+    const rawKey = rawKeyForAdjusted(key);
+    const liveAdjusted = key.endsWith("_adjusted") && adjustmentCellsFor(rawKey);
+    const source = liveAdjusted ? data?.sources?.[rawKey]
+      : data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
     const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
     if (fitWeek) return Number(fitWeek[1]);
-    return Number(data?.value_weeks?.monday) || null;
+    return Number(source?.week_designated || data?.value_weeks?.monday) || null;
   }
 
   function rolloverDate() {
@@ -150,7 +155,25 @@
     return window.TradeValuePlayerNewsPromise;
   }
 
+  function loadAdjustmentInputs() {
+    if (window.TradeValueAdjustmentInputs) return Promise.resolve(window.TradeValueAdjustmentInputs);
+    if (!window.TradeValueAdjustmentInputsPromise) {
+      window.TradeValueAdjustmentInputsPromise = fetch("assets/adjustment-inputs.json")
+        .then(response => {
+          if (!response.ok) throw new Error(`Adjustment inputs request failed (${response.status})`);
+          return response.json();
+        })
+        .then(payload => {
+          window.TradeValueAdjustmentInputs = payload?.schema === "trade-value-adjustment-inputs-v1" ? payload : null;
+          return window.TradeValueAdjustmentInputs;
+        })
+        .catch(() => null);
+    }
+    return window.TradeValueAdjustmentInputsPromise;
+  }
+
   let data = null;
+  let adjustmentInputs = null;
   let canonicalByKey = new Map();
   let universeSize = 0;
   let renderKeys = [];
@@ -172,9 +195,18 @@
     return `${score}_${state.teams}`;
   }
 
+  function adjustmentCellsFor(rawKey) {
+    const entry = adjustmentInputs?.sources?.[rawKey];
+    return entry && entry.status === "live" && Array.isArray(entry.cells) && entry.cells.length ? entry.cells : null;
+  }
+
   function sourceComboExists(key) {
     if (key === "espn_vorp") return Boolean(data?.sources?.espn?.combos?.[comboKeyFor("espn")]);
-    if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
+    if (key.endsWith("_adjusted")) {
+      const rawKey = rawKeyForAdjusted(key);
+      if (adjustmentCellsFor(rawKey)) return Boolean(data?.sources?.[rawKey]?.combos?.[comboKeyFor(rawKey)]);
+      if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
+    }
     return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
   }
 
@@ -182,6 +214,16 @@
 
   function sourceAvailable(key) {
     return sourceComboExists(key);
+  }
+
+  function sourceValidationLive(key) {
+    if (key === "espn_vorp") return data.source_validation?.espn === "live";
+    if (key.endsWith("_adjusted")) {
+      const rawKey = rawKeyForAdjusted(key);
+      if (adjustmentCellsFor(rawKey)) return data.source_validation?.[rawKey] === "live";
+      return key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : data.source_validation?.[key] === "live";
+    }
+    return data.source_validation?.[key] === "live";
   }
 
   function canonicalPlayers() {
@@ -456,8 +498,51 @@
   function buildSourceMap(key) {
     if (key === "espn") return buildEspnIndexedMap();
     if (key === "espn_vorp") return buildEspnVorpMap();
-    if (key === "cbs_adjusted") return buildCbsAdjustedMap();
+    if (key.endsWith("_adjusted")) return adjustedMapFor(key);
     return buildPublishedSourceMap(key);
+  }
+
+  function buildLiveAdjustedMap(rawKey, cells) {
+    const raw = buildPublishedSourceMap(rawKey);
+    const roles = roleMapForValues(raw);
+    const cellByPosTier = new Map();
+    cells.forEach(cell => {
+      const pos = String(cell.position || "").toUpperCase();
+      const tier = String(cell.tier || "").toLowerCase();
+      const alpha = Number(cell.alpha);
+      const beta = Number(cell.beta);
+      if (!POSITION_ORDER.includes(pos) || !["starter", "bench"].includes(tier) || !Number.isFinite(alpha) || !Number.isFinite(beta)) return;
+      cellByPosTier.set(`${pos}|${tier}`, {alpha, beta});
+    });
+    const adjusted = new Map();
+    raw.forEach((value, playerKey) => {
+      const player = canonicalByKey.get(playerKey);
+      const role = roles.get(playerKey);
+      const cell = player && role ? cellByPosTier.get(`${player.pos}|${role}`) : null;
+      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
+      adjusted.set(playerKey, cell ? Math.max(0, cell.alpha + cell.beta * safeValue) : safeValue);
+    });
+    return adjusted;
+  }
+
+  function adjustedMapFor(key) {
+    const rawKey = rawKeyForAdjusted(key);
+    const cells = adjustmentCellsFor(rawKey);
+    if (cells) return buildLiveAdjustedMap(rawKey, cells);
+    return key === "cbs_adjusted" ? buildCbsAdjustedMap() : buildPublishedSourceMap(key);
+  }
+
+  function normalizedAdjustedMapFor(key, anchorMap, displayShare) {
+    const rawKey = rawKeyForAdjusted(key);
+    const values = applyRosterShape(adjustedMapFor(key), key);
+    if (adjustmentCellsFor(rawKey)) {
+      return ValueModel.shapeToAnchorPeaksThenSharedTotal({
+        values,
+        anchor: anchorMap,
+        playerOf: playerKey => canonicalByKey.get(playerKey)
+      });
+    }
+    return normalizeTradeChartToFixedPie(values, anchorMap, displayShare);
   }
 
   function buildCbsAdjustedMap() {
@@ -510,7 +595,9 @@
             anchor: anchorMap,
             playerOf: playerKey => canonicalByKey.get(playerKey)
           })
-        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), anchorMap, displayShare));
+        : key.endsWith("_adjusted")
+          ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
+          : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), anchorMap, displayShare));
     });
   }
 
@@ -531,8 +618,11 @@
   }
 
   function sourceDate(key) {
-    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : key === "espn_vorp" ? data.sources.espn : {}) || {};
-    if (key.endsWith("_adjusted")) {
+    const rawKey = rawKeyForAdjusted(key);
+    const liveAdjusted = key.endsWith("_adjusted") && adjustmentCellsFor(rawKey);
+    const source = liveAdjusted ? data.sources[rawKey]
+      : data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : key === "espn_vorp" ? data.sources.espn : {}) || {};
+    if (key.endsWith("_adjusted") && !liveAdjusted) {
       const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
       return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
     }
@@ -1061,14 +1151,14 @@
 
   async function init() {
     try {
-      [data, window.TradeValuePlayerNews] = await Promise.all([loadComparisonData(), loadPlayerNews()]);
+      [data, window.TradeValuePlayerNews, adjustmentInputs] = await Promise.all([loadComparisonData(), loadPlayerNews(), loadAdjustmentInputs()]);
       newsMeta = window.TradeValuePlayerNews?.meta || {};
       newsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.news_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
       adjustmentsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.adjustments_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
       universeSize = Object.keys(data.player_keys || {}).length;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
-      renderKeys = SOURCE_KEYS.filter(key => key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : key === "espn_vorp" ? data.source_validation?.espn === "live" : data.source_validation?.[key] === "live");
+      renderKeys = SOURCE_KEYS.filter(sourceValidationLive);
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.TradeValueReferenceSource)) referenceSource = window.TradeValueReferenceSource;

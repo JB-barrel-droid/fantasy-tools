@@ -956,6 +956,35 @@ class AdjustedShapeGuardTest(unittest.TestCase):
         self.assertLess(max(ratios.values()) - min(ratios.values()), 0.001,
                         "position peaks should move together after shaping")
 
+    def test_live_adjusted_path_is_shared_by_curve_and_table(self):
+        """Named gap: the curve used live adjustment cells while the player
+        table kept using stale baked adjusted sections / CBS ratio derivation.
+        Both renderers must load the same adjustment-input asset and shape live
+        adjusted values to the ESPN anchor."""
+        for name, rebuild in (("curve-widget.js", "rebuildDomain"),
+                              ("comparison-dashboard.js", "rebuildSourceMaps")):
+            text = (APP / "assets" / name).read_text(encoding="utf-8")
+            self.assertIn("function loadAdjustmentInputs", text,
+                          "%s must load the versioned adjustment inputs" % name)
+            self.assertIn("function buildLiveAdjustedMap", text,
+                          "%s must build live adjusted maps from cells" % name)
+            self.assertIn("function adjustmentCellsFor", text,
+                          "%s must gate live cells by source status" % name)
+            body = extract_function(text, rebuild)
+            self.assertIsNotNone(body, "%s: %s missing" % (name, rebuild))
+            self.assertIn("normalizedAdjustedMapFor", body,
+                          "%s must route adjusted series through the live normalizer" % name)
+
+    def test_adjusted_live_normalizer_shapes_to_anchor_in_both_renderers(self):
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
+                                    "normalizedAdjustedMapFor")
+            self.assertIsNotNone(body, "%s: normalizedAdjustedMapFor missing" % name)
+            self.assertIn("shapeToAnchorPeaksThenSharedTotal", body,
+                          "%s: live adjusted values must be shaped to the anchor peaks" % name)
+            self.assertIn("adjustmentCellsFor(rawKey)", body,
+                          "%s: anchor shaping must be active only for live cells" % name)
+
 
 class AnchorDisplayShareTest(unittest.TestCase):
     """The charts are matched to the anchor's OWN starter/bench split.

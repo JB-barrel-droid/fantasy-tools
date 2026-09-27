@@ -5,68 +5,100 @@
     "players.json": "9efd914fe7f738f27ccccc516f148ba78f5eeec4ee87278f1a8edfda6aa976b6"
   },
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-09-26T22:24:50-05:00",
+  "generated_at": "2026-09-27T13:57:13-05:00",
   "items": [
     {
+      "age_days": 10,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "players.as_of",
       "label": "Players artifact as_of",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-17"
     },
     {
+      "age_days": 16,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "players.ecr_content_date",
       "label": "Expert/ECR content date",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-11"
     },
     {
+      "age_days": 10,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "players.espn_snapshot",
       "label": "ESPN projection snapshot",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-17"
     },
     {
+      "age_days": 10,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "players.pm_snapshot",
       "label": "Prediction-market snapshot",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-17"
     },
     {
+      "age_days": 11,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "players.kdst_snapshot",
       "label": "K/DST snapshot",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-16"
     },
     {
+      "age_days": 2,
       "changed_since_prior_report": false,
+      "enforced": true,
+      "freshness_ok": true,
       "key": "comparison.built_at",
       "label": "Comparison source artifact build time",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-25T22:38:27Z"
     },
     {
+      "age_days": 7,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "news.generated_at",
       "label": "Player-news artifact generation time",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-20T22:14:45Z"
     },
     {
+      "age_days": 8,
       "changed_since_prior_report": false,
+      "enforced": false,
+      "freshness_ok": false,
       "key": "news.trade_values_published_at",
       "label": "Trade-value publication timestamp",
+      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-19T15:48:29Z"
@@ -87,9 +119,15 @@
   },
   "summary": {
     "all_known_dates_same_day": false,
+    "enforced_expired_count": 0,
+    "enforced_keys": [
+      "comparison.built_at"
+    ],
+    "expired_count": 7,
+    "max_age_days": 2,
     "stale_count": 8,
     "unchanged_count": 8,
     "unknown_count": 0
   },
-  "today": "2026-09-26"
+  "today": "2026-09-27"
 }

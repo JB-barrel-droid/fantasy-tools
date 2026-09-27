@@ -32,6 +32,86 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-27 - Repo gap register and adjusted table cleanup
+
+### Verified
+
+- Added the missing repo entrypoints named by `AGENTS.md`:
+  `SYSTEM_MAP.md`, `docs/methodology.md`,
+  `docs/director_operating_model.md`, and `execution/current-plan.md`.
+- Rebuilt `docs/risk-register.md` as the canonical durable gap register and
+  updated `CLAUDE.md` so future sessions must record durable gaps there, not
+  only in chat or this log.
+- Fixed the comparison dashboard adjusted-column gap: `comparison-dashboard.js`
+  now loads `assets/adjustment-inputs.json`, builds live adjusted maps from
+  source cells, and uses `ValueModel.shapeToAnchorPeaksThenSharedTotal()` for
+  live adjusted columns, matching the curve widget's anchor-shaping path.
+- Added regression tests in `tests/test_two_tier_frontend.py` proving both
+  renderers load adjustment inputs, build live adjusted maps, and route adjusted
+  values through the shared anchor-shaping normalizer.
+- `make validate` passed after sync: naming check OK, reference artifacts OK,
+  enforced freshness expired count 0, dashboard artifacts synced, and 381 tests
+  OK with 6 skipped.
+- `dist/assets/comparison-dashboard.js` contains the same live adjustment-input
+  path after `make validate` synced the dashboard artifacts.
+
+### Claimed, unverified
+
+- None.
+
+### Open
+
+- Plain `git ...` commands still do not work because this workspace uses
+  `.gitstore` rather than `.git`, and the sandbox refused creating a `.git`
+  pointer file. Commit/push is still possible with
+  `git --git-dir=.gitstore --work-tree=. ...`; this is recorded as controlled
+  in `docs/risk-register.md`.
+- Fresh Playwright browser diagnostics are still blocked in this sandbox by
+  browser/cache process issues; this is now recorded as `GAP-002` in
+  `docs/risk-register.md`.
+- Adjustment-cell incompleteness remains open (`GAP-004`): CBS has 5 live cells,
+  USA Today 7, while FantasyCalc/FantasyPros have 8.
+
+## 2026-09-27 - Curve logic spot-check
+
+### Verified
+
+- Inspected the current curve-widget value path. `buildEspnIndexedMap()` reads
+  the built ESPN fixture leg when it has at least `ValueModel.MIN_SHARED_FOR_PIE`
+  players; the browser-derived ESPN projection leg is now only a fallback and
+  the separate raw value-above-waivers series.
+- Inspected the adjusted curve path. Live adjustment cells feed
+  `buildLiveAdjustedMap()`, then `ValueModel.shapeToAnchorPeaksThenSharedTotal()`
+  aligns adjusted positional peaks to the ESPN anchor before shared-total
+  scaling.
+- Relevant regression checks passed:
+  `python3 -m unittest discover -s tests -p 'test_two_tier_frontend.py'`
+  (58 tests OK, 6 skipped),
+  `python3 -m unittest discover -s tests -p 'test_adjusted_curve_pause.py'`
+  (24 tests OK),
+  `python3 -m unittest discover -s tests -p 'test_player_scenario_matrix.py'`
+  (6 tests OK), and `make test` (379 tests OK, 6 skipped).
+- `node --check` passed for `app/trade-value-chart/assets/curve-widget.js`,
+  `value-model.js`, and `comparison-dashboard.js`.
+
+### Claimed, unverified
+
+- The curve widget is now conceptually sound for the main ESPN indexed curve
+  and much stronger for live adjusted curves. A fresh browser diagnostic sweep
+  could not be rerun in this sandbox because the Playwright/Chrome process
+  aborted after launch.
+
+### Open
+
+- `SYSTEM_MAP.md`, `docs/methodology.md`, and `execution/current-plan.md`
+  remain missing in this checkout, despite being listed in `AGENTS.md`.
+- The comparison dashboard does not appear to consume the live adjustment-input
+  cell path that the curve widget uses; treat the current conclusion as about
+  the curve widget, not every table/display surface.
+- The adjusted curves are still derived projects with incomplete cells for
+  some sources/tiers (CBS 5 cells, USA Today 7 cells), not native upstream
+  adjusted artifacts.
+
 ## 2026-09-27 - Removed stray three-line model files
 
 ### Verified

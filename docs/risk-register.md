@@ -1,44 +1,52 @@
-# Risk Register
+# Risk And Gap Register
 
-Last updated: 2026-09-26.
+Last updated: 2026-09-27.
 
-## Active Risks
+This is the durable register for repo gaps, risks, unresolved questions, and
+recently fixed correctness defects. A gap is not considered recorded if it only
+exists in chat or a session transcript.
 
-| Risk | Severity | Status | Mitigation |
-| --- | --- | --- | --- |
-| Muse ZIP/code/data export is missing from the workspace. | High | Open | Continue with PDF-based planning only; source verification and local reproduction require the export. |
-| Git metadata creation is blocked at `.git` in this workspace. | Medium | Open | Use normal files for now; if possible, use an external Git directory or ask for workspace permission repair before meaningful code migration. |
-| Documentation may drift from implementation. | High | Open | Treat actual source files as authoritative once ZIP is available; document every discrepancy. |
-| Production Supabase could be accidentally modified. | High | Controlled | Discovery is read-only; no production credentials have been used. |
-| Secrets could be copied from export or browser sessions. | High | Controlled | `.gitignore` excludes env/private paths; do not commit cookies, keys, or service-role credentials. |
-| Missing/null values could be silently converted to zero. | High | Open | Add tests before logic migration; preserve null display and line breaks. |
-| Source-lock, preseason-lock, or disagreement ordering could drift. | High | Open | Port existing frontend behavior first; add golden ordering tests. |
-| Dynamic Y-axis behavior could regress to a 70 cap. | Medium | Open | Test dynamic nice-step scaling from visible data max. |
-| Muse publish path is nondeterministic. | Medium | Existing | Replacement should use deterministic static build/deploy, but only after equivalence. |
-| Manual curation gap from `sources_data.json` to `comparison-sources-data.json`. | Medium | Existing | Script the copy/curation later; do not block static reproduction. |
-| ECR content freshness gate currently blocks full rebuilds. | Medium | Existing | Preserve fail-closed behavior; static reproduction should use current finished artifacts first. |
-| DDF/projection-derived values are stale in-season. | High | Open | Do not use DDF as the current source of truth. Preserve existing exported behavior for equivalence, but prioritize fixed-pie source comparison and require freshness validation before reviving projection-derived values. |
-| Player news can be stale, duplicated, or mismatched to the wrong player. | High | Open | News ingestion must key by canonical numeric `player_key`, preserve headline publication timestamps, and label each headline pre-value or post-value relative to the value artifact timestamp. |
-| Pure VORP can be confused with indexed trade value if plotted on the same basis. | Medium | Controlled | Keep Pure VORP behind a separate value-basis mode and label it as ESPN PPG above waiver, not fixed-pie trade value. |
-| Public copy currently says `FantasyPros` where product rule says `ECR`. | Low | Known defect | Track for later; do not fix during discovery/local equivalence unless explicitly scoped. |
+## How To Use
 
-| Adjusted source projects sat above the ESPN leg's scale at QB. | High | Fixed 2026-09-26 | Measured 2026-09-22 on `full_12`: QB peaks 26.6-34.1 against the leg's 17.2 (1.5x-2.0x); RB 85.0-92.5 against 81.8. Fixed by shaping live adjusted curves to the ESPN positional peaks before shared-total scaling. The 2026-09-26 browser matrix reported `adjustedOk=true` for all 3 scoring x 4 team configs; 12-team configs show all four adjusted curves live by default, while non-12 configs keep unavailable adjusted combos disabled. |
-| CBS publishes only 124 players and 16 QBs; Bo Nix is not among them. | Medium | Open | The fixture matches the promoted CBS reference exactly, so nothing is being dropped downstream. Whether CBS published him is unverified: `data/raw/sources/` does not exist on the workstation and the recorded CBS chart URL now 404s. Needs a current CBS chart URL or Supabase read access to settle. Do not impute a value. |
-| Importer/health assumed one vintage per table; multi-week tables broke both. | High | Fixed 2026-09-25 | `import_supabase_references.py` and `verify_import_health.py` read ALL historical rows per source, so once USA Today held weeks 2+3 the import failed closed and the health gate would TABLE_DRIFT on retained older weeks. Fixed: `_select_latest_week()` / `_select_latest_snapshot_date()` scope reads to the latest complete vintage (never blended); manifest records scoping + `week_designated`; health scopes its re-query to the manifest vintage. `derive_db_vintage()` / `table_vintage()` deliberately NOT weakened (direct unit tests prove they still fail closed on multi-week rows). |
+- Add a row whenever a session discovers a durable issue future sessions would
+  otherwise rediscover.
+- Update the same row when the issue is fixed, controlled, or deliberately
+  deferred.
+- Put session-by-session evidence in `docs/claude-log.md`; keep this file to
+  current status, evidence, and next action.
+- Do not create another gap tracker or backlog. The live plan is
+  `execution/current-plan.md`.
 
-## Known Issues Not To Fix First
+## Active Gaps
 
-- Historical trade designer/calculator is not part of the first migration.
-- Some older cron instructions are stale.
-- Some documentation conflicts with live code.
-- Razzball integration is pending in the current finished data.
-- `audit_continuity.js` is retired and should not be revived blindly.
+| ID | Gap | Severity | Status | Evidence | Next Action |
+| --- | --- | --- | --- | --- | --- |
+| GAP-002 | Fresh Playwright browser diagnostics are blocked by local browser sandboxing. | Medium | Open | On 2026-09-27 the CLI daemon and direct Playwright launch both reached Chromium, then Chromium aborted on macOS Mach port registration (`bootstrap_check_in ... Permission denied`) before diagnostics could be read. | Run browser sweeps from a host/profile where Chromium can launch, or add a non-browser diagnostic fallback for publish-affecting chart changes. |
+| GAP-003 | Adjusted source projects are derived estimates, not native upstream adjusted artifacts. | Medium | Open | `adjustment-inputs.json` is live, but cells are fitted from raw refs against the ESPN leg; this is intentionally not a source-published adjusted value. | Keep labels as adjusted projects/best estimates. Do not describe them as source-published values. |
+| GAP-004 | Adjustment-cell coverage is incomplete for some source/tier combinations. | Medium | Open | 2026-09-27 inspection: FantasyCalc and FantasyPros have 8 cells; USA Today has 7; CBS has 5. Missing cells fall back to raw values before anchor shaping. | Decide whether missing cells are acceptable with explicit labeling, or require cell-completeness gates per source before default display. |
+| GAP-005 | CBS published-player coverage is thinner than other sources. | Medium | Open | Prior fixture review found CBS has fewer priced players/QBs and omits some players present elsewhere; downstream matching preserves this rather than imputing. | Verify against the current CBS source when the next source refresh runs. Do not impute missing CBS values. |
+| GAP-006 | Source refresh/review can confuse genuine week-over-week movement with corruption. | Medium | Open | 2026-09-25 refresh notes say review holds were manually overridden after native drift vs prior-week fixtures; same-vintage review methodology is still needed. | Update review methodology to compare against same-vintage evidence where available before relying on manual override. |
+
+## Fixed Or Controlled
+
+| ID | Gap | Severity | Status | Evidence | Follow-up |
+| --- | --- | --- | --- | --- | --- |
+| FIX-001 | Required read-first entrypoints were missing. | Medium | Fixed 2026-09-27 | Added `SYSTEM_MAP.md`, `docs/methodology.md`, `docs/director_operating_model.md`, and `execution/current-plan.md`. | Keep these as maps to the authoritative docs; do not duplicate detailed rules. |
+| FIX-002 | ESPN indexed curve was a browser-derived projection model instead of the built ESPN leg. | High | Fixed 2026-09-25 | `buildEspnIndexedMap()` now prefers the fixture leg and only falls back below `ValueModel.MIN_SHARED_FOR_PIE`; tests cover both renderers. | Keep raw ESPN value above waivers separate and clearly labeled. |
+| FIX-003 | Adjusted curves sat above the ESPN anchor scale at QB. | High | Fixed 2026-09-26 | Live adjusted curves now use `ValueModel.shapeToAnchorPeaksThenSharedTotal()` after applying adjustment cells; prior QB peak ratios were 1.5x-2.0x. | Continue checking `adjustedAgreement` in browser diagnostics after chart changes. |
+| FIX-004 | Comparison dashboard adjusted columns lagged the curve widget's live adjustment logic. | High | Fixed 2026-09-27 | `comparison-dashboard.js` now loads `adjustment-inputs.json`, builds live adjusted maps from cells, and uses the same anchor-shaping normalizer as the curve widget. | Regression tests in `test_two_tier_frontend.py` assert both renderers share this path. |
+| FIX-005 | Importer/health assumed one vintage per Supabase table. | High | Fixed 2026-09-25 | Import and health now scope to the latest complete week/snapshot and direct vintage checks still fail closed on mixed rows. | Preserve scoped import manifests and health checks during future source-table changes. |
+| CTL-001 | This workspace uses `.gitstore` instead of a normal `.git` directory. | Medium | Controlled | Plain `git status` fails, but `git --git-dir=.gitstore --work-tree=. status` works on `main`; sandbox refused creating a `.git` pointer file. | Use explicit `.gitstore` flags for commit/push from this workspace, or repair local Git metadata outside the sandbox. |
+| CTL-002 | Production Supabase writes can damage live data. | High | Controlled | Repo rules require explicit approval before production writes or schema changes. | Continue using dry-run/read-only paths unless the user explicitly approves writes. |
+| CTL-003 | Missing values can be mistaken for zero. | High | Controlled | Pipeline rules and tests enforce null/absent for missing values and preserve genuine zeros. | Keep null-vs-zero tests on every source ingestion path. |
+| CTL-004 | Raw ESPN value above waivers can be confused with indexed trade value. | Medium | Controlled | Raw series is separate (`espn_vorp`) and labeled as raw value above waivers. | Do not use it as the common trade-value anchor. |
 
 ## Required Approval Gates
 
 Stop for user approval before:
 
 - Any production Supabase write or schema change.
-- Any public cutover from Muse to the replacement.
+- Any public cutover or publish when validation is red.
 - Any credential/login action.
+- Any destructive Git/history operation.
 - Any business-rule change not inferable from current implementation.

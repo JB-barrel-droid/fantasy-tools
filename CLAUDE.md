@@ -18,6 +18,11 @@ editing the old one.
 Durable issues go in `docs/risk-register.md` as well; that is the standing issue
 list, while the log is the record of who checked what.
 
+Do not leave durable gaps only in chat or only in `docs/claude-log.md`. If a
+session discovers a real open issue, stale document, missing validation path, or
+fixed correctness defect that future sessions would otherwise rediscover, add or
+update its row in `docs/risk-register.md` before finishing.
+
 ## Standing constraints
 
 These are the user's, stated directly. They are not suggestions.
