@@ -32,6 +32,23 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-26 - Push policy updated for autonomous completion
+
+### Verified
+
+- Updated `CLAUDE.md` so repo sessions commit, push, wait for GitHub Actions,
+  and verify the live site by default after clean validation when the user asks
+  for a repo/site outcome. The literal words `Push` or `Publish` are no longer
+  required.
+- Aligned `docs/watchdog.md` with the new rule. Hard stops still apply for red
+  validation, destructive history or force pushes, production Supabase writes or
+  schema changes, credential/login actions, and non-inferable business-rule
+  changes.
+
+### Open
+
+- No code-path validation needed; this was a docs/policy-only change.
+
 ## 2026-09-26 - Live adjusted labels corrected to Week 3
 
 ### Verified

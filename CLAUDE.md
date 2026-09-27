@@ -22,8 +22,13 @@ list, while the log is the record of who checked what.
 
 These are the user's, stated directly. They are not suggestions.
 
-- **Stage only.** Nothing is committed, merged, pushed, or published without the
-  explicit word "Push" or "Publish". Staging work and reporting is the default.
+- **Commit and push by default after validation.** When the user asks for a fix,
+  refresh, deploy repair, or other repo/site outcome, finish the work end to end:
+  commit, push to `main`, wait for GitHub Actions, and verify the live site when
+  the change affects published output. The user no longer needs to say the exact
+  word "Push" or "Publish". Stop short only when the user explicitly says not to
+  push/publish, validation is red, the change would require a force push or
+  destructive history edit, or another approval gate below applies.
 - **Every regression guard must prove it catches the bug it names.** Negative-test
   it against a simulated broken state. A guard that asserts current behaviour is
   correct, without checking which state is right, is worse than no guard.

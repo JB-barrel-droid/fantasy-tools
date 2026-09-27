@@ -78,7 +78,9 @@ When a check fails, the worker:
 5. Escalates to Jeremy only if genuinely unfixable, with: what broke,
    what was tried, and what is needed from him.
 
-Green runs are silent. Nothing is published without Jeremy's word.
+Green runs are silent. Repairs that validate cleanly may be committed, pushed,
+and verified without waiting for Jeremy to say the exact word "Push"; stop when
+validation is red or a required approval gate applies.
 
 ## USA Today auto-discovery
 
