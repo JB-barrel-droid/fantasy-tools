@@ -32,6 +32,38 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-27 - Dynamic player scenario regression matrix
+
+### Verified
+
+- Added `tests/test_player_scenario_matrix.py`, an end-to-end fixture scenario
+  suite that selects current players by archetype rather than by pinned stale
+  names: core starters, starter/bench margins, bench/waiver margins, square
+  bench/waiver representatives, two-for-one package trades, cross-position
+  packages, waiver throw-ins, and multi-source coverage.
+- Added `docs/player-scenario-regression-tests.md` describing what each scenario
+  answers and how future weeks should change the selected players without
+  changing the test intent.
+- Focused scenario suite passed:
+  `python3 -m unittest discover -s tests -p 'test_player_scenario_matrix.py'`
+  (6 tests OK).
+- Full repo validation passed with the canonical gate:
+  `make validate` (383 tests OK, 6 skipped). The freshness report showed
+  `enforced_expired_count: 0`; non-enforced stale source dates remain visible.
+
+### Claimed, unverified
+
+- The scenario matrix is intended as a reusable layer for future weekly player
+  picks. It has not yet been wired into a browser UI flow or a visible scenario
+  report artifact.
+
+### Open
+
+- Repo-local read-first files named by `AGENTS.md` were missing in this checkout:
+  `SYSTEM_MAP.md`, `docs/methodology.md`, and `execution/current-plan.md`.
+  I used the available `docs/architecture-current.md`, `docs/pipeline-rules.md`,
+  `README.md`, `CLAUDE.md`, and `docs/claude-log.md` instead.
+
 ## 2026-09-26 - Push policy updated for autonomous completion
 
 ### Verified
