@@ -14,6 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURES = ROOT / "data" / "fixtures" / "current"
 DEFAULT_OUTPUT = ROOT / "output" / "reference-freshness.json"
+DEFAULT_ENFORCED_KEYS = ("comparison.built_at",)
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -61,15 +62,31 @@ def prior_items(path: Path) -> dict[str, dict[str, Any]]:
     return {item["key"]: item for item in payload.get("items", []) if isinstance(item, dict) and item.get("key")}
 
 
-def make_item(key: str, label: str, value: Any, today: date, prior: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def make_item(
+    key: str,
+    label: str,
+    value: Any,
+    today: date,
+    prior: dict[str, dict[str, Any]],
+    max_age_days: int,
+    enforced_keys: set[str],
+) -> dict[str, Any]:
     previous = prior.get(key, {})
     changed = previous.get("value") != value
     note = "changed" if changed else "unchanged"
+    observed = parse_date(value)
+    age_days = (today - observed).days if observed is not None else None
+    status = status_for(value, today)
+    freshness_ok = observed is not None and 0 <= age_days <= max_age_days
     return {
         "key": key,
         "label": label,
         "value": value,
-        "status": status_for(value, today),
+        "status": status,
+        "age_days": age_days,
+        "max_age_days": max_age_days,
+        "freshness_ok": freshness_ok,
+        "enforced": key in enforced_keys,
         "changed_since_prior_report": changed,
         "note": note,
     }
@@ -83,7 +100,13 @@ def _relative_to_root(path: Path) -> str:
         return str(path)
 
 
-def build_report(fixtures: Path, output: Path, today: date) -> dict[str, Any]:
+def build_report(
+    fixtures: Path,
+    output: Path,
+    today: date,
+    max_age_days: int = 2,
+    enforced_keys: tuple[str, ...] = DEFAULT_ENFORCED_KEYS,
+) -> dict[str, Any]:
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
     news = load_json(fixtures / "player-news.json")
@@ -91,15 +114,16 @@ def build_report(fixtures: Path, output: Path, today: date) -> dict[str, Any]:
 
     player_meta = players.get("meta", {})
     news_meta = news.get("meta", {})
+    enforced_set = set(enforced_keys)
     items = [
-        make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous),
-        make_item("players.ecr_content_date", "Expert/ECR content date", player_meta.get("ecr_content_date"), today, previous),
-        make_item("players.espn_snapshot", "ESPN projection snapshot", player_meta.get("espn_snapshot"), today, previous),
-        make_item("players.pm_snapshot", "Prediction-market snapshot", player_meta.get("pm_snapshot"), today, previous),
-        make_item("players.kdst_snapshot", "K/DST snapshot", player_meta.get("kdst_snapshot"), today, previous),
-        make_item("comparison.built_at", "Comparison source artifact build time", comparison.get("built_at"), today, previous),
-        make_item("news.generated_at", "Player-news artifact generation time", news_meta.get("generated_at"), today, previous),
-        make_item("news.trade_values_published_at", "Trade-value publication timestamp", news_meta.get("trade_values_published_at"), today, previous),
+        make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous, max_age_days, enforced_set),
+        make_item("players.ecr_content_date", "Expert/ECR content date", player_meta.get("ecr_content_date"), today, previous, max_age_days, enforced_set),
+        make_item("players.espn_snapshot", "ESPN projection snapshot", player_meta.get("espn_snapshot"), today, previous, max_age_days, enforced_set),
+        make_item("players.pm_snapshot", "Prediction-market snapshot", player_meta.get("pm_snapshot"), today, previous, max_age_days, enforced_set),
+        make_item("players.kdst_snapshot", "K/DST snapshot", player_meta.get("kdst_snapshot"), today, previous, max_age_days, enforced_set),
+        make_item("comparison.built_at", "Comparison source artifact build time", comparison.get("built_at"), today, previous, max_age_days, enforced_set),
+        make_item("news.generated_at", "Player-news artifact generation time", news_meta.get("generated_at"), today, previous, max_age_days, enforced_set),
+        make_item("news.trade_values_published_at", "Trade-value publication timestamp", news_meta.get("trade_values_published_at"), today, previous, max_age_days, enforced_set),
     ]
 
     hashes = {
@@ -109,6 +133,8 @@ def build_report(fixtures: Path, output: Path, today: date) -> dict[str, Any]:
     all_same_day = all(item["status"] == "same_day" for item in items if item["status"] != "unknown")
     stale = [item for item in items if item["status"] == "stale"]
     unknown = [item for item in items if item["status"] == "unknown"]
+    expired = [item for item in items if not item["freshness_ok"]]
+    enforced_expired = [item for item in items if item["enforced"] and not item["freshness_ok"]]
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "today": today.isoformat(),
@@ -120,7 +146,11 @@ def build_report(fixtures: Path, output: Path, today: date) -> dict[str, Any]:
             "all_known_dates_same_day": all_same_day,
             "stale_count": len(stale),
             "unknown_count": len(unknown),
+            "expired_count": len(expired),
+            "enforced_expired_count": len(enforced_expired),
             "unchanged_count": sum(1 for item in items if not item["changed_since_prior_report"]),
+            "max_age_days": max_age_days,
+            "enforced_keys": list(enforced_keys),
         },
         "source_validation": comparison.get("source_validation", {}),
         "artifact_hashes": hashes,
@@ -133,14 +163,28 @@ def main() -> int:
     parser.add_argument("--fixtures", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--today", default=date.today().isoformat())
+    parser.add_argument("--max-age-days", type=int, default=2)
+    parser.add_argument("--enforce-key", action="append", dest="enforce_keys")
+    parser.add_argument("--enforce", action="store_true")
     args = parser.parse_args()
 
     today = date.fromisoformat(args.today)
-    report = build_report(args.fixtures, args.output, today)
+    enforce_keys = tuple(args.enforce_keys or DEFAULT_ENFORCED_KEYS)
+    report = build_report(args.fixtures, args.output, today, args.max_age_days, enforce_keys)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(f"Wrote {args.output}")
     print(json.dumps(report["summary"], indent=2, sort_keys=True))
+    if args.enforce:
+        expired = [item for item in report["items"] if item["enforced"] and not item["freshness_ok"]]
+        if expired:
+            print("Freshness gate failed:")
+            for item in expired:
+                print(
+                    f"- {item['label']}: {item.get('value')!r} "
+                    f"(age_days={item.get('age_days')}, max_age_days={item['max_age_days']})"
+                )
+            return 1
     return 0
 
 

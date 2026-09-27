@@ -180,6 +180,17 @@ Today this validates the finished artifacts and writes
 `output/reference-build-report.json`. As collectors move into the repo, this is
 the command that should grow into the real compute step.
 
+Production freshness gate:
+
+```bash
+make freshness-check MAX_STALE_DAYS=2
+```
+
+This must pass before dashboard artifacts are synced or deployed. By default it
+enforces `comparison.built_at`, the timestamp that protects public trade-chart
+comparison data from stagnating. Legacy player, ECR, news, and K/DST timestamps
+remain visible in the freshness report even when they are not production-blocking.
+
 ### Comparison source pipeline (candidate -> reference compute)
 
 A candidate source section (schema `trade-value-source-reference-v1`, built by
@@ -323,6 +334,7 @@ Use this order for ordinary changes:
 
 ```bash
 make reference
+make freshness-check
 make sync
 make test
 ```

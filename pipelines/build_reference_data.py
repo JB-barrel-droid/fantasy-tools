@@ -16,7 +16,7 @@ from datetime import date, datetime
 from pathlib import Path
 from typing import Any
 
-from check_reference_freshness import build_report
+from check_reference_freshness import DEFAULT_ENFORCED_KEYS, build_report
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -114,7 +114,13 @@ def validate_news(payload: dict[str, Any], player_keys: set[int]) -> dict[str, A
     }
 
 
-def build_reference_report(fixtures: Path, freshness_output: Path, today: date) -> tuple[dict[str, Any], dict[str, Any]]:
+def build_reference_report(
+    fixtures: Path,
+    freshness_output: Path,
+    today: date,
+    max_age_days: int,
+    enforced_keys: tuple[str, ...] = DEFAULT_ENFORCED_KEYS,
+) -> tuple[dict[str, Any], dict[str, Any]]:
     for name in REQUIRED_FILES:
         require((fixtures / name).exists(), f"missing required fixture: {fixtures / name}")
 
@@ -130,7 +136,7 @@ def build_reference_report(fixtures: Path, freshness_output: Path, today: date) 
     }
     comparison_summary = validate_comparison(comparison, player_keys)
     news_summary = validate_news(news, player_keys)
-    freshness = build_report(fixtures, freshness_output, today)
+    freshness = build_report(fixtures, freshness_output, today, max_age_days, enforced_keys)
 
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
@@ -150,10 +156,27 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--freshness-output", type=Path, default=DEFAULT_FRESHNESS)
     parser.add_argument("--today", default=date.today().isoformat())
+    parser.add_argument("--max-age-days", type=int, default=2)
+    parser.add_argument("--enforce-key", action="append", dest="enforce_keys")
+    parser.add_argument("--enforce-freshness", action="store_true")
     args = parser.parse_args()
 
     today = date.fromisoformat(args.today)
-    report, freshness = build_reference_report(args.fixtures, args.freshness_output, today)
+    enforce_keys = tuple(args.enforce_keys or DEFAULT_ENFORCED_KEYS)
+    report, freshness = build_reference_report(
+        args.fixtures,
+        args.freshness_output,
+        today,
+        args.max_age_days,
+        enforce_keys,
+    )
+    if args.enforce_freshness and freshness["summary"]["enforced_expired_count"]:
+        expired = [item for item in freshness["items"] if item["enforced"] and not item["freshness_ok"]]
+        details = "; ".join(
+            f"{item['key']}={item.get('value')} age_days={item.get('age_days')}"
+            for item in expired
+        )
+        fail(f"reference freshness gate failed: {details}")
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     args.freshness_output.parent.mkdir(parents=True, exist_ok=True)

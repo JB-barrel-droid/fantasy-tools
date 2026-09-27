@@ -75,7 +75,16 @@ Check reference freshness without mutating source artifacts:
 python3 pipelines/check_reference_freshness.py --today YYYY-MM-DD
 ```
 
-The report is written to ignored `output/reference-freshness.json` and records when a reference date is unchanged from the prior run.
+The report is written to ignored `output/reference-freshness.json` and records
+when a reference date is unchanged from the prior run. By default the production
+gate enforces `comparison.built_at`, while legacy/player/news timestamps remain
+visible in the report.
+
+```bash
+make freshness-check MAX_STALE_DAYS=2
+```
+
+`make validate` runs this gate before syncing `dist/`, and the GitHub Pages workflow also runs on a daily schedule so stale artifacts cannot keep deploying silently.
 
 Ingest play/value news when a raw JSON or JSONL feed is available:
 
@@ -100,6 +109,13 @@ Build a source-reference artifact from matched rows:
 
 ```bash
 make source-reference MATCH_FILE=output/source-matches/fantasycalc/2026-09-21/fantasycalc-ppr-12-matched.json
+```
+
+Build a candidate comparison section and merge it into an output-only candidate:
+
+```bash
+make source-section REFERENCE_FILE=output/source-references/fantasycalc/2026-09-21/fantasycalc-ppr-12-reference.json
+make comparison-candidate SECTION_FILE=output/comparison-source-sections/fantasycalc/2026-09-21/fantasycalc-ppr-12-section.json
 ```
 
 Pull the free league-wide RSS feeds into the raw article store, then rebuild the dashboard fixture and review queues:

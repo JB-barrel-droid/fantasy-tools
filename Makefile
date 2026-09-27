@@ -1,6 +1,7 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync test validate serve deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference freshness-check sync test validate serve deploy-status supabase-import import-health watchdog
 
 TODAY ?= $(shell date +%F)
+MAX_STALE_DAYS ?= 2
 PORT ?= 8000
 SOURCE_FILE ?=
 SNAPSHOT_FILE ?=
@@ -26,6 +27,7 @@ help:
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
+	@echo "  make freshness-check   Fail if reference artifacts are older than MAX_STALE_DAYS"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
 	@echo "  make test              Run regression tests"
 	@echo "  make watchdog          Run the source-pull watchdog (writes ops/watchdog/health.json)"
@@ -82,7 +84,10 @@ naming:
 	python3 pipelines/check_naming_drift.py
 
 reference:
-	python3 pipelines/build_reference_data.py --today $(TODAY)
+	python3 pipelines/build_reference_data.py --today $(TODAY) --max-age-days $(MAX_STALE_DAYS)
+
+freshness-check:
+	python3 pipelines/check_reference_freshness.py --today $(TODAY) --max-age-days $(MAX_STALE_DAYS) --enforce
 
 sync:
 	python3 pipelines/sync_dashboard_artifacts.py
@@ -93,7 +98,7 @@ test:
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
 
-validate: naming reference sync test
+validate: naming reference freshness-check sync test
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
