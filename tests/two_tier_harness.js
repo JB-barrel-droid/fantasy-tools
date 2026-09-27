@@ -236,6 +236,31 @@ switch (cmd) {
     });
     break;
   }
+  case "projectionroles": {
+    const V = globalThis.ValueModel;
+    const pool = (input.pool || []).map(p => ({
+      player_key: Number(p.player_key),
+      name: p.name || String(p.player_key),
+      pos: p.pos,
+      x: Number(p.x)
+    }));
+    const assigned = V.projectionRoles({
+      pool,
+      teams: input.teams,
+      shape: input.shape || {},
+      rankOf: p => Number(p.x)
+    });
+    out = {
+      roles: Object.fromEntries(pool.map(p => [String(p.player_key), assigned.roles.get(p.player_key) || "waiver"])),
+      counts: V.allocationCounts({
+        pool,
+        teams: input.teams,
+        shape: input.shape || {},
+        rankOf: p => Number(p.x)
+      })
+    };
+    break;
+  }
   case "collapse": {
     // Collapse guard over (peaks) cases. Each case: {peaks, floor?}.
     // Answers the question the module dashboard flags as untested: does the

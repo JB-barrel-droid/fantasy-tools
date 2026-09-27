@@ -331,3 +331,38 @@ Defects found and fixed this session:
   is missing on this Mac, so `make supabase-import` cannot run locally yet.
   Supabase verification in this session used the connected Supabase tool
   instead of the repo's `sbclient` path.
+
+## 2026-09-27 — Adjustment visibility and flex allocation repair
+
+### Verified
+
+- Added an `Adjustment weights` panel to the trade-value curve widget. It shows
+  the current ESPN-projection allocation by position (dedicated starters, flex
+  starters, bench, rostered) plus each live adjusted source cell by
+  source/position/tier: intercept, multiplier, pair count, and mean shift.
+- Changed ordinary flex assignment to compare remaining RB/WR/TE players by
+  ESPN projected points, while keeping superflex and bench assignment on the
+  surplus-over-dedicated-baseline scale. Regression tests cover the RB flex case
+  and the superflex exception.
+- Kept the scoring state as Full PPR, but changed the scoring button text to
+  `Full` so the mobile control displays cleanly.
+- Confirmed the raw ESPN value-above-waivers curve can be enabled and selected
+  as the lock player order. The lock selector now refreshes when source toggles
+  change, and the note reads cleanly for the raw ESPN lock.
+- `make validate` passed after the final sync: 370 tests OK, 6 skipped.
+- Browser sweep against local `dist/` passed all 12 scoring/team combinations:
+  `fixedPieIndexed=true`, `sourceScaleAgreement=true`, source map coverage,
+  collapse, dynamic axis, and shared-player-axis checks all true. The new
+  adjustment diagnostics reported 28 live adjustment rows in every combo.
+- Mobile browser check at 390x844 confirmed the allocation summary fits, the
+  scoring buttons show `Standard`, `Half`, `Full`, and the same curve guards
+  remain green.
+
+### Notes
+
+- Zach Charbonnet and Jordan Mason show two different ESPN concepts: the
+  pipeline-built ESPN adjusted leg still gives small positive indexed values
+  (Zach 2.9, Mason 1.0 in Full PPR/12-team), while the raw ESPN
+  value-above-waivers series gives both 0 because the current ESPN projection
+  allocation marks both as waiver-tier players. This is expected once the
+  labels/lock behavior are honest.

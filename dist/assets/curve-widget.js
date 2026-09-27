@@ -611,6 +611,10 @@
     return Number.isFinite(number) ? Math.max(0, number) : null;
   };
   const scoreLabel = () => SCORINGS.find(([key]) => key === scoring)?.[1] || scoring;
+  const scoringButtonLabel = key => key === "ppr" ? "Full" : key === "half_ppr" ? "Half" : "Standard";
+  const rawKeyForAdjusted = key => key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+  const formatOne = value => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "—";
+  const formatTwo = value => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "—";
   function parseDesignatedWeek(value) {
     const match = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
     return match ? Number(match[1] || match[2]) : null;
@@ -618,7 +622,7 @@
 
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
-    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const rawKey = rawKeyForAdjusted(key);
     const liveAdjusted = key.endsWith("_adjusted") && adjustmentCellsFor(rawKey);
     const source = liveAdjusted ? (data?.sources?.[rawKey] || {}) :
       (data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {});
@@ -1155,12 +1159,12 @@
   // path stays frozen at the stage-1 display share so moving the slider
   // cannot change a fallback curve.
   function adjustedShareFor(key, fallbackShare = DISPLAY_BENCH_SHARE) {
-    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const rawKey = rawKeyForAdjusted(key);
     return adjustmentCellsFor(rawKey) ? benchShare : fallbackShare;
   }
 
   function normalizedAdjustedMapFor(key, anchorMap, displayShare) {
-    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const rawKey = rawKeyForAdjusted(key);
     const values = applyRosterShape(adjustedMapFor(key), key);
     if (adjustmentCellsFor(rawKey)) {
       return ValueModel.shapeToAnchorPeaksThenSharedTotal({
@@ -1268,7 +1272,9 @@
       SCORINGS.forEach(([key, label]) => {
         const button = document.createElement("button");
         button.type = "button";
-        button.textContent = label;
+        button.textContent = scoringButtonLabel(key);
+        button.title = label;
+        button.setAttribute("aria-label", label);
         button.classList.toggle("active", scoring === key);
         button.setAttribute("aria-pressed", String(scoring === key));
         button.addEventListener("click", () => setScoring(key));
@@ -1661,6 +1667,133 @@
     container.closest(".basis-row")?.remove();
   }
 
+  function adjustmentWeightRows() {
+    return ADJUSTED_INDEXED_KEYS.flatMap(key => {
+      const rawKey = rawKeyForAdjusted(key);
+      const cells = adjustmentCellsFor(rawKey) || [];
+      return cells.map(cell => ({
+        key,
+        rawKey,
+        source: sourceLabel(key),
+        position: String(cell.position || "").toUpperCase(),
+        tier: String(cell.tier || "").toLowerCase(),
+        alpha: Number(cell.alpha),
+        beta: Number(cell.beta),
+        n: Number(cell.n),
+        xMean: Number(cell.x_mean),
+        yMean: Number(cell.y_mean)
+      })).filter(row => POSITION_ORDER.includes(row.position) &&
+        ["starter", "bench"].includes(row.tier) &&
+        Number.isFinite(row.alpha) && Number.isFinite(row.beta));
+    }).sort((a, b) => (
+      ADJUSTED_INDEXED_KEYS.indexOf(a.key) - ADJUSTED_INDEXED_KEYS.indexOf(b.key) ||
+      POSITION_ORDER.indexOf(a.position) - POSITION_ORDER.indexOf(b.position) ||
+      (a.tier === b.tier ? 0 : a.tier === "starter" ? -1 : 1)
+    ));
+  }
+
+  function adjustmentAllocationRows() {
+    const counts = allocationCountsFor([...canonicalByKey.values()], rosterShape);
+    return POSITION_ORDER.map(pos => {
+      const direct = counts.direct[pos] || 0;
+      const lineup = counts.lineup[pos] || 0;
+      const rostered = counts.rostered[pos] || 0;
+      return {
+        pos,
+        direct,
+        flex: Math.max(0, lineup - direct),
+        bench: Math.max(0, rostered - lineup),
+        lineup,
+        rostered
+      };
+    });
+  }
+
+  function appendCell(parent, tag, text, className) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    node.textContent = text;
+    parent.appendChild(node);
+    return node;
+  }
+
+  function renderAdjustmentWeights() {
+    const container = $("#adjustmentWeights");
+    if (!container || !canonicalByKey.size) return;
+    container.replaceChildren();
+
+    const meta = document.createElement("p");
+    meta.className = "adjustment-note";
+    meta.textContent = `${scoreLabel()} · ${teams} teams · current flex and bench assignment from ESPN projections`;
+    container.appendChild(meta);
+
+    const allocWrap = document.createElement("div");
+    allocWrap.className = "adjustment-table-wrap allocation-table-wrap";
+    const allocTable = document.createElement("table");
+    const allocHead = document.createElement("thead");
+    const allocHeadRow = document.createElement("tr");
+    ["Pos", "Dedicated", "Flex", "Bench", "Rostered"].forEach(label => appendCell(allocHeadRow, "th", label));
+    allocHead.appendChild(allocHeadRow);
+    const allocBody = document.createElement("tbody");
+    adjustmentAllocationRows().forEach(row => {
+      const tr = document.createElement("tr");
+      appendCell(tr, "td", row.pos);
+      appendCell(tr, "td", String(row.direct));
+      appendCell(tr, "td", String(row.flex), row.flex > 0 ? "is-flex-hit" : "");
+      appendCell(tr, "td", String(row.bench));
+      appendCell(tr, "td", String(row.rostered));
+      allocBody.appendChild(tr);
+    });
+    allocTable.append(allocHead, allocBody);
+    allocWrap.appendChild(allocTable);
+    container.appendChild(allocWrap);
+
+    const rows = adjustmentWeightRows();
+    const byKey = new Map(ADJUSTED_INDEXED_KEYS.map(key => [key, rows.filter(row => row.key === key)]));
+    const cards = document.createElement("div");
+    cards.className = "adjustment-card-grid";
+    ADJUSTED_INDEXED_KEYS.forEach(key => {
+      const card = document.createElement("section");
+      card.className = "adjustment-card";
+      const title = document.createElement("h3");
+      title.textContent = sourceLabel(key);
+      card.appendChild(title);
+      const sourceRows = byKey.get(key) || [];
+      if (!sourceRows.length) {
+        const empty = document.createElement("p");
+        empty.className = "adjustment-empty";
+        empty.textContent = isAdjustedCurvePaused(key)
+          ? "Paused until live adjustment cells are present."
+          : "No live adjustment cells in the current artifact.";
+        card.appendChild(empty);
+      } else {
+        const tableWrap = document.createElement("div");
+        tableWrap.className = "adjustment-table-wrap";
+        const table = document.createElement("table");
+        const thead = document.createElement("thead");
+        const headRow = document.createElement("tr");
+        ["Pos", "Tier", "Intercept", "Multiplier", "Pairs", "Mean shift"].forEach(label => appendCell(headRow, "th", label));
+        thead.appendChild(headRow);
+        const tbody = document.createElement("tbody");
+        sourceRows.forEach(row => {
+          const tr = document.createElement("tr");
+          appendCell(tr, "td", row.position);
+          appendCell(tr, "td", row.tier);
+          appendCell(tr, "td", formatTwo(row.alpha));
+          appendCell(tr, "td", formatTwo(row.beta));
+          appendCell(tr, "td", Number.isFinite(row.n) ? String(row.n) : "—");
+          appendCell(tr, "td", `${formatOne(row.xMean)} → ${formatOne(row.yMean)}`);
+          tbody.appendChild(tr);
+        });
+        table.append(thead, tbody);
+        tableWrap.appendChild(table);
+        card.appendChild(tableWrap);
+      }
+      cards.appendChild(card);
+    });
+    container.appendChild(cards);
+  }
+
   function makeSourceToggles() {
     const container = $("#sourceToggles");
     if (!container) return;
@@ -1704,6 +1837,8 @@
         crossRank = null;
         syncZoom();
         makeSourceToggles();
+        makeLockControl();
+        renderAdjustmentWeights();
         draw();
         syncCurveStatus();
       });
@@ -1712,6 +1847,7 @@
       swatch.style.borderTopColor = SOURCE_STYLES[key].color;
       swatch.style.borderTopStyle = key.endsWith("_adjusted") ? "dashed" : "solid";
       const text = document.createElement("span");
+      text.className = "src-text";
       text.textContent = sourceLabel(key);
       if (paused) {
         const meta = document.createElement("span");
@@ -1740,7 +1876,7 @@
     ];
     select.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
     select.value = lockOrder;
-    select.addEventListener("change", event => setLockOrder(event.target.value));
+    select.onchange = event => setLockOrder(event.target.value);
     syncLockNote();
   }
 
@@ -1750,7 +1886,7 @@
     const note = $("#curveLockNote");
     if (!note) return;
     note.textContent = [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
-      ? `Every curve uses ${sourceLabel(lockOrder)}’s player order, so each x-position is the same player across all visible lines.`
+      ? `Every curve uses the ${sourceLabel(lockOrder)} player order, so each x-position is the same player across all visible lines.`
       : lockOrder === "disagreement"
         ? `Every curve shares one player axis; cutoff lines use ${sourceLabel(selectedRankSourceKey())} as the roster-rank reference.`
         : position === "ALL"
@@ -1832,6 +1968,7 @@
     rebuildDomain();
     makeRosterControls();
     makeLockControl();
+    renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
     draw();
@@ -1846,6 +1983,7 @@
     rebuildDomain();
     syncTabs();
     makeLockControl();
+    renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
     draw();
@@ -1865,6 +2003,7 @@
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
+    renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
     draw();
@@ -1884,6 +2023,7 @@
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
+    renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
     draw();
@@ -1898,6 +2038,7 @@
     crossRank = null;
     rebuildDomain();
     syncLockNote();
+    renderAdjustmentWeights();
     resetZoom();
     draw();
     if (publish) window.dispatchEvent(new CustomEvent("trade-value-lock-order-change", {detail: {lockOrder:value}}));
@@ -1914,6 +2055,19 @@
     redraw: () => draw(),
     getState: () => ({position, scoring, teams, model: "monday", valueMode:"indexed", lockOrder, benchShare, absenceRate:benchShare, activeSources:activeSourceKeys()}),
     getLockedDomain: () => displayRows().map((row, index) => ({rank:index + 1, player_key:row.player_key, name:row.name})),
+    getPlayerValues: query => {
+      const needle = String(query || "").trim().toLowerCase();
+      if (!needle) return [];
+      return universe.filter(row => row.name.toLowerCase().includes(needle)).slice(0, 8).map(row => ({
+        player_key: row.player_key,
+        name: row.name,
+        team: row.team,
+        pos: row.pos,
+        espnRole: row.espnRole,
+        values: Object.fromEntries(visibleSourceKeys().map(key => [key, row.values[key] ?? null]))
+      }));
+    },
+    getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
     getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value]))
   };
 
@@ -2549,7 +2703,7 @@
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "sourceScaleAgreement"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
@@ -2577,6 +2731,7 @@
       makeValueBandControl();
       makeSourceToggles();
       makeLockControl();
+      renderAdjustmentWeights();
       bindZoom();
       resetZoom();
       runRegressionGuards();

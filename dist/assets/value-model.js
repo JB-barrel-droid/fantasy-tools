@@ -272,18 +272,25 @@
   // Roster allocation. `rankOf` returns a sortable projection for a player --
   // higher is better, in that position's own units.
   //
-  // Cross-position comparisons (the flex slot, the bench) may NOT use those
-  // units directly. Ranking the pool by raw per-game points lets quarterbacks
-  // monopolise the bench because they simply score more, which pushes the QB
-  // waiver line far down the board and inflates every QB's value above it --
-  // Josh Allen ends up the most valuable asset in a 1QB league. A preseason
-  // positional rank was the old workaround, and it was worse: four players
-  // share rank 1, so the QB1 sorted ahead of the RB1 at x=1.
+  // Cross-position bench comparisons may NOT use those units directly.
+  // Ranking the pool by raw per-game points lets quarterbacks monopolise the
+  // bench because they simply score more, which pushes the QB waiver line far
+  // down the board and inflates every QB's value above it -- Josh Allen ends
+  // up the most valuable asset in a 1QB league. A preseason positional rank
+  // was the old workaround, and it was worse: four players share rank 1, so
+  // the QB1 sorted ahead of the RB1 at x=1.
   //
-  // Instead, compare on surplus over each position's OWN dedicated-starter
-  // baseline. That baseline is fixed by the league's slot counts, so it is
-  // not circular, and it makes a point of RB surplus mean the same as a point
-  // of QB surplus.
+  // Instead, bench players compare on surplus over each position's OWN
+  // dedicated-starter baseline. That baseline is fixed by the league's slot
+  // counts, so it is not circular, and it makes a point of RB surplus mean the
+  // same as a point of QB surplus.
+  //
+  // Ordinary flex slots are different: after dedicated RB/WR/TE starters are
+  // filled, that slot really does compare the best remaining eligible players
+  // by projected points. Using surplus there under-counted deep RB rooms and
+  // let lower-projection WRs win flex starter treatment just because WR had a
+  // flatter dedicated-starter baseline. Superflex still uses surplus because
+  // QB raw points are on a different scale.
   // Assign starter / bench / waiver from PROJECTIONS, using the same
   // surplus-over-baseline comparison as allocationCounts. Returns a Map of
   // player_key -> role. The ESPN leg needs the roles (to find each position's
@@ -317,16 +324,18 @@
     POSITION_ORDER.forEach(function (pos) {
       byPos[pos].slice(0, direct[pos]).forEach(function (p) { roles.set(p.player_key, "starter"); });
     });
-    var remaining = function (positions) {
+    var remaining = function (positions, scoreOf) {
       var out = [];
       positions.forEach(function (pos) {
         byPos[pos].forEach(function (p) { if (!roles.has(p.player_key)) out.push(p); });
       });
-      return out.sort(function (a, b) { return surplus(b) - surplus(a) || stableTiebreak(a, b); });
+      return out.sort(function (a, b) { return scoreOf(b) - scoreOf(a) || stableTiebreak(a, b); });
     };
-    remaining(flexEligible(shape)).slice(0, teams * (Number(shape.FLEX) || 0))
+    var flexPositions = flexEligible(shape);
+    var flexScore = flexPositions.indexOf("QB") === -1 ? rankOf : surplus;
+    remaining(flexPositions, flexScore).slice(0, teams * (Number(shape.FLEX) || 0))
       .forEach(function (p) { roles.set(p.player_key, "starter"); });
-    remaining(POSITION_ORDER).slice(0, teams * (Number(shape.BENCH) || 0))
+    remaining(POSITION_ORDER, surplus).slice(0, teams * (Number(shape.BENCH) || 0))
       .forEach(function (p) { roles.set(p.player_key, "bench"); });
     return { roles: roles, direct: direct, baseline: baseline };
   }

@@ -276,6 +276,47 @@ class TestTwoTierPort(unittest.TestCase):
         self.assertGreater(sflex["QB"], base["QB"],
                            f"superflex did not deepen QB: {base} -> {sflex}")
 
+    def test_projection_roles_use_raw_points_for_ordinary_flex(self):
+        """A high-projection remaining RB must beat a lower-projection WR for flex.
+
+        The surplus-over-dedicated-baseline bench rule is right for the bench,
+        but it under-counts RBs in ordinary flex slots when RB is deep. This
+        fixture makes the old rule choose WR3 (smaller baseline gap) even
+        though RB3 projects much better.
+        """
+        pool = [
+            {"player_key": 1, "name": "RB1", "pos": "RB", "x": 30.0},
+            {"player_key": 2, "name": "RB2", "pos": "RB", "x": 29.0},
+            {"player_key": 3, "name": "RB3", "pos": "RB", "x": 28.2},
+            {"player_key": 4, "name": "WR1", "pos": "WR", "x": 18.0},
+            {"player_key": 5, "name": "WR2", "pos": "WR", "x": 17.0},
+            {"player_key": 6, "name": "WR3", "pos": "WR", "x": 16.5},
+        ]
+        got = run_harness("projectionroles", {
+            "pool": pool,
+            "teams": 1,
+            "shape": {"QB": 0, "RB": 2, "WR": 2, "TE": 0, "FLEX": 1, "BENCH": 0},
+        })
+        self.assertEqual(got["roles"]["3"], "starter", got)
+        self.assertEqual(got["roles"]["6"], "waiver", got)
+        self.assertEqual(got["counts"]["lineup"]["RB"], 3, got)
+
+    def test_projection_roles_keep_superflex_on_surplus(self):
+        """Superflex keeps QB on the surplus scale so raw QB points do not dominate."""
+        pool = [
+            {"player_key": 1, "name": "QB1", "pos": "QB", "x": 25.0},
+            {"player_key": 2, "name": "QB2", "pos": "QB", "x": 24.0},
+            {"player_key": 3, "name": "RB1", "pos": "RB", "x": 18.0},
+            {"player_key": 4, "name": "RB2", "pos": "RB", "x": 17.5},
+        ]
+        got = run_harness("projectionroles", {
+            "pool": pool,
+            "teams": 1,
+            "shape": {"QB": 1, "RB": 1, "WR": 0, "TE": 0, "FLEX": 1, "BENCH": 0, "SUPERFLEX": True},
+        })
+        self.assertEqual(got["roles"]["4"], "starter", got)
+        self.assertEqual(got["roles"]["2"], "waiver", got)
+
     def test_tail_floor_scans_from_the_bottom(self):
         """A top-down scan returns the UPPER plateau; this must not."""
         # steep head, long flat tail: the floor belongs at the end of the decline
