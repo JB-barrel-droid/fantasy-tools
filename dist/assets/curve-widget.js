@@ -24,7 +24,8 @@
     "espn",
     "fantasycalc_adjusted",
     "usatoday_adjusted",
-    "fantasypros_adjusted"
+    "fantasypros_adjusted",
+    "cbs_adjusted"
   ];
   const SOURCE_STYLES = {
     usatoday: {color: "#d5531d", dash: []},
@@ -45,12 +46,10 @@
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
   const PURE_VORP_KEYS = ["espn_vorp"];
-  const EXTRA_SOURCE_KEYS = ["cbs_adjusted"];
+  const EXTRA_SOURCE_KEYS = [];
   // Fixture-transition Option B (staged 2026-09-22): the *_adjusted curves
-  // are paused while their sources lack live adjustment cells, so the
-  // default active set is the live ESPN adjusted leg only. When stage-2
-  // cells pass model-quality review and the source status becomes "live", its
-  // curve returns to the default active set automatically.
+  // return to the default active set only when their sources carry live
+  // adjustment cells for the selected league setup.
   const ADJUSTED_INDEXED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
@@ -520,7 +519,7 @@
   // `peaks` maps an active source key to that curve's maximum indexed value.
   // True means every active curve still has a plausible scale. An empty set
   // is vacuously true: a source with no data at all is a separate failure
-  // (validValues / eightSources), not a collapse.
+  // (validValues / sourceMapCoverage), not a collapse.
   function peaksAboveCollapseFloor(peaks, floor = CURVE_COLLAPSE_FLOOR) {
     const values = Object.values(peaks || {});
     if (!values.length) return true;
@@ -598,7 +597,7 @@
   let yLow = 0;
   let yHigh = 100;
   let includeSpecialists = false;
-  let lockOrder = "espn"; // Fixture-transition Option B: fantasycalc_adjusted is paused; espn is the live default lock.
+  let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   let hideZeroTail = false;
   let zoomLow = 1;
@@ -664,6 +663,7 @@
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
   const isLockKey = key => ["disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
+  const sourceValidationStatus = key => key === "cbs_adjusted" ? data.source_validation?.cbs : data.source_validation?.[key];
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
@@ -1149,6 +1149,19 @@
     return adjustmentCellsFor(rawKey) ? benchShare : fallbackShare;
   }
 
+  function normalizedAdjustedMapFor(key, anchorMap, displayShare) {
+    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const values = applyRosterShape(adjustedMapFor(key), key);
+    if (adjustmentCellsFor(rawKey)) {
+      return ValueModel.shapeToAnchorPeaksThenSharedTotal({
+        values,
+        anchor: anchorMap,
+        playerOf: playerKey => canonicalByKey.get(playerKey)
+      });
+    }
+    return normalizeTradeChartToFixedPie(values, adjustedShareFor(key, displayShare), anchorMap);
+  }
+
   function rebuildDomain() {
     espnRowsCache = null;
     espnFixtureLegCache = null;
@@ -1162,11 +1175,10 @@
     lastDisplayShare = displayShare;
     SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
       const sourceMap = key.endsWith("_adjusted")
-        ? normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor(key), key), adjustedShareFor(key, displayShare), anchorMap)
+        ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
         : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap);
       sourceMaps.set(key, sourceMap);
     });
-    sourceMaps.set("cbs_adjusted", normalizeTradeChartToFixedPie(applyRosterShape(adjustedMapFor("cbs_adjusted"), "cbs_adjusted"), adjustedShareFor("cbs_adjusted", displayShare), anchorMap));
     // Level-matched to the anchor over the players they share; its SHAPE is
     // deliberately its own. Scaling it to the positional-target sum instead
     // put it 15.7 above the anchor on the shared set and failed the pie guard.
@@ -1683,6 +1695,7 @@
         syncZoom();
         makeSourceToggles();
         draw();
+        syncCurveStatus();
       });
       const swatch = document.createElement("span");
       swatch.className = "source-line";
@@ -1733,6 +1746,28 @@
         : position === "ALL"
           ? `Every curve shares one player axis; cutoff lines use ${sourceLabel(selectedRankSourceKey())} as the roster-rank reference.`
           : `Every curve shares one player axis; cutoff lines use ${sourceLabel(selectedRankSourceKey())} as the roster-rank reference.`;
+  }
+
+  function syncCurveStatus() {
+    const status = $("#curve-status");
+    if (!status) return;
+    status.classList.add("validated");
+    const pausedKeys = ADJUSTED_INDEXED_KEYS.filter(isAdjustedCurvePaused);
+    const defaultKeys = new Set(defaultIndexedSourceKeys(adjustmentInputs));
+    const defaultAvailableAdjustedKeys = ADJUSTED_INDEXED_KEYS.filter(key => (
+      defaultKeys.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key)
+    ));
+    let adjustedStatus;
+    if (pausedKeys.length) {
+      adjustedStatus = `ESPN adjusted is shown by default. ${pausedKeys.length} adjusted source projects are paused while they wait on fresh adjustment inputs.`;
+    } else if (defaultAvailableAdjustedKeys.length) {
+      const liveCount = defaultAvailableAdjustedKeys.length === ADJUSTED_INDEXED_KEYS.length ? "four" : String(defaultAvailableAdjustedKeys.length);
+      const projectNoun = defaultAvailableAdjustedKeys.length === 1 ? "project is" : "projects are";
+      adjustedStatus = `ESPN live plus ${liveCount} adjusted source ${projectNoun} shown by default.`;
+    } else {
+      adjustedStatus = "ESPN live is shown by default. Adjusted source projects are live for supported league setups, but this setup has no matching source combo.";
+    }
+    status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`;
   }
 
   function publishShared() {
@@ -1788,7 +1823,9 @@
     makeRosterControls();
     makeLockControl();
     resetZoom();
+    runRegressionGuards();
     draw();
+    syncCurveStatus();
     if (publish) publishShared();
   }
 
@@ -1800,7 +1837,9 @@
     syncTabs();
     makeLockControl();
     resetZoom();
+    runRegressionGuards();
     draw();
+    syncCurveStatus();
     if (publish) publishShared();
   }
 
@@ -1817,7 +1856,9 @@
     makeSourceToggles();
     makeLockControl();
     resetZoom();
+    runRegressionGuards();
     draw();
+    syncCurveStatus();
     if (publish) publishShared();
   }
 
@@ -1834,7 +1875,9 @@
     makeSourceToggles();
     makeLockControl();
     resetZoom();
+    runRegressionGuards();
     draw();
+    syncCurveStatus();
     if (publish) publishShared();
   }
 
@@ -2039,7 +2082,7 @@
     const tolerance = 2;
     const anchor = sourceMaps.get("espn");
     const checks = [];
-    visibleSourceKeys().forEach(key => {
+    visibleSourceKeys().filter(sourceAvailable).forEach(key => {
       const values = sourceMaps.get(key);
       if (!values) return;
       if (key === "espn") {
@@ -2091,11 +2134,8 @@
   // evidence about the anchor's shape.
   const DIRECT_CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   // The adjusted series are deliberately re-weighted, so they get a wider
-  // band and a warning rather than a failure -- but "re-weighted" is not a
-  // licence to leave the scale, and the hero copy promises one trade-value
-  // scale. As of 2026-09-22 their QB peaks run 26.6-34.1 against the ESPN
-  // leg's 17.2 (1.5x-2.0x), which is a known open flaw in the stage-2
-  // adjustment cells, not in this file.
+  // band and a warning rather than a failure. They still need to stay on one
+  // readable trade-value scale with the ESPN anchor.
   const ADJUSTED_CHART_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted",
                                "fantasypros_adjusted", "cbs_adjusted"];
   const ADJUSTED_AGREEMENT_LOW = 0.6;
@@ -2429,7 +2469,7 @@
 
   function runRegressionGuards() {
     const rows = displayRows();
-    const eightSources = SOURCE_KEYS.length === 8 && SOURCE_KEYS.every(key => sourceMaps.has(key));
+    const sourceMapCoverage = SOURCE_KEYS.length === 9 && SOURCE_KEYS.every(key => sourceMaps.has(key));
     const expectedToggleCount = SOURCE_GROUPS.reduce((sum, group) => sum + group.keys.length, 0);
     const sourceToggles = $("#sourceToggles")?.querySelectorAll("input[type=checkbox]").length === expectedToggleCount;
     const noAggregate = !Object.prototype.hasOwnProperty.call(window, "TradeValueCurveMedian");
@@ -2499,9 +2539,9 @@
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {eightSources, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "")) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
-    const failed = Object.entries(diagnostics).filter(([key, value]) => ["eightSources", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "sourceScaleAgreement"].includes(key) && value !== true);
+    const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "sourceScaleAgreement"].includes(key) && value !== true);
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
     guardsPassed = true;
   }
@@ -2516,7 +2556,7 @@
       activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs));
       canonicalByKey = buildCanonicalMap();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
-      const invalid = SOURCE_KEYS.filter(key => data.source_validation?.[key] !== "live");
+      const invalid = SOURCE_KEYS.filter(key => sourceValidationStatus(key) !== "live");
       if (invalid.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (isLockKey(window.TradeValueLockOrder)) lockOrder = window.TradeValueLockOrder;
       rebuildDomain();
@@ -2531,11 +2571,7 @@
       resetZoom();
       runRegressionGuards();
       draw();
-      $("#curve-status").classList.add("validated");
-      const pausedKeys = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(isAdjustedCurvePaused);
-      $("#curve-status").innerHTML = pausedKeys.length
-        ? `<strong>Validated:</strong> ESPN adjusted is shown by default. ${pausedKeys.length} adjusted source projects are paused while they wait on fresh adjustment inputs. Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`
-        : "<strong>Validated:</strong> ESPN live plus four adjusted source projects are shown by default. Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.";
+      syncCurveStatus();
       publishShared();
       window.TradeValueTwoTierLive = {
         configKey: twoTierConfigKey,

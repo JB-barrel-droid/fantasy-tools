@@ -1,6 +1,6 @@
 # Risk Register
 
-Last updated: 2026-09-22.
+Last updated: 2026-09-26.
 
 ## Active Risks
 
@@ -22,7 +22,7 @@ Last updated: 2026-09-22.
 | Pure VORP can be confused with indexed trade value if plotted on the same basis. | Medium | Controlled | Keep Pure VORP behind a separate value-basis mode and label it as ESPN PPG above waiver, not fixed-pie trade value. |
 | Public copy currently says `FantasyPros` where product rule says `ECR`. | Low | Known defect | Track for later; do not fix during discovery/local equivalence unless explicitly scoped. |
 
-| Adjusted source projects sit above the ESPN leg's scale at QB. | High | Open | Measured 2026-09-22 on `full_12`: QB peaks 26.6-34.1 against the leg's 17.2 (1.5x-2.0x); RB 85.0-92.5 against 81.8. These four curves are ON by default and the hero copy promises one trade-value scale. Surfaced on the page as the `adjusted-scale-agreement` chart-health warning. The distortion is in the stage-2 adjustment cells (per-position `alpha + beta * value` refit, then one global renormalisation), not in the frontend. |
+| Adjusted source projects sat above the ESPN leg's scale at QB. | High | Fixed 2026-09-26 | Measured 2026-09-22 on `full_12`: QB peaks 26.6-34.1 against the leg's 17.2 (1.5x-2.0x); RB 85.0-92.5 against 81.8. Fixed by shaping live adjusted curves to the ESPN positional peaks before shared-total scaling. The 2026-09-26 browser matrix reported `adjustedOk=true` for all 3 scoring x 4 team configs; 12-team configs show all four adjusted curves live by default, while non-12 configs keep unavailable adjusted combos disabled. |
 | CBS publishes only 124 players and 16 QBs; Bo Nix is not among them. | Medium | Open | The fixture matches the promoted CBS reference exactly, so nothing is being dropped downstream. Whether CBS published him is unverified: `data/raw/sources/` does not exist on the workstation and the recorded CBS chart URL now 404s. Needs a current CBS chart URL or Supabase read access to settle. Do not impute a value. |
 | Importer/health assumed one vintage per table; multi-week tables broke both. | High | Fixed 2026-09-25 | `import_supabase_references.py` and `verify_import_health.py` read ALL historical rows per source, so once USA Today held weeks 2+3 the import failed closed and the health gate would TABLE_DRIFT on retained older weeks. Fixed: `_select_latest_week()` / `_select_latest_snapshot_date()` scope reads to the latest complete vintage (never blended); manifest records scoping + `week_designated`; health scopes its re-query to the manifest vintage. `derive_db_vintage()` / `table_vintage()` deliberately NOT weakened (direct unit tests prove they still fail closed on multi-week rows). |
 

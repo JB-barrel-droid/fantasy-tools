@@ -39,19 +39,16 @@ class TestPausePredicate(unittest.TestCase):
         got = run_pause([{"key": k, "inputs": EMPTY_INPUTS} for k in PAUSED_KEYS])
         self.assertEqual(got, [True] * 4)
 
-    def test_stage2_asset_cells_stay_paused_until_model_quality_is_live(self):
-        # Cells can be baked and reviewable while still failing the dashboard
-        # scale-quality gate. A source must say status="live" before the
-        # widget renders its *_adjusted curve.
+    def test_stage2_asset_cells_are_live_after_model_quality_gate(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
-        self.assertEqual(asset["status"], "pending-model-quality")
+        self.assertEqual(asset["status"], "live")
         for key in PAUSED_KEYS:
             raw = key[:-len("_adjusted")] if key != "cbs_adjusted" else "cbs"
             self.assertTrue(asset["sources"][raw]["cells"],
                             f"{key} has no live cells")
-            self.assertEqual(asset["sources"][raw]["status"], "pending-model-quality")
+            self.assertEqual(asset["sources"][raw]["status"], "live")
         got = run_pause([{"key": k, "inputs": asset} for k in PAUSED_KEYS])
-        self.assertEqual(got, [True] * 4)
+        self.assertEqual(got, [False] * 4)
 
     def test_espn_never_paused(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
@@ -121,11 +118,11 @@ class TestDefaultActiveSet(unittest.TestCase):
     while the curves render enabled-yet-unchecked.
     """
 
-    def test_pending_asset_defaults_to_espn_only(self):
+    def test_live_asset_defaults_to_espn_plus_adjusted_sources(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
-        self.assertEqual(asset["status"], "pending-model-quality")
+        self.assertEqual(asset["status"], "live")
         got = run_defaultset([{"inputs": asset}])
-        self.assertEqual(got, [["espn"]])
+        self.assertEqual(got, [["espn", *PAUSED_KEYS]])
 
     def test_empty_inputs_default_to_espn_only(self):
         got = run_defaultset([{"inputs": EMPTY_INPUTS}])

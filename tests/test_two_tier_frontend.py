@@ -413,7 +413,7 @@ class TestCurveCollapseGuard(unittest.TestCase):
 
     def test_empty_peak_set_is_vacuously_true(self):
         # No active source with data is a different failure (validValues /
-        # eightSources); the collapse guard must not double-report it.
+        # sourceMapCoverage); the collapse guard must not double-report it.
         self.assertEqual([True], self.peaks([{"peaks": {}}])["results"])
 
     def test_live_fixture_curves_clear_the_floor(self):
@@ -882,6 +882,38 @@ class RawSeriesLevelMatchTest(unittest.TestCase):
             self.assertIsNotNone(body)
             self.assertIn("scaleToSharedTotal", body,
                           "%s: the raw series must be level-matched to the anchor" % name)
+
+
+class AdjustedShapeGuardTest(unittest.TestCase):
+    def test_shape_to_anchor_peaks_preserves_shared_total(self):
+        positions, anchor, values = {}, {}, {}
+        pos_rows = {
+            "QB": (10.0, 40.0),
+            "RB": (100.0, 50.0),
+            "WR": (60.0, 20.0),
+            "TE": (30.0, 10.0),
+        }
+        idx = 1
+        for pos, (anchor_peak, value_peak) in pos_rows.items():
+            for offset in range(10):
+                key = str(idx)
+                positions[key] = pos
+                anchor[key] = anchor_peak - offset
+                values[key] = value_peak - offset
+                idx += 1
+        out = run_harness("shapetoshared", {
+            "positions": positions, "anchor": anchor, "values": values})
+
+        self.assertAlmostEqual(sum(anchor.values()),
+                               sum(float(out[k]) for k in anchor),
+                               places=6)
+        ratios = {}
+        for pos in pos_rows:
+            keys = [k for k, p in positions.items() if p == pos]
+            key = max(keys, key=lambda k: out[k])
+            ratios[pos] = float(out[key]) / max(anchor[k] for k in keys)
+        self.assertLess(max(ratios.values()) - min(ratios.values()), 0.001,
+                        "position peaks should move together after shaping")
 
 
 class AnchorDisplayShareTest(unittest.TestCase):

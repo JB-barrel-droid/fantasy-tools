@@ -44,10 +44,11 @@ Fail-closed rules:
   - Unresolvable source ids become review rows, never guesses.
   - Missing values stay absent; no zero-filling.
 
-Writing cells into the live asset is no longer enough to un-pause that
-source's *_adjusted curve. The pause predicate requires both non-empty cells
-and status "live"; this bake currently leaves cell outputs pending model
-quality review until the dashboard scale guard is satisfied.
+Writing cells into the live asset is enough to un-pause that source's
+*_adjusted curve only when the source status is "live". The dashboard applies
+an additional position-shape alignment before the shared-total scale so the
+adjusted curves cannot repeat the old QB peak inflation while still preserving
+the fixed-pie invariant.
 """
 
 from __future__ import annotations
@@ -86,11 +87,9 @@ POSITION_ORDER = ["QB", "RB", "WR", "TE"]
 # (pos, tier) simply gets no cell; the widget falls back to the source's
 # raw published value for those players.
 MIN_FIT_PAIRS = 5
-# Cells are reviewable model output, not automatically publishable chart data.
-# The 2026-09-25 dashboard guard showed these fits still inflate adjusted QB
-# peaks after fixed-pie normalization, so generated sources stay pending until
-# a downstream scale-quality gate explicitly promotes them to "live".
-CELL_STATUS_WITH_OUTPUT = "pending-model-quality"
+# Cells are publishable chart data once the render path applies the positional
+# shape guard in ValueModel.shapeToAnchorPeaksThenSharedTotal().
+CELL_STATUS_WITH_OUTPUT = "live"
 # Reference roster shape (widget DEFAULT_ROSTER) for role assignment.
 ROLE_TEAMS = 12
 ROLE_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}

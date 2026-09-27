@@ -32,6 +32,20 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-26 - Adjusted source curves unpaused and shape-guarded
+
+### Verified
+
+- Promoted `adjustment-inputs.json` and the versioned adjustment-input artifact from `pending-model-quality` to `live`; all four adjusted source toggles are enabled and checked in the default 12-team setups. Method: local Playwright browser matrix against the app asset.
+- Replaced live adjusted global starter/bench normalization with `ValueModel.shapeToAnchorPeaksThenSharedTotal`, which aligns each position's peak to the ESPN adjusted anchor before shared-total scaling. The pre-fix forced-live run showed QB offenders at roughly 1.95x-2.09x; after the fix the browser matrix reported `adjustedOk=true` and no adjusted-scale offenders.
+- For all 3 scoring x 4 team configs, browser diagnostics reported `sourceMapCoverage=true`, `fixedPieIndexed=true`, `sourceScaleAgreement=true`, and `adjustedOk=true`. Non-12 team configs keep adjusted toggles unavailable when matching source combos are absent; 12-team configs show all four adjusted curves by default.
+- `make validate` passed locally: 368 tests OK, 6 skipped.
+
+### Open
+
+- `Health: 1 warn` remains from the known ESPN starter-markup ratio warning for the fallback leg; it is non-blocking and the rendered ESPN line uses the built leg.
+- Changes are local worktree changes only; per `CLAUDE.md`, do not push or publish without explicit approval.
+
 ## 2026-09-25 — Week 3 source refresh: USA Today ingested; multi-week scoping fixed; CBS Week 3 not published
 
 Task: Jeremy's Week 3 source-data refresh (commit+push pre-authorized).

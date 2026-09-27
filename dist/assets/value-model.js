@@ -150,6 +150,47 @@
     return out;
   }
 
+  // Live adjusted cells are fitted per position/tier. A single global
+  // starter/bench normalisation can keep the total pie correct while pushing
+  // one position's curve badly out of shape. First align each position's peak
+  // to the anchor on the shared players, then preserve the shared total.
+  function shapeToAnchorPeaksThenSharedTotal(opts) {
+    var values = opts.values;
+    var anchor = opts.anchor;
+    var playerOf = opts.playerOf;
+    var basis = sharedPieBasis(opts);
+    if (!basis) return new Map(values);
+
+    var anchorPeaks = {}, valuePeaks = {};
+    POSITION_ORDER.forEach(function (pos) {
+      anchorPeaks[pos] = 0;
+      valuePeaks[pos] = 0;
+    });
+    basis.keys.forEach(function (playerKey) {
+      var player = playerOf(playerKey);
+      if (!player || POSITION_ORDER.indexOf(player.pos) === -1) return;
+      var a = Number(anchor.get(playerKey));
+      var v = Number(values.get(playerKey));
+      if (isFinite(a) && a > anchorPeaks[player.pos]) anchorPeaks[player.pos] = a;
+      if (isFinite(v) && v > valuePeaks[player.pos]) valuePeaks[player.pos] = v;
+    });
+
+    var shaped = new Map();
+    values.forEach(function (value, playerKey) {
+      var player = playerOf(playerKey);
+      var safe = isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+      var scale = player && valuePeaks[player.pos] > 0 && anchorPeaks[player.pos] > 0
+        ? anchorPeaks[player.pos] / valuePeaks[player.pos]
+        : 1;
+      shaped.set(playerKey, safe * scale);
+    });
+    return scaleToSharedTotal({
+      values: shaped,
+      anchor: anchor,
+      playerOf: playerOf
+    });
+  }
+
   // Starters marked up, bench marked down, to the shared-set target.
   function normalizeToFixedPie(opts) {
     var values = opts.values;
@@ -366,6 +407,7 @@
     sharedPieBasis: sharedPieBasis,
     benchShareOf: benchShareOf,
     scaleToSharedTotal: scaleToSharedTotal,
+    shapeToAnchorPeaksThenSharedTotal: shapeToAnchorPeaksThenSharedTotal,
     PEAK_AGREEMENT_LOW: PEAK_AGREEMENT_LOW,
     PEAK_AGREEMENT_HIGH: PEAK_AGREEMENT_HIGH,
     peakAgreement: peakAgreement,

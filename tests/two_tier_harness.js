@@ -213,6 +213,18 @@ switch (cmd) {
     out = Object.fromEntries(scaled);
     break;
   }
+  case "shapetoshared": {
+    const V = globalThis.ValueModel;
+    const positions = input.positions || {};
+    const toMap = o => new Map(Object.entries(o).map(([k, v]) => [Number(k), v]));
+    const shaped = V.shapeToAnchorPeaksThenSharedTotal({
+      values: toMap(input.values),
+      anchor: toMap(input.anchor),
+      playerOf: key => ({player_key: key, pos: positions[key] || "RB", name: String(key)})
+    });
+    out = Object.fromEntries(shaped);
+    break;
+  }
   case "benchshare": {
     const V = globalThis.ValueModel;
     const positions = input.positions || {};
