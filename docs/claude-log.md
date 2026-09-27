@@ -32,6 +32,26 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-27 - Removed stray three-line model files
+
+### Verified
+
+- Removed old stray tracked code files `pipelines/three_line_value_model.py` and
+  `tests/test_three_line_value_model.py` after the user asked to integrate or
+  remove unrelated untracked/stray code.
+- Removed the untracked `Claude outputs/` bundle/patch directory from the local
+  worktree; it was not committed.
+- `make validate` passed after the cleanup: 379 tests OK, 6 skipped. The
+  freshness gate reported `enforced_expired_count: 0`.
+
+### Claimed, unverified
+
+- None.
+
+### Open
+
+- None for this cleanup.
+
 ## 2026-09-27 - Dynamic player scenario regression matrix
 
 ### Verified
