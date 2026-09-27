@@ -611,9 +611,19 @@
     return Number.isFinite(number) ? Math.max(0, number) : null;
   };
   const scoreLabel = () => SCORINGS.find(([key]) => key === scoring)?.[1] || scoring;
+  function parseDesignatedWeek(value) {
+    const match = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
+    return match ? Number(match[1] || match[2]) : null;
+  }
+
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
-    const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
+    const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    const liveAdjusted = key.endsWith("_adjusted") && adjustmentCellsFor(rawKey);
+    const source = liveAdjusted ? (data?.sources?.[rawKey] || {}) :
+      (data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {});
+    const designated = parseDesignatedWeek(source.week_designated);
+    if (designated) return designated;
     const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
     if (fitWeek) return Number(fitWeek[1]);
     return Number(data?.value_weeks?.monday) || null;

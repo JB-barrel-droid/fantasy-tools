@@ -32,6 +32,14 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-26 - Live adjusted labels corrected to Week 3
+
+### Verified
+
+- After the first push, the live GitHub Pages dashboard showed the adjusted curves enabled, but FC/USAT/FP adjusted still displayed `Wk 2 stale - waiting Wk 3` because their labels read stale baked `fit_bake_id` metadata.
+- Updated the curve widget so live adjusted curves take their week label from the underlying live source metadata when adjustment cells are active. Local Playwright check against the static dashboard showed `FC Adjusted Wk 3`, `USAT Adjusted Wk 3`, `FP Adjusted Wk 3`, and `CBS Adjusted Wk 3`, all checked and enabled, with `adjustedOk=true` and no offenders.
+- `make validate` passed locally after the label fix: 368 tests OK, 6 skipped.
+
 ## 2026-09-26 - Adjusted source curves unpaused and shape-guarded
 
 ### Verified
