@@ -32,6 +32,41 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-28 - Live deploy attempt blocked by source-refresh access
+
+### Verified
+
+- The latest pushed cleanup commit is not live through the normal Pages
+  workflow. `gh run list --repo JB-barrel-droid/fantasy-tools --workflow
+  "Deploy dashboard" --limit 5` showed failed `main` runs `36463813393`
+  (push) and `36466759302` (scheduled) after commit `16c5e5c`.
+- The blocker remains the enforced source freshness gate, not a code test
+  failure. The current fixture has `comparison.built_at=2026-09-25T22:38:27Z`,
+  which is stale on 2026-09-28 with `MAX_STALE_DAYS=2`.
+- The documented refresh path cannot run in this local task as configured.
+  `make supabase-import SOURCE=fantasycalc` failed with
+  `ModuleNotFoundError: No module named 'sbclient'`; the default helper path
+  `~/workspace/skills/supabase-football-signal/bin` is absent; filesystem
+  search found no local `sbclient.py`; no `SUPABASE_*` environment variables
+  were present.
+- Supabase MCP and Claude Code MCP were not usable as substitutes in this task:
+  their calls required approval while the task approval policy was `never`.
+- Sibling and temp checkouts only contained older or same-vintage generated
+  comparison fixtures. No newer validated snapshot/review artifact was available
+  locally for promotion.
+
+### Claimed, unverified
+
+- None.
+
+### Open
+
+- Added `GAP-008` to `docs/risk-register.md`: restore a working
+  `SUPABASE_FOOTBALL_SIGNAL_BIN`/`sbclient` path or provide validated raw source
+  snapshots, then run the full five-source refresh and `make validate`.
+- Do not force this live by bumping `built_at`, relaxing `MAX_STALE_DAYS`, or
+  bypassing the Pages workflow gate.
+
 ## 2026-09-28 - Open gap cleanup and diagnostics fallback
 
 ### Verified

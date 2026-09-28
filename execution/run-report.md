@@ -3,6 +3,37 @@
 Newest entry first. This is the human audit trail for completed work; keep
 forward-looking priorities in `execution/current-plan.md`.
 
+## 2026-09-28 - Live deploy attempt blocked by source-refresh access
+
+### Scope
+
+- Tried to get the pushed gap-cleanup commit live through the normal GitHub Pages
+  workflow without weakening validation.
+
+### Commands / evidence
+
+- `gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard"
+  --limit 5` showed push run `36463813393` and scheduled run `36466759302`
+  failed on `main`.
+- `make supabase-import SOURCE=fantasycalc` failed before any snapshot write:
+  `ModuleNotFoundError: No module named 'sbclient'`.
+- Filesystem search found no local `sbclient.py` and no
+  `~/workspace/skills/supabase-football-signal/bin` helper directory.
+- No `SUPABASE_*` environment variables were present in this task. Supabase and
+  Claude MCP calls were not usable because the task's approval policy was
+  `never`.
+- Sibling/temp checkouts only had older or same-vintage generated
+  `comparison-sources-data.json` files; no newer validated source snapshot was
+  available to promote.
+
+### Result
+
+- Not live yet. The repo is intentionally still fail-closed: no timestamp bump,
+  freshness-threshold relaxation, or forced deploy was made.
+- Added `GAP-008` to `docs/risk-register.md` and updated
+  `execution/current-plan.md` so the next session starts with the missing
+  Supabase import helper/access problem.
+
 ## 2026-09-28 - Open gap cleanup
 
 ### Scope

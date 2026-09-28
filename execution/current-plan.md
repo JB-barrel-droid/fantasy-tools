@@ -5,12 +5,11 @@ details to `docs/claude-log.md` and durable gaps to `docs/risk-register.md`.
 
 ## Objective
 
-Make repo memory explicit enough that future sessions do not rediscover the
-same gaps, then close the highest-confidence gaps directly in code/docs.
+Get the gap-cleanup changes live without weakening the source freshness gate.
 
 ## Active Workstream
 
-Gap cleanup and record keeping.
+Live deploy unblock.
 
 ## Current Tasks
 
@@ -25,12 +24,20 @@ Gap cleanup and record keeping.
 - [x] Close the remaining open gap-register rows:
   adjustment-cell completeness, same-vintage review methodology, CBS
   no-imputation coverage, and non-browser diagnostics fallback.
+- [ ] Restore the missing Supabase import helper (`SUPABASE_FOOTBALL_SIGNAL_BIN`
+  / `sbclient`) or supply validated raw source snapshots.
+- [ ] Refresh all five comparison sources through the documented pipeline.
+- [ ] Run `make validate`, push the validated fixture refresh, and verify the
+  GitHub Pages deployment.
 
 ## Current State
 
-The code-level cleanup items are closed. A source-refresh dependency is now
-open because the canonical freshness gate marks the comparison artifact stale
-on 2026-09-28; see `GAP-007` in `docs/risk-register.md`.
+The code-level cleanup items are closed and pushed. GitHub Pages is not live on
+that commit because the deploy workflow fails at `make validate`: the comparison
+source fixture is stale on 2026-09-28. A real source refresh is blocked locally
+because the Supabase import helper `sbclient` is missing and MCP access is not
+available under this task's approval policy; see `GAP-007` and `GAP-008` in
+`docs/risk-register.md`.
 
 ## Operating Rule
 
