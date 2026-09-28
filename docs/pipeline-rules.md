@@ -153,12 +153,22 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
 
 ## Operating notes
 
-- LLMs (Muse, ChatGPT, Codex, or any other) may collect raw source data and
-  may improve this repo's code, but they are not runtime infrastructure: no
-  LLM is the only way to refresh data, the only way to deploy, or the holder
-  of process memory. Raw scraper output enters through `make source-import`
-  and is treated as untrusted input until it passes matching, review, and
-  validation.
+- LLMs (Muse, ChatGPT, Codex, Claude Code MCP, or any other) may collect raw
+  source data and may improve this repo's code, but they are not runtime
+  infrastructure: no LLM is the only way to refresh data, the only way to
+  deploy, or the holder of process memory. Raw scraper output enters through
+  the documented import path and is treated as untrusted input until it passes
+  matching, review, and validation.
+- ChatGPT/Codex is the project hub and final integrator. Claude Code MCP should
+  be used for long-running reasoning, architecture/design exploration, code
+  review, debugging investigations, and other token-intensive work when
+  available. Muse.ai/Muse should be used where it creates concrete value
+  without process overhead, especially scraping, reference-dashboard comparison,
+  research, and visual/design exploration. See `AGENTS.md` and
+  `docs/delegation-workflow.md`.
+- GitHub must stay current enough that switching between ChatGPT/Codex, Claude,
+  Muse, or another harness costs no more than about 10-20 minutes. Durable
+  project rules belong in this repo, not only in chat transcripts.
 - Move one source at a time (see `docs/modular-pipeline.md`, "Next Migration
   Rule"). Each source gets: raw snapshot format, parser/normalizer,
   fail-closed identity matching, reference artifact update, and a test proving

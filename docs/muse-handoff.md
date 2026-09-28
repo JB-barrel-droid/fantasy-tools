@@ -1,6 +1,10 @@
 # Fantasy Tools Modular Pipeline Handoff
 
-Purpose: continue moving the Trade Value Dashboard toward a modular setup where Muse or other scrapers can collect data, but the repo owns normalization, player matching, reference artifacts, validation, dashboard build, and publishing.
+Purpose: continue moving the Trade Value Dashboard toward a modular setup where
+Muse or other scrapers can collect data, but the repo owns normalization, player
+matching, reference artifacts, validation, dashboard build, and publishing. This
+doc began as a Muse handoff, but its recovery notes also apply to any
+cross-harness handoff.
 
 ## Current Links
 
@@ -11,6 +15,9 @@ Purpose: continue moving the Trade Value Dashboard toward a modular setup where 
 ## Operating Goal
 
 The project should not depend on ChatGPT/Codex as runtime infrastructure.
+ChatGPT/Codex remains the project hub and final integrator for development work:
+it frames tasks, delegates when useful, reviews outside output, makes final
+decisions, and keeps the repo current.
 
 LLMs can work on the system:
 
@@ -19,12 +26,25 @@ LLMs can work on the system:
 - add tests
 - fix dashboard bugs
 - document decisions
+- investigate bugs or architecture options through Claude Code MCP
+- collect raw source data or visual observations through Muse.ai/Muse
 
 LLMs should not be inside the operating path:
 
 - not the only way to refresh data
 - not the only way to deploy the preview site
 - not the only holder of process memory
+
+Delegation policy lives in `AGENTS.md` and `docs/delegation-workflow.md`.
+Claude Code MCP is the preferred delegate for long-running reasoning, code
+review, debugging investigations, architecture/design exploration, and other
+token-intensive work. Muse.ai/Muse should be used where it creates material
+value with low overhead, especially scraping, reference-dashboard comparison,
+research, and visual/design exploration.
+
+GitHub continuity rule: commit and push coherent, validated slices often enough
+that switching between ChatGPT/Codex, Claude, Muse, or another harness costs no
+more than about 10-20 minutes.
 
 The desired flow is:
 
@@ -339,7 +359,7 @@ For each source:
 Check repo state:
 
 ```bash
-git --git-dir=.gitstore --work-tree=. status --short
+git status --short
 ```
 
 Run validation:
@@ -371,4 +391,3 @@ GitHub repo:
 ```text
 https://github.com/JB-barrel-droid/fantasy-tools
 ```
-

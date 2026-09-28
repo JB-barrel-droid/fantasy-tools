@@ -32,6 +32,8 @@ open.
 - `waiver_wire/` - Waiver dashboard (weekly add / don't-add / drop board) + its build pipeline (bin/, engine/, sql/); a segmented sibling tree to both the trade-value chart and `weekly_vegas/`. Its only cross-tree relationship is a read-only input from the published chart fixture `data/fixtures/current/players.json`. See `waiver_wire/README.md`.
 - `tests/` - regression and golden-output tests.
 - `docs/` - migration documentation and status.
+- `AGENTS.md` - durable project guidance for ChatGPT/Codex, Claude Code MCP,
+  Muse.ai/Muse, validation, and GitHub handoffs.
 
 An earlier plan also called for top-level `trade_value/` and `shared/` packages.
 Neither was ever used: domain logic lives in `pipelines/` and the shared identity,
@@ -172,6 +174,20 @@ source data -> reference compute -> dashboard build -> frontend/site
 - `frontend/site`: display the finished artifacts and handle user interaction.
 
 See `docs/modular-pipeline.md` for the working boundary rules.
+
+## Development Workflow
+
+ChatGPT/Codex remains the project hub and final integrator. Long-running
+reasoning, architecture/design exploration, code review, debugging
+investigations, and other token-intensive work should be delegated to Claude Code
+MCP when available. Muse.ai/Muse should be used where it creates concrete value
+with low overhead, especially raw source capture, reference-dashboard
+comparison, research sweeps, and UI/design exploration.
+
+Use `AGENTS.md` for standing project-agent instructions and
+`docs/delegation-workflow.md` for delegation and handoff templates. GitHub should
+stay current enough that switching between ChatGPT/Codex, Claude, Muse, or
+another harness costs no more than about 10-20 minutes.
 
 ## Publishing
 

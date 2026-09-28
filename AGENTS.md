@@ -1,0 +1,129 @@
+# Fantasy Tools Agent Guide
+
+This repo is the shared working memory for the fantasy football tools. GitHub is
+the source of truth for code, project rules, and handoffs; no chat thread or LLM
+session is allowed to be the only holder of process memory.
+
+## Operating Model
+
+| Work type | Default route |
+| --- | --- |
+| Orchestration, final decisions, implementation, validation, handoffs | ChatGPT/Codex |
+| Architecture/design options, code review, broad debugging, migration analysis | Claude Code MCP |
+| Raw scraping, reference-dashboard comparison, research sweeps, visual exploration | Muse.ai/Muse |
+| Small obvious fixes, narrow docs edits, simple command checks | ChatGPT/Codex directly |
+
+- ChatGPT/Codex is the hub and final integrator. It frames tasks, chooses what
+  to delegate, supplies enough context, reviews delegated output, makes final
+  decisions, edits the repo, validates changes, and keeps GitHub current.
+- Claude Code MCP is the preferred delegate for token-intensive work when it is
+  available: long reasoning, architecture/design exploration, code review,
+  debugging investigations, broad repo searches, migration planning, and second
+  opinions before risky changes.
+- Muse.ai/Muse tooling is useful when its abundant usage can produce concrete
+  project value: source scraping, raw data capture, UI/design exploration,
+  quick prototypes, research sweeps, and comparisons against the current Muse
+  reference dashboard.
+- Avoid delegation for small edits, obvious fixes, simple command checks, or any
+  handoff where writing the brief would take longer than doing the work.
+
+## ChatGPT/Codex Responsibilities
+
+- Own the task brief and success criteria before delegating.
+- Keep delegated tasks narrow, context-rich, and output-oriented.
+- Treat all delegated results as recommendations or raw material, not binding
+  decisions.
+- Re-read touched files locally before integrating outside output.
+- Preserve the repo's fail-closed data rules in `docs/pipeline-rules.md`.
+- Run the appropriate validation path before declaring work complete.
+- Commit and push coherent, validated slices often enough that another harness
+  can continue within about 10-20 minutes.
+
+## Claude Code MCP Use
+
+Use Claude Code MCP for work that benefits from a separate long context window
+or independent review, especially:
+
+- investigations spanning several files or subsystems
+- changes to pipeline rules or promotion paths
+- architecture or data-pipeline design options
+- debugging a failing test or data mismatch
+- code review before promotion, deployment, or broad refactors
+- finding consequences of a proposed schema, fixture, or UI change
+- summarizing a large subsystem before ChatGPT/Codex edits it
+
+When starting Claude Code through `claude-code-mcp`, pass `allowedTools` with at
+least `Read`, `Edit`, `Write`, `Glob`, `Grep`, and `Bash`. If the desired role is
+review-only, say "do not edit files" in the prompt rather than starving the
+session of normal project tools.
+
+Claude handoffs should request one of these output shapes:
+
+- findings with file/line references
+- options with tradeoffs and a recommendation
+- a minimal patch plan
+- a reproduction/debugging trace
+- a concise risk list and test suggestions
+
+ChatGPT/Codex must make the final call and perform or coordinate the final repo
+change.
+
+Claude Code should not push to `main` or trigger deployment autonomously. GitHub
+Pages deploys from `main`, so ChatGPT/Codex or the human operator owns that final
+publish decision.
+
+## Muse.ai / Muse Use
+
+Muse can collect and explore; the repo decides, computes, tests, and publishes.
+
+Good Muse tasks:
+
+- scrape difficult source pages and return raw CSV/JSON snapshots
+- compare the GitHub Pages dashboard against the Muse reference dashboard
+- explore UI variants or dashboard interaction ideas
+- do broad research where perfect reproducibility is not required
+- produce raw observations that can be imported through documented repo commands
+
+Muse output is untrusted input until it passes the repo pipeline. Raw data enters
+through the documented import, match, reference, review, and validation steps.
+Muse should not be the only place where a collector, formula, decision, or runbook
+lives.
+
+Do not ask Muse to resolve canonical player identity, edit fixtures, triage
+`review_rows`, or decide promotion readiness. Those steps belong to the
+deterministic repo pipeline and human-reviewed validation path.
+
+## GitHub Continuity Rule
+
+Keep `main` and any active branch current enough that switching between
+ChatGPT/Codex, Claude Code, Muse, or another harness costs no more than roughly
+10-20 minutes.
+
+Practical standard:
+
+- Start work by checking local status and recent commits.
+- Prefer small commits after a coherent behavior or documentation slice passes
+  validation.
+- Push validated commits promptly when the slice is meant to be shared.
+- If a slice cannot be committed yet, leave an explicit handoff note in the task
+  summary or an appropriate doc with current state, changed files, commands run,
+  failures, and next action.
+- Do not leave important decisions only in chat.
+
+## Validation
+
+Default validation:
+
+```bash
+make validate
+```
+
+For narrower work, run the smallest meaningful command first, then run
+`make validate` before publishing or promoting data.
+
+`dist/` is generated; edit source files or fixtures, then run the
+sync/validation path.
+
+## Handoff Templates
+
+Detailed delegation templates live in `docs/delegation-workflow.md`.
