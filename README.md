@@ -71,6 +71,16 @@ Run the current dependency-free regression checks:
 make test
 ```
 
+Run chart/value diagnostics without launching a browser:
+
+```bash
+make diagnostics
+```
+
+Use this when local Playwright/Chromium is blocked by the host sandbox. It runs
+the Node harness and fixture integrity checks that cover the chart value model,
+adjusted-source availability, anchor scaling, and CBS no-imputation behavior.
+
 Check reference freshness without mutating source artifacts:
 
 ```bash

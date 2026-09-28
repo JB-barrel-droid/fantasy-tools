@@ -19,7 +19,7 @@ POS = ("QB", "RB", "WR", "TE")
 
 def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
           review_rows=(), reindex_status="complete", combos=("full_12",),
-          fixture_combos=("full_12",)):
+          fixture_combos=("full_12",), fixture_meta=None, cand_meta=None):
     """Build a matching (reindexed candidate, fixture) pair.
 
     mutate: fn(native_dict) applied to the candidate's natives (drift).
@@ -52,7 +52,9 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
                                 "factor": 0.952381, "n_priced": per_pos}
                             for p in POS},
         }
-    fx = {"sources": {source: {"combos": fx_combos}},
+    fx_source = {"combos": fx_combos}
+    fx_source.update(fixture_meta or {})
+    fx = {"sources": {source: fx_source},
           "player_keys": {f"player {p.lower()}{j}": 5000 + i * 100 + j
                           for i, p in enumerate(POS) for j in range(per_pos)}}
     fx_path = tmp / "fixture.json"
@@ -85,6 +87,7 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
             "reindex_status": reindex_status, "asof": "2026-09-21",
             "combos": cand_combos,
             "review_rows": list(review_rows)}
+    cand.update(cand_meta or {})
     cand_path = tmp / "cand.json"
     cand_path.write_text(json.dumps(cand))
     return cand_path, fx_path
@@ -127,6 +130,42 @@ class TestReviewStage(unittest.TestCase):
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(report["verdict"], "hold")
         self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+        self.assertEqual(statuses(report)["native_vintage_context"], "warn")
+
+    def test_same_vintage_native_drift_still_holds(self):
+        def mutate(nat):
+            for i, s in enumerate(list(nat)):
+                if i % 10 == 0:
+                    nat[s] += 5.0
+            return nat
+        cand, fx = build(
+            self.tmp,
+            mutate=mutate,
+            fixture_meta={"week_designated": "Week 3"},
+            cand_meta={"week_designated": "Week 3"},
+        )
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(report["verdict"], "hold")
+        self.assertEqual(statuses(report)["native_vintage_context"], "pass")
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
+    def test_newer_vintage_native_movement_is_measured_not_hold(self):
+        def mutate(nat):
+            for i, s in enumerate(list(nat)):
+                if i % 10 == 0:
+                    nat[s] += 5.0
+            return nat
+        cand, fx = build(
+            self.tmp,
+            mutate=mutate,
+            fixture_meta={"week_designated": "Week 2"},
+            cand_meta={"week_designated": "Week 3"},
+        )
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(report["verdict"], "ready")
+        self.assertEqual(statuses(report)["native_vintage_context"], "info")
+        self.assertEqual(statuses(report)["native_movement:full_12"], "info")
+        self.assertNotIn("native_drift:full_12", statuses(report))
 
     def test_hold_on_coverage_drop(self):
         cand, fx = build(self.tmp, drop_pos="RB")

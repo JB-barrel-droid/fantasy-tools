@@ -32,6 +32,46 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-28 - Open gap cleanup and diagnostics fallback
+
+### Verified
+
+- Closed the silent partial-adjustment gap. `pipelines/build_adjustment_inputs.py`
+  now writes `cell_coverage` with expected/present/missing position-tier cells;
+  incomplete sources are `partial-stage2`. The chart and comparison table only
+  activate adjusted source projects when all 8 cells are present, and otherwise
+  return no adjusted map instead of mixing raw published values into an adjusted
+  curve.
+- Rebuilt the live and versioned adjustment-input artifacts. Current coverage:
+  USA Today complete/live; FantasyCalc missing `QB|bench`; FantasyPros missing
+  `TE|bench`; CBS missing `QB|bench`, `RB|bench`, and `TE|bench`.
+- Fixed review methodology for source refreshes. Reindex preserves candidate
+  vintage metadata; review keeps same-vintage or unknown-vintage native drift
+  fail-closed and reports different-vintage drift as measured source movement.
+- Controlled CBS thin coverage without imputing values. Current CBS `full_12`
+  fixture has 119 native/reindexed players and omits Bo Nix; regression coverage
+  asserts reindexed CBS values do not add unpublished players.
+- Added `make diagnostics` as a non-browser fallback for chart/value diagnostics
+  when local Playwright/Chromium launch is blocked.
+- Validation:
+  `make diagnostics` passed (103 tests OK, 6 skipped);
+  `make sync && make test` passed (386 tests OK, 6 skipped).
+
+### Claimed, unverified
+
+- None.
+
+### Open
+
+- `make validate` is red on 2026-09-28 because the enforced freshness gate sees
+  `comparison.built_at=2026-09-25T22:38:27Z` as 3 days old with
+  `MAX_STALE_DAYS=2`. This is recorded as `GAP-007` in
+  `docs/risk-register.md` and requires a real source refresh, not a timestamp or
+  threshold change.
+- Claude Code MCP setup is authenticated, but this task could not start a
+  delegated Claude session because the MCP call required approval while the
+  current approval policy was `never`.
+
 ## 2026-09-27 - Repo gap register and adjusted table cleanup
 
 ### Verified

@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference freshness-check sync test validate serve deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference freshness-check sync test diagnostics validate serve deploy-status supabase-import import-health watchdog
 
 TODAY ?= $(shell date +%F)
 MAX_STALE_DAYS ?= 2
@@ -30,6 +30,7 @@ help:
 	@echo "  make freshness-check   Fail if reference artifacts are older than MAX_STALE_DAYS"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
 	@echo "  make test              Run regression tests"
+	@echo "  make diagnostics       Run non-browser chart/value diagnostics"
 	@echo "  make watchdog          Run the source-pull watchdog (writes ops/watchdog/health.json)"
 	@echo "  make validate          Run naming, reference, sync, and tests"
 	@echo "  make serve             Serve the local dashboard"
@@ -94,6 +95,12 @@ sync:
 
 test:
 	python3 -m unittest discover -s tests
+
+diagnostics:
+	python3 -m unittest discover -s tests -p 'test_two_tier_frontend.py'
+	python3 -m unittest discover -s tests -p 'test_adjusted_curve_pause.py'
+	python3 -m unittest discover -s tests -p 'test_adjustment_inputs.py'
+	python3 -m unittest discover -s tests -p 'test_comparison_source_integrity.py'
 
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py

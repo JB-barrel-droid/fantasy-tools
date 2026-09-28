@@ -30,10 +30,11 @@ Fit design (mirrors the widget exactly):
   - Waiver-tier players are never adjusted (no cell, exactly like the
     browser).
   - Guards per (source, position, tier), stricter than the browser's live
-    refit (baking fewer cells is always safe -- the widget falls back to the
-    raw published value where no cell exists): fewer than 5 pairs -> no
-    cell; zero x variance -> no cell; non-finite alpha/beta -> no cell;
-    non-positive slope -> no cell (an inverting map is never published).
+    refit: fewer than 5 pairs -> no cell; zero x variance -> no cell;
+    non-finite alpha/beta -> no cell; non-positive slope -> no cell (an
+    inverting map is never published). A source with missing cells is marked
+    partial and is not default-live in the UI; missing cells never silently
+    mix raw published values into an adjusted curve.
 
 Fail-closed rules:
   - A source whose reference combo is missing from the fixture gets NO
@@ -45,8 +46,9 @@ Fail-closed rules:
   - Missing values stay absent; no zero-filling.
 
 Writing cells into the live asset is enough to un-pause that source's
-*_adjusted curve only when the source status is "live". The dashboard applies
-an additional position-shape alignment before the shared-total scale so the
+    *_adjusted curve only when the source status is "live" and all expected
+    position/tier cells are present. The dashboard applies an additional
+    position-shape alignment before the shared-total scale so the
 adjusted curves cannot repeat the old QB peak inflation while still preserving
 the fixed-pie invariant.
 """
@@ -80,6 +82,7 @@ REFERENCE_COMBOS = {
 }
 
 POSITION_ORDER = ["QB", "RB", "WR", "TE"]
+EXPECTED_CELL_KEYS = [f"{pos}|{tier}" for pos in POSITION_ORDER for tier in ("starter", "bench")]
 # Fit guards: a (position, tier) cell is only baked when the affine map is
 # worth publishing. MIN_FIT_PAIRS keeps a 2-parameter fit off noise;
 # beta > 0 is the economic sanity check (a negative slope would invert the
@@ -275,6 +278,10 @@ def fit_cells(published: dict[int, float], roles: dict[int, str],
     return cells, diagnostics
 
 
+def cell_key(cell: dict) -> str:
+    return f"{str(cell.get('position') or '').upper()}|{str(cell.get('tier') or '').lower()}"
+
+
 def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
     leg_path = find_leg(ddf_dir)
     leg = json.loads(leg_path.read_text(encoding="utf-8"))
@@ -313,7 +320,13 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
         cells, diagnostics = fit_cells(published, roles, leg_values, canonical)
         for cell in cells:
             cell["source"] = source
-        status = CELL_STATUS_WITH_OUTPUT if cells else "pending-stage2"
+        present_cells = sorted({cell_key(cell) for cell in cells})
+        missing_cells = [key for key in EXPECTED_CELL_KEYS if key not in present_cells]
+        status = (
+            CELL_STATUS_WITH_OUTPUT if cells and not missing_cells
+            else "partial-stage2" if cells
+            else "pending-stage2"
+        )
         any_cells = any_cells or bool(cells)
         any_live = any_live or status == "live"
         role_counts = {"starter": sum(1 for r in roles.values() if r == "starter"),
@@ -324,6 +337,12 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
             "n_published": len(published),
             "role_counts": role_counts,
             "cells": cells,
+            "cell_coverage": {
+                "expected": list(EXPECTED_CELL_KEYS),
+                "present": present_cells,
+                "missing": missing_cells,
+                "complete": not missing_cells,
+            },
             "diagnostics": diagnostics,
         }
 
@@ -374,6 +393,7 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
         "review_rows": review_rows,
         "summary": {
             "sources_live": sum(1 for s in sources_out.values() if s["status"] == "live"),
+            "sources_partial": sum(1 for s in sources_out.values() if s["status"] == "partial-stage2"),
             "cells_total": sum(len(s["cells"]) for s in sources_out.values()),
             "review_rows": len(review_rows),
         },

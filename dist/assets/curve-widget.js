@@ -53,6 +53,7 @@
   const ADJUSTED_INDEXED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
+  const EXPECTED_ADJUSTMENT_CELL_KEYS = POSITION_ORDER.flatMap(pos => ["starter", "bench"].map(tier => `${pos}|${tier}`));
   const SPECIALIST_POSITIONS = ["K", "DST"];
   const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
   // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
@@ -496,14 +497,33 @@
   // adjustment-inputs.json. espn ("ESPN adjusted") is the live bottom-up leg
   // and is never paused. Pure in (key, inputs) so it is unit-testable; the
   // widget calls it with the loaded adjustmentInputs. Cells may exist while a
-  // source stays pending model-quality review; only status:"live" activates.
+  // source stays pending model-quality review or while a source is partial;
+  // only a status:"live" source with every position/tier cell activates.
+  function adjustmentCellCompleteness(entry) {
+    if (!(entry && entry.status === "live" && Array.isArray(entry.cells))) {
+      return {complete:false, present:[], missing:[...EXPECTED_ADJUSTMENT_CELL_KEYS]};
+    }
+    const present = new Set();
+    entry.cells.forEach(cell => {
+      const pos = String(cell.position || "").toUpperCase();
+      const tier = String(cell.tier || "").toLowerCase();
+      const alpha = Number(cell.alpha);
+      const beta = Number(cell.beta);
+      if (POSITION_ORDER.includes(pos) && ["starter", "bench"].includes(tier) &&
+          Number.isFinite(alpha) && Number.isFinite(beta)) {
+        present.add(`${pos}|${tier}`);
+      }
+    });
+    const missing = EXPECTED_ADJUSTMENT_CELL_KEYS.filter(key => !present.has(key));
+    return {complete: missing.length === 0, present: [...present], missing};
+  }
   function adjustedCurvePaused(key, inputs) {
     if (key === "espn" || !key.endsWith("_adjusted")) return false;
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
     const entry = inputs && inputs.sources ? inputs.sources[rawKey] : null;
-    return !(entry && entry.status === "live" && Array.isArray(entry.cells) && entry.cells.length);
+    return !adjustmentCellCompleteness(entry).complete;
   }
-  globalThis.TradeValueCurvePause = {adjustedCurvePaused, defaultIndexedSourceKeys};
+  globalThis.TradeValueCurvePause = {adjustedCurvePaused, defaultIndexedSourceKeys, adjustmentCellCompleteness};
 
   // Default active set: ESPN adjusted plus every *_adjusted curve with live
   // stage-2 cells. Pure in (inputs) so it is unit-testable; init() applies it
@@ -1108,15 +1128,12 @@
     return multipliers;
   }
 
-  // Generic live-adjust path (stage 1: architecture only; behavior unchanged).
-  // When a source HAS cells in adjustment-inputs.json, its *_adjusted curve is
-  // rendered from the fixture raw refs plus those cells. With no cells (stage 1:
-  // all four sources), adjustedMapFor falls back EXACTLY to today: the baked
-  // *_adjusted fixture sections for fantasycalc/usatoday/fantasypros, and the
-  // browser-derived buildCbsAdjustedMap() for CBS.
+  // Generic live-adjust path. A source must carry the full position/tier cell
+  // set before the adjusted curve is available; partial sources stay paused so
+  // raw published values are never silently mixed into an adjusted projection.
   function adjustmentCellsFor(rawKey) {
     const entry = adjustmentInputs?.sources?.[rawKey];
-    return entry && entry.status === "live" && Array.isArray(entry.cells) && entry.cells.length ? entry.cells : null;
+    return adjustmentCellCompleteness(entry).complete ? entry.cells : null;
   }
 
   // Widget-scope pause check: bound to the loaded adjustmentInputs.
@@ -1151,7 +1168,7 @@
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
     const cells = adjustmentCellsFor(rawKey);
     if (cells) return buildLiveAdjustedMap(rawKey, cells);
-    return key === "cbs_adjusted" ? buildCbsAdjustedMap() : buildSourceMap(key);
+    return new Map();
   }
 
   // Stage-2 activation: when baked adjustment cells exist for a source, its

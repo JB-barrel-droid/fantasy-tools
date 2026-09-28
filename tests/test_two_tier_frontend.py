@@ -509,13 +509,10 @@ class TestTwoTierFailClosed(unittest.TestCase):
 
 
 class TestStage1FallbackFrozen(unittest.TestCase):
-    # The stage-1 fallback contract: when the adjustment asset carries no
-    # cells (all four sources are pending stage 2), the widget must render
-    # the exact inherited fallback branch. The original /tmp baseline was
-    # lost to /tmp cleanup; the three fallback function bodies were pinned
-    # byte-for-byte into tests/stage1_fallback_golden.json from the stage-1
-    # code, and the byte-identical check passed against the /tmp baseline
-    # while it still existed.
+    # The adjusted-source fallback contract: only complete validated cells may
+    # render an adjusted curve. Empty or partial cell sets return an empty map
+    # instead of silently falling back to stale baked adjusted sections or raw
+    # published values.
     GOLDEN_PATH = Path(__file__).resolve().parent / "stage1_fallback_golden.json"
     LIVE_IDS = ["DISPLAY_BENCH_SHARE", "benchShare", "TwoTier",
                 "refitLiveCells", "liveCellsCache", "ddfTwoTierValues"]
@@ -527,7 +524,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
             new = extract_function(current, name)
             self.assertIsNotNone(new, f"{name} missing from widget")
             self.assertEqual(new, body,
-                             f"{name} body changed: stage-1 fallback must stay byte-identical")
+                             f"{name} body changed: adjusted fallback contract must stay pinned")
             for ident in self.LIVE_IDS:
                 self.assertIsNone(
                     re.search(r"(?<![A-Za-z_$])" + re.escape(ident) + r"(?![A-Za-z_$])", new),

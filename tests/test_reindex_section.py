@@ -120,6 +120,21 @@ class TestReindexStage(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp())
         self.players_path, self.players = make_players(self.tmp)
 
+    def test_preserves_candidate_vintage_metadata_for_review(self):
+        fx = make_fixture(self.tmp, self.players, lambda pl: 10.0)
+        cand = make_candidate(self.tmp, "syn", self.players, lambda pl: 100.0)
+        doc = json.loads(cand.read_text())
+        doc["week_designated"] = "Week 3"
+        doc["published"] = "2026-09-23"
+        doc["content_vintage"] = "Week 3"
+        doc["fetched_at"] = "2026-09-25T00:00:00Z"
+        cand.write_text(json.dumps(doc))
+        section, _ = run_stage(cand, fx, self.players_path)
+        self.assertEqual(section["week_designated"], "Week 3")
+        self.assertEqual(section["published"], "2026-09-23")
+        self.assertEqual(section["content_vintage"], "Week 3")
+        self.assertEqual(section["fetched_at"], "2026-09-25T00:00:00Z")
+
     def test_rank_order_preserved_within_position(self):
         players = self.players
         def anchor_fn(pl):

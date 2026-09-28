@@ -17,6 +17,7 @@
   ];
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
+  const EXPECTED_ADJUSTMENT_CELL_KEYS = POSITION_ORDER.flatMap(pos => ["starter", "bench"].map(tier => `${pos}|${tier}`));
   const LABELS = {
     usatoday: "USA Today",
     fantasycalc: "FantasyCalc",
@@ -76,6 +77,24 @@
   const formatValue = value => value === null ? "—" : Number(value).toFixed(1);
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
   const rawKeyForAdjusted = key => key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+  function adjustmentCellCompleteness(entry) {
+    if (!(entry && entry.status === "live" && Array.isArray(entry.cells))) {
+      return {complete:false, present:[], missing:[...EXPECTED_ADJUSTMENT_CELL_KEYS]};
+    }
+    const present = new Set();
+    entry.cells.forEach(cell => {
+      const pos = String(cell.position || "").toUpperCase();
+      const tier = String(cell.tier || "").toLowerCase();
+      const alpha = Number(cell.alpha);
+      const beta = Number(cell.beta);
+      if (POSITION_ORDER.includes(pos) && ["starter", "bench"].includes(tier) &&
+          Number.isFinite(alpha) && Number.isFinite(beta)) {
+        present.add(`${pos}|${tier}`);
+      }
+    });
+    const missing = EXPECTED_ADJUSTMENT_CELL_KEYS.filter(key => !present.has(key));
+    return {complete: missing.length === 0, present: [...present], missing};
+  }
 
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
@@ -197,7 +216,7 @@
 
   function adjustmentCellsFor(rawKey) {
     const entry = adjustmentInputs?.sources?.[rawKey];
-    return entry && entry.status === "live" && Array.isArray(entry.cells) && entry.cells.length ? entry.cells : null;
+    return adjustmentCellCompleteness(entry).complete ? entry.cells : null;
   }
 
   function sourceComboExists(key) {
@@ -205,7 +224,7 @@
     if (key.endsWith("_adjusted")) {
       const rawKey = rawKeyForAdjusted(key);
       if (adjustmentCellsFor(rawKey)) return Boolean(data?.sources?.[rawKey]?.combos?.[comboKeyFor(rawKey)]);
-      if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
+      return false;
     }
     return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
   }
@@ -529,7 +548,7 @@
     const rawKey = rawKeyForAdjusted(key);
     const cells = adjustmentCellsFor(rawKey);
     if (cells) return buildLiveAdjustedMap(rawKey, cells);
-    return key === "cbs_adjusted" ? buildCbsAdjustedMap() : buildPublishedSourceMap(key);
+    return new Map();
   }
 
   function normalizedAdjustedMapFor(key, anchorMap, displayShare) {

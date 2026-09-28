@@ -22,6 +22,15 @@ Gap cleanup and record keeping.
   fixed, or deliberately deferred.
 - [x] Add any remaining validation evidence to `docs/claude-log.md` before
   ending the session.
+- [x] Close the remaining open gap-register rows:
+  adjustment-cell completeness, same-vintage review methodology, CBS
+  no-imputation coverage, and non-browser diagnostics fallback.
+
+## Current State
+
+The code-level cleanup items are closed. A source-refresh dependency is now
+open because the canonical freshness gate marks the comparison artifact stale
+on 2026-09-28; see `GAP-007` in `docs/risk-register.md`.
 
 ## Operating Rule
 

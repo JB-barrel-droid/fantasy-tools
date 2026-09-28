@@ -38,6 +38,7 @@ PIPELINES = REPO / "pipelines"
 sys.path.insert(0, str(PIPELINES))
 
 from build_adjustment_inputs import (  # noqa: E402
+    EXPECTED_CELL_KEYS,
     MIN_FIT_PAIRS,
     POSITION_ORDER,
     REFERENCE_COMBOS,
@@ -212,17 +213,24 @@ class TestBakedArtifact(unittest.TestCase):
         self.assertEqual(fit["bench_share"], 0.15)
         self.assertEqual(fit["reference_combos"], REFERENCE_COMBOS)
 
-    def test_all_sources_carry_guarded_live_cells(self):
+    def test_sources_only_go_live_with_complete_cell_coverage(self):
         for source, entry in self.doc["sources"].items():
-            self.assertEqual(entry["status"], "live", source)
             self.assertTrue(entry["cells"], source)
+            self.assertEqual(entry["cell_coverage"]["expected"], EXPECTED_CELL_KEYS)
+            missing = [k for k, v in entry["diagnostics"].items() if not v["cell"]]
+            self.assertEqual(entry["cell_coverage"]["missing"], missing)
+            if missing:
+                self.assertEqual(entry["status"], "partial-stage2", source)
+                self.assertFalse(entry["cell_coverage"]["complete"], source)
+            else:
+                self.assertEqual(entry["status"], "live", source)
+                self.assertTrue(entry["cell_coverage"]["complete"], source)
             for cell in entry["cells"]:
                 self.assertIn(cell["position"], POSITION_ORDER)
                 self.assertIn(cell["tier"], ("starter", "bench"))
                 self.assertTrue(math.isfinite(cell["alpha"]))
                 self.assertTrue(cell["beta"] > 0, (source, cell))
                 self.assertGreaterEqual(cell["n"], MIN_FIT_PAIRS)
-            missing = [k for k, v in entry["diagnostics"].items() if not v["cell"]]
             for k in missing:
                 self.assertIn(entry["diagnostics"][k]["reason"],
                               ("fewer_than_5_pairs", "zero_x_variance",
@@ -233,13 +241,13 @@ class TestBakedArtifact(unittest.TestCase):
         missing = {s: [k for k, v in e["diagnostics"].items() if not v["cell"]]
                    for s, e in self.doc["sources"].items()}
         self.assertEqual(missing["cbs"], ["QB|bench", "RB|bench", "TE|bench"])
-        self.assertEqual(missing["fantasycalc"], [])
-        self.assertEqual(missing["fantasypros"], [])
-        self.assertEqual(missing["usatoday"], ["QB|bench"])
+        self.assertEqual(missing["fantasycalc"], ["QB|bench"])
+        self.assertEqual(missing["fantasypros"], ["TE|bench"])
+        self.assertEqual(missing["usatoday"], [])
 
     def test_pause_predicate_unpauses_live_cells(self):
         got = run_pause([{"key": k, "inputs": self.doc} for k in PAUSED_KEYS])
-        self.assertEqual(got, [False] * 4)
+        self.assertEqual(got, [True, False, True, True])
 
     def test_pause_predicate_keeps_pending_cells_paused(self):
         doc = json.loads(json.dumps(self.doc))
@@ -259,8 +267,10 @@ class TestBakedArtifact(unittest.TestCase):
         self.assertEqual(live["version"], self.doc["version"])
         self.assertEqual(live["status"], "live")
         self.assertEqual(
-            {s: len(e["cells"]) for s, e in live["sources"].items()},
-            {s: len(e["cells"]) for s, e in self.doc["sources"].items()})
+            {s: (e["status"], len(e["cells"]), e["cell_coverage"]["missing"])
+             for s, e in live["sources"].items()},
+            {s: (e["status"], len(e["cells"]), e["cell_coverage"]["missing"])
+             for s, e in self.doc["sources"].items()})
 
     def test_review_rows_never_zero_filled(self):
         reasons = {r["reason"] for r in self.doc["review_rows"]}

@@ -39,16 +39,21 @@ class TestPausePredicate(unittest.TestCase):
         got = run_pause([{"key": k, "inputs": EMPTY_INPUTS} for k in PAUSED_KEYS])
         self.assertEqual(got, [True] * 4)
 
-    def test_stage2_asset_cells_are_live_after_model_quality_gate(self):
+    def test_stage2_asset_only_complete_sources_are_live_after_gate(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
         self.assertEqual(asset["status"], "live")
-        for key in PAUSED_KEYS:
+        for key in ("usatoday_adjusted",):
             raw = key[:-len("_adjusted")] if key != "cbs_adjusted" else "cbs"
             self.assertTrue(asset["sources"][raw]["cells"],
                             f"{key} has no live cells")
             self.assertEqual(asset["sources"][raw]["status"], "live")
+            self.assertTrue(asset["sources"][raw]["cell_coverage"]["complete"])
+        for key in ("fantasycalc_adjusted", "fantasypros_adjusted", "cbs_adjusted"):
+            raw = key[:-len("_adjusted")] if key != "cbs_adjusted" else "cbs"
+            self.assertEqual(asset["sources"][raw]["status"], "partial-stage2")
+            self.assertFalse(asset["sources"][raw]["cell_coverage"]["complete"])
         got = run_pause([{"key": k, "inputs": asset} for k in PAUSED_KEYS])
-        self.assertEqual(got, [False] * 4)
+        self.assertEqual(got, [True, False, True, True])
 
     def test_espn_never_paused(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
@@ -63,10 +68,12 @@ class TestPausePredicate(unittest.TestCase):
         self.assertEqual(got, [False] * 5)
 
     def test_auto_return_when_cells_land(self):
+        complete = [{"position": pos, "tier": tier, "alpha": 0.0, "beta": 1.0}
+                    for pos in ("QB", "RB", "WR", "TE")
+                    for tier in ("starter", "bench")]
         cells = {"sources": {
             "fantasycalc": {"status": "live",
-                            "cells": [{"position": "QB", "tier": "starter",
-                                       "alpha": 0.0, "beta": 1.0}]},
+                            "cells": complete},
             "cbs": {"status": "live",
                     "cells": [{"position": "RB", "tier": "bench",
                                "alpha": 1.0, "beta": 0.9}]},
@@ -74,9 +81,9 @@ class TestPausePredicate(unittest.TestCase):
         got = run_pause([{"key": "fantasycalc_adjusted", "inputs": cells},
                          {"key": "cbs_adjusted", "inputs": cells},
                          {"key": "usatoday_adjusted", "inputs": cells}])
-        # fantasycalc + cbs un-pause (cbs_adjusted reads sources.cbs);
-        # usatoday stays paused. No code change, no re-bake.
-        self.assertEqual(got, [False, False, True])
+        # fantasycalc un-pauses only because every position/tier cell is
+        # present. cbs remains paused with partial cells; usatoday has none.
+        self.assertEqual(got, [False, True, True])
 
     def test_empty_cells_array_stays_paused(self):
         got = run_pause([{"key": "fantasycalc_adjusted",
@@ -122,7 +129,7 @@ class TestDefaultActiveSet(unittest.TestCase):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
         self.assertEqual(asset["status"], "live")
         got = run_defaultset([{"inputs": asset}])
-        self.assertEqual(got, [["espn", *PAUSED_KEYS]])
+        self.assertEqual(got, [["espn", "usatoday_adjusted"]])
 
     def test_empty_inputs_default_to_espn_only(self):
         got = run_defaultset([{"inputs": EMPTY_INPUTS}])
@@ -134,10 +141,12 @@ class TestDefaultActiveSet(unittest.TestCase):
             self.assertEqual(got, [["espn"]], f"not fail-closed for {inputs!r}")
 
     def test_partial_cells_restore_only_live_sources(self):
+        complete = [{"position": pos, "tier": tier, "alpha": 0.0, "beta": 1.0}
+                    for pos in ("QB", "RB", "WR", "TE")
+                    for tier in ("starter", "bench")]
         cells = {"sources": {
             "fantasycalc": {"status": "live",
-                            "cells": [{"position": "QB", "tier": "starter",
-                                       "alpha": 0.0, "beta": 1.0}]},
+                            "cells": complete},
             "cbs": {"status": "pending-model-quality",
                     "cells": [{"position": "RB", "tier": "bench",
                                "alpha": 1.0, "beta": 0.9}]},
