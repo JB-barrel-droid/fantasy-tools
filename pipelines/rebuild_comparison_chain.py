@@ -2,10 +2,15 @@
 """Rebuild the comparison fixture from fresh snapshots — full automated chain.
 
 Runs the complete pipeline sequentially with no manual intervention:
-  match -> reference -> section -> reindex -> review -> promote
+  match -> reference -> section -> reindex -> review -> promote -> fit
 
 Jeremy 2026-09-29: "Set up the chain so anytime the initial chain kicks off,
 all other stages run sequentially. I shouldn't have to push the chain along."
+
+Jeremy 2026-09-29: "Fitting every week can't be an ad hoc modeling project."
+The bias-correction fit (build_adjustment_inputs.py) is a deterministic
+pipeline stage, not a manual exercise. It runs automatically after promotion,
+fitting affine cells against the DDF leg built from the fresh fixture.
 
 Auto-promotion is authorized. Review 'hold' verdicts due to expected staleness
 (fresh data vs older fixture) are auto-resolved to 'ready' with justification.
@@ -231,6 +236,33 @@ def main():
     print("=" * 60)
     for source, status in results.items():
         print(f"  {source}: {status}")
+
+    # Stage 7: Bias-correction fit (deterministic, not ad hoc).
+    # Jeremy 2026-09-29: "Fitting every week can't be an ad hoc modeling project."
+    # The fit runs automatically after promotion, using the fresh fixture.
+    # It fits affine adjustment cells per (source, position, tier) against the
+    # DDF leg, writing to adjustment-inputs.json (the live asset the UI loads).
+    print("\n" + "=" * 60)
+    print("STAGE 7: BIAS-CORRECTION FIT")
+    print("=" * 60)
+    fit_ok, fit_out = run([
+        "python3", "pipelines/build_adjustment_inputs.py",
+        "--fixture", str(REPO / "data/fixtures/current/comparison-sources-data.json"),
+    ])
+    if fit_ok:
+        print("  ✓ Fit complete — adjustment-inputs.json updated")
+        # Sync the live asset for deployment
+        import shutil
+        src = Path("app/trade-value-chart/assets/adjustment-inputs.json")
+        dst = Path("dist/assets/adjustment-inputs.json")
+        if src.exists():
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dst)
+            print(f"  ✓ Synced to {dst}")
+        results["fit"] = "completed"
+    else:
+        print(f"  ✗ Fit failed: {fit_out[-500:]}")
+        results["fit"] = "failed"
 
     # Write chain status for the monitoring dashboard.
     # Jeremy 2026-09-29: dashboard needs visibility into automation health.
