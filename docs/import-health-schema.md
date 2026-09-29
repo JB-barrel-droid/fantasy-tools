@@ -114,8 +114,11 @@ are written once per scoring (standard/half_ppr/ppr) from the single published
   `missing`/`stale`/`failed` → non-zero exit plus a loud human-readable
   summary on stderr ending in `GATE: RED`.
 - **No fixture update (`match`/`reference`/`section`/`promote`) may run on a
-  red health check.** The gate is standalone — it is not wired into the
-  promotion script; the watchdog (and any human operator) must consult this
-  file first.
+  red health check.** Promotion is wired to this contract for the five active
+  raw sources: `promote_comparison_section.py` refuses when the source entry is
+  not `ok`, when the candidate lacks immutable `content_vintage` provenance,
+  or when the candidate vintage differs from the fresh L1 vintage. Earlier
+  stages also carry `source_provenance` forward so processing time cannot
+  relabel stale source data.
 - Gaps (`supabase_landing: false`) are reported loudly but do **not** fail
   the gate.

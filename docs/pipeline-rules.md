@@ -96,9 +96,16 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
 
 - A source backs a claim only if its content is current. Re-downloading the
   same numbers resets nothing.
+- Source vintage is immutable provenance. Match/reference/section/reindex
+  artifacts carry `source_provenance.content_vintage` forward; `generated_at`,
+  `fetched_at`, `built_at`, validation time, and `promoted_at` are processing
+  or acquisition timestamps and must never advance source vintage.
 - Week-designated sources must match the current NFL week ("current" feeds must
   be freshly pulled with genuinely new content).
 - Stale sources are priors-only context, labeled as such, never the current read.
+- Promotion for `espn`, `usatoday`, `fantasycalc`, `fantasypros`, and `cbs`
+  must consult `trade-value-import-health-v1`: L1 status must be `ok` and its
+  `content_vintage` must match the candidate's carried source provenance.
 - Every source section records `fetched_at` and, where applicable,
   `week_designated`. The candidate report surfaces both.
 

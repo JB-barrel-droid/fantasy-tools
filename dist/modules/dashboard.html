@@ -220,7 +220,7 @@ function shortDate(iso){
 }
 function uiLabel(health,nflWeek){
   if(!health) return "—";
-  if(health.vintage_kind==="week_designated") return "Week "+(nflWeek||"?");
+  if(health.vintage_kind==="week_designated") return health.content_vintage||("Week "+(health.week_designated||"?"));
   const v=health.content_vintage||"";
   const m=/(\d{4}-\d{2}-\d{2})/.exec(v);
   return m?m[1]:"?";
@@ -295,11 +295,12 @@ async function main(){
       add(M1,"L3 · health gate",nm+" verified",OK,
         "status=ok · vintage="+h.content_vintage+" · checked "+shortDate(health.checked_at));
     }else if(h){
-      add(M1,"L1 · source pulls",nm+" raw snapshot",BAD,"health status: "+h.status,
+      const l1Status=h.status==="stale"?WARN:BAD;
+      add(M1,"L1 · source pulls",nm+" raw snapshot",l1Status,"health status: "+h.status+" · vintage="+(h.content_vintage||"?"),
         "The import health gate reports <b>"+h.status+"</b> for "+nm+(h.failure_reason?": "+h.failure_reason:"")+". Nothing downstream can be trusted.",
         "Fix the pull/import for <b>"+nm+"</b>, then re-run <b>verify_import_health.py</b>.");
-      add(M1,"L2 · import → Supabase",nm+" import",BAD,"blocked by L1 failure");
-      add(M1,"L3 · health gate",nm+" verified",BAD,"status="+h.status);
+      add(M1,"L2 · import → Supabase",nm+" import",l1Status,"landed="+(h.supabase_landing?"yes":"no")+" · freshness blocked by L1");
+      add(M1,"L3 · health gate",nm+" verified",l1Status,"status="+h.status+" · vintage="+(h.content_vintage||"?"));
     }else{
       add(M1,"L1 · source pulls",nm+" raw snapshot",UNK,"no health record for "+s+" (health file "+(hh?"loaded but source missing":"not loaded")+")",
         "","Check <b>output/source-import-health.json</b>.");
@@ -311,7 +312,13 @@ async function main(){
   for(const s of SOURCES){
     const info=srcInfo[s], nm=SRC_LABEL[s], h=info.health;
     const inDb = h&&h.status==="ok";
-    if(info.values>0){
+    if(info.values>0 && h && h.status!=="ok"){
+      add(M1,"L6 · promote → live fixture",nm+" live values over stale L1",WARN,
+        info.values.toLocaleString()+" values across "+info.combos+" combos · UI label: "+info.label,
+        "<b>Root cause:</b> the live fixture has promoted values, but L1 import health is "+h.status+" for content vintage "+(h.content_vintage||"?")+". Processing or promotion timestamps do not make old source content fresh.",
+        "Acquire genuinely newer source data, re-run import health, rebuild/review/promote only after L1 is green.",
+        `<span class="y">L1 ${h.status}</span> → <span class="y">L2 verified old bytes</span> → <span class="y">L3 blocked</span> → <span class="y">L4-L6 existing output</span>`);
+    }else if(info.values>0){
       add(M1,"L6 · promote → live fixture",nm+" live values",OK,
         info.values.toLocaleString()+" values across "+info.combos+" combos · UI label: "+info.label,
         "","",
@@ -477,14 +484,19 @@ function render(srcInfo, builtAt, builtDays, fxOk, hOk){
   tb.innerHTML=SOURCES.map(s=>{
     const info=srcInfo[s], h=info.health, nm=SRC_LABEL[s];
     const cell=(st,tag)=>`<td><span class="st ${st}">${st==="ok"?"✓":st==="bad"?"✗":st==="warn"?"!":"?"}</span>${tag?`<span class="stag">${tag}</span>`:""}</td>`;
-    const L1=h&&h.snapshot_path?cell("ok",h.snapshot_path.split("/").slice(-2).join("/")):cell("unk");
-    const L2=h&&h.supabase_landing?cell("ok",(h.row_count||"?")+" rows"):cell(h?"bad":"unk");
-    const L3=h&&h.status==="ok"?cell("ok","vintage "+(h.content_vintage||"?")):cell(h?"bad":"unk");
-    const L4=info.values>0?cell("ok"):cell("unk","no live signal");
-    const L5=info.values>0?cell("ok"):cell("unk","no live signal");
-    const L6=info.values>0?cell("ok",info.values.toLocaleString()+" vals"):cell("bad","0 vals");
+    const upstreamOk=h&&h.status==="ok";
+    const upstreamStale=h&&h.status==="stale";
+    const upstreamCell=upstreamOk?"ok":upstreamStale?"warn":h?"bad":"unk";
+    const L1=h&&h.snapshot_path?cell(upstreamCell,(h.content_vintage||"?")):cell(h?upstreamCell:"unk");
+    const L2=h&&h.supabase_landing?cell(upstreamCell,(h.row_count||"?")+" rows"):cell(h?"bad":"unk");
+    const L3=upstreamOk?cell("ok","vintage "+(h.content_vintage||"?")):cell(h?upstreamCell:"no gate");
+    const downstreamCell=info.values>0?(upstreamOk?"ok":"warn"):"unk";
+    const L4=info.values>0?cell(downstreamCell,upstreamOk?"":"L1 not fresh"):cell("unk","no live signal");
+    const L5=info.values>0?cell(downstreamCell,upstreamOk?"":"L1 not fresh"):cell("unk","no live signal");
+    const L6=info.values>0?cell(downstreamCell,info.values.toLocaleString()+" vals"):cell("bad","0 vals");
     let stuck;
-    if(info.values>0) stuck=`<span style="color:var(--green);font-size:11.5px;font-weight:600">— flowing</span>`;
+    if(info.values>0 && upstreamOk) stuck=`<span style="color:var(--green);font-size:11.5px;font-weight:600">— flowing</span>`;
+    else if(info.values>0 && h) stuck=`<span class="stuck">L1 ${h.status}; downstream output is not freshness</span>`;
     else if(h&&h.status==="ok") stuck=`<span class="stuck">L4–L6: in Supabase, never promoted</span>`;
     else stuck=`<span class="stuck">unknown — check health gate</span>`;
     return `<tr><td>${nm}<div class="stag">${s}</div></td>${L1}${L2}${L3}${L4}${L5}${L6}

@@ -43,6 +43,39 @@ def load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
+def infer_vintage_kind(manifest: dict[str, Any], snapshot: dict[str, Any]) -> str:
+    if manifest.get("week_designated") is not None:
+        return "week_designated"
+    vintage = manifest.get("content_vintage")
+    if isinstance(vintage, str) and re.fullmatch(r"\s*week\s+\d+\s*", vintage, re.I):
+        return "week_designated"
+    if isinstance(vintage, str) and re.fullmatch(r"\d{4}-\d{2}-\d{2}", vintage.strip()):
+        return "file_meta" if str(snapshot.get("source") or "").lower() == "espn" else "source_content_date"
+    return "unknown"
+
+
+def source_provenance(snapshot_path: Path, snapshot: dict[str, Any]) -> dict[str, Any]:
+    """Immutable source-vintage facts plus separate processing/acquisition times."""
+    manifest_path = snapshot_path.parent / "snapshot-manifest.json"
+    manifest: dict[str, Any] = {}
+    if manifest_path.is_file():
+        manifest = load_json(manifest_path)
+    return {
+        "source": snapshot.get("source"),
+        "content_vintage": manifest.get("content_vintage"),
+        "content_vintage_derived_from": manifest.get("content_vintage_derived_from"),
+        "vintage_kind": infer_vintage_kind(manifest, snapshot),
+        "week_designated": manifest.get("week_designated"),
+        "source_pulled_at": manifest.get("pulled_at"),
+        "snapshot_fetched_at": snapshot.get("fetched_at"),
+        "snapshot_manifest": str(manifest_path) if manifest_path.is_file() else None,
+        "note": (
+            "content_vintage is immutable source provenance. "
+            "source_pulled_at, snapshot_fetched_at, and generated_at are processing/acquisition times."
+        ),
+    }
+
+
 def player_records(players_path: Path) -> list[dict[str, Any]]:
     payload = load_json(players_path)
     rows = payload.get("players")
@@ -153,6 +186,7 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
         "input_snapshot": str(snapshot_path),
         "source": snapshot.get("source"),
         "fetched_at": snapshot.get("fetched_at"),
+        "source_provenance": source_provenance(snapshot_path, snapshot),
         "default_scoring": snapshot.get("default_scoring"),
         "default_teams": snapshot.get("default_teams"),
         "summary": {

@@ -73,6 +73,9 @@ class SourceSnapshotMatchTest(unittest.TestCase):
 
             payload = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual("trade-value-source-matches-v1", payload["schema"])
+            self.assertIn("source_provenance", payload)
+            self.assertIsNone(payload["source_provenance"]["content_vintage"])
+            self.assertEqual("unknown", payload["source_provenance"]["vintage_kind"])
             self.assertEqual({"input_row_count": 5, "matched_count": 3, "review_count": 2}, payload["summary"])
             self.assertEqual([869, 101, 201], [row["player_key"] for row in payload["matched_rows"]])
             reasons = [row["reason"] for row in payload["review_rows"]]

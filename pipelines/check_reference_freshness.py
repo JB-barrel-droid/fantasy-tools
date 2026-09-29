@@ -92,6 +92,39 @@ def make_item(
     }
 
 
+def make_import_item(
+    key: str,
+    label: str,
+    entry: dict[str, Any],
+    today: date,
+    max_age_days: int,
+    enforced_keys: set[str],
+) -> dict[str, Any]:
+    observed = parse_date(entry.get("last_successful_import"))
+    age_days = (today - observed).days if observed is not None else None
+    gate_status = entry.get("status") or "unknown"
+    freshness_ok = gate_status == "ok" and observed is not None and 0 <= age_days <= max_age_days
+    status = "same_day" if freshness_ok and age_days == 0 else ("stale" if not freshness_ok else "current")
+    return {
+        "key": key,
+        "label": label,
+        "value": entry.get("content_vintage"),
+        "status": status,
+        "age_days": age_days,
+        "max_age_days": max_age_days,
+        "freshness_ok": freshness_ok,
+        "enforced": key in enforced_keys,
+        "changed_since_prior_report": True,
+        "note": (
+            f"L1 status={gate_status}; "
+            f"last_successful_import={entry.get('last_successful_import') or 'unknown'}; "
+            "content_vintage is source provenance, not pull time"
+        ),
+        "l1_status": gate_status,
+        "failure_reason": entry.get("failure_reason"),
+    }
+
+
 def _relative_to_root(path: Path) -> str:
     """Path as written in the repo, falling back to absolute when outside it."""
     try:
@@ -106,10 +139,13 @@ def build_report(
     today: date,
     max_age_days: int = 2,
     enforced_keys: tuple[str, ...] = DEFAULT_ENFORCED_KEYS,
+    import_health_path: Path | None = None,
 ) -> dict[str, Any]:
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
     news = load_json(fixtures / "player-news.json")
+    import_health_source = import_health_path or (fixtures / "source-import-health.json")
+    import_health = load_json(import_health_source)
     previous = prior_items(output)
 
     player_meta = players.get("meta", {})
@@ -125,16 +161,46 @@ def build_report(
         make_item("news.generated_at", "Player-news artifact generation time", news_meta.get("generated_at"), today, previous, max_age_days, enforced_set),
         make_item("news.trade_values_published_at", "Trade-value publication timestamp", news_meta.get("trade_values_published_at"), today, previous, max_age_days, enforced_set),
     ]
+    if import_health.get("schema") == "trade-value-import-health-v1":
+        items.append(
+            make_item(
+                "source_import.checked_at",
+                "L1 import health checked_at",
+                import_health.get("checked_at"),
+                today,
+                previous,
+                max_age_days,
+                enforced_set,
+            )
+        )
+        for source, entry in sorted((import_health.get("sources") or {}).items()):
+            if isinstance(entry, dict):
+                items.append(
+                    make_import_item(
+                        f"source_import.{source}",
+                        f"L1 {source} content vintage",
+                        entry,
+                        today,
+                        max_age_days,
+                        enforced_set,
+                    )
+                )
 
     hashes = {
         name: sha256(fixtures / name)
-        for name in ("players.json", "comparison-sources-data.json", "player-news.json")
+        for name in ("players.json", "comparison-sources-data.json", "player-news.json", "source-import-health.json")
     }
     all_same_day = all(item["status"] == "same_day" for item in items if item["status"] != "unknown")
     stale = [item for item in items if item["status"] == "stale"]
     unknown = [item for item in items if item["status"] == "unknown"]
     expired = [item for item in items if not item["freshness_ok"]]
     enforced_expired = [item for item in items if item["enforced"] and not item["freshness_ok"]]
+    l1_unhealthy = [
+        item for item in items
+        if item["key"].startswith("source_import.")
+        and item["key"] != "source_import.checked_at"
+        and not item["freshness_ok"]
+    ]
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "today": today.isoformat(),
@@ -142,12 +208,14 @@ def build_report(
         # committed into app/ and dist/ carried whichever machine last ran
         # sync (e.g. /home/hatch/workspace/...) and churned on every run.
         "fixture_dir": _relative_to_root(fixtures),
+        "import_health_source": _relative_to_root(import_health_source),
         "summary": {
             "all_known_dates_same_day": all_same_day,
             "stale_count": len(stale),
             "unknown_count": len(unknown),
             "expired_count": len(expired),
             "enforced_expired_count": len(enforced_expired),
+            "l1_unhealthy_count": len(l1_unhealthy),
             "unchanged_count": sum(1 for item in items if not item["changed_since_prior_report"]),
             "max_age_days": max_age_days,
             "enforced_keys": list(enforced_keys),

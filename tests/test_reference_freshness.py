@@ -135,6 +135,56 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertEqual(7, payload["summary"]["expired_count"])
             self.assertEqual(0, payload["summary"]["enforced_expired_count"])
 
+    def test_l1_import_health_is_reported_as_source_freshness(self):
+        with TemporaryDirectory() as tmp:
+            fixtures = Path(tmp) / "fixtures"
+            output = Path(tmp) / "freshness.json"
+            self.write_fixtures(fixtures, "2026-09-27")
+            (fixtures / "source-import-health.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "trade-value-import-health-v1",
+                        "checked_at": "2026-09-27T12:00:00Z",
+                        "nfl_week": 3,
+                        "sources": {
+                            "fantasycalc": {
+                                "status": "stale",
+                                "last_successful_import": "2026-09-20T12:00:00Z",
+                                "content_vintage": "Week 2",
+                                "failure_reason": "STALE_VINTAGE: old",
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                [
+                    "python3",
+                    "pipelines/check_reference_freshness.py",
+                    "--fixtures",
+                    str(fixtures),
+                    "--output",
+                    str(output),
+                    "--today",
+                    "2026-09-27",
+                    "--max-age-days",
+                    "2",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(1, payload["summary"]["l1_unhealthy_count"])
+            item = next(i for i in payload["items"] if i["key"] == "source_import.fantasycalc")
+            self.assertEqual("Week 2", item["value"])
+            self.assertEqual("stale", item["l1_status"])
+            self.assertFalse(item["freshness_ok"])
+
 
 if __name__ == "__main__":
     unittest.main()

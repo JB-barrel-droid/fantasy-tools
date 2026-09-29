@@ -21,6 +21,8 @@ WEEKLY_VEGAS = ROOT / "weekly_vegas" / "dashboard"
 WAIVER_WIRE = ROOT / "waiver_wire" / "dashboard"
 DIST = ROOT / "dist"
 REFERENCE_FRESHNESS = ROOT / "output" / "reference-freshness.json"
+RUNTIME_IMPORT_HEALTH = ROOT / "output" / "source-import-health.json"
+FIXTURE_IMPORT_HEALTH = FIXTURES / "source-import-health.json"
 
 
 def read_json(path: Path) -> dict:
@@ -88,9 +90,22 @@ def stamp_build_tag(index_html: str, tag: str) -> str:
     )
 
 
+def import_health_source() -> Path:
+    """Prefer the latest runtime gate output; fall back to the committed fixture."""
+    if RUNTIME_IMPORT_HEALTH.is_file():
+        try:
+            payload = read_json(RUNTIME_IMPORT_HEALTH)
+            if payload.get("schema") == "trade-value-import-health-v1":
+                return RUNTIME_IMPORT_HEALTH
+        except (OSError, json.JSONDecodeError):
+            pass
+    return FIXTURE_IMPORT_HEALTH
+
+
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
-    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, date.today())
+    import_health = import_health_source()
+    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, date.today(), import_health_path=import_health)
     REFERENCE_FRESHNESS.parent.mkdir(parents=True, exist_ok=True)
     REFERENCE_FRESHNESS.write_text(json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -123,7 +138,7 @@ def main() -> int:
     dist_modules = DIST / "modules"
     dist_modules.mkdir(parents=True, exist_ok=True)
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
-    shutil.copy2(FIXTURES / "source-import-health.json", dist_modules / "source-import-health.json")
+    shutil.copy2(import_health, dist_modules / "source-import-health.json")
 
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).

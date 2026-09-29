@@ -28,6 +28,14 @@ class SourceReferenceBuildTest(unittest.TestCase):
             "schema": "trade-value-source-matches-v1",
             "source": source,
             "fetched_at": "2026-09-21T12:00:00Z",
+            "source_provenance": {
+                "source": source,
+                "content_vintage": "Week 3",
+                "vintage_kind": "week_designated",
+                "week_designated": 3,
+                "source_pulled_at": "2026-09-21T12:00:00Z",
+                "snapshot_fetched_at": "2026-09-21T12:00:00Z",
+            },
             "default_scoring": default_scoring,
             "default_teams": default_teams,
             "summary": {},
@@ -149,11 +157,12 @@ class SourceReferenceBuildTest(unittest.TestCase):
             payload = json.loads(expected.read_text(encoding="utf-8"))
             self.assertEqual(
                 {"schema", "generated_at", "input_match", "source", "fetched_at",
-                 "scoring", "teams", "qb", "combo_key", "summary", "rows",
+                 "source_provenance", "scoring", "teams", "qb", "combo_key", "summary", "rows",
                  "values_by_player_key", "player_key_by_source_name",
                  "review_rows"},
                 set(payload.keys()),
             )
+            self.assertEqual("Week 3", payload["source_provenance"]["content_vintage"])
             self.assertEqual("ppr_12", payload["combo_key"])
             self.assertEqual(
                 {"matched_input_count": 4, "reference_row_count": 2,
@@ -234,6 +243,14 @@ class SourceReferenceBuildTest(unittest.TestCase):
                     "schema": "trade-value-source-matches-v1",
                     "source": "fantasycalc",
                     "fetched_at": "2026-09-21T12:00:00Z",
+                    "source_provenance": {
+                        "source": "fantasycalc",
+                        "content_vintage": "Week 3",
+                        "vintage_kind": "week_designated",
+                        "week_designated": 3,
+                        "source_pulled_at": "2026-09-21T12:00:00Z",
+                        "snapshot_fetched_at": "2026-09-21T12:00:00Z",
+                    },
                     "default_scoring": "ppr",
                     "default_teams": 12,
                     "summary": {"input_row_count": 5, "matched_count": 4, "review_count": 1},

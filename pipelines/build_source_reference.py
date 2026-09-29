@@ -228,6 +228,7 @@ def build_references(match_path: Path) -> list[dict[str, Any]]:
                 "input_match": str(match_path),
                 "source": matched.get("source"),
                 "fetched_at": matched.get("fetched_at"),
+                "source_provenance": matched.get("source_provenance"),
                 "scoring": scoring,
                 "teams": teams,
                 "qb": qb,

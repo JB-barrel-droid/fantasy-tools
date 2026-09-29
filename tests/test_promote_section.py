@@ -19,7 +19,7 @@ POS = ("QB", "RB", "WR", "TE")
 APPROVE = "Test 2026-09-21 promote in test"
 
 
-def build_world(tmp):
+def build_world(tmp, source="syn"):
     """Synthetic (fixture, candidate) pair in the real fixture's shape."""
     players = []
     fkeys = {}
@@ -45,7 +45,7 @@ def build_world(tmp):
             "index_total": {p: {"target_total": 100.0, "n_priced": 12}
                             for p in POS},
         }
-    fx = {"sources": {"syn": fx_section}, "player_keys": fkeys}
+    fx = {"sources": {source: fx_section}, "player_keys": fkeys}
     # The reindex stage anchors to the fixture's ESPN leg.
     anchor_values = {f"player {p.lower()}{j}": 60.0 - j
                      for p in POS for j in range(12)}
@@ -57,7 +57,7 @@ def build_world(tmp):
     players_path.write_text(json.dumps({"players": players}))
 
     cand = {"schema": "trade-value-source-reference-v1",
-            "source_key": "syn", "asof": "2026-09-21",
+            "source_key": source, "asof": "2026-09-21",
             "reindex_status": "pending", "combos": {}}
     for combo in ("full_12",):
         native = dict(fx_section["combos"][combo]["native"])
@@ -70,10 +70,10 @@ def build_world(tmp):
     return fx_path, players_path, cp
 
 
-def ready_review(tmp):
+def ready_review(tmp, source="syn"):
     """Run the real stage-2 reindex + stage-3 review; return review path."""
     import reindex_comparison_section as rcs
-    fx_path, players_path, cp = build_world(tmp)
+    fx_path, players_path, cp = build_world(tmp, source=source)
     section, rows = rcs.reindex_section(str(cp), str(fx_path), str(players_path))
     assert rows == []
     rp = tmp / "reindexed.json"
@@ -84,6 +84,28 @@ def ready_review(tmp):
     revp = tmp / "review.json"
     revp.write_text(json.dumps(report))
     return fx_path, rp, revp
+
+
+def write_import_health(path, source="fantasycalc", status="ok", vintage="Week 3"):
+    payload = {
+        "schema": "trade-value-import-health-v1",
+        "checked_at": "2026-09-21T12:30:00Z",
+        "nfl_week": 3,
+        "sources": {
+            source: {
+                "status": status,
+                "last_successful_import": "2026-09-21T12:30:00Z",
+                "content_vintage": vintage,
+                "vintage_kind": "week_designated",
+                "row_count": 48,
+                "supabase_table": "public.source_trade_values",
+                "supabase_landing": True,
+                "snapshot_path": "data/raw/sources/fantasycalc/week-3/snapshot.json",
+                "failure_reason": None if status == "ok" else "STALE_VINTAGE: old",
+            }
+        },
+    }
+    path.write_text(json.dumps(payload))
 
 
 class TestPromote(unittest.TestCase):
@@ -190,6 +212,45 @@ class TestPromote(unittest.TestCase):
         with self.assertRaises(SystemExit):
             promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                           record_dir=str(self.records))
+
+    def test_active_source_promotion_requires_fresh_matching_l1_vintage(self):
+        fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
+        doc = json.loads(rp.read_text())
+        doc["content_vintage"] = "Week 3"
+        doc["source_provenance"] = {
+            "source": "fantasycalc",
+            "content_vintage": "Week 3",
+            "vintage_kind": "week_designated",
+            "week_designated": 3,
+            "source_pulled_at": "2026-09-21T12:00:00Z",
+            "snapshot_fetched_at": "2026-09-21T12:00:00Z",
+        }
+        rp.write_text(json.dumps(doc))
+        rev = json.loads(revp.read_text())
+        rev["reindexed_sha256"] = promo.sha256_file(rp)
+        revp.write_text(json.dumps(rev))
+
+        health = self.tmp / "source-import-health.json"
+        write_import_health(health, vintage="Week 2")
+        with self.assertRaises(SystemExit) as ctx:
+            promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                          record_dir=str(self.records), import_health_path=str(health))
+        self.assertIn("does not match fresh L1 vintage", str(ctx.exception))
+
+        write_import_health(health, vintage="Week 3", status="stale")
+        with self.assertRaises(SystemExit) as ctx:
+            promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                          record_dir=str(self.records), import_health_path=str(health))
+        self.assertIn("not 'ok'", str(ctx.exception))
+
+        write_import_health(health, vintage="Week 3", status="ok")
+        result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                               record_dir=str(self.records), import_health_path=str(health))
+        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        self.assertEqual("Week 3", after["content_vintage"])
+        self.assertEqual("Week 3", after["source_provenance"]["content_vintage"])
+        rec = json.loads(Path(result["promotion_record"]).read_text())
+        self.assertEqual("Week 3", rec["l1_import_health_gate"]["content_vintage"])
 
 
 if __name__ == "__main__":

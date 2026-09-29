@@ -234,6 +234,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
         "week_designated": cand.get("week_designated"),
         "published": cand.get("published"),
         "content_vintage": cand.get("content_vintage"),
+        "source_provenance": cand.get("source_provenance"),
         "fetched_at": cand.get("fetched_at"),
         "reindex_status": "complete",
         "combos": out_combos,

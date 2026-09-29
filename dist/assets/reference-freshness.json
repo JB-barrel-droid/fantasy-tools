@@ -2,13 +2,15 @@
   "artifact_hashes": {
     "comparison-sources-data.json": "21077c6b379fc8655ac816ca46d7ebfcee0225fd1bed786e1b1c806a869acc60",
     "player-news.json": "295b487f16ec02a37f3e92e085c1b34aa69736b267dc265567902c7b2b94bff4",
-    "players.json": "9efd914fe7f738f27ccccc516f148ba78f5eeec4ee87278f1a8edfda6aa976b6"
+    "players.json": "9efd914fe7f738f27ccccc516f148ba78f5eeec4ee87278f1a8edfda6aa976b6",
+    "source-import-health.json": "a67571eddaa2bf2e8e26b1b3f9b10d51e1e697b927fe28bf367176777b57ab77"
   },
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-09-28T13:11:52-05:00",
+  "generated_at": "2026-09-29T10:11:06-05:00",
+  "import_health_source": "output/source-import-health.json",
   "items": [
     {
-      "age_days": 11,
+      "age_days": 12,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -20,7 +22,7 @@
       "value": "2026-09-17"
     },
     {
-      "age_days": 17,
+      "age_days": 18,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -32,7 +34,7 @@
       "value": "2026-09-11"
     },
     {
-      "age_days": 11,
+      "age_days": 12,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -44,7 +46,7 @@
       "value": "2026-09-17"
     },
     {
-      "age_days": 11,
+      "age_days": 12,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -56,7 +58,7 @@
       "value": "2026-09-17"
     },
     {
-      "age_days": 12,
+      "age_days": 13,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -68,7 +70,7 @@
       "value": "2026-09-16"
     },
     {
-      "age_days": 3,
+      "age_days": 4,
       "changed_since_prior_report": false,
       "enforced": true,
       "freshness_ok": false,
@@ -80,7 +82,7 @@
       "value": "2026-09-25T22:38:27Z"
     },
     {
-      "age_days": 8,
+      "age_days": 9,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -92,7 +94,7 @@
       "value": "2026-09-20T22:14:45Z"
     },
     {
-      "age_days": 9,
+      "age_days": 10,
       "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
@@ -102,6 +104,88 @@
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-19T15:48:29Z"
+    },
+    {
+      "age_days": 0,
+      "changed_since_prior_report": true,
+      "enforced": false,
+      "freshness_ok": true,
+      "key": "source_import.checked_at",
+      "label": "L1 import health checked_at",
+      "max_age_days": 2,
+      "note": "changed",
+      "status": "same_day",
+      "value": "2026-09-29T15:11:01Z"
+    },
+    {
+      "age_days": null,
+      "changed_since_prior_report": true,
+      "enforced": false,
+      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/cbs (expected data/raw/sources/cbs/<content-vintage>/snapshot-manifest.json)",
+      "freshness_ok": false,
+      "key": "source_import.cbs",
+      "l1_status": "missing",
+      "label": "L1 cbs content vintage",
+      "max_age_days": 2,
+      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "status": "stale",
+      "value": null
+    },
+    {
+      "age_days": null,
+      "changed_since_prior_report": true,
+      "enforced": false,
+      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/espn (expected data/raw/sources/espn/<content-vintage>/snapshot-manifest.json)",
+      "freshness_ok": false,
+      "key": "source_import.espn",
+      "l1_status": "missing",
+      "label": "L1 espn content vintage",
+      "max_age_days": 2,
+      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "status": "stale",
+      "value": null
+    },
+    {
+      "age_days": null,
+      "changed_since_prior_report": true,
+      "enforced": false,
+      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/fantasycalc (expected data/raw/sources/fantasycalc/<content-vintage>/snapshot-manifest.json)",
+      "freshness_ok": false,
+      "key": "source_import.fantasycalc",
+      "l1_status": "missing",
+      "label": "L1 fantasycalc content vintage",
+      "max_age_days": 2,
+      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "status": "stale",
+      "value": null
+    },
+    {
+      "age_days": null,
+      "changed_since_prior_report": true,
+      "enforced": false,
+      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/fantasypros (expected data/raw/sources/fantasypros/<content-vintage>/snapshot-manifest.json)",
+      "freshness_ok": false,
+      "key": "source_import.fantasypros",
+      "l1_status": "missing",
+      "label": "L1 fantasypros content vintage",
+      "max_age_days": 2,
+      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "status": "stale",
+      "value": null
+    },
+    {
+      "age_days": null,
+      "changed_since_prior_report": true,
+      "enforced": false,
+      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/usatoday (expected data/raw/sources/usatoday/<content-vintage>/snapshot-manifest.json)",
+      "freshness_ok": false,
+      "key": "source_import.usatoday",
+      "l1_status": "missing",
+      "label": "L1 usatoday content vintage",
+      "max_age_days": 2,
+      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "status": "stale",
+      "value": null
     }
   ],
   "source_validation": {
@@ -123,11 +207,12 @@
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 8,
+    "expired_count": 13,
+    "l1_unhealthy_count": 5,
     "max_age_days": 2,
-    "stale_count": 8,
+    "stale_count": 13,
     "unchanged_count": 8,
     "unknown_count": 0
   },
-  "today": "2026-09-28"
+  "today": "2026-09-29"
 }

@@ -19,6 +19,14 @@ def reference_artifact(rows, review_rows=None, source="fantasycalc"):
         "input_match": "output/source-matches/fantasycalc/matched.json",
         "source": source,
         "fetched_at": "2026-09-21T12:00:00Z",
+        "source_provenance": {
+            "source": source,
+            "content_vintage": "Week 3",
+            "vintage_kind": "week_designated",
+            "week_designated": 3,
+            "source_pulled_at": "2026-09-21T12:00:00Z",
+            "snapshot_fetched_at": "2026-09-21T12:00:00Z",
+        },
         "scoring": "ppr",
         "teams": 12,
         "combo_key": "ppr_12",
@@ -97,6 +105,8 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             self.assertEqual("fantasycalc", section["section_key"])
             self.assertEqual("pending", section["reindex_status"])
             self.assertEqual("published", section["value_provenance"])
+            self.assertEqual("Week 3", section["content_vintage"])
+            self.assertEqual("Week 3", section["source_provenance"]["content_vintage"])
 
             combos = section["combos"]
             self.assertEqual(["full_12"], sorted(combos))
@@ -379,6 +389,20 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             )
             self.assertNotEqual(0, result.returncode)
             self.assertIn("refusing to mix vintages", result.stderr)
+
+            ref_d = tmp / "d.json"
+            payload_d = reference_artifact(
+                [ref_row(869, "Josh Allen", 24.0)], source="usatoday")
+            payload_d["source_provenance"]["content_vintage"] = "Week 2"
+            write_json(ref_d, payload_d)
+            result = subprocess.run(
+                ["python3", "pipelines/build_comparison_source_section.py",
+                 "--input", str(ref_a), str(ref_d),
+                 "--comparison", str(fixture), "--output", str(out)],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("refusing to mix source vintages", result.stderr)
 
 
 if __name__ == "__main__":
