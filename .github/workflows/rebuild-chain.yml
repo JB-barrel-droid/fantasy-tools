@@ -1,0 +1,86 @@
+name: Rebuild comparison chain
+
+# Fully independent of Muse. Runs the import -> health -> comparison rebuild
+# chain on GitHub's infra using repo secrets.
+#
+# Required secrets (set in repo Settings > Secrets and variables > Actions):
+#   SUPABASE_URL          e.g. https://iskiybsimubiujwuchsl.supabase.co
+#   SUPABASE_SERVICE_KEY  the Supabase service_role key
+#
+# The GITHUB_TOKEN is automatic; no setup needed.
+
+on:
+  schedule:
+    # Every 6 hours — frequent enough to catch new snapshots, light enough
+    # to avoid noise. The chain itself is idempotent: it only promotes when
+    # the fixture is stale.
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+    # Manual trigger from the Actions tab.
+
+permissions:
+  contents: write  # needed to commit and push the rebuilt fixture
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Full history so the promote step's git-revision stamping works.
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          # The pipelines import `sbclient`, which normally uses Muse's
+          # credential system. Outside Muse, shim it with the env-based client.
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py 2>/dev/null || \
+            (mkdir -p /tmp/gh_shim && cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py)
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Determine NFL week
+        id: week
+        run: echo "nfl_week=$(python3 pipelines/nfl_week.py)" >> $GITHUB_OUTPUT
+
+      - name: Import fresh snapshots from Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/import_supabase_references.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+
+      - name: Run import health check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          cp output/source-import-health.json dist/modules/source-import-health.json
+
+      - name: Rebuild comparison chain (if fixture stale)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/rebuild_comparison_chain.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          # Sync the rebuilt fixture into dist for Pages
+          cp data/fixtures/current/comparison-sources-data.json dist/modules/comparison-sources-data.json
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/fixtures/current/comparison-sources-data.json \
+                  dist/modules/comparison-sources-data.json \
+                  dist/modules/source-import-health.json \
+                  output/source-import-health.json || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Automated comparison rebuild (GitHub Actions)"
+            git push
+          fi
