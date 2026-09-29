@@ -27,14 +27,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # Sync artifacts first so the monitor can always report current status,
-      # even when validation fails. The validate step still runs and its
-      # failure is visible in Actions; it just doesn't block the diagnostic
-      # dashboard from updating. Chart fixture promotions remain gated by
-      # manual review, not by this deploy.
       - run: make sync
       - run: make validate
-        continue-on-error: true
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
