@@ -192,6 +192,11 @@ def promote(review_path, approve, fixture_path=None, record_dir=None, import_hea
     before_hash = sha256_canonical(fx_section)
     fixture["sources"][source] = new_section
     after_hash = sha256_canonical(new_section)
+    # built_at is a processing timestamp (not a source vintage) and must be
+    # refreshed whenever the fixture is written. Without this update the
+    # freshness gate sees the fixture's original build date, not the
+    # most-recent-promotion date, and fails even after a legitimate refresh.
+    fixture["built_at"] = utc_now()
     # Preserve the fixture's compact serialization (separators=(",", ":"),
     # no trailing newline) so the diff is limited to the changed section.
     fixture_path.write_text(json.dumps(fixture, separators=(",", ":")))

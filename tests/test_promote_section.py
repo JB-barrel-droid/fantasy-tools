@@ -45,7 +45,8 @@ def build_world(tmp, source="syn"):
             "index_total": {p: {"target_total": 100.0, "n_priced": 12}
                             for p in POS},
         }
-    fx = {"sources": {source: fx_section}, "player_keys": fkeys}
+    fx = {"built_at": "2026-09-19T00:00:00Z",
+          "sources": {source: fx_section}, "player_keys": fkeys}
     # The reindex stage anchors to the fixture's ESPN leg.
     anchor_values = {f"player {p.lower()}{j}": 60.0 - j
                      for p in POS for j in range(12)}
@@ -115,10 +116,12 @@ class TestPromote(unittest.TestCase):
 
     def test_happy_path(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        before = json.loads(fx_path.read_text())["sources"]["syn"]
+        before_fixture = json.loads(fx_path.read_text())
+        before = before_fixture["sources"]["syn"]
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                                record_dir=str(self.records))
-        after = json.loads(fx_path.read_text())["sources"]["syn"]
+        after_fixture = json.loads(fx_path.read_text())
+        after = after_fixture["sources"]["syn"]
         # reindexed math replaced
         self.assertNotEqual(before["combos"]["full_12"]["reindexed"],
                             after["combos"]["full_12"]["reindexed"])
@@ -129,6 +132,10 @@ class TestPromote(unittest.TestCase):
         # anchor recorded
         self.assertEqual(after["reindex_anchor"], "espn_leg")
         self.assertIn("monday rail", after["promotion_note"].lower())
+        # built_at must be refreshed: promotion is a fixture write event
+        self.assertIn("built_at", after_fixture)
+        self.assertNotEqual(after_fixture["built_at"], before_fixture["built_at"],
+                            "promotion must update fixture built_at so the freshness gate sees today")
         # promotion record with rollback + approver
         rec = json.loads(Path(result["promotion_record"]).read_text())
         self.assertEqual(rec["approved_by"], APPROVE)

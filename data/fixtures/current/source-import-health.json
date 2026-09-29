@@ -1,77 +1,62 @@
 {
-  "checked_at": "2026-09-25T22:38:27Z",
-  "nfl_week": 3,
+  "checked_at": "2026-09-29T15:37:53Z",
+  "nfl_week": 4,
   "schema": "trade-value-import-health-v1",
   "sources": {
     "cbs": {
       "content_vintage": "Week 3",
-      "failure_reason": null,
-      "imported_at": "2026-09-25T22:23:54Z",
-      "last_successful_import": "2026-09-22T12:12:00Z",
+      "failure_reason": "STALE_VINTAGE: content vintage Week 3 (NFL week 3) != current NFL week 4",
+      "last_successful_import": "2026-09-29T15:37:53Z",
       "row_count": 355,
-      "snapshot_path": "data/raw/sources/cbs/week-2/snapshot.json",
-      "source": "cbs",
-      "status": "ok",
+      "snapshot_path": "data/raw/sources/cbs/week-3/snapshot.json",
+      "status": "stale",
       "supabase_landing": true,
       "supabase_table": "public.cbs_trade_values",
-      "vintage_kind": "week_designated",
-      "week_designated": 3
+      "vintage_kind": "week_designated"
     },
     "espn": {
-      "content_vintage": "2026-09-25",
+      "content_vintage": "2026-09-29",
       "failure_reason": null,
-      "imported_at": "2026-09-25T22:37:14Z",
-      "last_successful_import": "2026-09-22T12:12:00Z",
-      "row_count": 349,
-      "snapshot_path": "data/raw/sources/espn/2026-09-21/snapshot.json",
-      "source": "espn",
+      "last_successful_import": "2026-09-29T15:37:53Z",
+      "row_count": 387,
+      "snapshot_path": "data/raw/sources/espn/2026-09-29/snapshot.json",
       "status": "ok",
       "supabase_landing": true,
       "supabase_table": "public.espn_season_projections",
-      "vintage_kind": "file_meta",
-      "week_designated": 3
+      "vintage_kind": "file_meta"
     },
     "fantasycalc": {
-      "content_vintage": "Week 3",
+      "content_vintage": "Week 4",
       "failure_reason": null,
-      "imported_at": "2026-09-23T12:09:59Z",
-      "last_successful_import": "2026-09-22T12:12:00Z",
-      "row_count": 591,
-      "snapshot_path": "data/raw/sources/fantasycalc/week-2/snapshot.json",
-      "source": "fantasycalc",
+      "last_successful_import": "2026-09-29T15:37:53Z",
+      "row_count": 580,
+      "snapshot_path": "data/raw/sources/fantasycalc/week-4/snapshot.json",
       "status": "ok",
       "supabase_landing": true,
       "supabase_table": "public.source_trade_values",
-      "vintage_kind": "week_designated",
-      "week_designated": 3
+      "vintage_kind": "week_designated"
     },
     "fantasypros": {
-      "content_vintage": "2026-09-22",
+      "content_vintage": "2026-09-29",
       "failure_reason": null,
-      "imported_at": "2026-09-25T22:25:25Z",
-      "last_successful_import": "2026-09-22T12:12:00Z",
-      "row_count": 534,
-      "snapshot_path": "data/raw/sources/fantasypros/2026-09-15/snapshot.json",
-      "source": "fantasypros",
+      "last_successful_import": "2026-09-29T15:37:53Z",
+      "row_count": 531,
+      "snapshot_path": "data/raw/sources/fantasypros/2026-09-29/snapshot.json",
       "status": "ok",
       "supabase_landing": true,
       "supabase_table": "public.source_trade_values",
-      "vintage_kind": "source_content_date",
-      "week_designated": 3
+      "vintage_kind": "week_designated"
     },
     "usatoday": {
       "content_vintage": "2026-09-23",
-      "failure_reason": null,
-      "imported_at": "2026-09-25T00:00:00Z",
-      "last_successful_import": "2026-09-22T12:12:00Z",
+      "failure_reason": "STALE_VINTAGE: content vintage 2026-09-23 (NFL week 3) != current NFL week 4",
+      "last_successful_import": "2026-09-29T15:37:53Z",
       "row_count": 702,
-      "snapshot_path": "data/raw/sources/usatoday/2026-09-15/snapshot.json",
-      "source": "usatoday",
-      "status": "ok",
+      "snapshot_path": "data/raw/sources/usatoday/2026-09-23/snapshot.json",
+      "status": "stale",
       "supabase_landing": true,
       "supabase_table": "public.source_trade_values",
-      "vintage_kind": "source_content_date",
-      "week_designated": 3
+      "vintage_kind": "week_designated"
     }
   }
 }

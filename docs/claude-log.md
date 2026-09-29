@@ -32,6 +32,68 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-29 - Cascade pipeline orchestration implementation
+
+### Verified
+
+- Inspected the three untracked/modified files handed off from Codex:
+  `pipelines/cascade_source_update.py` (new, 479 lines), `tests/test_pipeline_cascade.py`
+  (new, 198 lines), `pipelines/promote_comparison_section.py` (modified: adds
+  `fixture["built_at"] = utc_now()` before writing, so the freshness gate sees
+  the promotion date). All three were read before any edits. [`Read` tool; `git diff`]
+- Cascade code was missing the required `comparison-merge` step (step 5 in the
+  trigger chain). The code went directly from `comparison-section` to
+  `comparison-reindex`, skipping the `merge_comparison_candidate.py` zero-fill
+  check and candidate report generation. [`Read` cascade_source_update.py]
+- Added the merge step to `cascade_source_update.py`:
+  - `strip_volatile` now strips `built_at` in addition to `generated_at` so the
+    merged candidate artifact (which receives `built_at = utc_now()`) compares
+    idempotently. The written files still carry the full unmodified payload;
+    stripping is only for the change-detection comparison.
+  - Added `default_merge_candidate_path` and `default_merge_report_path` helpers.
+  - Renamed old `cascade_from_section` (reindex-only) to `_run_reindex`.
+  - New `cascade_from_section` calls `merge_stage.merge_candidate` (fail-closed
+    zero-fill check) then writes the merged artifact + candidate report under
+    `candidate_dir`, then calls `_run_reindex`. If both merge artifacts are
+    materially unchanged, it appends a `cascade-stop` step and returns early.
+  - Updated `chain` field in cascade report to include `comparison-merge +
+    comparison-merge-report`.
+- Updated `tests/test_pipeline_cascade.py` to expect the merge stages in order:
+  `source-match, source-reference, comparison-section, comparison-merge,
+  comparison-merge-report, comparison-reindex, comparison-review`. Added an
+  assertion that the merged artifact contains the candidate source section.
+- `python3 -m pytest tests/test_pipeline_cascade.py -v` passed (1/1). [`pytest`]
+- `python3 -m unittest discover -s tests` passed (389 passed, 6 skipped). [`unittest discover`]
+- `make validate` is red with exit 2:
+  `comparison.built_at = '2026-09-25T22:38:27Z'` (age_days=4, max_age_days=2).
+  The only failing check is the freshness gate on the comparison fixture. All
+  unit tests and naming/reference checks pass. [`make validate`]
+- `make validate` freshness gate is blocked by missing genuine CBS and USA Today
+  Week 4 source data, exactly as documented in the prior session's log entry
+  ("2026-09-29 - Partial Week 4 L1 recovery"). No timestamps were bumped,
+  no gates were relaxed. Cascade implementation is not the cause. [`docs/claude-log.md`]
+- The `promote_comparison_section.py` modification (adds `fixture["built_at"] =
+  utc_now()`) is correct: `built_at` is a processing timestamp, not source
+  vintage, and must be refreshed on promotion per pipeline-rules §5. The diff
+  is small and standalone. It does not change any data path.
+
+### Claimed, unverified
+
+- The `comparison-merge` step will also run correctly via `--input <section.json>`
+  (the `infer_stage` "section" path routes to `cascade_from_section`, which now
+  includes merge). Not tested end-to-end with a real section artifact this session.
+
+### Open
+
+- `make validate` remains red (freshness gate) pending genuine Week 4 USA Today
+  and CBS source data. No push was made. Commit is staged locally only.
+- When USA Today and CBS Week 4 data become available: run `make supabase-import`
+  for those two sources, verify `make import-health NFL_WEEK=4` is fully green
+  (5/5 ok), run the cascade for each source, then promote each reviewed section
+  with an explicit `--approve` before pushing.
+
+---
+
 ## 2026-09-29 - L1 raw acquisition path investigation
 
 ### Verified
