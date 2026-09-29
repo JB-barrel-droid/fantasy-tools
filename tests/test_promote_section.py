@@ -260,5 +260,83 @@ class TestPromote(unittest.TestCase):
         self.assertEqual("Week 3", rec["l1_import_health_gate"]["content_vintage"])
 
 
+class TestCoverageTriage(unittest.TestCase):
+    """Coverage triage in review_comparison_candidate: the coverage_triage section
+    of the triage JSON converts a specific coverage fail to info so the verdict
+    can be 'ready' for genuine source movement.  Untriaged regressions still fail.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def _make_review_with_coverage_drop(self):
+        """Return a reindexed artifact whose half_12/RB count is 1 below the fixture."""
+        import reindex_comparison_section as rcs
+        import review_comparison_candidate as rvw_mod
+
+        fx_path, players_path, cp = build_world(self.tmp, source="syn2")
+        # Shrink the candidate so it has fewer RBs than the fixture
+        section = json.loads(cp.read_text())
+        # Remove one RB native entry to simulate coverage drop
+        h12_native = section["combos"]["full_12"]["native"]
+        rb_entries = [k for k in h12_native if " rb" in k]
+        del h12_native[rb_entries[0]]
+        # Also remove from player_keys so reindex sees the reduced set
+        section["combos"]["full_12"]["player_keys"].pop(rb_entries[0], None)
+        cp.write_text(json.dumps(section))
+
+        section_doc, rows = rcs.reindex_section(str(cp), str(fx_path), str(players_path))
+        rp = self.tmp / "reindexed2.json"
+        rp.write_text(json.dumps(section_doc))
+        return rp, fx_path, players_path, rvw_mod
+
+    def test_untriaged_coverage_regression_is_hold(self):
+        """Negative test: coverage reduction without triage must be 'hold'."""
+        rp, fx_path, players_path, rvw_mod = self._make_review_with_coverage_drop()
+        report = rvw_mod.review_candidate(str(rp), fixture_path=str(fx_path),
+                                          players_path=str(players_path))
+        self.assertEqual("hold", report["verdict"])
+        coverage_fails = [c for c in report["checks"]
+                          if c["name"].startswith("coverage:") and c["status"] == "fail"]
+        self.assertTrue(coverage_fails, "expect at least one coverage fail")
+
+    def test_triaged_coverage_regression_is_ready(self):
+        """Positive test: documented coverage triage converts fail to info, verdict ready."""
+        rp, fx_path, players_path, rvw_mod = self._make_review_with_coverage_drop()
+        triage = self.tmp / "coverage-triage.json"
+        triage.write_text(json.dumps({
+            "coverage_triage": {
+                "full_12/RB": "Week 4: player dropped from source chart (verified waived)"
+            }
+        }))
+        report = rvw_mod.review_candidate(str(rp), triage_path=str(triage),
+                                          fixture_path=str(fx_path),
+                                          players_path=str(players_path))
+        self.assertEqual("ready", report["verdict"],
+                         f"checks: {[c for c in report['checks'] if c['status']=='fail']}")
+        coverage_infos = [c for c in report["checks"]
+                          if c["name"].startswith("coverage:") and c["status"] == "info"]
+        self.assertTrue(coverage_infos, "triaged coverage should appear as info")
+        self.assertIn("triaged coverage reduction", coverage_infos[0]["detail"])
+
+    def test_other_combo_not_triaged_still_fails(self):
+        """A triage entry for one pos does not mask a different untriaged regression."""
+        rp, fx_path, players_path, rvw_mod = self._make_review_with_coverage_drop()
+        # Only triage WR (which has no regression in our synthetic data); RB should still fail
+        triage = self.tmp / "partial-triage.json"
+        triage.write_text(json.dumps({
+            "coverage_triage": {
+                "full_12/WR": "Week 4: documented WR drop"
+            }
+        }))
+        report = rvw_mod.review_candidate(str(rp), triage_path=str(triage),
+                                          fixture_path=str(fx_path),
+                                          players_path=str(players_path))
+        self.assertEqual("hold", report["verdict"])
+        rb_fails = [c for c in report["checks"]
+                    if c["name"] == "coverage:full_12/RB" and c["status"] == "fail"]
+        self.assertTrue(rb_fails, "RB coverage regression must remain a fail without triage")
+
+
 if __name__ == "__main__":
     unittest.main()

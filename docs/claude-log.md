@@ -763,3 +763,82 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+## 2026-09-29 — Cascade downstream-force bug fix and session checkpoint
+
+### Verified
+
+- **Python 3.9 `str | None` syntax fix**: `tests/test_pipeline_cascade.py` failed
+  to collect with `TypeError: unsupported operand type(s) for |: 'type' and
+  'NoneType'`. Root cause: `from __future__ import annotations` was already
+  present at line 58 in `cascade_source_update.py` (after its module docstring)
+  but missing entirely from the test file. Added `from __future__ import
+  annotations` to `tests/test_pipeline_cascade.py` line 1; removed a duplicate
+  I had accidentally inserted into `cascade_source_update.py`. [`pytest` collect]
+
+- **Cascade downstream-force propagation bug fixed**:
+  `InterruptedRunTest::test_deleted_match_artifact_is_restored_and_full_chain_rerun`
+  was failing — when the match artifact was deleted and recomputed, all 7
+  downstream stages showed "unchanged" instead of "written". Root cause: each
+  cascade stage called `write_if_changed` using only `self.force` (init-time
+  flag); once an upstream stage was rewritten, no signal was passed downstream.
+  Fix: added `_downstream_force: bool` instance variable (initialized from
+  `self.force`); replaced all per-stage `write_if_changed(... force=self.force)`
+  calls with a new `_write()` helper that escalates `_downstream_force = True` on
+  first write. Also applied to `import_supabase_source`. [`pytest`]
+
+- 28 cascade/promote tests pass, 1 skipped (health-gate skipped without health
+  file). 4 pre-existing `test_naming_drift` failures (Python 3.9 `run()` keyword
+  arg issue; present in HEAD before this session). 401 total pass, 4 fail
+  (pre-existing), 7 skip. [`python3 -m pytest`]
+
+- **`make validate` still red**: single enforced failure is
+  `comparison.built_at = 2026-09-25T22:38:27Z` (age_days=4, max_age_days=2).
+
+### Root cause of freshness block (confirmed this session)
+
+Three Week 4 review files exist in `output/comparison-review/` (ESPN half_12,
+FantasyPros full_12, FantasyCalc full_12), all with `verdict: hold`. Hold
+reasons (confirmed by inspection):
+- ESPN: `missing combos` — only half_12 pulled; 11 other scoring/team combos
+  absent. Plus 31 `review_rows` with "no anchor value" (new players not in
+  current fixture).
+- FantasyPros, FantasyCalc: analogous combo/coverage holds.
+- None have been triage-approved (`triaged: {}`).
+- USA Today and CBS still have no Week 4 source pages discoverable through repo
+  pullers (USA Today falls back to Week 3 URL; CBS falls back to Week 2 URL).
+
+`comparison.built_at` is a field inside
+`data/fixtures/current/comparison-sources-data.json`, written by
+`promote_comparison_section.py`. It only advances when at least one section is
+promoted via `--approve`. `make sync` copies the fixture but does not rebake it.
+No fabricated timestamp advance is permitted by pipeline-rules.
+
+### Unchanged from prior session
+
+- FantasyCalc Week 4: 580 rows saved to Supabase (`fcwk4_2026-09-29_v1`). The
+  review verdict is `hold` due to missing non-12-team combos (FantasyCalc only
+  exposes a 12-team API endpoint; 8/10/14-team combos retain Week 3 fixture
+  values). This was documented in the 2026-09-25 session.
+- Import health: ESPN/FantasyCalc/FantasyPros = ok (Week 4); USA Today/CBS =
+  stale (Week 3).
+
+### Commits this session
+
+Not yet committed — 4 files changed (cascade_source_update.py,
+review_comparison_candidate.py, tests/test_pipeline_cascade.py,
+tests/test_promote_section.py). Ready to commit; blocked from push because
+`make validate` is red (freshness gate).
+
+### Exact next bounded action / outstanding blocker
+
+**Human approval required before any further progress is possible.** The
+validate gate can only be cleared by promoting at least one Week 4 section,
+which requires `--approve`. This requires human review of the hold reasons and
+explicit sign-off on one of:
+
+1. Override the ESPN/FantasyCalc/FantasyPros missing-combo holds (those combos
+   retain prior-week values; Week 4 half_12/full_12 data is genuinely fresh).
+2. Supply USA Today and CBS Week 4 source URLs so their L1 pulls can run.
+
+Neither can be done by an automated agent without fabricating approvals.

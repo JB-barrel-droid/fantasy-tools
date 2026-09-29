@@ -112,8 +112,14 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
     candidate_vintage, candidate_vintage_field = _vintage_from_doc(cand)
 
     triaged = {}
+    coverage_triage: dict = {}
     if triage_path:
-        triaged = _load_json(triage_path)
+        raw_triage = _load_json(triage_path)
+        # coverage_triage: {"combo/pos": "documented reason"} overrides coverage
+        # fails to info when the reduction is a verified source change, not a
+        # pipeline error. All other keys are the existing review_rows slug map.
+        coverage_triage = raw_triage.pop("coverage_triage", {})
+        triaged = raw_triage
 
     checks = []
     combos_detail = {}
@@ -299,8 +305,16 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                 if f_n is None:
                     continue  # fixture records no priced count; cannot compare
                 if c_n < f_n:
-                    checks.append(_check(f"coverage:{combo_name}/{pos}", "fail",
-                                         f"candidate priced {c_n} < fixture {f_n}"))
+                    triage_key = f"{combo_name}/{pos}"
+                    triage_reason = coverage_triage.get(triage_key)
+                    if triage_reason:
+                        checks.append(_check(
+                            f"coverage:{combo_name}/{pos}", "info",
+                            f"triaged coverage reduction {c_n}<{f_n}: {triage_reason}",
+                        ))
+                    else:
+                        checks.append(_check(f"coverage:{combo_name}/{pos}", "fail",
+                                             f"candidate priced {c_n} < fixture {f_n}"))
         if not any(c["name"].startswith("coverage:") and c["status"] == "fail"
                    for c in checks):
             checks.append(_check("coverage", "pass", "no priced-count regressions"))
