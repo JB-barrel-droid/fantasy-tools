@@ -259,6 +259,14 @@ def normalize_db_row(row: dict[str, Any], names: dict[int, str]) -> tuple[dict[s
             "value_raw": row.get("value"),
         }
     teams = parse_int(row.get("league_teams"))
+    # qb_slots is saved to source_trade_values (grain key: sources that support
+    # superflex carry qb_slots=2; single-QB sources carry qb_slots=1).
+    # Must be carried through to the reference row so combo_key_for() can
+    # append the _qb1/_qb2 suffix — without it, combo_key_for(qb=None)
+    # produces bare keys like "full_12" that never match fixture combo names
+    # ("full_12_qb1" / "full_12_qb2"), causing a spurious combos_match failure
+    # in every section review for sources saved with explicit qb_slots.
+    qb = parse_int(row.get("qb_slots"))
     clean = {
         "player_name": name,
         "value": value,
@@ -266,6 +274,7 @@ def normalize_db_row(row: dict[str, Any], names: dict[int, str]) -> tuple[dict[s
         "team": str(row.get("team") or "").strip() or None,
         "scoring": repo_scoring(row.get("scoring")),
         "teams": teams,
+        "qb": qb,
         "source_player_id": key,
         # Carried alongside value: the source's scraped native before any
         # reindexing. Downstream stages ignore unknown keys; this one is for

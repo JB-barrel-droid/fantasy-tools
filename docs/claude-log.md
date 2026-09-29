@@ -842,3 +842,68 @@ explicit sign-off on one of:
 2. Supply USA Today and CBS Week 4 source URLs so their L1 pulls can run.
 
 Neither can be done by an automated agent without fabricating approvals.
+
+## 2026-09-29 — qb_slots import mapping bug found and fixed
+
+### Verified
+
+- **Bug confirmed: `import_supabase_references.py` dropped `qb_slots`** from
+  the reference row, causing `combo_key_for(scoring, teams, qb=None)` to
+  produce bare combo keys (`full_12`, `half_12`, `standard_12`) rather than
+  the fixture-aligned `_qb1`-qualified names (`full_12_qb1`, etc.). Source:
+  `build_comparison_source_section.py` line 84-93 — `int(None)` raises
+  `TypeError`, so the suffix branch is never reached. [`Read` of both files]
+
+- **12-team-only claim verified from two independent sources:**
+  1. `pipelines/save_fantasycalc_references.py` lines 83-89 and 158-159:
+     `FC_COMBOS` contains only 3 stems (`fantasycalc_standard_12_qb1`,
+     `fantasycalc_half_12_qb1`, `fantasycalc_full_12_qb1`); `league_teams=12`,
+     `qb_slots=1` are hardcoded in every upsert row.
+  2. `data/raw/sources/fantasycalc/week-4/snapshot.json`: all 580 rows have
+     `teams=12`, `qb=None`. Source docstring: "the other 21 cached combos are
+     the raw pull, not the saved grain."
+
+- **Pull cache HAS all 24 combos** — the FantasyCalc source genuinely supports
+  8/10/12/14-team × std/half/full × qb1/qb2 configurations. They exist in the
+  goal workspace cache at `fantasycalc_{scoring}_{teams}_qb{n}.json`. They are
+  not saved to Supabase by design decision (only canonical 12-team/qb1 was
+  chosen as the pipeline grain).
+
+- **qb_slots fix applied** to `import_supabase_references.py` (line 261):
+  added `"qb": parse_int(row.get("qb_slots"))` to the clean row dict with a
+  comment explaining the mapping. 408 unittest + 80 pytest tests pass after
+  the fix. [`python3 -m unittest discover`; `pytest`]
+
+- **The qb fix alone does NOT clear the combos_match hold.** After the fix,
+  the candidate would produce `full_12_qb1`, `half_12_qb1`, `standard_12_qb1`
+  (3 combos matching fixture keys). Still missing: 3 qb2 variants + 18
+  non-12-team variants = 21 combos. `combos_match` still fails; verdict stays
+  `hold`. No path to `ready` from Supabase data alone.
+
+- **make test (unittest discover) passes 408/0.** The 4 `test_naming_drift`
+  failures under pytest are a pytest/Python 3.9 `run()` keyword-arg
+  incompatibility — they do not appear under `python3 -m unittest discover`
+  (the actual `make validate` runner). Confirmed by running both.
+
+### Concrete acquisition blocker
+
+Full 24-combo FantasyCalc coverage requires saving all 24 combos from the
+pull cache to Supabase. The cache lives at:
+`~/workspace/goals/football-signal-database-and-app/lottery/data/sources_cache/`
+This path is absent on this Mac (noted in 2026-09-26 session). Supabase
+mutation is not authorized in this session. The saver's `FC_COMBOS` dict
+can be extended to include all 24 stems, but the cache files must first exist
+locally. This is a data-environment constraint, not a code defect.
+
+### Remaining validate gate
+
+`comparison.built_at` stale (4d). Requires promotion of at least one section
+with a `ready` verdict. `ready` requires `combos_match` to pass. `combos_match`
+clears when all 24 FantasyCalc fixture combos are in the candidate, which
+requires saving the full pull cache to Supabase (blocked: wrong machine +
+no Supabase mutation authorized).
+
+### Changes this session (ready to commit)
+
+- `pipelines/import_supabase_references.py`: qb_slots mapping fix
+- `docs/claude-log.md`: this entry
