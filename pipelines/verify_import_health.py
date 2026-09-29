@@ -63,31 +63,31 @@ WEEK_DESIGNATED_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs")
 SOURCE_CONFIGS = {
     "fantasycalc": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week&source=eq.fantasycalc&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at&source=eq.fantasycalc&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "usatoday": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week&source=eq.usatoday&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at&source=eq.usatoday&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "fantasypros": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week&source=eq.fantasypros&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at&source=eq.fantasypros&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "espn": {
         "api_table": "espn_season_projections",
-        "params": "?select=player_key,espn_snapshot_date,week",
+        "params": "?select=player_key,espn_snapshot_date,week,created_at",
         "vintage_date_col": "espn_snapshot_date",
         "table_holds_review_rows": False,
     },
     "cbs": {
         "api_table": "cbs_trade_values",
-        "params": "?select=player_key,source_content_date,week&source=eq.cbs&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at&source=eq.cbs&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": False,
     },
@@ -359,6 +359,14 @@ def verify_source(
         # counted here so the monitor can show the latest version is what
         # verifies and displays.
         "ignored_older_rows": None,
+        # Checkpoint visibility: the dashboard shows the pipeline stages
+        # separately so a mismatch between what's in the DB and what's
+        # snapshotted is visually obvious (not buried in failure_reason).
+        # db_latest_* = newest vintage actually sitting in Supabase.
+        # content_vintage/row_count/snapshot_path = what the manifest points to.
+        "db_latest_vintage": None,
+        "db_latest_rows": None,
+        "db_latest_arrived_at": None,
     }
     loud: list[str] = []
 
@@ -432,6 +440,14 @@ def verify_source(
     except _NoVintage as exc:
         return fail("TABLE_DRIFT", f"table vintage undeterminable: {exc}")
     entry["ignored_older_rows"] = len(rows) - len(latest_rows)
+    # Checkpoint fields: expose what's actually in the DB so the dashboard
+    # can show it separately from the snapshot vintage.
+    entry["db_latest_vintage"] = live_vintage
+    entry["db_latest_rows"] = len(latest_rows)
+    # When did the newest DB rows arrive? (for lag detection - best practice:
+    # show how long data has been waiting between pipeline stages)
+    arrived = [r.get("created_at") for r in latest_rows if r.get("created_at")]
+    entry["db_latest_arrived_at"] = max(arrived) if arrived else None
     drift_bits: list[str] = []
     if len(latest_rows) != expected:
         drift_bits.append(

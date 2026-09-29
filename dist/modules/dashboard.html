@@ -215,6 +215,18 @@ function uiLabel(health,nflWeek){
   const m=/(\d{4}-\d{2}-\d{2})/.exec(v);
   return m?m[1]:"?";
 }
+// Best practice: show lag between pipeline stages so stuck data is obvious.
+// Returns "Xh Ym" or "Xd Yh" since the ISO timestamp, or null if unparseable.
+function lagSince(iso){
+  if(!iso) return null;
+  const then=new Date(iso), now=new Date();
+  if(isNaN(then)) return null;
+  const mins=Math.max(0,Math.floor((now-then)/60000));
+  if(mins<60) return mins+"m";
+  const hrs=Math.floor(mins/60);
+  if(hrs<48) return hrs+"h "+(mins%60)+"m";
+  return Math.floor(hrs/24)+"d "+(hrs%24)+"h";
+}
 
 async function main(){
   const errEl=document.getElementById("err");
@@ -440,13 +452,30 @@ function render(srcInfo, builtAt, builtDays, fxOk, hOk){
     const info=srcInfo[s], h=info.health, nm=SRC_LABEL[s];
     const cell=(st,tag)=>`<td><span class="st ${st}">${st==="ok"?"✓":st==="bad"?"✗":st==="warn"?"!":"?"}</span>${tag?`<span class="stag">${tag}</span>`:""}</td>`;
     const L1=h&&h.snapshot_path?cell("ok",h.snapshot_path.split("/").slice(-2).join("/")):cell("unk");
-    const L2=h&&h.supabase_landing?cell("ok",(h.row_count||"?")+" rows"):cell(h?"bad":"unk");
+    // L2: show DB-latest checkpoint separately from snapshot.
+    // When db_latest_vintage != content_vintage, data is sitting in Supabase
+    // waiting for the import to stamp it -- visually flag the mismatch.
+    // Best practice: show lag time so it's obvious how long data has been stuck.
+    let L2;
+    if(h&&h.supabase_landing){
+      const dbV=h.db_latest_vintage, snapV=h.content_vintage;
+      const mismatch=dbV&&snapV&&String(dbV)!==String(snapV);
+      const lag=mismatch?lagSince(h.db_latest_arrived_at):null;
+      const tag=(h.db_latest_rows||"?")+" rows"+(dbV?" · "+dbV:"");
+      L2=mismatch
+        ? `<td><span class="st warn">!</span><span class="stag">${tag}<br><b style="color:var(--yellow)">STUCK ${lag?"· waiting "+lag:""}</b><br><span style="font-size:10px">snapshot: ${snapV}</span></span></td>`
+        : cell("ok",tag);
+    } else L2=cell(h?"bad":"unk");
     const L3=h?(h.status==="ok"?cell("ok","vintage "+(h.content_vintage||"?")):h.status==="warning"?cell("warn","vintage "+(h.content_vintage||"?")):cell("bad","unk")):cell("unk");
     const L4=info.values>0?cell("ok"):cell("unk","no live signal");
     const L5=info.values>0?cell("ok"):cell("unk","no live signal");
     const L6=info.values>0?cell("ok",info.values.toLocaleString()+" vals"):cell("bad","0 vals");
     let stuck;
     if(info.values>0) stuck=`<span style="color:var(--green);font-size:11.5px;font-weight:600">— flowing</span>`;
+    else if(h&&h.db_latest_vintage&&h.content_vintage&&String(h.db_latest_vintage)!==String(h.content_vintage)){
+      const lag=lagSince(h.db_latest_arrived_at);
+      stuck=`<span class="stuck">⚠ STUCK: DB has ${h.db_latest_vintage} (${h.db_latest_rows||"?"} rows${lag?", arrived "+lag+" ago":""}) but snapshot is ${h.content_vintage}. <b>Action:</b> run stage-1 import to stamp the new vintage.</span>`;
+    }
     else if(h&&h.status==="ok") stuck=`<span class="stuck">L4–L6: in Supabase, never promoted</span>`;
     else stuck=`<span class="stuck">unknown — check health gate</span>`;
     return `<tr><td>${nm}<div class="stag">${s}</div></td>${L1}${L2}${L3}${L4}${L5}${L6}

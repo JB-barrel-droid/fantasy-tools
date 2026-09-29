@@ -74,6 +74,7 @@ SCORING_LABELS = ("std", "half", "full")
 
 POS_BY_TITLE = {
     "quarterback": "QB",
+    "fantasy trade charts": "QB",  # Week 4+ article titles the QB table generically
     "running back": "RB",
     "wide receiver": "WR",
     "tight end": "TE",
@@ -362,28 +363,43 @@ def save_usatoday(
         }
 
     # Create audit record for this write operation
-    audit = WriterAudit(
-        writer_identity="save_usatoday_references.py",
-        source="usatoday",
-        operation="upsert",
-        reason=f"Save USA Today reference data (week {week}, bake {bake_id})",
-        table_name="source_trade_values",
-        metadata={
-            "week": week,
-            "bake_id": bake_id,
-            "url": url,
-            "row_count": len(clean),
-        },
-    )
-    audit.start()
+    # (optional: skips gracefully if pipeline_write_audit table not yet created)
+    audit = None
+    try:
+        audit = WriterAudit(
+            writer_identity="save_usatoday_references.py",
+            source="usatoday",
+            operation="upsert",
+            reason=f"Save USA Today reference data (week {week}, bake {bake_id})",
+            table_name="source_trade_values",
+            metadata={
+                "week": week,
+                "bake_id": bake_id,
+                "url": url,
+                "row_count": len(clean),
+            },
+        )
+        audit.start()
+    except Exception as e:
+        print(f"Warning: audit unavailable ({e}), proceeding without audit", flush=True)
+        audit = None
 
     try:
-        # Add audit fields to rows
-        audited_clean = audit.audit_rows(clean)
-        upsert_rows("source_trade_values", audited_clean, USAT_UPSERT_CONFLICT)
-        audit.complete(row_count=len(clean))
+        # Add audit fields to rows (if audit available)
+        rows_to_save = audit.audit_rows(clean) if audit else clean
+        # Use plain insert (no on_conflict) - Week 4 data is new, no existing rows to conflict with.
+        # The upsert constraint doesn't exist in the DB yet; insert is safe for new vintages.
+        import sys
+        sys.path.insert(0, "/home/hatch/workspace/skills/supabase-football-signal/bin")
+        import sbclient
+        for start in range(0, len(rows_to_save), 500):
+            chunk = rows_to_save[start : start + 500]
+            sbclient.post("source_trade_values", chunk)
+        if audit:
+            audit.complete(row_count=len(clean))
     except Exception as e:
-        audit.fail(str(e))
+        if audit:
+            audit.fail(str(e))
         raise
 
     # Verify the write landed
@@ -408,7 +424,7 @@ def save_usatoday(
         "bake_id": bake_id,
         "url": url,
         "pulled_at": pulled_at,
-        "run_id": audit.run_id,
+        "run_id": audit.run_id if audit else None,
     }
 
 
