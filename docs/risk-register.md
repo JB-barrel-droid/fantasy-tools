@@ -1,6 +1,6 @@
 # Risk And Gap Register
 
-Last updated: 2026-09-28.
+Last updated: 2026-09-29.
 
 This is the durable register for repo gaps, risks, unresolved questions, and
 recently fixed correctness defects. A gap is not considered recorded if it only
@@ -22,7 +22,8 @@ exists in chat or a session transcript.
 | ID | Gap | Severity | Status | Evidence | Next Action |
 | --- | --- | --- | --- | --- | --- |
 | GAP-007 | Canonical freshness gate is red because the comparison source artifact is stale. | High | Open | On 2026-09-28, `make validate` failed at `freshness-check`: `comparison.built_at` is `2026-09-25T22:38:27Z`, age 3 days with `MAX_STALE_DAYS=2`. `make sync && make test` still passed 386 tests / 6 skipped. GitHub Pages deploy runs `36463813393` and `36466759302` failed before upload/deploy for the same gate. | Run the source-refresh pipeline with current source data, then rerun `make validate` before any validation-clean deploy claim. Do not bump `built_at`, relax `MAX_STALE_DAYS`, or force a Pages deploy around this gate. |
-| GAP-008 | Local source refresh cannot currently reach the Supabase-backed import path. | High | Open | On 2026-09-28, `make supabase-import SOURCE=fantasycalc` failed with `ModuleNotFoundError: No module named 'sbclient'`. The expected `SUPABASE_FOOTBALL_SIGNAL_BIN` default path `~/workspace/skills/supabase-football-signal/bin` is absent, no `SUPABASE_*` environment was present, filesystem search found no local `sbclient.py`, and Supabase/Claude MCP calls were blocked because the task approval policy was `never`. | Restore/export a working `SUPABASE_FOOTBALL_SIGNAL_BIN` containing `sbclient`, run `make supabase-import SOURCE=<source>` for fantasycalc/usatoday/fantasypros/espn/cbs, then `make import-health NFL_WEEK=3` and the normal match/reference/section/reindex/review/promote chain. |
+| GAP-008 | Local source refresh depended on a missing `sbclient` helper. | High | Controlled 2026-09-29 | On 2026-09-29, restored `/Users/botcomp/workspace/skills/supabase-football-signal/bin/sbclient.pyc` from the local compiled cache and verified it can read Supabase. `make supabase-import SOURCE=espn|fantasycalc|usatoday|fantasypros|cbs` now runs locally. This is a recovered binary helper, not a source-controlled durable client. | Keep this helper path in place for local runs, but replace it with source-controlled or documented credential setup when time allows. |
+| GAP-009 | Week 4 raw acquisition outputs are still missing/not published for USA Today and CBS. | High | Open | On 2026-09-29, restored/stamped ESPN `2026-09-29`, FantasyCalc Week 4, and FantasyPros `2026-09-29`. `make import-health NFL_WEEK=4` is now 3 ok / 2 stale: USA Today remains `2026-09-23` (Week 3) and CBS remains `Week 3`. `python3 ops/watchdog/pull_usatoday.py --week 4` still discovers the Week 3 article; `python3 ops/watchdog/pull_cbs.py --week 4` still falls back to Week 2. | Wait for or supply genuine Week 4 USA Today and CBS source pages/exports, ingest them through exact-week wrappers/savers, rerun `make supabase-import` for those two sources, then rerun `make import-health NFL_WEEK=4`. Do not promote while these two are stale. |
 
 ## Fixed Or Controlled
 

@@ -32,6 +32,129 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-29 - L1 raw acquisition path investigation
+
+### Verified
+
+- `b23b243` is the current local HEAD. Its freshness work wires immutable
+  `content_vintage` through downstream artifacts and promotion checks; it does
+  not itself create raw L1 snapshots. [`git show --stat --oneline b23b243`]
+- `make import-health NFL_WEEK=4` is red because all five
+  `data/raw/sources/<source>/<vintage>/snapshot-manifest.json` files are
+  missing in this checkout. It wrote `output/source-import-health.json` with
+  0 ok / 5 missing and `GATE: RED`. [`make import-health NFL_WEEK=4`]
+- `make supabase-import SOURCE=espn` cannot run locally because the repo's
+  configured Supabase client path is missing: `ModuleNotFoundError: No module
+  named 'sbclient'`. The default helper directory
+  `~/workspace/skills/supabase-football-signal/bin` does not exist; filesystem
+  search found only a compiled cache under
+  `/Users/botcomp/Library/Caches/com.apple.python/private/tmp/supabase-football-signal`.
+  [`make supabase-import SOURCE=espn`; filesystem search]
+- The linked Supabase project is `iskiybsimubiujwuchsl`. Live rows are current
+  only for ESPN: `espn_season_projections` has 387 rows at
+  `espn_snapshot_date=2026-09-29` / week 3. The weekly lanes top out at Week 3:
+  FantasyCalc 591 rows (week 3), USA Today 702 rows
+  (`source_content_date=2026-09-23`, week 3), FantasyPros 534 rows
+  (`source_content_date=2026-09-22`, week 3), CBS 355 rows (week 3).
+  [Supabase connector SQL summary queries]
+- The old goal-workspace cache/export paths expected by the saver scripts are
+  absent on this Mac:
+  `files/espn_projections.csv`, `hidden_files/espn_projections_meta.json`,
+  `files/fantasypros_trade_chart.csv`,
+  `lottery/hidden_files/fantasypros_chart_fetch_log.jsonl`,
+  `lottery/data/sources_cache/fantasycalc_snapshot.json`,
+  `fantasycalc_half_12_qb1.json`, `cbs.json`, and `usatoday.json`.
+  Repo-owned `data/inputs/espn_projections.csv` exists but is vintage
+  `2026-09-22`, so it is not a Sept. 29 source snapshot. [filesystem checks]
+- Exact-week ingestion rejects stale article fallbacks for Week 4:
+  `python3 ops/watchdog/ingest_usatoday.py --week 4 --dry-run` found the
+  Week 3 USA Today URL and refused it; `python3 ops/watchdog/ingest_cbs.py
+  --week 4 --dry-run` found a Week 2 CBS URL and refused it. The lower-level
+  puller CLIs still print those fallback URLs, so use the ingestion wrappers
+  for save eligibility. [commands above]
+- Supabase's table listing reported a critical RLS-disabled advisory for many
+  public tables. No policy or schema changes were made during this
+  investigation. [Supabase `_list_tables`]
+
+### Claimed, unverified
+
+- Muse or the old goal workspace is still the intended raw acquisition/export
+  layer for FantasyCalc, FantasyPros trade-chart CSV, and ESPN/CBS/USA Today
+  cache files. Repo docs say Muse is the raw scraping lane and the saver
+  scripts name the old workspace paths, but no live Muse task/output was
+  inspected because the only local Muse export discovered was under
+  `~/Projects/fantasy tools`, which this repo's guide says not to touch.
+
+### Open
+
+- Added/updated `GAP-008` and `GAP-009` in `docs/risk-register.md`.
+- No fresh Week 4 L1 snapshots were landed. Do not run
+  match/reference/section/review/promote until genuine Week 4 rows exist in
+  Supabase or validated raw exports, `make supabase-import SOURCE=<source>`
+  succeeds for all five sources, and `make import-health NFL_WEEK=4` is green.
+
+---
+
+## 2026-09-29 - Partial Week 4 L1 recovery
+
+### Verified
+
+- Restored the repo's expected local Supabase helper path from the local
+  compiled cache:
+  `/Users/botcomp/workspace/skills/supabase-football-signal/bin/sbclient.pyc`.
+  A read probe against `espn_season_projections` returned the 2026-09-29 row.
+  [`python3` import/read probe]
+- Stamped live Supabase rows into clean-repo L1 snapshots for all five sources:
+  ESPN `2026-09-29` (387 rows), FantasyCalc Week 3 (591), USA Today
+  `2026-09-23` (702), FantasyPros `2026-09-22` (534), CBS Week 3 (355).
+  [`make supabase-import SOURCE=<source>` x5]
+- Pulled fresh FantasyCalc Week 4 values directly from
+  `https://api.fantasycalc.com/values/current` for redraft 12-team 1QB
+  standard/half/full, wrote the expected cache files under
+  `~/workspace/goals/football-signal-database-and-app/lottery/data/sources_cache`,
+  saved 580 Week 4 rows to Supabase (`fcwk4_2026-09-29_v1`), and restamped
+  `data/raw/sources/fantasycalc/week-4/snapshot.json`. The saver left 27 rows
+  in review rather than guessing identities/anchors. [FantasyCalc API pull;
+  `save_fantasycalc_references.py`; `make supabase-import SOURCE=fantasycalc`]
+- Found the FantasyPros Week 4 article at
+  `https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-4-2026/`.
+  Page metadata reports `article:published_time` as `2026-09-29 14:40:11`.
+  Parsed 178 article rows, resolved them to canonical `player_key` values,
+  wrote the expected CSV/fetch-log files, saved 531 Week 4 rows to Supabase
+  (`fpwk4_2026-09-29_v1`), and restamped
+  `data/raw/sources/fantasypros/2026-09-29/snapshot.json`. Six rows stayed in
+  review at the saver/reindex stage. [FantasyPros article parse;
+  `save_fantasypros_references.py`; `make supabase-import SOURCE=fantasypros`]
+- A bad transient FantasyPros Week 4 snapshot with 819 rows failed health as
+  table drift against the 531-row table. Archived it under
+  `data/raw/sources/fantasypros/2026-09-29/_superseded/...` and restamped the
+  531-row table-verified snapshot. [`make import-health NFL_WEEK=4`;
+  `make supabase-import SOURCE=fantasypros`]
+- Current Week 4 import health is 3 ok / 2 stale / 0 missing / 0 failed:
+  ok = ESPN, FantasyCalc, FantasyPros; stale = USA Today (`2026-09-23`, Week 3)
+  and CBS (`Week 3`). [latest `make import-health NFL_WEEK=4`]
+- USA Today and CBS still do not have discoverable Week 4 source pages through
+  the current repo pullers: USA Today Week 4 falls back to the Week 3 URL; CBS
+  Week 4 falls back to a Week 2 URL. [puller dry-runs]
+- `python3 -m unittest discover -s tests -p 'test_supabase_import.py'` and
+  `python3 -m unittest discover -s tests -p 'test_import_health.py'` passed.
+  `make freshness-check` remains red because the comparison fixture is still
+  built at `2026-09-25T22:38:27Z`; downstream promotion was not run because L1
+  is not fully green. [commands named]
+
+### Claimed, unverified
+
+- None.
+
+### Open
+
+- Added/updated `GAP-008` and `GAP-009` in `docs/risk-register.md`.
+- Finish Week 4 only after genuine USA Today and CBS Week 4 sources exist.
+  Then import those two, rerun `make import-health NFL_WEEK=4`, and only then
+  continue to match/reference/section/review/promote.
+
+---
+
 ## 2026-09-28 - Live deploy attempt blocked by source-refresh access
 
 ### Verified
