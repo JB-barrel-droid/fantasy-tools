@@ -176,6 +176,11 @@ const TEXT_PATHS = {
   dashJs:  ["../app/trade-value-chart/assets/comparison-dashboard.js","../assets/comparison-dashboard.js","assets/comparison-dashboard.js"],
   index:   ["../app/trade-value-chart/index.html","../index.html","index.html"],
 };
+const CHAIN_STATUS_PATHS = [
+  "../output/comparison-chain-status.json",
+  "comparison-chain-status.json",
+  "output/comparison-chain-status.json",
+];
 const SOURCES = ["espn","cbs","fantasycalc","fantasypros","usatoday"];
 const SRC_LABEL = {espn:"ESPN",cbs:"CBS",fantasycalc:"FantasyCalc",fantasypros:"Expert (ECR)",usatoday:"USA Today"};
 
@@ -236,13 +241,13 @@ async function main(){
   }
 
   /* ---------- load live data ---------- */
-  const [fx, hh] = await Promise.all([firstOk(FIXTURE_PATHS), firstOk(HEALTH_PATHS)]);
-  const fixture = fx?fx.json:null, health = hh?hh.json:null;
+  const [fx, hh, ch] = await Promise.all([firstOk(FIXTURE_PATHS), firstOk(HEALTH_PATHS), firstOk(CHAIN_STATUS_PATHS)]);
+  const fixture = fx?fx.json:null, health = hh?hh.json:null, chainStatus = ch?ch.json:null;
   const [curveJs, dashJs, indexHtml] = await Promise.all([
     firstOk(TEXT_PATHS.curveJs,true), firstOk(TEXT_PATHS.dashJs,true), firstOk(TEXT_PATHS.index,true)
   ]);
   document.getElementById("dataSrc").textContent =
-    "fixture: "+(fx?fx.path:"NOT FOUND")+" · health: "+(hh?hh.path:"NOT FOUND");
+    "fixture: "+(fx?fx.path:"NOT FOUND")+" · health: "+(hh?hh.path:"NOT FOUND")+" · chain: "+(ch?ch.path:"NOT FOUND");
   document.getElementById("checkedAt").textContent =
     new Date().toLocaleString("en-US",{timeZone:"America/Chicago"})+" CT";
 
@@ -409,6 +414,70 @@ async function main(){
   add(M5,"L4 · verify","verify_live.py",UNK,"run locally after deploy",
     "","<b>python3 verify_live.py</b> — asserts HTTP 200, build tag, and code markers on the live URL.");
 
+  /* ================= MODULE 6 · automation ================= */
+  const M6="automation";
+  // GitHub Actions workflow status (via public API, no auth needed)
+  try{
+    const wfResp = await fetch("https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/rebuild-chain.yml/runs?per_page=1", {cache:"no-store"});
+    if(wfResp.ok){
+      const wfData = await wfResp.json();
+      const run = wfData.workflow_runs && wfData.workflow_runs[0];
+      if(run){
+        const status = run.status, conclusion = run.conclusion;
+        const runAge = lagSince(run.created_at);
+        if(status==="completed" && conclusion==="success"){
+          add(M6,"L1 · GitHub Actions","rebuild-chain workflow",OK,
+            "last run "+runAge+" ago · "+run.head_sha.slice(0,7),
+            "","",
+            `<span class="g">scheduled ✓</span> → <span class="g">ran ✓</span> → <span class="g">success ✓</span>`);
+        }else if(status==="completed"){
+          add(M6,"L1 · GitHub Actions","rebuild-chain workflow",BAD,
+            "last run "+runAge+" ago · conclusion: "+conclusion,
+            "<b>Root cause:</b> the automated rebuild workflow failed. Check the Actions tab for logs.",
+            "Open <b>Actions → Rebuild comparison chain</b> in GitHub, inspect the failed run logs, fix and re-run.");
+        }else{
+          add(M6,"L1 · GitHub Actions","rebuild-chain workflow",WARN,
+            "run in progress ("+status+") · started "+runAge+" ago");
+        }
+      }else{
+        add(M6,"L1 · GitHub Actions","rebuild-chain workflow",UNK,"no runs found via API");
+      }
+    }else{
+      add(M6,"L1 · GitHub Actions","rebuild-chain workflow",UNK,"GitHub API unreachable ("+wfResp.status+")");
+    }
+  }catch(e){
+    add(M6,"L1 · GitHub Actions","rebuild-chain workflow",UNK,"API fetch failed: "+String(e).slice(0,80));
+  }
+  // Chain script last-run status
+  if(chainStatus){
+    const age = lagSince(chainStatus.run_at);
+    const ageDays = daysOld(chainStatus.run_at);
+    if(chainStatus.success){
+      add(M6,"L2 · chain script","rebuild_comparison_chain.py", ageDays!==null && ageDays>1 ? WARN : OK,
+        "last run "+(age||"?")+" ago via "+(chainStatus.runner||"?")+" · "+Object.keys(chainStatus.sources||{}).length+" sources",
+        ageDays!==null && ageDays>1 ? "The chain hasn't run in over a day. The GitHub Actions schedule (every 6h) may be paused or failing." : "",
+        ageDays!==null && ageDays>1 ? "Check the Actions tab; trigger a manual <b>workflow_dispatch</b> run if needed." : "");
+    }else{
+      add(M6,"L2 · chain script","rebuild_comparison_chain.py",BAD,
+        "last run "+(age||"?")+" ago · FAILED: "+(chainStatus.failed||[]).join(", "),
+        "<b>Root cause:</b> the comparison chain failed on "+(chainStatus.failed||[]).join(", ")+". The fixture was not updated.",
+        "Check <b>output/comparison-chain-status.json</b> for per-source results; fix the failing source and re-run.");
+    }
+    // Per-source chain results
+    for(const [src, result] of Object.entries(chainStatus.sources||{})){
+      if(result.includes("failed") || result==="no_snapshot"){
+        add(M6,"L2 · chain script",SRC_LABEL[src]||src+" chain result",BAD, result,
+          "This source failed during the automated chain run.",
+          "Inspect the workflow logs for "+src+".");
+      }
+    }
+  }else{
+    add(M6,"L2 · chain script","rebuild_comparison_chain.py",UNK,
+      "no chain status file (comparison-chain-status.json not found)",
+      "The chain has never reported its status, or the status file isn't deployed.",
+      "Run <b>rebuild_comparison_chain.py</b> once to generate the status file.");
+  }
+
   render(srcInfo, builtAt, builtDays, !!fixture, !!health);
 }
 
@@ -419,6 +488,7 @@ const MODMETA=[
   {id:"comparison-dashboard", n:3, sub:"Player news, health panel"},
   {id:"page-shell", n:4, sub:"Header dates, build tag, layout"},
   {id:"build-deploy", n:5, sub:"Sync, tests, push, verify"},
+  {id:"automation", n:6, sub:"GitHub Actions, chain runs"},
 ];
 const rank={bad:0,warn:1,unk:2,ok:3};
 const pillTxt={ok:"healthy",warn:"degraded",bad:"broken",unk:"unknown"};

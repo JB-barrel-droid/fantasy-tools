@@ -17,8 +17,10 @@ Usage:
 
 import argparse
 import json
+import os
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -230,8 +232,28 @@ def main():
     for source, status in results.items():
         print(f"  {source}: {status}")
 
-    # Return non-zero if any source failed (not skipped)
+    # Write chain status for the monitoring dashboard.
+    # Jeremy 2026-09-29: dashboard needs visibility into automation health.
     failed = [s for s, st in results.items() if "failed" in st or st == "no_snapshot"]
+    status_data = {
+        "run_at": datetime.now(timezone.utc).isoformat(),
+        "nfl_week": args.nfl_week,
+        "sources": results,
+        "failed": failed,
+        "success": len(failed) == 0,
+        "runner": os.environ.get("GITHUB_ACTIONS", "") == "true" and "github-actions" or "muse-cron",
+    }
+    status_path = Path("output/comparison-chain-status.json")
+    status_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(status_path, "w") as f:
+        json.dump(status_data, f, indent=2)
+    # Also copy to dist for the deployed dashboard
+    dist_path = Path("dist/modules/comparison-chain-status.json")
+    dist_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(dist_path, "w") as f:
+        json.dump(status_data, f, indent=2)
+
+    # Return non-zero if any source failed (not skipped)
     return 1 if failed else 0
 
 
