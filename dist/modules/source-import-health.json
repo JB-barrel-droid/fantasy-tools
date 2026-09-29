@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-09-29T22:32:52Z",
+  "checked_at": "2026-09-29T22:40:19Z",
   "nfl_week": 4,
   "schema": "trade-value-import-health-v1",
   "sources": {
@@ -10,7 +10,7 @@
       "db_latest_vintage": "Week 3",
       "failure_reason": "STALE_VINTAGE: content vintage Week 3 != current Week 4. No verified publication schedule for cbs; CBS publication cadence unverified as of 2026-09-29. Do not assume a schedule; treat as unknown.",
       "ignored_older_rows": 372,
-      "last_successful_import": "2026-09-29T22:32:52Z",
+      "last_successful_import": "2026-09-29T22:40:19Z",
       "row_count": 355,
       "snapshot_path": "data/raw/sources/cbs/week-3/snapshot.json",
       "status": "stale",
@@ -25,7 +25,7 @@
       "db_latest_vintage": "2026-09-29",
       "failure_reason": null,
       "ignored_older_rows": 0,
-      "last_successful_import": "2026-09-29T22:32:52Z",
+      "last_successful_import": "2026-09-29T22:40:19Z",
       "row_count": 387,
       "snapshot_path": "data/raw/sources/espn/2026-09-29/snapshot.json",
       "status": "ok",
@@ -40,7 +40,7 @@
       "db_latest_vintage": "Week 4",
       "failure_reason": null,
       "ignored_older_rows": 1185,
-      "last_successful_import": "2026-09-29T22:32:52Z",
+      "last_successful_import": "2026-09-29T22:40:19Z",
       "row_count": 580,
       "snapshot_path": "data/raw/sources/fantasycalc/week-4/snapshot.json",
       "status": "ok",
@@ -55,7 +55,7 @@
       "db_latest_vintage": "2026-09-29",
       "failure_reason": null,
       "ignored_older_rows": 1068,
-      "last_successful_import": "2026-09-29T22:32:52Z",
+      "last_successful_import": "2026-09-29T22:40:19Z",
       "row_count": 531,
       "snapshot_path": "data/raw/sources/fantasypros/2026-09-29/snapshot.json",
       "status": "ok",
@@ -64,19 +64,19 @@
       "vintage_kind": "source_content_date"
     },
     "usatoday": {
-      "content_vintage": "2026-09-23",
+      "content_vintage": "2026-09-29",
       "db_latest_arrived_at": "2026-09-29T22:26:02.808628+00:00",
       "db_latest_rows": 747,
       "db_latest_vintage": "2026-09-29",
-      "failure_reason": "TABLE_DRIFT: table has 747 rows at latest vintage 2026-09-29, manifest expects 702; table latest vintage 2026-09-29 != manifest vintage 2026-09-23 -- run stage-1 import to stamp it -- partial/stale table, not complete",
+      "failure_reason": null,
       "ignored_older_rows": 1416,
-      "last_successful_import": "2026-09-29T22:07:08Z",
-      "row_count": 702,
-      "snapshot_path": "data/raw/sources/usatoday/2026-09-23/snapshot.json",
-      "status": "failed",
+      "last_successful_import": "2026-09-29T22:40:19Z",
+      "row_count": 747,
+      "snapshot_path": "data/raw/sources/usatoday/2026-09-29/snapshot.json",
+      "status": "ok",
       "supabase_landing": true,
       "supabase_table": "public.source_trade_values",
-      "vintage_kind": "week_designated"
+      "vintage_kind": "source_content_date"
     }
   }
 }
