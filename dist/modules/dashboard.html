@@ -7,157 +7,274 @@
 <link rel="icon" href="data:,">
 <style>
   :root{
-    --bg:#0b0e13; --card:#131924; --card2:#0e141d; --line:#232d3d;
-    --txt:#e8edf3; --dim:#8b98ab; --faint:#5b6b80;
-    --green:#34d17b; --green-bg:rgba(52,209,123,.12);
-    --yellow:#f0b429; --yellow-bg:rgba(240,180,41,.12);
-    --red:#f4585c; --red-bg:rgba(244,88,92,.12);
-    --grey:#7d8ca3; --grey-bg:rgba(125,140,163,.12);
-    --blue:#5aa9ff;
+    --bg:#10110f; --panel:#181a17; --panel2:#20231f; --pipe:#2c312b;
+    --line:#3a4038; --txt:#f1f2ec; --muted:#a6ad9d; --faint:#747c6c;
+    --ok:#48c774; --ok-bg:rgba(72,199,116,.13);
+    --warn:#f2bc42; --warn-bg:rgba(242,188,66,.16);
+    --bad:#f26d64; --bad-bg:rgba(242,109,100,.15);
+    --blocked:#89948a; --blocked-bg:rgba(137,148,138,.14);
+    --info:#58b7d8; --info-bg:rgba(88,183,216,.13);
+    --owner-source:#6fbf73; --owner-muse:#58b7d8; --owner-repo:#f2bc42;
+    --owner-codex:#ff8f5f; --owner-ui:#b58cff;
   }
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
-    background:var(--bg);color:var(--txt);padding:24px 20px 60px;max-width:1100px;margin:0 auto;
-    -webkit-font-smoothing:antialiased}
-  header.top{display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap}
-  header.top h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
-  .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:var(--green);
-    background:var(--green-bg);border:1px solid rgba(52,209,123,.35);padding:4px 12px;border-radius:999px}
-  .live .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .sub{color:var(--dim);font-size:13px;margin-bottom:18px}
-  .sub code{color:var(--blue);font-size:12px}
-  #refresh{margin-left:auto;background:#1d6fe0;border:none;color:#fff;font-weight:600;font-size:13px;
-    padding:8px 18px;border-radius:8px;cursor:pointer}
-  #refresh:hover{background:#2f86f5}
-  /* summary */
-  .summary{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
-  .summary h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:10px}
-  .bignum{font-size:34px;font-weight:800;letter-spacing:-1px;margin-bottom:2px}
-  .bignum small{font-size:15px;font-weight:500;color:var(--dim)}
-  .segbar{display:flex;height:14px;border-radius:8px;overflow:hidden;margin:12px 0;background:#1a2230}
-  .segbar div{transition:width .5s}
-  .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--dim)}
-  .legend b{font-weight:700}
-  .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
-  /* pipeline table */
-  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
-  .card>h2{font-size:15px;font-weight:700;margin-bottom:2px}
-  .card>.desc{font-size:12.5px;color:var(--dim);margin-bottom:12px}
-  table.pipe{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-  table.pipe th,table.pipe td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--line)}
-  table.pipe th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:600}
-  table.pipe td:first-child,table.pipe th:first-child{text-align:left;font-weight:700;position:sticky;left:0}
-  .st{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;font-weight:800;font-size:14px}
-  .st.ok{background:var(--green-bg);color:var(--green)}
-  .st.bad{background:var(--red-bg);color:var(--red)}
-  .st.warn{background:var(--yellow-bg);color:var(--yellow)}
-  .st.unk{background:var(--grey-bg);color:var(--grey)}
-  .stag{font-size:11px;color:var(--faint);display:block;margin-top:3px;font-weight:400}
-  .vlabel{display:inline-block;font-size:11px;font-weight:700;background:#1a2a3a;color:var(--blue);
-    padding:3px 10px;border-radius:999px;margin-top:4px}
-  .stuck{font-size:11.5px;color:var(--yellow);font-weight:600}
-  /* modules */
-  .mod{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:var(--card)}
-  .mod-head{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
-  .mod-head:hover{background:rgba(255,255,255,.02)}
-  .mod-dot{width:12px;height:12px;border-radius:50%;flex:none}
-  .mod-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,209,123,.7)}
-  .mod-dot.warn{background:var(--yellow);box-shadow:0 0 8px rgba(240,180,41,.7)}
-  .mod-dot.bad{background:var(--red);box-shadow:0 0 8px rgba(244,88,92,.7)}
-  .mod-dot.unk{background:var(--grey)}
-  .mod-name{font-size:15px;font-weight:700}
-  .mod-name .idx{color:var(--faint);font-weight:500;margin-right:8px}
-  .mod-sub{font-size:12px;color:var(--dim);margin-top:2px}
-  .pill{margin-left:auto;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px;flex:none}
-  .pill.ok{background:var(--green-bg);color:var(--green)}
-  .pill.warn{background:var(--yellow-bg);color:var(--yellow)}
-  .pill.bad{background:var(--red-bg);color:var(--red)}
-  .pill.unk{background:var(--grey-bg);color:var(--grey)}
-  .chev{color:var(--faint);font-size:14px;transition:transform .2s;flex:none}
-  .mod.open .chev{transform:rotate(90deg)}
-  .mod-body{display:none;padding:4px 18px 18px}
-  .mod.open .mod-body{display:block}
-  .layer{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px;background:var(--card2)}
-  .layer-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-  .layer-name{font-size:13.5px;font-weight:700}
-  .layer-desc{font-size:12px;color:var(--faint);margin-left:auto;text-align:right}
-  .checks{list-style:none;margin-top:6px}
-  .checks li{font-size:12.5px;padding:5px 0 5px 26px;position:relative;color:#cfd8e3;border-top:1px dashed rgba(35,45,61,.7)}
-  .checks li:first-child{border-top:none}
-  .checks li::before{position:absolute;left:4px;font-weight:800}
-  .checks li.c-ok::before{content:"✓";color:var(--green)}
-  .checks li.c-bad::before{content:"✗";color:var(--red)}
-  .checks li.c-warn::before{content:"!";color:var(--yellow)}
-  .checks li.c-unk::before{content:"?";color:var(--grey)}
-  .checks .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dim)}
-  .why{margin-top:10px;background:var(--red-bg);border:1px solid rgba(244,88,92,.3);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.55}
-  .why.warnb{background:var(--yellow-bg);border-color:rgba(240,180,41,.3)}
-  .why strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;color:var(--red)}
-  .why.warnb strong{color:var(--yellow)}
-  .why .fix{margin-top:6px;color:var(--txt)}
-  .why .fix b{color:var(--blue)}
-  /* rca */
-  .rca-item{border-left:3px solid var(--red);padding:10px 14px;margin:10px 0;background:var(--card2);border-radius:0 8px 8px 0}
-  .rca-item.warn{border-left-color:var(--yellow)}
-  .rca-item h4{font-size:13px;margin-bottom:4px}
-  .rca-item h4 .where{color:var(--faint);font-weight:500}
-  .rca-item p{font-size:12.5px;color:#cfd8e3;line-height:1.55}
-  .rca-item p b{color:var(--txt)}
-  .chain{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--dim);margin-top:6px}
-  .chain .g{color:var(--green)} .chain .r{color:var(--red)} .chain .y{color:var(--yellow)}
-  #err{display:none;background:var(--red-bg);border:1px solid rgba(244,88,92,.4);border-radius:10px;
-    padding:12px 16px;margin-bottom:16px;font-size:13px}
-  footer{margin-top:24px;font-size:12px;color:var(--faint);text-align:center;line-height:1.7}
-  footer code{color:var(--dim)}
-  @media(max-width:760px){table.pipe{font-size:11px}table.pipe th,table.pipe td{padding:7px 4px}.bignum{font-size:28px}}
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  main{width:min(1440px,calc(100% - 32px)); margin:0 auto; padding:22px 0 56px}
+  header.top{
+    display:grid; grid-template-columns:1fr auto; gap:16px; align-items:start;
+    padding:18px 0 14px; border-bottom:1px solid var(--line); margin-bottom:18px;
+  }
+  h1{font-size:24px; line-height:1.15; letter-spacing:0; margin:0 0 8px}
+  .dek{color:var(--muted); font-size:13px; line-height:1.55; max-width:940px}
+  .dek code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:.92em}
+  .toolbar{display:flex; gap:10px; align-items:center; justify-content:flex-end; flex-wrap:wrap}
+  .live{
+    display:inline-flex; align-items:center; gap:7px; padding:6px 10px; border-radius:999px;
+    background:var(--ok-bg); color:var(--ok); border:1px solid rgba(72,199,116,.34);
+    font-size:12px; font-weight:800; letter-spacing:.4px;
+  }
+  .live .dot{width:8px; height:8px; border-radius:50%; background:var(--ok)}
+  button{
+    border:1px solid #52604f; background:#263423; color:#fff; border-radius:8px;
+    padding:8px 13px; font-weight:800; cursor:pointer;
+  }
+  button:hover{background:#32462d}
+  section{margin-bottom:18px}
+  .readout{
+    display:grid; grid-template-columns:minmax(280px,1.45fr) repeat(4,minmax(130px,.55fr));
+    gap:10px; align-items:stretch;
+  }
+  .headline,.metric,.panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+  }
+  .headline{padding:18px 18px 16px}
+  .eyebrow{color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:.9px; font-weight:800}
+  .headline h2{font-size:25px; line-height:1.2; margin:6px 0 8px; letter-spacing:0}
+  .headline p,.metric p,.panel p{margin:0; color:var(--muted); font-size:13px; line-height:1.5}
+  .metric{padding:15px}
+  .metric strong{display:block; font-size:28px; line-height:1; margin:8px 0 6px}
+  .metric.ok strong{color:var(--ok)} .metric.warn strong{color:var(--warn)}
+  .metric.bad strong{color:var(--bad)} .metric.blocked strong{color:var(--blocked)}
+  #err{
+    display:none; margin-bottom:16px; background:var(--bad-bg); border:1px solid rgba(242,109,100,.42);
+    border-radius:8px; padding:12px 14px; font-size:13px; line-height:1.45;
+  }
+  .panel{padding:16px}
+  .panel h2{font-size:16px; margin:0 0 5px; letter-spacing:0}
+  .panel .desc{color:var(--muted); font-size:12.5px; line-height:1.5; margin-bottom:12px}
+  .source-strip{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  .chip{
+    display:inline-flex; align-items:center; gap:7px; border-radius:999px; padding:6px 10px;
+    border:1px solid var(--line); background:var(--panel2); color:var(--muted);
+    font-size:12px; font-weight:700;
+  }
+  .chip.ok{color:var(--ok); background:var(--ok-bg); border-color:rgba(72,199,116,.32)}
+  .chip.warn{color:var(--warn); background:var(--warn-bg); border-color:rgba(242,188,66,.35)}
+  .chip.bad{color:var(--bad); background:var(--bad-bg); border-color:rgba(242,109,100,.35)}
+  .chip.blocked,.chip.unk{color:var(--blocked); background:var(--blocked-bg)}
+  .legend{display:grid; grid-template-columns:repeat(5,minmax(160px,1fr)); gap:8px}
+  .owner{
+    border:1px solid var(--line); background:var(--panel2); border-radius:8px; padding:10px 11px;
+    min-height:74px;
+  }
+  .owner b{display:block; margin-bottom:4px; font-size:13px}
+  .owner span{display:block; color:var(--muted); font-size:12px; line-height:1.42}
+  .owner.source{border-top:3px solid var(--owner-source)}
+  .owner.muse{border-top:3px solid var(--owner-muse)}
+  .owner.repo{border-top:3px solid var(--owner-repo)}
+  .owner.codex{border-top:3px solid var(--owner-codex)}
+  .owner.ui{border-top:3px solid var(--owner-ui)}
+  .pipe-wrap{overflow-x:auto; padding-bottom:3px}
+  table.pipe{width:100%; min-width:1120px; border-collapse:separate; border-spacing:0 8px; font-size:12.5px}
+  .pipe th{text-align:left; color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.7px; padding:0 6px 3px}
+  .pipe td{padding:0 6px; vertical-align:middle}
+  .source-cell{
+    min-width:154px; background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:10px 10px;
+  }
+  .source-cell b{display:block; font-size:13px}
+  .source-cell span{display:block; margin-top:2px; color:var(--muted); font-size:11.5px}
+  .stage{
+    position:relative; min-width:116px; min-height:72px; padding:10px 10px 9px 13px;
+    background:var(--pipe); border:1px solid var(--line); border-left-width:4px;
+    clip-path:polygon(0 0,calc(100% - 13px) 0,100% 50%,calc(100% - 13px) 100%,0 100%,10px 50%);
+  }
+  .stage::after{
+    content:""; position:absolute; top:50%; right:-14px; width:14px; height:4px;
+    transform:translateY(-50%); background:var(--line); z-index:3;
+  }
+  .pipe td:last-child .stage::after{display:none}
+  .stage.ok{border-left-color:var(--ok); background:linear-gradient(90deg,rgba(72,199,116,.13),var(--pipe))}
+  .stage.warn{border-left-color:var(--warn); background:linear-gradient(90deg,rgba(242,188,66,.16),var(--pipe))}
+  .stage.bad{border-left-color:var(--bad); background:linear-gradient(90deg,rgba(242,109,100,.15),var(--pipe))}
+  .stage.blocked,.stage.unk{border-left-color:var(--blocked); color:var(--muted)}
+  .stage .name{display:block; font-size:11px; color:var(--txt); font-weight:850; margin-bottom:4px}
+  .stage .state{display:inline-flex; align-items:center; gap:5px; font-size:10.5px; font-weight:850; text-transform:uppercase; letter-spacing:.45px}
+  .stage.ok .state{color:var(--ok)} .stage.warn .state{color:var(--warn)}
+  .stage.bad .state{color:var(--bad)} .stage.blocked .state,.stage.unk .state{color:var(--blocked)}
+  .stage .detail{display:block; margin-top:5px; color:var(--muted); font-size:11px; line-height:1.25}
+  .owner-tag{
+    display:inline-flex; margin-top:7px; padding:3px 7px; border-radius:999px; color:#10110f;
+    font-size:10.5px; font-weight:900; background:var(--blocked);
+  }
+  .owner-tag.source{background:var(--owner-source)}
+  .owner-tag.muse{background:var(--owner-muse)}
+  .owner-tag.repo{background:var(--owner-repo)}
+  .owner-tag.codex{background:var(--owner-codex)}
+  .owner-tag.ui{background:var(--owner-ui); color:#fff}
+  .choke-cell{min-width:220px}
+  .choke{
+    border-radius:8px; border:1px solid var(--line); padding:10px; background:var(--panel2);
+    min-height:72px; font-size:12px; line-height:1.35;
+  }
+  .choke.ok{border-color:rgba(72,199,116,.4); background:var(--ok-bg)}
+  .choke.warn{border-color:rgba(242,188,66,.42); background:var(--warn-bg)}
+  .choke.bad{border-color:rgba(242,109,100,.4); background:var(--bad-bg)}
+  .choke b{display:block; margin-bottom:4px}
+  .choke span{color:var(--muted)}
+  .issues{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:10px}
+  .issue{
+    background:var(--panel2); border:1px solid var(--line); border-left:4px solid var(--blocked);
+    border-radius:8px; padding:12px; min-height:132px;
+  }
+  .issue.bad{border-left-color:var(--bad)} .issue.warn{border-left-color:var(--warn)}
+  .issue h3{font-size:13px; margin:0 0 6px}
+  .issue p{margin:0 0 7px; color:#d8ddd2; font-size:12.5px; line-height:1.45}
+  .issue .meta{display:flex; flex-wrap:wrap; gap:6px; margin-top:8px}
+  .tag{
+    display:inline-flex; border:1px solid var(--line); border-radius:999px; padding:3px 7px;
+    color:var(--muted); font-size:10.5px; font-weight:800;
+  }
+  .modules{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:10px}
+  .module-card{background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:13px}
+  .module-card h3{margin:0 0 4px; font-size:14px}
+  .module-card p{margin:0 0 9px; color:var(--muted); font-size:12px; line-height:1.42}
+  .module-card ul{list-style:none; margin:0; padding:0}
+  .module-card li{border-top:1px dashed rgba(116,124,108,.35); padding:7px 0; font-size:12px; line-height:1.35}
+  .module-card li:first-child{border-top:0}
+  .status-dot{display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px}
+  .status-dot.ok{background:var(--ok)} .status-dot.warn{background:var(--warn)}
+  .status-dot.bad{background:var(--bad)} .status-dot.blocked,.status-dot.unk{background:var(--blocked)}
+  .llm-grid{display:grid; grid-template-columns:minmax(280px,.9fr) minmax(360px,1.1fr); gap:12px}
+  .repo-map{display:grid; gap:8px}
+  .repo-row{display:grid; grid-template-columns:132px 1fr; gap:8px; border-top:1px solid var(--line); padding-top:8px}
+  .repo-row:first-child{border-top:0; padding-top:0}
+  .repo-row b{font-size:12px}
+  .repo-row span{color:var(--muted); font-size:12px; line-height:1.4}
+  pre{
+    margin:0; white-space:pre-wrap; overflow:auto; max-height:460px; background:#0a0b0a;
+    border:1px solid #2f352e; border-radius:8px; padding:12px; color:#d9e7d2;
+    font:11.5px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  footer{color:var(--faint); font-size:12px; line-height:1.6; margin-top:22px; text-align:center}
+  a{color:var(--info)}
+  @media(max-width:980px){
+    main{width:min(100% - 20px,760px)}
+    header.top,.readout,.llm-grid{grid-template-columns:1fr}
+    .toolbar{justify-content:flex-start}
+    .legend{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
+<main>
+  <header class="top">
+    <div>
+      <h1>Module Monitor</h1>
+      <p class="dek">
+        Cross-system pipe view for the Trade Value Chart. It follows source content from publisher to Muse/raw capture,
+        repo import, transforms, rule gates, presentation, and deploy. Freshness is the source vintage, never pull time.
+        <br>Last browser check: <code id="checkedAt">...</code> · <span id="dataSrc">resolving data sources...</span>
+      </p>
+    </div>
+    <div class="toolbar">
+      <span class="live"><span class="dot"></span>LIVE READ</span>
+      <button id="refresh" onclick="location.reload()" title="Reload dashboard data">Refresh</button>
+    </div>
+  </header>
 
-<header class="top">
-  <h1>Module Monitor</h1>
-  <span class="live"><span class="dot"></span>LIVE</span>
-  <button id="refresh" onclick="location.reload()">↻ Refresh</button>
-</header>
-<p class="sub">Trade Value Chart · every component &amp; sub-component · checks run live in your browser against the deployed bytes.<br>
-Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span></p>
+  <div id="err"></div>
 
-<div id="err"></div>
+  <section class="readout" aria-label="plain language operational readout">
+    <div class="headline">
+      <div class="eyebrow">What this means</div>
+      <h2 id="plainHeadline">Loading the pipe map...</h2>
+      <p id="plainSub">The monitor is fetching fixture, import-health, and deployed asset signals.</p>
+      <div class="source-strip" id="sourceStrip"></div>
+    </div>
+    <div class="metric" id="flowMetric"><div class="eyebrow">Source pipes flowing</div><strong>–</strong><p>All source-to-screen stages green.</p></div>
+    <div class="metric" id="blockerMetric"><div class="eyebrow">Chokepoints</div><strong>–</strong><p>Failures that stop trust downstream.</p></div>
+    <div class="metric" id="staleMetric"><div class="eyebrow">Stale or missing raw</div><strong>–</strong><p>Muse/source acquisition needs attention.</p></div>
+    <div class="metric" id="ruleMetric"><div class="eyebrow">Rule violations</div><strong>–</strong><p>Data or presentation contract breaks.</p></div>
+  </section>
 
-<section class="summary">
-  <h2>Fleet health</h2>
-  <div class="bignum"><span id="okCount">–</span><small> / <span id="totalCount">–</span> checks healthy</small></div>
-  <div class="segbar" id="segbar"></div>
-  <div class="legend" id="legend"></div>
-</section>
+  <section class="panel">
+    <h2>Responsibility Map</h2>
+    <div class="desc">Each pipe stage names the system that should act first. Downstream cells become blocked when an upstream chokepoint makes their output untrustworthy.</div>
+    <div class="legend">
+      <div class="owner source"><b>Source systems</b><span>Publisher freshness and whether new content exists at all.</span></div>
+      <div class="owner muse"><b>Muse / raw capture</b><span>Scrape, export, and hand raw bytes to the repo import path.</span></div>
+      <div class="owner repo"><b>Repo import and transform</b><span>Supabase imports, manifests, matching, references, reindexing, tests.</span></div>
+      <div class="owner codex"><b>ChatGPT / Codex</b><span>Promotion decisions, rule enforcement, deploy checks, handoffs.</span></div>
+      <div class="owner ui"><b>Presentation</b><span>Browser code, labels, diagnostics, and public dashboard behavior.</span></div>
+    </div>
+  </section>
 
-<section class="card" id="pipelineCard">
-  <h2>Source pipeline — where is each source stuck?</h2>
-  <div class="desc">Each source must travel L1 → L6. Green = confirmed by live data · red = failed · grey = no live signal. The <b>stuck-at</b> column is the root cause at a glance.</div>
-  <div style="overflow-x:auto">
-  <table class="pipe" id="pipeTable">
-    <thead><tr>
-      <th>Source</th><th>L1<br>pull</th><th>L2<br>import</th><th>L3<br>health</th>
-      <th>L4<br>build</th><th>L5<br>review</th><th>L6<br>promote</th><th>UI label</th><th>Stuck at</th>
-    </tr></thead>
-    <tbody></tbody>
-  </table>
-  </div>
-</section>
+  <section class="panel" id="pipelineCard">
+    <h2>System Pipe</h2>
+    <div class="desc">Read left to right. A red or amber stage marks the chokepoint; every later blocked stage is a consequence, not a separate proof of health.</div>
+    <div class="pipe-wrap">
+      <table class="pipe" id="pipeTable">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Source</th>
+            <th>Muse/raw</th>
+            <th>Import</th>
+            <th>Health gate</th>
+            <th>Transform</th>
+            <th>Rules</th>
+            <th>Presentation</th>
+            <th>Chokepoint</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
 
-<section class="card" id="rcaCard" style="display:none">
-  <h2>Root-cause analysis</h2>
-  <div class="desc">Every non-healthy check, with the failure chain and the fix. Newest / most severe first.</div>
-  <div id="rcaList"></div>
-</section>
+  <section class="panel" id="issuesPanel">
+    <h2>Chokepoints To Fix</h2>
+    <div class="desc">Failures are grouped by class so it is obvious whether this is no raw data, stale manifests, transform breakage, rule-breaking data manipulation, or presentation drift.</div>
+    <div class="issues" id="issues"></div>
+  </section>
 
-<div id="modules"></div>
+  <section class="panel">
+    <h2>Module Checks</h2>
+    <div class="desc">The old checklist is still here, but grouped by practical ownership instead of raw check count.</div>
+    <div class="modules" id="modules"></div>
+  </section>
 
-<footer>
-  Lane rules: one instruction → one lane · one active change per lane · <code>verify_live.py</code> is the gate.<br>
-  <span id="footNote"></span>
-</footer>
+  <section class="panel" id="llmContext">
+    <h2>LLM Diagnostic Context</h2>
+    <div class="desc">Point an LLM here first. The left side is the repo map; the right side is machine-readable context copied from the same live signals this page used.</div>
+    <div class="llm-grid">
+      <div>
+        <div class="repo-map" id="repoMap"></div>
+      </div>
+      <pre id="llmJson">{}</pre>
+    </div>
+  </section>
+
+  <footer>
+    Lane rules: one instruction -> one lane · one active change per lane · <code>verify_live.py</code> is the deploy confidence gate.<br>
+    <span id="footNote"></span>
+  </footer>
+</main>
 
 <script>
 "use strict";
@@ -170,9 +287,6 @@ const FIXTURE_PATHS = [
 // Freshest first: a local watchdog run (output/ is gitignored, so it exists
 // only on a machine that just ran `make import-health`), then the committed
 // fixture, then the copy sync publishes next to this file in dist/.
-// The fixture entry is what stops this dashboard reporting 24 unknown checks
-// on any clone or CI run -- all three old paths resolved only on the author's
-// machine, so the page shipped permanently blind.
 const HEALTH_PATHS = [
   "source-import-health.json",
   "../source-import-health.json",
@@ -188,6 +302,11 @@ const TEXT_PATHS = {
 };
 const SOURCES = ["espn","cbs","fantasycalc","fantasypros","usatoday"];
 const SRC_LABEL = {espn:"ESPN",cbs:"CBS",fantasycalc:"FantasyCalc",fantasypros:"Expert (ECR)",usatoday:"USA Today"};
+const OWNER_LABEL = {
+  source:"Source system", muse:"Muse/raw", repo:"Repo", codex:"ChatGPT/Codex", ui:"Presentation"
+};
+const STATUS_WORD = {ok:"flowing", warn:"warning", bad:"broken", blocked:"blocked", unk:"unknown"};
+const STATUS_RANK = {bad:0, warn:1, blocked:2, unk:3, ok:4};
 
 async function firstOk(paths, asText){
   for(const p of paths){
@@ -202,38 +321,436 @@ async function firstOk(paths, asText){
   return null;
 }
 
-const checks = [];   // {module, layer, name, status, detail, why, fix, chain}
-function add(m,l,name,status,detail,why,fix,chain){
-  checks.push({module:m,layer:l,name,status,detail:detail||"",why:why||"",fix:fix||"",chain:chain||""});
+function esc(v){
+  return String(v == null ? "" : v).replace(/[&<>"']/g, c => (
+    {"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]
+  ));
 }
-const OK="ok",WARN="warn",BAD="bad",UNK="unk";
-
 function daysOld(iso){
   if(!iso) return null;
   const d=(Date.now()-new Date(iso).getTime())/86400000;
   return isFinite(d)?d:null;
 }
 function shortDate(iso){
-  if(!iso) return "?";
+  if(!iso) return "unknown";
   const d=new Date(iso);
-  return isNaN(d)?String(iso).slice(0,10):d.toISOString().slice(0,10);
+  return isNaN(d)?String(iso).slice(0,16):d.toISOString().slice(0,10);
 }
-function uiLabel(health,nflWeek){
-  if(!health) return "—";
+function agePhrase(iso){
+  const d=daysOld(iso);
+  if(d===null) return "age unknown";
+  if(d<1) return "today";
+  return d.toFixed(1)+" days old";
+}
+function uiLabel(health){
+  if(!health) return "unknown";
   if(health.vintage_kind==="week_designated") return health.content_vintage||("Week "+(health.week_designated||"?"));
   const v=health.content_vintage||"";
   const m=/(\d{4}-\d{2}-\d{2})/.exec(v);
-  return m?m[1]:"?";
+  return m?m[1]:v||"unknown";
+}
+function failureCode(reason){
+  const m=/^([A-Z_]+):/.exec(String(reason||""));
+  return m?m[1]:null;
+}
+function healthClass(entry){
+  const code=failureCode(entry&&entry.failure_reason);
+  if(!entry) return "missing-health";
+  if(entry.status==="missing" || code==="MISSING_SNAPSHOT") return "no-scrape-raw-data";
+  if(entry.status==="stale" || code==="STALE_VINTAGE") return "stale-or-missing-manifest";
+  if(code==="NO_VINTAGE") return "stale-or-missing-manifest";
+  if(code==="BYTE_MISMATCH" || code==="TABLE_DRIFT") return "data-manipulation-rule-violation";
+  if(entry.status==="failed") return "transformation-or-import-failure";
+  return "none";
+}
+function statusFromHealth(entry){
+  if(!entry) return "unk";
+  if(entry.status==="ok") return "ok";
+  if(entry.status==="stale") return "warn";
+  return "bad";
+}
+function countValues(section){
+  const combos=(section&&section.combos)||{};
+  let total=0, combosWithValues=0, combosWithFit=0;
+  for(const combo of Object.values(combos)){
+    const values=combo.values || combo.reindexed || {};
+    const n=values && typeof values==="object" ? Object.keys(values).length : 0;
+    total += n;
+    if(n>0) combosWithValues += 1;
+    if(combo.fit && typeof combo.fit==="object") combosWithFit += 1;
+  }
+  return {total, comboCount:Object.keys(combos).length, combosWithValues, combosWithFit};
+}
+function strictProvenance(section){
+  if(!section) return {ok:false, value:null, reason:"no fixture section"};
+  const sp=section.source_provenance;
+  if(sp && typeof sp==="object" && sp.content_vintage){
+    return {ok:true, value:sp.content_vintage, reason:"source_provenance.content_vintage"};
+  }
+  if(section.content_vintage){
+    return {ok:true, value:section.content_vintage, reason:"section.content_vintage"};
+  }
+  return {ok:false, value:section.week_designated||section.published||section.fetched_at||null, reason:"missing source_provenance/content_vintage"};
+}
+function makeIssue(source, severity, klass, owner, title, why, fix, blockedStages){
+  return {source, severity, class:klass, owner, title, why, fix, blockedStages:blockedStages||[]};
+}
+function stage(name, status, detail, owner, blockedBy){
+  return {name, status, detail, owner, blockedBy:blockedBy||null};
+}
+function firstBlocking(stages){
+  return stages.find(s=>s.status==="bad"||s.status==="warn"||s.status==="unk") || null;
+}
+function downstream(status, upstreamBlock){
+  if(upstreamBlock && upstreamBlock.status!=="ok") return "blocked";
+  return status;
+}
+
+function buildSourceModels(fixture, health){
+  const models=[];
+  const issues=[];
+  const fixtureSources=(fixture&&fixture.sources)||{};
+  const sourceValidation=(fixture&&fixture.source_validation)||{};
+  for(const id of SOURCES){
+    const label=SRC_LABEL[id];
+    const section=fixtureSources[id]||null;
+    const h=health && health.sources ? health.sources[id] : null;
+    const values=countValues(section);
+    const prov=strictProvenance(section);
+    const hStatus=statusFromHealth(h);
+    const hClass=healthClass(h);
+    const sourceStatus = h ? (h.status==="missing" ? "bad" : h.status==="stale" ? "warn" : h.status==="failed" ? "bad" : "ok") : "unk";
+    const sourceDetail = h ? `${uiLabel(h)} · ${h.row_count==null?"?":h.row_count.toLocaleString()} rows` : "no health entry";
+    const rawStatus = h ? (h.status==="missing" ? "bad" : h.status==="failed" ? "bad" : h.status==="stale" ? "warn" : "ok") : "unk";
+    const rawDetail = h ? (h.snapshot_path || h.failure_reason || "snapshot verified") : "source-import-health unavailable";
+    const importStatus = h ? (h.status==="failed" ? "bad" : h.status==="missing" ? "blocked" : h.status==="stale" ? "warn" : "ok") : "unk";
+    const importDetail = h ? `${h.supabase_table||"no table"} · landing ${h.supabase_landing?"yes":"no"}` : "no import record";
+    const gateStatus = hStatus;
+    const gateDetail = h ? `${h.status} · vintage ${uiLabel(h)}` : "no gate record";
+
+    const upstreamBlock = (gateStatus==="ok") ? null : {status:gateStatus, name:"Health gate"};
+    const transformStatus = values.total>0 ? downstream("ok", upstreamBlock) : (gateStatus==="ok" ? "bad" : "blocked");
+    const transformDetail = values.total>0
+      ? `${values.total.toLocaleString()} values · ${values.combosWithValues}/${values.comboCount} combos`
+      : (gateStatus==="ok" ? "0 live values after green import" : "waiting on upstream health");
+
+    const ruleProblem = section && values.total>0 && !prov.ok;
+    const ruleStatus = ruleProblem ? "bad" : downstream("ok", upstreamBlock);
+    const ruleDetail = ruleProblem
+      ? "missing immutable content_vintage provenance"
+      : (prov.ok ? `vintage ${prov.value}` : "blocked before rule check");
+
+    const presentationMismatch = sourceValidation[id]==="live" && h && h.status!=="ok";
+    const presentationStatus = presentationMismatch ? "bad" : downstream("ok", ruleProblem?{status:"bad",name:"Rules"}:upstreamBlock);
+    const presentationDetail = presentationMismatch
+      ? `fixture label says live while L1 is ${h.status}`
+      : (values.total>0 ? "values can render, trust depends on upstream" : "no values to present");
+
+    const stages=[
+      stage("published", sourceStatus, sourceDetail, "source"),
+      stage("scraped", rawStatus, rawDetail, "muse"),
+      stage("imported", importStatus, importDetail, "repo"),
+      stage("freshness", gateStatus, gateDetail, "repo"),
+      stage("transformed", transformStatus, transformDetail, "repo", upstreamBlock&&upstreamBlock.name),
+      stage("rules", ruleStatus, ruleDetail, "codex", upstreamBlock&&upstreamBlock.name),
+      stage("screen", presentationStatus, presentationDetail, "ui", ruleProblem?"Rules":upstreamBlock&&upstreamBlock.name),
+    ];
+
+    if(h && h.status!=="ok"){
+      const klass=hClass;
+      const owner = h.status==="stale" || h.status==="missing" ? "Muse/raw capture + source publisher" : "Repo import/health gate";
+      const fix = h.status==="stale"
+        ? `Acquire a genuinely current ${label} source vintage, import it, then run make import-health NFL_WEEK=${health.nfl_week||"<current>"}.`
+        : `Restore the ${label} raw snapshot/manifest or rerun the import path, then rerun make import-health NFL_WEEK=${health.nfl_week||"<current>"}.`;
+      issues.push(makeIssue(id, h.status==="stale"?"warn":"bad", klass, owner,
+        `${label}: ${h.status==="stale"?"stale source content":"raw/import gate failed"}`,
+        h.failure_reason || `L1 status is ${h.status}. Downstream output cannot prove freshness.`,
+        fix,
+        ["transform","rules","presentation","promotion"]));
+    }else if(!h){
+      issues.push(makeIssue(id,"warn","missing-health","Repo import/health gate",
+        `${label}: no health record loaded`,
+        "The monitor cannot find a trade-value-import-health-v1 entry, so grey downstream cells are absence of signal, not health.",
+        "Run make import-health and make sync, or open the page where source-import-health.json is reachable.",
+        ["health gate","transform","presentation"]));
+    }
+    if(values.total===0 && h && h.status==="ok"){
+      issues.push(makeIssue(id,"bad","transformation-failure","Repo transform/reindex",
+        `${label}: import is green but live fixture is empty`,
+        `${h.row_count} rows reached ${h.supabase_table}, but comparison-sources-data.json has 0 values for this source.`,
+        `Run match -> reference -> section -> reindex -> review -> promote for ${id}; do not hand-edit the fixture.`,
+        ["presentation"]));
+    }
+    if(ruleProblem){
+      issues.push(makeIssue(id,"bad","data-manipulation-rule-violation","ChatGPT/Codex promotion gate",
+        `${label}: promoted values lack immutable source vintage`,
+        "The live section has values but no source_provenance.content_vintage or section.content_vintage. Processing time, fetched_at, and promoted_at must not stand in for source freshness.",
+        `Rebuild and promote ${id} with tooling that carries source_provenance.content_vintage from the fresh L1 health entry.`,
+        ["presentation","future promotion"]));
+    }
+    if(presentationMismatch){
+      issues.push(makeIssue(id,"bad","presentation-rule-violation","Presentation layer",
+        `${label}: UI can imply live while L1 is ${h.status}`,
+        `source_validation.${id} is "live", but the loaded health gate says ${h.status}. The screen must not make stale source content look current.`,
+        "Prefer the health gate's content_vintage/status in user-facing labels and block promotion when L1 is not ok.",
+        ["reader trust"]));
+    }
+
+    const choke=firstBlocking(stages);
+    models.push({id,label,section,health:h,values,provenance:prov,stages,choke,
+      flowing:stages.every(s=>s.status==="ok")});
+  }
+  return {models, issues};
+}
+
+function buildModuleChecks(curveJs, dashJs, indexHtml, fixture, health, sourceModels, appIndexForDrift, distIndexForDrift){
+  const checks=[];
+  function add(module, name, status, detail, owner, cls){
+    checks.push({module,name,status,detail,owner,class:cls||"no-live-signal"});
+  }
+  if(health){
+    const counts={ok:0,stale:0,missing:0,failed:0};
+    Object.values(health.sources||{}).forEach(e=>{counts[e.status]=(counts[e.status]||0)+1;});
+    add("raw imports","trade-value-import-health-v1", counts.ok===SOURCES.length?"ok":"warn",
+      `${counts.ok||0} ok / ${counts.stale||0} stale / ${counts.missing||0} missing / ${counts.failed||0} failed · NFL week ${health.nfl_week}`,
+      "Repo import/health gate", "stale-or-missing-manifest");
+  }else{
+    add("raw imports","source-import-health.json reachable","unk","no health artifact loaded","Repo import/health gate","missing-health");
+  }
+  const fixtureBuilt = fixture && fixture.built_at;
+  const builtAge = daysOld(fixtureBuilt);
+  add("live fixture","comparison-sources-data.json built_at",
+    builtAge===null ? "unk" : builtAge>2 ? "warn" : "ok",
+    fixtureBuilt ? `${shortDate(fixtureBuilt)} · ${agePhrase(fixtureBuilt)}` : "built_at missing",
+    "Repo transform/reindex", "transformation-failure");
+  const ruleBreaks=sourceModels.filter(m=>m.values.total>0 && !m.provenance.ok).length;
+  add("data rules","immutable source vintage carried to live sections",
+    ruleBreaks ? "bad" : "ok",
+    ruleBreaks ? `${ruleBreaks} active source sections lack strict provenance` : "source vintage is machine-readable",
+    "ChatGPT/Codex promotion gate", "data-manipulation-rule-violation");
+
+  if(curveJs){
+    const js=curveJs.text;
+    add("presentation","curve guard deployed", js.includes("activeKeysForGuard")?"ok":"bad",
+      js.includes("activeKeysForGuard")?"activeKeysForGuard marker present":"marker missing from deployed bytes",
+      "Presentation layer", "presentation-rule-violation");
+    add("presentation","collapse guard negative-test surface", (js.includes("peaksAboveCollapseFloor")&&js.includes("TradeValueCurveGuards"))?"ok":"warn",
+      (js.includes("peaksAboveCollapseFloor")&&js.includes("TradeValueCurveGuards"))?"pure guard export present":"guard export not visible",
+      "Presentation layer", "presentation-rule-violation");
+    add("presentation","curve smoothing deployed", js.includes("quadraticCurveTo")?"ok":"bad",
+      js.includes("quadraticCurveTo")?"quadraticCurveTo marker present":"smoothing marker missing",
+      "Presentation layer", "presentation-rule-violation");
+  }else{
+    add("presentation","curve-widget.js reachable","unk","could not fetch deployed JS","Presentation layer","no-live-signal");
+  }
+  if(dashJs){
+    const js=dashJs.text;
+    add("presentation","news list cap", js.includes("slice(0, 3)")?"ok":"bad",
+      js.includes("slice(0, 3)")?"max-three marker present":"news cap marker missing",
+      "Presentation layer", "presentation-rule-violation");
+    add("presentation","news timing labels", js.includes("post-values")?"ok":"bad",
+      js.includes("post-values")?"pre/post-values marker present":"timing marker missing",
+      "Presentation layer", "presentation-rule-violation");
+  }else{
+    add("presentation","comparison-dashboard.js reachable","unk","could not fetch deployed JS","Presentation layer","no-live-signal");
+  }
+  if(indexHtml){
+    const m=/trade-chart-build"\s+content="([^"]+)"/.exec(indexHtml.text);
+    add("deploy","build identity", m?"ok":"bad", m?`deployed tag ${m[1]}`:"missing trade-chart-build meta", "ChatGPT/Codex deploy", "presentation-rule-violation");
+    add("deploy","header time formatter", indexHtml.text.includes("monthDayTime")?"ok":"bad",
+      indexHtml.text.includes("monthDayTime")?"monthDayTime marker present":"monthDayTime marker missing",
+      "Presentation layer", "presentation-rule-violation");
+    window.__buildTag=m?m[1]:null;
+  }else{
+    add("deploy","index.html reachable","unk","could not fetch index.html","ChatGPT/Codex deploy","no-live-signal");
+    window.__buildTag=null;
+  }
+  if(appIndexForDrift && distIndexForDrift){
+    add("deploy","app -> dist sync", appIndexForDrift===distIndexForDrift?"ok":"bad",
+      appIndexForDrift===distIndexForDrift?"app and dist index.html are byte-identical":"app and dist index.html differ",
+      "ChatGPT/Codex deploy", "presentation-rule-violation");
+  }else{
+    add("deploy","app -> dist sync", "unk", "no live signal in published layout", "ChatGPT/Codex deploy", "no-live-signal");
+  }
+  add("deploy","local validation gate","unk","run make validate before publish; run python3 verify_live.py after deploy","ChatGPT/Codex deploy","no-live-signal");
+  return checks;
+}
+
+function summarize(sourceModels, issues, moduleChecks, fixture, health){
+  const flowing=sourceModels.filter(m=>m.flowing).length;
+  const blockers=issues.filter(i=>i.severity==="bad"||i.severity==="warn").length;
+  const stale=issues.filter(i=>i.class==="no-scrape-raw-data"||i.class==="stale-or-missing-manifest"||i.class==="missing-health").length;
+  const rule=issues.filter(i=>/rule-violation/.test(i.class)).length;
+  let headline, sub;
+  if(!health){
+    headline="The monitor cannot see the import-health gate.";
+    sub="Treat every grey downstream cell as unknown until source-import-health.json is reachable.";
+  }else if(stale){
+    const names=sourceModels.filter(m=>m.health&&m.health.status!=="ok").map(m=>m.label).join(", ");
+    headline=`Upstream chokepoint: ${names || stale+" source(s)"} need current raw data.`;
+    sub="Downstream transforms may still render old values, but they cannot prove current source freshness.";
+  }else if(rule){
+    headline="Raw imports are green, but the live fixture breaks provenance rules.";
+    sub="The next repair is in the transform/promotion path: carry immutable content_vintage into promoted sections.";
+  }else if(blockers){
+    headline="The pipe is partially blocked after import.";
+    sub="Use the chokepoint cards below to decide whether this is transform, presentation, or deploy work.";
+  }else{
+    headline="All source pipes are flowing.";
+    sub="The monitor found no live chokepoint in the loaded fixture, health gate, or deployed markers.";
+  }
+  return {flowing, blockers, stale, rule, headline, sub,
+    fixtureBuiltAt: fixture&&fixture.built_at, healthCheckedAt: health&&health.checked_at};
+}
+
+function stageHtml(s){
+  const cls=s.status||"unk";
+  return `<div class="stage ${cls}" title="${esc(s.detail)}">
+    <span class="name">${esc(s.name)}</span>
+    <span class="state">${esc(STATUS_WORD[cls]||cls)}</span>
+    <span class="detail">${esc(s.blockedBy?`blocked by ${s.blockedBy}`:s.detail)}</span>
+    <span class="owner-tag ${esc(s.owner)}">${esc(OWNER_LABEL[s.owner]||s.owner)}</span>
+  </div>`;
+}
+function renderPipeline(sourceModels){
+  const tb=document.querySelector("#pipeTable tbody");
+  tb.innerHTML=sourceModels.map(m=>{
+    const choke=m.choke;
+    const chokeCls=choke ? choke.status : "ok";
+    const chokeTitle=choke ? `${choke.name}: ${choke.detail}` : "No chokepoint";
+    const chokeText=choke ? "Downstream blocked or untrusted until this stage is repaired." : "All pipe stages green.";
+    return `<tr>
+      <td><div class="source-cell"><b>${esc(m.label)}</b><span>${esc(m.id)} · UI label ${esc(uiLabel(m.health))}</span></div></td>
+      ${m.stages.map(s=>`<td>${stageHtml(s)}</td>`).join("")}
+      <td class="choke-cell"><div class="choke ${chokeCls}"><b>${esc(chokeTitle)}</b><span>${esc(chokeText)}</span></div></td>
+    </tr>`;
+  }).join("");
+}
+function renderIssues(issues){
+  const host=document.getElementById("issues");
+  const sorted=issues.slice().sort((a,b)=>(STATUS_RANK[a.severity]-STATUS_RANK[b.severity]) || a.source.localeCompare(b.source));
+  if(!sorted.length){
+    host.innerHTML=`<div class="issue"><h3>No chokepoints found</h3><p>Loaded health, fixture, and presentation markers are consistent.</p></div>`;
+    return;
+  }
+  host.innerHTML=sorted.map(i=>`
+    <article class="issue ${esc(i.severity)}">
+      <h3>${esc(i.title)}</h3>
+      <p>${esc(i.why)}</p>
+      <p><b>Next action:</b> ${esc(i.fix)}</p>
+      <div class="meta">
+        <span class="tag">${esc(i.class)}</span>
+        <span class="tag">${esc(i.owner)}</span>
+        <span class="tag">blocks: ${esc((i.blockedStages||[]).join(", ")||"unknown")}</span>
+      </div>
+    </article>
+  `).join("");
+}
+function renderModules(moduleChecks){
+  const host=document.getElementById("modules");
+  const grouped={};
+  moduleChecks.forEach(c=>{(grouped[c.module]=grouped[c.module]||[]).push(c);});
+  host.innerHTML=Object.entries(grouped).map(([module, items])=>{
+    const worst=items.slice().sort((a,b)=>STATUS_RANK[a.status]-STATUS_RANK[b.status])[0].status;
+    return `<article class="module-card">
+      <h3><span class="status-dot ${worst}"></span>${esc(module)}</h3>
+      <p>${items.length} checks · owner signals kept visible for handoff.</p>
+      <ul>${items.map(c=>`<li><span class="status-dot ${c.status}"></span><b>${esc(c.name)}</b><br><span class="mono">${esc(c.detail)}</span><br><span class="tag">${esc(c.owner)}</span></li>`).join("")}</ul>
+    </article>`;
+  }).join("");
+}
+function renderSummary(summary, sourceModels){
+  document.getElementById("plainHeadline").textContent=summary.headline;
+  document.getElementById("plainSub").textContent=summary.sub;
+  const metrics=[
+    ["flowMetric", summary.flowing, summary.flowing===SOURCES.length?"ok":summary.flowing?"warn":"bad"],
+    ["blockerMetric", summary.blockers, summary.blockers?"bad":"ok"],
+    ["staleMetric", summary.stale, summary.stale?"warn":"ok"],
+    ["ruleMetric", summary.rule, summary.rule?"bad":"ok"],
+  ];
+  metrics.forEach(([id,value,cls])=>{
+    const el=document.getElementById(id);
+    el.className=`metric ${cls}`;
+    el.querySelector("strong").textContent=value;
+  });
+  document.getElementById("sourceStrip").innerHTML=sourceModels.map(m=>{
+    const worst=m.choke?m.choke.status:"ok";
+    return `<span class="chip ${worst}">${esc(m.label)} · ${esc(m.choke?m.choke.name:"flowing")}</span>`;
+  }).join("");
+}
+function renderRepoMap(health){
+  const week=health&&health.nfl_week ? health.nfl_week : "<current>";
+  const rows=[
+    ["Raw health", `pipelines/verify_import_health.py; run make import-health NFL_WEEK=${week}; output/source-import-health.json is runtime state.`],
+    ["Source import", "pipelines/import_supabase_references.py, pipelines/import_source_snapshot.py, data/raw/sources/<source>/<vintage>/snapshot-manifest.json."],
+    ["Transform", "pipelines/match_source_snapshot.py -> build_source_reference.py -> build_comparison_source_section.py -> reindex_comparison_section.py."],
+    ["Rules", "docs/pipeline-rules.md; promotion requires fresh L1 status and immutable source_provenance.content_vintage."],
+    ["Promotion", "pipelines/review_comparison_candidate.py then pipelines/promote_comparison_section.py with --approve."],
+    ["Fixture", "data/fixtures/current/comparison-sources-data.json feeds app/trade-value-chart/assets/comparison-sources-data.json."],
+    ["Monitor", "modules/dashboard.html syncs to dist/modules/dashboard.html; dist/modules/source-import-health.json is copied by make sync."],
+    ["Deploy check", "make validate before publishing; python3 verify_live.py after GitHub Pages deploy."],
+    ["Owners", "Muse/raw capture handles source scraping; ChatGPT/Codex integrates, reviews, promotes, and deploys; repo scripts enforce data contracts."],
+  ];
+  document.getElementById("repoMap").innerHTML=rows.map(([k,v])=>`<div class="repo-row"><b>${esc(k)}</b><span>${esc(v)}</span></div>`).join("");
+}
+function renderLLMContext(sourceModels, issues, moduleChecks, summary, fixture, health, paths){
+  const context={
+    schema:"module-monitor-llm-diagnostic-v2",
+    generated_at:new Date().toISOString(),
+    loaded_paths:paths,
+    plain_language_summary:{headline:summary.headline, detail:summary.sub},
+    source_health:SOURCES.reduce((acc,id)=>{
+      const m=sourceModels.find(x=>x.id===id);
+      acc[id]={
+        label:m.label,
+        flowing:m.flowing,
+        chokepoint:m.choke ? {stage:m.choke.name, status:m.choke.status, detail:m.choke.detail} : null,
+        health:m.health ? {
+          status:m.health.status,
+          content_vintage:m.health.content_vintage,
+          vintage_kind:m.health.vintage_kind,
+          row_count:m.health.row_count,
+          failure_reason:m.health.failure_reason,
+          snapshot_path:m.health.snapshot_path,
+          supabase_table:m.health.supabase_table,
+        } : null,
+        fixture_values:m.values.total,
+        fixture_combo_count:m.values.comboCount,
+        strict_provenance:m.provenance,
+        stages:m.stages,
+      };
+      return acc;
+    },{}),
+    chokepoints:issues.map(i=>({
+      source:i.source, severity:i.severity, class:i.class, owner:i.owner,
+      title:i.title, why:i.why, fix:i.fix, blocked_stages:i.blockedStages,
+    })),
+    module_checks:moduleChecks,
+    repo_commands:[
+      `make import-health NFL_WEEK=${health&&health.nfl_week?health.nfl_week:"<current>"}`,
+      "make supabase-import SOURCE=<espn|cbs|fantasycalc|fantasypros|usatoday>",
+      "make comparison-section REFERENCE_FILE=<output/source-references/.../reference.json>",
+      "make comparison-reindex CANDIDATE_FILE=<output/comparison-candidates/.../section.json>",
+      "make comparison-review REINDEXED_FILE=<output/comparison-reference/...-reindexed.json>",
+      "make comparison-promote REVIEW_FILE=<output/comparison-review/...-review.json> APPROVE=\"<name> <YYYY-MM-DD> <reason>\"",
+      "make validate",
+      "python3 verify_live.py"
+    ],
+    immutable_freshness_rule:"content_vintage from source provenance is freshness; generated_at, fetched_at, built_at, pulled_at, and promoted_at are processing/acquisition times and must not advance source freshness.",
+    fixture_built_at:fixture&&fixture.built_at,
+    health_checked_at:health&&health.checked_at,
+  };
+  window.__llmDiagnosticContext=context;
+  document.getElementById("llmJson").textContent=JSON.stringify(context,null,2);
 }
 
 async function main(){
   const errEl=document.getElementById("err");
   if(location.protocol==="file:"){
     errEl.style.display="block";
-    errEl.innerHTML="<b>Live checks unavailable:</b> this page was opened as a file. Serve it over HTTP (or open the deployed GitHub Pages URL) so it can fetch the data files.";
+    errEl.innerHTML="<b>Live checks unavailable:</b> serve this page over HTTP or open the deployed GitHub Pages URL so it can fetch the data files.";
   }
 
-  /* ---------- load live data ---------- */
   const [fx, hh] = await Promise.all([firstOk(FIXTURE_PATHS), firstOk(HEALTH_PATHS)]);
   const fixture = fx?fx.json:null, health = hh?hh.json:null;
   const [curveJs, dashJs, indexHtml] = await Promise.all([
@@ -250,325 +767,51 @@ async function main(){
   ]) : [null, null];
   const appIndexForDrift = appIdx?appIdx.text:null;
   const distIndexForDrift = distIdx?distIdx.text:null;
+
   document.getElementById("dataSrc").textContent =
     "fixture: "+(fx?fx.path:"NOT FOUND")+" · health: "+(hh?hh.path:"NOT FOUND");
   document.getElementById("checkedAt").textContent =
     new Date().toLocaleString("en-US",{timeZone:"America/Chicago"})+" CT";
 
-  const nflWeek = health?health.nfl_week:null;
-  const builtAt = fixture?(fixture.built_at||null):null;
-  const builtDays = daysOld(builtAt);
-
-  const srcInfo = {};
-  for(const s of SOURCES){
-    const fsec = fixture&&fixture.sources?fixture.sources[s]||{}:{};
-    const combos = fsec.combos||{};
-    let values=0; const perCombo=[];
-    for(const [cn,c] of Object.entries(combos)){
-      // A promoted source stores its numbers under `reindexed`, not `values`
-      // -- every consumer in the repo reads `values || reindexed`. Counting
-      // only `values` made this monitor report all four promoted sources as
-      // BROKEN/STUCK with a confident root-cause story telling you to re-run
-      // build -> review -> promote stages that had already run.
-      const v=c.values||c.reindexed; const n=(v&&typeof v==="object")?Object.keys(v).length:0;
-      values+=n; perCombo.push(cn+":"+n);
+  const {models, issues} = buildSourceModels(fixture, health);
+  const moduleChecks = buildModuleChecks(curveJs, dashJs, indexHtml, fixture, health, models, appIndexForDrift, distIndexForDrift);
+  moduleChecks.filter(c=>c.status==="bad"||c.status==="warn").forEach(c=>{
+    if(c.class==="presentation-rule-violation" || c.class==="data-manipulation-rule-violation"){
+      issues.push(makeIssue("system", c.status, c.class, c.owner, c.name, c.detail,
+        c.class==="data-manipulation-rule-violation"
+          ? "Repair the promotion/fixture path so rule metadata is carried by machine-readable fields."
+          : "Update the presentation asset, run make sync, and validate the deployed marker.",
+        ["presentation","deploy"]));
     }
-    const hsec = health&&health.sources?health.sources[s]||null:null;
-    srcInfo[s]={values, combos:Object.keys(combos).length, perCombo,
-      snap: fsec.snapshot_date||fsec.fetched_at||null, health:hsec,
-      label: uiLabel(hsec,nflWeek)};
-  }
+  });
+  const summary=summarize(models, issues, moduleChecks, fixture, health);
+  renderSummary(summary, models);
+  renderPipeline(models);
+  renderIssues(issues);
+  renderModules(moduleChecks);
+  renderRepoMap(health);
+  renderLLMContext(models, issues, moduleChecks, summary, fixture, health, {
+    fixture:fx&&fx.path, health:hh&&hh.path, curve_js:curveJs&&curveJs.path,
+    dashboard_js:dashJs&&dashJs.path, index_html:indexHtml&&indexHtml.path
+  });
 
-  /* ================= MODULE 1 · data-pipeline ================= */
-  const M1="data-pipeline";
-  // L1/L2/L3 per source from health gate
-  for(const s of SOURCES){
-    const h=srcInfo[s].health;
-    const nm=SRC_LABEL[s];
-    if(h&&h.status==="ok"){
-      add(M1,"L1 · source pulls",nm+" raw snapshot",OK,
-        "snapshot_path: "+(h.snapshot_path||"?"),
-        "", "",
-        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span>`);
-      add(M1,"L2 · import → Supabase",nm+" in "+(h.supabase_table||"?"),OK,
-        h.row_count+" rows · landing="+(h.supabase_landing?"yes":"NO"));
-      add(M1,"L3 · health gate",nm+" verified",OK,
-        "status=ok · vintage="+h.content_vintage+" · checked "+shortDate(health.checked_at));
-    }else if(h){
-      const l1Status=h.status==="stale"?WARN:BAD;
-      add(M1,"L1 · source pulls",nm+" raw snapshot",l1Status,"health status: "+h.status+" · vintage="+(h.content_vintage||"?"),
-        "The import health gate reports <b>"+h.status+"</b> for "+nm+(h.failure_reason?": "+h.failure_reason:"")+". Nothing downstream can be trusted.",
-        "Fix the pull/import for <b>"+nm+"</b>, then re-run <b>verify_import_health.py</b>.");
-      add(M1,"L2 · import → Supabase",nm+" import",l1Status,"landed="+(h.supabase_landing?"yes":"no")+" · freshness blocked by L1");
-      add(M1,"L3 · health gate",nm+" verified",l1Status,"status="+h.status+" · vintage="+(h.content_vintage||"?"));
-    }else{
-      add(M1,"L1 · source pulls",nm+" raw snapshot",UNK,"no health record for "+s+" (health file "+(hh?"loaded but source missing":"not loaded")+")",
-        "","Check <b>output/source-import-health.json</b>.");
-      add(M1,"L2 · import → Supabase",nm+" import",UNK,"no health record");
-      add(M1,"L3 · health gate",nm+" verified",UNK,"no health record");
-    }
-  }
-  // L4/L5/L6 per source from fixture
-  for(const s of SOURCES){
-    const info=srcInfo[s], nm=SRC_LABEL[s], h=info.health;
-    const inDb = h&&h.status==="ok";
-    if(info.values>0 && h && h.status!=="ok"){
-      add(M1,"L6 · promote → live fixture",nm+" live values over stale L1",WARN,
-        info.values.toLocaleString()+" values across "+info.combos+" combos · UI label: "+info.label,
-        "<b>Root cause:</b> the live fixture has promoted values, but L1 import health is "+h.status+" for content vintage "+(h.content_vintage||"?")+". Processing or promotion timestamps do not make old source content fresh.",
-        "Acquire genuinely newer source data, re-run import health, rebuild/review/promote only after L1 is green.",
-        `<span class="y">L1 ${h.status}</span> → <span class="y">L2 verified old bytes</span> → <span class="y">L3 blocked</span> → <span class="y">L4-L6 existing output</span>`);
-    }else if(info.values>0){
-      add(M1,"L6 · promote → live fixture",nm+" live values",OK,
-        info.values.toLocaleString()+" values across "+info.combos+" combos · UI label: "+info.label,
-        "","",
-        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span> → <span class="g">L4 ✓</span> → <span class="g">L5 ✓</span> → <span class="g">L6 ✓</span>`);
-    }else if(inDb){
-      add(M1,"L4–L6 · build → review → promote",nm+" STUCK",BAD,
-        "0 values in live fixture · but "+h.row_count+" rows sit in "+h.supabase_table,
-        "<b>Root cause:</b> data cleared L1–L3 (pull ✓, Supabase ✓ with "+h.row_count+" rows, health gate ✓) but the <b>build → review → promote</b> stages never ran for "+nm+". The fixture still carries the old build from "+shortDate(builtAt)+", so the dashboard renders empty combo shells for this source. This is also what trips the curve regression guard.",
-        "Run <b>build_comparison_source_section.py</b> → <b>review_comparison_candidate.py</b> → <b>promote_comparison_section.py</b> for <b>"+s+"</b>, rebuild the fixture, redeploy.",
-        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span> → <span class="r">L4 ✗ never ran</span> → <span class="r">L5 ✗</span> → <span class="r">L6 ✗</span>`);
-    }else{
-      add(M1,"L4–L6 · build → review → promote",nm+" STUCK",UNK,"0 values; upstream health unknown",
-        "Cannot determine where "+nm+" is stuck — the health gate has no record of it.",
-        "Run <b>verify_import_health.py</b> to locate the break.");
-    }
-  }
-  // fixture freshness
-  if(builtDays===null){
-    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",UNK,"fixture "+(fx?"loaded but built_at missing":"not loaded"));
-  }else if(builtDays>2){
-    const newer=SOURCES.filter(s=>{const h=srcInfo[s].health;return h&&h.status==="ok"&&!/^Week/.test(h.content_vintage)&&daysOld(h.content_vintage)<builtDays;});
-    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",WARN,
-      "built "+shortDate(builtAt)+" ("+builtDays.toFixed(1)+" days ago)",
-      "<b>Root cause:</b> the live fixture was baked "+builtDays.toFixed(1)+" days ago. Newer source vintages exist upstream ("+(newer.length?newer.map(s=>SRC_LABEL[s]+" "+srcInfo[s].health.content_vintage).join(", "):"none newer")+") but were never promoted, so the UI shows stale numbers.",
-      "Re-run the <b>promote</b> stage and rebuild the fixture after promoting the stuck sources.");
-  }else{
-    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",OK,"built "+shortDate(builtAt)+" ("+builtDays.toFixed(1)+"d ago)");
-  }
-
-  /* ================= MODULE 2 · curve-widget ================= */
-  const M2="curve-widget";
-  if(curveJs){
-    const js=curveJs.text;
-    add(M2,"L1 · guard logic","regression guard (activeKeysForGuard)", js.includes("activeKeysForGuard")?OK:BAD,
-      js.includes("activeKeysForGuard")?"marker present in deployed bytes":"marker MISSING from deployed bytes",
-      js.includes("activeKeysForGuard")?"":"<b>Root cause:</b> the deployed curve-widget.js does not contain the empty-source guard fix. The curve renders (or fails) on sources with 0 values.",
-      js.includes("activeKeysForGuard")?"":"Redeploy <b>curve-widget.js</b> from app/.");
-    // Now a live check, not a standing warning: the collapse guard is pure
-    // and exported, so tests/test_two_tier_frontend.py drives it through the
-    // Node harness with deliberately collapsed peak sets and asserts it
-    // trips. The exported surface is the marker that those tests can exist.
-    const guardTestable = js.includes("peaksAboveCollapseFloor") && js.includes("TradeValueCurveGuards");
-    add(M2,"L1 · guard logic","guard negative-tested", guardTestable?OK:WARN,
-      guardTestable
-        ? "collapse guard exported as a pure helper — driven with corrupt peaks by TestCurveCollapseGuard"
-        : "no live signal — needs a deliberate broken-fixture test",
-      guardTestable?"":"<b>Root cause (process):</b> the guard was changed to let rendering continue when no active source has values. No test proves it <i>fails closed</i> on genuinely invalid data. A guard that asserts current behavior without checking which state is right is worse than no guard.",
-      guardTestable?"":"Add a fixture with a deliberately corrupt source and assert the guard trips.");
-    add(M2,"L2 · rendering","canvas smoothing (quadraticCurveTo)", js.includes("quadraticCurveTo")?OK:BAD,
-      js.includes("quadraticCurveTo")?"marker present in deployed bytes":"marker MISSING",
-      js.includes("quadraticCurveTo")?"":"<b>Root cause:</b> deployed JS predates the smoothing change — sharp segment joints on the curve.",
-      js.includes("quadraticCurveTo")?"":"Redeploy <b>curve-widget.js</b> from app/.");
-    add(M2,"L2 · rendering","diagnostics hook (TradeValueCurveDiagnostics)", js.includes("TradeValueCurveDiagnostics")?OK:WARN,
-      js.includes("TradeValueCurveDiagnostics")?"present — open devtools to inspect sourcePeaks":"missing");
-  }else{
-    add(M2,"L1 · guard logic","deployed curve-widget.js",UNK,"could not fetch the JS file",
-      "","Check the network path / filename.");
-    add(M2,"L2 · rendering","deployed curve-widget.js",UNK,"could not fetch the JS file");
-  }
-  add(M2,"L3 · fixed-pie math","test_two_tier_frontend (26 tests)",UNK,"no live signal — run locally",
-    "<b>Last local run 2026-09-22:</b> 6 failures (WR feasible-interval + slider recompute). A stash test proved the failures come from <b>data-fixture drift</b> (background workstreams changed players.json), not the guard fix — but they are still red and block the deploy gate.",
-    "Run <b>python3 -m unittest tests.test_two_tier_frontend</b>; reconcile fixtures or tests. Do <b>not</b> weaken the guard to make tests pass.");
-
-  /* ================= MODULE 3 · comparison-dashboard ================= */
-  const M3="comparison-dashboard";
-  if(dashJs){
-    const js=dashJs.text;
-    add(M3,"L1 · player news","max-3 cap (slice(0, 3))", js.includes("slice(0, 3)")?OK:BAD,
-      js.includes("slice(0, 3)")?"marker present":"marker MISSING — news list uncapped",
-      js.includes("slice(0, 3)")?"":"<b>Root cause:</b> deployed comparison-dashboard.js predates the news cap; player panels can flood.",
-      js.includes("slice(0, 3)")?"":"Redeploy <b>comparison-dashboard.js</b> from app/.");
-    add(M3,"L1 · player news","timing badges (pre/post-values)", js.includes("post-values")?OK:BAD,
-      js.includes("post-values")?"marker present":"marker MISSING",
-      js.includes("post-values")?"":"<b>Root cause:</b> deployed JS predates timing badges; users can't tell if news is priced in.",
-      js.includes("post-values")?"":"Redeploy <b>comparison-dashboard.js</b> from app/.");
-  }else{
-    add(M3,"L1 · player news","deployed comparison-dashboard.js",UNK,"could not fetch the JS file");
-  }
-  add(M3,"L2 · health panel","dataset status render",UNK,"no live signal — visual check",
-    "","Open the dashboard and confirm the health panel renders without errors.");
-
-  /* ================= MODULE 4 · page-shell ================= */
-  const M4="page-shell";
-  if(indexHtml){
-    const html=indexHtml.text;
-    const m=/trade-chart-build"\s+content="([^"]+)"/.exec(html);
-    const tag=m?m[1]:"NOT FOUND";
-    add(M4,"L2 · build tag","build identity", m?OK:BAD,
-      "deployed tag: "+tag,
-      m?"":"<b>Root cause:</b> the deployed index.html has no build tag, so 'is this the fixed one?' is unanswerable.",
-      m?"":"Stamp the tag and run <b>make sync</b>.");
-    add(M4,"L1 · header dates","monthDayTime formatter", html.includes("monthDayTime")?OK:BAD,
-      html.includes("monthDayTime")?"present — header shows date + time":"MISSING — header date has no time",
-      html.includes("monthDayTime")?"":"<b>Root cause:</b> deployed index.html predates the time formatter.",
-      html.includes("monthDayTime")?"":"Redeploy <b>index.html</b> from app/.");
-    window.__buildTag=tag;
-  }else{
-    add(M4,"L1/L2 · page shell","deployed index.html",UNK,"could not fetch index.html");
-    window.__buildTag=null;
-  }
-
-  /* ================= MODULE 5 · build-deploy ================= */
-  const M5="build-deploy";
-  // Live drift check, not a standing UNK. In the repo layout both copies are
-  // reachable, so compare them for real; in the dist layout app/ is not
-  // published, so stay honest and report no signal.
-  if(appIndexForDrift && distIndexForDrift){
-    const identical = appIndexForDrift === distIndexForDrift;
-    add(M5,"L1 · sync","app/ → dist/ byte-identical", identical?OK:BAD,
-      identical?"index.html identical in app/ and dist/":"index.html DIFFERS between app/ and dist/",
-      identical?"":"<b>Root cause:</b> dist/ is the published site and it has drifted from app/. Whatever you are looking at locally is not what deploys.",
-      identical?"":"Run <b>make sync</b> to regenerate dist/ from app/ and the current fixtures.");
-  }else{
-    add(M5,"L1 · sync","app/ → dist/ byte-identical",UNK,"no live signal — app/ is not published in this layout",
-      "","Open this page from the repo root (<b>modules/dashboard.html</b>) to compare, or run <b>make sync</b>.");
-  }
-  add(M5,"L2 · tests","test gate",UNK,"no live signal — run locally",
-    "","<b>make validate</b> runs naming drift, reference validation, sync, and the full suite. CI runs the same gate on every push to main.");
-  add(M5,"L3 · push/deploy","GitHub Pages deploy",UNK,"no live signal from browser",
-    "","Push via the GitHub API, then confirm the Pages workflow run is green.");
-  add(M5,"L4 · verify","verify_live.py",UNK,"run locally after deploy",
-    "","<b>python3 verify_live.py</b> — asserts HTTP 200, build tag, and code markers on the live URL.");
-
-  render(srcInfo, builtAt, builtDays, !!fixture, !!health);
-}
-
-/* ================= RENDER ================= */
-const MODMETA=[
-  {id:"data-pipeline", n:1, sub:"Source snapshots → live fixture"},
-  {id:"curve-widget", n:2, sub:"Rendering, guards, fixed-pie math"},
-  {id:"comparison-dashboard", n:3, sub:"Player news, health panel"},
-  {id:"page-shell", n:4, sub:"Header dates, build tag, layout"},
-  {id:"build-deploy", n:5, sub:"Sync, tests, push, verify"},
-];
-const rank={bad:0,warn:1,unk:2,ok:3};
-const pillTxt={ok:"healthy",warn:"degraded",bad:"broken",unk:"unknown"};
-
-function modStatus(id){
-  const cs=checks.filter(c=>c.module===id).map(c=>c.status);
-  if(cs.includes("bad"))return"bad";
-  if(cs.includes("warn"))return"warn";
-  if(cs.includes("unk")&&!cs.includes("ok"))return"unk";
-  if(cs.includes("unk"))return"warn";
-  return"ok";
-}
-
-function render(srcInfo, builtAt, builtDays, fxOk, hOk){
-  /* summary */
-  const counts={ok:0,warn:0,bad:0,unk:0};
-  checks.forEach(c=>counts[c.status]++);
-  const total=checks.length;
-  document.getElementById("okCount").textContent=counts.ok;
-  document.getElementById("totalCount").textContent=total;
-  const seg=document.getElementById("segbar");
-  const cols={ok:"var(--green)",warn:"var(--yellow)",bad:"var(--red)",unk:"var(--grey)"};
-  seg.innerHTML=["ok","warn","bad","unk"].map(k=>
-    `<div style="width:${(counts[k]/total*100).toFixed(1)}%;background:${cols[k]}" title="${k}: ${counts[k]}"></div>`).join("");
-  document.getElementById("legend").innerHTML=["ok","warn","bad","unk"].map(k=>
-    `<span><span class="swatch" style="background:${cols[k]}"></span><b>${counts[k]}</b> ${pillTxt[k]}</span>`).join("");
-
-  /* pipeline table */
-  const tb=document.querySelector("#pipeTable tbody");
-  tb.innerHTML=SOURCES.map(s=>{
-    const info=srcInfo[s], h=info.health, nm=SRC_LABEL[s];
-    const cell=(st,tag)=>`<td><span class="st ${st}">${st==="ok"?"✓":st==="bad"?"✗":st==="warn"?"!":"?"}</span>${tag?`<span class="stag">${tag}</span>`:""}</td>`;
-    const upstreamOk=h&&h.status==="ok";
-    const upstreamStale=h&&h.status==="stale";
-    const upstreamCell=upstreamOk?"ok":upstreamStale?"warn":h?"bad":"unk";
-    const L1=h&&h.snapshot_path?cell(upstreamCell,(h.content_vintage||"?")):cell(h?upstreamCell:"unk");
-    const L2=h&&h.supabase_landing?cell(upstreamCell,(h.row_count||"?")+" rows"):cell(h?"bad":"unk");
-    const L3=upstreamOk?cell("ok","vintage "+(h.content_vintage||"?")):cell(h?upstreamCell:"no gate");
-    const downstreamCell=info.values>0?(upstreamOk?"ok":"warn"):"unk";
-    const L4=info.values>0?cell(downstreamCell,upstreamOk?"":"L1 not fresh"):cell("unk","no live signal");
-    const L5=info.values>0?cell(downstreamCell,upstreamOk?"":"L1 not fresh"):cell("unk","no live signal");
-    const L6=info.values>0?cell(downstreamCell,info.values.toLocaleString()+" vals"):cell("bad","0 vals");
-    let stuck;
-    if(info.values>0 && upstreamOk) stuck=`<span style="color:var(--green);font-size:11.5px;font-weight:600">— flowing</span>`;
-    else if(info.values>0 && h) stuck=`<span class="stuck">L1 ${h.status}; downstream output is not freshness</span>`;
-    else if(h&&h.status==="ok") stuck=`<span class="stuck">L4–L6: in Supabase, never promoted</span>`;
-    else stuck=`<span class="stuck">unknown — check health gate</span>`;
-    return `<tr><td>${nm}<div class="stag">${s}</div></td>${L1}${L2}${L3}${L4}${L5}${L6}
-      <td><span class="vlabel">${info.label}</span></td><td style="text-align:left">${stuck}</td></tr>`;
-  }).join("");
-  if(!fxOk||!hOk){
+  if(!fx || !hh){
     const w=document.createElement("div");
-    w.style.cssText="margin-top:10px;font-size:12.5px;color:var(--yellow)";
-    w.textContent="⚠ Live data incomplete ("+[fxOk?"":"comparison-sources-data.json",hOk?"":"source-import-health.json"].filter(Boolean).join(", ")+" not reachable). Grey cells = no live signal, not proof of health.";
+    w.className="chip warn";
+    w.style.marginTop="10px";
+    w.textContent="Live data incomplete: "+[fx?"":"comparison-sources-data.json",hh?"":"source-import-health.json"].filter(Boolean).join(", ")+" not reachable.";
     document.getElementById("pipelineCard").appendChild(w);
   }
-
-  /* root cause list */
-  const bad=checks.filter(c=>c.status==="bad"||c.status==="warn")
-    .sort((a,b)=>rank[a.status]-rank[b.status]);
-  if(bad.length){
-    document.getElementById("rcaCard").style.display="block";
-    document.getElementById("rcaList").innerHTML=bad.map(c=>`
-      <div class="rca-item ${c.status==="warn"?"warn":""}">
-        <h4>${c.status==="bad"?"🔴":"🟡"} ${c.name} <span class="where">· ${c.module} / ${c.layer}</span></h4>
-        <p>${c.why||c.detail}</p>
-        ${c.fix?`<p style="margin-top:6px"><b>Fix:</b> ${c.fix}</p>`:""}
-        ${c.chain?`<div class="chain">${c.chain}</div>`:""}
-      </div>`).join("");
-  }
-
-  /* modules */
-  const host=document.getElementById("modules");
-  host.innerHTML=MODMETA.map(mm=>{
-    const st=modStatus(mm.id);
-    const cs=checks.filter(c=>c.module===mm.id);
-    const layers={};
-    cs.forEach(c=>{(layers[c.layer]=layers[c.layer]||[]).push(c);});
-    const layerHtml=Object.entries(layers).map(([lname,items])=>{
-      const lcls={ok:"c-ok",warn:"c-warn",bad:"c-bad",unk:"c-unk"};
-      const itemsHtml=items.map(c=>`
-        <li class="${lcls[c.status]}"><b>${c.name}</b> — ${c.status.toUpperCase()}
-          ${c.detail?`<br><span class="mono">${c.detail}</span>`:""}
-        </li>`).join("");
-      const whys=items.filter(c=>c.why).map(c=>`
-        <div class="why ${c.status==="warn"?"warnb":""}"><strong>Why — ${c.name}</strong>${c.why}
-        ${c.fix?`<div class="fix"><b>Fix:</b> ${c.fix}</div>`:""}
-        ${c.chain?`<div class="chain" style="margin-top:6px">${c.chain}</div>`:""}</div>`).join("");
-      return `<div class="layer"><div class="layer-top"><span class="layer-name">${lname}</span>
-        <span class="layer-desc">${items.length} check${items.length>1?"s":""}</span></div>
-        <ul class="checks">${itemsHtml}</ul>${whys}</div>`;
-    }).join("");
-    const counts2={ok:0,warn:0,bad:0,unk:0}; cs.forEach(c=>counts2[c.status]++);
-    return `<div class="mod" id="mod-${mm.id}">
-      <div class="mod-head" onclick="document.getElementById('mod-${mm.id}').classList.toggle('open')">
-        <span class="mod-dot ${st}"></span>
-        <div><div class="mod-name"><span class="idx">${mm.n}.</span>${mm.id}</div>
-        <div class="mod-sub">${mm.sub} · ${counts2.ok}✓ ${counts2.warn}! ${counts2.bad}✗ ${counts2.unk}?</div></div>
-        <span class="pill ${st}">${pillTxt[st]}</span><span class="chev">▸</span>
-      </div>
-      <div class="mod-body">${layerHtml}</div>
-    </div>`;
-  }).join("");
-  // auto-open the worst module
-  const worst=MODMETA.map(m=>({m,s:modStatus(m.id)})).sort((a,b)=>rank[a.s]-rank[b.s])[0];
-  if(worst&&worst.s!=="ok") document.getElementById("mod-"+worst.m.id).classList.add("open");
-
   document.getElementById("footNote").innerHTML=
-    "fixture built_at: <code>"+(builtAt||"unknown")+"</code>"+
-    (window.__buildTag?` · deployed build tag: <code>${window.__buildTag}</code>`:"")+
+    "fixture built_at: <code>"+esc((fixture&&fixture.built_at)||"unknown")+"</code>"+
+    (window.__buildTag?` · deployed build tag: <code>${esc(window.__buildTag)}</code>`:"")+
     " · module map: <code>docs/MODULES.md</code>";
 }
 
 main().catch(e=>{
   const el=document.getElementById("err");
   el.style.display="block";
-  el.innerHTML="<b>Dashboard failed to initialize:</b> "+String(e).slice(0,300);
+  el.innerHTML="<b>Dashboard failed to initialize:</b> "+esc(String(e).slice(0,300));
 });
 </script>
 </body>

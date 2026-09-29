@@ -6,7 +6,7 @@
     "source-import-health.json": "a67571eddaa2bf2e8e26b1b3f9b10d51e1e697b927fe28bf367176777b57ab77"
   },
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-09-29T10:11:06-05:00",
+  "generated_at": "2026-09-29T10:49:27-05:00",
   "import_health_source": "output/source-import-health.json",
   "items": [
     {
@@ -115,77 +115,77 @@
       "max_age_days": 2,
       "note": "changed",
       "status": "same_day",
-      "value": "2026-09-29T15:11:01Z"
+      "value": "2026-09-29T15:37:53Z"
     },
     {
-      "age_days": null,
+      "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/cbs (expected data/raw/sources/cbs/<content-vintage>/snapshot-manifest.json)",
+      "failure_reason": "STALE_VINTAGE: content vintage Week 3 (NFL week 3) != current NFL week 4",
       "freshness_ok": false,
       "key": "source_import.cbs",
-      "l1_status": "missing",
+      "l1_status": "stale",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "note": "L1 status=stale; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
       "status": "stale",
-      "value": null
+      "value": "Week 3"
     },
     {
-      "age_days": null,
+      "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/espn (expected data/raw/sources/espn/<content-vintage>/snapshot-manifest.json)",
-      "freshness_ok": false,
+      "failure_reason": null,
+      "freshness_ok": true,
       "key": "source_import.espn",
-      "l1_status": "missing",
+      "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
-      "status": "stale",
-      "value": null
+      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "status": "same_day",
+      "value": "2026-09-29"
     },
     {
-      "age_days": null,
+      "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/fantasycalc (expected data/raw/sources/fantasycalc/<content-vintage>/snapshot-manifest.json)",
-      "freshness_ok": false,
+      "failure_reason": null,
+      "freshness_ok": true,
       "key": "source_import.fantasycalc",
-      "l1_status": "missing",
+      "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
-      "status": "stale",
-      "value": null
+      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "status": "same_day",
+      "value": "Week 4"
     },
     {
-      "age_days": null,
+      "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/fantasypros (expected data/raw/sources/fantasypros/<content-vintage>/snapshot-manifest.json)",
-      "freshness_ok": false,
+      "failure_reason": null,
+      "freshness_ok": true,
       "key": "source_import.fantasypros",
-      "l1_status": "missing",
+      "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
-      "status": "stale",
-      "value": null
+      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "status": "same_day",
+      "value": "2026-09-29"
     },
     {
-      "age_days": null,
+      "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "MISSING_SNAPSHOT: no snapshot-manifest.json under /Users/botcomp/Projects/fantasy-tools-clean/data/raw/sources/usatoday (expected data/raw/sources/usatoday/<content-vintage>/snapshot-manifest.json)",
+      "failure_reason": "STALE_VINTAGE: content vintage 2026-09-23 (NFL week 3) != current NFL week 4",
       "freshness_ok": false,
       "key": "source_import.usatoday",
-      "l1_status": "missing",
+      "l1_status": "stale",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=missing; last_successful_import=unknown; content_vintage is source provenance, not pull time",
+      "note": "L1 status=stale; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
       "status": "stale",
-      "value": null
+      "value": "2026-09-23"
     }
   ],
   "source_validation": {
@@ -207,10 +207,10 @@
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 13,
-    "l1_unhealthy_count": 5,
+    "expired_count": 10,
+    "l1_unhealthy_count": 2,
     "max_age_days": 2,
-    "stale_count": 13,
+    "stale_count": 10,
     "unchanged_count": 8,
     "unknown_count": 0
   },
