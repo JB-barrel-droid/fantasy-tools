@@ -309,7 +309,7 @@ const STATUS_WORD = {ok:"flowing", warn:"warning", bad:"broken", blocked:"blocke
 const STATUS_RANK = {bad:0, warn:1, blocked:2, unk:3, ok:4};
 
 async function firstOk(paths, asText){
-  for(const p of paths){
+  for(const p of orderedPaths(paths)){
     try{
       const r = await fetch(p,{cache:"no-store"});
       if(r.ok){
@@ -319,6 +319,19 @@ async function firstOk(paths, asText){
     }catch(e){/* try next */}
   }
   return null;
+}
+function orderedPaths(paths){
+  const isLocalRepoModule =
+    /^(localhost|127\.0\.0\.1)$/.test(location.hostname) &&
+    location.pathname.startsWith("/modules/");
+  if(!isLocalRepoModule) return paths;
+  const score = p => {
+    if(p.startsWith("../app/")) return 0;
+    if(p.startsWith("../output/")) return 1;
+    if(p.startsWith("../data/")) return 2;
+    return 10;
+  };
+  return paths.slice().sort((a,b)=>score(a)-score(b));
 }
 
 function esc(v){
