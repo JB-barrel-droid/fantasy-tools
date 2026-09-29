@@ -149,6 +149,11 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
         candidates = index.get(normalized, [])
         player, reason = resolve_candidate(row, candidates)
         if player:
+            # Carry the qb dimension through. Snapshot rows may use either
+            # "qb" (section-stage vocabulary) or "qb_slots" (Supabase grain
+            # key). Without this, combo_key_for(qb=None) produces bare keys
+            # like "full_12" that never match fixture combo names ("full_12_qb1").
+            _qb = row.get("qb") if row.get("qb") is not None else row.get("qb_slots")
             matched.append(
                 {
                     "player_key": player["player_key"],
@@ -156,8 +161,10 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
                     "source_player_name": row.get("player_name"),
                     "source": snapshot.get("source"),
                     "value": row.get("value"),
+                    "native_value": row.get("native_value"),
                     "scoring": row.get("scoring") or snapshot.get("default_scoring"),
                     "teams": row.get("teams") or snapshot.get("default_teams"),
+                    "qb": _qb,
                     "pos": row.get("pos"),
                     "team": row.get("team"),
                     "source_player_id": row.get("source_player_id"),

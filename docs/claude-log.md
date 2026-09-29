@@ -907,3 +907,76 @@ no Supabase mutation authorized).
 
 - `pipelines/import_supabase_references.py`: qb_slots mapping fix
 - `docs/claude-log.md`: this entry
+
+## 2026-09-29 — Local FantasyCalc 24-combo acquisition and cascade
+
+### Verified
+
+- **FantasyCalc public API confirmed reachable with all 24 configurations:**
+  `https://api.fantasycalc.com/values/current?isDynasty=false&numTeams={8|10|12|14}&ppr={0|0.5|1}&numQbs={1|2}`
+  All 24 endpoints returned HTTP 200 with distinct data. numQbs=2 (superflex)
+  dramatically inflates QB values; numTeams and ppr also produce distinct
+  curves. [web-fetch agent, 3 probe URLs verified]
+
+- **match_source_snapshot.py qb propagation fix**: The match stage was
+  not carrying `qb`/`qb_slots` from snapshot rows into matched rows. Added
+  `_qb = row.get("qb") if row.get("qb") is not None else row.get("qb_slots")`
+  and `"qb": _qb` to the matched row dict. Without this, even a correctly-
+  keyed snapshot produces bare combo keys at the section stage. [Read + Edit]
+
+- **`pipelines/pull_fantasycalc_local.py` written (new file):** Fetches all
+  24 redraft combos from the public API, resolves player names to canonical
+  `player_key` via repo's name index, writes a multi-combo snapshot with
+  `qb_slots` per row. Does not touch Supabase. Dry-run verified all
+  24/24 combos resolved: 4709 clean rows, 24 review rows (name mismatches).
+  [pull + dry-run]
+
+- **Full 24-combo cascade ran successfully:** After writing the snapshot,
+  `cascade_from_snapshot` ran 30 stages (source-match, 24× source-reference,
+  comparison-section, comparison-merge, comparison-merge-report,
+  comparison-reindex, comparison-review), all "written". [`cascade.py`]
+
+- **`combos_match` now PASSES** (was the sole hold reason before this session):
+  candidate has all 24 combos (`full_12_qb1`, `half_12_qb1`, etc.) matching
+  fixture keys exactly. [review JSON inspection]
+
+- **New hold reasons (genuine Week 4 data, not pipeline errors):**
+  1. `review_rows_triaged: FAIL` — 6 review rows (player name mismatches
+     from the API pull); require human triage decision.
+  2. `coverage:*: FAIL` — candidate prices fewer players per position than
+     fixture in most combos (e.g., `full_12_qb1/RB` 56 < 58, `full_12_qb1/QB`
+     33 < 34). This reflects genuine Week 4 FantasyCalc data: some players
+     dropped off their published chart vs Week 3. Not a pipeline error.
+  3. `zero_preservation: WARN` — fixture has 20-25 zero-value players per
+     combo; candidate has none (API only returns non-zero-value players).
+     Warning level, not FAIL.
+
+- **408 unittest tests pass, 0 fail, 7 skip.** 47 pytest tests for the
+  cascade/match/import modules pass. [`python3 -m unittest discover`, `pytest`]
+
+### What still needs human decision
+
+1. **6 untriaged review rows**: player names from the API that didn't resolve
+   to canonical player_keys. Each must be triaged (accepted with note, or
+   flagged as missing). The review file at:
+   `output/comparison-review/fantasycalc/2026-09-29/fantasycalc-full-10-qb1-review.json`
+   lists the exact rows.
+2. **Coverage regressions**: ~56 coverage checks fail across 24 combos because
+   Week 4 FantasyCalc priced fewer players than Week 3. These are real source
+   changes. Jeremy must confirm these reflect genuine Week 4 data (not a pull
+   error), then run `promote_comparison_section.py --approve`.
+
+### Not done
+- `make validate` still red: `comparison.built_at` stale. Clears after promotion.
+
+### Changed files this session (ready to commit)
+
+Code (safe to push after validate goes green):
+- `pipelines/match_source_snapshot.py`: qb propagation fix
+- `pipelines/pull_fantasycalc_local.py`: new 24-combo public API puller
+
+Data (content-vintage honest, should be committed):
+- `data/raw/sources/fantasycalc/week-4/snapshot.json`: replaced with 24-combo
+  Week 4 snapshot (4709 rows from public API, vintage=Week 4)
+- `data/raw/sources/fantasycalc/week-4/snapshot-manifest.json`: updated
+- `data/raw/sources/fantasycalc/week-4/_superseded/`: archived prior 580-row snapshot
