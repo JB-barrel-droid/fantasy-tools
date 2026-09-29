@@ -26,8 +26,7 @@ SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs"]
 
 # Skip sources with known structural issues (logged, not fatal)
 SKIP_SOURCES = {
-    # fantasycalc: candidate lacks QB1/QB2 combo variants the fixture expects
-    # TODO: fix fantasycalc section builder to emit QB-split combos
+    # (empty for now — fantasycalc QB-split fix landed 2026-09-29)
 }
 
 

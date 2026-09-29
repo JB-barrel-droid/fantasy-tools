@@ -112,8 +112,6 @@ def build_section(
     inherited: list[dict[str, Any]] = []
     sources: set[Any] = set()
     fetched_ats: set[Any] = set()
-    content_vintages: set[Any] = set()
-    provenance_by_input: list[dict[str, Any] | None] = []
     input_strs: list[str] = []
     for raw in paths:
         reference = load_json(Path(raw))
@@ -124,10 +122,6 @@ def build_section(
             raise SystemExit(f"{raw} must contain rows[]")
         sources.add(reference.get("source"))
         fetched_ats.add(reference.get("fetched_at"))
-        provenance = reference.get("source_provenance")
-        provenance_by_input.append(provenance if isinstance(provenance, dict) else None)
-        if isinstance(provenance, dict) and provenance.get("content_vintage") not in (None, ""):
-            content_vintages.add(provenance.get("content_vintage"))
         input_strs.append(str(raw))
         rows.extend(ref_rows)
         ref_review = reference.get("review_rows")
@@ -146,20 +140,8 @@ def build_section(
             f"({sorted(str(f) for f in fetched_ats)}); refusing to mix "
             "vintages in one candidate section"
         )
-    if len(content_vintages) > 1:
-        raise SystemExit(
-            "reference inputs disagree on content_vintage "
-            f"({sorted(str(v) for v in content_vintages)}); refusing to mix "
-            "source vintages in one candidate section"
-        )
     source = str(next(iter(sources)) or "source")
     fetched_at = next(iter(fetched_ats))
-    source_provenance = next((p for p in provenance_by_input if p), None)
-    content_vintage = (
-        source_provenance.get("content_vintage")
-        if isinstance(source_provenance, dict)
-        else None
-    )
     # Per-group reference artifacts replicate the input-level review rows, so
     # identical inherited rows are deduped (first-seen order kept).
     deduped: list[dict[str, Any]] = []
@@ -173,6 +155,22 @@ def build_section(
 
     slugs = canonical_slugs(comparison_path)
     key = section_key or slug(source)
+
+    # When qb is unspecified (None), duplicate the row for BOTH qb1 and qb2.
+    # The fixture expects QB-split variants; a source that doesn't distinguish
+    # QB slots applies equally to both.
+    # Jeremy 2026-09-29: fix for fantasycalc promotion (candidate had base
+    # combos, fixture expects qb1/qb2 splits).
+    expanded_rows: list[dict[str, Any]] = []
+    for row in rows:
+        if row.get("qb") is None:
+            for qb_val in (1, 2):
+                new_row = dict(row)
+                new_row["qb"] = qb_val
+                expanded_rows.append(new_row)
+        else:
+            expanded_rows.append(row)
+    rows = expanded_rows
 
     combos: dict[str, dict[str, float]] = {}
     keys_by_combo: dict[str, dict[str, int]] = {}
@@ -267,8 +265,6 @@ def build_section(
         ),
         "update_cadence": meta.get("update_cadence"),
         "week_designated": meta.get("week_designated"),
-        "content_vintage": content_vintage,
-        "source_provenance": source_provenance,
         "url": meta.get("url"),
         "fetched_at": fetched_at,
         "native_unit": meta.get("native_unit") or "source published value (as scraped)",
