@@ -29,6 +29,14 @@ Layout per snapshot directory:
   as PULL TIME (never vintage), row/review counts, sha256 of the snapshot
   bytes, the filter used, and `save_gap` for the file-backed sources.
 
+Latest-vintage-wins (2026-09-29): the Supabase tables accumulate one row-set
+per pull (upsert keys include the week/date), so older vintages sit beside new
+ones — rows are never deleted. The importer pre-scopes multi-vintage tables to
+the newest week/date present before stamping, so each snapshot represents
+exactly one content vintage; the health gate scopes its table re-query to the
+manifest's vintage the same way. Older retained rows never enter a snapshot,
+verification, or display.
+
 Fail-closed guards (negative-tested in `tests/test_supabase_import.py`):
 unknown source names (ECR/Vegas/Razzball can never sneak in); zero rows;
 undeterminable content vintage (NULL `source_content_date` with no week/file
