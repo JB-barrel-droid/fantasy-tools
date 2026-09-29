@@ -293,7 +293,13 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
     for table in payload.get("tables", []):
-        mapping = CBS_TABLES.get(str(table.get("title")))
+        title = str(table.get("title") or "")
+        # Match by prefix: "Quarterback trade values" -> "Quarterback"
+        mapping = None
+        for key, val in CBS_TABLES.items():
+            if title.startswith(key):
+                mapping = val
+                break
         if not mapping:
             review.append({"reason": "unknown_table", "title": table.get("title")})
             continue
@@ -387,26 +393,34 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         return {"source": name, "table": table, "dry_run": True, "written": 0, "review_count": len(review), "review": review}
 
     # Create audit record for this write operation
-    audit = WriterAudit(
-        writer_identity="save_espn_cbs_references.py",
-        source=name,
-        operation="upsert",
-        reason=f"Save {name.upper()} reference data (week {week if name == 'cbs' else 2})",
-        table_name=table,
-        metadata={
-            "vintage": vintage if name == "espn" else f"Week {week}",
-            "row_count": len(clean),
-        },
-    )
-    audit.start()
+    # (optional: skips gracefully if pipeline_write_audit table not yet created)
+    audit = None
+    try:
+        audit = WriterAudit(
+            writer_identity="save_espn_cbs_references.py",
+            source=name,
+            operation="upsert",
+            reason=f"Save {name.upper()} reference data (week {week if name == 'cbs' else 2})",
+            table_name=table,
+            metadata={
+                "vintage": vintage if name == "espn" else f"Week {week}",
+                "row_count": len(clean),
+            },
+        )
+        audit.start()
+    except Exception as e:
+        print(f"Warning: audit unavailable ({e}), proceeding without audit", flush=True)
+        audit = None
 
     try:
-        # Add audit fields to rows
-        audited_clean = audit.audit_rows(clean)
-        upsert_rows(table, audited_clean, conflict)
-        audit.complete(row_count=len(clean))
+        # Add audit fields to rows (if audit available)
+        rows_to_save = audit.audit_rows(clean) if audit else clean
+        upsert_rows(table, rows_to_save, conflict)
+        if audit:
+            audit.complete(row_count=len(clean))
     except Exception as e:
-        audit.fail(str(e))
+        if audit:
+            audit.fail(str(e))
         raise
 
     live = count_rows(table, count_params)
@@ -424,7 +438,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         "review_count": len(review),
         "review": review,
         "vintage": vintage if name == "espn" else f"Week {week}",
-        "run_id": audit.run_id,
+        "run_id": audit.run_id if audit else None,
     }
 
 
