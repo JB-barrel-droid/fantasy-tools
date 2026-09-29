@@ -8,7 +8,7 @@ stage-1 importer becomes DB-backed for espn/cbs (save_gap=None).
 
 Tables (grain = upsert key; writes are idempotent on the grain):
   ESPN -> public.espn_season_projections (season, week, player_key):
-    season=2026, week=<--week | current NFL week>, scoring='half_ppr',
+    season=2026, week=2 (designated pull week), scoring='half_ppr',
     r_* component columns verbatim, ros_half_ppr, weeks_covered,
     espn_snapshot_date (the CSV's unanimous vintage = source-content vintage,
     never pull time), pulled_at=now, player_norm as join label.
@@ -59,7 +59,6 @@ import argparse
 import csv
 import json
 import os
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -80,6 +79,8 @@ from import_source_snapshot import parse_float  # noqa: E402
 from build_ddf_two_tier_leg import ALIASES  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import nfl_week  # noqa: E402 -- current week for the CBS save grain
+# Writer audit for Supabase write provenance
+from lib.writer_audit import WriterAudit  # noqa: E402
 
 
 def utc_now() -> str:
@@ -90,14 +91,9 @@ def utc_now() -> str:
 # Supabase access (vault-backed skill client). Module-level callables so tests
 # can inject recorded fixtures without touching the network.
 # ---------------------------------------------------------------------------
-SUPABASE_SKILL_BIN = os.environ.get(
-    "SUPABASE_FOOTBALL_SIGNAL_BIN",
-    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
-)
 
 def _sb():
-    if SUPABASE_SKILL_BIN not in sys.path:
-        sys.path.insert(0, SUPABASE_SKILL_BIN)
+    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
     import sbclient  # noqa: E402
 
     return sbclient
@@ -222,7 +218,7 @@ def espn_vintage(csv_path: Path, meta_path: Path) -> str:
     )
 
 
-def build_espn_rows(csv_path: Path, meta_path: Path, week: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
+def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     vintage = espn_vintage(csv_path, meta_path)
     with csv_path.open(newline="", encoding="utf-8") as handle:
         raw = list(csv.DictReader(handle))
@@ -259,7 +255,7 @@ def build_espn_rows(csv_path: Path, meta_path: Path, week: int) -> tuple[list[di
                 "player_key": key,
                 "player_norm": str(row.get("player_norm") or normalize_name(name)),
                 "season": 2026,
-                "week": week,
+                "week": 2,
                 "scoring": "half_ppr",
                 **{col: parse_float(row.get(col)) for col in ESPN_COMPONENT_COLS},
                 "ros_half_ppr": value,
@@ -297,12 +293,7 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
     for table in payload.get("tables", []):
-        # CBS changed their h2 text in Week 3 ("Quarterback trade values"
-        # vs the old "Quarterback"); normalize the suffix before matching.
-        title = re.sub(
-            r"\s+trade values\s*$", "", str(table.get("title")), flags=re.I
-        ).strip()
-        mapping = CBS_TABLES.get(title)
+        mapping = CBS_TABLES.get(str(table.get("title")))
         if not mapping:
             review.append({"reason": "unknown_table", "title": table.get("title")})
             continue
@@ -376,11 +367,10 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         raise SystemExit(f"Unknown source '{source}': save_espn_cbs_references.py handles espn|cbs only.")
 
     if name == "espn":
-        week = week or nfl_week()
         table = "espn_season_projections"
-        clean, review, vintage = build_espn_rows(espn_csv, espn_meta, week)
+        clean, review, vintage = build_espn_rows(espn_csv, espn_meta)
         conflict = ESPN_UPSERT_CONFLICT
-        count_params = f"?select=player_key&season=eq.2026&week=eq.{week}"
+        count_params = "?select=player_key&season=eq.2026&week=eq.2"
     else:
         week = week or nfl_week()
         table = "cbs_trade_values"
@@ -396,11 +386,33 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         print(f"[dry-run] {name}: would upsert {len(clean)} rows into {table} ({len(review)} review)")
         return {"source": name, "table": table, "dry_run": True, "written": 0, "review_count": len(review), "review": review}
 
-    upsert_rows(table, clean, conflict)
+    # Create audit record for this write operation
+    audit = WriterAudit(
+        writer_identity="save_espn_cbs_references.py",
+        source=name,
+        operation="upsert",
+        reason=f"Save {name.upper()} reference data (week {week if name == 'cbs' else 2})",
+        table_name=table,
+        metadata={
+            "vintage": vintage if name == "espn" else f"Week {week}",
+            "row_count": len(clean),
+        },
+    )
+    audit.start()
+
+    try:
+        # Add audit fields to rows
+        audited_clean = audit.audit_rows(clean)
+        upsert_rows(table, audited_clean, conflict)
+        audit.complete(row_count=len(clean))
+    except Exception as e:
+        audit.fail(str(e))
+        raise
+
     live = count_rows(table, count_params)
     if live != len(clean):
         raise SystemExit(
-            f"Fail closed: {table} holds {live} rows for the (2026, week {week}) grain after upsert, "
+            f"Fail closed: {table} holds {live} rows for the (2026, week {week if name == 'cbs' else 2}) grain after upsert, "
             f"expected {len(clean)}. The write did not land as planned; investigate before re-running."
         )
 
@@ -412,6 +424,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         "review_count": len(review),
         "review": review,
         "vintage": vintage if name == "espn" else f"Week {week}",
+        "run_id": audit.run_id,
     }
 
 
@@ -430,7 +443,7 @@ def main() -> int:
         "--week",
         type=int,
         default=None,
-        help="NFL week for the save grain (default: current week from ops/watchdog/_common.nfl_week). Applies to ESPN and CBS.",
+        help="NFL week for the CBS save grain (default: current week from ops/watchdog/_common.nfl_week). ESPN path ignores this.",
     )
     parser.add_argument(
         "--review-out",

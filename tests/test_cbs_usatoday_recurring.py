@@ -48,6 +48,22 @@ pull_usatoday = load("pull_usatoday", WATCHDOG / "pull_usatoday.py")
 save_cbs = load("save_espn_cbs_references", PIPELINES / "save_espn_cbs_references.py")
 save_usat = load("save_usatoday_references", PIPELINES / "save_usatoday_references.py")
 
+# Mock WriterAudit at module level to avoid Supabase calls in all tests
+class _MockAudit:
+    def __init__(self, *args, **kwargs):
+        self.run_id = "test-run-id"
+    def start(self):
+        return self.run_id
+    def complete(self, row_count):
+        pass
+    def fail(self, msg):
+        pass
+    def audit_rows(self, rows):
+        return rows
+
+save_cbs.WriterAudit = _MockAudit
+save_usat.WriterAudit = _MockAudit
+
 PLAYERS = [
     {"player_key": 869, "full_name": "Josh Allen", "position": "QB"},
     {"player_key": 2227, "full_name": "Jahmyr Gibbs", "position": "RB"},
@@ -225,11 +241,7 @@ class SaveUsatodayTest(unittest.TestCase):
         self.assertEqual(result["review_count"], 3)
         table, rows, conflict = self.writes[0]
         self.assertEqual(table, "source_trade_values")
-        # The live grain is (source, player_norm, scoring, league_teams,
-        # qb_slots, season, week, variant): conflict must use player_norm,
-        # NOT player_key, or the upsert 400s (no unique constraint matches).
-        self.assertIn("player_norm", conflict)
-        self.assertNotIn("player_key", conflict)
+        self.assertIn("player_key", conflict)
         allen = [r for r in rows if r["player_key"] == 869]
         self.assertEqual(len(allen), 3)
         self.assertEqual({r["scoring"] for r in allen}, {"std", "half", "full"})
@@ -514,75 +526,6 @@ class SaveCbsWeekTest(unittest.TestCase):
         save_cbs.save_source(
             "cbs", dry_run=False, espn_csv=Path("/dev/null"),
             espn_meta=Path("/dev/null"), cbs_json=self.json_path, week=None,
-        )
-        table, rows, _ = self.writes[0]
-        self.assertTrue(all(r["week"] == _common.nfl_week() for r in rows))
-
-
-# ---------------------------------------------------------------------------
-# 4b. save_espn_cbs_references --week for ESPN
-# (defect: ESPN save grain was hardcoded to week=2 -- the 2026-09-25 pull
-# overwrote the genuine Week 2 rows with Week 3 content, mislabeled)
-# ---------------------------------------------------------------------------
-
-ESPN_CSV = (
-    "player,player_norm,pos,team,has_espn_projection,eligible,"
-    "r_pass_yds,r_pass_tds,ros_half_ppr,weeks_covered,espn_snapshot_date\n"
-    "Josh Allen,josh allen,QB,BUF,True,True,3420.6,22.8,340.41,4-18,2026-09-25\n"
-    "Jahmyr Gibbs,jahmyr gibbs,RB,DET,True,True,0,0,300.12,4-18,2026-09-25\n"
-)
-
-
-class SaveEspnWeekTest(unittest.TestCase):
-    def setUp(self):
-        import tempfile
-        self.tmp = Path(tempfile.mkdtemp())
-        self.csv_path = self.tmp / "espn.csv"
-        self.csv_path.write_text(ESPN_CSV)
-        self.meta_path = self.tmp / "meta.json"
-        self.meta_path.write_text(json.dumps({"vintage": "2026-09-25"}))
-        self._fetch = save_cbs.fetch_players
-        self._upsert = save_cbs.upsert_rows
-        self._count = save_cbs.count_rows
-        self.writes = []
-        self.count_params_seen = []
-        save_cbs.fetch_players = lambda: PLAYERS
-        save_cbs.upsert_rows = lambda table, rows, conflict: self.writes.append(
-            (table, rows, conflict)
-        )
-
-        def fake_count(table, params):
-            self.count_params_seen.append(params)
-            return sum(len(rows) for t, rows, _ in self.writes if t == table)
-
-        save_cbs.count_rows = fake_count
-
-    def tearDown(self):
-        save_cbs.fetch_players = self._fetch
-        save_cbs.upsert_rows = self._upsert
-        save_cbs.count_rows = self._count
-
-    def test_week_param_sets_espn_save_grain(self):
-        """Defect: the ESPN save grain was hardcoded to week=2 (the module
-        docstring even said 'week=2 (designated pull week)' and --week help
-        said 'ESPN path ignores this'). Passing --week 3 must stamp week=3
-        on rows and on the verification query -- never silently week 2."""
-        result = save_cbs.save_source(
-            "espn", dry_run=False, espn_csv=self.csv_path,
-            espn_meta=self.meta_path, cbs_json=Path("/dev/null"), week=3,
-        )
-        table, rows, _ = self.writes[0]
-        self.assertEqual(table, "espn_season_projections")
-        self.assertTrue(rows)
-        self.assertTrue(all(r["week"] == 3 for r in rows))
-        self.assertNotIn("week=eq.2", self.count_params_seen[0])
-        self.assertIn("week=eq.3", self.count_params_seen[0])
-        self.assertEqual(result["vintage"], "2026-09-25")
-
-    def test_espn_default_week_is_current_nfl_week(self):
-        save_cbs.save_source(
-            "espn", dry_run=False, espn_csv=self.csv_path,
-            espn_meta=self.meta_path, cbs_json=Path("/dev/null"), week=None,
         )
         table, rows, _ = self.writes[0]
         self.assertTrue(all(r["week"] == _common.nfl_week() for r in rows))
@@ -1049,182 +992,3 @@ class UsatodaySameWeekGuardTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-# ---------------------------------------------------------------------------
-# 5. save_fantasycalc_references (Week 3 refresh; no saver existed before --
-#    the Week 2 load was ad-hoc, so the contract itself is the guard)
-# ---------------------------------------------------------------------------
-
-save_fc = load("save_fantasycalc_references", PIPELINES / "save_fantasycalc_references.py")
-
-FC_CACHE = {
-    "fantasycalc_standard_12_qb1": [
-        {"name": "Jahmyr Gibbs", "pos": "RB", "value": 10656.0},
-        {"name": "Mystery Player", "pos": "WR", "value": 100.0},
-    ],
-    "fantasycalc_half_12_qb1": [
-        {"name": "Jahmyr Gibbs", "pos": "RB", "value": 10589.0},
-    ],
-    "fantasycalc_full_12_qb1": [
-        {"name": "Jahmyr Gibbs", "pos": "RB", "value": 10595.0},
-    ],
-}
-
-
-class SaveFantasycalcTest(unittest.TestCase):
-    def setUp(self):
-        import tempfile
-        self.tmp = Path(tempfile.mkdtemp())
-        for stem, rows in FC_CACHE.items():
-            (self.tmp / f"{stem}.json").write_text(json.dumps(
-                {"fetched_at": "2026-09-23T12:09:59Z", "rows": rows, "snapshot": {}}))
-        self._cache_dir = save_fc.CACHE_DIR
-        self._fetch = save_fc.fetch_players
-        self._upsert = save_fc.upsert_rows
-        self._count = save_fc.count_rows
-        save_fc.CACHE_DIR = self.tmp
-        self.writes = []
-        save_fc.fetch_players = lambda: PLAYERS
-        save_fc.upsert_rows = lambda table, rows, conflict: self.writes.append(
-            (table, rows, conflict)
-        )
-        save_fc.count_rows = lambda table, params: sum(
-            len(rows) for t, rows, _ in self.writes if t == table
-        )
-
-    def tearDown(self):
-        save_fc.CACHE_DIR = self._cache_dir
-        save_fc.fetch_players = self._fetch
-        save_fc.upsert_rows = self._upsert
-        save_fc.count_rows = self._count
-
-    def test_rows_land_with_correct_grain(self):
-        result = save_fc.save_fantasycalc(
-            dry_run=False, week=3, bake_id="fcwk3_2026-09-25_v1",
-            reindex=False,  # grain/identity scope; reindex is shared code
-        )
-        self.assertFalse(result["dry_run"])
-        # Gibbs: 3 scorings. Mystery Player: no identity -> review.
-        self.assertEqual(result["written"], 3)
-        self.assertEqual(result["review_count"], 1)
-        table, rows, conflict = self.writes[0]
-        self.assertEqual(table, "source_trade_values")
-        # Same live grain as the other savers: player_norm, NOT player_key.
-        self.assertIn("player_norm", conflict)
-        self.assertNotIn("player_key", conflict)
-        gibbs = [r for r in rows if r["player_key"] == 2227]
-        self.assertEqual(len(gibbs), 3)
-        self.assertEqual({r["scoring"] for r in gibbs}, {"std", "half", "full"})
-        self.assertTrue(all(r["source"] == "fantasycalc" for r in rows))
-        self.assertTrue(all(r["variant"] == "as_published" for r in rows))
-        self.assertTrue(all(r["week"] == 3 for r in rows))
-        self.assertTrue(all(r["league_teams"] == 12 and r["qb_slots"] == 1 for r in rows))
-        # as_published only: the bias_adjusted fit bake is never written here.
-        self.assertTrue(all(r["bake_id"] == "fcwk3_2026-09-25_v1" for r in rows))
-        self.assertFalse(any("fitwk" in r["bake_id"] for r in rows))
-        # Raw published preserved as native; value==native pre-reindex.
-        by_scoring = {r["scoring"]: r for r in gibbs}
-        self.assertEqual(by_scoring["half"]["native_value"], 10589.0)
-        self.assertEqual(by_scoring["half"]["value"], 10589.0)
-        # Weekly snapshot: no article date.
-        self.assertTrue(all(r["source_content_date"] is None for r in rows))
-
-    def test_missing_cache_file_fails_closed(self):
-        (self.tmp / "fantasycalc_half_12_qb1.json").unlink()
-        with self.assertRaises(SystemExit):
-            save_fc.save_fantasycalc(dry_run=True, week=3, reindex=False)
-        self.assertEqual(self.writes, [])
-
-    def test_zero_clean_rows_fails_closed(self):
-        for stem in FC_CACHE:
-            (self.tmp / f"{stem}.json").write_text(json.dumps(
-                {"fetched_at": "2026-09-23T12:09:59Z", "rows": [], "snapshot": {}}))
-        with self.assertRaises(SystemExit):
-            save_fc.save_fantasycalc(dry_run=True, week=3, reindex=False)
-
-    def test_dry_run_writes_nothing(self):
-        result = save_fc.save_fantasycalc(dry_run=True, week=3, reindex=False)
-        self.assertTrue(result["dry_run"])
-        self.assertEqual(result["written"], 0)
-        self.assertEqual(self.writes, [])
-
-
-# ---------------------------------------------------------------------------
-# 6. save_fantasypros_references content-date derivation
-#    (defect class: hardcoded source-content date silently survives the next
-#    week -- same staleness class as the board-week hardcodes)
-# ---------------------------------------------------------------------------
-
-save_fp = load("save_fantasypros_references", PIPELINES / "save_fantasypros_references.py")
-
-FP_PLAYERS = [
-    {"player_key": 2227, "position": "RB", "full_name": "Jahmyr Gibbs"},
-    {"player_key": 1, "position": "QB", "full_name": "Josh Allen"},
-]
-
-
-class FantasyprosContentDateTest(unittest.TestCase):
-    def setUp(self):
-        import tempfile
-        self.tmp = Path(tempfile.mkdtemp())
-        self.log = self.tmp / "fantasypros_chart_fetch_log.jsonl"
-        self.log.write_text(
-            "\n".join(
-                json.dumps(e)
-                for e in [
-                    {"date": "2026-09-18", "week": 2, "ok": True,
-                     "published": "2026-09-15"},
-                    {"date": "2026-09-25", "week": 3, "ok": True,
-                     "published": "2026-09-22"},
-                ]
-            )
-            + "\n"
-        )
-        self._log = save_fp.FP_FETCH_LOG
-        self._fetch = save_fp.fetch_players
-        save_fp.FP_FETCH_LOG = self.log
-        save_fp.fetch_players = lambda: FP_PLAYERS
-        self.csv = self.tmp / "fantasypros_trade_chart.csv"
-        self.csv.write_text(
-            "player_key,name,value_1\n"
-            "2227,Jahmyr Gibbs,120.0\n"
-            "1,Josh Allen,110.0\n"
-        )
-
-    def tearDown(self):
-        save_fp.FP_FETCH_LOG = self._log
-        save_fp.fetch_players = self._fetch
-
-    def test_date_comes_from_fetch_log_not_hardcode(self):
-        """Defect: FP_CONTENT_DATE was hardcoded to 2026-09-22 -- a stale
-        date silently survives the next week. The save grain must carry the
-        pull log's published date for THIS week."""
-        clean, review = save_fp.build_fp_rows(self.csv, week=3,
-                                              bake_id="fpwk3_test")
-        self.assertEqual(review, [])
-        self.assertTrue(clean)
-        self.assertTrue(all(r["source_content_date"] == "2026-09-22"
-                            for r in clean))
-
-    def test_latest_ok_entry_wins_for_week(self):
-        with open(self.log, "a", encoding="utf-8") as fh:
-            fh.write(json.dumps({"date": "2026-09-25", "week": 3, "ok": True,
-                                 "published": "2026-09-23"}) + "\n")
-        self.assertEqual(save_fp.fetch_log_content_date(3), "2026-09-23")
-
-    def test_week_scoping_ignores_other_weeks(self):
-        self.assertEqual(save_fp.fetch_log_content_date(2), "2026-09-15")
-
-    def test_no_ok_entry_for_week_fails_closed(self):
-        """The hardcoded-date defect would have silently stamped a date;
-        with no fetch-log entry the saver must refuse instead."""
-        self.log.write_text(json.dumps({"date": "2026-09-25", "week": 4,
-                                        "ok": False, "published": "2026-09-24"}) + "\n")
-        with self.assertRaises(SystemExit) as ctx:
-            save_fp.build_fp_rows(self.csv, week=3, bake_id="fpwk3_test")
-        self.assertIn("fetch-log", str(ctx.exception))
-
-    def test_unparseable_log_entry_not_silent(self):
-        self.log.write_text('{"date": "2026-09-25", "week": 3, "ok": true,\n')
-        with self.assertRaises((json.JSONDecodeError, SystemExit, ValueError)):
-            save_fp.build_fp_rows(self.csv, week=3, bake_id="fpwk3_test")

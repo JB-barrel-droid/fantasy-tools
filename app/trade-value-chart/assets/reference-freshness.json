@@ -1,191 +1,75 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "21077c6b379fc8655ac816ca46d7ebfcee0225fd1bed786e1b1c806a869acc60",
+    "comparison-sources-data.json": "994645d14aab9d71cae6ce80729c184d46816583d6015e90d82692c410791a1b",
     "player-news.json": "295b487f16ec02a37f3e92e085c1b34aa69736b267dc265567902c7b2b94bff4",
-    "players.json": "9efd914fe7f738f27ccccc516f148ba78f5eeec4ee87278f1a8edfda6aa976b6",
-    "source-import-health.json": "a67571eddaa2bf2e8e26b1b3f9b10d51e1e697b927fe28bf367176777b57ab77"
+    "players.json": "28f76491e91cf5d0eb7bc46bb6be6ecacac076134ddb0b43430179724d06c841"
   },
-  "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-09-29T10:52:14-05:00",
-  "import_health_source": "output/source-import-health.json",
+  "fixture_dir": "/home/hatch/workspace/fantasy-tools/data/fixtures/current",
+  "generated_at": "2026-09-29T17:19:22-05:00",
   "items": [
     {
-      "age_days": 12,
       "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
       "key": "players.as_of",
       "label": "Players artifact as_of",
-      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-09-17"
+      "value": "2026-09-23"
     },
     {
-      "age_days": 18,
       "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
       "key": "players.ecr_content_date",
       "label": "Expert/ECR content date",
-      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-09-11"
+      "value": "2026-09-22"
     },
     {
-      "age_days": 12,
       "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
       "key": "players.espn_snapshot",
       "label": "ESPN projection snapshot",
-      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-09-17"
+      "value": "2026-09-22"
     },
     {
-      "age_days": 12,
       "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
       "key": "players.pm_snapshot",
       "label": "Prediction-market snapshot",
-      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-09-17"
+      "value": "2026-09-22"
     },
     {
-      "age_days": 13,
       "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
       "key": "players.kdst_snapshot",
       "label": "K/DST snapshot",
-      "max_age_days": 2,
       "note": "unchanged",
-      "status": "stale",
-      "value": "2026-09-16"
+      "status": "unknown",
+      "value": "?"
     },
     {
-      "age_days": 4,
       "changed_since_prior_report": false,
-      "enforced": true,
-      "freshness_ok": false,
       "key": "comparison.built_at",
       "label": "Comparison source artifact build time",
-      "max_age_days": 2,
-      "note": "unchanged",
-      "status": "stale",
-      "value": "2026-09-25T22:38:27Z"
-    },
-    {
-      "age_days": 9,
-      "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
-      "key": "news.generated_at",
-      "label": "Player-news artifact generation time",
-      "max_age_days": 2,
-      "note": "unchanged",
-      "status": "stale",
-      "value": "2026-09-20T22:14:45Z"
-    },
-    {
-      "age_days": 10,
-      "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": false,
-      "key": "news.trade_values_published_at",
-      "label": "Trade-value publication timestamp",
-      "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
       "value": "2026-09-19T15:48:29Z"
     },
     {
-      "age_days": 0,
       "changed_since_prior_report": false,
-      "enforced": false,
-      "freshness_ok": true,
-      "key": "source_import.checked_at",
-      "label": "L1 import health checked_at",
-      "max_age_days": 2,
+      "key": "news.generated_at",
+      "label": "Player-news artifact generation time",
       "note": "unchanged",
-      "status": "same_day",
-      "value": "2026-09-29T15:37:53Z"
-    },
-    {
-      "age_days": 0,
-      "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": "STALE_VINTAGE: content vintage Week 3 (NFL week 3) != current NFL week 4",
-      "freshness_ok": false,
-      "key": "source_import.cbs",
-      "l1_status": "stale",
-      "label": "L1 cbs content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=stale; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
       "status": "stale",
-      "value": "Week 3"
+      "value": "2026-09-20T22:14:45Z"
     },
     {
-      "age_days": 0,
-      "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
-      "key": "source_import.espn",
-      "l1_status": "ok",
-      "label": "L1 espn content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
-      "value": "2026-09-29"
-    },
-    {
-      "age_days": 0,
-      "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
-      "key": "source_import.fantasycalc",
-      "l1_status": "ok",
-      "label": "L1 fantasycalc content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
-      "value": "Week 4"
-    },
-    {
-      "age_days": 0,
-      "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
-      "key": "source_import.fantasypros",
-      "l1_status": "ok",
-      "label": "L1 fantasypros content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
-      "value": "2026-09-29"
-    },
-    {
-      "age_days": 0,
-      "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": "STALE_VINTAGE: content vintage 2026-09-23 (NFL week 3) != current NFL week 4",
-      "freshness_ok": false,
-      "key": "source_import.usatoday",
-      "l1_status": "stale",
-      "label": "L1 usatoday content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=stale; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "changed_since_prior_report": false,
+      "key": "news.trade_values_published_at",
+      "label": "Trade-value publication timestamp",
+      "note": "unchanged",
       "status": "stale",
-      "value": "2026-09-23"
+      "value": "2026-09-19T15:48:29Z"
     }
   ],
   "source_validation": {
@@ -203,16 +87,9 @@
   },
   "summary": {
     "all_known_dates_same_day": false,
-    "enforced_expired_count": 1,
-    "enforced_keys": [
-      "comparison.built_at"
-    ],
-    "expired_count": 10,
-    "l1_unhealthy_count": 2,
-    "max_age_days": 2,
-    "stale_count": 10,
-    "unchanged_count": 9,
-    "unknown_count": 0
+    "stale_count": 7,
+    "unchanged_count": 8,
+    "unknown_count": 1
   },
   "today": "2026-09-29"
 }

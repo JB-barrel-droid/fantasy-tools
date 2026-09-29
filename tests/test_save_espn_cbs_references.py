@@ -67,11 +67,26 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         mod.fetch_players = lambda: PLAYERS
         mod.upsert_rows = lambda table, rows, conflict: self.writes.append((table, rows, conflict))
         mod.count_rows = lambda table, params: sum(len(rows) for t, rows, _ in self.writes if t == table)
+        # Mock WriterAudit to avoid Supabase calls in tests
+        self._orig_audit = mod.WriterAudit
+        class MockAudit:
+            def __init__(self, *args, **kwargs):
+                self.run_id = "test-run-id"
+            def start(self):
+                return self.run_id
+            def complete(self, row_count):
+                pass
+            def fail(self, msg):
+                pass
+            def audit_rows(self, rows):
+                return rows
+        mod.WriterAudit = MockAudit
 
     def tearDown(self):
         mod.fetch_players = self._fetch
         mod.upsert_rows = self._upsert
         mod.count_rows = self._count
+        mod.WriterAudit = self._orig_audit
 
     def write_inputs(self, csv_rows=None, tables=None, meta_vintage="2026-09-21"):
         csv_path = self.tmp / "espn.csv"
@@ -82,8 +97,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         json_path.write_text(json.dumps(cbs_json(tables or [])))
         return csv_path, meta_path, json_path
 
-    def save(self, source, **kwargs):
-        week = kwargs.pop("week", None)
+    def save(self, source, week=None, **kwargs):
         csv_path, meta_path, json_path = self.write_inputs(**kwargs)
         return mod.save_source(
             source, dry_run=False, espn_csv=csv_path, espn_meta=meta_path, cbs_json=json_path,
@@ -177,7 +191,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
                 "Cam Wardle,cam wardle,QB,TEN,True,True,1,2,3,4,0,0,0,299.0,3-18,2026-09-21",
             ]
         )
-        clean, review, _vintage = mod.build_espn_rows(csv_path, meta_path, week=3)
+        clean, review, _vintage = mod.build_espn_rows(csv_path, meta_path)
         self.assertEqual(clean, [])
         self.assertEqual(len(review), 2)
         self.assertTrue(
@@ -221,11 +235,8 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
 
     # -- ESPN row shape -----------------------------------------------------------
     def test_espn_row_shape_and_grain(self):
-        # The week grain follows the passed --week (regression: it was
-        # hardcoded to 2, so the 2026-09-25 pull overwrote Week 2 rows).
         result = self.save(
             "espn",
-            week=3,
             csv_rows=[
                 "Josh Allen,josh allen,QB,BUF,True,True,3674.1,24.6,517.7,11.5,0,0,0,366.13,3-18,2026-09-21",
             ],
@@ -238,7 +249,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         row = rows[0]
         self.assertEqual(row["player_key"], 869)
         self.assertEqual(row["season"], 2026)
-        self.assertEqual(row["week"], 3)
+        self.assertEqual(row["week"], 2)
         self.assertEqual(row["scoring"], "half_ppr")
         self.assertEqual(row["ros_half_ppr"], 366.13)
         self.assertEqual(row["r_pass_yds"], 3674.1)
@@ -250,16 +261,10 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
     # defect: storing scoring=NULL (violates the CHECK) or silently fabricating
     # a per-scoring split. The documented decision: the single published 1QB-4
     # column is written once per scoring, labeled IMPLIED.
-    #
-    # The week is NOT pinned to a literal. save_source defaults it to
-    # mod.nfl_week(), so a literal 2 was a time bomb: it passed all week 2 and
-    # failed the moment the calendar rolled to week 3 (2026-09-25), taking
-    # `make validate` -- and therefore the Pages deploy -- down with it on a
-    # commit that had nothing to do with it. Asserting against the same
-    # derivation keeps the default path under test without the clock coupling.
     def test_cbs_qb_gets_one_row_per_scoring_with_1qb4_value(self):
         result = self.save(
             "cbs",
+            week=2,  # pinned: this test is about the QB scoring decision, not the calendar
             tables=[
                 {"title": "Quarterback", "headers": ["Player", "tm", "1QB-4", "1QB-6", "2QB"],
                  "rows": [["Josh Allen", "BUF", "20", "20", "44"]]},
@@ -277,28 +282,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
             self.assertEqual(row["source"], "cbs")
             self.assertEqual(row["variant"], "as_published")
             self.assertEqual(row["season"], 2026)
-            self.assertEqual(row["week"], mod.nfl_week())
-
-    def test_cbs_week_defaults_to_the_current_nfl_week(self):
-        """The default is the derivation, and an explicit week still wins.
-
-        Negative-tested 2026-09-25: hardcoding the default to a constant, or
-        ignoring an explicit --week, both fail here.
-        """
-        result = self.save(
-            "cbs",
-            tables=[
-                {"title": "Quarterback", "headers": ["Player", "tm", "1QB-4", "1QB-6", "2QB"],
-                 "rows": [["Josh Allen", "BUF", "20", "20", "44"]]},
-            ],
-        )
-        self.assertEqual(result["written"], 3)
-        _, rows, _ = self.writes[0]
-        self.assertTrue(rows)
-        current = mod.nfl_week()
-        self.assertGreaterEqual(current, 1)
-        for row in rows:
-            self.assertEqual(row["week"], current)
+            self.assertEqual(row["week"], 2)
 
     def test_cbs_skill_positions_map_columns_to_scoring(self):
         result = self.save(

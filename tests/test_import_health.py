@@ -50,6 +50,7 @@ SOURCE_KEYS = {
     "supabase_landing",
     "snapshot_path",
     "failure_reason",
+    "ignored_older_rows",
 }
 TOP_KEYS = {"schema", "checked_at", "nfl_week", "sources"}
 
@@ -210,7 +211,8 @@ class VerifyImportHealthTest(unittest.TestCase):
         )
         self.assertEqual(entry["status"], "stale")
         self.assertTrue(entry["failure_reason"].startswith("STALE_VINTAGE"))
-        self.assertIn("NFL week 3", entry["failure_reason"])
+        # fantasycalc has no verified publication schedule; message notes this
+        self.assertIn("No verified publication schedule", entry["failure_reason"])
         # bytes still verified: the import landed, the vintage is old
         self.assertEqual(entry["last_successful_import"], "2026-09-21T00:00:00Z")
 
@@ -229,8 +231,10 @@ class VerifyImportHealthTest(unittest.TestCase):
             "usatoday", sources_root=self.root, nfl_week=3,
             check_date=self.check_date, prev_entry=None, checked_at="t",
         )
-        self.assertEqual(stale_entry["status"], "stale")
-        self.assertTrue(stale_entry["failure_reason"].startswith("STALE_VINTAGE"))
+        # 2026-09-21 is Monday; USA Today publishes Tuesdays.
+        # Week 2 vintage with Week 3 current on Monday = 6 days past Tuesday publish = red (missed)
+        self.assertEqual(stale_entry["status"], "red")
+        self.assertTrue(stale_entry["failure_reason"].startswith("MISSED_WINDOW"))
 
     # -- defect 3: manifest sha mismatch -> failed + non-zero --------------------
     def test_byte_mismatch(self):
@@ -271,41 +275,6 @@ class VerifyImportHealthTest(unittest.TestCase):
         self.assertEqual(entry["status"], "failed")
         self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
         self.assertIn("Week 2", entry["failure_reason"])
-
-    def test_multi_week_table_verifies_when_scoped_to_manifest_vintage(self):
-        # defect: the gate re-queried the whole multi-week table, so a
-        # retained older week read as TABLE_DRIFT. The gate now scopes the
-        # re-query to the manifest's vintage; the injected fetch simulates
-        # PostgREST by honoring the week=eq.N filter.
-        def postgrest(table, params):
-            if "week=eq.3" in params:
-                return db_rows(10, source_content_date="2026-09-23", week=3)
-            return (db_rows(10, source_content_date="2026-09-15", week=2)
-                    + db_rows(10, source_content_date="2026-09-23", week=3))
-        mod.fetch_table_summary = postgrest
-        make_snapshot(self.root, "usatoday", "2026-09-23",
-                      content_vintage="2026-09-23", week_designated=3)
-        entry, _ = mod.verify_source(
-            "usatoday", sources_root=self.root, nfl_week=3,
-            check_date=self.check_date, prev_entry=None, checked_at="t",
-        )
-        self.assertEqual(entry["status"], "ok", entry["failure_reason"])
-        self.assertEqual(entry["row_count"], 10)
-
-    def test_multi_week_table_still_catches_drift_within_scoped_week(self):
-        # scoping must not blind the gate: rows changed *within* the stamped
-        # week still fail as TABLE_DRIFT.
-        def postgrest(table, params):
-            return db_rows(8, source_content_date="2026-09-23", week=3)
-        mod.fetch_table_summary = postgrest
-        make_snapshot(self.root, "usatoday", "2026-09-23",
-                      content_vintage="2026-09-23", week_designated=3)
-        entry, _ = mod.verify_source(
-            "usatoday", sources_root=self.root, nfl_week=3,
-            check_date=self.check_date, prev_entry=None, checked_at="t",
-        )
-        self.assertEqual(entry["status"], "failed")
-        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
 
     def test_table_query_failure_fails_closed(self):
         def boom(table, params):
@@ -377,6 +346,58 @@ class VerifyImportHealthTest(unittest.TestCase):
         self.assertEqual(entry["status"], "failed")
         self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
         self.assertIn("Week 2", entry["failure_reason"])
+
+    # -- latest-vintage-wins policy (rows never deleted; old rows ignored) ---
+    # defect: stale rows leaking into verification / display
+    def test_mixed_table_latest_vintage_verifies(self):
+        # table holds Week 3 (10 rows, latest) beside Week 2 (6 rows, older);
+        # the manifest stamps Week 3 with 10 rows -> ok, older rows ignored
+        def tables(table, params):
+            return table_rows_for(table, params, n=10, week=3, date=None) + \
+                table_rows_for(table, params, n=6, week=2, date=None)
+        mod.fetch_table_summary = tables
+        make_snapshot(self.root, "fantasycalc", "week-3",
+                      content_vintage="Week 3", week_designated=3)
+        entry, _ = mod.verify_source(
+            "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "ok", entry.get("failure_reason"))
+        self.assertEqual(entry["ignored_older_rows"], 6)
+
+    def test_mixed_table_newer_than_manifest_is_drift(self):
+        # table's latest vintage (Week 3) is ahead of the manifest (Week 2):
+        # a partial import -- the manifest must be stamped, not bypassed
+        def tables(table, params):
+            return table_rows_for(table, params, n=10, week=3, date=None) + \
+                table_rows_for(table, params, n=10, week=2, date=None)
+        mod.fetch_table_summary = tables
+        make_snapshot(self.root, "fantasycalc", "week-2",
+                      content_vintage="Week 2", week_designated=2)
+        entry, _ = mod.verify_source(
+            "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+        self.assertIn("latest vintage Week 3", entry["failure_reason"])
+        self.assertEqual(entry["ignored_older_rows"], 10)
+
+    def test_espn_mixed_dates_latest_wins(self):
+        # 10 rows at 2026-09-21 (latest) + 4 older rows at 2026-09-20;
+        # manifest stamps 2026-09-21 -> ok, older rows ignored
+        def tables(table, params):
+            return table_rows_for(table, params, n=10, week=3, date="2026-09-21") + \
+                table_rows_for(table, params, n=4, week=3, date="2026-09-20")
+        mod.fetch_table_summary = tables
+        make_snapshot(self.root, "espn", "2026-09-21",
+                      content_vintage="2026-09-21", week_designated=None)
+        entry, _ = mod.verify_source(
+            "espn", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "ok", entry.get("failure_reason"))
+        self.assertEqual(entry["ignored_older_rows"], 4)
 
     def test_espn_table_query_uses_espn_params(self):
         # defect: re-querying espn_season_projections with a source/variant

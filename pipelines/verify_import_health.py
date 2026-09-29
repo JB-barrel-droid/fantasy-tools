@@ -11,9 +11,11 @@ ecr/vegas/razzball; unknown names are a hard error), the gate checks:
   - a snapshot exists under data/raw/sources/<source>/ with a manifest;
   - the snapshot bytes match the manifest sha256
     (defect guarded: unverified bytes promoted);
-  - DB-backed sources (all five): the Supabase table row count / vintage
-    still matches the manifest, re-queried through the same skill path the
-    importer used (sbclient.get_all)
+  - DB-backed sources (all five): the Supabase table's LATEST vintage still
+    matches the manifest, re-queried through the same skill path the
+    importer used (sbclient.get_all). Tables keep every historical vintage
+    (rows are never deleted); only the newest vintage verifies, older rows
+    are ignored in every check
     (defect guarded: partial/stale table treated as complete);
   - FRESHNESS on content vintage, never pull time. Week-designated trade
     charts (fantasycalc, usatoday, fantasypros, cbs) are fresh iff their NFL
@@ -40,14 +42,14 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
+# Source-specific publication windows for yellow/red status
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.publication_windows import get_publication_status  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCES_ROOT = ROOT / "data" / "raw" / "sources"
 DEFAULT_OUTPUT = ROOT / "output" / "source-import-health.json"
 HEALTH_SCHEMA = "trade-value-import-health-v1"
-SUPABASE_SKILL_BIN = os.environ.get(
-    "SUPABASE_FOOTBALL_SIGNAL_BIN",
-    os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
-)
 
 DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs")
 DASHBOARD_SOURCES = DB_SOURCES
@@ -156,8 +158,7 @@ def check_source(source: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _default_table_summary(table: str, params: str) -> list[dict[str, Any]]:
-    if SUPABASE_SKILL_BIN not in sys.path:
-        sys.path.insert(0, SUPABASE_SKILL_BIN)
+    sys.path.insert(0, os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"))
     from sbclient import get_all  # noqa: E402
 
     rows = get_all(table, params=params)
@@ -290,17 +291,44 @@ def expected_table_rows(manifest: dict[str, Any], source: str) -> int:
     return expected
 
 
-def table_vintage(rows: list[dict[str, Any]], *, date_col: str = "source_content_date") -> str:
-    """Unanimous table vintage, mirroring the importer's derive_db_vintage."""
+def _week_sort_key(week: Any) -> tuple[int, Any]:
+    """Order weeks numerically when possible (2 < 3), lexically otherwise."""
+    try:
+        return (0, int(str(week).strip()))
+    except (TypeError, ValueError):
+        return (1, str(week))
+
+
+def latest_vintage_rows(
+    rows: list[dict[str, Any]], *, date_col: str = "source_content_date"
+) -> tuple[str, list[dict[str, Any]]]:
+    """Return (latest_vintage, rows_at_latest_vintage).
+
+    Latest-vintage wins: tables keep every historical vintage (rows are NEVER
+    deleted), but verification and display only ever see the newest one --
+    older rows are ignored, never removed. Multiple dates -> newest date;
+    no dates -> newest week.
+    """
     dates = sorted({str(r.get(date_col)) for r in rows if r.get(date_col)})
-    weeks = sorted({r.get("week") for r in rows if r.get("week") not in (None, "")})
-    if len(dates) == 1:
-        return dates[0]
-    if len(weeks) == 1:
-        return f"Week {weeks[0]}"
-    if not dates and not weeks:
-        raise _NoVintage("table has no source_content_date and no week on any row")
-    raise _NoVintage(f"table has mixed vintage (dates={dates}, weeks={weeks})")
+    weeks = sorted(
+        {r.get("week") for r in rows if r.get("week") not in (None, "")},
+        key=_week_sort_key,
+    )
+    if dates:
+        latest = dates[-1]
+        return latest, [r for r in rows if str(r.get(date_col)) == latest]
+    if weeks:
+        latest_week = weeks[-1]
+        return f"Week {latest_week}", [
+            r for r in rows if _week_sort_key(r.get("week")) == _week_sort_key(latest_week)
+        ]
+    raise _NoVintage("table has no source_content_date and no week on any row")
+
+
+def table_vintage(rows: list[dict[str, Any]], *, date_col: str = "source_content_date") -> str:
+    """Latest table vintage, never the earliest (older rows stay, ignored)."""
+    vintage, _ = latest_vintage_rows(rows, date_col=date_col)
+    return vintage
 
 
 # ---------------------------------------------------------------------------
@@ -327,6 +355,10 @@ def verify_source(
         "supabase_landing": source in DB_SOURCES,
         "snapshot_path": None,
         "failure_reason": None,
+        # Older table vintages are never deleted but ignored everywhere;
+        # counted here so the monitor can show the latest version is what
+        # verifies and displays.
+        "ignored_older_rows": None,
     }
     loud: list[str] = []
 
@@ -384,52 +416,52 @@ def verify_source(
     # 4. DB sources: table row count / vintage still matches the manifest -----
     config = SOURCE_CONFIGS[source]
     table_label = f"public.{config['api_table']}"
-    # Scope the re-query to the manifest's vintage. The tables accumulate one
-    # row-set per published week (prior weeks retained), but the snapshot
-    # represents exactly one vintage; without scoping, a second published
-    # week would read as TABLE_DRIFT. This mirrors the importer's
-    # latest-vintage selection: the gate verifies the table's rows FOR the
-    # stamped vintage, never the whole table.
-    scoped_params = config["params"]
-    if source in WEEK_DESIGNATED_SOURCES and vintage_week is not None:
-        scoped_params += f"&week=eq.{vintage_week}"
-    elif source == "espn":
-        if vintage_kind in ("file_meta", "source_content_date"):
-            scoped_params += f"&espn_snapshot_date=eq.{str(vintage_display).strip()[:10]}"
-        elif vintage_week is not None:
-            scoped_params += f"&week=eq.{vintage_week}"
     try:
         # sbclient builds /rest/v1/<table> with PostgREST's default schema,
         # so it takes the bare table name; the manifest keeps the
         # schema-qualified name for the health JSON contract.
-        rows = fetch_table_summary(config["api_table"], scoped_params)
+        rows = fetch_table_summary(config["api_table"], config["params"])
     except Exception as exc:  # noqa: BLE001 -- any query failure fails closed
         return fail("IMPORT_FAILED", f"Supabase re-query of {table_label} failed: {exc}")
     expected = expected_table_rows(manifest, source)
+    # Latest-vintage wins: the table keeps every historical vintage (rows are
+    # NEVER deleted), but only the newest vintage verifies against the
+    # manifest -- older rows are ignored here and in every process.
     try:
-        live_vintage = table_vintage(rows, date_col=config["vintage_date_col"])
+        live_vintage, latest_rows = latest_vintage_rows(rows, date_col=config["vintage_date_col"])
     except _NoVintage as exc:
         return fail("TABLE_DRIFT", f"table vintage undeterminable: {exc}")
+    entry["ignored_older_rows"] = len(rows) - len(latest_rows)
     drift_bits: list[str] = []
-    if len(rows) != expected:
-        drift_bits.append(f"table has {len(rows)} rows, manifest expects {expected}")
+    if len(latest_rows) != expected:
+        drift_bits.append(
+            f"table has {len(latest_rows)} rows at latest vintage {live_vintage}, "
+            f"manifest expects {expected}"
+        )
     if live_vintage != str(manifest.get("content_vintage")):
         drift_bits.append(
-            f"table vintage {live_vintage} != manifest vintage {manifest.get('content_vintage')}"
+            f"table latest vintage {live_vintage} != manifest vintage "
+            f"{manifest.get('content_vintage')} -- run stage-1 import to stamp it"
         )
     if drift_bits:
         return fail("TABLE_DRIFT", "; ".join(drift_bits) + " -- partial/stale table, not complete")
 
     # 5. freshness ------------------------------------------------------------
+    # Uses source-specific publication windows (pipelines/lib/publication_windows.py)
+    # to determine yellow (within window) vs red (missed window) vs stale (no verified schedule).
     verified_at = checked_at  # the snapshot landed and verified; record it
     if source in WEEK_DESIGNATED_SOURCES:
-        if vintage_week != nfl_week:
+        # Use publication window logic for week-designated sources
+        pub_status, pub_reason = get_publication_status(
+            source=source,
+            vintage_week=vintage_week,
+            current_week=nfl_week,
+            check_date=check_date,
+        )
+        if pub_status != "ok":
             entry["last_successful_import"] = verified_at
-            entry["failure_reason"] = (
-                f"STALE_VINTAGE: content vintage {vintage_display} "
-                f"(NFL week {vintage_week}) != current NFL week {nfl_week}"
-            )
-            entry["status"] = "stale"
+            entry["failure_reason"] = pub_reason
+            entry["status"] = pub_status
             return entry, loud
     else:  # espn: daily live reference
         if vintage_kind in ("file_meta", "source_content_date"):

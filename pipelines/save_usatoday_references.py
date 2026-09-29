@@ -30,9 +30,8 @@ numbers into `value` would corrupt the chart. New pulls use bake_id like
 mirrors the scheme) so pulls are never confused with fit-bakes.
 
 Grain: (source, variant, scoring, league_teams, qb_slots, season, week,
-player_norm) -- the shared table's source_trade_values_grain constraint.
-Rows also carry the resolved numeric player_key for downstream matching.
-Upserts are idempotent per weekly grain; prior weeks are retained.
+player_key). Upserts are idempotent per weekly grain; prior weeks are
+retained.
 
 Usage:
     python3 save_usatoday_references.py --usatoday-json ops/watchdog/pulls/usatoday-2026-09-22.json [--week 2] [--dry-run]
@@ -65,15 +64,10 @@ from save_espn_cbs_references import (  # noqa: E402
     upsert_rows,
     count_rows,
 )
+# Writer audit for Supabase write provenance
+from lib.writer_audit import WriterAudit  # noqa: E402
 
-USAT_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_norm"
-# NOTE: source_trade_values is the shared goal-workspace table whose grain
-# constraint is source_trade_values_grain =
-#   (source, player_norm, scoring, league_teams, qb_slots, season, week, variant).
-# The conflict target MUST name exactly those columns; a player_key target
-# 400s ("no unique or exclusion constraint matching the ON CONFLICT
-# specification"). Rows still carry the resolved numeric player_key for the
-# downstream importer -- player_norm is only the upsert match key.
+USAT_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key"
 
 # scoring label used in source_trade_values for USA Today (matches the fit-bake).
 SCORING_LABELS = ("std", "half", "full")
@@ -367,7 +361,32 @@ def save_usatoday(
             "url": url,
         }
 
-    upsert_rows("source_trade_values", clean, USAT_UPSERT_CONFLICT)
+    # Create audit record for this write operation
+    audit = WriterAudit(
+        writer_identity="save_usatoday_references.py",
+        source="usatoday",
+        operation="upsert",
+        reason=f"Save USA Today reference data (week {week}, bake {bake_id})",
+        table_name="source_trade_values",
+        metadata={
+            "week": week,
+            "bake_id": bake_id,
+            "url": url,
+            "row_count": len(clean),
+        },
+    )
+    audit.start()
+
+    try:
+        # Add audit fields to rows
+        audited_clean = audit.audit_rows(clean)
+        upsert_rows("source_trade_values", audited_clean, USAT_UPSERT_CONFLICT)
+        audit.complete(row_count=len(clean))
+    except Exception as e:
+        audit.fail(str(e))
+        raise
+
+    # Verify the write landed
     live = count_rows(
         "source_trade_values",
         f"?select=player_key&source=eq.usatoday&variant=eq.as_published"
@@ -389,6 +408,7 @@ def save_usatoday(
         "bake_id": bake_id,
         "url": url,
         "pulled_at": pulled_at,
+        "run_id": audit.run_id,
     }
 
 

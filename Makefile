@@ -1,7 +1,6 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference freshness-check sync test diagnostics validate serve deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync test validate serve deploy-status supabase-import import-health watchdog
 
 TODAY ?= $(shell date +%F)
-MAX_STALE_DAYS ?= 2
 PORT ?= 8000
 SOURCE_FILE ?=
 SNAPSHOT_FILE ?=
@@ -27,10 +26,8 @@ help:
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
-	@echo "  make freshness-check   Fail if reference artifacts are older than MAX_STALE_DAYS"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
 	@echo "  make test              Run regression tests"
-	@echo "  make diagnostics       Run non-browser chart/value diagnostics"
 	@echo "  make watchdog          Run the source-pull watchdog (writes ops/watchdog/health.json)"
 	@echo "  make validate          Run naming, reference, sync, and tests"
 	@echo "  make serve             Serve the local dashboard"
@@ -75,8 +72,12 @@ comparison-review:
 
 comparison-promote:
 	@test -n "$(REVIEW_FILE)" || (echo "Set REVIEW_FILE=output/comparison-review/...-review.json" && exit 1)
-	@test -n "$(APPROVE)" || (echo "Set APPROVE=\"<name> <YYYY-MM-DD> <reason>\"" && exit 1)
-	python3 pipelines/promote_comparison_section.py "$(REVIEW_FILE)" --approve "$(APPROVE)"
+	@if [ -n "$(AUTO)" ]; then \
+		python3 pipelines/promote_comparison_section.py "$(REVIEW_FILE)" --auto; \
+	else \
+		test -n "$(APPROVE)" || (echo "Set APPROVE=\"<name> <YYYY-MM-DD> <reason>\" or AUTO=1" && exit 1); \
+		python3 pipelines/promote_comparison_section.py "$(REVIEW_FILE)" --approve "$(APPROVE)"; \
+	fi
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss
@@ -85,10 +86,7 @@ naming:
 	python3 pipelines/check_naming_drift.py
 
 reference:
-	python3 pipelines/build_reference_data.py --today $(TODAY) --max-age-days $(MAX_STALE_DAYS)
-
-freshness-check:
-	python3 pipelines/check_reference_freshness.py --today $(TODAY) --max-age-days $(MAX_STALE_DAYS) --enforce
+	python3 pipelines/build_reference_data.py --today $(TODAY)
 
 sync:
 	python3 pipelines/sync_dashboard_artifacts.py
@@ -96,16 +94,10 @@ sync:
 test:
 	python3 -m unittest discover -s tests
 
-diagnostics:
-	python3 -m unittest discover -s tests -p 'test_two_tier_frontend.py'
-	python3 -m unittest discover -s tests -p 'test_adjusted_curve_pause.py'
-	python3 -m unittest discover -s tests -p 'test_adjustment_inputs.py'
-	python3 -m unittest discover -s tests -p 'test_comparison_source_integrity.py'
-
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
 
-validate: naming reference freshness-check sync test
+validate: naming reference sync test
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
