@@ -2,7 +2,7 @@
 """Build _adjusted fixture sections from live adjustment cells.
 
 Stage 8 of the repo pipeline (after Stage 7 fit): for each of
-fantasycalc / usatoday / fantasypros, apply the fitted adjustment cells
+fantasycalc / usatoday / fantasypros / cbs, apply the fitted adjustment cells
 from adjustment-inputs.json to the raw published values in each combo,
 writing the result as {source}_adjusted sections in
 data/fixtures/current/comparison-sources-data.json.
@@ -110,7 +110,7 @@ DEFAULT_FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-d
 DEFAULT_INPUTS = ROOT / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
-ADJUSTED_SOURCES = ["fantasycalc", "usatoday", "fantasypros"]
+ADJUSTED_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
 
 # Human-readable metadata for the _adjusted sources
 ADJUSTED_META = {
@@ -125,6 +125,10 @@ ADJUSTED_META = {
     "fantasypros": {
         "name": "FantasyPros (bias-adjusted)",
         "kind": "analyst-consensus trade value chart, bias-corrected to our methodology",
+    },
+    "cbs": {
+        "name": "CBS (bias-adjusted)",
+        "kind": "editorial trade value chart, bias-corrected to our methodology",
     },
 }
 
