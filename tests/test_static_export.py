@@ -132,9 +132,11 @@ class StaticExportTest(unittest.TestCase):
             ("fantasycalc", "full_12_qb1"): 40.01248549749396,
             # fantasypros re-anchored 2026-09-30 PM: fixture now uses
             # native_value (raw published, 29.1 for Allen) instead of the
-            # flattened value field (17.2). The 20.3 reflects the true
-            # source distinction; 18.3 was based on corrupted data.
-            ("fantasypros", "full_12"): 20.3,
+            # flattened value field (17.2). The 19.57 reflects the true
+            # source distinction via the current ESPN-leg anchor; 18.3 was
+            # based on corrupted data. Regenerated 2026-09-30 via full chain
+            # (match -> reference -> section -> reindex) proving 29.1 survives.
+            ("fantasypros", "full_12"): 19.566912203268522,
             ("cbs", "full_12"): 18.2,
             ("espn", "full_12"): 26.9,
             # cbsros (CBS rest-of-season projections through the DDF two-tier

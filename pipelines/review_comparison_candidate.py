@@ -243,6 +243,10 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                 continue
             fx_reidx = fx.get("reindexed", fx.get("values", {}))
             for pos in POSITIONS:
+                # As-published sources use global scaling; per-position counts
+                # may not be available. Skip if candidate has no per-pos data.
+                if pos not in combo["n"]:
+                    continue
                 c_n = combo["n"].get(pos, 0)
                 f_n = fx.get("index_total", {}).get(pos, {}).get("n_priced")
                 if f_n is None:
