@@ -1179,6 +1179,20 @@
       bindStatic();
       renderAll();
       if (window.TradeValueSharedState) window.TradeValueComparisonControls.applyShared(window.TradeValueSharedState);
+      // Backup sync: poll shared state every 2s in case the event was missed.
+      // This ensures the player table always reflects the chart's league settings.
+      let lastSyncKey = "";
+      setInterval(() => {
+        try {
+          const shared = window.TradeValueSharedState;
+          if (!shared) return;
+          const key = `${shared.scoring}|${shared.teams}|${shared.lockOrder}`;
+          if (key !== lastSyncKey) {
+            lastSyncKey = key;
+            window.TradeValueComparisonControls.applyShared(shared);
+          }
+        } catch (e) { /* silent */ }
+      }, 2000);
       runRegressionGuards();
       if (isLockKey(window.TradeValueLockOrder)) setLockOrder(window.TradeValueLockOrder, false);
     } catch (error) {
