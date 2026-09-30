@@ -387,11 +387,10 @@ def build_checkpoints():
                 cps["c7_promotion"] = {"timestamp": c7_ts, "status": "ok",
                     "reason": f"Promoted {c7_days:.1f}d ago{verdict_note}."}
         else:
-            # No formal promotion artifact with review_verdict. The fixture may still
-            # be updated directly (via sync or manual), but without a recorded review.
-            # This is a process gap, not a data failure -> warn, not unk.
-            cps["c7_promotion"] = {"timestamp": None, "status": "warn",
-                "reason": "No promotion artifact in output/comparison-promotions/. Fixture is updated directly without a formal review record."}
+            # No formal promotion artifact. Direct fixture updates are the
+            # intended workflow (per Jeremy 2026-09-30) — no review record required.
+            cps["c7_promotion"] = {"timestamp": None, "status": "ok",
+                "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."}
 
         # C8: Sync/validation - fixture built_at vs dist content
         # CRITICAL: Check the actual data freshness (built_at inside the JSON),
