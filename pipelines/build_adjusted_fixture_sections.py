@@ -259,14 +259,36 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
                     adj_val = raw_val
                 adjusted[slug] = round(adj_val, 1)
 
+            # The cells output DDF 70/max-scale values, but the comparison
+            # fixture is pie-indexed: rescale each position's adjusted total
+            # to the raw combo's pie target (fixed-pie invariant). Without
+            # this the _adjusted series sits on a different scale than the
+            # ESPN leg and the curves diverge.
+            index_total = combo.get("index_total") or {}
+            pos_totals: dict[str, float] = {}
+            pos_slugs: dict[str, list[str]] = {}
+            for slug, adj_val in adjusted.items():
+                key = int(player_keys.get(slug, -1))
+                player = canonical.get(key)
+                if player is None:
+                    continue
+                pos = player["pos"]
+                pos_totals[pos] = pos_totals.get(pos, 0.0) + adj_val
+                pos_slugs.setdefault(pos, []).append(slug)
+            for pos, total in pos_totals.items():
+                target = (index_total.get(pos) or {}).get("target_total")
+                if target and total > 0:
+                    factor = target / total
+                    for slug in pos_slugs[pos]:
+                        adjusted[slug] = round(adjusted[slug] * factor, 1)
+
             adjusted_combos[combo_name] = {
                 "reindexed": adjusted,
                 "native": native,
                 "fit": {"method": "bias_adjusted", "bake_id": fit_bake_id},
                 "n": len(adjusted),
-                # Copy index_total from the raw source combo — the adjusted
-                # values are bias-corrected versions of the same player pool,
-                # so the position totals carry over.
+                # index_total carries over: after the rescale above, the
+                # adjusted position totals match the raw pie targets exactly.
                 "index_total": combo.get("index_total"),
             }
             total_players += len(adjusted)

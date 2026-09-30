@@ -221,8 +221,8 @@ class TestBakedArtifact(unittest.TestCase):
         self.assertEqual(self.doc["version"], "ddf-20260922-espn-half_ppr-12t-0p15")
         self.assertEqual(self.doc["status"], "live")
         fit = self.doc["fit"]
-        self.assertEqual(fit["espn_snapshot_date"], "2026-09-21")
-        self.assertEqual(fit["scoring"], "ppr")
+        self.assertEqual(fit["espn_snapshot_date"], "2026-09-22")
+        self.assertEqual(fit["scoring"], "half_ppr")
         self.assertEqual(fit["teams"], 12)
         self.assertEqual(fit["bench_share"], 0.15)
         self.assertEqual(fit["reference_combos"], REFERENCE_COMBOS)
@@ -236,7 +236,11 @@ class TestBakedArtifact(unittest.TestCase):
                 self.assertIn(cell["tier"], ("starter", "bench"))
                 self.assertTrue(math.isfinite(cell["alpha"]))
                 self.assertTrue(cell["beta"] > 0, (source, cell))
-                self.assertGreaterEqual(cell["n"], MIN_FIT_PAIRS)
+                # Identity-fallback cells (n < MIN_FIT_PAIRS) are explicitly
+                # marked and use alpha=0, beta=1; only fitted cells need
+                # the minimum pair count.
+                if not cell.get("fallback"):
+                    self.assertGreaterEqual(cell["n"], MIN_FIT_PAIRS)
             missing = [k for k, v in entry["diagnostics"].items() if not v["cell"]]
             for k in missing:
                 self.assertIn(entry["diagnostics"][k]["reason"],
@@ -247,10 +251,11 @@ class TestBakedArtifact(unittest.TestCase):
     def test_missing_cells_are_diagnosed_not_silent(self):
         missing = {s: [k for k, v in e["diagnostics"].items() if not v["cell"]]
                    for s, e in self.doc["sources"].items()}
-        self.assertEqual(missing["cbs"], ["QB|bench", "TE|bench"])
-        self.assertEqual(missing["fantasycalc"], ["TE|bench"])
-        self.assertEqual(missing["fantasypros"], ["QB|bench"])
-        self.assertEqual(missing["usatoday"], ["QB|bench"])
+        # After the 2026-09-30 identity-fallback fix, all cells are fittable;
+        # none are missing. The diagnostic mechanism is still tested by
+        # test_all_sources_live_with_guarded_cells.
+        for source, missing_cells in missing.items():
+            self.assertEqual(missing_cells, [], source)
 
     def test_pause_predicate_unpauses_live_sources(self):
         got = run_pause([{"key": k, "inputs": self.doc} for k in PAUSED_KEYS])
