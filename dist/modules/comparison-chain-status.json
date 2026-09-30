@@ -1,19 +1,18 @@
 {
-  "run_at": "2026-09-30T16:03:23.927243+00:00",
+  "run_at": "2026-09-30T20:02:59.336444+00:00",
   "nfl_week": 4,
   "sources": {
     "usatoday": "FAILED at stage 'review': usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
     "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "FAILED at stage 'review': fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
     "espn": "FAILED at stage 'review': espn-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-    "cbs": "promoted 3/3"
+    "cbs": "promoted 3/3",
+    "cbsros": "promoted 1/1"
   },
   "failed": [
-    "adjusted_sections",
     "espn",
     "fantasycalc",
     "fantasypros",
-    "fit",
     "usatoday"
   ],
   "success": false,
@@ -58,6 +57,14 @@
       "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3
+    },
+    "cbsros": {
+      "source": "cbsros",
+      "status": "ok",
+      "stage": "complete",
+      "detail": "snapshot 2026-09-30 -> 12 DDF legs -> section; review passed (3948 values)",
+      "promoted": 1,
+      "sections": 1
     }
   },
   "fit": {

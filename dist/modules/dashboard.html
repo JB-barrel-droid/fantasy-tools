@@ -1160,7 +1160,7 @@ async function loadCrossSourceAgreement() {
     const divs = data.divergences || [];
     summaryEl.innerHTML = `
       <div style="padding:12px 16px;border-radius:8px;background:${divs.length > 0 ? "var(--yellow-bg)" : "var(--green-bg)"};border:1px solid ${divs.length > 0 ? "var(--yellow)" : "var(--green)"}">
-        <b>${data.common_players}</b> players in all 5 sources ·
+        <b>${data.common_players}</b> players in all ${data.sources_compared.length} sources ·
         <b>${data.divergent_players}</b> starters with &gt;25% divergence ·
         <span style="color:${divs.length > 0 ? "var(--yellow)" : "var(--green)"};font-weight:bold">${divs.length > 0 ? "⚠ DIVERGENCES FOUND" : "✓ AGREEMENT"}</span>
       </div>`;
@@ -1175,6 +1175,7 @@ async function loadCrossSourceAgreement() {
         <th style="padding:6px;border-bottom:2px solid #ddd">USA</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">FP</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">CBS</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">CBS ROS</th>
       </tr></thead><tbody>`;
       divs.slice(0, 20).forEach(d => {
         html += `<tr style="background:var(--yellow-bg)">
@@ -1187,6 +1188,7 @@ async function loadCrossSourceAgreement() {
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.usatoday}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.fantasypros}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.cbs}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.cbsros ?? "—"}</td>
         </tr>`;
       });
       html += `</tbody></table>`;
