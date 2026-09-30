@@ -855,5 +855,348 @@ class IntermediateEntryTest(unittest.TestCase):
             self.assertEqual("ready", runner2.steps[-1]["verdict"])
 
 
+# ---------------------------------------------------------------------------
+# Entry-point integration — existing Makefile targets route through main()
+# ---------------------------------------------------------------------------
+
+class EntryPointIntegrationTest(unittest.TestCase):
+    """Verify that calling cascade_source_update.main() at each entry point
+    automatically runs all dependent downstream stages.
+
+    These tests exercise the same dispatch path that the updated Makefile
+    targets invoke (make source-match, make source-reference, etc.), proving
+    that 'make source-match SNAPSHOT_FILE=X' now cascades through review, not
+    just writing the match artifact.
+
+    Non-active source name ("testonly") is used throughout so the health gate
+    is bypassed per design — active sources are covered by IntermediateHealthGateTest.
+    """
+
+    def _run_main(self, tmp: Path, players: Path, comparison: Path, argv: list[str]) -> int:
+        """Run cascade main() with output dirs rooted at tmp/out."""
+        out = tmp / "out"
+        full_argv = [
+            *argv,
+            "--players", str(players),
+            "--comparison", str(comparison),
+            "--output-root", str(out),
+        ]
+        return cascade_mod.main(full_argv)
+
+    def test_snapshot_entry_triggers_all_downstream_stages(self):
+        """make source-match SNAPSHOT_FILE=X now routes through cascade.
+
+        Passing a snapshot artifact to --input must produce all 7 stages
+        (source-match through comparison-review).
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="testonly")
+            # Fix snapshot-manifest to use "testonly" source (build_snapshot
+            # writes "fantasycalc" in manifest; rewrite for non-active source).
+            manifest_path = snapshot.parent / "snapshot-manifest.json"
+            manifest_data = json.loads(manifest_path.read_text())
+            manifest_data["source"] = "testonly"
+            manifest_path.write_text(json.dumps(manifest_data, indent=2) + "\n")
+
+            rc = self._run_main(tmp, players, comparison, ["--input", str(snapshot)])
+
+            out = tmp / "out"
+            report_path = out / "pipeline-cascade-report.json"
+            self.assertTrue(report_path.exists(), msg="cascade report must be written")
+            report = json.loads(report_path.read_text())
+            stages = [step["stage"] for step in report["steps"]]
+            self.assertEqual(FULL_CHAIN, stages,
+                             msg="snapshot entry must cascade all 7 stages")
+            self.assertTrue(
+                all(step["status"] == "written" for step in report["steps"]),
+                msg="all stages must write on first run",
+            )
+            self.assertEqual(0, rc, msg="exit 0 expected for ready verdict")
+
+    def test_match_entry_triggers_reference_through_review(self):
+        """make source-reference MATCH_FILE=X now routes through cascade.
+
+        Entering at a match artifact must produce source-reference through
+        comparison-review (6 stages), not just the reference artifact.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="testonly")
+            # Rewrite manifest to non-active source.
+            manifest_path = snapshot.parent / "snapshot-manifest.json"
+            md = json.loads(manifest_path.read_text())
+            md["source"] = "testonly"
+            manifest_path.write_text(json.dumps(md, indent=2) + "\n")
+
+            # Produce the match artifact via the Cascade class (bypasses health).
+            import match_source_snapshot as ms
+            payload = ms.match_snapshot(snapshot, players)
+            # Rewrite source field to non-active for the artifact itself.
+            payload["source"] = "testonly"
+            if isinstance(payload.get("source_provenance"), dict):
+                payload["source_provenance"]["source"] = "testonly"
+            match_dir = tmp / "matches"
+            match_path = ms.default_output_path(payload, match_dir)
+            match_path.parent.mkdir(parents=True, exist_ok=True)
+            match_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+
+            rc = self._run_main(tmp, players, comparison, ["--input", str(match_path)])
+
+            out = tmp / "out"
+            report_path = out / "pipeline-cascade-report.json"
+            self.assertTrue(report_path.exists())
+            report = json.loads(report_path.read_text())
+            stages = [step["stage"] for step in report["steps"]]
+            # Entered at match stage, so source-match itself is not in stages.
+            self.assertNotIn("source-match", stages)
+            for expected_stage in [
+                "source-reference", "comparison-section", "comparison-merge",
+                "comparison-merge-report", "comparison-reindex", "comparison-review",
+            ]:
+                self.assertIn(expected_stage, stages,
+                              msg=f"{expected_stage} must run when entering at match")
+            self.assertEqual(0, rc)
+
+    def test_section_entry_triggers_merge_through_review(self):
+        """make comparison-merge CANDIDATE_FILE=X now routes through cascade.
+
+        Entering at a section artifact must produce comparison-merge through
+        comparison-review (4 stages).
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="testonly")
+            # Rewrite manifest to non-active source.
+            manifest_path = snapshot.parent / "snapshot-manifest.json"
+            md = json.loads(manifest_path.read_text())
+            md["source"] = "testonly"
+            manifest_path.write_text(json.dumps(md, indent=2) + "\n")
+
+            # Produce a section artifact via the Cascade class.
+            runner = make_runner(tmp, players, comparison)
+            runner.cascade_from_snapshot(snapshot)
+            section_step = next(s for s in runner.steps if s["stage"] == "comparison-section")
+            section_path = Path(section_step["output"])
+
+            rc = self._run_main(tmp, players, comparison, ["--input", str(section_path)])
+
+            out = tmp / "out"
+            report_path = out / "pipeline-cascade-report.json"
+            self.assertTrue(report_path.exists())
+            report = json.loads(report_path.read_text())
+            stages = [step["stage"] for step in report["steps"]]
+            self.assertEqual(
+                ["comparison-merge", "comparison-merge-report",
+                 "comparison-reindex", "comparison-review"],
+                stages,
+                msg="section entry must trigger merge through review",
+            )
+            self.assertEqual(0, rc)
+
+
+# ---------------------------------------------------------------------------
+# Health gate for intermediate artifacts from active sources
+# ---------------------------------------------------------------------------
+
+class IntermediateHealthGateTest(unittest.TestCase):
+    """Verify that the health gate is enforced for intermediate artifact entries
+    from active dashboard sources.
+
+    Prior to this fix the --input path bypassed the health gate entirely.
+    These tests confirm that active sources are blocked without valid health
+    and that no downstream artifacts are written.
+    """
+
+    def _make_active_match_artifact(self, tmp: Path, players: Path,
+                                    comparison: Path) -> Path:
+        """Produce a fantasycalc match artifact with source_provenance."""
+        snapshot = build_snapshot(tmp, players_keys_unused := {}, source="fantasycalc")
+        # Rebuild using real player_keys.
+        _, player_keys = build_players(tmp)
+        snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+        import match_source_snapshot as ms
+        payload = ms.match_snapshot(snapshot, players)
+        match_dir = tmp / "matches"
+        match_path = ms.default_output_path(payload, match_dir)
+        match_path.parent.mkdir(parents=True, exist_ok=True)
+        match_path.write_text(
+            json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        return match_path
+
+    def _run_main_with_health(self, tmp: Path, players: Path, comparison: Path,
+                               match_path: Path, health_path: Path) -> None:
+        out = tmp / "out"
+        cascade_mod.main([
+            "--input", str(match_path),
+            "--players", str(players),
+            "--comparison", str(comparison),
+            "--health", str(health_path),
+            "--output-root", str(out),
+        ])
+
+    def test_active_source_match_blocked_without_health_file(self):
+        """--input match artifact from active source with absent health file → blocked.
+        No downstream artifacts must be written.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            match_path = self._make_active_match_artifact(tmp, players, comparison)
+            missing_health = tmp / "no-health.json"
+
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                self._run_main_with_health(tmp, players, comparison, match_path, missing_health)
+
+            self.assertIn("cascade blocked", str(ctx.exception))
+            # No downstream artifacts should have been written.
+            self.assertFalse(out.exists(),
+                             msg="no output directory should exist when health gate blocks")
+
+    def test_active_source_match_blocked_with_stale_health(self):
+        """--input active source with stale/non-ok health → blocked."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            match_path = self._make_active_match_artifact(tmp, players, comparison)
+            stale_health = build_health_file(
+                tmp, "fantasycalc",
+                status="stale",
+                content_vintage="Week 3",
+                failure_reason="STALE_VINTAGE: Week 3 != NFL week 4",
+            )
+
+            with self.assertRaises(SystemExit) as ctx:
+                self._run_main_with_health(tmp, players, comparison, match_path, stale_health)
+
+            self.assertIn("cascade blocked", str(ctx.exception))
+            self.assertIn("stale", str(ctx.exception).lower())
+
+    def test_active_source_match_blocked_with_vintage_mismatch(self):
+        """--input active source where artifact vintage != health vintage → blocked."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            match_path = self._make_active_match_artifact(tmp, players, comparison)
+            # Snapshot/manifest has Week 4 vintage; health says Week 3.
+            wrong_vintage_health = build_health_file(
+                tmp, "fantasycalc", status="ok", content_vintage="Week 3"
+            )
+
+            with self.assertRaises(SystemExit) as ctx:
+                self._run_main_with_health(tmp, players, comparison, match_path, wrong_vintage_health)
+
+            self.assertIn("cascade blocked", str(ctx.exception))
+            self.assertIn("content_vintage", str(ctx.exception))
+
+    def test_active_source_match_allowed_with_valid_health(self):
+        """--input active source with valid health (ok + matching vintage) → all stages run."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            match_path = self._make_active_match_artifact(tmp, players, comparison)
+            valid_health = build_health_file(
+                tmp, "fantasycalc", status="ok", content_vintage="Week 4"
+            )
+
+            out = tmp / "out"
+            rc = cascade_mod.main([
+                "--input", str(match_path),
+                "--players", str(players),
+                "--comparison", str(comparison),
+                "--health", str(valid_health),
+                "--output-root", str(out),
+            ])
+
+            report_path = out / "pipeline-cascade-report.json"
+            self.assertTrue(report_path.exists())
+            report = json.loads(report_path.read_text())
+            stages = [step["stage"] for step in report["steps"]]
+            for expected_stage in [
+                "source-reference", "comparison-section",
+                "comparison-reindex", "comparison-review",
+            ]:
+                self.assertIn(expected_stage, stages)
+            self.assertEqual(0, rc)
+
+    def test_active_source_blocked_when_provenance_absent(self):
+        """--input artifact with no source_provenance for active source → blocked."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            match_path = self._make_active_match_artifact(tmp, players, comparison)
+
+            # Strip source_provenance from the artifact.
+            artifact = json.loads(match_path.read_text())
+            artifact.pop("source_provenance", None)
+            match_path.write_text(json.dumps(artifact, indent=2) + "\n")
+
+            valid_health = build_health_file(tmp, "fantasycalc", status="ok", content_vintage="Week 4")
+
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                cascade_mod.main([
+                    "--input", str(match_path),
+                    "--players", str(players),
+                    "--comparison", str(comparison),
+                    "--health", str(valid_health),
+                    "--output-root", str(out),
+                ])
+
+            self.assertIn("cascade blocked", str(ctx.exception))
+            self.assertIn("source_provenance", str(ctx.exception))
+
+    def test_non_active_source_passes_intermediate_health_gate(self):
+        """--input artifact from non-active source bypasses health gate (no file needed)."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="testonly")
+            # Fix manifest source.
+            mp = snapshot.parent / "snapshot-manifest.json"
+            md = json.loads(mp.read_text())
+            md["source"] = "testonly"
+            mp.write_text(json.dumps(md, indent=2) + "\n")
+
+            import match_source_snapshot as ms
+            payload = ms.match_snapshot(snapshot, players)
+            payload["source"] = "testonly"
+            if isinstance(payload.get("source_provenance"), dict):
+                payload["source_provenance"]["source"] = "testonly"
+            match_dir = tmp / "matches"
+            match_path = ms.default_output_path(payload, match_dir)
+            match_path.parent.mkdir(parents=True, exist_ok=True)
+            match_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n",
+                                  encoding="utf-8")
+
+            missing_health = tmp / "no-health.json"
+            out = tmp / "out"
+            # Should NOT raise: non-active source bypasses health gate.
+            rc = cascade_mod.main([
+                "--input", str(match_path),
+                "--players", str(players),
+                "--comparison", str(comparison),
+                "--health", str(missing_health),  # missing, but non-active → no check
+                "--output-root", str(out),
+            ])
+            self.assertIn(rc, (0, 2), msg="exit 0 or 2 expected (ready or hold), not error")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -38,38 +38,46 @@ help:
 	@echo "  make serve             Serve the local dashboard"
 	@echo "  make deploy-status     Show recent GitHub deploy runs"
 
+# supabase-import now routes through cascade: import + health refresh + full
+# downstream chain runs automatically on a successful import.
+# Exit 0 = all reviews ready; exit 2 = at least one review is on hold.
 supabase-import:
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc|usatoday|fantasypros|espn|cbs" && exit 1)
-	python3 pipelines/import_supabase_references.py --source "$(SOURCE)"
+	python3 pipelines/cascade_source_update.py --source "$(SOURCE)"
 
 import-health:
 	@test -n "$(NFL_WEEK)" || (echo "Set NFL_WEEK=<current NFL week>; the pull watchdog/cron passes it" && exit 1)
 	python3 pipelines/verify_import_health.py --nfl-week "$(NFL_WEEK)"
 
+# source-import routes through cascade: raw-file import + full downstream chain.
 source-import:
 	@test -n "$(SOURCE_FILE)" || (echo "Set SOURCE_FILE=/path/to/scrape.csv or .json" && exit 1)
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc, cbs, usatoday, etc." && exit 1)
-	python3 pipelines/import_source_snapshot.py --input "$(SOURCE_FILE)" --source "$(SOURCE)" --scoring "$(SCORING)" --teams "$(TEAMS)"
+	python3 pipelines/cascade_source_update.py --raw-input "$(SOURCE_FILE)" --raw-source "$(SOURCE)" --scoring "$(SCORING)" --teams "$(TEAMS)"
 
+# source-match routes through cascade: snapshot -> all remaining stages.
 source-match:
 	@test -n "$(SNAPSHOT_FILE)" || (echo "Set SNAPSHOT_FILE=data/raw/sources/.../snapshot.json" && exit 1)
-	python3 pipelines/match_source_snapshot.py --input "$(SNAPSHOT_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(SNAPSHOT_FILE)"
 
+# source-reference routes through cascade: match -> reference -> section -> merge -> reindex -> review.
 source-reference:
 	@test -n "$(MATCH_FILE)" || (echo "Set MATCH_FILE=output/source-matches/.../matched.json" && exit 1)
-	python3 pipelines/build_source_reference.py --input "$(MATCH_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(MATCH_FILE)"
 
+# comparison-section routes through cascade: reference(s) -> section -> merge -> reindex -> review.
 comparison-section:
 	@test -n "$(REFERENCE_FILE)$(REFERENCE_FILES)" || (echo "Set REFERENCE_FILE=output/source-references/.../reference.json or REFERENCE_FILES=\"a.json b.json\"" && exit 1)
-	python3 pipelines/build_comparison_source_section.py --input $(REFERENCE_FILES) $(REFERENCE_FILE)
+	python3 pipelines/cascade_source_update.py --input $(REFERENCE_FILES) $(REFERENCE_FILE)
 
+# comparison-merge and comparison-reindex both re-enter at the section stage.
 comparison-merge:
 	@test -n "$(CANDIDATE_FILE)" || (echo "Set CANDIDATE_FILE=output/comparison-candidates/.../section.json" && exit 1)
-	python3 pipelines/merge_comparison_candidate.py --candidate "$(CANDIDATE_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(CANDIDATE_FILE)"
 
 comparison-reindex:
 	@test -n "$(CANDIDATE_FILE)" || (echo "Set CANDIDATE_FILE=output/comparison-candidates/.../section.json" && exit 1)
-	python3 pipelines/reindex_comparison_section.py "$(CANDIDATE_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(CANDIDATE_FILE)"
 
 comparison-review:
 	@test -n "$(REINDEXED_FILE)" || (echo "Set REINDEXED_FILE=output/comparison-reference/...-reindexed.json" && exit 1)

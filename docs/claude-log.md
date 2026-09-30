@@ -32,6 +32,84 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-29 - Automatic entry-point cascade + health gate enforcement
+
+### Verified
+
+- Integrator review identified two unmet requirements from the prior session:
+  (1) existing Makefile entry points still invoked isolated stage scripts rather
+  than automatically cascading; (2) the `--input` intermediate artifact path and
+  `--skip-health-check` flag bypassed pipeline-rules §8 for active sources.
+  [`Read cascade_source_update.py main(); Read Makefile`]
+
+- Routed all Makefile stage targets through `cascade_source_update.py`:
+  `supabase-import`, `source-import`, `source-match`, `source-reference`,
+  `comparison-section`, `comparison-merge`, `comparison-reindex` all now invoke
+  the cascade runner. Any successful update to an earlier stage automatically
+  processes all dependent downstream stages. `comparison-review` and
+  `comparison-promote` remain as-is (terminal/gated). [`Edit Makefile`]
+
+- Removed `--skip-health-check` CLI flag from `cascade_source_update.py`.
+  Health gate now applies at every CLI entry for active dashboard sources.
+  [`Edit cascade_source_update.py`]
+
+- Added `_check_artifact_health(artifact, artifact_path)` method that extracts
+  `source_provenance.content_vintage` from intermediate artifacts and applies
+  the same pipeline-rules §8 gate as `_check_import_health`. Missing provenance,
+  absent health file, non-ok status, and vintage mismatch all fail closed with
+  clear messages. Called from CLI dispatch in `main()` before routing to each
+  intermediate entry method — one check per invocation, no double-check on
+  internal chains. [`Edit cascade_source_update.py`]
+
+- Added `_refresh_health_after_import(snapshot_path)` that, after a successful
+  `import_supabase_source`, calls `verify_import_health.run_health` with the
+  NFL week derived from the newly-written manifest (not any stale health file).
+  On Supabase failure the refresh is logged and continues; the subsequent
+  `_check_import_health` vintage check catches any remaining mismatch. [`Edit`]
+
+- Added `_nfl_week_from_manifest(snapshot_path)` module-level helper that reads
+  `week_designated` from the manifest, falling back to `re` parse of
+  `content_vintage` (e.g. "Week 4"). Returns None for date-based vintages. [`Edit`]
+
+- 9 new tests added to `tests/test_pipeline_cascade.py`:
+  - `EntryPointIntegrationTest` (3 tests): calls `cascade_mod.main()` at the
+    snapshot, match, and section entry points (mirroring the updated Makefile
+    targets) and asserts all downstream stages ran. Non-active source ("testonly")
+    used to keep health gate out of scope for these tests.
+  - `IntermediateHealthGateTest` (6 tests): covers missing health file, stale
+    health (non-ok status), vintage mismatch, absent source_provenance, valid
+    health allows cascade, and non-active source bypasses gate. Each negative
+    test asserts `SystemExit` and that no downstream artifacts were written.
+    [`Edit tests/test_pipeline_cascade.py`]
+
+- `python3 -m pytest tests/test_pipeline_cascade.py -v`: **26 passed, 0 skipped**.
+- `python3 -m unittest discover -s tests`: **419 passed, 6 skipped, 0 failures**.
+- `make validate` is red (exit 1) on the same pre-existing freshness gate: same
+  `comparison.built_at = 2026-09-25T22:38:27Z` blocker (age_days=4). No push.
+  [`pytest; unittest; make validate`]
+
+- Updated `docs/modular-pipeline.md` cascade section: removed bypass claims
+  (`--skip-health-check`, gate bypass for intermediate entries), documented real
+  behavior (automatic cascade from all existing entry points, health enforced at
+  every entry, health refreshed from manifest week after supabase import). [`Edit`]
+
+- Added FIX-010 to `docs/risk-register.md` recording the removed bypass. [`Edit`]
+
+### Claimed, unverified
+
+- `_refresh_health_after_import` will correctly call `verify_import_health.run_health`
+  and update `output/source-import-health.json` after `make supabase-import SOURCE=X`
+  in production. Not verified: test suite does not cover `--source` path (requires
+  Supabase); the refresh path was confirmed by code read only.
+
+### Open
+
+- `make validate` remains red (pre-existing freshness gate). Do not push.
+- Same blockers as prior sessions: USA Today and CBS Week 4 data absent,
+  FantasyCalc multi-combo pull incomplete, ESPN fixture combo mismatch.
+
+---
+
 ## 2026-09-29 - Cascade wiring, documentation, and hold test fix
 
 ### Verified

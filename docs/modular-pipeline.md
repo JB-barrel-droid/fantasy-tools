@@ -79,57 +79,62 @@ content vintage, row counts, failure reason) is written to
 `output/source-import-health.json` (schema: `docs/import-health-schema.md`)
 for the pull watchdog.
 
-### Automatic cascade (recommended for ordinary source updates)
+### Automatic cascade — existing entry points now cascade automatically
 
-After any successful import and health check, run the full downstream chain
-in one command:
+All Makefile stage targets (`make supabase-import`, `make source-import`,
+`make source-match`, `make source-reference`, `make comparison-section`,
+`make comparison-merge`, `make comparison-reindex`) now route through
+`pipelines/cascade_source_update.py`. A successful update to any earlier
+stage automatically processes all dependent downstream stages without a
+separate manual invocation.
 
 ```bash
-make cascade SOURCE=fantasycalc
-make cascade SOURCE=fantasypros
-make cascade SOURCE=espn
+make supabase-import SOURCE=fantasycalc   # import + full chain to review
+make source-match SNAPSHOT_FILE=data/raw/sources/fantasycalc/week-4/snapshot.json
+make source-reference MATCH_FILE=output/source-matches/fantasycalc/2026-09-29/fantasycalc-ppr-12-matched.json
+make comparison-section REFERENCE_FILE=output/source-references/fantasycalc/2026-09-29/fantasycalc-ppr-12-reference.json
+make comparison-merge CANDIDATE_FILE=output/comparison-candidates/fantasycalc/2026-09-29/fantasycalc-full-12-section.json
+make comparison-reindex CANDIDATE_FILE=output/comparison-candidates/fantasycalc/2026-09-29/fantasycalc-full-12-section.json
 ```
 
-`pipelines/cascade_source_update.py` runs every stage in order:
-supabase-import → source-match → source-reference → comparison-section →
-comparison-merge + comparison-merge-report → comparison-reindex →
-comparison-review.
+`make cascade SOURCE=<source>` and `make cascade-from INPUT=<artifact>` remain
+available for explicit full-chain or re-entry invocations.
 
-**Automatic wiring rules:**
-- The import health gate (§8) must be green for SOURCE before any
-  match/reference/section step runs. Pass `--skip-health-check` or use
-  `make cascade-from` to bypass (tests, non-active sources, or manual
-  intermediate-artifact entry).
+Multi-file reference entry (USA Today — one reference per scoring):
+
+```bash
+make comparison-section REFERENCE_FILES="output/source-references/usatoday/2026-09-29/usatoday-standard-12-reference.json output/source-references/usatoday/2026-09-29/usatoday-half-ppr-12-reference.json output/source-references/usatoday/2026-09-29/usatoday-ppr-12-reference.json"
+```
+
+**Import health gate (pipeline-rules §8) is enforced at every entry point:**
+
+- No bypass flag exists. Active dashboard sources (espn, usatoday, fantasycalc,
+  fantasypros, cbs) always require a valid, current-week import health check
+  before any stage runs — including when entering at an intermediate artifact.
+- For `make supabase-import SOURCE=X`: the cascade imports the snapshot, then
+  refreshes `output/source-import-health.json` using the NFL week from the
+  newly-written manifest (not a stale prior file), then verifies health.
+- For intermediate artifacts (match, reference, section, reindexed) from active
+  sources: the artifact's `source_provenance.content_vintage` is verified
+  against the health file. Missing provenance or absent/stale/mismatched health
+  fails closed with a clear message.
+- Non-active sources bypass the gate automatically (no health file required).
+- Tests that need to bypass must use a non-active source name or supply a valid
+  synthetic health file. There is no `--skip-health-check` flag.
+
+**Automatic cascade behavior rules:**
 - Every stage is always visited. `write_if_changed` skips rewriting when
   the computed output is materially identical to what is already on disk,
-  but no stage is ever short-circuited. This means: (a) missing or corrupt
-  downstream artifacts are always restored in a single run; (b) a changed
-  comparison fixture (ESPN anchor) or triage file propagates to the affected
-  stages even when the upstream snapshot is unchanged.
+  but no stage is ever short-circuited. Missing or corrupt downstream
+  artifacts are always restored in a single run.
 - Once any stage writes a new artifact, all downstream stages are forced to
-  rewrite too — provenance requires that every artifact was computed from the
-  same rebuilt input.
-- The cascade never writes under `data/`. All output goes under `output/` or
-  a custom path. Passing `--candidate-dir data/...` is refused at startup.
+  rewrite — provenance requires every artifact was computed from the same
+  rebuilt input.
+- The cascade never writes under `data/`. All output goes under `output/`.
 - **Promotion is not automatic.** The cascade stops at comparison-review.
   After a `ready` verdict, promote explicitly with `make comparison-promote`.
 
-Re-enter at any intermediate stage (after a partial run or manual edit):
-
-```bash
-make cascade-from INPUT=output/source-matches/fantasycalc/2026-09-29/fantasycalc-ppr-12-matched.json
-make cascade-from INPUT=output/comparison-candidates/fantasycalc/2026-09-29/fantasycalc-full-12-section.json
-```
-
-Multi-file reference entry (USA Today, which has one reference per scoring):
-
-```bash
-make cascade-from INPUT="output/source-references/usatoday/2026-09-29/usatoday-standard-12-reference.json output/source-references/usatoday/2026-09-29/usatoday-half-ppr-12-reference.json output/source-references/usatoday/2026-09-29/usatoday-ppr-12-reference.json"
-```
-
 Exit codes: 0 = all reviews ready; 2 = at least one review is on hold.
-A hold does NOT block subsequent cascade runs — re-run after adding a triage
-file via `--triage` to resolve review rows.
 
 Match an imported source snapshot to canonical `player_key` values:
 

@@ -17,20 +17,29 @@ human approval path (``promote_comparison_section.py --approve``).
 
 Automatic wiring
 ----------------
-``make cascade SOURCE=<source>`` runs the full chain from a fresh Supabase
-import. ``make cascade-from INPUT=<artifact>`` re-enters the chain at the
-artifact's schema stage. Individual ``make source-match / source-reference /
-...`` targets remain available for debugging individual stages.
+All Makefile stage entry points (``make supabase-import``, ``make source-import``,
+``make source-match``, ``make source-reference``, ``make comparison-section``,
+``make comparison-merge``, ``make comparison-reindex``) route through this runner.
+This ensures every successful update to an earlier stage automatically processes
+all dependent downstream stages without a separate manual invocation.
 
 Import health gate (pipeline-rules §8)
 ---------------------------------------
-For the five active dashboard sources (espn, usatoday, fantasycalc,
-fantasypros, cbs), the cascade reads ``output/source-import-health.json``
-before proceeding to match. It verifies the source's L1 status is ``"ok"``
-and the health file's recorded ``content_vintage`` matches the snapshot
-manifest's ``content_vintage``. Any mismatch fails closed with a clear
-message. Pass ``--skip-health-check`` or leave ``--health`` unset to bypass
-the gate (tests, intermediate-artifact entry, non-active sources).
+The gate applies to all five active dashboard sources (espn, usatoday,
+fantasycalc, fantasypros, cbs) at EVERY entry point. There is no bypass for
+intermediate artifact entries from active sources.
+
+For ``--source`` (supabase import): health is refreshed using the NFL week
+derived from the newly-written snapshot manifest, then verified against the
+refreshed file.
+
+For ``--raw-input`` and ``--input`` intermediate artifacts (match, reference,
+section, reindexed): the artifact's ``source_provenance.content_vintage`` is
+verified against the health file. Missing provenance or absent/stale/mismatched
+health fails closed. Non-active sources bypass the gate.
+
+There is no ``--skip-health-check`` flag. Tests that need to bypass must either
+use a non-active source name or supply a valid synthetic health file.
 
 Stage freshness and recovery
 -----------------------------
@@ -57,6 +66,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re as _re
 import sys
 from datetime import date
 from pathlib import Path
@@ -80,6 +90,30 @@ import review_comparison_candidate as review_stage  # noqa: E402
 # Active dashboard sources that require an import-health gate before cascade.
 ACTIVE_CASCADE_SOURCES = frozenset({"espn", "usatoday", "fantasycalc", "fantasypros", "cbs"})
 DEFAULT_HEALTH_PATH = ROOT / "output" / "source-import-health.json"
+
+
+def _nfl_week_from_manifest(snapshot_path: Path) -> int | None:
+    """Return the NFL week from the snapshot's sidecar manifest, or None.
+
+    Reads ``week_designated`` first; falls back to parsing the content_vintage
+    string (e.g. ``'Week 4'``). Returns None when the vintage is a date rather
+    than a week label (ESPN/CBS may use date-based vintages).
+    """
+    manifest_path = snapshot_path.parent / "snapshot-manifest.json"
+    if not manifest_path.is_file():
+        return None
+    try:
+        manifest = load_json(manifest_path)
+    except (OSError, json.JSONDecodeError):
+        return None
+    week = manifest.get("week_designated")
+    if isinstance(week, int) and not isinstance(week, bool):
+        return week
+    vintage = str(manifest.get("content_vintage") or "")
+    m = _re.fullmatch(r"\s*[Ww]eek\s+(\d+)\s*", vintage)
+    if m:
+        return int(m.group(1))
+    return None
 
 # data/ root used for the output-dir escape guard.
 _DATA_ROOT = (ROOT / "data").resolve()
@@ -323,7 +357,7 @@ class Cascade:
         when ``health_path`` is None).
         """
         if self.health_path is None:
-            return  # health gate disabled: test harness, intermediate entry, or non-active source
+            return  # health gate disabled (Cascade used directly in test harness)
 
         snapshot = load_json(snapshot_path)
         source = snapshot.get("source")
@@ -376,6 +410,119 @@ class Cascade:
                 f"Re-import via: make supabase-import SOURCE={source}"
             )
 
+    def _check_artifact_health(self, artifact: dict[str, Any], artifact_path: Path) -> None:
+        """Health gate for intermediate artifacts from active sources.
+
+        Called at CLI entry points when the user passes an intermediate artifact
+        (match, reference, section, or reindexed) via ``--input``.
+
+        Human selection of an intermediate artifact is NOT a bypass of
+        pipeline-rules §8. For active dashboard sources the artifact's
+        ``source_provenance.content_vintage`` is verified against the health
+        file. Missing provenance or absent/stale/mismatched health fails closed.
+        Non-active sources pass through without a check (same rule as
+        ``_check_import_health``).
+
+        This method must not be called from within the cascade chain
+        (``cascade_from_match → cascade_from_references → ...``); it is only
+        invoked from the CLI dispatcher in ``main()`` so the check runs exactly
+        once per invocation.
+        """
+        if self.health_path is None:
+            return  # health gate disabled (Cascade used directly in test harness)
+
+        source = (
+            artifact.get("source_key")
+            or artifact.get("source")
+            or artifact.get("section_key")
+        )
+        if source not in ACTIVE_CASCADE_SOURCES:
+            return  # not a gateable source
+
+        provenance = artifact.get("source_provenance")
+        if not isinstance(provenance, dict):
+            raise SystemExit(
+                f"cascade blocked: {artifact_path} is from active source {source!r} "
+                "but has no source_provenance field. "
+                "Provenance is required for pipeline-rules §8 health gate. "
+                f"Re-import via: make supabase-import SOURCE={source}"
+            )
+
+        content_vintage = provenance.get("content_vintage")
+        if not content_vintage:
+            raise SystemExit(
+                f"cascade blocked: {artifact_path} source_provenance.content_vintage is "
+                "absent. Cannot verify pipeline-rules §8 without content vintage. "
+                f"Re-import via: make supabase-import SOURCE={source}"
+            )
+
+        hp = self.health_path
+        if not hp.is_file():
+            raise SystemExit(
+                f"cascade blocked: import health file {hp} not found. "
+                f"Run: make import-health NFL_WEEK=<current_week>"
+            )
+        health = load_json(hp)
+        if health.get("schema") != "trade-value-import-health-v1":
+            raise SystemExit(
+                f"cascade blocked: {hp} has unexpected schema {health.get('schema')!r}"
+            )
+        entry = (health.get("sources") or {}).get(source)
+        if not isinstance(entry, dict):
+            raise SystemExit(
+                f"cascade blocked: health file has no entry for source {source!r}"
+            )
+        status = entry.get("status")
+        if status != "ok":
+            failure_reason = entry.get("failure_reason") or "unknown reason"
+            raise SystemExit(
+                f"cascade blocked: import health for {source!r} is {status!r} "
+                f"({failure_reason}). "
+                f"Fix the import and re-run: make import-health NFL_WEEK=<n>"
+            )
+        health_vintage = str(entry.get("content_vintage") or "")
+        if str(content_vintage) != health_vintage:
+            raise SystemExit(
+                f"cascade blocked: artifact content_vintage {content_vintage!r} does not "
+                f"match health content_vintage {health_vintage!r}. "
+                f"Re-import via: make supabase-import SOURCE={source}"
+            )
+
+    def _refresh_health_after_import(self, snapshot_path: Path) -> None:
+        """Refresh the health file after a successful Supabase import.
+
+        Uses the NFL week derived from the newly-written snapshot manifest so
+        the health report reflects the current import, not any stale prior run.
+        A failed refresh is logged but does not abort: the subsequent
+        ``_check_import_health`` call will detect any vintage mismatch and fail
+        closed with a clear message.
+
+        Skipped when health_path is None (test harness / non-active source).
+        """
+        if self.health_path is None:
+            return
+        nfl_week = _nfl_week_from_manifest(snapshot_path)
+        if nfl_week is None:
+            return  # non-week-designated vintage; health refresh skipped
+        try:
+            import verify_import_health as _vh  # noqa: PLC0415 -- lazy import
+            _vh.run_health(
+                nfl_week=nfl_week,
+                sources_root=self.raw_dir,
+                output_path=self.health_path,
+            )
+        except SystemExit:
+            # run_health writes the file and then sys.exit()s on non-zero.
+            # We want the file written, not the exit propagated.
+            pass
+        except Exception as exc:  # noqa: BLE001
+            # Supabase unavailable or other transient failure — do not abort
+            # the cascade; let _check_import_health catch any vintage mismatch.
+            print(
+                f"cascade: health refresh failed (will check existing file): {exc}",
+                file=sys.stderr,
+            )
+
     # ------------------------------------------------------------------
     # Import entry points
     # ------------------------------------------------------------------
@@ -419,6 +566,9 @@ class Cascade:
         )
         if written:
             self._downstream_force = True
+        # Refresh health AFTER the import so the health report reflects the
+        # current snapshot. NFL week comes from the manifest, not a stale file.
+        self._refresh_health_after_import(snapshot_path)
         return snapshot_path
 
     # ------------------------------------------------------------------
@@ -614,29 +764,20 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--report", type=Path)
     parser.add_argument("--triage", type=Path)
     parser.add_argument("--health", type=Path, default=None,
-                        help="import health JSON (default: output/source-import-health.json for "
-                             "--source/--raw-input; skipped for --input intermediate artifacts)")
-    parser.add_argument("--skip-health-check", action="store_true",
-                        help="bypass the import health gate (use only for tests or non-active sources)")
+                        help="import health JSON (default: output/source-import-health.json). "
+                             "Active dashboard sources are always checked; supply a synthetic "
+                             "health file in tests rather than omitting the check.")
     parser.add_argument("--force", action="store_true",
                         help="rewrite downstream artifacts even if material content is unchanged")
     args = parser.parse_args(argv)
 
     dirs = output_dirs(args)
 
-    # Determine health path: applies to --source and --raw-input (primary automated
-    # entry points). Intermediate --input artifacts bypass the gate by default.
-    if args.skip_health_check:
-        health_path: Path | None = None
-    elif args.health:
-        health_path = args.health
-    elif args.source or args.raw_input:
-        # Automated entry: enforce health gate using the default health file.
-        health_path = DEFAULT_HEALTH_PATH
-    else:
-        # Intermediate artifact entry (--input): gate bypass is documented
-        # in the module docstring — the human explicitly chose this artifact.
-        health_path = None
+    # Health path applies to ALL CLI entry points. Active dashboard sources are
+    # always verified; non-active sources pass through the gate unconditionally.
+    # The Cascade class supports health_path=None only for direct (non-CLI)
+    # programmatic use (e.g., tests that construct Cascade explicitly).
+    health_path: Path = args.health if args.health else DEFAULT_HEALTH_PATH
 
     cascade = Cascade(
         players=args.players,
@@ -668,14 +809,30 @@ def main(argv: list[str] | None = None) -> int:
         stage = infer_stage(inputs)
         trigger = f"{stage}:{','.join(str(path) for path in inputs)}"
         if stage == "snapshot":
+            # _check_import_health is called inside cascade_from_snapshot.
             cascade.cascade_from_snapshot(inputs[0])
         elif stage == "match":
+            # Health gate: verify provenance of the match artifact before
+            # entering the chain. This is the CLI entry for make source-reference.
+            artifact = load_json(inputs[0])
+            cascade._check_artifact_health(artifact, inputs[0])
             cascade.cascade_from_match(inputs[0])
         elif stage == "reference":
+            # Health gate: verify provenance of each reference artifact.
+            # This is the CLI entry for make comparison-section.
+            for ref_path in inputs:
+                ref_artifact = load_json(ref_path)
+                cascade._check_artifact_health(ref_artifact, ref_path)
             cascade.cascade_from_references(inputs)
         elif stage == "section":
+            # Health gate: verify provenance of the section artifact.
+            # This is the CLI entry for make comparison-merge / comparison-reindex.
+            artifact = load_json(inputs[0])
+            cascade._check_artifact_health(artifact, inputs[0])
             cascade.cascade_from_section(inputs[0])
         elif stage == "reindexed":
+            artifact = load_json(inputs[0])
+            cascade._check_artifact_health(artifact, inputs[0])
             cascade.cascade_from_reindexed(inputs[0])
         elif stage == "review":
             cascade.steps.append(
