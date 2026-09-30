@@ -794,78 +794,102 @@ async function main(){
         fix: "Needed: Investigate roster mapping source; validate against official NFL rosters."
       }
     ],
-    criteria: [
+    frameworks: [
       {
-        id: "C1",
-        name: "Chart Render Health",
-        check: "Chart canvas contains visible curve paths (not blank)",
-        frequency: "On every page load and after any setting change",
-        fail: "Canvas is blank white with no curves rendered",
-        action: "Alert immediately; do not deploy if chart is blank",
-        reasoning: "From QA-001: A blank chart is the worst failure mode - user gets zero value. The guard that caused it was meant to protect data quality but destroyed usability."
+        id: "F1",
+        name: "Render Integrity",
+        principle: "The UI must actually render what it promises",
+        rule: "Every visual component must either render correctly or show an explicit, informative fallback — never a blank screen, never a silent absence. Data-quality guards must degrade to warnings, never block rendering.",
+        revealedBy: "QA-001 (chart blank on guard failure), QA-004 (curves unavailable in some league setups)",
+        futureApplication: "Any new chart, table, widget, or visualization: verify it renders under all data conditions (empty, partial, error, disagreement). Any new guard or validation: verify it warns rather than blanks.",
+        checks: [
+          {
+            id: "C1",
+            name: "Chart Render Health",
+            check: "Chart canvas contains visible curve paths (not blank)",
+            fail: "Canvas is blank white with no curves rendered",
+            reasoning: "From QA-001: A blank chart is the worst failure mode — user gets zero value. The guard that caused it was meant to protect data quality but destroyed usability."
+          },
+          {
+            id: "C2",
+            name: "Guard Failure Mode",
+            check: "When sourceScaleAgreement fails, chart still renders with warning",
+            fail: "Guard failure blanks the chart",
+            reasoning: "From QA-001: Guards must distinguish data corruption (block) from genuine disagreement (warn). Scale disagreement is legitimate data."
+          }
+        ]
       },
       {
-        id: "C2",
-        name: "Guard Failure Mode",
-        check: "When sourceScaleAgreement fails, chart still renders with warning",
-        frequency: "On every guard evaluation",
-        fail: "Guard failure blanks the chart",
-        action: "Guard must degrade gracefully, never block rendering",
-        reasoning: "From QA-001: Guards must distinguish data corruption (block) from genuine disagreement (warn). Scale disagreement is legitimate data."
+        id: "F2",
+        name: "State Consistency",
+        principle: "UI state must stay coherent across components and user actions",
+        rule: "When the user changes a setting, every component must reflect that change. When the system overrides user intent, it must notify visibly. No silent desyncs, no silent reverts.",
+        revealedBy: "QA-002 (player table ignores league settings), QA-003 (ESPN checkbox silently reverts)",
+        futureApplication: "Any new setting, toggle, filter, or cross-component interaction: verify all affected components update. Any programmatic state override: verify user gets notified.",
+        checks: [
+          {
+            id: "C3",
+            name: "Table-Chart Settings Sync",
+            check: "After scoring/team change, table caption matches chart caption within 3 seconds",
+            fail: "Captions differ, or table values identical across scorings",
+            reasoning: "From QA-002: The table claims 'using the same league settings as the graph' — this is a contract with the user. Breaking it silently is worse than an error."
+          },
+          {
+            id: "C4",
+            name: "Silent State Reverts",
+            check: "Any programmatic revert of user action triggers visible notification",
+            fail: "Checkbox/toggle reverts without user feedback",
+            reasoning: "From QA-003: Silent reverts are indistinguishable from bugs. Users lose trust when the UI doesn't do what they asked without explanation."
+          }
+        ]
       },
       {
-        id: "C3",
-        name: "Table-Chart Settings Sync",
-        check: "After scoring/team change, table caption matches chart caption within 3 seconds",
-        frequency: "After every setting change",
-        fail: "Captions differ, or table values identical across scorings",
-        action: "Flag sync failure; check event system and polling backup",
-        reasoning: "From QA-002: The table claims 'using the same league settings as the graph' - this is a contract with the user. Breaking it silently is worse than an error."
+        id: "F3",
+        name: "Information Coherence",
+        principle: "The same information must be presented consistently everywhere",
+        rule: "Define every metric, label, and range once. Use that single definition in every component. If two places show different values for the same concept, one of them is wrong.",
+        revealedBy: "QA-005 (contradictory freshness messaging), QA-006 (rank slider range mismatch), QA-007 (coverage baseline confusion)",
+        futureApplication: "Any new metric, timestamp, count, or range display: verify it uses the canonical definition. Any new UI text describing data: verify it matches what other components say.",
+        checks: [
+          {
+            id: "C5",
+            name: "Freshness Message Consistency",
+            check: "'Sources current' label only appears when zero stale refs",
+            fail: "Caption claims 'current' while health shows stale refs",
+            reasoning: "From QA-005: Contradictory freshness messages make users doubt all data. One definition, used everywhere."
+          },
+          {
+            id: "C6",
+            name: "UI Range Accuracy",
+            check: "Slider max values match actual data counts",
+            fail: "Slider range differs from data by >5%",
+            reasoning: "From QA-006: Hardcoded UI values rot. Data-driven UI stays correct as data changes."
+          }
+        ]
       },
       {
-        id: "C4",
-        name: "Silent State Reverts",
-        check: "Any programmatic revert of user action triggers visible notification",
-        frequency: "On every state change",
-        fail: "Checkbox/toggle reverts without user feedback",
-        action: "Add user notification for the revert reason",
-        reasoning: "From QA-003: Silent reverts are indistinguishable from bugs. Users lose trust when the UI doesn't do what they asked without explanation."
-      },
-      {
-        id: "C5",
-        name: "Freshness Message Consistency",
-        check: "'Sources current' label only appears when zero stale refs",
-        frequency: "On every render",
-        fail: "Caption claims 'current' while health shows stale refs",
-        action: "Unify freshness logic across components",
-        reasoning: "From QA-005: Contradictory freshness messages make users doubt all data. One definition, used everywhere."
-      },
-      {
-        id: "C6",
-        name: "UI Range Accuracy",
-        check: "Slider max values match actual data counts",
-        frequency: "On data load",
-        fail: "Slider range differs from data by >5%",
-        action: "Derive ranges from data, not hardcoded values",
-        reasoning: "From QA-006: Hardcoded UI values rot. Data-driven UI stays correct as data changes."
-      },
-      {
-        id: "C7",
-        name: "Player-Team Assignment Validity",
-        check: "Sample of player-team assignments match official rosters",
-        frequency: "Daily",
-        fail: ">2% mismatch rate",
-        action: "Flag data corruption or stale roster mapping",
-        reasoning: "From QA-008: Team assignments are user-visible and verifiable. Mismatches indicate pipeline issues that may affect other fields."
-      },
-      {
-        id: "C8",
-        name: "Value Sanity Bounds",
-        check: "Top player values within expected ranges (QB: 20-40, RB: 50-75, WR: 30-45, TE: 15-30 for Full PPR 12-team)",
-        frequency: "On every data build",
-        fail: "Values outside 2x expected range",
-        action: "Block publish; investigate data pipeline",
-        reasoning: "Sanity bounds catch pipeline errors before users see absurd values. A QB valued at 200 or 2 is clearly wrong."
+        id: "F4",
+        name: "Data Integrity",
+        principle: "The underlying data must be correct, valid, and traceable to source",
+        rule: "Every value shown must be traceable through the pipeline to its source. Entity relationships (player→team, value→source) must be preserved. Sanity bounds catch corruption before users see absurd values.",
+        revealedBy: "QA-008 (scrambled player-team assignments), plus the source lineage and index-math verification work",
+        futureApplication: "Any new data source: verify values match the source exactly. Any new transformation: verify output matches recomputed expected values. Any new entity relationship: verify against authoritative reference.",
+        checks: [
+          {
+            id: "C7",
+            name: "Player-Team Assignment Validity",
+            check: "Sample of player-team assignments match official rosters",
+            fail: ">2% mismatch rate",
+            reasoning: "From QA-008: Team assignments are user-visible and verifiable. Mismatches indicate pipeline issues that may affect other fields."
+          },
+          {
+            id: "C8",
+            name: "Value Sanity Bounds",
+            check: "Top player values within expected ranges (QB: 20-40, RB: 50-75, WR: 30-45, TE: 15-30 for Full PPR 12-team)",
+            fail: "Values outside 2x expected range",
+            reasoning: "Sanity bounds catch pipeline errors before users see absurd values. A QB valued at 200 or 2 is clearly wrong."
+          }
+        ]
       }
     ]
   };
@@ -900,16 +924,25 @@ async function main(){
       </div>
     </details>`).join("");
 
-  qaCriteria.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Monitoring criteria (derived from root causes)</h3>` +
-    qaData.criteria.map(c => `
-    <details style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
-      <summary style="cursor:pointer;font-size:13px"><b>${c.id}: ${c.name}</b></summary>
-      <div style="margin-top:8px;font-size:12.5px;color:var(--dim);line-height:1.5">
-        <div><b style="color:var(--fg)">Check:</b> ${c.check}</div>
-        <div><b style="color:var(--fg)">Frequency:</b> ${c.frequency}</div>
-        <div><b style="color:var(--fg)">Fail condition:</b> ${c.fail}</div>
-        <div><b style="color:var(--fg)">Action:</b> ${c.action}</div>
-        <div style="margin-top:6px"><b style="color:var(--fg)">Reasoning:</b> <i>${c.reasoning}</i></div>
+  qaCriteria.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Monitoring frameworks (enduring lenses, not one-time checks)</h3>
+  <p style="font-size:12.5px;color:var(--dim);margin:0 0 12px;line-height:1.5">Each QA error revealed a <b style="color:var(--fg)">framework</b> — a class of failure that applies to every future feature, not just the bug that exposed it. New work should be evaluated against all four.</p>` +
+    qaData.frameworks.map(f => `
+    <details style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--card)" open>
+      <summary style="cursor:pointer;font-size:13.5px"><b>${f.id}: ${f.name}</b> <span style="color:var(--dim);font-weight:400">— ${f.principle}</span></summary>
+      <div style="margin-top:10px;font-size:12.5px;color:var(--dim);line-height:1.6">
+        <div style="margin-bottom:8px;padding:8px 10px;background:var(--card2);border-radius:6px;border-left:3px solid var(--blue)">
+          <b style="color:var(--fg)">The rule:</b> ${f.rule}
+        </div>
+        <div style="margin-bottom:8px"><b style="color:var(--fg)">Revealed by:</b> ${f.revealedBy}</div>
+        <div style="margin-bottom:8px"><b style="color:var(--fg)">Apply to future work:</b> ${f.futureApplication}</div>
+        <div style="margin-top:10px"><b style="color:var(--fg)">Active checks:</b></div>
+        ${f.checks.map(c => `
+          <div style="margin:6px 0 6px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card2)">
+            <div><b style="color:var(--fg)">${c.id}: ${c.name}</b></div>
+            <div style="margin-top:4px"><b>Check:</b> ${c.check}</div>
+            <div><b>Fail:</b> ${c.fail}</div>
+            <div style="margin-top:4px"><i>${c.reasoning}</i></div>
+          </div>`).join("")}
       </div>
     </details>`).join("");
 
