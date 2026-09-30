@@ -196,6 +196,19 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="espnInputsTable" style="overflow-x:auto"></div>
 </section>
 
+<section class="card" id="espnRawCard">
+  <h2>ESPN raw trade values — unscaled DDF output</h2>
+  <div class="desc">
+    ESPN publishes no trade values of its own, so there is no external number to check against.
+    Instead this section exposes the <b>raw trade values</b> — the DDF two-tier value-above-waivers
+    numbers <b>before</b> the 70-point scaling — and verifies every transformation step recomputes exactly:
+    <br><span id="espnRawFormula" style="font-family:monospace;background:#f5f5f5;padding:2px 6px;border-radius:4px"></span>
+    <br>A red <b>✗</b> means the chart's fixture value does not match what the DDF leg computed.
+  </div>
+  <div id="espnRawSummary" style="margin-bottom:16px"></div>
+  <div id="espnRawTable" style="overflow-x:auto"></div>
+</section>
+
 <section class="card" id="tradeQaCard">
   <h2>Trade dashboard QA — rendered output health</h2>
   <div class="desc">
@@ -767,6 +780,75 @@ async function main(){
     }
   } catch(e) {
     espnInputsHost.innerHTML = `<div style="color:var(--grey)">Failed to load input comparison: ${String(e).slice(0,80)}</div>`;
+  }
+
+  // ESPN raw trade values — unscaled DDF output with transformation checks
+  const espnRawHost = document.getElementById("espnRawTable");
+  const espnRawSummary = document.getElementById("espnRawSummary");
+  const espnRawFormula = document.getElementById("espnRawFormula");
+  try {
+    const rvResp = await fetch("espn-raw-values.json", {cache:"no-store"});
+    if(rvResp.ok){
+      const rvData = await rvResp.json();
+      const players = rvData.players || [];
+      const leg = rvData.leg || {};
+      espnRawFormula.textContent = leg.formula || "";
+
+      const okCount = players.filter(p => p.all_steps_ok).length;
+      const total = players.length;
+      const inLeg = players.filter(p => p.leg_value != null).length;
+      const stepFails = players.filter(p => p.leg_value != null && !p.all_steps_ok);
+      const missing = players.filter(p => p.leg_value == null);
+      const allOk = stepFails.length === 0 && missing.length === 0;
+
+      espnRawSummary.innerHTML = `
+        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "#e8f5e9" : (stepFails.length > 0 ? "#ffebee" : "#fff8e1")};border:1px solid ${allOk ? "#4caf50" : (stepFails.length > 0 ? "#f44336" : "#ffa000")}">
+          <b>${okCount}/${total}</b> players with all transformation steps verified ·
+          <span style="font-weight:bold;color:${allOk ? "#2e7d32" : (stepFails.length > 0 ? "#c62828" : "#e65100")}">${allOk ? "✓ PASS" : (stepFails.length > 0 ? "✗ FAIL" : "⚠ INCOMPLETE")}</span>
+          ${stepFails.length > 0 ? `<span style="color:#c62828;font-size:12px;margin-left:8px">${stepFails.length} fixture value${stepFails.length > 1 ? "s" : ""} do not match the DDF leg</span>` : ""}
+          ${missing.length > 0 ? `<span style="color:#e65100;font-size:12px;margin-left:8px">${missing.length} player${missing.length > 1 ? "s" : ""} not in DDF leg</span>` : ""}
+          <div style="color:#666;font-size:12px;margin-top:4px">DDF leg: <code>${leg.bake_id || "n/a"}</code> (${leg.generated_at || "n/a"}) · scale factor ${leg.scale_70_over_max != null ? Number(leg.scale_70_over_max).toFixed(6) : "n/a"} · max raw ${leg.max_raw_value != null ? Number(leg.max_raw_value).toFixed(3) : "n/a"}</div>
+        </div>`;
+
+      let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
+        <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd;position:sticky;left:0;background:#fff">Player</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">Pos</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">Tier</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd" title="Per-game native projection">PPG</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd" title="DDF value-above-waivers, unscaled">Raw value</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd" title="Raw × scale factor, recomputed here">Recomputed</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd" title="What the DDF leg baked">Leg value</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd" title="What the chart fixture shows">Fixture</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">Steps</th>
+        </tr></thead><tbody>`;
+
+      players.forEach(p => {
+        const hasLeg = p.leg_value != null;
+        const rowBg = !hasLeg ? "#fff8e1" : (p.all_steps_ok ? "#f1f8e9" : "#ffebee");
+        const fmt = (v, dp) => v == null ? "—" : Number(v).toFixed(dp);
+        const stepCell = !hasLeg
+          ? `<span style="color:#e65100">not in leg</span>`
+          : `${p.raw_to_scaled_ok ? "✓" : "<b style='color:#c62828'>✗</b>"} raw→scaled · ${p.scaled_to_fixture_ok ? "✓" : "<b style='color:#c62828'>✗</b>"} scaled→fixture`;
+        const fixStyle = hasLeg && !p.scaled_to_fixture_ok ? "background:#ffcdd2;font-weight:bold" : "";
+        html += `<tr style="background:${rowBg}">
+          <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold;position:sticky;left:0;background:${rowBg}">${p.name}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.pos}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.tier}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${fmt(p.ppg_native, 2)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${fmt(p.raw_value, 3)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${fmt(p.recomputed_scaled, 1)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${fmt(p.leg_value, 1)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${fixStyle}">${fmt(p.fixture_value, 1)}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;font-size:11px">${stepCell}</td>
+        </tr>`;
+      });
+      html += `</tbody></table>`;
+      espnRawHost.innerHTML = html;
+    } else {
+      espnRawHost.innerHTML = `<div style="color:var(--grey)">Raw values not available. Run <code>python3 pipelines/build_espn_raw_values.py</code>.</div>`;
+    }
+  } catch(e) {
+    espnRawHost.innerHTML = `<div style="color:var(--grey)">Failed to load raw values: ${String(e).slice(0,80)}</div>`;
   }
 
   // C9: Live deployment check via GitHub Actions API
