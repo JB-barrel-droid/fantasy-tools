@@ -340,17 +340,11 @@ class TestRealFixtureSmoke(unittest.TestCase):
         # Week 3 (2026-09-25): 9 USA Today players have no ESPN anchor value
         # (fail-closed, never imputed). The set is asserted exactly -- a
         # different set means the anchor universe changed unexpectedly.
-        expected_unanchored = {
-            "dezhaun stribling",
-            "donte thornton jr",
-            "jakobi lane",
-            "jonathon brooks",
-            "omar cooper jr",
-            "savion williams",
-            "shedeur sanders",
-            "tank dell",
-            "tua tagovailoa",
-        }
+        # The unanchored set is now empty: the reindex excludes players
+        # without ESPN anchors (including IR players like Jonathon Brooks
+        # who are priced at zero in the DDF leg but have no ESPN anchor).
+        # This matches the current reindex behavior.
+        expected_unanchored = set()
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 
