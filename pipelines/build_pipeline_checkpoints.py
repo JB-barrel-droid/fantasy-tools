@@ -54,6 +54,8 @@ CHECKPOINTS = [
      "Fixture synced app/ → dist/, validation gates run"),
     ("c9_deploy", "C9 · Deployment/live artifact",
      "GitHub Pages deploys dist/ (browser checks Actions API live)"),
+    ("c10_rendered", "C10 · Rendered production output",
+     "Live production JSON serves correct week labels and loadable comparison data (catches label/data drift the pipes miss)"),
 ]
 
 
@@ -408,6 +410,70 @@ def build_checkpoints():
             # API check failed; keep as unk with reason
             cps["c9_deploy"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not check Pages API: {str(e)[:60]}. Browser checks live."}
+
+        # C10: Rendered production output - fetch the LIVE served JSON and validate
+        # what the production dashboard actually displays. Catches:
+        # - week_designated labels wrong (e.g. "Week 2" when expecting "Week 4")
+        # - value_weeks.monday stale
+        # - served bytes differ from repo dist/ (CDN drift or failed sync)
+        # - source combos missing (dashboard guard failures)
+        cps["c10_rendered"] = {"timestamp": None, "status": "unk",
+            "reason": "Rendered-output check not yet run."}
+        try:
+            import hashlib
+            # Expected NFL week from date (2026 season: Week 1 Thursday = 2026-09-03)
+            season_start = datetime(2026, 9, 3, tzinfo=timezone.utc)
+            now_utc = datetime.now(timezone.utc)
+            expected_week = ((now_utc - season_start).days // 7) + 1
+            expected_designation = f"Week {expected_week}"
+
+            # Fetch live production JSON
+            live_url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json"
+            req = urllib.request.Request(live_url, headers={"User-Agent": "fantasy-tools-monitor"})
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                live_bytes = resp.read()
+            live_data = json.loads(live_bytes.decode())
+            live_sha = hashlib.sha256(live_bytes).hexdigest()[:12]
+
+            # Compare against local dist bytes
+            dist_path = REPO / "dist" / "assets" / "comparison-sources-data.json"
+            dist_sha = None
+            if dist_path.exists():
+                dist_sha = hashlib.sha256(dist_path.read_bytes()).hexdigest()[:12]
+
+            issues = []
+            # Check 1: week_designated matches expected
+            src_data = live_data.get("sources", {}).get(src, {})
+            week_des = src_data.get("week_designated", "")
+            if week_des != expected_designation:
+                # Allow "rest of season" for ESPN (not week-designated)
+                if not (src == "espn" and week_des == "rest of season"):
+                    issues.append(f"week_designated='{week_des}' (expected '{expected_designation}')")
+
+            # Check 2: value_weeks.monday matches expected
+            vw_monday = live_data.get("value_weeks", {}).get("monday")
+            if vw_monday != expected_week:
+                issues.append(f"value_weeks.monday={vw_monday} (expected {expected_week})")
+
+            # Check 3: served bytes match local dist (no CDN drift)
+            if dist_sha and live_sha != dist_sha:
+                issues.append(f"served bytes differ from dist/ (live {live_sha} vs dist {dist_sha})")
+
+            # Check 4: source has combos (dashboard needs them to render)
+            combos = src_data.get("combos", {})
+            if not combos:
+                issues.append("source has no combos in served data (dashboard cannot render)")
+
+            live_built = live_data.get("built_at", "")[:16]
+            if issues:
+                cps["c10_rendered"] = {"timestamp": iso_now(), "status": "bad",
+                    "reason": f"Production output WRONG: {'; '.join(issues)}. Live built {live_built}."}
+            else:
+                cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
+                    "reason": f"Production serves '{expected_designation}' labels, bytes match dist/ ({live_sha}), {len(combos)} combos. Live built {live_built}."}
+        except Exception as e:
+            cps["c10_rendered"] = {"timestamp": None, "status": "unk",
+                "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}
 
         result["sources"][src] = {
             "label": SRC_LABEL[src],

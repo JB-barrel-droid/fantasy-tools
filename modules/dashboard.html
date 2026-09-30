@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Module Monitor — Trade Value Chart</title>
+<title>Pipeline Monitor — Trade Value Chart</title>
 <style>
   :root{
     --bg:#0b0e13; --card:#131924; --card2:#0e141d; --line:#232d3d;
@@ -16,7 +16,7 @@
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
-    background:var(--bg);color:var(--txt);padding:24px 20px 60px;max-width:1100px;margin:0 auto;
+    background:var(--bg);color:var(--txt);padding:24px 20px 60px;max-width:1200px;margin:0 auto;
     -webkit-font-smoothing:antialiased}
   header.top{display:flex;align-items:center;gap:12px;margin-bottom:6px;flex-wrap:wrap}
   header.top h1{font-size:22px;font-weight:700;letter-spacing:-.3px}
@@ -29,7 +29,6 @@
   #refresh{margin-left:auto;background:#1d6fe0;border:none;color:#fff;font-weight:600;font-size:13px;
     padding:8px 18px;border-radius:8px;cursor:pointer}
   #refresh:hover{background:#2f86f5}
-  /* summary */
   .summary{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
   .summary h2{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--dim);margin-bottom:10px}
   .bignum{font-size:34px;font-weight:800;letter-spacing:-1px;margin-bottom:2px}
@@ -39,585 +38,310 @@
   .legend{display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--dim)}
   .legend b{font-weight:700}
   .swatch{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:baseline}
-  /* pipeline table */
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 20px;margin-bottom:16px}
   .card>h2{font-size:15px;font-weight:700;margin-bottom:2px}
   .card>.desc{font-size:12.5px;color:var(--dim);margin-bottom:12px}
-  table.pipe{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:8px}
-  table.pipe th,table.pipe td{padding:9px 8px;text-align:center;border-bottom:1px solid var(--line)}
-  table.pipe th{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint);font-weight:600}
-  table.pipe td:first-child,table.pipe th:first-child{text-align:left;font-weight:700;position:sticky;left:0}
-  .st{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:8px;font-weight:800;font-size:14px}
-  .st.ok{background:var(--green-bg);color:var(--green)}
-  .st.bad{background:var(--red-bg);color:var(--red)}
-  .st.warn{background:var(--yellow-bg);color:var(--yellow)}
-  .st.unk{background:var(--grey-bg);color:var(--grey)}
-  .stag{font-size:11px;color:var(--faint);display:block;margin-top:3px;font-weight:400}
-  .vlabel{display:inline-block;font-size:11px;font-weight:700;background:#1a2a3a;color:var(--blue);
-    padding:3px 10px;border-radius:999px;margin-top:4px}
-  .stuck{font-size:11.5px;color:var(--yellow);font-weight:600}
-  /* modules */
-  .mod{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:var(--card)}
-  .mod-head{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
-  .mod-head:hover{background:rgba(255,255,255,.02)}
-  .mod-dot{width:12px;height:12px;border-radius:50%;flex:none}
-  .mod-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,209,123,.7)}
-  .mod-dot.warn{background:var(--yellow);box-shadow:0 0 8px rgba(240,180,41,.7)}
-  .mod-dot.bad{background:var(--red);box-shadow:0 0 8px rgba(244,88,92,.7)}
-  .mod-dot.unk{background:var(--grey)}
-  .mod-name{font-size:15px;font-weight:700}
-  .mod-name .idx{color:var(--faint);font-weight:500;margin-right:8px}
-  .mod-sub{font-size:12px;color:var(--dim);margin-top:2px}
+  /* 9-checkpoint grid */
+  .cp-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}
+  .cp{border:1px solid var(--line);border-radius:10px;padding:14px;background:var(--card2)}
+  .cp-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .cp-dot{width:12px;height:12px;border-radius:50%;flex:none}
+  .cp-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,209,123,.7)}
+  .cp-dot.warn{background:var(--yellow);box-shadow:0 0 8px rgba(240,180,41,.7)}
+  .cp-dot.bad{background:var(--red);box-shadow:0 0 8px rgba(244,88,92,.7)}
+  .cp-dot.unk{background:var(--grey)}
+  .cp-name{font-size:13px;font-weight:700}
+  .cp-what{font-size:11.5px;color:var(--faint);margin-bottom:8px;line-height:1.4}
+  .cp-time{font-size:12px;color:var(--dim);font-family:ui-monospace,Menlo,monospace;margin-bottom:4px}
+  .cp-reason{font-size:12px;color:#cfd8e3;line-height:1.5}
+  .cp-reason.bad{color:var(--red)}
+  .cp-reason.warn{color:var(--yellow)}
+  /* source sections */
+  .src{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:var(--card)}
+  .src-head{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
+  .src-head:hover{background:rgba(255,255,255,.02)}
+  .src-dot{width:12px;height:12px;border-radius:50%;flex:none}
+  .src-dot.ok{background:var(--green);box-shadow:0 0 8px rgba(52,209,123,.7)}
+  .src-dot.warn{background:var(--yellow);box-shadow:0 0 8px rgba(240,180,41,.7)}
+  .src-dot.bad{background:var(--red);box-shadow:0 0 8px rgba(244,88,92,.7)}
+  .src-dot.unk{background:var(--grey)}
+  .src-name{font-size:15px;font-weight:700}
+  .src-sub{font-size:12px;color:var(--dim);margin-top:2px}
   .pill{margin-left:auto;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px;flex:none}
   .pill.ok{background:var(--green-bg);color:var(--green)}
   .pill.warn{background:var(--yellow-bg);color:var(--yellow)}
   .pill.bad{background:var(--red-bg);color:var(--red)}
   .pill.unk{background:var(--grey-bg);color:var(--grey)}
   .chev{color:var(--faint);font-size:14px;transition:transform .2s;flex:none}
-  .mod.open .chev{transform:rotate(90deg)}
-  .mod-body{display:none;padding:4px 18px 18px}
-  .mod.open .mod-body{display:block}
-  .layer{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:10px;background:var(--card2)}
-  .layer-top{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-  .layer-name{font-size:13.5px;font-weight:700}
-  .layer-desc{font-size:12px;color:var(--faint);margin-left:auto;text-align:right}
-  .checks{list-style:none;margin-top:6px}
-  .checks li{font-size:12.5px;padding:5px 0 5px 26px;position:relative;color:#cfd8e3;border-top:1px dashed rgba(35,45,61,.7)}
-  .checks li:first-child{border-top:none}
-  .checks li::before{position:absolute;left:4px;font-weight:800}
-  .checks li.c-ok::before{content:"✓";color:var(--green)}
-  .checks li.c-bad::before{content:"✗";color:var(--red)}
-  .checks li.c-warn::before{content:"!";color:var(--yellow)}
-  .checks li.c-unk::before{content:"?";color:var(--grey)}
-  .checks .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:var(--dim)}
-  .why{margin-top:10px;background:var(--red-bg);border:1px solid rgba(244,88,92,.3);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.55}
-  .why.warnb{background:var(--yellow-bg);border-color:rgba(240,180,41,.3)}
-  .why strong{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;color:var(--red)}
-  .why.warnb strong{color:var(--yellow)}
-  .why .fix{margin-top:6px;color:var(--txt)}
-  .why .fix b{color:var(--blue)}
-  /* rca */
-  .rca-item{border-left:3px solid var(--red);padding:10px 14px;margin:10px 0;background:var(--card2);border-radius:0 8px 8px 0}
-  .rca-item.warn{border-left-color:var(--yellow)}
-  .rca-item h4{font-size:13px;margin-bottom:4px}
-  .rca-item h4 .where{color:var(--faint);font-weight:500}
-  .rca-item p{font-size:12.5px;color:#cfd8e3;line-height:1.55}
-  .rca-item p b{color:var(--txt)}
-  .chain{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--dim);margin-top:6px}
-  .chain .g{color:var(--green)} .chain .r{color:var(--red)} .chain .y{color:var(--yellow)}
+  .src.open .chev{transform:rotate(90deg)}
+  .src-body{display:none;padding:4px 18px 18px}
+  .src.open .src-body{display:block}
+  /* flow diagram */
+  .flow{display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin:12px 0;font-size:11px}
+  .flow-step{background:var(--card2);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-weight:600}
+  .flow-step.ok{border-color:rgba(52,209,123,.4);color:var(--green)}
+  .flow-step.warn{border-color:rgba(240,180,41,.4);color:var(--yellow)}
+  .flow-step.bad{border-color:rgba(244,88,92,.4);color:var(--red)}
+  .flow-step.unk{border-color:var(--line);color:var(--grey)}
+  .flow-arrow{color:var(--faint);font-weight:800}
   #err{display:none;background:var(--red-bg);border:1px solid rgba(244,88,92,.4);border-radius:10px;
     padding:12px 16px;margin-bottom:16px;font-size:13px}
   footer{margin-top:24px;font-size:12px;color:var(--faint);text-align:center;line-height:1.7}
   footer code{color:var(--dim)}
-  @media(max-width:760px){table.pipe{font-size:11px}table.pipe th,table.pipe td{padding:7px 4px}.bignum{font-size:28px}}
+  @media(max-width:760px){.cp-grid{grid-template-columns:1fr}.bignum{font-size:28px}}
 </style>
 </head>
 <body>
 
 <header class="top">
-  <h1>Module Monitor</h1>
+  <h1>Pipeline Monitor</h1>
   <span class="live"><span class="dot"></span>LIVE</span>
   <button id="refresh" onclick="location.reload()">↻ Refresh</button>
 </header>
-<p class="sub">Trade Value Chart · every component &amp; sub-component · checks run live in your browser against the deployed bytes.<br>
+<p class="sub">Trade Value Chart · 10 explicit checkpoints per source · all timestamps from real artifacts, never inferred.<br>
 Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span></p>
 
 <div id="err"></div>
 
 <section class="summary">
-  <h2>Fleet health</h2>
-  <div class="bignum"><span id="okCount">–</span><small> / <span id="totalCount">–</span> checks healthy</small></div>
+  <h2>Fleet health — 10 checkpoints × 5 sources</h2>
+  <div class="bignum"><span id="okCount">–</span><small> / <span id="totalCount">–</span> checkpoints healthy</small></div>
   <div class="segbar" id="segbar"></div>
   <div class="legend" id="legend"></div>
+  <div id="chainBanner" style="margin-top:12px;font-size:13px"></div>
 </section>
 
-<section class="card" id="pipelineCard">
-  <h2>Source pipeline — where is each source stuck?</h2>
-  <div class="desc">Each source must travel L1 → L6. Green = confirmed by live data · red = failed · grey = no live signal. The <b>stuck-at</b> column is the root cause at a glance.</div>
-  <div style="overflow-x:auto">
-  <table class="pipe" id="pipeTable">
-    <thead><tr>
-      <th>Source</th><th>L1<br>pull</th><th>L2<br>import</th><th>L3<br>health</th>
-      <th>L4<br>build</th><th>L5<br>review</th><th>L6<br>promote</th><th>UI label</th><th>Stuck at</th>
-    </tr></thead>
-    <tbody></tbody>
-  </table>
+<section class="card">
+  <h2>Data flow — 10 checkpoints</h2>
+  <div class="desc">
+    <b>C1</b> Publication/discovery → <b>C2</b> Raw collection → <b>C3</b> Supabase landing →
+    <b>C4</b> Snapshot/manifest (Supabase → repo) → <b>C5</b> Health verification →
+    <b>C6</b> Candidate build/review → <b>C7</b> Fixture promotion →
+    <b>C8</b> Sync/validation → <b>C9</b> Deployment/live artifact.<br>
+    Each checkpoint shows <b>what it is</b>, <b>when it last ran</b> (real timestamp from artifacts), and <b>why</b> it has its status.
+    Green requires a fresh timestamp — stale data never shows green.
   </div>
+  <div id="sources"></div>
 </section>
 
-<section class="card" id="rcaCard" style="display:none">
-  <h2>Root-cause analysis</h2>
-  <div class="desc">Every non-healthy check, with the failure chain and the fix. Newest / most severe first.</div>
-  <div id="rcaList"></div>
+<section class="card" id="deployCard">
+  <h2>Deployment — live verification</h2>
+  <div class="desc">C9 is checked live in your browser via the GitHub Actions API (no cached status files).</div>
+  <div id="deployInfo">Checking…</div>
 </section>
-
-<div id="modules"></div>
 
 <footer>
-  Lane rules: one instruction → one lane · one active change per lane · <code>verify_live.py</code> is the gate.<br>
+  Checkpoints generated by <code>pipelines/build_pipeline_checkpoints.py</code> from real artifacts.<br>
   <span id="footNote"></span>
 </footer>
 
 <script>
 "use strict";
-/* ---------- path resolution: repo layout vs dist (GitHub Pages) layout ---------- */
-const FIXTURE_PATHS = [
-  "../app/trade-value-chart/assets/comparison-sources-data.json",
-  "../assets/comparison-sources-data.json",
-  "assets/comparison-sources-data.json",
+const CP_PATHS = [
+  "../output/pipeline-checkpoints.json",
+  "pipeline-checkpoints.json",
+  "output/pipeline-checkpoints.json",
 ];
-const HEALTH_PATHS = [
-  "../output/source-import-health.json",
-  "source-import-health.json",
-  "output/source-import-health.json",
-];
-const TEXT_PATHS = {
-  curveJs: ["../app/trade-value-chart/assets/curve-widget.js","../assets/curve-widget.js","assets/curve-widget.js"],
-  dashJs:  ["../app/trade-value-chart/assets/comparison-dashboard.js","../assets/comparison-dashboard.js","assets/comparison-dashboard.js"],
-  index:   ["../app/trade-value-chart/index.html","../index.html","index.html"],
-};
-const CHAIN_STATUS_PATHS = [
+const CHAIN_PATHS = [
   "../output/comparison-chain-status.json",
   "comparison-chain-status.json",
   "output/comparison-chain-status.json",
 ];
-const SOURCES = ["espn","cbs","fantasycalc","fantasypros","usatoday"];
-const SRC_LABEL = {espn:"ESPN",cbs:"CBS",fantasycalc:"FantasyCalc",fantasypros:"Expert (ECR)",usatoday:"USA Today"};
+const SOURCE_ORDER = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"];
 
-async function firstOk(paths, asText){
+async function firstOk(paths){
   for(const p of paths){
     try{
       const r = await fetch(p,{cache:"no-store"});
       if(r.ok){
         const t = await r.text();
-        if(t && t.trim().length>10) return {path:p, text:t, json: asText?null:JSON.parse(t)};
+        if(t && t.trim().length > 10) return {path:p, json:JSON.parse(t)};
       }
-    }catch(e){/* try next */}
+    }catch(e){}
   }
   return null;
 }
 
-const checks = [];   // {module, layer, name, status, detail, why, fix, chain}
-function add(m,l,name,status,detail,why,fix,chain){
-  checks.push({module:m,layer:l,name,status,detail:detail||"",why:why||"",fix:fix||"",chain:chain||""});
+function timeAgo(iso){
+  if(!iso) return "never";
+  const then = new Date(iso), now = new Date();
+  if(isNaN(then)) return "unknown";
+  const mins = Math.max(0, Math.floor((now - then) / 60000));
+  if(mins < 1) return "just now";
+  if(mins < 60) return mins + "m ago";
+  const hrs = Math.floor(mins / 60);
+  if(hrs < 48) return hrs + "h " + (mins % 60) + "m ago";
+  return Math.floor(hrs / 24) + "d " + (hrs % 24) + "h ago";
 }
-const OK="ok",WARN="warn",BAD="bad",UNK="unk";
 
-function daysOld(iso){
-  if(!iso) return null;
-  const d=(Date.now()-new Date(iso).getTime())/86400000;
-  return isFinite(d)?d:null;
+function shortTs(iso){
+  if(!iso) return "—";
+  const d = new Date(iso);
+  if(isNaN(d)) return String(iso).slice(0, 16);
+  return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 }
-function shortDate(iso){
-  if(!iso) return "?";
-  const d=new Date(iso);
-  return isNaN(d)?String(iso).slice(0,10):d.toISOString().slice(0,10);
-}
-function uiLabel(health,nflWeek){
-  if(!health) return "—";
-  if(health.vintage_kind==="week_designated") return "Week "+(nflWeek||"?");
-  const v=health.content_vintage||"";
-  const m=/(\d{4}-\d{2}-\d{2})/.exec(v);
-  return m?m[1]:"?";
-}
-// Best practice: show lag between pipeline stages so stuck data is obvious.
-// Returns "Xh Ym" or "Xd Yh" since the ISO timestamp, or null if unparseable.
-function lagSince(iso){
-  if(!iso) return null;
-  const then=new Date(iso), now=new Date();
-  if(isNaN(then)) return null;
-  const mins=Math.max(0,Math.floor((now-then)/60000));
-  if(mins<60) return mins+"m";
-  const hrs=Math.floor(mins/60);
-  if(hrs<48) return hrs+"h "+(mins%60)+"m";
-  return Math.floor(hrs/24)+"d "+(hrs%24)+"h";
+
+const rank = {bad:0, warn:1, unk:2, ok:3};
+const pillTxt = {ok:"healthy", warn:"degraded", bad:"broken", unk:"unknown"};
+
+function srcStatus(checkpoints){
+  const statuses = Object.values(checkpoints).map(c => c.status);
+  if(statuses.includes("bad")) return "bad";
+  if(statuses.includes("warn")) return "warn";
+  if(statuses.includes("unk") && !statuses.includes("ok")) return "unk";
+  if(statuses.includes("unk")) return "warn";
+  return "ok";
 }
 
 async function main(){
-  const errEl=document.getElementById("err");
-  if(location.protocol==="file:"){
-    errEl.style.display="block";
-    errEl.innerHTML="<b>Live checks unavailable:</b> this page was opened as a file. Serve it over HTTP (or open the deployed GitHub Pages URL) so it can fetch the data files.";
+  const errEl = document.getElementById("err");
+  if(location.protocol === "file:"){
+    errEl.style.display = "block";
+    errEl.innerHTML = "<b>Live checks unavailable:</b> this page was opened as a file. Serve it over HTTP (or open the deployed GitHub Pages URL) so it can fetch the data files.";
   }
 
-  /* ---------- load live data ---------- */
-  const [fx, hh, ch] = await Promise.all([firstOk(FIXTURE_PATHS), firstOk(HEALTH_PATHS), firstOk(CHAIN_STATUS_PATHS)]);
-  const fixture = fx?fx.json:null, health = hh?hh.json:null, chainStatus = ch?ch.json:null;
-  const [curveJs, dashJs, indexHtml] = await Promise.all([
-    firstOk(TEXT_PATHS.curveJs,true), firstOk(TEXT_PATHS.dashJs,true), firstOk(TEXT_PATHS.index,true)
-  ]);
+  const [cp, ch] = await Promise.all([firstOk(CP_PATHS), firstOk(CHAIN_PATHS)]);
+  const data = cp ? cp.json : null;
+  const chain = ch ? ch.json : null;
+
   document.getElementById("dataSrc").textContent =
-    "fixture: "+(fx?fx.path:"NOT FOUND")+" · health: "+(hh?hh.path:"NOT FOUND")+" · chain: "+(ch?ch.path:"NOT FOUND");
+    "checkpoints: " + (cp ? cp.path : "NOT FOUND") +
+    " · generated: " + (data ? shortTs(data.generated_at) : "n/a");
   document.getElementById("checkedAt").textContent =
-    new Date().toLocaleString("en-US",{timeZone:"America/Chicago"})+" CT";
+    new Date().toLocaleString("en-US", {timeZone:"America/Chicago"}) + " CT";
 
-  const nflWeek = health?health.nfl_week:null;
-  const builtAt = fixture?(fixture.built_at||null):null;
-  const builtDays = daysOld(builtAt);
-
-  const srcInfo = {};
-  for(const s of SOURCES){
-    const fsec = fixture&&fixture.sources?fixture.sources[s]||{}:{};
-    const combos = fsec.combos||{};
-    let values=0; const perCombo=[];
-    for(const [cn,c] of Object.entries(combos)){
-      const v=c.values; const n=(v&&typeof v==="object")?Object.keys(v).length:0;
-      values+=n; perCombo.push(cn+":"+n);
-    }
-    const hsec = health&&health.sources?health.sources[s]||null:null;
-    srcInfo[s]={values, combos:Object.keys(combos).length, perCombo,
-      snap: fsec.snapshot_date||fsec.fetched_at||null, health:hsec,
-      label: uiLabel(hsec,nflWeek)};
+  if(!data || !data.sources){
+    errEl.style.display = "block";
+    errEl.innerHTML = "<b>No checkpoint data:</b> pipeline-checkpoints.json not found. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code> to generate it.";
+    return;
   }
 
-  /* ================= MODULE 1 · data-pipeline ================= */
-  const M1="data-pipeline";
-  // L1/L2/L3 per source from health gate
-  for(const s of SOURCES){
-    const h=srcInfo[s].health;
-    const nm=SRC_LABEL[s];
-    if(h&&h.status==="ok"){
-      add(M1,"L1 · source pulls",nm+" raw snapshot",OK,
-        "snapshot_path: "+(h.snapshot_path||"?"),
-        "", "",
-        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span>`);
-      add(M1,"L2 · import → Supabase",nm+" in "+(h.supabase_table||"?"),OK,
-        h.row_count+" rows · landing="+(h.supabase_landing?"yes":"NO"));
-      add(M1,"L3 · health gate",nm+" verified",OK,
-        "status=ok · vintage="+h.content_vintage+" · checked "+shortDate(health.checked_at));
-    }else if(h&&h.status==="warning"){
-      add(M1,"L1 · source pulls",nm+" raw snapshot",WARN,"health status: "+h.status,
-        "The publisher has not yet released the new week for <b>"+nm+"</b>"+(h.failure_reason?": "+h.failure_reason:"")+". This is normal staleness, not a broken pipeline.",
-        "No action needed — the source will update when the publisher releases.");
-      add(M1,"L2 · import → Supabase",nm+" import",WARN,"awaiting publisher release");
-      add(M1,"L3 · health gate",nm+" verified",WARN,"status="+h.status);
-    }else if(h){
-      add(M1,"L1 · source pulls",nm+" raw snapshot",BAD,"health status: "+h.status,
-        "The import health gate reports <b>"+h.status+"</b> for "+nm+(h.failure_reason?": "+h.failure_reason:"")+". Nothing downstream can be trusted.",
-        "Fix the pull/import for <b>"+nm+"</b>, then re-run <b>verify_import_health.py</b>.");
-      add(M1,"L2 · import → Supabase",nm+" import",BAD,"blocked by L1 failure");
-      add(M1,"L3 · health gate",nm+" verified",BAD,"status="+h.status);
-    }else{
-      add(M1,"L1 · source pulls",nm+" raw snapshot",UNK,"no health record for "+s+" (health file "+(hh?"loaded but source missing":"not loaded")+")",
-        "","Check <b>output/source-import-health.json</b>.");
-      add(M1,"L2 · import → Supabase",nm+" import",UNK,"no health record");
-      add(M1,"L3 · health gate",nm+" verified",UNK,"no health record");
+  // Chain banner (stale/crash protection)
+  const chainBanner = document.getElementById("chainBanner");
+  if(data.chain){
+    const c = data.chain;
+    const age = timeAgo(c.run_at);
+    if(c.stale){
+      chainBanner.innerHTML = `<span style="color:var(--yellow)">⚠ Chain status is stale (last run ${age}). ` +
+        `A crashed chain cannot show green — timestamps are required, not just status files.</span>`;
+    } else if(!c.success){
+      chainBanner.innerHTML = `<span style="color:var(--red)">✗ Last chain run failed (${age}). Check the automation logs.</span>`;
+    } else {
+      chainBanner.innerHTML = `<span style="color:var(--green)">✓ Chain healthy — last run ${age} via ${c.runner_label}.</span>`;
     }
   }
-  // L4/L5/L6 per source from fixture
-  for(const s of SOURCES){
-    const info=srcInfo[s], nm=SRC_LABEL[s], h=info.health;
-    const inDb = h&&h.status==="ok";
-    if(info.values>0){
-      add(M1,"L6 · promote → live fixture",nm+" live values",OK,
-        info.values.toLocaleString()+" values across "+info.combos+" combos · UI label: "+info.label,
-        "","",
-        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span> → <span class="g">L4 ✓</span> → <span class="g">L5 ✓</span> → <span class="g">L6 ✓</span>`);
-    }else if(inDb){
-      add(M1,"L4–L6 · build → review → promote",nm+" STUCK",BAD,
-        "0 values in live fixture · but "+h.row_count+" rows sit in "+h.supabase_table,
-        "<b>Root cause:</b> data cleared L1–L3 (pull ✓, Supabase ✓ with "+h.row_count+" rows, health gate ✓) but the <b>build → review → promote</b> stages never ran for "+nm+". The fixture still carries the old build from "+shortDate(builtAt)+", so the dashboard renders empty combo shells for this source. This is also what trips the curve regression guard.",
-        "Run <b>build_comparison_source_section.py</b> → <b>review_comparison_candidate.py</b> → <b>promote_comparison_section.py</b> for <b>"+s+"</b>, rebuild the fixture, redeploy.",
-        `<span class="g">L1 ✓</span> → <span class="g">L2 ✓</span> → <span class="g">L3 ✓</span> → <span class="r">L4 ✗ never ran</span> → <span class="r">L5 ✗</span> → <span class="r">L6 ✗</span>`);
-    }else{
-      add(M1,"L4–L6 · build → review → promote",nm+" STUCK",UNK,"0 values; upstream health unknown",
-        "Cannot determine where "+nm+" is stuck — the health gate has no record of it.",
-        "Run <b>verify_import_health.py</b> to locate the break.");
+
+  // Count all checkpoints
+  let counts = {ok:0, warn:0, bad:0, unk:0};
+  for(const src of SOURCE_ORDER){
+    const sdata = data.sources[src];
+    if(!sdata) continue;
+    for(const cpData of Object.values(sdata.checkpoints)){
+      counts[cpData.status] = (counts[cpData.status] || 0) + 1;
     }
   }
-  // fixture freshness
-  if(builtDays===null){
-    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",UNK,"fixture "+(fx?"loaded but built_at missing":"not loaded"));
-  }else if(builtDays>2){
-    const newer=SOURCES.filter(s=>{const h=srcInfo[s].health;return h&&h.status==="ok"&&!/^Week/.test(h.content_vintage)&&daysOld(h.content_vintage)<builtDays;});
-    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",WARN,
-      "built "+shortDate(builtAt)+" ("+builtDays.toFixed(1)+" days ago)",
-      "<b>Root cause:</b> the live fixture was baked "+builtDays.toFixed(1)+" days ago. Newer source vintages exist upstream ("+(newer.length?newer.map(s=>SRC_LABEL[s]+" "+srcInfo[s].health.content_vintage).join(", "):"none newer")+") but were never promoted, so the UI shows stale numbers.",
-      "Re-run the <b>promote</b> stage and rebuild the fixture after promoting the stuck sources.");
-  }else{
-    add(M1,"L6 · fixture freshness","comparison-sources-data.json built_at",OK,"built "+shortDate(builtAt)+" ("+builtDays.toFixed(1)+"d ago)");
+  const total = counts.ok + counts.warn + counts.bad + counts.unk;
+  document.getElementById("okCount").textContent = counts.ok;
+  document.getElementById("totalCount").textContent = total;
+  const cols = {ok:"var(--green)", warn:"var(--yellow)", bad:"var(--red)", unk:"var(--grey)"};
+  document.getElementById("segbar").innerHTML = ["ok","warn","bad","unk"].map(k =>
+    `<div style="width:${(counts[k]/total*100).toFixed(1)}%;background:${cols[k]}" title="${k}: ${counts[k]}"></div>`).join("");
+  document.getElementById("legend").innerHTML = ["ok","warn","bad","unk"].map(k =>
+    `<span><span class="swatch" style="background:${cols[k]}"></span><b>${counts[k]}</b> ${pillTxt[k]}</span>`).join("");
+
+  // Render per-source checkpoint grids
+  const host = document.getElementById("sources");
+  host.innerHTML = SOURCE_ORDER.map(src => {
+    const sdata = data.sources[src];
+    if(!sdata) return "";
+    const st = srcStatus(sdata.checkpoints);
+    const cps = sdata.checkpoints;
+
+    // Flow diagram: C1 → C9 with status colors
+    const flowSteps = data.checkpoints.map(cpDef => {
+      const cp = cps[cpDef.key];
+      const s = cp ? cp.status : "unk";
+      const num = cpDef.label.split(" ")[0]; // "C1", "C2", etc.
+      return `<span class="flow-step ${s}" title="${cpDef.label}: ${cp ? cp.reason : 'no data'}">${num}</span>`;
+    }).join('<span class="flow-arrow">→</span>');
+
+    // Checkpoint cards
+    const cpCards = data.checkpoints.map(cpDef => {
+      const cp = cps[cpDef.key];
+      if(!cp) return "";
+      const dotCls = cp.status === "ok" ? "ok" : cp.status === "warn" ? "warn" : cp.status === "bad" ? "bad" : "unk";
+      const reasonCls = cp.status === "bad" ? "bad" : cp.status === "warn" ? "warn" : "";
+      return `<div class="cp">
+        <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${cpDef.label}</span></div>
+        <div class="cp-what">${cpDef.what}</div>
+        <div class="cp-time">${shortTs(cp.timestamp)} (${timeAgo(cp.timestamp)})</div>
+        <div class="cp-reason ${reasonCls}">${cp.reason}</div>
+      </div>`;
+    }).join("");
+
+    const cpCounts = {ok:0, warn:0, bad:0, unk:0};
+    Object.values(cps).forEach(c => cpCounts[c.status]++);
+
+    return `<div class="src" id="src-${src}">
+      <div class="src-head" onclick="document.getElementById('src-${src}').classList.toggle('open')">
+        <span class="src-dot ${st}"></span>
+        <div><div class="src-name">${sdata.label}</div>
+        <div class="src-sub">${cpCounts.ok}✓ ${cpCounts.warn}! ${cpCounts.bad}✗ ${cpCounts.unk}? · 10 checkpoints</div></div>
+        <span class="pill ${st}">${pillTxt[st]}</span><span class="chev">▸</span>
+      </div>
+      <div class="src-body">
+        <div class="flow">${flowSteps}</div>
+        <div class="cp-grid">${cpCards}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  // Auto-open the worst source
+  const worst = SOURCE_ORDER
+    .map(s => ({s, st: data.sources[s] ? srcStatus(data.sources[s].checkpoints) : "unk"}))
+    .sort((a, b) => rank[a.st] - rank[b.st])[0];
+  if(worst && worst.st !== "ok"){
+    document.getElementById("src-" + worst.s).classList.add("open");
   }
 
-  /* ================= MODULE 2 · curve-widget ================= */
-  const M2="curve-widget";
-  if(curveJs){
-    const js=curveJs.text;
-    add(M2,"L1 · guard logic","regression guard (activeKeysForGuard)", js.includes("activeKeysForGuard")?OK:BAD,
-      js.includes("activeKeysForGuard")?"marker present in deployed bytes":"marker MISSING from deployed bytes",
-      js.includes("activeKeysForGuard")?"":"<b>Root cause:</b> the deployed curve-widget.js does not contain the empty-source guard fix. The curve renders (or fails) on sources with 0 values.",
-      js.includes("activeKeysForGuard")?"":"Redeploy <b>curve-widget.js</b> from app/.");
-    add(M2,"L1 · guard logic","guard negative-tested",WARN,"no live signal — needs a deliberate broken-fixture test",
-      "<b>Root cause (process):</b> the guard was changed to let rendering continue when no active source has values. No test proves it <i>fails closed</i> on genuinely invalid data. A guard that asserts current behavior without checking which state is right is worse than no guard.",
-      "Add a fixture with a deliberately corrupt source and assert the guard trips.");
-    add(M2,"L2 · rendering","canvas smoothing (quadraticCurveTo)", js.includes("quadraticCurveTo")?OK:BAD,
-      js.includes("quadraticCurveTo")?"marker present in deployed bytes":"marker MISSING",
-      js.includes("quadraticCurveTo")?"":"<b>Root cause:</b> deployed JS predates the smoothing change — sharp segment joints on the curve.",
-      js.includes("quadraticCurveTo")?"":"Redeploy <b>curve-widget.js</b> from app/.");
-    add(M2,"L2 · rendering","diagnostics hook (TradeValueCurveDiagnostics)", js.includes("TradeValueCurveDiagnostics")?OK:WARN,
-      js.includes("TradeValueCurveDiagnostics")?"present — open devtools to inspect sourcePeaks":"missing");
-  }else{
-    add(M2,"L1 · guard logic","deployed curve-widget.js",UNK,"could not fetch the JS file",
-      "","Check the network path / filename.");
-    add(M2,"L2 · rendering","deployed curve-widget.js",UNK,"could not fetch the JS file");
-  }
-  add(M2,"L3 · fixed-pie math","test_two_tier_frontend (20 tests)",UNK,"no live signal — run locally",
-    "<b>Last local run 2026-09-22:</b> 6 failures (WR feasible-interval + slider recompute). A stash test proved the failures come from <b>data-fixture drift</b> (background workstreams changed players.json), not the guard fix — but they are still red and block the deploy gate.",
-    "Run <b>python3 -m unittest tests.test_two_tier_frontend</b>; reconcile fixtures or tests. Do <b>not</b> weaken the guard to make tests pass.");
-
-  /* ================= MODULE 3 · comparison-dashboard ================= */
-  const M3="comparison-dashboard";
-  if(dashJs){
-    const js=dashJs.text;
-    add(M3,"L1 · player news","max-3 cap (slice(0, 3))", js.includes("slice(0, 3)")?OK:BAD,
-      js.includes("slice(0, 3)")?"marker present":"marker MISSING — news list uncapped",
-      js.includes("slice(0, 3)")?"":"<b>Root cause:</b> deployed comparison-dashboard.js predates the news cap; player panels can flood.",
-      js.includes("slice(0, 3)")?"":"Redeploy <b>comparison-dashboard.js</b> from app/.");
-    add(M3,"L1 · player news","timing badges (pre/post-values)", js.includes("post-values")?OK:BAD,
-      js.includes("post-values")?"marker present":"marker MISSING",
-      js.includes("post-values")?"":"<b>Root cause:</b> deployed JS predates timing badges; users can't tell if news is priced in.",
-      js.includes("post-values")?"":"Redeploy <b>comparison-dashboard.js</b> from app/.");
-  }else{
-    add(M3,"L1 · player news","deployed comparison-dashboard.js",UNK,"could not fetch the JS file");
-  }
-  add(M3,"L2 · health panel","dataset status render",UNK,"no live signal — visual check",
-    "","Open the dashboard and confirm the health panel renders without errors.");
-
-  /* ================= MODULE 4 · page-shell ================= */
-  const M4="page-shell";
-  if(indexHtml){
-    const html=indexHtml.text;
-    const m=/trade-chart-build"\s+content="([^"]+)"/.exec(html);
-    const tag=m?m[1]:"NOT FOUND";
-    add(M4,"L2 · build tag","build identity", m?OK:BAD,
-      "deployed tag: "+tag,
-      m?"":"<b>Root cause:</b> the deployed index.html has no build tag — deploy.sh never stamped it, so 'is this the fixed one?' is unanswerable.",
-      m?"":"Run <b>deploy.sh</b> to stamp + sync.");
-    add(M4,"L1 · header dates","monthDayTime formatter", html.includes("monthDayTime")?OK:BAD,
-      html.includes("monthDayTime")?"present — header shows date + time":"MISSING — header date has no time",
-      html.includes("monthDayTime")?"":"<b>Root cause:</b> deployed index.html predates the time formatter.",
-      html.includes("monthDayTime")?"":"Redeploy <b>index.html</b> from app/.");
-    window.__buildTag=tag;
-  }else{
-    add(M4,"L1/L2 · page shell","deployed index.html",UNK,"could not fetch index.html");
-    window.__buildTag=null;
-  }
-
-  /* ================= MODULE 5 · build-deploy ================= */
-  const M5="build-deploy";
-  add(M5,"L1 · sync","app/ → dist/ byte-identical",UNK,"no live signal — run deploy.sh",
-    "","Run <b>deploy.sh</b>; it diffs every synced file and fails loudly on drift.");
-  add(M5,"L2 · tests","test gate",WARN,"last local run 2026-09-22: 6/20 failing",
-    "<b>Root cause:</b> same 6 failures as module 2·L3 — data-fixture drift, not code. The deploy gate is red until this is green.",
-    "Fix the fixtures or the tests (see module 2).");
-  add(M5,"L3 · push/deploy","GitHub Pages deploy",UNK,"no live signal from browser",
-    "","Push via the GitHub API, then confirm the Pages workflow run is green.");
-  add(M5,"L4 · verify","verify_live.py",UNK,"run locally after deploy",
-    "","<b>python3 verify_live.py</b> — asserts HTTP 200, build tag, and code markers on the live URL.");
-
-  /* ================= MODULE 6 · automation ================= */
-  const M6="automation";
-  // GitHub Actions workflow status (via public API, no auth needed)
+  // C9: Live deployment check via GitHub Actions API
+  const deployInfo = document.getElementById("deployInfo");
   try{
     const wfResp = await fetch("https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/rebuild-chain.yml/runs?per_page=1", {cache:"no-store"});
     if(wfResp.ok){
       const wfData = await wfResp.json();
       const run = wfData.workflow_runs && wfData.workflow_runs[0];
       if(run){
-        const status = run.status, conclusion = run.conclusion;
-        const runAge = lagSince(run.created_at);
-        if(status==="completed" && conclusion==="success"){
-          add(M6,"L1 · GitHub Actions","rebuild-chain workflow",OK,
-            "last run "+runAge+" ago · "+run.head_sha.slice(0,7),
-            "","",
-            `<span class="g">scheduled ✓</span> → <span class="g">ran ✓</span> → <span class="g">success ✓</span>`);
-        }else if(status==="completed"){
-          add(M6,"L1 · GitHub Actions","rebuild-chain workflow",BAD,
-            "last run "+runAge+" ago · conclusion: "+conclusion,
-            "<b>Root cause:</b> the automated rebuild workflow failed. Check the Actions tab for logs.",
-            "Open <b>Actions → Rebuild comparison chain</b> in GitHub, inspect the failed run logs, fix and re-run.");
-        }else{
-          add(M6,"L1 · GitHub Actions","rebuild-chain workflow",WARN,
-            "run in progress ("+status+") · started "+runAge+" ago");
+        const age = timeAgo(run.created_at);
+        if(run.status === "completed" && run.conclusion === "success"){
+          deployInfo.innerHTML = `<span style="color:var(--green)">✓</span> Last workflow run <b>succeeded</b> ${age} ` +
+            `(<code>${run.head_sha.slice(0,7)}</code>). <a href="${run.html_url}" style="color:var(--blue)">View run</a>`;
+        } else if(run.status === "completed"){
+          deployInfo.innerHTML = `<span style="color:var(--red)">✗</span> Last workflow run <b>${run.conclusion}</b> ${age}. ` +
+            `<a href="${run.html_url}" style="color:var(--blue)">Inspect logs</a>`;
+        } else {
+          deployInfo.innerHTML = `<span style="color:var(--yellow)">…</span> Workflow run in progress (${run.status}), started ${age}.`;
         }
-      }else{
-        add(M6,"L1 · GitHub Actions","rebuild-chain workflow",UNK,"no runs found via API");
+      } else {
+        deployInfo.innerHTML = `<span style="color:var(--grey)">?</span> No workflow runs found via API.`;
       }
-    }else{
-      add(M6,"L1 · GitHub Actions","rebuild-chain workflow",UNK,"GitHub API unreachable ("+wfResp.status+")");
+    } else {
+      deployInfo.innerHTML = `<span style="color:var(--grey)">?</span> GitHub API unreachable (${wfResp.status}).`;
     }
   }catch(e){
-    add(M6,"L1 · GitHub Actions","rebuild-chain workflow",UNK,"API fetch failed: "+String(e).slice(0,80));
-  }
-  // Chain script last-run status
-  if(chainStatus){
-    const age = lagSince(chainStatus.run_at);
-    const ageDays = daysOld(chainStatus.run_at);
-    if(chainStatus.success){
-      add(M6,"L2 · chain script","rebuild_comparison_chain.py", ageDays!==null && ageDays>1 ? WARN : OK,
-        "last run "+(age||"?")+" ago via "+(chainStatus.runner||"?")+" · "+Object.keys(chainStatus.sources||{}).length+" sources",
-        ageDays!==null && ageDays>1 ? "The chain hasn't run in over a day. The GitHub Actions schedule (every 6h) may be paused or failing." : "",
-        ageDays!==null && ageDays>1 ? "Check the Actions tab; trigger a manual <b>workflow_dispatch</b> run if needed." : "");
-    }else{
-      add(M6,"L2 · chain script","rebuild_comparison_chain.py",BAD,
-        "last run "+(age||"?")+" ago · FAILED: "+(chainStatus.failed||[]).join(", "),
-        "<b>Root cause:</b> the comparison chain failed on "+(chainStatus.failed||[]).join(", ")+". The fixture was not updated.",
-        "Check <b>output/comparison-chain-status.json</b> for per-source results; fix the failing source and re-run.");
-    }
-    // Per-source chain results
-    for(const [src, result] of Object.entries(chainStatus.sources||{})){
-      if(result.includes("failed") || result==="no_snapshot"){
-        add(M6,"L2 · chain script",SRC_LABEL[src]||src+" chain result",BAD, result,
-          "This source failed during the automated chain run.",
-          "Inspect the workflow logs for "+src+".");
-      }
-    }
-  }else{
-    add(M6,"L2 · chain script","rebuild_comparison_chain.py",UNK,
-      "no chain status file (comparison-chain-status.json not found)",
-      "The chain has never reported its status, or the status file isn't deployed.",
-      "Run <b>rebuild_comparison_chain.py</b> once to generate the status file.");
+    deployInfo.innerHTML = `<span style="color:var(--grey)">?</span> API check failed: ${String(e).slice(0,80)}`;
   }
 
-  render(srcInfo, builtAt, builtDays, !!fixture, !!health);
+  document.getElementById("footNote").innerHTML =
+    "checkpoints generated: <code>" + shortTs(data.generated_at) + "</code> · " +
+    "NFL week: <code>" + (data.nfl_week || "?") + "</code> · " +
+    "chain runner: <code>" + (data.chain ? data.chain.runner_label : "?") + "</code>";
 }
 
-/* ================= RENDER ================= */
-const MODMETA=[
-  {id:"data-pipeline", n:1, sub:"Source snapshots → live fixture"},
-  {id:"curve-widget", n:2, sub:"Rendering, guards, fixed-pie math"},
-  {id:"comparison-dashboard", n:3, sub:"Player news, health panel"},
-  {id:"page-shell", n:4, sub:"Header dates, build tag, layout"},
-  {id:"build-deploy", n:5, sub:"Sync, tests, push, verify"},
-  {id:"automation", n:6, sub:"GitHub Actions, chain runs"},
-];
-const rank={bad:0,warn:1,unk:2,ok:3};
-const pillTxt={ok:"healthy",warn:"degraded",bad:"broken",unk:"unknown"};
-
-function modStatus(id){
-  const cs=checks.filter(c=>c.module===id).map(c=>c.status);
-  if(cs.includes("bad"))return"bad";
-  if(cs.includes("warn"))return"warn";
-  if(cs.includes("unk")&&!cs.includes("ok"))return"unk";
-  if(cs.includes("unk"))return"warn";
-  return"ok";
-}
-
-function render(srcInfo, builtAt, builtDays, fxOk, hOk){
-  /* summary */
-  const counts={ok:0,warn:0,bad:0,unk:0};
-  checks.forEach(c=>counts[c.status]++);
-  const total=checks.length;
-  document.getElementById("okCount").textContent=counts.ok;
-  document.getElementById("totalCount").textContent=total;
-  const seg=document.getElementById("segbar");
-  const cols={ok:"var(--green)",warn:"var(--yellow)",bad:"var(--red)",unk:"var(--grey)"};
-  seg.innerHTML=["ok","warn","bad","unk"].map(k=>
-    `<div style="width:${(counts[k]/total*100).toFixed(1)}%;background:${cols[k]}" title="${k}: ${counts[k]}"></div>`).join("");
-  document.getElementById("legend").innerHTML=["ok","warn","bad","unk"].map(k=>
-    `<span><span class="swatch" style="background:${cols[k]}"></span><b>${counts[k]}</b> ${pillTxt[k]}</span>`).join("");
-
-  /* pipeline table */
-  const tb=document.querySelector("#pipeTable tbody");
-  tb.innerHTML=SOURCES.map(s=>{
-    const info=srcInfo[s], h=info.health, nm=SRC_LABEL[s];
-    const cell=(st,tag)=>`<td><span class="st ${st}">${st==="ok"?"✓":st==="bad"?"✗":st==="warn"?"!":"?"}</span>${tag?`<span class="stag">${tag}</span>`:""}</td>`;
-    const L1=h&&h.snapshot_path?cell("ok",h.snapshot_path.split("/").slice(-2).join("/")):cell("unk");
-    // L2: show DB-latest checkpoint separately from snapshot.
-    // When db_latest_vintage != content_vintage, data is sitting in Supabase
-    // waiting for the import to stamp it -- visually flag the mismatch.
-    // Best practice: show lag time so it's obvious how long data has been stuck.
-    let L2;
-    if(h&&h.supabase_landing){
-      const dbV=h.db_latest_vintage, snapV=h.content_vintage;
-      const mismatch=dbV&&snapV&&String(dbV)!==String(snapV);
-      const lag=mismatch?lagSince(h.db_latest_arrived_at):null;
-      const tag=(h.db_latest_rows||"?")+" rows"+(dbV?" · "+dbV:"");
-      L2=mismatch
-        ? `<td><span class="st warn">!</span><span class="stag">${tag}<br><b style="color:var(--yellow)">STUCK ${lag?"· waiting "+lag:""}</b><br><span style="font-size:10px">snapshot: ${snapV}</span></span></td>`
-        : cell("ok",tag);
-    } else L2=cell(h?"bad":"unk");
-    const L3=h?(h.status==="ok"?cell("ok","vintage "+(h.content_vintage||"?")):h.status==="warning"?cell("warn","vintage "+(h.content_vintage||"?")):cell("bad","unk")):cell("unk");
-    const L4=info.values>0?cell("ok"):cell("unk","no live signal");
-    const L5=info.values>0?cell("ok"):cell("unk","no live signal");
-    const L6=info.values>0?cell("ok",info.values.toLocaleString()+" vals"):cell("bad","0 vals");
-    let stuck;
-    if(info.values>0) stuck=`<span style="color:var(--green);font-size:11.5px;font-weight:600">— flowing</span>`;
-    else if(h&&h.db_latest_vintage&&h.content_vintage&&String(h.db_latest_vintage)!==String(h.content_vintage)){
-      const lag=lagSince(h.db_latest_arrived_at);
-      stuck=`<span class="stuck">⚠ STUCK: DB has ${h.db_latest_vintage} (${h.db_latest_rows||"?"} rows${lag?", arrived "+lag+" ago":""}) but snapshot is ${h.content_vintage}. <b>Action:</b> run stage-1 import to stamp the new vintage.</span>`;
-    }
-    else if(h&&h.status==="ok") stuck=`<span class="stuck">L4–L6: in Supabase, never promoted</span>`;
-    else stuck=`<span class="stuck">unknown — check health gate</span>`;
-    return `<tr><td>${nm}<div class="stag">${s}</div></td>${L1}${L2}${L3}${L4}${L5}${L6}
-      <td><span class="vlabel">${info.label}</span></td><td style="text-align:left">${stuck}</td></tr>`;
-  }).join("");
-  if(!fxOk||!hOk){
-    const w=document.createElement("div");
-    w.style.cssText="margin-top:10px;font-size:12.5px;color:var(--yellow)";
-    w.textContent="⚠ Live data incomplete ("+[fxOk?"":"comparison-sources-data.json",hOk?"":"source-import-health.json"].filter(Boolean).join(", ")+" not reachable). Grey cells = no live signal, not proof of health.";
-    document.getElementById("pipelineCard").appendChild(w);
-  }
-
-  /* root cause list */
-  const bad=checks.filter(c=>c.status==="bad"||c.status==="warn")
-    .sort((a,b)=>rank[a.status]-rank[b.status]);
-  if(bad.length){
-    document.getElementById("rcaCard").style.display="block";
-    document.getElementById("rcaList").innerHTML=bad.map(c=>`
-      <div class="rca-item ${c.status==="warn"?"warn":""}">
-        <h4>${c.status==="bad"?"🔴":"🟡"} ${c.name} <span class="where">· ${c.module} / ${c.layer}</span></h4>
-        <p>${c.why||c.detail}</p>
-        ${c.fix?`<p style="margin-top:6px"><b>Fix:</b> ${c.fix}</p>`:""}
-        ${c.chain?`<div class="chain">${c.chain}</div>`:""}
-      </div>`).join("");
-  }
-
-  /* modules */
-  const host=document.getElementById("modules");
-  host.innerHTML=MODMETA.map(mm=>{
-    const st=modStatus(mm.id);
-    const cs=checks.filter(c=>c.module===mm.id);
-    const layers={};
-    cs.forEach(c=>{(layers[c.layer]=layers[c.layer]||[]).push(c);});
-    const layerHtml=Object.entries(layers).map(([lname,items])=>{
-      const lcls={ok:"c-ok",warn:"c-warn",bad:"c-bad",unk:"c-unk"};
-      const itemsHtml=items.map(c=>`
-        <li class="${lcls[c.status]}"><b>${c.name}</b> — ${c.status.toUpperCase()}
-          ${c.detail?`<br><span class="mono">${c.detail}</span>`:""}
-        </li>`).join("");
-      const whys=items.filter(c=>c.why).map(c=>`
-        <div class="why ${c.status==="warn"?"warnb":""}"><strong>Why — ${c.name}</strong>${c.why}
-        ${c.fix?`<div class="fix"><b>Fix:</b> ${c.fix}</div>`:""}
-        ${c.chain?`<div class="chain" style="margin-top:6px">${c.chain}</div>`:""}</div>`).join("");
-      return `<div class="layer"><div class="layer-top"><span class="layer-name">${lname}</span>
-        <span class="layer-desc">${items.length} check${items.length>1?"s":""}</span></div>
-        <ul class="checks">${itemsHtml}</ul>${whys}</div>`;
-    }).join("");
-    const counts2={ok:0,warn:0,bad:0,unk:0}; cs.forEach(c=>counts2[c.status]++);
-    return `<div class="mod" id="mod-${mm.id}">
-      <div class="mod-head" onclick="document.getElementById('mod-${mm.id}').classList.toggle('open')">
-        <span class="mod-dot ${st}"></span>
-        <div><div class="mod-name"><span class="idx">${mm.n}.</span>${mm.id}</div>
-        <div class="mod-sub">${mm.sub} · ${counts2.ok}✓ ${counts2.warn}! ${counts2.bad}✗ ${counts2.unk}?</div></div>
-        <span class="pill ${st}">${pillTxt[st]}</span><span class="chev">▸</span>
-      </div>
-      <div class="mod-body">${layerHtml}</div>
-    </div>`;
-  }).join("");
-  // auto-open the worst module
-  const worst=MODMETA.map(m=>({m,s:modStatus(m.id)})).sort((a,b)=>rank[a.s]-rank[b.s])[0];
-  if(worst&&worst.s!=="ok") document.getElementById("mod-"+worst.m.id).classList.add("open");
-
-  document.getElementById("footNote").innerHTML=
-    "fixture built_at: <code>"+(builtAt||"unknown")+"</code>"+
-    (window.__buildTag?` · deployed build tag: <code>${window.__buildTag}</code>`:"")+
-    " · module map: <code>docs/MODULES.md</code>";
-}
-
-main().catch(e=>{
-  const el=document.getElementById("err");
-  el.style.display="block";
-  el.innerHTML="<b>Dashboard failed to initialize:</b> "+String(e).slice(0,300);
+main().catch(e => {
+  const el = document.getElementById("err");
+  el.style.display = "block";
+  el.innerHTML = "<b>Dashboard failed to initialize:</b> " + String(e).slice(0, 300);
 });
 </script>
 </body>
