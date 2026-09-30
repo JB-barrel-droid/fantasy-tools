@@ -175,10 +175,10 @@ class TestLegGuarantees(unittest.TestCase):
     def test_pie_identity_pre_rounding(self):
         for pos in POSITIONS:
             cal = self.leg["calibration"][pos]
-            pie = self.pies[pos]
+            # Use the pie actually used in calibration (freshly measured from
+            # data), not the file pies (self.pies) which may differ.
+            pie = cal["pie_used"]
             # The pie identity: bench_raw + starter_raw must equal the pie.
-            # The bench share is per-position feasible (not constant 0.15);
-            # what matters is that the split preserves the total.
             total = cal["bench_raw"] + cal["starter_raw"]
             self.assertTrue(abs(total - pie) <= 1e-9 * pie, pos)
             # Both portions must be non-negative
