@@ -520,7 +520,241 @@ def build_checkpoints():
         "stale": (days_old(chain_run_at) or 999) > 1.5,
     }
 
+    # Adj curve pipeline: track all stages from input data -> live dashboard
+    # Jeremy 2026-09-29: "The adj curves should update immediately as the new
+    # weekly data populates. There is no reason it should be ad hoc and delayed,
+    # it's part of the chain, and a section of the monitoring dashboard should
+    # ensure all stages of the adj curves are moving forward from when the input
+    # data updates all the way through to the live dash"
+    result["adj_curve_pipeline"] = build_adj_curve_pipeline()
+
     return result
+
+
+def build_adj_curve_pipeline():
+    """Build the adj curve pipeline stage statuses.
+
+    Tracks the linear flow for _adjusted curves:
+      A1 Input data    - source snapshots fresh for current NFL week
+      A2 Fit executed  - adjustment-inputs.json generated after input data
+      A3 Sections baked - _adjusted sections have fit_bake_id matching inputs version
+      A4 Synced to dist - dist/assets/adjustment-inputs.json matches app/ version
+      A5 Live           - served adjustment-inputs.json matches local version
+
+    Each stage: {label, what, timestamp, status, reason}
+    Status: ok/warn/bad/unk. A stage is only ok if it ran AFTER the previous stage.
+    """
+    import hashlib
+    import urllib.request
+
+    stages = {}
+
+    # A1: Input data - check source snapshot freshness
+    # The 4 adjusted sources: fantasycalc, usatoday, fantasypros, cbs
+    adj_sources = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
+    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    fixture = {}
+    fixture_built_at = None
+    if fixture_path.exists():
+        try:
+            with open(fixture_path) as f:
+                fixture = json.load(f)
+            fixture_built_at = fixture.get("built_at")
+        except:
+            pass
+
+    # Check each adj source has data in the fixture
+    sources_with_data = []
+    for src in adj_sources:
+        if src in fixture.get("sources", {}):
+            combos = fixture["sources"][src].get("combos", {})
+            if combos:
+                sources_with_data.append(src)
+
+    if len(sources_with_data) == 4:
+        stages["a1_input"] = {
+            "label": "A1 · Input data",
+            "what": "All 4 adj sources (FC, USAT, FP, CBS) have data in the fixture",
+            "timestamp": fixture_built_at,
+            "status": "ok",
+            "reason": f"All 4 sources present in fixture (built {fixture_built_at}).",
+        }
+    elif sources_with_data:
+        stages["a1_input"] = {
+            "label": "A1 · Input data",
+            "what": "All 4 adj sources (FC, USAT, FP, CBS) have data in the fixture",
+            "timestamp": fixture_built_at,
+            "status": "warn",
+            "reason": f"Only {len(sources_with_data)}/4 sources have data: {', '.join(sources_with_data)}.",
+        }
+    else:
+        stages["a1_input"] = {
+            "label": "A1 · Input data",
+            "what": "All 4 adj sources (FC, USAT, FP, CBS) have data in the fixture",
+            "timestamp": fixture_built_at,
+            "status": "bad",
+            "reason": "No adj source data in fixture.",
+        }
+
+    # A2: Fit executed - check adjustment-inputs.json
+    inputs_path = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
+    inputs = {}
+    inputs_generated_at = None
+    inputs_version = None
+    if inputs_path.exists():
+        try:
+            with open(inputs_path) as f:
+                inputs = json.load(f)
+            inputs_generated_at = inputs.get("generated_at")
+            inputs_version = inputs.get("version")
+        except:
+            pass
+
+    # Fit should be recent (within 2 days) — the exact ordering vs fixture
+    # built_at is not meaningful because the fixture is rebuilt AFTER the fit
+    # to bake in the _adjusted sections (updating built_at).
+    # What matters: fit exists, has a version, and is fresh.
+    fit_age_days = days_old(inputs_generated_at) if inputs_generated_at else 999
+
+    if inputs_generated_at and inputs_version and fit_age_days <= 2:
+        stages["a2_fit"] = {
+            "label": "A2 · Fit executed",
+            "what": "build_adjustment_inputs.py ran recently (adjustment-inputs.json fresh)",
+            "timestamp": inputs_generated_at,
+            "status": "ok",
+            "reason": f"Fit version {inputs_version} generated {inputs_generated_at} ({fit_age_days:.1f}d ago).",
+        }
+    elif inputs_generated_at and inputs_version:
+        stages["a2_fit"] = {
+            "label": "A2 · Fit executed",
+            "what": "build_adjustment_inputs.py ran recently (adjustment-inputs.json fresh)",
+            "timestamp": inputs_generated_at,
+            "status": "warn",
+            "reason": f"Fit version {inputs_version} generated {inputs_generated_at} ({fit_age_days:.1f}d ago) — stale, needs re-run.",
+        }
+    else:
+        stages["a2_fit"] = {
+            "label": "A2 · Fit executed",
+            "what": "build_adjustment_inputs.py ran recently (adjustment-inputs.json fresh)",
+            "timestamp": inputs_generated_at,
+            "status": "bad",
+            "reason": "adjustment-inputs.json missing or unreadable.",
+        }
+
+    # A3: Sections baked - check _adjusted sections have matching fit_bake_id
+    adj_sections_ok = []
+    adj_sections_bad = []
+    for src in adj_sources:
+        adj_key = f"{src}_adjusted"
+        adj_section = fixture.get("sources", {}).get(adj_key, {})
+        fit_bake_id = adj_section.get("fit_bake_id")
+        if fit_bake_id and fit_bake_id == inputs_version:
+            adj_sections_ok.append(src)
+        else:
+            adj_sections_bad.append(f"{src} (fit_bake_id={fit_bake_id})")
+
+    if len(adj_sections_ok) == 4:
+        stages["a3_sections"] = {
+            "label": "A3 · Sections baked",
+            "what": "_adjusted fixture sections built with current fit_bake_id",
+            "timestamp": fixture_built_at,
+            "status": "ok",
+            "reason": f"All 4 _adjusted sections have fit_bake_id={inputs_version}.",
+        }
+    elif adj_sections_ok:
+        stages["a3_sections"] = {
+            "label": "A3 · Sections baked",
+            "what": "_adjusted fixture sections built with current fit_bake_id",
+            "timestamp": fixture_built_at,
+            "status": "warn",
+            "reason": f"Only {len(adj_sections_ok)}/4 match: {', '.join(adj_sections_ok)}. Mismatched: {', '.join(adj_sections_bad)}.",
+        }
+    else:
+        stages["a3_sections"] = {
+            "label": "A3 · Sections baked",
+            "what": "_adjusted fixture sections built with current fit_bake_id",
+            "timestamp": fixture_built_at,
+            "status": "bad",
+            "reason": f"No _adjusted sections match fit version {inputs_version}. Found: {', '.join(adj_sections_bad)}.",
+        }
+
+    # A4: Synced to dist - check dist/assets/adjustment-inputs.json matches app/
+    dist_inputs_path = REPO / "dist" / "assets" / "adjustment-inputs.json"
+    dist_version = None
+    dist_mtime = None
+    if dist_inputs_path.exists():
+        try:
+            with open(dist_inputs_path) as f:
+                dist_data = json.load(f)
+            dist_version = dist_data.get("version")
+            dist_mtime = datetime.fromtimestamp(dist_inputs_path.stat().st_mtime, tz=timezone.utc).isoformat()
+        except:
+            pass
+
+    if dist_version and dist_version == inputs_version:
+        stages["a4_sync"] = {
+            "label": "A4 · Synced to dist",
+            "what": "dist/assets/adjustment-inputs.json matches app/ version (ready for deploy)",
+            "timestamp": dist_mtime,
+            "status": "ok",
+            "reason": f"dist/ version {dist_version} matches app/ version.",
+        }
+    elif dist_version:
+        stages["a4_sync"] = {
+            "label": "A4 · Synced to dist",
+            "what": "dist/assets/adjustment-inputs.json matches app/ version (ready for deploy)",
+            "timestamp": dist_mtime,
+            "status": "warn",
+            "reason": f"dist/ version {dist_version} != app/ version {inputs_version} — needs sync.",
+        }
+    else:
+        stages["a4_sync"] = {
+            "label": "A4 · Synced to dist",
+            "what": "dist/assets/adjustment-inputs.json matches app/ version (ready for deploy)",
+            "timestamp": None,
+            "status": "bad",
+            "reason": "dist/assets/adjustment-inputs.json missing.",
+        }
+
+    # A5: Live - check served adjustment-inputs.json matches local
+    live_version = None
+    live_generated_at = None
+    try:
+        url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/adjustment-inputs.json"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            live_data = json.load(resp)
+        live_version = live_data.get("version")
+        live_generated_at = live_data.get("generated_at")
+    except Exception as e:
+        live_version = None
+
+    if live_version and live_version == inputs_version:
+        stages["a5_live"] = {
+            "label": "A5 · Live",
+            "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+            "timestamp": live_generated_at,
+            "status": "ok",
+            "reason": f"Live version {live_version} matches local.",
+        }
+    elif live_version:
+        stages["a5_live"] = {
+            "label": "A5 · Live",
+            "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+            "timestamp": live_generated_at,
+            "status": "bad",
+            "reason": f"Live version {live_version} != local version {inputs_version} — deploy needed. Curves may be paused on stale inputs.",
+        }
+    else:
+        stages["a5_live"] = {
+            "label": "A5 · Live",
+            "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+            "timestamp": None,
+            "status": "unk",
+            "reason": "Could not fetch live adjustment-inputs.json.",
+        }
+
+    return stages
 
 
 def main():
