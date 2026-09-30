@@ -148,3 +148,11 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
   the snapshot, re-runs the pipeline, re-imports to Supabase via
   `pipelines/refresh_fantasycalc_supabase.py`, verifies health, and pushes.
   No local cron — project rules require GitHub Actions for scheduled work.
+
+## As-published indexing: proportional scaling (2026-09-30)
+- User directive: "there is no need for rounding like this, so figure out a logic that applies to all the ones sourced from trade value charts." The per-position quantile mapping was destroying real value differences (Jeanty 6365 vs Cook 7157 → both 41.4) and scrambling cross-position rank.
+- New logic in `pipelines/reindex_comparison_section.py`: sources with `value_provenance == "published"` (FantasyCalc, USA Today, FantasyPros, CBS) use GLOBAL proportional scaling instead of per-position quantile mapping.
+- Formula: `indexed = native × (anchor_total / native_total)` over shared players. This preserves exact value ratios (Cook 12.4% above Jeanty stays 12.4% above), cross-position order, and all differences. No quantile mapping, no rounding in storage.
+- Fixed-pie invariant holds: sum(indexed) = anchor_total by construction.
+- DDF-methodology sources (ESPN) keep the per-position quantile mapping.
+- Verified: Jeanty 6365→42.36, Cook 7157→47.63 (ratio 1.1244 preserved); Taylor 70.0→51.71, Walker 57.9→42.77 (ratio 1.209 preserved).
