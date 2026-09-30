@@ -44,7 +44,10 @@ POSITIONS = ("QB", "RB", "WR", "TE")
 DRIFT_TOL = 0.05       # per-value tolerance for "same" native
 DRIFT_WARN_FRAC = 0.0  # any drift warns
 DRIFT_FAIL_FRAC = 0.05  # >5% of values drifted fails
-FACTOR_LO, FACTOR_HI = 0.2, 5.0
+# Factor bounds: as-published sources on the 10,000-scale (FantasyCalc) have
+# factors ~0.007 to reach the 0-70 indexed scale. Per-position DDF sources
+# have factors ~0.2-5.0. The lower bound accommodates both.
+FACTOR_LO, FACTOR_HI = 0.001, 5.0
 
 
 def _load_json(path):
@@ -115,10 +118,14 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                              "all candidate slugs resolve in fixture player_keys"))
 
     # --- pie factor sanity (no fixture needed) ---
+    # As-published sources use global (not per-position) scaling; check the
+    # "global" key for those, per-position keys for DDF-methodology sources.
     sane, bad = True, []
     for combo_name, combo in cand["combos"].items():
-        for pos in POSITIONS:
-            it = combo["index_total"].get(pos, {})
+        it_map = combo.get("index_total", {})
+        positions_to_check = ["global"] if "global" in it_map else POSITIONS
+        for pos in positions_to_check:
+            it = it_map.get(pos, {})
             f = it.get("factor")
             if not (isinstance(f, (int, float)) and FACTOR_LO <= f <= FACTOR_HI):
                 sane, bad = False, bad + [f"{combo_name}/{pos} factor={f}"]

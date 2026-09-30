@@ -8,6 +8,13 @@ then, only if EVERY source succeeded:
 then, only if the fit succeeded:
   adjusted fixture sections (deterministic application of the fit cells)
 
+cbsros (CBS rest-of-season projections) runs its own stage path instead:
+  snapshot -> DDF leg (12 legs) -> section -> review/verify
+The generic path's quantile-reindex stage always maps to the ESPN anchor,
+which would transform cbsros's deliberate DDF-direct values (factor 1.0);
+its chain mirrors its production pipeline and its review stage verifies
+the rebuilt fixture section fail-closed.
+
 Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
 - Review verdicts are NEVER modified by this chain. A 'hold' stays a 'hold'.
   review_comparison_candidate.py documents hold as "something needs a human
@@ -39,7 +46,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs"]
+SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs", "cbsros"]
+
+# cbsros DDF-leg build matrix: the section builder expects one leg per
+# (scoring, teams) pair, 3 scorings x 4 team counts = 12 legs.
+CBSROS_LEG_SCORINGS = ("standard", "half_ppr", "ppr")
+CBSROS_LEG_TEAMS = (8, 10, 12, 14)
+CBSROS_COMBO_KEYS = [f"{s}_{t}" for s in ("full", "half", "standard")
+                     for t in CBSROS_LEG_TEAMS]
 
 # Stage names in strict execution order (fit runs last, gated on all sources).
 STAGE_ORDER = ["match", "reference", "section", "reindex", "review", "promote", "fit"]
@@ -115,12 +129,18 @@ def process_section(section, repo, run_fn):
 
     # Review. The reviewer exits non-zero when the verdict is not ready,
     # but still writes the artifact — a missing artifact is itself a failure.
+    # Standing triage decisions (data/triage/comparison-triage.json) cover
+    # legitimately-excluded players (no ESPN anchor); the chain honors them.
     review_path = repo / "output" / "reviewed" / f"{base}-review.json"
     review_path.parent.mkdir(parents=True, exist_ok=True)
-    ok, out = run_fn([
+    triage_path = repo / "data" / "triage" / "comparison-triage.json"
+    review_cmd = [
         "python3", "pipelines/review_comparison_candidate.py",
         str(reindexed), "--out", str(review_path),
-    ])
+    ]
+    if triage_path.is_file():
+        review_cmd.extend(["--triage", str(triage_path)])
+    ok, out = run_fn(review_cmd)
     if not review_path.is_file():
         raise ChainHalt("review", f"{base}: review produced no artifact: {out[-300:]}")
     try:
@@ -260,6 +280,142 @@ def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
     return result
 
 
+def _verify_cbsros_section(repo, snapshot_vintage):
+    """Review GATE for the cbsros chain (not a bypass).
+
+    The section builder writes sources.cbsros directly to the fixture, so
+    there is no candidate-vs-fixture review artifact. This verification is
+    the gate: it checks the rebuilt section is well-formed and halts the
+    chain fail-closed if not. Raises ChainHalt("review", ...) on any check
+    failure.
+    """
+    fixture_path = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    try:
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ChainHalt("review", f"cannot read fixture for review: {exc}")
+    section = (fixture.get("sources") or {}).get("cbsros")
+    if not isinstance(section, dict):
+        raise ChainHalt("review", "sources.cbsros missing from fixture after section build")
+    combos = section.get("combos") or {}
+    missing = [k for k in CBSROS_COMBO_KEYS if k not in combos]
+    if missing:
+        raise ChainHalt("review", f"cbsros section missing combos: {missing}")
+    bad = []
+    n_values = 0
+    for key in CBSROS_COMBO_KEYS:
+        combo = combos[key] or {}
+        values = combo.get("values") or {}
+        native = combo.get("native") or {}
+        if not values or not native:
+            bad.append(f"{key}: empty values/native")
+            continue
+        if set(values) != set(native):
+            bad.append(f"{key}: values/native key mismatch")
+            continue
+        for slug, val in values.items():
+            # DDF two-tier: waiver-tier players legitimately score 0.0
+            # (ESPN's DDF section has 177/353 zeros). Values must be numeric
+            # and non-negative; negatives or non-numbers are corruption.
+            if not isinstance(val, (int, float)) or val < 0:
+                bad.append(f"{key}: invalid value for {slug}: {val!r}")
+                break
+        for slug, val in native.items():
+            if not isinstance(val, (int, float)) or val < 0:
+                bad.append(f"{key}: invalid native for {slug}: {val!r}")
+                break
+        n_values += len(values)
+    if bad:
+        raise ChainHalt("review", f"cbsros section malformed: {bad[:5]}")
+    vintage = section.get("vintage")
+    if snapshot_vintage and vintage != snapshot_vintage:
+        raise ChainHalt(
+            "review",
+            f"cbsros section vintage {vintage!r} != snapshot vintage {snapshot_vintage!r}",
+        )
+    print(f"  ✓ review: 12 combos, {n_values} values, vintage {vintage}")
+    return n_values
+
+
+def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
+    """Rebuild the cbsros chain: snapshot -> DDF leg -> section -> review.
+
+    cbsros does NOT go through the generic match -> reference -> section ->
+    quantile-reindex path. reindex_comparison_section.py always quantile-maps
+    to the ESPN anchor, which would transform cbsros's deliberate DDF-direct
+    values (factor 1.0, no stale-pie rescale). Its production pipeline is
+    snapshot -> DDF leg -> section, and this chain mirrors that pipeline
+    instead of forcing it through the quantile path.
+
+    Returns a result dict; never raises. The first hold/failure halts the
+    source's chain immediately (ChainHalt) and is recorded as failed.
+    """
+    result = {
+        "source": source,
+        "status": "failed",  # fail-closed default; set to "ok" only on full success
+        "stage": None,
+        "detail": "",
+        "promoted": 0,
+        "sections": 1,
+    }
+    repo = Path(repo)
+    try:
+        # 1. Snapshot
+        result["stage"] = "snapshot"
+        snapshot = find_latest_snapshot(repo, source)
+        if not snapshot:
+            raise ChainHalt("snapshot", "no snapshot.json found under data/raw/sources")
+        print(f"  Snapshot: {snapshot.relative_to(repo)}")
+        try:
+            snapshot_vintage = json.loads(snapshot.read_text(encoding="utf-8")).get("vintage_date")
+        except (OSError, ValueError):
+            snapshot_vintage = None
+
+        # 2. DDF leg: rebuild all 12 legs from the snapshot (3 scorings x 4 team counts)
+        result["stage"] = "leg"
+        for scoring, teams in ((s, t) for s in CBSROS_LEG_SCORINGS for t in CBSROS_LEG_TEAMS):
+            ok, out = run_fn([
+                "python3", "pipelines/build_cbsros_ddf_leg.py",
+                "--snapshot", str(snapshot),
+                "--scoring", scoring,
+                "--teams", str(teams),
+            ])
+            if not ok:
+                raise ChainHalt("leg", f"DDF leg build failed (scoring={scoring} teams={teams}): {out[-500:]}")
+        print("  ✓ 12 DDF legs rebuilt")
+
+        # 3. Section: build the fixture section from the fresh legs
+        result["stage"] = "section"
+        ok, out = run_fn(["python3", "pipelines/build_cbsros_section_from_ddf_leg.py"])
+        if not ok:
+            raise ChainHalt("section", f"cbsros section build failed: {out[-500:]}")
+        print("  ✓ cbsros fixture section rebuilt")
+
+        # 4. Review gate: verify the rebuilt section (halts fail-closed)
+        result["stage"] = "review"
+        n_values = _verify_cbsros_section(repo, snapshot_vintage)
+
+        result["status"] = "ok"
+        result["stage"] = "complete"
+        result["promoted"] = 1
+        result["detail"] = (
+            f"snapshot {snapshot_vintage} -> 12 DDF legs -> section; "
+            f"review passed ({n_values} values)"
+        )
+        print(f"  ✓ cbsros chain complete: {result['detail']}")
+
+    except ChainHalt as h:
+        result["stage"] = h.stage
+        result["detail"] = h.detail
+        print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
+    except Exception as e:  # fail closed on unexpected errors too
+        result["stage"] = "error"
+        result["detail"] = f"unexpected error: {e}"
+        print(f"  ✗ ERROR: {e}")
+
+    return result
+
+
 def run_fit(repo, run_fn):
     """Stage 7: bias-correction fit. Raises ChainHalt on failure.
 
@@ -362,7 +518,12 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     try:
         for source in SOURCES:
             print(f"\n[{source}] Starting chain...")
-            results[source] = run_source(source, nfl_week, repo, run_fn)
+            # cbsros has its own DDF-leg pipeline (not the quantile-reindex
+            # path); its chain mirrors that pipeline.
+            if source == "cbsros":
+                results[source] = run_cbsros_source(source, nfl_week, repo, run_fn)
+            else:
+                results[source] = run_source(source, nfl_week, repo, run_fn)
 
         failed_sources = [s for s, r in results.items() if r["status"] != "ok"]
         if failed_sources:

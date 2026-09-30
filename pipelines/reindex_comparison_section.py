@@ -203,9 +203,17 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                        "index_total": {},
                        "anchor_combo": anchor_name, "anchor_mapping": anchor_mapping,
                        "player_keys": {s: key_by_slug.get(s) for s in native}}
-        # As-published trade value charts (FantasyCalc, USA Today, FantasyPros, CBS)
-        # publish globally-comparable values. Their cross-position ranking is the
-        # product — we must not destroy it with per-position remapping.
+        # As-published trade value charts publish globally-comparable values.
+        # Their cross-position ranking is the product — we must not destroy it
+        # with per-position remapping.
+        #
+        # EXPLICIT SOURCE LIST: Only true as-published trade charts use global
+        # scaling. ESPN is our DDF computation from ESPN projections (not a
+        # published chart) and uses per-position logic. The candidate's
+        # value_provenance field is not trusted for this decision.
+        AS_PUBLISHED_SOURCES = {"fantasycalc", "usatoday", "fantasypros", "cbs"}
+        is_published = (source in AS_PUBLISHED_SOURCES and
+                        cand.get("value_provenance") == "published")
         #
         # Indexation logic (2026-09-30 refinement): players with VORP>0 should
         # sum to the same total across sources. Different charts price to
@@ -217,7 +225,6 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
         #          indexed = native * scale for ALL priced players
         # This preserves exact value ratios and cross-position order.
         # No quantile mapping, no rounding in storage.
-        is_published = cand.get("value_provenance") == "published"
         if is_published:
             priced = []
             for slug, val in native.items():
