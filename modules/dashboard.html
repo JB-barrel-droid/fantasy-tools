@@ -180,6 +180,19 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="lineageSources"></div>
 </section>
 
+<section class="card" id="espnInputsCard">
+  <h2>ESPN input verification — grain-to-grain</h2>
+  <div class="desc">
+    For the <b>25 most valuable ESPN players</b> (12-team Half PPR), compares the major
+    <b>input variables</b> grain-to-grain: what ESPN's projection CSV says vs what the
+    DDF leg ingested. The DDF methodology powers ESPN's chart values from these
+    raw projections (yards, TDs, receptions). A red <b>✗</b> means the pipeline
+    is not using ESPN's actual number for that grain.
+  </div>
+  <div id="espnInputsSummary" style="margin-bottom:16px"></div>
+  <div id="espnInputsTable" style="overflow-x:auto"></div>
+</section>
+
 <section class="card" id="tradeQaCard">
   <h2>Trade dashboard QA — rendered output health</h2>
   <div class="desc">
@@ -682,6 +695,67 @@ async function main(){
     }
   } catch(e) {
     lineageHost.innerHTML = `<div style="color:var(--grey)">Failed to load lineage data: ${String(e).slice(0,80)}</div>`;
+  }
+
+  // ESPN input verification — grain-to-grain comparison of projection inputs
+  const espnInputsHost = document.getElementById("espnInputsTable");
+  const espnInputsSummary = document.getElementById("espnInputsSummary");
+  try {
+    const eiResp = await fetch("espn-input-comparison.json", {cache:"no-store"});
+    if(eiResp.ok){
+      const eiData = await eiResp.json();
+      const players = eiData.players || [];
+      const cols = eiData.input_columns || [];
+
+      // Summary
+      const matched = players.filter(p => p.all_grains_match).length;
+      const total = players.length;
+      const allOk = matched === total && total > 0;
+      espnInputsSummary.innerHTML = `
+        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "#e8f5e9" : "#ffebee"};border:1px solid ${allOk ? "#4caf50" : "#f44336"}">
+          <b>${matched}/${total}</b> players with all input grains matching ESPN CSV ·
+          <span style="color:${allOk ? "#2e7d32" : "#c62828"};font-weight:bold">${allOk ? "✓ PASS" : "✗ FAIL"}</span>
+          <span style="color:#666;font-size:12px;margin-left:8px">Source: ${eiData.csv_path || "data/inputs/espn_projections.csv"}</span>
+        </div>`;
+
+      // Build table
+      let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
+        <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd;position:sticky;left:0;background:#fff">Player</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">Pos</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">Team</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">Chart</th>`;
+      cols.forEach(c => {
+        html += `<th style="padding:6px;border-bottom:2px solid #ddd" colspan="2">${c.label}</th>`;
+      });
+      html += `</tr><tr><th style="position:sticky;left:0;background:#fff"></th><th></th><th></th><th></th>`;
+      cols.forEach(() => {
+        html += `<th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">ESPN</th><th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">Ours</th>`;
+      });
+      html += `</tr></thead><tbody>`;
+
+      players.forEach(p => {
+        const rowOk = p.all_grains_match;
+        html += `<tr style="background:${rowOk ? "#f1f8e9" : "#ffebee"}">
+          <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold;position:sticky;left:0;background:${rowOk ? "#f1f8e9" : "#ffebee"}">${p.name}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.pos}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.team}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${p.chart_value != null ? Number(p.chart_value).toFixed(1) : "—"}</td>`;
+        p.grains.forEach(g => {
+          const fmt = v => v == null ? "—" : (Number.isInteger(v) ? v.toString() : Number(v).toFixed(1));
+          const cellStyle = g.match ? "" : "background:#ffcdd2;font-weight:bold";
+          const mark = g.match ? "" : " ✗";
+          html += `<td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${cellStyle}">${fmt(g.espn_csv)}</td>
+                   <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${cellStyle}">${fmt(g.pipeline_input)}${mark}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody></table>`;
+      espnInputsHost.innerHTML = html;
+    } else {
+      espnInputsHost.innerHTML = `<div style="color:var(--grey)">Input comparison not available. Run <code>python3 pipelines/build_espn_input_comparison.py</code>.</div>`;
+    }
+  } catch(e) {
+    espnInputsHost.innerHTML = `<div style="color:var(--grey)">Failed to load input comparison: ${String(e).slice(0,80)}</div>`;
   }
 
   // C9: Live deployment check via GitHub Actions API

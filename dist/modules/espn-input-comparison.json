@@ -1,0 +1,1716 @@
+{
+  "generated_at": "unknown",
+  "method": "Grain-to-grain comparison of ESPN projection inputs. For each player, shows the raw ESPN CSV values for the major input variables (yards, TDs, receptions) alongside what the DDF leg ingested. The DDF leg reads the CSV directly, so these should match exactly. Any mismatch is a pipeline ingestion bug.",
+  "csv_path": "data/inputs/espn_projections.csv",
+  "input_columns": [
+    {
+      "key": "r_pass_yds",
+      "label": "Pass Yds"
+    },
+    {
+      "key": "r_pass_tds",
+      "label": "Pass TD"
+    },
+    {
+      "key": "r_rush_yds",
+      "label": "Rush Yds"
+    },
+    {
+      "key": "r_rush_tds",
+      "label": "Rush TD"
+    },
+    {
+      "key": "r_receptions",
+      "label": "Rec"
+    },
+    {
+      "key": "r_rec_yds",
+      "label": "Rec Yds"
+    },
+    {
+      "key": "r_rec_tds",
+      "label": "Rec TD"
+    },
+    {
+      "key": "ros_half_ppr",
+      "label": "ROS Half-PPR"
+    }
+  ],
+  "players": [
+    {
+      "player_key": "jahmyr gibbs",
+      "name": "Jahmyr Gibbs",
+      "pos": "RB",
+      "team": "DET",
+      "chart_value": 70.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1390.8,
+          "pipeline_input": 1390.8,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 14.8,
+          "pipeline_input": 14.8,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 66.0,
+          "pipeline_input": 66.0,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 536.6,
+          "pipeline_input": 536.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 3.3,
+          "pipeline_input": 3.3,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 334.34,
+          "pipeline_input": 334.34,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "bijan robinson",
+      "name": "Bijan Robinson",
+      "pos": "RB",
+      "team": "ATL",
+      "chart_value": 51.9,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1207.0,
+          "pipeline_input": 1207.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 8.6,
+          "pipeline_input": 8.6,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 54.6,
+          "pipeline_input": 54.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 519.2,
+          "pipeline_input": 519.2,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 2.8,
+          "pipeline_input": 2.8,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 268.32,
+          "pipeline_input": 268.32,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "kenneth walker iii",
+      "name": "Kenneth Walker III",
+      "pos": "RB",
+      "team": "KC",
+      "chart_value": 50.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1196.9,
+          "pipeline_input": 1196.9,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 10.4,
+          "pipeline_input": 10.4,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 45.1,
+          "pipeline_input": 45.1,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 382.8,
+          "pipeline_input": 382.8,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 3.1,
+          "pipeline_input": 3.1,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 261.52,
+          "pipeline_input": 261.52,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "derrick henry",
+      "name": "Derrick Henry",
+      "pos": "RB",
+      "team": "BAL",
+      "chart_value": 48.7,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1380.4,
+          "pipeline_input": 1380.4,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 14.1,
+          "pipeline_input": 14.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 20.3,
+          "pipeline_input": 20.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 179.8,
+          "pipeline_input": 179.8,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.0,
+          "pipeline_input": 1.0,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 256.77,
+          "pipeline_input": 256.77,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "jonathan taylor",
+      "name": "Jonathan Taylor",
+      "pos": "RB",
+      "team": "IND",
+      "chart_value": 48.7,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1233.8,
+          "pipeline_input": 1233.8,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 12.1,
+          "pipeline_input": 12.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 41.3,
+          "pipeline_input": 41.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 327.8,
+          "pipeline_input": 327.8,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.2,
+          "pipeline_input": 1.2,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 256.61,
+          "pipeline_input": 256.61,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "christian mccaffrey",
+      "name": "Christian McCaffrey",
+      "pos": "RB",
+      "team": "SF",
+      "chart_value": 47.5,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 890.3,
+          "pipeline_input": 890.3,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 8.4,
+          "pipeline_input": 8.4,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 68.0,
+          "pipeline_input": 68.0,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 581.3,
+          "pipeline_input": 581.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 3.5,
+          "pipeline_input": 3.5,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 252.56,
+          "pipeline_input": 252.56,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "puka nacua",
+      "name": "Puka Nacua",
+      "pos": "WR",
+      "team": "LAR",
+      "chart_value": 42.8,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 63.4,
+          "pipeline_input": 63.4,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.8,
+          "pipeline_input": 0.8,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 99.4,
+          "pipeline_input": 99.4,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1333.3,
+          "pipeline_input": 1333.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 8.4,
+          "pipeline_input": 8.4,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 244.57,
+          "pipeline_input": 244.57,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "jaxon smithnjigba",
+      "name": "Jaxon Smith-Njigba",
+      "pos": "WR",
+      "team": "SEA",
+      "chart_value": 42.4,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 20.8,
+          "pipeline_input": 20.8,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.2,
+          "pipeline_input": 0.2,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 103.2,
+          "pipeline_input": 103.2,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1348.6,
+          "pipeline_input": 1348.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 8.9,
+          "pipeline_input": 8.9,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 243.14,
+          "pipeline_input": 243.14,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "ashton jeanty",
+      "name": "Ashton Jeanty",
+      "pos": "RB",
+      "team": "LV",
+      "chart_value": 41.3,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 965.8,
+          "pipeline_input": 965.8,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 7.0,
+          "pipeline_input": 7.0,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 59.5,
+          "pipeline_input": 59.5,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 471.7,
+          "pipeline_input": 471.7,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 2.4,
+          "pipeline_input": 2.4,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 229.9,
+          "pipeline_input": 229.9,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "james cook",
+      "name": "James Cook",
+      "pos": "RB",
+      "team": "BUF",
+      "chart_value": 41.3,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1255.7,
+          "pipeline_input": 1255.7,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 9.9,
+          "pipeline_input": 9.9,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 27.9,
+          "pipeline_input": 27.9,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 225.4,
+          "pipeline_input": 225.4,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.4,
+          "pipeline_input": 1.4,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 229.86,
+          "pipeline_input": 229.86,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "jamarr chase",
+      "name": "Ja'Marr Chase",
+      "pos": "WR",
+      "team": "CIN",
+      "chart_value": 40.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 17.3,
+          "pipeline_input": 17.3,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.1,
+          "pipeline_input": 0.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 105.6,
+          "pipeline_input": 105.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1214.3,
+          "pipeline_input": 1214.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 9.7,
+          "pipeline_input": 9.7,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 234.76,
+          "pipeline_input": 234.76,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "amonra st brown",
+      "name": "Amon-Ra St. Brown",
+      "pos": "WR",
+      "team": "DET",
+      "chart_value": 39.8,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 9.9,
+          "pipeline_input": 9.9,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.1,
+          "pipeline_input": 0.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 102.6,
+          "pipeline_input": 102.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1228.3,
+          "pipeline_input": 1228.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 9.7,
+          "pipeline_input": 9.7,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 233.92,
+          "pipeline_input": 233.92,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "saquon barkley",
+      "name": "Saquon Barkley",
+      "pos": "RB",
+      "team": "PHI",
+      "chart_value": 38.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1134.0,
+          "pipeline_input": 1134.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 7.5,
+          "pipeline_input": 7.5,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 34.9,
+          "pipeline_input": 34.9,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 294.4,
+          "pipeline_input": 294.4,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 2.1,
+          "pipeline_input": 2.1,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 217.89,
+          "pipeline_input": 217.89,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "chase brown",
+      "name": "Chase Brown",
+      "pos": "RB",
+      "team": "CIN",
+      "chart_value": 36.2,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1011.3,
+          "pipeline_input": 1011.3,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 6.9,
+          "pipeline_input": 6.9,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 51.6,
+          "pipeline_input": 51.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 316.6,
+          "pipeline_input": 316.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.9,
+          "pipeline_input": 1.9,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 211.39,
+          "pipeline_input": 211.39,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "bucky irving",
+      "name": "Bucky Irving",
+      "pos": "RB",
+      "team": "TB",
+      "chart_value": 35.3,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 1156.0,
+          "pipeline_input": 1156.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 6.2,
+          "pipeline_input": 6.2,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 38.1,
+          "pipeline_input": 38.1,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 277.0,
+          "pipeline_input": 277.0,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.4,
+          "pipeline_input": 1.4,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 207.95,
+          "pipeline_input": 207.95,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "javonte williams",
+      "name": "Javonte Williams",
+      "pos": "RB",
+      "team": "DAL",
+      "chart_value": 34.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 978.8,
+          "pipeline_input": 978.8,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 9.7,
+          "pipeline_input": 9.7,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 35.9,
+          "pipeline_input": 35.9,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 217.7,
+          "pipeline_input": 217.7,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.2,
+          "pipeline_input": 1.2,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 203.0,
+          "pipeline_input": 203.0,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "josh allen",
+      "name": "Josh Allen",
+      "pos": "QB",
+      "team": "BUF",
+      "chart_value": 33.9,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 3403.2,
+          "pipeline_input": 3403.2,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 22.3,
+          "pipeline_input": 22.3,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 472.5,
+          "pipeline_input": 472.5,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 11.1,
+          "pipeline_input": 11.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 339.18,
+          "pipeline_input": 339.18,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "justin jefferson",
+      "name": "Justin Jefferson",
+      "pos": "WR",
+      "team": "MIN",
+      "chart_value": 32.6,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 9.5,
+          "pipeline_input": 9.5,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.1,
+          "pipeline_input": 0.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 91.2,
+          "pipeline_input": 91.2,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1120.3,
+          "pipeline_input": 1120.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 8.2,
+          "pipeline_input": 8.2,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 208.38,
+          "pipeline_input": 208.38,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "breece hall",
+      "name": "Breece Hall",
+      "pos": "RB",
+      "team": "NYJ",
+      "chart_value": 31.4,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 904.9,
+          "pipeline_input": 904.9,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 7.5,
+          "pipeline_input": 7.5,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 38.5,
+          "pipeline_input": 38.5,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 304.3,
+          "pipeline_input": 304.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.4,
+          "pipeline_input": 1.4,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 193.57,
+          "pipeline_input": 193.57,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "ceedee lamb",
+      "name": "CeeDee Lamb",
+      "pos": "WR",
+      "team": "DAL",
+      "chart_value": 30.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 10.0,
+          "pipeline_input": 10.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.1,
+          "pipeline_input": 0.1,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 89.6,
+          "pipeline_input": 89.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1073.8,
+          "pipeline_input": 1073.8,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 7.6,
+          "pipeline_input": 7.6,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 199.38,
+          "pipeline_input": 199.38,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "jeremiyah love",
+      "name": "Jeremiyah Love",
+      "pos": "RB",
+      "team": "ARI",
+      "chart_value": 29.9,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 924.3,
+          "pipeline_input": 924.3,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 6.4,
+          "pipeline_input": 6.4,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 39.3,
+          "pipeline_input": 39.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 280.6,
+          "pipeline_input": 280.6,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.6,
+          "pipeline_input": 1.6,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 188.14,
+          "pipeline_input": 188.14,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "chuba hubbard",
+      "name": "Chuba Hubbard",
+      "pos": "RB",
+      "team": "CAR",
+      "chart_value": 29.9,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 949.5,
+          "pipeline_input": 949.5,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 5.7,
+          "pipeline_input": 5.7,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 41.3,
+          "pipeline_input": 41.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 274.3,
+          "pipeline_input": 274.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.8,
+          "pipeline_input": 1.8,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 188.03,
+          "pipeline_input": 188.03,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "drake london",
+      "name": "Drake London",
+      "pos": "WR",
+      "team": "ATL",
+      "chart_value": 27.2,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 20.0,
+          "pipeline_input": 20.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 0.2,
+          "pipeline_input": 0.2,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 82.3,
+          "pipeline_input": 82.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 1127.1,
+          "pipeline_input": 1127.1,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 5.4,
+          "pipeline_input": 5.4,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 189.46,
+          "pipeline_input": 189.46,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "kyren williams",
+      "name": "Kyren Williams",
+      "pos": "RB",
+      "team": "LAR",
+      "chart_value": 27.0,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 810.3,
+          "pipeline_input": 810.3,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 7.9,
+          "pipeline_input": 7.9,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 33.3,
+          "pipeline_input": 33.3,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 208.1,
+          "pipeline_input": 208.1,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 1.9,
+          "pipeline_input": 1.9,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 177.29,
+          "pipeline_input": 177.29,
+          "match": true
+        }
+      ]
+    },
+    {
+      "player_key": "jaylen warren",
+      "name": "Jaylen Warren",
+      "pos": "RB",
+      "team": "PIT",
+      "chart_value": 26.6,
+      "csv_found": true,
+      "all_grains_match": true,
+      "grains": [
+        {
+          "key": "r_pass_yds",
+          "label": "Pass Yds",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_pass_tds",
+          "label": "Pass TD",
+          "espn_csv": 0.0,
+          "pipeline_input": 0.0,
+          "match": true
+        },
+        {
+          "key": "r_rush_yds",
+          "label": "Rush Yds",
+          "espn_csv": 826.4,
+          "pipeline_input": 826.4,
+          "match": true
+        },
+        {
+          "key": "r_rush_tds",
+          "label": "Rush TD",
+          "espn_csv": 4.0,
+          "pipeline_input": 4.0,
+          "match": true
+        },
+        {
+          "key": "r_receptions",
+          "label": "Rec",
+          "espn_csv": 44.7,
+          "pipeline_input": 44.7,
+          "match": true
+        },
+        {
+          "key": "r_rec_yds",
+          "label": "Rec Yds",
+          "espn_csv": 347.4,
+          "pipeline_input": 347.4,
+          "match": true
+        },
+        {
+          "key": "r_rec_tds",
+          "label": "Rec TD",
+          "espn_csv": 2.0,
+          "pipeline_input": 2.0,
+          "match": true
+        },
+        {
+          "key": "ros_half_ppr",
+          "label": "ROS Half-PPR",
+          "espn_csv": 175.73,
+          "pipeline_input": 175.73,
+          "match": true
+        }
+      ]
+    }
+  ]
+}
