@@ -115,14 +115,15 @@ class StaticExportTest(unittest.TestCase):
             # (promotions 2026-09-22); their old pins (24.0, 26.0, 22.1)
             # were Monday-rail values. CBS's isotonic fit lands Allen at
             # 17.2, matching the anchor (updated 2026-09-30 with Week 4 data).
-            # usatoday's fit lands at 17.3 (updated 2026-09-30).
+            # usatoday's fit lands at 18.3 (re-anchored 2026-09-30 to the two-tier
+            # ESPN leg; was 17.3 on the pre-two-tier leg).
             # _adjusted pins are bias-corrected then pie-rescaled (2026-09-30
             # fix): they track the ESPN leg within the 22% tolerance.
             # Updated 2026-09-30 with the 09-29 ESPN refit.
-            ("usatoday", "full_12"): 17.3,
+            ("usatoday", "full_12"): 18.3,
             ("fantasycalc", "full_12_qb1"): 17.2,
-            ("fantasypros", "full_12"): 17.2,
-            ("cbs", "full_12"): 17.2,
+            ("fantasypros", "full_12"): 18.3,
+            ("cbs", "full_12"): 18.2,
             ("espn", "full_12"): 18.2,
             ("fantasycalc_adjusted", "full_12_qb1"): 17.4,
             ("usatoday_adjusted", "full_12"): 17.5,
