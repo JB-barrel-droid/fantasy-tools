@@ -609,14 +609,14 @@ async function main(){
           </tr>`;
         }).join("");
 
-        return `<div class="src" style="margin-bottom:12px">
+        return `<div class="src open" style="margin-bottom:12px">
           <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="this.parentElement.classList.toggle('open')">
             <span class="cp-dot ok"></span>
             <b style="font-size:14px">${label}</b>
             <span style="color:var(--dim);font-size:12px">${s.player_count} players · ${s.combo_key}</span>
             <a href="${s.source_url}" target="_blank" rel="noopener" style="color:var(--blue);font-size:12px;margin-left:auto" onclick="event.stopPropagation()">Source page ↗</a>
           </div>
-          <div class="src-body" style="display:none;padding:0 16px 16px;border-top:1px solid var(--line)">
+          <div class="src-body" style="padding:0 16px 16px;border-top:1px solid var(--line)">
             <div style="margin-top:12px;font-size:12px;color:var(--dim);margin-bottom:8px">${s.source_note}</div>
             <div style="overflow-x:auto">
             <table style="width:100%;border-collapse:collapse;min-width:700px">
