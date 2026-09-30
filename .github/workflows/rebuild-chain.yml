@@ -55,7 +55,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python3 pipelines/import_supabase_references.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          # import_supabase_references.py takes --source (one of the five),
+          # not --nfl-week. Import each source explicitly.
+          for src in fantasycalc usatoday fantasypros espn cbs; do
+            python3 pipelines/import_supabase_references.py --source "$src"
+          done
 
       - name: Run import health check
         env:
