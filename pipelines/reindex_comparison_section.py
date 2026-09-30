@@ -132,6 +132,14 @@ def _round1(x):
     return round(float(x), 1)
 
 
+def _round4(x):
+    """Preserve precision for stored reindexed values. _round1 (1 decimal)
+    caused collisions: e.g., USA Today Taylor (64) and Walker (66) both
+    rounded to 49.4, erasing a real 3% native difference. Display layers
+    round for readability; storage must not."""
+    return round(float(x), 4)
+
+
 def reindex_section(candidate_path, fixture_path=None, players_path=None):
     """Translate one candidate section to the anchor scale.
 
@@ -234,7 +242,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             # disagreed with the anchor's ordering, erasing genuine
             # disagreements -- e.g., FP's Chase (57.1) > JSN (55.4) distinction
             # was lost because ESPN orders them oppositely.
-            reindexed = {slug: _round1(quantile_map(xs, ys, float(native[slug])))
+            reindexed = {slug: _round4(quantile_map(xs, ys, float(native[slug])))
                          for slug in priced}
             pre_total = sum(reindexed.values())
             key_by_slug = combo.get("player_keys", {})
@@ -249,7 +257,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             # isotonic outputs SCALED by the factor, so they sum to
             # target_total (within rounding). Recording the factor without
             # applying it silently breaks the fixed-pie invariant.
-            scaled = {slug: _round1(val * factor)
+            scaled = {slug: _round4(val * factor)
                       for slug, val in reindexed.items()}
             out_combo["reindexed"].update(scaled)
             out_combo["fit"][pos] = {
