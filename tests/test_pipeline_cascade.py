@@ -483,38 +483,68 @@ class IndependentInputChangeTest(unittest.TestCase):
 
 class HoldVerdictRepeatTest(unittest.TestCase):
     def _build_hold_world(self, tmp: Path) -> tuple[Path, Path, Path, Path]:
-        """Build fixtures where the review will produce a 'hold' verdict.
+        """Build fixtures that guarantee a 'hold' verdict.
 
-        Achieved by writing a snapshot with a player who has no match in
-        players.json, causing an untriaged review row → hold.
+        Strategy: add an extra player (key=9999) who is in players.json and
+        in the comparison fixture's player_keys (so they pass match and section
+        stages), but NOT in the ESPN anchor values (so the reindex stage emits
+        an untriaged review_rows entry → hold verdict on every run).
+
+        This is deterministic: the reindex stage always produces a review row
+        for any player who has a native value but no anchor entry, and the
+        review stage always marks untriaged review rows as hold.
         """
         players, player_keys = build_players(tmp)
         comparison = build_comparison(tmp, player_keys)
-        # Add an extra player to the snapshot who is NOT in players.json.
+
+        # Add extra player to players.json so the match stage can resolve them.
+        extra_key = 9999
+        extra_slug = "player extra0"
+        extra_name = "Player Extra0"
+        extra_pos = "TE"
+        players_data = json.loads((tmp / "players.json").read_text(encoding="utf-8"))
+        players_data["players"].append(
+            {"player_key": extra_key, "name": extra_name, "pos": extra_pos, "team": "TST"}
+        )
+        (tmp / "players.json").write_text(
+            json.dumps(players_data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+        # Add extra player to comparison fixture player_keys (so the section
+        # stage places them into native values) but do NOT add them to the ESPN
+        # anchor values (so the reindex stage finds no anchor → review_rows).
+        comp_data = json.loads((tmp / "comparison.json").read_text(encoding="utf-8"))
+        comp_data["player_keys"][extra_slug] = extra_key
+        (tmp / "comparison.json").write_text(
+            json.dumps(comp_data, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+
+        # Build snapshot that includes the extra player.
         rows = []
-        for index, slug in enumerate(player_keys):
-            pos = slug.split()[1].rstrip("0123456789").upper()
+        for index, s in enumerate(player_keys):
+            pos = s.split()[1].rstrip("0123456789").upper()
             rows.append(
                 {
-                    "player_name": " ".join(part.capitalize() for part in slug.split()),
+                    "player_name": " ".join(part.capitalize() for part in s.split()),
                     "value": 100.0 + index,
                     "pos": pos,
                     "team": "TST",
                     "scoring": "ppr",
                     "teams": 12,
-                    "source_player_id": player_keys[slug],
+                    "source_player_id": player_keys[s],
                 }
             )
-        # Extra player not in players.json.
+        # Extra player: matched by name → player_key 9999 → section native value →
+        # no ESPN anchor → reindex review_rows → hold.
         rows.append(
             {
-                "player_name": "Unknown Player",
+                "player_name": extra_name,
                 "value": 50.0,
-                "pos": "RB",
-                "team": "UNK",
+                "pos": extra_pos,
+                "team": "TST",
                 "scoring": "ppr",
                 "teams": 12,
-                "source_player_id": None,
+                "source_player_id": extra_key,
             }
         )
         raw_dir = tmp / "raw" / "sources" / "fantasycalc" / "week-4"
@@ -539,34 +569,31 @@ class HoldVerdictRepeatTest(unittest.TestCase):
         return players, player_keys, comparison, snapshot
 
     def test_hold_verdict_repeats_and_exits_nonzero_on_identical_rerun(self):
-        """A 'hold' review on run 1 should still produce 'hold' and exit 2
-        on run 2 with identical input — the cascade must not short-circuit
-        past the review stage."""
+        """A 'hold' review on run 1 must still produce 'hold' and exit 2 on
+        run 2 with identical input — the cascade must visit every stage and
+        re-collect the verdict rather than stopping at an unchanged upstream.
+
+        The hold is guaranteed by _build_hold_world: the extra player (key=9999)
+        has a native value in the section but no ESPN anchor value, so the
+        reindex stage always emits an untriaged review_rows entry → hold.
+        """
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             players, player_keys, comparison, snapshot = self._build_hold_world(tmp)
 
-            # The hold comes from untriaged review_rows in the reindexed artifact.
-            # Use the "unknown player" to generate review_rows → review_candidate
-            # will return hold when review_rows exist and no triage covers them.
-            # Actually the review_rows from the snapshot stage (unmatched player)
-            # propagate to the section, which carries them forward to reindex.
-            # The review stage checks for untriaged review_rows → hold.
             r1 = run_full_cascade(tmp, players, comparison, snapshot)
             verdict1 = r1.steps[-1].get("verdict")
 
-            # If the review didn't produce hold (no review_rows made it through),
-            # skip this test — the world didn't set up a hold scenario. That's
-            # OK: the review_rows from the section stage go to the section artifact
-            # but the reindex builds its own review from the section combos.
-            # The reindex review_rows (unmatched anchor) would produce hold.
-            # We skip if we can't engineer hold reliably in this world.
-            if verdict1 != "hold":
-                self.skipTest(
-                    f"run 1 verdict was {verdict1!r}, not 'hold'; "
-                    "cannot test hold-repeat without a reliably held review"
-                )
-
+            # The hold is deterministic: assert it rather than skipping.
+            self.assertEqual(
+                "hold", verdict1,
+                msg=(
+                    f"run 1 verdict was {verdict1!r}, expected 'hold'. "
+                    "The extra player (key=9999) should produce an untriaged "
+                    "review_rows entry (no ESPN anchor) → hold. "
+                    "Check _build_hold_world or the reindex/review logic."
+                ),
+            )
             # Run 1 produces hold → exit code 2.
             self.assertIn("hold", r1.review_verdicts)
 

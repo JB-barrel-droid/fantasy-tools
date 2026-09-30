@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference freshness-check sync test diagnostics validate serve deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference freshness-check sync test diagnostics validate serve deploy-status supabase-import import-health watchdog cascade cascade-from
 
 TODAY ?= $(shell date +%F)
 MAX_STALE_DAYS ?= 2
@@ -24,6 +24,8 @@ help:
 	@echo "  make comparison-reindex Reindex CANDIDATE_FILE onto the anchor scale (fixed pie)"
 	@echo "  make comparison-review Review REINDEXED_FILE for promotion (verdict: ready/hold)"
 	@echo "  make comparison-promote Promote REVIEW_FILE into the live fixture (needs APPROVE)"
+	@echo "  make cascade           Run full cascade: supabase import + all downstream stages for SOURCE"
+	@echo "  make cascade-from      Re-enter cascade at any stage from INPUT=<artifact.json>"
 	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
@@ -77,6 +79,22 @@ comparison-promote:
 	@test -n "$(REVIEW_FILE)" || (echo "Set REVIEW_FILE=output/comparison-review/...-review.json" && exit 1)
 	@test -n "$(APPROVE)" || (echo "Set APPROVE=\"<name> <YYYY-MM-DD> <reason>\"" && exit 1)
 	python3 pipelines/promote_comparison_section.py "$(REVIEW_FILE)" --approve "$(APPROVE)"
+
+# Automatic cascade: supabase import + full downstream chain for one source.
+# Enforces the import health gate (pipeline-rules §8); requires make import-health
+# NFL_WEEK=<n> to be green for SOURCE before cascading.
+# Exit 0 = all reviews ready; exit 2 = at least one review is on hold.
+cascade:
+	@test -n "$(SOURCE)" || (echo "Set SOURCE=espn|usatoday|fantasycalc|fantasypros|cbs" && exit 1)
+	python3 pipelines/cascade_source_update.py --source "$(SOURCE)"
+
+# Re-enter the cascade at any intermediate stage (snapshot, match, reference,
+# section, or reindexed artifact). Skips import and all stages before the
+# artifact's schema type. The import health gate is bypassed for intermediate
+# artifacts — the human explicitly chose this artifact.
+cascade-from:
+	@test -n "$(INPUT)" || (echo "Set INPUT=<artifact.json> (snapshot, match, reference, section, or reindexed file)" && exit 1)
+	python3 pipelines/cascade_source_update.py --input "$(INPUT)"
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss

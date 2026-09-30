@@ -79,6 +79,58 @@ content vintage, row counts, failure reason) is written to
 `output/source-import-health.json` (schema: `docs/import-health-schema.md`)
 for the pull watchdog.
 
+### Automatic cascade (recommended for ordinary source updates)
+
+After any successful import and health check, run the full downstream chain
+in one command:
+
+```bash
+make cascade SOURCE=fantasycalc
+make cascade SOURCE=fantasypros
+make cascade SOURCE=espn
+```
+
+`pipelines/cascade_source_update.py` runs every stage in order:
+supabase-import → source-match → source-reference → comparison-section →
+comparison-merge + comparison-merge-report → comparison-reindex →
+comparison-review.
+
+**Automatic wiring rules:**
+- The import health gate (§8) must be green for SOURCE before any
+  match/reference/section step runs. Pass `--skip-health-check` or use
+  `make cascade-from` to bypass (tests, non-active sources, or manual
+  intermediate-artifact entry).
+- Every stage is always visited. `write_if_changed` skips rewriting when
+  the computed output is materially identical to what is already on disk,
+  but no stage is ever short-circuited. This means: (a) missing or corrupt
+  downstream artifacts are always restored in a single run; (b) a changed
+  comparison fixture (ESPN anchor) or triage file propagates to the affected
+  stages even when the upstream snapshot is unchanged.
+- Once any stage writes a new artifact, all downstream stages are forced to
+  rewrite too — provenance requires that every artifact was computed from the
+  same rebuilt input.
+- The cascade never writes under `data/`. All output goes under `output/` or
+  a custom path. Passing `--candidate-dir data/...` is refused at startup.
+- **Promotion is not automatic.** The cascade stops at comparison-review.
+  After a `ready` verdict, promote explicitly with `make comparison-promote`.
+
+Re-enter at any intermediate stage (after a partial run or manual edit):
+
+```bash
+make cascade-from INPUT=output/source-matches/fantasycalc/2026-09-29/fantasycalc-ppr-12-matched.json
+make cascade-from INPUT=output/comparison-candidates/fantasycalc/2026-09-29/fantasycalc-full-12-section.json
+```
+
+Multi-file reference entry (USA Today, which has one reference per scoring):
+
+```bash
+make cascade-from INPUT="output/source-references/usatoday/2026-09-29/usatoday-standard-12-reference.json output/source-references/usatoday/2026-09-29/usatoday-half-ppr-12-reference.json output/source-references/usatoday/2026-09-29/usatoday-ppr-12-reference.json"
+```
+
+Exit codes: 0 = all reviews ready; 2 = at least one review is on hold.
+A hold does NOT block subsequent cascade runs — re-run after adding a triage
+file via `--triage` to resolve review rows.
+
 Match an imported source snapshot to canonical `player_key` values:
 
 ```bash

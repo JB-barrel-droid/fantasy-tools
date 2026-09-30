@@ -32,6 +32,51 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-29 - Cascade wiring, documentation, and hold test fix
+
+### Verified
+
+- `make cascade` and `make cascade-from` targets added to Makefile, wired to
+  `pipelines/cascade_source_update.py --source` and `--input` respectively.
+  Confirmed `grep cascade Makefile` returns the new targets. [`Edit` + `Read`]
+- `docs/modular-pipeline.md` now documents the automatic cascade section with
+  entry points, exit-code semantics, and the no-automatic-promotion rule.
+  Confirmed `grep -c cascade docs/modular-pipeline.md` returns > 0. [`Edit`]
+- Skipped test `test_hold_verdict_repeats_and_exits_nonzero_on_identical_rerun`
+  was skipped because the prior `_build_hold_world` added an "Unknown Player"
+  who was NOT in players.json, so the unmatched player was filtered at the
+  match stage and never reached the reindex's review_rows. [`Read` test file;
+  trace through match → reference → section → reindex stages]
+- Fixed `_build_hold_world`: now adds extra player (key=9999, "Player Extra0")
+  to players.json AND to comparison fixture `player_keys` (so they pass match
+  and section stages), but NOT to the ESPN anchor values (so the reindex stage
+  emits "no anchor value for this player_key" → untriaged review_rows → hold).
+  The hold is deterministic; the test body now asserts instead of skipping.
+  [`Edit` test file]
+- `python3 -m pytest tests/test_pipeline_cascade.py -v`: **17 passed, 0
+  skipped** (previously 16 passed, 1 skipped). [`pytest`]
+- `python3 -m unittest discover -s tests`: **410 passed, 6 skipped, 0
+  failures**. [`unittest discover`]
+- `make validate` is red (exit 1) on the same pre-existing freshness gate
+  failure: `comparison.built_at = '2026-09-25T22:38:27Z'` (age_days=4,
+  max_age_days=2). This is unchanged from prior session. No push made. [`make validate`]
+
+### Claimed, unverified
+
+- `make cascade SOURCE=fantasycalc` will work end-to-end once `make
+  import-health NFL_WEEK=4` is green (requires USA Today and CBS Week 4 data).
+  The CLI wiring is confirmed by code read; no live run was attempted because
+  the health gate would block immediately.
+
+### Open
+
+- `make validate` remains red (freshness gate) pending genuine Week 4 USA
+  Today and CBS source data. Do not push until all five sources pass
+  `make import-health NFL_WEEK=4` and the freshness gate clears.
+- Commit is staged locally only.
+
+---
+
 ## 2026-09-29 - Cascade pipeline orchestration implementation
 
 ### Verified
