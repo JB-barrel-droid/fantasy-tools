@@ -470,8 +470,32 @@ def build_checkpoints():
                 cps["c10_rendered"] = {"timestamp": iso_now(), "status": "bad",
                     "reason": f"Production output WRONG: {'; '.join(issues)}. Live built {live_built}."}
             else:
-                cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
-                    "reason": f"Production serves '{expected_designation}' labels, bytes match dist/ ({live_sha}), {len(combos)} combos. Live built {live_built}."}
+                # Also check the dashboard JS for stale hardcoded week labels
+                # (e.g. "USA Today (Week 2)" hardcoded when expecting Week 4)
+                try:
+                    js_url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-dashboard.js"
+                    js_req = urllib.request.Request(js_url, headers={"User-Agent": "fantasy-tools-monitor"})
+                    with urllib.request.urlopen(js_req, timeout=15) as js_resp:
+                        js_text = js_resp.read().decode()
+                    # Look for hardcoded "(Week N)" labels that don't match expected
+                    import re
+                    stale_labels = []
+                    for m in re.finditer(r'\((Week \d+)\)', js_text):
+                        if m.group(1) != expected_designation:
+                            # Find the label context (previous 30 chars)
+                            start = max(0, m.start() - 40)
+                            context = js_text[start:m.start()].split('\n')[-1][-30:]
+                            stale_labels.append(f"{context.strip()}({m.group(1)})")
+                    if stale_labels:
+                        cps["c10_rendered"] = {"timestamp": iso_now(), "status": "bad",
+                            "reason": f"Production JS has stale hardcoded labels: {'; '.join(stale_labels[:3])} (expected '{expected_designation}')."}
+                    else:
+                        cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
+                            "reason": f"Production serves '{expected_designation}' labels, bytes match dist/ ({live_sha}), {len(combos)} combos. Live built {live_built}."}
+                except Exception as js_e:
+                    # JS check failed, but JSON was ok - report ok with note
+                    cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
+                        "reason": f"Production serves '{expected_designation}' labels, bytes match dist/ ({live_sha}), {len(combos)} combos. Live built {live_built}. (JS label check skipped: {str(js_e)[:40]})"}
         except Exception as e:
             cps["c10_rendered"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}
