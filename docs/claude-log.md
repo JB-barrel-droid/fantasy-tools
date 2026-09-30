@@ -32,6 +32,88 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-30 - Health gate hardening: rc check, global-red gate, checked_at age, snapshot identity, actual subprocess tests
+
+### Verified
+
+- **`run_health` rc check added to `_refresh_health_after_import`**: previously the
+  integer return code from `run_health` was discarded; a non-zero rc (the normal
+  failure path when any source is not ok) silently proceeded. Now: `rc = _vh.run_health(...)`;
+  if `rc != 0` raises `SystemExit("cascade blocked: import health refresh returned exit {rc}...")`.
+  Removing exception catches alone was not sufficient — the rc path was the primary
+  failure signal. [`Edit cascade_source_update.py`]
+
+- **`_check_health_file_staleness` helper added** — shared gate called from both
+  `_check_import_health` and `_check_artifact_health` after per-source status passes.
+  Covers three additional failure modes:
+  1. `checked_at` age check: health must be ≤ 2 days old (same policy as freshness-check);
+     NFL week match alone is not sufficient (Monday health reused on Thursday blocks).
+  2. `nfl_week` currency: health must reflect the current calendar week.
+  3. Global-red gate: all sources in the health file must be ok before any cascade stage
+     runs. A single stale source blocks cascade for ALL sources, not just its own.
+  [`Edit cascade_source_update.py`]
+
+- **Snapshot identity cross-check added to `_check_import_health`**: after the
+  manifest sha256/bytes check passes for the import snapshot, reads the snapshot
+  referenced in `health_entry["snapshot_path"]` and verifies its sha256 matches
+  the import snapshot's sha256. A different snapshot with the same content_vintage
+  now fails closed. [`Edit`]
+
+- **Provenance cross-check added to `_check_artifact_health`**: after the health
+  snapshot sha256 is computed as `expected_sha`, reads the artifact's
+  `source_provenance.snapshot_manifest`, loads it, gets `snapshot_sha256`, and
+  compares to `expected_sha`. An artifact derived from a different snapshot than
+  health checked (same vintage, different bytes) now fails closed. [`Edit`]
+
+- **5 new regression tests added to `HealthGateRegressionTest`**:
+  - `test_global_red_health_blocks_cascade`: target source ok, usatoday stale in
+    health file → global-red gate blocks, no output written.
+  - `test_run_health_nonzero_return_blocks_refresh`: mock `run_health` returns 1 →
+    `_refresh_health_after_import` raises SystemExit("cascade blocked: ... exit 1 ...").
+  - `test_old_checked_at_blocks_cascade`: health `checked_at` 3 days ago → age gate
+    blocks, no output written.
+  - `test_different_snapshot_identity_blocks_import`: health verified against snapshot A,
+    cascade called with snapshot B (own valid manifest, same vintage, different sha256) →
+    identity gate blocks.
+  - `test_mismatched_lineage_blocks_intermediate`: artifact derived from snapshot A,
+    health verified against snapshot B → provenance cross-check blocks.
+  [`Edit tests/test_pipeline_cascade.py`]
+
+- **`MakefileExecutionTest` class added** with 2 actual subprocess execution tests
+  (not dry-run). Replaces the `make -n` string-assertion approach with real end-to-end
+  pipeline runs using isolated tmp-dir fixtures:
+  - `test_make_source_match_actual_execution`: runs `make source-match SNAPSHOT_FILE=...
+    PLAYERS=... COMPARISON=... OUTPUT_ROOT=...` with a non-active ("testonly") source,
+    asserts exit ∈ {0,2}, pipeline report exists, at least one review artifact exists.
+  - `test_make_comparison_merge_actual_execution`: produces a section artifact via
+    in-process cascade, then runs `make comparison-merge CANDIDATE_FILE=... ...` as a
+    subprocess, asserts same downstream outputs.
+  Six original `make -n` dry-run tests in `MakefileWiringTest` retained for routing
+  verification of the remaining targets. [`Edit tests/test_pipeline_cascade.py`]
+
+- **`python3 -m unittest discover -s tests`: 437 passed, 6 skipped, 0 failures.**
+  (Prior: 430 passed + 7 new.) [`Run`]
+
+- **`make validate`**: red on same pre-existing freshness gate (comparison.built_at
+  age_days=4). naming/reference/sync/tests all pass. No push — validate is red.
+  [`make validate`]
+
+- Updated FIX-010 in `docs/risk-register.md` with second-round concrete defects fixed
+  and new test count. [`Edit`]
+
+### Claimed, unverified
+
+- The six dry-run `MakefileWiringTest` tests remain in place alongside the two new
+  execution tests. They cover argument/variable wiring for targets not exercised by
+  the execution tests; they have not been removed.
+
+### Open
+
+- `make validate` remains red. Same pre-existing blockers (GAP-007, 009, 010, 011).
+  No regression caused by this session's changes.
+
+---
+
 ## 2026-09-30 - Health gate hardening: byte verification, authoritative week, fail-closed refresh
 
 ### Verified

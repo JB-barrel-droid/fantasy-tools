@@ -115,15 +115,26 @@ make comparison-section REFERENCE_FILES="output/source-references/usatoday/2026-
   refreshes `output/source-import-health.json` using the CURRENT calendar date
   (not the NFL week encoded in the incoming data). Deriving the expected week
   from the data being imported would evaluate Week 3 data as current even in
-  Week 4. Fails closed on any refresh exception (Supabase unavailable, etc.) —
+  Week 4. Fails closed on any refresh exception AND on a non-zero integer return
+  code from `run_health` (the normal failure path when any source is not ok) —
   a stale health report from a prior run is never used to silently proceed.
+- Health file freshness: `checked_at` must be ≤ 2 days old (same policy as
+  `make freshness-check`). NFL week match alone is not sufficient — a health
+  report written Monday cannot be reused on Thursday of the same week.
+- Global-red gate: if ANY source in the health file is not ok, NO cascade stage
+  may run, even when the specific source being cascaded has an ok entry.
+  `run_health` returns non-zero when any source is not ok; the gate replicates
+  this check on health file re-read so reused reports cannot bypass it.
 - For intermediate artifacts (match, reference, section, reindexed) from active
   sources: the artifact's `source_provenance.content_vintage` is verified
-  against the health file; the health file's `nfl_week` is verified against
-  today's calendar date; the snapshot referenced by the health entry's
-  `snapshot_path` is re-read and its sha256 verified against the manifest.
+  against the health file; the health file's `nfl_week` and `checked_at` age
+  are verified; the snapshot referenced by the health entry's `snapshot_path`
+  is re-read and its sha256 verified against the manifest; the artifact's
+  `source_provenance.snapshot_manifest` sha256 is bound to the health-verified
+  snapshot sha256 — a different snapshot with the same vintage string blocks.
   All checks fail closed. Missing provenance, absent/stale health, week
-  mismatch, or byte-level snapshot tampering all block cascade.
+  mismatch, age mismatch, byte-level snapshot tampering, or lineage mismatch
+  all block cascade.
 - Non-active sources bypass the gate automatically (no health file required).
 - Tests that need to bypass must use a non-active source name or supply a valid
   synthetic health file. There is no `--skip-health-check` flag.

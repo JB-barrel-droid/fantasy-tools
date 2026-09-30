@@ -69,7 +69,7 @@ import hashlib
 import json
 import re as _re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -127,6 +127,67 @@ SCHEMA_STAGE = {
     reindex_stage.SCHEMA: "reindexed",
     review_stage.SCHEMA: "review",
 }
+
+# Maximum age (in days) of a health file before the cascade refuses to proceed.
+# Mirrors the reference freshness gate (make freshness-check MAX_STALE_DAYS=2).
+_MAX_HEALTH_AGE_DAYS = 2
+
+
+def _check_health_file_staleness(health: dict, source: str) -> None:
+    """Shared health-file-level gate called from both _check_import_health and
+    _check_artifact_health, AFTER the per-source status check passes.
+
+    Covers three additional failure modes not caught by status/vintage alone:
+
+    1. ``checked_at`` age — same 2-day policy as the reference freshness gate.
+       A health report that is fresh per nfl_week but stale by calendar days
+       (e.g. written Monday, checked Thursday same week) still blocks.
+    2. ``nfl_week`` currency — health must reflect the current calendar week,
+       not a prior week.
+    3. Global red — ``run_health`` returns non-zero when ANY source is not ok.
+       The gate is global; a single stale source blocks all cascades, not just
+       cascades for that source.
+    """
+    import verify_import_health as _vh  # noqa: PLC0415
+
+    checked_at_str = str(health.get("checked_at") or "")
+    age_days: int | None = None
+    try:
+        checked_date = date.fromisoformat(checked_at_str[:10])
+        age_days = (_vh.utc_today() - checked_date).days
+    except (ValueError, IndexError, TypeError):
+        pass
+    if age_days is None or age_days > _MAX_HEALTH_AGE_DAYS:
+        raise SystemExit(
+            f"cascade blocked: health file checked_at={checked_at_str!r} is "
+            f"{'undetermined' if age_days is None else f'{age_days} day(s)'} old "
+            f"(max {_MAX_HEALTH_AGE_DAYS} days). "
+            f"Re-run: make import-health NFL_WEEK=<n>"
+        )
+
+    current_week = _vh.nfl_week_for_date(_vh.utc_today())
+    health_nfl_week = health.get("nfl_week")
+    if current_week is not None and health_nfl_week != current_week:
+        raise SystemExit(
+            f"cascade blocked: health file nfl_week={health_nfl_week!r} but today is "
+            f"NFL week {current_week}. Health is from a prior week and must be refreshed. "
+            f"Re-run: make import-health NFL_WEEK={current_week}"
+        )
+
+    # Global gate: run_health returns non-zero if ANY source is not ok.
+    # Replicate that gate here so stale source data in a reused report cannot
+    # authorise a cascade for a source whose own entry happens to be ok.
+    for src, src_entry in (health.get("sources") or {}).items():
+        if src == source:
+            continue  # per-source status already verified ok above
+        if isinstance(src_entry, dict) and src_entry.get("status") != "ok":
+            reason = src_entry.get("failure_reason") or "unknown reason"
+            raise SystemExit(
+                f"cascade blocked: global health is red — {src!r} is "
+                f"{src_entry.get('status')!r} ({reason}). "
+                f"Pipeline-rules §8: all sources must be ok before any cascade stage. "
+                f"Fix: make import-health NFL_WEEK=<n>"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -404,16 +465,8 @@ class Cascade:
                 f"Fix the import and re-run: make import-health NFL_WEEK=<n>"
             )
 
-        # Verify the health file reflects the current NFL week, not a prior week.
-        import verify_import_health as _vh  # noqa: PLC0415
-        current_week = _vh.nfl_week_for_date(_vh.utc_today())
-        health_nfl_week = health.get("nfl_week")
-        if current_week is not None and health_nfl_week != current_week:
-            raise SystemExit(
-                f"cascade blocked: health file nfl_week={health_nfl_week!r} but today is "
-                f"NFL week {current_week}. Health is from a prior week and must be refreshed. "
-                f"Re-run: make import-health NFL_WEEK={current_week}"
-            )
+        # checked_at age, nfl_week currency, and global-red gate.
+        _check_health_file_staleness(health, source)
 
         health_vintage = str(entry.get("content_vintage") or "")
         if str(content_vintage) != health_vintage:
@@ -423,9 +476,8 @@ class Cascade:
                 f"Re-import via: make supabase-import SOURCE={source}"
             )
 
-        # Verify snapshot bytes against the manifest sha256. This catches the case
-        # where snapshot values were altered after the manifest was written while
-        # content_vintage was left unchanged.
+        # Verify snapshot bytes against the manifest sha256. Catches altered values
+        # with unchanged content_vintage.
         expected_sha = manifest.get("snapshot_sha256")
         if not expected_sha:
             raise SystemExit(
@@ -444,6 +496,37 @@ class Cascade:
                 f"cascade blocked: snapshot bytes for {source!r} do not match manifest "
                 f"sha256 (snapshot may have been modified after import). "
                 f"Re-import: make supabase-import SOURCE={source}"
+            )
+
+        # Snapshot identity gate: verify health was run against the same snapshot
+        # bytes as the one being imported. A different snapshot with the same vintage
+        # string must not be silently accepted.
+        health_snap_rel = entry.get("snapshot_path")
+        if not health_snap_rel:
+            raise SystemExit(
+                f"cascade blocked: health entry for {source!r} has no snapshot_path. "
+                f"Cannot verify snapshot identity. "
+                f"Re-run: make import-health NFL_WEEK=<n>"
+            )
+        _hsr = Path(health_snap_rel)
+        health_snap_abs = _hsr if _hsr.is_absolute() else ROOT / _hsr
+        if not health_snap_abs.is_file():
+            raise SystemExit(
+                f"cascade blocked: health snapshot {health_snap_abs} not found. "
+                f"Re-run: make import-health NFL_WEEK=<n>"
+            )
+        try:
+            health_snap_sha = hashlib.sha256(health_snap_abs.read_bytes()).hexdigest()
+        except OSError as exc:
+            raise SystemExit(
+                f"cascade blocked: cannot read health snapshot at {health_snap_abs}: {exc}"
+            ) from exc
+        if health_snap_sha != actual_sha:
+            raise SystemExit(
+                f"cascade blocked: health was verified against a different snapshot "
+                f"for {source!r} (health sha256 {health_snap_sha[:12]}... "
+                f"vs import sha256 {actual_sha[:12]}...). "
+                f"Re-run: make import-health NFL_WEEK=<n>"
             )
 
     def _check_artifact_health(self, artifact: dict[str, Any], artifact_path: Path) -> None:
@@ -517,16 +600,8 @@ class Cascade:
                 f"Fix the import and re-run: make import-health NFL_WEEK=<n>"
             )
 
-        # Verify the health file reflects the current NFL week, not a prior week.
-        import verify_import_health as _vh  # noqa: PLC0415
-        current_week = _vh.nfl_week_for_date(_vh.utc_today())
-        health_nfl_week = health.get("nfl_week")
-        if current_week is not None and health_nfl_week != current_week:
-            raise SystemExit(
-                f"cascade blocked: health file nfl_week={health_nfl_week!r} but today is "
-                f"NFL week {current_week}. Health is from a prior week and must be refreshed. "
-                f"Re-run: make import-health NFL_WEEK={current_week}"
-            )
+        # checked_at age, nfl_week currency, and global-red gate.
+        _check_health_file_staleness(health, source)
 
         health_vintage = str(entry.get("content_vintage") or "")
         if str(content_vintage) != health_vintage:
@@ -537,8 +612,8 @@ class Cascade:
             )
 
         # Re-verify the snapshot referenced by the health entry against its manifest
-        # sha256. Intermediate artifacts may trace provenance to a snapshot that was
-        # altered after the health check passed (same vintage, different bytes).
+        # sha256. Intermediate artifacts may trace provenance to a snapshot altered
+        # after the health check passed (same vintage, different bytes).
         snapshot_rel = entry.get("snapshot_path")
         if not snapshot_rel:
             raise SystemExit(
@@ -546,8 +621,6 @@ class Cascade:
                 f"Cannot verify snapshot integrity. "
                 f"Re-run: make import-health NFL_WEEK=<n>"
             )
-        # Resolve path: absolute health entries (e.g. test fixtures using tmp dirs)
-        # are used as-is; relative entries are resolved from ROOT.
         _sr = Path(snapshot_rel)
         snapshot_abs = _sr if _sr.is_absolute() else ROOT / _sr
         manifest_path_h = snapshot_abs.parent / "snapshot-manifest.json"
@@ -573,6 +646,38 @@ class Cascade:
             raise SystemExit(
                 f"cascade blocked: {source!r} snapshot bytes do not match manifest sha256 "
                 f"(snapshot may have been modified). "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+
+        # Provenance cross-check: the artifact must have been derived from the same
+        # snapshot that health verified. A different snapshot with the same vintage
+        # string must not silently pass the gate.
+        art_snap_manifest_str = provenance.get("snapshot_manifest")
+        if not art_snap_manifest_str:
+            raise SystemExit(
+                f"cascade blocked: {artifact_path.name} source_provenance.snapshot_manifest "
+                f"is absent. Cannot verify artifact lineage to health-verified snapshot. "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+        art_manifest_file = Path(art_snap_manifest_str)
+        if not art_manifest_file.is_file():
+            raise SystemExit(
+                f"cascade blocked: artifact snapshot manifest {art_manifest_file} not found. "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+        art_manifest = load_json(art_manifest_file)
+        art_snap_sha = art_manifest.get("snapshot_sha256")
+        if not art_snap_sha:
+            raise SystemExit(
+                f"cascade blocked: artifact snapshot manifest has no snapshot_sha256. "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+        if art_snap_sha != expected_sha:
+            raise SystemExit(
+                f"cascade blocked: {artifact_path.name} traces to snapshot "
+                f"sha256 {art_snap_sha[:12]}... but health verified "
+                f"{expected_sha[:12]}.... "
+                f"Artifact was derived from a different snapshot than health checked. "
                 f"Re-import: make supabase-import SOURCE={source}"
             )
 
@@ -604,11 +709,18 @@ class Cascade:
             )
         # Do NOT catch any exceptions here. Supabase unavailability or any other
         # failure is a hard stop. The caller must resolve the issue before retrying.
-        _vh.run_health(
+        rc = _vh.run_health(
             nfl_week=nfl_week,
             sources_root=self.raw_dir,
             output_path=self.health_path,
         )
+        if rc != 0:
+            raise SystemExit(
+                f"cascade blocked: import health refresh returned exit {rc} — "
+                f"one or more active sources are not ok. "
+                f"Check {self.health_path} for details. "
+                f"Pipeline-rules §8: all sources must be healthy before cascade proceeds."
+            )
 
     # ------------------------------------------------------------------
     # Import entry points

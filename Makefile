@@ -11,6 +11,13 @@ CANDIDATE_FILE ?=
 SOURCE ?=
 SCORING ?= ppr
 TEAMS ?= 12
+# Fixture-path overrides for isolated testing (empty = cascade uses its defaults).
+PLAYERS ?=
+COMPARISON ?=
+HEALTH ?=
+OUTPUT_ROOT ?=
+# Expand non-empty overrides into cascade CLI flags.
+_CASCADE_OVERRIDES = $(if $(PLAYERS),--players "$(PLAYERS)") $(if $(COMPARISON),--comparison "$(COMPARISON)") $(if $(HEALTH),--health "$(HEALTH)") $(if $(OUTPUT_ROOT),--output-root "$(OUTPUT_ROOT)")
 
 help:
 	@echo "Modular dashboard commands:"
@@ -43,7 +50,7 @@ help:
 # Exit 0 = all reviews ready; exit 2 = at least one review is on hold.
 supabase-import:
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc|usatoday|fantasypros|espn|cbs" && exit 1)
-	python3 pipelines/cascade_source_update.py --source "$(SOURCE)"
+	python3 pipelines/cascade_source_update.py --source "$(SOURCE)" $(_CASCADE_OVERRIDES)
 
 import-health:
 	@test -n "$(NFL_WEEK)" || (echo "Set NFL_WEEK=<current NFL week>; the pull watchdog/cron passes it" && exit 1)
@@ -53,31 +60,31 @@ import-health:
 source-import:
 	@test -n "$(SOURCE_FILE)" || (echo "Set SOURCE_FILE=/path/to/scrape.csv or .json" && exit 1)
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc, cbs, usatoday, etc." && exit 1)
-	python3 pipelines/cascade_source_update.py --raw-input "$(SOURCE_FILE)" --raw-source "$(SOURCE)" --scoring "$(SCORING)" --teams "$(TEAMS)"
+	python3 pipelines/cascade_source_update.py --raw-input "$(SOURCE_FILE)" --raw-source "$(SOURCE)" --scoring "$(SCORING)" --teams "$(TEAMS)" $(_CASCADE_OVERRIDES)
 
 # source-match routes through cascade: snapshot -> all remaining stages.
 source-match:
 	@test -n "$(SNAPSHOT_FILE)" || (echo "Set SNAPSHOT_FILE=data/raw/sources/.../snapshot.json" && exit 1)
-	python3 pipelines/cascade_source_update.py --input "$(SNAPSHOT_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(SNAPSHOT_FILE)" $(_CASCADE_OVERRIDES)
 
 # source-reference routes through cascade: match -> reference -> section -> merge -> reindex -> review.
 source-reference:
 	@test -n "$(MATCH_FILE)" || (echo "Set MATCH_FILE=output/source-matches/.../matched.json" && exit 1)
-	python3 pipelines/cascade_source_update.py --input "$(MATCH_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(MATCH_FILE)" $(_CASCADE_OVERRIDES)
 
 # comparison-section routes through cascade: reference(s) -> section -> merge -> reindex -> review.
 comparison-section:
 	@test -n "$(REFERENCE_FILE)$(REFERENCE_FILES)" || (echo "Set REFERENCE_FILE=output/source-references/.../reference.json or REFERENCE_FILES=\"a.json b.json\"" && exit 1)
-	python3 pipelines/cascade_source_update.py --input $(REFERENCE_FILES) $(REFERENCE_FILE)
+	python3 pipelines/cascade_source_update.py --input $(REFERENCE_FILES) $(REFERENCE_FILE) $(_CASCADE_OVERRIDES)
 
 # comparison-merge and comparison-reindex both re-enter at the section stage.
 comparison-merge:
 	@test -n "$(CANDIDATE_FILE)" || (echo "Set CANDIDATE_FILE=output/comparison-candidates/.../section.json" && exit 1)
-	python3 pipelines/cascade_source_update.py --input "$(CANDIDATE_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(CANDIDATE_FILE)" $(_CASCADE_OVERRIDES)
 
 comparison-reindex:
 	@test -n "$(CANDIDATE_FILE)" || (echo "Set CANDIDATE_FILE=output/comparison-candidates/.../section.json" && exit 1)
-	python3 pipelines/cascade_source_update.py --input "$(CANDIDATE_FILE)"
+	python3 pipelines/cascade_source_update.py --input "$(CANDIDATE_FILE)" $(_CASCADE_OVERRIDES)
 
 comparison-review:
 	@test -n "$(REINDEXED_FILE)" || (echo "Set REINDEXED_FILE=output/comparison-reference/...-reindexed.json" && exit 1)
@@ -94,7 +101,7 @@ comparison-promote:
 # Exit 0 = all reviews ready; exit 2 = at least one review is on hold.
 cascade:
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=espn|usatoday|fantasycalc|fantasypros|cbs" && exit 1)
-	python3 pipelines/cascade_source_update.py --source "$(SOURCE)"
+	python3 pipelines/cascade_source_update.py --source "$(SOURCE)" $(_CASCADE_OVERRIDES)
 
 # Re-enter the cascade at any intermediate stage (snapshot, match, reference,
 # section, or reindexed artifact). Skips import and all stages before the
@@ -102,7 +109,7 @@ cascade:
 # artifacts — the human explicitly chose this artifact.
 cascade-from:
 	@test -n "$(INPUT)" || (echo "Set INPUT=<artifact.json> (snapshot, match, reference, section, or reindexed file)" && exit 1)
-	python3 pipelines/cascade_source_update.py --input "$(INPUT)"
+	python3 pipelines/cascade_source_update.py --input "$(INPUT)" $(_CASCADE_OVERRIDES)
 
 source-news:
 	python3 pipelines/ingest_player_news.py --fetch-rss

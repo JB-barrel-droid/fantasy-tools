@@ -28,6 +28,8 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -174,6 +176,10 @@ def build_snapshot(
     return snapshot
 
 
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
 def build_health_file(
     tmp: Path,
     source: str,
@@ -183,16 +189,19 @@ def build_health_file(
     failure_reason: str | None = None,
     snapshot_path: Path | None = None,
     nfl_week: int = 4,
+    extra_sources: dict | None = None,
 ) -> Path:
     """Write a minimal import-health file for a single source.
 
     Pass ``snapshot_path`` for tests that require sha256 byte verification to
-    pass (i.e. tests where the cascade gets past status/vintage checks and
-    reaches the integrity gate).  The path is stored as an absolute string so
-    the cascade resolves it directly rather than relative to ROOT.
+    pass (i.e. tests where the cascade gets past status/vintage/identity checks).
+    The path is stored as an absolute string so the cascade resolves it directly
+    rather than relative to ROOT.
 
-    Pass ``nfl_week`` to produce a health file stamped with a different week
-    (e.g. nfl_week=3 to test stale-week blocking).
+    Pass ``nfl_week`` to produce a health file stamped with a different week.
+
+    Pass ``extra_sources`` to add additional source entries (used for global-red
+    tests where the target source is ok but another source is stale).
     """
     path = tmp / "source-import-health.json"
     entry: dict = {
@@ -204,13 +213,16 @@ def build_health_file(
     if snapshot_path is not None:
         # Store as absolute string; ROOT / absolute_path → absolute_path in Python.
         entry["snapshot_path"] = str(snapshot_path)
+    sources: dict = {source: entry}
+    if extra_sources:
+        sources.update(extra_sources)
     write_json(
         path,
         {
             "schema": "trade-value-import-health-v1",
-            "checked_at": "2026-09-29T15:00:00Z",
+            "checked_at": _utc_now_iso(),  # always current so age check passes
             "nfl_week": nfl_week,
-            "sources": {source: entry},
+            "sources": sources,
         },
     )
     return path
@@ -1420,7 +1432,6 @@ class HealthGateRegressionTest(unittest.TestCase):
         propagate rather than silently falling through to an old ok health report.
         A pre-existing ok health file does not grant permission to proceed.
         """
-        import unittest.mock
         import verify_import_health as _vh_mod
 
         with tempfile.TemporaryDirectory() as td:
@@ -1443,6 +1454,255 @@ class HealthGateRegressionTest(unittest.TestCase):
             ):
                 with self.assertRaises(RuntimeError, msg="exception must propagate, not be swallowed"):
                     runner._refresh_health_after_import(snapshot)
+
+    # ---- Global red gate (target source ok, other source stale) ----
+
+    def test_global_red_health_blocks_cascade(self):
+        """Global-red gate: fantasycalc ok but usatoday stale → cascade blocked.
+
+        Pipeline-rules §8: run_health returns non-zero when ANY source is not ok.
+        A health report that marks one source ok must not permit cascade when
+        another active source is simultaneously stale.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+                extra_sources={
+                    "usatoday": {
+                        "status": "stale",
+                        "content_vintage": "Week 3",
+                        "failure_reason": "content unchanged since Week 3",
+                    }
+                },
+            )
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("global health", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when global red blocks")
+
+    # ---- run_health returns non-zero (rc=1, global red) ----
+
+    def test_run_health_nonzero_return_blocks_refresh(self):
+        """run_health returning 1 must raise SystemExit — not silently proceed.
+
+        The integer return code is the normal failure path when any source is not
+        ok. Removing exception catches alone (without checking rc) does not fail
+        closed: a return value of 1 must still block all downstream stages.
+
+        Pipeline-rules §8: all sources must be healthy before cascade proceeds.
+        """
+        import verify_import_health as _vh_mod
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            # Pre-existing ok health file — not authoritative when run_health returns 1.
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+
+            with unittest.mock.patch.object(_vh_mod, "run_health", return_value=1):
+                with self.assertRaises(SystemExit) as ctx:
+                    runner._refresh_health_after_import(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("exit 1", msg)
+            # Downstream stages were never entered — output dir must not exist.
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when rc=1 blocks refresh")
+
+    # ---- Stale checked_at age (3 days > max 2 days) ----
+
+    def test_old_checked_at_blocks_cascade(self):
+        """Health file with checked_at 3 days ago must be rejected (max=2 days).
+
+        The NFL week alone is not sufficient freshness proof: a health report
+        written Monday and reused on Thursday same week is stale by calendar age
+        even though nfl_week still matches.
+        """
+        import verify_import_health as _vh_mod
+        from datetime import timedelta
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            # Overwrite checked_at to 3 days ago (> _MAX_HEALTH_AGE_DAYS=2).
+            health_data = json.loads(health.read_text())
+            old_date = (_vh_mod.utc_today() - timedelta(days=3)).isoformat()
+            health_data["checked_at"] = f"{old_date}T12:00:00Z"
+            health.write_text(json.dumps(health_data, indent=2) + "\n")
+
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("checked_at", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when stale checked_at blocks")
+
+    # ---- Snapshot identity mismatch at import entry ----
+
+    def _build_alt_snapshot(self, tmp: Path) -> Path:
+        """Build a second fantasycalc snapshot with different bytes, same vintage.
+
+        Has its own valid snapshot-manifest.json (sha256 matches its own bytes)
+        so the manifest-vs-bytes check passes; the identity check distinguishes
+        it from the primary snapshot by its different sha256.
+        """
+        alt_dir = tmp / "raw" / "sources" / "fantasycalc" / "week-4-alt"
+        alt_dir.mkdir(parents=True, exist_ok=True)
+        alt_data = {
+            "schema": "trade-value-source-snapshot-v1",
+            "source": "fantasycalc",
+            "fetched_at": "2026-09-29T13:00:00Z",
+            "default_scoring": None,
+            "default_teams": 12,
+            "row_count": 1,
+            "rows": [{
+                "player_name": "Alt Player QB0",
+                "value": 50.0,
+                "pos": "QB",
+                "team": "ALT",
+                "scoring": "ppr",
+                "teams": 12,
+                "source_player_id": 99,
+            }],
+        }
+        b_bytes = (json.dumps(alt_data, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        snapshot_b = alt_dir / "snapshot.json"
+        snapshot_b.write_bytes(b_bytes)
+        b_sha = hashlib.sha256(b_bytes).hexdigest()
+        write_json(
+            alt_dir / "snapshot-manifest.json",
+            {
+                "schema": "trade-value-source-manifest-v1",
+                "source": "fantasycalc",
+                "content_vintage": "Week 4",
+                "week_designated": 4,
+                "pulled_at": "2026-09-29T13:00:00Z",
+                "snapshot_sha256": b_sha,
+            },
+        )
+        return snapshot_b
+
+    def test_different_snapshot_identity_blocks_import(self):
+        """Health verified snapshot A; cascade called with snapshot B (same vintage) → blocked.
+
+        Both snapshots have the same content_vintage and valid manifest sha256
+        (bytes match their own manifest). The identity gate must detect that health
+        was verified against snapshot A but the import is presenting snapshot B.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            # Snapshot A: health is verified against this one.
+            snapshot_a = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot_a,
+            )
+            # Snapshot B: different bytes, same vintage, own valid manifest.
+            snapshot_b = self._build_alt_snapshot(tmp)
+
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot_b)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when snapshot identity differs")
+
+    # ---- Artifact lineage mismatch at intermediate entry ----
+
+    def test_mismatched_lineage_blocks_intermediate(self):
+        """Artifact derived from snapshot A; health verified against snapshot B → blocked.
+
+        A match artifact carries source_provenance.snapshot_manifest pointing to
+        snapshot A's manifest. When the health file was verified against snapshot B,
+        the provenance cross-check detects the lineage mismatch and blocks cascade.
+        Same vintage string is not sufficient — byte identity is required.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            # Snapshot A: the artifact will be derived from this.
+            snapshot_a = build_snapshot(tmp, player_keys, source="fantasycalc")
+            # Snapshot B: health was verified against this; different sha256 from A.
+            snapshot_b = self._build_alt_snapshot(tmp)
+
+            # Produce a match artifact derived from snapshot_a (health_path=None bypasses gate).
+            import match_source_snapshot as ms
+            payload = ms.match_snapshot(snapshot_a, players)
+            match_dir = tmp / "matches"
+            match_path = ms.default_output_path(payload, match_dir)
+            match_path.parent.mkdir(parents=True, exist_ok=True)
+            match_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+            # Confirm the artifact has the expected lineage (snapshot_a's manifest).
+            art = json.loads(match_path.read_text())
+            prov = art.get("source_provenance", {})
+            self.assertIn(
+                "snapshot-manifest.json", prov.get("snapshot_manifest", ""),
+                msg="artifact must carry snapshot_manifest provenance"
+            )
+
+            # Health says: verified against snapshot_b.
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot_b,
+            )
+
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                cascade_mod.main([
+                    "--input", str(match_path),
+                    "--players", str(players),
+                    "--comparison", str(comparison),
+                    "--health", str(health),
+                    "--output-root", str(out),
+                ])
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when lineage mismatch blocks")
 
 
 # ---------------------------------------------------------------------------
@@ -1525,6 +1785,138 @@ class MakefileWiringTest(unittest.TestCase):
                       msg="comparison-reindex must invoke cascade_source_update.py")
         self.assertIn("--input", out)
         self.assertIn("/tmp/test/section.json", out)
+
+
+# ---------------------------------------------------------------------------
+# Makefile subprocess execution tests — actual pipeline runs with isolated
+# fixture paths, asserting real downstream artifacts and exit behaviour.
+# ---------------------------------------------------------------------------
+
+class MakefileExecutionTest(unittest.TestCase):
+    """Execute Make targets with isolated tmp-dir fixtures and assert that
+    downstream artifacts are actually written and exit codes are correct.
+
+    Uses non-active source "testonly" so the health gate is bypassed without
+    requiring a synthetic health file. Fixture-path overrides (PLAYERS,
+    COMPARISON, OUTPUT_ROOT) are passed through the Makefile variables that
+    _CASCADE_OVERRIDES expands into --players / --comparison / --output-root.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        result = subprocess.run(["make", "--version"], capture_output=True, cwd=ROOT)
+        if result.returncode != 0:
+            raise unittest.SkipTest("make not available")
+
+    def test_make_source_match_actual_execution(self):
+        """make source-match with a testonly snapshot must run the full cascade
+        and write the pipeline report + at least one review artifact.
+
+        Verifies that SNAPSHOT_FILE, PLAYERS, COMPARISON, and OUTPUT_ROOT are
+        correctly threaded through _CASCADE_OVERRIDES into cascade_source_update.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            # Non-active source: health gate bypassed automatically.
+            snapshot = build_snapshot(tmp, player_keys, source="testonly")
+            out = tmp / "cascade-out"
+
+            result = subprocess.run(
+                [
+                    "make", "source-match",
+                    f"SNAPSHOT_FILE={snapshot}",
+                    f"PLAYERS={players}",
+                    f"COMPARISON={comparison}",
+                    f"OUTPUT_ROOT={out}",
+                ],
+                capture_output=True, text=True, cwd=ROOT,
+            )
+            self.assertIn(
+                result.returncode, (0, 2),
+                msg=(
+                    f"make source-match failed (rc={result.returncode}):\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                ),
+            )
+            report = out / "pipeline-cascade-report.json"
+            self.assertTrue(
+                report.exists(),
+                msg=(
+                    f"pipeline report not written at {report}:\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                ),
+            )
+            review_dir = out / "comparison-review"
+            reviews = list(review_dir.glob("**/*.json")) if review_dir.exists() else []
+            self.assertTrue(
+                reviews,
+                msg=(
+                    f"no review artifacts written under {review_dir}:\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                ),
+            )
+
+    def test_make_comparison_merge_actual_execution(self):
+        """make comparison-merge with a testonly section artifact must cascade
+        through to review and write the pipeline report.
+
+        An intermediate Make target (comparison-merge) is tested here to confirm
+        that re-entry at the section stage also routes through cascade correctly
+        and that OUTPUT_ROOT and CANDIDATE_FILE overrides work end-to-end.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="testonly")
+
+            # Produce a section artifact via in-process cascade (health_path=None
+            # bypasses health gate for testonly source).
+            setup_runner = make_runner(tmp, players, comparison)  # health_path=None
+            setup_runner.cascade_from_snapshot(snapshot)
+
+            candidate_dir = tmp / "out" / "comparison-candidates"
+            sections = list(candidate_dir.glob("**/*-section.json"))
+            self.assertTrue(sections, "no section artifacts from setup cascade — fix test setup")
+            section_path = sections[0]
+
+            out = tmp / "cascade-merge-out"
+            result = subprocess.run(
+                [
+                    "make", "comparison-merge",
+                    f"CANDIDATE_FILE={section_path}",
+                    f"PLAYERS={players}",
+                    f"COMPARISON={comparison}",
+                    f"OUTPUT_ROOT={out}",
+                ],
+                capture_output=True, text=True, cwd=ROOT,
+            )
+            self.assertIn(
+                result.returncode, (0, 2),
+                msg=(
+                    f"make comparison-merge failed (rc={result.returncode}):\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                ),
+            )
+            report = out / "pipeline-cascade-report.json"
+            self.assertTrue(
+                report.exists(),
+                msg=(
+                    f"pipeline report not written at {report}:\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                ),
+            )
+            review_dir = out / "comparison-review"
+            reviews = list(review_dir.glob("**/*.json")) if review_dir.exists() else []
+            self.assertTrue(
+                reviews,
+                msg=(
+                    f"no review artifacts under {review_dir}:\n"
+                    f"STDOUT: {result.stdout}\nSTDERR: {result.stderr}"
+                ),
+            )
 
 
 if __name__ == "__main__":
