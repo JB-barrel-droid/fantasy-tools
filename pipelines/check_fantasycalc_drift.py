@@ -32,10 +32,12 @@ API_URL = ("https://api.fantasycalc.com/values/current"
            "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5")
 
 # Drift threshold: fraction of sampled values that must move by more than
-# 1% to trigger a refresh. FantasyCalc updates frequently; small moves are
-# noise, but a broad shift means the snapshot is stale.
-DEFAULT_THRESHOLD = 0.05
-MOVE_PCT = 0.01
+# 5% to trigger a refresh. FantasyCalc updates through the day; 1-3% intraday
+# moves are normal noise. A broad 5%+ shift across 20%+ of the sample means
+# the snapshot is genuinely stale or corrupted (like the 2026-09-30 JSN defect
+# where natives were off by 99%).
+DEFAULT_THRESHOLD = 0.20
+MOVE_PCT = 0.05
 SAMPLE_N = 25
 
 

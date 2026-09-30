@@ -33,42 +33,44 @@ class DriftCheckTest(unittest.TestCase):
                           return_value=self._fake_live(vals)), \
              patch.object(drift, "load_snapshot_natives",
                           return_value=self._fake_natives(vals)):
-            result = drift.check_drift(threshold=0.05)
+            result = drift.check_drift(threshold=0.20)
         self.assertFalse(result["needs_refresh"])
         self.assertEqual(result["drift_frac"], 0.0)
 
     def test_drift_detected_when_many_values_move(self):
         live_vals = [10000 - i * 100 for i in range(25)]
-        # Shift every native down 5% -- well above the 1% move threshold
-        native_vals = [v * 0.95 for v in live_vals]
+        # Shift every native down 10% -- well above the 5% move threshold
+        native_vals = [v * 0.90 for v in live_vals]
         with patch.object(drift, "fetch_live",
                           return_value=self._fake_live(live_vals)), \
              patch.object(drift, "load_snapshot_natives",
                           return_value=self._fake_natives(native_vals)):
-            result = drift.check_drift(threshold=0.05)
+            result = drift.check_drift(threshold=0.20)
         self.assertTrue(result["needs_refresh"])
-        self.assertGreater(result["drift_frac"], 0.05)
+        self.assertGreater(result["drift_frac"], 0.20)
 
     def test_small_noise_does_not_trigger(self):
         live_vals = [10000 - i * 100 for i in range(25)]
-        # Move only 1 of 25 by >1% -- below the 5% threshold
+        # Move 3 of 25 by 3% -- intraday noise, below the 5% move threshold
+        # and below the 20% player threshold
         native_vals = list(live_vals)
-        native_vals[0] = live_vals[0] * 0.97
+        for i in range(3):
+            native_vals[i] = live_vals[i] * 0.97
         with patch.object(drift, "fetch_live",
                           return_value=self._fake_live(live_vals)), \
              patch.object(drift, "load_snapshot_natives",
                           return_value=self._fake_natives(native_vals)):
-            result = drift.check_drift(threshold=0.05)
+            result = drift.check_drift(threshold=0.20)
         self.assertFalse(result["needs_refresh"])
 
     def test_missing_player_counts_as_drift(self):
         live_vals = [10000 - i * 100 for i in range(25)]
-        native_vals = [10000 - i * 100 for i in range(20)]  # 5 missing
+        native_vals = [10000 - i * 100 for i in range(19)]  # 6 missing = 24% > 20%
         live = {f"Player {i}": float(v) for i, v in enumerate(live_vals)}
         natives = {f"Player {i}": float(v) for i, v in enumerate(native_vals)}
         with patch.object(drift, "fetch_live", return_value=live), \
              patch.object(drift, "load_snapshot_natives", return_value=natives):
-            result = drift.check_drift(threshold=0.05)
+            result = drift.check_drift(threshold=0.20)
         self.assertTrue(result["needs_refresh"])
 
 

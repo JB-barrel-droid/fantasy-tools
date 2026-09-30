@@ -131,10 +131,13 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
 ## FantasyCalc drift auto-trigger (2026-09-30)
 - Standing rule (Jeremy): the project reruns the FantasyCalc pipelines when
   native doesn't match live. `pipelines/check_fantasycalc_drift.py` compares
-  the live API (top-25 by value) against the snapshot's native_value; if >5%
-  moved by >1%, it exits 1. With `--trigger` it refreshes the snapshot from
+  the live API (top-25 by value) against the snapshot's native_value; if >20%
+  moved by >5%, it exits 1. With `--trigger` it refreshes the snapshot from
   the live API and runs match -> reference -> section -> reindex -> fixture
-  -> monitors automatically.
+  -> monitors automatically. (Thresholds tuned 2026-09-30: FantasyCalc updates
+  through the day, so 1-3% intraday moves are normal noise — the 5%/20%
+  bands prevent constant refresh churn while still catching real corruption
+  like the JSN defect.)
 - The 2026-09-30 JSN defect proved why: `match_source_snapshot.py` was
   dropping `native_value`, so the pipeline used the flattened `value` (50.7)
   instead of the raw FantasyCalc number (9914). The matcher and
