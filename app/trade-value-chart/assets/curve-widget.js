@@ -1933,6 +1933,23 @@
     status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`;
   }
 
+  // QA-003: Show user-visible notification when lock order is force-reverted.
+  // Silent reverts are indistinguishable from bugs and erode trust.
+  function notifyLockRevert(prevLock, reason) {
+    const status = $("#curve-status");
+    if (!status) return;
+    const prevLabel = sourceLabel(prevLock) || prevLock;
+    const note = document.createElement("div");
+    note.className = "lock-revert-notice";
+    note.style.cssText = "margin-top:8px;padding:8px 12px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;font-size:12.5px;color:#856404";
+    note.innerHTML = `<b>Note:</b> Player lock order was reset from "${prevLabel}" to "ESPN adjusted" (${reason} made "${prevLabel}" unavailable).`;
+    // Remove any existing notice first
+    status.querySelectorAll(".lock-revert-notice").forEach(n => n.remove());
+    status.appendChild(note);
+    // Auto-dismiss after 8 seconds
+    setTimeout(() => note.remove(), 8000);
+  }
+
   function publishShared() {
     const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare};
     window.TradeValueSharedState = detail;
@@ -2014,7 +2031,12 @@
     scoring = normalized;
     crossRank = null;
     rebuildDomain();
-    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
+    // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
+    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
+      const prevLock = lockOrder;
+      lockOrder = defaultValueLock();
+      if (prevLock !== lockOrder) notifyLockRevert(prevLock, "scoring change");
+    }
     makeLeagueControls();
     makeRosterControls();
     makeValueBandControl();
@@ -2034,7 +2056,12 @@
     teams = normalized;
     crossRank = null;
     rebuildDomain();
-    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) lockOrder = defaultValueLock();
+    // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
+    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
+      const prevLock = lockOrder;
+      lockOrder = defaultValueLock();
+      if (prevLock !== lockOrder) notifyLockRevert(prevLock, "team size change");
+    }
     makeLeagueControls();
     makeRosterControls();
     makeValueBandControl();

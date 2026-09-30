@@ -988,9 +988,12 @@
     if ($("#freshness")) {
       const staleKeys = renderKeys.filter(sourceIsStale);
       const staleWeeks = [...new Set(staleKeys.map(weekForSource).filter(Boolean))].sort((a, b) => a - b);
+      // QA-005: Be specific about what "current" means. This checks source WEEK currency,
+      // not the pipeline's reference freshness ("9 stale refs" in dataset health).
+      // Saying just "sources current" contradicts the visible stale ref count.
       const staleLabel = staleKeys.length
         ? `${staleKeys.length} stale ${staleWeeks.map(week => `Week ${week}`).join("/")} source${staleKeys.length === 1 ? "" : "s"} shown until Week ${activeReferenceWeek()} arrives`
-        : "sources current";
+        : "source weeks current";
       $("#freshness").textContent = `${scoreLabel(state.scoring)} · ${state.teams} teams · ${staleLabel}`;
     }
   }
