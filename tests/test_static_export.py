@@ -126,10 +126,10 @@ class StaticExportTest(unittest.TestCase):
             # Updated 2026-09-30 PM with fresh 09-30 adjustment inputs
             # (ddf-20260930-espn-standard-12t-0p15).
             ("usatoday", "full_12"): 26.8,
-            # fantasycalc rebuilt 2026-09-30 with proportional scaling for
-            # as-published sources (no quantile mapping). Allen's native 6013
-            # scales to 39.3248, preserving the source's value ratios exactly.
-            ("fantasycalc", "full_12_qb1"): 39.3248077948215,
+            # fantasycalc rebuilt 2026-09-30 with VORP>0 overlap calibration.
+            # Allen's native 6013 scales to 40.0125, preserving the source's
+            # value ratios exactly.
+            ("fantasycalc", "full_12_qb1"): 40.01248549749396,
             # fantasypros re-anchored 2026-09-30 PM: fixture now uses
             # native_value (raw published, 29.1 for Allen) instead of the
             # flattened value field (17.2). The 20.3 reflects the true
@@ -175,10 +175,16 @@ class StaticExportTest(unittest.TestCase):
                 for pos, target_data in combo.get("index_total", {}).items():
                     target = target_data["target_total"]
                     total = 0
+                    # As-published sources calibrate on the VORP>0 overlap set;
+                    # only those players' indexed values sum to the target.
+                    overlap_slugs = None
+                    if pos == "global":
+                        overlap_slugs = set(combo.get("fit", {}).get("global", {}).get("overlap_slugs", []))
                     for source_id, value in values.items():
                         player_key = self.comparison["player_keys"].get(source_id)
-                        # As-published sources use global (not per-position) scaling
                         if pos == "global":
+                            if overlap_slugs is not None and source_id not in overlap_slugs:
+                                continue
                             if isinstance(value, (int, float)):
                                 total += value
                         elif position_by_key.get(player_key) == pos and isinstance(value, (int, float)):

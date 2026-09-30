@@ -205,10 +205,18 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                        "player_keys": {s: key_by_slug.get(s) for s in native}}
         # As-published trade value charts (FantasyCalc, USA Today, FantasyPros, CBS)
         # publish globally-comparable values. Their cross-position ranking is the
-        # product — we must not destroy it with per-position remapping. Use global
-        # proportional scaling: indexed = native * (anchor_total / native_total).
-        # This preserves exact value ratios (Cook 12% above Jeanty stays 12% above)
-        # and cross-position order. No quantile mapping, no rounding in storage.
+        # product — we must not destroy it with per-position remapping.
+        #
+        # Indexation logic (2026-09-30 refinement): players with VORP>0 should
+        # sum to the same total across sources. Different charts price to
+        # different depths, but they overlap on the top 50-150. We calibrate
+        # the scale on the VORP>0 overlap set, then apply relative values to
+        # the remainder of the chart.
+        #
+        # Formula: scale = sum(anchor_overlap) / sum(native_overlap)
+        #          indexed = native * scale for ALL priced players
+        # This preserves exact value ratios and cross-position order.
+        # No quantile mapping, no rounding in storage.
         is_published = cand.get("value_provenance") == "published"
         if is_published:
             priced = []
@@ -230,29 +238,44 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 if nv < 0 or av < 0:
                     continue
                 priced.append(slug)
-            native_total = sum(float(native[s]) for s in priced)
-            anchor_total = sum(float(anchor_by_key[combo.get("player_keys", {}).get(s)]) for s in priced)
-            if native_total <= 0 or anchor_total <= 0:
+            # Calibrate on the VORP>0 overlap: players the anchor prices above
+            # zero. This is the high-confidence set (typically 50-150 players)
+            # where sources overlap; the deep tail varies in depth by source
+            # and shouldn't drive the scale.
+            overlap = [s for s in priced
+                       if float(anchor_by_key[combo.get("player_keys", {}).get(s)]) > 0]
+            if not overlap:
+                # Fallback: use all priced if no VORP>0 overlap (shouldn't happen)
+                overlap = priced
+            native_overlap = sum(float(native[s]) for s in overlap)
+            anchor_overlap = sum(float(anchor_by_key[combo.get("player_keys", {}).get(s)]) for s in overlap)
+            if native_overlap <= 0 or anchor_overlap <= 0:
                 raise SystemExit(
-                    f"reindex: {source}/{combo_name} native_total={native_total} anchor_total={anchor_total} -- cannot scale"
+                    f"reindex: {source}/{combo_name} native_overlap={native_overlap} anchor_overlap={anchor_overlap} -- cannot scale"
                 )
-            scale = anchor_total / native_total
+            scale = anchor_overlap / native_overlap
             for slug in priced:
                 out_combo["reindexed"][slug] = float(native[slug]) * scale
             out_combo["fit"]["global"] = {
-                "method": "proportional_scaling",
+                "method": "proportional_scaling_vorp_overlap",
                 "anchor": "espn_leg",
-                "n_pairs": len(priced),
-                "native_total": native_total,
-                "anchor_total": anchor_total,
+                "n_priced": len(priced),
+                "n_overlap": len(overlap),
+                "native_overlap": native_overlap,
+                "anchor_overlap": anchor_overlap,
                 "scale": scale,
+                "overlap_slugs": sorted(overlap),
             }
             out_combo["n"]["global"] = len(priced)
+            # Fixed-pie target: the anchor's VORP>0 overlap total. The source's
+            # VORP>0 players sum to this amount; the scale was calibrated on
+            # exactly this set.
             out_combo["index_total"]["global"] = {
-                "target_total": anchor_total,
-                "pre_total": native_total,
+                "target_total": anchor_overlap,
+                "pre_total": native_overlap,
                 "factor": scale,
                 "n_priced": len(priced),
+                "n_overlap": len(overlap),
             }
         else:
                 for pos in POSITIONS:
