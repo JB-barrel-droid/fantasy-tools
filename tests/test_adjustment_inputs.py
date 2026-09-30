@@ -46,9 +46,28 @@ from build_adjustment_inputs import (  # noqa: E402
     role_map_for_values,
 )
 
-VERSIONED = REPO / "data" / "adjustment-inputs" / "ddf-20260922-espn-half_ppr-12t-0p15" / \
-    "adjustment-inputs-ddf-20260922-espn-half_ppr-12t-0p15.json"
 LIVE_ASSET = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
+
+
+def _resolve_versioned():
+    """Find the versioned adjustment-inputs doc matching the live asset's version.
+
+    The live asset's ``version`` names its bake; the versioned copy lives
+    under data/adjustment-inputs/<version>/. Resolving dynamically keeps the
+    test honest across refits instead of pinning a stale bake.
+    """
+    live = json.loads(LIVE_ASSET.read_text(encoding="utf-8"))
+    version = live.get("version")
+    if not version:
+        raise AssertionError("live adjustment-inputs.json has no version")
+    path = (REPO / "data" / "adjustment-inputs" / version /
+            f"adjustment-inputs-{version}.json")
+    if not path.is_file():
+        raise AssertionError(f"versioned adjustment-inputs missing: {path}")
+    return path
+
+
+VERSIONED = _resolve_versioned()
 PAUSED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted",
                "fantasypros_adjusted", "cbs_adjusted"]
 RAW_FOR = {k: (k[:-len("_adjusted")] if k != "cbs_adjusted" else "cbs") for k in PAUSED_KEYS}
@@ -218,11 +237,16 @@ class TestBakedArtifact(unittest.TestCase):
 
     def test_versioned_artifact_shape(self):
         self.assertEqual(self.doc["schema"], "trade-value-adjustment-inputs-v1")
-        self.assertEqual(self.doc["version"], "ddf-20260922-espn-half_ppr-12t-0p15")
+        # Version tracks the live asset's bake; assert it names a DDF leg bake
+        # rather than pinning a stale vintage.
+        self.assertTrue(self.doc["version"].startswith("ddf-"),
+                        self.doc["version"])
         self.assertEqual(self.doc["status"], "live")
         fit = self.doc["fit"]
-        self.assertEqual(fit["espn_snapshot_date"], "2026-09-22")
-        self.assertEqual(fit["scoring"], "half_ppr")
+        live = json.loads(LIVE_ASSET.read_text(encoding="utf-8"))
+        # Fit vintage/scoring track the live asset; assert shape, not a stale pin.
+        self.assertEqual(fit["espn_snapshot_date"], live["fit"]["espn_snapshot_date"])
+        self.assertEqual(fit["scoring"], live["fit"]["scoring"])
         self.assertEqual(fit["teams"], 12)
         self.assertEqual(fit["bench_share"], 0.15)
         self.assertEqual(fit["reference_combos"], REFERENCE_COMBOS)

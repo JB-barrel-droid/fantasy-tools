@@ -91,6 +91,34 @@ def rel_close(a, b, tol=TOL):
     return abs(a - b) <= tol * max(1.0, abs(a), abs(b))
 
 
+def feasible_share_for(tier, pie, requested=DEFAULT_BENCH_SHARE):
+    """Mirror build_ddf_two_tier_leg's per-position feasible share logic.
+
+    The requested share (default 0.15) may be infeasible for thin positions;
+    the builder binary-searches for the highest feasible share <= requested.
+    Tests must use the same share the builder uses, or parity checks fail
+    on data where 0.15 is infeasible (e.g. TE after IR removals).
+    """
+    try:
+        calibrate_position(tier, pie, requested)
+        return requested
+    except ValueError:
+        pass
+    lo, hi = 0.01, requested
+    best = None
+    for _ in range(20):
+        mid = (lo + hi) / 2
+        try:
+            calibrate_position(tier, pie, mid)
+            best = mid
+            lo = mid
+        except ValueError:
+            hi = mid
+    if best is None:
+        raise AssertionError("no feasible bench share found")
+    return best
+
+
 
 def _bench_mix_12(pool_lists):
     """Derived bench mix for the 12-team reference shape."""
@@ -122,7 +150,7 @@ class TestPythonPortMatchesBrowser(unittest.TestCase):
             self.assertTrue(rel_close(b, vec["expected"]["b"]), vec)
 
     def test_full_pipeline_parity_on_real_espn_inputs(self):
-        """Tiers AND calibrations at 0.15 bit-exact vs the browser code."""
+        """Tiers AND calibrations at feasible share bit-exact vs the browser code."""
         _, pool_lists, pies = real_inputs()
         bench_mix = _bench_mix_12(pool_lists)
         pool = build_position_tiers(pool_lists, 12, dict(REF_SLOTS),
@@ -140,16 +168,17 @@ class TestPythonPortMatchesBrowser(unittest.TestCase):
             jt, pt = out["tiers"][pos], pool["tiers"][pos]
             for jk, pk in keys:
                 self.assertTrue(rel_close(jt[jk], pt[pk]), (pos, jk, jt[jk], pt[pk]))
-            py_cal = calibrate_position(pt, pies[pos], DEFAULT_BENCH_SHARE)
+            share = feasible_share_for(pt, pies[pos])
+            py_cal = calibrate_position(pt, pies[pos], share)
             js_cal = run_harness("calibrate", {"tier": jt, "pie": pies[pos],
-                                               "share": DEFAULT_BENCH_SHARE})
+                                               "share": share})
             self.assertFalse(js_cal["invalid"], (pos, js_cal.get("reason")))
             for k in ("pb", "ps"):
                 self.assertTrue(rel_close(js_cal[k], py_cal[k]), (pos, k, js_cal[k], py_cal[k]))
             # And the priced projections agree player-by-player.
             for d in pool_lists[pos][:25]:
                 js_price = run_harness("calibrate", {"tier": jt, "pie": pies[pos],
-                                                     "share": DEFAULT_BENCH_SHARE,
+                                                     "share": share,
                                                      "probeX": d["x"]})["priceAt"]
                 py_price = price_for_projection(d["x"], py_cal)
                 self.assertTrue(rel_close(js_price, py_price), (pos, d))
@@ -169,7 +198,12 @@ class TestLegGuarantees(unittest.TestCase):
         cls.tmp.cleanup()
 
     def test_espn_vintage_recorded(self):
-        self.assertEqual(self.leg["inputs"]["espn_snapshot_date"], "2026-09-22")
+        # Vintage tracks the CSV's espn_snapshot_date; assert it matches the
+        # input rather than pinning a stale date.
+        import csv as _csv
+        with DEFAULT_CSV.open(encoding="utf-8") as f:
+            vintage = next(_csv.DictReader(f))["espn_snapshot_date"]
+        self.assertEqual(self.leg["inputs"]["espn_snapshot_date"], vintage)
         self.assertEqual(self.leg["schema"], "trade-value-ddf-leg-v1")
 
     def test_pie_identity_pre_rounding(self):
@@ -275,8 +309,13 @@ class TestFailClosed(unittest.TestCase):
         src = DEFAULT_CSV.read_text(encoding="utf-8").splitlines(keepends=True)
         header, rows = src[0], src[1:]
         half = len(rows) // 2
+        # Use the CSV's actual vintage; replacing a stale pinned date is a
+        # no-op on fresh data and the test would pass vacuously.
+        import csv as _csv
+        with DEFAULT_CSV.open(encoding="utf-8") as f:
+            vintage = next(_csv.DictReader(f))["espn_snapshot_date"]
         doctored = [header] + rows[:half] + [
-            r.replace("2026-09-22", "2026-09-20") for r in rows[half:]]
+            r.replace(vintage, "2026-09-20") for r in rows[half:]]
         bad = tmp / "mixed.csv"
         bad.write_text("".join(doctored), encoding="utf-8")
         with self.assertRaises(SystemExit):

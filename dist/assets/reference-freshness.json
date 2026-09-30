@@ -1,107 +1,107 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "d52250d167f8e11fa26e7abfc1a9e6fa94a50e1fe027e1a6c9b991f0add087c5",
+    "comparison-sources-data.json": "e17d49a625ae03dd1d2534499d3a6917136e40a6a0981dc43ab137dd94bfd1df",
     "player-news.json": "295b487f16ec02a37f3e92e085c1b34aa69736b267dc265567902c7b2b94bff4",
-    "players.json": "782df95e31dd39fbd05909278c79d8d835848175714a9216ecf7cad4cc982b22",
+    "players.json": "21b201b88c7a1e81378047634fdd2027a54a32598d9205bddcdb44a682d288fc",
     "source-import-health.json": "1349455b0307f910a04cc1d332cdd0c5a58837d1718a50d5eb4b6d99367c3870"
   },
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-09-29T22:21:38-05:00",
-  "import_health_source": "data/fixtures/current/source-import-health.json",
+  "generated_at": "2026-09-30T00:01:30-05:00",
+  "import_health_source": "output/source-import-health.json",
   "items": [
     {
-      "age_days": 6,
-      "changed_since_prior_report": true,
+      "age_days": 7,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "players.as_of",
       "label": "Players artifact as_of",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "stale",
       "value": "2026-09-23"
     },
     {
-      "age_days": 7,
-      "changed_since_prior_report": true,
+      "age_days": 8,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "players.ecr_content_date",
       "label": "Expert/ECR content date",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "stale",
       "value": "2026-09-22"
     },
     {
-      "age_days": 7,
-      "changed_since_prior_report": true,
+      "age_days": 1,
+      "changed_since_prior_report": false,
       "enforced": false,
-      "freshness_ok": false,
+      "freshness_ok": true,
       "key": "players.espn_snapshot",
       "label": "ESPN projection snapshot",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "stale",
-      "value": "2026-09-22"
+      "value": "2026-09-29"
     },
     {
-      "age_days": 7,
-      "changed_since_prior_report": true,
+      "age_days": 8,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "players.pm_snapshot",
       "label": "Prediction-market snapshot",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "stale",
       "value": "2026-09-22"
     },
     {
       "age_days": null,
-      "changed_since_prior_report": true,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "players.kdst_snapshot",
       "label": "K/DST snapshot",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "unknown",
       "value": "?"
     },
     {
-      "age_days": -1,
-      "changed_since_prior_report": true,
+      "age_days": 0,
+      "changed_since_prior_report": false,
       "enforced": true,
-      "freshness_ok": false,
+      "freshness_ok": true,
       "key": "comparison.built_at",
       "label": "Comparison source artifact build time",
       "max_age_days": 2,
-      "note": "changed",
-      "status": "future_dated",
-      "value": "2026-09-30T00:19:45.413257+00:00"
+      "note": "unchanged",
+      "status": "same_day",
+      "value": "2026-09-30T03:29:14.490205+00:00"
     },
     {
-      "age_days": 9,
-      "changed_since_prior_report": true,
+      "age_days": 10,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "news.generated_at",
       "label": "Player-news artifact generation time",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "stale",
       "value": "2026-09-20T22:14:45Z"
     },
     {
-      "age_days": 10,
-      "changed_since_prior_report": true,
+      "age_days": 11,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "news.trade_values_published_at",
       "label": "Trade-value publication timestamp",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "stale",
       "value": "2026-09-19T15:48:29Z"
     },
@@ -115,21 +115,21 @@
       "max_age_days": 2,
       "note": "changed",
       "status": "same_day",
-      "value": "2026-09-29T15:37:53Z"
+      "value": "2026-09-30T04:37:06Z"
     },
     {
       "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "STALE_VINTAGE: content vintage Week 3 (NFL week 3) != current NFL week 4",
-      "freshness_ok": false,
+      "failure_reason": null,
+      "freshness_ok": true,
       "key": "source_import.cbs",
-      "l1_status": "stale",
+      "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=stale; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
-      "status": "stale",
-      "value": "Week 3"
+      "note": "L1 status=ok; last_successful_import=2026-09-30T04:37:06Z; content_vintage is source provenance, not pull time",
+      "status": "same_day",
+      "value": "Week 4"
     },
     {
       "age_days": 0,
@@ -141,7 +141,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-09-30T04:37:06Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "2026-09-29"
     },
@@ -155,7 +155,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-09-30T04:37:06Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "Week 4"
     },
@@ -169,7 +169,7 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-09-30T04:37:06Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "2026-09-29"
     },
@@ -177,15 +177,15 @@
       "age_days": 0,
       "changed_since_prior_report": true,
       "enforced": false,
-      "failure_reason": "STALE_VINTAGE: content vintage 2026-09-23 (NFL week 3) != current NFL week 4",
-      "freshness_ok": false,
+      "failure_reason": null,
+      "freshness_ok": true,
       "key": "source_import.usatoday",
-      "l1_status": "stale",
+      "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=stale; last_successful_import=2026-09-29T15:37:53Z; content_vintage is source provenance, not pull time",
-      "status": "stale",
-      "value": "2026-09-23"
+      "note": "L1 status=ok; last_successful_import=2026-09-30T04:37:06Z; content_vintage is source provenance, not pull time",
+      "status": "same_day",
+      "value": "2026-09-29"
     }
   ],
   "source_validation": {
@@ -204,16 +204,16 @@
   },
   "summary": {
     "all_known_dates_same_day": false,
-    "enforced_expired_count": 1,
+    "enforced_expired_count": 0,
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 10,
-    "l1_unhealthy_count": 2,
+    "expired_count": 6,
+    "l1_unhealthy_count": 0,
     "max_age_days": 2,
-    "stale_count": 8,
-    "unchanged_count": 0,
+    "stale_count": 6,
+    "unchanged_count": 8,
     "unknown_count": 1
   },
-  "today": "2026-09-29"
+  "today": "2026-09-30"
 }

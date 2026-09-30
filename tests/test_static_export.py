@@ -75,7 +75,8 @@ class StaticExportTest(unittest.TestCase):
         by_name = {player["name"]: player for player in self.players["players"]}
         self.assertEqual(351.48, by_name["Josh Allen"]["ecr_ros"]["ppr"])
         self.assertEqual(351.48, by_name["Josh Allen"]["blend_ros"]["ppr"])
-        self.assertEqual(366.13, by_name["Josh Allen"]["espn_ros"]["ppr"])
+        # ESPN ROS updated 2026-09-30 with the 09-29 vintage (was 366.13 on 09-22).
+        self.assertEqual(339.18, by_name["Josh Allen"]["espn_ros"]["ppr"])
         self.assertEqual(325.87, by_name["Bijan Robinson"]["ecr_ros"]["ppr"])
         self.assertIsNone(by_name["Kyle Juszczyk"].get("pm_ros"))
 
@@ -117,14 +118,15 @@ class StaticExportTest(unittest.TestCase):
             # usatoday's fit lands at 17.3 (updated 2026-09-30).
             # _adjusted pins are bias-corrected then pie-rescaled (2026-09-30
             # fix): they track the ESPN leg within the 22% tolerance.
+            # Updated 2026-09-30 with the 09-29 ESPN refit.
             ("usatoday", "full_12"): 17.3,
             ("fantasycalc", "full_12_qb1"): 17.2,
             ("fantasypros", "full_12"): 17.2,
             ("cbs", "full_12"): 17.2,
-            ("espn", "full_12"): 17.2,
-            ("fantasycalc_adjusted", "full_12_qb1"): 20.9,
-            ("usatoday_adjusted", "full_12"): 20.8,
-            ("fantasypros_adjusted", "full_12"): 19.5,
+            ("espn", "full_12"): 18.2,
+            ("fantasycalc_adjusted", "full_12_qb1"): 17.4,
+            ("usatoday_adjusted", "full_12"): 17.5,
+            ("fantasypros_adjusted", "full_12"): 16.6,
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
