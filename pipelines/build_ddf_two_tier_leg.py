@@ -141,8 +141,7 @@ def bench_mix_for_teams(teams: int) -> dict[str, int]:
     return {pos: int(math.floor(BENCH_MIX_12[pos] * teams / 12 + 0.5)) for pos in POSITIONS}
 
 
-# Backward-compatible alias for the pre-rename function name.
-bench_mix_for = bench_mix_for_teams
+# NOTE: bench_mix_for (6-arg) was removed; use bench_mix_for_teams(teams).
 
 
 def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,
