@@ -69,6 +69,9 @@ REF_FLEX_COUNT = 1
 REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
 BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 
+# Backward-compatible alias for the pre-rename constant name.
+REF_BENCH_SLOTS = BENCH_MIX_12
+
 # Verified spelling aliases: csv player_norm -> fixture player_keys id.
 # (Same humans; verified 2026-09-19, re-confirmed vs players.full_name.)
 ALIASES = {
@@ -136,6 +139,10 @@ def solve_tier_prices(a_bench: float, b_bench: float, a_start: float, b_start: f
 def bench_mix_for_teams(teams: int) -> dict[str, int]:
     # Round-half-up (matches the widget; Python round() would banker's-round).
     return {pos: int(math.floor(BENCH_MIX_12[pos] * teams / 12 + 0.5)) for pos in POSITIONS}
+
+
+# Backward-compatible alias for the pre-rename function name.
+bench_mix_for = bench_mix_for_teams
 
 
 def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,
