@@ -175,9 +175,9 @@ class TestLegGuarantees(unittest.TestCase):
     def test_pie_identity_pre_rounding(self):
         for pos in POSITIONS:
             cal = self.leg["calibration"][pos]
-            # Use the pie actually used in calibration; fall back to file
-            # pies if not recorded (matches pipeline's own fallback).
-            pie = cal.get("pie_used", self.pies[pos])
+            # The pie is tier["surplus"] measured from current data (line 378).
+            # It's in the cal dict via {**tier, ...} spread.
+            pie = cal["surplus"]
             # The pie identity: bench_raw + starter_raw must equal the pie.
             total = cal["bench_raw"] + cal["starter_raw"]
             self.assertTrue(abs(total - pie) <= 1e-9 * pie, pos)
