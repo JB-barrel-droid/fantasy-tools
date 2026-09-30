@@ -596,10 +596,11 @@
   let sourceMaps = new Map();
   let nativeSourceMaps = new Map();
   // As-published sources sort the lock order by their native published values,
-  // not the reindexed chart values. The reindexed values preserve within-position
-  // order but destroy cross-position ranking (e.g., FantasyCalc's JSN at #3 overall
-  // would not sort third by reindexed values). Native values are the source's
-  // own cross-position ranking.
+  // not the reindexed chart values. Native values are the source's own
+  // cross-position ranking (e.g., FantasyCalc's JSN at #3 overall). The
+  // plotted values preserve this order via proportional global scaling;
+  // per-position roster-shape factors are skipped for these sources to
+  // avoid destroying the native cross-position order.
   const AS_PUBLISHED_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
   let universe = [];
   let orderedRows = [];
@@ -879,7 +880,7 @@
   // scale short by whatever sits outside the overlap -- a source whose players
   // are all in the anchor (CBS) still balances, so the error hides until a
   // source carries players the anchor lacks.
-  function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE, anchor = null) {
+  function normalizeTradeChartToFixedPie(values, share = DISPLAY_BENCH_SHARE, anchor = null, sourceKey = null) {
     return ValueModel.normalizeToFixedPie({
       values,
       anchor,
@@ -887,7 +888,11 @@
       playerOf: playerKey => canonicalByKey.get(playerKey),
       teams,
       shape: rosterShape,
-      fallbackTarget: commonFixedPieTotal
+      fallbackTarget: commonFixedPieTotal,
+      // As-published sources use a single global scale to preserve their
+      // native cross-position order; the starter/bench two-tier scaling
+      // would create a discontinuity at the transition.
+      singleScale: sourceKey ? AS_PUBLISHED_KEYS.has(sourceKey) : false,
     });
   }
 
@@ -1095,6 +1100,13 @@
   }
 
   function applyRosterShape(values, key) {
+    // As-published sources (FantasyCalc, USA Today, etc.) carry their own
+    // native cross-position ranking. The per-position factors below would
+    // destroy that order (e.g., QBs scaled differently from RBs), causing
+    // the plotted curve to deviate from the sort order. These sources are
+    // already indexed to the anchor's pie via normalizeTradeChartToFixedPie;
+    // they must pass through unshaped to preserve their native order.
+    if (AS_PUBLISHED_KEYS.has(key)) return values;
     if (rosterIsDefault() || key === "espn_vorp") return values;
     const shaped = new Map(values);
     const defaultCounts = allocationCountsFor([...canonicalByKey.values()], DEFAULT_ROSTER);
@@ -1238,7 +1250,7 @@
     SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
       const sourceMap = key.endsWith("_adjusted")
         ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
-        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap);
+        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap, key);
       sourceMaps.set(key, sourceMap);
       // As-published sources get a native-value map for lock-order sorting.
       if (AS_PUBLISHED_KEYS.has(key)) {

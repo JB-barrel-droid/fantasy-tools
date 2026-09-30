@@ -212,6 +212,21 @@
       : (typeof opts.fallbackTarget === "function"
           ? opts.fallbackTarget(starterTotal + benchTotal)
           : starterTotal + benchTotal);
+    // As-published sources (FantasyCalc, USA Today, etc.) must use a single
+    // global scale to preserve their native cross-position order. The
+    // starter/bench two-tier scaling is for the ESPN DDF model only; applying
+    // different scales to starters vs bench creates a discontinuity at the
+    // transition and destroys the source's own ranking.
+    if (opts.singleScale) {
+      var total = starterTotal + benchTotal;
+      var scale = total > 0 && target > 0 ? target / total : 0;
+      var out = new Map();
+      values.forEach(function (value, playerKey) {
+        var safe = isFinite(Number(value)) ? Math.max(0, Number(value)) : 0;
+        out.set(playerKey, safe * scale);
+      });
+      return out;
+    }
     var starterShare = Math.max(0, Math.min(1, 1 - share));
     var benchShare = Math.max(0, Math.min(1, share));
     var starterScale = starterTotal > 0 && target > 0 ? (target * starterShare) / starterTotal : 0;
