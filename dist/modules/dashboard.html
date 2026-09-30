@@ -586,12 +586,19 @@ async function main(){
       const labels = {espn:"ESPN", cbs:"CBS", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
 
       // Count live mismatches
+      // Per user requirement: unverifiable sources (no live human-readable page)
+      // FAIL RED - they are not skipped, their 25 rows count as failures.
       let liveMismatches = 0, liveChecked = 0;
       order.forEach(srcKey => {
         const s = linSources[srcKey];
-        if(!s || !s.live_scraped) return;
+        if(!s) return;
+        const unverifiable = !s.live_scraped;
         (s.top25 || []).forEach(p => {
-          if(p.live_matches_native !== null && p.live_matches_native !== undefined){
+          if(unverifiable){
+            // No live page to check against: counts as a failure per the contract
+            liveChecked++;
+            liveMismatches++;
+          } else if(p.live_matches_native !== null && p.live_matches_native !== undefined){
             liveChecked++;
             if(!p.live_matches_native) liveMismatches++;
           }
@@ -615,11 +622,13 @@ async function main(){
           const matchIcon = p.chart_matches_indexed === true ? '<span style="color:var(--green)">✓</span>' :
                             p.chart_matches_indexed === false ? '<span style="color:var(--red)">✗</span>' : '';
           // Live page verification icon
+          // Unverifiable sources (no live human-readable page) FAIL RED per the contract.
           const liveIcon = p.live_matches_native === true ? '<span style="color:var(--green)">✓</span>' :
-                           p.live_matches_native === false ? '<span style="color:var(--red)" title="Live page value differs from our snapshot">✗</span>' : '';
+                           p.live_matches_native === false ? '<span style="color:var(--red)" title="Live page value differs from our snapshot">✗</span>' :
+                           !s.live_scraped ? '<span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span>' : '';
           const liveCell = s.live_scraped
             ? `<td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.live_value)} ${liveIcon}</td>`
-            : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--faint)" title="Live page not scraped for this source">—</span></td>`;
+            : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span> <span style="color:var(--faint)">unverifiable</span></td>`;
           return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">
             <td style="padding:6px 8px;color:var(--dim)">${p.rank}</td>
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>
@@ -960,4 +969,3 @@ main().catch(e => {
 </script>
 </body>
 </html>
-
