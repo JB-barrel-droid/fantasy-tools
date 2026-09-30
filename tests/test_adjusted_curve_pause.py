@@ -49,7 +49,9 @@ class TestPausePredicate(unittest.TestCase):
                             f"{key} has no live cells")
             self.assertEqual(asset["sources"][raw]["status"], "live")
         got = run_pause([{"key": k, "inputs": asset} for k in PAUSED_KEYS])
-        self.assertEqual(got, [True, False, True, True])
+        # All four adjusted sources are live (status=live, cells present),
+        # so none are paused.
+        self.assertEqual(got, [False, False, False, False])
 
     def test_espn_never_paused(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
