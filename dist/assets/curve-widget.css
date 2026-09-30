@@ -103,6 +103,24 @@
 #curve-widget .specialist-toggle{align-self:end;display:flex;align-items:center;gap:6px;min-height:34px;margin:0}
 #curve-widget .specialist-toggle:has(input:disabled){opacity:.5}
 #curve-widget .roster-shape-note{grid-column:1/-1;margin:0;color:var(--muted);font-size:10px;line-height:1.4}
+#curve-widget .weights-panel{margin:2px 0 10px;border:1px solid var(--line);background:#fbfcfa}
+#curve-widget .weights-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 12px;color:var(--navy);font-weight:800;cursor:pointer;list-style:none}
+#curve-widget .weights-panel>summary::-webkit-details-marker{display:none}
+#curve-widget .weights-panel>summary::after{content:"+";color:var(--orange-dark);font:700 16px/1 "IBM Plex Mono",monospace}
+#curve-widget .weights-panel[open]>summary::after{content:"−"}
+#curve-widget .weights-body{display:grid;gap:10px;padding:10px 12px;border-top:1px solid var(--line)}
+#curve-widget .weights-note{margin:0;color:var(--muted);font-size:11px;line-height:1.5}
+#curve-widget .weights-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+@media(max-width:700px){#curve-widget .weights-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+#curve-widget .weight-step{display:grid;gap:4px;min-width:0}
+#curve-widget .weight-step label{display:flex;justify-content:space-between;align-items:baseline;color:var(--navy);font:700 11px/1.2 "Archivo",sans-serif}
+#curve-widget .weight-step .weight-val{color:var(--orange-dark);font:700 12px/1 "IBM Plex Mono",monospace}
+#curve-widget .weight-step input[type=range]{width:100%;accent-color:var(--orange-dark)}
+#curve-widget .weights-actions{display:flex;gap:8px}
+#curve-widget .weights-reset{border:1px solid var(--line-strong);border-radius:5px;background:var(--white);color:var(--navy);font:700 11px/1 "Archivo",sans-serif;padding:8px 12px;cursor:pointer}
+#curve-widget .weights-reset:hover{border-color:var(--orange-dark)}
+#curve-widget .weights-readout{margin:0;color:var(--muted);font-size:10px;line-height:1.45}
+#curve-widget #weightsBenchSlot .bench-share-block{margin:0}
 #curve-widget .adjustment-panel{margin:0 0 10px;border:1px solid var(--line);background:#fbfcfa}
 #curve-widget .adjustment-panel>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 11px;color:var(--navy);font-size:11px;font-weight:800;cursor:pointer;list-style:none}
 #curve-widget .adjustment-panel>summary::-webkit-details-marker{display:none}

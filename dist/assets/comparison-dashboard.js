@@ -221,6 +221,18 @@
   const isAdjustedCurvePaused = key => adjustedCurvePaused(key, adjustmentInputs);
 
   function adjustmentCellsFor(rawKey) {
+    // Prefer live refit cells (reflect current global weights) when available;
+    // fall back to baked cells otherwise. Live cells mix all sources, so filter.
+    const live = window.TradeValueTwoTierLive;
+    if (live && live.liveCells) {
+      try {
+        const cells = live.liveCells();
+        if (cells && cells.length) {
+          const filtered = cells.filter(c => String(c.source || "").toLowerCase() === String(rawKey).toLowerCase());
+          if (filtered.length) return filtered;
+        }
+      } catch (e) { /* fall through to baked */ }
+    }
     const entry = adjustmentInputs?.sources?.[rawKey];
     return adjustmentCellCompleteness(entry).complete ? entry.cells : null;
   }
@@ -1138,6 +1150,21 @@
           state.benchShare = nextBenchShare;
           rebuildSourceMaps();
           renderAll();
+        }
+      }
+      // Sync global position weights (from the standalone Weights section).
+      const sharedWeights = shared?.positionWeights;
+      if (sharedWeights && ["QB", "RB", "WR", "TE"].every(p => Number.isFinite(sharedWeights[p]))) {
+        const total = ["QB", "RB", "WR", "TE"].reduce((s, p) => s + sharedWeights[p], 0);
+        if (total > 0) {
+          const norm = {};
+          ["QB", "RB", "WR", "TE"].forEach(p => { norm[p] = sharedWeights[p] / total; });
+          const changed = ["QB", "RB", "WR", "TE"].some(p => Math.abs((state.positionWeights?.[p] || 0) - norm[p]) > 0.0001);
+          if (changed) {
+            state.positionWeights = norm;
+            rebuildSourceMaps();
+            renderAll();
+          }
         }
       }
       if (isLockKey(shared?.lockOrder)) setLockOrder(shared.lockOrder, false);

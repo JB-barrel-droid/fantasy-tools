@@ -1638,6 +1638,18 @@
     <span class="lbl">Teams:</span>
     <div class="seg" id="curveTeams" aria-label="Chart league size"></div>
   </div>
+  <details class="weights-panel" id="weightsSection">
+    <summary><span>Weights</span></summary>
+    <div class="weights-body">
+      <p class="weights-note">Position shares split the total value pie across QB, RB, WR, and TE. Bench % splits each position's share between starters and the bench. Changing either recalibrates every value on this dashboard — curves, tables, and comparisons.</p>
+      <div class="weights-grid" id="positionWeightControls"></div>
+      <div id="weightsBenchSlot"></div>
+      <div class="weights-actions">
+        <button class="weights-reset" id="weightsReset" type="button">Reset to defaults</button>
+      </div>
+      <p class="weights-readout" id="weightsReadout"></p>
+    </div>
+  </details>
   <details class="roster-shape-panel">
     <summary>Roster shape</summary>
     <div class="roster-shape-body">
@@ -1766,7 +1778,7 @@
                 <div class="recal-view-tabs" role="tablist" aria-label="Recalibration view">
                   <button type="button" role="tab" data-view="movers" aria-selected="true">Top movers</button>
                   <button type="button" role="tab" data-view="players" aria-selected="false">All players</button>
-                  <button type="button" role="tab" data-view="graph" aria-selected="false">Weight lab</button>
+                  <button type="button" role="tab" data-view="graph" aria-selected="false">Movement graph</button>
                 </div>
                 <div class="recal-view" id="recalMoversView">
                   <div class="mover-list" id="moverBars"></div>
@@ -1789,14 +1801,6 @@
                   <p class="method-caption" id="recalPlayerCount"></p>
                 </div>
                 <div class="recal-view" id="recalGraphView" hidden>
-                  <div class="weight-controls">
-                    <p class="weight-title">Adjust the weights — watch every player move</p>
-                    <div class="weight-sliders" id="weightSliders"></div>
-                    <div class="weight-actions">
-                      <button type="button" id="weightReset" class="weight-reset">Reset to defaults</button>
-                      <span class="weight-sum" id="weightSum"></span>
-                    </div>
-                  </div>
                   <div class="graph-controls">
                     <label>Explore weight:
                       <select id="graphWeightSelect">
@@ -1807,12 +1811,13 @@
                         <option value="bench">Bench share</option>
                       </select>
                     </label>
-                    <span class="graph-hint">Lines show top 15 players · vertical marker is the current slider value</span>
+                    <span class="graph-hint">Lines show top 15 players · vertical marker is the live weight from the Weights section above</span>
                   </div>
                   <div class="movement-graph-wrap">
                     <svg id="movementGraph" viewBox="0 0 640 360" role="img" aria-label="Player value movement as weights change"></svg>
                   </div>
                   <div class="graph-legend" id="graphLegend"></div>
+                  <p class="method-caption">Adjust weights in the <a href="#weightsSection">Weights section</a> above — this graph updates live.</p>
                 </div>
               </div>
             </div>
@@ -2012,7 +2017,9 @@
     // Bench weight change: within each position, bench scales by
     //   new_bench / old_bench and starters by (1-new_bench)/(1-old_bench),
     //   keeping the position total fixed.
-    const weightState = { pos: null, bench: null, defaults: null };
+    // (weights are global; see currentWeights above)
+    // Weights are global: the standalone Weights section (after league settings)
+    // is the single control. This lab reads the live global weights.
     function currentWeights(combo, srcKey) {
       const adj = (combo.adjustments || {});
       const keys = Object.keys(adj);
@@ -2020,18 +2027,23 @@
       const d = adj[srcKey] || {};
       const defaults = d.default_weights || { QB: 25, RB: 25, WR: 25, TE: 25 };
       const defaultBench = data.bench_share || 0.15;
-      if (!weightState.defaults || weightState.srcKey !== srcKey) {
-        weightState.pos = { ...defaults };
-        weightState.bench = defaultBench;
-        weightState.defaults = { ...defaults };
-        weightState.defaultBench = defaultBench;
-        weightState.srcKey = srcKey;
+      // Global weights from the curve widget, falling back to baked defaults.
+      const live = window.TradeValueTwoTierLive;
+      const shared = window.TradeValueSharedState;
+      let pos = null, bench = null;
+      if (live && live.positionWeights) {
+        const gw = live.positionWeights();
+        if (gw) { pos = { QB: gw.QB * 100, RB: gw.RB * 100, WR: gw.WR * 100, TE: gw.TE * 100 }; }
+      } else if (shared && shared.positionWeights) {
+        const gw = shared.positionWeights;
+        pos = { QB: gw.QB * 100, RB: gw.RB * 100, WR: gw.WR * 100, TE: gw.TE * 100 };
       }
+      if (shared && Number.isFinite(shared.benchShare)) bench = shared.benchShare;
       return {
-        pos: { ...weightState.pos },
-        bench: weightState.bench,
-        defaultPos: { ...weightState.defaults },
-        defaultBench: weightState.defaultBench,
+        pos: pos || { ...defaults },
+        bench: bench !== null ? bench : defaultBench,
+        defaultPos: { ...defaults },
+        defaultBench: defaultBench,
       };
     }
     function computeAdjusted(players, w) {
@@ -2057,60 +2069,9 @@
       });
     }
     const POS_LIST = ["QB", "RB", "WR", "TE"];
-    function initWeightLab(combo, srcKey) {
-      const wrap = document.getElementById("weightSliders");
-      if (!wrap) return;
-      const w = currentWeights(combo, srcKey);
-      // Build sliders once per source/combo
-      const sig = srcKey + "|" + comboKeyFor(window.TradeValueSharedState);
-      if (wrap.dataset.sig !== sig) {
-        wrap.dataset.sig = sig;
-        wrap.innerHTML = POS_LIST.map(p =>
-          `<div class="weight-slider-row"><label for="w-${p}">${p} share</label>` +
-          `<input type="range" id="w-${p}" min="0" max="80" step="0.5" value="${w.pos[p].toFixed(1)}" data-pos="${p}">` +
-          `<output id="wo-${p}">${w.pos[p].toFixed(1)}%</output></div>`
-        ).join("") +
-        `<div class="weight-slider-row"><label for="w-bench">Bench share</label>` +
-        `<input type="range" id="w-bench" min="5" max="30" step="0.5" value="${(w.bench * 100).toFixed(1)}" data-bench="1">` +
-        `<output id="wo-bench">${(w.bench * 100).toFixed(1)}%</output></div>`;
-        wrap.querySelectorAll("input[type=range]").forEach(inp => {
-          inp.addEventListener("input", () => {
-            if (inp.dataset.pos) {
-              weightState.pos[inp.dataset.pos] = parseFloat(inp.value);
-              document.getElementById("wo-" + inp.dataset.pos).textContent = parseFloat(inp.value).toFixed(1) + "%";
-            } else {
-              weightState.bench = parseFloat(inp.value) / 100;
-              document.getElementById("wo-bench").textContent = parseFloat(inp.value).toFixed(1) + "%";
-            }
-            updateWeightSum();
-            refreshWeightOutputs();
-          });
-        });
-        const reset = document.getElementById("weightReset");
-        if (reset) reset.onclick = () => {
-          weightState.pos = { ...weightState.defaults };
-          weightState.bench = weightState.defaultBench;
-          initWeightLab(combo, srcKey);
-          refreshWeightOutputs();
-        };
-      } else {
-        // Sync slider positions to state
-        POS_LIST.forEach(p => {
-          const inp = document.getElementById("w-" + p);
-          if (inp) { inp.value = w.pos[p].toFixed(1); document.getElementById("wo-" + p).textContent = w.pos[p].toFixed(1) + "%"; }
-        });
-        const bi = document.getElementById("w-bench");
-        if (bi) { bi.value = (w.bench * 100).toFixed(1); document.getElementById("wo-bench").textContent = (w.bench * 100).toFixed(1) + "%"; }
-      }
-      updateWeightSum();
-    }
-    function updateWeightSum() {
-      const el = document.getElementById("weightSum");
-      if (!el || !weightState.pos) return;
-      const sum = POS_LIST.reduce((s, p) => s + (weightState.pos[p] || 0), 0);
-      el.textContent = `Position shares sum to ${sum.toFixed(1)}%`;
-      el.classList.toggle("over", Math.abs(sum - 100) > 0.6);
-    }
+    // Sliders moved to the standalone Weights section; this is now a no-op.
+    function initWeightLab(combo, srcKey) {}
+    function updateWeightSum() {}
     function refreshWeightOutputs() {
       const key = comboKeyFor(window.TradeValueSharedState);
       const combo = combos[key];
@@ -2151,8 +2112,10 @@
       if (which !== "bench") cands = cands.filter(p => p.pos === which);
       cands.sort((a, b) => b.after - a.after);
       const top = cands.slice(0, 15);
-      // Compute trajectories
+      // Compute trajectories from the FULL player population (per-player calls
+      // would corrupt the position/bench totals the scaling depends on).
       const steps = 25;
+      const allPlayers = d.players;
       const trajs = top.map(p => {
         const pts = [];
         for (let i = 0; i <= steps; i++) {
@@ -2170,8 +2133,9 @@
             const rest = 100 - xv;
             others.forEach(q => { ww.pos[q] = otherSum ? w.pos[q] / otherSum * rest : rest / 3; });
           }
-          const c = computeAdjusted([p], ww)[0];
-          pts.push([xv, c.adjusted]);
+          const adjusted = computeAdjusted(allPlayers, ww);
+          const match = adjusted.find(a => a.name === p.name && a.pos === p.pos);
+          pts.push([xv, match ? match.adjusted : 0]);
         }
         return { p, pts };
       });

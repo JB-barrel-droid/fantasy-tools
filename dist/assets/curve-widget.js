@@ -601,6 +601,10 @@
   let teams = 12;
   let rosterShape = {...DEFAULT_ROSTER};
   let benchShare = DEFAULT_BENCH_SHARE;
+  // Position weights: null = baked defaults from the fixture pies; otherwise
+  // {QB, RB, WR, TE} fractions summing to exactly 1. Changed via the
+  // standalone Weights section; drives a true live recalibration.
+  let positionWeights = null;
   // Two-tier calibration caches. Bounds/intervals depend only on the league
   // config (scoring x teams; reference pool shape); calibrations and live
   // cells additionally depend on the active bench share.
@@ -1343,6 +1347,87 @@
     return pies;
   }
 
+  // Position weights: baked defaults derived from the fixture pies, the
+  // active weights (custom or baked), and the active pies (custom weights
+  // rescale the baked total pie). Weights always sum to exactly 1.
+  function bakedPositionWeights() {
+    const pies = twoTierPieByPos();
+    const total = TwoTier.POSITIONS.reduce((s, pos) => s + (Number(pies[pos]) || 0), 0);
+    if (!(total > 0)) return null;
+    const w = {};
+    TwoTier.POSITIONS.forEach(pos => { w[pos] = (Number(pies[pos]) || 0) / total; });
+    return w;
+  }
+
+  function activePositionWeights() {
+    if (positionWeights) return {...positionWeights};
+    return bakedPositionWeights() || {QB: 0.25, RB: 0.25, WR: 0.25, TE: 0.25};
+  }
+
+  function activePies() {
+    const cfg = twoTierConfig();
+    if (!positionWeights || !cfg.pies) return cfg.pies;
+    const total = TwoTier.POSITIONS.reduce((s, pos) => s + (Number(cfg.pies[pos]) || 0), 0);
+    const pies = {};
+    TwoTier.POSITIONS.forEach(pos => { pies[pos] = total * (Number(positionWeights[pos]) || 0); });
+    return pies;
+  }
+
+  function pieSignature(pies) {
+    return TwoTier.POSITIONS.map(pos => (Number(pies?.[pos]) || 0).toFixed(3)).join(",");
+  }
+
+  // Linked sliders: moving one position's share takes from (or gives to) the
+  // other three proportionally, so the four shares always total exactly 100%.
+  function setPositionWeight(pos, fraction) {
+    if (!TwoTier.POSITIONS.includes(pos)) return;
+    const w = activePositionWeights();
+    let next = Number(fraction);
+    if (!Number.isFinite(next)) return;
+    next = Math.min(1, Math.max(0, next));
+    const delta = next - w[pos];
+    if (Math.abs(delta) < 1e-9) return;
+    w[pos] = next;
+    const others = TwoTier.POSITIONS.filter(p => p !== pos);
+    const otherTotal = others.reduce((s, p) => s + w[p], 0);
+    if (otherTotal > 1e-9) {
+      others.forEach(p => { w[p] = Math.max(0, w[p] - delta * (w[p] / otherTotal)); });
+    } else if (others.length) {
+      const rem = Math.max(0, 1 - next);
+      others.forEach(p => { w[p] = rem / others.length; });
+    }
+    const total = TwoTier.POSITIONS.reduce((s, p) => s + w[p], 0);
+    if (total > 1e-9) TwoTier.POSITIONS.forEach(p => { w[p] /= total; });
+    positionWeights = w;
+    refreshAfterWeightChange();
+  }
+
+  function resetPositionWeights() {
+    positionWeights = null;
+    refreshAfterWeightChange();
+  }
+
+  function resetAllWeights() {
+    positionWeights = null;
+    setBenchShareFraction(TwoTier.DEFAULT_BENCH_SHARE, false);
+    refreshAfterWeightChange();
+  }
+
+  // Refit + redraw + republish after any weight change (position or bench).
+  function refreshAfterWeightChange() {
+    crossRank = null;
+    liveCellsCache = null;
+    syncPositionWeightControls();
+    syncWeightsReadout();
+    refitLiveCells();
+    rebuildDomain();
+    resetZoom();
+    runRegressionGuards();
+    draw();
+    syncCurveStatus();
+    publishShared();
+  }
+
   function twoTierConfig() {
     const key = twoTierConfigKey();
     let entry = twoTierConfigCache.get(key);
@@ -1387,7 +1472,8 @@
   function twoTierCalibration(share = benchShare) {
     const cfg = twoTierConfig();
     if (!cfg.pool) return null;
-    const key = `${twoTierConfigKey()}@${Number(share).toFixed(6)}`;
+    const pies = activePies();
+    const key = `${twoTierConfigKey()}@${Number(share).toFixed(6)}#${pieSignature(pies)}`;
     let cal = twoTierCalCache.get(key);
     if (!cal) {
       cal = {};
@@ -1396,7 +1482,7 @@
       // individual keys later).
       const shares = TwoTier.skillBenchShares(share);
       TwoTier.POSITIONS.forEach(pos => {
-        cal[pos] = TwoTier.calibratePosition(cfg.pool.tiers[pos], cfg.pies[pos],
+        cal[pos] = TwoTier.calibratePosition(cfg.pool.tiers[pos], pies[pos],
           TwoTier.skillBenchShare(shares, pos));
       });
       if (twoTierCalCache.size > 64) twoTierCalCache.delete(twoTierCalCache.keys().next().value);
@@ -1438,7 +1524,7 @@
   // withheld at the active share fit no cells. Recomputed whenever the
   // bench share or league config changes (cache key).
   function refitLiveCells() {
-    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}`;
+    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}#${pieSignature(activePies())}`;
     if (liveCellsCache && liveCellsCache.key === key) return liveCellsCache.cells;
     const cells = [];
     const ddf = ddfTwoTierValues();
@@ -1549,6 +1635,79 @@
     refitLiveCells();
   }
 
+  // ---- Standalone Weights section ----
+  // Four linked position-share sliders (always sum to exactly 100%) plus the
+  // bench-share slider, moved here from the roster panel. All write to the
+  // same global state and drive a true live recalibration.
+  function makePositionWeightControls() {
+    const grid = $("#positionWeightControls");
+    if (!grid) return;
+    grid.innerHTML = "";
+    const weights = activePositionWeights();
+    TwoTier.POSITIONS.forEach(pos => {
+      const wrap = document.createElement("div");
+      wrap.className = "weight-step";
+      wrap.dataset.pos = pos;
+      const label = document.createElement("label");
+      label.htmlFor = `weight-${pos}`;
+      const name = document.createElement("span");
+      name.textContent = pos;
+      const val = document.createElement("span");
+      val.className = "weight-val";
+      label.append(name, val);
+      const input = document.createElement("input");
+      input.type = "range";
+      input.id = `weight-${pos}`;
+      input.min = "0";
+      input.max = "100";
+      input.step = "0.1";
+      input.value = String((weights[pos] || 0) * 100);
+      input.setAttribute("aria-label", `${pos} share of total value pie, percent`);
+      input.addEventListener("input", () => setPositionWeight(pos, Number(input.value) / 100));
+      wrap.append(label, input);
+      grid.appendChild(wrap);
+    });
+    syncPositionWeightControls();
+    const resetBtn = $("#weightsReset");
+    if (resetBtn && !resetBtn.dataset.bound) {
+      resetBtn.dataset.bound = "1";
+      resetBtn.addEventListener("click", resetAllWeights);
+    }
+  }
+
+  function syncPositionWeightControls() {
+    const grid = $("#positionWeightControls");
+    if (!grid) return;
+    const weights = activePositionWeights();
+    let total = 0;
+    TwoTier.POSITIONS.forEach(pos => {
+      const wrap = grid.querySelector(`.weight-step[data-pos="${pos}"]`);
+      if (!wrap) return;
+      const pct = (weights[pos] || 0) * 100;
+      total += pct;
+      const input = wrap.querySelector("input[type=range]");
+      const val = wrap.querySelector(".weight-val");
+      if (input && document.activeElement !== input) input.value = String(pct);
+      if (val) val.textContent = `${pct.toFixed(1)}%`;
+    });
+    const readout = $("#weightsReadout");
+    if (readout) readout.dataset.total = String(total);
+  }
+
+  function syncWeightsReadout() {
+    const readout = $("#weightsReadout");
+    if (!readout) return;
+    const weights = activePositionWeights();
+    const baked = bakedPositionWeights();
+    const parts = TwoTier.POSITIONS.map(pos => {
+      const pct = ((weights[pos] || 0) * 100).toFixed(1);
+      const b = baked ? ` (default ${(baked[pos] * 100).toFixed(1)}%)` : "";
+      return `${pos} ${pct}%${b}`;
+    });
+    const benchPct = (benchShare * 100).toFixed(1);
+    readout.textContent = `Pie: ${parts.join(" · ")} — sums to 100%. Bench ${benchPct}% (default 15%). Values above recalibrate live from ESPN projections.`;
+  }
+
   function makeRosterControls() {
     const grid = $("#rosterShapeControls");
     if (!grid) return;
@@ -1623,7 +1782,14 @@
     const readout = document.createElement("p");
     readout.className = "bench-share-readout";
     shareBlock.append(shareHead, slider, readout);
-    grid.appendChild(shareBlock);
+    // The bench slider lives in the standalone Weights section, not the roster panel.
+    const benchSlot = $("#weightsBenchSlot");
+    if (benchSlot) {
+      benchSlot.innerHTML = "";
+      benchSlot.appendChild(shareBlock);
+    } else {
+      grid.appendChild(shareBlock);
+    }
     const specialistToggle = $("#includeSpecialists");
     const specialistNote = $("#specialistNote");
     const specialistPlayers = [...canonicalByKey.values()].filter(player => SPECIALIST_POSITIONS.includes(player.pos));
@@ -1951,7 +2117,7 @@
   }
 
   function publishShared() {
-    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare};
+    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare, positionWeights: activePositionWeights()};
     window.TradeValueSharedState = detail;
     window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
@@ -2030,6 +2196,8 @@
     if (!SCORINGS.some(([key]) => key === normalized) || normalized === scoring) return;
     scoring = normalized;
     crossRank = null;
+    // League change: custom position weights reset to the new combo's baked defaults.
+    positionWeights = null;
     rebuildDomain();
     // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
     if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
@@ -2039,6 +2207,8 @@
     }
     makeLeagueControls();
     makeRosterControls();
+    makePositionWeightControls();
+    syncWeightsReadout();
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
@@ -2055,6 +2225,8 @@
     if (![8, 10, 12, 14].includes(normalized) || normalized === teams) return;
     teams = normalized;
     crossRank = null;
+    // League change: custom position weights reset to the new combo's baked defaults.
+    positionWeights = null;
     rebuildDomain();
     // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
     if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
@@ -2064,6 +2236,8 @@
     }
     makeLeagueControls();
     makeRosterControls();
+    makePositionWeightControls();
+    syncWeightsReadout();
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
@@ -2774,6 +2948,8 @@
       rebuildDomain();
       makeLeagueControls();
       makeRosterControls();
+      makePositionWeightControls();
+      syncWeightsReadout();
       makeTabs();
       makeValueModeControl();
       makeValueBandControl();
@@ -2794,7 +2970,11 @@
         benchShares: () => TwoTier.skillBenchShares(benchShare),
         ddfValues: ddfTwoTierValues,
         liveCells: refitLiveCells,
-        setBenchShareFraction
+        setBenchShareFraction,
+        positionWeights: activePositionWeights,
+        setPositionWeight,
+        resetPositionWeights,
+        resetAllWeights
       };
     } catch (error) {
       $("#curve-status").innerHTML = `<strong>Curves unavailable:</strong> ${String(error.message)}`;
