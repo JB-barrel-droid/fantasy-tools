@@ -76,26 +76,28 @@ def find_fresh_leg(scoring: str) -> Path:
     return cands[-1][2]
 
 
-def load_leg_values(leg_path: Path) -> dict[str, float]:
+def load_leg_values(leg_path: Path) -> dict[int, float]:
+    """player_key (numeric) -> DDF 70-scale value. Joins are by numeric key,
+    never by name string (slug variations like cam/cameron break string joins)."""
     leg = json.loads(leg_path.read_text(encoding="utf-8"))
     out = {}
     for row in leg.get("values", []):
-        norm = row.get("player_norm")
+        key = row.get("player_key")
         val = row.get("value")
-        if norm and isinstance(val, (int, float)):
-            out[norm] = float(val)
+        if key is not None and isinstance(val, (int, float)):
+            out[int(key)] = float(val)
     return out
 
 
-def load_leg_ppg(leg_path: Path) -> dict[str, float]:
-    """player_norm -> per-game ESPN projection (for natives)."""
+def load_leg_ppg(leg_path: Path) -> dict[int, float]:
+    """player_key (numeric) -> per-game ESPN projection (for natives)."""
     leg = json.loads(leg_path.read_text(encoding="utf-8"))
     out = {}
     for row in leg.get("values", []):
-        norm = row.get("player_norm")
+        key = row.get("player_key")
         ppg = row.get("ppg")
-        if norm and isinstance(ppg, (int, float)):
-            out[norm] = float(ppg)
+        if key is not None and isinstance(ppg, (int, float)):
+            out[int(key)] = float(ppg)
     return out
 
 
@@ -115,6 +117,10 @@ def main() -> int:
         raise SystemExit("Fixture has no sources.espn section; refusing to create one.")
 
     player_keys = fixture.get("player_keys", {})  # slug -> player_key
+    key_to_slug = {}
+    for slug, key in player_keys.items():
+        # First slug wins on duplicate keys; keys are unique per player.
+        key_to_slug.setdefault(int(key), slug)
     key_to_pos = {p["player_key"]: p["pos"] for p in players.get("players", [])
                   if p.get("player_key") is not None and p.get("pos")}
     slug_to_pos = {}
@@ -148,8 +154,6 @@ def main() -> int:
             combo = new_section["combos"].get(combo_name)
             if combo is None:
                 raise SystemExit(f"Fixture espn section missing combo {combo_name!r}")
-            old_vals = combo["values"]
-            old_native = combo.get("native", {})
 
             # Use fresh DDF values directly (NO rescale to stale pie).
             # The DDF leg is the authoritative bottom-up ESPN valuation;
@@ -157,18 +161,22 @@ def main() -> int:
             # old "canonical pie" would pin the level to stale data.
             # ESPN-PURITY: Start empty, only DDF-leg players get values.
             # Players without ESPN projections are excluded (no ECR fill).
+            # IDENTITY: join leg -> fixture by numeric player_key, never by
+            # name slug (cam/cameron, etienne/etienne jr variations break
+            # string joins and silently drop players).
             fresh_vals = {}
             fresh_native = {}
             ddf_ppg = leg_ppgs[scoring]
-            for slug, dval in ddf_vals.items():
-                if slug not in old_vals:
-                    continue  # DDF player outside fixture universe; skip (fail-closed)
+            for pkey, dval in ddf_vals.items():
+                slug = key_to_slug.get(pkey)
+                if slug is None:
+                    continue  # DDF player not in fixture player_keys; skip (fail-closed)
                 # Use the fresh DDF value directly, no stale-pie rescale.
                 fresh_vals[slug] = round(dval, 1)
                 new_priced.add(slug)
                 # Natives are per-game ESPN projections; refresh from the leg's ppg.
-                if slug in ddf_ppg:
-                    fresh_native[slug] = round(ddf_ppg[slug], 2)
+                if pkey in ddf_ppg:
+                    fresh_native[slug] = round(ddf_ppg[pkey], 2)
             combo["values"] = fresh_vals
             combo["native"] = fresh_native
             combo["n"] = len(fresh_vals)

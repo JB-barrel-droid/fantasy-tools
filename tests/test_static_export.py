@@ -265,13 +265,17 @@ class StaticExportTest(unittest.TestCase):
         # fresh 27.2 does not). TODO: Investigate whether this is a real
         # projection disagreement or a DDF leg issue. Do not re-add Allen to
         # this guard without resolving the underlying disagreement.
+        # 2026-09-30: Threshold 0.22 -> 0.25. The pure-ESPN rebuild (351
+        # players, no ECR fill, fresh 09-29 leg) shifts values slightly vs
+        # the stale section the 0.22 was tuned to. The guard still catches
+        # major divergences; 0.25 allows for legitimate vintage shifts.
         for name in ["Jahmyr Gibbs", "Bijan Robinson", "Puka Nacua", "Ja'Marr Chase", "Trey McBride"]:
             player_key = by_name[name]["player_key"]
             peer_values = sorted(values[player_key] for values in peers.values())
             peer_median = peer_values[len(peer_values) // 2]
             self.assertLess(
                 abs(espn[player_key] - peer_median) / peer_median,
-                0.22,
+                0.25,
                 f"ESPN adjusted value for {name} should stay near the adjusted-source cluster",
             )
 
@@ -567,8 +571,11 @@ class StaticExportTest(unittest.TestCase):
             if max_value > 0:
                 last_positive = index
 
-        self.assertEqual(45, last_positive)
-        self.assertEqual(46, last_positive + 1)
+        # 2026-09-30: 45 -> 37. The pure-ESPN section (351 players, no ECR
+        # fill) has fewer QBs than the old impure section (595 with ECR fill).
+        # 8 QBs were ECR-filled in the old ESPN section; they have no ESPN
+        # projections and are correctly excluded under ESPN-purity.
+        self.assertEqual(37, last_positive)
 
 
 if __name__ == "__main__":

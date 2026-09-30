@@ -23,14 +23,6 @@ import json
 import os
 import sys
 
-# Fixture keys use the leg's own player_norm format (lowercase, suffixes kept
-# for most). A few known aliases bridge fixture-key -> leg player_norm.
-# Achane is on IR and correctly absent from the pure-ESPN leg.
-LEG_ALIASES = {
-    "cam skattebo": "cameron skattebo",
-    "travis etienne": "travis etienne jr",
-}
-
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 LEG_DIR = os.path.join(REPO, "data/ddf-two-tier")
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
@@ -63,13 +55,15 @@ def main():
 
     scale = leg["scale_70_over_max"]
     max_raw = leg["max_raw_value"]
+    # Join by numeric player_key, never by name string.
     leg_rows = {
-        r["player_norm"]: r
+        int(r["player_key"]): r
         for r in leg.get("values", [])
-        if r.get("player_norm")
+        if r.get("player_key") is not None
     }
 
     d = json.load(open(DATA_PATH))
+    fixture_keys = d.get("player_keys", {})  # slug -> player_key
     combo = d["sources"]["espn"]["combos"][COMBO]
     fixture_vals = combo.get("values", {})
     ranked = sorted(
@@ -80,11 +74,10 @@ def main():
 
     players = []
     for pkey, fval in ranked:
-        # Fixture keys already match leg player_norm; apply aliases for known
-        # variations. Do NOT run generic name normalization here — it strips
-        # suffixes (III/Jr.) the leg keeps and expands nicknames (Josh/Joshua).
-        leg_key = LEG_ALIASES.get(pkey, pkey)
-        row = leg_rows.get(leg_key, {})
+        # IDENTITY: join fixture -> leg by numeric player_key via the
+        # fixture's player_keys registry. Never join on name strings.
+        pnum = fixture_keys.get(pkey)
+        row = leg_rows.get(int(pnum), {}) if pnum is not None else {}
 
         ppg = row.get("ppg")
         raw = row.get("raw_value")
