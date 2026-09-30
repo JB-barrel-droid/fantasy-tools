@@ -594,6 +594,13 @@
   let adjustmentInputs = null;
   let canonicalByKey = new Map();
   let sourceMaps = new Map();
+  let nativeSourceMaps = new Map();
+  // As-published sources sort the lock order by their native published values,
+  // not the reindexed chart values. The reindexed values preserve within-position
+  // order but destroy cross-position ranking (e.g., FantasyCalc's JSN at #3 overall
+  // would not sort third by reindexed values). Native values are the source's
+  // own cross-position ranking.
+  const AS_PUBLISHED_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
   let universe = [];
   let orderedRows = [];
   let position = "ALL";
@@ -746,8 +753,12 @@
   }
 
   function orderComparator(a, b) {
-    const aValue = lockOrder === "disagreement" ? disagreement(a) : a.values[lockOrder];
-    const bValue = lockOrder === "disagreement" ? disagreement(b) : b.values[lockOrder];
+    const aValue = lockOrder === "disagreement" ? disagreement(a)
+      : AS_PUBLISHED_KEYS.has(lockOrder) ? nativeSourceMaps.get(lockOrder)?.get(a.player_key)
+      : a.values[lockOrder];
+    const bValue = lockOrder === "disagreement" ? disagreement(b)
+      : AS_PUBLISHED_KEYS.has(lockOrder) ? nativeSourceMaps.get(lockOrder)?.get(b.player_key)
+      : b.values[lockOrder];
     const aMissing = !Number.isFinite(aValue);
     const bMissing = !Number.isFinite(bValue);
     if (aMissing !== bMissing) return aMissing ? 1 : -1;
@@ -816,6 +827,21 @@
       const value = clampValue(rawValue);
       if (!player || value === null) return;
       if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)}.`);
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
+  function buildNativeSourceMap(key) {
+    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
+    const native = combo?.native || {};
+    const values = new Map();
+    Object.entries(native).forEach(([sourceId, nativeValue]) => {
+      const playerKey = Number(data.player_keys?.[sourceId]);
+      const player = canonicalByKey.get(playerKey);
+      const value = Number(nativeValue);
+      if (!player || !Number.isFinite(value)) return;
+      if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)} native.`);
       values.set(playerKey, value);
     });
     return values;
@@ -1202,6 +1228,7 @@
     espnFixtureLegCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
+    nativeSourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
     buildEspnRows();
     const anchorMap = applyRosterShape(buildEspnIndexedMap(), "espn");
@@ -1213,6 +1240,10 @@
         ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
         : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap);
       sourceMaps.set(key, sourceMap);
+      // As-published sources get a native-value map for lock-order sorting.
+      if (AS_PUBLISHED_KEYS.has(key)) {
+        nativeSourceMaps.set(key, buildNativeSourceMap(key));
+      }
     });
     // Level-matched to the anchor over the players they share; its SHAPE is
     // deliberately its own. Scaling it to the positional-target sum instead
