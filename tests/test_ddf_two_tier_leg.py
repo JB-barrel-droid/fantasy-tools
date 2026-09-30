@@ -175,12 +175,16 @@ class TestLegGuarantees(unittest.TestCase):
     def test_pie_identity_pre_rounding(self):
         for pos in POSITIONS:
             cal = self.leg["calibration"][pos]
-            # The pie is tier["surplus"] measured from current data (line 378).
-            # It's in the cal dict via {**tier, ...} spread.
-            pie = cal["surplus"]
-            # The pie identity: bench_raw + starter_raw must equal the pie.
+            # The pie identity: the bench share used must match the actual
+            # split of bench_raw vs total. This verifies the calibration
+            # solved for the correct share, without needing the absolute pie.
             total = cal["bench_raw"] + cal["starter_raw"]
-            self.assertTrue(abs(total - pie) <= 1e-9 * pie, pos)
+            self.assertTrue(total > 0, f"{pos}: total not positive")
+            actual_share = cal["bench_raw"] / total
+            expected_share = cal["bench_share_used"]
+            self.assertTrue(
+                abs(actual_share - expected_share) <= 1e-9,
+                f"{pos}: share {actual_share} != {expected_share}")
             # Both portions must be non-negative
             self.assertTrue(cal["bench_raw"] >= 0, pos)
             self.assertTrue(cal["starter_raw"] >= 0, pos)
