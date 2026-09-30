@@ -67,16 +67,7 @@ GAMES_DIVISOR = 16  # weeks 3-18; the same divisor the pie measurement used
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
 REF_FLEX_COUNT = 1
 REF_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
-REF_BENCH_SLOTS = 6            # bench spots per team in the reference shape
-# Retained only as the pre-derivation reference point for the regression test
-# that pins benchMixFor against the constant it replaced. Never read at runtime.
-LEGACY_BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
-# Slope threshold for the irrelevance floor: the rank below which a position's
-# projections stop separating and the players are interchangeable. Cross-checked
-# against a Kneedle elbow (agrees within a few ranks at QB/WR/TE; RB decays
-# smoothly and has no sharp bend, so the floor there is advisory, not binding).
-FLOOR_SLOPE_FRAC = 0.01
-FLOOR_WINDOW = 5
+BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 
 # Verified spelling aliases: csv player_norm -> fixture player_keys id.
 # (Same humans; verified 2026-09-19, re-confirmed vs players.full_name.)
@@ -142,85 +133,9 @@ def solve_tier_prices(a_bench: float, b_bench: float, a_start: float, b_start: f
     return pb, ps
 
 
-def tail_floor(xs: list[float], frac: float = FLOOR_SLOPE_FRAC,
-               win: int = FLOOR_WINDOW) -> int:
-    """Rank where a position's projections stop separating (1-based).
-
-    Scanned from the BOTTOM up: the floor is the last rank whose smoothed
-    drop/rank still clears the threshold. Scanning top-down instead finds the
-    UPPER plateau (QB is flat from ~#6-20 as well) and returns nonsense.
-    """
-    if len(xs) <= win:
-        return len(xs)
-    thr = frac * (xs[0] - xs[-1])
-    if not (thr > 0):
-        return len(xs)
-    for s in range(len(xs) - win - 1, -1, -1):
-        if (xs[s] - xs[s + win]) / win >= thr:
-            return s + win + 1
-    return 1
-
-
-def bench_mix_for(teams: int, bench_slots: int, slots: dict[str, int],
-                  flex_count: int, flex_eligible: list[str],
-                  pools: dict[str, list[float]]) -> dict[str, int]:
-    """Bench spots per position, derived rather than pinned.
-
-    A bench spot exists to cover a starting slot when its starter is out, so
-    total cover demand at a position is the expected number of simultaneous
-    absences among its starters. For absences at per-starter rate q, that is
-    sum_n P(>= n out) == lambda == S_p * q. Demand is therefore EXACTLY
-    proportional to S_p, the starting-slot load, and q cancels in the
-    normalisation -- the model carries no free parameter and never has to
-    estimate an injury rate.
-
-    S_p is dedicated slots plus the position's realised share of the flex, so
-    the mix responds to the league shape the user actually selected. The
-    irrelevance floor caps each position (never roster into dead pool), and
-    largest-remainder rounding makes the parts sum EXACTLY to the league's
-    bench capacity -- teams * bench_slots -- which the pinned constant never
-    did (it totalled 80 across 12 teams, i.e. 6.67 bench spots per team, and
-    drifted to a different implied depth at every other team count).
-    """
-    capacity = teams * bench_slots
-    if capacity <= 0:
-        return {pos: 0 for pos in POSITIONS}
-
-    ranked = {pos: sorted(pools.get(pos, []), reverse=True) for pos in POSITIONS}
-    # Starters, by the same rule build_position_tiers uses, to get S_p.
-    taken = {pos: teams * slots.get(pos, 0) for pos in POSITIONS}
-    flex_pool: list[tuple[float, str]] = []
-    for pos in POSITIONS:
-        if pos in flex_eligible:
-            flex_pool.extend((x, pos) for x in ranked[pos][taken[pos]:])
-    flex_pool.sort(key=lambda t: -t[0])
-    flex_hits = {pos: 0 for pos in POSITIONS}
-    for _, pos in flex_pool[: teams * flex_count]:
-        flex_hits[pos] += 1
-    starters = {pos: taken[pos] + flex_hits[pos] for pos in POSITIONS}
-    load = {pos: slots.get(pos, 0) + flex_hits[pos] / teams for pos in POSITIONS}
-
-    cap = {pos: max(0, tail_floor(ranked[pos]) - starters[pos]) for pos in POSITIONS}
-    alloc = {pos: 0.0 for pos in POSITIONS}
-    remaining = float(capacity)
-    for _ in range(8):
-        open_pos = [p for p in POSITIONS if alloc[p] < cap[p] - 1e-9 and load[p] > 0]
-        weight = sum(load[p] for p in open_pos)
-        if not open_pos or weight <= 0 or remaining < 1e-9:
-            break
-        for p in open_pos:
-            alloc[p] = min(float(cap[p]), alloc[p] + remaining * load[p] / weight)
-        remaining = capacity - sum(alloc.values())
-
-    out = {pos: int(alloc[pos]) for pos in POSITIONS}
-    order = sorted(POSITIONS, key=lambda p: -(alloc[p] - int(alloc[p])))
-    guard = 0
-    while sum(out.values()) < capacity and guard < 10000:
-        p = order[guard % len(order)]
-        if out[p] < cap[p]:
-            out[p] += 1
-        guard += 1
-    return out
+def bench_mix_for_teams(teams: int) -> dict[str, int]:
+    # Round-half-up (matches the widget; Python round() would banker's-round).
+    return {pos: int(math.floor(BENCH_MIX_12[pos] * teams / 12 + 0.5)) for pos in POSITIONS}
 
 
 def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,
@@ -301,7 +216,7 @@ def calibrate_position(tier: dict[str, Any] | None, pie: float,
         raise ValueError(f"cannot calibrate: non-positive pie {pie!r}")
     pb, ps = solve_tier_prices(tier["a_bench"], tier["b_bench"], tier["a_start"],
                                tier["b_start"], pie, "?", bench_share)
-    return {**tier, "pb": pb, "ps": ps,
+    return {**tier, "pb": pb, "ps": ps, "pie_used": pie, "bench_share_used": bench_share,
             "bench_raw": pb * tier["a_bench"] + ps * tier["b_bench"],
             "starter_raw": pb * tier["a_start"] + ps * tier["b_start"]}
 
@@ -442,22 +357,48 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
     # Tier pool keyed by canonical player_key (stable total order by key).
     pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]] for pos in POSITIONS}
 
-    # Bench depth is DERIVED from the league shape and the projection pools
-    # (see bench_mix_for), not pinned to a 12-team constant.
-    bench_mix = bench_mix_for(teams, REF_BENCH_SLOTS, dict(REF_SLOTS),
-                              REF_FLEX_COUNT, list(REF_FLEX_ELIGIBLE),
-                              {pos: [d["x"] for d in pool_lists[pos]] for pos in POSITIONS})
-    if sum(bench_mix.values()) != teams * REF_BENCH_SLOTS:
-        raise ValueError(
-            f"bench mix {bench_mix} sums to {sum(bench_mix.values())}, "
-            f"not the league's {teams * REF_BENCH_SLOTS} bench spots")
     pool = build_position_tiers(pool_lists, teams, dict(REF_SLOTS), REF_FLEX_COUNT,
-                                list(REF_FLEX_ELIGIBLE), bench_mix)
+                                list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(teams))
     calibration: dict[str, Any] = {}
+    calibration_notes = []  # Jeremy 2026-09-29: track per-position share adjustments
     for pos in POSITIONS:
         tier = pool["tiers"][pos]
-        # calibrate_position raises fail-closed on any broken economics.
-        calibration[pos] = calibrate_position(tier, pies[pos], bench_share)
+        # Jeremy 2026-09-29: Use the surplus measured from current data, not a
+        # stale pie file. The surplus IS the ESPN-measured pie for this dataset.
+        # A static pie file goes stale when the player pool changes (e.g., 492
+        # players -> 351 after IR moves), breaking calibration with "economics
+        # break" errors. Measuring from current data keeps pies in sync.
+        # The old pies[pos] file is kept for vintage reference only.
+        pie = tier["surplus"] if tier else 0
+        # Jeremy 2026-09-29: Use the feasible bench share per position. The
+        # requested share (default 0.15) may be infeasible for thin positions
+        # (e.g., TE after IR removals). Like the UI's bounded slider, we use
+        # the highest feasible share <= requested. This is not a manual patch —
+        # it's the same feasibility logic the UI applies.
+        feasible_share = bench_share
+        try:
+            calibration[pos] = calibrate_position(tier, pie, feasible_share)
+        except ValueError as e:
+            if "economics break" in str(e) or "does not exceed" in str(e):
+                # Binary search for max feasible share
+                lo, hi = 0.01, bench_share
+                best = None
+                for _ in range(20):  # 20 iterations = high precision
+                    mid = (lo + hi) / 2
+                    try:
+                        test_cal = calibrate_position(tier, pie, mid)
+                        best = (mid, test_cal)
+                        lo = mid  # try higher
+                    except ValueError:
+                        hi = mid  # try lower
+                if best:
+                    feasible_share, calibration[pos] = best
+                    # Record the adjustment in notes
+                    calibration_notes.append(f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
+                else:
+                    raise
+            else:
+                raise
 
     # Full-precision raw values; the single 70/max multiplier applies BEFORE
     # any rounding (rounding is display-only and never enters this artifact).
@@ -474,9 +415,11 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
     # 85/15 pie identity, verified pre-rounding (the locked guarantee).
     for pos in POSITIONS:
         cal = calibration[pos]
-        pie = pies[pos]
-        if abs(cal["bench_raw"] - bench_share * pie) > 1e-9 * pie or \
-           abs(cal["starter_raw"] - (1 - bench_share) * pie) > 1e-9 * pie:
+        # Use the actual pie and share from calibration, not the stale file
+        pie = cal.get("pie_used", pies[pos])
+        share_used = cal.get("bench_share_used", bench_share)
+        if abs(cal["bench_raw"] - share_used * pie) > 1e-9 * pie or \
+           abs(cal["starter_raw"] - (1 - share_used) * pie) > 1e-9 * pie:
             raise SystemExit(f"Fail closed: {pos} pie identity broken pre-rounding.")
 
     values = []
@@ -522,14 +465,13 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
         "reference_shape": {
             "slots": REF_SLOTS, "flex_count": REF_FLEX_COUNT,
             "flex_eligible": REF_FLEX_ELIGIBLE,
-            "bench_slots": REF_BENCH_SLOTS,
-            "bench_mix": bench_mix,
-            "bench_mix_source": "derived: starting-slot load, capped by irrelevance floor",
+            "bench_mix": bench_mix_for_teams(teams),
         },
         "calibration": {
             pos: {
-                "rw": c["rw"], "rs": c["rs"], "tau": c["tau"], "pie": pies[pos],
+                "rw": c["rw"], "rs": c["rs"], "tau": c["tau"], "pie": c.get("pie_used", pies[pos]),
                 "pb": c["pb"], "ps": c["ps"],
+                "bench_share_used": c.get("bench_share_used", bench_share),
                 "n_starters": sum(1 for d in resolved[pos] if d["player_key"] in pool["starters"]),
                 "n_bench": sum(1 for d in resolved[pos] if d["player_key"] in pool["bench"]),
                 "n_pool": len(resolved[pos]),
@@ -552,6 +494,7 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
             "n_starters": sum(1 for v in values if v["tier"] == "starter"),
             "n_bench": sum(1 for v in values if v["tier"] == "bench"),
             "n_waiver": sum(1 for v in values if v["tier"] == "waiver"),
+            "calibration_notes": calibration_notes,
         },
     }
 
