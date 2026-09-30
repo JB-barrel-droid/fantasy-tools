@@ -187,7 +187,12 @@ def main():
         players = []
         for rank, pkey in enumerate(top25_keys, 1):
             nat_val = native.get(pkey)
-            idx_val = reindexed.get(pkey)
+            # For ESPN, the "indexed" value IS the DDF value (from values),
+            # not from reindexed (ESPN uses DDF methodology, not isotonic reindexing)
+            if src == "espn":
+                idx_val = values.get(pkey)
+            else:
+                idx_val = reindexed.get(pkey)
             # Live value scraped from the human-readable page
             live_val = live_data.get(src, {}).get(pkey)
             live_matches = None
