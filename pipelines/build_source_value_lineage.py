@@ -14,7 +14,9 @@ For each source, shows the top 25 players by native (scrape) value in
 
 The user requires that verification data comes from the live pages
 a human would visit, not API endpoints or database snapshots.
-FantasyPros and USA Today are scraped live from their article pages.
+FantasyPros, USA Today, and CBS are scraped live from their article pages.
+FantasyCalc is via the API that powers its human-visible page (same numbers
+a human sees). ESPN has no published trade value chart.
 """
 
 import json
@@ -22,7 +24,10 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scrape_live_source_pages import scrape_fantasypros, scrape_usatoday, normalize_player_key
+from scrape_live_source_pages import scrape_fantasypros, scrape_usatoday, scrape_cbs, scrape_fantasycalc
+# Use the canonical normalization rule from the maintained identity system.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from canonical_players import norm_player_name
 
 REPO = "/home/hatch/workspace/fantasy-tools"
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
@@ -64,7 +69,7 @@ def load_snapshot_natives(source):
             continue
         
         # Create slug matching the comparison data format (normalized, no punctuation)
-        slug = normalize_player_key(name)
+        slug = norm_player_name(name)
         native_val = r.get("native_value")
         if native_val is not None:
             # Keep the first (or highest?) - snapshots should have one per player
@@ -134,12 +139,24 @@ def main():
     except Exception as e:
         print(f"  USA Today scrape FAILED: {e}")
         live_data["usatoday"] = {}
+    try:
+        live_data["cbs"] = scrape_cbs()
+        print(f"  CBS: {len(live_data['cbs'])} players scraped live")
+    except Exception as e:
+        print(f"  CBS scrape FAILED: {e}")
+        live_data["cbs"] = {}
+    try:
+        live_data["fantasycalc"] = scrape_fantasycalc()
+        print(f"  FantasyCalc: {len(live_data['fantasycalc'])} players scraped live")
+    except Exception as e:
+        print(f"  FantasyCalc scrape FAILED: {e}")
+        live_data["fantasycalc"] = {}
 
     result = {
         "generated_at": d.get("generated_at", "unknown"),
         "scoring": "Half PPR",
         "teams": 12,
-        "method": "Native values verified against LIVE human-readable source pages. FantasyPros and USA Today scraped directly from their article pages.",
+        "method": "Native values verified against LIVE human-readable source pages. FantasyPros, USA Today, CBS scraped directly from article pages. FantasyCalc via the API powering its human-visible page (same numbers). ESPN has no published trade value chart.",
         "sources": {},
     }
 
@@ -188,7 +205,7 @@ def main():
         for rank, pkey in enumerate(top25_keys, 1):
             # Native value: try normalized key first (for snapshot natives),
             # then original pkey (for combo natives in comparison format)
-            nat_val = native.get(normalize_player_key(pkey))
+            nat_val = native.get(norm_player_name(pkey))
             if nat_val is None:
                 nat_val = native.get(pkey)
             # For ESPN, the "indexed" value IS the DDF value (from values),
@@ -199,7 +216,7 @@ def main():
                 idx_val = reindexed.get(pkey)
             # Live value scraped from the human-readable page
             # Normalize pkey to match the scraper's normalized keys (suffixes stripped)
-            live_pkey = normalize_player_key(pkey)
+            live_pkey = norm_player_name(pkey)
             live_val = live_data.get(src, {}).get(live_pkey)
             # Fallback: try original pkey in case scraper didn't normalize
             if live_val is None:

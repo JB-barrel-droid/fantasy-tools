@@ -12,9 +12,18 @@ For FantasyCalc, CBS, ESPN: documented below with honest limitations.
 """
 
 import json
+import os
 import re
+import sys
 import urllib.request
 from html.parser import HTMLParser
+
+# Use the canonical normalization rule from the maintained identity system.
+# The Supabase `players` table is the canonical roster; norm_player_name()
+# is the single normalization rule (lowercase, strip punctuation/suffixes,
+# expand nicknames). Do not reimplement normalization here.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
+from canonical_players import norm_player_name
 
 # Human-readable source pages (what a human visits)
 SOURCE_PAGES = {
@@ -27,43 +36,19 @@ SOURCE_PAGES = {
         "note": "USA Today Week 4 trade value chart - HTML tables with STD/Half/PPR columns scraped directly",
     },
     "fantasycalc": {
-        "url": "https://fantasycalc.com",
-        "note": "FantasyCalc web UI (dynamic). Values served via API which powers the human-visible page. API values ARE what the human sees.",
+        "url": "https://fantasycalc.com/trade-value-chart",
+        "api_url": "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5",
+        "note": "FantasyCalc trade value chart (12-team, Half PPR, Redraft). Values via the API that powers the human-visible page - same numbers a human sees.",
     },
     "cbs": {
-        "url": None,
-        "note": "CBS data via Supabase public.cbs_trade_values. No direct human-readable trade value page identified.",
+        "url": "https://www.cbssports.com/fantasy/football/news/dave-richards-week-4-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/",
+        "note": "CBS Sports Dave Richard's Week 4 trade value chart - HTML tables with NON/0.5/PPR columns, 0.5 is Half PPR",
     },
     "espn": {
         "url": None,
         "note": "ESPN data is Mike Clay ROS projections via Supabase. No ESPN-published trade value chart page exists.",
     },
 }
-
-
-def normalize_player_key(name):
-    """Normalize player name to match lineage player_key format.
-    
-    Removes punctuation (hyphens, periods, apostrophes), common suffixes
-    (Jr, Sr, II, III, IV, V), and lowercases.
-    e.g., "Amon-Ra St. Brown" -> "amonra st brown"
-         "Ja'Marr Chase" -> "jamarr chase"
-         "Jaxon Smith-Njigba" -> "jaxon smithnjigba"
-         "James Cook III" -> "james cook"
-    """
-    key = name.lower()
-    # Remove common punctuation
-    for char in ["-", ".", "'", "’"]:
-        key = key.replace(char, "")
-    # Remove common suffixes (as separate words)
-    words = key.split()
-    suffixes = {"jr", "sr", "ii", "iii", "iv", "v"}
-    if words and words[-1] in suffixes:
-        words = words[:-1]
-    key = " ".join(words)
-    # Collapse multiple spaces
-    key = " ".join(key.split())
-    return key
 
 
 class TableParser(HTMLParser):
@@ -147,7 +132,7 @@ def scrape_fantasypros():
                 continue
             
             # Normalize to player_key format (lowercase, no punctuation)
-            key = normalize_player_key(name)
+            key = norm_player_name(name)
             # Keep the highest value if player appears multiple times
             if key not in players or value > players[key]:
                 players[key] = value
@@ -188,9 +173,101 @@ def scrape_usatoday():
             except (ValueError, IndexError):
                 continue
             
-            key = normalize_player_key(name)
+            key = norm_player_name(name)
             if key not in players or value > players[key]:
                 players[key] = value
+    
+    return players
+
+
+def scrape_cbs():
+    """Scrape CBS Sports Dave Richard's Week 4 trade value chart.
+    
+    Returns dict of player_key -> half_ppr_value.
+    The page has tables per position with NON/0.5/PPR columns;
+    we use the 0.5 (Half PPR) column. QB table uses 1QB-4/1QB-6/2QB
+    columns (no half-PPR), so QBs are excluded.
+    """
+    url = SOURCE_PAGES["cbs"]["url"]
+    html = fetch_url(url)
+    
+    parser = TableParser()
+    parser.feed(html)
+    
+    players = {}
+    for table in parser.tables:
+        if not table or len(table) < 2:
+            continue
+        header = [c.lower().strip() for c in table[0]]
+        # Look for the 0.5 (Half PPR) column in RB/WR/TE tables
+        # Header may have "0.5", "half", or similar
+        half_idx = None
+        name_idx = None
+        for i, col in enumerate(header):
+            if col in ("0.5", "half", "half-ppr", "half ppr"):
+                half_idx = i
+            if col in ("player", "name"):
+                name_idx = i
+        
+        if half_idx is None or name_idx is None:
+            continue
+        
+        for row in table[1:]:
+            if len(row) <= max(name_idx, half_idx):
+                continue
+            name = row[name_idx].strip()
+            if not name:
+                continue
+            try:
+                value = float(row[half_idx])
+            except (ValueError, IndexError):
+                continue
+            
+            key = norm_player_name(name)
+            if key not in players or value > players[key]:
+                players[key] = value
+    
+    return players
+
+
+def scrape_fantasycalc():
+    """Scrape FantasyCalc trade values.
+    
+    Returns dict of player_key -> redraft_value.
+    Uses the API endpoint that powers the human-visible page at
+    fantasycalc.com/trade-value-chart (12-team, Half PPR, Redraft).
+    The API returns the same numbers a human sees on the page.
+    """
+    import json as json_lib
+    api_url = SOURCE_PAGES["fantasycalc"]["api_url"]
+    req = urllib.request.Request(
+        api_url,
+        headers={
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "application/json",
+        }
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        data = json_lib.loads(resp.read().decode("utf-8"))
+    
+    players = {}
+    for entry in data:
+        player = entry.get("player", {})
+        name = player.get("name", "").strip()
+        if not name:
+            continue
+        # Use redraftValue (12-team Half PPR redraft) - matches page settings
+        value = entry.get("redraftValue")
+        if value is None:
+            value = entry.get("value")
+        if value is None:
+            continue
+        
+        key = norm_player_name(name)
+        # API values are on FantasyCalc's native scale (e.g., 10838 for Gibbs)
+        # Keep as-is; the lineage builder compares native vs native
+        if key not in players or value > players[key]:
+            players[key] = float(value)
     
     return players
 
@@ -240,13 +317,50 @@ def main():
         }
         print(f"USA Today: ERROR {e}")
     
-    # Document the non-scrapable sources honestly
-    for src in ["fantasycalc", "cbs", "espn"]:
-        result["sources"][src] = {
-            "url": SOURCE_PAGES[src]["url"],
-            "note": SOURCE_PAGES[src]["note"],
-            "status": "not_scraped",
+    # Scrape FantasyCalc
+    try:
+        fc_players = scrape_fantasycalc()
+        result["sources"]["fantasycalc"] = {
+            "url": SOURCE_PAGES["fantasycalc"]["url"],
+            "note": SOURCE_PAGES["fantasycalc"]["note"],
+            "player_count": len(fc_players),
+            "top25": sorted(fc_players.items(), key=lambda x: x[1], reverse=True)[:25],
+            "status": "ok",
         }
+        print(f"FantasyCalc: scraped {len(fc_players)} players")
+    except Exception as e:
+        result["sources"]["fantasycalc"] = {
+            "url": SOURCE_PAGES["fantasycalc"]["url"],
+            "status": "error",
+            "error": str(e)[:200],
+        }
+        print(f"FantasyCalc: ERROR {e}")
+    
+    # Scrape CBS
+    try:
+        cbs_players = scrape_cbs()
+        result["sources"]["cbs"] = {
+            "url": SOURCE_PAGES["cbs"]["url"],
+            "note": SOURCE_PAGES["cbs"]["note"],
+            "player_count": len(cbs_players),
+            "top25": sorted(cbs_players.items(), key=lambda x: x[1], reverse=True)[:25],
+            "status": "ok",
+        }
+        print(f"CBS: scraped {len(cbs_players)} players")
+    except Exception as e:
+        result["sources"]["cbs"] = {
+            "url": SOURCE_PAGES["cbs"]["url"],
+            "status": "error",
+            "error": str(e)[:200],
+        }
+        print(f"CBS: ERROR {e}")
+    
+    # Document ESPN honestly (no trade value chart exists)
+    result["sources"]["espn"] = {
+        "url": SOURCE_PAGES["espn"]["url"],
+        "note": SOURCE_PAGES["espn"]["note"],
+        "status": "not_scraped",
+    }
     
     out_path = "/home/hatch/workspace/fantasy-tools/dist/modules/live-page-scrape.json"
     with open(out_path, "w") as f:
