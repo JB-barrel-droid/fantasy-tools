@@ -41,6 +41,31 @@ SOURCE_PAGES = {
 }
 
 
+def normalize_player_key(name):
+    """Normalize player name to match lineage player_key format.
+    
+    Removes punctuation (hyphens, periods, apostrophes), common suffixes
+    (Jr, Sr, II, III, IV, V), and lowercases.
+    e.g., "Amon-Ra St. Brown" -> "amonra st brown"
+         "Ja'Marr Chase" -> "jamarr chase"
+         "Jaxon Smith-Njigba" -> "jaxon smithnjigba"
+         "James Cook III" -> "james cook"
+    """
+    key = name.lower()
+    # Remove common punctuation
+    for char in ["-", ".", "'", "’"]:
+        key = key.replace(char, "")
+    # Remove common suffixes (as separate words)
+    words = key.split()
+    suffixes = {"jr", "sr", "ii", "iii", "iv", "v"}
+    if words and words[-1] in suffixes:
+        words = words[:-1]
+    key = " ".join(words)
+    # Collapse multiple spaces
+    key = " ".join(key.split())
+    return key
+
+
 class TableParser(HTMLParser):
     """Extract all HTML tables as lists of rows."""
     
@@ -121,8 +146,8 @@ def scrape_fantasypros():
             except (ValueError, IndexError):
                 continue
             
-            # Normalize to player_key format (lowercase)
-            key = name.lower()
+            # Normalize to player_key format (lowercase, no punctuation)
+            key = normalize_player_key(name)
             # Keep the highest value if player appears multiple times
             if key not in players or value > players[key]:
                 players[key] = value
@@ -163,7 +188,7 @@ def scrape_usatoday():
             except (ValueError, IndexError):
                 continue
             
-            key = name.lower()
+            key = normalize_player_key(name)
             if key not in players or value > players[key]:
                 players[key] = value
     

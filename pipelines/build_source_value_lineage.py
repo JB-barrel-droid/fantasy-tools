@@ -22,7 +22,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scrape_live_source_pages import scrape_fantasypros, scrape_usatoday
+from scrape_live_source_pages import scrape_fantasypros, scrape_usatoday, normalize_player_key
 
 REPO = "/home/hatch/workspace/fantasy-tools"
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
@@ -63,8 +63,8 @@ def load_snapshot_natives(source):
         if not name:
             continue
         
-        # Create slug matching the comparison data format
-        slug = name.lower()
+        # Create slug matching the comparison data format (normalized, no punctuation)
+        slug = normalize_player_key(name)
         native_val = r.get("native_value")
         if native_val is not None:
             # Keep the first (or highest?) - snapshots should have one per player
@@ -186,7 +186,11 @@ def main():
 
         players = []
         for rank, pkey in enumerate(top25_keys, 1):
-            nat_val = native.get(pkey)
+            # Native value: try normalized key first (for snapshot natives),
+            # then original pkey (for combo natives in comparison format)
+            nat_val = native.get(normalize_player_key(pkey))
+            if nat_val is None:
+                nat_val = native.get(pkey)
             # For ESPN, the "indexed" value IS the DDF value (from values),
             # not from reindexed (ESPN uses DDF methodology, not isotonic reindexing)
             if src == "espn":
@@ -194,7 +198,12 @@ def main():
             else:
                 idx_val = reindexed.get(pkey)
             # Live value scraped from the human-readable page
-            live_val = live_data.get(src, {}).get(pkey)
+            # Normalize pkey to match the scraper's normalized keys (suffixes stripped)
+            live_pkey = normalize_player_key(pkey)
+            live_val = live_data.get(src, {}).get(live_pkey)
+            # Fallback: try original pkey in case scraper didn't normalize
+            if live_val is None:
+                live_val = live_data.get(src, {}).get(pkey)
             live_matches = None
             if live_val is not None and nat_val is not None:
                 live_matches = abs(live_val - nat_val) < 0.01
