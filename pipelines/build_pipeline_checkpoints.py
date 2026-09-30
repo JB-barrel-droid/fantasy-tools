@@ -415,7 +415,7 @@ def build_checkpoints():
         # what the production dashboard actually displays. Catches:
         # - week_designated labels wrong (e.g. "Week 2" when expecting "Week 4")
         # - value_weeks.monday stale
-        # - served bytes differ from repo dist/ (CDN drift or failed sync)
+        # - served bytes differ from what the deploy pipeline publishes (CDN drift or failed sync)
         # - source combos missing (dashboard guard failures)
         cps["c10_rendered"] = {"timestamp": None, "status": "unk",
             "reason": "Rendered-output check not yet run."}
@@ -436,11 +436,19 @@ def build_checkpoints():
             live_data = json.loads(live_bytes.decode())
             live_sha = hashlib.sha256(live_bytes).hexdigest()[:12]
 
-            # Compare against local dist bytes
-            dist_path = REPO / "dist" / "assets" / "comparison-sources-data.json"
-            dist_sha = None
-            if dist_path.exists():
-                dist_sha = hashlib.sha256(dist_path.read_bytes()).hexdigest()[:12]
+            # Compare against the fixture bytes, not the committed dist/ copy.
+            # The Pages workflow runs `make sync` before deploying, and sync
+            # copies data/fixtures/current/comparison-sources-data.json
+            # byte-identically into dist/assets/ — so the fixture is the true
+            # "what should be live". The committed dist/ file can lag the
+            # fixture by a commit (a fixture change that skipped the local sync
+            # step); comparing live against that stale copy produced false
+            # "Production output WRONG" alarms on 2026-09-30 (live correctly
+            # served the fresh fixture while committed dist lagged one commit).
+            fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+            fixture_sha = None
+            if fixture_path.exists():
+                fixture_sha = hashlib.sha256(fixture_path.read_bytes()).hexdigest()[:12]
 
             issues = []
             # Check 1: week_designated matches expected
@@ -456,9 +464,9 @@ def build_checkpoints():
             if vw_monday != expected_week:
                 issues.append(f"value_weeks.monday={vw_monday} (expected {expected_week})")
 
-            # Check 3: served bytes match local dist (no CDN drift)
-            if dist_sha and live_sha != dist_sha:
-                issues.append(f"served bytes differ from dist/ (live {live_sha} vs dist {dist_sha})")
+            # Check 3: served bytes match what the deploy pipeline publishes (no CDN drift)
+            if fixture_sha and live_sha != fixture_sha:
+                issues.append(f"served bytes differ from fixture/ (live {live_sha} vs fixture {fixture_sha})")
 
             # Check 4: source has combos (dashboard needs them to render)
             combos = src_data.get("combos", {})
@@ -491,11 +499,11 @@ def build_checkpoints():
                             "reason": f"Production JS has stale hardcoded labels: {'; '.join(stale_labels[:3])} (expected '{expected_designation}')."}
                     else:
                         cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
-                            "reason": f"Production serves '{expected_designation}' labels, bytes match dist/ ({live_sha}), {len(combos)} combos. Live built {live_built}."}
+                            "reason": f"Production serves '{expected_designation}' labels, bytes match fixture/ ({live_sha}), {len(combos)} combos. Live built {live_built}."}
                 except Exception as js_e:
                     # JS check failed, but JSON was ok - report ok with note
                     cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
-                        "reason": f"Production serves '{expected_designation}' labels, bytes match dist/ ({live_sha}), {len(combos)} combos. Live built {live_built}. (JS label check skipped: {str(js_e)[:40]})"}
+                        "reason": f"Production serves '{expected_designation}' labels, bytes match fixture/ ({live_sha}), {len(combos)} combos. Live built {live_built}. (JS label check skipped: {str(js_e)[:40]})"}
         except Exception as e:
             cps["c10_rendered"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}
