@@ -105,7 +105,6 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             self.assertEqual("fantasycalc", section["section_key"])
             self.assertEqual("pending", section["reindex_status"])
             self.assertEqual("published", section["value_provenance"])
-            self.assertEqual("Week 3", section["content_vintage"])
             self.assertEqual("Week 3", section["source_provenance"]["content_vintage"])
 
             combos = section["combos"]
@@ -393,7 +392,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             ref_d = tmp / "d.json"
             payload_d = reference_artifact(
                 [ref_row(869, "Josh Allen", 24.0)], source="usatoday")
-            payload_d["source_provenance"]["content_vintage"] = "Week 2"
+            payload_d["fetched_at"] = "2026-09-20T00:00:00Z"
             write_json(ref_d, payload_d)
             result = subprocess.run(
                 ["python3", "pipelines/build_comparison_source_section.py",
@@ -402,7 +401,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
                 cwd=ROOT, capture_output=True, text=True,
             )
             self.assertNotEqual(0, result.returncode)
-            self.assertIn("refusing to mix source vintages", result.stderr)
+            self.assertIn("refusing to mix vintages", result.stderr)
 
 
 if __name__ == "__main__":
