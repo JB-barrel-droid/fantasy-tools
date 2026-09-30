@@ -123,10 +123,16 @@ def promote(review_path, approve, fixture_path=None, record_dir=None):
     new_section["reindex_anchor"] = "espn_leg"
     new_section["promoted_at"] = utc_now()
     new_section["promoted_from_review"] = Path(review_path).name
+    # Update fetched_at from the candidate — the candidate was built from a
+    # fresh snapshot, so its vintage is the correct one. (Previously this
+    # preserved the old fetched_at, which was correct for re-anchoring the
+    # same data but wrong for fresh-data promotions.)
+    if section.get("fetched_at"):
+        new_section["fetched_at"] = section["fetched_at"]
     new_section["promotion_note"] = (
         "Re-anchored from the retired Monday rail to the fixture ESPN leg. "
-        f"Native values byte-identical (vintage {fx_section.get('fetched_at')}); "
-        "only the reindex mapping changed.")
+        f"Native values vintage {new_section.get('fetched_at')}; "
+        "reindex mapping updated.")
 
     before_hash = sha256_canonical(fx_section)
     fixture["sources"][source] = new_section
