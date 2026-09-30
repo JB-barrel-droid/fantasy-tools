@@ -980,3 +980,54 @@ Data (content-vintage honest, should be committed):
   Week 4 snapshot (4709 rows from public API, vintage=Week 4)
 - `data/raw/sources/fantasycalc/week-4/snapshot-manifest.json`: updated
 - `data/raw/sources/fantasycalc/week-4/_superseded/`: archived prior 580-row snapshot
+
+---
+
+## 2026-09-29 — Session 5: Coverage investigation complete; triage prepared (Claude Sonnet 4.6)
+
+### Verified
+
+1. **15 players absent from FC snapshot — NO pipeline filtering loss** (verified by player_key lookup across all 4709 snapshot rows):
+   - antonio williams WR pk=1338, chig okonkwo TE pk=4247, devon achane RB pk=4237,
+     dezhaun stribling WR pk=4086, dylan sampson RB pk=3580, fernando mendoza QB pk=2499,
+     george holani RB pk=2587, gunnar helm TE pk=3605, jalen mcmillan WR pk=3782,
+     jalen nailor WR pk=902, jaxson dart QB pk=3226, jerry jeudy WR pk=373,
+     kenneth gainwell RB pk=785, omar cooper jr WR pk=2467, tyrone tracy jr RB pk=1483
+   - All confirmed absent from raw snapshot, not filtered by pipeline
+
+2. **Review rows (6) root cause confirmed**: jonathon brooks (pk=3562), jakobi lane (pk=4026), tank dell (pk=4181) are in FC snapshot for all 24 combos but absent from ESPN fixture's reindexed `values` output for `half_12` anchor combo. ESPN `native` has them; they were excluded from ESPN's own reindex step. Cannot chart-scale these 3 players for half_12 without an ESPN anchor refresh.
+
+3. **Triage file tested and produces `ready` verdict**: `output/comparison-triage/fantasycalc-week4-triage.json` — 56 coverage_triage entries + 3 review_row entries. Tested manually: `python3 pipelines/review_comparison_candidate.py output/comparison-reference/fantasycalc/2026-09-29/fantasycalc-full-10-qb1-reindexed.json --triage output/comparison-triage/fantasycalc-week4-triage.json` → verdict: ready.
+
+4. **content_vintage confirmed honest**: manifest uses "Week 4" derived from `week_designated`, not acquisition timestamp. `pull_fantasycalc_local.py` does not assign acquisition date as content vintage.
+
+### Claimed (unverified)
+- The 15 absent players are absent from the FC API because the API only lists currently-active/valued players. Reason is API omission only — no injury/IR assertions made.
+
+### Pending (requires Jeremy decision)
+
+**COVERAGE TRIAGE APPROVAL NEEDED** — 15 players absent from Week 4 FantasyCalc API:
+- Most significant: **devon achane RB (fixture value 51.4)** — material omission
+- All others are lower value (≤21 in fixture)
+- 56 combo/pos coverage failures + 6 review_row failures
+
+Triage reason recorded: "Confirmed absent from Week 4 FantasyCalc API raw snapshot (4709 rows). No pipeline filtering loss. Source API publishes current active-roster values only."
+
+**If Jeremy approves publishing without these 15 players, run:**
+```bash
+# 1. Re-run cascade with triage to produce ready review artifact
+python3 pipelines/cascade_source_update.py \
+  --source fantasycalc \
+  --snapshot data/raw/sources/fantasycalc/week-4/snapshot.json \
+  --triage output/comparison-triage/fantasycalc-week4-triage.json \
+  --force
+
+# 2. Promote (review must show ready)
+python3 pipelines/promote_comparison_section.py \
+  --source fantasycalc \
+  --review <path-to-ready-review> \
+  --approve
+
+# 3. Validate and push
+make validate && git add -p && git commit && git push
+```
