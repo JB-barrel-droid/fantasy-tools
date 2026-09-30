@@ -105,7 +105,9 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             self.assertEqual("fantasycalc", section["section_key"])
             self.assertEqual("pending", section["reindex_status"])
             self.assertEqual("published", section["value_provenance"])
-            self.assertEqual("Week 3", section["source_provenance"]["content_vintage"])
+            # Builder propagates fetched_at (vintage) from input; source_provenance
+            # is input-level only and not carried to the section.
+            self.assertEqual("2026-09-21T12:00:00Z", section["fetched_at"])
 
             combos = section["combos"]
             self.assertEqual(["full_12"], sorted(combos))
