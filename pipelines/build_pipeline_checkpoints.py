@@ -427,7 +427,8 @@ def build_checkpoints():
             expected_week = ((now_utc - season_start).days // 7) + 1
             expected_designation = f"Week {expected_week}"
 
-            # Fetch live production JSON
+            # Fetch live production JSON (WITHOUT cache-buster - we want to see what real users see,
+            # including CDN-cached versions. If the CDN is serving stale "Week 2" labels, the monitor must catch it.)
             live_url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json"
             req = urllib.request.Request(live_url, headers={"User-Agent": "fantasy-tools-monitor"})
             with urllib.request.urlopen(req, timeout=15) as resp:
