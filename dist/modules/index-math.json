@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T14:11:35.059936+00:00",
+  "generated_at": "2026-09-30T19:43:36.399238+00:00",
   "sources": {
     "espn": {
       "methodology": "DDF two-tier",
@@ -17,23 +17,23 @@
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 22.96,
+              "native": 22.92,
               "leg_value": 70.0,
               "fixture_value": 70.0,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 18.48,
-              "leg_value": 50.1,
-              "fixture_value": 50.1,
+              "native": 18.47,
+              "leg_value": 50.9,
+              "fixture_value": 50.9,
               "match": true
             },
             {
               "player": "christian mccaffrey",
-              "native": 17.91,
-              "leg_value": 47.5,
-              "fixture_value": 47.5,
+              "native": 17.9,
+              "leg_value": 48.4,
+              "fixture_value": 48.4,
               "match": true
             }
           ]
@@ -44,7 +44,7 @@
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 20.9,
+              "native": 20.85,
               "leg_value": 70.0,
               "fixture_value": 70.0,
               "match": true
@@ -52,15 +52,15 @@
             {
               "player": "bijan robinson",
               "native": 16.77,
-              "leg_value": 51.9,
-              "fixture_value": 51.9,
+              "leg_value": 52.0,
+              "fixture_value": 52.0,
               "match": true
             },
             {
               "player": "kenneth walker iii",
               "native": 16.34,
-              "leg_value": 50.0,
-              "fixture_value": 50.0,
+              "leg_value": 50.1,
+              "fixture_value": 50.1,
               "match": true
             }
           ]
@@ -71,7 +71,7 @@
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 18.83,
+              "native": 18.79,
               "leg_value": 70.0,
               "fixture_value": 70.0,
               "match": true
@@ -79,15 +79,15 @@
             {
               "player": "derrick henry",
               "native": 15.41,
-              "leg_value": 54.6,
-              "fixture_value": 54.6,
+              "leg_value": 55.1,
+              "fixture_value": 55.1,
               "match": true
             },
             {
               "player": "bijan robinson",
               "native": 15.06,
-              "leg_value": 53.0,
-              "fixture_value": 53.0,
+              "leg_value": 53.5,
+              "fixture_value": 53.5,
               "match": true
             }
           ]
@@ -97,6 +97,103 @@
       "mismatches": [],
       "reason": "All 60/60 verified exact",
       "label": "ESPN"
+    },
+    "cbsros": {
+      "methodology": "DDF two-tier",
+      "formula": "native (ppg) \u2192 DDF value-above-waivers \u2192 scale to 70 \u2192 values",
+      "steps": [
+        "1. Start with CBS ROS per-game projection (native/ppg)",
+        "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
+        "3. Scale to 70-point index (fixed-pie methodology)",
+        "4. Round to 1 decimal \u2192 fixture values"
+      ],
+      "combos": {
+        "full_12": {
+          "checked": 20,
+          "matched": 20,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 24.929,
+              "leg_value": 70.0,
+              "fixture_value": 70.0,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 20.857,
+              "leg_value": 54.8,
+              "fixture_value": 54.8,
+              "match": true
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 19.643,
+              "leg_value": 50.2,
+              "fixture_value": 50.2,
+              "match": true
+            }
+          ]
+        },
+        "half_12": {
+          "checked": 20,
+          "matched": 20,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 22.679,
+              "leg_value": 70.0,
+              "fixture_value": 70.0,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 18.714,
+              "leg_value": 54.7,
+              "fixture_value": 54.7,
+              "match": true
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 18.357,
+              "leg_value": 53.3,
+              "fixture_value": 53.3,
+              "match": true
+            }
+          ]
+        },
+        "standard_12": {
+          "checked": 20,
+          "matched": 20,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 20.429,
+              "leg_value": 70.0,
+              "fixture_value": 70.0,
+              "match": true
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 17.071,
+              "leg_value": 56.8,
+              "fixture_value": 56.8,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 16.571,
+              "leg_value": 54.8,
+              "fixture_value": 54.8,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "mismatches": [],
+      "reason": "All 60/60 verified exact",
+      "label": "CBS ROS"
     },
     "cbs": {
       "methodology": "reindexed-as-given",
@@ -108,27 +205,27 @@
         "4. Result \u2192 fixture reindexed"
       ],
       "combos": {
-        "standard_12": {
-          "n_native": 113,
-          "n_reindexed": 113,
+        "full_12": {
+          "n_native": 116,
+          "n_reindexed": 116,
           "top10_overlap": "10/10",
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 50.0,
-              "reindexed": 83.2,
+              "native": 53.0,
+              "reindexed": 95.7,
               "match": true
             },
             {
               "player": "jaxon smithnjigba",
-              "native": 48.0,
-              "reindexed": 57.2,
+              "native": 52.0,
+              "reindexed": 59.9,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 47.0,
-              "reindexed": 63.0,
+              "native": 50.0,
+              "reindexed": 68.4,
               "match": true
             }
           ]
@@ -149,27 +246,27 @@
         "4. Result \u2192 fixture reindexed"
       ],
       "combos": {
-        "standard_8_qb1": {
+        "full_10_qb1": {
           "n_native": 198,
           "n_reindexed": 198,
-          "top10_overlap": "5/10",
+          "top10_overlap": "9/10",
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 10699.0,
-              "reindexed": 93.8,
+              "native": 10724.0,
+              "reindexed": 81.8,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 10305.0,
-              "reindexed": 72.8,
+              "native": 10329.0,
+              "reindexed": 67.2,
               "match": true
             },
             {
-              "player": "jonathan taylor",
-              "native": 9069.0,
-              "reindexed": 72.8,
+              "player": "jamarr chase",
+              "native": 9126.0,
+              "reindexed": 59.1,
               "match": true
             }
           ]
@@ -190,27 +287,27 @@
         "4. Result \u2192 fixture reindexed"
       ],
       "combos": {
-        "standard_12": {
+        "full_12": {
           "n_native": 178,
-          "n_reindexed": 178,
+          "n_reindexed": 174,
           "top10_overlap": "10/10",
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 93.8,
-              "reindexed": 83.2,
+              "native": 75.1,
+              "reindexed": 92.2,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 71.2,
-              "reindexed": 63.0,
+              "native": 67.5,
+              "reindexed": 67.1,
               "match": true
             },
             {
-              "player": "derrick henry",
-              "native": 66.1,
-              "reindexed": 60.8,
+              "player": "kenneth walker iii",
+              "native": 60.9,
+              "reindexed": 63.8,
               "match": true
             }
           ]
@@ -231,27 +328,27 @@
         "4. Result \u2192 fixture reindexed"
       ],
       "combos": {
-        "standard_12": {
-          "n_native": 249,
-          "n_reindexed": 249,
+        "full_12": {
+          "n_native": 234,
+          "n_reindexed": 234,
           "top10_overlap": "10/10",
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 93.8,
-              "reindexed": 83.2,
+              "native": 81.8,
+              "reindexed": 69.9,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 71.2,
-              "reindexed": 63.0,
+              "native": 67.2,
+              "reindexed": 50.8,
               "match": true
             },
             {
-              "player": "jonathan taylor",
-              "native": 67.4,
-              "reindexed": 61.8,
+              "player": "christian mccaffrey",
+              "native": 58.8,
+              "reindexed": 47.3,
               "match": true
             }
           ]

@@ -165,6 +165,11 @@ SOURCE_URLS = {
         "note": "CBS Sports Dave Richards Week 4 trade chart article. Values scraped LIVE from this page.",
         "header_check": "Week 4 Trade Chart",
     },
+    "cbsros": {
+        "url": "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/",
+        "note": "CBS Sports rest-of-season projections (per position; nonppr slug). Not a trade chart -- raw ROS stat projections, computed into value-above-waivers the way the ESPN leg is. No live trade-value to scrape.",
+        "header_check": "Rest of Season",
+    },
     "fantasycalc": {
         "url": "https://fantasycalc.com/trade-value-chart",
         "note": "FantasyCalc trade value chart (human UI). Settings: Redraft, 12 teams, 0.5 PPR, TEP off, Superflex off. Values scraped LIVE from this page.",
@@ -186,6 +191,7 @@ SOURCE_URLS = {
 COMBO_KEYS = {
     "espn": "half_12",
     "cbs": "half_12",
+    "cbsros": "half_12",  # DDF methodology like ESPN
     "fantasycalc": "half_12_qb1",  # 1QB is the standard
     "fantasypros": "half_12",
     "usatoday": "half_12",
@@ -194,6 +200,7 @@ COMBO_KEYS = {
 ADJUSTED_SOURCES = {
     "espn": None,  # ESPN uses DDF methodology, no "adjusted" variant
     "cbs": "cbs_adjusted",
+    "cbsros": None,  # CBS ROS uses DDF methodology; no fitted bias-correction cells exist
     "fantasycalc": "fantasycalc_adjusted",
     "fantasypros": "fantasypros_adjusted",
     "usatoday": "usatoday_adjusted",
@@ -228,7 +235,7 @@ def main():
         snapshot_natives[src] = load_snapshot_natives(src)
         print(f"  {src}: loaded {len(snapshot_natives[src])} native values from snapshot")
 
-    for src in ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"]:
+    for src in ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]:
         combo_key = COMBO_KEYS[src]
         combo = sources[src]["combos"].get(combo_key, {})
 
@@ -243,7 +250,7 @@ def main():
         # Top 25 by CHART VALUE (most valuable), not native.
         # For ESPN, native is ROS projected points (counting stat), not trade value.
         # Sorting by native would rank high-volume QBs above elite RBs.
-        if src == "espn":
+        if src in ("espn", "cbsros"):
             sort_vals = values
         else:
             sort_vals = reindexed
@@ -270,7 +277,7 @@ def main():
                 nat_val = native.get(pkey)
             # For ESPN, the "indexed" value IS the DDF value (from values),
             # not from reindexed (ESPN uses DDF methodology, not isotonic reindexing)
-            if src == "espn":
+            if src in ("espn", "cbsros"):
                 idx_val = values.get(pkey)
             else:
                 idx_val = reindexed.get(pkey)
@@ -285,7 +292,7 @@ def main():
             if live_val is not None and nat_val is not None:
                 live_matches = abs(live_val - nat_val) < 0.01
             # For ESPN, the chart shows DDF values; for others, reindexed
-            if src == "espn":
+            if src in ("espn", "cbsros"):
                 chart_val = values.get(pkey)
             else:
                 chart_val = idx_val

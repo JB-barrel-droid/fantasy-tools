@@ -23,10 +23,11 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 RAW_DIR = REPO / "data" / "raw" / "sources"
 OUTPUT = REPO / "dist" / "modules" / "source-fidelity.json"
 
-SOURCES = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"]
+SOURCES = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]
 SRC_LABEL = {
     "espn": "ESPN",
     "cbs": "CBS",
+    "cbsros": "CBS ROS",
     "fantasycalc": "FantasyCalc",
     "fantasypros": "FantasyPros",
     "usatoday": "USA Today",
@@ -78,6 +79,28 @@ def load_snapshot_natives(src):
     
     Returns: ({(player_norm, scoring): per_game_native}, vintage)
     """
+    # CBS ROS: the snapshot already carries per-game natives per scoring
+    # (per_game_ppr / per_game_half_ppr / per_game_standard), computed as
+    # CBS ROS total / gp. Keys use the row's player_norm (the fixture join
+    # norm), not the display name.
+    if src == "cbsros":
+        snap_path = find_latest_snapshot(src)
+        if not snap_path:
+            return {}, None
+        d = json.loads(snap_path.read_text())
+        out = {}
+        pg_keys = {"ppr": "per_game_ppr", "half_ppr": "per_game_half_ppr",
+                   "standard": "per_game_standard"}
+        for row in d.get("rows", []):
+            norm = str(row.get("player_norm", "")).strip()
+            if not norm:
+                continue
+            for scoring, pg_key in pg_keys.items():
+                val = row.get(pg_key)
+                if isinstance(val, (int, float)):
+                    out[(norm, scoring)] = float(val)
+        return out, snap_path.parent.name if snap_path.parent != RAW_DIR / src else "direct"
+
     # ESPN: use the CSV input file directly
     if src == "espn":
         csv_path = REPO / "data" / "inputs" / "espn_projections.csv"
@@ -116,7 +139,13 @@ def load_snapshot_natives(src):
     
     # Other sources: use snapshot
     # For "reindexed-as-given" sources, the published value IS the pre-indexed native.
-    # Use the 'value' field (processed published value), not 'native_value' (raw API).
+    # Which snapshot field is the fixture native's source of truth differs per
+    # source: fantasypros was rebuilt from native_value on 2026-09-30 (the
+    # flattening fix); fantasycalc/usatoday/cbs still build from value.
+    # Comparing against the wrong field false-reds on a healthy pipeline.
+    NATIVE_FIELD = {"fantasypros": "native_value"}
+    field = NATIVE_FIELD.get(src, "value")
+    fallback = "value" if field == "native_value" else "native_value"
     snap_path = find_latest_snapshot(src)
     if not snap_path:
         return {}, None
@@ -127,10 +156,9 @@ def load_snapshot_natives(src):
         if not name:
             continue
         scoring = row.get("scoring", "")
-        # Prefer 'value' (the published value used by pipeline) over 'native_value' (raw)
-        val = row.get("value")
+        val = row.get(field)
         if val is None:
-            val = row.get("native_value")
+            val = row.get(fallback)
         if isinstance(val, (int, float)):
             out[(name, scoring)] = float(val)
     return out, snap_path.parent.name if snap_path.parent != RAW_DIR / src else "direct"

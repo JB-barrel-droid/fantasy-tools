@@ -261,7 +261,7 @@ const CHAIN_PATHS = [
   "comparison-chain-status.json",
   "output/comparison-chain-status.json",
 ];
-const SOURCE_ORDER = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"];
+const SOURCE_ORDER = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
 
 async function firstOk(paths){
   for(const p of paths){
@@ -456,7 +456,7 @@ async function main(){
     if(fidResp.ok){
       const fid = await fidResp.json();
       const sources = fid.sources || {};
-      const order = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"];
+      const order = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
       
       // Summary counts
       let okCount = 0, badCount = 0, warnCount = 0;
@@ -551,7 +551,7 @@ async function main(){
     if(mathResp.ok){
       const mathData = await mathResp.json();
       const sources = mathData.sources || {};
-      const order = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"];
+      const order = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
       
       let okCount = 0, badCount = 0;
       order.forEach(s => {
@@ -633,8 +633,8 @@ async function main(){
     if(linResp.ok){
       const linData = await linResp.json();
       const linSources = linData.sources || {};
-      const order = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"];
-      const labels = {espn:"ESPN", cbs:"CBS", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
+      const order = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
+      const labels = {espn:"ESPN", cbs:"CBS", cbsros:"CBS ROS", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
 
       // Count live mismatches
       // Per user requirement: unverifiable sources (no live human-readable page)

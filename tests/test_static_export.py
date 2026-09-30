@@ -58,7 +58,9 @@ class StaticExportTest(unittest.TestCase):
             report = load_json(output)
             self.assertEqual("ok", report["status"])
             self.assertEqual(610, report["players"]["player_count"])
-            self.assertEqual(9, report["comparison"]["source_count"])
+            # 10 sources: the 9 established plus cbsros (CBS rest-of-season
+            # projections leg, added 2026-09-30).
+            self.assertEqual(10, report["comparison"]["source_count"])
             self.assertIn("artifact_hashes", report)
 
     def test_expected_player_universe_and_identity(self):
@@ -86,6 +88,7 @@ class StaticExportTest(unittest.TestCase):
             "fantasycalc",
             "fantasypros",
             "cbs",
+            "cbsros",
             "espn",
             "fantasycalc_adjusted",
             "usatoday_adjusted",
@@ -131,6 +134,12 @@ class StaticExportTest(unittest.TestCase):
             ("fantasypros", "full_12"): 20.3,
             ("cbs", "full_12"): 18.2,
             ("espn", "full_12"): 26.9,
+            # cbsros (CBS rest-of-season projections through the DDF two-tier
+            # leg, 2026-09-30 vintage): Allen's CBS ROS per-game is 24.357 vs
+            # ESPN's 21.15, yet his indexed value is 20.0 vs ESPN's 26.9 --
+            # the two-tier leg measures positional pies from each source's own
+            # pool, so per-game rank does not transfer directly.
+            ("cbsros", "full_12"): 20.0,
             ("fantasycalc_adjusted", "full_12_qb1"): 17.8,
             ("usatoday_adjusted", "full_12"): 27.6,
             ("fantasypros_adjusted", "full_12"): 18.9,

@@ -8,6 +8,7 @@
     "fantasycalc",
     "fantasypros",
     "cbs",
+    "cbsros",
     "cbs_adjusted",
     "fantasycalc_adjusted",
     "usatoday_adjusted",
@@ -22,6 +23,7 @@
     fantasycalc: "FantasyCalc (Week 4)",
     fantasypros: "FantasyPros (Week 4)",
     cbs: "CBS (Week 4)",
+    cbsros: "CBS ROS (Week 4)",
     cbs_adjusted: "CBS Adjusted (Week 4)",
     fantasycalc_adjusted: "FC Adjusted (Week 4)",
     usatoday_adjusted: "USAT Adjusted (Week 4)",
@@ -34,6 +36,7 @@
     fantasycalc: "Crowd-sourced values, as published and reindexed",
     fantasypros: "Analyst-consensus chart, as published and reindexed",
     cbs: "Editorial chart, as published and reindexed",
+    cbsros: "CBS rest-of-season projections, computed like ESPN's value-above-waivers leg",
     cbs_adjusted: "Derived from CBS values and the current adjustment ratios, then rescaled to the common value pie",
     fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
@@ -74,7 +77,7 @@
     return Number.isFinite(number) ? Math.max(0, number) : null;
   };
   const formatValue = value => value === null ? "—" : Number(value).toFixed(1);
-  const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
+  const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
     const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};

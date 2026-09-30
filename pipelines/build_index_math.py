@@ -25,19 +25,25 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 LEG_DIR = REPO / "data" / "ddf-two-tier"
 OUTPUT = REPO / "dist" / "modules" / "index-math.json"
 
-SOURCES = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"]
+SOURCES = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]
 SRC_LABEL = {
     "espn": "ESPN",
     "cbs": "CBS",
+    "cbsros": "CBS ROS",
     "fantasycalc": "FantasyCalc",
     "fantasypros": "FantasyPros",
     "usatoday": "USA Today",
 }
 
-def verify_espn():
-    """Verify ESPN: fixture values == DDF leg values."""
+def verify_ddf_leg(src, label, bake_mark, leg_filename):
+    """Verify a DDF-methodology source: fixture values == DDF leg values.
+
+    Parametrized over ESPN (bake '-espn-', file ddf_leg.json) and CBS ROS
+    (bake '-cbsros-', file ddf_leg_cbsros.json). The CBS leg filename is
+    deliberately distinct so the ESPN globs never pick it up.
+    """
     fixture = json.loads(FIXTURE.read_text())
-    espn = fixture["sources"]["espn"]
+    src_data = fixture["sources"][src]
     
     # Load DDF legs - pick the NEWEST vintage for each scoring
     # (glob order is filesystem-dependent; older legs like 20260921 must not shadow 20260929)
@@ -45,10 +51,12 @@ def verify_espn():
     for scoring in ["ppr", "half_ppr", "standard"]:
         # Collect all matching legs, pick the one with the newest bake_id (date prefix)
         candidates = []
-        for leg_path in LEG_DIR.glob("*/ddf_leg.json"):
+        for leg_path in LEG_DIR.glob(f"*/{leg_filename}"):
             leg = json.loads(leg_path.read_text())
             bake_id = leg.get("bake_id", "")
-            if f"-espn-{scoring}-" in bake_id:
+            # 12-team legs only: the combos under test are *_12. (String sort
+            # on bake_id would otherwise prefer "-8t-" over "-12t-".)
+            if bake_mark.format(scoring=scoring) in bake_id and "-12t-" in bake_id:
                 candidates.append((bake_id, leg))
         if candidates:
             # Sort by bake_id descending (newest date first: ddf-20260929 > ddf-20260921)
@@ -64,7 +72,7 @@ def verify_espn():
         "methodology": "DDF two-tier",
         "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
         "steps": [
-            "1. Start with ESPN per-game projection (native/ppg)",
+            f"1. Start with {label} per-game projection (native/ppg)",
             "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
             "3. Scale to 70-point index (fixed-pie methodology)",
             "4. Round to 1 decimal → fixture values",
@@ -81,7 +89,7 @@ def verify_espn():
     for scoring, combo_name in scoring_map.items():
         if scoring not in legs:
             continue
-        combo = espn["combos"].get(combo_name, {})
+        combo = src_data["combos"].get(combo_name, {})
         fixture_vals = combo.get("values", {})
         leg_vals = legs[scoring]
         
@@ -217,10 +225,12 @@ def main():
         "sources": {},
     }
     
-    # ESPN: DDF methodology
-    report["sources"]["espn"] = verify_espn()
+    # DDF methodology: ESPN and CBS ROS (per-game projections -> two-tier leg)
+    report["sources"]["espn"] = verify_ddf_leg("espn", "ESPN", "-espn-{scoring}-", "ddf_leg.json")
     report["sources"]["espn"]["label"] = "ESPN"
-    
+    report["sources"]["cbsros"] = verify_ddf_leg("cbsros", "CBS ROS", "-cbsros-{scoring}-", "ddf_leg_cbsros.json")
+    report["sources"]["cbsros"]["label"] = "CBS ROS"
+
     # Others: reindexed-as-given
     for src in ["cbs", "fantasycalc", "fantasypros", "usatoday"]:
         report["sources"][src] = verify_reindexed(src)

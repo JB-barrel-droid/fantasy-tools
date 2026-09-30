@@ -30,6 +30,7 @@ REQUIRED_LIVE_SOURCES = (
     "fantasypros",
     "cbs",
     "espn",
+    "cbsros",
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",

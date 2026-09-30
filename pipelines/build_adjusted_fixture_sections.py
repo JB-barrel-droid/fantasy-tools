@@ -111,6 +111,10 @@ DEFAULT_INPUTS = ROOT / "app" / "trade-value-chart" / "assets" / "adjustment-inp
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
 ADJUSTED_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
+# NOTE: "cbsros" (CBS rest-of-season projections) is intentionally NOT listed.
+# The adjusted family carries bias-correction cells fitted against actuals from
+# a prior season; no CBS-ROS cells have been fitted, so there is no
+# cbsros_adjusted variant. (Same reason "espn" is absent.)
 
 # Human-readable metadata for the _adjusted sources
 ADJUSTED_META = {
