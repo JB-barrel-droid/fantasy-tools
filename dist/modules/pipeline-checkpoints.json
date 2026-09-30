@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T20:37:23.295367+00:00",
+  "generated_at": "2026-09-30T21:07:19.776518+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -79,7 +79,7 @@
           "reason": "Snapshot stamped 1.1d ago (data/raw/sources/espn/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T20:37:10Z",
+          "timestamp": "2026-09-30T21:07:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -99,14 +99,14 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T20:12:38Z",
+          "timestamp": "2026-09-30T21:06:38Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T20:37:25.915676+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c45428da42ca), 12 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T21:07:21.665322+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c45428da42ca vs fixture 00a49b455de5). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -134,7 +134,7 @@
           "reason": "Snapshot stamped 0.9d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T20:37:10Z",
+          "timestamp": "2026-09-30T21:07:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -154,14 +154,14 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T20:12:38Z",
+          "timestamp": "2026-09-30T21:06:38Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T20:37:27.481441+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c45428da42ca), 3 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T21:07:22.911028+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c45428da42ca vs fixture 00a49b455de5). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -186,10 +186,10 @@
         "c4_snapshot": {
           "timestamp": "2026-09-30T19:39:40.314854+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbsros/2026-09-30/snapshot.json, vintage 2026-09-30)."
+          "reason": "Snapshot stamped 0.1d ago (data/raw/sources/cbsros/2026-09-30/snapshot.json, vintage 2026-09-30)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T20:37:10Z",
+          "timestamp": "2026-09-30T21:07:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -209,14 +209,14 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T20:12:38Z",
+          "timestamp": "2026-09-30T21:06:38Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T20:37:29.501957+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c45428da42ca), 12 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T21:07:24.319417+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c45428da42ca vs fixture 00a49b455de5). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -244,9 +244,9 @@
           "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T20:37:10Z",
-          "status": "bad",
-          "reason": "Health gate failed: TABLE_DRIFT: table has 580 rows at latest vintage Week 4, manifest expects 590 -- partial/stale table, not complete."
+          "timestamp": "2026-09-30T21:07:08Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-09-30T19:59:48.863368+00:00",
@@ -264,14 +264,14 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T20:12:38Z",
+          "timestamp": "2026-09-30T21:06:38Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T20:37:30.942423+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c45428da42ca), 24 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T21:07:25.443200+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c45428da42ca vs fixture 00a49b455de5). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -299,7 +299,7 @@
           "reason": "Snapshot stamped 1.1d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T20:37:10Z",
+          "timestamp": "2026-09-30T21:07:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -319,14 +319,14 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T20:12:38Z",
+          "timestamp": "2026-09-30T21:06:38Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T20:37:32.261050+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c45428da42ca), 3 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T21:07:26.601469+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c45428da42ca vs fixture 00a49b455de5). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -354,7 +354,7 @@
           "reason": "Snapshot stamped 0.9d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T20:37:10Z",
+          "timestamp": "2026-09-30T21:07:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -374,14 +374,14 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T20:12:38Z",
+          "timestamp": "2026-09-30T21:06:38Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T20:37:33.698021+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c45428da42ca), 3 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T21:07:27.974839+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c45428da42ca vs fixture 00a49b455de5). Live built 2026-09-30T05:46."
         }
       }
     }
@@ -391,7 +391,7 @@
     "runner": "local",
     "runner_label": "local",
     "success": false,
-    "run_age_days": 0.024008815208333333,
+    "run_age_days": 0.04477590820601852,
     "stale": false
   },
   "adj_curve_pipeline": {
