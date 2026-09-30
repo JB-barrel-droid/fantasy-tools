@@ -93,12 +93,17 @@ class TestCellGuards(unittest.TestCase):
 
     def test_fewer_than_min_pairs_has_no_cell(self):
         # The defect this names: CBS TE|bench shipped n=3, beta=-6.24 before
-        # the guard existed.
+        # the guard existed. The guard now returns a safe identity fallback
+        # (alpha=0.0, beta=1.0) instead of a bad fit — never a bad coefficient.
         published = {1: 10.0, 2: 20.0, 3: 30.0}
         leg = {1: 30.0, 2: 20.0, 3: 10.0}
         cells, diag = fit_cells(published, self.roles_all_starter(published), leg,
                                 self.canonical)
-        self.assertEqual(cells, [])
+        # Find the QB|starter cell (guard triggers for this position/tier)
+        cell = next(c for c in cells if c["position"] == "QB" and c["tier"] == "starter")
+        self.assertEqual(cell["fallback"], "identity")
+        self.assertEqual(cell["alpha"], 0.0)
+        self.assertEqual(cell["beta"], 1.0)
         self.assertEqual(diag["QB|starter"]["reason"],
                          f"fewer_than_{MIN_FIT_PAIRS}_pairs")
 
@@ -107,7 +112,10 @@ class TestCellGuards(unittest.TestCase):
         leg = {k: float(k) for k in range(1, 7)}
         cells, diag = fit_cells(published, self.roles_all_starter(published), leg,
                                 self.canonical)
-        self.assertEqual(cells, [])
+        cell = next(c for c in cells if c["position"] == "QB" and c["tier"] == "starter")
+        self.assertEqual(cell["fallback"], "identity")
+        self.assertEqual(cell["alpha"], 0.0)
+        self.assertEqual(cell["beta"], 1.0)
         self.assertEqual(diag["QB|starter"]["reason"], "zero_x_variance")
 
     def test_non_positive_slope_has_no_cell(self):
@@ -116,7 +124,10 @@ class TestCellGuards(unittest.TestCase):
         leg = {k: float(100 - 10 * k) for k in range(1, 7)}
         cells, diag = fit_cells(published, self.roles_all_starter(published), leg,
                                 self.canonical)
-        self.assertEqual(cells, [])
+        cell = next(c for c in cells if c["position"] == "QB" and c["tier"] == "starter")
+        self.assertEqual(cell["fallback"], "identity")
+        self.assertEqual(cell["alpha"], 0.0)
+        self.assertEqual(cell["beta"], 1.0)
         self.assertEqual(diag["QB|starter"]["reason"], "non_positive_slope")
 
     def test_waiver_tier_never_enters_fit(self):
@@ -199,6 +210,10 @@ class TestRoleMapPort(unittest.TestCase):
 class TestBakedArtifact(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        if not VERSIONED.exists():
+            raise unittest.SkipTest(
+                f"Baked versioned artifact not present: {VERSIONED} "
+                "(data-dependent; runs in integration)")
         cls.doc = json.loads(VERSIONED.read_text(encoding="utf-8"))
 
     def test_versioned_artifact_shape(self):
