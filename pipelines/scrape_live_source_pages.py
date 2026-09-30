@@ -25,6 +25,47 @@ from html.parser import HTMLParser
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from canonical_players import norm_player_name
 
+# Expected page headers for verification (ensures we're scraping the right week/page)
+# If the page title doesn't contain the expected text, the scraper FAILS
+# rather than silently scraping the wrong page.
+EXPECTED_HEADERS = {
+    "fantasypros": "Week 4",
+    "usatoday": "Week 4",
+    "fantasycalc": "Trade Value Chart",
+    "cbs": "Week 4",
+    "espn": "2026",
+}
+
+
+def verify_page_header(html, source, url):
+    """Verify the page header contains the expected text.
+    
+    Raises ValueError if the header doesn't match — fail closed rather than
+    scrape the wrong page (e.g., last week's article).
+    """
+    expected = EXPECTED_HEADERS.get(source)
+    if not expected:
+        return  # No header check configured
+    
+    # Extract <title> and <h1> for checking
+    title_match = re.search(r'<title[^>]*>(.*?)</title>', html, re.IGNORECASE | re.DOTALL)
+    h1_match = re.search(r'<h1[^>]*>(.*?)</h1>', html, re.IGNORECASE | re.DOTALL)
+    
+    title = title_match.group(1).strip() if title_match else ""
+    h1 = h1_match.group(1).strip() if h1_match else ""
+    # Strip HTML tags from h1
+    h1 = re.sub(r'<[^>]+>', '', h1).strip()
+    
+    combined = f"{title} {h1}"
+    if expected.lower() not in combined.lower():
+        raise ValueError(
+            f"Header verification FAILED for {source}: expected '{expected}' "
+            f"in page header, got title='{title[:80]}', h1='{h1[:80]}'. "
+            f"URL: {url}. Refusing to scrape wrong page."
+        )
+    print(f"  ✓ Header verified for {source}: '{expected}' found")
+
+
 # Human-readable source pages (what a human visits)
 SOURCE_PAGES = {
     "fantasypros": {
@@ -106,6 +147,7 @@ def scrape_fantasypros():
     """
     url = SOURCE_PAGES["fantasypros"]["url"]
     html = fetch_url(url)
+    verify_page_header(html, "fantasypros", url)
     
     parser = TableParser()
     parser.feed(html)
@@ -148,6 +190,7 @@ def scrape_usatoday():
     """
     url = SOURCE_PAGES["usatoday"]["url"]
     html = fetch_url(url)
+    verify_page_header(html, "usatoday", url)
     
     parser = TableParser()
     parser.feed(html)
