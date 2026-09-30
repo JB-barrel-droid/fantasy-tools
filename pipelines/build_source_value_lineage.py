@@ -28,6 +28,51 @@ REPO = "/home/hatch/workspace/fantasy-tools"
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/source-value-lineage.json")
 
+# Snapshot paths for native values (raw scraped values, not transformed)
+SNAPSHOT_PATHS = {
+    "fantasypros": os.path.join(REPO, "data/raw/sources/fantasypros/2026-09-29/snapshot.json"),
+    "usatoday": os.path.join(REPO, "data/raw/sources/usatoday/2026-09-29/snapshot.json"),
+}
+
+
+def load_snapshot_natives(source):
+    """Load native_value (raw scraped) from snapshot, keyed by player_key slug.
+    
+    The snapshot has both native_value (raw from source page) and value (transformed).
+    We want the raw native_value for the lineage comparison.
+    """
+    path = SNAPSHOT_PATHS.get(source)
+    if not path or not os.path.exists(path):
+        return {}
+    
+    snap = json.load(open(path))
+    rows = snap.get("rows", [])
+    
+    # Build mapping from player name slug to native_value for half_ppr/12 teams
+    natives = {}
+    for r in rows:
+        if r.get("scoring") != "half_ppr" or r.get("teams") != 12:
+            # Also check for half-ppr variants
+            scoring = str(r.get("scoring", "")).lower()
+            if "half" not in scoring:
+                continue
+            if r.get("teams") != 12:
+                continue
+        
+        name = r.get("player_name", "")
+        if not name:
+            continue
+        
+        # Create slug matching the comparison data format
+        slug = name.lower()
+        native_val = r.get("native_value")
+        if native_val is not None:
+            # Keep the first (or highest?) - snapshots should have one per player
+            if slug not in natives:
+                natives[slug] = float(native_val)
+    
+    return natives
+
 # Human-readable source pages (what a human would visit)
 SOURCE_URLS = {
     "espn": {
@@ -98,11 +143,23 @@ def main():
         "sources": {},
     }
 
+    # Load snapshot natives (raw scraped values) for sources with snapshots
+    # The comparison data's "native" field contains transformed values, not raw.
+    # We need the true native_value from the snapshot for accurate lineage.
+    snapshot_natives = {}
+    for src in ["fantasypros", "usatoday"]:
+        snapshot_natives[src] = load_snapshot_natives(src)
+        print(f"  {src}: loaded {len(snapshot_natives[src])} native values from snapshot")
+
     for src in ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"]:
         combo_key = COMBO_KEYS[src]
         combo = sources[src]["combos"].get(combo_key, {})
 
         native = combo.get("native", {})
+        # Override with snapshot natives for accuracy (raw scraped values)
+        if src in snapshot_natives and snapshot_natives[src]:
+            native = snapshot_natives[src]
+        
         reindexed = combo.get("reindexed", {})
         values = combo.get("values", {})  # ESPN DDF values
 
