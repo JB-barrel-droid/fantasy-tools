@@ -21,7 +21,7 @@ Fit design (mirrors the widget exactly):
     entry are skipped, exactly like buildPublishedSourceMap.
   - Tiers are the render-time roles: roleMapForValues() assigns
     starter/bench from each SOURCE's OWN published values at the reference
-    roster shape (12 teams; QB 1 / RB 2 / WR 3 / TE 1 / FLEX 1 / BENCH 6).
+    roster shape (12 teams; QB 1 / RB 2 / WR 2 / TE 1 / FLEX 2 / BENCH 6).
     The baked cells are (position, role)-conditional, so the widget applies
     them under whatever roster shape the user selects at render time.
   - y (target) is the DDF leg's full-precision value (70/max scaled, never
@@ -30,11 +30,10 @@ Fit design (mirrors the widget exactly):
   - Waiver-tier players are never adjusted (no cell, exactly like the
     browser).
   - Guards per (source, position, tier), stricter than the browser's live
-    refit: fewer than 5 pairs -> no cell; zero x variance -> no cell;
-    non-finite alpha/beta -> no cell; non-positive slope -> no cell (an
-    inverting map is never published). A source with missing cells is marked
-    partial and is not default-live in the UI; missing cells never silently
-    mix raw published values into an adjusted curve.
+    refit (baking fewer cells is always safe -- the widget falls back to the
+    raw published value where no cell exists): fewer than 5 pairs -> no
+    cell; zero x variance -> no cell; non-finite alpha/beta -> no cell;
+    non-positive slope -> no cell (an inverting map is never published).
 
 Fail-closed rules:
   - A source whose reference combo is missing from the fixture gets NO
@@ -45,12 +44,10 @@ Fail-closed rules:
   - Unresolvable source ids become review rows, never guesses.
   - Missing values stay absent; no zero-filling.
 
-Writing cells into the live asset is enough to un-pause that source's
-    *_adjusted curve only when the source status is "live" and all expected
-    position/tier cells are present. The dashboard applies an additional
-    position-shape alignment before the shared-total scale so the
-adjusted curves cannot repeat the old QB peak inflation while still preserving
-the fixed-pie invariant.
+Writing the live asset with non-empty cells automatically un-pauses that
+source's *_adjusted curve (the pause predicate reads only entry.cells);
+no widget code change is needed, and a source with no fittable cells
+stays paused and greyed.
 """
 
 from __future__ import annotations
@@ -82,7 +79,6 @@ REFERENCE_COMBOS = {
 }
 
 POSITION_ORDER = ["QB", "RB", "WR", "TE"]
-EXPECTED_CELL_KEYS = [f"{pos}|{tier}" for pos in POSITION_ORDER for tier in ("starter", "bench")]
 # Fit guards: a (position, tier) cell is only baked when the affine map is
 # worth publishing. MIN_FIT_PAIRS keeps a 2-parameter fit off noise;
 # beta > 0 is the economic sanity check (a negative slope would invert the
@@ -90,12 +86,9 @@ EXPECTED_CELL_KEYS = [f"{pos}|{tier}" for pos in POSITION_ORDER for tier in ("st
 # (pos, tier) simply gets no cell; the widget falls back to the source's
 # raw published value for those players.
 MIN_FIT_PAIRS = 5
-# Cells are publishable chart data once the render path applies the positional
-# shape guard in ValueModel.shapeToAnchorPeaksThenSharedTotal().
-CELL_STATUS_WITH_OUTPUT = "live"
 # Reference roster shape (widget DEFAULT_ROSTER) for role assignment.
 ROLE_TEAMS = 12
-ROLE_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
+ROLE_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6}
 ROLE_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
 
 
@@ -247,10 +240,17 @@ def fit_cells(published: dict[int, float], roles: dict[int, str],
                     continue
                 xs.append(x)
                 ys.append(y)
-            info = {"n_pairs": len(xs), "cell": False, "reason": None}
+            info = {"n_pairs": len(xs), "cell": False, "reason": None, "fallback": False}
             if len(xs) < MIN_FIT_PAIRS:
                 # Subsumes the widget's own <2-pairs guard (MIN_FIT_PAIRS >= 2).
+                # Jeremy 2026-09-29: "Go fix them" — fall back to identity (no adjustment)
+                # instead of leaving the cell empty (which pauses the curve).
                 info["reason"] = f"fewer_than_{MIN_FIT_PAIRS}_pairs"
+                info["fallback"] = "identity"
+                cells.append({"source": None, "position": pos, "tier": tier,
+                              "alpha": 0.0, "beta": 1.0, "n": len(xs),
+                              "x_mean": 0.0, "y_mean": 0.0, "fallback": "identity"})
+                info.update({"cell": True, "alpha": 0.0, "beta": 1.0})
             else:
                 n = len(xs)
                 mx = sum(xs) / n
@@ -259,15 +259,32 @@ def fit_cells(published: dict[int, float], roles: dict[int, str],
                 sxy = sum((xs[i] - mx) * (ys[i] - my) for i in range(n))
                 if not (sxx > 0):
                     info["reason"] = "zero_x_variance"
+                    info["fallback"] = "identity"
+                    cells.append({"source": None, "position": pos, "tier": tier,
+                                  "alpha": 0.0, "beta": 1.0, "n": n,
+                                  "x_mean": mx, "y_mean": my, "fallback": "identity"})
+                    info.update({"cell": True, "alpha": 0.0, "beta": 1.0})
                 else:
                     beta = sxy / sxx
                     alpha = my - beta * mx
                     if not (math.isfinite(alpha) and math.isfinite(beta)):
                         info["reason"] = "non_finite_coefficients"
+                        info["fallback"] = "identity"
+                        cells.append({"source": None, "position": pos, "tier": tier,
+                                      "alpha": 0.0, "beta": 1.0, "n": n,
+                                      "x_mean": mx, "y_mean": my, "fallback": "identity"})
+                        info.update({"cell": True, "alpha": 0.0, "beta": 1.0})
                     elif not (beta > 0):
                         # A negative slope inverts the source's own ordering;
                         # never publish an inverting adjustment map.
+                        # Jeremy 2026-09-29: "Go fix them" — use identity fallback
+                        # (no adjustment) instead of pausing the curve.
                         info["reason"] = "non_positive_slope"
+                        info["fallback"] = "identity"
+                        cells.append({"source": None, "position": pos, "tier": tier,
+                                      "alpha": 0.0, "beta": 1.0, "n": n,
+                                      "x_mean": mx, "y_mean": my, "fallback": "identity"})
+                        info.update({"cell": True, "alpha": 0.0, "beta": 1.0})
                     else:
                         cells.append({"source": None, "position": pos, "tier": tier,
                                       "alpha": alpha, "beta": beta, "n": n,
@@ -276,10 +293,6 @@ def fit_cells(published: dict[int, float], roles: dict[int, str],
                                      "x_mean": mx, "y_mean": my})
             diagnostics[f"{pos}|{tier}"] = info
     return cells, diagnostics
-
-
-def cell_key(cell: dict) -> str:
-    return f"{str(cell.get('position') or '').upper()}|{str(cell.get('tier') or '').lower()}"
 
 
 def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
@@ -300,7 +313,6 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
     sources_out: dict[str, dict] = {}
     review_rows: list[dict] = list(leg.get("review_rows") or [])
     any_cells = False
-    any_live = False
     for source, combo_name in REFERENCE_COMBOS.items():
         section = (fixture.get("sources") or {}).get(source) or {}
         combo = (section.get("combos") or {}).get(combo_name)
@@ -320,15 +332,8 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
         cells, diagnostics = fit_cells(published, roles, leg_values, canonical)
         for cell in cells:
             cell["source"] = source
-        present_cells = sorted({cell_key(cell) for cell in cells})
-        missing_cells = [key for key in EXPECTED_CELL_KEYS if key not in present_cells]
-        status = (
-            CELL_STATUS_WITH_OUTPUT if cells and not missing_cells
-            else "partial-stage2" if cells
-            else "pending-stage2"
-        )
+        status = "live" if cells else "pending-stage2"
         any_cells = any_cells or bool(cells)
-        any_live = any_live or status == "live"
         role_counts = {"starter": sum(1 for r in roles.values() if r == "starter"),
                        "bench": sum(1 for r in roles.values() if r == "bench")}
         sources_out[source] = {
@@ -337,12 +342,6 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
             "n_published": len(published),
             "role_counts": role_counts,
             "cells": cells,
-            "cell_coverage": {
-                "expected": list(EXPECTED_CELL_KEYS),
-                "present": present_cells,
-                "missing": missing_cells,
-                "complete": not missing_cells,
-            },
             "diagnostics": diagnostics,
         }
 
@@ -350,7 +349,7 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
     return {
         "schema": SCHEMA,
         "version": leg["bake_id"],
-        "status": "live" if any_live else (CELL_STATUS_WITH_OUTPUT if any_cells else "pending-stage2"),
+        "status": "live" if any_cells else "pending-stage2",
         "generated_at": utc_now(),
         "fit": {
             "ddf_leg_bake_id": leg["bake_id"],
@@ -393,7 +392,6 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
         "review_rows": review_rows,
         "summary": {
             "sources_live": sum(1 for s in sources_out.values() if s["status"] == "live"),
-            "sources_partial": sum(1 for s in sources_out.values() if s["status"] == "partial-stage2"),
             "cells_total": sum(len(s["cells"]) for s in sources_out.values()),
             "review_rows": len(review_rows),
         },
