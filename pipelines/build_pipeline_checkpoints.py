@@ -716,9 +716,17 @@ def build_adj_curve_pipeline():
             "reason": "dist/assets/adjustment-inputs.json missing.",
         }
 
-    # A5: Live - check served adjustment-inputs.json matches local
+    # A5: Live - check served adjustment-inputs.json matches local AND has COMPLETE cells
+    # Jeremy 2026-09-29: "Fix and ensure monitoring dash covers it" — A5 must verify
+    # the ACTUAL pause condition. The widget's adjustedCurvePaused() requires:
+    #   1. source status == "live" AND
+    #   2. cells for ALL 8 position/tier combos (QB/RB/WR/TE x starter/bench)
+    # Partial sources (7/8, 4/8) stay paused by design — "so raw published values
+    # are never silently mixed into an adjusted projection."
     live_version = None
     live_generated_at = None
+    live_cells_status = {}
+    live_cells_complete = {}
     try:
         url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/adjustment-inputs.json"
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -726,21 +734,47 @@ def build_adj_curve_pipeline():
             live_data = json.load(resp)
         live_version = live_data.get("version")
         live_generated_at = live_data.get("generated_at")
+        # Check the actual pause condition: each source needs 8/8 cells AND status live
+        REQUIRED_CELLS = 8  # 4 positions x 2 tiers
+        for src in ["fantasycalc", "usatoday", "fantasypros", "cbs"]:
+            entry = live_data.get("sources", {}).get(src, {})
+            cells = entry.get("cells", [])
+            n_cells = len(cells) if isinstance(cells, list) else 0
+            status = entry.get("status", "unknown")
+            live_cells_status[src] = n_cells
+            # Complete = 8/8 cells AND status live
+            live_cells_complete[src] = (n_cells >= REQUIRED_CELLS and status == "live")
     except Exception as e:
         live_version = None
 
-    if live_version and live_version == inputs_version:
+    # A curve is paused if its source doesn't have complete 8/8 live cells
+    paused_sources = [src for src, complete in live_cells_complete.items() if not complete]
+    all_complete = len(paused_sources) == 0 and len(live_cells_complete) == 4
+
+    if live_version and live_version == inputs_version and all_complete:
         stages["a5_live"] = {
             "label": "A5 · Live",
-            "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+            "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
             "timestamp": live_generated_at,
             "status": "ok",
-            "reason": f"Live version {live_version} matches local.",
+            "reason": f"Live version {live_version} matches local. All 4 sources have 8/8 live cells.",
+        }
+    elif live_version and live_version == inputs_version and paused_sources:
+        # Version matches but cells incomplete — curves WILL BE PAUSED by design
+        details = ", ".join([f"{s}({live_cells_status.get(s, 0)}/8)" for s in paused_sources])
+        stages["a5_live"] = {
+            "label": "A5 · Live",
+            "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
+            "timestamp": live_generated_at,
+            "status": "bad",
+            "reason": f"Live version {live_version} matches, but incomplete cells — {details} — " +
+                      "those curves ARE PAUSED on the dashboard (fail-closed by design). " +
+                      "Fit needs to produce complete 8/8 cells.",
         }
     elif live_version:
         stages["a5_live"] = {
             "label": "A5 · Live",
-            "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+            "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
             "timestamp": live_generated_at,
             "status": "bad",
             "reason": f"Live version {live_version} != local version {inputs_version} — deploy needed. Curves may be paused on stale inputs.",
@@ -748,7 +782,7 @@ def build_adj_curve_pipeline():
     else:
         stages["a5_live"] = {
             "label": "A5 · Live",
-            "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+            "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
             "timestamp": None,
             "status": "unk",
             "reason": "Could not fetch live adjustment-inputs.json.",

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T01:07:20.305678+00:00",
+  "generated_at": "2026-09-30T01:14:26.281738+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -61,7 +61,7 @@
         "c1_publication": {
           "timestamp": "2026-09-29",
           "status": "ok",
-          "reason": "Publisher released 2026-09-29 (1.0d ago)."
+          "reason": "Publisher released 2026-09-29 (1.1d ago)."
         },
         "c2_collection": {
           "timestamp": null,
@@ -99,12 +99,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T01:01:47Z",
+          "timestamp": "2026-09-30T01:08:16Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T01:07:22.878777+00:00",
+          "timestamp": "2026-09-30T01:14:29.340021+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match dist/ (214497d2c510), 12 combos. Live built 2026-09-30T00:19."
         }
@@ -154,12 +154,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T01:01:47Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not check Pages API: HTTP Error 403: rate limit exceeded. Browser checks live."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T01:07:25.283178+00:00",
+          "timestamp": "2026-09-30T01:14:31.269765+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match dist/ (214497d2c510), 3 combos. Live built 2026-09-30T00:19."
         }
@@ -209,12 +209,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T01:01:47Z",
+          "timestamp": "2026-09-30T01:08:16Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T01:07:27.202253+00:00",
+          "timestamp": "2026-09-30T01:14:33.546405+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match dist/ (214497d2c510), 24 combos. Live built 2026-09-30T00:19."
         }
@@ -226,7 +226,7 @@
         "c1_publication": {
           "timestamp": "2026-09-29",
           "status": "ok",
-          "reason": "Publisher released 2026-09-29 (1.0d ago)."
+          "reason": "Publisher released 2026-09-29 (1.1d ago)."
         },
         "c2_collection": {
           "timestamp": null,
@@ -264,12 +264,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T01:01:47Z",
+          "timestamp": "2026-09-30T01:08:16Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T01:07:29.493378+00:00",
+          "timestamp": "2026-09-30T01:14:35.968018+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match dist/ (214497d2c510), 3 combos. Live built 2026-09-30T00:19."
         }
@@ -281,7 +281,7 @@
         "c1_publication": {
           "timestamp": "2026-09-29",
           "status": "ok",
-          "reason": "Publisher released 2026-09-29 (1.0d ago)."
+          "reason": "Publisher released 2026-09-29 (1.1d ago)."
         },
         "c2_collection": {
           "timestamp": "2026-09-29",
@@ -319,12 +319,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T01:01:47Z",
+          "timestamp": "2026-09-30T01:08:16Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T01:07:31.755676+00:00",
+          "timestamp": "2026-09-30T01:14:38.191499+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match dist/ (214497d2c510), 3 combos. Live built 2026-09-30T00:19."
         }
@@ -336,7 +336,7 @@
     "runner": "local",
     "runner_label": "local",
     "success": true,
-    "run_age_days": 0.033338909224537035,
+    "run_age_days": 0.03827450903935185,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -370,10 +370,10 @@
     },
     "a5_live": {
       "label": "A5 \u00b7 Live",
-      "what": "Production serves the current adjustment-inputs.json (curves can unpause)",
+      "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
       "timestamp": "2026-09-30T00:19:31Z",
-      "status": "ok",
-      "reason": "Live version ddf-20260922-espn-half_ppr-12t-0p15 matches local."
+      "status": "bad",
+      "reason": "Live version ddf-20260922-espn-half_ppr-12t-0p15 matches, but incomplete cells \u2014 fantasycalc(7/8), fantasypros(7/8), cbs(4/8) \u2014 those curves ARE PAUSED on the dashboard (fail-closed by design). Fit needs to produce complete 8/8 cells."
     }
   }
 }
