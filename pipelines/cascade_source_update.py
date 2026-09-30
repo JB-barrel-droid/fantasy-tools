@@ -137,16 +137,20 @@ def _check_health_file_staleness(health: dict, source: str) -> None:
     """Shared health-file-level gate called from both _check_import_health and
     _check_artifact_health, AFTER the per-source status check passes.
 
-    Covers three additional failure modes not caught by status/vintage alone:
+    Covers four additional failure modes not caught by status/vintage alone:
 
     1. ``checked_at`` age — same 2-day policy as the reference freshness gate.
        A health report that is fresh per nfl_week but stale by calendar days
        (e.g. written Monday, checked Thursday same week) still blocks.
+       Future timestamps (negative age) are also rejected.
     2. ``nfl_week`` currency — health must reflect the current calendar week,
        not a prior week.
-    3. Global red — ``run_health`` returns non-zero when ANY source is not ok.
-       The gate is global; a single stale source blocks all cascades, not just
-       cascades for that source.
+    3. Global red — ALL five ACTIVE_CASCADE_SOURCES must be present as dicts
+       with status "ok". Iterating only present sources would silently pass a
+       report missing a required source or with a null/malformed entry for one.
+       Missing and non-dict entries are treated as a global-red condition.
+    4. Non-ok status for any required source blocks cascade for all sources,
+       not just the source whose entry is stale.
     """
     import verify_import_health as _vh  # noqa: PLC0415
 
@@ -157,11 +161,16 @@ def _check_health_file_staleness(health: dict, source: str) -> None:
         age_days = (_vh.utc_today() - checked_date).days
     except (ValueError, IndexError, TypeError):
         pass
-    if age_days is None or age_days > _MAX_HEALTH_AGE_DAYS:
+    if age_days is None or age_days < 0 or age_days > _MAX_HEALTH_AGE_DAYS:
+        if age_days is not None and age_days < 0:
+            detail = f"future timestamp ({-age_days} day(s) ahead of today)"
+        elif age_days is None:
+            detail = "undetermined"
+        else:
+            detail = f"{age_days} day(s) old"
         raise SystemExit(
             f"cascade blocked: health file checked_at={checked_at_str!r} is "
-            f"{'undetermined' if age_days is None else f'{age_days} day(s)'} old "
-            f"(max {_MAX_HEALTH_AGE_DAYS} days). "
+            f"{detail} (allowed: 0–{_MAX_HEALTH_AGE_DAYS} days). "
             f"Re-run: make import-health NFL_WEEK=<n>"
         )
 
@@ -174,17 +183,29 @@ def _check_health_file_staleness(health: dict, source: str) -> None:
             f"Re-run: make import-health NFL_WEEK={current_week}"
         )
 
-    # Global gate: run_health returns non-zero if ANY source is not ok.
-    # Replicate that gate here so stale source data in a reused report cannot
-    # authorise a cascade for a source whose own entry happens to be ok.
-    for src, src_entry in (health.get("sources") or {}).items():
-        if src == source:
-            continue  # per-source status already verified ok above
-        if isinstance(src_entry, dict) and src_entry.get("status") != "ok":
-            reason = src_entry.get("failure_reason") or "unknown reason"
+    # Global gate: require all five active dashboard sources to be present as
+    # dicts with status "ok". Iterating only the sources that happen to be
+    # present would silently pass a report that is missing a required source or
+    # has a null/malformed entry — both of which indicate a failed health run.
+    sources = health.get("sources") or {}
+    for req_src in sorted(ACTIVE_CASCADE_SOURCES):
+        entry = sources.get(req_src)
+        if not isinstance(entry, dict):
             raise SystemExit(
-                f"cascade blocked: global health is red — {src!r} is "
-                f"{src_entry.get('status')!r} ({reason}). "
+                f"cascade blocked: global health is red — required active source "
+                f"{req_src!r} is absent or malformed in the health file "
+                f"(expected a dict, got {type(entry).__name__!r}). "
+                f"Pipeline-rules §8: all {len(ACTIVE_CASCADE_SOURCES)} active sources "
+                f"must have ok entries before any cascade stage. "
+                f"Fix: make import-health NFL_WEEK=<n>"
+            )
+        if req_src == source:
+            continue  # per-source status already verified ok by the caller
+        if entry.get("status") != "ok":
+            reason = entry.get("failure_reason") or "unknown reason"
+            raise SystemExit(
+                f"cascade blocked: global health is red — {req_src!r} is "
+                f"{entry.get('status')!r} ({reason}). "
                 f"Pipeline-rules §8: all sources must be ok before any cascade stage. "
                 f"Fix: make import-health NFL_WEEK=<n>"
             )

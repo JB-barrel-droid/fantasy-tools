@@ -32,6 +32,64 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-30 - Health gate hardening: all-sources global-red gate, future-timestamp rejection, malformed-entry blocking
+
+### Verified
+
+- **Global-red gate strengthened in `_check_health_file_staleness`**: the prior
+  implementation iterated `health["sources"].items()` and used
+  `if isinstance(entry, dict) and entry.get("status") != "ok"` — two silent gaps:
+  (1) a source absent from the health file was never checked; (2) a non-dict entry
+  (null, string) short-circuited the `isinstance` guard to False and was silently
+  skipped. Replaced with iteration over `sorted(ACTIVE_CASCADE_SOURCES)`:
+  any source absent from or malformed in the file raises SystemExit immediately.
+  [`Edit pipelines/cascade_source_update.py`]
+
+- **Future `checked_at` rejected**: the prior gate `age_days > _MAX_HEALTH_AGE_DAYS`
+  passes for negative `age_days` (future timestamps). Added `age_days < 0` to the
+  rejection condition; message distinguishes "future timestamp (N day(s) ahead)"
+  from "stale (N day(s) old)". [`Edit cascade_source_update.py`]
+
+- **`build_health_file` updated to include all 5 ACTIVE_CASCADE_SOURCES**: the prior
+  helper only wrote the target source entry. With the new all-sources global gate,
+  every existing test that reaches `_check_health_file_staleness` would have failed
+  because espn/usatoday/fantasypros/cbs were absent. Now all five are populated;
+  non-target sources get `{"status": "ok", "content_vintage": content_vintage}`.
+  Tests that want a missing/malformed/stale entry manipulate the returned file
+  directly after the call. [`Edit tests/test_pipeline_cascade.py`]
+
+- **3 new regression tests added to `HealthGateRegressionTest`**:
+  - `test_omitted_required_source_blocks_cascade`: espn removed from health file
+    after build → global gate blocks ("cascade blocked: ... espn ... absent or
+    malformed ..."), no downstream writes.
+  - `test_malformed_source_entry_blocks_cascade`: cbs entry replaced with null
+    after build → global gate blocks ("cascade blocked: ... cbs ... 'NoneType' ..."),
+    no downstream writes.
+  - `test_future_checked_at_blocks_cascade`: checked_at set 2 days in the future →
+    age gate blocks ("cascade blocked: ... future timestamp ..."), no downstream writes.
+  [`Edit tests/test_pipeline_cascade.py`]
+
+- **`python3 -m unittest discover -s tests`: 440 passed, 6 skipped, 0 failures.**
+  (Prior: 437 + 3 new.) [`Run`]
+
+- **`make validate`**: red on same pre-existing freshness gate (comparison.built_at
+  age_days=4). naming/reference/sync/tests all pass. No push. [`make validate`]
+
+- Updated FIX-010 in `docs/risk-register.md` with this session's fixes and new
+  test count. [`Edit`]
+
+### Claimed, unverified
+
+- The all-sources check mirrors `run_health` global-red semantics. In production,
+  a health file produced by `make import-health NFL_WEEK=<n>` always includes all
+  five active sources in its output. Not exercised by test (requires live Supabase).
+
+### Open
+
+- `make validate` remains red on same pre-existing blockers (GAP-007, 009, 010, 011).
+
+---
+
 ## 2026-09-30 - Health gate hardening: rc check, global-red gate, checked_at age, snapshot identity, actual subprocess tests
 
 ### Verified

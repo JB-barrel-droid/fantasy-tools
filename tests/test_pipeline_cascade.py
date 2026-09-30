@@ -191,7 +191,13 @@ def build_health_file(
     nfl_week: int = 4,
     extra_sources: dict | None = None,
 ) -> Path:
-    """Write a minimal import-health file for a single source.
+    """Write an import-health file covering all five ACTIVE_CASCADE_SOURCES.
+
+    All five required active sources are included so the global-red gate passes
+    for tests that only need to exercise a specific failure mode. The target
+    ``source`` gets the specified ``status`` / ``content_vintage`` / optional
+    attrs; the remaining four active sources get ``{"status": "ok",
+    "content_vintage": content_vintage}`` entries.
 
     Pass ``snapshot_path`` for tests that require sha256 byte verification to
     pass (i.e. tests where the cascade gets past status/vintage/identity checks).
@@ -200,20 +206,28 @@ def build_health_file(
 
     Pass ``nfl_week`` to produce a health file stamped with a different week.
 
-    Pass ``extra_sources`` to add additional source entries (used for global-red
-    tests where the target source is ok but another source is stale).
+    Pass ``extra_sources`` to override any source entry after the defaults are
+    built (e.g. ``extra_sources={"usatoday": {"status": "stale", ...}}`` for
+    global-red tests where the target source is ok but another is not).
     """
     path = tmp / "source-import-health.json"
-    entry: dict = {
+    target_entry: dict = {
         "status": status,
         "content_vintage": content_vintage,
     }
     if failure_reason:
-        entry["failure_reason"] = failure_reason
+        target_entry["failure_reason"] = failure_reason
     if snapshot_path is not None:
         # Store as absolute string; ROOT / absolute_path → absolute_path in Python.
-        entry["snapshot_path"] = str(snapshot_path)
-    sources: dict = {source: entry}
+        target_entry["snapshot_path"] = str(snapshot_path)
+
+    # Populate all five active sources. The global-red gate requires every one
+    # to be a dict with status "ok"; tests that want a missing/malformed entry
+    # should modify the returned file directly after this call.
+    sources: dict = {
+        src: (target_entry if src == source else {"status": "ok", "content_vintage": content_vintage})
+        for src in cascade_mod.ACTIVE_CASCADE_SOURCES
+    }
     if extra_sources:
         sources.update(extra_sources)
     write_json(
@@ -1703,6 +1717,115 @@ class HealthGateRegressionTest(unittest.TestCase):
             self.assertIn("cascade blocked", msg)
             self.assertFalse(out.exists(),
                              msg="no output must be written when lineage mismatch blocks")
+
+    # ---- Omitted required source ----
+
+    def test_omitted_required_source_blocks_cascade(self):
+        """Health file missing a required active source must be rejected.
+
+        A health report that only lists the target source (or omits any other
+        active source) would silently pass if the global gate iterated only
+        present entries. Iterating ACTIVE_CASCADE_SOURCES catches the gap.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            # Remove a required source after the file is written.
+            health_data = json.loads(health.read_text())
+            health_data["sources"].pop("espn")
+            health.write_text(json.dumps(health_data, indent=2) + "\n")
+
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("espn", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when required source is absent")
+
+    # ---- Null/malformed source entry ----
+
+    def test_malformed_source_entry_blocks_cascade(self):
+        """A null or non-dict source entry must be rejected (not silently skipped).
+
+        The prior global-red loop used ``if isinstance(entry, dict) and ...``
+        which short-circuited to False for null entries, silently passing them.
+        The new loop blocks on any non-dict entry.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            # Replace cbs entry with null (malformed health report).
+            health_data = json.loads(health.read_text())
+            health_data["sources"]["cbs"] = None
+            health.write_text(json.dumps(health_data, indent=2) + "\n")
+
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("cbs", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when null source entry blocks")
+
+    # ---- Future checked_at (negative age) ----
+
+    def test_future_checked_at_blocks_cascade(self):
+        """A health file with checked_at in the future must be rejected.
+
+        A future timestamp produces a negative age_days. The prior gate only
+        checked ``age_days > _MAX_HEALTH_AGE_DAYS``, which a negative value
+        passes (−2 > 2 is False). The new gate also rejects negative ages.
+        """
+        import verify_import_health as _vh_mod
+        from datetime import timedelta
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            # Overwrite checked_at to 2 days in the future.
+            health_data = json.loads(health.read_text())
+            future_date = (_vh_mod.utc_today() + timedelta(days=2)).isoformat()
+            health_data["checked_at"] = f"{future_date}T12:00:00Z"
+            health.write_text(json.dumps(health_data, indent=2) + "\n")
+
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("checked_at", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when future checked_at blocks")
 
 
 # ---------------------------------------------------------------------------
