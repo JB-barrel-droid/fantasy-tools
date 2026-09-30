@@ -184,10 +184,13 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <h2>ESPN input verification — grain-to-grain</h2>
   <div class="desc">
     For the <b>25 most valuable ESPN players</b> (12-team Half PPR), compares the major
-    <b>input variables</b> grain-to-grain: what ESPN's projection CSV says vs what the
-    DDF leg ingested. The DDF methodology powers ESPN's chart values from these
-    raw projections (yards, TDs, receptions). A red <b>✗</b> means the pipeline
-    is not using ESPN's actual number for that grain.
+    <b>input variables</b> grain-to-grain: what ESPN's <b>live human-readable projections page</b>
+    (<a href="https://fantasy.espn.com/football/players/projections" target="_blank" rel="noopener">fantasy.espn.com/football/players/projections</a>,
+    scraped 2026-09-30 by rendered browser, no API) shows vs what the pipeline ingested
+    from <code>data/inputs/espn_projections.csv</code> (which comes from ESPN's API).
+    The stat grains (yards, TDs, receptions) are scoring-agnostic and must match.
+    FPTS is <b>not</b> compared — the live page shows full PPR, the pipeline uses Half-PPR.
+    A red <b>✗</b> means the pipeline is not using ESPN's visible number for that grain.
   </div>
   <div id="espnInputsSummary" style="margin-bottom:16px"></div>
   <div id="espnInputsTable" style="overflow-x:auto"></div>
@@ -710,12 +713,16 @@ async function main(){
       // Summary
       const matched = players.filter(p => p.all_grains_match).length;
       const total = players.length;
-      const allOk = matched === total && total > 0;
+      const uncovered = players.filter(p => p.coverage === "not_in_live_top30").length;
+      const dataMismatch = total - matched - uncovered;
+      const allOk = dataMismatch === 0 && uncovered === 0 && total > 0;
+      const liveSrc = eiData.live_source || {};
       espnInputsSummary.innerHTML = `
-        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "#e8f5e9" : "#ffebee"};border:1px solid ${allOk ? "#4caf50" : "#f44336"}">
-          <b>${matched}/${total}</b> players with all input grains matching ESPN CSV ·
-          <span style="color:${allOk ? "#2e7d32" : "#c62828"};font-weight:bold">${allOk ? "✓ PASS" : "✗ FAIL"}</span>
-          <span style="color:#666;font-size:12px;margin-left:8px">Source: ${eiData.csv_path || "data/inputs/espn_projections.csv"}</span>
+        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "#e8f5e9" : (dataMismatch > 0 ? "#ffebee" : "#fff8e1")};border:1px solid ${allOk ? "#4caf50" : (dataMismatch > 0 ? "#f44336" : "#ffa000")}">
+          <b>${matched}/${total}</b> players with all input grains matching the live ESPN page ·
+          <span style="color:${allOk ? "#2e7d32" : (dataMismatch > 0 ? "#c62828" : "#e65100")};font-weight:bold">${allOk ? "✓ PASS" : (dataMismatch > 0 ? "✗ FAIL" : "⚠ COVERAGE GAP")}</span>
+          ${uncovered > 0 ? `<span style="color:#666;font-size:12px;margin-left:8px">${uncovered} player${uncovered > 1 ? "s" : ""} outside the live top-30 scrape — not verified</span>` : ""}
+          <div style="color:#666;font-size:12px;margin-top:4px">Live page: <a href="${liveSrc.url || "#"}" target="_blank" rel="noopener">${liveSrc.url || "n/a"}</a> (scraped ${liveSrc.scraped_at || "n/a"}) · Pipeline file: data/inputs/espn_projections.csv (from ESPN API, not a live page)</div>
         </div>`;
 
       // Build table
@@ -729,14 +736,17 @@ async function main(){
       });
       html += `</tr><tr><th style="position:sticky;left:0;background:#fff"></th><th></th><th></th><th></th>`;
       cols.forEach(() => {
-        html += `<th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">ESPN</th><th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">Ours</th>`;
+        html += `<th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">Live page</th><th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">Pipeline</th>`;
       });
       html += `</tr></thead><tbody>`;
 
       players.forEach(p => {
         const rowOk = p.all_grains_match;
-        html += `<tr style="background:${rowOk ? "#f1f8e9" : "#ffebee"}">
-          <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold;position:sticky;left:0;background:${rowOk ? "#f1f8e9" : "#ffebee"}">${p.name}</td>
+        const covGap = p.coverage === "not_in_live_top30";
+        const rowBg = rowOk ? "#f1f8e9" : (covGap ? "#fff8e1" : "#ffebee");
+        const covNote = covGap ? ` <span style="color:#e65100;font-size:11px;font-weight:normal">(not in live top-30)</span>` : "";
+        html += `<tr style="background:${rowBg}">
+          <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold;position:sticky;left:0;background:${rowBg}">${p.name}${covNote}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.pos}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.team}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${p.chart_value != null ? Number(p.chart_value).toFixed(1) : "—"}</td>`;
@@ -744,7 +754,8 @@ async function main(){
           const fmt = v => v == null ? "—" : (Number.isInteger(v) ? v.toString() : Number(v).toFixed(1));
           const cellStyle = g.match ? "" : "background:#ffcdd2;font-weight:bold";
           const mark = g.match ? "" : " ✗";
-          html += `<td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${cellStyle}">${fmt(g.espn_csv)}</td>
+          const naNote = g.note === "n/a on page (=0)" ? `<div style="font-size:10px;color:#999">n/a</div>` : "";
+          html += `<td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${cellStyle}">${fmt(g.live_page)}${naNote}</td>
                    <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${cellStyle}">${fmt(g.pipeline_input)}${mark}</td>`;
         });
         html += `</tr>`;

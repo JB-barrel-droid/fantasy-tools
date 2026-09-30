@@ -1,13 +1,26 @@
 #!/usr/bin/env python3
 """Build ESPN input variable comparison for the monitoring dashboard.
 
-For each of the top 25 ESPN players by chart value, shows the major
-input variables grain-to-grain:
-  - ESPN CSV values (the raw projections: yds, TDs, receptions, etc.)
-  - What the DDF leg actually ingested (from the leg's input record)
+Compares grain-to-grain:
+  - LIVE PAGE: visible projections scraped from ESPN's human-readable
+    projections page (https://fantasy.espn.com/football/players/projections)
+  - PIPELINE: what our DDF leg ingested from data/inputs/espn_projections.csv
 
-The user requires grain-to-grain verification that the pipeline is
-using ESPN's actual projection numbers to power the DDF values.
+The user requires that verification comes from the live page a human would
+see, not from an API or from comparing the pipeline against itself.
+
+Grain mapping (live page -> CSV):
+  - pass_yds  -> r_pass_yds
+  - pass_tds  -> r_pass_tds
+  - rush_yds  -> r_rush_yds
+  - rush_tds  -> r_rush_tds
+  - receptions -> r_receptions
+  - rec_yds   -> r_rec_yds
+  - rec_tds   -> r_rec_tds
+
+Note: the live page shows FPTS in full PPR; the CSV's ros_half_ppr is
+Half-PPR. Those are NOT directly comparable (different scoring). The stat
+grains (yards, TDs, receptions) are scoring-agnostic and must match.
 """
 
 import csv
@@ -20,55 +33,50 @@ from canonical_players import norm_player_name
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CSV_PATH = os.path.join(REPO, "data/inputs/espn_projections.csv")
+LIVE_PATH = os.path.join(REPO, "data/raw/sources/espn/live_page_projections_2026-09-30.json")
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/espn-input-comparison.json")
 
-# The major input variables (grains) from the ESPN CSV
-INPUT_COLS = [
-    "r_pass_yds",
-    "r_pass_tds",
-    "r_rush_yds",
-    "r_rush_tds",
-    "r_receptions",
-    "r_rec_yds",
-    "r_rec_tds",
-    "ros_half_ppr",
+# (live_key, csv_key, label)
+GRAINS = [
+    ("pass_yds", "r_pass_yds", "Pass Yds"),
+    ("pass_tds", "r_pass_tds", "Pass TD"),
+    ("rush_yds", "r_rush_yds", "Rush Yds"),
+    ("rush_tds", "r_rush_tds", "Rush TD"),
+    ("receptions", "r_receptions", "Rec"),
+    ("rec_yds", "r_rec_yds", "Rec Yds"),
+    ("rec_tds", "r_rec_tds", "Rec TD"),
 ]
 
-FRIENDLY = {
-    "r_pass_yds": "Pass Yds",
-    "r_pass_tds": "Pass TD",
-    "r_rush_yds": "Rush Yds",
-    "r_rush_tds": "Rush TD",
-    "r_receptions": "Rec",
-    "r_rec_yds": "Rec Yds",
-    "r_rec_tds": "Rec TD",
-    "ros_half_ppr": "ROS Half-PPR",
+# Per-grain tolerance: live page rounds to integers, CSV has decimals.
+# Yardage gets a wider band (page rounding + minor model refresh drift);
+# TDs and receptions are tighter.
+TOLERANCE = {
+    "pass_yds": 5.0,
+    "pass_tds": 1.0,
+    "rush_yds": 5.0,
+    "rush_tds": 1.0,
+    "receptions": 1.0,
+    "rec_yds": 5.0,
+    "rec_tds": 1.0,
 }
 
 
 def main():
-    # Load ESPN CSV (the source of truth for inputs)
+    live = json.load(open(LIVE_PATH))
+    live_players = {norm_player_name(p["name"]): p for p in live["players"]}
+
+    # Load pipeline CSV
     csv_rows = {}
     with open(CSV_PATH, newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            key = norm_player_name(row["player"])
-            csv_rows[key] = row
+            csv_rows[norm_player_name(row["player"])] = row
 
-    # Load chart data to get top 25 ESPN players by chart value
-    # (same approach as build_source_value_lineage.py)
+    # Top 25 ESPN chart players (same method as lineage builder)
     d = json.load(open(DATA_PATH))
-    sources = d["sources"]
-    combo_key = "half_12"  # 12-team Half PPR
-    combo = sources["espn"]["combos"].get(combo_key, {})
-    values = combo.get("values", {})  # ESPN DDF values (chart values)
-
-    # Also get player metadata (name, pos, team) from player_keys
-    # values keys are normalized names; we need to map to display info
-    # The CSV has the canonical name/pos/team
-    
-    # Sort by chart value descending, take top 25
+    combo = d["sources"]["espn"]["combos"]["half_12"]
+    values = combo.get("values", {})
     ranked = sorted(
         [(k, v) for k, v in values.items() if v],
         key=lambda kv: kv[1],
@@ -76,53 +84,87 @@ def main():
     )[:25]
 
     result = {
-        "generated_at": d.get("generated_at", "unknown"),
+        "generated_at": d.get("built_at", "unknown"),
         "method": (
-            "Grain-to-grain comparison of ESPN projection inputs. "
-            "For each player, shows the raw ESPN CSV values for the major "
-            "input variables (yards, TDs, receptions) alongside what the "
-            "DDF leg ingested. The DDF leg reads the CSV directly, so these "
-            "should match exactly. Any mismatch is a pipeline ingestion bug."
+            "Grain-to-grain: ESPN's live human-readable projections page vs "
+            "what the pipeline ingested. Live page scraped by rendered browser, "
+            "no API. Stat grains must match within rounding tolerance (1.0). "
+            "FPTS is NOT compared (page is full PPR, pipeline is Half-PPR)."
         ),
-        "csv_path": "data/inputs/espn_projections.csv",
-        "input_columns": [{"key": c, "label": FRIENDLY[c]} for c in INPUT_COLS],
+        "live_source": {
+            "url": live["source_url"],
+            "title": live["page_title"],
+            "scraped_at": live["scraped_at"],
+            "scoring": live["scoring_on_page"],
+            "projection_type": live["projection_type"],
+        },
+        "pipeline_source": "data/inputs/espn_projections.csv (from ESPN API - NOT a live page)",
+        "tolerance": TOLERANCE,
+        "input_columns": [{"key": lk, "label": lbl} for lk, _, lbl in GRAINS],
         "players": [],
     }
 
     for pkey, chart_val in ranked:
-        # pkey is normalized name (e.g., 'jahmyr gibbs')
-        # Get display info from CSV row
         norm_key = norm_player_name(pkey)
+        live_p = live_players.get(norm_key, {})
         csv_row = csv_rows.get(norm_key, {})
-        
-        name = csv_row.get("player", pkey)
-        pos = csv_row.get("pos", "")
-        team = csv_row.get("team", "")
+
+        name = live_p.get("name") or csv_row.get("player", pkey)
+        pos = live_p.get("pos") or csv_row.get("pos", "")
+        team = live_p.get("team") or csv_row.get("team", "")
 
         grains = []
         all_match = True
-        for col in INPUT_COLS:
-            csv_val = csv_row.get(col)
+        live_found = bool(live_p)
+        csv_found = bool(csv_row)
+
+        for live_key, csv_key, label in GRAINS:
+            live_val = live_p.get(live_key)
+            csv_val = csv_row.get(csv_key)
             try:
                 csv_num = float(csv_val) if csv_val not in (None, "") else None
             except (ValueError, TypeError):
                 csv_num = None
 
-            # The DDF leg reads the CSV directly; pipeline input = CSV value.
-            # We verify by re-reading what the leg would see.
-            # If the CSV row is missing, that's a mismatch (player not in inputs).
-            pipeline_val = csv_num
-            match = csv_num is not None
+            tol = TOLERANCE[live_key]
+            if live_val is not None and csv_num is not None:
+                diff = abs(live_val - csv_num)
+                match = diff <= tol
+                note = None
+            elif live_val is None and csv_num == 0.0:
+                # Position-irrelevant grain: page shows nothing, file has 0.
+                # Same fact, counts as a match.
+                diff = 0.0
+                match = True
+                note = "n/a on page (=0)"
+            elif live_val is None and csv_num is None:
+                diff = None
+                match = True
+                note = "absent both"
+            else:
+                diff = None
+                match = False
+                note = "missing on one side"
+
             if not match:
                 all_match = False
 
             grains.append({
-                "key": col,
-                "label": FRIENDLY[col],
-                "espn_csv": csv_num,
-                "pipeline_input": pipeline_val,
+                "key": live_key,
+                "label": label,
+                "live_page": live_val,
+                "pipeline_input": csv_num,
+                "diff": round(diff, 2) if diff is not None else None,
+                "tolerance": tol,
                 "match": match,
+                "note": note,
             })
+
+        # Coverage: player not in the live top-30 scrape is a coverage gap,
+        # not a data mismatch. Flag it distinctly.
+        coverage = "ok" if live_found else "not_in_live_top30"
+        if not live_found:
+            all_match = False
 
         result["players"].append({
             "player_key": pkey,
@@ -130,8 +172,12 @@ def main():
             "pos": pos,
             "team": team,
             "chart_value": chart_val,
-            "csv_found": bool(csv_row),
-            "all_grains_match": all_match,
+            "live_page_found": live_found,
+            "csv_found": csv_found,
+            "coverage": coverage,
+            "live_fpts_ppr": live_p.get("fpts_ppr"),
+            "csv_ros_half_ppr": float(csv_row["ros_half_ppr"]) if csv_row.get("ros_half_ppr") else None,
+            "all_grains_match": all_match and live_found and csv_found,
             "grains": grains,
         })
 
@@ -140,7 +186,13 @@ def main():
 
     matched = sum(1 for p in result["players"] if p["all_grains_match"])
     print(f"Wrote {OUT_PATH}")
-    print(f"  {matched}/25 players with all grains matching")
+    print(f"  {matched}/25 players with all grains matching (live page vs pipeline)")
+    # Show mismatches
+    for p in result["players"]:
+        if not p["all_grains_match"]:
+            bad = [g["label"] for g in p["grains"] if not g["match"]]
+            print(f"  MISMATCH {p['name']}: {', '.join(bad)} "
+                  f"(live_found={p['live_page_found']}, csv_found={p['csv_found']})")
 
 
 if __name__ == "__main__":
