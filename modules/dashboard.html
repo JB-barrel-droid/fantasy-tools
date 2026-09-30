@@ -180,6 +180,39 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="lineageSources"></div>
 </section>
 
+<section class="card" id="playerTraceCard">
+  <h2>Player Trace — end-to-end value path</h2>
+  <div class="desc">
+    Pick a player to see their number at <b>every pipeline stop</b>, across <b>all sources</b>.
+    Each stage shows the value and the logic that produced it.
+    <b>Snapshot</b> = raw from source page (native_value vs value) ·
+    <b>Section</b> = pipeline's working native ·
+    <b>Reindexed</b> = 0–70 scale via ESPN anchor ·
+    <b>Fixture</b> = final chart value.
+    Red flags mark where a value changed unexpectedly or a stage dropped the player.
+  </div>
+  <div style="margin-bottom:16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+    <label for="playerSelect" style="font-size:13px;color:var(--dim)">Player:</label>
+    <select id="playerSelect" style="background:var(--card2);color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:8px 12px;font-size:14px;min-width:240px">
+      <option value="">Loading players…</option>
+    </select>
+    <span id="traceStatus" style="font-size:12px;color:var(--dim)"></span>
+  </div>
+  <div id="traceOutput"></div>
+  <div id="crossSource" style="margin-top:20px"></div>
+</section>
+
+<section class="card" id="diagnosticsCard">
+  <h2>Aggregate Diagnostics — anomalies & curve health</h2>
+  <div class="desc">
+    Automatic checks for bad logic: players with <b>unusually high cross-source disagreement</b>
+    (possible stale/flattened values), and <b>curve shape spikes</b> (values that jump instead of
+    declining smoothly). Click a player to trace them above.
+  </div>
+  <div id="anomalyList"></div>
+  <div id="curveHealth" style="margin-top:16px"></div>
+</section>
+
 <section class="card" id="espnInputsCard">
   <h2>ESPN input verification — grain-to-grain</h2>
   <div class="desc">
@@ -1160,7 +1193,7 @@ async function loadCrossSourceAgreement() {
     const divs = data.divergences || [];
     summaryEl.innerHTML = `
       <div style="padding:12px 16px;border-radius:8px;background:${divs.length > 0 ? "var(--yellow-bg)" : "var(--green-bg)"};border:1px solid ${divs.length > 0 ? "var(--yellow)" : "var(--green)"}">
-        <b>${data.common_players}</b> players in all 5 sources ·
+        <b>${data.common_players}</b> players in all ${data.sources_compared.length} sources ·
         <b>${data.divergent_players}</b> starters with &gt;25% divergence ·
         <span style="color:${divs.length > 0 ? "var(--yellow)" : "var(--green)"};font-weight:bold">${divs.length > 0 ? "⚠ DIVERGENCES FOUND" : "✓ AGREEMENT"}</span>
       </div>`;
@@ -1175,6 +1208,7 @@ async function loadCrossSourceAgreement() {
         <th style="padding:6px;border-bottom:2px solid #ddd">USA</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">FP</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">CBS</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd">CBS ROS</th>
       </tr></thead><tbody>`;
       divs.slice(0, 20).forEach(d => {
         html += `<tr style="background:var(--yellow-bg)">
@@ -1187,6 +1221,7 @@ async function loadCrossSourceAgreement() {
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.usatoday}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.fantasypros}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.cbs}</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.cbsros ?? "—"}</td>
         </tr>`;
       });
       html += `</tbody></table>`;
@@ -1231,12 +1266,263 @@ async function loadIdentityVerification() {
 // Load the new framework sections
 loadCrossSourceAgreement();
 loadIdentityVerification();
+loadPlayerTrace();
+loadDiagnostics();
 
 main().catch(e => {
   const el = document.getElementById("err");
   el.style.display = "block";
   el.innerHTML = "<b>Dashboard failed to initialize:</b> " + String(e).slice(0, 300);
 });
+
+// ============ PLAYER TRACE ============
+let traceData = null;
+
+const TRACE_PATHS = [
+  "../dist/modules/player-trace.json",
+  "player-trace.json",
+  "dist/modules/player-trace.json",
+];
+
+async function loadPlayerTrace() {
+  const select = document.getElementById("playerSelect");
+  const status = document.getElementById("traceStatus");
+  const output = document.getElementById("traceOutput");
+  
+  try {
+    traceData = await firstOk(TRACE_PATHS);
+    if (!traceData || !traceData.players) {
+      throw new Error("No trace data");
+    }
+    
+    // Populate dropdown
+    select.innerHTML = traceData.players.map(p => 
+      `<option value="${p.player_key}">${p.name}</option>`
+    ).join("");
+    
+    // Default to Josh Allen if present (good demo of the native_value fix)
+    const josh = traceData.players.find(p => p.name.toLowerCase().includes("josh allen"));
+    if (josh) select.value = josh.player_key;
+    
+    select.onchange = () => renderPlayerTrace(parseInt(select.value));
+    renderPlayerTrace(parseInt(select.value));
+    
+    status.textContent = `${traceData.players.length} players · ${traceData.sources.length} sources`;
+  } catch(e) {
+    status.textContent = "Trace data not available. Run python3 pipelines/build_player_trace.py";
+    output.innerHTML = `<div style="color:var(--dim);font-size:13px">Player trace data not available.</div>`;
+  }
+}
+
+function renderPlayerTrace(playerKey) {
+  const output = document.getElementById("traceOutput");
+  const crossEl = document.getElementById("crossSource");
+  if (!traceData) return;
+  
+  const player = traceData.players.find(p => p.player_key === playerKey);
+  if (!player) {
+    output.innerHTML = `<div style="color:var(--dim)">Player not found</div>`;
+    return;
+  }
+  
+  const stageLogic = traceData.stage_logic || {};
+  
+  // Build per-source trace tables
+  let html = "";
+  const sourceSummaries = [];
+  
+  for (const src of traceData.sources) {
+    const sdata = player.sources[src];
+    if (!sdata) continue;
+    
+    const combos = Object.entries(sdata.combos || {});
+    if (combos.length === 0 && !sdata.snapshot) continue;
+    
+    html += `<div style="margin-bottom:20px;border:1px solid var(--line);border-radius:10px;padding:16px;background:var(--card2)">`;
+    html += `<h3 style="font-size:14px;margin-bottom:12px;text-transform:capitalize">${src}</h3>`;
+    
+    // Snapshot row
+    if (sdata.snapshot) {
+      const snap = sdata.snapshot;
+      const nv = snap.native_value, v = snap.value;
+      const mismatch = (nv != null && v != null && Math.abs(nv - v) > 0.01);
+      html += `<div style="margin-bottom:8px;padding:8px 12px;background:${mismatch ? 'var(--yellow-bg)' : 'transparent'};border-radius:6px">`;
+      html += `<b style="font-size:12px;color:var(--dim)">SNAPSHOT</b> — `;
+      html += `native_value=<b>${nv ?? '—'}</b>, value=<b>${v ?? '—'}</b>`;
+      if (mismatch) {
+        html += ` <span style="color:var(--yellow);font-size:12px">⚠ Fields differ — pipeline uses native_value</span>`;
+      }
+      html += `<div style="font-size:11px;color:var(--faint);margin-top:4px">${stageLogic.snapshot || ''}</div>`;
+      html += `</div>`;
+    }
+    
+    // Per-combo stages
+    for (const [comboKey, cdata] of combos) {
+      html += `<div style="margin:8px 0;padding:10px 12px;border-left:3px solid var(--line);">`;
+      html += `<div style="font-size:12px;color:var(--dim);margin-bottom:6px"><b>${comboKey}</b></div>`;
+      
+      const stages = [
+        ["Section", cdata.section_native, stageLogic.section],
+        ["Reindexed", cdata.reindexed_value, stageLogic.reindexed],
+        ["Fixture", cdata.fixture_reindexed, stageLogic.fixture],
+      ];
+      
+      // Check for drops (player in earlier stage but not later)
+      let prevVal = null;
+      for (const [stageName, val, logic] of stages) {
+        const hasVal = val != null;
+        const dropped = prevVal != null && !hasVal;
+        const isNative = stageName === "Section";
+        const displayVal = isNative ? (cdata.section_native ?? cdata.reindexed_native ?? cdata.fixture_native) : val;
+        
+        if (displayVal != null || stageName === "Section") {
+          html += `<div style="margin:4px 0;font-size:13px">`;
+          html += `<span style="color:var(--dim);font-size:11px;text-transform:uppercase">${stageName}:</span> `;
+          if (dropped) {
+            html += `<span style="color:var(--red);font-weight:bold">✗ DROPPED</span> <span style="font-size:11px;color:var(--dim)">(was ${prevVal})</span>`;
+          } else if (displayVal != null) {
+            html += `<b>${typeof displayVal === 'number' ? displayVal.toFixed(2) : displayVal}</b>`;
+            // Show ratio vs previous
+            if (prevVal != null && typeof prevVal === 'number' && typeof displayVal === 'number' && prevVal !== 0) {
+              const ratio = displayVal / prevVal;
+              if (Math.abs(ratio - 1) > 0.01) {
+                html += ` <span style="font-size:11px;color:var(--dim)">(${ratio.toFixed(2)}x)</span>`;
+              }
+            }
+          } else {
+            html += `<span style="color:var(--faint)">—</span>`;
+          }
+          html += `</div>`;
+        }
+        if (displayVal != null) prevVal = displayVal;
+      }
+      html += `</div>`;
+      
+      // Collect for cross-source comparison (use fixture value)
+      if (cdata.fixture_reindexed != null) {
+        sourceSummaries.push({source: src, combo: comboKey, value: cdata.fixture_reindexed});
+      } else if (cdata.reindexed_value != null) {
+        sourceSummaries.push({source: src, combo: comboKey, value: cdata.reindexed_value});
+      }
+    }
+    html += `</div>`;
+  }
+  
+  if (!html) {
+    html = `<div style="color:var(--dim)">No trace data for ${player.name}</div>`;
+  }
+  
+  output.innerHTML = html;
+  
+  // Cross-source comparison
+  if (sourceSummaries.length > 1) {
+    const vals = sourceSummaries.map(s => s.value);
+    const min = Math.min(...vals), max = Math.max(...vals);
+    const spread = max - min;
+    const mid = (max + min) / 2;
+    const spreadPct = mid > 0 ? (spread / mid * 100) : 0;
+    
+    let crossHtml = `<h3 style="font-size:14px;margin-bottom:10px">Cross-source comparison — ${player.name}</h3>`;
+    crossHtml += `<div style="font-size:12px;color:var(--dim);margin-bottom:8px">`;
+    crossHtml += `Spread: <b>${spread.toFixed(1)}</b> (${spreadPct.toFixed(0)}%) · `;
+    crossHtml += `Range: ${min.toFixed(1)} – ${max.toFixed(1)}`;
+    if (spreadPct > 50) {
+      crossHtml += ` <span style="color:var(--red)">⚠ High disagreement — investigate</span>`;
+    } else if (spreadPct > 25) {
+      crossHtml += ` <span style="color:var(--yellow)">⚠ Moderate disagreement</span>`;
+    } else {
+      crossHtml += ` <span style="color:var(--green)">✓ Sources agree</span>`;
+    }
+    crossHtml += `</div>`;
+    
+    // Bar chart
+    crossHtml += `<div style="display:flex;flex-direction:column;gap:6px">`;
+    const sorted = [...sourceSummaries].sort((a, b) => b.value - a.value);
+    for (const s of sorted) {
+      const pct = max > 0 ? (s.value / max * 100) : 0;
+      const isMax = s.value === max, isMin = s.value === min;
+      crossHtml += `<div style="display:flex;align-items:center;gap:10px;font-size:13px">`;
+      crossHtml += `<span style="width:120px;text-transform:capitalize;color:var(--dim)">${s.source}</span>`;
+      crossHtml += `<div style="flex:1;height:20px;background:#1a2230;border-radius:4px;position:relative">`;
+      crossHtml += `<div style="height:100%;width:${pct}%;background:${isMax ? 'var(--green)' : isMin ? 'var(--red)' : 'var(--blue)'};border-radius:4px"></div>`;
+      crossHtml += `</div>`;
+      crossHtml += `<span style="width:60px;text-align:right"><b>${s.value.toFixed(1)}</b></span>`;
+      crossHtml += `</div>`;
+    }
+    crossHtml += `</div>`;
+    crossHtml += `<div style="font-size:11px;color:var(--faint);margin-top:8px">Green = highest, red = lowest. Large spreads may indicate a source using stale or flattened values.</div>`;
+    
+    crossEl.innerHTML = crossHtml;
+  } else {
+    crossEl.innerHTML = "";
+  }
+}
+
+// ============ AGGREGATE DIAGNOSTICS ============
+const DIAG_PATHS = [
+  "../dist/modules/aggregate-diagnostics.json",
+  "aggregate-diagnostics.json",
+  "dist/modules/aggregate-diagnostics.json",
+];
+
+async function loadDiagnostics() {
+  const anomalyEl = document.getElementById("anomalyList");
+  const curveEl = document.getElementById("curveHealth");
+  
+  try {
+    const data = await firstOk(DIAG_PATHS);
+    if (!data) throw new Error("No data");
+    
+    // Anomalies
+    const anomalies = data.anomalies || [];
+    if (anomalies.length > 0) {
+      let html = `<h3 style="font-size:14px;margin-bottom:10px">Cross-source anomalies (${anomalies.length})</h3>`;
+      html += `<div style="font-size:12px;color:var(--dim);margin-bottom:10px">Players where sources disagree sharply. Click to trace.</div>`;
+      html += `<div style="display:flex;flex-direction:column;gap:8px">`;
+      for (const a of anomalies.slice(0, 10)) {
+        const sevColor = a.severity === "high" ? "var(--red)" : "var(--yellow)";
+        html += `<div style="padding:10px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card2);cursor:pointer" onclick="document.getElementById('playerSelect').value='${a.player_key}';renderPlayerTrace(${a.player_key});document.getElementById('playerTraceCard').scrollIntoView({behavior:'smooth'})">`;
+        html += `<div style="display:flex;justify-content:space-between;align-items:center">`;
+        html += `<b>${a.player}</b>`;
+        html += `<span style="color:${sevColor};font-size:12px;font-weight:bold">${a.spread_pct}% spread</span>`;
+        html += `</div>`;
+        html += `<div style="font-size:12px;color:var(--dim);margin-top:4px">`;
+        html += Object.entries(a.values).map(([src, v]) => `${src}: ${v}`).join(" · ");
+        html += `</div>`;
+        html += `</div>`;
+      }
+      html += `</div>`;
+      anomalyEl.innerHTML = html;
+    } else {
+      anomalyEl.innerHTML = `<div style="color:var(--green);font-size:13px">✓ No high-disagreement anomalies found.</div>`;
+    }
+    
+    // Curve health
+    const curves = data.curve_checks || {};
+    let curveHtml = `<h3 style="font-size:14px;margin-bottom:10px">Curve shape health</h3>`;
+    curveHtml += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px">`;
+    for (const [src, check] of Object.entries(curves)) {
+      const ok = check.smooth;
+      curveHtml += `<div style="padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--card2)">`;
+      curveHtml += `<div style="font-size:13px;font-weight:bold;text-transform:capitalize;margin-bottom:6px">${src}</div>`;
+      curveHtml += `<div style="font-size:12px;color:var(--dim)">${check.n_players} players · ${check.max} max</div>`;
+      if (ok) {
+        curveHtml += `<div style="color:var(--green);font-size:12px;margin-top:6px">✓ Smooth decline</div>`;
+      } else {
+        curveHtml += `<div style="color:var(--red);font-size:12px;margin-top:6px">✗ ${check.spikes.length} spike(s)</div>`;
+        for (const s of check.spikes.slice(0, 3)) {
+          curveHtml += `<div style="font-size:11px;color:var(--dim)">Rank ${s.rank}: ${s.prev} → ${s.curr} (${s.ratio}x)</div>`;
+        }
+      }
+      curveHtml += `</div>`;
+    }
+    curveHtml += `</div>`;
+    curveEl.innerHTML = curveHtml;
+    
+  } catch(e) {
+    anomalyEl.innerHTML = `<div style="color:var(--dim);font-size:13px">Diagnostics not available. Run <code>python3 pipelines/build_aggregate_diagnostics.py</code>.</div>`;
+  }
+}
 </script>
 </body>
 </html>
