@@ -106,6 +106,30 @@ class WireFake:
                 return False, "promotion refused: review verdict is not 'ready'"
             return True, ""
 
+        if script == "build_cbsros_ddf_leg.py":
+            return True, ""
+
+        if script == "build_cbsros_section_from_ddf_leg.py":
+            combos = {}
+            for s in ("full", "half", "standard"):
+                for t in (8, 10, 12, 14):
+                    combos[f"{s}_{t}"] = {
+                        # aaron rodgers 0.0: waiver-tier legitimately scores
+                        # zero under DDF two-tier (must NOT fail review).
+                        "values": {"jahmyr gibbs": 70.0, "bijan robinson": 54.7,
+                                   "aaron rodgers": 0.0},
+                        "native": {"jahmyr gibbs": 20.5, "bijan robinson": 18.2,
+                                   "aaron rodgers": 13.9},
+                    }
+            fixture = {"sources": {"cbsros": {
+                "combos": combos,
+                "vintage": "2026-09-29",
+            }}}
+            fpath = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+            fpath.parent.mkdir(parents=True, exist_ok=True)
+            fpath.write_text(json.dumps(fixture))
+            return True, ""
+
         if script == "build_adjustment_inputs.py":
             live = (repo / "app" / "trade-value-chart" / "assets"
                     / "adjustment-inputs.json")
@@ -113,6 +137,44 @@ class WireFake:
             return True, ""
 
         if script == "build_adjusted_fixture_sections.py":
+            return True, ""
+
+        if script == "build_ddf_two_tier_leg.py":
+            # Fake a DDF leg bake: write a leg dir with the snapshot vintage
+            # so the ESPN review gate's newest-leg check passes.
+            scoring = cmd[cmd.index("--scoring") + 1]
+            teams = cmd[cmd.index("--teams") + 1]
+            leg_dir = (repo / "data" / "ddf-two-tier"
+                       / f"ddf-20260929-espn-{scoring}-{teams}t-0p15")
+            self._touch(
+                leg_dir / "ddf_leg.json",
+                json.dumps({
+                    "generated_at": "2026-09-30T00:00:00Z",
+                    "inputs": {"espn_snapshot_date": "2026-09-29"},
+                }))
+            return True, ""
+
+        if script == "build_espn_section_from_ddf_leg.py":
+            combos = {}
+            for s in ("full", "half", "standard"):
+                for t in (8, 10, 12, 14):
+                    combos[f"{s}_{t}"] = {
+                        "values": {"jahmyr gibbs": 70.0, "bijan robinson": 54.7},
+                        "native": {"jahmyr gibbs": 20.5, "bijan robinson": 18.2},
+                    }
+            fixture = {"sources": {"espn": {
+                "combos": combos,
+                "espn_snapshot": "2026-09-29",
+                "value_provenance": "modeled",
+            }}}
+            fpath = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+            fpath.parent.mkdir(parents=True, exist_ok=True)
+            # Merge with any existing fixture (cbsros may have written first).
+            existing = {}
+            if fpath.is_file():
+                existing = json.loads(fpath.read_text())
+            existing.setdefault("sources", {}).update(fixture["sources"])
+            fpath.write_text(json.dumps(existing))
             return True, ""
 
         raise AssertionError(f"unexpected stage script: {script}")
@@ -333,6 +395,76 @@ class FailClosedTest(unittest.TestCase):
         status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad_adjusted)
         self.assertFalse(status["success"])
         self.assertIn("adjusted_sections", status["failed"])
+
+    # --- cbsros chain: DDF-leg path, never the quantile-reindex path ---------
+    def _run_cbsros(self, repo=None, run_fn=None):
+        repo = repo or make_repo(self.tmp / "cbsros", ("cbsros",))
+        fake = run_fn or WireFake(repo)
+        return chain.run_cbsros_source("cbsros", nfl_week=4, repo=repo, run_fn=fake), fake
+
+    def test_cbsros_chain_ok_end_to_end(self):
+        """cbsros rebuilds snapshot -> 12 legs -> section and passes review."""
+        result, fake = self._run_cbsros()
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(result["stage"], "complete")
+        self.assertEqual(result["promoted"], 1)
+        self.assertEqual(result["sections"], 1)
+        leg_calls = [c for c in fake.calls if c == "build_cbsros_ddf_leg.py"]
+        self.assertEqual(len(leg_calls), 12, "one leg build per scoring x teams")
+        self.assertIn("build_cbsros_section_from_ddf_leg.py", fake.calls)
+
+    def test_cbsros_chain_never_quantile_reindexes(self):
+        """Defect guard: cbsros must not go through the ESPN-anchor
+        quantile-reindex path (it would transform the DDF-direct values)."""
+        result, fake = self._run_cbsros()
+        self.assertEqual(result["status"], "ok")
+        for banned in ("match_source_snapshot.py",
+                       "build_source_reference.py",
+                       "build_comparison_source_section.py",
+                       "reindex_comparison_section.py",
+                       "review_comparison_candidate.py",
+                       "promote_comparison_section.py"):
+            self.assertNotIn(banned, fake.calls, banned)
+
+    def test_cbsros_review_halts_on_malformed_section(self):
+        """The cbsros review is a real gate: a malformed section halts the
+        chain fail-closed at the review stage (not a silent pass)."""
+        repo = make_repo(self.tmp / "cbsros-bad", ("cbsros",))
+        fake = WireFake(repo)
+        orig = fake.__call__
+
+        def bad_section(cmd, **kwargs):
+            if Path(cmd[1]).name == "build_cbsros_section_from_ddf_leg.py":
+                fake.calls.append("build_cbsros_section_from_ddf_leg.py")
+                # Write a section missing combos -> review must halt.
+                fpath = (repo / "data" / "fixtures" / "current"
+                         / "comparison-sources-data.json")
+                fpath.parent.mkdir(parents=True, exist_ok=True)
+                fpath.write_text(json.dumps({"sources": {"cbsros": {"combos": {}}}}))
+                return True, ""
+            return orig(cmd, **kwargs)
+
+        result = chain.run_cbsros_source("cbsros", nfl_week=4, repo=repo, run_fn=bad_section)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["stage"], "review")
+        self.assertIn("missing combos", result["detail"])
+
+    def test_cbsros_leg_failure_halts(self):
+        """A DDF leg build failure halts the cbsros chain at the leg stage."""
+        repo = make_repo(self.tmp / "cbsros-legfail", ("cbsros",))
+        fake = WireFake(repo)
+        orig = fake.__call__
+
+        def bad_leg(cmd, **kwargs):
+            if Path(cmd[1]).name == "build_cbsros_ddf_leg.py":
+                fake.calls.append("build_cbsros_ddf_leg.py")
+                return False, "leg exploded"
+            return orig(cmd, **kwargs)
+
+        result = chain.run_cbsros_source("cbsros", nfl_week=4, repo=repo, run_fn=bad_leg)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["stage"], "leg")
+        self.assertNotIn("build_cbsros_section_from_ddf_leg.py", fake.calls)
 
 
 if __name__ == "__main__":

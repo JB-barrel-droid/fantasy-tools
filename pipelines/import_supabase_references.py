@@ -721,7 +721,8 @@ def import_source(
                 archive_dir = target_dir / "_superseded" / stamp
                 archive_dir.mkdir(parents=True, exist_ok=True)
                 snapshot_path.rename(archive_dir / "snapshot.json")
-                manifest_path.rename(archive_dir / "snapshot-manifest.json")
+                if manifest_path.exists():
+                    manifest_path.rename(archive_dir / "snapshot-manifest.json")
                 superseded = {
                     "sha256": existing_sha,
                     "archived_to": _rel_to_root(archive_dir),

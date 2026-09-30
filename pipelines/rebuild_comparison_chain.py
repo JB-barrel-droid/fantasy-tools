@@ -129,17 +129,15 @@ def process_section(section, repo, run_fn):
 
     # Review. The reviewer exits non-zero when the verdict is not ready,
     # but still writes the artifact — a missing artifact is itself a failure.
-    # Standing triage decisions (data/triage/comparison-triage.json) cover
-    # legitimately-excluded players (no ESPN anchor); the chain honors them.
+    # No triage file: every review row requires human review. The triage
+    # mechanism was removed 2026-09-30 after it was found to contain
+    # factually incorrect auto-generated approvals.
     review_path = repo / "output" / "reviewed" / f"{base}-review.json"
     review_path.parent.mkdir(parents=True, exist_ok=True)
-    triage_path = repo / "data" / "triage" / "comparison-triage.json"
     review_cmd = [
         "python3", "pipelines/review_comparison_candidate.py",
         str(reindexed), "--out", str(review_path),
     ]
-    if triage_path.is_file():
-        review_cmd.extend(["--triage", str(triage_path)])
     ok, out = run_fn(review_cmd)
     if not review_path.is_file():
         raise ChainHalt("review", f"{base}: review produced no artifact: {out[-300:]}")
@@ -416,6 +414,168 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
     return result
 
 
+ESPN_LEG_SCORINGS = ("standard", "half_ppr", "ppr")
+ESPN_LEG_TEAMS = (8, 10, 12, 14)
+ESPN_COMBO_KEYS = [
+    f"{s}_{t}"
+    for s in ("standard", "half", "full")
+    for t in ESPN_LEG_TEAMS
+]
+
+
+def _verify_espn_section(repo, snapshot_vintage):
+    """Review gate for the rebuilt ESPN section. Raises ChainHalt on failure."""
+    fixture_path = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    section = (fixture.get("sources") or {}).get("espn") or {}
+    combos = section.get("combos") or {}
+    missing = [k for k in ESPN_COMBO_KEYS if k not in combos]
+    if missing:
+        raise ChainHalt("review", f"espn section missing combos: {missing}")
+    # ESPN is DDF-modeled, never as-published: the section must carry the
+    # modeled provenance and per-game native unit, not ROS totals.
+    if section.get("value_provenance") != "modeled":
+        raise ChainHalt(
+            "review",
+            f"espn value_provenance is {section.get('value_provenance')!r}, expected 'modeled'",
+        )
+    bad = []
+    n_values = 0
+    for key in ESPN_COMBO_KEYS:
+        combo = combos[key] or {}
+        values = combo.get("values") or {}
+        native = combo.get("native") or {}
+        if not values or not native:
+            bad.append(f"{key}: empty values/native")
+            continue
+        if set(values) != set(native):
+            bad.append(f"{key}: values/native key mismatch")
+            continue
+        for slug, val in values.items():
+            # DDF two-tier: waiver-tier players legitimately score 0.0.
+            # Values must be numeric and non-negative; negatives or
+            # non-numbers are corruption.
+            if not isinstance(val, (int, float)) or val < 0:
+                bad.append(f"{key}: invalid value for {slug}: {val!r}")
+                break
+        for slug, val in native.items():
+            if not isinstance(val, (int, float)) or val < 0:
+                bad.append(f"{key}: invalid native for {slug}: {val!r}")
+                break
+            # Per-game sanity: no ESPN per-game native should look like a
+            # rest-of-season total. Anything above 40 pts/game is not a
+            # per-game number (sanity bound, not a value judgment).
+            if val > 40:
+                bad.append(f"{key}: native {val} for {slug} looks like ROS total, not per-game")
+                break
+        n_values += len(values)
+    if bad:
+        raise ChainHalt("review", f"espn section malformed: {bad[:5]}")
+    # The section stamps espn_snapshot from the DDF leg's espn_snapshot_date
+    # (the underlying ESPN data vintage), which tracks data/inputs/espn_projections.csv,
+    # not the snapshot directory name. Verify the section matches the newest
+    # leg's vintage so a stale section can't pass.
+    leg_dir = repo / "data" / "ddf-two-tier"
+    newest_vintage = None
+    newest_gen = ""
+    for leg_path in leg_dir.glob("*/ddf_leg.json"):
+        try:
+            leg = json.loads(leg_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue
+        gen = leg.get("generated_at", "")
+        if gen > newest_gen:
+            newest_gen = gen
+            newest_vintage = (leg.get("inputs") or {}).get("espn_snapshot_date")
+    espn_snapshot = section.get("espn_snapshot")
+    if newest_vintage and espn_snapshot != newest_vintage:
+        raise ChainHalt(
+            "review",
+            f"espn section snapshot {espn_snapshot!r} != newest leg vintage {newest_vintage!r}",
+        )
+    print(f"  ✓ review: 12 combos, {n_values} values, snapshot {espn_snapshot}")
+    return n_values
+
+
+def run_espn_source(source="espn", nfl_week=None, repo=REPO, run_fn=run):
+    """Rebuild the espn chain: snapshot -> DDF leg -> section -> review.
+
+    ESPN does NOT go through the generic match -> reference -> section ->
+    reindex path. That path treats ESPN as an as-published trade chart and
+    takes raw rest-of-season totals as natives. ESPN's fixture section is
+    DDF-modeled: ESPN projections run through the DDF two-tier leg and
+    natives are per-game values. This chain mirrors that pipeline
+    (snapshot -> DDF leg -> section) instead of forcing ESPN through the
+    published-chart path.
+
+    Returns a result dict; never raises. The first hold/failure halts the
+    source's chain immediately (ChainHalt) and is recorded as failed.
+    """
+    result = {
+        "source": source,
+        "status": "failed",  # fail-closed default; set to "ok" only on full success
+        "stage": None,
+        "detail": "",
+        "promoted": 0,
+        "sections": 1,
+    }
+    repo = Path(repo)
+    try:
+        # 1. Snapshot (for vintage tracking; the leg builder reads the CSV)
+        result["stage"] = "snapshot"
+        snapshot = find_latest_snapshot(repo, source)
+        if not snapshot:
+            raise ChainHalt("snapshot", "no snapshot.json found under data/raw/sources")
+        print(f"  Snapshot: {snapshot.relative_to(repo)}")
+        try:
+            snapshot_vintage = json.loads(snapshot.read_text(encoding="utf-8")).get("vintage_date")
+        except (OSError, ValueError):
+            snapshot_vintage = None
+
+        # 2. DDF leg: rebuild all 12 legs from the ESPN CSV (3 scorings x 4 team counts)
+        result["stage"] = "leg"
+        for scoring, teams in ((s, t) for s in ESPN_LEG_SCORINGS for t in ESPN_LEG_TEAMS):
+            ok, out = run_fn([
+                "python3", "pipelines/build_ddf_two_tier_leg.py",
+                "--scoring", scoring,
+                "--teams", str(teams),
+            ])
+            if not ok:
+                raise ChainHalt("leg", f"DDF leg build failed (scoring={scoring} teams={teams}): {out[-500:]}")
+        print("  ✓ 12 DDF legs rebuilt")
+
+        # 3. Section: build the fixture section from the fresh legs
+        result["stage"] = "section"
+        ok, out = run_fn(["python3", "pipelines/build_espn_section_from_ddf_leg.py"])
+        if not ok:
+            raise ChainHalt("section", f"espn section build failed: {out[-500:]}")
+        print("  ✓ espn fixture section rebuilt")
+
+        # 4. Review gate: verify the rebuilt section (halts fail-closed)
+        result["stage"] = "review"
+        n_values = _verify_espn_section(repo, snapshot_vintage)
+
+        result["status"] = "ok"
+        result["stage"] = "complete"
+        result["promoted"] = 1
+        result["detail"] = (
+            f"snapshot {snapshot_vintage} -> 12 DDF legs -> section; "
+            f"review passed ({n_values} values)"
+        )
+        print(f"  ✓ espn chain complete: {result['detail']}")
+
+    except ChainHalt as h:
+        result["stage"] = h.stage
+        result["detail"] = h.detail
+        print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
+    except Exception as e:  # fail closed on unexpected errors too
+        result["stage"] = "error"
+        result["detail"] = f"unexpected error: {e}"
+        print(f"  ✗ ERROR: {e}")
+
+    return result
+
+
 def run_fit(repo, run_fn):
     """Stage 7: bias-correction fit. Raises ChainHalt on failure.
 
@@ -522,6 +682,11 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             # path); its chain mirrors that pipeline.
             if source == "cbsros":
                 results[source] = run_cbsros_source(source, nfl_week, repo, run_fn)
+            # ESPN is DDF-modeled (per-game natives via the two-tier leg),
+            # not an as-published chart; it must not go through the generic
+            # published-chart path (which would take raw ROS totals).
+            elif source == "espn":
+                results[source] = run_espn_source(source, nfl_week, repo, run_fn)
             else:
                 results[source] = run_source(source, nfl_week, repo, run_fn)
 
