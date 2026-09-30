@@ -2,6 +2,11 @@
 **Date:** 2026-09-30  
 **QA Target:** https://jb-barrel-droid.github.io/fantasy-tools/ (live trade value dashboard)
 
+## Round 2 Verification (2026-09-30 13:33 UTC)
+Both critical fixes verified on live build tv-20260930-1329-0a64570:
+- **QA-001 FIXED & VERIFIED:** Chart renders with 5 curves (ESPN adjusted, FC/USAT/FP/CBS Adjusted Wk 4). Pink "Curves unavailable" banner gone. Chart health still shows "1 FAIL" on scale agreement (USA Today QB 0.51x) but chart renders despite it — guard now warns instead of blocking.
+- **QA-002 FIXED & VERIFIED:** Table syncs with chart settings in ~200ms (well under 2s polling backup). Tested Full/Half/Standard × 12/8 teams. Captions and values update correctly.
+
 ## Errors Found (Round 1)
 
 ### CRITICAL
