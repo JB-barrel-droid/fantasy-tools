@@ -11,13 +11,12 @@ What it does (deterministic, no hand-edits):
 - Loads the fresh DDF legs for ppr, half_ppr, standard (09-29 bakes).
 - For each scoring, maps DDF 70-scale values onto the fixture's 596-player
   universe via the fixture's own player_keys slugs.
-- Players priced by the DDF leg get fresh values; players outside the leg
-  (ECR-filled) keep their existing section values byte-identical.
-- Per-position fixed-pie rescale: within each position, fresh DDF values
-  are multiplicatively rescaled so the position's total over DDF-priced
-  players equals the old section's total over those same players. This
-  preserves the canonical pie (rank order and relative shape from the
-  fresh ESPN signal; absolute level from the established pie).
+- Players priced by the DDF leg get fresh values DIRECTLY from the leg
+  (no rescale to a stale pie). Players outside the leg (ECR-filled) keep
+  their existing section values byte-identical.
+- The positional pie (index_total target_total) is measured from the FRESH
+  data, not carried forward from a stale canonical pie. This ensures the
+  "ESPN adjusted" curve reflects current ESPN projections, not old levels.
 - Recomputes index_total factors with the repo's fixed-pie methodology.
 - Stamps espn_snapshot with the DDF leg's espn_snapshot_date and
   fetched_at with now. Updates espn_priced_pids from the fresh legs.
@@ -152,35 +151,18 @@ def main() -> int:
             old_vals = combo["values"]
             old_native = combo.get("native", {})
 
-            # Per-position pie-preserving rescale of fresh DDF values.
-            # For each position: factor = old_total(ddf_players) / new_total(ddf_players).
-            pos_old_sums: dict[str, float] = {}
-            pos_new_sums: dict[str, float] = {}
-            for slug, dval in ddf_vals.items():
-                if slug not in old_vals:
-                    continue
-                pos = slug_to_pos.get(slug)
-                if not pos:
-                    continue
-                pos_old_sums[pos] = pos_old_sums.get(pos, 0.0) + old_vals[slug]
-                pos_new_sums[pos] = pos_new_sums.get(pos, 0.0) + dval
-            factors = {}
-            for pos, new_sum in pos_new_sums.items():
-                old_sum = pos_old_sums.get(pos, 0.0)
-                if new_sum > 0 and old_sum > 0:
-                    factors[pos] = old_sum / new_sum
-                else:
-                    factors[pos] = 1.0
-
+            # Use fresh DDF values directly (NO rescale to stale pie).
+            # The DDF leg is the authoritative bottom-up ESPN valuation;
+            # its values reflect the current ESPN vintage. Rescaling to an
+            # old "canonical pie" would pin the level to stale data.
             fresh_vals = dict(old_vals)  # start from existing (ECR fill preserved)
             fresh_native = dict(old_native)
             ddf_ppg = leg_ppgs[scoring]
             for slug, dval in ddf_vals.items():
                 if slug not in old_vals:
                     continue  # DDF player outside fixture universe; skip (fail-closed)
-                pos = slug_to_pos.get(slug)
-                factor = factors.get(pos, 1.0)
-                fresh_vals[slug] = round(dval * factor, 1)
+                # Use the fresh DDF value directly, no stale-pie rescale.
+                fresh_vals[slug] = round(dval, 1)
                 new_priced.add(slug)
                 # Natives are per-game ESPN projections; refresh from the leg's ppg.
                 if slug in ddf_ppg:
@@ -189,18 +171,17 @@ def main() -> int:
             combo["native"] = fresh_native
             combo["n"] = len(fresh_vals)
 
-            # Recompute fixed-pie index_total per position.
+            # Recompute fixed-pie index_total per position from FRESH data.
+            # The target_total is the fresh pie (sum of fresh values), not a
+            # stale canonical pie carried forward. This ensures the rendered
+            # curve reflects current ESPN projections.
             index_total = {}
             for pos in ("QB", "RB", "WR", "TE"):
                 pos_slugs = [s for s in fresh_vals if slug_to_pos.get(s) == pos]
                 pre_total = round(sum(fresh_vals[s] for s in pos_slugs), 1)
-                # Target: the canonical pie total recorded previously.
-                old_it = combo.get("index_total", {}).get(pos, {})
-                target = old_it.get("target_total", pre_total)
-                factor = target / pre_total if pre_total else 1.0
-                # Apply the pie factor so the position total hits the target.
-                for s in pos_slugs:
-                    fresh_vals[s] = round(fresh_vals[s] * factor, 1)
+                # Target: the FRESH pie total (measured from current data).
+                target = pre_total
+                factor = 1.0  # No rescale; values are already on the fresh pie.
                 index_total[pos] = {
                     "target_total": target,
                     "pre_total": pre_total,
@@ -229,7 +210,7 @@ def main() -> int:
     )
     new_section["rails"] = (
         "pipelines/build_espn_section_from_ddf_leg.py (DDF two-tier leg, "
-        "per-position fixed-pie rescale)"
+        "fresh values direct, pie measured from current data)"
     )
 
     if args.dry_run:
