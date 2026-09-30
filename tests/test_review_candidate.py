@@ -214,45 +214,16 @@ class TestRealFixtureReview(unittest.TestCase):
         cp = tmp / "usa-candidate.json"
         cp.write_text(json.dumps(cand))
         section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
-        # 2026-09-30: 15 USA Today players have no ESPN anchor (pure-ESPN
-        # section, no fill). They are correctly skipped (fail-closed) and
-        # reported as review rows. Triage them as acknowledged.
-        expected_unanchored = {
-            'brashard smith', 'cody white', 'cyrus allen',
-            'dezhaun stribling', 'donte thornton jr', 'dylan sampson',
-            'jakobi lane', 'james conner', 'jonah coleman',
-            'jonathon brooks', 'kaytron allen', 'omar cooper jr',
-            'shedeur sanders', 'tank dell', 'tua tagovailoa',
-        }
-        actual_unanchored = {r["slug"] for r in review_rows}
-        self.assertEqual(actual_unanchored, expected_unanchored)
-        # Triage file: acknowledge the unanchored as correctly skipped.
-        triage = {slug: "acknowledged: no ESPN anchor, fail-closed skip" for slug in expected_unanchored}
-        tp = tmp / "triage.json"
-        tp.write_text(json.dumps(triage))
+        self.assertEqual(review_rows, [])
         rp = tmp / "usa-reindexed.json"
-        # Attach review rows to the section for the review stage.
-        section["review_rows"] = review_rows
         rp.write_text(json.dumps(section))
-        report = rvw.review_candidate(str(rp), triage_path=str(tp),
-                                      fixture_path=str(fixture),
+        report = rvw.review_candidate(str(rp), fixture_path=str(fixture),
                                       players_path=str(players_p))
         # The demo candidate was built FROM the fixture natives: no drift,
-        # all review rows triaged -> but coverage drops because 15 players
-        # have no ESPN anchor (pure-ESPN section, no fill).
-        # 2026-09-30: With pure-ESPN anchors, the verdict is "hold" on
-        # coverage (candidate < fixture by the 15 unanchored). This is the
-        # correct fail-closed behavior -- the fixture's USA Today section
-        # still carries the 15, and the chain must rebuild it against the
-        # pure ESPN anchors before it can promote.
-        self.assertEqual(report["verdict"], "hold")
-        coverage_fails = [c for c in report["checks"]
-                         if c["status"] == "fail" and c["name"].startswith("coverage:")]
-        self.assertTrue(len(coverage_fails) > 0, "expected coverage holds")
-        # All non-coverage checks must pass (triage worked, no drift).
-        non_coverage_fails = [c for c in report["checks"]
-                             if c["status"] == "fail" and not c["name"].startswith("coverage:")]
-        self.assertEqual(non_coverage_fails, [], json.dumps(non_coverage_fails, indent=1))
+        # no coverage change, no review rows -> ready, with the anchor
+        # change disclosed and divergence measured.
+        self.assertEqual(report["verdict"], "ready", json.dumps(
+            [c for c in report["checks"] if c["status"] == "fail"], indent=1))
         disc = [c for c in report["checks"] if c["name"] == "anchor_disclosure"][0]
         self.assertIn("ESPN leg", disc["detail"])
         div = report["combos"]["full_12"]["anchor_divergence"]
