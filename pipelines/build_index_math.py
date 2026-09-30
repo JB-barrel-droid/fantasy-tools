@@ -39,20 +39,26 @@ def verify_espn():
     fixture = json.loads(FIXTURE.read_text())
     espn = fixture["sources"]["espn"]
     
-    # Load DDF legs
+    # Load DDF legs - pick the NEWEST vintage for each scoring
+    # (glob order is filesystem-dependent; older legs like 20260921 must not shadow 20260929)
     legs = {}
     for scoring in ["ppr", "half_ppr", "standard"]:
-        # Find the leg
+        # Collect all matching legs, pick the one with the newest bake_id (date prefix)
+        candidates = []
         for leg_path in LEG_DIR.glob("*/ddf_leg.json"):
             leg = json.loads(leg_path.read_text())
             bake_id = leg.get("bake_id", "")
             if f"-espn-{scoring}-" in bake_id:
-                legs[scoring] = {
-                    row["player_norm"]: round(row["value"], 1)
-                    for row in leg.get("values", [])
-                    if row.get("player_norm") and isinstance(row.get("value"), (int, float))
-                }
-                break
+                candidates.append((bake_id, leg))
+        if candidates:
+            # Sort by bake_id descending (newest date first: ddf-20260929 > ddf-20260921)
+            candidates.sort(key=lambda x: x[0], reverse=True)
+            bake_id, leg = candidates[0]
+            legs[scoring] = {
+                row["player_norm"]: round(row["value"], 1)
+                for row in leg.get("values", [])
+                if row.get("player_norm") and isinstance(row.get("value"), (int, float))
+            }
     
     results = {
         "methodology": "DDF two-tier",
