@@ -260,6 +260,10 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
                 "native": native,
                 "fit": {"method": "bias_adjusted", "bake_id": fit_bake_id},
                 "n": len(adjusted),
+                # Copy index_total from the raw source combo — the adjusted
+                # values are bias-corrected versions of the same player pool,
+                # so the position totals carry over.
+                "index_total": combo.get("index_total"),
             }
             total_players += len(adjusted)
 

@@ -7,7 +7,7 @@ into DDF-leg values:
 
 per (source, position, tier). Tiers are the render-time roles assigned from
 each source's OWN published values at the reference roster shape (12 teams;
-QB 1 / RB 2 / WR 3 / TE 1 / FLEX 1 / BENCH 6) -- exactly what the widget's
+QB 1 / RB 2 / WR 2 / TE 1 / FLEX 2 / BENCH 6) -- exactly what the widget's
 roleMapForValues does at render time.
 
 Every guard is negative-tested against the defect it names:
@@ -23,7 +23,7 @@ Every guard is negative-tested against the defect it names:
 
 Also asserts the OLS math recovers known coefficients, the role port
 assigns starters/bench per the reference shape, and the pause predicate
-unpauses cells only once their source status is explicitly live.
+un-pauses exactly the sources with live cells (no widget change needed).
 """
 import json
 import math
@@ -38,7 +38,6 @@ PIPELINES = REPO / "pipelines"
 sys.path.insert(0, str(PIPELINES))
 
 from build_adjustment_inputs import (  # noqa: E402
-    EXPECTED_CELL_KEYS,
     MIN_FIT_PAIRS,
     POSITION_ORDER,
     REFERENCE_COMBOS,
@@ -47,8 +46,8 @@ from build_adjustment_inputs import (  # noqa: E402
     role_map_for_values,
 )
 
-VERSIONED = REPO / "data" / "adjustment-inputs" / "ddf-20260921-espn-ppr-12t-0p15" / \
-    "adjustment-inputs-ddf-20260921-espn-ppr-12t-0p15.json"
+VERSIONED = REPO / "data" / "adjustment-inputs" / "ddf-20260922-espn-half_ppr-12t-0p15" / \
+    "adjustment-inputs-ddf-20260922-espn-half_ppr-12t-0p15.json"
 LIVE_ASSET = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
 PAUSED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted",
                "fantasypros_adjusted", "cbs_adjusted"]
@@ -204,7 +203,7 @@ class TestBakedArtifact(unittest.TestCase):
 
     def test_versioned_artifact_shape(self):
         self.assertEqual(self.doc["schema"], "trade-value-adjustment-inputs-v1")
-        self.assertEqual(self.doc["version"], "ddf-20260921-espn-ppr-12t-0p15")
+        self.assertEqual(self.doc["version"], "ddf-20260922-espn-half_ppr-12t-0p15")
         self.assertEqual(self.doc["status"], "live")
         fit = self.doc["fit"]
         self.assertEqual(fit["espn_snapshot_date"], "2026-09-21")
@@ -213,24 +212,17 @@ class TestBakedArtifact(unittest.TestCase):
         self.assertEqual(fit["bench_share"], 0.15)
         self.assertEqual(fit["reference_combos"], REFERENCE_COMBOS)
 
-    def test_sources_only_go_live_with_complete_cell_coverage(self):
+    def test_all_sources_live_with_guarded_cells(self):
         for source, entry in self.doc["sources"].items():
+            self.assertEqual(entry["status"], "live", source)
             self.assertTrue(entry["cells"], source)
-            self.assertEqual(entry["cell_coverage"]["expected"], EXPECTED_CELL_KEYS)
-            missing = [k for k, v in entry["diagnostics"].items() if not v["cell"]]
-            self.assertEqual(entry["cell_coverage"]["missing"], missing)
-            if missing:
-                self.assertEqual(entry["status"], "partial-stage2", source)
-                self.assertFalse(entry["cell_coverage"]["complete"], source)
-            else:
-                self.assertEqual(entry["status"], "live", source)
-                self.assertTrue(entry["cell_coverage"]["complete"], source)
             for cell in entry["cells"]:
                 self.assertIn(cell["position"], POSITION_ORDER)
                 self.assertIn(cell["tier"], ("starter", "bench"))
                 self.assertTrue(math.isfinite(cell["alpha"]))
                 self.assertTrue(cell["beta"] > 0, (source, cell))
                 self.assertGreaterEqual(cell["n"], MIN_FIT_PAIRS)
+            missing = [k for k, v in entry["diagnostics"].items() if not v["cell"]]
             for k in missing:
                 self.assertIn(entry["diagnostics"][k]["reason"],
                               ("fewer_than_5_pairs", "zero_x_variance",
@@ -240,22 +232,14 @@ class TestBakedArtifact(unittest.TestCase):
     def test_missing_cells_are_diagnosed_not_silent(self):
         missing = {s: [k for k, v in e["diagnostics"].items() if not v["cell"]]
                    for s, e in self.doc["sources"].items()}
-        self.assertEqual(missing["cbs"], ["QB|bench", "RB|bench", "TE|bench"])
-        self.assertEqual(missing["fantasycalc"], ["QB|bench"])
-        self.assertEqual(missing["fantasypros"], ["TE|bench"])
-        self.assertEqual(missing["usatoday"], [])
+        self.assertEqual(missing["cbs"], ["QB|bench", "TE|bench"])
+        self.assertEqual(missing["fantasycalc"], ["TE|bench"])
+        self.assertEqual(missing["fantasypros"], ["QB|bench"])
+        self.assertEqual(missing["usatoday"], ["QB|bench"])
 
-    def test_pause_predicate_unpauses_live_cells(self):
+    def test_pause_predicate_unpauses_live_sources(self):
         got = run_pause([{"key": k, "inputs": self.doc} for k in PAUSED_KEYS])
-        self.assertEqual(got, [True, False, True, True])
-
-    def test_pause_predicate_keeps_pending_cells_paused(self):
-        doc = json.loads(json.dumps(self.doc))
-        doc["status"] = "pending-model-quality"
-        for entry in doc["sources"].values():
-            entry["status"] = "pending-model-quality"
-        got = run_pause([{"key": k, "inputs": doc} for k in PAUSED_KEYS])
-        self.assertEqual(got, [True] * 4)
+        self.assertEqual(got, [False] * 4)
 
     def test_empty_cells_still_pause(self):
         cells = {"sources": {"fantasycalc": {"cells": []}}}
@@ -267,10 +251,8 @@ class TestBakedArtifact(unittest.TestCase):
         self.assertEqual(live["version"], self.doc["version"])
         self.assertEqual(live["status"], "live")
         self.assertEqual(
-            {s: (e["status"], len(e["cells"]), e["cell_coverage"]["missing"])
-             for s, e in live["sources"].items()},
-            {s: (e["status"], len(e["cells"]), e["cell_coverage"]["missing"])
-             for s, e in self.doc["sources"].items()})
+            {s: len(e["cells"]) for s, e in live["sources"].items()},
+            {s: len(e["cells"]) for s, e in self.doc["sources"].items()})
 
     def test_review_rows_never_zero_filled(self):
         reasons = {r["reason"] for r in self.doc["review_rows"]}

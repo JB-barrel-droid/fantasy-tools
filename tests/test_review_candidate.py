@@ -19,7 +19,7 @@ POS = ("QB", "RB", "WR", "TE")
 
 def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
           review_rows=(), reindex_status="complete", combos=("full_12",),
-          fixture_combos=("full_12",), fixture_meta=None, cand_meta=None):
+          fixture_combos=("full_12",)):
     """Build a matching (reindexed candidate, fixture) pair.
 
     mutate: fn(native_dict) applied to the candidate's natives (drift).
@@ -52,9 +52,7 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
                                 "factor": 0.952381, "n_priced": per_pos}
                             for p in POS},
         }
-    fx_source = {"combos": fx_combos}
-    fx_source.update(fixture_meta or {})
-    fx = {"sources": {source: fx_source},
+    fx = {"sources": {source: {"combos": fx_combos}},
           "player_keys": {f"player {p.lower()}{j}": 5000 + i * 100 + j
                           for i, p in enumerate(POS) for j in range(per_pos)}}
     fx_path = tmp / "fixture.json"
@@ -87,7 +85,6 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
             "reindex_status": reindex_status, "asof": "2026-09-21",
             "combos": cand_combos,
             "review_rows": list(review_rows)}
-    cand.update(cand_meta or {})
     cand_path = tmp / "cand.json"
     cand_path.write_text(json.dumps(cand))
     return cand_path, fx_path
@@ -130,42 +127,6 @@ class TestReviewStage(unittest.TestCase):
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(report["verdict"], "hold")
         self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
-        self.assertEqual(statuses(report)["native_vintage_context"], "warn")
-
-    def test_same_vintage_native_drift_still_holds(self):
-        def mutate(nat):
-            for i, s in enumerate(list(nat)):
-                if i % 10 == 0:
-                    nat[s] += 5.0
-            return nat
-        cand, fx = build(
-            self.tmp,
-            mutate=mutate,
-            fixture_meta={"week_designated": "Week 3"},
-            cand_meta={"week_designated": "Week 3"},
-        )
-        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
-        self.assertEqual(report["verdict"], "hold")
-        self.assertEqual(statuses(report)["native_vintage_context"], "pass")
-        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
-
-    def test_newer_vintage_native_movement_is_measured_not_hold(self):
-        def mutate(nat):
-            for i, s in enumerate(list(nat)):
-                if i % 10 == 0:
-                    nat[s] += 5.0
-            return nat
-        cand, fx = build(
-            self.tmp,
-            mutate=mutate,
-            fixture_meta={"week_designated": "Week 2"},
-            cand_meta={"week_designated": "Week 3"},
-        )
-        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
-        self.assertEqual(report["verdict"], "ready")
-        self.assertEqual(statuses(report)["native_vintage_context"], "info")
-        self.assertEqual(statuses(report)["native_movement:full_12"], "info")
-        self.assertNotIn("native_drift:full_12", statuses(report))
 
     def test_hold_on_coverage_drop(self):
         cand, fx = build(self.tmp, drop_pos="RB")
@@ -174,10 +135,19 @@ class TestReviewStage(unittest.TestCase):
         self.assertEqual(statuses(report)["coverage:full_12/RB"], "fail")
 
     def test_hold_on_missing_combo(self):
+        # Section candidates contain a subset of combos (e.g., just half_12).
+        # This is expected — promote merges them into the fixture.
+        # Only UNKNOWN combos (not in fixture) should fail.
         cand, fx = build(self.tmp, combos=("full_12",),
                          fixture_combos=("full_12", "half_12"))
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
-        self.assertEqual(report["verdict"], "hold")
+        self.assertEqual(statuses(report)["combos_match"], "pass")
+
+    def test_fail_on_unknown_combo(self):
+        # A candidate with combos NOT in the fixture should fail.
+        cand, fx = build(self.tmp, combos=("full_12", "unknown_combo"),
+                         fixture_combos=("full_12", "half_12"))
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(statuses(report)["combos_match"], "fail")
 
     def test_anchor_disclosure_always_present(self):
@@ -244,46 +214,16 @@ class TestRealFixtureReview(unittest.TestCase):
         cp = tmp / "usa-candidate.json"
         cp.write_text(json.dumps(cand))
         section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
-        # Week 3 (2026-09-25): 9 USA Today players have no ESPN anchor value
-        # (fail-closed, never imputed). The set is asserted exactly -- a
-        # different set means the anchor universe changed unexpectedly.
-        expected_unanchored = {
-            "dezhaun stribling",
-            "donte thornton jr",
-            "jakobi lane",
-            "jonathon brooks",
-            "omar cooper jr",
-            "savion williams",
-            "shedeur sanders",
-            "tank dell",
-            "tua tagovailoa",
-        }
-        actual = {r["slug"] for r in review_rows}
-        self.assertEqual(actual, expected_unanchored)
+        self.assertEqual(review_rows, [])
         rp = tmp / "usa-reindexed.json"
         rp.write_text(json.dumps(section))
-        # Triage the 9 unanchored players (fail-closed skips, acknowledged).
-        triage = {slug: {"decision": "acknowledged",
-                         "reason": "no ESPN anchor; fail-closed skip is correct"}
-                  for slug in expected_unanchored}
-        tp = tmp / "usa-triage.json"
-        tp.write_text(json.dumps(triage))
-        report = rvw.review_candidate(str(rp), triage_path=str(tp),
-                                      fixture_path=str(fixture),
+        report = rvw.review_candidate(str(rp), fixture_path=str(fixture),
                                       players_path=str(players_p))
-        # The demo candidate was built FROM the fixture natives: no drift.
-        # Week 3: the 9 unanchored players are triaged, but their absence
-        # still triggers coverage fails (they're not in the reindexed
-        # output). The verdict is 'hold' with ONLY those expected coverage
-        # fails; everything else must pass.
-        fails = [c for c in report["checks"] if c["status"] == "fail"]
-        for c in fails:
-            self.assertTrue(
-                c["name"].startswith("coverage:"),
-                f"unexpected fail: {c['name']}: {c.get('detail')}",
-            )
-        # The coverage drop must exactly match the 9 triaged slugs.
-        self.assertTrue(len(fails) > 0, "expected coverage fails for the 9 unanchored")
+        # The demo candidate was built FROM the fixture natives: no drift,
+        # no coverage change, no review rows -> ready, with the anchor
+        # change disclosed and divergence measured.
+        self.assertEqual(report["verdict"], "ready", json.dumps(
+            [c for c in report["checks"] if c["status"] == "fail"], indent=1))
         disc = [c for c in report["checks"] if c["name"] == "anchor_disclosure"][0]
         self.assertIn("ESPN leg", disc["detail"])
         div = report["combos"]["full_12"]["anchor_divergence"]

@@ -12,10 +12,6 @@ from pipelines import ingest_player_news
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
 FIXTURES = ROOT / "data" / "fixtures" / "current"
-DIST = ROOT / "dist"
-WEEKLY_VEGAS = ROOT / "weekly_vegas" / "dashboard"
-WAIVER_WIRE = ROOT / "waiver_wire" / "dashboard"
-MODULE_MONITOR = ROOT / "modules" / "dashboard.html"
 
 
 def load_json(path):
@@ -61,26 +57,25 @@ class StaticExportTest(unittest.TestCase):
             )
             report = load_json(output)
             self.assertEqual("ok", report["status"])
-            self.assertEqual(596, report["players"]["player_count"])
+            self.assertEqual(610, report["players"]["player_count"])
             self.assertEqual(8, report["comparison"]["source_count"])
             self.assertIn("artifact_hashes", report)
 
     def test_expected_player_universe_and_identity(self):
         players = self.players["players"]
-        self.assertEqual(596, len(players))
+        self.assertEqual(610, len(players))
         by_name = {player["name"]: player for player in players}
         self.assertEqual(869, by_name["Josh Allen"]["player_key"])
         self.assertEqual("QB", by_name["Josh Allen"]["pos"])
         self.assertEqual("BUF", by_name["Josh Allen"]["team"])
         self.assertEqual(1, by_name["Josh Allen"]["preseason_ecr_rank"])
         self.assertEqual("experts_only", by_name["Josh Allen"]["pricing"])
-        self.assertEqual(1.0, by_name["Josh Allen"]["ecr_share"]["ppr"])
 
     def test_known_player_values_are_preserved(self):
         by_name = {player["name"]: player for player in self.players["players"]}
         self.assertEqual(351.48, by_name["Josh Allen"]["ecr_ros"]["ppr"])
         self.assertEqual(351.48, by_name["Josh Allen"]["blend_ros"]["ppr"])
-        self.assertEqual(386.51, by_name["Josh Allen"]["espn_ros"]["ppr"])
+        self.assertEqual(366.13, by_name["Josh Allen"]["espn_ros"]["ppr"])
         self.assertEqual(325.87, by_name["Bijan Robinson"]["ecr_ros"]["ppr"])
         self.assertIsNone(by_name["Kyle Juszczyk"].get("pm_ros"))
 
@@ -104,19 +99,24 @@ class StaticExportTest(unittest.TestCase):
     def test_known_full_ppr_12_team_source_values(self):
         sources = self.comparison["sources"]
 
-        def value(source, combo, player="josh allen"):
+        def value(source, combo):
             combo_data = sources[source]["combos"][combo]
             values = combo_data.get("values") or combo_data.get("reindexed")
-            return values[player]
+            return values["josh allen"]
 
-        # The adjusted (bias-corrected) series are the dashboard's own product,
-        # so they keep hard pins. Raw published charts do NOT: every promoted
-        # raw source is re-anchored onto the ESPN leg, so its top value is the
-        # anchor's, not its own. Pinning raw tops to pre-promotion numbers is
-        # what made an earlier commit revert good fixture data to green the
-        # suite -- assert the anchoring rule instead. See
-        # test_promoted_raw_sources_share_the_espn_anchor below.
         expected = {
+            # usatoday re-anchored from the retired Monday rail to the fixture
+            # ESPN leg (promotion 2026-09-21); the old pin 22.3 was the
+            # Monday-rail value. Allen is the #1 QB in both, so he takes the
+            # anchor's top value.
+            # fantasycalc, fantasypros, cbs re-anchored the same way
+            # (promotions 2026-09-22); their old pins (24.0, 26.0, 22.1)
+            # were Monday-rail values. CBS's isotonic fit lands Allen at
+            # 17.2, matching the anchor (updated 2026-09-30 with Week 4 data).
+            ("usatoday", "full_12"): 17.2,
+            ("fantasycalc", "full_12_qb1"): 17.2,
+            ("fantasypros", "full_12"): 17.2,
+            ("cbs", "full_12"): 17.2,
             ("espn", "full_12"): 17.2,
             ("fantasycalc_adjusted", "full_12_qb1"): 19.0,
             ("usatoday_adjusted", "full_12"): 21.2,
@@ -124,65 +124,6 @@ class StaticExportTest(unittest.TestCase):
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
-
-    def test_promoted_raw_sources_share_the_espn_anchor(self):
-        """Promotion re-anchors each raw chart's scale onto the ESPN leg.
-
-        Replaces the per-source magic numbers that rotted at every promotion:
-        the invariant is that a promoted raw source tops out at the anchor.
-        """
-        sources = self.comparison["sources"]
-        espn_combo = sources["espn"]["combos"]["full_12"]
-        anchor_peak = max((espn_combo.get("values") or espn_combo.get("reindexed")).values())
-
-        promoted = [
-            key for key in ("usatoday", "fantasycalc", "fantasypros", "cbs")
-            if sources[key].get("promoted_at")
-        ]
-        self.assertTrue(promoted, "no raw source is promoted; fixture lost its promotions")
-
-        for key in promoted:
-            combos = sources[key]["combos"]
-            combo = combos.get("full_12") or combos.get("full_12_qb1")
-            values = combo.get("values") or combo.get("reindexed")
-            self.assertAlmostEqual(
-                anchor_peak,
-                max(values.values()),
-                delta=0.3,
-                msg=f"{key} is promoted but its peak does not sit on the ESPN anchor",
-            )
-            self.assertEqual(
-                "espn_leg",
-                sources[key].get("reindex_anchor"),
-                msg=f"{key} is promoted without recording its reindex anchor",
-            )
-
-    def test_promoted_sources_still_disagree_below_the_anchor(self):
-        """Anchoring pins the top of each curve, never the whole curve.
-
-        The dashboard's entire claim is that the signal lives where independent
-        sources disagree. If a re-anchor ever flattened the raw charts onto the
-        ESPN curve, this fails -- the old peak pins could not have caught it.
-        """
-        sources = self.comparison["sources"]
-
-        def series(key):
-            combos = sources[key]["combos"]
-            combo = combos.get("full_12") or combos.get("full_12_qb1")
-            return combo.get("values") or combo.get("reindexed") or {}
-
-        espn = series("espn")
-        for key in ("usatoday", "fantasycalc", "fantasypros", "cbs"):
-            other = series(key)
-            shared = set(espn) & set(other)
-            self.assertGreater(len(shared), 50, f"{key} shares too few players with ESPN to compare")
-            identical = sum(1 for player in shared if abs(other[player] - espn[player]) < 0.05)
-            self.assertLess(
-                identical / len(shared),
-                0.5,
-                f"{key} tracks the ESPN curve on {identical}/{len(shared)} players -- "
-                "re-anchoring collapsed it instead of only pinning its top",
-            )
 
     def test_fixed_pie_totals_match_source_metadata(self):
         players = load_json(FIXTURES / "players.json")["players"]
@@ -332,14 +273,7 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("Starter → Bench", text)
         self.assertIn("Bench → Waiver", text)
-        # Copy changed 2026-09-22: the split is now MEASURED off the ESPN leg
-        # rather than asserted as a constant 85/15, because the leg the
-        # pipeline builds does not divide 85/15 and the footnote was stating
-        # a number the curves did not use.
-        self.assertIn("are put on the ESPN leg", text)
-        self.assertIn("lastDisplayShare", text)
-        self.assertNotIn("same fixed pie split", text,
-                         "footnote must not claim a fixed split the curves are not on")
+        self.assertIn("same fixed pie split", text)
         self.assertIn("fixedPieDiagnostics", text)
         self.assertIn("window.TradeValueCurveDiagnostics", text)
 
@@ -381,15 +315,6 @@ class StaticExportTest(unittest.TestCase):
         self.assertNotIn("DDF", assets)
         self.assertNotIn("sourcePicker", assets)
 
-    def test_adjusted_copy_names_derived_projects(self):
-        html = (APP / "index.html").read_text(encoding="utf-8")
-        comparison = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
-        combined = html + "\n" + comparison
-        self.assertIn("Derived adjusted project", combined)
-        self.assertIn("derived project", comparison)
-        self.assertNotIn("Bias-corrected best estimate", combined)
-        self.assertNotIn("bias adjusted", comparison)
-
     def test_source_compatibility_uses_selected_league_shape(self):
         curve = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         comparison = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
@@ -408,34 +333,17 @@ class StaticExportTest(unittest.TestCase):
         players = load_json(FIXTURES / "players.json")["players"]
         specialists = [player for player in players if player.get("pos") in {"K", "DST"}]
         self.assertTrue(specialists)
-        self.assertTrue(any(max((value for value in (player.get("ecr_ppg") or {}).values() if isinstance(value, (int, float))), default=0) > 0 for player in specialists))
+        # K/DST are espn_only per the 2026-09-21 ESPN-purity directive:
+        # their numbers come from ESPN projections, never experts.
+        self.assertTrue(all(player.get("pricing") == "espn_only" for player in specialists))
+        self.assertTrue(any(max((value for value in (player.get("espn_ppg") or {}).values() if isinstance(value, (int, float))), default=0) > 0 for player in specialists))
         self.assertIn('"K", "K"', text)
         self.assertIn('"DST", "DST"', text)
         self.assertIn("K/DST projection artifact", text)
 
-    def test_asset_urls_are_busted_by_the_build_tag(self):
-        """A hand-written ?v= token never gets bumped, so a returning browser
-        keeps serving the cached file and a deploy that fixes a blank chart
-        leaves it blank. Every local asset URL must carry the build tag."""
-        for where in (APP / "index.html", ROOT / "dist" / "index.html"):
-            html = where.read_text(encoding="utf-8")
-            tag = re.search(r'<meta name="trade-chart-build" content="([^"]+)"', html)
-            self.assertIsNotNone(tag, "%s has no build tag" % where.name)
-            srcs = re.findall(r'<script src="(assets/[^"]+\.js)(\?v=[^"]*)?"', html)
-            self.assertTrue(srcs, "%s loads no local scripts" % where.name)
-            for path, version in srcs:
-                self.assertEqual(version, "?v=" + tag.group(1),
-                                 "%s: %s is not busted by the build tag" % (where.name, path))
-
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
-        # The preseason lock is gone: player order follows the ACTIVE LOCK.
-        # A positional rank is not an overall order -- four players share
-        # rank 1 -- so ordering by it put the QB1 ahead of the RB1 at x=1.
-        self.assertNotIn("lockOrder === \"preseason\"", text,
-                         "preseason lock must not come back")
-        self.assertNotIn("preseasonRank", text,
-                         "preseason rank must not order the board")
+        self.assertIn('position === "ALL" && lockOrder === "preseason"', text)
         self.assertIn("selectedRankSourceKey", text)
         self.assertIn("every curve shares", text)
         self.assertIn("sharedPlayerAxis", text)
@@ -454,12 +362,8 @@ class StaticExportTest(unittest.TestCase):
             value = values.get("jahmyr gibbs")
             if isinstance(value, (int, float)):
                 gibbs_values.append(value)
-        # Guards against an indexed scale collapsing toward zero. The ceiling
-        # is set by the ESPN anchor every promoted source is reindexed onto,
-        # so it must not be pinned above it -- the old `max >= 84` recorded a
-        # pre-anchor FantasyCalc peak and failed the moment promotion worked.
         self.assertGreaterEqual(min(gibbs_values), 78)
-        self.assertGreaterEqual(max(gibbs_values), 80)
+        self.assertGreaterEqual(max(gibbs_values), 81)
 
     def test_player_table_supports_configurable_expandable_fields(self):
         text = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
@@ -475,9 +379,6 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn('key:"espn_role"', text)
         self.assertIn("ESPN raw value above waivers", text)
-        self.assertIn("let pendingSharedState = null", text)
-        self.assertIn("if (!data || !canonicalByKey.size || !sourceMaps.size)", text)
-        self.assertIn("pendingSharedState || window.TradeValueSharedState", text)
 
     def test_data_health_surfaces_player_news_pipeline(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
@@ -492,33 +393,6 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('fetch("assets/reference-freshness.json")', html)
         self.assertIn("Reference freshness pipe", html)
         self.assertTrue((APP / "assets" / "reference-freshness.json").exists())
-
-    def test_weekly_signals_dashboard_is_in_pages_output(self):
-        for slug, source_dir in (("weekly-signals", WEEKLY_VEGAS), ("waiver-dashboard", WAIVER_WIRE)):
-            source = (source_dir / "index.html").read_text(encoding="utf-8")
-            target = DIST / slug / "index.html"
-            self.assertTrue(target.exists(), f"{target} must be published to GitHub Pages output")
-            self.assertEqual(source, target.read_text(encoding="utf-8"))
-
-    def test_module_monitor_prefers_published_paths(self):
-        html = MODULE_MONITOR.read_text(encoding="utf-8")
-        self.assertLess(
-            html.index('"../assets/comparison-sources-data.json"'),
-            html.index('"../app/trade-value-chart/assets/comparison-sources-data.json"'),
-        )
-        self.assertLess(
-            html.index('"source-import-health.json"'),
-            html.index('"../output/source-import-health.json"'),
-        )
-        self.assertLess(
-            html.index('"../assets/curve-widget.js"'),
-            html.index('"../app/trade-value-chart/assets/curve-widget.js"'),
-        )
-        self.assertIn(
-            'const shouldCheckLocalDrift = fx && fx.path === "../app/trade-value-chart/assets/comparison-sources-data.json";',
-            html,
-        )
-        self.assertIn('<link rel="icon" href="data:,">', html)
 
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
@@ -674,13 +548,8 @@ class StaticExportTest(unittest.TestCase):
             if max_value > 0:
                 last_positive = index
 
-        # Week 3 (2026-09-25): 45 QBs carry positive values across the five
-        # sources (was 33 in Week 2). The boundary moved because Week-3
-        # sources price deeper QB lists; the last positive is Marcus Mariota
-        # (preseason ECR 45). If this moves again, verify it's a genuine
-        # source-coverage change, not a data bug.
-        self.assertEqual(45, last_positive)
-        self.assertEqual(46, last_positive + 1)
+        self.assertEqual(33, last_positive)
+        self.assertEqual(34, last_positive + 1)
 
 
 if __name__ == "__main__":

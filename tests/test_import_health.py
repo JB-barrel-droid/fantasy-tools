@@ -51,6 +51,9 @@ SOURCE_KEYS = {
     "snapshot_path",
     "failure_reason",
     "ignored_older_rows",
+    "db_latest_vintage",
+    "db_latest_arrived_at",
+    "db_latest_rows",
 }
 TOP_KEYS = {"schema", "checked_at", "nfl_week", "sources"}
 
