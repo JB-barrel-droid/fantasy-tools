@@ -225,7 +225,7 @@ def main():
             "source_url": SOURCE_URLS[src]["url"],
             "source_note": SOURCE_URLS[src]["note"],
             "combo_key": combo_key,
-            "player_count": combo.get("n", len(native)),
+            "player_count": len(native),  # Use actual native count, not stale 'n' field
             "live_scraped": src in live_data and bool(live_data[src]),
             "top25": players,
         }
