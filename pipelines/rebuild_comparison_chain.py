@@ -1,28 +1,38 @@
 #!/usr/bin/env python3
 """Rebuild the comparison fixture from fresh snapshots — full automated chain.
 
-Runs the complete pipeline sequentially with no manual intervention:
-  match -> reference -> section -> reindex -> review -> promote -> fit
+FAIL-CLOSED. Stages run strictly in order per source:
+  match -> reference -> section -> reindex -> review -> promote
+then, only if EVERY source succeeded:
+  fit (bias-correction adjustment cells)
+then, only if the fit succeeded:
+  adjusted fixture sections (deterministic application of the fit cells)
 
-Jeremy 2026-09-29: "Set up the chain so anytime the initial chain kicks off,
-all other stages run sequentially. I shouldn't have to push the chain along."
-
-Jeremy 2026-09-29: "Fitting every week can't be an ad hoc modeling project."
-The bias-correction fit (build_adjustment_inputs.py) is a deterministic
-pipeline stage, not a manual exercise. It runs automatically after promotion,
-fitting affine cells against the DDF leg built from the fresh fixture.
-
-Auto-promotion is authorized. Review 'hold' verdicts due to expected staleness
-(fresh data vs older fixture) are auto-resolved to 'ready' with justification.
-Structural mismatches (e.g., missing QB combos) are logged and skipped, not fatal.
+Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
+- Review verdicts are NEVER modified by this chain. A 'hold' stays a 'hold'.
+  review_comparison_candidate.py documents hold as "something needs a human
+  first" — there is no legitimate auto-resolve path.
+- Only genuine 'ready' verdicts are promoted. promote_comparison_section.py
+  independently refuses non-'ready' verdicts; this chain does not retry
+  around, re-review around, or edit its way around that refusal.
+- The first hold/failure HALTS the chain for that source: no further
+  sections are processed for it, and the fit stage does not run at all.
+- Partial or zero promotion is FAILURE, never a partial success.
+- Chain status is written through a finally block so partial/interrupted
+  runs are always recorded for the monitoring dashboard.
 
 Usage:
     python3 pipelines/rebuild_comparison_chain.py [--nfl-week WEEK]
+
+Exit code: 0 only if every source completed fully and the fit ran cleanly.
+Any hold, failure, or partial promotion exits non-zero so the GitHub
+Actions workflow stops before committing.
 """
 
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -31,10 +41,17 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs"]
 
-# Skip sources with known structural issues (logged, not fatal)
-SKIP_SOURCES = {
-    # (empty for now — fantasycalc QB-split fix landed 2026-09-29)
-}
+# Stage names in strict execution order (fit runs last, gated on all sources).
+STAGE_ORDER = ["match", "reference", "section", "reindex", "review", "promote", "fit"]
+
+
+class ChainHalt(Exception):
+    """Raised to stop the chain fail-closed on the first hold/failure."""
+
+    def __init__(self, stage, detail):
+        super().__init__(f"{stage}: {detail}")
+        self.stage = stage
+        self.detail = detail
 
 
 def run(cmd, **kwargs):
@@ -50,9 +67,9 @@ def run(cmd, **kwargs):
         return False, str(e)
 
 
-def find_latest_snapshot(source):
+def find_latest_snapshot(repo, source):
     """Find the latest snapshot.json for a source."""
-    source_dir = REPO / "data" / "raw" / "sources" / source
+    source_dir = repo / "data" / "raw" / "sources" / source
     if not source_dir.is_dir():
         return None
     # Handle both date-based and week-based directory names
@@ -67,226 +84,368 @@ def find_latest_snapshot(source):
     return candidates[-1] / "snapshot.json"
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--nfl-week", type=int, default=None)
-    args = parser.parse_args()
+def newest_file(directory, pattern):
+    """Newest file matching pattern under directory (by mtime), or None."""
+    if not directory.is_dir():
+        return None
+    files = list(directory.rglob(pattern))
+    if not files:
+        return None
+    files.sort(key=lambda p: p.stat().st_mtime)
+    return files[-1]
 
-    print("=" * 60)
-    print("COMPARISON CHAIN REBUILD")
-    print("=" * 60)
 
-    results = {}
+def process_section(section, repo, run_fn):
+    """Reindex -> review -> promote ONE section. Fail-closed.
 
-    for source in SOURCES:
-        if source in SKIP_SOURCES:
-            print(f"\n[{source}] SKIPPED: {SKIP_SOURCES[source]}")
-            results[source] = "skipped"
-            continue
+    Returns "promoted". Raises ChainHalt on any hold/failure/error.
+    NEVER modifies the review artifact: a hold stays a hold.
+    """
+    base = section.stem  # e.g., usatoday-standard-12-section
 
-        print(f"\n[{source}] Starting chain...")
+    # Reindex
+    reindexed = repo / "output" / "reindexed" / f"{base}-reindexed.json"
+    reindexed.parent.mkdir(parents=True, exist_ok=True)
+    ok, out = run_fn([
+        "python3", "pipelines/reindex_comparison_section.py",
+        str(section), "--out", str(reindexed),
+    ])
+    if not ok or not reindexed.is_file():
+        raise ChainHalt("reindex", f"{base}: reindex failed: {out[-300:]}")
 
-        # 1. Find latest snapshot
-        snapshot = find_latest_snapshot(source)
+    # Review. The reviewer exits non-zero when the verdict is not ready,
+    # but still writes the artifact — a missing artifact is itself a failure.
+    review_path = repo / "output" / "reviewed" / f"{base}-review.json"
+    review_path.parent.mkdir(parents=True, exist_ok=True)
+    ok, out = run_fn([
+        "python3", "pipelines/review_comparison_candidate.py",
+        str(reindexed), "--out", str(review_path),
+    ])
+    if not review_path.is_file():
+        raise ChainHalt("review", f"{base}: review produced no artifact: {out[-300:]}")
+    try:
+        with open(review_path) as fh:
+            review_data = json.load(fh)
+    except (json.JSONDecodeError, OSError) as e:
+        raise ChainHalt("review", f"{base}: review artifact unreadable: {e}")
+
+    # The verdict is read-only. NEVER rewrite hold -> ready.
+    verdict = review_data.get("verdict")
+    if verdict != "ready":
+        raise ChainHalt(
+            "review",
+            f"{base}: verdict is {verdict!r}, not 'ready' — refusing to promote. "
+            "A hold means a human must review first; the chain will not override it.",
+        )
+
+    # Promote. promote_comparison_section.py independently refuses non-ready
+    # verdicts; any failure here is terminal — no retry, no re-review.
+    ok, out = run_fn([
+        "python3", "pipelines/promote_comparison_section.py",
+        str(review_path), "--auto",
+    ])
+    if not ok:
+        raise ChainHalt("promote", f"{base}: promote refused/failed: {out[-300:]}")
+
+    return "promoted"
+
+
+def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
+    """Run match -> reference -> section -> reindex -> review -> promote.
+
+    Returns a result dict; never raises. The first hold/failure halts the
+    source's chain immediately (ChainHalt) and is recorded as failed.
+    """
+    result = {
+        "source": source,
+        "status": "failed",  # fail-closed default; set to "ok" only on full success
+        "stage": None,
+        "detail": "",
+        "promoted": 0,
+        "sections": 0,
+    }
+    try:
+        # 1. Snapshot
+        snapshot = find_latest_snapshot(repo, source)
         if not snapshot:
-            print(f"  ✗ No snapshot found")
-            results[source] = "no_snapshot"
-            continue
-        print(f"  Snapshot: {snapshot.relative_to(REPO)}")
+            raise ChainHalt("snapshot", "no snapshot.json found under data/raw/sources")
+        print(f"  Snapshot: {snapshot.relative_to(repo)}")
 
         # 2. Match
-        ok, out = run([
+        ok, out = run_fn([
             "python3", "pipelines/match_source_snapshot.py",
             "--input", str(snapshot),
             "--output-dir", "output/matched",
         ])
         if not ok:
-            print(f"  ✗ Match failed: {out[-200:]}")
-            results[source] = "match_failed"
-            continue
-        print(f"  ✓ Matched")
-
-        # Find matched file
-        matched_files = list((REPO / "output" / "matched" / source).rglob("*-matched.json"))
-        if not matched_files:
-            print(f"  ✗ No matched file found")
-            results[source] = "no_matched"
-            continue
-        # Use the most recent
-        matched_files.sort(key=lambda p: p.stat().st_mtime)
-        matched = matched_files[-1]
+            raise ChainHalt("match", f"match failed: {out[-300:]}")
+        matched = newest_file(repo / "output" / "matched" / source, "*-matched.json")
+        if not matched:
+            raise ChainHalt("match", "matcher exited 0 but no *-matched.json appeared")
+        print("  ✓ Matched")
 
         # 3. Reference
-        ok, out = run([
+        ok, out = run_fn([
             "python3", "pipelines/build_source_reference.py",
             "--input", str(matched),
             "--output-dir", "output/references",
         ])
         if not ok:
-            print(f"  ✗ Reference failed: {out[-200:]}")
-            results[source] = "reference_failed"
-            continue
-        print(f"  ✓ References built")
+            raise ChainHalt("reference", f"reference build failed: {out[-300:]}")
+        print("  ✓ References built")
 
-        # 4. Section (for each reference file)
-        ref_files = list((REPO / "output" / "references" / source).rglob("*-reference.json"))
-        # Use only the most recent vintage directory
+        # 4. Section (one per reference file, latest vintage only)
+        ref_files = list((repo / "output" / "references" / source).rglob("*-reference.json")) \
+            if (repo / "output" / "references" / source).is_dir() else []
         if ref_files:
             latest_dir = max(set(f.parent for f in ref_files), key=lambda d: d.name)
-            ref_files = [f for f in ref_files if f.parent == latest_dir]
+            ref_files = sorted(
+                (f for f in ref_files if f.parent == latest_dir),
+                key=lambda f: f.name,
+            )
 
         sections = []
         for ref in ref_files:
-            ok, out = run([
+            ok, out = run_fn([
                 "python3", "pipelines/build_comparison_source_section.py",
                 "--input", str(ref),
             ])
-            if ok:
-                # Find the section file
-                section_files = list((REPO / "output" / "comparison-candidates" / source).rglob("*-section.json"))
-                if section_files:
-                    section_files.sort(key=lambda p: p.stat().st_mtime)
-                    sections.append(section_files[-1])
+            if not ok:
+                raise ChainHalt("section", f"section build failed for {ref.name}: {out[-300:]}")
+            section_file = newest_file(
+                repo / "output" / "comparison-candidates" / source, "*-section.json")
+            if not section_file:
+                raise ChainHalt(
+                    "section",
+                    f"section builder exited 0 for {ref.name} but no *-section.json appeared",
+                )
+            sections.append(section_file)
         if not sections:
-            print(f"  ✗ No sections built")
-            results[source] = "no_sections"
-            continue
+            raise ChainHalt("section", "no sections built")
+        # Deterministic order so a halt always promotes the same prefix.
+        sections.sort(key=lambda p: p.name)
+        result["sections"] = len(sections)
         print(f"  ✓ {len(sections)} sections built")
 
-        # 5. Reindex + Review + Promote (one at a time, re-review between promotes)
-        promoted = 0
+        # 5. Reindex -> review -> promote, strictly in order.
+        #    The first hold/failure raises ChainHalt: no further sections
+        #    are processed for this source. result["promoted"] is updated
+        #    inside the loop so a halt still reports the true count.
         for section in sections:
-            base = section.stem  # e.g., usatoday-standard-12-section
+            process_section(section, repo, run_fn)
+            result["promoted"] += 1
+        promoted = result["promoted"]
 
-            # Reindex
-            reindexed = REPO / "output" / "reindexed" / f"{base}-reindexed.json"
-            reindexed.parent.mkdir(parents=True, exist_ok=True)
-            ok, out = run([
-                "python3", "pipelines/reindex_comparison_section.py",
-                str(section), "--out", str(reindexed),
-            ])
-            if not ok:
-                print(f"  ✗ Reindex failed for {base}: {out[-200:]}")
-                continue
+        # 6. Partial or zero promotion is FAILURE, never a partial success.
+        #    (Unreachable via process_section, which raises on the first
+        #    problem — kept as defense-in-depth.)
+        if promoted != len(sections):
+            raise ChainHalt(
+                "promote", f"partial promotion {promoted}/{len(sections)} — treating as failure")
 
-            # Review
-            review_path = REPO / "output" / "reviewed" / f"{base}-review.json"
-            review_path.parent.mkdir(parents=True, exist_ok=True)
-            ok, out = run([
-                "python3", "pipelines/review_comparison_candidate.py",
-                str(reindexed), "--out", str(review_path),
-            ])
-            # Review may exit non-zero on FAIL, but still writes the file
-            if not review_path.is_file():
-                print(f"  ✗ Review failed for {base}: {out[-200:]}")
-                continue
-
-            # Auto-resolve 'hold' to 'ready' with justification
-            with open(review_path) as fh:
-                review_data = json.load(fh)
-            if review_data.get("verdict") == "hold":
-                review_data["verdict"] = "ready"
-                review_data["auto_promotion_justification"] = (
-                    "Jeremy 2026-09-29: auto-promotion authorized. "
-                    "Chain runs sequentially with no manual intervention. "
-                    "Holds auto-resolved: differences vs older fixture are expected for fresh data."
-                )
-                review_data["promoted_by"] = "auto (chain)"
-                with open(review_path, "w") as out_fh:
-                    json.dump(review_data, out_fh, indent=2)
-
-            # Promote
-            ok, out = run([
-                "python3", "pipelines/promote_comparison_section.py",
-                str(review_path), "--auto",
-            ])
-            if ok:
-                promoted += 1
-            else:
-                # May need re-review if fixture changed; try once more
-                ok2, out2 = run([
-                    "python3", "pipelines/review_comparison_candidate.py",
-                    str(reindexed), "--out", str(review_path),
-                ])
-                if review_path.is_file():
-                    with open(review_path) as fh:
-                        review_data = json.load(fh)
-                    review_data["verdict"] = "ready"
-                    review_data["auto_promotion_justification"] = (
-                        "Jeremy 2026-09-29: auto-promotion authorized. Re-review after fixture update."
-                    )
-                    with open(review_path, "w") as out_fh:
-                        json.dump(review_data, out_fh, indent=2)
-                    ok3, out3 = run([
-                        "python3", "pipelines/promote_comparison_section.py",
-                        str(review_path), "--auto",
-                    ])
-                    if ok3:
-                        promoted += 1
-                    else:
-                        print(f"  ✗ Promote failed for {base} (retry): {out3[-200:]}")
-                else:
-                    print(f"  ✗ Promote failed for {base}: {out[-200:]}")
-
+        result["status"] = "ok"
+        result["stage"] = "complete"
+        result["detail"] = f"promoted {promoted}/{len(sections)}"
         print(f"  ✓ {promoted}/{len(sections)} sections promoted")
-        results[source] = f"promoted_{promoted}/{len(sections)}"
 
-    print("\n" + "=" * 60)
-    print("CHAIN COMPLETE")
-    print("=" * 60)
-    for source, status in results.items():
-        print(f"  {source}: {status}")
+    except ChainHalt as h:
+        result["stage"] = h.stage
+        result["detail"] = h.detail
+        print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
+    except Exception as e:  # fail closed on unexpected errors too
+        result["stage"] = "error"
+        result["detail"] = f"unexpected error: {e}"
+        print(f"  ✗ ERROR: {e}")
 
-    # Stage 7: Bias-correction fit (deterministic, not ad hoc).
-    # Jeremy 2026-09-29: "Fitting every week can't be an ad hoc modeling project."
-    # The fit runs automatically after promotion, using the fresh fixture.
-    # It fits affine adjustment cells per (source, position, tier) against the
-    # DDF leg, writing to adjustment-inputs.json (the live asset the UI loads).
-    print("\n" + "=" * 60)
-    print("STAGE 7: BIAS-CORRECTION FIT")
-    print("=" * 60)
-    fit_ok, fit_out = run([
+    return result
+
+
+def run_fit(repo, run_fn):
+    """Stage 7: bias-correction fit. Raises ChainHalt on failure.
+
+    Only called when every source succeeded. Fits affine adjustment cells
+    per (source, position, tier) against the DDF leg and syncs the live
+    asset for deployment.
+    """
+    ok, out = run_fn([
         "python3", "pipelines/build_adjustment_inputs.py",
-        "--fixture", str(REPO / "data/fixtures/current/comparison-sources-data.json"),
+        "--fixture", str(repo / "data/fixtures/current/comparison-sources-data.json"),
     ])
-    if fit_ok:
-        print("  ✓ Fit complete — adjustment-inputs.json updated")
-        # Sync the live asset for deployment
-        import shutil
-        src = Path("app/trade-value-chart/assets/adjustment-inputs.json")
-        dst = Path("dist/assets/adjustment-inputs.json")
-        if src.exists():
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dst)
-            print(f"  ✓ Synced to {dst}")
-        results["fit"] = "completed"
+    if not ok:
+        raise ChainHalt("fit", f"fit failed: {out[-500:]}")
+    print("  ✓ Fit complete — adjustment-inputs.json updated")
+    src = repo / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
+    dst = repo / "dist" / "assets" / "adjustment-inputs.json"
+    if src.is_file():
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dst)
+        print(f"  ✓ Synced to {dst}")
     else:
-        print(f"  ✗ Fit failed: {fit_out[-500:]}")
-        results["fit"] = "failed"
+        raise ChainHalt("fit", f"fit exited 0 but live asset missing: {src}")
 
-    # Write chain status for the monitoring dashboard.
-    # Jeremy 2026-09-29: dashboard needs visibility into automation health.
-    failed = [s for s, st in results.items() if "failed" in st or st == "no_snapshot"]
+
+def run_adjusted_sections(repo, run_fn):
+    """Stage 8: build _adjusted fixture sections. Raises ChainHalt on failure.
+
+    Only called when the fit succeeded. Applies the fitted cells to the
+    raw published values, generating {source}_adjusted sections in the
+    fixture for the comparison dashboard and build_reference_data.py.
+
+    Jeremy 2026-09-29: "Fitting every week can't be an ad hoc modeling
+    project." The _adjusted sections are generated deterministically from
+    the fit cells — same inputs, same outputs, every week.
+    """
+    ok, out = run_fn([
+        "python3", "pipelines/build_adjusted_fixture_sections.py",
+        "--fixture", str(repo / "data/fixtures/current/comparison-sources-data.json"),
+        "--inputs", str(repo / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"),
+        "--players", str(repo / "data" / "fixtures" / "current" / "players.json"),
+    ])
+    if not ok:
+        raise ChainHalt("adjusted_sections", f"adjusted sections failed: {out[-500:]}")
+    print("  ✓ _adjusted fixture sections built")
+
+
+def describe_result(result):
+    """Human-readable one-line status for the dashboard (string, not a code)."""
+    if result["status"] == "ok":
+        return f"promoted {result['promoted']}/{result['sections']}"
+    stage = result.get("stage") or "unknown"
+    return f"FAILED at stage '{stage}': {result.get('detail', '')}"
+
+
+def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner):
+    """Write the chain status JSON for the monitoring dashboard."""
+    failed = [s for s, r in results.items() if r["status"] != "ok"]
+    if fit_result is not None and fit_result["status"] != "ok":
+        failed.append("fit")
+    if adjusted_result is not None and adjusted_result["status"] != "ok":
+        failed.append("adjusted_sections")
     status_data = {
         "run_at": datetime.now(timezone.utc).isoformat(),
-        "nfl_week": args.nfl_week,
-        "sources": results,
-        "failed": failed,
+        "nfl_week": nfl_week,
+        "sources": {s: describe_result(r) for s, r in results.items()},
+        "failed": sorted(set(failed)),
         "success": len(failed) == 0,
-        "runner": os.environ.get("GITHUB_ACTIONS", "") == "true" and "github-actions" or "muse-cron",
+        # Honest runner label: "github-actions" or "local".
+        # (An earlier revision mislabeled local runs as "muse-cron".)
+        "runner": runner,
+        "detail": results,
+        "fit": fit_result,
+        "adjusted_sections": adjusted_result,
     }
-    status_path = Path("output/comparison-chain-status.json")
-    status_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(status_path, "w") as f:
-        json.dump(status_data, f, indent=2)
-    # Also copy to dist for the deployed dashboard
-    dist_path = Path("dist/modules/comparison-chain-status.json")
-    dist_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(dist_path, "w") as f:
-        json.dump(status_data, f, indent=2)
+    for rel in ("output/comparison-chain-status.json",
+                "dist/modules/comparison-chain-status.json"):
+        path = repo / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w") as f:
+            json.dump(status_data, f, indent=2)
+    return status_data
 
-    # Return non-zero if any source failed (not skipped)
-    return 1 if failed else 0
+
+def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
+    """Run the full chain. Returns (status_data, exit_code).
+
+    Status is written through a finally block so partial/interrupted runs
+    are always recorded.
+    """
+    repo = Path(repo)
+    runner = "github-actions" if os.environ.get("GITHUB_ACTIONS") == "true" else "local"
+
+    print("=" * 60)
+    print("COMPARISON CHAIN REBUILD (fail-closed)")
+    print("=" * 60)
+
+    results = {}
+    fit_result = None
+    adjusted_result = None
+    try:
+        for source in SOURCES:
+            print(f"\n[{source}] Starting chain...")
+            results[source] = run_source(source, nfl_week, repo, run_fn)
+
+        failed_sources = [s for s, r in results.items() if r["status"] != "ok"]
+        if failed_sources:
+            # The fit reads the combined fixture — it must not run against
+            # a partially-rebuilt fixture.
+            fit_result = {
+                "status": "skipped",
+                "detail": f"skipped: sources failed: {', '.join(failed_sources)}",
+            }
+            print("\n" + "=" * 60)
+            print("STAGE 7: BIAS-CORRECTION FIT — SKIPPED (chain failed)")
+            print("=" * 60)
+        else:
+            print("\n" + "=" * 60)
+            print("STAGE 7: BIAS-CORRECTION FIT")
+            print("=" * 60)
+            try:
+                run_fit(repo, run_fn)
+                fit_result = {"status": "ok", "detail": "fit complete"}
+            except ChainHalt as h:
+                fit_result = {"status": "failed", "stage": h.stage, "detail": h.detail}
+                print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
+            except Exception as e:
+                fit_result = {"status": "failed", "stage": "error",
+                              "detail": f"unexpected error: {e}"}
+                print(f"  ✗ ERROR: {e}")
+
+        # Stage 8: build _adjusted fixture sections (only if fit succeeded).
+        # The comparison dashboard and build_reference_data.py require these.
+        if fit_result is not None and fit_result["status"] == "ok":
+            print("\n" + "=" * 60)
+            print("STAGE 8: ADJUSTED FIXTURE SECTIONS")
+            print("=" * 60)
+            try:
+                run_adjusted_sections(repo, run_fn)
+                adjusted_result = {"status": "ok", "detail": "_adjusted sections built"}
+            except ChainHalt as h:
+                adjusted_result = {"status": "failed", "stage": h.stage, "detail": h.detail}
+                print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
+            except Exception as e:
+                adjusted_result = {"status": "failed", "stage": "error",
+                                   "detail": f"unexpected error: {e}"}
+                print(f"  ✗ ERROR: {e}")
+        elif fit_result is not None:
+            adjusted_result = {
+                "status": "skipped",
+                "detail": f"skipped: fit {fit_result['status']}",
+            }
+            print("\n" + "=" * 60)
+            print("STAGE 8: ADJUSTED FIXTURE SECTIONS — SKIPPED")
+            print("=" * 60)
+
+        print("\n" + "=" * 60)
+        print("CHAIN COMPLETE")
+        print("=" * 60)
+        for source, r in results.items():
+            print(f"  {source}: {describe_result(r)}")
+        if fit_result is not None:
+            print(f"  fit: {fit_result['status']}")
+        if adjusted_result is not None:
+            print(f"  adjusted_sections: {adjusted_result['status']}")
+    finally:
+        # Always record the run, even on interruption or unexpected error.
+        # results/fit_result/adjusted_result may be partially populated — write what's known.
+        status_data = write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner)
+        print(f"\nStatus written to output/comparison-chain-status.json "
+              f"(success={status_data['success']})")
+    return status_data
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nfl-week", type=int, default=None)
+    args = parser.parse_args()
+
+    try:
+        status_data = execute_chain(args.nfl_week)
+        success = status_data["success"]
+    except Exception as e:
+        # Status was still written by execute_chain's finally block.
+        print(f"Chain aborted with unexpected error: {e}", file=sys.stderr)
+        success = False
+    return 0 if success else 1
 
 
 if __name__ == "__main__":

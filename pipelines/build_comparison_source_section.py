@@ -156,14 +156,34 @@ def build_section(
     slugs = canonical_slugs(comparison_path)
     key = section_key or slug(source)
 
-    # When qb is unspecified (None), duplicate the row for BOTH qb1 and qb2.
-    # The fixture expects QB-split variants; a source that doesn't distinguish
-    # QB slots applies equally to both.
-    # Jeremy 2026-09-29: fix for fantasycalc promotion (candidate had base
-    # combos, fixture expects qb1/qb2 splits).
+    # QB-slot expansion is scoped by the fixture: only duplicate qb=None rows
+    # when the fixture expects QB-split combos for THIS source. Currently only
+    # fantasycalc uses _qb1/_qb2 combos; other sources (cbs, espn, fantasypros,
+    # usatoday) use base combos and their qb=None rows must stay unsplit, or
+    # the candidate emits combos the fixture does not expect.
+    # (2026-09-29: an earlier change duplicated qb=None rows for every source,
+    # which broke the four base-combo sources. This scopes it correctly.)
+    fixture_combos: dict[str, Any] = {}
+    try:
+        fixture_payload = load_json(comparison_path)
+        fixture_sources = fixture_payload.get("sources")
+        if isinstance(fixture_sources, dict):
+            fixture_section = fixture_sources.get(key)
+            if isinstance(fixture_section, dict):
+                combos_obj = fixture_section.get("combos")
+                if isinstance(combos_obj, dict):
+                    fixture_combos = combos_obj
+    except SystemExit:
+        # canonical_slugs already validated the fixture; a missing section
+        # simply means no QB-split expectation.
+        fixture_combos = {}
+    expects_qb_split = any(
+        str(combo).endswith("_qb1") or str(combo).endswith("_qb2")
+        for combo in fixture_combos
+    )
     expanded_rows: list[dict[str, Any]] = []
     for row in rows:
-        if row.get("qb") is None:
+        if row.get("qb") is None and expects_qb_split:
             for qb_val in (1, 2):
                 new_row = dict(row)
                 new_row["qb"] = qb_val

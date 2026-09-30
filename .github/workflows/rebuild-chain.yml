@@ -10,11 +10,15 @@ name: Rebuild comparison chain
 # The GITHUB_TOKEN is automatic; no setup needed.
 
 on:
-  schedule:
-    # Every 6 hours — frequent enough to catch new snapshots, light enough
-    # to avoid noise. The chain itself is idempotent: it only promotes when
-    # the fixture is stale.
-    - cron: "17 */6 * * *"
+  # Schedule trigger DISABLED 2026-09-29: rebuild_comparison_chain.py has a
+  # validation bypass (auto-resolves review holds to ready), so scheduled
+  # runs could push unvalidated fixture changes. To re-enable after the
+  # chain is repaired and verified, restore the schedule block below.
+  #   schedule:
+  #     # Every 6 hours — frequent enough to catch new snapshots, light enough
+  #     # to avoid noise. The chain itself is idempotent: it only promotes when
+  #     # the fixture is stale.
+  #     - cron: "17 */6 * * *"
   workflow_dispatch:
     # Manual trigger from the Actions tab.
 
