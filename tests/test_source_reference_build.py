@@ -170,7 +170,7 @@ class SourceReferenceBuildTest(unittest.TestCase):
                 payload["summary"],
             )
             self.assertEqual(
-                {"player_key", "canonical_name", "value", "scoring", "teams",
+                {"player_key", "canonical_name", "native_value", "value", "scoring", "teams",
                  "qb", "pos", "team", "source_player_name", "source_player_id"},
                 set(payload["rows"][0].keys()),
             )

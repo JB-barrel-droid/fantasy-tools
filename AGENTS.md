@@ -127,3 +127,16 @@ sync/validation path.
 ## Handoff Templates
 
 Detailed delegation templates live in `docs/delegation-workflow.md`.
+
+## FantasyCalc drift auto-trigger (2026-09-30)
+- Standing rule (Jeremy): the project reruns the FantasyCalc pipelines when
+  native doesn't match live. `pipelines/check_fantasycalc_drift.py` compares
+  the live API (top-25 by value) against the snapshot's native_value; if >5%
+  moved by >1%, it exits 1. With `--trigger` it refreshes the snapshot from
+  the live API and runs match -> reference -> section -> reindex -> fixture
+  -> monitors automatically.
+- The 2026-09-30 JSN defect proved why: `match_source_snapshot.py` was
+  dropping `native_value`, so the pipeline used the flattened `value` (50.7)
+  instead of the raw FantasyCalc number (9914). The matcher and
+  `build_source_reference.py` now carry `native_value` through every stage.
+- Regression tests: `tests/test_fantasycalc_drift.py` (5 tests).

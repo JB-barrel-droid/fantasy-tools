@@ -155,6 +155,11 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
                     "canonical_name": player["name"],
                     "source_player_name": row.get("player_name"),
                     "source": snapshot.get("source"),
+                    # Carry the source's raw published value. Downstream stages
+                    # prefer native_value over value (which may already be
+                    # reindexed/flattened); dropping it here silently corrupts
+                    # the entire chain -- see 2026-09-30 FantasyCalc JSN defect.
+                    "native_value": row.get("native_value", row.get("value")),
                     "value": row.get("value"),
                     "scoring": row.get("scoring") or snapshot.get("default_scoring"),
                     "teams": row.get("teams") or snapshot.get("default_teams"),
@@ -170,6 +175,7 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
                 "source_player_name": row.get("player_name"),
                 "normalized_name": normalized,
                 "source": snapshot.get("source"),
+                "native_value": row.get("native_value", row.get("value")),
                 "value": row.get("value"),
                 "scoring": row.get("scoring") or snapshot.get("default_scoring"),
                 "teams": row.get("teams") or snapshot.get("default_teams"),

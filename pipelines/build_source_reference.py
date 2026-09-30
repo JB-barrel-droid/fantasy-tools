@@ -159,11 +159,13 @@ def unique_reference_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, An
             )
             continue
         row = player_rows[0]
+        native = row.get("native_value", row.get("value"))
         reference_rows.append(
             {
                 "player_key": player_key,
                 "canonical_name": row.get("canonical_name"),
-                "value": float(row.get("native_value", row.get("value"))),
+                "native_value": float(native) if isinstance(native, (int, float)) else native,
+                "value": float(native),
                 "scoring": row.get("scoring"),
                 "teams": row.get("teams"),
                 "qb": row.get("qb"),
