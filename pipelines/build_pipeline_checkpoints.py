@@ -162,6 +162,36 @@ def build_checkpoints():
         "sources": {},
     }
 
+    # Fetch GitHub Pages deploy status ONCE (not per-source) to avoid rate limits
+    pages_deploy = {"status": "unk", "timestamp": None, "reason": "Deploy status check not yet implemented in Python; browser checks Actions API live."}
+    try:
+        import urllib.request
+        req = urllib.request.Request(
+            "https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/pages.yml/runs?per_page=1",
+            headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "fantasy-tools-monitor"}
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = json.loads(resp.read().decode())
+        runs = data.get("workflow_runs", [])
+        if runs:
+            last_run = runs[0]
+            run_status = last_run.get("status")
+            run_conclusion = last_run.get("conclusion")
+            run_updated = last_run.get("updated_at")
+            run_days = days_old(run_updated)
+            if run_status != "completed" or run_conclusion != "success":
+                pages_deploy = {"timestamp": run_updated, "status": "bad",
+                    "reason": f"Last Pages deploy: {run_status}/{run_conclusion}. Deploy may have failed."}
+            elif run_days is not None and run_days > 2:
+                pages_deploy = {"timestamp": run_updated, "status": "warn",
+                    "reason": f"Last successful Pages deploy {run_days:.1f}d ago. Content may be stale."}
+            else:
+                pages_deploy = {"timestamp": run_updated, "status": "ok",
+                    "reason": f"Pages deployed successfully {(run_days or 0):.1f}d ago."}
+    except Exception as e:
+        pages_deploy = {"timestamp": None, "status": "unk",
+            "reason": f"Could not check Pages API: {str(e)[:60]}. Browser checks live."}
+
     for src in SOURCES:
         h = health.get("sources", {}).get(src, {})
         cps = {}
@@ -170,6 +200,19 @@ def build_checkpoints():
         c1_ts = h.get("content_vintage")
         # content_vintage may be a date or "Week N"; try to parse
         c1_days = days_old(c1_ts)
+        if c1_days is None and c1_ts:
+            # Handle "Week N" format: compare to current NFL week
+            m = re.match(r"Week\s+(\d+)", str(c1_ts), re.IGNORECASE)
+            if m:
+                current_week = health.get("nfl_week")
+                try:
+                    vintage_week = int(m.group(1))
+                    current_week = int(current_week) if current_week else None
+                    if current_week and vintage_week <= current_week:
+                        # Assume ~7 days per week; current week = 0 days old
+                        c1_days = (current_week - vintage_week) * 7.0
+                except (ValueError, TypeError):
+                    pass
         if c1_ts and c1_days is not None:
             if c1_days > 14:
                 cps["c1_publication"] = {"timestamp": c1_ts, "status": "bad",
@@ -184,7 +227,7 @@ def build_checkpoints():
             cps["c1_publication"] = {"timestamp": c1_ts, "status": "unk",
                 "reason": "No publisher vintage recorded in health file."}
 
-        # C2: Raw collection - from pull file
+        # C2: Raw collection - from pull file or health snapshot_path
         pull_path, pull_mtime = newest_file_mtime("ops/watchdog/pulls", rf"^{src}-.*\.json$")
         # Also try to get fetched_at from the pull file content
         pull_fetched_at = None
@@ -195,7 +238,16 @@ def build_checkpoints():
                 pull_fetched_at = pull_data.get("fetched_at")
             except (json.JSONDecodeError, OSError):
                 pass
-        c2_ts = pull_fetched_at or pull_mtime
+        # Fallback: use health file's snapshot_path (data/raw/sources/<src>/...)
+        # Many sources collect directly to data/raw/sources/ instead of ops/watchdog/pulls/
+        snapshot_path = h.get("snapshot_path")
+        snapshot_mtime = None
+        if not pull_path and snapshot_path:
+            sp = REPO / snapshot_path
+            if sp.is_file():
+                pull_path = snapshot_path
+                snapshot_mtime = datetime.fromtimestamp(sp.stat().st_mtime, tz=timezone.utc).isoformat()
+        c2_ts = pull_fetched_at or pull_mtime or snapshot_mtime
         c2_days = days_old(c2_ts)
         if c2_ts and c2_days is not None:
             if c2_days > 14:
@@ -208,9 +260,9 @@ def build_checkpoints():
                 cps["c2_collection"] = {"timestamp": c2_ts, "status": "ok",
                     "reason": f"Pulled {c2_ts} ({pull_path})."}
         else:
-            # Some sources (espn, fantasycalc, fantasypros) may not use watchdog pulls
+            # No pull file in ops/watchdog/pulls/ and no snapshot_path in health file
             cps["c2_collection"] = {"timestamp": None, "status": "unk",
-                "reason": f"No pull file found for {src} in ops/watchdog/pulls/. May use a different collection path."}
+                "reason": f"No pull file found for {src} in ops/watchdog/pulls/ and no snapshot_path in health file."}
 
         # C3: Supabase landing - from db_latest_arrived_at
         c3_ts = h.get("db_latest_arrived_at")
@@ -335,8 +387,11 @@ def build_checkpoints():
                 cps["c7_promotion"] = {"timestamp": c7_ts, "status": "ok",
                     "reason": f"Promoted {c7_days:.1f}d ago{verdict_note}."}
         else:
-            cps["c7_promotion"] = {"timestamp": None, "status": "unk",
-                "reason": "No promotion artifacts found."}
+            # No formal promotion artifact with review_verdict. The fixture may still
+            # be updated directly (via sync or manual), but without a recorded review.
+            # This is a process gap, not a data failure -> warn, not unk.
+            cps["c7_promotion"] = {"timestamp": None, "status": "warn",
+                "reason": "No promotion artifact in output/comparison-promotions/. Fixture is updated directly without a formal review record."}
 
         # C8: Sync/validation - fixture built_at vs dist content
         # CRITICAL: Check the actual data freshness (built_at inside the JSON),
@@ -376,40 +431,10 @@ def build_checkpoints():
             cps["c8_sync"] = {"timestamp": dist_built_at or dist_mtime, "status": "unk",
                 "reason": "Cannot determine data freshness (missing built_at in fixture or dist)."}
 
-        # C9: Deployment - check GitHub Pages deploy status via API
+        # C9: Deployment - use cached GitHub Pages deploy status (fetched once before loop)
         # Detects when Pages is serving stale content despite successful deploys
         # (CDN caching issues) or when deploys are failing.
-        cps["c9_deploy"] = {"timestamp": None, "status": "unk",
-            "reason": "Deploy status check not yet implemented in Python; browser checks Actions API live."}
-        try:
-            import urllib.request
-            # Get last pages.yml workflow run from GitHub Actions API
-            req = urllib.request.Request(
-                "https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/pages.yml/runs?per_page=1",
-                headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "fantasy-tools-monitor"}
-            )
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = json.loads(resp.read().decode())
-            runs = data.get("workflow_runs", [])
-            if runs:
-                last_run = runs[0]
-                run_status = last_run.get("status")
-                run_conclusion = last_run.get("conclusion")
-                run_updated = last_run.get("updated_at")
-                run_days = days_old(run_updated)
-                if run_status != "completed" or run_conclusion != "success":
-                    cps["c9_deploy"] = {"timestamp": run_updated, "status": "bad",
-                        "reason": f"Last Pages deploy: {run_status}/{run_conclusion}. Deploy may have failed."}
-                elif run_days is not None and run_days > 2:
-                    cps["c9_deploy"] = {"timestamp": run_updated, "status": "warn",
-                        "reason": f"Last successful Pages deploy {run_days:.1f}d ago. Content may be stale."}
-                else:
-                    cps["c9_deploy"] = {"timestamp": run_updated, "status": "ok",
-                        "reason": f"Pages deployed successfully {(run_days or 0):.1f}d ago."}
-        except Exception as e:
-            # API check failed; keep as unk with reason
-            cps["c9_deploy"] = {"timestamp": None, "status": "unk",
-                "reason": f"Could not check Pages API: {str(e)[:60]}. Browser checks live."}
+        cps["c9_deploy"] = dict(pages_deploy)
 
         # C10: Rendered production output - fetch the LIVE served JSON and validate
         # what the production dashboard actually displays. Catches:
