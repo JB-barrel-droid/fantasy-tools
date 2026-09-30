@@ -37,6 +37,7 @@ OUT_PATH = os.path.join(REPO, "dist/modules/source-value-lineage.json")
 SNAPSHOT_PATHS = {
     "fantasypros": os.path.join(REPO, "data/raw/sources/fantasypros/2026-09-29/snapshot.json"),
     "usatoday": os.path.join(REPO, "data/raw/sources/usatoday/2026-09-29/snapshot.json"),
+    "fantasycalc": os.path.join(REPO, "data/raw/sources/fantasycalc/week-4/snapshot.json"),
 }
 
 
@@ -81,24 +82,29 @@ def load_snapshot_natives(source):
 # Human-readable source pages (what a human would visit)
 SOURCE_URLS = {
     "espn": {
-        "url": "https://www.espn.com/fantasy/football/",
-        "note": "Mike Clay ROS half-PPR projections via Supabase public.espn_season_projections (not a direct web scrape)",
+        "url": "https://fantasy.espn.com/football/players/projections",
+        "note": "ESPN Fantasy Football player projections page (human-readable). Mike Clay ROS projections scraped LIVE from this page.",
+        "header_check": "2026 Season Projections",
     },
     "cbs": {
-        "url": "https://www.cbssports.com/fantasy/football/",
-        "note": "CBS Sports fantasy football trade values via Supabase public.cbs_trade_values",
+        "url": "https://www.cbssports.com/fantasy/football/news/dave-richards-week-4-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/",
+        "note": "CBS Sports Dave Richards Week 4 trade chart article. Values scraped LIVE from this page.",
+        "header_check": "Week 4 Trade Chart",
     },
     "fantasycalc": {
-        "url": "https://fantasycalc.com",
-        "note": "FantasyCalc web app (human UI). Values in the app come from the same backend as the API.",
+        "url": "https://fantasycalc.com/trade-value-chart",
+        "note": "FantasyCalc trade value chart (human UI). Settings: Redraft, 12 teams, 0.5 PPR, TEP off, Superflex off. Values scraped LIVE from this page.",
+        "header_check": "Trade Value Chart",
     },
     "fantasypros": {
         "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-4-2026/",
         "note": "FantasyPros Week 4 trade value chart article. Values scraped LIVE from this page.",
+        "header_check": "Week 4",
     },
     "usatoday": {
         "url": "https://www.usatoday.com/story/sports/fantasy/football/2026/09/29/fantasy-trade-value-chart-week-4-ros-rankings/92008742007/",
         "note": "USA Today Week 4 trade value chart. Half-PPR column scraped LIVE from this page.",
+        "header_check": "Week 4",
     },
 }
 
@@ -164,7 +170,7 @@ def main():
     # The comparison data's "native" field contains transformed values, not raw.
     # We need the true native_value from the snapshot for accurate lineage.
     snapshot_natives = {}
-    for src in ["fantasypros", "usatoday"]:
+    for src in ["fantasypros", "usatoday", "fantasycalc"]:
         snapshot_natives[src] = load_snapshot_natives(src)
         print(f"  {src}: loaded {len(snapshot_natives[src])} native values from snapshot")
 
