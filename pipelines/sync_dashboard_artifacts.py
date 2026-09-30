@@ -38,6 +38,101 @@ def replace_inline_players(index_html: str, players: dict) -> str:
     return index_html[:start] + payload + index_html[end:]
 
 
+METHODOLOGY_POSITION_SOURCES = [
+    ("usatoday", "USA Today", "full_12"),
+    ("fantasycalc", "FantasyCalc", "full_12_qb1"),
+    ("fantasypros", "FantasyPros", "full_12"),
+    ("cbs", "CBS", "full_12"),
+    ("espn", "ESPN", "full_12"),
+]
+METHODOLOGY_ADJUSTED_PAIRS = [
+    ("usatoday", "usatoday_adjusted", "USA Today", "full_12"),
+    ("fantasycalc", "fantasycalc_adjusted", "FantasyCalc", "full_12_qb1"),
+    ("fantasypros", "fantasypros_adjusted", "FantasyPros", "full_12"),
+    ("cbs", "cbs_adjusted", "CBS", "full_12"),
+]
+
+
+def build_methodology_payload(fixtures: Path, players_data: dict) -> dict:
+    """Bake the numbers behind the 'How we make the charts comparable' section.
+
+    position_shares: per-position share of each source's fixed pie (Full PPR,
+    12 teams) -- the 'same pie, different slicing' visual.
+    adjustments: biggest as-published -> adjusted movers per adjusted series --
+    the 'correcting house habits' visual. Derived from the same fixture the
+    curves render, so the section can never drift from the chart.
+    """
+    comp = read_json(fixtures / "comparison-sources-data.json")
+    name2key = comp.get("player_keys", {})
+    by_key = {p["player_key"]: p for p in players_data.get("players", [])}
+
+    def pos_of(name: str) -> str:
+        return (by_key.get(name2key.get(name)) or {}).get("pos", "?")
+
+    def display_name(name: str) -> str:
+        return (by_key.get(name2key.get(name)) or {}).get("name") or name.title()
+
+    position_shares = {}
+    for src, label, combo in METHODOLOGY_POSITION_SOURCES:
+        series = comp["sources"].get(src, {}).get("combos", {}).get(combo, {})
+        # ESPN's DDF-methodology leg is stored under "values" (never reindexed);
+        # as-published series use "reindexed".
+        vals = series.get("reindexed") or series.get("values") or {}
+        total = sum(vals.values())
+        shares = {"QB": 0.0, "RB": 0.0, "WR": 0.0, "TE": 0.0}
+        for name, value in vals.items():
+            pos = pos_of(name)
+            if pos in shares:
+                shares[pos] += value
+        position_shares[src] = {
+            "label": label,
+            "shares": (
+                {p: round(s / total * 100) for p, s in shares.items()} if total else shares
+            ),
+            "n": len(vals),
+        }
+
+    adjustments = {}
+    for pub, adj, label, combo in METHODOLOGY_ADJUSTED_PAIRS:
+        pub_vals = comp["sources"].get(pub, {}).get("combos", {}).get(combo, {}).get("reindexed") or {}
+        adj_vals = comp["sources"].get(adj, {}).get("combos", {}).get(combo, {}).get("reindexed") or {}
+        movers = []
+        for name, before in pub_vals.items():
+            if name in adj_vals and before > 8:
+                after = adj_vals[name]
+                movers.append((after - before, name, before, after))
+        movers.sort(key=lambda m: -abs(m[0]))
+        adjustments[pub] = {
+            "label": label,
+            "movers": [
+                {
+                    "name": display_name(name),
+                    "pos": pos_of(name),
+                    "before": round(before, 1),
+                    "after": round(after, 1),
+                    "delta": round(delta, 1),
+                }
+                for delta, name, before, after in movers[:6]
+            ],
+        }
+
+    return {
+        "scoring": "full",
+        "teams": 12,
+        "position_shares": position_shares,
+        "adjustments": adjustments,
+    }
+
+
+def replace_inline_methodology(index_html: str, payload: dict) -> str:
+    start_marker = '<script id="methodology-data" type="application/json">'
+    end_marker = "</script>"
+    start = index_html.index(start_marker) + len(start_marker)
+    end = index_html.index(end_marker, start)
+    baked = json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
+    return index_html[:start] + baked + index_html[end:]
+
+
 def copy_tree(source: Path, target: Path) -> None:
     if target.exists():
         shutil.rmtree(target)
@@ -116,6 +211,8 @@ def main() -> int:
 
     index_path = APP / "index.html"
     index_html = replace_inline_players(index_path.read_text(encoding="utf-8"), players)
+    methodology = build_methodology_payload(FIXTURES, players)
+    index_html = replace_inline_methodology(index_html, methodology)
     tag = build_tag()
     if tag:
         index_html = stamp_build_tag(index_html, tag)
