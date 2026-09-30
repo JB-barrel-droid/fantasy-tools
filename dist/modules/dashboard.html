@@ -753,23 +753,23 @@ async function main(){
       const allOk = dataMismatch === 0 && uncovered === 0 && total > 0;
       const liveSrc = eiData.live_source || {};
       espnInputsSummary.innerHTML = `
-        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "#e8f5e9" : (dataMismatch > 0 ? "#ffebee" : "#fff8e1")};border:1px solid ${allOk ? "#4caf50" : (dataMismatch > 0 ? "#f44336" : "#ffa000")}">
+        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "var(--green-bg)" : (dataMismatch > 0 ? "var(--red-bg)" : "var(--yellow-bg)")};border:1px solid ${allOk ? "var(--green)" : (dataMismatch > 0 ? "var(--red)" : "var(--yellow)")}">
           <b>${matched}/${total}</b> players with all input grains matching the live ESPN page ·
-          <span style="color:${allOk ? "#2e7d32" : (dataMismatch > 0 ? "#c62828" : "#e65100")};font-weight:bold">${allOk ? "✓ PASS" : (dataMismatch > 0 ? "✗ FAIL" : "⚠ COVERAGE GAP")}</span>
+          <span style="color:${allOk ? "var(--green)" : (dataMismatch > 0 ? "var(--red)" : "var(--yellow)")};font-weight:bold">${allOk ? "✓ PASS" : (dataMismatch > 0 ? "✗ FAIL" : "⚠ COVERAGE GAP")}</span>
           ${uncovered > 0 ? `<span style="color:#666;font-size:12px;margin-left:8px">${uncovered} player${uncovered > 1 ? "s" : ""} outside the live top-30 scrape — not verified</span>` : ""}
           <div style="color:#666;font-size:12px;margin-top:4px">Live page: <a href="${liveSrc.url || "#"}" target="_blank" rel="noopener">${liveSrc.url || "n/a"}</a> (scraped ${liveSrc.scraped_at || "n/a"}) · Pipeline file: data/inputs/espn_projections.csv (from ESPN API, not a live page)</div>
         </div>`;
 
       // Build table
       let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
-        <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd;position:sticky;left:0;background:#fff">Player</th>
+        <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd;position:sticky;left:0;background:var(--card)">Player</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">Pos</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">Team</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">Chart</th>`;
       cols.forEach(c => {
         html += `<th style="padding:6px;border-bottom:2px solid #ddd" colspan="2">${c.label}</th>`;
       });
-      html += `</tr><tr><th style="position:sticky;left:0;background:#fff"></th><th></th><th></th><th></th>`;
+      html += `</tr><tr><th style="position:sticky;left:0;background:var(--card)"></th><th></th><th></th><th></th>`;
       cols.forEach(() => {
         html += `<th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">Live page</th><th style="padding:4px;border-bottom:1px solid #eee;font-weight:normal;font-size:11px;color:#666">Pipeline</th>`;
       });
@@ -778,8 +778,8 @@ async function main(){
       players.forEach(p => {
         const rowOk = p.all_grains_match;
         const covGap = p.coverage === "not_in_live_top30";
-        const rowBg = rowOk ? "#f1f8e9" : (covGap ? "#fff8e1" : "#ffebee");
-        const covNote = covGap ? ` <span style="color:#e65100;font-size:11px;font-weight:normal">(not in live top-30)</span>` : "";
+        const rowBg = rowOk ? "var(--green-bg)" : (covGap ? "var(--yellow-bg)" : "var(--red-bg)");
+        const covNote = covGap ? ` <span style="color:var(--yellow);font-size:11px;font-weight:normal">(not in live top-30)</span>` : "";
         html += `<tr style="background:${rowBg}">
           <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold;position:sticky;left:0;background:${rowBg}">${p.name}${covNote}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.pos}</td>
@@ -787,7 +787,7 @@ async function main(){
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${p.chart_value != null ? Number(p.chart_value).toFixed(1) : "—"}</td>`;
         p.grains.forEach(g => {
           const fmt = v => v == null ? "—" : (Number.isInteger(v) ? v.toString() : Number(v).toFixed(1));
-          const cellStyle = g.match ? "" : "background:#ffcdd2;font-weight:bold";
+          const cellStyle = g.match ? "" : "background:var(--red-bg);font-weight:bold";
           const mark = g.match ? "" : " ✗";
           const naNote = g.note === "n/a on page (=0)" ? `<div style="font-size:10px;color:#999">n/a</div>` : "";
           html += `<td style="padding:6px;border-bottom:1px solid #eee;text-align:right;${cellStyle}">${fmt(g.live_page)}${naNote}</td>
@@ -824,16 +824,16 @@ async function main(){
       const allOk = stepFails.length === 0 && missing.length === 0;
 
       espnRawSummary.innerHTML = `
-        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "#e8f5e9" : (stepFails.length > 0 ? "#ffebee" : "#fff8e1")};border:1px solid ${allOk ? "#4caf50" : (stepFails.length > 0 ? "#f44336" : "#ffa000")}">
+        <div style="padding:12px 16px;border-radius:8px;background:${allOk ? "var(--green-bg)" : (stepFails.length > 0 ? "var(--red-bg)" : "var(--yellow-bg)")};border:1px solid ${allOk ? "var(--green)" : (stepFails.length > 0 ? "var(--red)" : "var(--yellow)")}">
           <b>${okCount}/${total}</b> players with all transformation steps verified ·
-          <span style="font-weight:bold;color:${allOk ? "#2e7d32" : (stepFails.length > 0 ? "#c62828" : "#e65100")}">${allOk ? "✓ PASS" : (stepFails.length > 0 ? "✗ FAIL" : "⚠ INCOMPLETE")}</span>
-          ${stepFails.length > 0 ? `<span style="color:#c62828;font-size:12px;margin-left:8px">${stepFails.length} fixture value${stepFails.length > 1 ? "s" : ""} do not match the DDF leg</span>` : ""}
-          ${missing.length > 0 ? `<span style="color:#e65100;font-size:12px;margin-left:8px">${missing.length} player${missing.length > 1 ? "s" : ""} not in DDF leg</span>` : ""}
+          <span style="font-weight:bold;color:${allOk ? "var(--green)" : (stepFails.length > 0 ? "var(--red)" : "var(--yellow)")}">${allOk ? "✓ PASS" : (stepFails.length > 0 ? "✗ FAIL" : "⚠ INCOMPLETE")}</span>
+          ${stepFails.length > 0 ? `<span style="color:var(--red);font-size:12px;margin-left:8px">${stepFails.length} fixture value${stepFails.length > 1 ? "s" : ""} do not match the DDF leg</span>` : ""}
+          ${missing.length > 0 ? `<span style="color:var(--yellow);font-size:12px;margin-left:8px">${missing.length} player${missing.length > 1 ? "s" : ""} not in DDF leg</span>` : ""}
           <div style="color:#666;font-size:12px;margin-top:4px">DDF leg: <code>${leg.bake_id || "n/a"}</code> (${leg.generated_at || "n/a"}) · scale factor ${leg.scale_70_over_max != null ? Number(leg.scale_70_over_max).toFixed(6) : "n/a"} · max raw ${leg.max_raw_value != null ? Number(leg.max_raw_value).toFixed(3) : "n/a"}</div>
         </div>`;
 
       let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
-        <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd;position:sticky;left:0;background:#fff">Player</th>
+        <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd;position:sticky;left:0;background:var(--card)">Player</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">Pos</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">Tier</th>
         <th style="padding:6px;border-bottom:2px solid #ddd" title="Per-game native projection">PPG</th>
@@ -846,12 +846,12 @@ async function main(){
 
       players.forEach(p => {
         const hasLeg = p.leg_value != null;
-        const rowBg = !hasLeg ? "#fff8e1" : (p.all_steps_ok ? "#f1f8e9" : "#ffebee");
+        const rowBg = !hasLeg ? "var(--yellow-bg)" : (p.all_steps_ok ? "var(--green-bg)" : "var(--red-bg)");
         const fmt = (v, dp) => v == null ? "—" : Number(v).toFixed(dp);
         const stepCell = !hasLeg
-          ? `<span style="color:#e65100">not in leg</span>`
-          : `${p.raw_to_scaled_ok ? "✓" : "<b style='color:#c62828'>✗</b>"} raw→scaled · ${p.scaled_to_fixture_ok ? "✓" : "<b style='color:#c62828'>✗</b>"} scaled→fixture`;
-        const fixStyle = hasLeg && !p.scaled_to_fixture_ok ? "background:#ffcdd2;font-weight:bold" : "";
+          ? `<span style="color:var(--yellow)">not in leg</span>`
+          : `${p.raw_to_scaled_ok ? "✓" : "<b style='color:var(--red)'>✗</b>"} raw→scaled · ${p.scaled_to_fixture_ok ? "✓" : "<b style='color:var(--red)'>✗</b>"} scaled→fixture`;
+        const fixStyle = hasLeg && !p.scaled_to_fixture_ok ? "background:var(--red-bg);font-weight:bold" : "";
         html += `<tr style="background:${rowBg}">
           <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold;position:sticky;left:0;background:${rowBg}">${p.name}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${p.pos}</td>
@@ -1159,10 +1159,10 @@ async function loadCrossSourceAgreement() {
     const data = await resp.json();
     const divs = data.divergences || [];
     summaryEl.innerHTML = `
-      <div style="padding:12px 16px;border-radius:8px;background:${divs.length > 0 ? "#fff8e1" : "#e8f5e9"};border:1px solid ${divs.length > 0 ? "#ffa000" : "#4caf50"}">
+      <div style="padding:12px 16px;border-radius:8px;background:${divs.length > 0 ? "var(--yellow-bg)" : "var(--green-bg)"};border:1px solid ${divs.length > 0 ? "var(--yellow)" : "var(--green)"}">
         <b>${data.common_players}</b> players in all 5 sources ·
         <b>${data.divergent_players}</b> starters with &gt;25% divergence ·
-        <span style="color:${divs.length > 0 ? "#e65100" : "#2e7d32"};font-weight:bold">${divs.length > 0 ? "⚠ DIVERGENCES FOUND" : "✓ AGREEMENT"}</span>
+        <span style="color:${divs.length > 0 ? "var(--yellow)" : "var(--green)"};font-weight:bold">${divs.length > 0 ? "⚠ DIVERGENCES FOUND" : "✓ AGREEMENT"}</span>
       </div>`;
     if (divs.length > 0) {
       let html = `<table style="border-collapse:collapse;width:100%;font-size:12px;margin-top:12px"><thead><tr>
@@ -1177,10 +1177,10 @@ async function loadCrossSourceAgreement() {
         <th style="padding:6px;border-bottom:2px solid #ddd">CBS</th>
       </tr></thead><tbody>`;
       divs.slice(0, 20).forEach(d => {
-        html += `<tr style="background:#fff8e1">
+        html += `<tr style="background:var(--yellow-bg)">
           <td style="padding:6px;border-bottom:1px solid #eee;font-weight:bold">${d.name}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${d.pos}</td>
-          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;color:#c62828">${(d.max_divergence*100).toFixed(1)}%</td>
+          <td style="padding:6px;border-bottom:1px solid #eee;text-align:right;font-weight:bold;color:var(--red)">${(d.max_divergence*100).toFixed(1)}%</td>
           <td style="padding:6px;border-bottom:1px solid #eee;font-size:11px">${d.max_pair[0]} vs ${d.max_pair[1]}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.espn}</td>
           <td style="padding:6px;border-bottom:1px solid #eee;text-align:right">${d.values.fantasycalc}</td>
@@ -1210,14 +1210,14 @@ async function loadIdentityVerification() {
     const issues = data.issues || [];
     const ok = data.status === "pass";
     summaryEl.innerHTML = `
-      <div style="padding:12px 16px;border-radius:8px;background:${ok ? "#e8f5e9" : "#ffebee"};border:1px solid ${ok ? "#4caf50" : "#f44336"}">
+      <div style="padding:12px 16px;border-radius:8px;background:${ok ? "var(--green-bg)" : "var(--red-bg)"};border:1px solid ${ok ? "var(--green)" : "var(--red)"}">
         <b>${data.stats.total_player_keys}</b> player_keys ·
         <b>${data.stats.joins_via_player_key}</b> joins via player_key ·
-        <span style="color:${ok ? "#2e7d32" : "#c62828"};font-weight:bold">${ok ? "✓ PASS" : "✗ FAIL"}</span>
+        <span style="color:${ok ? "var(--green)" : "var(--red)"};font-weight:bold">${ok ? "✓ PASS" : "✗ FAIL"}</span>
       </div>`;
     if (issues.length > 0) {
       issuesEl.innerHTML = issues.map(i => `
-        <div style="margin:8px 0;padding:8px 12px;background:#ffebee;border-left:3px solid #f44336;border-radius:4px">
+        <div style="margin:8px 0;padding:8px 12px;background:var(--red-bg);border-left:3px solid var(--red);border-radius:4px">
           <b>${i.type}:</b> ${i.detail}
         </div>`).join("");
     } else {

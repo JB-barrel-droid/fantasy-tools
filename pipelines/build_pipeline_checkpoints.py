@@ -510,7 +510,6 @@ def build_checkpoints():
                     with urllib.request.urlopen(js_req, timeout=15) as js_resp:
                         js_text = js_resp.read().decode()
                     # Look for hardcoded "(Week N)" labels that don't match expected
-                    import re
                     stale_labels = []
                     for m in re.finditer(r'\((Week \d+)\)', js_text):
                         if m.group(1) != expected_designation:

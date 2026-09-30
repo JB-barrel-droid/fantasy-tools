@@ -38,29 +38,53 @@ def replace_inline_players(index_html: str, players: dict) -> str:
     return index_html[:start] + payload + index_html[end:]
 
 
+METHODOLOGY_SCORINGS = ["standard", "half", "full"]
+METHODOLOGY_SCORING_LABELS = {
+    "standard": "Standard",
+    "half": "Half PPR",
+    "full": "Full PPR",
+}
+METHODOLOGY_TEAMS = [8, 10, 12, 14]
 METHODOLOGY_POSITION_SOURCES = [
-    ("usatoday", "USA Today", "full_12"),
-    ("fantasycalc", "FantasyCalc", "full_12_qb1"),
-    ("fantasypros", "FantasyPros", "full_12"),
-    ("cbs", "CBS", "full_12"),
-    ("espn", "ESPN", "full_12"),
+    ("usatoday", "USA Today"),
+    ("fantasycalc", "FantasyCalc"),
+    ("fantasypros", "FantasyPros"),
+    ("cbs", "CBS"),
+    ("espn", "ESPN"),
 ]
 METHODOLOGY_ADJUSTED_PAIRS = [
-    ("usatoday", "usatoday_adjusted", "USA Today", "full_12"),
-    ("fantasycalc", "fantasycalc_adjusted", "FantasyCalc", "full_12_qb1"),
-    ("fantasypros", "fantasypros_adjusted", "FantasyPros", "full_12"),
-    ("cbs", "cbs_adjusted", "CBS", "full_12"),
+    ("usatoday", "usatoday_adjusted", "USA Today"),
+    ("fantasycalc", "fantasycalc_adjusted", "FantasyCalc"),
+    ("fantasypros", "fantasypros_adjusted", "FantasyPros"),
+    ("cbs", "cbs_adjusted", "CBS"),
 ]
+# The two-tier value model behind the adjusted view. Baked here so the
+# methodology section can describe the actual bench/starter split.
+METHODOLOGY_BENCH_SHARE = 0.15
+METHODOLOGY_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
+
+
+def _methodology_combo(source: str, scoring: str, teams: int) -> str:
+    # FantasyCalc variants take the _qb1 combo; every other source uses the
+    # plain scoring_teams combo.
+    suffix = "_qb1" if source.startswith("fantasycalc") else ""
+    return f"{scoring}_{teams}{suffix}"
 
 
 def build_methodology_payload(fixtures: Path, players_data: dict) -> dict:
     """Bake the numbers behind the 'How we make the charts comparable' section.
 
-    position_shares: per-position share of each source's fixed pie (Full PPR,
-    12 teams) -- the 'same pie, different slicing' visual.
-    adjustments: biggest as-published -> adjusted movers per adjusted series --
-    the 'correcting house habits' visual. Derived from the same fixture the
-    curves render, so the section can never drift from the chart.
+    Baked per (scoring x teams) combo so the section follows the chart's
+    league settings instead of being pinned to Full PPR / 12 teams.
+
+    combos[<scoring>_<teams>]:
+      position_shares: per-position share of each source's fixed pie -- the
+        'same pie, different slicing' visual. Sources without that combo
+        (e.g. USA Today only ships 12-team) are omitted from that combo.
+      adjustments: biggest as-published -> adjusted movers per adjusted
+        series -- the 'correcting toward our view' visual.
+    Derived from the same fixture the curves render, so the section can
+    never drift from the chart.
     """
     comp = read_json(fixtures / "comparison-sources-data.json")
     name2key = comp.get("player_keys", {})
@@ -72,55 +96,77 @@ def build_methodology_payload(fixtures: Path, players_data: dict) -> dict:
     def display_name(name: str) -> str:
         return (by_key.get(name2key.get(name)) or {}).get("name") or name.title()
 
-    position_shares = {}
-    for src, label, combo in METHODOLOGY_POSITION_SOURCES:
-        series = comp["sources"].get(src, {}).get("combos", {}).get(combo, {})
+    def series_values(source: str, combo: str) -> dict:
+        series = comp["sources"].get(source, {}).get("combos", {}).get(combo, {})
         # ESPN's DDF-methodology leg is stored under "values" (never reindexed);
         # as-published series use "reindexed".
-        vals = series.get("reindexed") or series.get("values") or {}
-        total = sum(vals.values())
-        shares = {"QB": 0.0, "RB": 0.0, "WR": 0.0, "TE": 0.0}
-        for name, value in vals.items():
-            pos = pos_of(name)
-            if pos in shares:
-                shares[pos] += value
-        position_shares[src] = {
-            "label": label,
-            "shares": (
-                {p: round(s / total * 100) for p, s in shares.items()} if total else shares
-            ),
-            "n": len(vals),
-        }
+        return series.get("reindexed") or series.get("values") or {}
 
-    adjustments = {}
-    for pub, adj, label, combo in METHODOLOGY_ADJUSTED_PAIRS:
-        pub_vals = comp["sources"].get(pub, {}).get("combos", {}).get(combo, {}).get("reindexed") or {}
-        adj_vals = comp["sources"].get(adj, {}).get("combos", {}).get(combo, {}).get("reindexed") or {}
-        movers = []
-        for name, before in pub_vals.items():
-            if name in adj_vals and before > 8:
-                after = adj_vals[name]
-                movers.append((after - before, name, before, after))
-        movers.sort(key=lambda m: -abs(m[0]))
-        adjustments[pub] = {
-            "label": label,
-            "movers": [
-                {
-                    "name": display_name(name),
-                    "pos": pos_of(name),
-                    "before": round(before, 1),
-                    "after": round(after, 1),
-                    "delta": round(delta, 1),
+    combos = {}
+    for scoring in METHODOLOGY_SCORINGS:
+        for teams in METHODOLOGY_TEAMS:
+            combo_key = f"{scoring}_{teams}"
+            position_shares = {}
+            for src, label in METHODOLOGY_POSITION_SOURCES:
+                vals = series_values(src, _methodology_combo(src, scoring, teams))
+                if not vals:
+                    continue
+                total = sum(vals.values())
+                shares = {"QB": 0.0, "RB": 0.0, "WR": 0.0, "TE": 0.0}
+                for name, value in vals.items():
+                    pos = pos_of(name)
+                    if pos in shares:
+                        shares[pos] += value
+                position_shares[src] = {
+                    "label": label,
+                    "shares": (
+                        {p: round(s / total * 100) for p, s in shares.items()}
+                        if total
+                        else shares
+                    ),
+                    "n": len(vals),
                 }
-                for delta, name, before, after in movers[:6]
-            ],
-        }
+            adjustments = {}
+            for pub, adj, label in METHODOLOGY_ADJUSTED_PAIRS:
+                pub_vals = series_values(pub, _methodology_combo(pub, scoring, teams))
+                adj_vals = series_values(adj, _methodology_combo(adj, scoring, teams))
+                if not pub_vals or not adj_vals:
+                    continue
+                movers = []
+                for name, before in pub_vals.items():
+                    if name in adj_vals and before > 8:
+                        after = adj_vals[name]
+                        movers.append((after - before, name, before, after))
+                movers.sort(key=lambda m: -abs(m[0]))
+                adjustments[pub] = {
+                    "label": label,
+                    "movers": [
+                        {
+                            "name": display_name(name),
+                            "pos": pos_of(name),
+                            "before": round(before, 1),
+                            "after": round(after, 1),
+                            "delta": round(delta, 1),
+                        }
+                        for delta, name, before, after in movers[:6]
+                    ],
+                }
+            # Only keep combos that have at least one source; an empty combo
+            # would render a blank methodology section.
+            if position_shares:
+                combos[combo_key] = {
+                    "scoring": scoring,
+                    "scoring_label": METHODOLOGY_SCORING_LABELS[scoring],
+                    "teams": teams,
+                    "position_shares": position_shares,
+                    "adjustments": adjustments,
+                }
 
     return {
-        "scoring": "full",
-        "teams": 12,
-        "position_shares": position_shares,
-        "adjustments": adjustments,
+        "combos": combos,
+        "default_combo": "full_12",
+        "bench_share": METHODOLOGY_BENCH_SHARE,
+        "roster": METHODOLOGY_ROSTER,
     }
 
 

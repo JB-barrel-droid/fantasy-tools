@@ -1,47 +1,54 @@
 {
-  "run_at": "2026-09-30T03:29:14.733809+00:00",
+  "run_at": "2026-09-30T16:03:23.927243+00:00",
   "nfl_week": 4,
   "sources": {
-    "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
-    "fantasypros": "promoted 3/3",
-    "espn": "promoted 1/1",
+    "usatoday": "FAILED at stage 'review': usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "fantasypros": "FAILED at stage 'review': fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "espn": "FAILED at stage 'review': espn-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
     "cbs": "promoted 3/3"
   },
-  "failed": [],
-  "success": true,
-  "runner": "github-actions",
+  "failed": [
+    "adjusted_sections",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "fit",
+    "usatoday"
+  ],
+  "success": false,
+  "runner": "local",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "failed",
+      "stage": "review",
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 2
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
+      "status": "failed",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 3
     },
     "fantasypros": {
       "source": "fantasypros",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
+      "status": "failed",
+      "stage": "review",
+      "detail": "fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 3
     },
     "espn": {
       "source": "espn",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 1/1",
-      "promoted": 1,
+      "status": "failed",
+      "stage": "review",
+      "detail": "espn-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 1
     },
     "cbs": {
@@ -54,11 +61,11 @@
     }
   },
   "fit": {
-    "status": "ok",
-    "detail": "fit complete"
+    "status": "skipped",
+    "detail": "skipped: sources failed: usatoday, fantasycalc, fantasypros, espn"
   },
   "adjusted_sections": {
-    "status": "ok",
-    "detail": "_adjusted sections built"
+    "status": "skipped",
+    "detail": "skipped: fit skipped"
   }
 }
