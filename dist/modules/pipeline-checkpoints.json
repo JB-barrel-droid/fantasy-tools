@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T04:07:17.054621+00:00",
+  "generated_at": "2026-09-30T04:37:17.572094+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -71,22 +71,22 @@
         "c3_supabase": {
           "timestamp": "2026-09-29T15:09:05.536608+00:00",
           "status": "ok",
-          "reason": "387 rows landed in public.espn_season_projections 0.5d ago."
+          "reason": "387 rows landed in public.espn_season_projections 0.6d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T17:36:48.743803+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.4d ago (data/raw/sources/espn/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 0.5d ago (data/raw/sources/espn/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T04:07:05Z",
+          "timestamp": "2026-09-30T04:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-09-30T03:29:14.733809+00:00",
+          "timestamp": "2026-09-30T04:28:49.106215+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-09-30T03:29:14.733809+00:00."
+          "reason": "Candidate built and reviewed 0.0d ago."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -94,19 +94,19 @@
           "reason": "No promotion artifacts found."
         },
         "c8_sync": {
-          "timestamp": "2026-09-30T00:19:45.413257+00:00",
+          "timestamp": "2026-09-30T03:29:14.490205+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T03:45:56Z",
+          "timestamp": "2026-09-30T04:08:11Z",
           "status": "bad",
           "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T04:07:19.189435+00:00",
+          "timestamp": "2026-09-30T04:37:20.400815+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist d52250d167f8). Live built 2026-09-30T03:29."
+          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist 318a9990428c). Live built 2026-09-30T03:29."
         }
       }
     },
@@ -134,7 +134,7 @@
           "reason": "Snapshot stamped 0.2d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T04:07:05Z",
+          "timestamp": "2026-09-30T04:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -149,19 +149,19 @@
           "reason": "No promotion artifacts found."
         },
         "c8_sync": {
-          "timestamp": "2026-09-30T00:19:45.413257+00:00",
+          "timestamp": "2026-09-30T03:29:14.490205+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T03:45:56Z",
+          "timestamp": "2026-09-30T04:08:11Z",
           "status": "bad",
           "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T04:07:21.815738+00:00",
+          "timestamp": "2026-09-30T04:37:22.617640+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist d52250d167f8). Live built 2026-09-30T03:29."
+          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist 318a9990428c). Live built 2026-09-30T03:29."
         }
       }
     },
@@ -186,10 +186,10 @@
         "c4_snapshot": {
           "timestamp": "2026-09-29T17:36:40.484803+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.4d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
+          "reason": "Snapshot stamped 0.5d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T04:07:05Z",
+          "timestamp": "2026-09-30T04:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -204,19 +204,19 @@
           "reason": "No promotion artifacts found."
         },
         "c8_sync": {
-          "timestamp": "2026-09-30T00:19:45.413257+00:00",
+          "timestamp": "2026-09-30T03:29:14.490205+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T03:45:56Z",
+          "timestamp": "2026-09-30T04:08:11Z",
           "status": "bad",
           "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T04:07:23.833213+00:00",
+          "timestamp": "2026-09-30T04:37:25.248645+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist d52250d167f8). Live built 2026-09-30T03:29."
+          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist 318a9990428c). Live built 2026-09-30T03:29."
         }
       }
     },
@@ -241,10 +241,10 @@
         "c4_snapshot": {
           "timestamp": "2026-09-29T17:36:46.289718+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.4d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 0.5d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T04:07:05Z",
+          "timestamp": "2026-09-30T04:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -259,19 +259,19 @@
           "reason": "No promotion artifacts found."
         },
         "c8_sync": {
-          "timestamp": "2026-09-30T00:19:45.413257+00:00",
+          "timestamp": "2026-09-30T03:29:14.490205+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T03:45:56Z",
+          "timestamp": "2026-09-30T04:08:11Z",
           "status": "bad",
           "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T04:07:26.525071+00:00",
+          "timestamp": "2026-09-30T04:37:28.089347+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist d52250d167f8). Live built 2026-09-30T03:29."
+          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist 318a9990428c). Live built 2026-09-30T03:29."
         }
       }
     },
@@ -291,7 +291,7 @@
         "c3_supabase": {
           "timestamp": "2026-09-29T22:26:02.808628+00:00",
           "status": "ok",
-          "reason": "747 rows landed in public.source_trade_values 0.2d ago."
+          "reason": "747 rows landed in public.source_trade_values 0.3d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T22:40:17.571223+00:00",
@@ -299,7 +299,7 @@
           "reason": "Snapshot stamped 0.2d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T04:07:05Z",
+          "timestamp": "2026-09-30T04:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -314,19 +314,19 @@
           "reason": "No promotion artifacts found."
         },
         "c8_sync": {
-          "timestamp": "2026-09-30T00:19:45.413257+00:00",
+          "timestamp": "2026-09-30T03:29:14.490205+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.0d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T03:45:56Z",
+          "timestamp": "2026-09-30T04:08:11Z",
           "status": "bad",
           "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T04:07:28.981844+00:00",
+          "timestamp": "2026-09-30T04:37:30.584436+00:00",
           "status": "bad",
-          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist d52250d167f8). Live built 2026-09-30T03:29."
+          "reason": "Production output WRONG: served bytes differ from dist/ (live f4a8f4ee0a08 vs dist 318a9990428c). Live built 2026-09-30T03:29."
         }
       }
     }
@@ -336,7 +336,7 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": true,
-    "run_age_days": 0.026553797418981482,
+    "run_age_days": 0.04740567909722222,
     "stale": false
   },
   "adj_curve_pipeline": {
