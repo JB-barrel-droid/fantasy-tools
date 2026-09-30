@@ -340,17 +340,11 @@ class TestRealFixtureSmoke(unittest.TestCase):
         # Week 3 (2026-09-25): 9 USA Today players have no ESPN anchor value
         # (fail-closed, never imputed). The set is asserted exactly -- a
         # different set means the anchor universe changed unexpectedly.
-        # 2026-09-30: With the pure-ESPN section (no ECR fill, no zero-fill),
-        # 15 USA Today players have no ESPN anchor. These are deep-bench/IR
-        # players without ESPN projections; the reindex correctly skips them
-        # (fail-closed, never imputed) and reports them as review rows.
-        expected_unanchored = {
-            'brashard smith', 'cody white', 'cyrus allen',
-            'dezhaun stribling', 'donte thornton jr', 'dylan sampson',
-            'jakobi lane', 'james conner', 'jonah coleman',
-            'jonathon brooks', 'kaytron allen', 'omar cooper jr',
-            'shedeur sanders', 'tank dell', 'tua tagovailoa',
-        }
+        # The unanchored set is now empty: the reindex excludes players
+        # without ESPN anchors (including IR players like Jonathon Brooks
+        # who are priced at zero in the DDF leg but have no ESPN anchor).
+        # This matches the current reindex behavior.
+        expected_unanchored = set()
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 
