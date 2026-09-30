@@ -12,8 +12,8 @@ What it does (deterministic, no hand-edits):
 - For each scoring, maps DDF 70-scale values onto the fixture's 596-player
   universe via the fixture's own player_keys slugs.
 - Players priced by the DDF leg get fresh values DIRECTLY from the leg
-  (no rescale to a stale pie). Players outside the leg (ECR-filled) keep
-  their existing section values byte-identical.
+  (no rescale to a stale pie). Players outside the leg are EXCLUDED
+  (ESPN-purity: no ECR fill — if ESPN has no projection, there is no ESPN value).
 - The positional pie (index_total target_total) is measured from the FRESH
   data, not carried forward from a stale canonical pie. This ensures the
   "ESPN adjusted" curve reflects current ESPN projections, not old levels.
@@ -155,8 +155,10 @@ def main() -> int:
             # The DDF leg is the authoritative bottom-up ESPN valuation;
             # its values reflect the current ESPN vintage. Rescaling to an
             # old "canonical pie" would pin the level to stale data.
-            fresh_vals = dict(old_vals)  # start from existing (ECR fill preserved)
-            fresh_native = dict(old_native)
+            # ESPN-PURITY: Start empty, only DDF-leg players get values.
+            # Players without ESPN projections are excluded (no ECR fill).
+            fresh_vals = {}
+            fresh_native = {}
             ddf_ppg = leg_ppgs[scoring]
             for slug, dval in ddf_vals.items():
                 if slug not in old_vals:
@@ -202,10 +204,10 @@ def main() -> int:
     new_section["fetched_at"] = utc_now()
     new_section["espn_priced_pids"] = sorted(new_priced)
     new_section["provenance_note"] = (
-        f"ESPN's per-game numbers where they exist ({len(new_priced)} of "
-        f"{len(new_priced)} tracked players with ESPN season projections, via "
-        "ESPN (Mike Clay model)); ECR-filled elsewhere so replacement levels "
-        "stay like-for-like. Valued through the DDF two-tier leg (ESPN-pure). "
+        f"ESPN's per-game numbers where they exist ({len(new_priced)} "
+        f"players with ESPN season projections, via ESPN (Mike Clay model)). "
+        "ESPN-pure: no ECR fill — players without ESPN projections are excluded. "
+        "Valued through the DDF two-tier leg (ESPN-pure). "
         "Same valuation math as our column, no Monday adjustments."
     )
     new_section["rails"] = (

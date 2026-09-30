@@ -1,0 +1,491 @@
+{
+  "generated_at": "2026-09-30T13:15:03.712582+00:00",
+  "sources": {
+    "espn": {
+      "methodology": "DDF two-tier",
+      "formula": "native (ppg) \u2192 DDF value-above-waivers \u2192 scale to 70 \u2192 values",
+      "steps": [
+        "1. Start with ESPN per-game projection (native/ppg)",
+        "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
+        "3. Scale to 70-point index (fixed-pie methodology)",
+        "4. Round to 1 decimal \u2192 fixture values"
+      ],
+      "combos": {
+        "full_12": {
+          "checked": 18,
+          "matched": 2,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 22.96,
+              "leg_value": 70.0,
+              "fixture_value": 70.0,
+              "match": true
+            },
+            {
+              "player": "devon achane",
+              "native": 17.89,
+              "leg_value": 46.2,
+              "fixture_value": 54.5,
+              "match": false
+            },
+            {
+              "player": "bijan robinson",
+              "native": 18.48,
+              "leg_value": 48.8,
+              "fixture_value": 50.1,
+              "match": false
+            }
+          ]
+        },
+        "half_12": {
+          "checked": 18,
+          "matched": 2,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 20.9,
+              "leg_value": 70.0,
+              "fixture_value": 70.0,
+              "match": true
+            },
+            {
+              "player": "devon achane",
+              "native": null,
+              "leg_value": 0.0,
+              "fixture_value": 54.9,
+              "match": false
+            },
+            {
+              "player": "bijan robinson",
+              "native": 16.77,
+              "leg_value": 47.9,
+              "fixture_value": 51.9,
+              "match": false
+            }
+          ]
+        },
+        "standard_12": {
+          "checked": 17,
+          "matched": 17,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 18.83,
+              "leg_value": 70.0,
+              "fixture_value": 70.0,
+              "match": true
+            },
+            {
+              "player": "devon achane",
+              "native": 13.84,
+              "leg_value": null,
+              "fixture_value": 57.2,
+              "match": false
+            },
+            {
+              "player": "derrick henry",
+              "native": 15.41,
+              "leg_value": 54.6,
+              "fixture_value": 54.6,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "bad",
+      "mismatches": [
+        {
+          "combo": "full_12",
+          "player": "devon achane",
+          "fixture": 54.5,
+          "leg": 46.2,
+          "diff": 8.3
+        },
+        {
+          "combo": "full_12",
+          "player": "bijan robinson",
+          "fixture": 50.1,
+          "leg": 48.8,
+          "diff": 1.3
+        },
+        {
+          "combo": "full_12",
+          "player": "christian mccaffrey",
+          "fixture": 47.5,
+          "leg": 46.4,
+          "diff": 1.1
+        },
+        {
+          "combo": "full_12",
+          "player": "jonathan taylor",
+          "fixture": 45.0,
+          "leg": 53.9,
+          "diff": -8.9
+        },
+        {
+          "combo": "full_12",
+          "player": "derrick henry",
+          "fixture": 42.1,
+          "leg": 39.8,
+          "diff": 2.3
+        },
+        {
+          "combo": "full_12",
+          "player": "ashton jeanty",
+          "fixture": 40.1,
+          "leg": 40.9,
+          "diff": -0.8
+        },
+        {
+          "combo": "full_12",
+          "player": "jaxon smithnjigba",
+          "fixture": 38.2,
+          "leg": 44.1,
+          "diff": -5.9
+        },
+        {
+          "combo": "full_12",
+          "player": "puka nacua",
+          "fixture": 38.1,
+          "leg": 46.5,
+          "diff": -8.4
+        },
+        {
+          "combo": "full_12",
+          "player": "jamarr chase",
+          "fixture": 36.8,
+          "leg": 42.6,
+          "diff": -5.8
+        },
+        {
+          "combo": "full_12",
+          "player": "amonra st brown",
+          "fixture": 36.4,
+          "leg": 43.8,
+          "diff": -7.4
+        },
+        {
+          "combo": "full_12",
+          "player": "james cook",
+          "fixture": 35.7,
+          "leg": 35.8,
+          "diff": -0.1
+        },
+        {
+          "combo": "full_12",
+          "player": "chase brown",
+          "fixture": 33.9,
+          "leg": 38.9,
+          "diff": -5.0
+        },
+        {
+          "combo": "full_12",
+          "player": "saquon barkley",
+          "fixture": 33.3,
+          "leg": 35.5,
+          "diff": -2.2
+        },
+        {
+          "combo": "full_12",
+          "player": "bucky irving",
+          "fixture": 31.1,
+          "leg": 34.3,
+          "diff": -3.2
+        },
+        {
+          "combo": "full_12",
+          "player": "justin jefferson",
+          "fixture": 30.4,
+          "leg": 37.1,
+          "diff": -6.7
+        },
+        {
+          "combo": "full_12",
+          "player": "javonte williams",
+          "fixture": 29.4,
+          "leg": 31.4,
+          "diff": -2.0
+        },
+        {
+          "combo": "half_12",
+          "player": "devon achane",
+          "fixture": 54.9,
+          "leg": 0.0,
+          "diff": 54.9
+        },
+        {
+          "combo": "half_12",
+          "player": "bijan robinson",
+          "fixture": 51.9,
+          "leg": 47.9,
+          "diff": 4.0
+        },
+        {
+          "combo": "half_12",
+          "player": "kenneth walker iii",
+          "fixture": 50.0,
+          "leg": 48.0,
+          "diff": 2.0
+        },
+        {
+          "combo": "half_12",
+          "player": "jonathan taylor",
+          "fixture": 48.7,
+          "leg": 55.7,
+          "diff": -7.0
+        },
+        {
+          "combo": "half_12",
+          "player": "derrick henry",
+          "fixture": 48.7,
+          "leg": 44.7,
+          "diff": 4.0
+        },
+        {
+          "combo": "half_12",
+          "player": "christian mccaffrey",
+          "fixture": 47.5,
+          "leg": 44.6,
+          "diff": 2.9
+        },
+        {
+          "combo": "half_12",
+          "player": "puka nacua",
+          "fixture": 42.8,
+          "leg": 45.5,
+          "diff": -2.7
+        },
+        {
+          "combo": "half_12",
+          "player": "jaxon smithnjigba",
+          "fixture": 42.4,
+          "leg": 42.3,
+          "diff": 0.1
+        },
+        {
+          "combo": "half_12",
+          "player": "james cook",
+          "fixture": 41.3,
+          "leg": 39.4,
+          "diff": 1.9
+        },
+        {
+          "combo": "half_12",
+          "player": "ashton jeanty",
+          "fixture": 41.3,
+          "leg": 40.1,
+          "diff": 1.2
+        },
+        {
+          "combo": "half_12",
+          "player": "jamarr chase",
+          "fixture": 40.0,
+          "leg": 40.4,
+          "diff": -0.4
+        },
+        {
+          "combo": "half_12",
+          "player": "amonra st brown",
+          "fixture": 39.8,
+          "leg": 41.4,
+          "diff": -1.6
+        },
+        {
+          "combo": "half_12",
+          "player": "saquon barkley",
+          "fixture": 38.0,
+          "leg": 38.3,
+          "diff": -0.3
+        },
+        {
+          "combo": "half_12",
+          "player": "chase brown",
+          "fixture": 36.2,
+          "leg": 38.8,
+          "diff": -2.6
+        },
+        {
+          "combo": "half_12",
+          "player": "bucky irving",
+          "fixture": 35.3,
+          "leg": 35.5,
+          "diff": -0.2
+        },
+        {
+          "combo": "half_12",
+          "player": "josh allen",
+          "fixture": 33.9,
+          "leg": 32.6,
+          "diff": 1.3
+        }
+      ],
+      "reason": "32 mismatches",
+      "label": "ESPN"
+    },
+    "cbs": {
+      "methodology": "reindexed-as-given",
+      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "steps": [
+        "1. Start with source's published value (native)",
+        "2. Apply isotonic regression to map onto 0-70 scale",
+        "3. Preserves rank order, monotonic transformation",
+        "4. Result \u2192 fixture reindexed"
+      ],
+      "combos": {
+        "standard_12": {
+          "n_native": 113,
+          "n_reindexed": 113,
+          "top10_overlap": "10/10",
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 50.0,
+              "reindexed": 83.2,
+              "match": true
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 48.0,
+              "reindexed": 57.2,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 47.0,
+              "reindexed": 63.0,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "mismatches": [],
+      "reason": "Rank order preserved via isotonic reindex",
+      "label": "CBS"
+    },
+    "fantasycalc": {
+      "methodology": "reindexed-as-given",
+      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "steps": [
+        "1. Start with source's published value (native)",
+        "2. Apply isotonic regression to map onto 0-70 scale",
+        "3. Preserves rank order, monotonic transformation",
+        "4. Result \u2192 fixture reindexed"
+      ],
+      "combos": {
+        "standard_8_qb1": {
+          "n_native": 198,
+          "n_reindexed": 198,
+          "top10_overlap": "5/10",
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10699.0,
+              "reindexed": 93.8,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10305.0,
+              "reindexed": 72.8,
+              "match": true
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 9069.0,
+              "reindexed": 72.8,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "mismatches": [],
+      "reason": "Rank order preserved via isotonic reindex",
+      "label": "FantasyCalc"
+    },
+    "fantasypros": {
+      "methodology": "reindexed-as-given",
+      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "steps": [
+        "1. Start with source's published value (native)",
+        "2. Apply isotonic regression to map onto 0-70 scale",
+        "3. Preserves rank order, monotonic transformation",
+        "4. Result \u2192 fixture reindexed"
+      ],
+      "combos": {
+        "standard_12": {
+          "n_native": 178,
+          "n_reindexed": 178,
+          "top10_overlap": "10/10",
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 93.8,
+              "reindexed": 83.2,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 71.2,
+              "reindexed": 63.0,
+              "match": true
+            },
+            {
+              "player": "derrick henry",
+              "native": 66.1,
+              "reindexed": 60.8,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "mismatches": [],
+      "reason": "Rank order preserved via isotonic reindex",
+      "label": "FantasyPros"
+    },
+    "usatoday": {
+      "methodology": "reindexed-as-given",
+      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "steps": [
+        "1. Start with source's published value (native)",
+        "2. Apply isotonic regression to map onto 0-70 scale",
+        "3. Preserves rank order, monotonic transformation",
+        "4. Result \u2192 fixture reindexed"
+      ],
+      "combos": {
+        "standard_12": {
+          "n_native": 249,
+          "n_reindexed": 249,
+          "top10_overlap": "10/10",
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 93.8,
+              "reindexed": 83.2,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 71.2,
+              "reindexed": 63.0,
+              "match": true
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 67.4,
+              "reindexed": 61.8,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "mismatches": [],
+      "reason": "Rank order preserved via isotonic reindex",
+      "label": "USA Today"
+    }
+  }
+}
