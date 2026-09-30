@@ -1679,16 +1679,30 @@
     const grid = $("#positionWeightControls");
     if (!grid) return;
     const weights = activePositionWeights();
+    // Largest-remainder rounding so displayed percentages sum to exactly 100.0%.
+    const raw = TwoTier.POSITIONS.map(pos => (weights[pos] || 0) * 100);
+    const floored = raw.map(v => Math.floor(v * 10 + 1e-9) / 10);
+    let remainderTenths = Math.round(1000 - floored.reduce((s, v) => s + Math.round(v * 10), 0));
+    const order = raw
+      .map((v, i) => ({i, frac: v * 10 - Math.floor(v * 10 + 1e-9)}))
+      .sort((a, b) => b.frac - a.frac);
+    const displayTenths = floored.map(v => Math.round(v * 10));
+    for (const {i} of order) {
+      if (remainderTenths <= 0) break;
+      displayTenths[i] += 1;
+      remainderTenths -= 1;
+    }
     let total = 0;
-    TwoTier.POSITIONS.forEach(pos => {
+    TwoTier.POSITIONS.forEach((pos, idx) => {
       const wrap = grid.querySelector(`.weight-step[data-pos="${pos}"]`);
       if (!wrap) return;
       const pct = (weights[pos] || 0) * 100;
-      total += pct;
+      const shown = displayTenths[idx] / 10;
+      total += shown;
       const input = wrap.querySelector("input[type=range]");
       const val = wrap.querySelector(".weight-val");
       if (input && document.activeElement !== input) input.value = String(pct);
-      if (val) val.textContent = `${pct.toFixed(1)}%`;
+      if (val) val.textContent = `${shown.toFixed(1)}%`;
     });
     const readout = $("#weightsReadout");
     if (readout) readout.dataset.total = String(total);
