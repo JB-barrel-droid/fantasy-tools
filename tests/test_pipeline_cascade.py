@@ -21,7 +21,10 @@ Covered:
 - Cascade-from-section entry point skips through to review correctly.
 """
 
+import hashlib
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -139,19 +142,23 @@ def build_snapshot(
             }
         )
     raw_dir = tmp / "raw" / "sources" / source / "week-4"
+    raw_dir.mkdir(parents=True, exist_ok=True)
     snapshot = raw_dir / "snapshot.json"
-    write_json(
-        snapshot,
-        {
-            "schema": "trade-value-source-snapshot-v1",
-            "source": source,
-            "fetched_at": "2026-09-29T12:00:00Z",
-            "default_scoring": None,
-            "default_teams": 12,
-            "row_count": len(rows),
-            "rows": rows,
-        },
-    )
+
+    # Write snapshot bytes and compute sha256 for the manifest integrity field.
+    snapshot_data = {
+        "schema": "trade-value-source-snapshot-v1",
+        "source": source,
+        "fetched_at": "2026-09-29T12:00:00Z",
+        "default_scoring": None,
+        "default_teams": 12,
+        "row_count": len(rows),
+        "rows": rows,
+    }
+    snapshot_bytes = (json.dumps(snapshot_data, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    snapshot.write_bytes(snapshot_bytes)
+    snapshot_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
+
     write_json(
         raw_dir / "snapshot-manifest.json",
         {
@@ -161,6 +168,7 @@ def build_snapshot(
             "content_vintage_derived_from": "week column",
             "week_designated": 4,
             "pulled_at": "2026-09-29T12:00:00Z",
+            "snapshot_sha256": snapshot_sha256,
         },
     )
     return snapshot
@@ -173,8 +181,19 @@ def build_health_file(
     status: str = "ok",
     content_vintage: str = "Week 4",
     failure_reason: str | None = None,
+    snapshot_path: Path | None = None,
+    nfl_week: int = 4,
 ) -> Path:
-    """Write a minimal import-health file for a single source."""
+    """Write a minimal import-health file for a single source.
+
+    Pass ``snapshot_path`` for tests that require sha256 byte verification to
+    pass (i.e. tests where the cascade gets past status/vintage checks and
+    reaches the integrity gate).  The path is stored as an absolute string so
+    the cascade resolves it directly rather than relative to ROOT.
+
+    Pass ``nfl_week`` to produce a health file stamped with a different week
+    (e.g. nfl_week=3 to test stale-week blocking).
+    """
     path = tmp / "source-import-health.json"
     entry: dict = {
         "status": status,
@@ -182,12 +201,15 @@ def build_health_file(
     }
     if failure_reason:
         entry["failure_reason"] = failure_reason
+    if snapshot_path is not None:
+        # Store as absolute string; ROOT / absolute_path → absolute_path in Python.
+        entry["snapshot_path"] = str(snapshot_path)
     write_json(
         path,
         {
             "schema": "trade-value-import-health-v1",
             "checked_at": "2026-09-29T15:00:00Z",
-            "nfl_week": 4,
+            "nfl_week": nfl_week,
             "sources": {source: entry},
         },
     )
@@ -548,8 +570,9 @@ class HoldVerdictRepeatTest(unittest.TestCase):
             }
         )
         raw_dir = tmp / "raw" / "sources" / "fantasycalc" / "week-4"
+        raw_dir.mkdir(parents=True, exist_ok=True)
         snapshot = raw_dir / "snapshot.json"
-        write_json(snapshot, {
+        snapshot_data = {
             "schema": "trade-value-source-snapshot-v1",
             "source": "fantasycalc",
             "fetched_at": "2026-09-29T12:00:00Z",
@@ -557,7 +580,10 @@ class HoldVerdictRepeatTest(unittest.TestCase):
             "default_teams": 12,
             "row_count": len(rows),
             "rows": rows,
-        })
+        }
+        snapshot_bytes = (json.dumps(snapshot_data, indent=2, sort_keys=True) + "\n").encode("utf-8")
+        snapshot.write_bytes(snapshot_bytes)
+        snapshot_sha256 = hashlib.sha256(snapshot_bytes).hexdigest()
         write_json(raw_dir / "snapshot-manifest.json", {
             "schema": "trade-value-source-manifest-v1",
             "source": "fantasycalc",
@@ -565,6 +591,7 @@ class HoldVerdictRepeatTest(unittest.TestCase):
             "content_vintage_derived_from": "week column",
             "week_designated": 4,
             "pulled_at": "2026-09-29T12:00:00Z",
+            "snapshot_sha256": snapshot_sha256,
         })
         return players, player_keys, comparison, snapshot
 
@@ -679,14 +706,16 @@ class HealthGateTest(unittest.TestCase):
             self.assertEqual([], runner.steps)
 
     def test_health_ok_matching_vintage_allows_cascade(self):
-        """Health ok with matching vintage allows the full cascade."""
+        """Health ok with matching vintage and valid sha256 allows the full cascade."""
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             players, player_keys = build_players(tmp)
             comparison = build_comparison(tmp, player_keys)
             snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            # snapshot_path is required so the sha256 integrity gate can pass.
             health = build_health_file(
-                tmp, "fantasycalc", status="ok", content_vintage="Week 4"
+                tmp, "fantasycalc", status="ok", content_vintage="Week 4",
+                snapshot_path=snapshot,
             )
 
             runner = make_runner(tmp, players, comparison, health_path=health)
@@ -1103,14 +1132,18 @@ class IntermediateHealthGateTest(unittest.TestCase):
             self.assertIn("content_vintage", str(ctx.exception))
 
     def test_active_source_match_allowed_with_valid_health(self):
-        """--input active source with valid health (ok + matching vintage) → all stages run."""
+        """--input active source with valid health (ok + matching vintage + sha256) → all stages run."""
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             players, player_keys = build_players(tmp)
             comparison = build_comparison(tmp, player_keys)
             match_path = self._make_active_match_artifact(tmp, players, comparison)
+            # The snapshot was written by _make_active_match_artifact via build_snapshot.
+            # Pass its path to the health file so the sha256 integrity gate can resolve it.
+            snapshot_path = tmp / "raw" / "sources" / "fantasycalc" / "week-4" / "snapshot.json"
             valid_health = build_health_file(
-                tmp, "fantasycalc", status="ok", content_vintage="Week 4"
+                tmp, "fantasycalc", status="ok", content_vintage="Week 4",
+                snapshot_path=snapshot_path,
             )
 
             out = tmp / "out"
@@ -1196,6 +1229,302 @@ class IntermediateHealthGateTest(unittest.TestCase):
                 "--output-root", str(out),
             ])
             self.assertIn(rc, (0, 2), msg="exit 0 or 2 expected (ready or hold), not error")
+
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+# ---------------------------------------------------------------------------
+# Health gate regression tests — concrete defects fixed in second integrator
+# review cycle
+# ---------------------------------------------------------------------------
+
+class HealthGateRegressionTest(unittest.TestCase):
+    """Regression suite for three concrete gate defects identified in the
+    second integrator review.
+
+    Each test asserts: cascade blocks, and no downstream artifacts are written.
+    """
+
+    # ---- Stale NFL week (health from week 3, today is week 4) ----
+
+    def test_stale_nfl_week_health_blocks_snapshot_cascade(self):
+        """Health file with nfl_week=3 must be rejected when today is week 4.
+
+        The Week 3 import validated Week 3 data as current. Entering Week 4
+        the cascade must block rather than proceeding on a stale report.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            # nfl_week=3 — today is week 4 per WEEK1_START=2026-09-08.
+            stale_health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+                nfl_week=3,
+            )
+            runner = make_runner(tmp, players, comparison, health_path=stale_health)
+            out = tmp / "out"
+
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("nfl_week", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when stale-week health blocks")
+
+    def test_stale_nfl_week_health_blocks_intermediate_cascade(self):
+        """Health file with nfl_week=3 must also block intermediate artifact entry."""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+
+            # Build a match artifact via the non-health path, then switch to active source.
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            import match_source_snapshot as ms
+            payload = ms.match_snapshot(snapshot, players)
+            match_dir = tmp / "matches"
+            match_path = ms.default_output_path(payload, match_dir)
+            match_path.parent.mkdir(parents=True, exist_ok=True)
+            match_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+
+            stale_health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+                nfl_week=3,
+            )
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                cascade_mod.main([
+                    "--input", str(match_path),
+                    "--players", str(players),
+                    "--comparison", str(comparison),
+                    "--health", str(stale_health),
+                    "--output-root", str(out),
+                ])
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertIn("nfl_week", msg)
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when stale-week health blocks")
+
+    # ---- Modified snapshot (bytes tampered, vintage unchanged) ----
+
+    def test_modified_snapshot_sha256_mismatch_blocks_snapshot_cascade(self):
+        """Altered snapshot bytes (same vintage) must be detected and cascade blocked.
+
+        This guards against a snapshot that passes the vintage check but whose
+        values have been modified after the manifest was written.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            # Tamper with snapshot bytes after manifest was written.
+            original_bytes = snapshot.read_bytes()
+            tampered = original_bytes.replace(b'"value": 100.0', b'"value": 999.0')
+            self.assertNotEqual(original_bytes, tampered, "tamper must differ")
+            snapshot.write_bytes(tampered)
+
+            runner = make_runner(tmp, players, comparison, health_path=health)
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                runner.cascade_from_snapshot(snapshot)
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            # Must mention sha256 or "modified" or "tamper".
+            self.assertTrue(
+                any(kw in msg.lower() for kw in ("sha256", "modified", "tamper", "bytes")),
+                msg=f"expected sha256/tamper mention in: {msg}",
+            )
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when sha256 mismatch blocks")
+
+    def test_intermediate_tampered_snapshot_blocks_cascade(self):
+        """An intermediate artifact tracing to a tampered snapshot must be blocked.
+
+        The health entry records the snapshot path. If that snapshot's bytes no
+        longer match the manifest sha256, the cascade must block even if the
+        content_vintage string still matches.
+        """
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+
+            # Produce a match artifact (health bypassed — health_path=None).
+            import match_source_snapshot as ms
+            payload = ms.match_snapshot(snapshot, players)
+            match_dir = tmp / "matches"
+            match_path = ms.default_output_path(payload, match_dir)
+            match_path.parent.mkdir(parents=True, exist_ok=True)
+            match_path.write_text(
+                json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+            )
+
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+
+            # Tamper with the snapshot AFTER the health file (and match artifact) exist.
+            original_bytes = snapshot.read_bytes()
+            tampered = original_bytes.replace(b'"value": 100.0', b'"value": 777.0')
+            self.assertNotEqual(original_bytes, tampered, "tamper must differ")
+            snapshot.write_bytes(tampered)
+
+            out = tmp / "out"
+            with self.assertRaises(SystemExit) as ctx:
+                cascade_mod.main([
+                    "--input", str(match_path),
+                    "--players", str(players),
+                    "--comparison", str(comparison),
+                    "--health", str(health),
+                    "--output-root", str(out),
+                ])
+            msg = str(ctx.exception)
+            self.assertIn("cascade blocked", msg)
+            self.assertTrue(
+                any(kw in msg.lower() for kw in ("sha256", "modified", "tamper", "bytes")),
+                msg=f"expected sha256/tamper mention in: {msg}",
+            )
+            self.assertFalse(out.exists(),
+                             msg="no output must be written when tampered snapshot blocks")
+
+    # ---- Health refresh exception propagates (fail closed) ----
+
+    def test_refresh_health_exception_propagates_not_swallowed(self):
+        """_refresh_health_after_import must NOT swallow exceptions.
+
+        When run_health raises (e.g. Supabase unavailable), the exception must
+        propagate rather than silently falling through to an old ok health report.
+        A pre-existing ok health file does not grant permission to proceed.
+        """
+        import unittest.mock
+        import verify_import_health as _vh_mod
+
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            players, player_keys = build_players(tmp)
+            comparison = build_comparison(tmp, player_keys)
+            snapshot = build_snapshot(tmp, player_keys, source="fantasycalc")
+            # Pre-existing ok health file — the old (buggy) code would fall through
+            # to use this when run_health raised.
+            health = build_health_file(
+                tmp, "fantasycalc",
+                status="ok",
+                content_vintage="Week 4",
+                snapshot_path=snapshot,
+            )
+            runner = make_runner(tmp, players, comparison, health_path=health)
+
+            with unittest.mock.patch.object(
+                _vh_mod, "run_health", side_effect=RuntimeError("Supabase connection refused")
+            ):
+                with self.assertRaises(RuntimeError, msg="exception must propagate, not be swallowed"):
+                    runner._refresh_health_after_import(snapshot)
+
+
+# ---------------------------------------------------------------------------
+# Makefile wiring — subprocess dry-run tests to catch argument/variable errors
+# ---------------------------------------------------------------------------
+
+class MakefileWiringTest(unittest.TestCase):
+    """Verify that each Makefile stage target routes through cascade_source_update.py.
+
+    Uses ``make -n`` dry-run mode so these tests do not execute the pipeline;
+    they only verify the argument/variable wiring.  A wiring error (wrong
+    variable name, missing --input flag, wrong script path) will cause the
+    dry-run output to differ from expectations and the test to fail.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # Confirm make is available; skip the whole class if not.
+        result = subprocess.run(
+            ["make", "--version"], capture_output=True, cwd=ROOT
+        )
+        if result.returncode != 0:
+            raise unittest.SkipTest("make not available")
+
+    def _make_dryrun(self, target: str, extra_vars: dict[str, str]) -> str:
+        env = {**os.environ, **extra_vars}
+        result = subprocess.run(
+            ["make", "-n", target, *[f"{k}={v}" for k, v in extra_vars.items()]],
+            capture_output=True, text=True, cwd=ROOT, env=env,
+        )
+        return result.stdout + result.stderr
+
+    def test_supabase_import_routes_through_cascade(self):
+        out = self._make_dryrun("supabase-import", {"SOURCE": "fantasycalc"})
+        self.assertIn("cascade_source_update.py", out,
+                      msg="supabase-import must invoke cascade_source_update.py")
+        self.assertIn("--source", out)
+        self.assertIn("fantasycalc", out)
+
+    def test_source_match_routes_through_cascade(self):
+        out = self._make_dryrun(
+            "source-match", {"SNAPSHOT_FILE": "/tmp/test/snapshot.json"}
+        )
+        self.assertIn("cascade_source_update.py", out,
+                      msg="source-match must invoke cascade_source_update.py")
+        self.assertIn("--input", out)
+        self.assertIn("/tmp/test/snapshot.json", out)
+
+    def test_source_reference_routes_through_cascade(self):
+        out = self._make_dryrun(
+            "source-reference", {"MATCH_FILE": "/tmp/test/matched.json"}
+        )
+        self.assertIn("cascade_source_update.py", out,
+                      msg="source-reference must invoke cascade_source_update.py")
+        self.assertIn("--input", out)
+        self.assertIn("/tmp/test/matched.json", out)
+
+    def test_comparison_section_routes_through_cascade(self):
+        out = self._make_dryrun(
+            "comparison-section", {"REFERENCE_FILE": "/tmp/test/reference.json"}
+        )
+        self.assertIn("cascade_source_update.py", out,
+                      msg="comparison-section must invoke cascade_source_update.py")
+        self.assertIn("--input", out)
+
+    def test_comparison_merge_routes_through_cascade(self):
+        out = self._make_dryrun(
+            "comparison-merge", {"CANDIDATE_FILE": "/tmp/test/section.json"}
+        )
+        self.assertIn("cascade_source_update.py", out,
+                      msg="comparison-merge must invoke cascade_source_update.py")
+        self.assertIn("--input", out)
+        self.assertIn("/tmp/test/section.json", out)
+
+    def test_comparison_reindex_routes_through_cascade(self):
+        out = self._make_dryrun(
+            "comparison-reindex", {"CANDIDATE_FILE": "/tmp/test/section.json"}
+        )
+        self.assertIn("cascade_source_update.py", out,
+                      msg="comparison-reindex must invoke cascade_source_update.py")
+        self.assertIn("--input", out)
+        self.assertIn("/tmp/test/section.json", out)
 
 
 if __name__ == "__main__":

@@ -112,12 +112,18 @@ make comparison-section REFERENCE_FILES="output/source-references/usatoday/2026-
   fantasypros, cbs) always require a valid, current-week import health check
   before any stage runs — including when entering at an intermediate artifact.
 - For `make supabase-import SOURCE=X`: the cascade imports the snapshot, then
-  refreshes `output/source-import-health.json` using the NFL week from the
-  newly-written manifest (not a stale prior file), then verifies health.
+  refreshes `output/source-import-health.json` using the CURRENT calendar date
+  (not the NFL week encoded in the incoming data). Deriving the expected week
+  from the data being imported would evaluate Week 3 data as current even in
+  Week 4. Fails closed on any refresh exception (Supabase unavailable, etc.) —
+  a stale health report from a prior run is never used to silently proceed.
 - For intermediate artifacts (match, reference, section, reindexed) from active
   sources: the artifact's `source_provenance.content_vintage` is verified
-  against the health file. Missing provenance or absent/stale/mismatched health
-  fails closed with a clear message.
+  against the health file; the health file's `nfl_week` is verified against
+  today's calendar date; the snapshot referenced by the health entry's
+  `snapshot_path` is re-read and its sha256 verified against the manifest.
+  All checks fail closed. Missing provenance, absent/stale health, week
+  mismatch, or byte-level snapshot tampering all block cascade.
 - Non-active sources bypass the gate automatically (no health file required).
 - Tests that need to bypass must use a non-active source name or supply a valid
   synthetic health file. There is no `--skip-health-check` flag.

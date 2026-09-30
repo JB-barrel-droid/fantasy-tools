@@ -65,6 +65,7 @@ guard at write time.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re as _re
 import sys
@@ -402,12 +403,47 @@ class Cascade:
                 f"({failure_reason}). "
                 f"Fix the import and re-run: make import-health NFL_WEEK=<n>"
             )
+
+        # Verify the health file reflects the current NFL week, not a prior week.
+        import verify_import_health as _vh  # noqa: PLC0415
+        current_week = _vh.nfl_week_for_date(_vh.utc_today())
+        health_nfl_week = health.get("nfl_week")
+        if current_week is not None and health_nfl_week != current_week:
+            raise SystemExit(
+                f"cascade blocked: health file nfl_week={health_nfl_week!r} but today is "
+                f"NFL week {current_week}. Health is from a prior week and must be refreshed. "
+                f"Re-run: make import-health NFL_WEEK={current_week}"
+            )
+
         health_vintage = str(entry.get("content_vintage") or "")
         if str(content_vintage) != health_vintage:
             raise SystemExit(
                 f"cascade blocked: snapshot content_vintage {content_vintage!r} does not "
                 f"match health content_vintage {health_vintage!r}. "
                 f"Re-import via: make supabase-import SOURCE={source}"
+            )
+
+        # Verify snapshot bytes against the manifest sha256. This catches the case
+        # where snapshot values were altered after the manifest was written while
+        # content_vintage was left unchanged.
+        expected_sha = manifest.get("snapshot_sha256")
+        if not expected_sha:
+            raise SystemExit(
+                f"cascade blocked: snapshot manifest for {source!r} has no snapshot_sha256. "
+                f"Cannot verify snapshot integrity. "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+        try:
+            actual_sha = hashlib.sha256(snapshot_path.read_bytes()).hexdigest()
+        except OSError as exc:
+            raise SystemExit(
+                f"cascade blocked: cannot read snapshot bytes at {snapshot_path}: {exc}"
+            ) from exc
+        if actual_sha != expected_sha:
+            raise SystemExit(
+                f"cascade blocked: snapshot bytes for {source!r} do not match manifest "
+                f"sha256 (snapshot may have been modified after import). "
+                f"Re-import: make supabase-import SOURCE={source}"
             )
 
     def _check_artifact_health(self, artifact: dict[str, Any], artifact_path: Path) -> None:
@@ -480,6 +516,18 @@ class Cascade:
                 f"({failure_reason}). "
                 f"Fix the import and re-run: make import-health NFL_WEEK=<n>"
             )
+
+        # Verify the health file reflects the current NFL week, not a prior week.
+        import verify_import_health as _vh  # noqa: PLC0415
+        current_week = _vh.nfl_week_for_date(_vh.utc_today())
+        health_nfl_week = health.get("nfl_week")
+        if current_week is not None and health_nfl_week != current_week:
+            raise SystemExit(
+                f"cascade blocked: health file nfl_week={health_nfl_week!r} but today is "
+                f"NFL week {current_week}. Health is from a prior week and must be refreshed. "
+                f"Re-run: make import-health NFL_WEEK={current_week}"
+            )
+
         health_vintage = str(entry.get("content_vintage") or "")
         if str(content_vintage) != health_vintage:
             raise SystemExit(
@@ -488,40 +536,79 @@ class Cascade:
                 f"Re-import via: make supabase-import SOURCE={source}"
             )
 
+        # Re-verify the snapshot referenced by the health entry against its manifest
+        # sha256. Intermediate artifacts may trace provenance to a snapshot that was
+        # altered after the health check passed (same vintage, different bytes).
+        snapshot_rel = entry.get("snapshot_path")
+        if not snapshot_rel:
+            raise SystemExit(
+                f"cascade blocked: health entry for {source!r} has no snapshot_path. "
+                f"Cannot verify snapshot integrity. "
+                f"Re-run: make import-health NFL_WEEK=<n>"
+            )
+        # Resolve path: absolute health entries (e.g. test fixtures using tmp dirs)
+        # are used as-is; relative entries are resolved from ROOT.
+        _sr = Path(snapshot_rel)
+        snapshot_abs = _sr if _sr.is_absolute() else ROOT / _sr
+        manifest_path_h = snapshot_abs.parent / "snapshot-manifest.json"
+        if not manifest_path_h.is_file():
+            raise SystemExit(
+                f"cascade blocked: no snapshot manifest at {manifest_path_h}. "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+        manifest_h = load_json(manifest_path_h)
+        expected_sha = manifest_h.get("snapshot_sha256")
+        if not expected_sha:
+            raise SystemExit(
+                f"cascade blocked: snapshot manifest for {source!r} has no snapshot_sha256. "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+        try:
+            actual_sha = hashlib.sha256(snapshot_abs.read_bytes()).hexdigest()
+        except OSError as exc:
+            raise SystemExit(
+                f"cascade blocked: cannot read snapshot at {snapshot_abs}: {exc}"
+            ) from exc
+        if actual_sha != expected_sha:
+            raise SystemExit(
+                f"cascade blocked: {source!r} snapshot bytes do not match manifest sha256 "
+                f"(snapshot may have been modified). "
+                f"Re-import: make supabase-import SOURCE={source}"
+            )
+
     def _refresh_health_after_import(self, snapshot_path: Path) -> None:
         """Refresh the health file after a successful Supabase import.
 
-        Uses the NFL week derived from the newly-written snapshot manifest so
-        the health report reflects the current import, not any stale prior run.
-        A failed refresh is logged but does not abort: the subsequent
-        ``_check_import_health`` call will detect any vintage mismatch and fail
-        closed with a clear message.
+        Uses the CURRENT calendar date (not the data's designated week) to
+        derive the NFL week for the health check.  Deriving the expected week
+        from the incoming manifest would evaluate Week 3 data as if it were
+        current even when we are already in Week 4 — exactly the defect this
+        guards against.
+
+        Fails closed on all errors: if the health refresh cannot run (pre-season,
+        Supabase unavailable, unexpected exception), the cascade is aborted. A
+        stale or failed health file must never silently permit downstream stages
+        to proceed on the assumption that the prior run's ok verdict still holds.
 
         Skipped when health_path is None (test harness / non-active source).
         """
         if self.health_path is None:
             return
-        nfl_week = _nfl_week_from_manifest(snapshot_path)
+        import verify_import_health as _vh  # noqa: PLC0415 -- lazy import
+        nfl_week = _vh.nfl_week_for_date(_vh.utc_today())
         if nfl_week is None:
-            return  # non-week-designated vintage; health refresh skipped
-        try:
-            import verify_import_health as _vh  # noqa: PLC0415 -- lazy import
-            _vh.run_health(
-                nfl_week=nfl_week,
-                sources_root=self.raw_dir,
-                output_path=self.health_path,
+            raise SystemExit(
+                "cascade blocked: cannot determine current NFL week from today's date. "
+                "The 2026 season has not started yet. "
+                "Run: make import-health NFL_WEEK=<n> manually."
             )
-        except SystemExit:
-            # run_health writes the file and then sys.exit()s on non-zero.
-            # We want the file written, not the exit propagated.
-            pass
-        except Exception as exc:  # noqa: BLE001
-            # Supabase unavailable or other transient failure — do not abort
-            # the cascade; let _check_import_health catch any vintage mismatch.
-            print(
-                f"cascade: health refresh failed (will check existing file): {exc}",
-                file=sys.stderr,
-            )
+        # Do NOT catch any exceptions here. Supabase unavailability or any other
+        # failure is a hard stop. The caller must resolve the issue before retrying.
+        _vh.run_health(
+            nfl_week=nfl_week,
+            sources_root=self.raw_dir,
+            output_path=self.health_path,
+        )
 
     # ------------------------------------------------------------------
     # Import entry points

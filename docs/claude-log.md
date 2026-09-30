@@ -32,6 +32,91 @@ useful than a tidy file.
 
 ---
 
+## 2026-09-30 - Health gate hardening: byte verification, authoritative week, fail-closed refresh
+
+### Verified
+
+- **`_refresh_health_after_import` defect fixed**: was using `_nfl_week_from_manifest(snapshot_path)`
+  to derive the expected NFL week from the incoming snapshot data. Week 3 data
+  would therefore be validated against Week 3 even when run in Week 4. Replaced
+  with `verify_import_health.nfl_week_for_date(verify_import_health.utc_today())` —
+  the calendar-authoritative current week, independent of the data being imported.
+  [`Edit cascade_source_update.py`]
+
+- **Exception swallowing fixed**: `_refresh_health_after_import` previously caught
+  `SystemExit` (silently) and `Exception` (logged, then continued). Removed both
+  catches. Any exception now propagates to the caller; a pre-existing ok health
+  report cannot silently authorise a cascade when the refresh fails. [`Edit`]
+
+- **Snapshot byte verification added to `_check_import_health`**: after vintage/status
+  match, now reads snapshot bytes and verifies sha256 against `manifest["snapshot_sha256"]`.
+  Missing sha256 in manifest, unreadable snapshot, and hash mismatch all fail closed.
+  A snapshot with altered values but unchanged vintage string will be blocked. [`Edit`]
+
+- **`nfl_week` staleness check added to `_check_import_health`**: health file's
+  `nfl_week` must equal `nfl_week_for_date(utc_today())`. A health file from
+  a prior week no longer authorises cascade entry. [`Edit`]
+
+- **Snapshot byte verification added to `_check_artifact_health`**: resolves
+  `entry["snapshot_path"]` from the health file (absolute or ROOT-relative),
+  loads its manifest, and verifies sha256. Health entries without `snapshot_path`
+  fail closed. Same `nfl_week` freshness check added. [`Edit`]
+
+- **`build_snapshot` updated in tests**: now computes sha256 of snapshot bytes and
+  includes `snapshot_sha256` in the manifest. Snapshot content is written directly
+  as bytes so the same hash is used for verification. [`Edit tests/test_pipeline_cascade.py`]
+
+- **`build_health_file` updated in tests**: new `snapshot_path` kwarg stores the
+  absolute path in the health entry so tests that reach the byte-verification step
+  can resolve the snapshot. New `nfl_week` kwarg (default 4) enables the stale-week
+  regression tests. [`Edit`]
+
+- **`_build_hold_world` updated**: inline manifest writer now includes
+  `snapshot_sha256`. [`Edit`]
+
+- **Updated `test_health_ok_matching_vintage_allows_cascade`** to pass
+  `snapshot_path=snapshot` to `build_health_file` (needed to pass new sha256 gate).
+  Updated `test_active_source_match_allowed_with_valid_health` likewise. [`Edit`]
+
+- **11 new tests added** (`HealthGateRegressionTest` × 5, `MakefileWiringTest` × 6):
+  - Stale Week 3 health blocks snapshot-entry cascade.
+  - Stale Week 3 health blocks intermediate-artifact-entry cascade.
+  - Modified snapshot bytes (sha256 mismatch) blocks snapshot-entry cascade.
+  - Modified snapshot bytes blocks intermediate-artifact-entry cascade.
+  - `_refresh_health_after_import` exception propagates (not swallowed).
+  - Six Makefile dry-run tests (`make -n supabase-import|source-match|source-reference|
+    comparison-section|comparison-merge|comparison-reindex`) verify argument/variable
+    wiring without executing the pipeline. Each asserts `cascade_source_update.py`
+    and the correct flag appear in the dry-run output. [`Edit`]
+
+- **`python3 -m unittest discover -s tests`: 430 passed, 6 skipped, 0 failures.**
+  (Prior: 419 passed + 11 new.) [`Run`]
+
+- **`make validate`**: red on same pre-existing freshness gate (comparison.built_at
+  age_days=4). naming/reference/sync/tests all pass. No push — validate is red.
+  [`make validate`]
+
+- Updated `docs/modular-pipeline.md` health gate documentation to accurately describe
+  the calendar-authoritative week derivation, fail-closed refresh semantics, and
+  sha256 + nfl_week checks at all entry points. [`Edit`]
+
+- Updated FIX-010 in `docs/risk-register.md` with the three concrete defects fixed
+  in this session and the new test count. [`Edit`]
+
+### Claimed, unverified
+
+- In production, `_refresh_health_after_import` correctly writes a current-week
+  health file after `make supabase-import SOURCE=X`. Not tested: the supabase import
+  path requires a live Supabase connection and cannot be exercised by unit tests.
+
+### Open
+
+- `make validate` remains red. Same blockers: USA Today and CBS Week 4 data absent
+  (GAP-009), FantasyCalc multi-combo pull incomplete (GAP-010), ESPN fixture combo
+  mismatch (GAP-011).
+
+---
+
 ## 2026-09-29 - Automatic entry-point cascade + health gate enforcement
 
 ### Verified
