@@ -168,10 +168,13 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <h2>Source value lineage — top 25 players per source</h2>
   <div class="desc">
     For each source, the <b>25 most valuable players</b> in <b>12-team Half PPR</b>, traced from the
-    <b>scrape page</b> through every transformation to the <b>chart value</b>.
-    <b>Native</b> = direct from source · <b>Indexed</b> = after 0–70 scale indexing ·
+    <b>live source page</b> through every transformation to the <b>chart value</b>.
+    <b>Live</b> = scraped directly from the human-readable source page right now ·
+    <b>Native</b> = value stored in our pipeline snapshot ·
+    <b>Indexed</b> = after 0–70 scale indexing ·
     <b>Reweighted</b> = after DDF adjustment · <b>Chart</b> = what the dashboard displays.
     Multipliers show the effective ratio at each step.
+    A red <b>✗</b> in the Live column means the live page value does not match our stored snapshot.
   </div>
   <div id="lineageSummary" style="margin-bottom:16px"></div>
   <div id="lineageSources"></div>
@@ -582,9 +585,23 @@ async function main(){
       const order = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"];
       const labels = {espn:"ESPN", cbs:"CBS", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
 
+      // Count live mismatches
+      let liveMismatches = 0, liveChecked = 0;
+      order.forEach(srcKey => {
+        const s = linSources[srcKey];
+        if(!s || !s.live_scraped) return;
+        (s.top25 || []).forEach(p => {
+          if(p.live_matches_native !== null && p.live_matches_native !== undefined){
+            liveChecked++;
+            if(!p.live_matches_native) liveMismatches++;
+          }
+        });
+      });
+
       lineageSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
         <div><span style="font-size:24px;font-weight:800;color:var(--blue)">125</span><span style="color:var(--dim);font-size:13px"> players traced</span></div>
-        <div style="font-size:12.5px;color:var(--dim)">12-team Half PPR · Top 25 per source by chart value<br>Generated: ${shortTs(linData.generated_at)}</div>
+        <div><span style="font-size:24px;font-weight:800;color:${liveMismatches > 0 ? 'var(--red)' : 'var(--green)'}">${liveMismatches}</span><span style="color:var(--dim);font-size:13px"> live mismatches</span></div>
+        <div style="font-size:12.5px;color:var(--dim)">12-team Half PPR · Top 25 per source by chart value<br>Generated: ${shortTs(linData.generated_at)} · Live checked: ${liveChecked} rows</div>
       </div>`;
 
       lineageHost.innerHTML = order.map(srcKey => {
@@ -597,9 +614,16 @@ async function main(){
           const fmtMult = v => (v === null || v === undefined) ? '<span style="color:var(--faint)">—</span>' : '×' + v;
           const matchIcon = p.chart_matches_indexed === true ? '<span style="color:var(--green)">✓</span>' :
                             p.chart_matches_indexed === false ? '<span style="color:var(--red)">✗</span>' : '';
+          // Live page verification icon
+          const liveIcon = p.live_matches_native === true ? '<span style="color:var(--green)">✓</span>' :
+                           p.live_matches_native === false ? '<span style="color:var(--red)" title="Live page value differs from our snapshot">✗</span>' : '';
+          const liveCell = s.live_scraped
+            ? `<td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.live_value)} ${liveIcon}</td>`
+            : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--faint)" title="Live page not scraped for this source">—</span></td>`;
           return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">
             <td style="padding:6px 8px;color:var(--dim)">${p.rank}</td>
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>
+            ${liveCell}
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.native)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.index_mult)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.indexed)}</td>
@@ -624,6 +648,7 @@ async function main(){
                 <tr style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);border-bottom:2px solid var(--line)">
                   <th style="padding:8px;text-align:left">#</th>
                   <th style="padding:8px;text-align:left">Player</th>
+                  <th style="padding:8px;text-align:right">Live</th>
                   <th style="padding:8px;text-align:right">Native</th>
                   <th style="padding:8px;text-align:right">Idx mult</th>
                   <th style="padding:8px;text-align:right">Indexed</th>
@@ -636,8 +661,9 @@ async function main(){
             </table>
             </div>
             <div style="font-size:11px;color:var(--faint);margin-top:8px">
-              Native = direct from source · Idx mult = indexed ÷ native · Rewgt mult = reweighted ÷ indexed ·
-              Chart ✓ = matches indexed value
+              Live = scraped from the human-readable source page right now · Native = value in our pipeline snapshot ·
+              Idx mult = indexed ÷ native · Rewgt mult = reweighted ÷ indexed ·
+              Chart ✓ = matches indexed value · Live ✓ = matches our snapshot, ✗ = differs
             </div>
           </div>
         </div>`;

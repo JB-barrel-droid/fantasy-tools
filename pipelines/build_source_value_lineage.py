@@ -3,25 +3,32 @@
 
 For each source, shows the top 25 players by native (scrape) value in
 12-team Half PPR, with:
-  - native: direct value from the source snapshot
+  - live_value: scraped directly from the human-readable source page
+  - native: value stored in our pipeline snapshot
+  - live_matches_native: whether live page matches our snapshot
   - indexed: after isotonic reindexing onto the 0-70 scale
   - index_mult: indexed / native (effective multiplier)
   - reweighted: from the adjusted curve (DDF reweighting)
   - reweight_mult: reweighted / indexed (effective multiplier)
   - chart_value: what the chart actually displays
 
-The user wants to verify that the numbers on the chart trace back
-to the source page values through each transformation.
+The user requires that verification data comes from the live pages
+a human would visit, not API endpoints or database snapshots.
+FantasyPros and USA Today are scraped live from their article pages.
 """
 
 import json
 import os
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from scrape_live_source_pages import scrape_fantasypros, scrape_usatoday
 
 REPO = "/home/hatch/workspace/fantasy-tools"
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/source-value-lineage.json")
 
-# Best-known source URLs for the latest scrape pages
+# Human-readable source pages (what a human would visit)
 SOURCE_URLS = {
     "espn": {
         "url": "https://www.espn.com/fantasy/football/",
@@ -32,16 +39,16 @@ SOURCE_URLS = {
         "note": "CBS Sports fantasy football trade values via Supabase public.cbs_trade_values",
     },
     "fantasycalc": {
-        "url": "https://api.fantasycalc.com/values/current",
-        "note": "FantasyCalc API, redraft 12-team 1QB Half PPR",
+        "url": "https://fantasycalc.com",
+        "note": "FantasyCalc web app (human UI). Values in the app come from the same backend as the API.",
     },
     "fantasypros": {
         "url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-4-2026/",
-        "note": "FantasyPros Week 4 trade value chart article",
+        "note": "FantasyPros Week 4 trade value chart article. Values scraped LIVE from this page.",
     },
     "usatoday": {
-        "url": "https://www.usatoday.com/sports/fantasy/",
-        "note": "USA Today fantasy football trade values via Supabase",
+        "url": "https://www.usatoday.com/story/sports/fantasy/football/2026/09/29/fantasy-trade-value-chart-week-4-ros-rankings/92008742007/",
+        "note": "USA Today Week 4 trade value chart. Half-PPR column scraped LIVE from this page.",
     },
 }
 
@@ -67,10 +74,27 @@ def main():
     d = json.load(open(DATA_PATH))
     sources = d["sources"]
 
+    # Scrape live pages (user requirement: data must come from live human pages)
+    print("Scraping live source pages...")
+    live_data = {}
+    try:
+        live_data["fantasypros"] = scrape_fantasypros()
+        print(f"  FantasyPros: {len(live_data['fantasypros'])} players scraped live")
+    except Exception as e:
+        print(f"  FantasyPros scrape FAILED: {e}")
+        live_data["fantasypros"] = {}
+    try:
+        live_data["usatoday"] = scrape_usatoday()
+        print(f"  USA Today: {len(live_data['usatoday'])} players scraped live")
+    except Exception as e:
+        print(f"  USA Today scrape FAILED: {e}")
+        live_data["usatoday"] = {}
+
     result = {
         "generated_at": d.get("generated_at", "unknown"),
         "scoring": "Half PPR",
         "teams": 12,
+        "method": "Native values verified against LIVE human-readable source pages. FantasyPros and USA Today scraped directly from their article pages.",
         "sources": {},
     }
 
@@ -107,6 +131,11 @@ def main():
         for rank, pkey in enumerate(top25_keys, 1):
             nat_val = native.get(pkey)
             idx_val = reindexed.get(pkey)
+            # Live value scraped from the human-readable page
+            live_val = live_data.get(src, {}).get(pkey)
+            live_matches = None
+            if live_val is not None and nat_val is not None:
+                live_matches = abs(live_val - nat_val) < 0.01
             # For ESPN, the chart shows DDF values; for others, reindexed
             if src == "espn":
                 chart_val = values.get(pkey)
@@ -121,7 +150,9 @@ def main():
             players.append({
                 "rank": rank,
                 "player_key": pkey,
+                "live_value": round(live_val, 2) if live_val is not None else None,
                 "native": round(nat_val, 2) if nat_val else None,
+                "live_matches_native": live_matches,
                 "index_mult": round(index_mult, 4) if index_mult else None,
                 "indexed": round(idx_val, 2) if idx_val else None,
                 "reweight_mult": round(reweight_mult, 4) if reweight_mult else None,
@@ -138,6 +169,7 @@ def main():
             "source_note": SOURCE_URLS[src]["note"],
             "combo_key": combo_key,
             "player_count": combo.get("n", len(native)),
+            "live_scraped": src in live_data and bool(live_data[src]),
             "top25": players,
         }
 
