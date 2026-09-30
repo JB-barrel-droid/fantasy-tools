@@ -135,7 +135,10 @@ def unique_reference_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, An
     grouped: dict[int, list[dict[str, Any]]] = {}
     for row in rows:
         player_key = row.get("player_key")
-        value = row.get("value")
+        # Use native_value (raw published) not value (may be reindexed by a bake).
+        # The comparison pipeline must start from the source's actual published
+        # numbers; reindexing happens later in reindex_comparison_section.py.
+        value = row.get("native_value", row.get("value"))
         if not isinstance(player_key, int) or not isinstance(value, (int, float)):
             continue
         grouped.setdefault(player_key, []).append(row)
@@ -143,7 +146,7 @@ def unique_reference_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, An
     reference_rows = []
     duplicate_review = []
     for player_key, player_rows in grouped.items():
-        distinct_values = {float(row["value"]) for row in player_rows}
+        distinct_values = {float(r.get("native_value", r.get("value"))) for r in player_rows}
         if len(distinct_values) > 1:
             duplicate_review.append(
                 {
@@ -160,7 +163,7 @@ def unique_reference_rows(rows: list[dict[str, Any]]) -> tuple[list[dict[str, An
             {
                 "player_key": player_key,
                 "canonical_name": row.get("canonical_name"),
-                "value": float(row["value"]),
+                "value": float(row.get("native_value", row.get("value"))),
                 "scoring": row.get("scoring"),
                 "teams": row.get("teams"),
                 "qb": row.get("qb"),

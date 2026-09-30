@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
-"""Reference compute: isotonic reindex + fixed-pie indexing for a candidate comparison section.
+"""Reference compute: quantile-mapping reindex + fixed-pie indexing for a candidate comparison section.
 
 Pipeline stage: candidate comparison section (native values) -> reference compute.
 
 Two steps, run per (combo, position):
 
-1. ISOTONIC REINDEX. The source's native published values are translated onto
-   the chart's canonical scale with a per-position non-decreasing (isotonic)
-   fit, preserving rank order and within-position relative shape. The anchor is
-   the fixture's ESPN leg for the same combo -- the repo-owned equivalent of
-   the retired Monday rail. A candidate combo carrying the league QB dimension
-   (qb1/qb2) anchors to its QB-stripped base combo; the mapping is explicit
-   and recorded per combo, never guessed. Fit needs >= 10 anchor-matched
-   pairs per position; fewer fails closed (no pooled cross-position fit, ever).
+1. QUANTILE-MAPPING REINDEX. The source's native published values are translated onto
+   the chart's canonical scale with a per-position quantile mapping: each native's
+   quantile in the source distribution maps to the same quantile of the ESPN anchor
+   distribution. This preserves the source's rank order and within-position relative
+   spacing EXACTLY -- unlike isotonic regression, it never pools (averages) values
+   when the source disagrees with the anchor's ordering. The anchor is the fixture's
+   ESPN leg for the same combo -- the repo-owned equivalent of the retired Monday rail.
+   A candidate combo carrying the league QB dimension (qb1/qb2) anchors to its
+   QB-stripped base combo; the mapping is explicit and recorded per combo, never guessed.
+   Fit needs >= 10 anchor-matched pairs per position; fewer fails closed (no pooled
+   cross-position fit, ever).
 
 2. FIXED-PIE INDEXING. After translation, each combo's total over its OWN
    priced set is compared to the anchor's total over that SAME set:
@@ -43,6 +46,54 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from isotonic import isotonic_fit, isotonic_predict
+
+
+def quantile_map(xs: list[float], ys: list[float], x: float) -> float:
+    """Map x from the source distribution (xs) to the anchor scale (ys).
+    
+    Finds x's quantile in the source distribution and returns the corresponding
+    quantile of the anchor distribution. This preserves the source's ordering
+    and relative spacing exactly -- unlike isotonic regression, it never pools
+    (averages) values when the source disagrees with the anchor's ordering.
+    
+    Both xs and ys are sorted internally; x is the source native to map.
+    Linear interpolation is used between observed points; values outside the
+    observed range clamp to the anchor's min/max.
+    """
+    if not xs or not ys:
+        raise ValueError("quantile_map needs non-empty xs and ys")
+    xs_sorted = sorted(xs)
+    ys_sorted = sorted(ys)
+    n_x = len(xs_sorted)
+    n_y = len(ys_sorted)
+    
+    # Find x's quantile in the source distribution
+    if x <= xs_sorted[0]:
+        q = 0.0
+    elif x >= xs_sorted[-1]:
+        q = 1.0
+    else:
+        # Binary search for the interval containing x
+        lo, hi = 0, n_x - 1
+        while hi - lo > 1:
+            mid = (lo + hi) // 2
+            if xs_sorted[mid] <= x:
+                lo = mid
+            else:
+                hi = mid
+        # Linear interpolation: q is the fractional rank
+        if xs_sorted[hi] == xs_sorted[lo]:
+            q = lo / (n_x - 1) if n_x > 1 else 0.0
+        else:
+            t = (x - xs_sorted[lo]) / (xs_sorted[hi] - xs_sorted[lo])
+            q = (lo + t) / (n_x - 1) if n_x > 1 else 0.0
+    
+    # Map quantile to anchor scale
+    pos = q * (n_y - 1)
+    lo_i = int(pos)
+    hi_i = min(lo_i + 1, n_y - 1)
+    t = pos - lo_i
+    return ys_sorted[lo_i] * (1 - t) + ys_sorted[hi_i] * t
 
 REPO = Path(__file__).resolve().parent.parent
 SCHEMA = "trade-value-comparison-section-reindexed-v1"
@@ -178,8 +229,12 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 )
             xs = [x for x, _ in pairs]
             ys = [y for _, y in pairs]
-            fit_x, fit_y = isotonic_fit(xs, ys)
-            reindexed = {slug: _round1(isotonic_predict(fit_x, fit_y, float(native[slug])))
+            # Quantile mapping preserves the source's ordering and relative
+            # spacing. Isotonic PAVA pooled (averaged) values when the source
+            # disagreed with the anchor's ordering, erasing genuine
+            # disagreements -- e.g., FP's Chase (57.1) > JSN (55.4) distinction
+            # was lost because ESPN orders them oppositely.
+            reindexed = {slug: _round1(quantile_map(xs, ys, float(native[slug])))
                          for slug in priced}
             pre_total = sum(reindexed.values())
             key_by_slug = combo.get("player_keys", {})
@@ -198,7 +253,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                       for slug, val in reindexed.items()}
             out_combo["reindexed"].update(scaled)
             out_combo["fit"][pos] = {
-                "method": "isotonic_pava",
+                "method": "quantile_mapping",
                 "anchor": "espn_leg",
                 "n_pairs": len(pairs),
                 "native_min": _round1(min(xs)),

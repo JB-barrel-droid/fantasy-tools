@@ -203,7 +203,8 @@ def build_section(
 
     for row in rows:
         player_key = row.get("player_key")
-        value = row.get("value")
+        # Use native_value (raw published) not value (may be reindexed by a bake).
+        value = row.get("native_value", row.get("value"))
         if not isinstance(player_key, int):
             review_rows.append({"reason": "missing_player_key", "row": row})
             continue
