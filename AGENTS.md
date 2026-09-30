@@ -140,3 +140,8 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
   instead of the raw FantasyCalc number (9914). The matcher and
   `build_source_reference.py` now carry `native_value` through every stage.
 - Regression tests: `tests/test_fantasycalc_drift.py` (5 tests).
+- Refresh schedule: GitHub Actions workflow `.github/workflows/fantasycalc-drift.yml`
+  runs daily at 11:45 UTC (6:45 AM CDT). If drift is detected, it refreshes
+  the snapshot, re-runs the pipeline, re-imports to Supabase via
+  `pipelines/refresh_fantasycalc_supabase.py`, verifies health, and pushes.
+  No local cron — project rules require GitHub Actions for scheduled work.

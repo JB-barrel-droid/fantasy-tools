@@ -1,0 +1,95 @@
+name: FantasyCalc drift check and refresh
+
+# Checks the live FantasyCalc API for value drift against the stored snapshot.
+# If drift exceeds the threshold, refreshes the snapshot, re-runs the pipeline,
+# re-imports to Supabase, and pushes the updates.
+#
+# Required secrets (set in repo Settings > Secrets and variables > Actions):
+#   SUPABASE_URL          e.g. https://iskiybsimubiujwuchsl.supabase.co
+#   SUPABASE_SERVICE_KEY  the Supabase service_role key
+#
+# The GITHUB_TOKEN is automatic; no setup needed.
+
+on:
+  schedule:
+    # Daily at 11:45 UTC (6:45 AM CDT) — catches overnight FantasyCalc updates
+    # before the morning dashboard checks. The drift check itself is cheap;
+    # the full refresh only runs when drift is detected.
+    - cron: '45 11 * * *'
+  workflow_dispatch:
+    # Manual trigger from the Actions tab.
+
+permissions:
+  contents: write  # needed to commit and push refreshed data
+
+jobs:
+  drift-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Determine NFL week
+        id: week
+        run: echo "nfl_week=$(python3 pipelines/nfl_week.py)" >> $GITHUB_OUTPUT
+
+      - name: Check for drift and refresh if needed
+        id: drift
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Exit 0 = no drift, exit 1 = drift detected and refreshed
+          if python3 pipelines/check_fantasycalc_drift.py --trigger; then
+            echo "drifted=false" >> $GITHUB_OUTPUT
+            echo "No drift detected."
+          else
+            echo "drifted=true" >> $GITHUB_OUTPUT
+            echo "Drift detected and pipeline refreshed."
+          fi
+
+      - name: Re-import to Supabase
+        if: steps.drift.outputs.drifted == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/refresh_fantasycalc_supabase.py
+
+      - name: Verify import health
+        if: steps.drift.outputs.drifted == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          cp output/source-import-health.json dist/modules/source-import-health.json
+
+      - name: Commit and push if changed
+        if: steps.drift.outputs.drifted == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/raw/sources/fantasycalc/ \
+                  data/fixtures/current/comparison-sources-data.json \
+                  dist/modules/source-import-health.json \
+                  output/source-import-health.json \
+                  app/trade-value-chart/assets/comparison-sources-data.json \
+                  dist/assets/comparison-sources-data.json || true
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "FantasyCalc drift refresh (GitHub Actions)"
+            git push
+          fi
