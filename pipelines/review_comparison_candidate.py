@@ -15,8 +15,7 @@ Promotion (writing into the live fixture) is a separate, human-approved step.
 
 Checks:
   combos_match        candidate combos == fixture combos for the source
-  native_drift        same-vintage candidate native vs fixture native
-  native_movement     different-vintage candidate native vs fixture native
+  native_drift        candidate native vs fixture native (source moved?)
   coverage            candidate priced counts vs fixture (lost players?)
   zero_preservation   zero-native positions identical
   pie_factors_sane    index_total factors within sane bounds, pre_total > 0
@@ -35,7 +34,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -47,7 +45,6 @@ DRIFT_TOL = 0.05       # per-value tolerance for "same" native
 DRIFT_WARN_FRAC = 0.0  # any drift warns
 DRIFT_FAIL_FRAC = 0.05  # >5% of values drifted fails
 FACTOR_LO, FACTOR_HI = 0.2, 5.0
-WEEK_RE = re.compile(r"week\s*(\d+)", re.I)
 
 
 def _load_json(path):
@@ -72,28 +69,6 @@ def _sha256_canonical(obj):
         json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def _normalize_vintage(value):
-    if value is None or value == "":
-        return None
-    if isinstance(value, int) and not isinstance(value, bool):
-        return f"week:{value}"
-    text = str(value).strip()
-    if not text:
-        return None
-    match = WEEK_RE.fullmatch(text)
-    if match:
-        return f"week:{int(match.group(1))}"
-    return f"date:{text[:10]}" if len(text) >= 10 and text[4:5] == "-" and text[7:8] == "-" else text.lower()
-
-
-def _vintage_from_doc(doc):
-    for key in ("content_vintage", "week_designated", "published", "source_content_date", "asof"):
-        normalized = _normalize_vintage((doc or {}).get(key))
-        if normalized:
-            return normalized, key
-    return None, None
-
-
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                      players_path=None):
     cand = _load_json(reindexed_path)
@@ -109,7 +84,6 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
     player_keys = fixture.get("player_keys", {})
     source = cand["source_key"]
     fx_section = fixture["sources"].get(source)
-    candidate_vintage, candidate_vintage_field = _vintage_from_doc(cand)
 
     triaged = {}
     if triage_path:
@@ -164,44 +138,19 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         fx_combos = fx_section.get("combos", {})
         fixture_native_sha256 = _sha256_canonical(
             {c: fx_combos[c]["native"] for c in fx_combos})
-        fixture_vintage, fixture_vintage_field = _vintage_from_doc(fx_section)
-        if candidate_vintage and fixture_vintage:
-            same_vintage = candidate_vintage == fixture_vintage
-            checks.append(_check(
-                "native_vintage_context",
-                "pass" if same_vintage else "info",
-                (
-                    f"candidate {candidate_vintage_field}={candidate_vintage}; "
-                    f"fixture {fixture_vintage_field}={fixture_vintage}; "
-                    + ("same vintage, drift is corruption-sensitive"
-                       if same_vintage else "different vintage, drift is measured as source movement")
-                ),
-            ))
-        else:
-            checks.append(_check(
-                "native_vintage_context",
-                "warn",
-                (
-                    f"candidate vintage={candidate_vintage or 'unknown'}; "
-                    f"fixture vintage={fixture_vintage or 'unknown'}; "
-                    "native drift remains fail-closed"
-                ),
-            ))
-    if fx_section is None:
-        fixture_vintage = None
-        fixture_vintage_field = None
 
     # --- combos match ---
+    # Note: Candidates are built per-section (subset of combos). A candidate
+    # is NOT expected to contain all fixture combos — promote merges the
+    # candidate's combos into the fixture. We only verify that the candidate's
+    # combos exist in the fixture (no unknown combos).
     if fx_section is not None:
-        missing = [c for c in fx_combos if c not in cand["combos"]]
         extra = [c for c in cand["combos"] if c not in fx_combos]
-        if missing:
-            checks.append(_check("combos_match", "fail", f"missing combos: {missing}"))
-        elif extra:
-            checks.append(_check("combos_match", "warn", f"new combos: {extra}"))
+        if extra:
+            checks.append(_check("combos_match", "fail", f"unknown combos not in fixture: {extra}"))
         else:
             checks.append(_check("combos_match", "pass",
-                                 f"{len(fx_combos)} combos match"))
+                                 f"{len(cand['combos'])} candidate combos exist in fixture"))
 
     # --- per-combo baseline comparisons ---
     for combo_name, combo in cand["combos"].items():
@@ -223,19 +172,12 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         detail["native_shared"] = len(shared)
         detail["native_drifted"] = len(drifted)
         detail["native_drift_frac"] = round(frac, 4)
-        comparable_vintage = candidate_vintage and fixture_vintage and candidate_vintage == fixture_vintage
-        different_vintage = candidate_vintage and fixture_vintage and candidate_vintage != fixture_vintage
-        if frac > DRIFT_FAIL_FRAC and not different_vintage:
+        if frac > DRIFT_FAIL_FRAC:
             checks.append(_check(f"native_drift:{combo_name}", "fail",
-                                 f"{len(drifted)}/{len(shared)} values moved > {DRIFT_TOL} "
-                                 f"({'same vintage' if comparable_vintage else 'vintage unknown'})"))
-        elif frac > DRIFT_WARN_FRAC and not different_vintage:
+                                 f"{len(drifted)}/{len(shared)} values moved > {DRIFT_TOL}"))
+        elif frac > DRIFT_WARN_FRAC:
             checks.append(_check(f"native_drift:{combo_name}", "warn",
                                  f"{len(drifted)}/{len(shared)} values moved"))
-        elif frac > DRIFT_WARN_FRAC:
-            checks.append(_check(f"native_movement:{combo_name}", "info",
-                                 f"{len(drifted)}/{len(shared)} values moved between "
-                                 f"{fixture_vintage} and {candidate_vintage}"))
         else:
             checks.append(_check(f"native_drift:{combo_name}", "pass",
                                  "native values match fixture"))
@@ -319,10 +261,6 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         "reindexed_source_file": str(reindexed_path),
         "reindexed_sha256": _sha256_file(reindexed_path),
         "fixture_native_sha256": fixture_native_sha256,
-        "candidate_vintage": candidate_vintage,
-        "candidate_vintage_field": candidate_vintage_field,
-        "fixture_vintage": fixture_vintage,
-        "fixture_vintage_field": fixture_vintage_field,
         "note": ("'ready' means the candidate MAY be promoted by a human. "
                  "This script never writes under data/."),
     }

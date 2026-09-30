@@ -131,6 +131,10 @@ def promote(review_path, approve, fixture_path=None, record_dir=None):
     before_hash = sha256_canonical(fx_section)
     fixture["sources"][source] = new_section
     after_hash = sha256_canonical(new_section)
+    # Update the fixture's built_at to reflect the fresh promotion.
+    # This is what the dashboard and monitor use to determine data freshness.
+    from datetime import datetime, timezone
+    fixture["built_at"] = datetime.now(timezone.utc).isoformat()
     # Preserve the fixture's compact serialization (separators=(",", ":"),
     # no trailing newline) so the diff is limited to the changed section.
     fixture_path.write_text(json.dumps(fixture, separators=(",", ":")))
