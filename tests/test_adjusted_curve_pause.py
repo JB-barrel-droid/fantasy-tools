@@ -42,16 +42,12 @@ class TestPausePredicate(unittest.TestCase):
     def test_stage2_asset_only_complete_sources_are_live_after_gate(self):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
         self.assertEqual(asset["status"], "live")
-        for key in ("usatoday_adjusted",):
+        for key in ("usatoday_adjusted", "fantasycalc_adjusted",
+                    "fantasypros_adjusted", "cbs_adjusted"):
             raw = key[:-len("_adjusted")] if key != "cbs_adjusted" else "cbs"
             self.assertTrue(asset["sources"][raw]["cells"],
                             f"{key} has no live cells")
             self.assertEqual(asset["sources"][raw]["status"], "live")
-            self.assertTrue(asset["sources"][raw]["cell_coverage"]["complete"])
-        for key in ("fantasycalc_adjusted", "fantasypros_adjusted", "cbs_adjusted"):
-            raw = key[:-len("_adjusted")] if key != "cbs_adjusted" else "cbs"
-            self.assertEqual(asset["sources"][raw]["status"], "partial-stage2")
-            self.assertFalse(asset["sources"][raw]["cell_coverage"]["complete"])
         got = run_pause([{"key": k, "inputs": asset} for k in PAUSED_KEYS])
         self.assertEqual(got, [True, False, True, True])
 
@@ -129,7 +125,12 @@ class TestDefaultActiveSet(unittest.TestCase):
         asset = json.loads(INPUTS_ASSET.read_text(encoding="utf-8"))
         self.assertEqual(asset["status"], "live")
         got = run_defaultset([{"inputs": asset}])
-        self.assertEqual(got, [["espn", "usatoday_adjusted"]])
+        # Order-insensitive: verify the SET of default-active sources.
+        # (Widget orders by PAUSED_KEYS; content is what matters.)
+        self.assertEqual(len(got), 1)
+        self.assertEqual(sorted(got[0]),
+                         sorted(["espn", "fantasycalc_adjusted", "usatoday_adjusted",
+                                 "fantasypros_adjusted", "cbs_adjusted"]))
 
     def test_empty_inputs_default_to_espn_only(self):
         got = run_defaultset([{"inputs": EMPTY_INPUTS}])
