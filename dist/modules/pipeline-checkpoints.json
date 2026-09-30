@@ -1,0 +1,312 @@
+{
+  "generated_at": "2026-09-30T00:07:22.456653+00:00",
+  "schema": "pipeline-checkpoints-v1",
+  "nfl_week": 4,
+  "checkpoints": [
+    {
+      "key": "c1_publication",
+      "label": "C1 \u00b7 Publication/discovery",
+      "what": "Publisher releases new trade-value data (article/chart update)"
+    },
+    {
+      "key": "c2_collection",
+      "label": "C2 \u00b7 Raw collection",
+      "what": "Pull script fetches publisher HTML \u2192 ops/watchdog/pulls/*.json"
+    },
+    {
+      "key": "c3_supabase",
+      "label": "C3 \u00b7 Supabase landing",
+      "what": "Save script writes rows to Supabase (public.source_trade_values etc.)"
+    },
+    {
+      "key": "c4_snapshot",
+      "label": "C4 \u00b7 Snapshot/manifest",
+      "what": "import_supabase_references.py stamps Supabase \u2192 data/raw/sources/ (Supabase \u2192 repo, not reverse)"
+    },
+    {
+      "key": "c5_health",
+      "label": "C5 \u00b7 Health verification",
+      "what": "verify_import_health.py checks integrity \u2192 output/source-import-health.json"
+    },
+    {
+      "key": "c6_candidate",
+      "label": "C6 \u00b7 Candidate build/review",
+      "what": "build_comparison_source_section.py builds candidate \u2192 review_comparison_candidate.py reviews"
+    },
+    {
+      "key": "c7_promotion",
+      "label": "C7 \u00b7 Fixture promotion",
+      "what": "promote_comparison_section.py promotes reviewed candidate \u2192 fixture (only on genuine 'ready' verdict)"
+    },
+    {
+      "key": "c8_sync",
+      "label": "C8 \u00b7 Sync/validation",
+      "what": "Fixture synced app/ \u2192 dist/, validation gates run"
+    },
+    {
+      "key": "c9_deploy",
+      "label": "C9 \u00b7 Deployment/live artifact",
+      "what": "GitHub Pages deploys dist/ (browser checks Actions API live)"
+    }
+  ],
+  "sources": {
+    "espn": {
+      "label": "ESPN",
+      "checkpoints": {
+        "c1_publication": {
+          "timestamp": "2026-09-29",
+          "status": "ok",
+          "reason": "Publisher released 2026-09-29 (1.0d ago)."
+        },
+        "c2_collection": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for espn in ops/watchdog/pulls/. May use a different collection path."
+        },
+        "c3_supabase": {
+          "timestamp": "2026-09-29T15:09:05.536608+00:00",
+          "status": "ok",
+          "reason": "387 rows landed in public.espn_season_projections 0.4d ago."
+        },
+        "c4_snapshot": {
+          "timestamp": "2026-09-29T17:36:48.743803+00:00",
+          "status": "ok",
+          "reason": "Snapshot stamped 0.3d ago (data/raw/sources/espn/2026-09-29/snapshot.json, vintage 2026-09-29)."
+        },
+        "c5_health": {
+          "timestamp": "2026-09-30T00:07:09Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
+        },
+        "c6_candidate": {
+          "timestamp": "2026-09-29T23:37:36.226415+00:00",
+          "status": "ok",
+          "reason": "Candidate built and reviewed 0.0d ago."
+        },
+        "c7_promotion": {
+          "timestamp": "2026-09-29T23:12:18Z",
+          "status": "ok",
+          "reason": "Promoted 0.0d ago (verdict: ready)."
+        },
+        "c8_sync": {
+          "timestamp": "2026-09-29T23:40:41.842776+00:00",
+          "status": "warn",
+          "reason": "dist/ copy differs from source fixture. Sync needed."
+        },
+        "c9_deploy": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Checked live in browser via GitHub Actions API."
+        }
+      }
+    },
+    "cbs": {
+      "label": "CBS",
+      "checkpoints": {
+        "c1_publication": {
+          "timestamp": "Week 4",
+          "status": "unk",
+          "reason": "No publisher vintage recorded in health file."
+        },
+        "c2_collection": {
+          "timestamp": "2026-09-29",
+          "status": "ok",
+          "reason": "Pulled 2026-09-29 (ops/watchdog/pulls/cbs-2026-09-29.json)."
+        },
+        "c3_supabase": {
+          "timestamp": "2026-09-29T22:44:26.21804+00:00",
+          "status": "ok",
+          "reason": "342 rows landed in public.cbs_trade_values 0.1d ago."
+        },
+        "c4_snapshot": {
+          "timestamp": "2026-09-29T22:44:29.435511+00:00",
+          "status": "ok",
+          "reason": "Snapshot stamped 0.1d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
+        },
+        "c5_health": {
+          "timestamp": "2026-09-30T00:07:09Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
+        },
+        "c6_candidate": {
+          "timestamp": "2026-09-29T23:37:37.546415+00:00",
+          "status": "ok",
+          "reason": "Candidate built and reviewed 0.0d ago."
+        },
+        "c7_promotion": {
+          "timestamp": "2026-09-29T23:12:30Z",
+          "status": "ok",
+          "reason": "Promoted 0.0d ago (verdict: ready)."
+        },
+        "c8_sync": {
+          "timestamp": "2026-09-29T23:40:41.842776+00:00",
+          "status": "warn",
+          "reason": "dist/ copy differs from source fixture. Sync needed."
+        },
+        "c9_deploy": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Checked live in browser via GitHub Actions API."
+        }
+      }
+    },
+    "fantasycalc": {
+      "label": "FantasyCalc",
+      "checkpoints": {
+        "c1_publication": {
+          "timestamp": "Week 4",
+          "status": "unk",
+          "reason": "No publisher vintage recorded in health file."
+        },
+        "c2_collection": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for fantasycalc in ops/watchdog/pulls/. May use a different collection path."
+        },
+        "c3_supabase": {
+          "timestamp": "2026-09-29T15:34:38.294543+00:00",
+          "status": "ok",
+          "reason": "580 rows landed in public.source_trade_values 0.4d ago."
+        },
+        "c4_snapshot": {
+          "timestamp": "2026-09-29T17:36:40.484803+00:00",
+          "status": "ok",
+          "reason": "Snapshot stamped 0.3d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
+        },
+        "c5_health": {
+          "timestamp": "2026-09-30T00:07:09Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
+        },
+        "c6_candidate": {
+          "timestamp": "2026-09-29T23:22:08.355425+00:00",
+          "status": "ok",
+          "reason": "Candidate built and reviewed 0.0d ago."
+        },
+        "c7_promotion": {
+          "timestamp": "2026-09-29T23:37:38Z",
+          "status": "ok",
+          "reason": "Promoted 0.0d ago (verdict: ready)."
+        },
+        "c8_sync": {
+          "timestamp": "2026-09-29T23:40:41.842776+00:00",
+          "status": "warn",
+          "reason": "dist/ copy differs from source fixture. Sync needed."
+        },
+        "c9_deploy": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Checked live in browser via GitHub Actions API."
+        }
+      }
+    },
+    "fantasypros": {
+      "label": "FantasyPros",
+      "checkpoints": {
+        "c1_publication": {
+          "timestamp": "2026-09-29",
+          "status": "ok",
+          "reason": "Publisher released 2026-09-29 (1.0d ago)."
+        },
+        "c2_collection": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for fantasypros in ops/watchdog/pulls/. May use a different collection path."
+        },
+        "c3_supabase": {
+          "timestamp": "2026-09-29T15:36:54.092986+00:00",
+          "status": "ok",
+          "reason": "531 rows landed in public.source_trade_values 0.4d ago."
+        },
+        "c4_snapshot": {
+          "timestamp": "2026-09-29T17:36:46.289718+00:00",
+          "status": "ok",
+          "reason": "Snapshot stamped 0.3d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
+        },
+        "c5_health": {
+          "timestamp": "2026-09-30T00:07:09Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
+        },
+        "c6_candidate": {
+          "timestamp": "2026-09-29T23:37:33.764415+00:00",
+          "status": "ok",
+          "reason": "Candidate built and reviewed 0.0d ago."
+        },
+        "c7_promotion": {
+          "timestamp": "2026-09-29T23:12:31Z",
+          "status": "ok",
+          "reason": "Promoted 0.0d ago (verdict: ready)."
+        },
+        "c8_sync": {
+          "timestamp": "2026-09-29T23:40:41.842776+00:00",
+          "status": "warn",
+          "reason": "dist/ copy differs from source fixture. Sync needed."
+        },
+        "c9_deploy": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Checked live in browser via GitHub Actions API."
+        }
+      }
+    },
+    "usatoday": {
+      "label": "USA Today",
+      "checkpoints": {
+        "c1_publication": {
+          "timestamp": "2026-09-29",
+          "status": "ok",
+          "reason": "Publisher released 2026-09-29 (1.0d ago)."
+        },
+        "c2_collection": {
+          "timestamp": "2026-09-29",
+          "status": "ok",
+          "reason": "Pulled 2026-09-29 (ops/watchdog/pulls/usatoday-2026-09-29.json)."
+        },
+        "c3_supabase": {
+          "timestamp": "2026-09-29T22:26:02.808628+00:00",
+          "status": "ok",
+          "reason": "747 rows landed in public.source_trade_values 0.1d ago."
+        },
+        "c4_snapshot": {
+          "timestamp": "2026-09-29T22:40:17.571223+00:00",
+          "status": "ok",
+          "reason": "Snapshot stamped 0.1d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
+        },
+        "c5_health": {
+          "timestamp": "2026-09-30T00:07:09Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
+        },
+        "c6_candidate": {
+          "timestamp": "2026-09-29T23:37:30.288415+00:00",
+          "status": "ok",
+          "reason": "Candidate built and reviewed 0.0d ago."
+        },
+        "c7_promotion": {
+          "timestamp": "2026-09-29T23:12:31Z",
+          "status": "ok",
+          "reason": "Promoted 0.0d ago (verdict: ready)."
+        },
+        "c8_sync": {
+          "timestamp": "2026-09-29T23:40:41.842776+00:00",
+          "status": "warn",
+          "reason": "dist/ copy differs from source fixture. Sync needed."
+        },
+        "c9_deploy": {
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Checked live in browser via GitHub Actions API."
+        }
+      }
+    }
+  },
+  "chain": {
+    "run_at": "2026-09-29T23:37:43.180840+00:00",
+    "runner": "muse-cron",
+    "runner_label": "local-direct (mislabeled as muse-cron in status file)",
+    "success": true,
+    "run_age_days": 0.020594096296296296,
+    "stale": false
+  }
+}
