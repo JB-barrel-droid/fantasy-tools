@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-30T14:07:18.362461+00:00",
+  "generated_at": "2026-09-30T14:37:44.307538+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -79,7 +79,7 @@
           "reason": "Snapshot stamped 0.9d ago (data/raw/sources/espn/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T14:07:06Z",
+          "timestamp": "2026-09-30T14:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -96,17 +96,17 @@
         "c8_sync": {
           "timestamp": "2026-09-30T05:46:07.872569+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.3d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T13:57:14Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not check Pages API: HTTP Error 403: rate limit exceeded. Browser checks live."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T14:07:21.560558+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (e8a412c479dc), 12 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T14:37:46.417250+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live e8a412c479dc vs fixture 3bffb42c85a3). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -126,15 +126,15 @@
         "c3_supabase": {
           "timestamp": "2026-09-29T22:44:26.21804+00:00",
           "status": "ok",
-          "reason": "342 rows landed in public.cbs_trade_values 0.6d ago."
+          "reason": "342 rows landed in public.cbs_trade_values 0.7d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T22:44:29.435511+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.6d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
+          "reason": "Snapshot stamped 0.7d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T14:07:06Z",
+          "timestamp": "2026-09-30T14:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -146,22 +146,22 @@
         "c7_promotion": {
           "timestamp": "2026-09-30T05:46:05Z",
           "status": "ok",
-          "reason": "Promoted 0.3d ago (verdict: ready)."
+          "reason": "Promoted 0.4d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-09-30T05:46:07.872569+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.3d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T13:57:14Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not check Pages API: HTTP Error 403: rate limit exceeded. Browser checks live."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T14:07:23.858205+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (e8a412c479dc), 3 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T14:37:47.935099+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live e8a412c479dc vs fixture 3bffb42c85a3). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -181,7 +181,7 @@
         "c3_supabase": {
           "timestamp": "2026-09-29T15:34:38.294543+00:00",
           "status": "ok",
-          "reason": "580 rows landed in public.source_trade_values 0.9d ago."
+          "reason": "580 rows landed in public.source_trade_values 1.0d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T17:36:40.484803+00:00",
@@ -189,7 +189,7 @@
           "reason": "Snapshot stamped 0.9d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T14:07:06Z",
+          "timestamp": "2026-09-30T14:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -206,17 +206,17 @@
         "c8_sync": {
           "timestamp": "2026-09-30T05:46:07.872569+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.3d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T13:57:14Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not check Pages API: HTTP Error 403: rate limit exceeded. Browser checks live."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T14:07:25.793636+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (e8a412c479dc), 24 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T14:37:49.317073+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live e8a412c479dc vs fixture 3bffb42c85a3). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -236,7 +236,7 @@
         "c3_supabase": {
           "timestamp": "2026-09-29T15:36:54.092986+00:00",
           "status": "ok",
-          "reason": "531 rows landed in public.source_trade_values 0.9d ago."
+          "reason": "531 rows landed in public.source_trade_values 1.0d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T17:36:46.289718+00:00",
@@ -244,7 +244,7 @@
           "reason": "Snapshot stamped 0.9d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T14:07:06Z",
+          "timestamp": "2026-09-30T14:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -256,22 +256,22 @@
         "c7_promotion": {
           "timestamp": "2026-09-30T05:46:07Z",
           "status": "ok",
-          "reason": "Promoted 0.3d ago (verdict: ready)."
+          "reason": "Promoted 0.4d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-09-30T05:46:07.872569+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.3d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T13:57:14Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not check Pages API: HTTP Error 403: rate limit exceeded. Browser checks live."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T14:07:27.397019+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (e8a412c479dc), 3 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T14:38:01.158588+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live e8a412c479dc vs fixture 3bffb42c85a3). Live built 2026-09-30T05:46."
         }
       }
     },
@@ -296,10 +296,10 @@
         "c4_snapshot": {
           "timestamp": "2026-09-29T22:40:17.571223+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.6d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 0.7d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-09-30T14:07:06Z",
+          "timestamp": "2026-09-30T14:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -311,22 +311,22 @@
         "c7_promotion": {
           "timestamp": "2026-09-30T05:46:06Z",
           "status": "ok",
-          "reason": "Promoted 0.3d ago (verdict: ready)."
+          "reason": "Promoted 0.4d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-09-30T05:46:07.872569+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-09-30, 0.3d ago)."
+          "reason": "Comparison data fresh (built 2026-09-30, 0.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-09-30T13:57:14Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not check Pages API: HTTP Error 403: rate limit exceeded. Browser checks live."
         },
         "c10_rendered": {
-          "timestamp": "2026-09-30T14:07:29.115045+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (e8a412c479dc), 3 combos. Live built 2026-09-30T05:46."
+          "timestamp": "2026-09-30T14:38:01.680753+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live e8a412c479dc vs fixture 3bffb42c85a3). Live built 2026-09-30T05:46."
         }
       }
     }
@@ -336,7 +336,7 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": true,
-    "run_age_days": 0.44322200567129627,
+    "run_age_days": 0.464432256875,
     "stale": false
   },
   "adj_curve_pipeline": {
