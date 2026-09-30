@@ -126,10 +126,10 @@ class StaticExportTest(unittest.TestCase):
             # Updated 2026-09-30 PM with fresh 09-30 adjustment inputs
             # (ddf-20260930-espn-standard-12t-0p15).
             ("usatoday", "full_12"): 26.8,
-            # fantasycalc rebuilt 2026-09-30 with the native_value fix (matcher
-            # was dropping raw values, using flattened 50.7 instead of 9914).
-            # Fresh Week 4 API data: Allen's reindexed value is now 26.9.
-            ("fantasycalc", "full_12_qb1"): 26.9,
+            # fantasycalc rebuilt 2026-09-30 with proportional scaling for
+            # as-published sources (no quantile mapping). Allen's native 6013
+            # scales to 39.3248, preserving the source's value ratios exactly.
+            ("fantasycalc", "full_12_qb1"): 39.3248077948215,
             # fantasypros re-anchored 2026-09-30 PM: fixture now uses
             # native_value (raw published, 29.1 for Allen) instead of the
             # flattened value field (17.2). The 20.3 reflects the true
@@ -177,7 +177,11 @@ class StaticExportTest(unittest.TestCase):
                     total = 0
                     for source_id, value in values.items():
                         player_key = self.comparison["player_keys"].get(source_id)
-                        if position_by_key.get(player_key) == pos and isinstance(value, (int, float)):
+                        # As-published sources use global (not per-position) scaling
+                        if pos == "global":
+                            if isinstance(value, (int, float)):
+                                total += value
+                        elif position_by_key.get(player_key) == pos and isinstance(value, (int, float)):
                             total += value
                     self.assertLessEqual(
                         abs(total - target),

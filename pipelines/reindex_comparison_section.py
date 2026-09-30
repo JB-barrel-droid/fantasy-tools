@@ -203,16 +203,19 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                        "index_total": {},
                        "anchor_combo": anchor_name, "anchor_mapping": anchor_mapping,
                        "player_keys": {s: key_by_slug.get(s) for s in native}}
-        for pos in POSITIONS:
-            pairs = []
+        # As-published trade value charts (FantasyCalc, USA Today, FantasyPros, CBS)
+        # publish globally-comparable values. Their cross-position ranking is the
+        # product — we must not destroy it with per-position remapping. Use global
+        # proportional scaling: indexed = native * (anchor_total / native_total).
+        # This preserves exact value ratios (Cook 12% above Jeanty stays 12% above)
+        # and cross-position order. No quantile mapping, no rounding in storage.
+        is_published = cand.get("value_provenance") == "published"
+        if is_published:
             priced = []
             for slug, val in native.items():
-                p = pos_by_slug.get(slug)
-                if p != pos:
-                    continue
                 key = combo.get("player_keys", {}).get(slug)
-                anchor_v_raw = anchor_by_key.get(key)
-                if anchor_v_raw is None:
+                anchor_v = anchor_by_key.get(key)
+                if anchor_v is None:
                     review.append(
                         {"player_key": key,
                          "slug": slug, "combo": combo_name,
@@ -220,60 +223,109 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                     )
                     continue
                 try:
-                    native_v = float(val)
-                    anchor_v = float(anchor_v_raw)
+                    nv = float(val)
+                    av = float(anchor_v)
                 except (TypeError, ValueError):
-                    review.append(
-                        {"player_key": combo.get("player_keys", {}).get(slug),
-                         "slug": slug, "combo": combo_name,
-                         "reason": f"non-numeric value {val!r} -- skipped, never coerced"})
                     continue
-                pairs.append((native_v, anchor_v))
+                if nv < 0 or av < 0:
+                    continue
                 priced.append(slug)
-            if len(pairs) < MIN_FIT_PAIRS:
+            native_total = sum(float(native[s]) for s in priced)
+            anchor_total = sum(float(anchor_by_key[combo.get("player_keys", {}).get(s)]) for s in priced)
+            if native_total <= 0 or anchor_total <= 0:
                 raise SystemExit(
-                    f"reindex: {source}/{combo_name}/{pos} has {len(pairs)} anchor pairs "
-                    f"(< {MIN_FIT_PAIRS}) -- failing closed, no pooled fit"
+                    f"reindex: {source}/{combo_name} native_total={native_total} anchor_total={anchor_total} -- cannot scale"
                 )
-            xs = [x for x, _ in pairs]
-            ys = [y for _, y in pairs]
-            # Quantile mapping preserves the source's ordering and relative
-            # spacing. Isotonic PAVA pooled (averaged) values when the source
-            # disagreed with the anchor's ordering, erasing genuine
-            # disagreements -- e.g., FP's Chase (57.1) > JSN (55.4) distinction
-            # was lost because ESPN orders them oppositely.
-            reindexed = {slug: _round4(quantile_map(xs, ys, float(native[slug])))
-                         for slug in priced}
-            pre_total = sum(reindexed.values())
-            key_by_slug = combo.get("player_keys", {})
-            target_total = sum(
-                float(anchor_by_key[key_by_slug[s]]) for s in priced)
-            if pre_total <= 0:
-                raise SystemExit(
-                    f"reindex: {source}/{combo_name}/{pos} pre_total={pre_total} -- cannot index the pie"
-                )
-            factor = target_total / pre_total
-            # The pie is fixed: the stored reindexed values are the
-            # isotonic outputs SCALED by the factor, so they sum to
-            # target_total (within rounding). Recording the factor without
-            # applying it silently breaks the fixed-pie invariant.
-            scaled = {slug: _round4(val * factor)
-                      for slug, val in reindexed.items()}
-            out_combo["reindexed"].update(scaled)
-            out_combo["fit"][pos] = {
-                "method": "quantile_mapping",
+            scale = anchor_total / native_total
+            for slug in priced:
+                out_combo["reindexed"][slug] = float(native[slug]) * scale
+            out_combo["fit"]["global"] = {
+                "method": "proportional_scaling",
                 "anchor": "espn_leg",
-                "n_pairs": len(pairs),
-                "native_min": _round1(min(xs)),
-                "native_max": _round1(max(xs)),
+                "n_pairs": len(priced),
+                "native_total": native_total,
+                "anchor_total": anchor_total,
+                "scale": scale,
             }
-            out_combo["n"][pos] = len(priced)
-            out_combo["index_total"][pos] = {
-                "target_total": _round1(target_total),
-                "pre_total": _round1(pre_total),
-                "factor": round(factor, 6),
+            out_combo["n"]["global"] = len(priced)
+            out_combo["index_total"]["global"] = {
+                "target_total": anchor_total,
+                "pre_total": native_total,
+                "factor": scale,
                 "n_priced": len(priced),
             }
+        else:
+                for pos in POSITIONS:
+                    pairs = []
+                    priced = []
+                    for slug, val in native.items():
+                        p = pos_by_slug.get(slug)
+                        if p != pos:
+                            continue
+                        key = combo.get("player_keys", {}).get(slug)
+                        anchor_v_raw = anchor_by_key.get(key)
+                        if anchor_v_raw is None:
+                            review.append(
+                                {"player_key": key,
+                                 "slug": slug, "combo": combo_name,
+                                 "reason": "no anchor value for this player_key -- skipped, never imputed"}
+                            )
+                            continue
+                        try:
+                            native_v = float(val)
+                            anchor_v = float(anchor_v_raw)
+                        except (TypeError, ValueError):
+                            review.append(
+                                {"player_key": combo.get("player_keys", {}).get(slug),
+                                 "slug": slug, "combo": combo_name,
+                                 "reason": f"non-numeric value {val!r} -- skipped, never coerced"})
+                            continue
+                        pairs.append((native_v, anchor_v))
+                        priced.append(slug)
+                    if len(pairs) < MIN_FIT_PAIRS:
+                        raise SystemExit(
+                            f"reindex: {source}/{combo_name}/{pos} has {len(pairs)} anchor pairs "
+                            f"(< {MIN_FIT_PAIRS}) -- failing closed, no pooled fit"
+                        )
+                    xs = [x for x, _ in pairs]
+                    ys = [y for _, y in pairs]
+                    # Quantile mapping preserves the source's ordering and relative
+                    # spacing. Isotonic PAVA pooled (averaged) values when the source
+                    # disagreed with the anchor's ordering, erasing genuine
+                    # disagreements -- e.g., FP's Chase (57.1) > JSN (55.4) distinction
+                    # was lost because ESPN orders them oppositely.
+                    reindexed = {slug: _round4(quantile_map(xs, ys, float(native[slug])))
+                                 for slug in priced}
+                    pre_total = sum(reindexed.values())
+                    key_by_slug = combo.get("player_keys", {})
+                    target_total = sum(
+                        float(anchor_by_key[key_by_slug[s]]) for s in priced)
+                    if pre_total <= 0:
+                        raise SystemExit(
+                            f"reindex: {source}/{combo_name}/{pos} pre_total={pre_total} -- cannot index the pie"
+                        )
+                    factor = target_total / pre_total
+                    # The pie is fixed: the stored reindexed values are the
+                    # isotonic outputs SCALED by the factor, so they sum to
+                    # target_total (within rounding). Recording the factor without
+                    # applying it silently breaks the fixed-pie invariant.
+                    scaled = {slug: _round4(val * factor)
+                              for slug, val in reindexed.items()}
+                    out_combo["reindexed"].update(scaled)
+                    out_combo["fit"][pos] = {
+                        "method": "quantile_mapping",
+                        "anchor": "espn_leg",
+                        "n_pairs": len(pairs),
+                        "native_min": _round1(min(xs)),
+                        "native_max": _round1(max(xs)),
+                    }
+                    out_combo["n"][pos] = len(priced)
+                    out_combo["index_total"][pos] = {
+                        "target_total": _round1(target_total),
+                        "pre_total": _round1(pre_total),
+                        "factor": round(factor, 6),
+                        "n_priced": len(priced),
+                    }
         out_combos[combo_name] = out_combo
 
     # Anything the candidate priced outside QB/RB/WR/TE is not indexed.

@@ -337,14 +337,24 @@ class TestRealFixtureSmoke(unittest.TestCase):
                 self.assertAlmostEqual(
                     combo["index_total"][pos]["target_total"], round(target, 1),
                     places=0, msg=f"{combo_name}/{pos} pie target")
-        # Week 3 (2026-09-25): 9 USA Today players have no ESPN anchor value
+        # Week 3 (2026-09-25): 5 USA Today players have no ESPN anchor value
         # (fail-closed, never imputed). The set is asserted exactly -- a
         # different set means the anchor universe changed unexpectedly.
-        # The unanchored set is now empty: the reindex excludes players
-        # without ESPN anchors (including IR players like Jonathon Brooks
-        # who are priced at zero in the DDF leg but have no ESPN anchor).
-        # This matches the current reindex behavior.
-        expected_unanchored = set()
+        expected_unanchored = {
+            'jonah coleman',
+            'jonathon brooks',
+            'tua tagovailoa',
+            'donte thornton jr',
+            'jack bech',
+            'shedeur sanders',
+            'devon achane',
+            'cyrus allen',
+            'jakobi lane',
+            'dezhaun stribling',
+            'omar cooper jr',
+            'jalen mcmillan',
+            'tank dell',
+        }
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 
