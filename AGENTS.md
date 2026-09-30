@@ -156,3 +156,10 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
 - Fixed-pie invariant holds: sum(indexed) = anchor_total by construction.
 - DDF-methodology sources (ESPN) keep the per-position quantile mapping.
 - Verified: Jeanty 6365→42.36, Cook 7157→47.63 (ratio 1.1244 preserved); Taylor 70.0→51.71, Walker 57.9→42.77 (ratio 1.209 preserved).
+
+## VORP>0 overlap calibration (2026-09-30 PM)
+- Refinement to as-published proportional scaling (Jeremy): "players with vorp>0 should all add up to the same amount. Some trade charts don't go as deep into vorp>0, but they'll all have overlapping players for the first 50-150, so we can set the index on that set and then use the relative values on the remainder of the chart for the balance."
+- Implementation: scale is calibrated on the VORP>0 overlap set (players with anchor_value > 0, typically 150-170 players), not all shared players. The deep tail varies in depth by source and shouldn't drive the scale.
+- Formula: scale = sum(anchor_overlap) / sum(native_overlap); indexed = native * scale for ALL priced players.
+- Fixed-pie target is the anchor's overlap total; the source's overlap players sum to it.
+- Method name: `proportional_scaling_vorp_overlap`. Overlap slugs stored in fit metadata for test verification.
