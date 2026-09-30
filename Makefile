@@ -91,6 +91,14 @@ reference:
 sync:
 	python3 pipelines/sync_dashboard_artifacts.py
 
+# Source value lineage: scrape live pages once, then build the lineage card.
+# The lineage builder consumes dist/modules/live-page-scrape.json and must NOT
+# re-scrape at build time (intermittent bot blocks used to silently poison the
+# monitor with null live values). Run the scrape first, then the builder.
+monitor-lineage:
+	python3 pipelines/scrape_live_source_pages.py
+	python3 pipelines/build_source_value_lineage.py
+
 # Unit tests: no data/raw, snapshot, or external service dependency.
 # Safe to run in CI (Pages deploy) where gitignored data is absent.
 test-unit:

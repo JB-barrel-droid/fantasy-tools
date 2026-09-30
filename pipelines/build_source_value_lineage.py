@@ -24,7 +24,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from scrape_live_source_pages import scrape_fantasypros, scrape_usatoday, scrape_cbs, scrape_fantasycalc
+# Live values come from dist/modules/live-page-scrape.json (written by
+# pipelines/scrape_live_source_pages.py). This builder does not scrape.
 # Use the canonical normalization rule from the maintained identity system.
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from canonical_players import norm_player_name
@@ -32,6 +33,79 @@ from canonical_players import norm_player_name
 REPO = "/home/hatch/workspace/fantasy-tools"
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/source-value-lineage.json")
+
+LIVE_PAGE_SCRAPE_PATH = os.path.join(REPO, "dist/modules/live-page-scrape.json")
+
+# Sources whose live values come from the dedicated live-page scrape artifact.
+# The lineage builder MUST NOT re-scrape at build time: live pages sit behind
+# intermittent bot mitigation (HTTP 402/429, dropped connections), and a
+# failed build-time scrape used to silently degrade to empty (live_value: null
+# for every row), which the monitor then counted as FAIL RED. Scrape once via
+# pipelines/scrape_live_source_pages.py, reuse downstream.
+LIVE_SCRAPE_SOURCES = ["fantasypros", "usatoday", "cbs", "fantasycalc"]
+
+
+def load_live_page_values():
+    """Load live-scraped values from the dedicated scrape artifact.
+
+    Returns {source: {normalized_name: value}}. Fails loudly (raises) when the
+    artifact is missing, stale (>48h), or a source has no usable rows -- a
+    builder that cannot verify against live pages must not publish nulls.
+    """
+    if not os.path.exists(LIVE_PAGE_SCRAPE_PATH):
+        raise FileNotFoundError(
+            f"Live page scrape artifact missing: {LIVE_PAGE_SCRAPE_PATH}. "
+            "Run pipelines/scrape_live_source_pages.py first."
+        )
+    doc = json.load(open(LIVE_PAGE_SCRAPE_PATH))
+    scraped_at = doc.get("scraped_at", "")
+    try:
+        from datetime import datetime, timezone
+        age_h = (
+            datetime.now(timezone.utc)
+            - datetime.fromisoformat(scraped_at.replace("Z", "+00:00"))
+        ).total_seconds() / 3600
+        if age_h > 48:
+            raise ValueError(
+                f"Live page scrape artifact is {age_h:.1f}h old (>48h): {LIVE_PAGE_SCRAPE_PATH}. "
+                "Re-run pipelines/scrape_live_source_pages.py."
+            )
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Cannot parse scraped_at {scraped_at!r}: {e}")
+
+    live_data = {}
+    live_stale = {}
+    for src in LIVE_SCRAPE_SOURCES:
+        entry = (doc.get("sources") or {}).get(src) or {}
+        # Prefer the full player map (all_players) over top25: the chart's top 25
+        # by reindexed value can include players ranked outside the source's top 25.
+        all_players = entry.get("all_players") or {}
+        if all_players:
+            player_map = {norm_player_name(name): value for name, value in all_players.items()}
+            n_live = len(player_map)
+        else:
+            top25 = entry.get("top25") or []
+            if entry.get("status") == "error" or not top25:
+                raise ValueError(
+                    f"Live page scrape has no usable rows for {src} "
+                    f"(status={entry.get('status')!r}): {LIVE_PAGE_SCRAPE_PATH}"
+                )
+            player_map = {norm_player_name(name): value for name, value in top25}
+            n_live = len(player_map)
+        live_data[src] = player_map
+        if entry.get("stale"):
+            live_stale[src] = {
+                "stale_as_of": entry.get("stale_as_of"),
+                "stale_error": entry.get("stale_error"),
+            }
+            print(f"  {src}: {n_live} live values from scrape artifact ({scraped_at}) [STALE]")
+        else:
+            print(f"  {src}: {n_live} live values from scrape artifact ({scraped_at})")
+    live_data["_scraped_at"] = scraped_at
+    live_data["_stale"] = live_stale
+    return live_data
 
 # Snapshot paths for native values (raw scraped values, not transformed)
 SNAPSHOT_PATHS = {
@@ -130,36 +204,16 @@ def main():
     d = json.load(open(DATA_PATH))
     sources = d["sources"]
 
-    # Scrape live pages (user requirement: data must come from live human pages)
-    print("Scraping live source pages...")
-    live_data = {}
-    try:
-        live_data["fantasypros"] = scrape_fantasypros()
-        print(f"  FantasyPros: {len(live_data['fantasypros'])} players scraped live")
-    except Exception as e:
-        print(f"  FantasyPros scrape FAILED: {e}")
-        live_data["fantasypros"] = {}
-    try:
-        live_data["usatoday"] = scrape_usatoday()
-        print(f"  USA Today: {len(live_data['usatoday'])} players scraped live")
-    except Exception as e:
-        print(f"  USA Today scrape FAILED: {e}")
-        live_data["usatoday"] = {}
-    try:
-        live_data["cbs"] = scrape_cbs()
-        print(f"  CBS: {len(live_data['cbs'])} players scraped live")
-    except Exception as e:
-        print(f"  CBS scrape FAILED: {e}")
-        live_data["cbs"] = {}
-    try:
-        live_data["fantasycalc"] = scrape_fantasycalc()
-        print(f"  FantasyCalc: {len(live_data['fantasycalc'])} players scraped live")
-    except Exception as e:
-        print(f"  FantasyCalc scrape FAILED: {e}")
-        live_data["fantasycalc"] = {}
+    # Live values come from the dedicated scrape artifact (scrape once, reuse).
+    # This builder must NOT re-scrape at build time: intermittent bot blocks
+    # used to silently degrade to empty and poison the monitor with FAIL RED.
+    print("Loading live page values from scrape artifact...")
+    live_data = load_live_page_values()
 
     result = {
-        "generated_at": d.get("generated_at", "unknown"),
+        "generated_at": d.get("generated_at") or d.get("built_at") or "unknown",
+        "live_scraped_at": live_data.get("_scraped_at", "unknown"),
+        "live_stale_sources": live_data.get("_stale", {}),
         "scoring": "Half PPR",
         "teams": 12,
         "method": "Native values verified against LIVE human-readable source pages. FantasyPros, USA Today, CBS scraped directly from article pages. FantasyCalc via the API powering its human-visible page (same numbers). ESPN has no published trade value chart.",

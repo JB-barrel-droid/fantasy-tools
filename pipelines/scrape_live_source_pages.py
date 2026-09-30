@@ -126,17 +126,42 @@ class TableParser(HTMLParser):
             self._current_cell += data
 
 
-def fetch_url(url):
-    """Fetch a URL with a browser-like User-Agent."""
-    req = urllib.request.Request(
-        url,
-        headers={
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        }
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        return resp.read().decode("utf-8", errors="replace")
+def fetch_url(url, max_retries=4):
+    """Fetch a URL with a browser-like User-Agent, retrying transient blocks.
+
+    Publisher pages sit behind intermittent bot mitigation that answers with
+    HTTP 402/429 or kills the connection outright. Those are retriable --
+    a single attempt failing used to poison downstream builders with nulls.
+    """
+    import random
+    import time
+    from http.client import RemoteDisconnected
+
+    last_err = None
+    for attempt in range(max_retries):
+        req = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            }
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                return resp.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError as e:
+            last_err = e
+            # Bot-mitigation / rate-limit responses are worth retrying.
+            if e.code not in (402, 408, 429, 500, 502, 503, 504):
+                raise
+        except (RemoteDisconnected, TimeoutError, urllib.error.URLError, ConnectionError) as e:
+            last_err = e
+        # Exponential backoff with jitter before the next attempt.
+        if attempt < max_retries - 1:
+            delay = (2 ** attempt) + random.uniform(0, 1)
+            print(f"  fetch retry {attempt + 1}/{max_retries - 1} after {delay:.1f}s: {last_err}")
+            time.sleep(delay)
+    raise RuntimeError(f"fetch_url failed after {max_retries} attempts for {url}: {last_err}")
 
 
 def scrape_fantasypros():
@@ -317,10 +342,37 @@ def scrape_fantasycalc():
 
 def main():
     result = {
-        "scraped_at": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        "scraped_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat().replace("+00:00", "Z"),
         "method": "Direct HTML scrape of human-readable source pages",
         "sources": {},
     }
+
+    # Preserve last-known-good per-source data: if a live fetch fails behind a
+    # bot wall, keep the previous successful rows and mark them stale rather
+    # than wiping the source. Downstream builders must never see empty.
+    prev_sources = {}
+    out_path = "/home/hatch/workspace/fantasy-tools/dist/modules/live-page-scrape.json"
+    if os.path.exists(out_path):
+        try:
+            prev_sources = json.load(open(out_path)).get("sources", {})
+        except Exception:
+            prev_sources = {}
+
+    def _on_scrape_error(src, err):
+        """Keep previous successful rows for src, flagged stale. Returns the entry."""
+        prev = prev_sources.get(src) or {}
+        if prev.get("status") == "ok" and prev.get("top25"):
+            entry = dict(prev)
+            entry["stale"] = True
+            entry["stale_error"] = str(err)[:200]
+            entry["stale_as_of"] = result["scraped_at"]
+            print(f"{src}: ERROR {err} -- keeping {len(prev['top25'])} last-known-good rows (stale)")
+            return entry
+        return {
+            "url": SOURCE_PAGES[src]["url"],
+            "status": "error",
+            "error": str(err)[:200],
+        }
     
     # Scrape FantasyPros
     try:
@@ -330,15 +382,12 @@ def main():
             "note": SOURCE_PAGES["fantasypros"]["note"],
             "player_count": len(fp_players),
             "top25": sorted(fp_players.items(), key=lambda x: x[1], reverse=True)[:25],
+            "all_players": dict(sorted(fp_players.items(), key=lambda x: x[1], reverse=True)),
             "status": "ok",
         }
         print(f"FantasyPros: scraped {len(fp_players)} players")
     except Exception as e:
-        result["sources"]["fantasypros"] = {
-            "url": SOURCE_PAGES["fantasypros"]["url"],
-            "status": "error",
-            "error": str(e)[:200],
-        }
+        result["sources"]["fantasypros"] = _on_scrape_error("fantasypros", e)
         print(f"FantasyPros: ERROR {e}")
     
     # Scrape USA Today
@@ -349,15 +398,12 @@ def main():
             "note": SOURCE_PAGES["usatoday"]["note"],
             "player_count": len(usat_players),
             "top25": sorted(usat_players.items(), key=lambda x: x[1], reverse=True)[:25],
+            "all_players": dict(sorted(usat_players.items(), key=lambda x: x[1], reverse=True)),
             "status": "ok",
         }
         print(f"USA Today: scraped {len(usat_players)} players")
     except Exception as e:
-        result["sources"]["usatoday"] = {
-            "url": SOURCE_PAGES["usatoday"]["url"],
-            "status": "error",
-            "error": str(e)[:200],
-        }
+        result["sources"]["usatoday"] = _on_scrape_error("usatoday", e)
         print(f"USA Today: ERROR {e}")
     
     # Scrape FantasyCalc
@@ -368,15 +414,12 @@ def main():
             "note": SOURCE_PAGES["fantasycalc"]["note"],
             "player_count": len(fc_players),
             "top25": sorted(fc_players.items(), key=lambda x: x[1], reverse=True)[:25],
+            "all_players": dict(sorted(fc_players.items(), key=lambda x: x[1], reverse=True)),
             "status": "ok",
         }
         print(f"FantasyCalc: scraped {len(fc_players)} players")
     except Exception as e:
-        result["sources"]["fantasycalc"] = {
-            "url": SOURCE_PAGES["fantasycalc"]["url"],
-            "status": "error",
-            "error": str(e)[:200],
-        }
+        result["sources"]["fantasycalc"] = _on_scrape_error("fantasycalc", e)
         print(f"FantasyCalc: ERROR {e}")
     
     # Scrape CBS
@@ -387,15 +430,12 @@ def main():
             "note": SOURCE_PAGES["cbs"]["note"],
             "player_count": len(cbs_players),
             "top25": sorted(cbs_players.items(), key=lambda x: x[1], reverse=True)[:25],
+            "all_players": dict(sorted(cbs_players.items(), key=lambda x: x[1], reverse=True)),
             "status": "ok",
         }
         print(f"CBS: scraped {len(cbs_players)} players")
     except Exception as e:
-        result["sources"]["cbs"] = {
-            "url": SOURCE_PAGES["cbs"]["url"],
-            "status": "error",
-            "error": str(e)[:200],
-        }
+        result["sources"]["cbs"] = _on_scrape_error("cbs", e)
         print(f"CBS: ERROR {e}")
     
     # Document ESPN honestly (no trade value chart exists)
