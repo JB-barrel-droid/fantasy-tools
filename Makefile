@@ -91,13 +91,49 @@ reference:
 sync:
 	python3 pipelines/sync_dashboard_artifacts.py
 
-test:
-	python3 -m unittest discover -s tests
+# Unit tests: no data/raw, snapshot, or external service dependency.
+# Safe to run in CI (Pages deploy) where gitignored data is absent.
+test-unit:
+	python3 -m unittest tests.test_adjusted_curve_pause
+	python3 -m unittest tests.test_adjusted_fixture_sections
+	python3 -m unittest tests.test_adjustment_inputs
+	python3 -m unittest tests.test_comparison_candidate_build
+	python3 -m unittest tests.test_comparison_source_integrity
+	python3 -m unittest tests.test_ddf_two_tier_leg
+	python3 -m unittest tests.test_player_scenario_matrix
+	python3 -m unittest tests.test_public_copy_no_vorp
+	python3 -m unittest tests.test_publication_windows
+	python3 -m unittest tests.test_qb_slot_scoping
+	python3 -m unittest tests.test_reference_freshness
+	python3 -m unittest tests.test_reindex_section
+	python3 -m unittest tests.test_review_candidate
+	python3 -m unittest tests.test_source_reference_build
+	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_two_tier_frontend
+
+# Integration tests: require data/raw snapshots, Supabase, or pipeline artifacts.
+# Run in the rebuild-chain workflow or locally where data is present.
+test-integration:
+	python3 -m unittest tests.test_cbs_usatoday_recurring
+	python3 -m unittest tests.test_import_health
+	python3 -m unittest tests.test_naming_drift
+	python3 -m unittest tests.test_pipeline_cascade
+	python3 -m unittest tests.test_promote_section
+	python3 -m unittest tests.test_pull_watchdog
+	python3 -m unittest tests.test_rebuild_chain_failclosed
+	python3 -m unittest tests.test_save_espn_cbs_references
+	python3 -m unittest tests.test_source_snapshot_import
+	python3 -m unittest tests.test_source_snapshot_match
+	python3 -m unittest tests.test_supabase_import
+	python3 -m unittest tests.test_writer_audit_enforcement
+
+# Full suite (local dev / rebuild workflow).
+test: test-unit test-integration
 
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
 
-validate: naming reference sync test
+validate: naming reference sync test-unit
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
