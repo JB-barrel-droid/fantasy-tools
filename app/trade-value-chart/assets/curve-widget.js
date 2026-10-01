@@ -9,6 +9,8 @@
     fantasypros: "FantasyPros",
     cbs: "CBS",
     espn: "ESPN adjusted",
+    cbsros: "CBS ROS",
+    razzball: "Razzball",
     fantasycalc_adjusted: "FC Adjusted",
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
@@ -22,6 +24,8 @@
     "fantasypros",
     "cbs",
     "espn",
+    "cbsros",
+    "razzball",
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",
@@ -33,6 +37,8 @@
     fantasypros: {color: "#16815d", dash: []},
     cbs: {color: "#b83e45", dash: []},
     espn: {color: "#6b55a3", dash: []},
+    cbsros: {color: "#c9842b", dash: []},
+    razzball: {color: "#2b9dc9", dash: []},
     fantasycalc_adjusted: {color: "#236a96", dash: [7, 4]},
     usatoday_adjusted: {color: "#d5531d", dash: [7, 4]},
     fantasypros_adjusted: {color: "#16815d", dash: [7, 4]},
@@ -40,7 +46,7 @@
     espn_vorp: {color: "#6b55a3", dash: []}
   };
   const SOURCE_GROUPS = [
-    {label:"Bottom-up indexed", keys:["espn"]},
+    {label:"Bottom-up indexed", keys:["espn", "cbsros", "razzball"]},
     {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
     {label:"Raw value above waivers", keys:["espn_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
@@ -814,6 +820,16 @@
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
+    // DDF-native sources (cbsros, razzball): check fixture has native PPG data.
+    // Razzball uses rz_ppg on player objects; CBS ROS data comes from Supabase
+    // via the pipeline (not yet baked into fixture as of 2026-10-01).
+    if (key === "razzball") {
+      return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p.rz_ppg?.[scoringField()])));
+    }
+    if (key === "cbsros") {
+      // TODO: CBS ROS data not yet in fixture — pipeline work needed (JEG-7 done, baking pending)
+      return false;
+    }
     return Boolean(data?.sources?.[key]?.combos?.[comboKey(key)]);
   };
 
@@ -843,6 +859,7 @@
         team: String(player.team || "—"),
         pos: player.pos,
         espn_ppg: player.espn_ppg || specialistProjection,
+        rz_ppg: player.rz_ppg || null,
         projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
       });
     });
@@ -946,6 +963,18 @@
   }
 
   function buildNativeSourceMap(key) {
+    // Razzball: native PPG lives on the fixture player objects (rz_ppg),
+    // not in data.sources. Build from canonical players.
+    if (key === "razzball") {
+      const values = new Map();
+      const field = scoringField();
+      canonicalByKey.forEach((player, playerKey) => {
+        const ppg = Number(player.rz_ppg?.[field]);
+        if (!Number.isFinite(ppg)) return;
+        values.set(playerKey, ppg);
+      });
+      return values;
+    }
     const combo = data.sources?.[key]?.combos?.[comboKey(key)];
     const native = combo?.native || {};
     const values = new Map();
@@ -1367,6 +1396,13 @@
 
   function adjustedMapFor(key) {
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    // DDF-native sources (cbsros, razzball): their "adjusted" map IS the
+    // live DDF two-tier values from their own native projections. No
+    // published-source cells to apply.
+    if (["cbsros", "razzball"].includes(rawKey)) {
+      const ddf = ddfTwoTierValuesFor(rawKey);
+      return ddf ? ddf.values : new Map();
+    }
     const cells = adjustmentCellsFor(rawKey);
     if (cells) return buildLiveAdjustedMap(rawKey, cells);
     return new Map();
