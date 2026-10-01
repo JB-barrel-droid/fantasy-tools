@@ -140,3 +140,22 @@ Every meaningful handoff should include:
 
 The goal is not ceremony. The goal is to keep work portable across ChatGPT/Codex,
 Claude Code MCP, Muse, local shell work, and GitHub without losing the thread.
+
+## Owner Labels (Linear, 2026-10-01)
+
+Issue ownership across agents is tracked with Linear labels — there is no
+Claude or ChatGPT user in the workspace, so assignment runs through
+label + status/priority + comment, which each lane reads:
+
+- `owner:muse` — Roman's lane: PM, review, all merges, validation, deploys,
+  rendered production QA.
+- `owner:claude` — Claude Code's lane: works issue branches, opens draft PRs,
+  never merges/deploys. Current batch: JEG-23 + JEG-44 (in progress),
+  JEG-21/JEG-22/JEG-24 caption batch (todo), JEG-8 (rebuild chain).
+- `owner:chatgpt` — ChatGPT's lane: works issue branches, opens draft PRs,
+  never merges/deploys. Current batch: JEG-17 (full rendered QA),
+  JEG-29 (guard harness rebuild), JEG-45 (silent lock-revert notice).
+
+Roman assigns via label + comment, reviews every PR for methodology
+regressions, merges in lane order, validates, deploys, and verifies Pages +
+rendered production after every deploy.
