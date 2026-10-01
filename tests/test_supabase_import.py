@@ -84,6 +84,30 @@ def cbs_row(**overrides):
     return base
 
 
+def cbsros_row(**overrides):
+    base = {
+        "player_key": 869,
+        "player_norm": "josh allen",
+        "ros_standard": 341.0,
+        "ros_half_ppr": 341.0,
+        "ros_ppr": 341.0,
+        "per_game_standard": 24.357,
+        "per_game_half_ppr": 24.357,
+        "per_game_ppr": 24.357,
+        "gp": 14.0,
+        "receptions": 0.0,
+        "raw_stats": {"gp": 14.0, "pass_yds": 3168.0},
+        "cbs_snapshot_date": "2026-09-30",
+        "pulled_at": "2026-09-30T19:39:40+00:00",
+        "scoring": "half_ppr",
+        "season": 2026,
+        "week": 4,
+        "source_content_date": "2026-09-30",
+    }
+    base.update(overrides)
+    return base
+
+
 class ImportSupabaseReferencesTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -446,6 +470,54 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         self.assertEqual(mod.repo_scoring("half"), "half_ppr")
         self.assertEqual(mod.repo_scoring("std"), "standard")
         self.assertEqual(mod.repo_scoring("half_ppr"), "half_ppr")
+
+    # -- CBS ROS DB import ------------------------------------------------------
+    # defect: cbsros staying file-only / not wired through Supabase
+    def test_cbsros_zero_rows_fails_closed(self):
+        with self.assertRaises(SystemExit):
+            self.import_with([], source="cbsros")
+        self.assertEqual(self.snapshot_files(), [])
+
+    def test_cbsros_db_import_row_shape_and_manifest(self):
+        result = self.import_with(
+            [cbsros_row(), cbsros_row(player_key=2227, player_norm="jahmyr gibbs",
+                                      ros_half_ppr=287.5, ros_standard=280.0, ros_ppr=295.0)],
+            source="cbsros",
+        )
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(result["content_vintage"], "2026-09-30")
+        self.assertEqual(result["snapshot_path"].parent.name, "2026-09-30")
+        self.assertEqual(snapshot["source"], "cbsros")
+        self.assertEqual(snapshot["default_scoring"], "half_ppr")
+        self.assertEqual(snapshot["row_count"], 2)
+        by_name = {r["player_name"]: r for r in snapshot["rows"]}
+        allen = by_name["Josh Allen"]
+        self.assertEqual(allen["value"], 341.0)  # ros_half_ppr, verbatim
+        self.assertEqual(allen["scoring"], "half_ppr")
+        self.assertEqual(allen["pos"], "QB")  # canonical players-table position
+        self.assertEqual(allen["team"], "BUF")  # fixture map (players carries no team)
+        self.assertEqual(allen["source_player_id"], 869)
+        self.assertEqual(allen["native_value"], 341.0)
+        gibbs = by_name["Jahmyr Gibbs"]
+        self.assertEqual(gibbs["value"], 287.5)
+        self.assertEqual(gibbs["team"], "DET")
+        manifest = json.loads(result["manifest_path"].read_text())
+        self.assertEqual(manifest["supabase_table"], "public.cbs_ros_projections")
+        self.assertIsNone(manifest["from_file"])
+        self.assertIsNone(manifest["save_gap"])
+        # cbsros vintage is the dated snapshot (daily rule), never a week label
+        self.assertIsNone(manifest["week_designated"])
+        self.assertIn("cbs_snapshot_date", manifest["content_vintage_derived_from"])
+
+    def test_cbsros_missing_ros_goes_to_review(self):
+        result = self.import_with(
+            [cbsros_row(ros_half_ppr=None), cbsros_row(player_key=2227)],
+            source="cbsros",
+        )
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(snapshot["row_count"], 1)  # only Gibbs
+        self.assertEqual(snapshot["review_count"], 1)
+        self.assertEqual(snapshot["review_rows"][0]["reason"], "missing_or_non_numeric_value")
 
 
 class LatestVintageScopingTest(unittest.TestCase):

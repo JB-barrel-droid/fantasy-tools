@@ -72,17 +72,19 @@ from import_source_snapshot import (  # noqa: E402
     utc_now,
 )
 
-DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs")
+DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros")
 DASHBOARD_SOURCES = DB_SOURCES
 
 # Supabase table per source. The big three share public.source_trade_values;
 # ESPN and CBS have their own reference tables (stage 1b closed 2026-09-22).
+# CBS ROS has its own projections table (wired 2026-10-01).
 SOURCE_TABLES = {
     "fantasycalc": "public.source_trade_values",
     "usatoday": "public.source_trade_values",
     "fantasypros": "public.source_trade_values",
     "espn": "public.espn_season_projections",
     "cbs": "public.cbs_trade_values",
+    "cbsros": "public.cbs_ros_projections",
 }
 
 # Sources that must never be importable here, even if someone names them.
@@ -351,6 +353,8 @@ def build_db_snapshot(source: str) -> tuple[dict[str, Any], dict[str, Any]]:
         return build_espn_snapshot()
     if source == "cbs":
         return build_cbs_snapshot()
+    if source == "cbsros":
+        return build_cbsros_snapshot()
     raise SystemExit(f"No DB importer defined for source '{source}'")  # unreachable
 
 
@@ -638,6 +642,129 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,
         "week_designated": week,
+        "save_gap": None,
+        "fetched_at_note": "snapshot.fetched_at is the table's pulled_at (pull time), not content vintage",
+    }
+    return snapshot, manifest_fields
+
+
+def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
+    """CBS ROS: public.cbs_ros_projections.
+
+    The table stores per-player ROS projection points verbatim (ros_standard /
+    ros_half_ppr / ros_ppr); the snapshot carries ros_half_ppr as the row value
+    with scoring='half_ppr' throughout (the same shape the old file-backed
+    import produced).
+    pos comes from the canonical players table; team from the repo fixture
+    players.json map (public.players carries no team column) -- documented
+    in fixture_pos_team.
+    """
+    rows = fetch_supabase_rows("cbs_ros_projections", "?select=*")
+    if not rows:
+        raise SystemExit(
+            "Fail closed: source 'cbsros' resolved to zero rows in "
+            "public.cbs_ros_projections. Never writing an empty snapshot."
+        )
+
+    # Multi-vintage tables: the snapshot is one vintage -- select the latest
+    # snapshot date deterministically (never blended).
+    rows, scoped_date = _select_latest_snapshot_date(rows, date_key="cbs_snapshot_date")
+    date_scope_note = (
+        f" import scoped to latest snapshot date present ({scoped_date})"
+        if scoped_date is not None else ""
+    )
+
+    content_vintage, vintage_note, table_week = derive_db_vintage(rows, date_column="cbs_snapshot_date")
+
+    keys = sorted({k for k in (canonical_player_key(r.get("player_key")) for r in rows) if k is not None})
+    names = fetch_player_names(keys)
+    positions = fetch_player_positions(keys)
+    fixture_map = fixture_pos_team()
+
+    clean_rows: list[dict[str, Any]] = []
+    review_rows: list[dict[str, Any]] = []
+    for row in rows:
+        key = canonical_player_key(row.get("player_key"))
+        name = names.get(key) if key is not None else None
+        value = parse_float(row.get("ros_half_ppr"))
+        if key is None:
+            review_rows.append(
+                {
+                    "reason": "non_numeric_player_key",
+                    "player_key_raw": row.get("player_key"),
+                    "player_norm": row.get("player_norm"),
+                }
+            )
+            continue
+        if not name:
+            review_rows.append(
+                {
+                    "reason": "unresolved_player_key",
+                    "player_key": key,
+                    "player_norm": row.get("player_norm"),
+                }
+            )
+            continue
+        if value is None:
+            review_rows.append(
+                {
+                    "reason": "missing_or_non_numeric_value",
+                    "player_key": key,
+                    "player_name": name,
+                    "value_raw": row.get("ros_half_ppr"),
+                }
+            )
+            continue
+        fixture_pos, fixture_team = fixture_map.get(key, (None, None))
+        clean_rows.append(
+            {
+                "player_name": name,
+                "value": value,
+                "pos": positions.get(key) or fixture_pos,
+                "team": fixture_team,
+                "scoring": "half_ppr",
+                "teams": 12,
+                "source_player_id": key,
+                "native_value": value,
+            }
+        )
+    if not clean_rows:
+        raise SystemExit(
+            f"Fail closed: source 'cbsros' resolved to zero clean rows "
+            f"({len(review_rows)} in review). Never writing an empty snapshot."
+        )
+
+    pulled_values = sorted({str(r.get("pulled_at")) for r in rows if r.get("pulled_at")})
+    fetched_at = pulled_values[-1] if pulled_values else utc_now()
+
+    snapshot = {
+        "schema": SCHEMA,
+        "source": "cbsros",
+        "fetched_at": fetched_at,
+        "source_url": None,
+        "default_scoring": "half_ppr",
+        "default_teams": 12,
+        "row_count": len(clean_rows),
+        "rows": clean_rows,
+        "review_rows": review_rows,
+        "review_count": len(review_rows),
+    }
+    manifest_fields = {
+        "supabase_table": SOURCE_TABLES["cbsros"],
+        "from_file": None,
+        "filter": (
+            "public.cbs_ros_projections (latest snapshot date); value=ros_half_ppr "
+            "(CBS ROS half-PPR points); pos from public.players.position, "
+            "team from the repo fixture players.json map (players carries no team)"
+            f"{date_scope_note}"
+        ),
+        "content_vintage": content_vintage,
+        "content_vintage_derived_from": vintage_note,
+        # week_designated stays None for cbsros: the health gate must judge the
+        # DATED vintage (daily rule), not the designated week. The table week
+        # is recorded as table_week for transparency.
+        "week_designated": None,
+        "table_week": table_week,
         "save_gap": None,
         "fetched_at_note": "snapshot.fetched_at is the table's pulled_at (pull time), not content vintage",
     }

@@ -11,20 +11,12 @@ never ecr/vegas/razzball; unknown names are a hard error), the gate checks:
   - a snapshot exists under data/raw/sources/<source>/ with a manifest;
   - the snapshot bytes match the manifest sha256
     (defect guarded: unverified bytes promoted);
-  - DB-backed sources (fantasycalc, usatoday, fantasypros, espn, cbs): the
+  - DB-backed sources (fantasycalc, usatoday, fantasypros, espn, cbs, cbsros): the
     Supabase table's LATEST vintage still matches the manifest, re-queried
     through the same skill path the importer used (sbclient.get_all).
     Tables keep every historical vintage (rows are never deleted); only the
     newest vintage verifies, older rows are ignored in every check
     (defect guarded: partial/stale table treated as complete);
-  - cbsros is snapshot-only BY DESIGN: CBS's public per-position ROS
-    projection pages are file-scraped (pull_cbs_ros_projections.py) and flow
-    snapshot -> DDF leg -> fixture section with no Supabase landing stage.
-    The gate verifies its snapshot bytes + content vintage exactly like the
-    others, records supabase_landing=False, and skips the table stage;
-    the checkpoint builder marks C3 "ok" N/A-by-design from that flag
-    (defect guarded: a snapshot-only source must never be held to a table
-    check it was never designed to pass);
   - FRESHNESS on content vintage, never pull time. Week-designated trade
     charts (fantasycalc, usatoday, fantasypros, cbs, cbsros) are fresh iff
     their NFL week == --nfl-week. ESPN projections are a daily live
@@ -59,11 +51,10 @@ DEFAULT_SOURCES_ROOT = ROOT / "data" / "raw" / "sources"
 DEFAULT_OUTPUT = ROOT / "output" / "source-import-health.json"
 HEALTH_SCHEMA = "trade-value-import-health-v1"
 
-DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs")
-# cbsros is file-scraped (CBS ROS projection pages -> DDF leg -> fixture
-# section) and has no Supabase landing by design; the gate verifies its
-# snapshot bytes + content vintage and skips the table stage.
-SNAPSHOT_ONLY_SOURCES = ("cbsros",)
+DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros")
+# All six dashboard sources are now DB-backed. (cbsros was snapshot-only until
+# 2026-10-01 when public.cbs_ros_projections was created.)
+SNAPSHOT_ONLY_SOURCES: tuple[str, ...] = ()
 DASHBOARD_SOURCES = DB_SOURCES + SNAPSHOT_ONLY_SOURCES
 WEEK_DESIGNATED_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros")
 
@@ -101,6 +92,12 @@ SOURCE_CONFIGS = {
         "api_table": "cbs_trade_values",
         "params": "?select=player_key,source_content_date,week,created_at&source=eq.cbs&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
+        "table_holds_review_rows": False,
+    },
+    "cbsros": {
+        "api_table": "cbs_ros_projections",
+        "params": "?select=player_key,cbs_snapshot_date,week,created_at",
+        "vintage_date_col": "cbs_snapshot_date",
         "table_holds_review_rows": False,
     },
 }

@@ -129,6 +129,9 @@ def table_rows_for(table: str, params: str, *, n: int, week: int | None, date: s
     if table == "espn_season_projections":
         assert "espn_snapshot_date" in params and "source=eq" not in params, params
         return db_rows(n, source_content_date=date, week=week, date_col="espn_snapshot_date")
+    if table == "cbs_ros_projections":
+        assert "cbs_snapshot_date" in params and "source=eq" not in params, params
+        return db_rows(n, source_content_date=date, week=week, date_col="cbs_snapshot_date")
     assert "source_content_date" in params, params
     return db_rows(n, source_content_date=date, week=week)
 
@@ -191,7 +194,7 @@ class VerifyImportHealthTest(unittest.TestCase):
         # cbsros: snapshot-only, no Supabase table by design
         make_snapshot(self.root, "cbsros", dated,
                       content_vintage=dated, week_designated=None,
-                      supabase_table=None)
+                      supabase_table="public.cbs_ros_projections")
 
     # -- hard error: unknown / excluded sources --------------------------------
     # defect: a non-dashboard source name sneaking into the gate
@@ -264,23 +267,24 @@ class VerifyImportHealthTest(unittest.TestCase):
         self.assertTrue(entry["failure_reason"].startswith("BYTE_MISMATCH"))
 
     # -- cbsros: snapshot-only source skips the table stage by design -----------
-    def test_cbsros_snapshot_only_skips_table_check(self):
-        # defect: holding a snapshot-only source to a Supabase table check it
-        # was never designed to pass would red a healthy pipeline. Prove the
-        # table stage is skipped: fetch_table_summary must never be called.
-        def exploding_fetch(table, params):  # noqa: ARG001
-            raise AssertionError("table check must not run for cbsros")
-        mod.fetch_table_summary = exploding_fetch
+    def test_cbsros_db_backed_checks_table(self):
+        # cbsros is DB-backed (public.cbs_ros_projections) since 2026-10-01:
+        # the table stage must run like every other DB source.
+        mod.fetch_table_summary = lambda table, params: [
+            {"player_key": 800 + i, "cbs_snapshot_date": "2026-09-22", "week": 3,
+             "created_at": "2026-09-22T00:00:00+00:00"}
+            for i in range(10)
+        ]
         make_snapshot(self.root, "cbsros", "2026-09-22",
                       content_vintage="2026-09-22", week_designated=None,
-                      supabase_table=None)
+                      supabase_table="public.cbs_ros_projections")
         entry, _ = mod.verify_source(
             "cbsros", sources_root=self.root, nfl_week=3,
             check_date=self.check_date, prev_entry=None, checked_at="t",
         )
         self.assertEqual(entry["status"], "ok", entry.get("failure_reason"))
-        self.assertFalse(entry["supabase_landing"])
-        self.assertIsNone(entry["supabase_table"])
+        self.assertTrue(entry["supabase_landing"])
+        self.assertEqual(entry["supabase_table"], "public.cbs_ros_projections")
         self.assertIsNone(entry["failure_reason"])
 
     # -- cbsros: torn bytes still fail closed on the snapshot-only path --------
@@ -290,7 +294,7 @@ class VerifyImportHealthTest(unittest.TestCase):
         mod.fetch_table_summary = lambda table, params: []
         snap_dir = make_snapshot(self.root, "cbsros", "2026-09-22",
                                  content_vintage="2026-09-22",
-                                 week_designated=None, supabase_table=None)
+                                 week_designated=None, supabase_table="public.cbs_ros_projections")
         (snap_dir / "snapshot.json").write_bytes(b'{"tampered": true}\n')
         entry, _ = mod.verify_source(
             "cbsros", sources_root=self.root, nfl_week=3,
