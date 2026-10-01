@@ -292,10 +292,14 @@ def pts(stats, scoring):
 # Main bake
 # ---------------------------------------------------------------------------
 
-def bake(args):
-    registry = load_registry()
+def fetch_ecr_intake(query_all):
+    """ECR skill-player intake from fp_season_latest_norm. JEG-46.
 
-    # ---- ECR intake -------------------------------------------------------
+    Returns (ecr_snapshot_date, ecr_rows). Fails closed when the projections
+    table is empty or the norm table has no rows at the current ECR snapshot
+    date (stale table / writer not run) — never bakes a chart with silently
+    missing expert intake.
+    """
     snap_rows = query_all("fp_season_projections",
                           "?select=snapshot_date&order=snapshot_date.desc&limit=1")
     if not snap_rows:
@@ -303,16 +307,28 @@ def bake(args):
                          "no ECR snapshot to bake from.")
     ecr_snapshot_date = str(snap_rows[0]["snapshot_date"])
 
-    # fp_season_latest_norm has no id column (view grain: one row per
+    # fp_season_latest_norm has no id column (grain: one row per
     # snapshot_date x player_key — verified unique), so order explicitly on
     # the unique key rather than letting get_all() default to order=id.
-    # JEG-46.
     ecr_rows = query_all(
         "fp_season_latest_norm",
         "?select=player_key,player_norm,position,team,passing_yards,passing_tds,"
         "rushing_yards,rushing_tds,receptions,receiving_yards,receiving_tds"
         f"&player_key=not.is.null&snapshot_date=eq.{ecr_snapshot_date}"
         "&order=player_key")
+    if not ecr_rows:
+        raise SystemExit(
+            f"FAIL-CLOSED: fp_season_latest_norm has no rows at ECR snapshot "
+            f"date {ecr_snapshot_date} — the norm table is stale or its writer "
+            "has not run. Refusing to bake a chart with no expert intake.")
+    return ecr_snapshot_date, ecr_rows
+
+
+def bake(args):
+    registry = load_registry()
+
+    # ---- ECR intake -------------------------------------------------------
+    ecr_snapshot_date, ecr_rows = fetch_ecr_intake(query_all)
 
     # ---- ECR content vintage (fail-closed) ---------------------------------
     # Content = the 7 stat components + proj_half_ppr per player. Players
