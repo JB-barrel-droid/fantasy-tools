@@ -9,6 +9,8 @@
     fantasypros: "FantasyPros",
     cbs: "CBS",
     espn: "ESPN adjusted",
+    cbsros: "CBS ROS",
+    razzball: "Razzball",
     fantasycalc_adjusted: "FC Adjusted",
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
@@ -22,6 +24,8 @@
     "fantasypros",
     "cbs",
     "espn",
+    "cbsros",
+    "razzball",
     "fantasycalc_adjusted",
     "usatoday_adjusted",
     "fantasypros_adjusted",
@@ -33,6 +37,8 @@
     fantasypros: {color: "#16815d", dash: []},
     cbs: {color: "#b83e45", dash: []},
     espn: {color: "#6b55a3", dash: []},
+    cbsros: {color: "#c9842b", dash: []},
+    razzball: {color: "#2b9dc9", dash: []},
     fantasycalc_adjusted: {color: "#236a96", dash: [7, 4]},
     usatoday_adjusted: {color: "#d5531d", dash: [7, 4]},
     fantasypros_adjusted: {color: "#16815d", dash: [7, 4]},
@@ -40,7 +46,7 @@
     espn_vorp: {color: "#6b55a3", dash: []}
   };
   const SOURCE_GROUPS = [
-    {label:"Bottom-up indexed", keys:["espn"]},
+    {label:"Bottom-up indexed", keys:["espn", "cbsros", "razzball"]},
     {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
     {label:"Raw value above waivers", keys:["espn_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
@@ -814,6 +820,16 @@
   const sourceComboExists = key => {
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
+    // DDF-native sources (cbsros, razzball): check fixture has native PPG data.
+    // Razzball uses rz_ppg on player objects; CBS ROS data comes from Supabase
+    // via the pipeline (not yet baked into fixture as of 2026-10-01).
+    if (key === "razzball") {
+      return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p.rz_ppg?.[scoringField()])));
+    }
+    if (key === "cbsros") {
+      // TODO: CBS ROS data not yet in fixture — pipeline work needed (JEG-7 done, baking pending)
+      return false;
+    }
     return Boolean(data?.sources?.[key]?.combos?.[comboKey(key)]);
   };
 
@@ -843,6 +859,7 @@
         team: String(player.team || "—"),
         pos: player.pos,
         espn_ppg: player.espn_ppg || specialistProjection,
+        rz_ppg: player.rz_ppg || null,
         projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
       });
     });
@@ -946,6 +963,18 @@
   }
 
   function buildNativeSourceMap(key) {
+    // Razzball: native PPG lives on the fixture player objects (rz_ppg),
+    // not in data.sources. Build from canonical players.
+    if (key === "razzball") {
+      const values = new Map();
+      const field = scoringField();
+      canonicalByKey.forEach((player, playerKey) => {
+        const ppg = Number(player.rz_ppg?.[field]);
+        if (!Number.isFinite(ppg)) return;
+        values.set(playerKey, ppg);
+      });
+      return values;
+    }
     const combo = data.sources?.[key]?.combos?.[comboKey(key)];
     const native = combo?.native || {};
     const values = new Map();
@@ -1309,7 +1338,23 @@
 
   function buildLiveAdjustedMap(rawKey, cells) {
     const raw = buildPublishedSourceMap(rawKey);
-    const roles = roleMapForValues(raw);
+    // Tier assignment (JEG-5 fix, 2026-10-01): the OLS cells are trained on
+    // the DDF tier partition (ddf.starters/ddf.bench). Applying them via
+    // roleMapForValues (published-value tiers) mismatches 69 players and
+    // breaks the fixedPieIndexed guard by -79.90. Use the DDF tiers directly
+    // — the same partition the cells were trained on. Falls back to
+    // roleMapForValues only when the DDF is unavailable (data failure edge).
+    const ddf = ["cbsros", "razzball"].includes(rawKey) ? ddfTwoTierValuesFor(rawKey) : ddfTwoTierValues();
+    const roles = ddf ? null : roleMapForValues(raw);
+    const tierOf = playerKey => {
+      if (ddf) {
+        if (ddf.starters.has(playerKey)) return "starter";
+        if (ddf.bench.has(playerKey)) return "bench";
+        return null;
+      }
+      return roles.get(playerKey) || null;
+    };
+    const posOf = playerKey => ddf ? ddf.posOf.get(playerKey) : canonicalByKey.get(playerKey)?.pos;
     const cellByPosTier = new Map();
     cells.forEach(cell => {
       const pos = String(cell.position || "").toUpperCase();
@@ -1330,8 +1375,9 @@
     const adjusted = new Map();
     raw.forEach((value, playerKey) => {
       const player = canonicalByKey.get(playerKey);
-      const role = roles.get(playerKey);
-      const cell = player && role ? cellByPosTier.get(`${player.pos}|${role}`) : null;
+      const tier = tierOf(playerKey);
+      const pos = posOf(playerKey);
+      const cell = player && tier && pos ? cellByPosTier.get(`${pos}|${tier}`) : null;
       // DDF-native sources: only starter/bench players with live cells are
       // included. Waiver-tier players have no cells (the two-tier model does
       // not price them) and are not part of the calibration pie (surplus
@@ -1339,7 +1385,7 @@
       // and breaks the fixedPieIndexed guard (2026-10-01).
       if (isDdfNative) {
         if (!cell) return;
-      } else if (!cell && player && (role === "starter" || role === "bench")) {
+      } else if (!cell && player && (tier === "starter" || tier === "bench")) {
         return;
       }
       const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
@@ -1350,6 +1396,13 @@
 
   function adjustedMapFor(key) {
     const rawKey = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    // DDF-native sources (cbsros, razzball): their "adjusted" map IS the
+    // live DDF two-tier values from their own native projections. No
+    // published-source cells to apply.
+    if (["cbsros", "razzball"].includes(rawKey)) {
+      const ddf = ddfTwoTierValuesFor(rawKey);
+      return ddf ? ddf.values : new Map();
+    }
     const cells = adjustmentCellsFor(rawKey);
     if (cells) return buildLiveAdjustedMap(rawKey, cells);
     return new Map();
@@ -3233,7 +3286,11 @@
 
   function runRegressionGuards() {
     const rows = displayRows();
-    const sourceMapCoverage = SOURCE_KEYS.length === 9 && SOURCE_KEYS.every(key => sourceMaps.has(key));
+    // Coverage proof is derived from the registry itself: every registered source
+    // must have a built map. A hardcoded key count here rotted the moment
+    // cbsros/razzball joined SOURCE_KEYS (2026-10-01: length === 9 failed on
+    // an 11-key registry and took all curves down on production).
+    const sourceMapCoverage = SOURCE_KEYS.every(key => sourceMaps.has(key));
     const expectedToggleCount = SOURCE_GROUPS.reduce((sum, group) => sum + group.keys.length, 0);
     const sourceToggles = $("#sourceToggles")?.querySelectorAll("input[type=checkbox]").length === expectedToggleCount;
     const noAggregate = !Object.prototype.hasOwnProperty.call(window, "TradeValueCurveMedian");

@@ -679,7 +679,7 @@
       const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
       return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
     }
-    const raw = source.published || source.espn_snapshot || source.fetched_at;
+    const raw = source.published || source.espn_snapshot || source.fetched_at || source.vintage;
     if (!raw) return "date unavailable";
     const date = new Date(String(raw).slice(0, 10) + "T00:00:00Z");
     return Number.isNaN(date.getTime()) ? "date unavailable" : `content ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(date)}`;
@@ -698,7 +698,17 @@
   }
 
   function columnBadge(key) {
-    if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
+    if (SOURCE_KEYS.includes(key)) {
+      if (key === "espn") return "utilization adjusted";
+      if (key === "espn_vorp") return "raw value above waivers";
+      if (key.endsWith("_adjusted")) return "bias adjusted";
+      // DDF-methodology legs (razzball, cbsros) are computed from the
+      // publisher's projections with our value-above-waivers method — they
+      // are not the publisher's published values reindexed. Read the method
+      // from the fixture, not the key name, so future DDF legs label honestly.
+      if (data?.sources?.[key]?.method_group === "ddf-methodology") return "DDF methodology";
+      return "as published · reindexed";
+    }
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }
 

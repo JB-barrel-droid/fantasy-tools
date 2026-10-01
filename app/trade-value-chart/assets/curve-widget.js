@@ -3286,7 +3286,11 @@
 
   function runRegressionGuards() {
     const rows = displayRows();
-    const sourceMapCoverage = SOURCE_KEYS.length === 9 && SOURCE_KEYS.every(key => sourceMaps.has(key));
+    // Coverage proof is derived from the registry itself: every registered source
+    // must have a built map. A hardcoded key count here rotted the moment
+    // cbsros/razzball joined SOURCE_KEYS (2026-10-01: length === 9 failed on
+    // an 11-key registry and took all curves down on production).
+    const sourceMapCoverage = SOURCE_KEYS.every(key => sourceMaps.has(key));
     const expectedToggleCount = SOURCE_GROUPS.reduce((sum, group) => sum + group.keys.length, 0);
     const sourceToggles = $("#sourceToggles")?.querySelectorAll("input[type=checkbox]").length === expectedToggleCount;
     const noAggregate = !Object.prototype.hasOwnProperty.call(window, "TradeValueCurveMedian");
