@@ -8,7 +8,7 @@ name: Preview build
 # Deliberate differences from pages.yml:
 #   - make validate is blocking here (on a PR it is the only gate);
 #   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
-#     uncaught page error; the DDF-pie check is report-only until JEG-24 is fixed;
+#     uncaught page error or a DDF pie readout that does not sum to 100.0 (JEG-24);
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
@@ -90,7 +90,7 @@ jobs:
               `- Artifact (the exact \`dist/\` plus \`dist-manifest.json\`): ${process.env.ARTIFACT_URL}`,
               `- Rendered gate (blocking): **${process.env.GATE_OUTCOME}**, ` +
                 `${process.env.GATE_ERRORS || '?'} uncaught page error(s)`,
-              `- DDF fixed pie sums to 100.0 (report-only, JEG-24): ` +
+              `- DDF fixed pie sums to 100.0 (blocking, JEG-24): ` +
                 `shapes failing = ${process.env.GATE_PIE || '?'}`,
               '',
               'To view it: download and unzip the artifact, then ' +

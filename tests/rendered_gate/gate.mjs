@@ -4,15 +4,16 @@
 //
 // BLOCKING (exit 1):  any uncaught page error (`pageerror`) on load or while stepping
 //                     through the 12 scoring x league-size shapes (JEG-44).
-// REPORT-ONLY:        the DDF fixed pie. The Pie readout's labels must sum to 100.0 in
-//                     every shape (JEG-24). It covers the DDF pie only: as-published
-//                     source curves are deliberately NOT checked (their totals differ
-//                     by design; see the FantasyCalc note in docs/claude-log.md).
-//                     Promote to blocking once JEG-24 is fixed.
+//                     Also BLOCKING since JEG-24 was fixed: the DDF pie. The Pie readout's
+//                     four labels must sum to 100.0 in every shape. It covers the DDF
+//                     pie only: as-published source curves are deliberately NOT checked
+//                     (their totals differ by design; see the FantasyCalc note in
+//                     docs/claude-log.md).
 // Not gated: console errors (ChartHealth messages, failed resource loads).
 //
-// Discrimination: every run also copies dist, injects a throw into the page script and
-// requires this gate to catch it. A gate that cannot fail exits 1 here ("self-test").
+// Discrimination: every run also copies dist twice, once injecting a throw and once
+// forcing a pie readout that sums to 100.1, and requires this gate to catch both. A
+// gate that cannot fail exits 1 here ("self-test").
 import { chromium } from "playwright-core";
 import http from "node:http";
 import fs from "node:fs";
@@ -41,6 +42,7 @@ function serve(dir) {
 export function verdict(report) {
   const problems = [];
   if (report.pageErrors.length) problems.push(`${report.pageErrors.length} uncaught page error(s)`);
+  if (report.pieBad.length) problems.push(`DDF pie does not sum to 100.0 in ${report.pieBad.length} shape(s): ${report.pieBad.map(r => `${r.shape}=${r.sum}`).join(", ")}`);
   if (!report.shapesVisited) problems.push("no league shapes were exercised (page did not render controls)");
   return problems;
 }
@@ -80,11 +82,14 @@ async function check(dir) {
   return report;
 }
 
-function injectedCopy(dist) {
+const THROW = "\nsetTimeout(() => { throw new Error('gate self-test injected error'); }, 0);\n";
+const BAD_PIE = "\nsetInterval(() => { const r = document.getElementById('weightsReadout'); " +
+  "if (r) r.textContent = 'Pie: QB 25.1% \u00b7 RB 25.0% \u00b7 WR 25.0% \u00b7 TE 25.0%'; }, 20);\n";
+
+function injectedCopy(dist, snippet) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "gate-selftest-"));
   fs.cpSync(dist, tmp, { recursive: true });
-  const f = path.join(tmp, INJECT_FILE);
-  fs.appendFileSync(f, "\nsetTimeout(() => { throw new Error('gate self-test injected error'); }, 0);\n");
+  fs.appendFileSync(path.join(tmp, INJECT_FILE), snippet);
   return tmp;
 }
 
@@ -93,17 +98,21 @@ async function main() {
   const outIdx = process.argv.indexOf("--out");
   const out = outIdx > 0 ? process.argv[outIdx + 1] : null;
   const real = await check(dist);
-  const broken = await check(injectedCopy(dist));
-  const selfTestCaught = verdict(broken).length > 0;
+  const brokenThrow = await check(injectedCopy(dist, THROW));
+  const brokenPie = await check(injectedCopy(dist, BAD_PIE));
+  const caughtThrow = brokenThrow.pageErrors.length > 0 && verdict(brokenThrow).length > 0;
+  const caughtPie = brokenPie.pieBad.length > 0 && verdict(brokenPie).length > 0;
+  const selfTestCaught = caughtThrow && caughtPie;
   const problems = verdict(real);
-  if (!selfTestCaught) problems.push("self-test: an injected page error was NOT caught, so the gate cannot fail");
+  if (!caughtThrow) problems.push("self-test: an injected page error was NOT caught, so the gate cannot fail");
+  if (!caughtPie) problems.push("self-test: an injected bad pie sum was NOT caught, so the pie check cannot fail");
   const summary = { ...real, selfTestCaught, blocking: problems };
   if (out) fs.writeFileSync(out, JSON.stringify(summary, null, 2));
   console.log(`shapes exercised: ${real.shapesVisited}/12`);
   console.log(`uncaught page errors: ${real.pageErrors.length}`, real.pageErrors);
-  console.log(`DDF fixed pie (report-only): ${real.pieBad.length} of ${real.pie.length} shapes do not sum to 100.0`,
+  console.log(`DDF fixed pie (blocking): ${real.pieBad.length} of ${real.pie.length} shapes do not sum to 100.0`,
     real.pieBad.map(r => `${r.shape}=${r.sum}`).join(", "));
-  console.log(`self-test caught injected error: ${selfTestCaught}`);
+  console.log(`self-test caught injected page error: ${caughtThrow}, bad pie: ${caughtPie}`);
   if (problems.length) { console.error("RENDERED GATE FAILED:", problems.join("; ")); process.exit(1); }
   console.log("rendered gate passed");
 }
