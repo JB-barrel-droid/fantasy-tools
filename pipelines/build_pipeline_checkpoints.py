@@ -36,6 +36,23 @@ SRC_LABEL = {
     "usatoday": "USA Today",
 }
 
+
+
+def expected_content_week(today=None):
+    """Canonical expected NFL content week for rendered-output checks.
+
+    Delegates to pipelines/nfl_week.py::current_nfl_week (content week turns
+    over on Tuesday, after Monday night). A naive days-since-kickoff count
+    (e.g. (now - 2026-09-03).days // 7 + 1) flips a week early at Thursday
+    00:00 UTC and false-reds every source's C10 rendered check -- observed
+    2026-09-30 when it computed Week 5 while the pipeline's canonical week
+    (and the live data) was Week 4.
+    """
+    sys.path.insert(0, str(REPO / "pipelines"))
+    from nfl_week import current_nfl_week
+
+    return current_nfl_week(today)
+
 CHECKPOINTS = [
     ("c1_publication", "C1 · Publication/discovery",
      "Publisher releases new trade-value data (article/chart update)"),
@@ -452,10 +469,11 @@ def build_checkpoints():
             "reason": "Rendered-output check not yet run."}
         try:
             import hashlib
-            # Expected NFL week from date (2026 season: Week 1 Thursday = 2026-09-03)
-            season_start = datetime(2026, 9, 3, tzinfo=timezone.utc)
-            now_utc = datetime.now(timezone.utc)
-            expected_week = ((now_utc - season_start).days // 7) + 1
+            # Expected NFL content week from the pipeline's canonical week
+            # function (see expected_content_week above) -- never a naive
+            # days-since-kickoff count, which false-reds C10 near week
+            # boundaries (2026-09-30: naive said Week 5, canonical is Week 4).
+            expected_week = expected_content_week()
             expected_designation = f"Week {expected_week}"
 
             # Fetch live production JSON (WITHOUT cache-buster - we want to see what real users see,

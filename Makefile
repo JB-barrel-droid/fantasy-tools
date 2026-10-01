@@ -105,6 +105,7 @@ test-unit:
 	python3 -m unittest tests.test_adjusted_curve_pause
 	python3 -m unittest tests.test_adjusted_fixture_sections
 	python3 -m unittest tests.test_adjustment_inputs
+	python3 -m unittest tests.test_checkpoint_expected_week
 	python3 -m unittest tests.test_comparison_candidate_build
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_ddf_two_tier_leg

@@ -99,6 +99,12 @@ REPO = Path(__file__).resolve().parent.parent
 SCHEMA = "trade-value-comparison-section-reindexed-v1"
 POSITIONS = ("QB", "RB", "WR", "TE")
 MIN_FIT_PAIRS = 10
+# Zero-VORP policy (2026-10-01): players with no anchor value have effectively
+# zero VORP in the canonical system. If their source native value is also
+# low (below this fraction of the source's max native), they are auto-skipped
+# without a blocking review row. Players with meaningful native values but no
+# anchor still get a review row (potential anchor omission).
+ZERO_VORP_NATIVE_FRAC = 0.10
 # A candidate combo may carry the league's QB dimension (qb1 = start 1 QB,
 # qb2 = start 2 QBs). The ESPN anchor leg has no QB-split combos, so such a
 # combo anchors to its QB-stripped base combo. This mapping is EXPLICIT and
@@ -227,14 +233,29 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
         # No quantile mapping, no rounding in storage.
         if is_published:
             priced = []
+            # Zero-VORP threshold on native scale: 10% of max native value.
+            # Players below this with no anchor are auto-skipped (effectively zero).
+            native_vals = [float(v) for v in native.values()
+                           if isinstance(v, (int, float)) or
+                           (isinstance(v, str) and v.replace('.','',1).isdigit())]
+            max_native = max(native_vals) if native_vals else 0
+            zero_vorp_native_cutoff = max_native * ZERO_VORP_NATIVE_FRAC
             for slug, val in native.items():
                 key = combo.get("player_keys", {}).get(slug)
                 anchor_v = anchor_by_key.get(key)
                 if anchor_v is None:
+                    # Zero-VORP policy: if native is also low, skip silently.
+                    # Meaningful natives with no anchor still get review (potential omission).
+                    try:
+                        nv_check = float(val)
+                    except (TypeError, ValueError):
+                        nv_check = 0
+                    if nv_check < zero_vorp_native_cutoff:
+                        continue  # effectively zero-VORP, no review row
                     review.append(
                         {"player_key": key,
                          "slug": slug, "combo": combo_name,
-                         "reason": "no anchor value for this player_key -- skipped, never imputed"}
+                         "reason": f"no anchor value for this player_key (native {nv_check:.1f} >= cutoff {zero_vorp_native_cutoff:.1f}) -- skipped, never imputed"}
                     )
                     continue
                 try:
@@ -295,10 +316,21 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                         key = combo.get("player_keys", {}).get(slug)
                         anchor_v_raw = anchor_by_key.get(key)
                         if anchor_v_raw is None:
+                            # Zero-VORP policy: skip silently if native is low.
+                            try:
+                                nv_check = float(val)
+                            except (TypeError, ValueError):
+                                nv_check = 0
+                            # Use position-specific max for cutoff
+                            pos_natives = [float(v) for s2, v in native.items()
+                                           if pos_by_slug.get(s2) == pos]
+                            pos_max = max(pos_natives) if pos_natives else 0
+                            if nv_check < pos_max * ZERO_VORP_NATIVE_FRAC:
+                                continue
                             review.append(
                                 {"player_key": key,
                                  "slug": slug, "combo": combo_name,
-                                 "reason": "no anchor value for this player_key -- skipped, never imputed"}
+                                 "reason": f"no anchor value for this player_key (native {nv_check:.1f}) -- skipped, never imputed"}
                             )
                             continue
                         try:

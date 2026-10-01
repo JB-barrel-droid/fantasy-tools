@@ -342,19 +342,12 @@ class TestRealFixtureSmoke(unittest.TestCase):
         # on 2026-09-30 (unindexable players should not be in the published
         # section). The set is asserted exactly -- a non-empty set means
         # unindexable players are back in the fixture.
-        # 2026-10-01: 15 USA Today players from the 2026-09-29 clean rebuild
-        # have no ESPN anchor (fail-closed, never imputed). These are legitimate
-        # review rows for new data, not regressions -- they are correctly
-        # excluded from reindexed output pending anchor resolution.
-        # (The set is larger than the 2026-09-30 13-player set because the
-        # 09-29 rebuild includes new players like Stribling, Sanders, etc.)
-        expected_unanchored = {
-            'brashard smith', 'cyrus allen', 'dezhaun stribling',
-            'donte thornton jr', 'dylan sampson', 'jakobi lane',
-            'jalen mcmillan', 'james conner', 'jonah coleman',
-            'jonathon brooks', 'kaytron allen', 'omar cooper jr',
-            'shedeur sanders', 'tank dell', 'tua tagovailoa',
-        }
+        # 2026-10-01: Dezhaun Stribling (WR) appears in the 2026-09-29 clean
+        # USA Today rebuild with native 5.1 in standard_12 (above the WR
+        # 10% cutoff of 4.3) but no ESPN anchor. This is a legitimate
+        # fail-closed review row for new data, not a regression -- he is
+        # correctly excluded from reindexed output pending anchor resolution.
+        expected_unanchored = {'dezhaun stribling'}
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 
@@ -492,10 +485,6 @@ class TestQBAnchorResolution(unittest.TestCase):
                              "qb_suffix_strip:full_12_qb2->full_12")
             self.assertEqual(review, [])
 
-
-if __name__ == "__main__":
-    unittest.main()
-
     def test_zero_vorp_missing_anchor_skipped_silently(self):
         """Zero-VORP policy: missing-anchor player with low native is auto-skipped,
         no blocking review row. (Broken state: every missing-anchor player blocks.)"""
@@ -582,3 +571,7 @@ if __name__ == "__main__":
                                       if "no anchor value" in r.get("reason", "")]
             self.assertEqual(len(missing_anchor_reviews), 1,
                              "Meaningful missing-anchor should block")
+
+
+if __name__ == "__main__":
+    unittest.main()
