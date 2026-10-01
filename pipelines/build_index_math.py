@@ -25,11 +25,12 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 LEG_DIR = REPO / "data" / "ddf-two-tier"
 OUTPUT = REPO / "dist" / "modules" / "index-math.json"
 
-SOURCES = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]
+SOURCES = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"]
 SRC_LABEL = {
     "espn": "ESPN",
     "cbs": "CBS",
     "cbsros": "CBS ROS",
+    "razzball": "Razzball",
     "fantasycalc": "FantasyCalc",
     "fantasypros": "FantasyPros",
     "usatoday": "USA Today",
@@ -38,9 +39,10 @@ SRC_LABEL = {
 def verify_ddf_leg(src, label, bake_mark, leg_filename):
     """Verify a DDF-methodology source: fixture values == DDF leg values.
 
-    Parametrized over ESPN (bake '-espn-', file ddf_leg.json) and CBS ROS
-    (bake '-cbsros-', file ddf_leg_cbsros.json). The CBS leg filename is
-    deliberately distinct so the ESPN globs never pick it up.
+    Parametrized over ESPN (bake '-espn-', file ddf_leg.json), CBS ROS
+    (bake '-cbsros-', file ddf_leg_cbsros.json), and Razzball
+    (bake '-razzball-', file ddf_leg_razzball.json). Non-ESPN leg filenames
+    are deliberately distinct so the ESPN globs never pick them up.
     """
     fixture = json.loads(FIXTURE.read_text())
     src_data = fixture["sources"][src]
@@ -225,11 +227,13 @@ def main():
         "sources": {},
     }
     
-    # DDF methodology: ESPN and CBS ROS (per-game projections -> two-tier leg)
+    # DDF methodology: ESPN, CBS ROS, and Razzball (per-game projections -> two-tier leg)
     report["sources"]["espn"] = verify_ddf_leg("espn", "ESPN", "-espn-{scoring}-", "ddf_leg.json")
     report["sources"]["espn"]["label"] = "ESPN"
     report["sources"]["cbsros"] = verify_ddf_leg("cbsros", "CBS ROS", "-cbsros-{scoring}-", "ddf_leg_cbsros.json")
     report["sources"]["cbsros"]["label"] = "CBS ROS"
+    report["sources"]["razzball"] = verify_ddf_leg("razzball", "Razzball", "-razzball-{scoring}-", "ddf_leg_razzball.json")
+    report["sources"]["razzball"]["label"] = "Razzball"
 
     # Others: reindexed-as-given
     for src in ["cbs", "fantasycalc", "fantasypros", "usatoday"]:

@@ -26,11 +26,12 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-SOURCES = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]
+SOURCES = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"]
 SRC_LABEL = {
     "espn": "ESPN",
     "cbs": "CBS",
     "cbsros": "CBS ROS",
+    "razzball": "Razzball",
     "fantasycalc": "FantasyCalc",
     "fantasypros": "FantasyPros",
     "usatoday": "USA Today",
@@ -182,6 +183,75 @@ def newest_dir_mtime(parent_dir):
     return None, None
 
 
+def newest_razzball_leg():
+    """Return the freshest committed Razzball DDF leg.
+
+    Razzball is not a Supabase/import-health source by project rule. Its
+    monitor provenance comes from the DDF leg built from the raw Razzball
+    snapshot, which records the raw snapshot date, row count, and hash.
+    """
+    leg_dir = REPO / "data" / "ddf-two-tier"
+    candidates = []
+    if not leg_dir.is_dir():
+        return None, None
+    scoring_rank = {"ppr": 3, "half_ppr": 2, "standard": 1}
+    for leg_path in leg_dir.glob("*/ddf_leg_razzball.json"):
+        try:
+            leg = json.loads(leg_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        inputs = leg.get("inputs", {})
+        vintage = inputs.get("razzball_snapshot_date") or ""
+        generated = leg.get("generated_at") or ""
+        teams_rank = 1 if inputs.get("teams") == 12 else 0
+        score_rank = scoring_rank.get(inputs.get("scoring"), 0)
+        candidates.append((vintage, generated, teams_rank, score_rank, leg_path, leg))
+    if not candidates:
+        return None, None
+    candidates.sort(reverse=True)
+    _, _, _, _, leg_path, leg = candidates[0]
+    return str(leg_path.relative_to(REPO)), leg
+
+
+def razzball_health_from_fixture(fixture):
+    """Synthesize monitor health for Razzball from fixture + DDF leg metadata.
+
+    This is intentionally separate from source-import-health: Razzball is a
+    hard-excluded import source, so a green monitor row must prove the committed
+    DDF lineage is present instead of inventing a Supabase landing.
+    """
+    src_data = fixture.get("sources", {}).get("razzball", {})
+    leg_path, leg = newest_razzball_leg()
+    inputs = (leg or {}).get("inputs", {})
+    combos = src_data.get("combos", {})
+    validation = fixture.get("source_validation", {}).get("razzball")
+    vintage = (
+        inputs.get("razzball_snapshot_date")
+        or src_data.get("vintage")
+        or src_data.get("week_designated")
+    )
+    generated_at = (leg or {}).get("generated_at") or fixture.get("built_at")
+    rows = inputs.get("razzball_snapshot_rows")
+    ok = bool(leg_path and combos and validation == "live")
+    return {
+        "status": "ok" if ok else "missing",
+        "failure_reason": None if ok else "Missing live Razzball fixture section or DDF leg.",
+        "content_vintage": vintage,
+        "snapshot_path": leg_path,
+        "db_latest_arrived_at": None,
+        "db_latest_rows": None,
+        "db_latest_vintage": vintage,
+        "row_count": rows,
+        "supabase_landing": False,
+        "supabase_table": None,
+        "last_successful_import": generated_at,
+        "_checked_at": generated_at,
+        "_lineage": "fixture + DDF leg",
+        "_raw_snapshot_path": inputs.get("razzball_snapshot"),
+        "_raw_snapshot_sha256": inputs.get("razzball_snapshot_sha256"),
+    }
+
+
 def build_checkpoints():
     # Load health file
     health_path = REPO / "output" / "source-import-health.json"
@@ -194,6 +264,7 @@ def build_checkpoints():
 
     # Load fixture
     fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    fixture = {}
     fixture_built_at = None
     if fixture_path.exists():
         with open(fixture_path) as f:
@@ -243,6 +314,8 @@ def build_checkpoints():
 
     for src in SOURCES:
         h = health.get("sources", {}).get(src, {})
+        if src == "razzball":
+            h = razzball_health_from_fixture(fixture)
         cps = {}
 
         # C1: Publication/discovery - from content_vintage (when publisher released)
@@ -366,20 +439,21 @@ def build_checkpoints():
 
         # C5: Health verification - from checked_at + status
         c5_status = h.get("status", "unknown")
-        c5_days = days_old(health_checked_at)
+        c5_checked_at = h.get("_checked_at") or health_checked_at
+        c5_days = days_old(c5_checked_at)
         c5_reason = h.get("failure_reason", "")
         if c5_status == "ok":
-            cps["c5_health"] = {"timestamp": health_checked_at,
+            cps["c5_health"] = {"timestamp": c5_checked_at,
                 "status": "ok" if (c5_days or 99) < 2 else "warn",
                 "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
         elif c5_status == "warning":
-            cps["c5_health"] = {"timestamp": health_checked_at, "status": "warn",
+            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
                 "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
         elif c5_status in ("failed", "missing", "error"):
-            cps["c5_health"] = {"timestamp": health_checked_at, "status": "bad",
+            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
                 "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
         else:
-            cps["c5_health"] = {"timestamp": health_checked_at, "status": "unk",
+            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
                 "reason": "No health record for this source."}
 
         # C6: Candidate build/review - from candidate dir + review file
@@ -535,9 +609,9 @@ def build_checkpoints():
             src_data = live_data.get("sources", {}).get(src, {})
             week_des = src_data.get("week_designated", "")
             if week_des != expected_designation:
-                # Allow "rest of season" for ESPN and cbsros (rest-of-season
+                # Allow "rest of season" for ESPN, cbsros, and Razzball (rest-of-season
                 # projections, not week-designated trade charts)
-                if not (src in ("espn", "cbsros") and week_des == "rest of season"):
+                if not (src in ("espn", "cbsros", "razzball") and week_des == "rest of season"):
                     issues.append(f"week_designated='{week_des}' (expected '{expected_designation}')")
 
             # Check 2: value_weeks.monday matches expected
