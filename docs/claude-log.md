@@ -111,6 +111,37 @@ and the cause I implied).
   No code changed. I read the constant's comment too late: I called it a defect before reading why it was a constant.
 
 ---
+---
+
+## 2026-10-01 - Supabase read-only check: the index is exact; my "re-run would duplicate rows" claim was wrong
+
+Jeremy gave me the Supabase connector. It exposes write tools (`execute_sql`, `apply_migration`, branch/function tools), but
+`docs/risk-register.md` says to stop for approval before any production Supabase write or schema change, and access is not that
+approval, so I ran `SELECT` statements only, against project `iskiybsimubiujwuchsl` (the other project, `uso-yahoo`, is
+inactive and unrelated; untouched).
+
+### Verified
+
+- `source_trade_values_upsert_grain_uidx` exists: UNIQUE on (source, variant, scoring, league_teams, qb_slots, season, week,
+  player_key), the same columns as `USAT_UPSERT_CONFLICT`. 7,382 rows, 0 duplicate grains. [`pg_indexes`; grouped count]
+- A second unique index pre-dates it: `source_trade_values_grain` on (source, **player_norm**, scoring, league_teams,
+  qb_slots, season, week, variant). So the earlier entries that say a same-vintage re-run of the old plain-insert saver
+  "would add duplicate rows" were wrong in the common case: that index would have rejected it with a unique violation. I had
+  labeled the claim "read from code, not executed"; it is now checked and wrong. (It explains how Roman's synthetic test row
+  slipped through: different `player_norm`, same `player_key`.)
+- USA Today rows: weeks 2 (as_published and bias_adjusted), 3 and 4; week 4 is `usatwk4_2026-09-29_v1`, 747 rows, 249
+  players x 3 scorings. [grouped count]
+- GAP-012 corrected; GAP-023 added for the two-index interaction.
+
+### Claimed, unverified
+
+- That a real USA Today save works through the new `upsert_rows` call. The connector can read and write SQL but cannot run the
+  saver (it needs the pipeline's credentials and runtime); that still needs one real save. I did not write any data to test it.
+- That the old `player_norm` index is still wanted (GAP-023); it is a decision, not a finding.
+
+### Open
+
+- GAP-023 for Roman/Jeremy. No schema or data change was made by me.
 
 ## 2026-10-01 - JEG-28 follow-up: the USA Today saver goes back to upserts
 
