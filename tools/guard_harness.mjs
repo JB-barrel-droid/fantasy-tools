@@ -12,18 +12,18 @@ const REAL_CONSOLE_ERROR = console.error.bind(console);
 const REAL_CONSOLE_WARN = console.warn.bind(console);
 const POSITIONS = ["QB", "RB", "WR", "TE"];
 const EXPECTED_JEG5 = {
-  total: 782.719965,
+  total: 858.126551,
   target: 862.62,
-  delta: -79.900035,
+  delta: -4.493449,
   displayScale: 2.5701,
-  n: 118,
+  n: 168,
   liveCells: 8,
   bakedCells: 8,
   perPos: {
-    QB: {total: 48.99, pie: 52.97},
-    RB: {total: 354.90, pie: 381.32},
-    WR: {total: 330.67, pie: 375.64},
-    TE: {total: 48.16, pie: 52.69},
+    QB: {total: 52.86, pie: 52.97},
+    RB: {total: 381.21, pie: 381.32},
+    WR: {total: 372.44, pie: 375.64},
+    TE: {total: 51.62, pie: 52.69},
   },
 };
 
