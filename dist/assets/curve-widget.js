@@ -51,7 +51,7 @@
   };
   const SOURCE_GROUPS = [
     {label:"Bottoms Up Value Curves", keys:["espn", "cbsros", "razzball"]},
-    {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
+    {label:"Adjusted source projections", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
     {label:"Raw value above waivers", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
@@ -2608,13 +2608,13 @@
     ));
     let adjustedStatus;
     if (pausedKeys.length) {
-      adjustedStatus = `ESPN adjusted is shown by default. ${pausedKeys.length} adjusted source projects are paused while they wait on fresh adjustment inputs.`;
+      adjustedStatus = `ESPN adjusted is shown by default. ${pausedKeys.length} adjusted source projections are paused while they wait on fresh adjustment inputs.`;
     } else if (defaultAvailableAdjustedKeys.length) {
       const liveCount = defaultAvailableAdjustedKeys.length === ADJUSTED_INDEXED_KEYS.length ? "four" : String(defaultAvailableAdjustedKeys.length);
-      const projectNoun = defaultAvailableAdjustedKeys.length === 1 ? "project is" : "projects are";
-      adjustedStatus = `ESPN live plus ${liveCount} adjusted source ${projectNoun} shown by default.`;
+      const projectionNoun = defaultAvailableAdjustedKeys.length === 1 ? "projection is" : "projections are";
+      adjustedStatus = `ESPN live plus ${liveCount} adjusted source ${projectionNoun} shown by default.`;
     } else {
-      adjustedStatus = "ESPN live is shown by default. Adjusted source projects are live for supported league setups, but this setup has no matching source combo.";
+      adjustedStatus = "ESPN live is shown by default. Adjusted source projections are live for supported league setups, but this setup has no matching source combo.";
     }
     status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`;
     activeNotices.forEach(note => status.appendChild(note));
