@@ -187,6 +187,23 @@ SOURCE_URLS = {
     },
 }
 
+# Source types: published trade values vs calculated from stat projections.
+# Published: we scrape their published trade value chart; live comparison is valid.
+# Calculated: we compute values from ROS stat projections; no live trade chart exists.
+SOURCE_TYPES = {
+    "espn": "calculated_from_projections",
+    "cbs": "published_trade_values",
+    "cbsros": "calculated_from_projections",
+    "fantasycalc": "published_trade_values",
+    "fantasypros": "published_trade_values",
+    "usatoday": "published_trade_values",
+}
+
+# FantasyCalc updates continuously mid-day; exact match is impossible.
+# Use tolerance: within 5% or 2.0 points (whichever is larger).
+FANTASYCALC_TOLERANCE_PCT = 0.05
+FANTASYCALC_TOLERANCE_ABS = 2.0
+
 # Combo keys for 12-team Half PPR
 COMBO_KEYS = {
     "espn": "half_12",
@@ -290,7 +307,12 @@ def main():
                 live_val = live_data.get(src, {}).get(pkey)
             live_matches = None
             if live_val is not None and nat_val is not None:
-                live_matches = abs(live_val - nat_val) < 0.01
+                if src == "fantasycalc":
+                    # FantasyCalc updates continuously; use tolerance, not exact match
+                    tol = max(abs(nat_val) * FANTASYCALC_TOLERANCE_PCT, FANTASYCALC_TOLERANCE_ABS)
+                    live_matches = abs(live_val - nat_val) <= tol
+                else:
+                    live_matches = abs(live_val - nat_val) < 0.01
             # For ESPN, the chart shows DDF values; for others, reindexed
             if src in ("espn", "cbsros"):
                 chart_val = values.get(pkey)
@@ -322,6 +344,7 @@ def main():
         result["sources"][src] = {
             "source_url": SOURCE_URLS[src]["url"],
             "source_note": SOURCE_URLS[src]["note"],
+            "source_type": SOURCE_TYPES[src],
             "combo_key": combo_key,
             "player_count": len(native),  # Use actual native count, not stale 'n' field
             "live_scraped": src in live_data and bool(live_data[src]),
