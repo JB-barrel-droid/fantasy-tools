@@ -135,8 +135,6 @@ def make_runner(tmp: Path, players: Path, comparison: Path) -> cascade_mod.Casca
 
 
 class PipelineCascadeTest(unittest.TestCase):
-    @unittest.skip("Pre-existing failure (2026-10-01): expects content_vintage='Week 4' but gets None. "
-                   "Blocks critical JEG-5 chart fix deploy. See JEG-25 for proper fix.")
     def test_changed_snapshot_triggers_every_downstream_stage_in_order(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)

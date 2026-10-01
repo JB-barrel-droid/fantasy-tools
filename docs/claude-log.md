@@ -83,6 +83,245 @@ JEG-9/JEG-10 and were not touched.
 - Design note, not changed: when the chain is red the promotions from sources that passed are
   discarded each run (the fixture is deliberately not committed partially, because fit must not run
   on a half-rebuilt fixture).
+## 2026-10-01 - Correction: no CI runs on pull requests (JEG-27 entry was wrong about this)
+
+The entry below this one (and the PR #7 description) said `make sync` / the full
+`make validate` was "not run locally; CI will run it on the PR". That was wrong.
+
+### Verified
+
+- No workflow in `.github/workflows/` has a `pull_request` trigger. `pages.yml`
+  (the one that runs `make validate`) triggers on push to `main`, `workflow_dispatch`
+  and a daily schedule only. The GitHub API shows 0 check runs and 0 workflow runs
+  for PR #7's head `3732a6a`. [read of every workflow's `on:` block; `get_check_runs`;
+  `list_workflow_runs` filtered to the branch]
+  So the first CI run of `make validate` for this change would be the post-merge
+  deploy gate, not the PR.
+- Ran the full `make validate` locally on `3732a6a`: exit 0 in about 24 s
+  (naming, reference, sync, then `test-unit` all OK; the one `skipped=7` module is
+  `test_two_tier_frontend`'s existing conditional skips). [`make validate`]
+- `make sync` rewrote five tracked generated files (build stamp,
+  `reference-freshness.json` in app and dist, `dist/assets/curve-widget.js`,
+  `dist/index.html`); I discarded them with `git checkout -- .` because they are not
+  part of this change.
+- At `HEAD`, committed `dist/assets/curve-widget.js` differs from
+  `app/trade-value-chart/assets/curve-widget.js`: the sync diff adds the CBS ROS /
+  Razzball curve wiring from commit `2876a38`. [`git diff`; `diff -q` at HEAD]
+
+### Claimed, unverified
+
+- That the stale committed `dist/` has no production effect. `pages.yml` runs
+  `make validate` (which includes sync) before deploying, so CI should build a fresh
+  `dist/`, but I did not read the deploy step closely or run it.
+
+### Open
+
+- Pull requests get no automated validation (GAP-016). This is what JEG-31 is for;
+  until it lands, a branch must be validated by hand before review.
+
+## 2026-10-01 - JEG-27: four of the seven emergency test skips fixed at the root
+
+Claude Code cloud session (Claude lane), working with Muse via Linear labels
+`owner:claude` / `owner:muse`. Branch `claude/busy-maxwell-8uv9jc`, draft PR, no push to
+`main`. Based on `origin/main` `2876a38`.
+
+### Verified
+
+Each root cause was reproduced first by removing the skip, then fixed, then
+mutation-tested (the guard was disabled one check at a time and a named test had to
+fail). Mutation runs used `python3 -B` with `__pycache__` cleared: a first loop
+without that printed a wrong row for one mutation (stale bytecode), which I caught by
+re-running it by hand; the results below are from the clean rerun.
+
+- **`test_pipeline_cascade` (code bug).** Failure reproduced: `AssertionError:
+  'Week 4' != None` at the reindexed section. Cause: `build_source_reference.py`
+  does keep `source_provenance` (with `content_vintage` inside it), but
+  `build_comparison_source_section.build_section()` never copied it into the
+  candidate section, and `reindex_comparison_section.py:546` reads both off the
+  candidate. Fix: `build_section()` now carries `source_provenance` and
+  `content_vintage` forward, refuses mixed `content_vintage` across inputs, and
+  yields `None` (never a guessed vintage) when the reference has none. Three new
+  tests in `tests/test_comparison_candidate_build.py`; without the fix 4 tests fail
+  (the 3 new ones plus the cascade test), with it all pass.
+  *Correction to Muse's trace:* the vintage is not missing from the reference
+  artifact; the drop is in the section builder.
+- **`test_promote_section` (code missing; the skip message was wrong).** The skip
+  said "crashes on missing snapshot.json". Reproduced actual error: `TypeError:
+  promote() got an unexpected keyword argument 'import_health_path'`.
+  `docs/import-health-schema.md` ("Gate semantics") already specified the L1 gate;
+  it was never implemented. Implemented `check_l1_freshness()` in
+  `promote_comparison_section.py`, applied to the six active raw sources
+  (`verify_import_health.DASHBOARD_SOURCES`): refuses on missing/unreadable health
+  file, wrong schema, no source entry, status not `ok`, candidate without
+  `content_vintage`, or vintage != fresh L1 vintage. It records the evidence in the
+  promotion record (`l1_import_health_gate`) and installs `content_vintage` /
+  `source_provenance` on the promoted fixture section. New `--import-health` CLI
+  flag, default `output/source-import-health.json`. Mutation results, each caught
+  by the named test: gate off entirely (5 tests), schema check, no-entry check,
+  status check, candidate-vintage-present, vintage-equality, missing-file, and
+  never-install-vintage (all single-test catches). 5 new tests added.
+- **`test_writer_audit_enforcement` x2 (code bug + wrong assertion).**
+  `WriterAudit.complete()`/`fail()` did `from sbclient import _request` and ignored
+  the injected `sb_client_factory`, so they could not run without Muse's local
+  module (`ModuleNotFoundError`). They now use `self._get_sb_client()._request`.
+  Production behaviour is unchanged for the default path (`start()` already puts the
+  same module on `sys.path`; no caller outside tests passes a factory, checked by
+  grep). The tests asserted the update was `post(..., params=...)`. That assertion
+  was wrong: PostgREST POST inserts a new row regardless of a filter, so the
+  production PATCH is the correct mechanism. I changed the assertions to require
+  `_request("PATCH", ...)` with the run_id filter and `post` not called, and added a
+  trap `sbclient` in `sys.modules` so the test fails if the injected client is
+  bypassed even on a machine that has the module. Mutations (global import in
+  `complete()`, global import in `fail()`, POST instead of PATCH) each fail the
+  matching test.
+- **Gate scope.** `make validate` = `naming reference sync test-unit` (Makefile).
+  `test_pipeline_cascade`, `test_promote_section`, `test_writer_audit_enforcement`
+  and `test_cbs_usatoday_recurring` are in `test-integration`, which `validate` does
+  not run. So those four skips were not what blocked the Pages gate; only
+  `test_static_export:475` (JEG-25) is in the unit path.
+- Suites after the changes: `make test-unit` all OK; `make -k test-integration` all
+  OK; `make naming reference` OK. 3 `@unittest.skip` remain (list below).
+- Fixed a crossed tag: `test_static_export.py:475` said "See JEG-27"; it is JEG-25's
+  and now says so. Still skipped.
+
+### Not fixed, deliberately
+
+- `test_cbs_usatoday_recurring` x2 (`test_rows_land_with_correct_grain`,
+  `test_ambiguous_identity_goes_to_review_never_guessed`): they assert the upsert
+  contract (`upsert_rows(table, rows, conflict)`), but `save_usatoday()` now does a
+  hard-coded plain `sbclient.post` insert (code comment: the unique index does not
+  exist yet). That is the JEG-28 workaround. Making these green would pin a known
+  temporary workaround, and JEG-28 puts saver changes out of scope. Skips re-tagged
+  to JEG-28 with the unblock condition. Still skipped.
+- `test_static_export:475` stays skipped (JEG-25).
+
+### Claimed, unverified
+
+- That production `--auto` promotion still works end to end with the new gate. In
+  `rebuild-chain.yml` the health step runs before the chain and writes the default
+  path, so it should. I did not run the workflow, and I do not know whether Muse's
+  local crons (`trade-value-dashboard-push`, now disabled) run health first. What
+  would settle it: a `rebuild-chain` run on a branch, or Muse confirming the
+  local path.
+- Muse's report that JEG-5 is live-fixed (build `tv-20261001-1545-7b6a540`): I only
+  confirmed the commit exists on `origin/main`; I did not load the site.
+- `make sync` (the third step of `make validate`) was not run locally because it
+  stamps the build tag and rewrites `dist/`; CI will run it on the PR.
+
+### Open
+
+- The L1 gate does not check the health file's `checked_at` age, so an old but `ok`
+  file would pass. The docs do not specify an age limit; this is a design decision
+  for Jeremy/Muse (GAP-015).
+- `save_usatoday()` plain-inserts into a table with no unique index, so re-running a
+  save for the same vintage would add duplicate rows. Read from code, not executed
+  (GAP-012).
+- `docs/import-health-schema.md` says "five" sources throughout; the code covers six
+  (`cbsros` added 2026-10-01) (GAP-014).
+- Also added GAP-013 (validate does not run integration tests) and FIX-010.
+
+## 2026-10-01 - JEG-31: first CI run of the preview workflow, and the same-bytes check
+
+Resolves two items the Phase 1 entry below listed as unverified.
+
+### Verified
+
+- The `Preview build` workflow ran on PR #8 head `7b93a2d` and finished `success` (about 30 s). Every
+  step succeeded: sync, validate (18 s), lineage, manifest, artifact upload, PR comment. [check run
+  `110477659201`, job steps via the Actions API]
+- The PR comment was posted by `github-actions[bot]` with build tag `tv-20261001-1645-7b93a2d`,
+  manifest root `91cb4f11...`, and the artifact link. The tag carries the PR head SHA, so the
+  checkout used the head and not the merge ref. [`get_comments` on PR #8]
+- **Same-bytes check:** I built the same commit `7b93a2d` locally (`make sync`, lineage step, manifest) and
+  got root `91cb4f1195030f17...c520`, identical to the root CI computed on GitHub's runner. Same day
+  (`today` 2026-10-01); `generated_at` ignored by design. [`dist_manifest.py build` locally vs the
+  CI comment]
+
+### Claimed, unverified
+
+- That production would publish the same bytes. Evidence is indirect: `pages.yml` runs the same three
+  build steps in the same order (the guard test enforces it), but I did not build a manifest from an
+  actual Pages artifact. What would settle it: download a `github-pages` artifact from a
+  `pages.yml` run for commit X and compare its manifest to a preview of X (retention is 1 day).
+- Whether the lineage step also fails in CI. It exits 1 locally. The manifests still match, so its
+  effect on `dist/` is the same in both places, but I have not read its CI log.
+
+### Open
+
+- Nothing new. GAP-016 (defined in PR #7) can be closed when both PRs are merged.
+
+## 2026-10-01 - JEG-31: Phase 1 built (artifact preview, manifest, drift guard)
+
+Same branch and PR as the proposal below (PR #8). Built after Jeremy chose Option A, the
+`generated_at`-only exception, and blocking validate on PRs.
+
+### Verified
+
+- `pipelines/dist_manifest.py`: on real data, manifests from two `make sync` runs 61 s apart
+  on one commit have the same root hash (32 files, root `aa9119c8...`); after appending one
+  byte to `dist/index.html` the compare reports `differs: index.html`. [`make sync` twice,
+  `dist_manifest.py build/compare`]
+- `tests/test_dist_manifest.py` (10 tests): six mutations of the tool each make the intended
+  test fail (ignore `generated_at` in every file; do not ignore it at all; ignore the whole
+  freshness file; skip the same-day check; treat bad JSON as empty; root hash ignoring
+  digests).
+- `tests/test_preview_workflow_matches_pages.py` (12 tests): compares the single-line `run:`
+  steps of `preview.yml` and `pages.yml`, plus python-version, fetch-depth, blocking validate,
+  head-SHA checkout, PR trigger, and no deploy/Pages permissions. Each rule is tested against a
+  mutated copy of the real file. I first wrote one test that asserted the guard did NOT catch a
+  new production step while being named as if it did; I noticed, generalised the guard to every
+  single-line `run:` command, and made that test prove it catches it.
+- `make preview-local` served `dist/` with HTTP 200 and the build tag in the page. [ran it,
+  `curl`]
+- Both new tests are registered in `make test-unit` (unregistered tests do not run in
+  `make validate`).
+
+### Claimed, unverified
+
+- That `preview.yml` runs correctly on GitHub: it was written but not yet run when this entry was
+  made; the PR's own check run is the test. Result recorded in the PR.
+- That the PR comment step works (needs `pull-requests: write`; same-repository PR only).
+
+### Open
+
+- GAP-016 (no CI on PRs, defined in PR #7) is closed by this work once both merge; update that
+  row then.
+- Option B (a served URL) is not built.
+
+## 2026-10-01 - JEG-31: preview-deploy design proposal (no workflow built)
+
+Branch `jeremyburstyn/jeg-31-preview-deploys` (local until Jeremy approves the push; it
+is not the session's designated branch). Based on `origin/main` `6216144`. Proposal
+only, as agreed with Muse; see `docs/preview-deploys.md`.
+
+### Verified
+
+- `make sync` run twice on the same commit 61 s apart: exactly one file differs,
+  `assets/reference-freshness.json`, field `generated_at`. Everything else in `dist/`
+  and `app/` is byte-identical. [`make sync` twice, `diff -rq`]
+- That file also records `today`, `age_days`, `status` and stale counts, so it depends on
+  the calendar day. [read the generated JSON]
+- `build_tag()` is derived from the HEAD commit time and SHA (docstring plus the
+  determinism run above).
+- `make serve` serves `app/trade-value-chart`, not `dist/` (Makefile).
+- `pages.yml` steps and triggers; a recent production run took about 75 s, deploy about 8 s,
+  artifact about 1.2 MB. [workflow file; job `110472801856` of run `36892947644`]
+- Lineage step exits 1 on a clean local checkout (`data/raw` is gitignored).
+
+### Claimed, unverified
+
+- That the lineage step also fails in CI. The API reports `continue-on-error` steps as
+  `success` and I only read the tail of the job log, which did not include that step.
+  What would settle it: read the full step log of a recent Pages run.
+- That the Phase 1 design works end to end; nothing is built.
+
+### Open
+
+- Decisions for Jeremy are listed in `docs/preview-deploys.md` (surface, definition of
+  byte-identical, blocking validate on PRs).
+- GAP-017 (calendar-dependent freshness file) and GAP-018 (`make serve` != published
+  `dist/`) added to the risk register.
+
 
 ## 2026-09-29 - Cascade pipeline orchestration implementation
 

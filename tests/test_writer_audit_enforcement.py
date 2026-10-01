@@ -13,8 +13,9 @@ Run: python3 -m unittest tests.test_writer_audit_enforcement
 
 from __future__ import annotations
 
+import sys
 import unittest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 class TestWriterAuditValidation(unittest.TestCase):
@@ -135,8 +136,18 @@ class TestWriterAuditLifecycle(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             audit.fail("test error")
 
-    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-27.")
+    def _trap_sbclient(self):
+        """A global sbclient that must never be reached: lifecycle calls have to
+        go through the injected client, not whatever module is on sys.path."""
+        trap = MagicMock()
+        trap._request.side_effect = AssertionError(
+            "audit ignored the injected client and used the global sbclient")
+        patcher = patch.dict(sys.modules, {"sbclient": trap})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def test_complete_marks_success(self):
+        self._trap_sbclient()
         audit = self._make_audit()
         audit.start()
         audit._mock_client.post.reset_mock()
@@ -144,14 +155,18 @@ class TestWriterAuditLifecycle(unittest.TestCase):
         audit.complete(row_count=42)
 
         mock_client = audit._mock_client
-        mock_client.post.assert_called_once()
-        call_args = mock_client.post.call_args
-        self.assertEqual(call_args[0][0], "pipeline_write_audit")
-        # Verify it's an update (with params for run_id)
-        self.assertIn("run_id=eq.", call_args[1]["params"])
+        # An update must be a PATCH on the existing row. A POST (even with a
+        # run_id filter) inserts a second audit row instead of updating.
+        mock_client.post.assert_not_called()
+        mock_client._request.assert_called_once()
+        args, kwargs = mock_client._request.call_args
+        self.assertEqual(("PATCH", "/rest/v1/pipeline_write_audit"), args)
+        self.assertEqual(f"?run_id=eq.{audit.run_id}", kwargs["params"])
+        self.assertEqual(42, kwargs["body"]["row_count"])
+        self.assertIn("completed_at", kwargs["body"])
 
-    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-27.")
     def test_fail_marks_failure(self):
+        self._trap_sbclient()
         audit = self._make_audit()
         audit.start()
         audit._mock_client.post.reset_mock()
@@ -159,11 +174,13 @@ class TestWriterAuditLifecycle(unittest.TestCase):
         audit.fail("Something went wrong")
 
         mock_client = audit._mock_client
-        mock_client.post.assert_called_once()
-        call_args = mock_client.post.call_args
-        update_data = call_args[0][1][0]
-        self.assertIn("failed_at", update_data)
-        self.assertEqual(update_data["error_message"], "Something went wrong")
+        mock_client.post.assert_not_called()
+        mock_client._request.assert_called_once()
+        args, kwargs = mock_client._request.call_args
+        self.assertEqual(("PATCH", "/rest/v1/pipeline_write_audit"), args)
+        self.assertEqual(f"?run_id=eq.{audit.run_id}", kwargs["params"])
+        self.assertIn("failed_at", kwargs["body"])
+        self.assertEqual("Something went wrong", kwargs["body"]["error_message"])
 
 
 class TestAuditRowFields(unittest.TestCase):

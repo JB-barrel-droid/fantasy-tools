@@ -170,11 +170,13 @@ class WriterAudit:
         if not self._started:
             raise RuntimeError("audit not started; call start() first")
 
-        # Update the existing audit record (created by start())
+        # Update the existing audit record (created by start()). Goes through the
+        # same client as start() so an injected sb_client_factory is honoured; a
+        # POST here would insert a second row, so this must stay a PATCH.
         import urllib.parse
-        from sbclient import _request
+        sb = self._get_sb_client()
         params = f"?run_id=eq.{urllib.parse.quote(self.run_id)}"
-        _request(
+        sb._request(
             "PATCH",
             "/rest/v1/pipeline_write_audit",
             body={"row_count": row_count, "completed_at": _utc_now_iso()},
@@ -195,8 +197,7 @@ class WriterAudit:
         import urllib.parse
         params = f"?run_id=eq.{urllib.parse.quote(self.run_id)}"
         # Use PATCH via _request directly since sbclient may not expose patch
-        from sbclient import _request
-        _request(
+        sb._request(
             "PATCH",
             "/rest/v1/pipeline_write_audit",
             body={

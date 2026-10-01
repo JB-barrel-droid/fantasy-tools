@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync test validate serve deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync test validate serve preview-local deploy-status supabase-import import-health watchdog
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -31,6 +31,7 @@ help:
 	@echo "  make watchdog          Run the source-pull watchdog (writes ops/watchdog/health.json)"
 	@echo "  make validate          Run naming, reference, sync, and tests"
 	@echo "  make serve             Serve the local dashboard"
+	@echo "  make preview-local     Build dist/ the way production does, then serve dist/"
 	@echo "  make deploy-status     Show recent GitHub deploy runs"
 
 supabase-import:
@@ -127,6 +128,8 @@ test-unit:
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
+	python3 -m unittest tests.test_dist_manifest
+	python3 -m unittest tests.test_preview_workflow_matches_pages
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
 
@@ -156,6 +159,11 @@ validate: naming reference sync test-unit
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
+
+# Serves the built dist/ -- the tree production publishes -- not app/. `make serve`
+# serves app/trade-value-chart, which is not what users get. See docs/preview-deploys.md.
+preview-local: sync
+	python3 -m http.server $(PORT) --directory dist
 
 deploy-status:
 	gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard" --limit 5
