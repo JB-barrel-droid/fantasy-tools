@@ -1290,7 +1290,8 @@ async function loadPlayerTrace() {
   const output = document.getElementById("traceOutput");
   
   try {
-    traceData = await firstOk(TRACE_PATHS);
+    traceRes = await firstOk(TRACE_PATHS);
+    traceData = traceRes ? traceRes.json : null;
     if (!traceData || !traceData.players) {
       throw new Error("No trace data");
     }
@@ -1470,7 +1471,8 @@ async function loadDiagnostics() {
   const curveEl = document.getElementById("curveHealth");
   
   try {
-    const data = await firstOk(DIAG_PATHS);
+    const diagRes = await firstOk(DIAG_PATHS);
+    const data = diagRes ? diagRes.json : null;
     if (!data) throw new Error("No data");
     
     // Anomalies
