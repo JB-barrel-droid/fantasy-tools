@@ -270,16 +270,37 @@ def stamp_build_tag(index_html: str, tag: str) -> str:
     )
 
 
-def import_health_source() -> Path:
-    """Prefer the latest runtime gate output; fall back to the committed fixture."""
-    if RUNTIME_IMPORT_HEALTH.is_file():
-        try:
-            payload = read_json(RUNTIME_IMPORT_HEALTH)
-            if payload.get("schema") == "trade-value-import-health-v1":
-                return RUNTIME_IMPORT_HEALTH
-        except (OSError, json.JSONDecodeError):
-            pass
-    return FIXTURE_IMPORT_HEALTH
+def import_health_source(root: Path = ROOT) -> Path:
+    """Use the freshest valid import-health file.
+
+    The 30-min cron pushes a fresh dist/modules/source-import-health.json with
+    every health run, but the gitignored output/ runtime file never exists in
+    CI (Pages deploy). A fixture-only fallback silently overwrote the fresh
+    pushed dist copy with the stale committed fixture -- on 2026-10-01 the
+    served health JSON read 08:37Z while main held 10:07Z. Picking the
+    freshest valid candidate keeps the deployed file honest.
+    """
+    runtime = root / "output" / "source-import-health.json"
+    dist_copy = root / "dist" / "modules" / "source-import-health.json"
+    fixture = root / "data" / "fixtures" / "current" / "source-import-health.json"
+    best, best_ts = fixture, None
+    for cand in (runtime, dist_copy, fixture):
+        ts = _health_checked_at(cand)
+        if ts and (best_ts is None or ts > best_ts):
+            best, best_ts = cand, ts
+    return best
+
+
+def _health_checked_at(path: Path):
+    """checked_at of a valid health payload, or None (fail-closed skip)."""
+    try:
+        payload = read_json(path)
+    except (OSError, json.JSONDecodeError):
+        return None
+    if payload.get("schema") != "trade-value-import-health-v1":
+        return None
+    ts = payload.get("checked_at")
+    return ts if isinstance(ts, str) and ts else None
 
 
 def main() -> int:
@@ -320,7 +341,11 @@ def main() -> int:
     dist_modules = DIST / "modules"
     dist_modules.mkdir(parents=True, exist_ok=True)
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
-    shutil.copy2(import_health, dist_modules / "source-import-health.json")
+    # import_health_source() may resolve to the checked-in dist copy itself
+    # (CI picks the freshest valid candidate, which is usually the pushed dist
+    # file) -- never copy a file onto itself.
+    if import_health.resolve() != (dist_modules / "source-import-health.json").resolve():
+        shutil.copy2(import_health, dist_modules / "source-import-health.json")
 
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).
