@@ -58,9 +58,9 @@ class StaticExportTest(unittest.TestCase):
             report = load_json(output)
             self.assertEqual("ok", report["status"])
             self.assertEqual(610, report["players"]["player_count"])
-            # 10 sources: the 9 established plus cbsros (CBS rest-of-season
-            # projections leg, added 2026-09-30).
-            self.assertEqual(10, report["comparison"]["source_count"])
+            # 11 sources: the 10 established plus razzball (Razzball
+            # rest-of-season projections leg, added 2026-10-01).
+            self.assertEqual(11, report["comparison"]["source_count"])
             self.assertIn("artifact_hashes", report)
 
     def test_expected_player_universe_and_identity(self):
@@ -89,6 +89,7 @@ class StaticExportTest(unittest.TestCase):
             "fantasypros",
             "cbs",
             "cbsros",
+            "razzball",
             "espn",
             "fantasycalc_adjusted",
             "usatoday_adjusted",

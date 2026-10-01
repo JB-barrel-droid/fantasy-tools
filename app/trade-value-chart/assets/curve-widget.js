@@ -1191,7 +1191,19 @@
   // Generic live-adjust path. A source must carry the full position/tier cell
   // set before the adjusted curve is available; partial sources stay paused so
   // raw published values are never silently mixed into an adjusted projection.
+  // Live-first (2026-10-01): when the browser has refit cells at the ACTIVE
+  // bench share, they take precedence over the pipeline-baked cells (which
+  // are frozen at the 0.15 reference share). The refit runs on every slider
+  // move via refreshAfterWeightChange and on init before rebuildDomain.
+  function liveCellsForSource(rawKey) {
+    if (!liveCellsCache || !Array.isArray(liveCellsCache.cells)) return null;
+    const cells = liveCellsCache.cells.filter(c => c.source === rawKey);
+    return cells.length ? cells : null;
+  }
+
   function adjustmentCellsFor(rawKey) {
+    const live = liveCellsForSource(rawKey);
+    if (live) return live;
     const entry = adjustmentInputs?.sources?.[rawKey];
     return adjustmentCellCompleteness(entry).complete ? entry.cells : null;
   }
@@ -1213,11 +1225,20 @@
       if (!POSITION_ORDER.includes(pos) || !["starter", "bench"].includes(tier) || !Number.isFinite(alpha) || !Number.isFinite(beta)) return;
       cellByPosTier.set(`${pos}|${tier}`, {alpha, beta});
     });
+    // two-tier-native sources (espn/cbsros/razzball, 2026-10-01) re-price live on
+    // the bench-share slider. Fail-closed: a starter/bench player with NO
+    // live cell is WITHHELD (infeasible share at the active setting), never
+    // passed through with the raw fixture value. The pipeline always bakes
+    // all 8 cells for these sources, so a missing live cell means the refit
+    // withheld that position -- falling back to raw would silently show a
+    // 0.15-frozen value on a moved slider.
+    const isDdfNative = ["espn", "cbsros", "razzball"].includes(rawKey);
     const adjusted = new Map();
     raw.forEach((value, playerKey) => {
       const player = canonicalByKey.get(playerKey);
       const role = roles.get(playerKey);
       const cell = player && role ? cellByPosTier.get(`${player.pos}|${role}`) : null;
+      if (!cell && isDdfNative && player && (role === "starter" || role === "bench")) return;
       const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
       adjusted.set(playerKey, cell ? Math.max(0, cell.alpha + cell.beta * safeValue) : safeValue);
     });
@@ -1254,24 +1275,39 @@
   }
 
   function rebuildDomain() {
+    // Live cells first: the two-tier-native curves (espn/cbsros/razzball) and the
+    // _adjusted family re-price on the bench-share slider via the refit cells.
+    // Cache-hit when refreshAfterWeightChange already refit for this share.
+    refitLiveCells();
     espnRowsCache = null;
     espnFixtureLegCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
     nativeSourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
+    // 2026-10-01: the anchor (espn) re-prices live on the bench-share slider
+    // via its refit cells. At the 0.15 reference share the cells are identity
+    // and this reproduces the baked fixture leg (pinned regression test).
     buildEspnRows();
-    const anchorMap = applyRosterShape(buildEspnIndexedMap(), "espn");
+    const espnLiveCells = adjustmentCellsFor("espn");
+    const espnAnchorValues = espnLiveCells
+      ? buildLiveAdjustedMap("espn", espnLiveCells)
+      : buildEspnIndexedMap();
+    const anchorMap = applyRosterShape(espnAnchorValues, "espn");
     sourceMaps.set("espn", anchorMap);
     const displayShare = anchorDisplayShare(anchorMap);
     lastDisplayShare = displayShare;
+    // two-tier-native sources (cbsros, razzball) re-price live on the slider via
+    // the same cell path as the _adjusted family; normalizedAdjustedMapFor
+    // is key-agnostic (rawKeyForAdjusted passes them through unchanged).
+    const TWO_TIER_NATIVE_LIVE_KEYS = new Set(["cbsros", "razzball"]);
     SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
       // As-published sources (FantasyCalc, USA Today, etc.) are already
       // indexed to the anchor's pie by the pipeline via
       // proportional_scaling_vorp_overlap. Re-applying normalizeToFixedPie
       // here double-scales them and breaks the fixed-pie guard. Use the
       // fixture values directly.
-      const sourceMap = key.endsWith("_adjusted")
+      const sourceMap = key.endsWith("_adjusted") || TWO_TIER_NATIVE_LIVE_KEYS.has(key)
         ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
         : AS_PUBLISHED_KEYS.has(key)
           ? buildSourceMap(key)
@@ -1583,9 +1619,105 @@
     return {values, scale, posOf, starters: cfg.pool.starters, bench: cfg.pool.bench, calibration: cal};
   }
 
+  // Per-source live two-tier values for two-tier-native sources (cbsros, razzball).
+  // Same economics as ddfTwoTierValues, but the pool is the SOURCE's OWN
+  // native per-game projections and the pies are the SOURCE's OWN
+  // index_total targets -- never ESPN's pool. At the 0.15 reference share
+  // this reproduces the source's baked leg values (pinned regression test).
+  // Fail-closed: a position whose calibration is infeasible at the active
+  // share contributes no values (withheld); invalidPositions names them for
+  // the visible WITHHELD_FLAG readout.
+  //
+  // Bench mix: the LEGACY fixed mix (same as the pipeline legs), NOT the
+  // dynamic benchMixFor. The legs were baked with BENCH_MIX_12 scaled by
+  // teams/12; the live path must use the same mix to reproduce them at 0.15.
+  function ddfTwoTierValuesForSource(sourceKey) {
+    if (!["cbsros", "razzball"].includes(sourceKey)) return null;
+    const native = buildNativeSourceMap(sourceKey);
+    if (!native.size) return null;
+    const lists = {QB: [], RB: [], WR: [], TE: []};
+    native.forEach((ppg, playerKey) => {
+      const player = canonicalByKey.get(playerKey);
+      if (!player || !TwoTier.POSITIONS.includes(player.pos)) return;
+      if (!Number.isFinite(ppg)) return;
+      lists[player.pos].push({id: playerKey, x: ppg});
+    });
+    // Pies are the tier SURPLUS measured from the live pool (same as the
+    // pipeline legs: pie = tier["surplus"]). NOT the fixture's index_total
+    // (which is the sum of indexed values, a different quantity). Computed
+    // after pool building below.
+    // Legacy fixed bench mix, scaled by teams (matches pipeline
+    // bench_mix_for_teams: round-half-up).
+    const benchMix = {};
+    TwoTier.POSITIONS.forEach(pos => {
+      benchMix[pos] = Math.floor(TwoTier.LEGACY_BENCH_MIX_12[pos] * teams / 12 + 0.5);
+    });
+    let pool = null;
+    try {
+      pool = TwoTier.buildPositionTiers(lists, {
+        teams,
+        slots: {...TwoTier.REF_SLOTS},
+        flexCount: TwoTier.REF_FLEX_COUNT,
+        flexEligible: [...TwoTier.REF_FLEX_ELIGIBLE],
+        benchMix,
+      });
+    } catch (e) {
+      return null;
+    }
+    if (!pool) return null;
+    const pies = {};
+    TwoTier.POSITIONS.forEach(pos => {
+      pies[pos] = Number(pool.tiers[pos]?.surplus);
+    });
+    const shares = TwoTier.skillBenchShares(benchShare);
+    const cal = {}, invalidPositions = new Set();
+    TwoTier.POSITIONS.forEach(pos => {
+      try {
+        const c = TwoTier.calibratePosition(pool.tiers[pos], pies[pos],
+          TwoTier.skillBenchShare(shares, pos));
+        if (!c || c.invalid) {
+          invalidPositions.add(pos);
+          return;
+        }
+        cal[pos] = c;
+      } catch (e) {
+        invalidPositions.add(pos);
+      }
+    });
+    const raw = new Map(), posOf = new Map();
+    TwoTier.POSITIONS.forEach(pos => {
+      if (invalidPositions.has(pos)) return; // withheld, never guessed
+      const c = cal[pos];
+      (lists[pos] || []).forEach(d => {
+        posOf.set(d.id, pos);
+        raw.set(d.id, TwoTier.priceForProjection(d.x, c));
+      });
+    });
+    let mx = 0;
+    raw.forEach(v => { if (v > mx) mx = v; });
+    const scale = mx > 0 ? 70 / mx : 1;
+    const values = new Map();
+    raw.forEach((v, id) => values.set(id, v * scale));
+    return {values, scale, posOf, starters: pool.starters, bench: pool.bench,
+            calibration: cal, invalidPositions};
+  }
+
+  // Dispatch: two-tier-native sources re-price against their OWN live two-tier;
+  // every other source (including the _adjusted family) targets the ESPN
+  // two-tier leg, exactly as before.
+  function ddfTwoTierValuesFor(sourceKey) {
+    if (["cbsros", "razzball"].includes(sourceKey)) {
+      return ddfTwoTierValuesForSource(sourceKey);
+    }
+    return ddfTwoTierValues();
+  }
+
   // Browser-side refit of every eligible (source, position, tier) cell.
   // Independent input: the source's as-published fixture value for the
-  // active scoring/teams combo. Target: the live two-tier model value.
+  // active scoring/teams combo. Target: the live two-tier model value --
+  // the ESPN two-tier leg for the _adjusted family, each two-tier-native source's
+  // OWN live two-tier for espn/cbsros/razzball (2026-10-01: the bench-share
+  // slider re-prices all three two-tier-native curves).
   // OLS per cell: beta = cov(x, y) / var(x), alpha = mean(y) - beta*mean(x);
   // applied as adjusted = max(0, alpha + beta * published). A cell is
   // emitted only with >= 2 finite pairs and positive x variance; positions
@@ -1595,9 +1727,18 @@
     const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}#${pieSignature(activePies())}`;
     if (liveCellsCache && liveCellsCache.key === key) return liveCellsCache.cells;
     const cells = [];
-    const ddf = ddfTwoTierValues();
-    if (ddf) {
-      ["fantasycalc", "usatoday", "fantasypros", "cbs"].forEach(rawKey => {
+    const ddfBySource = {};
+    const ddfEspn = ddfTwoTierValues();
+    if (ddfEspn) {
+      ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn"].forEach(rawKey => {
+        ddfBySource[rawKey] = ddfEspn;
+      });
+      ["cbsros", "razzball"].forEach(rawKey => {
+        ddfBySource[rawKey] = ddfTwoTierValuesFor(rawKey);
+      });
+      ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"].forEach(rawKey => {
+        const ddf = ddfBySource[rawKey];
+        if (!ddf) return;
         const published = buildPublishedSourceMap(rawKey);
         if (!published.size) return;
         TwoTier.POSITIONS.forEach(pos => {
@@ -3070,6 +3211,7 @@
         calibration: share => twoTierCalibration(share),
         benchShares: () => TwoTier.skillBenchShares(benchShare),
         ddfValues: ddfTwoTierValues,
+        ddfValuesFor: ddfTwoTierValuesFor,
         liveCells: refitLiveCells,
         setBenchShareFraction,
         positionWeights: activePositionWeights,

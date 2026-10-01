@@ -14,6 +14,14 @@ live asset the chart loads:
 
 plus a versioned copy under data/adjustment-inputs/<bake_id>/.
 
+DDF-native sources (espn / cbsros / razzball, 2026-10-01): their fixture
+values ARE DDF-leg values already, so the fit target is the published map
+itself (x -> x identity fit). The ~identity cells activate the widget's
+live cell-refit path; on slider moves the browser refits them against each
+source's OWN live two-tier repricing (per-source pool and pies), not the
+ESPN leg. At the 0.15 reference share the live path reproduces the baked
+leg values (pinned regression test).
+
 Fit design (mirrors the widget exactly):
   - x (published) comes from the same fixture reference combos the chart's
     default Full-PPR 12-team view reads: fantasycalc -> full_12_qb1,
@@ -76,7 +84,20 @@ REFERENCE_COMBOS = {
     "usatoday": "full_12",
     "fantasypros": "full_12",
     "cbs": "full_12",
+    # DDF-native sources (2026-10-01): the fixture values ARE the DDF-leg
+    # values (factor 1.0, no stale-pie rescale). Fitting x=fixture -> y=fixture
+    # yields ~identity cells whose presence activates the widget's live
+    # cell-refit path; the browser refits these cells live on slider moves
+    # against each source's OWN two-tier repricing (not the ESPN leg).
+    "espn": "full_12",
+    "cbsros": "full_12",
+    "razzball": "full_12",
 }
+
+# Sources whose fixture section is already a DDF two-tier leg. Their
+# adjustment target is their OWN leg values (== their fixture values),
+# never the ESPN DDF leg.
+DDF_NATIVE_SOURCES = frozenset({"espn", "cbsros", "razzball"})
 
 POSITION_ORDER = ["QB", "RB", "WR", "TE"]
 # Fit guards: a (position, tier) cell is only baked when the affine map is
@@ -126,9 +147,12 @@ def find_leg(ddf_dir: Path) -> Path:
     legs = sorted(ddf_dir.glob("*/ddf_leg.json"))
     if not legs:
         raise SystemExit(f"No DDF leg found under {ddf_dir}; run pipelines/build_ddf_two_tier_leg.py first.")
-    # Newest bake wins when several exist.
-    legs.sort(key=lambda p: json.loads(p.read_text(encoding="utf-8"))["generated_at"])
-    return legs[-1]
+    # Prefer the 12-team leg (the chart's default view); newest bake wins
+    # when several 12-team legs exist.
+    legs_12t = [p for p in legs if "-12t-" in p.parent.name]
+    candidates = legs_12t if legs_12t else legs
+    candidates.sort(key=lambda p: json.loads(p.read_text(encoding="utf-8"))["generated_at"])
+    return candidates[-1]
 
 
 def load_canonical(fixture: dict) -> dict[int, dict]:
@@ -341,7 +365,16 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
         published, pub_review = build_published_source_map(source, fixture, canonical)
         review_rows.extend(pub_review)
         roles = role_map_for_values(published, canonical)
-        cells, diagnostics = fit_cells(published, roles, leg_values, canonical)
+        if source in DDF_NATIVE_SOURCES:
+            # DDF-native: the fixture values ARE the DDF-leg values, so the
+            # fit target is the published map itself (identity fit). The
+            # resulting ~identity cells activate the widget's live refit
+            # path; the browser refits them against the source's OWN live
+            # two-tier repricing on slider moves.
+            target_values = dict(published)
+        else:
+            target_values = leg_values
+        cells, diagnostics = fit_cells(published, roles, target_values, canonical)
         for cell in cells:
             cell["source"] = source
         status = "live" if cells else "pending-stage2"
