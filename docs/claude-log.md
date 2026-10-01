@@ -32,6 +32,34 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - Correction: JEG-22 is a labeling question, not a stale caption
+
+Corrects the JEG-22 findings in the two UI-batch diagnosis entries below ("JEG-22 (bench-share caption): reproduced"
+and the cause I implied).
+
+### Verified
+
+- `#curveContext` prints `Math.round(DISPLAY_BENCH_SHARE * 100)` (`syncContext()`, `curve-widget.js` ~1526), and
+  `DISPLAY_BENCH_SHARE = DEFAULT_BENCH_SHARE` is a constant (line 86). The comment above it states the Stage 1 display
+  freeze: fallback and indexed curves always normalize at that share, so moving the bench-share slider reruns the live
+  two-tier calibration without changing any fallback curve. [read of the code]
+- So the caption never changing when the slider moves is intended. What I observed in the browser (slider readout 25.0%
+  while the caption says 15%) is accurate, but it is a label that reads as the same quantity as the slider when it is not.
+- The issue's own note (footnote driven by `lastDisplayShare`, set in `rebuildDomain()`) and my earlier wording
+  ("stale until release", "reproduced") do not describe the cause of the `#curveContext` text.
+
+### Claimed, unverified
+
+- That the footnote's "86% starter / 14% bench" is the measured anchor share and is intended too; I read the comment at
+  line ~1227 ("DISPLAY_BENCH_SHARE stays the two-tier calibration parameter") but did not trace the footnote's source.
+
+### Open
+
+- Copy decision for Roman/Muse: relabel the caption to name which share it shows (my suggestion), drop it, or keep it.
+  No code changed. I read the constant's comment too late: I called it a defect before reading why it was a constant.
+
+---
+
 ## 2026-10-01 - JEG-28 follow-up: the USA Today saver goes back to upserts
 
 Roman created the unique index (JEG-28, `sql/migrations/003_source_trade_values_upsert_grain.sql`) and verified a real
