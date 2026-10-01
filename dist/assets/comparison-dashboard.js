@@ -19,15 +19,15 @@
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
   const LABELS = {
-    usatoday: "USA Today (Week 4)",
-    fantasycalc: "FantasyCalc (Week 4)",
-    fantasypros: "FantasyPros (Week 4)",
-    cbs: "CBS (Week 4)",
-    cbsros: "CBS ROS (Week 4)",
-    cbs_adjusted: "CBS Adjusted (Week 4)",
-    fantasycalc_adjusted: "FC Adjusted (Week 4)",
-    usatoday_adjusted: "USAT Adjusted (Week 4)",
-    fantasypros_adjusted: "FP Adjusted (Week 4)",
+    usatoday: "USA Today",
+    fantasycalc: "FantasyCalc",
+    fantasypros: "FantasyPros",
+    cbs: "CBS",
+    cbsros: "CBS ROS",
+    cbs_adjusted: "CBS Adjusted",
+    fantasycalc_adjusted: "FC Adjusted",
+    usatoday_adjusted: "USAT Adjusted",
+    fantasypros_adjusted: "FP Adjusted",
     espn: "ESPN adjusted",
     espn_vorp: "ESPN raw value above waivers"
   };
@@ -1023,10 +1023,12 @@
       referenceSource = renderKeys.find(sourceAvailable) || "espn";
       window.TradeValueReferenceSource = referenceSource;
     }
-    if (Array.isArray(state.columns)) {
-      const allowed = new Set(allColumnKeys());
-      state.columns = state.columns.filter(key => allowed.has(key));
-    }
+    // NOTE (2026-10-01): state.columns is intentionally NOT pruned here.
+    // visibleColumns() already filters the user's selection against the
+    // currently-available keys at render time. Pruning state.columns
+    // destructively here would permanently lose the user's column picks
+    // when cycling through a scoring/teams combo where those columns are
+    // unavailable (e.g. a paused *_adjusted combo) and back again.
   }
 
   function exportState() {
