@@ -82,6 +82,8 @@ and report-only, and discrimination proven.
 - Table-update (JEG-23) and lock-notice (JEG-45) checks are deliberately not in this
   gate yet (Muse scope).
 
+---
+
 ## 2026-10-01 - Correction: JEG-22 is a labeling question, not a stale caption
 
 Corrects the JEG-22 findings in the two UI-batch diagnosis entries below ("JEG-22 (bench-share caption): reproduced"
@@ -140,6 +142,7 @@ FantasyPros save end to end (534 rows upserted, exit 0). This is the follow-up I
 ### Open
 
 - Nothing new from me. The two tests had been skipped since JEG-27 because the saver and the tests disagreed.
+
 
 ## 2026-10-01 - UI batch diagnosis, part 2: JEG-24 reproduced, JEG-21 not, a silent-revert defect found (JEG-45)
 
