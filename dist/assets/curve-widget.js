@@ -107,19 +107,47 @@
   // and the console carries the full detail. Silence is not an option.
   // ---------------------------------------------------------------------------
   const ChartHealth = (() => {
-    const checks = new Map(); // id -> {name, status, detail, at}
-    function record(id, name, ok, detail) {
+    const checks = new Map(); // id -> {name, status, detail, at, diagnostics}
+    function record(id, name, ok, detail, diagnostics) {
       const status = ok ? "pass" : "fail";
-      checks.set(id, {name, status, detail: detail || "", at: new Date().toISOString()});
+      checks.set(id, {name, status, detail: detail || "", at: new Date().toISOString(), diagnostics: diagnostics || null});
       if (!ok) {
         console.error("[ChartHealth] FAIL:", name, "--", detail);
       }
       render();
     }
-    function warn(id, name, detail) {
-      checks.set(id, {name, status: "warn", detail: detail || "", at: new Date().toISOString()});
+    function warn(id, name, detail, diagnostics) {
+      checks.set(id, {name, status: "warn", detail: detail || "", at: new Date().toISOString(), diagnostics: diagnostics || null});
       console.warn("[ChartHealth] WARN:", name, "--", detail);
       render();
+    }
+    // JEG-30: structured per-source guard diagnostics. Renders a collapsible
+    // detail view under a failed/warned check, showing per-source numbers
+    // (total, target, delta, basis, player count, per-position breakdown).
+    // The happy path stays clean: detail only renders on failure/warning.
+    function renderDiagnosticsTable(diagnostics) {
+      if (!diagnostics || !Array.isArray(diagnostics.checks)) return "";
+      const rows = diagnostics.checks.map(c => {
+        const label = sourceLabel(c.source);
+        const total = c.total === null || c.total === undefined ? "—" : Number(c.total).toFixed(1);
+        const target = c.target === null || c.target === undefined ? "—" : Number(c.target).toFixed(1);
+        const delta = c.delta === null || c.delta === undefined ? "—" : Number(c.delta).toFixed(2);
+        const basis = c.basis || "—";
+        const n = c.n !== undefined ? c.n : (c.shared !== undefined && c.shared !== null ? c.shared : "—");
+        const status = c.ok ? "✓" : "✗";
+        let perPosRows = "";
+        if (c.perPos && typeof c.perPos === "object") {
+          perPosRows = Object.entries(c.perPos).map(([pos, d]) =>
+            `<tr class="health-perpos"><td></td><td>${pos}</td><td>${Number(d.total).toFixed(1)}</td><td>${Number(d.pie).toFixed(1)}</td><td>${Number(d.total - d.pie).toFixed(2)}</td><td>pos</td><td>${d.n}</td><td></td></tr>`
+          ).join("");
+        }
+        return `<tr class="health-diag-${c.ok ? "ok" : "fail"}"><td>${status}</td><td>${label}</td><td>${total}</td><td>${target}</td><td>${delta}</td><td>${basis}</td><td>${n}</td><td></td></tr>${perPosRows}`;
+      }).join("");
+      return `<details class="health-diagnostics"><summary>Guard diagnostics (per source)</summary>` +
+        `<table class="health-diag-table"><thead><tr><th></th><th>Source</th><th>Total</th><th>Target</th><th>Delta</th><th>Basis</th><th>Players</th><th></th></tr></thead>` +
+        `<tbody>${rows}</tbody></table>` +
+        `<p class="health-diag-note">Tolerance: ±${diagnostics.tolerance}. ` +
+        `Basis "shared" compares on players priced by both source and anchor; "fallback" uses the full-set total against the common pie; "anchor" is the ESPN reference itself; "pipeline" sources are indexed upstream and checked there.</p></details>`;
     }
     function render() {
       const el = document.getElementById("chartHealthList");
@@ -136,7 +164,10 @@
         ? '<li class="health-empty">No checks have run yet.</li>'
         : rows.map(r => {
             const icon = r.status === "pass" ? "✓" : r.status === "fail" ? "✗" : "!";
-            return `<li class="health-${r.status}"><span class="health-icon">${icon}</span><span class="health-name">${r.name}</span><span class="health-detail">${r.detail}</span></li>`;
+            // JEG-30: failed/warned checks with structured diagnostics get a
+            // collapsible detail view; passing checks stay clean.
+            const diagHtml = (r.status !== "pass" && r.diagnostics) ? renderDiagnosticsTable(r.diagnostics) : "";
+            return `<li class="health-${r.status}"><span class="health-icon">${icon}</span><span class="health-name">${r.name}</span><span class="health-detail">${r.detail}</span>${diagHtml}</li>`;
           }).join("");
     }
     function summary() {
@@ -3424,6 +3455,18 @@
     const fixedPie = fixedPieDiagnostics();
     const scaleAgreement = scaleAgreementDiagnostics();
     const adjustedAgreement = adjustedAgreementDiagnostics();
+    // JEG-30: record the fixed-pie guard in Chart Health with its structured
+    // per-source diagnostics. The detail view renders on failure; the happy
+    // path stays clean. The thrown error below keeps a plain-words summary.
+    ChartHealth.record(
+      "fixed-pie-indexed",
+      "Curves hold their indexed scale",
+      fixedPie.ok,
+      fixedPie.ok
+        ? `${fixedPie.checks.length} sources within ±${fixedPie.tolerance} of target`
+        : `${fixedPie.checks.filter(c => !c.ok).length} source(s) outside ±${fixedPie.tolerance} of target — see diagnostics`,
+      fixedPie
+    );
     // Visible, not blocking: these curves are on by default, so a scale
     // problem in them has to be on the page rather than in a backlog only.
     if (adjustedAgreement.compared > 0 && !adjustedAgreement.ok) {
@@ -3460,17 +3503,10 @@
     // as a warning, but must not blank the entire chart. The chart renders
     // with a visible disagreement notice instead.
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
-    // Include fixedPie diagnostic details in the error so the failure is
-    // diagnosable from the rendered page (2026-10-01).
-    let fixedPieDetail = "";
-    if (failed.some(([key]) => key === "fixedPieIndexed") && fixedPie && Array.isArray(fixedPie.checks)) {
-      const espnCheck = fixedPie.checks.find(c => c.source === "espn");
-      if (espnCheck) {
-        const perPosStr = espnCheck.perPos ? Object.entries(espnCheck.perPos).map(([pos, d]) => `${pos}:${d.n}p t=${d.total}/p=${d.pie}`).join(" ") : "";
-        fixedPieDetail = ` [espn: total=${Number(espnCheck.total).toFixed(2)} target=${Number(espnCheck.target).toFixed(2)} delta=${Number(espnCheck.delta).toFixed(2)} basis=${espnCheck.basis} n=${espnCheck.n} rawTotal=${espnCheck.rawTotal} scale=${espnCheck.displayScale} scaleNull=${espnCheck.scaleIsNull} liveCells=${espnCheck.liveCells} bakedCells=${espnCheck.bakedCells} perPos(${perPosStr})]`;
-      }
-    }
-    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}${fixedPieDetail}`);
+    // JEG-30: the per-source numbers live in the Chart Health detail view
+    // (recorded above), not in the error string. The thrown error keeps a
+    // plain-words summary; open Chart Health for the per-source breakdown.
+    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
     guardsPassed = true;
   }
 

@@ -191,3 +191,15 @@
 #curve-widget .health-detail{grid-column:2;color:inherit;opacity:.85;font-family:"IBM Plex Mono",monospace;font-size:9px}
 #curve-widget .health-empty{color:var(--muted);font-style:italic}
 #curve-widget .health-note{margin:0;padding:0 12px 10px;font-size:9px;color:var(--muted);line-height:1.4}
+/* JEG-30: structured per-source guard diagnostics detail view */
+#curve-widget .health-diagnostics{grid-column:2;margin:6px 0 2px;font-size:9px}
+#curve-widget .health-diagnostics summary{cursor:pointer;font-weight:600;color:inherit;opacity:.9}
+#curve-widget .health-diagnostics summary:hover{opacity:1;text-decoration:underline}
+#curve-widget .health-diag-table{width:100%;border-collapse:collapse;margin:6px 0;font-family:"IBM Plex Mono",monospace;font-size:9px}
+#curve-widget .health-diag-table th,#curve-widget .health-diag-table td{padding:3px 6px;text-align:right;border-bottom:1px solid rgba(0,0,0,.08)}
+#curve-widget .health-diag-table th:first-child,#curve-widget .health-diag-table td:first-child,
+#curve-widget .health-diag-table th:nth-child(2),#curve-widget .health-diag-table td:nth-child(2){text-align:left}
+#curve-widget .health-diag-table thead th{font-weight:700;opacity:.7}
+#curve-widget .health-diag-fail td{color:#a50e0e;font-weight:600}
+#curve-widget .health-perpos td{opacity:.75;font-size:8px}
+#curve-widget .health-diag-note{margin:4px 0 0;font-size:8px;opacity:.7;line-height:1.4}
