@@ -850,6 +850,17 @@
   }
 
   function espnTargetTotal(pos, fallback) {
+    // The calibration pie is the tier surplus from the live pool (matching
+    // the pipeline legs), NOT the fixture's index_total.target_total. The
+    // guard and the ESPN curve scales must use the same pie the calibration
+    // uses, or the fixedPieIndexed guard fails and blanks the chart.
+    try {
+      const pies = twoTierConfig().pies || {};
+      const target = Number(pies[pos]);
+      if (Number.isFinite(target) && target > 0) return target;
+    } catch (e) {
+      // Config not ready; fall through to fixture.
+    }
     const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
     const target = Number(targetCombo?.index_total?.[pos]?.target_total);
     return Number.isFinite(target) && target > 0 ? target : fallback;
