@@ -125,11 +125,18 @@ class StaticExportTest(unittest.TestCase):
             # usatoday's fit lands at 26.8 (re-anchored 2026-09-30 PM to the
             # pure-ESPN leg; was 18.3 on the stale leg). The 26.8 tracks the
             # ESPN leg's 26.9 closely, as expected for the #1 QB anchor.
+            # 2026-10-01: USA Today migrated from isotonic_pava to
+            # proportional_scaling_vorp_overlap (methodology consistency).
+            # Allen's new value 13.008566325702224 reflects USA Today's
+            # native 17.3 x scale 0.751940250040591. The proportional method
+            # preserves the source's relative distinctions instead of forcing
+            # values into ESPN's pie shape (isotonic was masking USA Today's
+            # lower QB valuation).
             # _adjusted pins are bias-corrected then pie-rescaled (2026-09-30
             # fix): they track the ESPN leg within the 22% tolerance.
             # Updated 2026-09-30 PM with fresh 09-30 adjustment inputs
             # (ddf-20260930-espn-standard-12t-0p15).
-            ("usatoday", "full_12"): 26.8,
+            ("usatoday", "full_12"): 13.008566325702224,
             # fantasycalc rebuilt 2026-09-30 with VORP>0 overlap calibration.
             # Allen's native 6013 scales to 40.0125, preserving the source's
             # value ratios exactly.

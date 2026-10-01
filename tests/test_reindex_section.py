@@ -342,7 +342,12 @@ class TestRealFixtureSmoke(unittest.TestCase):
         # on 2026-09-30 (unindexable players should not be in the published
         # section). The set is asserted exactly -- a non-empty set means
         # unindexable players are back in the fixture.
-        expected_unanchored = set()
+        # 2026-10-01: Dezhaun Stribling (WR) appears in the 2026-09-29 clean
+        # USA Today rebuild with native 5.1 in standard_12 (above the WR
+        # 10% cutoff of 4.3) but no ESPN anchor. This is a legitimate
+        # fail-closed review row for new data, not a regression -- he is
+        # correctly excluded from reindexed output pending anchor resolution.
+        expected_unanchored = {'dezhaun stribling'}
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 
@@ -483,3 +488,90 @@ class TestQBAnchorResolution(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+    def test_zero_vorp_missing_anchor_skipped_silently(self):
+        """Zero-VORP policy: missing-anchor player with low native is auto-skipped,
+        no blocking review row. (Broken state: every missing-anchor player blocks.)"""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            # Build minimal fixture: 10 QBs with anchor values
+            plist = {"meta": {}, "players": []}
+            for j in range(10):
+                plist["players"].append(
+                    {"player_key": 1000 + j, "name": f"Qb Player {j}", "pos": "QB"})
+            # Add one extra player NOT in anchor (zero-VORP)
+            plist["players"].append(
+                {"player_key": 9999, "name": "Deep Bench Guy", "pos": "QB"})
+            players_p = tmp / "players.json"
+            players_p.write_text(json.dumps(plist))
+            anchor_vals = {}
+            fixture_keys = {}
+            for pl in plist["players"][:10]:  # only first 10 in anchor
+                slug = pl["name"].lower()
+                anchor_vals[slug] = 30.0
+                fixture_keys[slug] = pl["player_key"]
+            # The 11th player gets a fixture key but no anchor value
+            fixture_keys["deep bench guy"] = 9999
+            fx_p = tmp / "fixture.json"
+            fx_p.write_text(json.dumps(
+                {"player_keys": fixture_keys,
+                 "sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
+            # Candidate: 10 normal + 1 low-native missing-anchor
+            def native_fn(pl):
+                if pl["name"] == "Deep Bench Guy":
+                    return 1.0  # very low native (max will be 100)
+                return 100.0
+            cand_p = make_candidate(tmp, "fantasypros", plist, native_fn,
+                                  combos=("full_12",))
+            # Mark as published for as-published path
+            cand_data = json.loads(cand_p.read_text())
+            cand_data["value_provenance"] = "published"
+            cand_p.write_text(json.dumps(cand_data))
+            section, review = rcs.reindex_section(str(cand_p),
+                                                  str(fx_p), str(players_p))
+            # The low-native missing-anchor player should NOT create a review row
+            missing_anchor_reviews = [r for r in review
+                                      if "no anchor value" in r.get("reason", "")]
+            self.assertEqual(missing_anchor_reviews, [],
+                             "Zero-VORP missing-anchor should not block")
+
+    def test_meaningful_missing_anchor_still_blocks(self):
+        """Zero-VORP policy: missing-anchor player with HIGH native still gets
+        a review row (potential anchor omission). (Broken state: all missing-anchor
+        auto-skipped, hiding real omissions.)"""
+        with tempfile.TemporaryDirectory() as td:
+            tmp = Path(td)
+            plist = {"meta": {}, "players": []}
+            for j in range(10):
+                plist["players"].append(
+                    {"player_key": 1000 + j, "name": f"Qb Player {j}", "pos": "QB"})
+            plist["players"].append(
+                {"player_key": 9999, "name": "Missing Star", "pos": "QB"})
+            players_p = tmp / "players.json"
+            players_p.write_text(json.dumps(plist))
+            anchor_vals = {}
+            fixture_keys = {}
+            for pl in plist["players"][:10]:
+                slug = pl["name"].lower()
+                anchor_vals[slug] = 30.0
+                fixture_keys[slug] = pl["player_key"]
+            fixture_keys["missing star"] = 9999
+            fx_p = tmp / "fixture.json"
+            fx_p.write_text(json.dumps(
+                {"player_keys": fixture_keys,
+                 "sources": {"espn": {"combos": {"full_12": {"values": anchor_vals}}}}}))
+            def native_fn(pl):
+                if pl["name"] == "Missing Star":
+                    return 90.0  # high native, meaningful
+                return 100.0
+            cand_p = make_candidate(tmp, "fantasypros", plist, native_fn,
+                                  combos=("full_12",))
+            cand_data = json.loads(cand_p.read_text())
+            cand_data["value_provenance"] = "published"
+            cand_p.write_text(json.dumps(cand_data))
+            section, review = rcs.reindex_section(str(cand_p),
+                                                  str(fx_p), str(players_p))
+            missing_anchor_reviews = [r for r in review
+                                      if "no anchor value" in r.get("reason", "")]
+            self.assertEqual(len(missing_anchor_reviews), 1,
+                             "Meaningful missing-anchor should block")

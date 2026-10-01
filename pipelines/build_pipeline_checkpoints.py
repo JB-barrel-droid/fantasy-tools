@@ -26,10 +26,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-SOURCES = ["espn", "cbs", "fantasycalc", "fantasypros", "usatoday"]
+SOURCES = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]
 SRC_LABEL = {
     "espn": "ESPN",
     "cbs": "CBS",
+    "cbsros": "CBS ROS",
     "fantasycalc": "FantasyCalc",
     "fantasypros": "FantasyPros",
     "usatoday": "USA Today",
@@ -265,23 +266,29 @@ def build_checkpoints():
                 "reason": f"No pull file found for {src} in ops/watchdog/pulls/ and no snapshot_path in health file."}
 
         # C3: Supabase landing - from db_latest_arrived_at
-        c3_ts = h.get("db_latest_arrived_at")
-        c3_days = days_old(c3_ts)
-        c3_rows = h.get("db_latest_rows")
-        c3_table = h.get("supabase_table")
-        if c3_ts and c3_days is not None:
-            if c3_days > 14:
-                cps["c3_supabase"] = {"timestamp": c3_ts, "status": "bad",
-                    "reason": f"Last Supabase landing {c3_days:.0f}d ago. Save pipeline may be broken."}
-            elif c3_days > 7:
-                cps["c3_supabase"] = {"timestamp": c3_ts, "status": "warn",
-                    "reason": f"Last Supabase landing {c3_days:.0f}d ago ({c3_rows} rows in {c3_table})."}
-            else:
-                cps["c3_supabase"] = {"timestamp": c3_ts, "status": "ok",
-                    "reason": f"{c3_rows} rows landed in {c3_table} {c3_days:.1f}d ago."}
+        # cbsros is file-scraped (no Supabase table by design): the stage is
+        # not applicable, which is an honest "ok", not a gap.
+        if h.get("supabase_landing") is False and h.get("supabase_table") is None:
+            cps["c3_supabase"] = {"timestamp": None, "status": "ok",
+                "reason": "N/A by design: file-scraped source, no Supabase landing stage."}
         else:
-            cps["c3_supabase"] = {"timestamp": None, "status": "unk",
-                "reason": "No Supabase landing timestamp in health file."}
+            c3_ts = h.get("db_latest_arrived_at")
+            c3_days = days_old(c3_ts)
+            c3_rows = h.get("db_latest_rows")
+            c3_table = h.get("supabase_table")
+            if c3_ts and c3_days is not None:
+                if c3_days > 14:
+                    cps["c3_supabase"] = {"timestamp": c3_ts, "status": "bad",
+                        "reason": f"Last Supabase landing {c3_days:.0f}d ago. Save pipeline may be broken."}
+                elif c3_days > 7:
+                    cps["c3_supabase"] = {"timestamp": c3_ts, "status": "warn",
+                        "reason": f"Last Supabase landing {c3_days:.0f}d ago ({c3_rows} rows in {c3_table})."}
+                else:
+                    cps["c3_supabase"] = {"timestamp": c3_ts, "status": "ok",
+                        "reason": f"{c3_rows} rows landed in {c3_table} {c3_days:.1f}d ago."}
+            else:
+                cps["c3_supabase"] = {"timestamp": None, "status": "unk",
+                    "reason": "No Supabase landing timestamp in health file."}
 
         # C4: Snapshot/manifest - from snapshot_path file mtime
         snap_path = h.get("snapshot_path")
@@ -479,8 +486,9 @@ def build_checkpoints():
             src_data = live_data.get("sources", {}).get(src, {})
             week_des = src_data.get("week_designated", "")
             if week_des != expected_designation:
-                # Allow "rest of season" for ESPN (not week-designated)
-                if not (src == "espn" and week_des == "rest of season"):
+                # Allow "rest of season" for ESPN and cbsros (rest-of-season
+                # projections, not week-designated trade charts)
+                if not (src in ("espn", "cbsros") and week_des == "rest of season"):
                     issues.append(f"week_designated='{week_des}' (expected '{expected_designation}')")
 
             # Check 2: value_weeks.monday matches expected
@@ -559,7 +567,100 @@ def build_checkpoints():
     # data updates all the way through to the live dash"
     result["adj_curve_pipeline"] = build_adj_curve_pipeline()
 
+    # Methodology consistency: all as-published sources must use the same
+    # reindex method and anchor at each transformation step (Jeremy 2026-10-01)
+    result["methodology_consistency"] = build_methodology_consistency()
+
     return result
+
+
+def build_methodology_consistency():
+    """Check methodological consistency across sources at each transformation step.
+
+    Jeremy 2026-10-01: "there needs to be consistency at each step of
+    transformations." This catches the class of bug where one source (e.g.
+    USA Today) silently keeps an old reindex method while others migrate.
+
+    Checks:
+      M1 Reindex method: all as-published sources (fantasycalc, fantasypros,
+         usatoday, cbs) use proportional_scaling_vorp_overlap on every combo.
+      M2 Combo coverage: each as-published source has all 3 scorings
+         (full_12, half_12, standard_12).
+      M3 Anchor consistency: all reindex fits anchor to espn_leg.
+
+    Status: ok/warn/bad. Any deviation is bad (methodology drift is a
+    data-integrity failure, not a tolerance issue).
+    """
+    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    fixture = {}
+    if fixture_path.exists():
+        try:
+            with open(fixture_path) as f:
+                fixture = json.load(f)
+        except Exception:
+            pass
+
+    ASPUBLISHED = ["fantasycalc", "fantasypros", "usatoday", "cbs"]
+    EXPECTED_METHOD = "proportional_scaling_vorp_overlap"
+    EXPECTED_ANCHOR = "espn_leg"
+    COMBOS = ["full_12", "half_12", "standard_12"]
+
+    issues = []
+    checked = 0
+
+    for src in ASPUBLISHED:
+        combos = fixture.get("sources", {}).get(src, {}).get("combos", {})
+        for cn in COMBOS:
+            # fantasycalc uses qb1/qb2 variants
+            actual_cn = cn
+            if cn not in combos:
+                cands = [k for k in combos if k.startswith(cn)]
+                actual_cn = cands[0] if cands else None
+            if not actual_cn:
+                issues.append(f"{src}/{cn}: combo missing from fixture")
+                continue
+            checked += 1
+            fit = combos[actual_cn].get("fit", {})
+            for fit_key, fit_val in fit.items():
+                if not isinstance(fit_val, dict):
+                    continue
+                method = fit_val.get("method")
+                anchor = fit_val.get("anchor")
+                if method and method != EXPECTED_METHOD:
+                    issues.append(
+                        f"{src}/{actual_cn}/{fit_key}: method={method} "
+                        f"(expected {EXPECTED_METHOD})"
+                    )
+                if anchor and anchor != EXPECTED_ANCHOR:
+                    issues.append(
+                        f"{src}/{actual_cn}/{fit_key}: anchor={anchor} "
+                        f"(expected {EXPECTED_ANCHOR})"
+                    )
+
+    if not checked:
+        status, reason = "bad", "No as-published combos found in fixture."
+    elif issues:
+        status = "bad"
+        reason = f"{len(issues)} methodology inconsistencies: " + "; ".join(issues[:5])
+        if len(issues) > 5:
+            reason += f" (+{len(issues) - 5} more)"
+    else:
+        status, reason = "ok", (
+            f"All {checked} as-published combos use {EXPECTED_METHOD} "
+            f"anchored to {EXPECTED_ANCHOR}."
+        )
+
+    return {
+        "label": "Methodology consistency",
+        "what": "All as-published sources use the same reindex method and anchor at each transformation step",
+        "timestamp": iso_now(),
+        "status": status,
+        "reason": reason,
+        "expected_method": EXPECTED_METHOD,
+        "expected_anchor": EXPECTED_ANCHOR,
+        "combos_checked": checked,
+        "issues": issues,
+    }
 
 
 def build_adj_curve_pipeline():
