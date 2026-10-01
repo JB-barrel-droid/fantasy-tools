@@ -182,7 +182,10 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
 - Weekly-article watchdog checks (`check_weekly_article`) read the newest `ops/watchdog/pulls/<src>-<date>.json` first and fall back to the legacy goal-workspace cache. The legacy cache (`lottery/data/sources_cache/*.json`) went dead after the repo ingest pipelines replaced the old lottery pullers (Sep 21); reading it first false-alarmed STALE on CBS/USA Today while Supabase already held fresh rows. When a watchdog source false-alarms stale, check which cache path the watchdog reads before assuming the ingest is broken.
 - USA Today 2026-09-29 week-3 article layout note: the QB table sits under the generic "Week N fantasy trade charts" h2 (lazy h2->table pairing); `pull_usatoday.py::_clean_title_position` infers the QB title from the 1QB/6-TD/SFLEX header signature. Also 2026-10-01: curl fetches of usatoday.com article pages now return persistent 402 while sitemap + browser render still work -- if the 402 persists when the week-4 article publishes, the ingest fetch path needs a new strategy.
 
-## cbsros snapshot force-added for CI (2026-10-01)
-- `data/raw/sources/cbsros/2026-09-30/snapshot.json` force-added to git (commit ec4f3986), following the fantasycalc week-4 precedent. The rebuild-chain workflow's `find_latest_snapshot()` needs this file in the CI checkout; `data/raw/` is gitignored so CI otherwise has no cbsros snapshot and the chain fails at the cbsros stage.
-- cbsros has no Supabase table (unlike the other five sources), so it cannot go through `import_supabase_references.py`. The snapshot is the only CI input path.
-- When the snapshot goes stale, refresh via `pipelines/pull_cbs_ros_projections.py` and force-add the new date directory.
+## cbsros wired through Supabase (2026-10-01)
+- `public.cbs_ros_projections` table created (DDL: `sql/migrations/002_cbs_ros_projections.sql` — run in Supabase SQL editor; PostgREST cannot DDL). Grain: (player_key, cbs_snapshot_date). Modeled on `espn_season_projections`.
+- `pipelines/save_cbsros_references.py` uploads snapshot data to the table (fail-closed identity via public.players, same ALIASES as the DDF leg).
+- `pipelines/import_supabase_references.py`: cbsros added to DB_SOURCES/SOURCE_TABLES with `build_cbsros_snapshot()` (ros_half_ppr verbatim, same shape as ESPN import).
+- `.github/workflows/rebuild-chain.yml`: cbsros added to the import loop.
+- `pipelines/verify_import_health.py`: cbsros moved from SNAPSHOT_ONLY to DB-backed with table config.
+- The force-added `data/raw/sources/cbsros/2026-09-30/snapshot.json` (commit ec4f3986) remains as a CI fallback until the table is populated and the import is verified live.
