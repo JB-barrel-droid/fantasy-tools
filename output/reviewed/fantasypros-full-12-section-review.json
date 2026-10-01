@@ -1,0 +1,116 @@
+{
+  "schema": "trade-value-comparison-review-v1",
+  "source_key": "fantasypros",
+  "asof": null,
+  "verdict": "ready",
+  "checks": [
+    {
+      "name": "review_rows_triaged",
+      "status": "fail",
+      "detail": "1 untriaged review rows"
+    },
+    {
+      "name": "identity_closure",
+      "status": "pass",
+      "detail": "all candidate slugs resolve in fixture player_keys"
+    },
+    {
+      "name": "pie_factors_sane",
+      "status": "pass",
+      "detail": "all factors in [0.001, 5.0], pre_totals positive"
+    },
+    {
+      "name": "combos_match",
+      "status": "pass",
+      "detail": "1 candidate combos exist in fixture"
+    },
+    {
+      "name": "native_drift:full_12",
+      "status": "pass",
+      "detail": "native values match fixture"
+    },
+    {
+      "name": "zero_preservation:full_12",
+      "status": "pass",
+      "detail": "0 zeros match"
+    },
+    {
+      "name": "anchor_disclosure",
+      "status": "info",
+      "detail": "candidate anchors to the fixture ESPN leg; the fixture's existing sections were baked against the retired Monday rail. Reindexed divergence above is measured, not asserted -- promotion must note the anchor change."
+    },
+    {
+      "name": "coverage",
+      "status": "pass",
+      "detail": "no priced-count regressions"
+    }
+  ],
+  "combos": {
+    "full_12": {
+      "native_shared": 174,
+      "native_meaningful": 149,
+      "native_drifted": 0,
+      "native_drift_frac": 0.0,
+      "native_zero_vorp_skipped": 25,
+      "coverage": {
+        "QB": {
+          "candidate": 32,
+          "fixture": null
+        },
+        "RB": {
+          "candidate": 50,
+          "fixture": null
+        },
+        "WR": {
+          "candidate": 72,
+          "fixture": null
+        },
+        "TE": {
+          "candidate": 20,
+          "fixture": null
+        }
+      },
+      "zeros_candidate": 0,
+      "zeros_fixture": 0,
+      "anchor_divergence": {
+        "QB": {
+          "n": 32,
+          "mean_abs": 0.72,
+          "max_abs": 2.33
+        },
+        "RB": {
+          "n": 50,
+          "mean_abs": 3.61,
+          "max_abs": 7.88
+        },
+        "WR": {
+          "n": 72,
+          "mean_abs": 5.63,
+          "max_abs": 10.3
+        },
+        "TE": {
+          "n": 20,
+          "mean_abs": 2.59,
+          "max_abs": 4.75
+        }
+      }
+    }
+  },
+  "review_rows": [
+    {
+      "player_key": 4023,
+      "slug": "jonah coleman",
+      "combo": "full_12",
+      "reason": "no anchor value for this player_key (native 16.1 >= cutoff 7.5) -- skipped, never imputed"
+    }
+  ],
+  "triaged": {
+    "4023": "Jeremy 2026-10-01: confirmed skip \u2014 Jonah Coleman not in ESPN anchor universe; fail-closed skip correct"
+  },
+  "reindexed_source_file": "/home/hatch/workspace/fantasy-tools/output/reindexed/fantasypros-full-12-section-reindexed.json",
+  "reindexed_sha256": "252f3b87dc9ba26b1bb0626c7ec759da70923b23dd7d3238a8b41e7dffd96776",
+  "fixture_native_sha256": "fcb45c93735f901ebd1c71bff0099bd27e978ee349e15dcd0a2de5b0c632f728",
+  "note": "'ready' means the candidate MAY be promoted by a human. This script never writes under data/.",
+  "approved_by": "Jeremy",
+  "approved_date": "2026-09-30"
+}

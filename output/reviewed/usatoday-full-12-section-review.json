@@ -1,0 +1,116 @@
+{
+  "schema": "trade-value-comparison-review-v1",
+  "source_key": "usatoday",
+  "asof": null,
+  "verdict": "ready",
+  "checks": [
+    {
+      "name": "review_rows_triaged",
+      "status": "fail",
+      "detail": "1 untriaged review rows"
+    },
+    {
+      "name": "identity_closure",
+      "status": "pass",
+      "detail": "all candidate slugs resolve in fixture player_keys"
+    },
+    {
+      "name": "pie_factors_sane",
+      "status": "pass",
+      "detail": "all factors in [0.001, 5.0], pre_totals positive"
+    },
+    {
+      "name": "combos_match",
+      "status": "pass",
+      "detail": "1 candidate combos exist in fixture"
+    },
+    {
+      "name": "native_drift:full_12",
+      "status": "fail",
+      "detail": "161/162 meaningful values moved > 0.05"
+    },
+    {
+      "name": "zero_preservation:full_12",
+      "status": "warn",
+      "detail": "zero sets differ: only-candidate=0, only-fixture=9"
+    },
+    {
+      "name": "anchor_disclosure",
+      "status": "info",
+      "detail": "candidate anchors to the fixture ESPN leg; the fixture's existing sections were baked against the retired Monday rail. Reindexed divergence above is measured, not asserted -- promotion must note the anchor change."
+    },
+    {
+      "name": "coverage",
+      "status": "pass",
+      "detail": "no priced-count regressions"
+    }
+  ],
+  "combos": {
+    "full_12": {
+      "native_shared": 232,
+      "native_meaningful": 162,
+      "native_drifted": 161,
+      "native_drift_frac": 0.9938,
+      "native_zero_vorp_skipped": 70,
+      "coverage": {
+        "QB": {
+          "candidate": 33,
+          "fixture": null
+        },
+        "RB": {
+          "candidate": 56,
+          "fixture": null
+        },
+        "WR": {
+          "candidate": 96,
+          "fixture": null
+        },
+        "TE": {
+          "candidate": 36,
+          "fixture": null
+        }
+      },
+      "zeros_candidate": 7,
+      "zeros_fixture": 16,
+      "anchor_divergence": {
+        "QB": {
+          "n": 33,
+          "mean_abs": 1.58,
+          "max_abs": 6.44
+        },
+        "RB": {
+          "n": 56,
+          "mean_abs": 3.28,
+          "max_abs": 13.85
+        },
+        "WR": {
+          "n": 96,
+          "mean_abs": 4.9,
+          "max_abs": 16.08
+        },
+        "TE": {
+          "n": 35,
+          "mean_abs": 2.32,
+          "max_abs": 10.24
+        }
+      }
+    }
+  },
+  "review_rows": [
+    {
+      "player_key": 4237,
+      "slug": "devon achane",
+      "combo": "full_12",
+      "reason": "no anchor value for this player_key (native 42.0 >= cutoff 7.4) -- skipped, never imputed"
+    }
+  ],
+  "triaged": {
+    "4237": "Jeremy 2026-10-01: confirmed skip \u2014 DeVon Achane ineligible in ESPN anchor (explicit 0); IR players ~0 value"
+  },
+  "reindexed_source_file": "/home/hatch/workspace/fantasy-tools/output/reindexed/usatoday-full-12-section-reindexed.json",
+  "reindexed_sha256": "be94a6c29b2e50c7f065630ad3f19257d00ebf0458e0a0a6d4442418153edfd6",
+  "fixture_native_sha256": "863d4e3fabc819394533c0084e9256948b218a7c8528a62b3da5d2eb4f96fa29",
+  "note": "'ready' means the candidate MAY be promoted by a human. This script never writes under data/.",
+  "approved_by": "Jeremy",
+  "approved_date": "2026-09-30"
+}
