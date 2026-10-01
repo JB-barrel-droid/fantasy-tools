@@ -23,7 +23,7 @@ import argparse
 import json
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -32,6 +32,34 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+from nfl_week import current_nfl_week  # noqa: E402
+
+
+def season_for_vintage(vintage_date: date) -> int:
+    """NFL season year for a snapshot vintage date.
+
+    The season is named for its September: Sep 2026 - Feb 2027 is the 2026
+    season, so Jan-Jul dates belong to the previous year's season.
+    """
+    return vintage_date.year if vintage_date.month >= 8 else vintage_date.year - 1
+
+
+def latest_cbsros_snapshot() -> Path:
+    """Resolve the newest data/raw/sources/cbsros/<date>/snapshot.json.
+
+    Directory names are ISO dates, so lexicographic order is chronological.
+    Fail closed when no snapshot exists.
+    """
+    base = ROOT / "data" / "raw" / "sources" / "cbsros"
+    candidates = sorted(
+        p for p in base.iterdir()
+        if p.is_dir() and (p / "snapshot.json").is_file()
+    )
+    if not candidates:
+        raise SystemExit(
+            "Fail closed: no cbsros snapshot found under data/raw/sources/cbsros/."
+        )
+    return candidates[-1] / "snapshot.json"
 
 
 def utc_now() -> str:
@@ -128,6 +156,16 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
     vintage = snap.get("vintage_date")
     if not vintage:
         raise SystemExit("Fail closed: CBS ROS snapshot has no vintage_date.")
+    try:
+        vintage_date = date.fromisoformat(vintage)
+    except ValueError:
+        raise SystemExit(
+            f"Fail closed: CBS ROS snapshot vintage_date is not an ISO date: {vintage!r}."
+        )
+    # Season and content week describe the SNAPSHOT's vintage, never the run
+    # date -- the saver must stamp the data it actually read.
+    season = season_for_vintage(vintage_date)
+    week = current_nfl_week(vintage_date)
     rows = snap.get("rows", [])
     if not rows:
         raise SystemExit("Fail closed: CBS ROS snapshot has no rows.")
@@ -170,8 +208,8 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
                 "cbs_snapshot_date": vintage,
                 "pulled_at": pulled_at,
                 "scoring": "half_ppr",
-                "season": 2026,
-                "week": 4,
+                "season": season,
+                "week": week,
                 "source_content_date": vintage,
                 "_run_id": f"cbsros-save-{vintage}",
                 "_writer_identity": "save_cbsros_references.py",
@@ -186,13 +224,14 @@ def main() -> None:
     parser.add_argument(
         "--snapshot",
         type=Path,
-        default=ROOT / "data" / "raw" / "sources" / "cbsros" / "2026-09-30" / "snapshot.json",
-        help="Path to the cbsros snapshot.json",
+        default=None,
+        help="Path to the cbsros snapshot.json (default: latest under data/raw/sources/cbsros/)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Build rows but do not write.")
     args = parser.parse_args()
 
-    clean, review, vintage = build_cbsros_rows(args.snapshot)
+    snapshot_path = args.snapshot or latest_cbsros_snapshot()
+    clean, review, vintage = build_cbsros_rows(snapshot_path)
     table = "cbs_ros_projections"  # bare name: PostgREST path is /rest/v1/<table>
     conflict = "player_key,cbs_snapshot_date"
 

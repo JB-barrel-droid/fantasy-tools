@@ -581,5 +581,80 @@ class LatestVintageScopingTest(unittest.TestCase):
         self.assertEqual(scoped[0]["espn_snapshot_date"], "2026-09-25")
 
 
+spec_saver = importlib.util.spec_from_file_location(
+    "save_cbsros_references", PIPELINES / "save_cbsros_references.py"
+)
+saver = importlib.util.module_from_spec(spec_saver)
+spec_saver.loader.exec_module(saver)
+
+
+class CbsrosSaverVintageDerivationTest(unittest.TestCase):
+    """season/week/default-snapshot must derive from the snapshot vintage.
+
+    Guards the hardcoded season=2026 / week=4 / 2026-09-30 default path defect:
+    a snapshot from a different content week must stamp a different week.
+    Supabase access is injected via the module-level fetch_players callable.
+    """
+
+    def setUp(self):
+        self._fetch = saver.fetch_players
+        saver.fetch_players = lambda: [
+            {"player_key": 869, "full_name": "Josh Allen", "position": "QB"},
+        ]
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.addCleanup(setattr, saver, "fetch_players", self._fetch)
+
+    def _snapshot(self, vintage_date):
+        path = Path(self.tmp.name) / f"snap_{vintage_date}" / "snapshot.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({
+            "schema": "trade-value-cbsros-snapshot-v1",
+            "vintage_date": vintage_date,
+            "rows": [{
+                "player_name": "Josh Allen", "player_norm": "josh allen", "pos": "QB",
+                "ros_standard": 341.0, "ros_half_ppr": 341.0, "ros_ppr": 341.0,
+                "per_game_standard": 24.3, "per_game_half_ppr": 24.3,
+                "per_game_ppr": 24.3, "gp": 14.0, "receptions": 0.0,
+                "raw_stats": {"gp": 14.0},
+            }],
+        }), encoding="utf-8")
+        return path
+
+    def test_week_derives_from_vintage_not_hardcoded(self):
+        # 2026-09-16 is content week 2; the old code stamped week 4 regardless.
+        clean, review, vintage = saver.build_cbsros_rows(self._snapshot("2026-09-16"))
+        self.assertEqual(vintage, "2026-09-16")
+        self.assertEqual(len(clean), 1)
+        self.assertEqual(clean[0]["week"], 2)
+        self.assertEqual(clean[0]["season"], 2026)
+
+    def test_week_4_vintage_still_week_4(self):
+        clean, _, _ = saver.build_cbsros_rows(self._snapshot("2026-09-30"))
+        self.assertEqual(clean[0]["week"], 4)
+        self.assertEqual(clean[0]["season"], 2026)
+
+    def test_week_5_vintage(self):
+        clean, _, _ = saver.build_cbsros_rows(self._snapshot("2026-10-07"))
+        self.assertEqual(clean[0]["week"], 5)
+        self.assertEqual(clean[0]["season"], 2026)
+
+    def test_season_rolls_over_after_super_bowl(self):
+        # Feb 2027 is still the 2026 season.
+        clean, _, _ = saver.build_cbsros_rows(self._snapshot("2027-02-01"))
+        self.assertEqual(clean[0]["season"], 2026)
+
+    def test_bad_vintage_date_fails_closed(self):
+        with self.assertRaises(SystemExit):
+            saver.build_cbsros_rows(self._snapshot("not-a-date"))
+
+    def test_missing_vintage_date_fails_closed(self):
+        path = Path(self.tmp.name) / "novintage" / "snapshot.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"rows": []}), encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            saver.build_cbsros_rows(path)
+
+
 if __name__ == "__main__":
     unittest.main()
