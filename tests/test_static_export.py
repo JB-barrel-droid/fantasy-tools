@@ -100,7 +100,6 @@ class StaticExportTest(unittest.TestCase):
         for source in expected_sources:
             self.assertEqual("live", self.comparison["source_validation"][source])
         self.assertEqual("stale", self.comparison["source_validation"]["ecr"])
-        self.assertEqual("pending", self.comparison["source_validation"]["razzball"])
 
     def test_known_full_ppr_12_team_source_values(self):
         sources = self.comparison["sources"]

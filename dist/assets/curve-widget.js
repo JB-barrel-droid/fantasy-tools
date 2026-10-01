@@ -448,6 +448,36 @@
       }
     }
 
+    // Calibrate one position at the requested share, falling back to the
+    // highest feasible share <= requested when the request breaks the
+    // economics (starter rate must exceed bench rate). Mirrors
+    // pipelines/build_ddf_two_tier_leg.py::calibrate_position_feasible:
+    // 20 bisection iterations on [0.01, requested]. Records bench_share_used
+    // on the returned calibration. Only the economics-break failure falls
+    // back; degenerate exposures or a non-positive pie stay invalid (fail
+    // closed), never guessed. If even 0.01 is infeasible, the original
+    // failure is returned.
+    function calibratePositionFeasible(tier, pie, requestedShare, pos = "?") {
+      const first = calibratePosition(tier, pie, requestedShare);
+      if (!first || !first.invalid) {
+        if (first) first.bench_share_used = Number(requestedShare);
+        return first;
+      }
+      const reason = String(first.invalidReason || "");
+      if (!/does not exceed|economics break/i.test(reason)) return first;
+      let lo = 0.01, hi = Number(requestedShare);
+      for (let i = 0; i < 20; i++) {
+        const mid = (lo + hi) / 2;
+        const attempt = calibratePosition(tier, pie, mid);
+        if (attempt && !attempt.invalid) lo = mid;
+        else hi = mid;
+      }
+      const best = calibratePosition(tier, pie, lo);
+      if (!best || best.invalid) return first;
+      best.bench_share_used = lo;
+      return best;
+    }
+
     // Two-tier value of a hypothetical per-game projection x against a
     // frozen calibrated position. Invalid positions price at zero -- never
     // a guessed value.
@@ -476,14 +506,26 @@
       return DEFAULT_BENCH_SHARE_TT;
     }
 
+    // Legacy fixed bench mix scaled by team count, matching the pipeline
+    // legs (pipelines/build_ddf_two_tier_leg.py::bench_mix_for_teams).
+    // The pipeline bakes legs with this mix; the live paths must build the
+    // same pool or the 0.15 reference share will not reproduce the leg.
+    function legacyBenchMixFor(teams) {
+      const out = {};
+      for (const pos of POSITIONS) {
+        out[pos] = Math.floor(LEGACY_BENCH_MIX_12[pos] * teams / 12 + 0.5);
+      }
+      return out;
+    }
+
     return {
       POSITIONS, DEFAULT_BENCH_SHARE: DEFAULT_BENCH_SHARE_TT, GLIDE_WIDTH_FRAC,
       REF_SLOTS, REF_FLEX_COUNT, REF_FLEX_ELIGIBLE, WITHHELD_FLAG,
       softplus, sliceExposures, checkShare, solveTierPrices, feasibleAt,
       feasibleBenchShareInterval, sliderBounds, roundHalfEven,
       displayValue, normalizeThenRound, benchMixFor, tailFloor,
-      REF_BENCH_SLOTS, LEGACY_BENCH_MIX_12, inwardBounds,
-      buildPositionTiers, calibratePosition, priceForProjection,
+      REF_BENCH_SLOTS, LEGACY_BENCH_MIX_12, legacyBenchMixFor, inwardBounds,
+      buildPositionTiers, calibratePosition, calibratePositionFeasible, priceForProjection,
       skillBenchShares, skillBenchShare
     };
   })();
@@ -1442,20 +1484,13 @@
     return lists;
   }
 
-  function twoTierPieByPos() {
-    const combo = data.sources?.espn?.combos?.[comboKey("espn")];
-    const pies = {};
-    TwoTier.POSITIONS.forEach(pos => {
-      pies[pos] = Number(combo?.index_total?.[pos]?.target_total);
-    });
-    return pies;
-  }
-
-  // Position weights: baked defaults derived from the fixture pies, the
+  // Position weights: baked defaults derived from the calibration pies, the
   // active weights (custom or baked), and the active pies (custom weights
   // rescale the baked total pie). Weights always sum to exactly 1.
   function bakedPositionWeights() {
-    const pies = twoTierPieByPos();
+    // Default weights reflect the calibration pies (tier surplus from the
+    // live pool), so the weights UI starts from the actual allocation.
+    const pies = twoTierConfig().pies || {};
     const total = TwoTier.POSITIONS.reduce((s, pos) => s + (Number(pies[pos]) || 0), 0);
     if (!(total > 0)) return null;
     const w = {};
@@ -1540,18 +1575,32 @@
       try {
         if (!data || !canonicalByKey.size) throw new Error("comparison data unavailable");
         const lists = espnProjectionsByPos();
-        const pies = twoTierPieByPos();
+        // Pool bench mix matches the pipeline legs (legacy mix scaled by
+        // team count), so the 0.15 reference share reproduces the baked leg.
         const pool = TwoTier.buildPositionTiers(lists, {
           teams,
           slots: {...TwoTier.REF_SLOTS},
           flexCount: TwoTier.REF_FLEX_COUNT,
           flexEligible: [...TwoTier.REF_FLEX_ELIGIBLE],
-          benchMix: TwoTier.benchMixFor(
-            teams, TwoTier.REF_BENCH_SLOTS, {...TwoTier.REF_SLOTS},
-            TwoTier.REF_FLEX_COUNT, [...TwoTier.REF_FLEX_ELIGIBLE],
-            Object.fromEntries(TwoTier.POSITIONS.map(pos =>
-              [pos, (lists[pos] || []).map(d => d.x)])))
+          benchMix: TwoTier.legacyBenchMixFor(teams)
         });
+        // Calibration pies are the tier SURPLUS measured from the live pool
+        // (same as the pipeline legs). NOT the fixture's index_total (the
+        // sum of indexed values) -- the pie's relative level across
+        // positions sets the cross-position allocation, so it must match.
+        const pies = {};
+        TwoTier.POSITIONS.forEach(pos => {
+          pies[pos] = Number(pool.tiers[pos]?.surplus);
+        });
+        // Slider bounds: with per-position feasible-share fallback (the
+        // pipeline rule: highest feasible share <= requested), every share
+        // in (0, 1) calibrates without breaking the economics, so the
+        // slider offers a fixed sensible range. The old intersection logic
+        // disabled the slider entirely whenever a thin position could not
+        // support the 0.15 default (e.g. TE) -- that fail-closed was wrong;
+        // the fallback is the correct graceful behavior, and truly
+        // infeasible positions still withhold via the solver backstop.
+        // The readout shows the actual per-position share used.
         const intervals = {};
         TwoTier.POSITIONS.forEach(pos => {
           const tier = pool.tiers[pos];
@@ -1564,7 +1613,10 @@
         entry.pool = pool;
         entry.pies = pies;
         entry.intervals = intervals;
-        entry.bounds = TwoTier.sliderBounds(intervals);
+        // Fixed sensible range (see comment above): 1% avoids the
+        // degenerate near-zero share; 30% is already an extreme bench
+        // allocation. The 0.15 default sits comfortably inside.
+        entry.bounds = [0.01, 0.30];
       } catch (e) {
         entry.error = String((e && e.message) || e);
       }
@@ -1586,8 +1638,10 @@
       // individual keys later).
       const shares = TwoTier.skillBenchShares(share);
       TwoTier.POSITIONS.forEach(pos => {
-        cal[pos] = TwoTier.calibratePosition(cfg.pool.tiers[pos], pies[pos],
-          TwoTier.skillBenchShare(shares, pos));
+        // Feasible-share fallback (pipeline rule): a thin position uses
+        // the highest feasible share <= requested instead of failing.
+        cal[pos] = TwoTier.calibratePositionFeasible(cfg.pool.tiers[pos], pies[pos],
+          TwoTier.skillBenchShare(shares, pos), pos);
       });
       if (twoTierCalCache.size > 64) twoTierCalCache.delete(twoTierCalCache.keys().next().value);
       twoTierCalCache.set(key, cal);
@@ -1648,10 +1702,7 @@
     // after pool building below.
     // Legacy fixed bench mix, scaled by teams (matches pipeline
     // bench_mix_for_teams: round-half-up).
-    const benchMix = {};
-    TwoTier.POSITIONS.forEach(pos => {
-      benchMix[pos] = Math.floor(TwoTier.LEGACY_BENCH_MIX_12[pos] * teams / 12 + 0.5);
-    });
+    const benchMix = TwoTier.legacyBenchMixFor(teams);
     let pool = null;
     try {
       pool = TwoTier.buildPositionTiers(lists, {
@@ -1673,8 +1724,11 @@
     const cal = {}, invalidPositions = new Set();
     TwoTier.POSITIONS.forEach(pos => {
       try {
-        const c = TwoTier.calibratePosition(pool.tiers[pos], pies[pos],
-          TwoTier.skillBenchShare(shares, pos));
+        // Feasible-share fallback (pipeline rule): a thin position uses
+        // the highest feasible share <= requested instead of being
+        // withheld. Only positions infeasible even at 0.01 withhold.
+        const c = TwoTier.calibratePositionFeasible(pool.tiers[pos], pies[pos],
+          TwoTier.skillBenchShare(shares, pos), pos);
         if (!c || c.invalid) {
           invalidPositions.add(pos);
           return;
@@ -1836,7 +1890,13 @@
       const parts = TwoTier.POSITIONS.map(pos => {
         const c = cal[pos];
         if (!c || c.invalid) return `${pos} ${TwoTier.WITHHELD_FLAG}`;
-        return `${pos} starter ${c.ps.toFixed(2)} > bench ${c.pb.toFixed(2)}`;
+        // When the feasible-share fallback engaged, show the actual share
+        // used so the readout stays honest about what priced the curve.
+        const usedNote = (Number.isFinite(c.bench_share_used) &&
+          Math.abs(c.bench_share_used - benchShare) > 1e-9)
+          ? ` @ ${benchSharePct(c.bench_share_used)} share`
+          : "";
+        return `${pos} starter ${c.ps.toFixed(2)} > bench ${c.pb.toFixed(2)}${usedNote}`;
       });
       readout.textContent = `Feasible ${benchSharePct(lo)}–${benchSharePct(hi)} · recommended 15%. ` + parts.join(" · ");
       readout.title = "Per-position marginal rates: each point above the starter line pays the starter rate; points between the waiver and starter lines pay the bench rate.";

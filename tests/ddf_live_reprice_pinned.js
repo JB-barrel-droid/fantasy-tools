@@ -18,8 +18,14 @@ const SHARE = 0.15;
 const TOL = 1e-6;
 
 const SPECS = [
-  {source: "cbsros", legPath: "data/ddf-two-tier/ddf-20260930-cbsros-ppr-12t-0p15/ddf_leg_cbsros.json"},
-  {source: "razzball", legPath: "data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json"},
+  {source: "cbsros", legPath: "data/ddf-two-tier/ddf-20260930-cbsros-ppr-12t-0p15/ddf_leg_cbsros.json", tol: 1e-6},
+  {source: "razzball", legPath: "data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json", tol: 1e-6},
+  // ESPN anchor: the live twoTierConfig path (legacy bench mix, surplus
+  // pies, feasible-share fallback). Tolerance is 0.1, not 1e-6, because
+  // the fixture's espn natives are rounded to 2 decimals while the leg
+  // carries full precision -- the observed rounding-only residual is
+  // ~0.03. A logic regression (wrong pool/mix/pie/share) errs by >> 0.1.
+  {source: "espn", legPath: "data/ddf-two-tier/ddf-20260930-espn-ppr-12t-0p15/ddf_leg.json", tol: 0.1},
 ];
 
 function main() {
@@ -56,11 +62,8 @@ function main() {
 
     let pool;
     try {
-      // Legacy fixed bench mix (matches the pipeline legs).
-      const benchMix = {};
-      POSITIONS.forEach(pos => {
-        benchMix[pos] = Math.floor(TwoTier.LEGACY_BENCH_MIX_12[pos] * 12 / 12 + 0.5);
-      });
+      // Legacy fixed bench mix, teams-scaled (matches the pipeline legs).
+      const benchMix = TwoTier.legacyBenchMixFor(12);
       pool = TwoTier.buildPositionTiers(lists, {
         teams: 12,
         slots: {...TwoTier.REF_SLOTS},
@@ -77,10 +80,12 @@ function main() {
     const shares = TwoTier.skillBenchShares(SHARE);
     const raw = new Map();
     POSITIONS.forEach(pos => {
-      // Pie is the tier surplus (same as the pipeline legs).
+      // Pie is the tier surplus (same as the pipeline legs). Calibration
+      // uses the shared feasible-share fallback -- the test exercises the
+      // real TwoTier.calibratePositionFeasible, not a replication.
       const pie = pool.tiers[pos]?.surplus;
-      const cal = TwoTier.calibratePosition(pool.tiers[pos], pie,
-        TwoTier.skillBenchShare(shares, pos));
+      const cal = TwoTier.calibratePositionFeasible(pool.tiers[pos], pie,
+        TwoTier.skillBenchShare(shares, pos), pos);
       (lists[pos] || []).forEach(d => {
         raw.set(d.id, TwoTier.priceForProjection(d.x, cal));
       });
@@ -91,17 +96,18 @@ function main() {
 
     let maxAbsErr = 0, nCompared = 0;
     const errs = [];
+    const tol = spec.tol || TOL;
     for (const v of leg.values) {
       const live = raw.get(v.player_key);
       if (live == null) continue;
       const err = Math.abs(live * scale - v.value);
       if (err > maxAbsErr) maxAbsErr = err;
       nCompared++;
-      if (err > TOL && errs.length < 5) {
+      if (err > tol && errs.length < 5) {
         errs.push(`key=${v.player_key} baked=${v.value} live=${(live*scale).toFixed(6)} err=${err.toExponential(1)}`);
       }
     }
-    console.log(`${spec.source}: n=${nCompared} maxAbsErr=${maxAbsErr.toExponential(2)}`);
+    console.log(`${spec.source}: n=${nCompared} maxAbsErr=${maxAbsErr.toExponential(2)} (tol ${tol})`);
     if (errs.length) {
       console.error(`  FAILURES:\n  ${errs.join("\n  ")}`);
       failed = true;
