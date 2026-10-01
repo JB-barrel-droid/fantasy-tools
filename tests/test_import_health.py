@@ -70,6 +70,9 @@ def make_snapshot(
     vintage_note: str = "test fixture",
     record_absolute_path: bool = True,
     manifest_overrides: dict | None = None,
+    # "__auto__" -> SOURCE_TABLES[source]; None -> omit the key (snapshot-only
+    # sources like cbsros, which have no Supabase table by design).
+    supabase_table: str | None = "__auto__",
 ) -> Path:
     """Stamp a consistent (snapshot.json, snapshot-manifest.json) pair."""
     snap_dir = root / source / vintage_dir
@@ -91,7 +94,6 @@ def make_snapshot(
         "source": source,
         "snapshot_path": str(snap_path) if record_absolute_path else "data/raw/sources/x/y/snapshot.json",
         "snapshot_sha256": hashlib.sha256(snap_bytes).hexdigest(),
-        "supabase_table": SOURCE_TABLES[source],
         "from_file": None,
         "filter": (
             "select=*&source=eq.x&variant=eq.as_published (as_published only); "
@@ -105,6 +107,9 @@ def make_snapshot(
         "row_count": row_count,
         "review_count": review_count,
     }
+    resolved_table = SOURCE_TABLES[source] if supabase_table == "__auto__" else supabase_table
+    if resolved_table is not None:
+        manifest["supabase_table"] = resolved_table
     manifest.update(manifest_overrides or {})
     (snap_dir / "snapshot-manifest.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -156,8 +161,10 @@ class VerifyImportHealthTest(unittest.TestCase):
     def stamp_all_ok(self, nfl_week: int = 3, espn_vintage: str = "2026-09-21"):
         """Stamp fixtures where every source verifies fresh for nfl_week.
 
-        All five sources are DB-backed (stage 1b closed): the table fixtures
-        mirror each source's verified params from SOURCE_CONFIGS.
+        The five DB-backed sources (stage 1b closed): the table fixtures
+        mirror each source's verified params from SOURCE_CONFIGS. cbsros is
+        snapshot-only by design (no Supabase table, no supabase_table key in
+        its manifest) and verifies on bytes + content vintage alone.
         """
         week_label = f"Week {nfl_week}"
         dated = "2026-09-22"  # an in-season date mapping to nfl_week
@@ -181,6 +188,10 @@ class VerifyImportHealthTest(unittest.TestCase):
                       content_vintage=week_label, week_designated=nfl_week)
         make_snapshot(self.root, "espn", espn_vintage,
                       content_vintage=espn_vintage, week_designated=None)
+        # cbsros: snapshot-only, no Supabase table by design
+        make_snapshot(self.root, "cbsros", dated,
+                      content_vintage=dated, week_designated=None,
+                      supabase_table=None)
 
     # -- hard error: unknown / excluded sources --------------------------------
     # defect: a non-dashboard source name sneaking into the gate
@@ -188,7 +199,7 @@ class VerifyImportHealthTest(unittest.TestCase):
         for bad in ("ecr", "vegas", "razzball", "nflverse", "fantasypros_ecr"):
             with self.assertRaises(SystemExit, msg=bad):
                 mod.check_source(bad)
-        for good in ("espn", "usatoday", "fantasycalc", "fantasypros", "cbs"):
+        for good in ("espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros"):
             self.assertEqual(mod.check_source(good), good)
 
     # -- defect 1: missing snapshot -> missing + non-zero ------------------------
@@ -247,6 +258,42 @@ class VerifyImportHealthTest(unittest.TestCase):
         (snap_dir / "snapshot.json").write_bytes(b'{"tampered": true}\n')
         entry, _ = mod.verify_source(
             "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("BYTE_MISMATCH"))
+
+    # -- cbsros: snapshot-only source skips the table stage by design -----------
+    def test_cbsros_snapshot_only_skips_table_check(self):
+        # defect: holding a snapshot-only source to a Supabase table check it
+        # was never designed to pass would red a healthy pipeline. Prove the
+        # table stage is skipped: fetch_table_summary must never be called.
+        def exploding_fetch(table, params):  # noqa: ARG001
+            raise AssertionError("table check must not run for cbsros")
+        mod.fetch_table_summary = exploding_fetch
+        make_snapshot(self.root, "cbsros", "2026-09-22",
+                      content_vintage="2026-09-22", week_designated=None,
+                      supabase_table=None)
+        entry, _ = mod.verify_source(
+            "cbsros", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "ok", entry.get("failure_reason"))
+        self.assertFalse(entry["supabase_landing"])
+        self.assertIsNone(entry["supabase_table"])
+        self.assertIsNone(entry["failure_reason"])
+
+    # -- cbsros: torn bytes still fail closed on the snapshot-only path --------
+    def test_cbsros_byte_mismatch_fails(self):
+        # the snapshot-only path must not be a weaker gate: tampered bytes
+        # fail with BYTE_MISMATCH and the gate goes red.
+        mod.fetch_table_summary = lambda table, params: []
+        snap_dir = make_snapshot(self.root, "cbsros", "2026-09-22",
+                                 content_vintage="2026-09-22",
+                                 week_designated=None, supabase_table=None)
+        (snap_dir / "snapshot.json").write_bytes(b'{"tampered": true}\n')
+        entry, _ = mod.verify_source(
+            "cbsros", sources_root=self.root, nfl_week=3,
             check_date=self.check_date, prev_entry=None, checked_at="t",
         )
         self.assertEqual(entry["status"], "failed")
@@ -497,7 +544,7 @@ class VerifyImportHealthTest(unittest.TestCase):
         self.assertEqual(health["schema"], "trade-value-import-health-v1")
         self.assertEqual(health["nfl_week"], 3)
         self.assertEqual(set(health["sources"].keys()),
-                         {"espn", "usatoday", "fantasycalc", "fantasypros", "cbs"})
+                         {"espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros"})
         for source, entry in health["sources"].items():
             with self.subTest(source=source):
                 # exact shape: no missing keys, no extra keys

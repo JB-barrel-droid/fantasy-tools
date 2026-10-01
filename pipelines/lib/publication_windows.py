@@ -44,6 +44,13 @@ PUBLICATION_SCHEDULES = {
         "notes": "CBS publication cadence unverified as of 2026-09-29. "
                  "Do not assume a schedule; treat as unknown.",
     },
+    "cbsros": {
+        "publish_day": None,  # Unknown - cadence unverified
+        "grace_days": None,
+        "notes": "CBS ROS projection pages are file-scraped (snapshot-only, "
+                 "no Supabase landing). Publication cadence unverified as of "
+                 "2026-10-01. Do not assume a schedule; treat as unknown.",
+    },
     "fantasycalc": {
         "publish_day": None,  # TODO: Verify from data
         "grace_days": None,

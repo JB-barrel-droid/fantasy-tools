@@ -9,8 +9,9 @@ rendered "ESPN adjusted" curve reflects the latest ESPN vintage.
 
 What it does (deterministic, no hand-edits):
 - Loads the fresh DDF legs for ppr, half_ppr, standard (09-29 bakes).
-- For each scoring, maps DDF 70-scale values onto the fixture's 596-player
-  universe via the fixture's own player_keys slugs.
+- For each scoring, maps DDF 70-scale values onto the fixture's player
+  universe (610 players as of 2026-09-30 — derived from the fixture's
+  own player_keys slugs, never hardcoded).
 - Players priced by the DDF leg get fresh values DIRECTLY from the leg
   (no rescale to a stale pie). Players outside the leg are EXCLUDED
   (ESPN-purity: no ECR fill — if ESPN has no projection, there is no ESPN value).

@@ -1,25 +1,33 @@
 #!/usr/bin/env python3
-"""Verify import health for the five active dashboard trade-value sources.
+"""Verify import health for the six active dashboard trade-value sources.
 
 Fail-checking gate (Jeremy directive): every active source's snapshot must
 VERIFY it landed with fresh content vintage before any fixture update
 (match/reference/section/promote). A missing, stale, or failed import fails
 closed (no fixture update, loud signal).
 
-For each source (espn, usatoday, fantasycalc, fantasypros, cbs -- never
-ecr/vegas/razzball; unknown names are a hard error), the gate checks:
+For each source (espn, usatoday, fantasycalc, fantasypros, cbs, cbsros --
+never ecr/vegas/razzball; unknown names are a hard error), the gate checks:
   - a snapshot exists under data/raw/sources/<source>/ with a manifest;
   - the snapshot bytes match the manifest sha256
     (defect guarded: unverified bytes promoted);
-  - DB-backed sources (all five): the Supabase table's LATEST vintage still
-    matches the manifest, re-queried through the same skill path the
-    importer used (sbclient.get_all). Tables keep every historical vintage
-    (rows are never deleted); only the newest vintage verifies, older rows
-    are ignored in every check
+  - DB-backed sources (fantasycalc, usatoday, fantasypros, espn, cbs): the
+    Supabase table's LATEST vintage still matches the manifest, re-queried
+    through the same skill path the importer used (sbclient.get_all).
+    Tables keep every historical vintage (rows are never deleted); only the
+    newest vintage verifies, older rows are ignored in every check
     (defect guarded: partial/stale table treated as complete);
+  - cbsros is snapshot-only BY DESIGN: CBS's public per-position ROS
+    projection pages are file-scraped (pull_cbs_ros_projections.py) and flow
+    snapshot -> DDF leg -> fixture section with no Supabase landing stage.
+    The gate verifies its snapshot bytes + content vintage exactly like the
+    others, records supabase_landing=False, and skips the table stage;
+    the checkpoint builder marks C3 "ok" N/A-by-design from that flag
+    (defect guarded: a snapshot-only source must never be held to a table
+    check it was never designed to pass);
   - FRESHNESS on content vintage, never pull time. Week-designated trade
-    charts (fantasycalc, usatoday, fantasypros, cbs) are fresh iff their NFL
-    week == --nfl-week. ESPN projections are a daily live reference: fresh
+    charts (fantasycalc, usatoday, fantasypros, cbs, cbsros) are fresh iff
+    their NFL week == --nfl-week. ESPN projections are a daily live
     iff the content vintage is within 2 days of the check date.
     (defect guarded: a vintage-less import backing fixture updates.)
 
@@ -52,8 +60,12 @@ DEFAULT_OUTPUT = ROOT / "output" / "source-import-health.json"
 HEALTH_SCHEMA = "trade-value-import-health-v1"
 
 DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs")
-DASHBOARD_SOURCES = DB_SOURCES
-WEEK_DESIGNATED_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs")
+# cbsros is file-scraped (CBS ROS projection pages -> DDF leg -> fixture
+# section) and has no Supabase landing by design; the gate verifies its
+# snapshot bytes + content vintage and skips the table stage.
+SNAPSHOT_ONLY_SOURCES = ("cbsros",)
+DASHBOARD_SOURCES = DB_SOURCES + SNAPSHOT_ONLY_SOURCES
+WEEK_DESIGNATED_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros")
 
 # Per-source table verification config. The big three import FROM
 # public.source_trade_values, so the table holds every row the importer saw
@@ -422,45 +434,50 @@ def verify_source(
     entry["vintage_kind"] = vintage_kind
 
     # 4. DB sources: table row count / vintage still matches the manifest -----
-    config = SOURCE_CONFIGS[source]
-    table_label = f"public.{config['api_table']}"
-    try:
-        # sbclient builds /rest/v1/<table> with PostgREST's default schema,
-        # so it takes the bare table name; the manifest keeps the
-        # schema-qualified name for the health JSON contract.
-        rows = fetch_table_summary(config["api_table"], config["params"])
-    except Exception as exc:  # noqa: BLE001 -- any query failure fails closed
-        return fail("IMPORT_FAILED", f"Supabase re-query of {table_label} failed: {exc}")
-    expected = expected_table_rows(manifest, source)
-    # Latest-vintage wins: the table keeps every historical vintage (rows are
-    # NEVER deleted), but only the newest vintage verifies against the
-    # manifest -- older rows are ignored here and in every process.
-    try:
-        live_vintage, latest_rows = latest_vintage_rows(rows, date_col=config["vintage_date_col"])
-    except _NoVintage as exc:
-        return fail("TABLE_DRIFT", f"table vintage undeterminable: {exc}")
-    entry["ignored_older_rows"] = len(rows) - len(latest_rows)
-    # Checkpoint fields: expose what's actually in the DB so the dashboard
-    # can show it separately from the snapshot vintage.
-    entry["db_latest_vintage"] = live_vintage
-    entry["db_latest_rows"] = len(latest_rows)
-    # When did the newest DB rows arrive? (for lag detection - best practice:
-    # show how long data has been waiting between pipeline stages)
-    arrived = [r.get("created_at") for r in latest_rows if r.get("created_at")]
-    entry["db_latest_arrived_at"] = max(arrived) if arrived else None
-    drift_bits: list[str] = []
-    if len(latest_rows) != expected:
-        drift_bits.append(
-            f"table has {len(latest_rows)} rows at latest vintage {live_vintage}, "
-            f"manifest expects {expected}"
-        )
-    if live_vintage != str(manifest.get("content_vintage")):
-        drift_bits.append(
-            f"table latest vintage {live_vintage} != manifest vintage "
-            f"{manifest.get('content_vintage')} -- run stage-1 import to stamp it"
-        )
-    if drift_bits:
-        return fail("TABLE_DRIFT", "; ".join(drift_bits) + " -- partial/stale table, not complete")
+    # Snapshot-only sources (cbsros) skip this stage by design: no Supabase
+    # table was ever written for them, so holding them to a table check
+    # would fail a healthy pipeline. The checkpoint builder reads
+    # supabase_landing=False and marks C3 "ok" N/A-by-design.
+    if source not in SNAPSHOT_ONLY_SOURCES:
+        config = SOURCE_CONFIGS[source]
+        table_label = f"public.{config['api_table']}"
+        try:
+            # sbclient builds /rest/v1/<table> with PostgREST's default schema,
+            # so it takes the bare table name; the manifest keeps the
+            # schema-qualified name for the health JSON contract.
+            rows = fetch_table_summary(config["api_table"], config["params"])
+        except Exception as exc:  # noqa: BLE001 -- any query failure fails closed
+            return fail("IMPORT_FAILED", f"Supabase re-query of {table_label} failed: {exc}")
+        expected = expected_table_rows(manifest, source)
+        # Latest-vintage wins: the table keeps every historical vintage (rows are
+        # NEVER deleted), but only the newest vintage verifies against the
+        # manifest -- older rows are ignored here and in every process.
+        try:
+            live_vintage, latest_rows = latest_vintage_rows(rows, date_col=config["vintage_date_col"])
+        except _NoVintage as exc:
+            return fail("TABLE_DRIFT", f"table vintage undeterminable: {exc}")
+        entry["ignored_older_rows"] = len(rows) - len(latest_rows)
+        # Checkpoint fields: expose what's actually in the DB so the dashboard
+        # can show it separately from the snapshot vintage.
+        entry["db_latest_vintage"] = live_vintage
+        entry["db_latest_rows"] = len(latest_rows)
+        # When did the newest DB rows arrive? (for lag detection - best practice:
+        # show how long data has been waiting between pipeline stages)
+        arrived = [r.get("created_at") for r in latest_rows if r.get("created_at")]
+        entry["db_latest_arrived_at"] = max(arrived) if arrived else None
+        drift_bits: list[str] = []
+        if len(latest_rows) != expected:
+            drift_bits.append(
+                f"table has {len(latest_rows)} rows at latest vintage {live_vintage}, "
+                f"manifest expects {expected}"
+            )
+        if live_vintage != str(manifest.get("content_vintage")):
+            drift_bits.append(
+                f"table latest vintage {live_vintage} != manifest vintage "
+                f"{manifest.get('content_vintage')} -- run stage-1 import to stamp it"
+            )
+        if drift_bits:
+            return fail("TABLE_DRIFT", "; ".join(drift_bits) + " -- partial/stale table, not complete")
 
     # 5. freshness ------------------------------------------------------------
     # Uses source-specific publication windows (pipelines/lib/publication_windows.py)
@@ -525,7 +542,7 @@ def run_health(
     output_path: Path = DEFAULT_OUTPUT,
     check_date: date | None = None,
 ) -> int:
-    """Verify all five sources, write the health JSON, return the exit code."""
+    """Verify all six sources, write the health JSON, return the exit code."""
     checked_at = utc_now_iso()
     today = check_date or utc_today()
     prev = load_previous_health(output_path)
@@ -575,7 +592,7 @@ def run_health(
     err.extend(loud)
     green = counts["stale"] == 0 and counts["missing"] == 0 and counts["failed"] == 0
     if green:
-        err.append("GATE: GREEN -- all five import sources verified fresh")
+        err.append("GATE: GREEN -- all six import sources verified fresh")
     else:
         err.append(
             "GATE: RED -- no fixture update (match/reference/section/promote) may run "
