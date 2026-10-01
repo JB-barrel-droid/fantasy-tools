@@ -2838,15 +2838,31 @@
           const t = Number(espnTargetTotal(pos, NaN));
           return sum + (Number.isFinite(t) && t > 0 ? t : 0);
         }, 0) || commonFixedPieTotal(0);
-        const total = [...values.entries()]
-          .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
+        const entries = [...values.entries()]
+          .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos));
+        const total = entries
           .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
         // Scale-aware (2026-10-01): unscale the display-scaled anchor total
         // before comparing against the raw pie; see anchorScaleCorrectedCheck.
-        const displayScale = ddfTwoTierValues()?.scale || 1;
+        const ddf = ddfTwoTierValues();
+        const displayScale = ddf?.scale || 1;
         const check = anchorScaleCorrectedCheck(total, pieSum, displayScale, tolerance);
+        // Deep diagnostics (2026-10-01): player count, live-cell usage, and
+        // per-position totals to diagnose the -79.90 mismatch.
+        const liveCells = liveCellsForSource("espn");
+        const bakedCells = adjustmentCellsFor("espn");
+        const perPos = {};
+        POSITION_ORDER.forEach(pos => {
+          const posTotal = entries
+            .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
+            .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
+          const posPie = Number(espnTargetTotal(pos, NaN)) || 0;
+          perPos[pos] = {total: Number((posTotal / displayScale).toFixed(2)), pie: Number(posPie.toFixed(2)), n: entries.filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos).length};
+        });
         checks.push({source:key, basis:"anchor", shared:null, total:check.total, target:check.target, delta:check.delta,
-                     ok:check.ok});
+                     ok:check.ok, n:entries.length, rawTotal:Number(total.toFixed(2)), displayScale:Number(displayScale.toFixed(4)),
+                     scaleIsNull:!ddf, liveCells:liveCells ? liveCells.length : 0, bakedCells:bakedCells ? bakedCells.length : 0,
+                     perPos});
         return;
       }
       let sharedTotal = 0, sharedTarget = 0, shared = 0, fullTotal = 0;
@@ -3300,7 +3316,8 @@
     if (failed.some(([key]) => key === "fixedPieIndexed") && fixedPie && Array.isArray(fixedPie.checks)) {
       const espnCheck = fixedPie.checks.find(c => c.source === "espn");
       if (espnCheck) {
-        fixedPieDetail = ` [espn: total=${Number(espnCheck.total).toFixed(2)} target=${Number(espnCheck.target).toFixed(2)} delta=${Number(espnCheck.delta).toFixed(2)} basis=${espnCheck.basis}]`;
+        const perPosStr = espnCheck.perPos ? Object.entries(espnCheck.perPos).map(([pos, d]) => `${pos}:${d.n}p t=${d.total}/p=${d.pie}`).join(" ") : "";
+        fixedPieDetail = ` [espn: total=${Number(espnCheck.total).toFixed(2)} target=${Number(espnCheck.target).toFixed(2)} delta=${Number(espnCheck.delta).toFixed(2)} basis=${espnCheck.basis} n=${espnCheck.n} rawTotal=${espnCheck.rawTotal} scale=${espnCheck.displayScale} scaleNull=${espnCheck.scaleIsNull} liveCells=${espnCheck.liveCells} bakedCells=${espnCheck.bakedCells} perPos(${perPosStr})]`;
       }
     }
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}${fixedPieDetail}`);
