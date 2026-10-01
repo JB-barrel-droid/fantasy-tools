@@ -155,10 +155,31 @@ def _article_week(url):
     return int(m.group(1)) if m else None
 
 
+PULLS = os.path.join(REPO, "ops", "watchdog", "pulls")
+
+
+def _newest_repo_pull(prefix):
+    """Newest repo-local pull file for a source (the repo pipeline is the
+    live path now; the goal-workspace cache is legacy). Returns the path or
+    None."""
+    cands = sorted(glob.glob(os.path.join(PULLS, "%s-*.json" % prefix)))
+    return cands[-1] if cands else None
+
+
 def check_weekly_article(cfg, day, week):
-    """Weekly article pulls cached as JSON: usatoday.json / cbs.json."""
+    """Weekly article pulls cached as JSON.
+
+    Reads the newest repo-local pull (ops/watchdog/pulls/<src>-<date>.json,
+    written by the ingest wrappers) first, falling back to the legacy
+    goal-workspace cache (usatoday.json / cbs.json) when the repo has no
+    pull yet. Both carry the same {url, fetched_at, tables} shape.
+    """
     v = {"label": cfg["label"], "expected": cfg["expected"]}
-    d = read_json(cfg["cache"])
+    repo_pull = _newest_repo_pull(cfg.get("pull_prefix", ""))
+    cache_path = repo_pull or cfg["cache"]
+    d = read_json(cache_path)
+    v["cache_source"] = ("repo pull %s" % os.path.basename(cache_path)
+                         if repo_pull else "legacy goal cache")
     if not d:
         v.update(status="failed", detail="cache missing: %s" % cfg["cache"],
                  content_vintage=None, fail_closed=None, rows=None)
@@ -169,7 +190,7 @@ def check_weekly_article(cfg, day, week):
     art_week = _article_week(url)
     v["content_vintage"] = "week-%d" % art_week if art_week else url
     v["article_url"] = url
-    age = age_days(cfg["cache"])
+    age = age_days(cache_path)
     if len(tables) < 4 or v["rows"] < 50:
         v["status"], v["detail"] = "failed", "only %d tables / %d rows" % (len(tables), v["rows"])
     elif art_week is None:
@@ -329,9 +350,11 @@ def main():
     sources["fantasycalc"] = check_fantasycalc(day, week)
     sources["usatoday"] = check_weekly_article(
         {"label": "USA Today", "expected": "weekly (article)",
+         "pull_prefix": "usatoday",
          "cache": os.path.join(CACHE, "usatoday.json")}, day, week)
     sources["cbs"] = check_weekly_article(
         {"label": "CBS", "expected": "weekly (article)",
+         "pull_prefix": "cbs",
          "cache": os.path.join(CACHE, "cbs.json")}, day, week)
 
     # Repo import-stage source names -> watchdog check keys. The repo calls the

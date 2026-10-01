@@ -112,14 +112,32 @@ def pull(url, fetch_fn=fetch):
             cells = re.findall(r"<td>(.*?)</td>", tr.group(1))
             if cells and cells[0].strip().isdigit():
                 rows.append([re.sub(r"<.*?>", "", c).strip() for c in cells])
-        tables.append({"title": re.sub(r"<.*?>", "", title).strip(),
-                       "headers": [re.sub(r"<.*?>", "", h).strip()
-                                   for h in headers],
-                       "rows": rows})
+        headers = [re.sub(r"<.*?>", "", h).strip() for h in headers]
+        title = _clean_title_position(title, headers)
+        tables.append({"title": title, "headers": headers, "rows": rows})
     if len(tables) < 4:
         raise RuntimeError("expected >=4 position tables, got %d at %s"
                            % (len(tables), url))
     return tables
+
+
+def _clean_title_position(title, headers):
+    """Infer the QB table when a generic section heading pairs with it.
+
+    The h2->table regex is lazy from the FIRST h2, so the section header
+    ("Week N fantasy trade charts") can pair with the QB table instead of
+    its own h2. Only the QB table carries 1QB/6-TD/SFLEX columns, so the
+    position is inferred from the header signature when the title names
+    no position (seen live 2026-09-29).
+    """
+    title = re.sub(r"<.*?>", "", title).strip()
+    if not re.search(
+            r"quarterbacks?|\bqbs?\b|running backs?|wide receivers?|"
+            r"tight ends?", title, re.I):
+        hl = [h.lower().replace(" ", "") for h in headers]
+        if any("1qb" in h for h in hl):
+            title = "Quarterback Trade Value Chart"
+    return title
 
 
 def main():

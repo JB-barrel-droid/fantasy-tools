@@ -97,6 +97,17 @@ Dave Richard's weekly slug embeds the week number; discovery tries the
 week-N slugs newest-first and validates the `TableBuilder` markup on each
 (the same markup the parser requires). Fails closed when none resolve.
 
+## Weekly-article cache source (2026-10-01)
+
+`check_weekly_article` reads the newest repo-local pull first
+(`ops/watchdog/pulls/<src>-<date>.json`, written by the ingest wrappers —
+the repo pipeline is the live path), falling back to the legacy
+goal-workspace cache (`lottery/data/sources_cache/usatoday.json` /
+`cbs.json`) when the repo has no pull yet. The legacy cache went stale
+(Sep 21) after the repo ingests replaced the old lottery pullers; reading
+it first false-alarmed STALE on both sources while Supabase already held
+fresh rows.
+
 ## Negative tests
 
 `tests/test_pull_watchdog.py` — hermetic (tmp dirs, mocked fetch), no

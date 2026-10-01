@@ -80,6 +80,16 @@ class TestRunLogClassification(unittest.TestCase):
         self.assertEqual(classify_run_line(
             "2026-09-22 06:20 CDT | FAILED | source=razzball; pull failed"), "failed")
 
+    def test_ok_line_with_failed_in_detail_note_is_ok(self):
+        # 2026-10-01: an OK Razzball run logged "1 rows failed PPG
+        # consistency" in the detail note; the standalone FAILED match
+        # tripped and false-flagged the run failed + the artifact poisoned
+        # (CRITICAL). The STATUS marker must win over detail-text words.
+        self.assertEqual(classify_run_line(
+            "2026-10-01 06:20 CDT | OK | source=razzball; snapshot updated: "
+            "503 players, hash 42194295c6f35139; 1 rows failed PPG "
+            "consistency (>0.5 ppg): Feleipe Franks"), "ok")
+
     def test_player_name_cannot_trip_failed(self):
         # 'failed' inside a player-name-ish token must not classify as failed.
         self.assertNotEqual(classify_run_line(
@@ -218,6 +228,71 @@ class TestWeeklyArticleChecks(unittest.TestCase):
                    "cache": self._cache(tmp, 2, 1, tables=1, rows_per=5)}
             v = wd.check_weekly_article(cfg, DAY, 2)
             self.assertEqual(v["status"], "failed")
+
+    def _repo_pull(self, repo, prefix, week, age):
+        _write(os.path.join(repo, "%s-2026-09-22.json" % prefix),
+               json.dumps({
+                   "fetched_at": "2026-09-22",
+                   "url": ("https://x/y/fantasy-football-trade-value-chart-"
+                           "week-%d-ros-rankings/123/" % week),
+                   "tables": [{"title": "QB", "headers": [],
+                               "rows": [["1"] * 3] * 40} for _ in range(4)]}),
+               mtime=_age_ts(age))
+
+    def test_repo_pull_preferred_over_legacy_cache(self):
+        # Legacy goal cache is stale (week-1, 10 days old) but the repo
+        # pipeline pulled week-2 today -> the check reads the repo pull.
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = {"label": "U", "expected": "weekly", "pull_prefix": "utest",
+                   "cache": self._cache(tmp, 1, 10)}
+            repo = os.path.join(tmp, "pulls")
+            os.makedirs(repo)
+            self._repo_pull(repo, "utest", 2, 0)
+            old = wd.PULLS
+            wd.PULLS = repo
+            try:
+                v = wd.check_weekly_article(cfg, DAY, 2)
+            finally:
+                wd.PULLS = old
+            self.assertEqual(v["status"], "ok")
+            self.assertIn("repo pull", v["cache_source"])
+
+    def test_newest_repo_pull_wins(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = {"label": "U", "expected": "weekly", "pull_prefix": "utest",
+                   "cache": self._cache(tmp, 2, 1)}
+            repo = os.path.join(tmp, "pulls")
+            os.makedirs(repo)
+            _write(os.path.join(repo, "utest-2026-09-20.json"),
+                   json.dumps({"url": "https://x/y/week-1/123/",
+                               "tables": [{"title": "QB", "headers": [],
+                                           "rows": [["1"] * 3] * 40}
+                                          for _ in range(4)]}),
+                   mtime=_age_ts(2))
+            self._repo_pull(repo, "utest", 2, 0)
+            old = wd.PULLS
+            wd.PULLS = repo
+            try:
+                v = wd.check_weekly_article(cfg, DAY, 2)
+            finally:
+                wd.PULLS = old
+            self.assertEqual(v["status"], "ok")
+            self.assertIn("utest-2026-09-22.json", v["cache_source"])
+
+    def test_falls_back_to_legacy_cache_without_repo_pull(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = {"label": "U", "expected": "weekly", "pull_prefix": "utest",
+                   "cache": self._cache(tmp, 2, 1)}
+            repo = os.path.join(tmp, "pulls")
+            os.makedirs(repo)
+            old = wd.PULLS
+            wd.PULLS = repo
+            try:
+                v = wd.check_weekly_article(cfg, DAY, 2)
+            finally:
+                wd.PULLS = old
+            self.assertEqual(v["status"], "ok")
+            self.assertEqual(v["cache_source"], "legacy goal cache")
 
 
 class TestFantasyCalcWednesday(unittest.TestCase):

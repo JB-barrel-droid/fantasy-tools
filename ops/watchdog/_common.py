@@ -107,18 +107,22 @@ def is_today(path, now=None):
 def classify_run_line(line):
     """Classify one pull-script runs-log line.
 
-    Returns 'failed' | 'ok' | 'unchanged' | 'unknown'. The FAILED token is
-    matched as a standalone status word so a player named e.g. 'Failed'
-    can never trip it; SUCCESS/OK lines that say 'no update' / 'no-op' /
-    'snapshot current' mean the source was unchanged (healthy, not a miss).
+    Returns 'failed' | 'ok' | 'unchanged' | 'unknown'. Lines are logged as
+    `<stamp> | <STATUS> | <detail>`; the STATUS marker is checked before any
+    content word, because a detail note can legitimately contain the word
+    "failed" (e.g. "1 rows failed PPG consistency" on an otherwise OK run)
+    and must not trip the FAILED check. The FAILED token is also matched as
+    a standalone word so a player named e.g. 'Failed' can never trip it.
+    SUCCESS/OK lines that say 'no update' / 'no-op' / 'snapshot current'
+    mean the source was unchanged (healthy, not a miss).
     """
     up = line.upper()
-    if re.search(r"\bFAILED\b", up):
-        return "failed"
     if re.search(r"\bNO UPDATE\b|\bNO-OP\b|SNAPSHOT CURRENT\b", up):
         return "unchanged"
-    if re.search(r"\bSUCCESS\b|\|\s*OK\s*\|", up):
+    if re.search(r"\|\s*OK\s*\||\bSUCCESS\b", up):
         return "ok"
+    if re.search(r"\bFAILED\b", up):
+        return "failed"
     return "unknown"
 
 
