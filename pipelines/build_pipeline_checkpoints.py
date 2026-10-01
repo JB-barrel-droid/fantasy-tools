@@ -101,6 +101,51 @@ def days_old(iso_str):
     return delta.total_seconds() / 86400
 
 
+def evaluate_pages_deploy(runs):
+    """Classify GitHub Pages deploy health from recent workflow runs.
+
+    An in_progress/queued run is NOT a failure signal: the verdict is judged
+    from the most recent COMPLETED run instead. Rationale: every push triggers
+    a deploy, so "latest run in progress" is the normal steady state of the
+    30-min health cron; flagging it bad reds the monitor on every push cycle
+    (observed 2026-10-01 08:38 UTC: a healthy in-flight deploy from the routine
+    03:37 CDT health push was reported bad). A failed completed deploy stays
+    bad; a stale (>2d) successful deploy warns.
+    """
+    def verdict(run):
+        run_status = run.get("status")
+        run_conclusion = run.get("conclusion")
+        run_updated = run.get("updated_at")
+        run_days = days_old(run_updated)
+        if run_status != "completed" or run_conclusion != "success":
+            return {"timestamp": run_updated, "status": "bad",
+                    "reason": f"Last Pages deploy: {run_status}/{run_conclusion}. Deploy may have failed."}
+        if run_days is not None and run_days > 2:
+            return {"timestamp": run_updated, "status": "warn",
+                    "reason": f"Last successful Pages deploy {run_days:.1f}d ago. Content may be stale."}
+        return {"timestamp": run_updated, "status": "ok",
+                "reason": f"Pages deployed successfully {(run_days or 0):.1f}d ago."}
+
+    completed = [r for r in runs if r.get("status") == "completed"]
+    if completed:
+        latest = completed[0]
+        v = verdict(latest)
+        if v["status"] == "ok":
+            in_flight = [r for r in runs if r.get("status") in ("in_progress", "queued")]
+            if in_flight:
+                v = {"timestamp": in_flight[0].get("updated_at"), "status": "ok",
+                     "reason": ("Deploy in progress; last completed deploy succeeded "
+                                f"{(days_old(latest.get('updated_at')) or 0):.1f}d ago.")}
+        return v
+    if runs:
+        r = runs[0]
+        return {"timestamp": r.get("updated_at"), "status": "unk",
+                "reason": (f"Latest Pages run is {r.get('status')}/{r.get('conclusion')}; "
+                           "no completed run to judge yet.")}
+    return {"timestamp": None, "status": "unk",
+            "reason": "No Pages deploy runs found."}
+
+
 def newest_file_mtime(pattern_dir, pattern):
     """Find newest file matching pattern in dir, return (path, mtime_iso)."""
     d = REPO / pattern_dir
@@ -185,27 +230,13 @@ def build_checkpoints():
     try:
         import urllib.request
         req = urllib.request.Request(
-            "https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/pages.yml/runs?per_page=1",
+            "https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/pages.yml/runs?per_page=5",
             headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "fantasy-tools-monitor"}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode())
         runs = data.get("workflow_runs", [])
-        if runs:
-            last_run = runs[0]
-            run_status = last_run.get("status")
-            run_conclusion = last_run.get("conclusion")
-            run_updated = last_run.get("updated_at")
-            run_days = days_old(run_updated)
-            if run_status != "completed" or run_conclusion != "success":
-                pages_deploy = {"timestamp": run_updated, "status": "bad",
-                    "reason": f"Last Pages deploy: {run_status}/{run_conclusion}. Deploy may have failed."}
-            elif run_days is not None and run_days > 2:
-                pages_deploy = {"timestamp": run_updated, "status": "warn",
-                    "reason": f"Last successful Pages deploy {run_days:.1f}d ago. Content may be stale."}
-            else:
-                pages_deploy = {"timestamp": run_updated, "status": "ok",
-                    "reason": f"Pages deployed successfully {(run_days or 0):.1f}d ago."}
+        pages_deploy = evaluate_pages_deploy(runs)
     except Exception as e:
         pages_deploy = {"timestamp": None, "status": "unk",
             "reason": f"Could not check Pages API: {str(e)[:60]}. Browser checks live."}
