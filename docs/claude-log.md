@@ -32,6 +32,24 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-19: K/DST source audit and recommendation (diagnosis only)
+
+### Verified (fixtures and inputs in the repo)
+
+- 45 K and 32 DST in `players.json`, all `pricing: espn_only`; 0 K/DST rows in all 11 comparison sections; the Razzball and prediction-market CSVs have no K/DST rows.
+- The ESPN K/DST inputs are dated 2026-09-21; `meta.kdst_snapshot` is `"?"` but `espn_pies.json` records both pull dates (2026-09-21), so the vintage is recoverable.
+- `config/roster.json` and `REF_SLOTS` cover QB/RB/WR/TE only. `espn_pies.json` already measures K 6.56 and DST 8.57 against 58.99/393.59/290.04/45.93 at 12-team half PPR: K+DST is 1.7-2.0% of the pie, and kickers top out at 1.15x the 12-team replacement level.
+- Recommendation and the full table are in `docs/kdst-source-audit.md`. GAP-029 added.
+
+### Claimed, unverified
+
+- The FantasyPros K/DST ECR page and the Supabase `fp_season_kdst_projections` facts are carried over from the JEG-19 description; I did not re-check them.
+- The effort outline for an ESPN-only leg is a design sketch; none of it was built or tested.
+
+### Open
+
+- Whether to build K/DST curves at all, and a fresh ESPN K/DST pull.
+
 ## 2026-10-01 - JEG-35: Razzball is not stale; Achane comes from FantasyCalc and USA Today
 
 Muse asked for root cause first: is the Razzball data stale, or the fixture, and is the Razzball leg wired in?
