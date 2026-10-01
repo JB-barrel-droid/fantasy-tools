@@ -214,17 +214,14 @@ class TestRealFixtureReview(unittest.TestCase):
         cp = tmp / "usa-candidate.json"
         cp.write_text(json.dumps(cand))
         section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
-        # 2026-10-01: 15 USA Today players are legitimate fail-closed review
-        # rows -- they have no ESPN anchor and are correctly excluded from
-        # reindexed output. (See test_reindex_section.py for the full list.)
+        # 2026-10-01: under the zero-VORP policy (reindex_comparison_section.py:
+        # missing-anchor players below 10% of the position max native are
+        # auto-skipped, no review row), only Dezhaun Stribling is a review row
+        # -- native 5.1 in standard_12 (above the WR 10% cutoff of 4.3) with no
+        # ESPN anchor. The other 14 anchorless players are deep-bench
+        # (<6% of max) and correctly excluded from reindexed output silently.
         review_slugs = {r["slug"] for r in review_rows}
-        expected = {
-            'brashard smith', 'cyrus allen', 'dezhaun stribling',
-            'donte thornton jr', 'dylan sampson', 'jakobi lane',
-            'jalen mcmillan', 'james conner', 'jonah coleman',
-            'jonathon brooks', 'kaytron allen', 'omar cooper jr',
-            'shedeur sanders', 'tank dell', 'tua tagovailoa',
-        }
+        expected = {'dezhaun stribling'}
         self.assertEqual(review_slugs, expected)
         rp = tmp / "usa-reindexed.json"
         rp.write_text(json.dumps(section))
