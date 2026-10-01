@@ -32,6 +32,57 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-8: why the rebuild chain looks broken, and the fix for the invisible red chain
+
+Branch `jeremyburstyn/jeg-8-rebuild-chain-workflow-failing`, based on `origin/main` `b00e2b1`.
+Jeremy approved the plan and the branch. Workflow and sync changes only; the review holds are
+JEG-9/JEG-10 and were not touched.
+
+### Verified
+
+- **The CI failure is the fail-closed review hold, not a different error.** Log of run
+  `36868501121` (head `7f0911f`, 13:25Z): `usatoday` and `fantasypros` get verdict `hold`; fit and
+  adjusted sections are skipped; exit 1. The other four sources promote (`fantasycalc` 3/3, `espn`
+  1/1, `cbs` 3/3, `cbsros` 1/1). Imports and the health check pass. [`get_job_logs`] I read only
+  this run's log; runs 3 to 5 also failed in 11 to 22 s and are probably the same.
+- **The two stale-looking symptoms have different causes.** On `origin/main`: the app copy
+  `dist/assets/comparison-sources-data.json` is byte-identical to the fixture (12:44, Razzball
+  present); the monitor copy `dist/modules/comparison-sources-data.json` was stale (02:27, no
+  Razzball). `make sync` wrote the first but never the second. [`git show`, canonical-JSON hashes]
+- A red chain was invisible: the chain step exited 1, so the `cp` of the status and the commit
+  step never ran; the served `comparison-chain-status.json` was a local run from 02:27.
+- Fix 1: `sync_monitor_fixture()` in `sync_dashboard_artifacts.py`, called from `main()`. Real
+  `make sync`: monitor copy went from 02:27 / no Razzball to byte-identical with the fixture
+  (12:44, Razzball `live`). [`cmp`]
+- Fix 2: `rebuild-chain.yml` now lets the chain step fail (`continue-on-error`), syncs the fixture
+  only on success, on failure publishes only the chain status and stages only status and health
+  files (never the partial fixture), then fails the job explicitly.
+- `tests/test_rebuild_chain_workflow.py` extracts the real `run:` scripts and executes them against
+  throwaway git repos with a local bare remote, then inspects what was pushed: red chain pushes
+  exactly the two status files and leaves the fixture `OLD`; green chain pushes the fixture and
+  monitor copy; the fail step exits non-zero. Eight mutations of the workflow are each caught, and
+  the pre-fix workflow from `origin/main` is reported with six problems. 4 tests in
+  `tests/test_sync_monitor_fixture.py`; the copy removed, or its call removed, is caught.
+- Full `make validate` exit 0; `make -k test-integration` all OK. Both new modules are registered in
+  `make test-unit`.
+
+### Claimed, unverified
+
+- That the workflow behaves this way on GitHub's runners. The scripts were executed under `bash -e`
+  against a local remote, but `continue-on-error` plus `steps.chain.outcome` is GitHub behaviour I
+  relied on, not exercised. What would settle it: a `workflow_dispatch` of this branch's workflow
+  (it uses the Supabase secrets and pushes to the branch, not `main`), which I have not run.
+- That the holds clear on a fresh run. The failing run predates Muse's 402 fix and the FantasyPros
+  rebake. Only a real chain run settles it.
+- That the served monitor copy updates after merge: it should, because `pages.yml` runs `make sync`,
+  but I did not run a deploy.
+
+### Open
+
+- GAP-019: the chain is red because of review holds that need Jeremy's decisions (JEG-9, JEG-10).
+- Design note, not changed: when the chain is red the promotions from sources that passed are
+  discarded each run (the fixture is deliberately not committed partially, because fit must not run
+  on a half-rebuilt fixture).
 ## 2026-10-01 - Correction: no CI runs on pull requests (JEG-27 entry was wrong about this)
 
 The entry below this one (and the PR #7 description) said `make sync` / the full
