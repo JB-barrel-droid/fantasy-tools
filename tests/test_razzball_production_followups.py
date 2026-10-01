@@ -130,7 +130,8 @@ class ColumnBadgeTest(unittest.TestCase):
             "const {fnText, key} = JSON.parse(require(\"fs\").readFileSync(0, \"utf8\"));\n"
             "const SOURCE_KEYS = [\"usatoday\",\"fantasycalc\",\"fantasypros\",\"cbs\",\"cbsros\",\"razzball\","
             "\"cbs_adjusted\",\"fantasycalc_adjusted\",\"usatoday_adjusted\",\"fantasypros_adjusted\","
-            "\"espn_vorp\",\"espn_adjusted\"];\n"
+            "\"espn_vorp\",\"cbsros_vorp\",\"razzball_vorp\",\"espn_adjusted\"];\n"
+            "const PURE_VORP_KEYS = [\"espn_vorp\",\"cbsros_vorp\",\"razzball_vorp\"];\n"
             "const FIELD_COLUMNS = [];\n"
             "const data = {sources: {razzball: {method_group: \"ddf-methodology\"},"
             " cbsros: {method_group: \"ddf-methodology\"}, usatoday: {}}};\n"
@@ -152,6 +153,8 @@ class ColumnBadgeTest(unittest.TestCase):
         fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
         self.assertEqual(self._run_badge(fn, "usatoday"), "as published · reindexed")
         self.assertEqual(self._run_badge(fn, "espn_vorp"), "raw value above waivers")
+        self.assertEqual(self._run_badge(fn, "cbsros_vorp"), "raw value above waivers")
+        self.assertEqual(self._run_badge(fn, "razzball_vorp"), "raw value above waivers")
         self.assertEqual(self._run_badge(fn, "fantasycalc_adjusted"), "bias adjusted")
 
     def test_old_badge_mislabels_razzball(self):
@@ -164,6 +167,9 @@ class SourceDateTest(unittest.TestCase):
     def _run_sourcedate(self, fn_text, key):
         script = (
             "const {fnText, key} = JSON.parse(require(\"fs\").readFileSync(0, \"utf8\"));\n"
+            "const PURE_VORP_KEYS = [\"espn_vorp\",\"cbsros_vorp\",\"razzball_vorp\"];\n"
+            "const VORP_SOURCE_DEFS = {espn_vorp: {validationKey: \"espn\"},"
+            " cbsros_vorp: {validationKey: \"cbsros\"}, razzball_vorp: {validationKey: \"razzball\"}};\n"
             "const data = {sources: {razzball: {vintage: \"2026-10-01\"}}};\n"
             "const sourceDate = eval(\"(\" + fnText + \")\");\n"
             "process.stdout.write(JSON.stringify(sourceDate(key)));\n"

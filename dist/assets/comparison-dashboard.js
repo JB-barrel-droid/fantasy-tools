@@ -15,7 +15,9 @@
     "usatoday_adjusted",
     "fantasypros_adjusted",
     "espn",
-    "espn_vorp"
+    "espn_vorp",
+    "cbsros_vorp",
+    "razzball_vorp"
   ];
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
@@ -31,7 +33,9 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     espn: "ESPN adjusted",
-    espn_vorp: "ESPN raw value above waivers"
+    espn_vorp: "ESPN raw value above waivers",
+    cbsros_vorp: "CBS ROS raw value above waivers",
+    razzball_vorp: "Razzball raw value above waivers"
   };
   const TIPS = {
     usatoday: "Editorial chart, as published and reindexed",
@@ -45,8 +49,19 @@
     usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     espn: "ESPN value above waivers split by starter, bench, and waiver tier from the shared league settings",
-    espn_vorp: "ESPN value above waivers before starter/bench utilization"
+    espn_vorp: "ESPN value above waivers before starter/bench utilization",
+    cbsros_vorp: "CBS ROS value above waivers before starter/bench utilization",
+    razzball_vorp: "Razzball value above waivers before starter/bench utilization"
   };
+  // Pure raw value-above-waivers columns (JEG-38): projection-minus-waiver
+  // VORP from each source's own per-game projections. Mirrors the chart's
+  // "Raw value above waivers" curve group.
+  const VORP_SOURCE_DEFS = {
+    espn_vorp: {ppgField: "espn_ppg", short: "ESPN", validationKey: "espn"},
+    cbsros_vorp: {ppgField: "cbsros_ppg", short: "CBS ROS", validationKey: "cbsros"},
+    razzball_vorp: {ppgField: "rz_ppg", short: "Razzball", validationKey: "razzball"},
+  };
+  const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
   const state = {
     scoring: "full",
     teams: 12,
@@ -181,7 +196,7 @@
   let universeSize = 0;
   let renderKeys = [];
   let sourceMaps = new Map();
-  let espnRowsCache = null;
+  let vorpRowsCache = new Map();
   let espnRoleByKey = new Map();
   let referenceSource = "usatoday";
   let newsMeta = {};
@@ -270,13 +285,19 @@
     const score = (key.endsWith("_adjusted") && state.scoring === "standard") ? "std" : state.scoring;
     if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${state.teams}_qb1`;
     if (key === "espn") return `${score}_${state.teams}`;
-    if (key === "espn_vorp") return null;
+    if (PURE_VORP_KEYS.includes(key)) return null;
     if (key === "cbs_adjusted") return comboKeyFor("cbs");
     return `${score}_${state.teams}`;
   }
 
   function sourceComboExists(key) {
-    if (key === "espn_vorp") return Boolean(data?.sources?.espn?.combos?.[comboKeyFor("espn")]);
+    // Pure VORP columns are browser-computed from each source's per-game
+    // projections on the player records; they exist when the source's
+    // projections exist.
+    if (PURE_VORP_KEYS.includes(key)) {
+      const field = VORP_SOURCE_DEFS[key].ppgField;
+      return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p[field]?.[scoreField()])));
+    }
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
     return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
   }
@@ -336,7 +357,7 @@
   }
 
   function applyRosterShape(values, key) {
-    if (rosterIsDefault() || key === "espn_vorp") return values;
+    if (rosterIsDefault() || PURE_VORP_KEYS.includes(key)) return values;
     const shaped = new Map(values);
     const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6});
     const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
@@ -479,18 +500,28 @@
     return b.ppg - a.ppg || ValueModel.stableTiebreak(a.player, b.player);
   }
 
-  function espnPricedRows() {
+  function vorpPricedRows(vorpKey) {
+    const def = VORP_SOURCE_DEFS[vorpKey];
     const field = scoreField();
     return [...canonicalByKey.values()]
       .filter(player => POSITION_ORDER.includes(player.pos))
-      .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+      .map(player => ({player, ppg:Number(player[def.ppgField]?.[field])}))
       .filter(item => Number.isFinite(item.ppg))
       .sort(compareEspnPlayers);
   }
 
-  function buildEspnRows() {
-    if (espnRowsCache) return espnRowsCache;
-    const priced = espnPricedRows();
+  function espnPricedRows() {
+    return vorpPricedRows("espn_vorp");
+  }
+
+  // Raw value-above-waivers rows per VORP source (JEG-38): the same
+  // projection-minus-waiver math for ESPN, CBS ROS, and Razzball, each from
+  // its own per-game projections. The target pie is the shared anchor pie
+  // for all three, so the raw columns sit on a comparable scale.
+  function buildVorpRows(vorpKey) {
+    const cacheKey = vorpKey;
+    if (vorpRowsCache.has(cacheKey)) return vorpRowsCache.get(cacheKey);
+    const priced = vorpPricedRows(vorpKey);
     // Roles come from the shared model, ranked on surplus over each
     // position's dedicated-starter baseline. Assigning them here by raw
     // per-game points filled the bench with quarterbacks, collapsed the QB
@@ -547,13 +578,21 @@
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * displayShare) / benchRaw : 0;
-    espnRowsCache = withVorp.map(row => ({
+    const rows = withVorp.map(row => ({
       ...row,
       pure: row.rawVorp * rawScale,
       adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
     }));
-    espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
-    return espnRowsCache;
+    vorpRowsCache.set(cacheKey, rows);
+    // The table's tier column is ESPN-based; only ESPN rows feed it.
+    if (vorpKey === "espn_vorp") {
+      espnRoleByKey = new Map(rows.map(row => [row.player.player_key, row.role]));
+    }
+    return rows;
+  }
+
+  function buildEspnRows() {
+    return buildVorpRows("espn_vorp");
   }
 
   function espnFixtureLeg() {
@@ -578,10 +617,14 @@
     return buildEspnRows().filter(row => row.player.pos === pos);
   }
 
-  function buildEspnVorpMap() {
+  function buildVorpMap(vorpKey) {
     const values = new Map();
-    buildEspnRows().forEach(row => values.set(row.player.player_key, row.pure));
+    buildVorpRows(vorpKey).forEach(row => values.set(row.player.player_key, row.pure));
     return values;
+  }
+
+  function buildEspnVorpMap() {
+    return buildVorpMap("espn_vorp");
   }
 
   function buildEspnIndexedMap() {
@@ -597,7 +640,7 @@
 
   function buildSourceMap(key) {
     if (key === "espn") return buildEspnIndexedMap();
-    if (key === "espn_vorp") return buildEspnVorpMap();
+    if (PURE_VORP_KEYS.includes(key)) return buildVorpMap(key);
     if (key === "cbs_adjusted") return buildCbsAdjustedMap();
     return buildPublishedSourceMap(key);
   }
@@ -634,7 +677,7 @@
   }
 
   function rebuildSourceMaps() {
-    espnRowsCache = null;
+    vorpRowsCache.clear();
     espnRoleByKey = new Map();
     sourceMaps = new Map();
     // The anchor must exist before anything normalises against it.
@@ -642,19 +685,21 @@
     const anchorMap = applyRosterShape(buildEspnIndexedMap(), "espn");
     sourceMaps.set("espn", anchorMap);
     const displayShare = anchorDisplayShare(anchorMap);
-    renderKeys.filter(key => !["espn", "espn_vorp"].includes(key)).forEach(key => {
+    renderKeys.filter(key => !["espn", ...PURE_VORP_KEYS].includes(key)).forEach(key => {
       const sourceMap = key.endsWith("_adjusted")
         ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
         : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap);
       sourceMaps.set(key, sourceMap);
     });
-    // Level-matched to the anchor over the players they share; its SHAPE is
+    // Level-matched to the anchor over the players they share; each SHAPE is
     // deliberately its own (raw projection-minus-waiver VORP, not the pie).
-    sourceMaps.set("espn_vorp", ValueModel.scaleToSharedTotal({
-      values: buildEspnVorpMap(),
-      anchor: anchorMap,
-      playerOf: playerKey => canonicalByKey.get(playerKey)
-    }));
+    PURE_VORP_KEYS.forEach(vorpKey => {
+      sourceMaps.set(vorpKey, ValueModel.scaleToSharedTotal({
+        values: buildVorpMap(vorpKey),
+        anchor: anchorMap,
+        playerOf: playerKey => canonicalByKey.get(playerKey)
+      }));
+    });
   }
 
   function allColumnKeys() {
@@ -663,7 +708,7 @@
 
   function visibleColumns() {
     const allowed = new Set(allColumnKeys());
-    const defaults = ["pos", "team", "espn_role", "disagreement", "latest_news", "espn", "espn_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
+    const defaults = ["pos", "team", "espn_role", "disagreement", "latest_news", "espn", "espn_vorp", "cbsros_vorp", "razzball_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
     const cols = Array.isArray(state.columns) ? state.columns.filter(key => allowed.has(key)) : defaults;
     return cols.length ? cols : defaults;
   }
@@ -674,7 +719,8 @@
   }
 
   function sourceDate(key) {
-    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : key === "espn_vorp" ? data.sources.espn : {}) || {};
+    const vorpSource = PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : null;
+    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : vorpSource ? data.sources[vorpSource] : {}) || {};
     if (key.endsWith("_adjusted")) {
       const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
       return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
@@ -700,7 +746,7 @@
   function columnBadge(key) {
     if (SOURCE_KEYS.includes(key)) {
       if (key === "espn") return "utilization adjusted";
-      if (key === "espn_vorp") return "raw value above waivers";
+      if (PURE_VORP_KEYS.includes(key)) return "raw value above waivers";
       if (key.endsWith("_adjusted")) return "bias adjusted";
       // DDF-methodology legs (razzball, cbsros) are computed from the
       // publisher's projections with our value-above-waivers method — they
@@ -1220,7 +1266,10 @@
       universeSize = Object.keys(data.player_keys || {}).length;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
-      renderKeys = SOURCE_KEYS.filter(key => key === "cbs_adjusted" ? data.source_validation?.cbs === "live" : key === "espn_vorp" ? data.source_validation?.espn === "live" : data.source_validation?.[key] === "live");
+      // Pure VORP columns validate against their own source's projections
+      // (each VORP curve is computed from that source's per-game numbers).
+      const validationKeyFor = key => PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : (key === "cbs_adjusted" ? "cbs" : key);
+      renderKeys = SOURCE_KEYS.filter(key => data.source_validation?.[validationKeyFor(key)] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.TradeValueReferenceSource)) referenceSource = window.TradeValueReferenceSource;

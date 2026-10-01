@@ -20,7 +20,7 @@ WIDGETS = [
 ]
 
 # String literals that are internal data keys, never rendered for users.
-INTERNAL_LITERALS = {"espn_vorp"}
+INTERNAL_LITERALS = {"espn_vorp", "cbsros_vorp", "razzball_vorp"}
 
 VORP_RE = re.compile(r"vorp", re.IGNORECASE)
 INTERP_RE = re.compile(r"\$\{[^{}]*\}")

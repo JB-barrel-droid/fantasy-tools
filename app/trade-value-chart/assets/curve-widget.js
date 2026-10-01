@@ -15,7 +15,9 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     cbs_adjusted: "CBS Adjusted",
-    espn_vorp: "ESPN raw value above waivers"
+    espn_vorp: "ESPN raw value above waivers",
+    cbsros_vorp: "CBS ROS raw value above waivers",
+    razzball_vorp: "Razzball raw value above waivers"
   };
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
   const SOURCE_KEYS = [
@@ -43,15 +45,25 @@
     usatoday_adjusted: {color: "#d5531d", dash: [7, 4]},
     fantasypros_adjusted: {color: "#16815d", dash: [7, 4]},
     cbs_adjusted: {color: "#b83e45", dash: [7, 4]},
-    espn_vorp: {color: "#6b55a3", dash: []}
+    espn_vorp: {color: "#6b55a3", dash: []},
+    cbsros_vorp: {color: "#c9842b", dash: []},
+    razzball_vorp: {color: "#2b9dc9", dash: []}
   };
   const SOURCE_GROUPS = [
     {label:"Bottoms Up Value Curves", keys:["espn", "cbsros", "razzball"]},
     {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
-    {label:"Raw value above waivers", keys:["espn_vorp"]},
+    {label:"Raw value above waivers", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
-  const PURE_VORP_KEYS = ["espn_vorp"];
+  // Pure raw value-above-waivers curves: projection-minus-waiver VORP from
+  // each source's own per-game projections, before starter/bench
+  // utilization. JEG-38: ESPN plus the two DDF-native legs (CBS ROS, Razzball).
+  const VORP_SOURCE_DEFS = {
+    espn_vorp: {ppgField: "espn_ppg", short: "ESPN"},
+    cbsros_vorp: {ppgField: "cbsros_ppg", short: "CBS ROS"},
+    razzball_vorp: {ppgField: "rz_ppg", short: "Razzball"},
+  };
+  const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
   const EXTRA_SOURCE_KEYS = [];
   // Fixture-transition Option B (staged 2026-09-22): the *_adjusted curves
   // return to the default active set only when their sources carry live
@@ -720,7 +732,7 @@
   let twoTierConfigCache = new Map();
   let twoTierCalCache = new Map();
   let liveCellsCache = null;
-  let espnRowsCache = null;
+  let vorpRowsCache = new Map();
   let espnFixtureLegCache = null;
   // The split the charts were actually matched to, for the footnote. Measured
   // off the anchor each rebuild; DISPLAY_BENCH_SHARE is only the fall-back.
@@ -818,7 +830,12 @@
   const defaultValueLock = () => "espn";
   const sourceValidationStatus = key => key === "cbs_adjusted" ? data.source_validation?.cbs : data.source_validation?.[key];
   const sourceComboExists = key => {
-    if (key === "espn_vorp") return true;
+    // Pure VORP curves are browser-computed from each source's per-game
+    // projections on the player records, not from fixture combos.
+    if (PURE_VORP_KEYS.includes(key)) {
+      const field = VORP_SOURCE_DEFS[key].ppgField;
+      return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p[field]?.[scoringField()])));
+    }
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
     // DDF-native sources (cbsros, razzball): check fixture has native PPG data.
     // Razzball uses rz_ppg on player objects; CBS ROS uses cbsros_ppg,
@@ -837,7 +854,7 @@
     const score = key.endsWith("_adjusted") && compact === "standard" ? "std" : compact;
     if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${teams}_qb1`;
     if (key === "espn") return `${score}_${teams}`;
-    if (key === "espn_vorp") return null;
+    if (PURE_VORP_KEYS.includes(key)) return null;
     return `${score}_${teams}`;
   }
 
@@ -1053,18 +1070,28 @@
     return b.ppg - a.ppg || ValueModel.stableTiebreak(a.player, b.player);
   }
 
-  function espnPricedRows() {
+  function vorpPricedRows(vorpKey) {
+    const def = VORP_SOURCE_DEFS[vorpKey];
     const field = scoringField();
     return [...canonicalByKey.values()]
       .filter(player => POSITION_ORDER.includes(player.pos))
-      .map(player => ({player, ppg:Number(player.espn_ppg?.[field])}))
+      .map(player => ({player, ppg:Number(player[def.ppgField]?.[field])}))
       .filter(item => Number.isFinite(item.ppg))
       .sort(compareEspnPlayers);
   }
 
-  function buildEspnRows() {
-    if (espnRowsCache) return espnRowsCache;
-    const priced = espnPricedRows();
+  function espnPricedRows() {
+    return vorpPricedRows("espn_vorp");
+  }
+
+  // Raw value-above-waivers rows per VORP source (JEG-38): the same
+  // projection-minus-waiver math for ESPN, CBS ROS, and Razzball, each from
+  // its own per-game projections. The target pie is the shared anchor pie
+  // for all three, so the raw curves sit on a comparable scale.
+  function buildVorpRows(vorpKey) {
+    if (vorpRowsCache.has(vorpKey)) return vorpRowsCache.get(vorpKey);
+    const def = VORP_SOURCE_DEFS[vorpKey];
+    const priced = vorpPricedRows(vorpKey);
     // Roles come from the shared model, ranked on surplus over each
     // position's dedicated-starter baseline. Assigning them here by raw
     // per-game points filled the bench with quarterbacks, collapsed the QB
@@ -1092,13 +1119,13 @@
       ...row,
       rawProjectionVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
     }));
-    // The ESPN curves use the true raw projection-minus-waiver VORP computed
-    // from ESPN projections above. We intentionally do NOT use the published
-    // "ESPN-implied" combo values here: those are already run through a
+    // The raw curves use the true raw projection-minus-waiver VORP computed
+    // from each source's own projections above. We intentionally do NOT use
+    // the published combo values here: those are already run through a
     // valuation model (and can carry a ~91% starter share), which inverts
     // the fixed-pie direction. Raw VORP keeps starters at ~69% of the pie,
     // so the 85/15 fixed-pie correctly marks starters up and bench down.
-    // This also keeps the ESPN curves ESPN-pure (projections only, no
+    // This also keeps each raw curve source-pure (projections only, no
     // expert/model blending).
     const withVorp = withRaw.map(row => ({
       ...row,
@@ -1114,8 +1141,8 @@
       const t = Number(espnTargetTotal(pos, NaN));
       return sum + (Number.isFinite(t) && t > 0 ? t : 0);
     }, 0) || espnTargetPool(rawTotal);
-    // Frozen stage-1 display share: the ESPN indexed map is a fallback
-    // curve and never moves with the bench-share slider.
+    // Frozen stage-1 display share: the indexed maps are fallback
+    // curves and never move with the bench-share slider.
     const starterShare = Math.max(0, Math.min(1, 1 - DISPLAY_BENCH_SHARE));
     const normalizedBenchShare = Math.max(0, Math.min(1, DISPLAY_BENCH_SHARE));
     const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
@@ -1126,21 +1153,27 @@
     // starter-heavy (>= target share), the pie inverts -- the exact defect
     // this guards against. These run on every build; failures are visible,
     // never silent.
-    // These two describe the FALL-BACK leg: the browser-derived pricing that
-    // `adjusted` carries. While the pipeline's built leg is present that is
-    // what the ESPN line renders, so a wobble in the fall-back is a note, not
-    // a failure -- recording it as a failure is how a 1.048-vs-1.05 markup on
-    // an undisplayed curve came to sit red in the health panel.
-    const legIsFallback = espnLegIsFallback();
-    const recordLeg = legIsFallback
-      ? (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail)
-      : (id, label, ok, detail) => (ok ? ChartHealth.record(id, label, true, detail)
-                                       : ChartHealth.warn(id, label, `${detail} -- fall-back leg only; the ESPN line renders the built leg`));
+    // For ESPN these two describe the FALL-BACK leg: the browser-derived
+    // pricing that `adjusted` carries. While the pipeline's built leg is
+    // present that is what the ESPN line renders, so a wobble in the
+    // fall-back is a note, not a failure -- recording it as a failure is how
+    // a 1.048-vs-1.05 markup on an undisplayed curve came to sit red in the
+    // health panel. CBS ROS and Razzball have no built-leg fallback, so
+    // their checks record directly.
+    const recordForKey = vorpKey === "espn_vorp"
+      ? (() => {
+          const legIsFallback = espnLegIsFallback();
+          return legIsFallback
+            ? (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail)
+            : (id, label, ok, detail) => (ok ? ChartHealth.record(id, label, true, detail)
+                                             : ChartHealth.warn(id, label, `${detail} -- fall-back leg only; the ESPN line renders the built leg`));
+        })()
+      : (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail);
     if (rawTotal > 0 && starterRaw > 0 && benchRaw > 0) {
       const rawStarterShare = starterRaw / rawTotal;
-      recordLeg(
-        "espn-fixed-pie-direction",
-        "ESPN fixed-pie direction (starters up, bench down)",
+      recordForKey(
+        `${vorpKey}-fixed-pie-direction`,
+        `${def.short} fixed-pie direction (starters up, bench down)`,
         rawStarterShare < starterShare && starterScale > rawScale && benchScale < rawScale,
         `raw starter share ${(rawStarterShare * 100).toFixed(1)}% vs target ${(starterShare * 100).toFixed(1)}%; ` +
         `starter scale ${starterScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}, bench scale ${benchScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}`
@@ -1149,16 +1182,16 @@
       // Flag it if it collapses toward 1.0 (curves nearly identical) or
       // inverts (< 1.0) -- both mean the adjustment is not doing its job.
       const markup = starterScale / rawScale;
-      recordLeg(
-        "espn-starter-markup",
-        "ESPN starter markup ratio sane",
+      recordForKey(
+        `${vorpKey}-starter-markup`,
+        `${def.short} starter markup ratio sane`,
         markup > 1.05,
         `starter adjusted/pure = ${markup.toFixed(3)} (expected > 1.05; ~${(starterShare / Math.max(rawStarterShare, 1e-9)).toFixed(2)} at ${(rawStarterShare * 100).toFixed(1)}% raw starter share)`
       );
     } else {
       ChartHealth.warn(
-        "espn-fixed-pie-direction",
-        "ESPN fixed-pie direction (starters up, bench down)",
+        `${vorpKey}-fixed-pie-direction`,
+        `${def.short} fixed-pie direction (starters up, bench down)`,
         `skipped: degenerate pool (rawTotal=${rawTotal.toFixed(1)}, starterRaw=${starterRaw.toFixed(1)}, benchRaw=${benchRaw.toFixed(1)})`
       );
     }
@@ -1171,24 +1204,40 @@
       pos => espnTargetTotal(pos, NaN),
       DISPLAY_BENCH_SHARE
     );
-    espnRowsCache = withVorp.map(row => ({
+    const rows = withVorp.map(row => ({
       ...row,
       pure: row.rawVorp * rawScale,
       adjusted: row.role === "starter" ? row.rawVorp * (tierScales.starter[row.player.pos] || 0)
         : row.role === "bench" ? row.rawVorp * (tierScales.bench[row.player.pos] || 0) : 0
     }));
-    espnRoleByKey = new Map(espnRowsCache.map(row => [row.player.player_key, row.role]));
-    return espnRowsCache;
+    vorpRowsCache.set(vorpKey, rows);
+    // The table's tier column is ESPN-based; only ESPN rows feed it.
+    if (vorpKey === "espn_vorp") {
+      espnRoleByKey = new Map(rows.map(row => [row.player.player_key, row.role]));
+    }
+    return rows;
+  }
+
+  function buildEspnRows() {
+    return buildVorpRows("espn_vorp");
   }
 
   function espnVorpRows(pos) {
     return buildEspnRows().filter(row => row.player.pos === pos);
   }
 
-  function buildEspnVorpMap() {
+  function vorpRows(vorpKey, pos) {
+    return buildVorpRows(vorpKey).filter(row => row.player.pos === pos);
+  }
+
+  function buildVorpMap(vorpKey) {
     const values = new Map();
-    buildEspnRows().forEach(row => values.set(row.player.player_key, row.pure));
+    buildVorpRows(vorpKey).forEach(row => values.set(row.player.player_key, row.pure));
     return values;
+  }
+
+  function buildEspnVorpMap() {
+    return buildVorpMap("espn_vorp");
   }
 
   // The ESPN line IS the two-tier leg the pipeline built, read from the
@@ -1260,7 +1309,7 @@
     // already indexed to the anchor's pie via normalizeTradeChartToFixedPie;
     // they must pass through unshaped to preserve their native order.
     if (AS_PUBLISHED_KEYS.has(key)) return values;
-    if (rosterIsDefault() || key === "espn_vorp") return values;
+    if (rosterIsDefault() || PURE_VORP_KEYS.includes(key)) return values;
     const shaped = new Map(values);
     const defaultCounts = allocationCountsFor([...canonicalByKey.values()], DEFAULT_ROSTER);
     const customCounts = allocationCountsFor([...canonicalByKey.values()], rosterShape);
@@ -1449,7 +1498,7 @@
     // _adjusted family re-price on the bench-share slider via the refit cells.
     // Cache-hit when refreshAfterWeightChange already refit for this share.
     refitLiveCells();
-    espnRowsCache = null;
+    vorpRowsCache.clear();
     espnFixtureLegCache = null;
     espnRoleByKey = new Map();
     sourceMaps = new Map();
@@ -1488,14 +1537,16 @@
         nativeSourceMaps.set(key, buildNativeSourceMap(key));
       }
     });
-    // Level-matched to the anchor over the players they share; its SHAPE is
-    // deliberately its own. Scaling it to the positional-target sum instead
-    // put it 15.7 above the anchor on the shared set and failed the pie guard.
-    sourceMaps.set("espn_vorp", ValueModel.scaleToSharedTotal({
-      values: buildEspnVorpMap(),
-      anchor: anchorMap,
-      playerOf: playerKey => canonicalByKey.get(playerKey)
-    }));
+    // Level-matched to the anchor over the players they share; each SHAPE is
+    // deliberately its own. Scaling to the positional-target sum instead
+    // put ESPN 15.7 above the anchor on the shared set and failed the pie guard.
+    PURE_VORP_KEYS.forEach(vorpKey => {
+      sourceMaps.set(vorpKey, ValueModel.scaleToSharedTotal({
+        values: buildVorpMap(vorpKey),
+        anchor: anchorMap,
+        playerOf: playerKey => canonicalByKey.get(playerKey)
+      }));
+    });
 
     const keys = new Set();
     visibleSourceKeys().forEach(key => sourceMaps.get(key)?.forEach((_, playerKey) => keys.add(playerKey)));
@@ -3399,7 +3450,7 @@
         : `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
     );
     const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources);
-    const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
+    const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
     const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};

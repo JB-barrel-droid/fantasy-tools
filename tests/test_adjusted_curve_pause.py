@@ -62,8 +62,9 @@ class TestPausePredicate(unittest.TestCase):
     def test_raw_and_vorp_keys_never_paused(self):
         got = run_pause([{"key": k, "inputs": EMPTY_INPUTS}
                          for k in ("fantasycalc", "usatoday", "fantasypros",
-                                   "cbs", "espn_vorp")])
-        self.assertEqual(got, [False] * 5)
+                                   "cbs", "espn_vorp", "cbsros_vorp",
+                                   "razzball_vorp")])
+        self.assertEqual(got, [False] * 7)
 
     def test_auto_return_when_cells_land(self):
         complete = [{"position": pos, "tier": tier, "alpha": 0.0, "beta": 1.0}

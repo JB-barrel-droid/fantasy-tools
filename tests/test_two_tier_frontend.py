@@ -613,10 +613,12 @@ class TestStage1FallbackFrozen(unittest.TestCase):
             text,
             r"function normalizeTradeChartToFixedPie\(\s*values\s*,\s*share\s*=\s*DISPLAY_BENCH_SHARE",
             "normalizeTradeChartToFixedPie must default share to DISPLAY_BENCH_SHARE")
-        body = extract_function(text, "buildEspnRows")
+        # JEG-38: the raw-VORP math lives in buildVorpRows (buildEspnRows is a
+        # thin wrapper); the frozen-share invariant applies to the real body.
+        body = extract_function(text, "buildVorpRows")
         self.assertIsNotNone(body)
         self.assertNotRegex(body, r"(?<!DISPLAY_)benchShare",
-                            "buildEspnRows must not read the live slider share")
+                            "buildVorpRows must not read the live slider share")
         self.assertIn("DISPLAY_BENCH_SHARE", body)
 
 
@@ -770,18 +772,20 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         # BOTH renderers. The widget was fixed for this in Sep 2026 and the
         # table was not, so the same source rendered 69.5 on the curve and
         # 76.5 in the table until the guard was widened to cover both.
+        # JEG-38: the raw-VORP math lives in buildVorpRows (buildEspnRows is a
+        # thin wrapper); the purity invariants apply to the real body.
         for name in ("curve-widget.js", "comparison-dashboard.js"):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
-                                    "buildEspnRows")
-            self.assertIsNotNone(body, "buildEspnRows missing from %s" % name)
+                                    "buildVorpRows")
+            self.assertIsNotNone(body, "buildVorpRows missing from %s" % name)
             self.assertNotIn("publishedVorp", body,
-                             "%s: buildEspnRows must not use modeled published values" % name)
+                             "%s: buildVorpRows must not use modeled published values" % name)
             self.assertNotIn('buildPublishedSourceMap("espn")', body,
-                             "%s: buildEspnRows must not read the ESPN-implied combo" % name)
+                             "%s: buildVorpRows must not read the ESPN-implied combo" % name)
         text = WIDGET.read_text()
-        body = extract_function(text, "buildEspnRows")
+        body = extract_function(text, "buildVorpRows")
         self.assertIn("rawProjectionVorp", body,
-                      "buildEspnRows must compute raw projection-minus-waiver VORP")
+                      "buildVorpRows must compute raw projection-minus-waiver VORP")
         self.assertRegex(body, r"rawVorp:\s*row\.rawProjectionVorp",
                          "rawVorp must be the raw projection-minus-waiver value")
 
