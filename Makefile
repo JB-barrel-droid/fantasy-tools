@@ -127,6 +127,8 @@ test-unit:
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
+	python3 -m unittest tests.test_sync_monitor_fixture
+	python3 -m unittest tests.test_rebuild_chain_workflow
 
 # Integration tests: require data/raw snapshots, Supabase, or pipeline artifacts.
 # Run in the rebuild-chain workflow or locally where data is present.

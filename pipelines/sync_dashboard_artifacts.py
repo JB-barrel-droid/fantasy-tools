@@ -303,6 +303,21 @@ def _health_checked_at(path: Path):
     return ts if isinstance(ts, str) and ts else None
 
 
+def sync_monitor_fixture(fixtures: Path, dist_modules: Path) -> Path:
+    """Keep the module monitor's copy of the comparison fixture equal to the fixture.
+
+    dist/modules/comparison-sources-data.json used to be refreshed only by the
+    rebuild-chain workflow, after a green chain. A red chain (a fail-closed review
+    hold) therefore left the served monitor copy stale -- on 2026-10-01 it still
+    lacked the Razzball section the fixture and the app copy already had (JEG-8).
+    Sync now writes it on every deploy, exactly as it already does for the app copy.
+    """
+    dist_modules.mkdir(parents=True, exist_ok=True)
+    target = dist_modules / "comparison-sources-data.json"
+    shutil.copy2(fixtures / "comparison-sources-data.json", target)
+    return target
+
+
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
@@ -341,6 +356,7 @@ def main() -> int:
     dist_modules = DIST / "modules"
     dist_modules.mkdir(parents=True, exist_ok=True)
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
+    sync_monitor_fixture(FIXTURES, dist_modules)
     # import_health_source() may resolve to the checked-in dist copy itself
     # (CI picks the freshest valid candidate, which is usually the pushed dist
     # file) -- never copy a file onto itself.
