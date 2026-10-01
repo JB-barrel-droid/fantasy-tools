@@ -24,6 +24,21 @@ sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 
 import bake_players
 from bake_players import _intake_cbsros, _latest_cbsros_snapshot
+from canonical_players import Registry
+
+
+def _registry():
+    # Hermetic: never touch Supabase. resolve() with registry=None would call
+    # load_registry(), which queries the live players table — that made these
+    # tests pass locally (credentials present) and fail on the Pages runner.
+    return Registry([
+        {"player_key": 2227, "full_name": "Jahmyr Gibbs",
+         "position": "RB", "active": True},
+        {"player_key": 9991, "full_name": "Saquon Barkley",
+         "position": "RB", "active": True},
+        {"player_key": 9992, "full_name": "Harrison Butker",
+         "position": "K", "active": True},
+    ])
 
 
 def _snap(rows, vintage="2026-09-30"):
@@ -44,6 +59,7 @@ class IntakeCbsrosTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
+        self.reg = _registry()
 
     def tearDown(self):
         self.tmp.cleanup()
@@ -56,7 +72,7 @@ class IntakeCbsrosTest(unittest.TestCase):
     def test_prices_complete_rows_by_player_key(self):
         # Jahmyr Gibbs must resolve to his numeric chart key with all 3.
         p = self._write(_snap([_row("Jahmyr Gibbs", "RB", 20.0, 22.0, 24.0)]))
-        med, vintage = _intake_cbsros(p, None)
+        med, vintage = _intake_cbsros(p, self.reg)
         self.assertEqual(vintage, "2026-09-30")
         self.assertEqual(len(med), 1)
         key = next(iter(med))
@@ -68,7 +84,7 @@ class IntakeCbsrosTest(unittest.TestCase):
         rows = [_row("Jahmyr Gibbs", "RB", 20.0, 22.0, 24.0),
                 _row("Saquon Barkley", "RB", 19.0, 21.0, None)]
         p = self._write(_snap(rows))
-        med, _ = _intake_cbsros(p, None)
+        med, _ = _intake_cbsros(p, self.reg)
         self.assertEqual(len(med), 1)
         # the complete row survives; the partial one does not
         vals = list(med.values())[0]
@@ -78,13 +94,13 @@ class IntakeCbsrosTest(unittest.TestCase):
         p = self._write(_snap([_row("Jahmyr Gibbs", "RB", 20, 22, 24)],
                               vintage=None))
         with self.assertRaises(SystemExit):
-            _intake_cbsros(p, None)
+            _intake_cbsros(p, self.reg)
 
     def test_unresolvable_identity_excluded_not_guessed(self):
         rows = [_row("Jahmyr Gibbs", "RB", 20.0, 22.0, 24.0),
                 _row("Not A Real Player Xyz", "RB", 99.0, 99.0, 99.0)]
         p = self._write(_snap(rows))
-        med, _ = _intake_cbsros(p, None)
+        med, _ = _intake_cbsros(p, self.reg)
         self.assertEqual(len(med), 1)
         for v in med.values():
             self.assertLess(v["ppr"], 50.0)
@@ -93,13 +109,13 @@ class IntakeCbsrosTest(unittest.TestCase):
         rows = [_row("Jahmyr Gibbs", "RB", 20.0, 22.0, 24.0),
                 _row("Harrison Butker", "K", 9.0, 9.0, 9.0)]
         p = self._write(_snap(rows))
-        med, _ = _intake_cbsros(p, None)
+        med, _ = _intake_cbsros(p, self.reg)
         self.assertEqual(len(med), 1)
 
     def test_nonfinite_values_excluded(self):
         rows = [_row("Jahmyr Gibbs", "RB", 20.0, float("nan"), 24.0)]
         p = self._write(_snap(rows))
-        med, _ = _intake_cbsros(p, None)
+        med, _ = _intake_cbsros(p, self.reg)
         self.assertEqual(med, {})
 
     def test_latest_snapshot_picks_max_vintage(self):
