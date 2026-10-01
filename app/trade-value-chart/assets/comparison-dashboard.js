@@ -1132,6 +1132,14 @@
     renderTable();
   }
 
+  // The widget can dispatch shared-change before init() has loaded `data`; state is
+  // already updated by then and init() builds from it, so skip the rebuild (JEG-44).
+  function rebuildAndRender() {
+    if (!data) return;
+    rebuildSourceMaps();
+    renderAll();
+  }
+
   window.TradeValueComparisonControls = {
     refresh: () => data && renderAll(),
     setLockOrder: value => data && setLockOrder(value, false),
@@ -1140,15 +1148,13 @@
       if (scoring && scoring !== state.scoring) {
         state.scoring = scoring;
         SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-        rebuildSourceMaps();
-        renderAll();
+        rebuildAndRender();
       }
       const sharedTeams = Number(shared?.teams);
       if ([8,10,12,14].includes(sharedTeams) && sharedTeams !== state.teams) {
         state.teams = sharedTeams;
         SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-        rebuildSourceMaps();
-        renderAll();
+        rebuildAndRender();
       }
       if (["ALL","QB","RB","WR","TE","FLEX"].includes(shared?.position)) {
         state.filters.position = shared.position;
@@ -1158,16 +1164,14 @@
       const rosterShape = normalizeRosterShape(shared?.rosterShape);
       if (rosterShape && Object.keys(rosterShape).some(key => rosterShape[key] !== state.rosterShape[key])) {
         state.rosterShape = rosterShape;
-        rebuildSourceMaps();
-        renderAll();
+        rebuildAndRender();
       }
       const sharedBenchShare = Number(shared?.benchShare ?? shared?.absenceRate);
       if (Number.isFinite(sharedBenchShare)) {
         const nextBenchShare = Math.max(0, Math.min(0.5, sharedBenchShare));
         if (Math.abs(nextBenchShare - state.benchShare) > 0.0001) {
           state.benchShare = nextBenchShare;
-          rebuildSourceMaps();
-          renderAll();
+          rebuildAndRender();
         }
       }
       // Sync global position weights (from the standalone Weights section).
@@ -1180,8 +1184,7 @@
           const changed = ["QB", "RB", "WR", "TE"].some(p => Math.abs((state.positionWeights?.[p] || 0) - norm[p]) > 0.0001);
           if (changed) {
             state.positionWeights = norm;
-            rebuildSourceMaps();
-            renderAll();
+            rebuildAndRender();
           }
         }
       }
