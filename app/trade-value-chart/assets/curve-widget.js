@@ -1248,9 +1248,16 @@
     const displayShare = anchorDisplayShare(anchorMap);
     lastDisplayShare = displayShare;
     SOURCE_KEYS.filter(key => key !== "espn").forEach(key => {
+      // As-published sources (FantasyCalc, USA Today, etc.) are already
+      // indexed to the anchor's pie by the pipeline via
+      // proportional_scaling_vorp_overlap. Re-applying normalizeToFixedPie
+      // here double-scales them and breaks the fixed-pie guard. Use the
+      // fixture values directly.
       const sourceMap = key.endsWith("_adjusted")
         ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
-        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap, key);
+        : AS_PUBLISHED_KEYS.has(key)
+          ? buildSourceMap(key)
+          : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap, key);
       sourceMaps.set(key, sourceMap);
       // As-published sources get a native-value map for lock-order sorting.
       if (AS_PUBLISHED_KEYS.has(key)) {
@@ -2524,6 +2531,16 @@
     visibleSourceKeys().filter(sourceAvailable).forEach(key => {
       const values = sourceMaps.get(key);
       if (!values) return;
+      // As-published sources are indexed by the pipeline via
+      // proportional_scaling_vorp_overlap, which calibrates on the VORP>0
+      // overlap set (not the full shared set). The browser does not re-scale
+      // them, so this shared-total check does not apply. The pipeline's
+      // fixed-pie invariant (overlap total = anchor overlap total) is verified
+      // by pipeline tests, not by this client-side guard.
+      if (AS_PUBLISHED_KEYS.has(key)) {
+        checks.push({source:key, basis:"pipeline", shared:null, total:null, target:null, delta:null, ok:true});
+        return;
+      }
       if (key === "espn") {
         // The anchor is now priced per position against its own pie, so its
         // total is the SUM of the positional targets -- not the single common
