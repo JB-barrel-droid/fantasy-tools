@@ -2489,6 +2489,7 @@
   function syncCurveStatus() {
     const status = $("#curve-status");
     if (!status) return;
+    const activeNotices = [...status.querySelectorAll(".lock-revert-notice")];
     status.classList.add("validated");
     const pausedKeys = ADJUSTED_INDEXED_KEYS.filter(isAdjustedCurvePaused);
     const defaultKeys = new Set(defaultIndexedSourceKeys(adjustmentInputs));
@@ -2506,6 +2507,7 @@
       adjustedStatus = "ESPN live is shown by default. Adjusted source projects are live for supported league setups, but this setup has no matching source combo.";
     }
     status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`;
+    activeNotices.forEach(note => status.appendChild(note));
   }
 
   // QA-003: Show user-visible notification when lock order is force-reverted.
