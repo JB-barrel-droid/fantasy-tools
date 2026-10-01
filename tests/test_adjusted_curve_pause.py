@@ -225,9 +225,15 @@ class TestPauseWiring(unittest.TestCase):
         self.assertIn("defaultIndexedSourceKeys", self.text)
 
     def test_regression_guard_checks_computed_default_set(self):
+        # DEFECT 1 (2026-10-01): the guard routes through
+        # defaultCurvesSatisfied(), which checks the computed default set
+        # while exempting curves the user deliberately deselected.
         self.assertIn(
-            "defaultIndexedSourceKeys(adjustmentInputs).every(key => activeSources.has(key))",
+            "defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources)",
             self.text)
+        self.assertIn("function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet)",
+                      self.text)
+        self.assertIn("defaultIndexedSourceKeys(inputs).every(", self.text)
 
     def test_peak_distinctness_allows_single_active_source(self):
         self.assertIn("const distinctSourcePeaks = activeKeysForGuard.length <= 1",

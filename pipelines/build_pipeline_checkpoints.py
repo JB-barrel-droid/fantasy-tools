@@ -592,6 +592,30 @@ def build_checkpoints():
     return result
 
 
+def _reindex_pipeline_method():
+    """Method string the reindex pipeline currently stamps into fixture fit
+    metadata for as-published sources. Parsed from
+    pipelines/reindex_comparison_section.py (the single source of truth) so
+    the methodology-consistency check follows intentional methodology
+    changes instead of flagging them. Fail-closed: raises if the pipeline
+    no longer carries an identifiable flex_aware_pie method."""
+    # Resolved from this file's own location, NOT the module-level REPO
+    # (which tests may point at a fixture-only sandbox).
+    pipelines_dir = Path(__file__).resolve().parent
+    src = (pipelines_dir / "reindex_comparison_section.py").read_text()
+    m = re.search(
+        r'\["fit"\]\["flex_aware_pie"\]\s*=\s*\{[^}]*"method":\s*"([a-z0-9_]+)"',
+        src,
+        re.S,
+    )
+    if not m:
+        raise RuntimeError(
+            "build_pipeline_checkpoints: could not determine as-published "
+            "reindex method from reindex_comparison_section.py"
+        )
+    return m.group(1)
+
+
 def build_methodology_consistency():
     """Check methodological consistency across sources at each transformation step.
 
@@ -601,7 +625,10 @@ def build_methodology_consistency():
 
     Checks:
       M1 Reindex method: all as-published sources (fantasycalc, fantasypros,
-         usatoday, cbs) use proportional_scaling_vorp_overlap on every combo.
+         usatoday, cbs) use the SAME method the reindex pipeline currently
+         writes (single source of truth: reindex_comparison_section.py's
+         flex_aware_pie fit). A source silently keeping an older method
+         while others migrate is methodology drift and fails.
       M2 Combo coverage: each as-published source has all 3 scorings
          (full_12, half_12, standard_12).
       M3 Anchor consistency: all reindex fits anchor to espn_leg.
@@ -619,7 +646,16 @@ def build_methodology_consistency():
             pass
 
     ASPUBLISHED = ["fantasycalc", "fantasypros", "usatoday", "cbs"]
-    EXPECTED_METHOD = "proportional_scaling_vorp_overlap"
+    # EXPECTED_METHOD is derived from the reindex pipeline itself (single
+    # source of truth), not hardcoded here. When Jeremy's methodology
+    # directive changes the reindex math, the pipeline writes the new method
+    # into fixture fit metadata and this check follows it. A source whose
+    # fixture still carries an older method string is genuine drift and fails.
+    # (2026-10-01: the flex-aware total-pie directive moved the method from
+    # proportional_scaling_vorp_overlap to
+    # proportional_scaling_flex_aware_per_position; the old hardcoded
+    # constant falsely flagged the intentional change as a bad checkpoint.)
+    EXPECTED_METHOD = _reindex_pipeline_method()
     EXPECTED_ANCHOR = "espn_leg"
     COMBOS = ["full_12", "half_12", "standard_12"]
 

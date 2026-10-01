@@ -534,6 +534,18 @@
             ...ADJUSTED_INDEXED_KEYS.filter(key => !adjustedCurvePaused(key, inputs))];
   }
   globalThis.TradeValueCurvePause.defaultIndexedSourceKeys = defaultIndexedSourceKeys;
+  // DEFECT 1 (2026-10-01): pure in (inputs, activeSet, userHiddenSet) so it
+  // is unit-testable. True when every default curve is either active or was
+  // deliberately hidden by the user. A default that vanished WITHOUT the
+  // user asking still fails, preserving the guard's regression-catching
+  // power; a user-hidden default no longer throws inside
+  // runRegressionGuards() on the next scoring/teams change (which used to
+  // die before draw()/publishShared() and freeze the comparison table).
+  function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet) {
+    return defaultIndexedSourceKeys(inputs).every(
+      key => activeSet.has(key) || (userHiddenSet && userHiddenSet.has(key)));
+  }
+  globalThis.TradeValueCurvePause.defaultCurvesSatisfied = defaultCurvesSatisfied;
 
   // Collapse guard, pure in (peaks) so it is unit-testable without a DOM.
   // `peaks` maps an active source key to that curve's maximum indexed value.
@@ -631,6 +643,12 @@
   let includeSpecialists = false;
   let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
+  // DEFECT 1 (2026-10-01): curves the user deliberately unchecked. The
+  // defaultGroupedSources regression guard must not treat a user-hidden
+  // default curve as a missing default, or the next scoring/teams change
+  // throws inside runRegressionGuards() before draw()/publishShared() and
+  // the comparison table freezes on the old scoring with no visible error.
+  let userDeselectedSources = new Set();
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -2078,8 +2096,8 @@
         label.title = `${sourceLabel(key)} is stale. It remains available until Week ${activeReferenceWeek()} values are present.`;
       }
       input.addEventListener("change", () => {
-        if (input.checked) activeSources.add(key);
-        else if (activeSourceKeys().length > 1) activeSources.delete(key);
+        if (input.checked) { activeSources.add(key); userDeselectedSources.delete(key); }
+        else if (activeSourceKeys().length > 1) { activeSources.delete(key); userDeselectedSources.add(key); }
         else input.checked = true;
         crossRank = null;
         syncZoom();
@@ -2999,7 +3017,7 @@
         ? `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ${scaleAgreement.offenders.join("; ")}`
         : `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
     );
-    const defaultGroupedSources = defaultIndexedSourceKeys(adjustmentInputs).every(key => activeSources.has(key));
+    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources);
     const pureVorpAvailable = sourceMaps.get("espn_vorp")?.size > 0;
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
@@ -3022,6 +3040,7 @@
       // live stage-2 cells (fixture-transition Option B auto-return). The
       // banner's "shown by default" copy is only true when this matches it.
       activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs));
+      userDeselectedSources = new Set();
       canonicalByKey = buildCanonicalMap();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       const invalid = SOURCE_KEYS.filter(key => sourceValidationStatus(key) !== "live");

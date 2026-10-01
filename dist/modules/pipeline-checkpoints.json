@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T04:37:20.582684+00:00",
+  "generated_at": "2026-10-01T04:39:13.293486+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -99,12 +99,12 @@
           "reason": "Comparison data fresh (built 2026-10-01, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T04:08:40Z",
+          "timestamp": "2026-10-01T04:38:21Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T04:37:23.187868+00:00",
+          "timestamp": "2026-10-01T04:39:15.769598+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (a803ad0afb60), 12 combos. Live built 2026-10-01T02:47."
         }
@@ -154,12 +154,12 @@
           "reason": "Comparison data fresh (built 2026-10-01, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T04:08:40Z",
+          "timestamp": "2026-10-01T04:38:21Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T04:37:25.771785+00:00",
+          "timestamp": "2026-10-01T04:39:17.441911+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (a803ad0afb60), 3 combos. Live built 2026-10-01T02:47."
         }
@@ -209,12 +209,12 @@
           "reason": "Comparison data fresh (built 2026-10-01, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T04:08:40Z",
+          "timestamp": "2026-10-01T04:38:21Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T04:37:28.028030+00:00",
+          "timestamp": "2026-10-01T04:39:19.020298+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (a803ad0afb60), 12 combos. Live built 2026-10-01T02:47."
         }
@@ -264,12 +264,12 @@
           "reason": "Comparison data fresh (built 2026-10-01, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T04:08:40Z",
+          "timestamp": "2026-10-01T04:38:21Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T04:37:30.421233+00:00",
+          "timestamp": "2026-10-01T04:39:20.560014+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (a803ad0afb60), 24 combos. Live built 2026-10-01T02:47."
         }
@@ -319,12 +319,12 @@
           "reason": "Comparison data fresh (built 2026-10-01, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T04:08:40Z",
+          "timestamp": "2026-10-01T04:38:21Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T04:37:32.180102+00:00",
+          "timestamp": "2026-10-01T04:39:22.229206+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (a803ad0afb60), 3 combos. Live built 2026-10-01T02:47."
         }
@@ -374,12 +374,12 @@
           "reason": "Comparison data fresh (built 2026-10-01, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T04:08:40Z",
+          "timestamp": "2026-10-01T04:38:21Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T04:37:33.990829+00:00",
+          "timestamp": "2026-10-01T04:39:24.113320+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (a803ad0afb60), 3 combos. Live built 2026-10-01T02:47."
         }
@@ -391,7 +391,7 @@
     "runner": "local",
     "runner_label": "local",
     "success": false,
-    "run_age_days": 0.09001671560185186,
+    "run_age_days": 0.09129128149305556,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -434,21 +434,17 @@
   "methodology_consistency": {
     "label": "Methodology consistency",
     "what": "All as-published sources use the same reindex method and anchor at each transformation step",
-    "timestamp": "2026-10-01T04:37:34.510811+00:00",
+    "timestamp": "2026-10-01T04:39:24.512771+00:00",
     "status": "bad",
-    "reason": "8 methodology inconsistencies: fantasycalc/full_12_qb1/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap); fantasycalc/half_12_qb1/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap); fantasycalc/standard_12_qb1/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap); fantasypros/full_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap); usatoday/full_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap) (+3 more)",
-    "expected_method": "proportional_scaling_vorp_overlap",
+    "reason": "4 methodology inconsistencies: fantasypros/half_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position); fantasypros/standard_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position); usatoday/half_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position); usatoday/standard_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position)",
+    "expected_method": "proportional_scaling_flex_aware_per_position",
     "expected_anchor": "espn_leg",
     "combos_checked": 12,
     "issues": [
-      "fantasycalc/full_12_qb1/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "fantasycalc/half_12_qb1/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "fantasycalc/standard_12_qb1/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "fantasypros/full_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "usatoday/full_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "cbs/full_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "cbs/half_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)",
-      "cbs/standard_12/flex_aware_pie: method=proportional_scaling_flex_aware_per_position (expected proportional_scaling_vorp_overlap)"
+      "fantasypros/half_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position)",
+      "fantasypros/standard_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position)",
+      "usatoday/half_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position)",
+      "usatoday/standard_12/global: method=proportional_scaling_vorp_overlap (expected proportional_scaling_flex_aware_per_position)"
     ]
   }
 }
