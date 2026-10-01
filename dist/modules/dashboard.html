@@ -283,6 +283,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </footer>
 
 <script>
+const CB = Date.now();
 "use strict";
 const CP_PATHS = [
   "../output/pipeline-checkpoints.json",
@@ -485,7 +486,7 @@ async function main(){
   const fidelityHost = document.getElementById("fidelitySources");
   const fidelitySummary = document.getElementById("fidelitySummary");
   try {
-    const fidResp = await fetch("source-fidelity.json", {cache:"no-store"});
+    const fidResp = await fetch("source-fidelity.json?t="+CB, {cache:"no-store"});
     if(fidResp.ok){
       const fid = await fidResp.json();
       const sources = fid.sources || {};
@@ -580,7 +581,7 @@ async function main(){
   const mathHost = document.getElementById("indexMathSources");
   const mathSummary = document.getElementById("indexMathSummary");
   try {
-    const mathResp = await fetch("index-math.json", {cache:"no-store"});
+    const mathResp = await fetch("index-math.json?t="+CB, {cache:"no-store"});
     if(mathResp.ok){
       const mathData = await mathResp.json();
       const sources = mathData.sources || {};
@@ -662,7 +663,7 @@ async function main(){
   const lineageHost = document.getElementById("lineageSources");
   const lineageSummary = document.getElementById("lineageSummary");
   try {
-    const linResp = await fetch("source-value-lineage.json", {cache:"no-store"});
+    const linResp = await fetch("source-value-lineage.json?t="+CB, {cache:"no-store"});
     if(linResp.ok){
       const linData = await linResp.json();
       const linSources = linData.sources || {};
@@ -772,7 +773,7 @@ async function main(){
   const espnInputsHost = document.getElementById("espnInputsTable");
   const espnInputsSummary = document.getElementById("espnInputsSummary");
   try {
-    const eiResp = await fetch("espn-input-comparison.json", {cache:"no-store"});
+    const eiResp = await fetch("espn-input-comparison.json?t="+CB, {cache:"no-store"});
     if(eiResp.ok){
       const eiData = await eiResp.json();
       const players = eiData.players || [];
@@ -842,7 +843,7 @@ async function main(){
   const espnRawSummary = document.getElementById("espnRawSummary");
   const espnRawFormula = document.getElementById("espnRawFormula");
   try {
-    const rvResp = await fetch("espn-raw-values.json", {cache:"no-store"});
+    const rvResp = await fetch("espn-raw-values.json?t="+CB, {cache:"no-store"});
     if(rvResp.ok){
       const rvData = await rvResp.json();
       const players = rvData.players || [];
@@ -1187,7 +1188,7 @@ async function loadCrossSourceAgreement() {
   const summaryEl = document.getElementById("crossSourceSummary");
   const tableEl = document.getElementById("crossSourceTable");
   try {
-    const resp = await fetch("cross-source-agreement.json", {cache:"no-store"});
+    const resp = await fetch("cross-source-agreement.json?t="+CB, {cache:"no-store"});
     if (!resp.ok) throw new Error("not available");
     const data = await resp.json();
     const divs = data.divergences || [];
@@ -1239,7 +1240,7 @@ async function loadIdentityVerification() {
   const summaryEl = document.getElementById("identitySummary");
   const issuesEl = document.getElementById("identityIssues");
   try {
-    const resp = await fetch("identity-verification.json", {cache:"no-store"});
+    const resp = await fetch("identity-verification.json?t="+CB, {cache:"no-store"});
     if (!resp.ok) throw new Error("not available");
     const data = await resp.json();
     const issues = data.issues || [];
