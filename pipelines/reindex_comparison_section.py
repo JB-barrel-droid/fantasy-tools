@@ -302,29 +302,83 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 raise SystemExit(
                     f"reindex: {source}/{combo_name} native_overlap={native_overlap} anchor_overlap={anchor_overlap} -- cannot scale"
                 )
-            scale = anchor_overlap / native_overlap
+            # FLEX-AWARE PER-POSITION PIE ALLOCATION (2026-10-01):
+            # Run flex allocation on SOURCE rankings to preserve the source's
+            # opinions about who deserves flex spots. Then scale each
+            # (position, role) bucket independently to match the anchor.
+            #
+            # Roles: 'dedicated' (positional starters), 'flex' (flex starters),
+            # 'bench' (everyone else). Flex pool = remaining RB/WR/TE sorted
+            # by source native value; top flex_count per team win flex spots.
+            import math
+            teams = 12  # TODO: from league config
+            slots = ROSTER_SHAPE  # QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6
+            flex_count = slots.get("FLEX", 2)
+
+            # Rank source players by native value within each position
+            by_pos = {}
+            for pos in POSITIONS:
+                rows = [(slug, float(native[slug])) for slug in priced
+                        if pos_by_slug.get(slug) == pos]
+                rows.sort(key=lambda x: (-x[1], x[0]))
+                by_pos[pos] = rows
+
+            # Dedicated starters: top slots[pos] per position
+            dedicated = set()
+            role_of = {}
+            for pos in POSITIONS:
+                n_start = teams * slots.get(pos, 0)
+                for slug, _ in by_pos[pos][:n_start]:
+                    dedicated.add(slug)
+                    role_of[slug] = "dedicated"
+
+            # Flex pool: remaining flex-eligible, sorted by source value
+            flex_pool = []
+            for pos in FLEX_ELIGIBLE:
+                for slug, val in by_pos.get(pos, []):
+                    if slug not in dedicated:
+                        flex_pool.append((slug, val, pos))
+            flex_pool.sort(key=lambda x: (-x[1], x[0]))
+            n_flex = teams * flex_count
+            for slug, _, pos in flex_pool[:n_flex]:
+                role_of[slug] = "flex"
+            for slug, _, pos in flex_pool[n_flex:]:
+                if slug not in role_of:
+                    role_of[slug] = "bench"
+            # Non-flex-eligible remaining go to bench
             for slug in priced:
-                out_combo["reindexed"][slug] = float(native[slug]) * scale
-            out_combo["fit"]["global"] = {
-                "method": "proportional_scaling_vorp_overlap",
+                if slug not in role_of:
+                    role_of[slug] = "bench"
+
+            # For each (pos, role) bucket, scale source total to anchor total
+            bucket_scales = {}
+            for pos in POSITIONS:
+                for role in ("dedicated", "flex", "bench"):
+                    bucket_slugs = [s for s in priced
+                                    if pos_by_slug.get(s) == pos and role_of.get(s) == role]
+                    if not bucket_slugs:
+                        continue
+                    src_total = sum(float(native[s]) for s in bucket_slugs)
+                    # Anchor total for SAME players (not anchor's role assignment)
+                    anc_total = sum(
+                        float(anchor_by_key[combo.get("player_keys", {}).get(s)])
+                        for s in bucket_slugs
+                        if combo.get("player_keys", {}).get(s) in anchor_by_key
+                    )
+                    if src_total <= 0 or anc_total <= 0:
+                        continue
+                    scale = anc_total / src_total
+                    bucket_scales[(pos, role)] = scale
+                    for slug in bucket_slugs:
+                        out_combo["reindexed"][slug] = float(native[slug]) * scale
+
+            out_combo["fit"]["flex_aware_pie"] = {
+                "method": "proportional_scaling_flex_aware_per_position",
                 "anchor": "espn_leg",
                 "n_priced": len(priced),
-                "n_overlap": len(overlap),
-                "native_overlap": native_overlap,
-                "anchor_overlap": anchor_overlap,
-                "scale": scale,
-                "overlap_slugs": sorted(overlap),
-            }
-            out_combo["n"]["global"] = len(priced)
-            # Fixed-pie target: the anchor's VORP>0 overlap total. The source's
-            # VORP>0 players sum to this amount; the scale was calibrated on
-            # exactly this set.
-            out_combo["index_total"]["global"] = {
-                "target_total": anchor_overlap,
-                "pre_total": native_overlap,
-                "factor": scale,
-                "n_priced": len(priced),
-                "n_overlap": len(overlap),
+                "buckets": {f"{pos}/{role}": {"scale": s, "n": len([x for x in priced if pos_by_slug.get(x)==pos and role_of.get(x)==role])}
+                            for (pos, role), s in bucket_scales.items()},
+                "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
             }
         else:
                 for pos in POSITIONS:
