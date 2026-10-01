@@ -32,6 +32,107 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-27: four of the seven emergency test skips fixed at the root
+
+Claude Code cloud session (Claude lane), working with Muse via Linear labels
+`owner:claude` / `owner:muse`. Branch `claude/busy-maxwell-8uv9jc`, draft PR, no push to
+`main`. Based on `origin/main` `2876a38`.
+
+### Verified
+
+Each root cause was reproduced first by removing the skip, then fixed, then
+mutation-tested (the guard was disabled one check at a time and a named test had to
+fail). Mutation runs used `python3 -B` with `__pycache__` cleared: a first loop
+without that printed a wrong row for one mutation (stale bytecode), which I caught by
+re-running it by hand; the results below are from the clean rerun.
+
+- **`test_pipeline_cascade` (code bug).** Failure reproduced: `AssertionError:
+  'Week 4' != None` at the reindexed section. Cause: `build_source_reference.py`
+  does keep `source_provenance` (with `content_vintage` inside it), but
+  `build_comparison_source_section.build_section()` never copied it into the
+  candidate section, and `reindex_comparison_section.py:546` reads both off the
+  candidate. Fix: `build_section()` now carries `source_provenance` and
+  `content_vintage` forward, refuses mixed `content_vintage` across inputs, and
+  yields `None` (never a guessed vintage) when the reference has none. Three new
+  tests in `tests/test_comparison_candidate_build.py`; without the fix 4 tests fail
+  (the 3 new ones plus the cascade test), with it all pass.
+  *Correction to Muse's trace:* the vintage is not missing from the reference
+  artifact; the drop is in the section builder.
+- **`test_promote_section` (code missing; the skip message was wrong).** The skip
+  said "crashes on missing snapshot.json". Reproduced actual error: `TypeError:
+  promote() got an unexpected keyword argument 'import_health_path'`.
+  `docs/import-health-schema.md` ("Gate semantics") already specified the L1 gate;
+  it was never implemented. Implemented `check_l1_freshness()` in
+  `promote_comparison_section.py`, applied to the six active raw sources
+  (`verify_import_health.DASHBOARD_SOURCES`): refuses on missing/unreadable health
+  file, wrong schema, no source entry, status not `ok`, candidate without
+  `content_vintage`, or vintage != fresh L1 vintage. It records the evidence in the
+  promotion record (`l1_import_health_gate`) and installs `content_vintage` /
+  `source_provenance` on the promoted fixture section. New `--import-health` CLI
+  flag, default `output/source-import-health.json`. Mutation results, each caught
+  by the named test: gate off entirely (5 tests), schema check, no-entry check,
+  status check, candidate-vintage-present, vintage-equality, missing-file, and
+  never-install-vintage (all single-test catches). 5 new tests added.
+- **`test_writer_audit_enforcement` x2 (code bug + wrong assertion).**
+  `WriterAudit.complete()`/`fail()` did `from sbclient import _request` and ignored
+  the injected `sb_client_factory`, so they could not run without Muse's local
+  module (`ModuleNotFoundError`). They now use `self._get_sb_client()._request`.
+  Production behaviour is unchanged for the default path (`start()` already puts the
+  same module on `sys.path`; no caller outside tests passes a factory, checked by
+  grep). The tests asserted the update was `post(..., params=...)`. That assertion
+  was wrong: PostgREST POST inserts a new row regardless of a filter, so the
+  production PATCH is the correct mechanism. I changed the assertions to require
+  `_request("PATCH", ...)` with the run_id filter and `post` not called, and added a
+  trap `sbclient` in `sys.modules` so the test fails if the injected client is
+  bypassed even on a machine that has the module. Mutations (global import in
+  `complete()`, global import in `fail()`, POST instead of PATCH) each fail the
+  matching test.
+- **Gate scope.** `make validate` = `naming reference sync test-unit` (Makefile).
+  `test_pipeline_cascade`, `test_promote_section`, `test_writer_audit_enforcement`
+  and `test_cbs_usatoday_recurring` are in `test-integration`, which `validate` does
+  not run. So those four skips were not what blocked the Pages gate; only
+  `test_static_export:475` (JEG-25) is in the unit path.
+- Suites after the changes: `make test-unit` all OK; `make -k test-integration` all
+  OK; `make naming reference` OK. 3 `@unittest.skip` remain (list below).
+- Fixed a crossed tag: `test_static_export.py:475` said "See JEG-27"; it is JEG-25's
+  and now says so. Still skipped.
+
+### Not fixed, deliberately
+
+- `test_cbs_usatoday_recurring` x2 (`test_rows_land_with_correct_grain`,
+  `test_ambiguous_identity_goes_to_review_never_guessed`): they assert the upsert
+  contract (`upsert_rows(table, rows, conflict)`), but `save_usatoday()` now does a
+  hard-coded plain `sbclient.post` insert (code comment: the unique index does not
+  exist yet). That is the JEG-28 workaround. Making these green would pin a known
+  temporary workaround, and JEG-28 puts saver changes out of scope. Skips re-tagged
+  to JEG-28 with the unblock condition. Still skipped.
+- `test_static_export:475` stays skipped (JEG-25).
+
+### Claimed, unverified
+
+- That production `--auto` promotion still works end to end with the new gate. In
+  `rebuild-chain.yml` the health step runs before the chain and writes the default
+  path, so it should. I did not run the workflow, and I do not know whether Muse's
+  local crons (`trade-value-dashboard-push`, now disabled) run health first. What
+  would settle it: a `rebuild-chain` run on a branch, or Muse confirming the
+  local path.
+- Muse's report that JEG-5 is live-fixed (build `tv-20261001-1545-7b6a540`): I only
+  confirmed the commit exists on `origin/main`; I did not load the site.
+- `make sync` (the third step of `make validate`) was not run locally because it
+  stamps the build tag and rewrites `dist/`; CI will run it on the PR.
+
+### Open
+
+- The L1 gate does not check the health file's `checked_at` age, so an old but `ok`
+  file would pass. The docs do not specify an age limit; this is a design decision
+  for Jeremy/Muse (GAP-015).
+- `save_usatoday()` plain-inserts into a table with no unique index, so re-running a
+  save for the same vintage would add duplicate rows. Read from code, not executed
+  (GAP-012).
+- `docs/import-health-schema.md` says "five" sources throughout; the code covers six
+  (`cbsros` added 2026-10-01) (GAP-014).
+- Also added GAP-013 (validate does not run integration tests) and FIX-010.
+
 ## 2026-09-29 - Cascade pipeline orchestration implementation
 
 ### Verified

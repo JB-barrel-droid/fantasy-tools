@@ -472,7 +472,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('let lockOrder = "espn"', text)
         self.assertIn('sourceAvailable("fantasycalc_adjusted")', text)
 
-    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-27.")
+    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-25.")
     def test_dashboard_copy_does_not_surface_old_branding(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
         assets = "\n".join(

@@ -228,7 +228,9 @@ class SaveUsatodayTest(unittest.TestCase):
         save_usat.upsert_rows = self._upsert
         save_usat.count_rows = self._count
 
-    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-27.")
+    @unittest.skip("Asserts the upsert contract; save_usatoday_references.py currently does a plain insert "
+                   "(workaround for the missing unique index). Blocked on JEG-28: add the index, "
+                   "restore the upsert_rows path, then unskip.")
     def test_rows_land_with_correct_grain(self):
         result = save_usat.save_usatoday(
             self.json_path, dry_run=False, week=2, bake_id="pullwk2_2026-09-22",
@@ -261,7 +263,9 @@ class SaveUsatodayTest(unittest.TestCase):
         self.assertTrue(all(r["week"] == 2 for r in rows))
         self.assertTrue(all(r["variant"] == "as_published" for r in rows))
 
-    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-27.")
+    @unittest.skip("Asserts the upsert contract; save_usatoday_references.py currently does a plain insert "
+                   "(workaround for the missing unique index). Blocked on JEG-28: add the index, "
+                   "restore the upsert_rows path, then unskip.")
     def test_ambiguous_identity_goes_to_review_never_guessed(self):
         result = save_usat.save_usatoday(
             self.json_path, dry_run=False, week=2, bake_id="pullwk2_2026-09-22",
