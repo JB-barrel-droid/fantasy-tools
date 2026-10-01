@@ -387,14 +387,9 @@ def save_usatoday(
     try:
         # Add audit fields to rows (if audit available)
         rows_to_save = audit.audit_rows(clean) if audit else clean
-        # Use plain insert (no on_conflict) - Week 4 data is new, no existing rows to conflict with.
-        # The upsert constraint doesn't exist in the DB yet; insert is safe for new vintages.
-        import sys
-        sys.path.insert(0, "/home/hatch/workspace/skills/supabase-football-signal/bin")
-        import sbclient
-        for start in range(0, len(rows_to_save), 500):
-            chunk = rows_to_save[start : start + 500]
-            sbclient.post("source_trade_values", chunk)
+        # Upsert on the grain's unique index (JEG-28), the same shared path the other savers use,
+        # so re-running a save for the same vintage merges instead of duplicating or failing.
+        upsert_rows("source_trade_values", rows_to_save, USAT_UPSERT_CONFLICT)
         if audit:
             audit.complete(row_count=len(clean))
     except Exception as e:

@@ -303,11 +303,16 @@ def bake(args):
                          "no ECR snapshot to bake from.")
     ecr_snapshot_date = str(snap_rows[0]["snapshot_date"])
 
+    # fp_season_latest_norm has no id column (view grain: one row per
+    # snapshot_date x player_key — verified unique), so order explicitly on
+    # the unique key rather than letting get_all() default to order=id.
+    # JEG-46.
     ecr_rows = query_all(
         "fp_season_latest_norm",
         "?select=player_key,player_norm,position,team,passing_yards,passing_tds,"
         "rushing_yards,rushing_tds,receptions,receiving_yards,receiving_tds"
-        f"&player_key=not.is.null&snapshot_date=eq.{ecr_snapshot_date}")
+        f"&player_key=not.is.null&snapshot_date=eq.{ecr_snapshot_date}"
+        "&order=player_key")
 
     # ---- ECR content vintage (fail-closed) ---------------------------------
     # Content = the 7 stat components + proj_half_ppr per player. Players
