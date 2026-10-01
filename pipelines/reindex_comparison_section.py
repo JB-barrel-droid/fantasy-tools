@@ -380,6 +380,30 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                             for (pos, role), s in bucket_scales.items()},
                 "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
             }
+            # Write index_total in per-position format for the review script.
+            # Aggregate buckets by position for the sanity check.
+            out_combo["index_total"] = {}
+            out_combo["n"] = {}
+            for pos in POSITIONS:
+                pos_buckets = [(r, s) for (p, r), s in bucket_scales.items() if p == pos]
+                if not pos_buckets:
+                    continue
+                # Aggregate: weighted average scale by bucket size
+                total_n = sum(len([x for x in priced if pos_by_slug.get(x)==pos and role_of.get(x)==role]) for role, _ in pos_buckets)
+                if total_n == 0:
+                    continue
+                # For the sanity check, use the dedicated bucket scale as representative,
+                # or the first available bucket
+                rep_scale = next((s for r, s in pos_buckets if r == "dedicated"), pos_buckets[0][1])
+                pos_slugs = [s for s in priced if pos_by_slug.get(s) == pos]
+                pre_total = sum(float(native[s]) for s in pos_slugs)
+                out_combo["index_total"][pos] = {
+                    "target_total": pre_total * rep_scale,  # scaled total
+                    "pre_total": pre_total,
+                    "factor": rep_scale,
+                    "n_priced": len(pos_slugs),
+                }
+                out_combo["n"][pos] = len(pos_slugs)
         else:
                 for pos in POSITIONS:
                     pairs = []
