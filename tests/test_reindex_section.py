@@ -342,14 +342,13 @@ class TestRealFixtureSmoke(unittest.TestCase):
         # on 2026-09-30 (unindexable players should not be in the published
         # section). The set is asserted exactly -- a non-empty set means
         # unindexable players are back in the fixture.
-        # 2026-10-01: Dezhaun Stribling (WR) appears in the 2026-09-29 clean
-        # USA Today rebuild with native 5.1 in standard_12 (above the WR
-        # 10% cutoff of 4.3) but no ESPN anchor. This is a legitimate
-        # fail-closed review row for new data, not a regression -- he is
-        # correctly excluded from reindexed output pending anchor resolution.
-        # De'Von Achane (2026-10-01): confirmed skip, ineligible in ESPN
-        # anchor (explicit 0), triaged by Jeremy.
-        expected_unanchored = {'dezhaun stribling', 'devon achane'}
+        # JEG-13 (2026-10-01): the explicit-zero fix rebuilt the ESPN anchor
+        # leg -- ineligible players with real ESPN projections are now priced
+        # at 0.0 instead of dropped to review. De'Von Achane and De'Zhaun
+        # Stribling (both eligible=false, explicit 0.0 in ESPN) now anchor
+        # cleanly, so the review set is empty. The set is asserted exactly --
+        # a non-empty set means anchor coverage regressed.
+        expected_unanchored = set()
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 

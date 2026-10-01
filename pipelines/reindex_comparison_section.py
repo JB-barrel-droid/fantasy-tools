@@ -327,11 +327,17 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             slots = ROSTER_SHAPE  # QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6
             flex_count = slots.get("FLEX", 2)
 
-            # Rank source players by native value within each position
+            # Rank source players by native value within each position.
+            # Zero-native players are excluded from bucket scaling (they get
+            # 0.0 directly); including them distorts bucket membership counts
+            # vs the ratio-based test grouping.
+            zero_native = {s for s in priced if float(native.get(s, 0)) <= 0}
+            for s in zero_native:
+                out_combo["reindexed"][s] = 0.0
             by_pos = {}
             for pos in POSITIONS:
                 rows = [(slug, float(native[slug])) for slug in priced
-                        if pos_by_slug.get(slug) == pos]
+                        if pos_by_slug.get(slug) == pos and slug not in zero_native]
                 rows.sort(key=lambda x: (-x[1], x[0]))
                 by_pos[pos] = rows
 
@@ -357,9 +363,10 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             for slug, _, pos in flex_pool[n_flex:]:
                 if slug not in role_of:
                     role_of[slug] = "bench"
-            # Non-flex-eligible remaining go to bench
+            # Non-flex-eligible remaining go to bench (zero-native players
+            # already have 0.0 and are excluded from buckets)
             for slug in priced:
-                if slug not in role_of:
+                if slug not in role_of and slug not in zero_native:
                     role_of[slug] = "bench"
 
             # For each (pos, role) bucket, scale source total to anchor total
@@ -367,7 +374,8 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
             for pos in POSITIONS:
                 for role in ("dedicated", "flex", "bench"):
                     bucket_slugs = [s for s in priced
-                                    if pos_by_slug.get(s) == pos and role_of.get(s) == role]
+                                    if pos_by_slug.get(s) == pos and role_of.get(s) == role
+                                    and s not in zero_native]
                     if not bucket_slugs:
                         continue
                     src_total = sum(float(native[s]) for s in bucket_slugs)
@@ -378,6 +386,20 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                         if combo.get("player_keys", {}).get(s) in anchor_by_key
                     )
                     if src_total <= 0 or anc_total <= 0:
+                        # Zero-anchor bucket: the anchor prices every member at
+                        # 0 (e.g. below the positional waiver line). Reindex to
+                        # 0.0 explicitly -- skipping would leave them out of
+                        # reindexed while still counted in `priced`, breaking
+                        # the reconciliation below.
+                        bucket_exact[(pos, role)] = {
+                            "pre": src_total,
+                            "anchor": anc_total,
+                            "scale": 0.0,
+                            "post": 0.0,
+                            "n": len(bucket_slugs),
+                        }
+                        for slug in bucket_slugs:
+                            out_combo["reindexed"][slug] = 0.0
                         continue
                     scale = anc_total / src_total
                     bucket_exact[(pos, role)] = {

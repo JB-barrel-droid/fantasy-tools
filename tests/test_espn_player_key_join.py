@@ -77,9 +77,10 @@ def test_fixture_espn_section_matches_leg():
     assert abs(half.get("travis etienne", -1) - 16.8) < 0.1, (
         f"travis etienne fixture={half.get('travis etienne')}, expected ~16.8"
     )
-    # Achane (IR, not in leg) must have NO ESPN value, not a stale 54.9
-    assert "devon achane" not in half or not half["devon achane"], (
-        "IR player devon achane should have no ESPN fixture value"
+    # Achane (IR, explicit ESPN zero) must carry 0.0 in the fixture, not be
+    # absent and not a stale 54.9 (JEG-13: explicit zero propagates end to end).
+    assert half.get("devon achane") == 0.0, (
+        f"devon achane fixture={half.get('devon achane')}, expected explicit 0.0"
     )
     print("PASS: fixture ESPN section carries fresh leg values")
 

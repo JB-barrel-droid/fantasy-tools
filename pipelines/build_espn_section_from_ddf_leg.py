@@ -51,8 +51,15 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def find_fresh_leg(scoring: str) -> Path:
-    """Newest DDF leg for a scoring (by espn_snapshot_date, then generated_at)."""
+def find_fresh_leg(scoring: str, teams: int = 12) -> Path:
+    """Newest DDF leg for a scoring (by espn_snapshot_date, then generated_at).
+
+    The team count is pinned to the canonical 12-team leg: the fixture's
+    ESPN section is built from 12t valuations for every combo, and the
+    generated_at tie-break is otherwise underdetermined now that the
+    rebuild chain keeps 8t/10t/12t/14t legs on disk (whichever was built
+    last would silently win and shift published values).
+    """
     cands = []
     for leg_path in LEG_DIR.glob("*/ddf_leg.json"):
         try:
@@ -65,6 +72,8 @@ def find_fresh_leg(scoring: str) -> Path:
             parts = bake_id.split("-espn-")
             if len(parts) != 2 or not parts[1].startswith(scoring + "-"):
                 continue
+        if f"-{teams}t-" not in bake_id and not bake_id.endswith(f"-{teams}t"):
+            continue
         inputs = leg.get("inputs", {})
         cands.append((
             inputs.get("espn_snapshot_date", ""),
@@ -72,7 +81,7 @@ def find_fresh_leg(scoring: str) -> Path:
             leg_path,
         ))
     if not cands:
-        raise SystemExit(f"No DDF leg found for scoring {scoring!r} under {LEG_DIR}")
+        raise SystemExit(f"No DDF leg found for scoring {scoring!r} teams={teams} under {LEG_DIR}")
     cands.sort()
     return cands[-1][2]
 
@@ -167,6 +176,7 @@ def main() -> int:
             # string joins and silently drop players).
             fresh_vals = {}
             fresh_native = {}
+            fresh_keys = {}
             ddf_ppg = leg_ppgs[scoring]
             for pkey, dval in ddf_vals.items():
                 slug = key_to_slug.get(pkey)
@@ -174,12 +184,18 @@ def main() -> int:
                     continue  # DDF player not in fixture player_keys; skip (fail-closed)
                 # Use the fresh DDF value directly, no stale-pie rescale.
                 fresh_vals[slug] = round(dval, 1)
+                fresh_keys[slug] = pkey
                 new_priced.add(slug)
                 # Natives are per-game ESPN projections; refresh from the leg's ppg.
                 if pkey in ddf_ppg:
                     fresh_native[slug] = round(ddf_ppg[pkey], 2)
             combo["values"] = fresh_vals
             combo["native"] = fresh_native
+            combo["player_keys"] = fresh_keys
+            # ESPN is the anchor: reindexed == values. Refresh it too; a stale
+            # "reindexed" from a previous leg would shadow the fresh values in
+            # readers that prefer it (e.g. build_player_trace.py).
+            combo["reindexed"] = dict(fresh_vals)
             combo["n"] = len(fresh_vals)
 
             # Recompute fixed-pie index_total per position from FRESH data.

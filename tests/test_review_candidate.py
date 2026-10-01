@@ -192,7 +192,7 @@ class TestReviewStage(unittest.TestCase):
 
 
 class TestRealFixtureReview(unittest.TestCase):
-    def test_usatoday_demo_hold_on_untriaged_review_row(self):
+    def test_usatoday_explicit_zero_anchor_ready(self):
         import reindex_comparison_section as rcs
         repo = Path(__file__).resolve().parent.parent
         fixture = repo / "data/fixtures/current/comparison-sources-data.json"
@@ -214,32 +214,24 @@ class TestRealFixtureReview(unittest.TestCase):
         cp = tmp / "usa-candidate.json"
         cp.write_text(json.dumps(cand))
         section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
-        # 2026-10-01: under the zero-VORP policy (reindex_comparison_section.py:
-        # missing-anchor players below 10% of the position max native are
-        # auto-skipped, no review row), only Dezhaun Stribling is a review row
-        # -- native 5.1 in standard_12 (above the WR 10% cutoff of 4.3) with no
-        # ESPN anchor. The other 14 anchorless players are deep-bench
-        # (<6% of max) and correctly excluded from reindexed output silently.
+        # JEG-13 (2026-10-01): the explicit-zero fix put ineligible players
+        # with real ESPN projections (Achane, Stribling) into the ESPN anchor
+        # at 0.0. Every usatoday candidate player now anchors, so there are
+        # no review rows -- previously Stribling and Achane were "confirmed
+        # skip" review rows, which was the defect.
         review_slugs = {r["slug"] for r in review_rows}
-        # 2026-10-01: Achane added — confirmed skip (ineligible in ESPN
-        # anchor, triaged by Jeremy), appears as review row in demo.
-        expected = {'dezhaun stribling', 'devon achane'}
-        self.assertEqual(review_slugs, expected)
+        self.assertEqual(review_slugs, set())
         rp = tmp / "usa-reindexed.json"
         rp.write_text(json.dumps(section))
         report = rvw.review_candidate(str(rp), fixture_path=str(fixture),
                                       players_path=str(players_p))
         # The demo candidate was built FROM the fixture natives: no drift,
-        # no coverage change. With Stribling's legitimate untriaged review
-        # row (2026-10-01), the verdict is "hold" -- the fail-closed gate
-        # correctly blocks promotion until a human triages the row.
-        # (Before Stribling, this was "ready" with zero review rows.)
-        self.assertEqual(report["verdict"], "hold", json.dumps(
+        # no coverage change, no untriaged review rows -- the verdict is
+        # "ready".
+        self.assertEqual(report["verdict"], "ready", json.dumps(
             [c for c in report["checks"] if c["status"] == "fail"], indent=1))
-        # The hold is specifically due to the untriaged review row, not
-        # a data integrity failure.
         fail_names = {c["name"] for c in report["checks"] if c["status"] == "fail"}
-        self.assertEqual(fail_names, {"review_rows_triaged"})
+        self.assertEqual(fail_names, set())
         disc = [c for c in report["checks"] if c["name"] == "anchor_disclosure"][0]
         self.assertIn("ESPN leg", disc["detail"])
         div = report["combos"]["full_12"]["anchor_divergence"]

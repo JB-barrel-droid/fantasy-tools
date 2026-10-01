@@ -137,23 +137,39 @@ class StaticExportTest(unittest.TestCase):
             # Updated 2026-09-30 PM with fresh 09-30 adjustment inputs
             # (ddf-20260930-espn-standard-12t-0p15).
             # 2026-10-01: USA Today migrated to flex-aware per-bucket pie
-            # allocation. Allen's value 19.45132743362832 reflects the
-            # bucket-specific scaling.
-            ("usatoday", "full_12"): 19.45132743362832,
-            # 2026-10-01: FantasyCalc migrated to flex-aware per-bucket pie
-            # allocation. Allen's value 25.867279775024702 reflects the
-            # bucket-specific scaling.
-            ("fantasycalc", "full_12_qb1"): 25.867279775024702,
-            # 2026-10-01: FantasyPros migrated to flex-aware per-bucket pie
-            # allocation. Allen's value 17.237676609105183 reflects the
-            # bucket-specific scaling.
-            ("fantasypros", "full_12"): 17.237676609105183,
-            # 2026-10-01: CBS migrated to flex-aware per-bucket pie allocation
-            # (was global VORP>0 overlap). Allen's value 20.7 reflects the
-            # bucket-specific scaling.
-            ("cbs", "full_12"): 20.7,
-            # 2026-10-01: ESPN updated with fresh 9/30 data (Achane at 0).
-            ("espn", "full_12"): 36.8,
+            # allocation. Allen's value 19.45132743362832 reflected the
+            # bucket-specific scaling against the old anchor. JEG-13 anchor
+            # migration (ESPN leg rebuilt with explicit zeros, 492 players):
+            # 22.530973451327434 is the 9-25 native 40.0 x new bucket scale.
+            ("usatoday", "full_12"): 22.530973451327434,
+            # 2026-10-01 (JEG-13): FantasyCalc reindexed against the rebuilt
+            # explicit-zero ESPN anchor (promoted 2026-10-01 12:18 CDT).
+            # Allen's value is native 6013.0 x QB/dedicated bucket scale
+            # 0.004951736718096831 = 29.774792885916245, verified
+            # independently against the fixture's fit metadata. The old pin
+            # 25.867279775024702 used the stale-pie anchor's bucket scale.
+            ("fantasycalc", "full_12_qb1"): 29.774792885916245,
+            # 2026-10-01 (JEG-13): FantasyPros reindexed against the rebuilt
+            # explicit-zero ESPN anchor (promoted 2026-10-01 12:18 CDT).
+            # Allen's value is native 29.1 x QB/dedicated bucket scale
+            # 0.6818419675562534 = 19.841601255886975, verified
+            # independently against the fixture's fit metadata. The old pin
+            # 17.237676609105183 used the stale-pie anchor's bucket scale.
+            ("fantasypros", "full_12"): 19.841601255886975,
+            # 2026-10-01 (JEG-13): CBS reindexed against the rebuilt
+            # explicit-zero ESPN anchor (promoted 2026-10-01 12:18 CDT).
+            # Allen's value is native 23.0 x QB/dedicated bucket scale
+            # 1.0368 = 23.8464, verified independently against the fixture's
+            # fit metadata. The old pin 20.7 used the stale-pie anchor's
+            # bucket scale.
+            ("cbs", "full_12"): 23.8464,
+            # 2026-10-01 (JEG-13): ESPN rebuilt with explicit zeros
+            # (ddf-20260930-espn-*12t legs, 492 players). Allen's leg value
+            # 26.913... lands in the fixture as 26.9. The old 36.8 pin was the
+            # stale-pie value the old builder rescaled fresh leg values to
+            # (fresh stamp, old-level numbers -- the stale-pie class). The
+            # rebuild now writes fresh-leg values directly.
+            ("espn", "full_12"): 26.9,
             # cbsros (CBS rest-of-season projections through the DDF two-tier
             # leg, 2026-09-30 vintage): Allen's CBS ROS per-game is 24.357 vs
             # ESPN's 21.15, yet his indexed value is 20.0 vs ESPN's 26.9 --
@@ -735,12 +751,12 @@ class StaticExportTest(unittest.TestCase):
             if max_value > 0:
                 last_positive = index
 
-        # 2026-09-30: Pure-ESPN section (353 players, no ECR fill) has 33
-        # priced QBs. The last positive is at 35 (2 QBs with zero value
-        # from the DDF leg but no ESPN projection? Actually 35 > 33, so
-        # the boundary moved from 45 to 35).
-        self.assertEqual(35, last_positive)
-        self.assertEqual(36, last_positive + 1)
+        # 2026-10-01 (JEG-13): ESPN section rebuilt from the explicit-zero
+        # DDF leg (492 players, 76 priced QBs). The last positive is now at
+        # 45 (Mariota, last positive-QB boundary in the rebuilt section);
+        # the 35 boundary reflected the old 353-player stale-pie section.
+        self.assertEqual(45, last_positive)
+        self.assertEqual(46, last_positive + 1)
 
 
 if __name__ == "__main__":
