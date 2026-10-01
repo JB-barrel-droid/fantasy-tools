@@ -142,6 +142,16 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="adjPipeline"></div>
 </section>
 
+<section class="card" id="methodologyCard">
+  <h2>Methodology consistency</h2>
+  <div class="desc">
+    All as-published sources must use the same reindex method and anchor at each
+    transformation step. A <b>bad</b> here means some combos were baked with a
+    different method — an honest signal, not a hidden one.
+  </div>
+  <div id="methodologyConsistency"></div>
+</section>
+
 <section class="card" id="fidelityCard">
   <h2>Source fidelity — pre-indexed values</h2>
   <div class="desc">
@@ -378,13 +388,23 @@ async function main(){
     }
   }
 
-  // Count all checkpoints
+  // Count all checkpoints (per-source cells PLUS top-level sections, so the
+  // headline can never claim "0 broken" while a section is bad)
   let counts = {ok:0, warn:0, bad:0, unk:0};
+  const tally = (st) => { counts[st] = (counts[st] || 0) + 1; };
   for(const src of SOURCE_ORDER){
     const sdata = data.sources[src];
     if(!sdata) continue;
     for(const cpData of Object.values(sdata.checkpoints)){
-      counts[cpData.status] = (counts[cpData.status] || 0) + 1;
+      tally(cpData.status);
+    }
+  }
+  if(data.methodology_consistency && data.methodology_consistency.status){
+    tally(data.methodology_consistency.status);
+  }
+  if(data.adj_curve_pipeline){
+    for(const st of Object.values(data.adj_curve_pipeline)){
+      if(st && st.status) tally(st.status);
     }
   }
   const total = counts.ok + counts.warn + counts.bad + counts.unk;
@@ -479,6 +499,23 @@ async function main(){
     adjHost.innerHTML = `<div class="flow">${flowSteps}</div><div class="cp-grid">${stageCards}</div>`;
   } else {
     adjHost.innerHTML = `<div style="color:var(--grey)">Adj curve pipeline data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
+  }
+
+  // Methodology consistency: rendered (not just counted) so a bad here is visible
+  const methHost = document.getElementById("methodologyConsistency");
+  const mc = data.methodology_consistency;
+  if(mc && mc.status){
+    const dotCls = mc.status === "ok" ? "ok" : mc.status === "warn" ? "warn" : mc.status === "bad" ? "bad" : "unk";
+    const reasonCls = mc.status === "bad" ? "bad" : mc.status === "warn" ? "warn" : "";
+    const issues = (mc.issues || []).map(i => `<div style="margin-top:4px">• ${i}</div>`).join("");
+    methHost.innerHTML = `<div class="cp-grid"><div class="cp">
+      <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${mc.label || "Methodology consistency"}</span></div>
+      <div class="cp-what">${mc.what || ""}</div>
+      <div class="cp-time">${shortTs(mc.timestamp)} (${timeAgo(mc.timestamp)})</div>
+      <div class="cp-reason ${reasonCls}">${mc.reason || ""}</div>${issues}
+    </div></div>`;
+  } else {
+    methHost.innerHTML = `<div style="color:var(--grey)">Methodology consistency data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
   }
 
   // Source fidelity: pre-indexed values vs sources (exact match required)
