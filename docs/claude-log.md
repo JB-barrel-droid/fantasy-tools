@@ -169,6 +169,109 @@ re-running it by hand; the results below are from the clean rerun.
   (`cbsros` added 2026-10-01) (GAP-014).
 - Also added GAP-013 (validate does not run integration tests) and FIX-010.
 
+## 2026-10-01 - JEG-31: first CI run of the preview workflow, and the same-bytes check
+
+Resolves two items the Phase 1 entry below listed as unverified.
+
+### Verified
+
+- The `Preview build` workflow ran on PR #8 head `7b93a2d` and finished `success` (about 30 s). Every
+  step succeeded: sync, validate (18 s), lineage, manifest, artifact upload, PR comment. [check run
+  `110477659201`, job steps via the Actions API]
+- The PR comment was posted by `github-actions[bot]` with build tag `tv-20261001-1645-7b93a2d`,
+  manifest root `91cb4f11...`, and the artifact link. The tag carries the PR head SHA, so the
+  checkout used the head and not the merge ref. [`get_comments` on PR #8]
+- **Same-bytes check:** I built the same commit `7b93a2d` locally (`make sync`, lineage step, manifest) and
+  got root `91cb4f1195030f17...c520`, identical to the root CI computed on GitHub's runner. Same day
+  (`today` 2026-10-01); `generated_at` ignored by design. [`dist_manifest.py build` locally vs the
+  CI comment]
+
+### Claimed, unverified
+
+- That production would publish the same bytes. Evidence is indirect: `pages.yml` runs the same three
+  build steps in the same order (the guard test enforces it), but I did not build a manifest from an
+  actual Pages artifact. What would settle it: download a `github-pages` artifact from a
+  `pages.yml` run for commit X and compare its manifest to a preview of X (retention is 1 day).
+- Whether the lineage step also fails in CI. It exits 1 locally. The manifests still match, so its
+  effect on `dist/` is the same in both places, but I have not read its CI log.
+
+### Open
+
+- Nothing new. GAP-016 (defined in PR #7) can be closed when both PRs are merged.
+
+## 2026-10-01 - JEG-31: Phase 1 built (artifact preview, manifest, drift guard)
+
+Same branch and PR as the proposal below (PR #8). Built after Jeremy chose Option A, the
+`generated_at`-only exception, and blocking validate on PRs.
+
+### Verified
+
+- `pipelines/dist_manifest.py`: on real data, manifests from two `make sync` runs 61 s apart
+  on one commit have the same root hash (32 files, root `aa9119c8...`); after appending one
+  byte to `dist/index.html` the compare reports `differs: index.html`. [`make sync` twice,
+  `dist_manifest.py build/compare`]
+- `tests/test_dist_manifest.py` (10 tests): six mutations of the tool each make the intended
+  test fail (ignore `generated_at` in every file; do not ignore it at all; ignore the whole
+  freshness file; skip the same-day check; treat bad JSON as empty; root hash ignoring
+  digests).
+- `tests/test_preview_workflow_matches_pages.py` (12 tests): compares the single-line `run:`
+  steps of `preview.yml` and `pages.yml`, plus python-version, fetch-depth, blocking validate,
+  head-SHA checkout, PR trigger, and no deploy/Pages permissions. Each rule is tested against a
+  mutated copy of the real file. I first wrote one test that asserted the guard did NOT catch a
+  new production step while being named as if it did; I noticed, generalised the guard to every
+  single-line `run:` command, and made that test prove it catches it.
+- `make preview-local` served `dist/` with HTTP 200 and the build tag in the page. [ran it,
+  `curl`]
+- Both new tests are registered in `make test-unit` (unregistered tests do not run in
+  `make validate`).
+
+### Claimed, unverified
+
+- That `preview.yml` runs correctly on GitHub: it was written but not yet run when this entry was
+  made; the PR's own check run is the test. Result recorded in the PR.
+- That the PR comment step works (needs `pull-requests: write`; same-repository PR only).
+
+### Open
+
+- GAP-016 (no CI on PRs, defined in PR #7) is closed by this work once both merge; update that
+  row then.
+- Option B (a served URL) is not built.
+
+## 2026-10-01 - JEG-31: preview-deploy design proposal (no workflow built)
+
+Branch `jeremyburstyn/jeg-31-preview-deploys` (local until Jeremy approves the push; it
+is not the session's designated branch). Based on `origin/main` `6216144`. Proposal
+only, as agreed with Muse; see `docs/preview-deploys.md`.
+
+### Verified
+
+- `make sync` run twice on the same commit 61 s apart: exactly one file differs,
+  `assets/reference-freshness.json`, field `generated_at`. Everything else in `dist/`
+  and `app/` is byte-identical. [`make sync` twice, `diff -rq`]
+- That file also records `today`, `age_days`, `status` and stale counts, so it depends on
+  the calendar day. [read the generated JSON]
+- `build_tag()` is derived from the HEAD commit time and SHA (docstring plus the
+  determinism run above).
+- `make serve` serves `app/trade-value-chart`, not `dist/` (Makefile).
+- `pages.yml` steps and triggers; a recent production run took about 75 s, deploy about 8 s,
+  artifact about 1.2 MB. [workflow file; job `110472801856` of run `36892947644`]
+- Lineage step exits 1 on a clean local checkout (`data/raw` is gitignored).
+
+### Claimed, unverified
+
+- That the lineage step also fails in CI. The API reports `continue-on-error` steps as
+  `success` and I only read the tail of the job log, which did not include that step.
+  What would settle it: read the full step log of a recent Pages run.
+- That the Phase 1 design works end to end; nothing is built.
+
+### Open
+
+- Decisions for Jeremy are listed in `docs/preview-deploys.md` (surface, definition of
+  byte-identical, blocking validate on PRs).
+- GAP-017 (calendar-dependent freshness file) and GAP-018 (`make serve` != published
+  `dist/`) added to the risk register.
+
+
 ## 2026-09-29 - Cascade pipeline orchestration implementation
 
 ### Verified
