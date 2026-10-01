@@ -575,5 +575,77 @@ class TestQBAnchorResolution(unittest.TestCase):
                              "Meaningful missing-anchor should block")
 
 
+class TestFlexAwareExactReconciliation(unittest.TestCase):
+    """JEG-15: the flex-aware branch must report EXACT reconciliation numbers.
+
+    Named defect: index_total[pos] used to report the dedicated bucket's scale
+    as a "representative" factor, with target_total = pre_total * rep_scale --
+    a number that did not equal the sum of the stored reindexed values whenever
+    buckets carried genuinely different scales.
+    """
+
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp())
+        self.players_path, self.players = make_players(self.tmp, per_pos=30)
+
+    @staticmethod
+    def _j(pl):
+        return int(''.join(c for c in pl["name"] if c.isdigit()))
+
+    def test_exact_factor_and_bucket_reconciliation(self):
+        players = self.players
+        # Native: uniform ramp. Anchor: ratio 1.0 for the players the source
+        # ranks as dedicated starters (high j), ratio 2.0 for the rest --
+        # so the dedicated bucket scale genuinely differs from the aggregate.
+        def native_fn(pl):
+            return 100.0 + self._j(pl)
+        def anchor_fn(pl):
+            j = self._j(pl)
+            ratio = 1.0 if j >= 6 else 2.0
+            return ratio * (100.0 + j)
+        fx = make_fixture(self.tmp, players, anchor_fn)
+        cand = make_candidate(self.tmp, "fantasycalc", players, native_fn)
+        # The flex-aware branch serves as-published sources only.
+        doc = json.loads(cand.read_text())
+        doc["value_provenance"] = "published"
+        cand.write_text(json.dumps(doc))
+        section, review = run_stage(cand, fx, self.players_path)
+        self.assertEqual(review, [])
+        combo = section["combos"]["full_12"]
+        reidx = combo["reindexed"]
+        for pos in POS:
+            it = combo["index_total"][pos]
+            # The defect's signature: dedicated-scale factor was exactly 1.0.
+            self.assertNotAlmostEqual(it["factor"], 1.0, places=2,
+                msg=f"{pos}: factor must be the exact aggregate, not the dedicated bucket scale")
+            # Exact: factor == post_total / pre_total
+            self.assertAlmostEqual(it["factor"], it["post_total"] / it["pre_total"], places=9)
+            # Reconciliation: stored reindexed values sum to the reported post total
+            stored = sum(v for s, v in reidx.items()
+                         if s.startswith(f"player {pos.lower()}"))
+            self.assertAlmostEqual(stored, it["post_total"], places=6,
+                msg=f"{pos}: stored reindexed total must equal reported post_total")
+            self.assertAlmostEqual(it["target_total"], it["post_total"], places=9)
+            # Buckets sum to the position totals
+            bpre = sum(b["pre"] for b in it["buckets"].values())
+            bpost = sum(b["post"] for b in it["buckets"].values())
+            bn = sum(b["n"] for b in it["buckets"].values())
+            self.assertAlmostEqual(bpre, it["pre_total"], places=6)
+            self.assertAlmostEqual(bpost, it["post_total"], places=6)
+            self.assertEqual(bn, it["n_priced"])
+            # Each bucket's own exacts reconcile
+            for role, b in it["buckets"].items():
+                self.assertAlmostEqual(b["post"], b["pre"] * b["scale"], places=6)
+                self.assertAlmostEqual(b["scale"], b["anchor"] / b["pre"], places=9)
+        # Full-pie reconciliation
+        pie = combo["fit"]["flex_aware_pie"]["pie"]
+        self.assertAlmostEqual(pie["pre_total"],
+            sum(combo["index_total"][p]["pre_total"] for p in POS), places=6)
+        self.assertAlmostEqual(pie["post_total"],
+            sum(combo["index_total"][p]["post_total"] for p in POS), places=6)
+        self.assertAlmostEqual(pie["post_total"], sum(reidx.values()), places=6)
+        self.assertAlmostEqual(pie["factor"], pie["post_total"] / pie["pre_total"], places=9)
+
+
 if __name__ == "__main__":
     unittest.main()

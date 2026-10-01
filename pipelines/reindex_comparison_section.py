@@ -351,7 +351,7 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                     role_of[slug] = "bench"
 
             # For each (pos, role) bucket, scale source total to anchor total
-            bucket_scales = {}
+            bucket_exact = {}
             for pos in POSITIONS:
                 for role in ("dedicated", "flex", "bench"):
                     bucket_slugs = [s for s in priced
@@ -368,7 +368,13 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                     if src_total <= 0 or anc_total <= 0:
                         continue
                     scale = anc_total / src_total
-                    bucket_scales[(pos, role)] = scale
+                    bucket_exact[(pos, role)] = {
+                        "pre": src_total,
+                        "anchor": anc_total,
+                        "scale": scale,
+                        "post": src_total * scale,
+                        "n": len(bucket_slugs),
+                    }
                     for slug in bucket_slugs:
                         out_combo["reindexed"][slug] = float(native[slug]) * scale
 
@@ -376,34 +382,48 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 "method": "proportional_scaling_flex_aware_per_position",
                 "anchor": "espn_leg",
                 "n_priced": len(priced),
-                "buckets": {f"{pos}/{role}": {"scale": s, "n": len([x for x in priced if pos_by_slug.get(x)==pos and role_of.get(x)==role])}
-                            for (pos, role), s in bucket_scales.items()},
+                "buckets": {f"{pos}/{role}": exact
+                            for (pos, role), exact in bucket_exact.items()},
                 "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
             }
-            # Write index_total in per-position format for the review script.
-            # Aggregate buckets by position for the sanity check.
+            # Exact reconciliation (no representative-bucket fiction): per-position
+            # and full-pie totals are the sums of the per-bucket exacts, and the
+            # stored reindexed values must sum to the bucket-sum post total.
             out_combo["index_total"] = {}
             out_combo["n"] = {}
+            pie_pre = pie_post = 0.0
             for pos in POSITIONS:
-                pos_buckets = [(r, s) for (p, r), s in bucket_scales.items() if p == pos]
-                if not pos_buckets:
+                pos_exact = [(r, e) for (p, r), e in bucket_exact.items() if p == pos]
+                if not pos_exact:
                     continue
-                # Aggregate: weighted average scale by bucket size
-                total_n = sum(len([x for x in priced if pos_by_slug.get(x)==pos and role_of.get(x)==role]) for role, _ in pos_buckets)
-                if total_n == 0:
-                    continue
-                # For the sanity check, use the dedicated bucket scale as representative,
-                # or the first available bucket
-                rep_scale = next((s for r, s in pos_buckets if r == "dedicated"), pos_buckets[0][1])
-                pos_slugs = [s for s in priced if pos_by_slug.get(s) == pos]
-                pre_total = sum(float(native[s]) for s in pos_slugs)
+                pre_total = sum(e["pre"] for _, e in pos_exact)
+                post_total = sum(e["post"] for _, e in pos_exact)
+                stored_total = sum(float(out_combo["reindexed"][s]) for s in priced
+                                   if pos_by_slug.get(s) == pos)
+                if abs(stored_total - post_total) > 1e-6 * max(1.0, post_total):
+                    raise SystemExit(
+                        f"reindex: {source}/{combo_name}/{pos} reconciliation failed: "
+                        f"stored reindexed total {stored_total} != bucket-sum {post_total}")
+                n_priced = sum(e["n"] for _, e in pos_exact)
                 out_combo["index_total"][pos] = {
-                    "target_total": pre_total * rep_scale,  # scaled total
+                    "target_total": post_total,
                     "pre_total": pre_total,
-                    "factor": rep_scale,
-                    "n_priced": len(pos_slugs),
+                    "post_total": post_total,
+                    "factor": post_total / pre_total if pre_total > 0 else 0.0,
+                    "n_priced": n_priced,
+                    "buckets": {role: {"pre": e["pre"], "anchor": e["anchor"],
+                                       "scale": e["scale"], "post": e["post"],
+                                       "n": e["n"]}
+                                for role, e in pos_exact},
                 }
-                out_combo["n"][pos] = len(pos_slugs)
+                out_combo["n"][pos] = n_priced
+                pie_pre += pre_total
+                pie_post += post_total
+            out_combo["fit"]["flex_aware_pie"]["pie"] = {
+                "pre_total": pie_pre,
+                "post_total": pie_post,
+                "factor": pie_post / pie_pre if pie_pre > 0 else 0.0,
+            }
         else:
                 for pos in POSITIONS:
                     pairs = []
