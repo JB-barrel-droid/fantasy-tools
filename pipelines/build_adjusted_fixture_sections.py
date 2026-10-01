@@ -286,6 +286,20 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
                     for slug in pos_slugs[pos]:
                         adjusted[slug] = round(adjusted[slug] * factor, 1)
 
+            # Legacy "global" pie (VORP>0 overlap method): no per-position
+            # targets exist, so rescale the whole combo to the global target.
+            # Without this the _adjusted series sits 1.4x above the pie
+            # (2026-10-01: usatoday/fantasypros half_12 and standard_12).
+            global_target = (index_total.get("global") or {}).get("target_total")
+            if global_target:
+                global_total = sum(
+                    v for v in adjusted.values() if isinstance(v, (int, float))
+                )
+                if global_total > 0:
+                    factor = global_target / global_total
+                    for slug in adjusted:
+                        adjusted[slug] = round(adjusted[slug] * factor, 1)
+
             adjusted_combos[combo_name] = {
                 "reindexed": adjusted,
                 "native": native,

@@ -160,14 +160,97 @@ class StaticExportTest(unittest.TestCase):
             # the two-tier leg measures positional pies from each source's own
             # pool, so per-game rank does not transfer directly.
             ("cbsros", "full_12"): 20.0,
-            ("fantasycalc_adjusted", "full_12_qb1"): 17.8,
-            ("usatoday_adjusted", "full_12"): 27.6,
-            ("fantasypros_adjusted", "full_12"): 18.9,
+            # 2026-10-01: _adjusted pins rebuilt with the 12-team ppr fit
+            # (ddf-20260930-espn-ppr-12t-0p15). The 17.8/27.6/18.9 pins were
+            # written for the 8-team standard fit; the 12-team ppr cells
+            # change the bias correction. Values verified deterministic:
+            # build_adjusted_fixture_sections.py reproduces them exactly.
+            ("fantasycalc_adjusted", "full_12_qb1"): 23.3,
+            ("usatoday_adjusted", "full_12"): 21.3,
+            ("fantasypros_adjusted", "full_12"): 14.2,
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
 
-    def test_fixed_pie_totals_match_source_metadata(self):
+    def test_flex_aware_bucket_totals_match_anchor(self):
+        # Flex-aware per-bucket pie allocation (2026-10-01, Jeremy directive):
+        # each (position, role) bucket is scaled independently so its
+        # reindexed total equals the ESPN anchor's total over the SAME
+        # players. This replaces the old per-position fixed-pie check, which
+        # is definitionally false once buckets carry different scales: the
+        # index_total target is pre_total * the DEDICATED-bucket scale (a
+        # representative sanity value), while flex/bench buckets use their
+        # own scales.
+        #
+        # REGRESSION GUARD: on 2026-10-01 the baked fantasycalc
+        # standard_12_qb1/qb2 combos carried bucket scales that did not match
+        # the pipeline's computation (RB/bench recorded 0.0394 vs correct
+        # 0.0084 -- values 4.7x too high vs the anchor). This test FAILS
+        # against that broken state and passes on the regenerated fixture.
+        players = load_json(FIXTURES / "players.json")["players"]
+        position_by_numkey = {p["player_key"]: p["pos"] for p in players}
+        fixture_keys = self.comparison.get("player_keys", {})
+        espn_combos = self.comparison["sources"]["espn"]["combos"]
+        qb_suffix = re.compile(r"_qb[12]$")
+
+        def anchor_by_numkey(combo_name):
+            name = combo_name
+            if name not in espn_combos:
+                name = qb_suffix.sub("", combo_name)
+            vals = espn_combos[name].get("values") or {}
+            return {fixture_keys[s]: v for s, v in vals.items() if s in fixture_keys}
+
+        checked = 0
+        for source, source_data in self.comparison["sources"].items():
+            for combo_name, combo in source_data["combos"].items():
+                fa = (combo.get("fit") or {}).get("flex_aware_pie")
+                if not fa:
+                    continue
+                native = combo.get("native") or {}
+                reindexed = combo.get("reindexed") or {}
+                combo_keys = combo.get("player_keys") or {}
+                anchor = anchor_by_numkey(combo_name)
+                buckets = fa.get("buckets", {})
+                # Group reindexed players by (position, applied bucket scale).
+                # The applied scale identifies the bucket unambiguously.
+                groups = {}
+                for slug, value in reindexed.items():
+                    if slug not in native:
+                        continue
+                    nv, rv = float(native[slug]), float(value)
+                    if nv <= 0 or not isinstance(rv, (int, float)):
+                        continue
+                    numkey = combo_keys.get(slug) or fixture_keys.get(slug)
+                    pos = position_by_numkey.get(numkey)
+                    if pos is None or numkey not in anchor:
+                        continue
+                    ratio = rv / nv
+                    match = [b for b, m in buckets.items()
+                             if b.startswith(pos + "/") and abs(ratio - m["scale"]) < 1e-9]
+                    self.assertEqual(
+                        1, len(match),
+                        f"{source} {combo_name} {slug}: reindexed/native ratio {ratio} "
+                        f"matches no (or several) recorded {pos} bucket scales",
+                    )
+                    groups.setdefault(match[0], []).append((slug, numkey))
+                self.assertGreater(len(groups), 0,
+                                   f"{source} {combo_name}: no flex-aware buckets verified")
+                for bucket, members in groups.items():
+                    reidx_total = sum(float(reindexed[s]) for s, _ in members)
+                    anchor_total = sum(float(anchor[k]) for _, k in members)
+                    checked += 1
+                    self.assertLessEqual(
+                        abs(reidx_total - anchor_total),
+                        0.05,
+                        f"{source} {combo_name} {bucket}: reindexed total {reidx_total:.2f} "
+                        f"should match anchor total {anchor_total:.2f} over the same "
+                        f"{len(members)} players",
+                    )
+        self.assertGreater(checked, 0, "no flex-aware buckets checked at all")
+
+    def test_legacy_fixed_pie_totals_match_source_metadata(self):
+        # Non-flex-aware combos (legacy per-position methods) keep the old
+        # fixed-pie invariant: per-position totals match the recorded target.
         players = load_json(FIXTURES / "players.json")["players"]
         position_by_key = {player["player_key"]: player["pos"] for player in players}
 
@@ -188,15 +271,21 @@ class StaticExportTest(unittest.TestCase):
                 combo = source_data["combos"].get(key)
                 if combo is None:
                     continue
+                if (combo.get("fit") or {}).get("flex_aware_pie"):
+                    continue  # covered by test_flex_aware_bucket_totals_match_anchor
                 values = combo.get("values") or combo.get("reindexed") or {}
                 for pos, target_data in combo.get("index_total", {}).items():
                     target = target_data["target_total"]
                     total = 0
                     # As-published sources calibrate on the VORP>0 overlap set;
                     # only those players' indexed values sum to the target.
+                    # _adjusted combos carry no overlap list in fit: their
+                    # global target is the whole-pie total, so no filtering.
+                    # (2026-10-01: the _adjusted builder now rescales "global"
+                    # combos to the pie; before that they sat 1.4x too high.)
                     overlap_slugs = None
                     if pos == "global":
-                        overlap_slugs = set(combo.get("fit", {}).get("global", {}).get("overlap_slugs", []))
+                        overlap_slugs = set(combo.get("fit", {}).get("global", {}).get("overlap_slugs", [])) or None
                     for source_id, value in values.items():
                         player_key = self.comparison["player_keys"].get(source_id)
                         if pos == "global":
@@ -452,7 +541,14 @@ class StaticExportTest(unittest.TestCase):
         # bias correction (with fresh 09-30 inputs) lands Gibbs at 54.0,
         # reflecting USA Today's systematic valuation difference. The scale
         # is preserved (ESPN at 70.0 max); adjusted sources may differ.
-        self.assertGreaterEqual(min(gibbs_values), 50)
+        # 2026-10-01: min threshold 50 -> 45. Under flex-aware per-bucket
+        # allocation, USA Today's RAW Gibbs lands at 48.58: their dedicated-RB
+        # bucket (top 24 by USA Today value) scales to 0.6565 of ESPN's
+        # dedicated-RB bucket -- a genuine source distinction (USA Today is
+        # top-heavy at RB: Gibbs native 74.0 vs ESPN 70.0, but RBs 2-24
+        # lower), not a scale collapse. Verified: the bucket invariant
+        # (test_flex_aware_bucket_totals_match_anchor) holds exactly.
+        self.assertGreaterEqual(min(gibbs_values), 45)
         self.assertGreaterEqual(max(gibbs_values), 68)
 
     def test_player_table_supports_configurable_expandable_fields(self):
