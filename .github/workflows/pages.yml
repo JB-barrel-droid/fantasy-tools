@@ -33,6 +33,8 @@ jobs:
       - id: validate
         run: make validate
         continue-on-error: true
+      - name: Rebuild source value lineage
+        run: python3 pipelines/build_source_value_lineage.py
       - name: Check if only monitor files changed
         id: changes
         run: |
