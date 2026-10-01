@@ -620,6 +620,11 @@ def build_checkpoints():
     # reindex method and anchor at each transformation step (Jeremy 2026-10-01)
     result["methodology_consistency"] = build_methodology_consistency()
 
+    # Scale agreement: native vs reindexed vs anchor per source x position.
+    # Built by pipelines/build_scale_agreement.py; surfaced here so the fleet
+    # headline counts it (a bad here must be impossible to hide).
+    result["scale_agreement"] = build_scale_agreement_summary()
+
     return result
 
 
@@ -645,6 +650,39 @@ def _reindex_pipeline_method():
             "reindex method from reindex_comparison_section.py"
         )
     return m.group(1)
+
+
+def build_scale_agreement_summary():
+    """Surface the scale-agreement section status for the fleet headline.
+
+    The full per-source x position analysis lives in
+    dist/modules/scale-agreement.json (built by
+    pipelines/build_scale_agreement.py). This function reads its top-level
+    status so the monitor's fleet counter tallies it -- following the
+    methodology_consistency pattern, a bad here must be impossible to hide.
+
+    If scale-agreement.json is absent (builder not yet run), status is "unk",
+    never a failure claim.
+    """
+    label = "Scale agreement (native vs reindexed vs anchor)"
+    path = REPO / "dist" / "modules" / "scale-agreement.json"
+    try:
+        data = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return {
+            "label": label,
+            "status": "unk",
+            "reason": "scale-agreement.json not available; run pipelines/build_scale_agreement.py",
+            "timestamp": None,
+        }
+    vc = data.get("verdict_counts", {})
+    return {
+        "label": label,
+        "status": data.get("status", "unk"),
+        "reason": data.get("status_reason", ""),
+        "timestamp": data.get("generated_at"),
+        "verdict_counts": vc,
+    }
 
 
 def build_methodology_consistency():
