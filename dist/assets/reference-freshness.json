@@ -1,12 +1,12 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "a07a71bbf914be8deb20fbf73970885ddc85305b62415b70c015ec8eb099e727",
+    "comparison-sources-data.json": "a803ad0afb60c64bb4f933051ff2b333f56a654bdb0f102965b0a2e8299d2dcb",
     "player-news.json": "295b487f16ec02a37f3e92e085c1b34aa69736b267dc265567902c7b2b94bff4",
     "players.json": "21b201b88c7a1e81378047634fdd2027a54a32598d9205bddcdb44a682d288fc",
-    "source-import-health.json": "1349455b0307f910a04cc1d332cdd0c5a58837d1718a50d5eb4b6d99367c3870"
+    "source-import-health.json": "7c91cdbc6540b8778be59c8a3afc2f155e868f1979cb0f63288b37d0ee7442c4"
   },
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-09-30T22:35:49-05:00",
+  "generated_at": "2026-09-30T22:50:52-05:00",
   "import_health_source": "output/source-import-health.json",
   "items": [
     {
@@ -107,15 +107,15 @@
     },
     {
       "age_days": -1,
-      "changed_since_prior_report": true,
+      "changed_since_prior_report": false,
       "enforced": false,
       "freshness_ok": false,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
-      "note": "changed",
+      "note": "unchanged",
       "status": "future_dated",
-      "value": "2026-10-01T03:07:06Z"
+      "value": "2026-10-01T03:45:34Z"
     },
     {
       "age_days": -1,
@@ -127,23 +127,9 @@
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-01T03:07:06Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T03:45:34Z; content_vintage is source provenance, not pull time",
       "status": "stale",
       "value": "Week 4"
-    },
-    {
-      "age_days": -1,
-      "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": false,
-      "key": "source_import.cbsros",
-      "l1_status": "ok",
-      "label": "L1 cbsros content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-01T03:07:06Z; content_vintage is source provenance, not pull time",
-      "status": "stale",
-      "value": "2026-09-30"
     },
     {
       "age_days": -1,
@@ -155,7 +141,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-01T03:07:06Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T03:45:34Z; content_vintage is source provenance, not pull time",
       "status": "stale",
       "value": "2026-09-30"
     },
@@ -169,7 +155,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-01T03:07:06Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T03:45:34Z; content_vintage is source provenance, not pull time",
       "status": "stale",
       "value": "Week 4"
     },
@@ -183,7 +169,7 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-01T03:07:06Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T03:45:34Z; content_vintage is source provenance, not pull time",
       "status": "stale",
       "value": "2026-09-29"
     },
@@ -197,7 +183,7 @@
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-01T03:07:06Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T03:45:34Z; content_vintage is source provenance, not pull time",
       "status": "stale",
       "value": "2026-09-29"
     }
@@ -223,11 +209,11 @@
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 14,
-    "l1_unhealthy_count": 6,
+    "expired_count": 13,
+    "l1_unhealthy_count": 5,
     "max_age_days": 2,
-    "stale_count": 12,
-    "unchanged_count": 8,
+    "stale_count": 11,
+    "unchanged_count": 9,
     "unknown_count": 1
   },
   "today": "2026-09-30"

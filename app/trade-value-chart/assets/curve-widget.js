@@ -2281,6 +2281,10 @@
     runRegressionGuards();
     draw();
     syncCurveStatus();
+    // DEFECT 2: syncContext() only ran inside rebuildDomain() (before the
+    // forced lock reset above), leaving the "locked to ..." caption stale
+    // after a reset. Re-render it with the post-reset lockOrder.
+    syncContext();
     if (publish) publishShared();
   }
 
@@ -2310,6 +2314,10 @@
     runRegressionGuards();
     draw();
     syncCurveStatus();
+    // DEFECT 2: syncContext() only ran inside rebuildDomain() (before the
+    // forced lock reset above), leaving the "locked to ..." caption stale
+    // after a reset. Re-render it with the post-reset lockOrder.
+    syncContext();
     if (publish) publishShared();
   }
 

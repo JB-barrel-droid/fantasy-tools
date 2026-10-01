@@ -126,6 +126,10 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
     return {
         "provenance": "published",   # CBS ROS is source-authored; we only rescore receptions.
         "source_url": source_url,
+        # CBS ROS is rest-of-season projections, not a week-designated trade
+        # chart. The monitor's C10 rendered-output check allows exactly this
+        # label (same as ESPN); a missing label reads as a bad week stamp.
+        "week_designated": "rest of season",
         "method": ("CBS rest-of-season projections (nonppr page; half/full PPR "
                    "computed as CBS fpts + 0.5/1.0 per reception, per-game = ROS/gp), "
                    "translated to the 0-70 scale with the DDF two-tier "
