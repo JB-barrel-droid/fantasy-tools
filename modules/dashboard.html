@@ -304,6 +304,22 @@ const CHAIN_PATHS = [
   "comparison-chain-status.json",
   "output/comparison-chain-status.json",
 ];
+// Path constants must be declared before the framework-section loader calls
+// near the bottom of the script: a const evaluated before its declaration
+// line throws a TDZ ReferenceError, which the loaders' try/catch converts
+// into a permanent "not available" fallback (2026-10-01: Player Trace and
+// Aggregate Diagnostics were broken this way for weeks while their JSONs
+// served correctly).
+const TRACE_PATHS = [
+  "../dist/modules/player-trace.json",
+  "player-trace.json",
+  "dist/modules/player-trace.json",
+];
+const DIAG_PATHS = [
+  "../dist/modules/aggregate-diagnostics.json",
+  "aggregate-diagnostics.json",
+  "dist/modules/aggregate-diagnostics.json",
+];
 const SOURCE_ORDER = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
 
 async function firstOk(paths){
@@ -1315,19 +1331,13 @@ main().catch(e => {
 // ============ PLAYER TRACE ============
 let traceData = null;
 
-const TRACE_PATHS = [
-  "../dist/modules/player-trace.json",
-  "player-trace.json",
-  "dist/modules/player-trace.json",
-];
-
 async function loadPlayerTrace() {
   const select = document.getElementById("playerSelect");
   const status = document.getElementById("traceStatus");
   const output = document.getElementById("traceOutput");
   
   try {
-    traceRes = await firstOk(TRACE_PATHS);
+    const traceRes = await firstOk(TRACE_PATHS);
     traceData = traceRes ? traceRes.json : null;
     if (!traceData || !traceData.players) {
       throw new Error("No trace data");
@@ -1497,12 +1507,6 @@ function renderPlayerTrace(playerKey) {
 }
 
 // ============ AGGREGATE DIAGNOSTICS ============
-const DIAG_PATHS = [
-  "../dist/modules/aggregate-diagnostics.json",
-  "aggregate-diagnostics.json",
-  "dist/modules/aggregate-diagnostics.json",
-];
-
 async function loadDiagnostics() {
   const anomalyEl = document.getElementById("anomalyList");
   const curveEl = document.getElementById("curveHealth");
