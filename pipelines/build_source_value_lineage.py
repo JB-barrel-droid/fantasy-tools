@@ -30,7 +30,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from canonical_players import norm_player_name
 
-REPO = "/home/hatch/workspace/fantasy-tools"
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/source-value-lineage.json")
 

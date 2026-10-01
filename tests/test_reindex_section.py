@@ -347,7 +347,9 @@ class TestRealFixtureSmoke(unittest.TestCase):
         # 10% cutoff of 4.3) but no ESPN anchor. This is a legitimate
         # fail-closed review row for new data, not a regression -- he is
         # correctly excluded from reindexed output pending anchor resolution.
-        expected_unanchored = {'dezhaun stribling'}
+        # De'Von Achane (2026-10-01): confirmed skip, ineligible in ESPN
+        # anchor (explicit 0), triaged by Jeremy.
+        expected_unanchored = {'dezhaun stribling', 'devon achane'}
         actual = {r["slug"] for r in review}
         self.assertEqual(actual, expected_unanchored)
 
