@@ -46,6 +46,18 @@ PIPELINE_COVERAGE = {
         "schedule": "On push to main",
         "key_task": "Production deployment",
     },
+    "ESPN scrape to Supabase": {
+        "stages": ["Source ingest"],
+        "description": "Scrape fresh ESPN projections and save to Supabase",
+        "schedule": "Daily at 11:30 UTC (06:30 CT)",
+        "key_task": "ESPN scrape to Supabase",
+    },
+    "Rebuild player trace": {
+        "stages": ["Player Trace"],
+        "description": "Rebuild player trace artifact from latest pipeline data",
+        "schedule": "Every 6 hours (47 */6 * * *)",
+        "key_task": "Player Trace rebuild",
+    },
 }
 
 

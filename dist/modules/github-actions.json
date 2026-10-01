@@ -1,7 +1,22 @@
 {
-  "generated_at": "2026-10-01T02:22:50.243795+00:00",
+  "generated_at": "2026-10-01T02:25:55.457803+00:00",
   "repo": "JB-barrel-droid/fantasy-tools",
   "workflows": [
+    {
+      "id": 371745723,
+      "name": "ESPN scrape to Supabase",
+      "path": ".github/workflows/espn-supabase-sync.yml",
+      "state": "active",
+      "coverage": {
+        "stages": [
+          "Source ingest"
+        ],
+        "description": "Scrape fresh ESPN projections and save to Supabase",
+        "schedule": "Daily at 11:30 UTC (06:30 CT)",
+        "key_task": "ESPN scrape to Supabase"
+      },
+      "last_run": null
+    },
     {
       "id": 371574673,
       "name": "FantasyCalc drift check and refresh",
@@ -32,12 +47,27 @@
         "key_task": "Production deployment"
       },
       "last_run": {
-        "created_at": "2026-10-01T02:22:36Z",
+        "created_at": "2026-10-01T02:25:49Z",
         "status": "in_progress",
         "conclusion": null,
         "event": "push",
-        "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/36805542487"
+        "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/36805791291"
       }
+    },
+    {
+      "id": 371745724,
+      "name": "Rebuild player trace",
+      "path": ".github/workflows/player-trace-rebuild.yml",
+      "state": "active",
+      "coverage": {
+        "stages": [
+          "Player Trace"
+        ],
+        "description": "Rebuild player trace artifact from latest pipeline data",
+        "schedule": "Every 6 hours (47 */6 * * *)",
+        "key_task": "Player Trace rebuild"
+      },
+      "last_run": null
     },
     {
       "id": 370643883,
@@ -68,14 +98,11 @@
       }
     }
   ],
-  "coverage_gaps": [
-    "ESPN scrape to Supabase",
-    "Player Trace rebuild"
-  ],
+  "coverage_gaps": [],
   "summary": {
-    "total_workflows": 3,
-    "active": 3,
+    "total_workflows": 5,
+    "active": 5,
     "failing": 1,
-    "gaps_count": 2
+    "gaps_count": 0
   }
 }
