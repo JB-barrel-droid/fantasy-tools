@@ -588,7 +588,7 @@ class StaticExportTest(unittest.TestCase):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         html = (APP / "index.html").read_text(encoding="utf-8")
         self.assertIn("Bottoms Up Value Curves", text)
-        self.assertIn("Adjusted source projects", text)
+        self.assertIn("Adjusted source projections", text)
         self.assertIn("Direct published charts", text)
         self.assertIn("Raw value above waivers", text)
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn"]', text)
