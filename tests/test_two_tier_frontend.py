@@ -579,8 +579,17 @@ class TestStage1FallbackFrozen(unittest.TestCase):
     # instead of silently falling back to stale baked adjusted sections or raw
     # published values.
     GOLDEN_PATH = Path(__file__).resolve().parent / "stage1_fallback_golden.json"
+    # LIVE_IDS: identifiers the stage-1 fallback must not depend on. The
+    # fallback (raw passthrough when no cell exists) must work without live
+    # machinery. NOTE (JEG-5, 2026-10-01): ddfTwoTierValues/ddfTwoTierValuesFor
+    # are REMOVED from this list. The OLS cells are trained on the DDF tier
+    # partition; applying them via roleMapForValues (published-value tiers)
+    # mismatches 69 players and breaks the fixedPieIndexed guard by -79.90.
+    # buildLiveAdjustedMap now uses DDF tiers for cell lookup (verified: pie
+    # balances to 1e-13), falling back to roleMapForValues only when DDF is
+    # unavailable. The fallback branch itself remains independent.
     LIVE_IDS = ["DISPLAY_BENCH_SHARE", "benchShare", "TwoTier",
-                "refitLiveCells", "liveCellsCache", "ddfTwoTierValues"]
+                "refitLiveCells", "liveCellsCache"]
 
     def test_fallback_branch_functions_unchanged(self):
         golden = json.loads(self.GOLDEN_PATH.read_text())

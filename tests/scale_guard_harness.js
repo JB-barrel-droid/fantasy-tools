@@ -9,6 +9,9 @@
 const fs = require("fs");
 const path = require("path");
 
+// Headless (JEG-29): alias window -> globalThis before loading the widget.
+globalThis.window = globalThis;
+
 require(path.join(__dirname, "..", "app", "trade-value-chart", "assets", "value-model.js"));
 require(path.join(__dirname, "..", "app", "trade-value-chart", "assets", "curve-widget.js"));
 

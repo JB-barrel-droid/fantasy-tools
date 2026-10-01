@@ -1309,7 +1309,23 @@
 
   function buildLiveAdjustedMap(rawKey, cells) {
     const raw = buildPublishedSourceMap(rawKey);
-    const roles = roleMapForValues(raw);
+    // Tier assignment (JEG-5 fix, 2026-10-01): the OLS cells are trained on
+    // the DDF tier partition (ddf.starters/ddf.bench). Applying them via
+    // roleMapForValues (published-value tiers) mismatches 69 players and
+    // breaks the fixedPieIndexed guard by -79.90. Use the DDF tiers directly
+    // — the same partition the cells were trained on. Falls back to
+    // roleMapForValues only when the DDF is unavailable (data failure edge).
+    const ddf = ["cbsros", "razzball"].includes(rawKey) ? ddfTwoTierValuesFor(rawKey) : ddfTwoTierValues();
+    const roles = ddf ? null : roleMapForValues(raw);
+    const tierOf = playerKey => {
+      if (ddf) {
+        if (ddf.starters.has(playerKey)) return "starter";
+        if (ddf.bench.has(playerKey)) return "bench";
+        return null;
+      }
+      return roles.get(playerKey) || null;
+    };
+    const posOf = playerKey => ddf ? ddf.posOf.get(playerKey) : canonicalByKey.get(playerKey)?.pos;
     const cellByPosTier = new Map();
     cells.forEach(cell => {
       const pos = String(cell.position || "").toUpperCase();
@@ -1330,8 +1346,9 @@
     const adjusted = new Map();
     raw.forEach((value, playerKey) => {
       const player = canonicalByKey.get(playerKey);
-      const role = roles.get(playerKey);
-      const cell = player && role ? cellByPosTier.get(`${player.pos}|${role}`) : null;
+      const tier = tierOf(playerKey);
+      const pos = posOf(playerKey);
+      const cell = player && tier && pos ? cellByPosTier.get(`${pos}|${tier}`) : null;
       // DDF-native sources: only starter/bench players with live cells are
       // included. Waiver-tier players have no cells (the two-tier model does
       // not price them) and are not part of the calibration pie (surplus
@@ -1339,7 +1356,7 @@
       // and breaks the fixedPieIndexed guard (2026-10-01).
       if (isDdfNative) {
         if (!cell) return;
-      } else if (!cell && player && (role === "starter" || role === "bench")) {
+      } else if (!cell && player && (tier === "starter" || tier === "bench")) {
         return;
       }
       const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
