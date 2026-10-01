@@ -125,6 +125,16 @@ MIN_FIT_PAIRS = 10
 # low (below this fraction of the source's max native), they are auto-skipped
 # without a blocking review row. Players with meaningful native values but no
 # anchor still get a review row (potential anchor omission).
+#
+# The fraction below is applied to DIFFERENT denominators by branch, deliberately:
+#  - as-published branch: GLOBAL native max. Published charts are globally
+#    comparable across positions (their cross-position ranking is the product),
+#    so "effectively zero" is judged against the chart's overall top value.
+#  - quantile branch: PER-POSITION native max. DDF-methodology sources are
+#    indexed per position, and a global cutoff would wrongly zero out entire
+#    low-scoring positions (TE/K-DST scale far below QB/RB).
+# Same fraction, different denominators -- the comments at each use site say
+# which one applies.
 ZERO_VORP_NATIVE_FRAC = 0.10
 # A candidate combo may carry the league's QB dimension (qb1 = start 1 QB,
 # qb2 = start 2 QBs). The ESPN anchor leg has no QB-split combos, so such a
@@ -260,6 +270,8 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                            if isinstance(v, (int, float)) or
                            (isinstance(v, str) and v.replace('.','',1).isdigit())]
             max_native = max(native_vals) if native_vals else 0
+            # Global-max denominator: this branch serves as-published charts,
+            # whose values are globally comparable across positions.
             zero_vorp_native_cutoff = max_native * ZERO_VORP_NATIVE_FRAC
             for slug, val in native.items():
                 key = combo.get("player_keys", {}).get(slug)
@@ -440,7 +452,9 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                                 nv_check = float(val)
                             except (TypeError, ValueError):
                                 nv_check = 0
-                            # Use position-specific max for cutoff
+                            # Per-position-max denominator: this branch indexes
+                            # per position, so a global cutoff would wrongly
+                            # zero out low-scoring positions.
                             pos_natives = [float(v) for s2, v in native.items()
                                            if pos_by_slug.get(s2) == pos]
                             pos_max = max(pos_natives) if pos_natives else 0

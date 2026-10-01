@@ -42,6 +42,7 @@ from build_adjustment_inputs import (  # noqa: E402
     POSITION_ORDER,
     REFERENCE_COMBOS,
     build_published_source_map,
+    find_leg,
     fit_cells,
     role_map_for_values,
 )
@@ -307,6 +308,82 @@ class TestBakedArtifact(unittest.TestCase):
         # No invented values anywhere in the payload.
         blob = json.dumps(self.doc)
         self.assertNotIn("estimated", blob.lower())
+
+
+class TestFindLeg(unittest.TestCase):
+    """JEG-16: leg selection must be deterministic and scoring-aware.
+
+    Named defects: find_leg picked the newest generated_at across ALL
+    scorings (a half_ppr leg could serve a ppr build), sorted by bake time
+    instead of content vintage, had no tiebreak, and raised a bare KeyError
+    on legs missing generated_at.
+    """
+
+    def setUp(self):
+        import tempfile
+        self.tmp = Path(tempfile.mkdtemp())
+
+    def _leg(self, name, scoring, teams, snapshot, generated):
+        d = self.tmp / name
+        d.mkdir()
+        doc = {"schema": "trade-value-ddf-leg-v1",
+               "bake_id": name,
+               "generated_at": generated,
+               "inputs": {"scoring": scoring, "teams": teams,
+                          "espn_snapshot_date": snapshot,
+                          "bench_share": 0.15},
+               "values": []}
+        (d / "ddf_leg.json").write_text(json.dumps(doc))
+        return d / "ddf_leg.json"
+
+    def test_scoring_filter_beats_newer_bake(self):
+        old_ppr = self._leg("ddf-20260928-espn-ppr-12t-0p15", "ppr", 12,
+                            "2026-09-28", "2026-09-29T00:00:00Z")
+        new_half = self._leg("ddf-20260930-espn-half_ppr-12t-0p15", "half_ppr", 12,
+                             "2026-09-30", "2026-10-01T00:00:00Z")
+        self.assertEqual(find_leg(self.tmp, scoring="ppr"), old_ppr)
+        self.assertEqual(find_leg(self.tmp, scoring="half_ppr"), new_half)
+
+    def test_content_vintage_beats_bake_time(self):
+        # Newer bake of older data must NOT win over older bake of newer data.
+        stale = self._leg("ddf-20260930-espn-ppr-12t-0p15", "ppr", 12,
+                          "2026-09-28", "2026-10-01T00:00:00Z")
+        fresh = self._leg("ddf-20260929-espn-ppr-12t-0p15", "ppr", 12,
+                          "2026-09-29", "2026-09-30T00:00:00Z")
+        self.assertEqual(find_leg(self.tmp, scoring="ppr"), fresh)
+
+    def test_tiebreak_is_deterministic(self):
+        a = self._leg("ddf-20260929-espn-ppr-12t-0p15", "ppr", 12,
+                      "2026-09-29", "2026-09-30T00:00:00Z")
+        b = self._leg("ddf-20260929-espn-ppr-12t-0p15b", "ppr", 12,
+                      "2026-09-29", "2026-09-30T00:00:00Z")
+        first = find_leg(self.tmp, scoring="ppr")
+        # Same directory state -> same selection, every time.
+        for _ in range(3):
+            self.assertEqual(find_leg(self.tmp, scoring="ppr"), first)
+        self.assertIn(first, (a, b))
+
+    def test_missing_fields_fail_closed(self):
+        d = self.tmp / "ddf-bad-leg"
+        d.mkdir()
+        (d / "ddf_leg.json").write_text(json.dumps(
+            {"schema": "trade-value-ddf-leg-v1", "bake_id": "ddf-bad-leg",
+             "inputs": {"scoring": "ppr", "teams": 12}}))  # no dates
+        with self.assertRaises(SystemExit):
+            find_leg(self.tmp, scoring="ppr")
+
+    def test_no_match_fails_closed(self):
+        self._leg("ddf-20260929-espn-ppr-12t-0p15", "ppr", 12,
+                  "2026-09-29", "2026-09-30T00:00:00Z")
+        with self.assertRaises(SystemExit):
+            find_leg(self.tmp, scoring="standard")
+
+    def test_default_prefers_12t_then_half_ppr(self):
+        self._leg("ddf-20260930-espn-ppr-8t-0p15", "ppr", 8,
+                  "2026-09-30", "2026-10-01T00:00:00Z")
+        half12 = self._leg("ddf-20260929-espn-half_ppr-12t-0p15", "half_ppr", 12,
+                           "2026-09-29", "2026-09-30T00:00:00Z")
+        self.assertEqual(find_leg(self.tmp), half12)
 
 
 if __name__ == "__main__":

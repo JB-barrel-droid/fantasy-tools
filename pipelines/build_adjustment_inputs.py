@@ -143,16 +143,54 @@ def clamp_value(raw) -> float | None:
     return max(0.0, number) if math.isfinite(number) else None
 
 
-def find_leg(ddf_dir: Path) -> Path:
+def find_leg(ddf_dir: Path, scoring: str | None = None,
+           teams: int | None = None) -> Path:
+    """Select the DDF leg deterministically.
+
+    Scoring/teams are read from each leg's own inputs block -- never from the
+    directory name. Selection order: newest CONTENT vintage first
+    (inputs.espn_snapshot_date, not bake time), then newest generated_at,
+    then the path as the final tiebreak, so the same directory state always
+    selects the same leg. Fails closed when no leg matches or a leg is
+    missing the fields selection depends on.
+    """
     legs = sorted(ddf_dir.glob("*/ddf_leg.json"))
     if not legs:
         raise SystemExit(f"No DDF leg found under {ddf_dir}; run pipelines/build_ddf_two_tier_leg.py first.")
-    # Prefer the 12-team leg (the chart's default view); newest bake wins
-    # when several 12-team legs exist.
-    legs_12t = [p for p in legs if "-12t-" in p.parent.name]
-    candidates = legs_12t if legs_12t else legs
-    candidates.sort(key=lambda p: json.loads(p.read_text(encoding="utf-8"))["generated_at"])
-    return candidates[-1]
+
+    def leg_meta(p: Path) -> dict:
+        try:
+            doc = json.loads(p.read_text(encoding="utf-8"))
+        except (OSError, ValueError) as e:
+            raise SystemExit(f"Fail closed: cannot read DDF leg {p}: {e}")
+        inputs = doc.get("inputs") or {}
+        snap = inputs.get("espn_snapshot_date")
+        gen = doc.get("generated_at")
+        if not snap or not gen:
+            missing = "espn_snapshot_date" if not snap else "generated_at"
+            raise SystemExit(f"Fail closed: DDF leg {p} is missing {missing}; refusing to guess.")
+        return {"path": p, "scoring": inputs.get("scoring"),
+                "teams": inputs.get("teams"),
+                "snapshot_date": str(snap), "generated_at": str(gen)}
+
+    metas = [leg_meta(p) for p in legs]
+    if scoring is not None:
+        metas = [m for m in metas if m["scoring"] == scoring]
+    else:
+        # No scoring requested: keep the historical 12-team preference, then
+        # prefer the chart's default scoring so the pick is not arbitrary.
+        legs_12t = [m for m in metas if m["teams"] == 12]
+        pool = legs_12t or metas
+        half = [m for m in pool if m["scoring"] == "half_ppr"]
+        metas = half or pool
+    if teams is not None:
+        metas = [m for m in metas if m["teams"] == teams]
+    if not metas:
+        raise SystemExit(
+            f"No DDF leg under {ddf_dir} matches scoring={scoring!r} teams={teams!r}; "
+            f"run pipelines/build_ddf_two_tier_leg.py first.")
+    metas.sort(key=lambda m: (m["snapshot_date"], m["generated_at"], str(m["path"])))
+    return metas[-1]["path"]
 
 
 def load_canonical(fixture: dict) -> dict[int, dict]:
@@ -331,8 +369,9 @@ def fit_cells(published: dict[int, float], roles: dict[int, str],
     return cells, diagnostics
 
 
-def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
-    leg_path = find_leg(ddf_dir)
+def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path,
+               scoring: str | None = None, teams: int | None = None) -> dict:
+    leg_path = find_leg(ddf_dir, scoring=scoring, teams=teams)
     leg = json.loads(leg_path.read_text(encoding="utf-8"))
     if leg.get("schema") != "trade-value-ddf-leg-v1":
         raise SystemExit(f"Fail closed: {leg_path} is not a DDF leg artifact.")
@@ -446,6 +485,10 @@ def build_inputs(ddf_dir: Path, fixture_path: Path, players_path: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ddf-dir", type=Path, default=DEFAULT_LEG_DIR)
+    parser.add_argument("--scoring", default=None,
+                        help="Only consider DDF legs built for this scoring (e.g. half_ppr).")
+    parser.add_argument("--teams", type=int, default=None,
+                        help="Only consider DDF legs built for this team count.")
     parser.add_argument("--fixture", type=Path, default=DEFAULT_FIXTURE)
     parser.add_argument("--players", type=Path, default=DEFAULT_PLAYERS)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
@@ -459,7 +502,8 @@ def main() -> int:
     if not args.players.is_file():
         raise SystemExit(f"Players fixture not found: {args.players}")
 
-    payload = build_inputs(args.ddf_dir, args.fixture, args.players)
+    payload = build_inputs(args.ddf_dir, args.fixture, args.players,
+                         scoring=args.scoring, teams=args.teams)
     version = payload["version"]
     versioned_dir = args.output_dir / version
     versioned_dir.mkdir(parents=True, exist_ok=True)
