@@ -32,6 +32,37 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-28 follow-up: the USA Today saver goes back to upserts
+
+Roman created the unique index (JEG-28, `sql/migrations/003_source_trade_values_upsert_grain.sql`) and verified a real
+FantasyPros save end to end (534 rows upserted, exit 0). This is the follow-up I offered on that issue.
+
+### Verified
+
+- `save_usatoday()` still plain-inserted through a hardcoded `sbclient.post` loop (with a `/home/hatch/...` path) and
+  never used the `upsert_rows` it already imported, so re-running a save for a vintage would now raise a unique
+  violation instead of merging (before the index it would have duplicated rows). It now calls
+  `upsert_rows("source_trade_values", rows_to_save, USAT_UPSERT_CONFLICT)`, the same shared path the FantasyPros saver
+  uses. [read of both savers]
+- The two tests skipped since JEG-27 (`test_rows_land_with_correct_grain`,
+  `test_ambiguous_identity_goes_to_review_never_guessed`) are unskipped and pass; all 40 tests in the module pass.
+  On the old saver they failed.
+- Added a trap `sbclient` in `sys.modules` to `SaveUsatodayTest.setUp`: any test that reaches `sbclient.post` fails
+  with a clear message, so a saver that bypasses `upsert_rows` cannot write to Supabase from a test on a machine where
+  `sbclient` is installed. Four importable-but-wrong variants are each caught: plain `sbclient.post` insert, wrong
+  conflict key, no write at all, wrong table.
+- GAP-012 (duplicate rows on re-run) marked fixed.
+
+### Claimed, unverified
+
+- A real USA Today save against Supabase. I have no credentials. Roman verified the FantasyPros saver, which shares the
+  conflict spec, but not this one. What would settle it: one real USA Today save with a fresh bake id.
+- That the reverse comment in the old code ("insert is safe for new vintages") was the only reason for the plain insert.
+
+### Open
+
+- Nothing new from me. The two tests had been skipped since JEG-27 because the saver and the tests disagreed.
+
 ## 2026-10-01 - UI batch diagnosis, part 2: JEG-24 reproduced, JEG-21 not, a silent-revert defect found (JEG-45)
 
 Read-only; same setup as the earlier UI-batch entry (local build of `dist/` at `c84a483`, headless Chromium via

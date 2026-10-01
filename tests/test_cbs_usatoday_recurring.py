@@ -24,6 +24,7 @@ import importlib.util
 import json
 import sys
 import unittest
+from unittest.mock import MagicMock, patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -211,6 +212,14 @@ class SaveUsatodayTest(unittest.TestCase):
         self.tmp.mkdir(parents=True, exist_ok=True)
         self.json_path = self.tmp / "usatoday.json"
         self.json_path.write_text(json.dumps(USAT_PULL))
+        # Trap: a saver that reaches the real sbclient (bypassing upsert_rows) fails the
+        # test instead of writing to Supabase on a machine where sbclient is installed.
+        trap = MagicMock()
+        trap.post.side_effect = AssertionError(
+            "test reached sbclient.post: the saver bypassed upsert_rows (JEG-28)")
+        patcher = patch.dict(sys.modules, {"sbclient": trap})
+        patcher.start()
+        self.addCleanup(patcher.stop)
         self._fetch = save_usat.fetch_players
         self._upsert = save_usat.upsert_rows
         self._count = save_usat.count_rows
@@ -228,9 +237,6 @@ class SaveUsatodayTest(unittest.TestCase):
         save_usat.upsert_rows = self._upsert
         save_usat.count_rows = self._count
 
-    @unittest.skip("Asserts the upsert contract; save_usatoday_references.py currently does a plain insert "
-                   "(workaround for the missing unique index). Blocked on JEG-28: add the index, "
-                   "restore the upsert_rows path, then unskip.")
     def test_rows_land_with_correct_grain(self):
         result = save_usat.save_usatoday(
             self.json_path, dry_run=False, week=2, bake_id="pullwk2_2026-09-22",
@@ -263,9 +269,6 @@ class SaveUsatodayTest(unittest.TestCase):
         self.assertTrue(all(r["week"] == 2 for r in rows))
         self.assertTrue(all(r["variant"] == "as_published" for r in rows))
 
-    @unittest.skip("Asserts the upsert contract; save_usatoday_references.py currently does a plain insert "
-                   "(workaround for the missing unique index). Blocked on JEG-28: add the index, "
-                   "restore the upsert_rows path, then unskip.")
     def test_ambiguous_identity_goes_to_review_never_guessed(self):
         result = save_usat.save_usatoday(
             self.json_path, dry_run=False, week=2, bake_id="pullwk2_2026-09-22",
