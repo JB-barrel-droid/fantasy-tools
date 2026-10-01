@@ -303,19 +303,24 @@ def _health_checked_at(path: Path):
     return ts if isinstance(ts, str) and ts else None
 
 
-def sync_monitor_fixture(fixtures: Path, dist_modules: Path) -> Path:
-    """Keep the module monitor's copy of the comparison fixture equal to the fixture.
+def sync_monitor_fixture(fixtures_dir, modules_dir):
+    """Copy the comparison fixture into dist/modules/ (JEG-8).
 
-    dist/modules/comparison-sources-data.json used to be refreshed only by the
-    rebuild-chain workflow, after a green chain. A red chain (a fail-closed review
-    hold) therefore left the served monitor copy stale -- on 2026-10-01 it still
-    lacked the Razzball section the fixture and the app copy already had (JEG-8).
-    Sync now writes it on every deploy, exactly as it already does for the app copy.
+    The module monitor serves its fixture copy from dist/modules/; make sync
+    maintains it from the canonical fixture on every run, like the app copy,
+    so a red (fail-closed) rebuild-chain run can't leave it stale. A missing
+    fixture fails loudly instead of leaving a stale copy behind.
     """
-    dist_modules.mkdir(parents=True, exist_ok=True)
-    target = dist_modules / "comparison-sources-data.json"
-    shutil.copy2(fixtures / "comparison-sources-data.json", target)
-    return target
+    from pathlib import Path
+    fixtures_dir = Path(fixtures_dir)
+    modules_dir = Path(modules_dir)
+    src = fixtures_dir / "comparison-sources-data.json"
+    if not src.exists():
+        raise FileNotFoundError(f"comparison fixture missing: {src}")
+    modules_dir.mkdir(parents=True, exist_ok=True)
+    dst = modules_dir / "comparison-sources-data.json"
+    dst.write_bytes(src.read_bytes())
+    return dst
 
 
 def main() -> int:
@@ -356,12 +361,14 @@ def main() -> int:
     dist_modules = DIST / "modules"
     dist_modules.mkdir(parents=True, exist_ok=True)
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
-    sync_monitor_fixture(FIXTURES, dist_modules)
     # import_health_source() may resolve to the checked-in dist copy itself
     # (CI picks the freshest valid candidate, which is usually the pushed dist
     # file) -- never copy a file onto itself.
     if import_health.resolve() != (dist_modules / "source-import-health.json").resolve():
         shutil.copy2(import_health, dist_modules / "source-import-health.json")
+    # The monitor's fixture copy: kept equal to the canonical fixture on every
+    # sync (JEG-8), so it can never silently go stale behind the app copy.
+    sync_monitor_fixture(FIXTURES, dist_modules)
 
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).
