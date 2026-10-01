@@ -32,6 +32,29 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - Correction: main was red on a test that pinned a typo (JEG-40)
+
+JEG-40 (`21ad796`) fixed the visible text "Adjusted source projects" to "projections" in `curve-widget.js`, but `tests/test_static_export.py::test_curve_defaults_are_grouped_and_include_raw_value_above_waivers` still asserted the typo, so `make validate` failed on `main` (reproduced on a clean worktree of `origin/main`: 1 failure of 35 in that file). `make validate` is the Pages deploy gate. The assertion itself was wrong (it pinned a typo, not behavior), so I changed the pinned string to "Adjusted source projections" in this PR. The code was right; nothing was loosened. `grep` finds the new string twice in `curve-widget.js`.
+
+## 2026-10-01 - JEG-35 follow-up: Razzball top 25 in the monitor lineage
+
+Jeremy asked for a source value lineage section for Razzball's top 25 in the monitoring dashboard, and whether it is working.
+
+### Verified
+
+- `modules/dashboard.html` already listed Razzball in the lineage section (JEG-36); the data file did not. `dist/modules/source-value-lineage.json` had no Razzball block because it was built before JEG-36.
+- The builder cannot run here (no raw snapshots). I split the per-source body into `build_source_entry()` and added `--merge razzball` (fixture-only sources: espn, cbsros, razzball). Proof the split changed nothing: old and new builders produce identical JSON for all 7 sources on the current fixture with snapshots and live data stubbed. `tests/test_lineage_merge.py` has 5 tests; each of 4 mutations (allow any source, overwrite the file, drop the empty check, drop the existing-artifact check) fails a named test.
+- Rendered result (headless Chromium, `dist/modules/dashboard.html`): the Razzball card shows 25 rows, 0 page errors. Top: Gibbs 70.0, Robinson 60.8, Smith-Njigba 53.2, McCaffrey 51.7. Achane is not in the top 25. `chart_value` equals `indexed` for all 25 rows.
+- Razzball rows read `unverifiable` in the Live column, like ESPN and CBS ROS (no live page), so the summary now counts 78 live mismatches, 75 of them these three no-live-page sources, by the card's existing contract.
+
+### Claimed, unverified
+
+- That the chart-vs-lineage gap below is display normalization; I showed the numbers differ, not why.
+
+### Open
+
+- GAP-027 (the artifact is only buildable locally, the pages.yml step always fails, stale stamp) and GAP-028 (the lineage `Chart` column does not match the rendered chart: Razzball Gibbs 70.0 vs 56.3 at Half/12; 0 of 25 rows match for six sources). So the section works as a trace of fixture values, but it does not verify what users see.
+
 ## 2026-10-01 - JEG-35: Razzball is not stale; Achane comes from FantasyCalc and USA Today
 
 Muse asked for root cause first: is the Razzball data stale, or the fixture, and is the Razzball leg wired in?
