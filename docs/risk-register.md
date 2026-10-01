@@ -30,6 +30,7 @@ exists in chat or a session transcript.
 | GAP-013 | `make validate` does not run `test-integration`, so regressions in cascade, promote, writer-audit and CBS/USAT saver tests do not gate deploys. | Medium | Open | Makefile 2026-10-01: `validate: naming reference sync test-unit`; those four modules are in `test-integration`. | Decide whether the hermetic ones (cascade, promote, writer-audit) should move into `test-unit` now that they pass without network or `data/raw`. |
 | GAP-014 | `docs/import-health-schema.md` says "five" active sources; the verifier covers six (`cbsros`). | Low | Open | `verify_import_health.DASHBOARD_SOURCES` has six entries (2026-10-01). | Update the doc to six. |
 | GAP-015 | The promote L1 gate does not check the age of the import-health file (`checked_at`). | Medium | Open | `check_l1_freshness()` 2026-10-01 compares status and vintage only; docs set no age limit. | Jeremy/Muse to decide a maximum age, then add it with a negative test. |
+| GAP-016 | No workflow runs on pull requests: `make validate` runs only on push to `main`, dispatch and schedule, so a PR gets no automated check and the first full run is the post-merge deploy gate. | High | Open | Every `.github/workflows/*.yml` `on:` block read 2026-10-01; PR #7 had 0 check runs and 0 workflow runs. I ran `make validate` by hand (exit 0). | JEG-31: add a PR-triggered validate (and preview) workflow without changing `pages.yml` production semantics. |
 
 ## Fixed Or Controlled
 

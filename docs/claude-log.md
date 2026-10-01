@@ -32,6 +32,42 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - Correction: no CI runs on pull requests (JEG-27 entry was wrong about this)
+
+The entry below this one (and the PR #7 description) said `make sync` / the full
+`make validate` was "not run locally; CI will run it on the PR". That was wrong.
+
+### Verified
+
+- No workflow in `.github/workflows/` has a `pull_request` trigger. `pages.yml`
+  (the one that runs `make validate`) triggers on push to `main`, `workflow_dispatch`
+  and a daily schedule only. The GitHub API shows 0 check runs and 0 workflow runs
+  for PR #7's head `3732a6a`. [read of every workflow's `on:` block; `get_check_runs`;
+  `list_workflow_runs` filtered to the branch]
+  So the first CI run of `make validate` for this change would be the post-merge
+  deploy gate, not the PR.
+- Ran the full `make validate` locally on `3732a6a`: exit 0 in about 24 s
+  (naming, reference, sync, then `test-unit` all OK; the one `skipped=7` module is
+  `test_two_tier_frontend`'s existing conditional skips). [`make validate`]
+- `make sync` rewrote five tracked generated files (build stamp,
+  `reference-freshness.json` in app and dist, `dist/assets/curve-widget.js`,
+  `dist/index.html`); I discarded them with `git checkout -- .` because they are not
+  part of this change.
+- At `HEAD`, committed `dist/assets/curve-widget.js` differs from
+  `app/trade-value-chart/assets/curve-widget.js`: the sync diff adds the CBS ROS /
+  Razzball curve wiring from commit `2876a38`. [`git diff`; `diff -q` at HEAD]
+
+### Claimed, unverified
+
+- That the stale committed `dist/` has no production effect. `pages.yml` runs
+  `make validate` (which includes sync) before deploying, so CI should build a fresh
+  `dist/`, but I did not read the deploy step closely or run it.
+
+### Open
+
+- Pull requests get no automated validation (GAP-016). This is what JEG-31 is for;
+  until it lands, a branch must be validated by hand before review.
+
 ## 2026-10-01 - JEG-27: four of the seven emergency test skips fixed at the root
 
 Claude Code cloud session (Claude lane), working with Muse via Linear labels
