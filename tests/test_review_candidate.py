@@ -221,7 +221,9 @@ class TestRealFixtureReview(unittest.TestCase):
         # ESPN anchor. The other 14 anchorless players are deep-bench
         # (<6% of max) and correctly excluded from reindexed output silently.
         review_slugs = {r["slug"] for r in review_rows}
-        expected = {'dezhaun stribling'}
+        # 2026-10-01: Achane added — confirmed skip (ineligible in ESPN
+        # anchor, triaged by Jeremy), appears as review row in demo.
+        expected = {'dezhaun stribling', 'devon achane'}
         self.assertEqual(review_slugs, expected)
         rp = tmp / "usa-reindexed.json"
         rp.write_text(json.dumps(section))
