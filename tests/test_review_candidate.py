@@ -214,11 +214,18 @@ class TestRealFixtureReview(unittest.TestCase):
         cp = tmp / "usa-candidate.json"
         cp.write_text(json.dumps(cand))
         section, review_rows = rcs.reindex_section(str(cp), str(fixture), str(players_p))
-        # 2026-10-01: Dezhaun Stribling (WR) is a legitimate fail-closed review
-        # row -- native 5.1 in standard_12 (above WR 10% cutoff) with no ESPN
-        # anchor. He is correctly excluded from reindexed output.
+        # 2026-10-01: 15 USA Today players are legitimate fail-closed review
+        # rows -- they have no ESPN anchor and are correctly excluded from
+        # reindexed output. (See test_reindex_section.py for the full list.)
         review_slugs = {r["slug"] for r in review_rows}
-        self.assertEqual(review_slugs, {"dezhaun stribling"})
+        expected = {
+            'brashard smith', 'cyrus allen', 'dezhaun stribling',
+            'donte thornton jr', 'dylan sampson', 'jakobi lane',
+            'jalen mcmillan', 'james conner', 'jonah coleman',
+            'jonathon brooks', 'kaytron allen', 'omar cooper jr',
+            'shedeur sanders', 'tank dell', 'tua tagovailoa',
+        }
+        self.assertEqual(review_slugs, expected)
         rp = tmp / "usa-reindexed.json"
         rp.write_text(json.dumps(section))
         report = rvw.review_candidate(str(rp), fixture_path=str(fixture),
