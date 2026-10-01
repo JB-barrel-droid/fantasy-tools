@@ -1,0 +1,69 @@
+name: ESPN scrape to Supabase
+
+# Scrapes fresh ESPN projections and saves them to Supabase.
+# This closes the automation gap where ESPN data was only updated
+# via local cron + manual save step.
+#
+# Runs daily at 06:30 CT (after the local scraper would have run,
+# as a backup; primary path is this Action).
+
+on:
+  schedule:
+    # Daily at 11:30 UTC (06:30 CT)
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py 2>/dev/null || true
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Scrape ESPN projections
+        run: |
+          # Run the ESPN scraper (outputs to /tmp/espn_projections.csv)
+          # The scraper is idempotent: only writes if data changed
+          python3 pipelines/pull_espn_projections.py --out /tmp/espn_projections.csv --meta /tmp/espn_meta.json || echo "Scraper failed, using existing data"
+
+      - name: Save to Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Save the scraped CSV to Supabase
+          # Uses --espn-csv to specify the fresh scrape output
+          if [ -f /tmp/espn_projections.csv ]; then
+            python3 pipelines/save_espn_cbs_references.py --source espn \
+              --espn-csv /tmp/espn_projections.csv \
+              --espn-meta /tmp/espn_meta.json
+          else
+            echo "No fresh ESPN data, skipping Supabase save"
+          fi
+
+      - name: Commit scraper updates if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          # Commit any scraper improvements, not the data (data lives in Supabase)
+          git add pipelines/pull_espn_projections.py 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No scraper changes to commit."
+          else
+            git commit -m "Automated ESPN scraper update (GitHub Actions)"
+            git push
+          fi
