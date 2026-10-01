@@ -281,10 +281,14 @@ def load_espn_lists(csv_path: Path, scoring: str) -> tuple[dict[str, list[dict[s
         norm = str(row.get("player_norm") or "").strip()
         pos = str(row.get("pos") or "").strip()
         projected = str(row.get("has_espn_projection") or "").strip().lower() in ("true", "1", "yes")
-        eligible = str(row.get("eligible") or "").strip().lower() in ("true", "1", "yes")
-        if not name or not projected or not eligible:
+        if not name or not projected:
             review_rows.append({"reason": "no_espn_projection", "player": name or None})
             continue
+        # NOTE: the row's "eligible" flag intentionally does NOT gate pricing.
+        # Ineligible (out/IR) players with a real ESPN row carry an explicit
+        # zero, not missing data -- same rule as save_espn_cbs_references.py.
+        # Their zeroed components flow through and price at 0.0; sending them
+        # to review would silently drop a legitimate zero (e.g. De'Von Achane).
         if pos not in POSITIONS:
             review_rows.append({"reason": "non_skill_position", "player": name, "pos": pos})
             continue

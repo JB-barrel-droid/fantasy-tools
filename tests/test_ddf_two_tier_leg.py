@@ -336,5 +336,57 @@ class TestFailClosed(unittest.TestCase):
             calibrate_position({"surplus": 0.0}, 59.0, DEFAULT_BENCH_SHARE)
 
 
+class TestExplicitZeroSurvives(unittest.TestCase):
+    """Ineligible (out/IR) players with a real ESPN row carry an explicit zero.
+
+    Regression test for the Achane defect: load_espn_lists treated
+    eligible=False as 'no_espn_projection' and dropped the row to review,
+    silently deleting a legitimate zero. The row must price at 0.0.
+    """
+
+    CSV_HEADER = ("player,player_norm,pos,team,has_espn_projection,eligible,"
+                  "r_pass_yds,r_pass_tds,r_rush_yds,r_rush_tds,r_receptions,"
+                  "r_rec_yds,r_rec_tds,ros_half_ppr,weeks_covered,"
+                  "season_block_half_ppr,espn_snapshot_date")
+
+    def _write_csv(self, tmp, rows):
+        path = Path(tmp) / "explicit_zero.csv"
+        path.write_text(self.CSV_HEADER + "\n" + "\n".join(rows) + "\n",
+                        encoding="utf-8")
+        return path
+
+    def _row(self, name, norm, projected, eligible, ros_half=0.0, receptions=0.0):
+        return (f"{name},{norm},RB,MIA,{projected},{eligible},"
+                f"0,0,0,0,{receptions},0,0,{ros_half},4-18,0.00,2026-09-30")
+
+    def test_ineligible_projected_prices_at_zero_not_review(self):
+        tmp = tempfile.mkdtemp()
+        csv = self._write_csv(tmp, [
+            self._row("Healthy Back", "healthy back", "True", "True", 150.0, 30.0),
+            self._row("DeVon Achane", "devon achane", "True", "False", 0.0, 0.0),
+        ])
+        lists, _, review = load_espn_lists(csv, "half_ppr")
+        achane_reviews = [r for r in review if r.get("player") == "DeVon Achane"]
+        self.assertEqual(achane_reviews, [],
+                         "explicit-zero row must not go to review")
+        rb = {d["id"]: d for d in lists["RB"]}
+        self.assertIn("devon achane", rb)
+        self.assertEqual(rb["devon achane"]["x"], 0.0)
+
+    def test_truly_missing_projection_still_reviewed(self):
+        # has_espn_projection=False is genuinely missing data -> review.
+        tmp = tempfile.mkdtemp()
+        csv = self._write_csv(tmp, [
+            self._row("Healthy Back", "healthy back", "True", "True", 150.0, 30.0),
+            self._row("Ghost Player", "ghost player", "False", "True", 0.0, 0.0),
+        ])
+        lists, _, review = load_espn_lists(csv, "half_ppr")
+        ghost = [r for r in review if r.get("player") == "Ghost Player"]
+        self.assertEqual(len(ghost), 1)
+        self.assertEqual(ghost[0]["reason"], "no_espn_projection")
+        rb = {d["id"]: d for d in lists["RB"]}
+        self.assertNotIn("ghost player", rb)
+
+
 if __name__ == "__main__":
     unittest.main()
