@@ -821,14 +821,13 @@
     if (key === "espn_vorp") return true;
     if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
     // DDF-native sources (cbsros, razzball): check fixture has native PPG data.
-    // Razzball uses rz_ppg on player objects; CBS ROS data comes from Supabase
-    // via the pipeline (not yet baked into fixture as of 2026-10-01).
+    // Razzball uses rz_ppg on player objects; CBS ROS uses cbsros_ppg,
+    // baked by pipelines/bake_players.py from the CBS ROS snapshot (JEG-33).
     if (key === "razzball") {
       return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p.rz_ppg?.[scoringField()])));
     }
     if (key === "cbsros") {
-      // TODO: CBS ROS data not yet in fixture — pipeline work needed (JEG-7 done, baking pending)
-      return false;
+      return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p.cbsros_ppg?.[scoringField()])));
     }
     return Boolean(data?.sources?.[key]?.combos?.[comboKey(key)]);
   };
@@ -860,6 +859,7 @@
         pos: player.pos,
         espn_ppg: player.espn_ppg || specialistProjection,
         rz_ppg: player.rz_ppg || null,
+        cbsros_ppg: player.cbsros_ppg || null,
         projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
       });
     });
@@ -970,6 +970,18 @@
       const field = scoringField();
       canonicalByKey.forEach((player, playerKey) => {
         const ppg = Number(player.rz_ppg?.[field]);
+        if (!Number.isFinite(ppg)) return;
+        values.set(playerKey, ppg);
+      });
+      return values;
+    }
+    // CBS ROS: same pattern — native PPG baked onto fixture player objects
+    // (cbsros_ppg) by pipelines/bake_players.py (JEG-33).
+    if (key === "cbsros") {
+      const values = new Map();
+      const field = scoringField();
+      canonicalByKey.forEach((player, playerKey) => {
+        const ppg = Number(player.cbsros_ppg?.[field]);
         if (!Number.isFinite(ppg)) return;
         values.set(playerKey, ppg);
       });

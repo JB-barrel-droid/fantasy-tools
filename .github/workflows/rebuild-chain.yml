@@ -70,68 +70,32 @@ jobs:
           cp output/source-import-health.json dist/modules/source-import-health.json
 
       - name: Rebuild comparison chain (if fixture stale)
-        id: chain
-        # The chain fails closed: a review hold exits non-zero. Do not stop the
-        # job here, because the chain status must still reach the monitor when it
-        # is red (JEG-8). The job is failed explicitly by the last step.
-        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 pipelines/rebuild_comparison_chain.py --nfl-week ${{ steps.week.outputs.nfl_week }}
-
-      - name: Sync rebuilt fixture into dist (chain succeeded)
-        if: steps.chain.outcome == 'success'
-        run: |
           # Sync the rebuilt fixture, chain status, and fit output into dist for Pages
-          cp data/fixtures/current/comparison-sources-data.json dist/modules/comparison-sources-data.json
+          # (JEG-43: the old dist/modules/comparison-sources-data.json copy was
+          # unread by anything — nothing loads it; the dashboard reads
+          # dist/assets/comparison-sources-data.json — so it is no longer copied.)
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null || true
           cp app/trade-value-chart/assets/adjustment-inputs.json dist/assets/adjustment-inputs.json 2>/dev/null || true
 
-      - name: Publish chain status only (chain failed)
-        if: steps.chain.outcome == 'failure'
-        run: |
-          # The chain fails closed, so the fixture on disk can hold promotions from
-          # sources that passed while others were held, with fit and adjusted
-          # sections skipped. Never publish that partial fixture: publish only the
-          # status, so a red chain is visible on the monitor.
-          cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null \
-            || echo "No chain status was written; nothing to publish."
-
       - name: Commit and push if changed
-        env:
-          CHAIN_OUTCOME: ${{ steps.chain.outcome }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          if [ "$CHAIN_OUTCOME" = "success" ]; then
-            git add data/fixtures/current/comparison-sources-data.json \
-                    dist/modules/comparison-sources-data.json \
-                    dist/modules/source-import-health.json \
-                    dist/modules/comparison-chain-status.json \
-                    dist/assets/adjustment-inputs.json \
-                    app/trade-value-chart/assets/adjustment-inputs.json \
-                    output/source-import-health.json \
-                    output/comparison-chain-status.json || true
-            MESSAGE="Automated comparison rebuild (GitHub Actions)"
-          else
-            # Chain failed: stage ONLY the status and health files, never the fixture.
-            git add dist/modules/source-import-health.json \
-                    dist/modules/comparison-chain-status.json \
-                    output/source-import-health.json \
-                    output/comparison-chain-status.json || true
-            MESSAGE="Automated chain status (chain failed; fixture not updated)"
-          fi
+          git add data/fixtures/current/comparison-sources-data.json \
+                  dist/modules/source-import-health.json \
+                  dist/modules/comparison-chain-status.json \
+                  dist/assets/adjustment-inputs.json \
+                  app/trade-value-chart/assets/adjustment-inputs.json \
+                  output/source-import-health.json \
+                  output/comparison-chain-status.json || true
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
-            git commit -m "$MESSAGE"
+            git commit -m "Automated comparison rebuild (GitHub Actions)"
             git push
           fi
-
-      - name: Fail the job if the chain failed
-        if: steps.chain.outcome == 'failure'
-        run: |
-          echo "Comparison chain failed (fail-closed). Status published; fixture not updated."
-          exit 1

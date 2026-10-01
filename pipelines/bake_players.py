@@ -46,6 +46,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 import os
 import sys
 from datetime import date as _date
@@ -120,6 +121,13 @@ PM_COMPS = dict(ESPN_COMPS)  # same r_* column contract
 RZ_LEGS = (("rz_std_ppg", "standard"),
            ("rz_half_ppr_ppg", "half_ppr"),
            ("rz_ppr_ppg", "ppr"))
+
+# CBS ROS snapshot columns (pre-computed per-game rates: ROS totals / gp).
+CBSROS_LEGS = (("per_game_standard", "standard"),
+               ("per_game_half_ppr", "half_ppr"),
+               ("per_game_ppr", "ppr"))
+
+CBSROS_SNAPSHOT_DIR = ROOT / "data" / "raw" / "sources" / "cbsros"
 
 SCORINGS = ("standard", "half_ppr", "ppr")
 
@@ -214,6 +222,69 @@ def _intake_razzball(path, registry):
     return med, snap
 
 
+def _latest_cbsros_snapshot():
+    """Return the latest data/raw/sources/cbsros/<date>/snapshot.json path.
+
+    Latest = max vintage_date among snapshots that parse; ties broken by
+    directory name. Fail-closed: SystemExit when none parse.
+    """
+    cands = sorted(CBSROS_SNAPSHOT_DIR.glob("*/snapshot.json"))
+    best, best_vintage = None, ""
+    for p in cands:
+        try:
+            v = str(json.loads(p.read_text(encoding="utf-8"))
+                    .get("vintage_date") or "")
+        except Exception:  # noqa: BLE001 - unparseable snapshot is skipped
+            continue
+        if (v, p.parent.name) > (best_vintage, best.parent.name if best else ""):
+            best, best_vintage = p, v
+    if best is None:
+        raise SystemExit(
+            "FAIL-CLOSED: no parseable CBS ROS snapshot under "
+            f"{CBSROS_SNAPSHOT_DIR} — refusing to bake without CBS data.")
+    return best
+
+
+def _intake_cbsros(snapshot_path, registry):
+    """CBS ROS snapshot intake -> {player_key: {scoring: per-game ppg}}.
+
+    The snapshot carries pre-computed per-game rates (per_game_standard /
+    per_game_half_ppr / per_game_ppr = ROS totals / gp). Only rows with all
+    three scorings finite are priced (never partially); identity resolves
+    through the canonical naming table, fail-closed. Returns (med, vintage).
+    """
+    snap = json.loads(Path(snapshot_path).read_text(encoding="utf-8"))
+    vintage = snap.get("vintage_date")
+    if not vintage:
+        raise SystemExit("FAIL-CLOSED: CBS ROS snapshot has no vintage_date.")
+    med = {}
+    n_rows = n_unres = n_incomplete = 0
+    for r in snap.get("rows", []):
+        n_rows += 1
+        key = _resolve_csv_row(r.get("player_name", ""),
+                               (r.get("pos") or "").strip(),
+                               "cbsros", registry)
+        if key is None:
+            n_unres += 1
+            continue
+        ppg = {}
+        for col, s in CBSROS_LEGS:
+            v = r.get(col)
+            if isinstance(v, (int, float)) and math.isfinite(v):
+                ppg[s] = float(v)
+        if len(ppg) == 3:
+            if key in med:
+                print(f"cbsros intake WARNING: duplicate key: {key} "
+                      f"({r.get('player_name')})")
+            med[key] = ppg
+        else:
+            n_incomplete += 1
+    print(f"cbsros intake: {len(med)} priced players "
+          f"({n_rows} rows, {n_incomplete} partial-ppg excluded), "
+          f"vintage {vintage}, {n_unres} unresolved")
+    return med, vintage
+
+
 def pts(stats, scoring):
     return fantasy_points(stats, scoring)
 
@@ -292,6 +363,9 @@ def bake(args):
     pm_med, pm_snapshot_date = _intake_csv(
         args.pm_csv, PM_COMPS, "has_prediction_market_line", "pm", registry)
     rz_med, rz_snapshot_date = _intake_razzball(args.razzball_csv, registry)
+    cbsros_snapshot = args.cbsros_snapshot or _latest_cbsros_snapshot()
+    cbsros_med, cbsros_snapshot_date = _intake_cbsros(cbsros_snapshot,
+                                                      registry)
 
     # ---- Actuals ------------------------------------------------------------
     actual_rows = query_all(
@@ -378,6 +452,11 @@ def bake(args):
                        and all(s in z for s in SCORINGS))
         rz_covered = sorted(s for s in SCORINGS if s in z)
 
+        c = cbsros_med.get(key, {})
+        cbsros_complete = (pos in ("QB", "RB", "WR", "TE")
+                           and all(s in c for s in SCORINGS))
+        cbsros_covered = sorted(s for s in SCORINGS if s in c)
+
         row = {
             "player_key": key,
             "name": require_canonical_name(key, registry=registry),
@@ -393,6 +472,9 @@ def bake(args):
             "rz_complete": bool(rz_complete),
             "rz_comp_count": len(rz_covered),
             "rz_covered": rz_covered,
+            "cbsros_complete": bool(cbsros_complete),
+            "cbsros_comp_count": len(cbsros_covered),
+            "cbsros_covered": cbsros_covered,
             "blend_ros": {s: pts(blend, s) for s in SCORINGS},
             # pricing label: the board's primary number is 100% ECR.
             "pricing": "experts_only",
@@ -443,6 +525,13 @@ def bake(args):
                     row["rz_filled_ros"]["ppr"] - row["ecr_ros"]["ppr"], 2)
                 row["delta_rz_ecr_ppg"] = round(
                     row["rz_filled_ppg"]["ppr"] - row["ecr_ppg"]["ppr"], 2)
+            # CBS ROS: per-game rates are pre-computed in the snapshot
+            # (per_game_standard/half_ppr/ppr = ROS totals / gp). No ROS
+            # fill here: the curve re-prices live from cbsros_ppg via the
+            # two-tier math (JEG-33); the comparison dashboard reads the
+            # baked cbsros DDF leg.
+            if cbsros_complete:
+                row["cbsros_ppg"] = {s: round(c[s], 2) for s in SCORINGS}
         players.append(row)
 
     # ---- Kickers & team defenses: ESPN projections only ----------------------
@@ -480,6 +569,7 @@ def bake(args):
             "espn_complete": True, "espn_comp_count": 1, "espn_covered": ["k"],
             "pm_complete": False, "pm_comp_count": 0, "pm_covered": [],
             "rz_complete": False, "rz_comp_count": 0, "rz_covered": [],
+            "cbsros_complete": False, "cbsros_comp_count": 0, "cbsros_covered": [],
             "prior_ecr_ros": None, "prior_blend_ros": None,
         })
     for abbr, ppg in sorted(dst_ppg.items(), key=lambda kv: -kv[1]):
@@ -504,6 +594,7 @@ def bake(args):
             "espn_complete": True, "espn_comp_count": 1, "espn_covered": ["dst"],
             "pm_complete": False, "pm_comp_count": 0, "pm_covered": [],
             "rz_complete": False, "rz_comp_count": 0, "rz_covered": [],
+            "cbsros_complete": False, "cbsros_comp_count": 0, "cbsros_covered": [],
             "prior_ecr_ros": None, "prior_blend_ros": None,
         })
     if kdst_unresolved:
@@ -664,11 +755,14 @@ def bake(args):
         "espn_snapshot": str(espn_snapshot_date),
         "pm_snapshot": str(pm_snapshot_date),
         "rz_snapshot": str(rz_snapshot_date),
+        "cbsros_snapshot": str(cbsros_snapshot_date),
         "n_players": len(players),
         "n_espn_complete": sum(1 for p in players if p["espn_complete"]),
         "n_pm_complete": sum(1 for p in players if p["pm_complete"]),
         "n_pm_covered": sum(1 for p in players if p.get("pm_comp_count", 0) > 0),
         "n_rz_complete": sum(1 for p in players if p["rz_complete"]),
+        "n_cbsros_complete": sum(1 for p in players
+                                 if p.get("cbsros_complete")),
         "n_k": sum(1 for p in players if p["pos"] == "K"),
         "n_dst": sum(1 for p in players if p["pos"] == "DST"),
         "kdst_snapshot": kdst_snapshot,
@@ -718,6 +812,14 @@ def bake(args):
                     "source 2026-09-17 (rank corr vs ECR 0.78-0.91, never "
                     "0.99+; deviations largely independent of ESPN). "
                     "K/DST have no Razzball projections (ESPN-priced)."),
+        "cbsros_note": ("cbsros_ppg = pure CBS rest-of-season per-game "
+                        "projection read (per_game_standard / per_game_half_ppr "
+                        "/ per_game_ppr from the CBS ROS snapshot = ROS totals "
+                        "/ gp). CBS publishes nonppr totals only; half_ppr/ppr "
+                        "add 0.5/1.0 per reception. The curve re-prices live "
+                        "from cbsros_ppg through the shared two-tier "
+                        "value-above-waivers math (source's own pool and pies, "
+                        "never ESPN's). K/DST have no CBS ROS projections."),
         "method_note": ("Primary trade value (blend_ros/blend_ppg): since 2026-09-16 "
                         "the primary value IS the ECR leg — expert stat projections "
                         "translated to fantasy points with banked actuals removed "
@@ -792,6 +894,9 @@ def main():
     ap.add_argument("--espn-csv", default=str(INPUTS_DIR / "espn_projections.csv"))
     ap.add_argument("--pm-csv", default=str(INPUTS_DIR / "prediction_markets_season.csv"))
     ap.add_argument("--razzball-csv", default=str(INPUTS_DIR / "razzball_projections.csv"))
+    ap.add_argument("--cbsros-snapshot", default=None,
+                    help="CBS ROS snapshot.json path; default: latest dated "
+                         "snapshot under data/raw/sources/cbsros/")
     ap.add_argument("--k-json", default=str(INPUTS_DIR / "espn_k_ppg_2026-09-21.json"))
     ap.add_argument("--dst-json", default=str(INPUTS_DIR / "espn_dst_ros_2026-09-21.json"))
     args = ap.parse_args()
@@ -799,7 +904,8 @@ def main():
     print(json.dumps({k: v for k, v in result["meta"].items()
                       if k in ("as_of", "ecr_snapshot", "ecr_content_date",
                                "n_players", "n_espn_complete", "n_pm_complete",
-                               "n_rz_complete", "n_k", "n_dst")}, indent=1))
+                               "n_rz_complete", "n_cbsros_complete",
+                               "n_k", "n_dst")}, indent=1))
 
 
 if __name__ == "__main__":

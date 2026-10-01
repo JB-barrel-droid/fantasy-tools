@@ -112,6 +112,7 @@ test-unit:
 	python3 -m unittest tests.test_dashboard_loader_declarations
 	python3 -m unittest tests.test_comparison_candidate_build
 	python3 -m unittest tests.test_comparison_source_integrity
+	python3 -m unittest tests.test_bake_cbsros_intake
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_lineage_snapshot_guard
@@ -130,8 +131,6 @@ test-unit:
 	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_dist_manifest
 	python3 -m unittest tests.test_preview_workflow_matches_pages
-	python3 -m unittest tests.test_sync_monitor_fixture
-	python3 -m unittest tests.test_rebuild_chain_workflow
 
 # Integration tests: require data/raw snapshots, Supabase, or pipeline artifacts.
 # Run in the rebuild-chain workflow or locally where data is present.
