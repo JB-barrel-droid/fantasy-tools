@@ -3285,7 +3285,16 @@
     // as a warning, but must not blank the entire chart. The chart renders
     // with a visible disagreement notice instead.
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
-    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}`);
+    // Include fixedPie diagnostic details in the error so the failure is
+    // diagnosable from the rendered page (2026-10-01).
+    let fixedPieDetail = "";
+    if (failed.some(([key]) => key === "fixedPieIndexed") && fixedPie && Array.isArray(fixedPie.checks)) {
+      const espnCheck = fixedPie.checks.find(c => c.source === "espn");
+      if (espnCheck) {
+        fixedPieDetail = ` [espn: total=${Number(espnCheck.total).toFixed(2)} target=${Number(espnCheck.target).toFixed(2)} delta=${Number(espnCheck.delta).toFixed(2)} basis=${espnCheck.basis}]`;
+      }
+    }
+    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}${fixedPieDetail}`);
     guardsPassed = true;
   }
 
