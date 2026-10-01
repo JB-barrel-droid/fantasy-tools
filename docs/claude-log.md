@@ -32,6 +32,26 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-32: the scale-agreement FAIL is two different things
+
+Muse asked whether the USA Today Wk 4 RB peak at 0.71x is a publisher distortion, an indexing artifact or a fixture bug, with a refresh-or-accept call.
+
+### Verified (headless Chromium on a local `dist/` of `main`, all 12 league shapes; fixture top-3 per position)
+
+- `sourceScaleAgreement` is false in **all 12 shapes**; the offenders change with the shape. Examples: Full/12 (default) USA Today RB 49.5 vs 68.9 (0.72x), USA Today TE 0.80x, FantasyCalc QB 1.36x, WR 1.33x; Standard/10 FantasyCalc QB 0.58x, RB 93.8 vs 68.8 (1.36x); Full/14 FantasyCalc WR 59.1 vs 38.3 (1.54x).
+- 12-team USA Today RB is a genuine shape difference, not a fixture bug. The fit records show each (position, role) bucket scaled so the post total equals the ESPN anchor's. The tops differ: ESPN Gibbs 70.0 then Robinson 50.9; USA Today Gibbs 49.5, Taylor 47.5, Robinson 43.5. The check compares one player (the peak), and the anchor's peak is one outlier.
+- FantasyCalc at 8/10/14 teams is a real distortion: RB peak 81.8 at full_10 in the fixture (88.8-93.8 on the page after display scaling) vs an anchor near 69. Those combos carry `fit` per position (QB/RB/TE/WR, the older method); the 12-team combos carry `fit.flex_aware_pie`. Same cause as GAP-025 (Achane).
+- Not a regression from JEG-27/31/44/47; the check was already red in earlier JEG-32 comments.
+
+### Claimed, unverified
+
+- That reindexing FantasyCalc 8/10/14 with the flex-aware method brings the RB peaks into band. I did not run it: it needs the chain's candidate sections and Supabase inputs, not available here.
+- The live site (egress 403); all numbers are from the built `dist/`.
+
+### Open
+
+- GAP-026 holds the two-part decision. No code changed. Refresh would not help (a): refetching the same published data gives the same shape.
+
 ## 2026-10-01 — JEG-47 follow-up: the gate's first GitHub run is verified
 
 Verified: the Preview build on PR #15 (head `f13787a`) ran the new step on a GitHub
