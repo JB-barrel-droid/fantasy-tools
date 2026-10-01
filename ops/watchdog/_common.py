@@ -51,11 +51,21 @@ def nfl_week(asof=None):
 
 def fetch(url, timeout=60):
     """Fetch one URL via curl with a browser UA. Returns (status, body);
-    (None, error-text) on curl failure."""
+    (None, error-text) on curl failure.
+
+    2026-10-01: usatoday.com article pages started returning persistent 402
+    to minimal-header curl fetches while sitemap + browser renders still
+    work. Full browser Accept/Accept-Language headers restore 200, so they
+    are sent on every fetch (harmless for the other watchdog sources).
+    """
     try:
         p = subprocess.run(
             ["curl", "-sS", "-L", "-o", "-", "-w", "\n%{http_code}",
-             "-A", UA, "--max-time", str(timeout), url],
+             "-A", UA, "--max-time", str(timeout),
+             "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+             "-H", "Accept-Language: en-US,en;q=0.9",
+             "-H", "Upgrade-Insecure-Requests: 1",
+             url],
             capture_output=True, text=True, timeout=timeout + 15)
     except Exception as e:
         return None, "curl exception: %s" % e
