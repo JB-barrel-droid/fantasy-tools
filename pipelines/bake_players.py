@@ -389,9 +389,13 @@ def bake(args):
                                                       registry)
 
     # ---- Actuals ------------------------------------------------------------
+    # season_actuals_ytd has no id column (grain: season x player_key x
+    # stat_key), so order explicitly rather than letting get_all() default
+    # to order=id. Same bug class as JEG-46.
     actual_rows = query_all(
         "season_actuals_ytd",
-        "?select=player_key,stat_key,actual&player_key=not.is.null")
+        "?select=player_key,stat_key,actual&player_key=not.is.null"
+        "&order=player_key,stat_key")
     ACT_MAP = {
         "season_pass_yds": "passing_yards",
         "season_pass_tds": "passing_tds",
