@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-01T00:07:50.352041+00:00",
+  "generated_at": "2026-10-01T00:37:18.912408+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -69,9 +69,9 @@
           "reason": "Pulled 2026-09-29T17:36:48.743803+00:00 (data/raw/sources/espn/2026-09-29/snapshot.json)."
         },
         "c3_supabase": {
-          "timestamp": null,
-          "status": "unk",
-          "reason": "No Supabase landing timestamp in health file."
+          "timestamp": "2026-09-29T15:09:05.536608+00:00",
+          "status": "ok",
+          "reason": "387 rows landed in public.espn_season_projections 1.4d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T17:36:48.743803+00:00",
@@ -79,9 +79,9 @@
           "reason": "Snapshot stamped 1.3d ago (data/raw/sources/espn/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-01T00:07:07Z",
-          "status": "bad",
-          "reason": "Health gate failed: IMPORT_FAILED: Supabase re-query of public.espn_season_projections failed: Remote end closed connection without response."
+          "timestamp": "2026-10-01T00:37:08Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-09-30T04:28:49.106215+00:00",
@@ -99,12 +99,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.8d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T00:02:51Z",
+          "timestamp": "2026-10-01T00:31:36Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T00:07:52.294830+00:00",
+          "timestamp": "2026-10-01T00:37:20.836617+00:00",
           "status": "bad",
           "reason": "Production output WRONG: value_weeks.monday=4 (expected 5). Live built 2026-09-30T05:46."
         }
@@ -124,9 +124,9 @@
           "reason": "Pulled 2026-09-29T22:44:29.435511+00:00 (data/raw/sources/cbs/week-4/snapshot.json)."
         },
         "c3_supabase": {
-          "timestamp": null,
-          "status": "unk",
-          "reason": "No Supabase landing timestamp in health file."
+          "timestamp": "2026-09-29T22:44:26.21804+00:00",
+          "status": "ok",
+          "reason": "342 rows landed in public.cbs_trade_values 1.1d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T22:44:29.435511+00:00",
@@ -134,19 +134,19 @@
           "reason": "Snapshot stamped 1.1d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-01T00:07:07Z",
-          "status": "bad",
-          "reason": "Health gate failed: IMPORT_FAILED: Supabase re-query of public.cbs_trade_values failed: <urlopen error [Errno 111] Connection refused>."
+          "timestamp": "2026-10-01T00:37:08Z",
+          "status": "ok",
+          "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-09-30T16:03:22.952303+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 0.3d ago."
+          "reason": "Candidate built and reviewed 0.4d ago."
         },
         "c7_promotion": {
           "timestamp": "2026-09-30T16:03:23Z",
           "status": "ok",
-          "reason": "Promoted 0.3d ago (verdict: ready)."
+          "reason": "Promoted 0.4d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-09-30T05:46:07.872569+00:00",
@@ -154,12 +154,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.8d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T00:02:51Z",
+          "timestamp": "2026-10-01T00:31:36Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T00:07:53.433365+00:00",
+          "timestamp": "2026-10-01T00:37:22.251951+00:00",
           "status": "bad",
           "reason": "Production output WRONG: week_designated='Week 4' (expected 'Week 5'); value_weeks.monday=4 (expected 5). Live built 2026-09-30T05:46."
         }
@@ -189,7 +189,7 @@
           "reason": "Snapshot stamped 0.2d ago (data/raw/sources/cbsros/2026-09-30/snapshot.json, vintage 2026-09-30)."
         },
         "c5_health": {
-          "timestamp": "2026-10-01T00:07:07Z",
+          "timestamp": "2026-10-01T00:37:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -209,12 +209,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.8d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T00:02:51Z",
+          "timestamp": "2026-10-01T00:31:36Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T00:07:54.513162+00:00",
+          "timestamp": "2026-10-01T00:37:23.501684+00:00",
           "status": "bad",
           "reason": "Production output WRONG: value_weeks.monday=4 (expected 5). Live built 2026-09-30T05:46."
         }
@@ -244,7 +244,7 @@
           "reason": "Snapshot stamped 0.2d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-01T00:07:07Z",
+          "timestamp": "2026-10-01T00:37:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -264,12 +264,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.8d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T00:02:51Z",
+          "timestamp": "2026-10-01T00:31:36Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T00:07:55.586164+00:00",
+          "timestamp": "2026-10-01T00:37:24.892702+00:00",
           "status": "bad",
           "reason": "Production output WRONG: week_designated='Week 4' (expected 'Week 5'); value_weeks.monday=4 (expected 5). Live built 2026-09-30T05:46."
         }
@@ -299,7 +299,7 @@
           "reason": "Snapshot stamped 1.3d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-01T00:07:07Z",
+          "timestamp": "2026-10-01T00:37:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -319,12 +319,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.8d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T00:02:51Z",
+          "timestamp": "2026-10-01T00:31:36Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T00:07:56.704445+00:00",
+          "timestamp": "2026-10-01T00:37:26.363402+00:00",
           "status": "bad",
           "reason": "Production output WRONG: week_designated='Week 4' (expected 'Week 5'); value_weeks.monday=4 (expected 5). Live built 2026-09-30T05:46."
         }
@@ -354,14 +354,14 @@
           "reason": "Snapshot stamped 1.1d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-01T00:07:07Z",
+          "timestamp": "2026-10-01T00:37:08Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-09-30T16:03:20.223303+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 0.3d ago."
+          "reason": "Candidate built and reviewed 0.4d ago."
         },
         "c7_promotion": {
           "timestamp": "2026-09-30T05:46:06Z",
@@ -374,12 +374,12 @@
           "reason": "Comparison data fresh (built 2026-09-30, 0.8d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-01T00:02:51Z",
+          "timestamp": "2026-10-01T00:31:36Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-01T00:07:58.004235+00:00",
+          "timestamp": "2026-10-01T00:37:27.456671+00:00",
           "status": "bad",
           "reason": "Production output WRONG: week_designated='Week 4' (expected 'Week 5'); value_weeks.monday=4 (expected 5). Live built 2026-09-30T05:46."
         }
@@ -391,7 +391,7 @@
     "runner": "local",
     "runner_label": "local",
     "success": false,
-    "run_age_days": 0.17012347038194445,
+    "run_age_days": 0.19060324398148148,
     "stale": false
   },
   "adj_curve_pipeline": {
