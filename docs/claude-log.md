@@ -32,6 +32,14 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 — JEG-47 follow-up: the gate's first GitHub run is verified
+
+Verified: the Preview build on PR #15 (head `f13787a`) ran the new step on a GitHub
+runner. The PR comment shows the gate `success` with 0 uncaught page errors, and the
+report-only DDF pie line shows 5 of 12 shapes failing, the same as the local run. This
+settles the "not run on a GitHub runner" item in the entry below. Still unverified: a
+red run (the gate failing a PR on a runner); only the local negative test has shown that.
+
 ## 2026-10-01 — Rendered gate in the Preview build; JEG-44 fixed (JEG-47)
 
 Muse approved JEG-47 with bound scope: a step in the existing preview job (not a
