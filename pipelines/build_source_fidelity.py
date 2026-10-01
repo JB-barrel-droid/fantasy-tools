@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build source-fidelity.json: verify pre-indexed (native) values match sources exactly.
 
-For each source (espn, cbs, fantasycalc, fantasypros, usatoday):
+For each source (espn, cbsros, razzball, cbs, fantasycalc, fantasypros, usatoday):
   1. Read the fixture's native (pre-indexed, per-game) values
   2. Read the raw snapshot's native values (season totals)
   3. Convert raw to per-game and compare against fixture native
@@ -23,11 +23,12 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 RAW_DIR = REPO / "data" / "raw" / "sources"
 OUTPUT = REPO / "dist" / "modules" / "source-fidelity.json"
 
-SOURCES = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]
+SOURCES = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"]
 SRC_LABEL = {
     "espn": "ESPN",
     "cbs": "CBS",
     "cbsros": "CBS ROS",
+    "razzball": "Razzball",
     "fantasycalc": "FantasyCalc",
     "fantasypros": "FantasyPros",
     "usatoday": "USA Today",
@@ -70,6 +71,34 @@ def find_latest_snapshot(src):
         return direct
     return None
 
+def load_razzball_leg_natives():
+    """Load Razzball per-game natives from committed 12-team DDF legs."""
+    leg_dir = REPO / "data" / "ddf-two-tier"
+    out = {}
+    vintages = []
+    if not leg_dir.exists():
+        return out, None
+    for leg_path in leg_dir.glob("*/ddf_leg_razzball.json"):
+        try:
+            leg = json.loads(leg_path.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        inputs = leg.get("inputs", {})
+        if inputs.get("teams") != 12:
+            continue
+        scoring = inputs.get("scoring")
+        if scoring not in {"ppr", "half_ppr", "standard"}:
+            continue
+        vintage = inputs.get("razzball_snapshot_date")
+        if vintage:
+            vintages.append(vintage)
+        for row in leg.get("values", []):
+            norm = str(row.get("player_norm", "")).strip()
+            ppg = row.get("ppg")
+            if norm and isinstance(ppg, (int, float)):
+                out[(norm, scoring)] = float(ppg)
+    return out, max(vintages) if vintages else None
+
 def load_snapshot_natives(src):
     """Load source native values for fidelity comparison.
     
@@ -79,6 +108,11 @@ def load_snapshot_natives(src):
     
     Returns: ({(player_norm, scoring): per_game_native}, vintage)
     """
+    # Razzball: use the committed DDF legs. The raw snapshot is gitignored,
+    # but every leg records Razzball's published PPG as the source native.
+    if src == "razzball":
+        return load_razzball_leg_natives()
+
     # CBS ROS: the snapshot already carries per-game natives per scoring
     # (per_game_ppr / per_game_half_ppr / per_game_standard), computed as
     # CBS ROS total / gp. Keys use the row's player_norm (the fixture join

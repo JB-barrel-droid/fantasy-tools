@@ -109,7 +109,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 <div id="err"></div>
 
 <section class="summary">
-  <h2>Fleet health — 10 checkpoints × 5 sources</h2>
+  <h2>Fleet health — 10 checkpoints × monitored sources</h2>
   <div class="bignum"><span id="okCount">–</span><small> / <span id="totalCount">–</span> checkpoints healthy</small></div>
   <div class="segbar" id="segbar"></div>
   <div class="legend" id="legend"></div>
@@ -340,7 +340,7 @@ const DIAG_PATHS = [
   "aggregate-diagnostics.json",
   "dist/modules/aggregate-diagnostics.json",
 ];
-const SOURCE_ORDER = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
+const SOURCE_ORDER = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"];
 
 async function firstOk(paths){
   for(const p of paths){
@@ -607,7 +607,7 @@ async function main(){
     if(fidResp.ok){
       const fid = await fidResp.json();
       const sources = fid.sources || {};
-      const order = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
+      const order = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"].filter(s => sources[s]);
       
       // Summary counts
       let okCount = 0, badCount = 0, warnCount = 0;
@@ -702,7 +702,7 @@ async function main(){
     if(mathResp.ok){
       const mathData = await mathResp.json();
       const sources = mathData.sources || {};
-      const order = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
+      const order = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"].filter(s => sources[s]);
       
       let okCount = 0, badCount = 0;
       order.forEach(s => {
@@ -784,8 +784,8 @@ async function main(){
     if(linResp.ok){
       const linData = await linResp.json();
       const linSources = linData.sources || {};
-      const order = ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"];
-      const labels = {espn:"ESPN", cbs:"CBS", cbsros:"CBS ROS", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
+      const order = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"].filter(s => linSources[s]);
+      const labels = {espn:"ESPN", cbs:"CBS", cbsros:"CBS ROS", razzball:"Razzball", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
 
       // Count live mismatches
       // Per user requirement: unverifiable sources (no live human-readable page)
@@ -807,8 +807,9 @@ async function main(){
         });
       });
 
+      const tracedPlayers = order.reduce((sum, srcKey) => sum + ((linSources[srcKey]?.top25 || []).length), 0);
       lineageSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
-        <div><span style="font-size:24px;font-weight:800;color:var(--blue)">125</span><span style="color:var(--dim);font-size:13px"> players traced</span></div>
+        <div><span style="font-size:24px;font-weight:800;color:var(--blue)">${tracedPlayers}</span><span style="color:var(--dim);font-size:13px"> players traced</span></div>
         <div><span style="font-size:24px;font-weight:800;color:${liveMismatches > 0 ? 'var(--red)' : 'var(--green)'}">${liveMismatches}</span><span style="color:var(--dim);font-size:13px"> live mismatches</span></div>
         <div style="font-size:12.5px;color:var(--dim)">12-team Half PPR · Top 25 per source by chart value<br>Generated: ${shortTs(linData.generated_at)} · Live checked: ${liveChecked} rows</div>
       </div>`;

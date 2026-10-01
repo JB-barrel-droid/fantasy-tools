@@ -16,7 +16,8 @@ The user requires that verification data comes from the live pages
 a human would visit, not API endpoints or database snapshots.
 FantasyPros, USA Today, and CBS are scraped live from their article pages.
 FantasyCalc is via the API that powers its human-visible page (same numbers
-a human sees). ESPN has no published trade value chart.
+a human sees). ESPN, CBS ROS, and Razzball have no published trade value
+chart; their values are calculated from rest-of-season projections.
 """
 
 import json
@@ -170,6 +171,11 @@ SOURCE_URLS = {
         "note": "CBS Sports rest-of-season projections (per position; nonppr slug). Not a trade chart -- raw ROS stat projections, computed into value-above-waivers the way the ESPN leg is. No live trade-value to scrape.",
         "header_check": "Rest of Season",
     },
+    "razzball": {
+        "url": "https://football.razzball.com/projections-qb-restofseason/",
+        "note": "Razzball rest-of-season projections. Not a trade chart -- published per-game projections, computed into value-above-waivers the way the ESPN leg is. No live trade-value to scrape.",
+        "header_check": "Rest of Season",
+    },
     "fantasycalc": {
         "url": "https://fantasycalc.com/trade-value-chart",
         "note": "FantasyCalc trade value chart (human UI). Settings: Redraft, 12 teams, 0.5 PPR, TEP off, Superflex off. Values scraped LIVE from this page.",
@@ -194,6 +200,7 @@ SOURCE_TYPES = {
     "espn": "calculated_from_projections",
     "cbs": "published_trade_values",
     "cbsros": "calculated_from_projections",
+    "razzball": "calculated_from_projections",
     "fantasycalc": "published_trade_values",
     "fantasypros": "published_trade_values",
     "usatoday": "published_trade_values",
@@ -209,6 +216,7 @@ COMBO_KEYS = {
     "espn": "half_12",
     "cbs": "half_12",
     "cbsros": "half_12",  # DDF methodology like ESPN
+    "razzball": "half_12",  # DDF methodology like ESPN
     "fantasycalc": "half_12_qb1",  # 1QB is the standard
     "fantasypros": "half_12",
     "usatoday": "half_12",
@@ -218,6 +226,7 @@ ADJUSTED_SOURCES = {
     "espn": None,  # ESPN uses DDF methodology, no "adjusted" variant
     "cbs": "cbs_adjusted",
     "cbsros": None,  # CBS ROS uses DDF methodology; no fitted bias-correction cells exist
+    "razzball": None,  # Razzball uses DDF methodology; no fitted bias-correction cells exist
     "fantasycalc": "fantasycalc_adjusted",
     "fantasypros": "fantasypros_adjusted",
     "usatoday": "usatoday_adjusted",
@@ -261,7 +270,7 @@ def main():
         "live_stale_sources": live_data.get("_stale", {}),
         "scoring": "Half PPR",
         "teams": 12,
-        "method": "Native values verified against LIVE human-readable source pages. FantasyPros, USA Today, CBS scraped directly from article pages. FantasyCalc via the API powering its human-visible page (same numbers). ESPN has no published trade value chart.",
+        "method": "Native values verified against LIVE human-readable source pages where a trade-value page exists. FantasyPros, USA Today, CBS scraped directly from article pages. FantasyCalc via the API powering its human-visible page (same numbers). ESPN, CBS ROS, and Razzball have no published trade value chart; their projection-derived values are traced but live trade-value verification is unavailable.",
         "sources": {},
     }
 
@@ -274,7 +283,7 @@ def main():
         print(f"  {src}: loaded {len(snapshot_natives[src])} native values from snapshot")
     require_snapshot_natives(snapshot_natives)
 
-    for src in ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]:
+    for src in ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"]:
         combo_key = COMBO_KEYS[src]
         combo = sources[src]["combos"].get(combo_key, {})
 
@@ -289,7 +298,7 @@ def main():
         # Top 25 by CHART VALUE (most valuable), not native.
         # For ESPN, native is ROS projected points (counting stat), not trade value.
         # Sorting by native would rank high-volume QBs above elite RBs.
-        if src in ("espn", "cbsros"):
+        if src in ("espn", "cbsros", "razzball"):
             sort_vals = values
         else:
             sort_vals = reindexed
@@ -316,7 +325,7 @@ def main():
                 nat_val = native.get(pkey)
             # For ESPN, the "indexed" value IS the DDF value (from values),
             # not from reindexed (ESPN uses DDF methodology, not isotonic reindexing)
-            if src in ("espn", "cbsros"):
+            if src in ("espn", "cbsros", "razzball"):
                 idx_val = values.get(pkey)
             else:
                 idx_val = reindexed.get(pkey)
@@ -336,7 +345,7 @@ def main():
                 else:
                     live_matches = abs(live_val - nat_val) < 0.01
             # For ESPN, the chart shows DDF values; for others, reindexed
-            if src in ("espn", "cbsros"):
+            if src in ("espn", "cbsros", "razzball"):
                 chart_val = values.get(pkey)
             else:
                 chart_val = idx_val

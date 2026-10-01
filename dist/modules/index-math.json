@@ -3,12 +3,12 @@
   "sources": {
     "espn": {
       "methodology": "DDF two-tier",
-      "formula": "native (ppg) \u2192 DDF value-above-waivers \u2192 scale to 70 \u2192 values",
+      "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
       "steps": [
         "1. Start with ESPN per-game projection (native/ppg)",
         "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
         "3. Scale to 70-point index (fixed-pie methodology)",
-        "4. Round to 1 decimal \u2192 fixture values"
+        "4. Round to 1 decimal → fixture values"
       ],
       "combos": {
         "full_12": {
@@ -18,8 +18,8 @@
             {
               "player": "jahmyr gibbs",
               "native": 22.92,
-              "leg_value": 70.0,
-              "fixture_value": 70.0,
+              "leg_value": 70,
+              "fixture_value": 70,
               "match": true
             },
             {
@@ -45,15 +45,15 @@
             {
               "player": "jahmyr gibbs",
               "native": 20.85,
-              "leg_value": 70.0,
-              "fixture_value": 70.0,
+              "leg_value": 70,
+              "fixture_value": 70,
               "match": true
             },
             {
               "player": "bijan robinson",
               "native": 16.77,
-              "leg_value": 52.0,
-              "fixture_value": 52.0,
+              "leg_value": 52,
+              "fixture_value": 52,
               "match": true
             },
             {
@@ -72,8 +72,8 @@
             {
               "player": "jahmyr gibbs",
               "native": 18.79,
-              "leg_value": 70.0,
-              "fixture_value": 70.0,
+              "leg_value": 70,
+              "fixture_value": 70,
               "match": true
             },
             {
@@ -100,12 +100,12 @@
     },
     "cbsros": {
       "methodology": "DDF two-tier",
-      "formula": "native (ppg) \u2192 DDF value-above-waivers \u2192 scale to 70 \u2192 values",
+      "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
       "steps": [
         "1. Start with CBS ROS per-game projection (native/ppg)",
         "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
         "3. Scale to 70-point index (fixed-pie methodology)",
-        "4. Round to 1 decimal \u2192 fixture values"
+        "4. Round to 1 decimal → fixture values"
       ],
       "combos": {
         "full_12": {
@@ -115,8 +115,8 @@
             {
               "player": "jahmyr gibbs",
               "native": 24.929,
-              "leg_value": 70.0,
-              "fixture_value": 70.0,
+              "leg_value": 70,
+              "fixture_value": 70,
               "match": true
             },
             {
@@ -142,8 +142,8 @@
             {
               "player": "jahmyr gibbs",
               "native": 22.679,
-              "leg_value": 70.0,
-              "fixture_value": 70.0,
+              "leg_value": 70,
+              "fixture_value": 70,
               "match": true
             },
             {
@@ -169,8 +169,8 @@
             {
               "player": "jahmyr gibbs",
               "native": 20.429,
-              "leg_value": 70.0,
-              "fixture_value": 70.0,
+              "leg_value": 70,
+              "fixture_value": 70,
               "match": true
             },
             {
@@ -197,12 +197,12 @@
     },
     "cbs": {
       "methodology": "reindexed-as-given",
-      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
       "steps": [
         "1. Start with source's published value (native)",
         "2. Apply isotonic regression to map onto 0-70 scale",
         "3. Preserves rank order, monotonic transformation",
-        "4. Result \u2192 fixture reindexed"
+        "4. Result → fixture reindexed"
       ],
       "combos": {
         "full_12": {
@@ -212,19 +212,19 @@
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 53.0,
+              "native": 53,
               "reindexed": 95.7,
               "match": true
             },
             {
               "player": "jaxon smithnjigba",
-              "native": 52.0,
+              "native": 52,
               "reindexed": 59.9,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 50.0,
+              "native": 50,
               "reindexed": 68.4,
               "match": true
             }
@@ -238,12 +238,12 @@
     },
     "fantasycalc": {
       "methodology": "reindexed-as-given",
-      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
       "steps": [
         "1. Start with source's published value (native)",
         "2. Apply isotonic regression to map onto 0-70 scale",
         "3. Preserves rank order, monotonic transformation",
-        "4. Result \u2192 fixture reindexed"
+        "4. Result → fixture reindexed"
       ],
       "combos": {
         "full_10_qb1": {
@@ -253,19 +253,19 @@
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 10724.0,
+              "native": 10724,
               "reindexed": 81.8,
               "match": true
             },
             {
               "player": "bijan robinson",
-              "native": 10329.0,
+              "native": 10329,
               "reindexed": 67.2,
               "match": true
             },
             {
               "player": "jamarr chase",
-              "native": 9126.0,
+              "native": 9126,
               "reindexed": 59.1,
               "match": true
             }
@@ -279,12 +279,12 @@
     },
     "fantasypros": {
       "methodology": "reindexed-as-given",
-      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
       "steps": [
         "1. Start with source's published value (native)",
         "2. Apply isotonic regression to map onto 0-70 scale",
         "3. Preserves rank order, monotonic transformation",
-        "4. Result \u2192 fixture reindexed"
+        "4. Result → fixture reindexed"
       ],
       "combos": {
         "full_12": {
@@ -320,12 +320,12 @@
     },
     "usatoday": {
       "methodology": "reindexed-as-given",
-      "formula": "native (published) \u2192 isotonic reindex \u2192 reindexed (0-70 scale)",
+      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
       "steps": [
         "1. Start with source's published value (native)",
         "2. Apply isotonic regression to map onto 0-70 scale",
         "3. Preserves rank order, monotonic transformation",
-        "4. Result \u2192 fixture reindexed"
+        "4. Result → fixture reindexed"
       ],
       "combos": {
         "full_12": {
@@ -358,6 +358,103 @@
       "mismatches": [],
       "reason": "Rank order preserved via isotonic reindex",
       "label": "USA Today"
+    },
+    "razzball": {
+      "methodology": "DDF two-tier",
+      "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
+      "steps": [
+        "1. Start with Razzball per-game projection (native/ppg)",
+        "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
+        "3. Scale to 70-point index (fixed-pie methodology)",
+        "4. Round to 1 decimal → fixture values"
+      ],
+      "combos": {
+        "full_12": {
+          "checked": 20,
+          "matched": 20,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 24.4,
+              "leg_value": 70,
+              "fixture_value": 70,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 21.2,
+              "leg_value": 59,
+              "fixture_value": 59,
+              "match": true
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 21,
+              "leg_value": 56.3,
+              "fixture_value": 56.3,
+              "match": true
+            }
+          ]
+        },
+        "half_12": {
+          "checked": 20,
+          "matched": 20,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 22.3,
+              "leg_value": 70,
+              "fixture_value": 70,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 19.8,
+              "leg_value": 60.8,
+              "fixture_value": 60.8,
+              "match": true
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 17.7,
+              "leg_value": 53.2,
+              "fixture_value": 53.2,
+              "match": true
+            }
+          ]
+        },
+        "standard_12": {
+          "checked": 20,
+          "matched": 20,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 20.2,
+              "leg_value": 70,
+              "fixture_value": 70,
+              "match": true
+            },
+            {
+              "player": "bijan robinson",
+              "native": 18.4,
+              "leg_value": 62.9,
+              "fixture_value": 62.9,
+              "match": true
+            },
+            {
+              "player": "derrick henry",
+              "native": 15.4,
+              "leg_value": 51.1,
+              "fixture_value": 51.1,
+              "match": true
+            }
+          ]
+        }
+      },
+      "status": "ok",
+      "mismatches": [],
+      "reason": "All 60/60 verified exact",
+      "label": "Razzball"
     }
   }
 }
