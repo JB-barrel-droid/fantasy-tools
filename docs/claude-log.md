@@ -32,6 +32,44 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-31: Phase 1 built (artifact preview, manifest, drift guard)
+
+Same branch and PR as the proposal below (PR #8). Built after Jeremy chose Option A, the
+`generated_at`-only exception, and blocking validate on PRs.
+
+### Verified
+
+- `pipelines/dist_manifest.py`: on real data, manifests from two `make sync` runs 61 s apart
+  on one commit have the same root hash (32 files, root `aa9119c8...`); after appending one
+  byte to `dist/index.html` the compare reports `differs: index.html`. [`make sync` twice,
+  `dist_manifest.py build/compare`]
+- `tests/test_dist_manifest.py` (10 tests): six mutations of the tool each make the intended
+  test fail (ignore `generated_at` in every file; do not ignore it at all; ignore the whole
+  freshness file; skip the same-day check; treat bad JSON as empty; root hash ignoring
+  digests).
+- `tests/test_preview_workflow_matches_pages.py` (12 tests): compares the single-line `run:`
+  steps of `preview.yml` and `pages.yml`, plus python-version, fetch-depth, blocking validate,
+  head-SHA checkout, PR trigger, and no deploy/Pages permissions. Each rule is tested against a
+  mutated copy of the real file. I first wrote one test that asserted the guard did NOT catch a
+  new production step while being named as if it did; I noticed, generalised the guard to every
+  single-line `run:` command, and made that test prove it catches it.
+- `make preview-local` served `dist/` with HTTP 200 and the build tag in the page. [ran it,
+  `curl`]
+- Both new tests are registered in `make test-unit` (unregistered tests do not run in
+  `make validate`).
+
+### Claimed, unverified
+
+- That `preview.yml` runs correctly on GitHub: it was written but not yet run when this entry was
+  made; the PR's own check run is the test. Result recorded in the PR.
+- That the PR comment step works (needs `pull-requests: write`; same-repository PR only).
+
+### Open
+
+- GAP-016 (no CI on PRs, defined in PR #7) is closed by this work once both merge; update that
+  row then.
+- Option B (a served URL) is not built.
+
 ## 2026-10-01 - JEG-31: preview-deploy design proposal (no workflow built)
 
 Branch `jeremyburstyn/jeg-31-preview-deploys` (local until Jeremy approves the push; it

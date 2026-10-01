@@ -1,10 +1,34 @@
 # Preview deploys (JEG-31) — Phase 1 approved, being built
 
-Status: Jeremy approved the Phase 1 design and answered the three open questions on
-2026-10-01 (see "Decisions"). Sections below describe the design; "Not built yet" items are
-marked as the work lands. Linear:
-JEG-31. Written 2026-10-01 by Claude (Claude lane); Muse reviews for methodology,
-Jeremy decides.
+Status: **Phase 1 built** (Option A: workflow artifact plus local serve). Jeremy approved the
+design and answered the three open questions on 2026-10-01 (see "Decisions"). The sections after
+the runbook are the design record and the evidence behind it.
+
+## Runbook (one page)
+
+**Use a preview** for anything you would otherwise push to `main` just to look at it: edits to
+`curve-widget.js`, fixtures, pipelines, guard logic, or debug instrumentation. **Push straight to
+production** only for docs-only changes, monitor-data pushes under `dist/modules/`, or a fix a
+preview has already validated.
+
+1. Push your branch and open a PR (a draft is fine). The **Preview build** workflow runs
+   automatically (about 75 s). It never deploys.
+2. Read the **Preview build** comment on the PR: build tag, manifest root hash, artifact link.
+   If the check is red, `make validate` failed on the PR head. Fix that first.
+3. Download and unzip the artifact, then `python3 -m http.server 8000 --directory dist` and open
+   `http://localhost:8000/`. Without CI: `make preview-local` does the same from your checkout
+   (it syncs, then serves `dist/`, not `app/` like `make serve`).
+4. Check the page's build tag matches the one in the comment.
+5. To prove the preview equals production for a commit, build a manifest from a fresh
+   `make sync` of that commit (`python3 pipelines/dist_manifest.py build dist --out m.json`) and
+   run `python3 pipelines/dist_manifest.py compare dist-manifest.json m.json`. Exit 0 means
+   identical, 1 means different (it lists the files), 2 means built on different days and not
+   comparable.
+6. Merge. Production deploys exactly as before.
+
+Limits: the artifact is a download, not a served URL, and is kept 7 days. The build is of the PR
+head SHA; after a merge, `main` has a different SHA, so compare against a build of the *same*
+commit. A second Pages site (Option B) is the next step only if a served URL turns out to be needed.
 
 ## Goal (from JEG-31)
 
