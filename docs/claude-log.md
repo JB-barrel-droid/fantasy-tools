@@ -32,6 +32,40 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-31: preview-deploy design proposal (no workflow built)
+
+Branch `jeremyburstyn/jeg-31-preview-deploys` (local until Jeremy approves the push; it
+is not the session's designated branch). Based on `origin/main` `6216144`. Proposal
+only, as agreed with Muse; see `docs/preview-deploys.md`.
+
+### Verified
+
+- `make sync` run twice on the same commit 61 s apart: exactly one file differs,
+  `assets/reference-freshness.json`, field `generated_at`. Everything else in `dist/`
+  and `app/` is byte-identical. [`make sync` twice, `diff -rq`]
+- That file also records `today`, `age_days`, `status` and stale counts, so it depends on
+  the calendar day. [read the generated JSON]
+- `build_tag()` is derived from the HEAD commit time and SHA (docstring plus the
+  determinism run above).
+- `make serve` serves `app/trade-value-chart`, not `dist/` (Makefile).
+- `pages.yml` steps and triggers; a recent production run took about 75 s, deploy about 8 s,
+  artifact about 1.2 MB. [workflow file; job `110472801856` of run `36892947644`]
+- Lineage step exits 1 on a clean local checkout (`data/raw` is gitignored).
+
+### Claimed, unverified
+
+- That the lineage step also fails in CI. The API reports `continue-on-error` steps as
+  `success` and I only read the tail of the job log, which did not include that step.
+  What would settle it: read the full step log of a recent Pages run.
+- That the Phase 1 design works end to end; nothing is built.
+
+### Open
+
+- Decisions for Jeremy are listed in `docs/preview-deploys.md` (surface, definition of
+  byte-identical, blocking validate on PRs).
+- GAP-017 (calendar-dependent freshness file) and GAP-018 (`make serve` != published
+  `dist/`) added to the risk register.
+
 ## 2026-09-29 - Cascade pipeline orchestration implementation
 
 ### Verified
