@@ -32,6 +32,48 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-25: the old-branding guard now scans code, not comments (and exposed a copy conflict)
+
+Branch `jeremyburstyn/jeg-25-branding-guard-comments`, based on `origin/main` `c84a483`. Assigned by Roman/Muse
+("test-only fix, zero production risk"). It turned out not to be purely test-only; see the decision below.
+
+### Verified
+
+- The skip removed, the test fails at `assertNotIn("DDF", assets)`; the earlier assertions in it pass.
+- Case-sensitive `DDF` in the three asset files: `curve-widget.js` 8 hits, all in comments; `comparison-dashboard.js` 1
+  user-visible string, `return "DDF methodology"` (the source badge); CSS none. So stripping comments alone would NOT
+  have made the test pass. [scan of the real files]
+- The visible phrase `DDF methodology` is pinned as correct by `tests/test_razzball_production_followups.py` (lines
+  144, 148, 214) and renders in the health panel; the old test's blanket `DDF` ban contradicts those tests, and
+  `CLAUDE.md` names Data Driven Football as the brand. So that assertion was wrong, and changing it is legitimate.
+- New scanner in `tests/test_static_export.py` (comments removed; aware of strings, template literals with nested
+  expressions, and regex literals) plus one approved phrase. Any other visible `DDF` still fails. Injecting
+  `"Bottom-up indexed DDF Rankings"` into a copy of the widget is caught.
+- Independent check of the scanner: after stripping, both real JS files still parse under `node --check`
+  (curve-widget 165012 to 129641 bytes, comparison-dashboard 61339 to 56360).
+- 10 scanner tests plus the real test, all passing. Seven mutations of the helper are each caught (naive `//` strip,
+  no stripping, no allowed phrase, allowlist swallowing every DDF, regex detection off, regex only after punctuation,
+  template literals not scanned, CSS treated as JS). My first versions of three tests did NOT catch their mutations
+  (the quote test could not fail because strings end at newline; the template test counted code and strings alike;
+  the CSS test passed under the JS path); I rewrote them until each failed on its mutation. One mutation I wrote was
+  itself wrong (it never disabled regex detection); I fixed the mutation, not the test.
+- Full `make validate` and `make -k test-integration`: see the PR.
+
+### Claimed, unverified
+
+- That a hand-written scanner covers every JS construct the widget will ever contain (e.g. `}` followed by a regex,
+  or `x++ / 2`). The guard test `test_the_real_assets_have_no_unterminated_scan_state` and `node --check` cover
+  today's files only. If it ever misparses, the failure mode is a false positive or a missed comment, not a missed
+  visible string in plain code.
+
+### Open (needs a human decision)
+
+- **Is `DDF methodology` approved user-facing copy?** I allow exactly that phrase because three regression tests pin
+  it and `CLAUDE.md` names DDF as the brand. If it should NOT be visible, rename the label (a production copy change in
+  `comparison-dashboard.js` and the health-panel role text) and remove the allowance. GAP-020.
+- `assertNotIn("Data Driven Football", html)` is still in the test and also sits oddly with the `CLAUDE.md` brand rule;
+  I left it alone because it passes and changing it is a separate copy decision.
+
 ## 2026-10-01 - Correction: no CI runs on pull requests (JEG-27 entry was wrong about this)
 
 The entry below this one (and the PR #7 description) said `make sync` / the full
