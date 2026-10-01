@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync test validate serve preview-local deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -27,6 +27,7 @@ help:
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
+	@echo "  make guard-harness     Run curve-widget guard math against fixture data"
 	@echo "  make test              Run regression tests"
 	@echo "  make watchdog          Run the source-pull watchdog (writes ops/watchdog/health.json)"
 	@echo "  make validate          Run naming, reference, sync, and tests"
@@ -91,6 +92,10 @@ reference:
 
 sync:
 	python3 pipelines/sync_dashboard_artifacts.py
+
+guard-harness:
+	node tools/guard_harness.mjs --assert-good
+	node tools/guard_harness.mjs --simulate tier-mismatch --assert-bad
 
 # Source value lineage: scrape live pages once, then build the lineage card.
 # The lineage builder consumes dist/modules/live-page-scrape.json and must NOT
@@ -157,7 +162,7 @@ test: test-unit test-integration
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
 
-validate: naming reference sync test-unit
+validate: naming reference sync guard-harness test-unit
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart
