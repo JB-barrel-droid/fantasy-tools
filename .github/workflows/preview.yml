@@ -7,6 +7,8 @@ name: Preview build
 #
 # Deliberate differences from pages.yml:
 #   - make validate is blocking here (on a PR it is the only gate);
+#   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
+#     uncaught page error; the DDF-pie check is report-only until JEG-24 is fixed;
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
@@ -53,13 +55,28 @@ jobs:
             dist-manifest.json
           retention-days: 7
           if-no-files-found: error
+      - name: Rendered gate (headless browser on the built dist)
+        id: gate
+        run: |
+          npm ci --prefix tests/rendered_gate
+          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+          set +e
+          node tests/rendered_gate/gate.mjs dist --out rendered-gate.json
+          rc=$?
+          set -e
+          echo "page_errors=$(python3 -c "import json; print(len(json.load(open('rendered-gate.json'))['pageErrors']))")" >> "$GITHUB_OUTPUT"
+          echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
+          exit $rc
       - name: Comment on the pull request
-        if: github.event_name == 'pull_request'
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.upload.outcome == 'success' }}
         uses: actions/github-script@v7
         env:
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           ROOT: ${{ steps.manifest.outputs.root }}
           TAG: ${{ steps.manifest.outputs.tag }}
+          GATE_OUTCOME: ${{ steps.gate.outcome }}
+          GATE_ERRORS: ${{ steps.gate.outputs.page_errors }}
+          GATE_PIE: ${{ steps.gate.outputs.pie_bad }}
         with:
           script: |
             const marker = '<!-- preview-build -->';
@@ -71,6 +88,10 @@ jobs:
               `- Build tag: \`${process.env.TAG}\``,
               `- dist manifest root: \`${process.env.ROOT}\``,
               `- Artifact (the exact \`dist/\` plus \`dist-manifest.json\`): ${process.env.ARTIFACT_URL}`,
+              `- Rendered gate (blocking): **${process.env.GATE_OUTCOME}**, ` +
+                `${process.env.GATE_ERRORS || '?'} uncaught page error(s)`,
+              `- DDF fixed pie sums to 100.0 (report-only, JEG-24): ` +
+                `shapes failing = ${process.env.GATE_PIE || '?'}`,
               '',
               'To view it: download and unzip the artifact, then ' +
                 '`python3 -m http.server 8000 --directory dist`. See `docs/preview-deploys.md`.',
