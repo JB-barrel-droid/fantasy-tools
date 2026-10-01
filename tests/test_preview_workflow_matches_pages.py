@@ -82,6 +82,13 @@ def check_preview(preview_text, pages_text):
         problems.append("checkout must use the PR head SHA, not the merge ref")
     if not re.search(r"^  pull_request:\s*$", preview_text, re.M):
         problems.append("preview must trigger on pull_request")
+    gate = [b for b in steps(preview_text) if "tests/rendered_gate/gate.mjs" in b]
+    if len(gate) != 1:
+        problems.append("preview must run the rendered gate (tests/rendered_gate/gate.mjs) exactly once")
+    elif "continue-on-error" in gate[0]:
+        problems.append("the rendered gate must be blocking (no continue-on-error)")
+    elif run_command(gate[0]):
+        problems.append("the rendered gate must be a multi-line run block (JEG-47 scope)")
     for word in FORBIDDEN_IN_PREVIEW:
         if word in preview_text:
             problems.append(f"preview must not deploy or hold Pages permissions: {word!r}")
@@ -154,6 +161,16 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         mutated = PREVIEW.replace("  pull_request:\n", "", 1)
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "pull_request")
+
+    def test_removing_the_rendered_gate_is_caught(self):
+        mutated = PREVIEW.replace("node tests/rendered_gate/gate.mjs", "echo skipped")
+        self.assertNotEqual(PREVIEW, mutated)
+        self.assertCaught(mutated, "rendered gate")
+
+    def test_non_blocking_rendered_gate_is_caught(self):
+        mutated = PREVIEW.replace("        id: gate\n", "        id: gate\n        continue-on-error: true\n")
+        self.assertNotEqual(PREVIEW, mutated)
+        self.assertCaught(mutated, "must be blocking")
 
     def test_any_deploy_or_pages_permission_is_caught(self):
         for word in FORBIDDEN_IN_PREVIEW:

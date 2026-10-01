@@ -32,6 +32,56 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 — JEG-47 follow-up: the gate's first GitHub run is verified
+
+Verified: the Preview build on PR #15 (head `f13787a`) ran the new step on a GitHub
+runner. The PR comment shows the gate `success` with 0 uncaught page errors, and the
+report-only DDF pie line shows 5 of 12 shapes failing, the same as the local run. This
+settles the "not run on a GitHub runner" item in the entry below. Still unverified: a
+red run (the gate failing a PR on a runner); only the local negative test has shown that.
+
+## 2026-10-01 — Rendered gate in the Preview build; JEG-44 fixed (JEG-47)
+
+Muse approved JEG-47 with bound scope: a step in the existing preview job (not a
+new job), a multi-line `run:` block so the JEG-31 parity guard is not tripped,
+blocking only on uncaught page errors, the pie check pinned to the DDF fixed pie
+and report-only, and discrimination proven.
+
+### Verified
+
+- `tests/rendered_gate/gate.mjs` loads built `dist/` in headless Chromium and steps
+  all 12 scoring x league-size shapes. Fixed build: 12/12 shapes, 0 page errors,
+  exit 0. Original `comparison-dashboard.js` (from `HEAD`) in the same `dist`:
+  1 page error, exit 1. That is the check that it catches the bug it names.
+- Every run also injects a throw into a copy of `dist` and requires the gate to
+  catch it. Mutation: renaming the `pageerror` listener makes the gate exit 1 with
+  "self-test ... NOT caught".
+- JEG-44 root cause was in `comparison-dashboard.js`, not `curve-widget.js` (my first
+  edit went to the wrong file and changed nothing; reverted). `applyShared` calls
+  `rebuildSourceMaps()` before `init()` has set `data`. Fix: `rebuildAndRender()`
+  returns while `data` is null; state is already set and `init()` builds from it.
+  Rendered Pie readout and table text across the 12 shapes were byte-identical
+  before and after (Playwright capture), so the fix changes no displayed value.
+- `make validate` passed; two new tests in `test_preview_workflow_matches_pages.py`
+  fail when the gate is removed or made non-blocking.
+
+### Claimed, unverified
+
+- The workflow step has not run on a GitHub runner (`npm ci`, `playwright-core install
+  --with-deps chromium`, comment lines). The PR's own Preview build is the first run.
+- Playwright is pinned at 1.49.1 (the version installed locally); local runs used the
+  sandbox's newer Chromium via `CHROMIUM_PATH`, CI downloads its own.
+
+### Open
+
+- Report-only DDF pie check: 5 of 12 shapes sum to 99.9 or 100.1 (JEG-24
+  open). Make it blocking when JEG-24 lands.
+- Page console still logs a `[ChartHealth] FAIL` (USA Today Wk 4 RB peak 49.5 vs anchor
+  68.9) on this build. It is a console message, not a page error, so not gated; not
+  investigated.
+- Table-update (JEG-23) and lock-notice (JEG-45) checks are deliberately not in this
+  gate yet (Muse scope).
+
 ## 2026-10-01 - Correction: JEG-22 is a labeling question, not a stale caption
 
 Corrects the JEG-22 findings in the two UI-batch diagnosis entries below ("JEG-22 (bench-share caption): reproduced"
