@@ -431,10 +431,8 @@ def verify_source(
     entry["vintage_kind"] = vintage_kind
 
     # 4. DB sources: table row count / vintage still matches the manifest -----
-    # Snapshot-only sources (cbsros) skip this stage by design: no Supabase
-    # table was ever written for them, so holding them to a table check
-    # would fail a healthy pipeline. The checkpoint builder reads
-    # supabase_landing=False and marks C3 "ok" N/A-by-design.
+    # (All six dashboard sources are DB-backed as of 2026-10-01; cbsros was
+    # snapshot-only until its public.cbs_ros_projections table was created.)
     if source not in SNAPSHOT_ONLY_SOURCES:
         config = SOURCE_CONFIGS[source]
         table_label = f"public.{config['api_table']}"

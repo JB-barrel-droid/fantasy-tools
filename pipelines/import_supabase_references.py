@@ -3,17 +3,22 @@
 
 Stage 1 of the repo import chain: Supabase -> data/raw/sources/.
 
-All five dashboard sources (fantasycalc, usatoday, fantasypros, espn, cbs)
+All six dashboard sources (fantasycalc, usatoday, fantasypros, espn, cbs, cbsros)
 are DB-backed. The big three read public.source_trade_values
 (variant='as_published' only -- that is the source's own scraped value;
 'bias_adjusted' is our fitted calibration and is never imported here).
 ESPN reads public.espn_season_projections and CBS reads
 public.cbs_trade_values (their tables were DDL'd 2026-09-22 and loaded by
-pipelines/save_espn_cbs_references.py -- stage 1b closed).
+pipelines/save_espn_cbs_references.py -- stage 1b closed). CBS ROS reads
+public.cbs_ros_projections (DDL'd 2026-10-01 via the browser SQL editor,
+loaded by pipelines/save_cbsros_references.py).
 
 Snapshots use schema "trade-value-source-snapshot-v1" -- the SAME record shape
 as pipelines/import_source_snapshot.py, so the downstream
-match -> reference -> section chain works unchanged. Normalization helpers
+match -> reference -> section chain works unchanged. (cbsros is the exception:
+its snapshot keeps the native "trade-value-cbsros-snapshot-v1" shape because
+its production chain is snapshot -> DDF leg -> section, never the generic
+match chain.) Normalization helpers
 (parse_float, parse_int, normalize_scoring, first_value, slug) are imported
 from that module rather than duplicated.
 
@@ -649,12 +654,17 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
 
 
 def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
-    """CBS ROS: public.cbs_ros_projections.
+    """CBS ROS: public.cbs_ros_projections -> NATIVE snapshot shape.
 
-    The table stores per-player ROS projection points verbatim (ros_standard /
-    ros_half_ppr / ros_ppr); the snapshot carries ros_half_ppr as the row value
-    with scoring='half_ppr' throughout (the same shape the old file-backed
-    import produced).
+    cbsros does NOT go through the generic match -> reference -> section ->
+    quantile-reindex chain. Its production pipeline is snapshot -> 12 DDF legs
+    (build_cbsros_ddf_leg.py) -> section, and the DDF leg reads the snapshot's
+    NATIVE shape: schema "trade-value-cbsros-snapshot-v1" with top-level
+    vintage_date and rows carrying ros_standard / ros_half_ppr / ros_ppr,
+    per_game_*, gp, player_norm, pos, team. Emitting the generic comparison
+    shape here would silently break the DDF leg (it fail-closes on a missing
+    vintage_date), so this builder reconstructs the native shape from the
+    Supabase table verbatim -- the same fields the scraper wrote.
     pos comes from the canonical players table; team from the repo fixture
     players.json map (public.players carries no team column) -- documented
     in fixture_pos_team.
@@ -686,7 +696,6 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
     for row in rows:
         key = canonical_player_key(row.get("player_key"))
         name = names.get(key) if key is not None else None
-        value = parse_float(row.get("ros_half_ppr"))
         if key is None:
             review_rows.append(
                 {
@@ -705,27 +714,52 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
                 }
             )
             continue
-        if value is None:
+        fixture_pos, fixture_team = fixture_map.get(key, (None, None))
+        pos = positions.get(key) or fixture_pos
+        if not pos:
             review_rows.append(
                 {
-                    "reason": "missing_or_non_numeric_value",
+                    "reason": "missing_pos",
                     "player_key": key,
                     "player_name": name,
-                    "value_raw": row.get("ros_half_ppr"),
+                    "player_norm": row.get("player_norm"),
                 }
             )
             continue
-        fixture_pos, fixture_team = fixture_map.get(key, (None, None))
+        # The DDF leg builds all three scorings' legs from per_game_*; a row
+        # missing any per-game value cannot price every leg, so review it here
+        # rather than letting the leg stage drop it silently per-scoring.
+        per_game = {
+            s: parse_float(row.get(f"per_game_{s}"))
+            for s in ("standard", "half_ppr", "ppr")
+        }
+        if any(v is None for v in per_game.values()):
+            review_rows.append(
+                {
+                    "reason": "missing_or_non_numeric_per_game",
+                    "player_key": key,
+                    "player_name": name,
+                    "per_game_raw": {
+                        s: row.get(f"per_game_{s}") for s in ("standard", "half_ppr", "ppr")
+                    },
+                }
+            )
+            continue
         clean_rows.append(
             {
                 "player_name": name,
-                "value": value,
-                "pos": positions.get(key) or fixture_pos,
+                "player_norm": row.get("player_norm"),
+                "pos": pos,
                 "team": fixture_team,
-                "scoring": "half_ppr",
-                "teams": 12,
-                "source_player_id": key,
-                "native_value": value,
+                "gp": parse_float(row.get("gp")),
+                "ros_standard": parse_float(row.get("ros_standard")),
+                "ros_half_ppr": parse_float(row.get("ros_half_ppr")),
+                "ros_ppr": parse_float(row.get("ros_ppr")),
+                "per_game_standard": per_game["standard"],
+                "per_game_half_ppr": per_game["half_ppr"],
+                "per_game_ppr": per_game["ppr"],
+                "receptions": parse_float(row.get("receptions")),
+                "raw_stats": row.get("raw_stats"),
             }
         )
     if not clean_rows:
@@ -734,28 +768,39 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             f"({len(review_rows)} in review). Never writing an empty snapshot."
         )
 
-    pulled_values = sorted({str(r.get("pulled_at")) for r in rows if r.get("pulled_at")})
-    fetched_at = pulled_values[-1] if pulled_values else utc_now()
+    by_pos: dict[str, int] = {}
+    for r in clean_rows:
+        by_pos[r["pos"]] = by_pos.get(r["pos"], 0) + 1
 
     snapshot = {
-        "schema": SCHEMA,
+        "schema": "trade-value-cbsros-snapshot-v1",
         "source": "cbsros",
-        "fetched_at": fetched_at,
-        "source_url": None,
-        "default_scoring": "half_ppr",
-        "default_teams": 12,
-        "row_count": len(clean_rows),
+        # The DDF leg (build_cbsros_ddf_leg.py) fail-closes without this.
+        "vintage_date": scoped_date,
         "rows": clean_rows,
         "review_rows": review_rows,
+        "summary": {
+            "n_rows": len(clean_rows),
+            "n_review": len(review_rows),
+            "by_pos": by_pos,
+        },
+        "scoring_note": (
+            "CBS publishes nonppr ROS totals only. half_ppr / ppr are CBS fpts "
+            "+ 0.5/1.0 per reception (reception points are the only scoring "
+            "difference). per_game_* = ROS / gp."
+        ),
+        # row_count / review_count are read by the manifest stamper.
+        "row_count": len(clean_rows),
         "review_count": len(review_rows),
     }
     manifest_fields = {
         "supabase_table": SOURCE_TABLES["cbsros"],
         "from_file": None,
         "filter": (
-            "public.cbs_ros_projections (latest snapshot date); value=ros_half_ppr "
-            "(CBS ROS half-PPR points); pos from public.players.position, "
-            "team from the repo fixture players.json map (players carries no team)"
+            "public.cbs_ros_projections (latest snapshot date); native CBS ROS "
+            "shape (ros_*/per_game_*/gp/receptions/raw_stats verbatim); pos from "
+            "public.players.position, team from the repo fixture players.json "
+            "map (players carries no team)"
             f"{date_scope_note}"
         ),
         "content_vintage": content_vintage,
@@ -766,7 +811,7 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "week_designated": None,
         "table_week": table_week,
         "save_gap": None,
-        "fetched_at_note": "snapshot.fetched_at is the table's pulled_at (pull time), not content vintage",
+        "fetched_at_note": "no fetched_at on the native cbsros shape; content vintage is the table's cbs_snapshot_date",
     }
     return snapshot, manifest_fields
 

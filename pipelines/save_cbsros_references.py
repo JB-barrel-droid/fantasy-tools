@@ -193,7 +193,7 @@ def main() -> None:
     args = parser.parse_args()
 
     clean, review, vintage = build_cbsros_rows(args.snapshot)
-    table = "public.cbs_ros_projections"
+    table = "cbs_ros_projections"  # bare name: PostgREST path is /rest/v1/<table>
     conflict = "player_key,cbs_snapshot_date"
 
     print(f"cbsros {vintage}: {len(clean)} clean rows, {len(review)} review rows")
