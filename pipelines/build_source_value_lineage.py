@@ -224,6 +224,27 @@ ADJUSTED_SOURCES = {
 }
 
 
+def require_snapshot_natives(snapshot_natives):
+    """Fail-closed guard: refuse to build when a required source snapshot is
+    missing or empty.
+
+    The source snapshots live under gitignored data/raw, so they are absent
+    in CI. Without them the builder silently falls back to the TRANSFORMED
+    combo natives and every live-vs-native comparison fails (2026-10-01:
+    served FantasyPros showed 0/25 matches after a Pages rebuild). Never
+    write a degraded lineage file: raise, so the committed (locally built,
+    correct) artifact survives the deploy.
+    """
+    required = [src for src in ("fantasypros", "usatoday", "fantasycalc")
+                if src in SNAPSHOT_PATHS]
+    missing = [src for src in required if not snapshot_natives.get(src)]
+    if missing:
+        raise SystemExit(
+            "build_source_value_lineage: missing required source snapshots for "
+            f"{missing} (data/raw is gitignored; build locally where snapshots exist)"
+        )
+
+
 def main():
     d = json.load(open(DATA_PATH))
     sources = d["sources"]
@@ -251,6 +272,7 @@ def main():
     for src in ["fantasypros", "usatoday", "fantasycalc"]:
         snapshot_natives[src] = load_snapshot_natives(src)
         print(f"  {src}: loaded {len(snapshot_natives[src])} native values from snapshot")
+    require_snapshot_natives(snapshot_natives)
 
     for src in ["espn", "cbs", "cbsros", "fantasycalc", "fantasypros", "usatoday"]:
         combo_key = COMBO_KEYS[src]
