@@ -32,6 +32,28 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-35: Razzball is not stale; Achane comes from FantasyCalc and USA Today
+
+Muse asked for root cause first: is the Razzball data stale, or the fixture, and is the Razzball leg wired in?
+
+### Verified (against the checked-in fixture and a headless render of a local `dist/`)
+
+- Razzball is fresh and wired in. All 12 combos come from one snapshot dated 2026-10-01 (`ddf_leg_razzball.json` inputs, same sha256 in every leg). The fixture section says `vintage: 2026-10-01`. The page renders a Razzball card and a Razzball column chip. The column is off by default; turning it on shows Razzball values (top: Gibbs 55.9, Robinson 47.1, McCaffrey 42.4).
+- De'Von Achane is **not in the Razzball section at all** (absent in all 12 combos), and absent from CBS, CBS ROS and FantasyPros. ESPN has him at an explicit 0.0 in all 12 combos.
+- He appears in: FantasyCalc 8/10/14-team combos (reindexed 39.6-56.9, about 9th overall at full_10) and USA Today full_12 (reindexed 28.1, shown as 28.6 in the default USAT Adjusted column). FantasyCalc 12-team combos exclude him.
+- This is not a stale anchor: his FantasyCalc values are identical at `1f53f73`, `ee89266` and `89b9863` (before and after the JEG-13 rebuild).
+- 28-30 other ESPN-zero players have positive FantasyCalc values too, in every combo. The FantasyCalc 12-team combos use the flex-aware reindex (`fit.flex_aware_pie`); the other team sizes use the older per-position fit. That is why he vanishes only at 12 teams.
+- The old review triage ("Jeremy: confirmed skip, IR players ~0 value", `output/reviewed/usatoday-full-12-section-review.json`) is superseded: after JEG-13 he anchors at 0.0, so the review row set is empty (`tests/test_reindex_section.py` pins that).
+
+### Claimed, unverified
+
+- What Jeremy actually saw on the live page. The live site is unreachable from this environment (egress 403 to `jb-barrel-droid.github.io`), so the answer above is from the built fixture, not the served page.
+- Why FantasyCalc 8/10/14 still use the older fit. I did not trace it.
+
+### Open
+
+- GAP-024: Razzball sits outside every automated freshness control. GAP-025: IR/ESPN-zero players keep published values, decision needed. No code changed.
+
 ## 2026-10-01 — JEG-47 follow-up: the gate's first GitHub run is verified
 
 Verified: the Preview build on PR #15 (head `f13787a`) ran the new step on a GitHub
