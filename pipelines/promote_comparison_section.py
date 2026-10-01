@@ -14,6 +14,11 @@ allowed to write under data/, and it refuses to run without ALL of:
   5. approval: --approve "<name> <YYYY-MM-DD> <reason>" for manual promotion,
      or --auto for Jeremy-authorized automated promotion (2026-09-29).
      All hash/continuity/identity safeguards remain enforced in both modes.
+  6. L1 freshness (active raw sources only): the import-health file's entry
+     for the source must be 'ok', the candidate must carry immutable
+     content_vintage provenance, and that vintage must equal the fresh L1
+     vintage. A missing/unreadable health file refuses too. See
+     docs/import-health-schema.md ("Gate semantics").
 
 What promotion does:
   - replaces the source's combos' reindexed values, fit metadata, and
@@ -39,6 +44,13 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from verify_import_health import (  # noqa: E402
+    DASHBOARD_SOURCES as ACTIVE_RAW_SOURCES,
+    DEFAULT_OUTPUT as DEFAULT_IMPORT_HEALTH,
+    HEALTH_SCHEMA,
+)
+
 FIXTURE = REPO / "data/fixtures/current/comparison-sources-data.json"
 REVIEW_SCHEMA = "trade-value-comparison-review-v1"
 REINDEX_SCHEMA = "trade-value-comparison-section-reindexed-v1"
@@ -61,7 +73,63 @@ def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def promote(review_path, approve, fixture_path=None, record_dir=None):
+def check_l1_freshness(source, section, import_health_path=None):
+    """Refuse promotion of an active raw source unless L1 is fresh and matching.
+
+    Fail-closed: a missing, unreadable or wrong-schema health file, a missing
+    source entry, a non-'ok' status, a candidate without content_vintage, or a
+    candidate vintage that differs from the fresh L1 vintage all refuse. Sources
+    outside the active raw set are not covered by the health contract.
+
+    Returns the evidence the gate acted on, recorded in the promotion record.
+    """
+    if source not in ACTIVE_RAW_SOURCES:
+        return {"applied": False,
+                "reason": "source is not an active raw source"}
+    path = Path(import_health_path) if import_health_path else DEFAULT_IMPORT_HEALTH
+    try:
+        health = json.loads(path.read_text())
+    except (OSError, ValueError) as exc:
+        raise SystemExit(f"promotion refused: import health {path} is missing or "
+                         f"unreadable ({exc}) -- run `make import-health` first")
+    if health.get("schema") != HEALTH_SCHEMA:
+        raise SystemExit(f"promotion refused: import health {path} has "
+                         f"unsupported schema {health.get('schema')!r}")
+    entry = (health.get("sources") or {}).get(source)
+    if not isinstance(entry, dict):
+        raise SystemExit(f"promotion refused: import health has no entry for "
+                         f"{source!r}")
+    if entry.get("status") != "ok":
+        raise SystemExit(f"promotion refused: import health for {source!r} is "
+                         f"{entry.get('status')!r}, not 'ok' "
+                         f"({entry.get('failure_reason')})")
+    candidate_vintage = section.get("content_vintage")
+    if not candidate_vintage:
+        raise SystemExit(f"promotion refused: candidate section for {source!r} "
+                         "lacks immutable content_vintage provenance")
+    fresh_vintage = entry.get("content_vintage")
+    if not fresh_vintage:
+        raise SystemExit(f"promotion refused: import health for {source!r} "
+                         "carries no fresh L1 content_vintage")
+    if candidate_vintage != fresh_vintage:
+        raise SystemExit(f"promotion refused: candidate content_vintage "
+                         f"{candidate_vintage!r} does not match fresh L1 vintage "
+                         f"{fresh_vintage!r} for {source!r}")
+    return {
+        "applied": True,
+        "source": source,
+        "status": entry["status"],
+        "content_vintage": fresh_vintage,
+        "candidate_content_vintage": candidate_vintage,
+        "checked_at": health.get("checked_at"),
+        "last_successful_import": entry.get("last_successful_import"),
+        "import_health_file": str(path),
+        "import_health_sha256": sha256_file(path),
+    }
+
+
+def promote(review_path, approve, fixture_path=None, record_dir=None,
+            import_health_path=None):
     if not approve or not approve.strip():
         raise SystemExit("promotion refused: --approve is required "
                          '(--approve "<name> <YYYY-MM-DD> <reason>")')
@@ -101,6 +169,8 @@ def promote(review_path, approve, fixture_path=None, record_dir=None):
         raise SystemExit("promotion refused: fixture natives for "
                          f"{source!r} changed since the review -- re-run it")
 
+    l1_gate = check_l1_freshness(source, section, import_health_path)
+
     player_keys = fixture.get("player_keys", {})
     unknown = [s for combo in section["combos"].values()
                for s in combo["native"] if s not in player_keys]
@@ -129,6 +199,12 @@ def promote(review_path, approve, fixture_path=None, record_dir=None):
     # same data but wrong for fresh-data promotions.)
     if section.get("fetched_at"):
         new_section["fetched_at"] = section["fetched_at"]
+    # content_vintage is immutable source provenance: install it with the
+    # values it describes, only when the candidate carries it (never invented).
+    if section.get("content_vintage"):
+        new_section["content_vintage"] = section["content_vintage"]
+    if section.get("source_provenance"):
+        new_section["source_provenance"] = copy.deepcopy(section["source_provenance"])
     new_section["promotion_note"] = (
         "Re-anchored from the retired Monday rail to the fixture ESPN leg. "
         f"Native values vintage {new_section.get('fetched_at')}; "
@@ -152,6 +228,7 @@ def promote(review_path, approve, fixture_path=None, record_dir=None):
         "approved_by": approve.strip(),
         "review_file": Path(review_path).name,
         "review_verdict": review["verdict"],
+        "l1_import_health_gate": l1_gate,
         "section_before_sha256": before_hash,
         "section_after_sha256": after_hash,
         "replaced_section": fx_section,  # rollback record
@@ -174,6 +251,9 @@ def main(argv=None):
     ap.add_argument("--auto", action="store_true",
                     help="Automated promotion (Jeremy 2026-09-29: auto-promotion authorized; "
                          "records 'auto' as approver, keeps all hash/continuity safeguards)")
+    ap.add_argument("--import-health", type=Path, default=None,
+                    help="import-health JSON for the L1 freshness gate "
+                         "(default: output/source-import-health.json)")
     args = ap.parse_args(argv)
     if args.auto:
         approve = "auto 2026-09-29 Jeremy-authorized automated promotion"
@@ -181,7 +261,7 @@ def main(argv=None):
         approve = args.approve
     else:
         raise SystemExit("promotion refused: --approve or --auto is required")
-    result = promote(args.review, approve)
+    result = promote(args.review, approve, import_health_path=args.import_health)
     print(f"promoted {result['source']}: "
           f"{result['before']} -> {result['after']}")
     print(f"record -> {result['promotion_record']}")

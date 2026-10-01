@@ -405,6 +405,57 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("refusing to mix vintages", result.stderr)
 
+    def test_section_carries_content_vintage_and_provenance_from_reference(self):
+        # JEG-27: the reindex stage reads content_vintage / source_provenance off
+        # the candidate section, so the section builder must carry them forward.
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            rows = [ref_row(869, "Josh Allen", 24.0)]
+            section, _ = self.build_section(tmp, rows)
+            expected = reference_artifact(rows)["source_provenance"]
+            self.assertEqual("Week 3", section["content_vintage"])
+            self.assertEqual(expected, section["source_provenance"])
+
+    def test_reference_without_provenance_gives_none_never_a_guessed_vintage(self):
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fixture = tmp / "comparison.json"
+            write_json(fixture, comparison_fixture())
+            ref = tmp / "ref.json"
+            payload = reference_artifact([ref_row(869, "Josh Allen", 24.0)])
+            del payload["source_provenance"]
+            write_json(ref, payload)
+            out = tmp / "section.json"
+            self.run_script("build_comparison_source_section.py",
+                            "--input", str(ref), "--comparison", str(fixture),
+                            "--output", str(out))
+            section = json.loads(out.read_text(encoding="utf-8"))
+            self.assertIsNone(section["content_vintage"])
+            self.assertIsNone(section["source_provenance"])
+
+    def test_multiple_reference_inputs_must_agree_on_content_vintage(self):
+        # Same fetched_at, different published vintage: the fetched_at guard
+        # cannot catch this, so the content_vintage guard must.
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            fixture = tmp / "comparison.json"
+            write_json(fixture, comparison_fixture())
+            ref_a = tmp / "a.json"
+            write_json(ref_a, reference_artifact([ref_row(869, "Josh Allen", 24.0)]))
+            ref_b = tmp / "b.json"
+            payload_b = reference_artifact([ref_row(101, "Bijan Robinson", 60.0)])
+            payload_b["source_provenance"]["content_vintage"] = "Week 4"
+            write_json(ref_b, payload_b)
+            out = tmp / "section.json"
+            result = subprocess.run(
+                ["python3", "pipelines/build_comparison_source_section.py",
+                 "--input", str(ref_a), str(ref_b),
+                 "--comparison", str(fixture), "--output", str(out)],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+            self.assertNotEqual(0, result.returncode)
+            self.assertIn("disagree on content_vintage", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

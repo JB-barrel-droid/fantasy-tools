@@ -112,6 +112,8 @@ def build_section(
     inherited: list[dict[str, Any]] = []
     sources: set[Any] = set()
     fetched_ats: set[Any] = set()
+    provenances: list[Any] = []
+    content_vintages: set[Any] = set()
     input_strs: list[str] = []
     for raw in paths:
         reference = load_json(Path(raw))
@@ -122,6 +124,11 @@ def build_section(
             raise SystemExit(f"{raw} must contain rows[]")
         sources.add(reference.get("source"))
         fetched_ats.add(reference.get("fetched_at"))
+        provenance = reference.get("source_provenance")
+        provenances.append(provenance)
+        content_vintages.add(
+            provenance.get("content_vintage") if isinstance(provenance, dict) else None
+        )
         input_strs.append(str(raw))
         rows.extend(ref_rows)
         ref_review = reference.get("review_rows")
@@ -140,8 +147,19 @@ def build_section(
             f"({sorted(str(f) for f in fetched_ats)}); refusing to mix "
             "vintages in one candidate section"
         )
+    if len(content_vintages) > 1:
+        raise SystemExit(
+            "reference inputs disagree on content_vintage "
+            f"({sorted(str(v) for v in content_vintages)}); refusing to mix "
+            "vintages in one candidate section"
+        )
     source = str(next(iter(sources)) or "source")
     fetched_at = next(iter(fetched_ats))
+    # content_vintage is immutable source provenance (see match_source_snapshot):
+    # carry it from the reference artifacts untouched. A reference that has none
+    # yields None here -- never a guessed or derived vintage.
+    source_provenance = provenances[0]
+    content_vintage = next(iter(content_vintages))
     # Per-group reference artifacts replicate the input-level review rows, so
     # identical inherited rows are deduped (first-seen order kept).
     deduped: list[dict[str, Any]] = []
@@ -288,6 +306,8 @@ def build_section(
         "week_designated": meta.get("week_designated"),
         "url": meta.get("url"),
         "fetched_at": fetched_at,
+        "content_vintage": content_vintage,
+        "source_provenance": source_provenance,
         "native_unit": meta.get("native_unit") or "source published value (as scraped)",
         "combos": combo_payload,
         "summary": {

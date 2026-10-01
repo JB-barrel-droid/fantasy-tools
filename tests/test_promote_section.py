@@ -220,8 +220,6 @@ class TestPromote(unittest.TestCase):
             promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                           record_dir=str(self.records))
 
-    @unittest.skip("Pre-existing failure (2026-10-01): crashes on missing snapshot.json in data/raw/sources. "
-                   "Blocks critical JEG-5 chart fix deploy. See JEG-25 for proper fix.")
     def test_active_source_promotion_requires_fresh_matching_l1_vintage(self):
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
         doc = json.loads(rp.read_text())
@@ -260,6 +258,67 @@ class TestPromote(unittest.TestCase):
         self.assertEqual("Week 3", after["source_provenance"]["content_vintage"])
         rec = json.loads(Path(result["promotion_record"]).read_text())
         self.assertEqual("Week 3", rec["l1_import_health_gate"]["content_vintage"])
+
+    def _active_review(self, vintage="Week 3"):
+        """Ready review for an active source; candidate vintage None = absent."""
+        fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
+        doc = json.loads(rp.read_text())
+        doc.pop("content_vintage", None)
+        doc.pop("source_provenance", None)
+        if vintage is not None:
+            doc["content_vintage"] = vintage
+            doc["source_provenance"] = {"source": "fantasycalc",
+                                        "content_vintage": vintage}
+        rp.write_text(json.dumps(doc))
+        rev = json.loads(revp.read_text())
+        rev["reindexed_sha256"] = promo.sha256_file(rp)
+        revp.write_text(json.dumps(rev))
+        return fx_path, revp
+
+    def _promote_active(self, fx_path, revp, health):
+        return promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                             record_dir=str(self.records),
+                             import_health_path=str(health))
+
+    def test_l1_gate_refuses_when_import_health_file_missing(self):
+        fx_path, revp = self._active_review()
+        with self.assertRaises(SystemExit) as ctx:
+            self._promote_active(fx_path, revp, self.tmp / "no-such-health.json")
+        self.assertIn("missing or unreadable", str(ctx.exception))
+
+    def test_l1_gate_refuses_wrong_health_schema(self):
+        fx_path, revp = self._active_review()
+        health = self.tmp / "health.json"
+        write_import_health(health)
+        doc = json.loads(health.read_text())
+        doc["schema"] = "something-else-v1"
+        health.write_text(json.dumps(doc))
+        with self.assertRaises(SystemExit) as ctx:
+            self._promote_active(fx_path, revp, health)
+        self.assertIn("unsupported schema", str(ctx.exception))
+
+    def test_l1_gate_refuses_when_source_has_no_health_entry(self):
+        fx_path, revp = self._active_review()
+        health = self.tmp / "health.json"
+        write_import_health(health, source="usatoday")  # not fantasycalc
+        with self.assertRaises(SystemExit) as ctx:
+            self._promote_active(fx_path, revp, health)
+        self.assertIn("no entry for 'fantasycalc'", str(ctx.exception))
+
+    def test_l1_gate_refuses_candidate_without_content_vintage(self):
+        fx_path, revp = self._active_review(vintage=None)
+        health = self.tmp / "health.json"
+        write_import_health(health, vintage="Week 3", status="ok")
+        with self.assertRaises(SystemExit) as ctx:
+            self._promote_active(fx_path, revp, health)
+        self.assertIn("lacks immutable content_vintage", str(ctx.exception))
+
+    def test_l1_gate_not_applied_to_non_active_source(self):
+        fx_path, rp, revp = ready_review(self.tmp)  # source "syn"
+        result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                               record_dir=str(self.records))
+        rec = json.loads(Path(result["promotion_record"]).read_text())
+        self.assertFalse(rec["l1_import_health_gate"]["applied"])
 
 
 if __name__ == "__main__":
