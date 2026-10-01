@@ -32,6 +32,45 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - UI batch diagnosis in a real browser (JEG-23, JEG-22; no code changed)
+
+Read-only. Local build of `dist/` at `c84a483` (same bytes the preview workflow makes), served with
+`python3 -m http.server`, driven by headless Chromium (`/opt/pw-browsers/chromium`) through `playwright-core`
+installed under the scratchpad. The live site is not reachable from this environment (egress policy denies
+`jb-barrel-droid.github.io`), so none of this is evidence about the live page.
+
+### Verified
+
+- **JEG-23 (table stuck on scoring/team change): not reproduced.** From a fresh load I clicked all 12 scoring x
+  team-size combinations. The chart's player table changed every time (rows Standard 119/148/181/208, Half
+  201/205/257/233, Full 202/206/247/233 for 8/10/12/14 teams) with 0 page errors during any interaction.
+- **JEG-22 (bench-share caption): reproduced.** Slider 15% to 25%: its readout updates to 25.0%, but `#curveContext`
+  still says "15% bench share" and `#curveFootnote` still says "86% starter / 14% bench split", after the input
+  event and after the change event.
+- **New finding, JEG-44:** an uncaught `TypeError: Cannot read properties of null (reading 'sources')` fires at
+  every page load. `espnTargetTotal` (`comparison-dashboard.js:416`) reads `data.sources` while `data` is still
+  `null`, via `rebuildSourceMaps()` (about line 641). Pre-existing: unchanged since the import commit `1f53f73`.
+  It happens at load only; interactions produce no errors.
+- My first JEG-22 run was INVALID and discarded: the bench slider has an empty id, my lookup found nothing and
+  fell back to the first slider (`weight-QB`), so I had changed a pie weight, not the bench share. The corrected
+  run used `input[type=range][min="0.01"][max="0.3"]`.
+
+### Claimed, unverified
+
+- That JEG-23 is fixed on current main rather than needing steps I did not run. What would settle it: the exact
+  steps from the overnight QA report (asked on JEG-23), or the same sequence on build `60c239a`.
+- JEG-22 with a real mouse drag: I dispatched `input`/`change` events; a real ArrowLeft key press did not move
+  the slider, so keyboard behaviour is unknown.
+- That the curves reprice on a bench-slider move (the issue says so; I did not check).
+- Which event triggers the early `rebuildSourceMaps()` call in JEG-44; I did not trace it.
+
+### Open
+
+- The UI batch (JEG-21, 22, 23, 24) edits `curve-widget.js` and waits for Roman/Muse to confirm JEG-6 is closed.
+- JEG-22 needs a copy decision first: should the footnote sentence show the slider value, the display share, or
+  both? (The footnote's "14% bench" is the display share.)
+- GAP-021 added for JEG-44.
+
 ## 2026-10-01 - JEG-25: the old-branding guard now scans code, not comments (and exposed a copy conflict)
 
 Branch `jeremyburstyn/jeg-25-branding-guard-comments`, based on `origin/main` `c84a483`. Assigned by Roman/Muse
