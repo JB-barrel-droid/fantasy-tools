@@ -18,6 +18,127 @@ def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+# --- User-visible copy scanning (JEG-25) -------------------------------------
+# The old-branding guard used to `assertNotIn("DDF", <whole JS/CSS source>)`, so an
+# internal code comment ("the DDF-native ESPN anchor") blocked a deploy. It now scans
+# code with comments removed and only flags what a user could actually see.
+#
+# "DDF methodology" is the one approved visible phrase: it is the source badge and the
+# health-panel role text, pinned by tests/test_razzball_production_followups.py. The
+# old blanket ban contradicted those tests. Any OTHER visible "DDF" still fails.
+APPROVED_VISIBLE_PHRASES = ("DDF methodology",)
+
+_REGEX_PRECEDERS = set("(,=:[!&|?{};+-*%<>~^")
+_REGEX_KEYWORDS = {"return", "typeof", "case", "do", "else", "in", "of", "void",
+                   "delete", "throw", "new", "instanceof", "yield", "await"}
+
+
+def _starts_regex(out):
+    tail = "".join(out[-40:]).rstrip()
+    if not tail:
+        return True
+    if tail[-1] in _REGEX_PRECEDERS:
+        return True
+    word = re.search(r"([A-Za-z_$][\w$]*)$", tail)
+    return bool(word and word.group(1) in _REGEX_KEYWORDS)
+
+
+def _scan_template(src, i):
+    """Scan a template literal starting at the backtick; return (text, next_index)."""
+    n, j, text = len(src), i + 1, ["`"]
+    while j < n:
+        ch = src[j]
+        if ch == "\\":
+            text.append(src[j:j + 2])
+            j += 2
+        elif ch == "`":
+            text.append("`")
+            return "".join(text), j + 1
+        elif ch == "$" and src[j + 1:j + 2] == "{":
+            inner, j = _scan_js(src, j + 2, True)
+            text.append("${" + inner + "}")
+            j += 1
+        else:
+            text.append(ch)
+            j += 1
+    return "".join(text), j
+
+
+def _scan_js(src, i, nested):
+    """Return (source with comments removed, index). Aware of strings, template
+    literals (with nested expressions) and regex literals, which is what a naive
+    `//`-to-end-of-line strip gets wrong."""
+    out, n, depth = [], len(src), 0
+    while i < n:
+        c, nx = src[i], src[i + 1:i + 2]
+        if c in "\"'":
+            j = i + 1
+            while j < n and src[j] != c and src[j] != "\n":
+                j += 2 if src[j] == "\\" else 1
+            out.append(src[i:j + 1])
+            i = j + 1
+        elif c == "`":
+            text, i = _scan_template(src, i)
+            out.append(text)
+        elif c == "/" and nx == "/":
+            j = src.find("\n", i)
+            i = n if j < 0 else j
+            out.append(" ")
+        elif c == "/" and nx == "*":
+            j = src.find("*/", i + 2)
+            end = n if j < 0 else j + 2
+            out.append("\n" * src.count("\n", i, end) or " ")
+            i = end
+        elif c == "/" and _starts_regex(out):
+            j, in_class = i + 1, False
+            while j < n and src[j] != "\n":
+                ch = src[j]
+                if ch == "\\":
+                    j += 2
+                    continue
+                if ch == "[":
+                    in_class = True
+                elif ch == "]":
+                    in_class = False
+                elif ch == "/" and not in_class:
+                    break
+                j += 1
+            j += 1
+            while j < n and src[j].isalpha():
+                j += 1
+            out.append(src[i:j])
+            i = j
+        elif nested and c == "{":
+            depth += 1
+            out.append(c)
+            i += 1
+        elif nested and c == "}":
+            if depth == 0:
+                return "".join(out), i
+            depth -= 1
+            out.append(c)
+            i += 1
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out), i
+
+
+def strip_comments(name, text):
+    if name.endswith(".css"):
+        return re.sub(r"(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*')|/\*.*?\*/",
+                      lambda m: m.group(1) or " ", text, flags=re.S)
+    return _scan_js(text, 0, False)[0]
+
+
+def visible_ddf_lines(name, text):
+    """Lines that still contain "DDF" once comments and approved phrases are removed."""
+    code = strip_comments(name, text)
+    for phrase in APPROVED_VISIBLE_PHRASES:
+        code = code.replace(phrase, "")
+    return [line.strip()[:140] for line in code.splitlines() if "DDF" in line]
+
+
 class StaticExportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -488,19 +609,18 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('let lockOrder = "espn"', text)
         self.assertIn('sourceAvailable("fantasycalc_adjusted")', text)
 
-    @unittest.skip("Pre-existing failure (2026-10-01), blocking JEG-5 deploy. See JEG-25.")
     def test_dashboard_copy_does_not_surface_old_branding(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
-        assets = "\n".join(
-            (APP / "assets" / name).read_text(encoding="utf-8")
-            for name in ["curve-widget.js", "comparison-dashboard.js", "comparison-dashboard.css"]
-        )
+        names = ["curve-widget.js", "comparison-dashboard.js", "comparison-dashboard.css"]
+        sources = {name: (APP / "assets" / name).read_text(encoding="utf-8") for name in names}
         self.assertIn("<title>Trade Value Dashboard</title>", html)
         self.assertNotIn("Data Driven Football", html)
         self.assertNotIn("legacy model", html.lower())
         self.assertNotIn('"key":"ddf"', html)
-        self.assertNotIn("DDF", assets)
-        self.assertNotIn("sourcePicker", assets)
+        for name, text in sources.items():
+            self.assertEqual([], visible_ddf_lines(name, text),
+                             f"user-visible 'DDF' in {name} (comments and 'DDF methodology' are allowed)")
+        self.assertNotIn("sourcePicker", "\n".join(sources.values()))
 
     def test_source_compatibility_uses_selected_league_shape(self):
         curve = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
@@ -757,6 +877,68 @@ class StaticExportTest(unittest.TestCase):
         # the 35 boundary reflected the old 353-player stale-pie section.
         self.assertEqual(45, last_positive)
         self.assertEqual(46, last_positive + 1)
+
+
+class BrandingScanTest(unittest.TestCase):
+    """The scanner behind the old-branding guard, tested against synthetic sources so
+    each rule is shown to catch the defect it names (JEG-25)."""
+
+    def hits(self, src, name="x.js"):
+        return visible_ddf_lines(name, src)
+
+    def test_ddf_in_a_line_comment_is_ignored(self):
+        self.assertEqual([], self.hits("const a = 1; // the DDF-native anchor\n"))
+
+    def test_ddf_in_a_block_comment_is_ignored(self):
+        self.assertEqual([], self.hits("/* DDF tiers\n   more DDF */\nconst a = 1;\n"))
+
+    def test_a_visible_ddf_string_is_caught(self):
+        self.assertEqual(1, len(self.hits('const label = "DDF Rankings";\n')))
+
+    def test_the_approved_label_is_allowed_but_other_ddf_beside_it_is_not(self):
+        self.assertEqual([], self.hits('return "DDF methodology";\n'))
+        self.assertEqual(1, len(self.hits('return "DDF methodology \u00b7 DDF Rankings";\n')))
+
+    def test_slashes_inside_a_string_do_not_hide_a_visible_ddf(self):
+        src = 'const u = "https://x.test/a"; const l = "DDF Rankings";\n'
+        self.assertEqual(1, len(self.hits(src)))
+
+    def test_a_regex_literal_with_a_quote_does_not_hide_a_following_comment(self):
+        # Without regex-literal detection the quote inside /"/ opens a "string" that
+        # swallows the trailing comment, which then counts as a visible DDF.
+        self.assertEqual([], self.hits('const re = /"/; // DDF note\n'))
+        # And real code after the regex must still be scanned.
+        self.assertEqual(1, len(self.hits('const re = /"/; const l = "DDF Rankings";\n')))
+
+    def test_a_regex_after_a_keyword_is_still_a_regex(self):
+        # `return /"/` has a word, not punctuation, before the slash.
+        self.assertEqual([], self.hits('function f(s) { return /"/.test(s); } // DDF note\n'))
+
+    def test_template_literals_are_scanned_including_expressions(self):
+        self.assertEqual(1, len(self.hits("const t = `DDF ${v}`;\n")))
+        self.assertEqual([], self.hits("const t = `x ${a /* DDF */} y`;\n"))
+        # `//` inside a template literal is text, not a comment: without template
+        # handling it would hide the visible string that follows on the same line.
+        src = 'const t = `https://x.test/${v}`; const l = "DDF Rankings";\n'
+        self.assertEqual(1, len(self.hits(src)))
+
+    def test_css_comment_is_ignored_but_a_content_string_is_caught(self):
+        self.assertEqual([], self.hits("/* DDF */ .a { color: red; }", "x.css"))
+        self.assertEqual(1, len(self.hits('.a::after { content: "DDF"; }', "x.css")))
+
+    def test_css_is_not_scanned_as_javascript(self):
+        # `//` is not a comment in CSS: the JS scanner would treat url(//cdn...) as one
+        # and hide the visible content string after it.
+        css = '.a{background:url(//cdn.test/a.png)} .b::after{content:"DDF"}'
+        self.assertEqual(1, len(self.hits(css, "x.css")))
+
+    def test_the_real_assets_have_no_unterminated_scan_state(self):
+        # A scan that went wrong (e.g. swallowed the rest of a file as one string or
+        # comment) would drop most of the source; the stripped code must stay large.
+        for name in ("curve-widget.js", "comparison-dashboard.js"):
+            text = (APP / "assets" / name).read_text(encoding="utf-8")
+            stripped = strip_comments(name, text)
+            self.assertGreater(len(stripped), 0.7 * len(text), name)
 
 
 if __name__ == "__main__":

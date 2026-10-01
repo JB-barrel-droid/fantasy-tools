@@ -32,6 +32,123 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - UI batch diagnosis, part 2: JEG-24 reproduced, JEG-21 not, a silent-revert defect found (JEG-45)
+
+Read-only; same setup as the earlier UI-batch entry (local build of `dist/` at `c84a483`, headless Chromium via
+`playwright-core`; the live site is not reachable from this environment). No code changed.
+
+### Verified
+
+- **JEG-24 (pie labels): reproduced, and it is not display-only.** Across the 12 scoring x team-size shapes the four
+  displayed pie percentages sum to exactly 100.0 in 7 and miss by 0.1 in 5 (Standard/8 100.1, Half/8 99.9, Half/10
+  100.1, Half/12 99.9, Full/12 99.9). The readout text says "sums to 100%" beside them
+  (`syncWeightsReadout`, `curve-widget.js` ~2105). Labels come from independent `toFixed(1)`; the slider values sum to
+  the same 99.9/100.1, so the baked weights themselves are rounded to 3 decimals and are off by 0.1 at the source.
+- **JEG-21 (lock caption lag): not reproduced.** Locked to each of 7 sources (USA Today, FantasyPros, CBS and their
+  adjusted variants), then switched league shape to force a revert: the lock and `#curveLockNote` showed ESPN adjusted
+  immediately (same at 150 ms and 1.65 s). The code already re-syncs the caption ("DEFECT 2" comment calling
+  `syncContext()` after the forced reset).
+- **New defect, JEG-45:** the QA-003 revert notice (`.lock-revert-notice`) is added and removed in the same millisecond.
+  `notifyLockRevert()` appends it to `#curve-status`, then `syncCurveStatus()` sets that element's `innerHTML` and
+  discards it. A DOM `MutationObserver` logged ADDED and REMOVED at the same timestamp; the notice was absent in all 7
+  revert cases. So the lock reverts silently, which is what QA-003 was written to prevent.
+- QA-003 is defined in `modules/dashboard.html` ("ESPN checkbox silently reverts") and in the `curve-widget.js` comments
+  at 2499, 2599, 2632; it is not in `docs/`.
+- My first JEG-21 script failed for my own reasons (I selected `usatoday` while the shape left it out of the lock list);
+  I read the real option list and reran.
+
+### Claimed, unverified
+
+- That the original JEG-21 report meant the missing notice and not the caption. The overnight QA report would say.
+- That JEG-24's fix belongs in the bake or in `activePositionWeights()`; I did not look at the baking code.
+- Everything here is on a local build, not the live page.
+
+### Open
+
+- Decisions for Roman/Muse: JEG-21 meaning (caption vs notice), JEG-24 fix location, and JEG-22 wording (earlier entry).
+- The UI batch still waits for confirmation that JEG-6 is closed. GAP-022 added for JEG-45.
+
+## 2026-10-01 - UI batch diagnosis in a real browser (JEG-23, JEG-22; no code changed)
+
+Read-only. Local build of `dist/` at `c84a483` (same bytes the preview workflow makes), served with
+`python3 -m http.server`, driven by headless Chromium (`/opt/pw-browsers/chromium`) through `playwright-core`
+installed under the scratchpad. The live site is not reachable from this environment (egress policy denies
+`jb-barrel-droid.github.io`), so none of this is evidence about the live page.
+
+### Verified
+
+- **JEG-23 (table stuck on scoring/team change): not reproduced.** From a fresh load I clicked all 12 scoring x
+  team-size combinations. The chart's player table changed every time (rows Standard 119/148/181/208, Half
+  201/205/257/233, Full 202/206/247/233 for 8/10/12/14 teams) with 0 page errors during any interaction.
+- **JEG-22 (bench-share caption): reproduced.** Slider 15% to 25%: its readout updates to 25.0%, but `#curveContext`
+  still says "15% bench share" and `#curveFootnote` still says "86% starter / 14% bench split", after the input
+  event and after the change event.
+- **New finding, JEG-44:** an uncaught `TypeError: Cannot read properties of null (reading 'sources')` fires at
+  every page load. `espnTargetTotal` (`comparison-dashboard.js:416`) reads `data.sources` while `data` is still
+  `null`, via `rebuildSourceMaps()` (about line 641). Pre-existing: unchanged since the import commit `1f53f73`.
+  It happens at load only; interactions produce no errors.
+- My first JEG-22 run was INVALID and discarded: the bench slider has an empty id, my lookup found nothing and
+  fell back to the first slider (`weight-QB`), so I had changed a pie weight, not the bench share. The corrected
+  run used `input[type=range][min="0.01"][max="0.3"]`.
+
+### Claimed, unverified
+
+- That JEG-23 is fixed on current main rather than needing steps I did not run. What would settle it: the exact
+  steps from the overnight QA report (asked on JEG-23), or the same sequence on build `60c239a`.
+- JEG-22 with a real mouse drag: I dispatched `input`/`change` events; a real ArrowLeft key press did not move
+  the slider, so keyboard behaviour is unknown.
+- That the curves reprice on a bench-slider move (the issue says so; I did not check).
+- Which event triggers the early `rebuildSourceMaps()` call in JEG-44; I did not trace it.
+
+### Open
+
+- The UI batch (JEG-21, 22, 23, 24) edits `curve-widget.js` and waits for Roman/Muse to confirm JEG-6 is closed.
+- JEG-22 needs a copy decision first: should the footnote sentence show the slider value, the display share, or
+  both? (The footnote's "14% bench" is the display share.)
+- GAP-021 added for JEG-44.
+
+## 2026-10-01 - JEG-25: the old-branding guard now scans code, not comments (and exposed a copy conflict)
+
+Branch `jeremyburstyn/jeg-25-branding-guard-comments`, based on `origin/main` `c84a483`. Assigned by Roman/Muse
+("test-only fix, zero production risk"). It turned out not to be purely test-only; see the decision below.
+
+### Verified
+
+- The skip removed, the test fails at `assertNotIn("DDF", assets)`; the earlier assertions in it pass.
+- Case-sensitive `DDF` in the three asset files: `curve-widget.js` 8 hits, all in comments; `comparison-dashboard.js` 1
+  user-visible string, `return "DDF methodology"` (the source badge); CSS none. So stripping comments alone would NOT
+  have made the test pass. [scan of the real files]
+- The visible phrase `DDF methodology` is pinned as correct by `tests/test_razzball_production_followups.py` (lines
+  144, 148, 214) and renders in the health panel; the old test's blanket `DDF` ban contradicts those tests, and
+  `CLAUDE.md` names Data Driven Football as the brand. So that assertion was wrong, and changing it is legitimate.
+- New scanner in `tests/test_static_export.py` (comments removed; aware of strings, template literals with nested
+  expressions, and regex literals) plus one approved phrase. Any other visible `DDF` still fails. Injecting
+  `"Bottom-up indexed DDF Rankings"` into a copy of the widget is caught.
+- Independent check of the scanner: after stripping, both real JS files still parse under `node --check`
+  (curve-widget 165012 to 129641 bytes, comparison-dashboard 61339 to 56360).
+- 10 scanner tests plus the real test, all passing. Seven mutations of the helper are each caught (naive `//` strip,
+  no stripping, no allowed phrase, allowlist swallowing every DDF, regex detection off, regex only after punctuation,
+  template literals not scanned, CSS treated as JS). My first versions of three tests did NOT catch their mutations
+  (the quote test could not fail because strings end at newline; the template test counted code and strings alike;
+  the CSS test passed under the JS path); I rewrote them until each failed on its mutation. One mutation I wrote was
+  itself wrong (it never disabled regex detection); I fixed the mutation, not the test.
+- Full `make validate` and `make -k test-integration`: see the PR.
+
+### Claimed, unverified
+
+- That a hand-written scanner covers every JS construct the widget will ever contain (e.g. `}` followed by a regex,
+  or `x++ / 2`). The guard test `test_the_real_assets_have_no_unterminated_scan_state` and `node --check` cover
+  today's files only. If it ever misparses, the failure mode is a false positive or a missed comment, not a missed
+  visible string in plain code.
+
+### Open (needs a human decision)
+
+- **Is `DDF methodology` approved user-facing copy?** I allow exactly that phrase because three regression tests pin
+  it and `CLAUDE.md` names DDF as the brand. If it should NOT be visible, rename the label (a production copy change in
+  `comparison-dashboard.js` and the health-panel role text) and remove the allowance. GAP-020.
+- `assertNotIn("Data Driven Football", html)` is still in the test and also sits oddly with the `CLAUDE.md` brand rule;
+  I left it alone because it passes and changing it is a separate copy decision.
+
 ## 2026-10-01 - JEG-8: why the rebuild chain looks broken, and the fix for the invisible red chain
 
 Branch `jeremyburstyn/jeg-8-rebuild-chain-workflow-failing`, based on `origin/main` `b00e2b1`.
