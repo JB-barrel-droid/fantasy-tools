@@ -35,7 +35,15 @@ SOURCE_KEY = "cbsros"
 SOURCE_URL = "https://www.cbssports.com/fantasy/football/stats/QB/2026/restofseason/projections/nonppr/"
 COMBO_KEYS = [f"{s}_{t}" for s in ("full", "half", "standard") for t in (8, 10, 12, 14)]
 SCORING_LEG = {"full": "ppr", "half": "half_ppr", "standard": "standard"}
-DEFAULT_BENCH_SHARE = 0.15
+# Bench share from shared config (config/roster.json) — never hardcode.
+def _load_bench_share():
+    import json
+    cfg = Path(__file__).resolve().parent.parent / "config" / "roster.json"
+    try:
+        return json.load(open(cfg))["bench_share"]
+    except (OSError, json.JSONDecodeError, KeyError):
+        return 0.15
+DEFAULT_BENCH_SHARE = _load_bench_share()
 
 
 def load_fixture(path: Path) -> dict:

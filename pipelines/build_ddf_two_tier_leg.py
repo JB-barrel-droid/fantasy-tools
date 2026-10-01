@@ -58,8 +58,17 @@ DEFAULT_OUTPUT_DIR = ROOT / "data" / "ddf-two-tier"
 
 SCHEMA = "trade-value-ddf-leg-v1"
 
-POSITIONS = ["QB", "RB", "WR", "TE"]
-DEFAULT_BENCH_SHARE = 0.15
+# Roster config from shared config/roster.json — never hardcode.
+def _load_roster_config():
+    import json
+    cfg = Path(__file__).resolve().parent.parent / "config" / "roster.json"
+    try:
+        return json.load(open(cfg))
+    except (OSError, json.JSONDecodeError):
+        return {"positions": ["QB", "RB", "WR", "TE"], "bench_share": 0.15}
+_ROSTER_CFG = _load_roster_config()
+POSITIONS = _ROSTER_CFG["positions"]
+DEFAULT_BENCH_SHARE = _ROSTER_CFG["bench_share"]
 GLIDE_WIDTH_FRAC = 0.25
 GAMES_DIVISOR = 16  # weeks 3-18; the same divisor the pie measurement used
 

@@ -97,7 +97,28 @@ def quantile_map(xs: list[float], ys: list[float], x: float) -> float:
 
 REPO = Path(__file__).resolve().parent.parent
 SCHEMA = "trade-value-comparison-section-reindexed-v1"
-POSITIONS = ("QB", "RB", "WR", "TE")
+# Roster config: positions, roster shape, bench share, flex eligibility.
+# Loaded from config/roster.json — never hardcode these.
+def _load_roster_config():
+    import json
+    cfg_path = REPO / "config" / "roster.json"
+    try:
+        with open(cfg_path) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        # Fallback to defaults if config missing
+        return {
+            "positions": ["QB", "RB", "WR", "TE"],
+            "roster_shape": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6},
+            "bench_share": 0.15,
+            "flex_eligible": ["RB", "WR", "TE"],
+        }
+
+_ROSTER_CFG = _load_roster_config()
+POSITIONS = tuple(_ROSTER_CFG["positions"])
+ROSTER_SHAPE = _ROSTER_CFG["roster_shape"]
+BENCH_SHARE = _ROSTER_CFG["bench_share"]
+FLEX_ELIGIBLE = tuple(_ROSTER_CFG["flex_eligible"])
 MIN_FIT_PAIRS = 10
 # Zero-VORP policy (2026-10-01): players with no anchor value have effectively
 # zero VORP in the canonical system. If their source native value is also
@@ -281,56 +302,30 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                 raise SystemExit(
                     f"reindex: {source}/{combo_name} native_overlap={native_overlap} anchor_overlap={anchor_overlap} -- cannot scale"
                 )
-            # PIE-BASED PER-POSITION ALLOCATION (2026-10-01):
-            # Instead of one global scale, allocate by position pies.
-            # Each position's total is scaled independently to match the anchor's
-            # position total. This preserves within-position gaps (proportional)
-            # while ensuring the positional allocation matches the anchor's
-            # roster construction (starter/bench/flex weights encoded in anchor).
-            pos_scales = {}
-            pos_details = {}
-            for pos in POSITIONS:
-                # Source position total (native values)
-                pos_slugs = [s for s in priced if pos_by_slug.get(s) == pos]
-                if not pos_slugs:
-                    continue
-                src_pos_total = sum(float(native[s]) for s in pos_slugs)
-                # Anchor position total (for same players)
-                anc_pos_total = sum(
-                    float(anchor_by_key[combo.get("player_keys", {}).get(s)])
-                    for s in pos_slugs
-                    if combo.get("player_keys", {}).get(s) in anchor_by_key
-                )
-                if src_pos_total <= 0 or anc_pos_total <= 0:
-                    raise SystemExit(
-                        f"reindex: {source}/{combo_name}/{pos} src_total={src_pos_total} anchor_total={anc_pos_total} -- cannot scale"
-                    )
-                pos_scale = anc_pos_total / src_pos_total
-                pos_scales[pos] = pos_scale
-                pos_details[pos] = {
-                    "n_players": len(pos_slugs),
-                    "src_total": src_pos_total,
-                    "anchor_total": anc_pos_total,
-                    "scale": pos_scale,
-                }
-                # Apply position-specific scale
-                for slug in pos_slugs:
-                    out_combo["reindexed"][slug] = float(native[slug]) * pos_scale
-            out_combo["fit"]["per_position_pie"] = {
-                "method": "proportional_scaling_per_position_pie",
+            scale = anchor_overlap / native_overlap
+            for slug in priced:
+                out_combo["reindexed"][slug] = float(native[slug]) * scale
+            out_combo["fit"]["global"] = {
+                "method": "proportional_scaling_vorp_overlap",
                 "anchor": "espn_leg",
                 "n_priced": len(priced),
-                "positions": pos_details,
+                "n_overlap": len(overlap),
+                "native_overlap": native_overlap,
+                "anchor_overlap": anchor_overlap,
+                "scale": scale,
+                "overlap_slugs": sorted(overlap),
             }
-            out_combo["n"]["per_position"] = {pos: d["n_players"] for pos, d in pos_details.items()}
-            # Fixed-pie targets per position
-            for pos, det in pos_details.items():
-                out_combo["index_total"][pos] = {
-                    "target_total": det["anchor_total"],
-                    "pre_total": det["src_total"],
-                    "factor": det["scale"],
-                    "n_priced": det["n_players"],
-                }
+            out_combo["n"]["global"] = len(priced)
+            # Fixed-pie target: the anchor's VORP>0 overlap total. The source's
+            # VORP>0 players sum to this amount; the scale was calibrated on
+            # exactly this set.
+            out_combo["index_total"]["global"] = {
+                "target_total": anchor_overlap,
+                "pre_total": native_overlap,
+                "factor": scale,
+                "n_priced": len(priced),
+                "n_overlap": len(overlap),
+            }
         else:
                 for pos in POSITIONS:
                     pairs = []

@@ -86,10 +86,22 @@ POSITION_ORDER = ["QB", "RB", "WR", "TE"]
 # (pos, tier) simply gets no cell; the widget falls back to the source's
 # raw published value for those players.
 MIN_FIT_PAIRS = 5
-# Reference roster shape (widget DEFAULT_ROSTER) for role assignment.
+# Reference roster shape from shared config (config/roster.json).
+# Never hardcode roster settings — they must be flexible.
+def _load_roster():
+    import json
+    from pathlib import Path
+    cfg = Path(__file__).resolve().parent.parent / "config" / "roster.json"
+    try:
+        with open(cfg) as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {"roster_shape": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6},
+                "flex_eligible": ["RB", "WR", "TE"]}
+_ROSTER = _load_roster()
 ROLE_TEAMS = 12
-ROLE_ROSTER = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 2, "BENCH": 6}
-ROLE_FLEX_ELIGIBLE = ["RB", "WR", "TE"]
+ROLE_ROSTER = _ROSTER["roster_shape"]
+ROLE_FLEX_ELIGIBLE = _ROSTER["flex_eligible"]
 
 
 def utc_now() -> str:
