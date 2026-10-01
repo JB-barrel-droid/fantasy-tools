@@ -613,6 +613,34 @@
     return {total: rawTotal, target, delta, ok: Math.abs(delta) <= tolerance};
   }
   globalThis.TradeValueCurveGuards = {peaksAboveCollapseFloor, CURVE_COLLAPSE_FLOOR, anchorScaleCorrectedCheck};
+  // Debug handle (2026-10-01): expose the fixedPieDiagnostics runtime values
+  // so the guard failure can be diagnosed from the console without guessing.
+  // Returns the raw check inputs for the ESPN anchor: display total, pie sum,
+  // scale used, and the computed check result.
+  globalThis.TradeValueCurveDebug = {
+    fixedPieEspn: () => {
+      try {
+        const anchor = sourceMaps.get("espn");
+        if (!anchor) return {error: "no espn anchor in sourceMaps"};
+        const pieSum = POSITION_ORDER.reduce((sum, pos) => {
+          const t = Number(espnTargetTotal(pos, NaN));
+          return sum + (Number.isFinite(t) && t > 0 ? t : 0);
+        }, 0) || commonFixedPieTotal(0);
+        const total = [...anchor.entries()]
+          .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
+          .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
+        const displayScale = ddfTwoTierValues()?.scale || 1;
+        const ddfNull = ddfTwoTierValues() === null;
+        const check = anchorScaleCorrectedCheck(total, pieSum, displayScale, 2);
+        // Also report max anchor value to verify the 70/max assumption.
+        let maxAnchor = 0;
+        anchor.forEach(v => { if (v > maxAnchor) maxAnchor = v; });
+        return {displayTotal: total, pieSum, displayScale, ddfNull, maxAnchor, check};
+      } catch (e) {
+        return {error: String(e?.message || e)};
+      }
+    }
+  };
 
   const root = typeof document !== "undefined" ? document.getElementById("curve-widget") : null;
   if (!root) return;
