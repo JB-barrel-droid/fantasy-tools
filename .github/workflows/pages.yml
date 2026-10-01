@@ -35,6 +35,7 @@ jobs:
         continue-on-error: true
       - name: Rebuild source value lineage
         run: python3 pipelines/build_source_value_lineage.py
+        continue-on-error: true
       - name: Check if only monitor files changed
         id: changes
         run: |
