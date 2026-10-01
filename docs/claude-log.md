@@ -32,6 +32,36 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-31: first CI run of the preview workflow, and the same-bytes check
+
+Resolves two items the Phase 1 entry below listed as unverified.
+
+### Verified
+
+- The `Preview build` workflow ran on PR #8 head `7b93a2d` and finished `success` (about 30 s). Every
+  step succeeded: sync, validate (18 s), lineage, manifest, artifact upload, PR comment. [check run
+  `110477659201`, job steps via the Actions API]
+- The PR comment was posted by `github-actions[bot]` with build tag `tv-20261001-1645-7b93a2d`,
+  manifest root `91cb4f11...`, and the artifact link. The tag carries the PR head SHA, so the
+  checkout used the head and not the merge ref. [`get_comments` on PR #8]
+- **Same-bytes check:** I built the same commit `7b93a2d` locally (`make sync`, lineage step, manifest) and
+  got root `91cb4f1195030f17...c520`, identical to the root CI computed on GitHub's runner. Same day
+  (`today` 2026-10-01); `generated_at` ignored by design. [`dist_manifest.py build` locally vs the
+  CI comment]
+
+### Claimed, unverified
+
+- That production would publish the same bytes. Evidence is indirect: `pages.yml` runs the same three
+  build steps in the same order (the guard test enforces it), but I did not build a manifest from an
+  actual Pages artifact. What would settle it: download a `github-pages` artifact from a
+  `pages.yml` run for commit X and compare its manifest to a preview of X (retention is 1 day).
+- Whether the lineage step also fails in CI. It exits 1 locally. The manifests still match, so its
+  effect on `dist/` is the same in both places, but I have not read its CI log.
+
+### Open
+
+- Nothing new. GAP-016 (defined in PR #7) can be closed when both PRs are merged.
+
 ## 2026-10-01 - JEG-31: Phase 1 built (artifact preview, manifest, drift guard)
 
 Same branch and PR as the proposal below (PR #8). Built after Jeremy chose Option A, the
