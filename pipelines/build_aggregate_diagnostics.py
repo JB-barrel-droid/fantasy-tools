@@ -59,19 +59,32 @@ def build_diagnostics():
             }
     
     # 2. Cross-source anomalies
-    # Find players with high cross-source disagreement
+    # Find players with high cross-source disagreement.
+    # Prefer a consistent combo across sources: full_12 > half_12 > standard_12.
+    combo_priority = ["full_12", "half_12", "standard_12"]
+
+    def pick_combo(combos):
+        for pref in combo_priority:
+            for ck in combos:
+                if pref in ck:
+                    return ck
+        for ck in combos:
+            if "12" in ck:
+                return ck
+        return None
+
     if trace:
         for player in trace.get("players", []):
             values = []
             for src in trace.get("sources", []):
                 sdata = player.get("sources", {}).get(src, {})
-                for combo_key, cdata in sdata.get("combos", {}).items():
-                    # Use 12-team full_ppr or half_ppr for consistency
-                    if "12" in combo_key:
-                        val = cdata.get("fixture_reindexed") or cdata.get("reindexed_value")
-                        if val and val > 0:
-                            values.append((src, val))
-                            break  # Only one combo per source
+                combos = sdata.get("combos", {})
+                ck = pick_combo(combos)
+                if ck:
+                    cdata = combos[ck]
+                    val = cdata.get("fixture_reindexed") or cdata.get("reindexed_value")
+                    if val and val > 0:
+                        values.append((src, val))
             
             if len(values) >= 3:  # Need at least 3 sources to compare
                 vals = [v for _, v in values]
@@ -79,7 +92,9 @@ def build_diagnostics():
                 mid = (max_v + min_v) / 2
                 spread_pct = (max_v - min_v) / mid * 100 if mid > 0 else 0
                 
-                if spread_pct > 75:  # High disagreement threshold
+                # Only flag meaningful disagreements: the player must matter
+                # (max >= 10) so we don't flag noise on near-zero values.
+                if spread_pct > 75 and max_v >= 10:  # High disagreement threshold
                     diagnostics["anomalies"].append({
                         "player": player["name"],
                         "player_key": player["player_key"],
@@ -95,19 +110,21 @@ def build_diagnostics():
         diagnostics["anomalies"] = diagnostics["anomalies"][:20]  # Top 20
     
     # 3. Curve shape checks
-    # For each source, check if the value distribution is smooth (no spikes)
+    # For each source, check if the value distribution is smooth (no spikes).
+    # Use the same combo priority for consistency.
     if trace:
         for src in trace.get("sources", []):
-            # Get all fixture values for this source, sorted
+            # Get all fixture values for this source at the preferred combo, sorted
             all_vals = []
             for player in trace.get("players", []):
                 sdata = player.get("sources", {}).get(src, {})
-                for combo_key, cdata in sdata.get("combos", {}).items():
-                    if "12" in combo_key:  # Use 12-team
-                        val = cdata.get("fixture_reindexed") or cdata.get("reindexed_value")
-                        if val and val > 0:
-                            all_vals.append(val)
-                            break
+                combos = sdata.get("combos", {})
+                ck = pick_combo(combos)
+                if ck:
+                    cdata = combos[ck]
+                    val = cdata.get("fixture_reindexed") or cdata.get("reindexed_value")
+                    if val and val > 0:
+                        all_vals.append(val)
             
             if len(all_vals) > 10:
                 all_vals.sort(reverse=True)

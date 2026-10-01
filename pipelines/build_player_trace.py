@@ -20,6 +20,12 @@ REPO = Path(__file__).resolve().parent.parent
 # Sources to trace (the main ones, not _adjusted)
 SOURCES = ["espn", "fantasycalc", "fantasypros", "usatoday", "cbs", "cbsros"]
 
+def norm_name(n):
+    """Normalize a name for matching: lowercase, underscores/hyphens to spaces, strip."""
+    if not isinstance(n, str):
+        return str(n)
+    return n.lower().replace("_", " ").replace("-", " ").strip()
+
 def load_fixture():
     """Load the current fixture."""
     path = REPO / "data/fixtures/current/comparison-sources-data.json"
@@ -138,23 +144,46 @@ def build_trace():
                 print(f"Warning: could not load reindexed for {src}: {e}")
         
         # Load fixture values
+        # Note: fixture combos store values under 'reindexed' (when present) or 'values',
+        # keyed by display name (not sid). Match by normalized name.
         if src in fixture.get("sources", {}):
             sdata = fixture["sources"][src]
+            # Build name index for this source from player_keys across combos
+            name_to_pkey = {}
+            for ckey, cdata in sdata.get("combos", {}).items():
+                for sid, pkey in cdata.get("player_keys", {}).items():
+                    name_to_pkey[norm_name(sid)] = pkey
+            # Fall back to global player names
+            for pkey, pdata in all_players.items():
+                name_to_pkey.setdefault(norm_name(pdata["name"]), pkey)
+
             for combo_key, combo in sdata.get("combos", {}).items():
-                reindexed = combo.get("reindexed", {})
-                native = combo.get("native", {})
+                value_dict = combo.get("reindexed") or combo.get("values") or {}
+                native_dict = combo.get("native") or {}
                 pk = combo.get("player_keys", {})
-                # Build reverse map: player_key -> sid
                 rev_pk = {v: k for k, v in pk.items()}
-                for pkey, pdata in all_players.items():
-                    if pkey in rev_pk:
-                        sid = rev_pk[pkey]
-                        if src not in pdata["sources"]:
-                            pdata["sources"][src] = {"combos": {}}
-                        pdata["sources"][src]["combos"][combo_key] = {
-                            "fixture_reindexed": reindexed.get(sid),
-                            "fixture_native": native.get(sid),
-                        }
+                for vname, vval in value_dict.items():
+                    # Resolve player_key: try player_keys first, then normalized name
+                    pkey = None
+                    sid = None
+                    # player_keys maps sid -> pkey; vname may be the sid
+                    if vname in pk:
+                        pkey = pk[vname]
+                        sid = vname
+                    else:
+                        pkey = name_to_pkey.get(norm_name(vname))
+                        sid = vname
+                    if pkey is None or pkey not in all_players:
+                        continue
+                    pdata = all_players[pkey]
+                    if src not in pdata["sources"]:
+                        pdata["sources"][src] = {"combos": {}}
+                    if combo_key not in pdata["sources"][src]["combos"]:
+                        pdata["sources"][src]["combos"][combo_key] = {}
+                    pdata["sources"][src]["combos"][combo_key]["fixture_reindexed"] = vval
+                    nval = native_dict.get(sid)
+                    if nval is not None:
+                        pdata["sources"][src]["combos"][combo_key]["fixture_native"] = nval
         
         # Merge stage data into player records
         for pkey, pdata in all_players.items():
