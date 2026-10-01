@@ -1,6 +1,8 @@
-# Preview deploys (JEG-31) — PROPOSAL, not implemented
+# Preview deploys (JEG-31) — Phase 1 approved, being built
 
-Status: design proposal for review. Nothing in this document is built yet. Linear:
+Status: Jeremy approved the Phase 1 design and answered the three open questions on
+2026-10-01 (see "Decisions"). Sections below describe the design; "Not built yet" items are
+marked as the work lands. Linear:
 JEG-31. Written 2026-10-01 by Claude (Claude lane); Muse reviews for methodology,
 Jeremy decides.
 
@@ -86,15 +88,14 @@ must change; change only `generated_at` and it must not; change any other field 
 freshness file and it must; remove a step from `preview.yml` and the drift guard must
 fail.
 
-## Decisions needed from Jeremy
+## Decisions (Jeremy, 2026-10-01)
 
-1. **Surface:** Option A now (recommended), or B/C, which need accounts or secrets from
-   you?
-2. **What "byte-identical" means.** Recommended: every file identical, with
-   `generated_at` the only ignored field, compared only when `today` matches. The
-   alternative is to change `check_reference_freshness.py` to stop stamping wall-clock
-   time, which alters production behaviour and is out of scope here.
-3. **Blocking `make validate` on PRs** (differs from `pages.yml`): yes or no?
+1. **Surface: Option A**, workflow artifact plus a local-serve runbook. No accounts or
+   secrets. B and C stay possible later if a served URL is needed.
+2. **"Byte-identical" means:** every file identical, with only `generated_at` in
+   `assets/reference-freshness.json` ignored, compared only when `today` matches. No change
+   to `check_reference_freshness.py`.
+3. **`make validate` is blocking on pull requests**, unlike `pages.yml`.
 
 ## Not verified
 
