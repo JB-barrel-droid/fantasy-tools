@@ -114,10 +114,14 @@ class StaticExportTest(unittest.TestCase):
             # ESPN leg (promotion 2026-09-21); the old pin 22.3 was the
             # Monday-rail value. Allen is the #1 QB in both, so he takes the
             # anchor's top value.
-            # fantasycalc, fantasypros, cbs re-anchored the same way
-            # (promotions 2026-09-22); their old pins (24.0, 26.0, 22.1)
-            # were Monday-rail values. CBS's isotonic fit lands Allen at
-            # 17.2, matching the anchor (updated 2026-09-30 with Week 4 data).
+            # fantasycalc, fantasypros re-anchored the same way (promotions
+            # 2026-09-22); their old pins (24.0, 26.0) were Monday-rail
+            # values. CBS reindexed 2026-09-30 PM with
+            # proportional_scaling_vorp_overlap, replacing per-position
+            # isotonic PAVA (Jeremy directive, off-scale Gibbs 95.7 -> 57.5).
+            # Allen native 23.0 x VORP>0-overlap scale 1.0857740585774058
+            # (anchor=espn_leg, n_overlap=113) = 24.972803347280333, verified
+            # independently against the fixture's fit metadata.
             # usatoday's fit lands at 26.8 (re-anchored 2026-09-30 PM to the
             # pure-ESPN leg; was 18.3 on the stale leg). The 26.8 tracks the
             # ESPN leg's 26.9 closely, as expected for the #1 QB anchor.
@@ -137,7 +141,7 @@ class StaticExportTest(unittest.TestCase):
             # based on corrupted data. Regenerated 2026-09-30 via full chain
             # (match -> reference -> section -> reindex) proving 29.1 survives.
             ("fantasypros", "full_12"): 19.566912203268522,
-            ("cbs", "full_12"): 18.2,
+            ("cbs", "full_12"): 24.972803347280333,
             ("espn", "full_12"): 26.9,
             # cbsros (CBS rest-of-season projections through the DDF two-tier
             # leg, 2026-09-30 vintage): Allen's CBS ROS per-game is 24.357 vs
