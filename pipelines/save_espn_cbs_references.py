@@ -231,9 +231,18 @@ def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any
         name = str(row.get("player") or "").strip()
         projected = str(row.get("has_espn_projection") or "").strip().lower() in ("true", "1", "yes")
         eligible = str(row.get("eligible") or "").strip().lower() in ("true", "1", "yes")
-        if not name or not projected or not eligible:
+        if not name or not projected:
             review.append({"reason": "no_espn_projection", "player": name or None})
             continue
+        # Ineligible (out/IR) players: save with 0 values, not review.
+        # A player with has_espn_projection=True but eligible=False is out for
+        # the season — their projection is legitimately 0, not missing data.
+        if not eligible:
+            # Force all projection values to 0 for ineligible players
+            for col in ["ros_half_ppr", "r_pass_yds", "r_pass_tds", "r_rush_yds",
+                       "r_rush_tds", "r_receptions", "r_rec_yds", "r_rec_tds"]:
+                if col in row:
+                    row[col] = "0"
         value = parse_float(row.get("ros_half_ppr"))
         if value is None:
             review.append({"reason": "missing_or_non_numeric_value", "player": name})

@@ -170,12 +170,15 @@ class WriterAudit:
         if not self._started:
             raise RuntimeError("audit not started; call start() first")
 
-        sb = self._get_sb_client()
-        sb.post(
-            "pipeline_write_audit",
-            [{"row_count": row_count, "completed_at": _utc_now_iso()}],
-            params=f"?run_id=eq.{self.run_id}",
-            prefer="resolution=merge-duplicates",
+        # Update the existing audit record (created by start())
+        import urllib.parse
+        from sbclient import _request
+        params = f"?run_id=eq.{urllib.parse.quote(self.run_id)}"
+        _request(
+            "PATCH",
+            "/rest/v1/pipeline_write_audit",
+            body={"row_count": row_count, "completed_at": _utc_now_iso()},
+            params=params,
         )
 
     def fail(self, error_message: str) -> None:
@@ -188,14 +191,19 @@ class WriterAudit:
             raise RuntimeError("audit not started; call start() first")
 
         sb = self._get_sb_client()
-        sb.post(
-            "pipeline_write_audit",
-            [{
+        # Update the existing audit record (created by start()) to mark as failed
+        import urllib.parse
+        params = f"?run_id=eq.{urllib.parse.quote(self.run_id)}"
+        # Use PATCH via _request directly since sbclient may not expose patch
+        from sbclient import _request
+        _request(
+            "PATCH",
+            "/rest/v1/pipeline_write_audit",
+            body={
                 "failed_at": _utc_now_iso(),
                 "error_message": error_message[:2000],  # Truncate long errors
-            }],
-            params=f"?run_id=eq.{self.run_id}",
-            prefer="resolution=merge-duplicates",
+            },
+            params=params,
         )
 
     def audit_row(self, row: dict[str, Any]) -> dict[str, Any]:
