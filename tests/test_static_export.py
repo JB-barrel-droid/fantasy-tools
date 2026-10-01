@@ -587,7 +587,7 @@ class StaticExportTest(unittest.TestCase):
     def test_curve_defaults_are_grouped_and_include_raw_value_above_waivers(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         html = (APP / "index.html").read_text(encoding="utf-8")
-        self.assertIn("Bottom-up indexed", text)
+        self.assertIn("Bottoms Up Value Curves", text)
         self.assertIn("Adjusted source projects", text)
         self.assertIn("Direct published charts", text)
         self.assertIn("Raw value above waivers", text)

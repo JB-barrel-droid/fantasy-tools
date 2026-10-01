@@ -46,7 +46,7 @@
     espn_vorp: {color: "#6b55a3", dash: []}
   };
   const SOURCE_GROUPS = [
-    {label:"Bottom-up indexed", keys:["espn", "cbsros", "razzball"]},
+    {label:"Bottoms Up Value Curves", keys:["espn", "cbsros", "razzball"]},
     {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
     {label:"Raw value above waivers", keys:["espn_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}

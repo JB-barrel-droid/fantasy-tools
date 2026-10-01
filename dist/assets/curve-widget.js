@@ -46,7 +46,7 @@
     espn_vorp: {color: "#6b55a3", dash: []}
   };
   const SOURCE_GROUPS = [
-    {label:"Bottom-up indexed", keys:["espn", "cbsros", "razzball"]},
+    {label:"Bottoms Up Value Curves", keys:["espn", "cbsros", "razzball"]},
     {label:"Adjusted source projects", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
     {label:"Raw value above waivers", keys:["espn_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
@@ -1348,7 +1348,8 @@
   // as paused.
   const isAdjustedCurvePaused = key => adjustedCurvePaused(key, adjustmentInputs);
 
-  function buildLiveAdjustedMap(rawKey, cells) {
+  function buildLiveAdjustedMap(rawKey, cells, options) {
+    options = options || {};
     const raw = buildPublishedSourceMap(rawKey);
     // Tier assignment (JEG-5 fix, 2026-10-01): the OLS cells are trained on
     // the DDF tier partition (ddf.starters/ddf.bench). Applying them via
@@ -1357,16 +1358,17 @@
     // — the same partition the cells were trained on. Falls back to
     // roleMapForValues only when the DDF is unavailable (data failure edge).
     const ddf = ["cbsros", "razzball"].includes(rawKey) ? ddfTwoTierValuesFor(rawKey) : ddfTwoTierValues();
-    const roles = ddf ? null : roleMapForValues(raw);
+    const usePublishedTierPartition = options.tierPartition === "published";
+    const roles = (ddf && !usePublishedTierPartition) ? null : roleMapForValues(raw);
     const tierOf = playerKey => {
-      if (ddf) {
+      if (ddf && !usePublishedTierPartition) {
         if (ddf.starters.has(playerKey)) return "starter";
         if (ddf.bench.has(playerKey)) return "bench";
         return null;
       }
       return roles.get(playerKey) || null;
     };
-    const posOf = playerKey => ddf ? ddf.posOf.get(playerKey) : canonicalByKey.get(playerKey)?.pos;
+    const posOf = playerKey => (ddf && !usePublishedTierPartition) ? ddf.posOf.get(playerKey) : canonicalByKey.get(playerKey)?.pos;
     const cellByPosTier = new Map();
     cells.forEach(cell => {
       const pos = String(cell.position || "").toUpperCase();
@@ -1955,6 +1957,32 @@
     return cells;
   }
 
+  function tierPartitionComparison(rawKey) {
+    const raw = buildPublishedSourceMap(rawKey);
+    const ddf = ["cbsros", "razzball"].includes(rawKey) ? ddfTwoTierValuesFor(rawKey) : ddfTwoTierValues();
+    if (!raw.size || !ddf) return {source:rawKey, compared:0, mismatches:0, byPosition:{}};
+    const publishedRoles = roleMapForValues(raw);
+    const byPosition = {};
+    let compared = 0;
+    let mismatches = 0;
+    raw.forEach((value, playerKey) => {
+      const player = canonicalByKey.get(playerKey);
+      const pos = ddf.posOf.get(playerKey) || player?.pos;
+      if (!POSITION_ORDER.includes(pos)) return;
+      const ddfTier = ddf.starters.has(playerKey) ? "starter" : ddf.bench.has(playerKey) ? "bench" : null;
+      const publishedTier = publishedRoles.get(playerKey) || null;
+      if (!ddfTier || !publishedTier) return;
+      compared += 1;
+      if (!byPosition[pos]) byPosition[pos] = {compared:0, mismatches:0};
+      byPosition[pos].compared += 1;
+      if (ddfTier !== publishedTier) {
+        mismatches += 1;
+        byPosition[pos].mismatches += 1;
+      }
+    });
+    return {source:rawKey, compared, mismatches, byPosition};
+  }
+
   function benchSharePct(share) {
     return `${(share * 100).toFixed(1)}%`;
   }
@@ -2489,6 +2517,7 @@
   function syncCurveStatus() {
     const status = $("#curve-status");
     if (!status) return;
+    const activeNotices = [...status.querySelectorAll(".lock-revert-notice")];
     status.classList.add("validated");
     const pausedKeys = ADJUSTED_INDEXED_KEYS.filter(isAdjustedCurvePaused);
     const defaultKeys = new Set(defaultIndexedSourceKeys(adjustmentInputs));
@@ -2506,6 +2535,7 @@
       adjustedStatus = "ESPN live is shown by default. Adjusted source projects are live for supported league setups, but this setup has no matching source combo.";
     }
     status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`;
+    activeNotices.forEach(note => status.appendChild(note));
   }
 
   // QA-003: Show user-visible notification when lock order is force-reverted.
@@ -2877,12 +2907,12 @@
   // price, their totals must agree. The old check compared every source's
   // FULL total to one number, which a source passes no matter how far its
   // level drifts from the anchor's on the players they share.
-  function fixedPieDiagnostics() {
+  function fixedPieDiagnostics(sourceMapsForCheck = sourceMaps) {
     const tolerance = 2;
-    const anchor = sourceMaps.get("espn");
+    const anchor = sourceMapsForCheck.get("espn");
     const checks = [];
     visibleSourceKeys().filter(sourceAvailable).forEach(key => {
-      const values = sourceMaps.get(key);
+      const values = sourceMapsForCheck.get(key);
       if (!values) return;
       // As-published sources are indexed by the pipeline via
       // proportional_scaling_vorp_overlap, which calibrates on the VORP>0
@@ -3438,6 +3468,22 @@
         setPositionWeight,
         resetPositionWeights,
         resetAllWeights
+      };
+      window.TradeValueCurveHarness = {
+        fixedPieDiagnostics,
+        fixedPieDiagnosticsForMap: (sourceKey, values) => {
+          const maps = new Map(sourceMaps);
+          maps.set(sourceKey, applyRosterShape(values, sourceKey));
+          return fixedPieDiagnostics(maps);
+        },
+        buildLiveAdjustedMap,
+        refitLiveCells,
+        espnTargetTotal,
+        ddfTwoTierValues,
+        anchorScaleCorrectedCheck,
+        tierPartitionComparison,
+        sourceMaps: () => new Map(sourceMaps),
+        state: () => ({scoring, teams, benchShare, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length})
       };
     } catch (error) {
       $("#curve-status").innerHTML = `<strong>Curves unavailable:</strong> ${String(error.message)}`;
