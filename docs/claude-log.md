@@ -32,6 +32,42 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - UI batch diagnosis, part 2: JEG-24 reproduced, JEG-21 not, a silent-revert defect found (JEG-45)
+
+Read-only; same setup as the earlier UI-batch entry (local build of `dist/` at `c84a483`, headless Chromium via
+`playwright-core`; the live site is not reachable from this environment). No code changed.
+
+### Verified
+
+- **JEG-24 (pie labels): reproduced, and it is not display-only.** Across the 12 scoring x team-size shapes the four
+  displayed pie percentages sum to exactly 100.0 in 7 and miss by 0.1 in 5 (Standard/8 100.1, Half/8 99.9, Half/10
+  100.1, Half/12 99.9, Full/12 99.9). The readout text says "sums to 100%" beside them
+  (`syncWeightsReadout`, `curve-widget.js` ~2105). Labels come from independent `toFixed(1)`; the slider values sum to
+  the same 99.9/100.1, so the baked weights themselves are rounded to 3 decimals and are off by 0.1 at the source.
+- **JEG-21 (lock caption lag): not reproduced.** Locked to each of 7 sources (USA Today, FantasyPros, CBS and their
+  adjusted variants), then switched league shape to force a revert: the lock and `#curveLockNote` showed ESPN adjusted
+  immediately (same at 150 ms and 1.65 s). The code already re-syncs the caption ("DEFECT 2" comment calling
+  `syncContext()` after the forced reset).
+- **New defect, JEG-45:** the QA-003 revert notice (`.lock-revert-notice`) is added and removed in the same millisecond.
+  `notifyLockRevert()` appends it to `#curve-status`, then `syncCurveStatus()` sets that element's `innerHTML` and
+  discards it. A DOM `MutationObserver` logged ADDED and REMOVED at the same timestamp; the notice was absent in all 7
+  revert cases. So the lock reverts silently, which is what QA-003 was written to prevent.
+- QA-003 is defined in `modules/dashboard.html` ("ESPN checkbox silently reverts") and in the `curve-widget.js` comments
+  at 2499, 2599, 2632; it is not in `docs/`.
+- My first JEG-21 script failed for my own reasons (I selected `usatoday` while the shape left it out of the lock list);
+  I read the real option list and reran.
+
+### Claimed, unverified
+
+- That the original JEG-21 report meant the missing notice and not the caption. The overnight QA report would say.
+- That JEG-24's fix belongs in the bake or in `activePositionWeights()`; I did not look at the baking code.
+- Everything here is on a local build, not the live page.
+
+### Open
+
+- Decisions for Roman/Muse: JEG-21 meaning (caption vs notice), JEG-24 fix location, and JEG-22 wording (earlier entry).
+- The UI batch still waits for confirmation that JEG-6 is closed. GAP-022 added for JEG-45.
+
 ## 2026-10-01 - UI batch diagnosis in a real browser (JEG-23, JEG-22; no code changed)
 
 Read-only. Local build of `dist/` at `c84a483` (same bytes the preview workflow makes), served with
