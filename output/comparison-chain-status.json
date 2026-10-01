@@ -1,22 +1,21 @@
 {
-  "run_at": "2026-10-01T02:27:56.546649+00:00",
+  "run_at": "2026-10-01T22:44:42.882010+00:00",
   "nfl_week": 4,
   "sources": {
     "usatoday": "FAILED at stage 'review': usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
     "fantasycalc": "promoted 3/3",
-    "fantasypros": "FAILED at stage 'review': fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1"
   },
   "failed": [
     "adjusted_sections",
-    "fantasypros",
     "fit",
     "usatoday"
   ],
   "success": false,
-  "runner": "local",
+  "runner": "github-actions",
   "detail": {
     "usatoday": {
       "source": "usatoday",
@@ -24,7 +23,7 @@
       "stage": "review",
       "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
       "promoted": 0,
-      "sections": 2
+      "sections": 3
     },
     "fantasycalc": {
       "source": "fantasycalc",
@@ -36,17 +35,17 @@
     },
     "fantasypros": {
       "source": "fantasypros",
-      "status": "failed",
-      "stage": "review",
-      "detail": "fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
       "sections": 3
     },
     "espn": {
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (4236 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (5904 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -62,14 +61,14 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-09-30 -> 12 DDF legs -> section; review passed (3948 values)",
+      "detail": "snapshot 2026-09-30 -> 12 DDF legs -> section; review passed (3996 values)",
       "promoted": 1,
       "sections": 1
     }
   },
   "fit": {
     "status": "skipped",
-    "detail": "skipped: sources failed: usatoday, fantasypros"
+    "detail": "skipped: sources failed: usatoday"
   },
   "adjusted_sections": {
     "status": "skipped",
