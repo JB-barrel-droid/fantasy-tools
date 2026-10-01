@@ -599,7 +599,20 @@
     if (!values.length) return true;
     return values.every(value => Number.isFinite(value) && value > floor);
   }
-  globalThis.TradeValueCurveGuards = {peaksAboveCollapseFloor, CURVE_COLLAPSE_FLOOR};
+  // Scale-aware anchor guard check (2026-10-01): the DDF-native ESPN anchor
+  // carries the 70/max display scale (ddfTwoTierValues multiplies raw values
+  // by 70/max(raw)), while the pie targets are raw economics. Comparing
+  // display-scaled values against the raw pie (2322 vs 795 on 2026-10-01)
+  // fails the guard on every config -- the guard was scale-blind. Unscale
+  // before comparing so the check verifies the economics.
+  function anchorScaleCorrectedCheck(displayTotal, pieSum, displayScale, tolerance) {
+    const scale = Number(displayScale) > 0 ? Number(displayScale) : 1;
+    const rawTotal = Number(displayTotal) / scale;
+    const target = Number(pieSum);
+    const delta = rawTotal - target;
+    return {total: rawTotal, target, delta, ok: Math.abs(delta) <= tolerance};
+  }
+  globalThis.TradeValueCurveGuards = {peaksAboveCollapseFloor, CURVE_COLLAPSE_FLOOR, anchorScaleCorrectedCheck};
 
   const root = typeof document !== "undefined" ? document.getElementById("curve-widget") : null;
   if (!root) return;
@@ -2784,15 +2797,19 @@
         // total is the SUM of the positional targets -- not the single common
         // pie figure. Checking it against the common total failed the guard
         // in every league config and blanked the chart.
-        const target = POSITION_ORDER.reduce((sum, pos) => {
+        const pieSum = POSITION_ORDER.reduce((sum, pos) => {
           const t = Number(espnTargetTotal(pos, NaN));
           return sum + (Number.isFinite(t) && t > 0 ? t : 0);
         }, 0) || commonFixedPieTotal(0);
         const total = [...values.entries()]
           .filter(([playerKey]) => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos))
           .reduce((sum, [, value]) => sum + (Number.isFinite(value) ? value : 0), 0);
-        checks.push({source:key, basis:"anchor", shared:null, total, target, delta:total - target,
-                     ok:Math.abs(total - target) <= tolerance});
+        // Scale-aware (2026-10-01): unscale the display-scaled anchor total
+        // before comparing against the raw pie; see anchorScaleCorrectedCheck.
+        const displayScale = ddfTwoTierValues()?.scale || 1;
+        const check = anchorScaleCorrectedCheck(total, pieSum, displayScale, tolerance);
+        checks.push({source:key, basis:"anchor", shared:null, total:check.total, target:check.target, delta:check.delta,
+                     ok:check.ok});
         return;
       }
       let sharedTotal = 0, sharedTarget = 0, shared = 0, fullTotal = 0;
