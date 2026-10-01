@@ -142,6 +142,15 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="adjPipeline"></div>
 </section>
 
+<section class="card" id="actionsCard">
+  <h2>GitHub Actions — automation coverage</h2>
+  <div class="desc">
+    Every key pipeline task should have a scheduled GitHub Action — nothing should rely on manual pushes.
+    Green = passing, red = failing, grey = no runs yet.
+  </div>
+  <div id="actionsHost"></div>
+</section>
+
 <section class="card" id="fidelityCard">
   <h2>Source fidelity — pre-indexed values</h2>
   <div class="desc">
@@ -479,6 +488,48 @@ async function main(){
     adjHost.innerHTML = `<div class="flow">${flowSteps}</div><div class="cp-grid">${stageCards}</div>`;
   } else {
     adjHost.innerHTML = `<div style="color:var(--grey)">Adj curve pipeline data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
+  }
+
+  // GitHub Actions: automation coverage
+  const actionsHost = document.getElementById("actionsHost");
+  try {
+    const actionsData = await (await fetch("github-actions.json")).json();
+    const workflows = actionsData.workflows || [];
+    const gaps = actionsData.coverage_gaps || [];
+
+    const wfCards = workflows.map(wf => {
+      const lr = wf.last_run;
+      let dotCls = "grey", statusText = "No runs yet";
+      if (lr) {
+        if (lr.conclusion === "success") { dotCls = "green"; statusText = "Passing"; }
+        else if (lr.conclusion === "failure") { dotCls = "red"; statusText = "Failing"; }
+        else if (lr.status === "in_progress") { dotCls = "yellow"; statusText = "Running"; }
+        else { dotCls = "yellow"; statusText = lr.status || "Unknown"; }
+      }
+      const lastRun = lr && lr.created_at
+        ? `${shortTs(lr.created_at)} (${timeAgo(lr.created_at)})`
+        : "Never";
+      const stages = (wf.coverage.stages || []).join(", ");
+      return `<div class="cp">
+        <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${wf.name}</span></div>
+        <div class="cp-what">${wf.coverage.description || ""}</div>
+        <div class="cp-what"><b>Covers:</b> ${stages}</div>
+        <div class="cp-what"><b>Schedule:</b> ${wf.coverage.schedule || "Unknown"}</div>
+        <div class="cp-time">Last run: ${lastRun} — ${statusText}</div>
+        ${lr && lr.html_url ? `<div class="cp-what"><a href="${lr.html_url}" target="_blank">View run</a></div>` : ""}
+      </div>`;
+    }).join("");
+
+    const gapHtml = gaps.length
+      ? `<div style="margin-top:12px;padding:10px;background:var(--red-bg);border-radius:6px;">
+          <b>Coverage gaps (no GitHub Action):</b>
+          <ul style="margin:6px 0 0 18px;">${gaps.map(g => `<li>${g}</li>`).join("")}</ul>
+        </div>`
+      : `<div style="margin-top:12px;color:var(--green);">All key tasks have automation coverage.</div>`;
+
+    actionsHost.innerHTML = `<div class="cp-grid">${wfCards}</div>${gapHtml}`;
+  } catch (e) {
+    actionsHost.innerHTML = `<div style="color:var(--grey)">GitHub Actions data not available. Run <code>python3 pipelines/build_github_actions_status.py</code>.</div>`;
   }
 
   // Source fidelity: pre-indexed values vs sources (exact match required)

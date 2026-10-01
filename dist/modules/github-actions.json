@@ -1,0 +1,81 @@
+{
+  "generated_at": "2026-10-01T02:22:50.243795+00:00",
+  "repo": "JB-barrel-droid/fantasy-tools",
+  "workflows": [
+    {
+      "id": 371574673,
+      "name": "FantasyCalc drift check and refresh",
+      "path": ".github/workflows/fantasycalc-drift.yml",
+      "state": "active",
+      "coverage": {
+        "stages": [
+          "Source freshness"
+        ],
+        "description": "Check FantasyCalc live values vs stored, trigger refresh on drift",
+        "schedule": "Scheduled (check workflow file)",
+        "key_task": "FantasyCalc source freshness"
+      },
+      "last_run": null
+    },
+    {
+      "id": 363753372,
+      "name": "Deploy dashboard",
+      "path": ".github/workflows/pages.yml",
+      "state": "active",
+      "coverage": {
+        "stages": [
+          "C9",
+          "C10"
+        ],
+        "description": "Deploy dist/ to GitHub Pages",
+        "schedule": "On push to main",
+        "key_task": "Production deployment"
+      },
+      "last_run": {
+        "created_at": "2026-10-01T02:22:36Z",
+        "status": "in_progress",
+        "conclusion": null,
+        "event": "push",
+        "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/36805542487"
+      }
+    },
+    {
+      "id": 370643883,
+      "name": "Rebuild comparison chain",
+      "path": ".github/workflows/rebuild-chain.yml",
+      "state": "active",
+      "coverage": {
+        "stages": [
+          "C1",
+          "C2",
+          "C3",
+          "C4",
+          "C5",
+          "C6",
+          "C7",
+          "C8"
+        ],
+        "description": "Import snapshots from Supabase, health check, rebuild comparison chain",
+        "schedule": "Every 6 hours (17 */6 * * *)",
+        "key_task": "Automated pipeline refresh"
+      },
+      "last_run": {
+        "created_at": "2026-09-30T22:20:29Z",
+        "status": "completed",
+        "conclusion": "failure",
+        "event": "schedule",
+        "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/36784994908"
+      }
+    }
+  ],
+  "coverage_gaps": [
+    "ESPN scrape to Supabase",
+    "Player Trace rebuild"
+  ],
+  "summary": {
+    "total_workflows": 3,
+    "active": 3,
+    "failing": 1,
+    "gaps_count": 2
+  }
+}
