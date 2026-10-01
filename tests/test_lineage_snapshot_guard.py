@@ -56,9 +56,21 @@ class TestLineageSnapshotGuard(unittest.TestCase):
             {"fantasypros": {"a": 1.0}, "usatoday": {"b": 2.0}, "fantasycalc": {"c": 3.0}}
         )  # must not raise
 
+    @unittest.skipUnless(
+        all(
+            (REPO / p).exists()
+            for p in (
+                "data/raw/sources/fantasypros/2026-09-29/snapshot.json",
+                "data/raw/sources/usatoday/2026-09-29/snapshot.json",
+                "data/raw/sources/fantasycalc/week-4/snapshot.json",
+            )
+        ),
+        "source snapshots are gitignored and absent (e.g. CI)",
+    )
     def test_real_snapshots_satisfy_guard(self):
         """The actual local snapshots must satisfy the guard, or no local
-        build could ever run."""
+        build could ever run. Skipped where snapshots are absent (CI): the
+        guard's whole purpose is that CI lacks them."""
         natives = {
             src: self.b.load_snapshot_natives(src)
             for src in ("fantasypros", "usatoday", "fantasycalc")
