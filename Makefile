@@ -119,6 +119,7 @@ test-unit:
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_bake_cbsros_intake
 	python3 -m unittest tests.test_curve_default_guard
+	python3 -m unittest tests.test_guard_harness_recorded
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
