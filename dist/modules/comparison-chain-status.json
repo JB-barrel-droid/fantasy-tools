@@ -1,18 +1,18 @@
 {
-  "run_at": "2026-09-30T20:02:59.336444+00:00",
+  "run_at": "2026-10-01T02:27:56.546649+00:00",
   "nfl_week": 4,
   "sources": {
     "usatoday": "FAILED at stage 'review': usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "FAILED at stage 'review': fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-    "espn": "FAILED at stage 'review': espn-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1"
   },
   "failed": [
-    "espn",
-    "fantasycalc",
+    "adjusted_sections",
     "fantasypros",
+    "fit",
     "usatoday"
   ],
   "success": false,
@@ -28,10 +28,10 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "failed",
-      "stage": "review",
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
       "sections": 3
     },
     "fantasypros": {
@@ -44,10 +44,10 @@
     },
     "espn": {
       "source": "espn",
-      "status": "failed",
-      "stage": "review",
-      "detail": "espn-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
+      "status": "ok",
+      "stage": "complete",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (4236 values)",
+      "promoted": 1,
       "sections": 1
     },
     "cbs": {
@@ -69,7 +69,7 @@
   },
   "fit": {
     "status": "skipped",
-    "detail": "skipped: sources failed: usatoday, fantasycalc, fantasypros, espn"
+    "detail": "skipped: sources failed: usatoday, fantasypros"
   },
   "adjusted_sections": {
     "status": "skipped",
