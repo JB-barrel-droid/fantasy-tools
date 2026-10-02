@@ -358,6 +358,15 @@ def build_source_entry(src, sources, live_data, snapshot_natives):
         "combo_key": combo_key,
         "player_count": len(native),  # Use actual native count, not stale 'n' field
         "live_scraped": src in live_data and bool(live_data[src]),
+        # JEG-53: per-source build time. The lineage artifact can only fully
+        # rebuild where raw snapshots exist; one global "Generated" timestamp
+        # hides source-by-source age differences. Each source shows its own
+        # actual build/promotion time.
+        "source_built_at": (
+            sources[src].get("promoted_at")
+            or sources[src].get("fetched_at")
+            or "unknown"
+        ),
         "top25": players,
     }
 
