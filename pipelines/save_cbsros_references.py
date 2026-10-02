@@ -101,9 +101,30 @@ def _default_count(table: str, params: str) -> int:
     return len(rows) if isinstance(rows, list) else -1
 
 
+def _default_delete(table: str, vintage: str, keep_keys: set[int]) -> None:
+    """Delete rows for vintage where player_key is NOT in keep_keys."""
+    sbclient = _sb()
+    # Fetch all player_keys for this vintage
+    rows = sbclient.get_all(
+        table,
+        params=f"?select=player_key&cbs_snapshot_date=eq.{vintage}",
+    )
+    if not isinstance(rows, list):
+        return
+    to_delete = [r["player_key"] for r in rows if r.get("player_key") not in keep_keys]
+    # Delete in chunks of 500
+    for start in range(0, len(to_delete), 500):
+        chunk = to_delete[start : start + 500]
+        sbclient.delete(
+            table,
+            params=f"?player_key=in.({','.join(map(str, chunk))})&cbs_snapshot_date=eq.{vintage}",
+        )
+
+
 fetch_players: Callable[[], list[dict[str, Any]]] = _default_fetch_players
 upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
+delete_rows: Callable[[str, str, set[int]], None] = _default_delete
 
 
 def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
@@ -246,15 +267,20 @@ def main() -> None:
     if not clean:
         raise SystemExit("Fail closed: zero clean rows, not writing.")
 
+    # Upsert the clean rows first
     upsert_rows(table, clean, conflict)
 
-    # Verify
+    # Prune: delete rows for this vintage whose player_key is NOT in the new clean set
+    clean_keys = {row["player_key"] for row in clean}
+    delete_rows(table, vintage, clean_keys)
+
+    # Verify: after prune, table must hold exactly len(clean) rows for the vintage
     live = count_rows(table, f"?select=id&cbs_snapshot_date=eq.{vintage}")
     print(f"Verified: {table} holds {live} rows for vintage {vintage}")
     if live != len(clean):
         raise SystemExit(
             f"Fail closed: {table} holds {live} rows for vintage {vintage} "
-            f"after upsert, expected {len(clean)}."
+            f"after prune, expected {len(clean)}."
         )
     print("CBS ROS save complete.")
 
