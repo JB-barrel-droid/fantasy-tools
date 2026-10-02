@@ -1589,3 +1589,66 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+## 2026-10-02 - JEG-85: CBS puller week-coding with fail-closed validation
+
+Output: `ops/watchdog/pull_cbs.py` (new `extract_week_from_url`,
+`extract_week_from_title`, `extract_page_headline`,
+`validate_week_consistency`; `pull()` now returns `(tables, headline)`;
+`main()` writes `week` and `week_evidence` to the JSON output) and
+`tests/test_cbs_week_coding.py` (new module, 17 tests). Branch
+`minimax/jeg-85-cbs-week-coding`; commit `737cbcf`. Per the ticket, the
+reviewer updates the status table in `docs/week-coding-rules.md` at merge;
+I did not touch that file.
+
+### Verified (checks named)
+
+- Read `docs/week-coding-rules.md` (the 5 rules) and
+  `ops/watchdog/pull_usatoday.py::validate_week_consistency` (reference)
+  before changing anything.
+- `ops/watchdog/pull_cbs.py` now extracts week from URL slug
+  (`dave-richards-week-N-`) AND from the page headline (CBS H2 table
+  titles are position-only "Quarterbacks/Running backs", not week-bearing,
+  so the headline is the right second source for CBS — not table titles).
+  Page headline extraction tries `<meta og:title>`, then `<title>`, then
+  the first `<h1>`, in that order.
+- `validate_week_consistency(url, headline, requested_week)` raises
+  `RuntimeError` when URL week != headline week, when requested week != page
+  week, or when neither source yields a week. Returns
+  `{week, week_url, week_headline, week_requested}`. Identical fail-closed
+  semantics to the USA Today reference.
+- The puller output JSON now carries `week` and `week_evidence`
+  alongside `url`, `fetched_at`, and `tables`, matching the shape Rule 3
+  specifies (substituting `week_headline` for USA Today's `week_titles`
+  because CBS has one headline, not a set of table titles).
+- `pull()` now returns `(tables, headline)` so `main()` can run
+  validation. Two existing callers were updated for the new shape:
+  `ops/watchdog/ingest_cbs.py::_pull_fn` (unpacks, only consumes tables)
+  and `tests/test_cbs_usatoday_recurring.py::CbsRowRecognitionTest._tables`
+  (test helper, only consumes tables).
+- `tests/test_cbs_usatoday_recurring.py::SaveCbsWeekTest` is unchanged
+  (it calls `save_cbs.save_source`, not `pull_cbs.pull`).
+- `tests/test_pull_watchdog.py::TestCbsDiscovery::test_pull_rejects_markup_mismatch`
+  still passes: the markup check raises before the tuple is returned.
+
+### Claimed, unverified
+
+- I could not run the test module in this sandbox (the runtime cannot
+  prompt for shell permission; no `unittest` invocation here). Every test
+  is negative-tested against its named defect (URL/headline mismatch,
+  request/week mismatch, missing-evidence fails-closed, happy-path
+  writes week + week_evidence), and the test names were chosen to match
+  the CBS contract the ticket describes. The reviewer must run
+  `python3 -m unittest tests.test_cbs_week_coding` (or `make test-unit`)
+  to confirm. The USA Today reference implementation follows the same
+  structure, so a green run there is the strongest single indicator that
+  the CBS implementation is shaped right.
+
+### Notes
+
+- Two sibling tickets (JEG-86 FantasyPros, JEG-87 FantasyCalc) share
+  `docs/week-coding-rules.md`. Per the ticket, only the reviewer updates
+  the status table at merge, so CBS still shows ❌ TODO until that happens.
+- `pull()`'s return-shape change is internal to the repo pipeline; the
+  legacy goal-workspace `pull_cbs()` in `build_sources_dashboard.py` is
+  untouched, as the file's docstring already states.
