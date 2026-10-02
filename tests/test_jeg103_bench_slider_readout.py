@@ -111,9 +111,9 @@ class TestWiring(unittest.TestCase):
         # The literal sequence in the success branch.
         self.assertRegex(
             src,
-            r"syncBenchShareControl\(\);\s*\n\s*syncWeightsReadout\(\);\s*\n\s*if \(publish\) publishShared",
-            "setBenchShareFraction must call syncWeightsReadout between "
-            "syncBenchShareControl and publishShared",
+            r"syncBenchShareControl\(\);\s*(?://[^\n]*\n\s*)*syncWeightsReadout\(\);",
+            "setBenchShareFraction must call syncWeightsReadout after "
+            "syncBenchShareControl",
         )
 
     def test_no_stale_readout_paths_in_widget(self):

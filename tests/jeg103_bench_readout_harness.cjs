@@ -15,19 +15,83 @@ const vm = require("vm");
 
 const REPO = path.join(__dirname, "..");
 const DIST_ASSETS = path.join(REPO, "dist", "assets");
+// Canonical player records normally arrive as an embedded JSON blob in the
+// page (#players-data). Serve the current chart fixture the same way.
+const PLAYERS_JSON = path.join(REPO, "data", "fixtures", "current", "players.json");
+const playersPayloadText = fs.readFileSync(PLAYERS_JSON, "utf8");
+const playersDataEl = { textContent: playersPayloadText };
 const WIDGET = path.join(REPO, "app", "trade-value-chart", "assets", "curve-widget.js");
 const VALUE_MODEL = path.join(REPO, "app", "trade-value-chart", "assets", "value-model.js");
 
 // ---- Minimal DOM stub ----
-// Only the elements the slider event path and syncWeightsReadout() actually
-// touch. Everything else is a no-op.
+// Proxy-based elements: any unknown method is a no-op, property sets stick,
+// addEventListener stores handlers (firable via _fire), and querySelector /
+// querySelectorAll do a real deep search over appended children, so the
+// widget-built bench-share block is queryable exactly like in a browser.
+const _noopFn = () => undefined;
+function matchesSel(node, sel) {
+  if (!node || (typeof node !== "object" && typeof node !== "function")) return false;
+  let v;
+  const get = (k) => { try { v = node[k]; } catch (e) { v = undefined; } return (typeof v === "function" && !String(v).includes("[native")) ? undefined : v; };
+  let m = sel.match(/^#([\w-]+)$/);
+  if (m) return get("id") === m[1];
+  m = sel.match(/^\.([\w-]+)$/);
+  if (m) return String(get("className") || "").split(/\s+/).includes(m[1]);
+  m = sel.match(/^(\w+)\[type=(\w+)\]$/);
+  if (m) return String(get("tagName") || "").toUpperCase() === m[1].toUpperCase() && String(get("type") || "") === m[2];
+  m = sel.match(/^(\w+)$/);
+  if (m) return String(get("tagName") || "").toUpperCase() === m[1].toUpperCase();
+  return false;
+}
+function deepFindAll(root, sel) {
+  const out = [];
+  const walk = (node) => {
+    let kids = [];
+    try { kids = node.children; } catch (e) { kids = []; }
+    if (!Array.isArray(kids)) return;
+    for (const c of kids) {
+      if (matchesSel(c, sel)) out.push(c);
+      walk(c);
+    }
+  };
+  walk(root);
+  return out;
+}
+function proxiedNoop(id, tagName) {
+  const state = {
+    id: id || "", tagName: (tagName || "div").toUpperCase(),
+    innerHTML: "", textContent: "", title: "", value: "", checked: false,
+    disabled: false, dataset: {}, style: {}, children: [], _listeners: {},
+    classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
+  };
+  return new Proxy(state, {
+    get(t, prop) {
+      if (prop in t) return t[prop];
+      if (prop === "querySelector") return (sel) => deepFindAll(t, sel)[0] || null;
+      if (prop === "querySelectorAll" || prop === "getElementsByTagName") return (sel) => deepFindAll(t, sel);
+      if (prop === "closest") return () => null;
+      if (prop === "getContext") return () => proxiedNoop(id + ".ctx", "canvasctx");
+      if (prop === "addEventListener") return (type, fn) => { (t._listeners[type] = t._listeners[type] || []).push(fn); };
+      if (prop === "removeEventListener") return () => {};
+      if (prop === "_fire") return (type, ev) => { (t._listeners[type] || []).forEach(fn => fn(ev)); };
+      if (prop === "appendChild" || prop === "append" || prop === "prepend") {
+        return (...kids) => { t.children.push(...kids); return kids[0]; };
+      }
+      if (prop === "replaceChildren") return (...kids) => { t.children = [...kids]; };
+      if (prop === Symbol.toPrimitive) return () => "";
+      if (typeof prop === "string") return _noopFn;
+      return undefined;
+    },
+    set(t, prop, v) { t[prop] = v; return true; },
+  });
+}
 function createReadoutEl() {
-  return { textContent: "", _value: 0 };
+  return { textContent: "", _value: 0, dataset: {} };
 }
 function createRangeInput(min, max, step, value) {
   const el = {
-    type: "range", min: String(min), max: String(max), step: String(step),
-    value: String(value), disabled: false, title: "",
+    tagName: "INPUT", type: "range", min: String(min), max: String(max), step: String(step),
+    value: String(value), disabled: false, title: "", dataset: {},
     setAttribute(k, v) { el[k] = v; },
     addEventListener(type, fn) { (el._listeners[type] = el._listeners[type] || []).push(fn); },
     _listeners: {},
@@ -35,67 +99,49 @@ function createRangeInput(min, max, step, value) {
   };
   return el;
 }
-function makeBlock(initialShare) {
-  const valueEl = { textContent: "" };
-  const readout = { textContent: "", title: "" };
-  const tick = { style: {}, title: "" };
-  const fill = { style: {} };
-  const resetBtn = { disabled: false, title: "", type: "button", textContent: "",
-    addEventListener(type, fn) { (resetBtn._listeners[type] = resetBtn._listeners[type] || []).push(fn); },
-    _listeners: {},
-    _fire(type) { (resetBtn._listeners[type] || []).forEach(fn => fn()); },
-  };
-  const input = createRangeInput(0.01, 0.30, 0.001, initialShare);
-  const block = {
-    id: "benchShareBlock",
-    querySelector(sel) {
-      if (sel === "input[type=range]") return input;
-      if (sel === ".bench-share-value") return valueEl;
-      if (sel === ".bench-share-readout") return readout;
-      if (sel === ".bench-share-tick") return tick;
-      if (sel === ".fill") return fill;
-      if (sel === ".bench-share-reset") return resetBtn;
-      return null;
-    },
-  };
-  return { block, input, valueEl, readout, tick, fill, resetBtn };
-}
 
+// Static page elements the widget expects to exist. The widget's internal
+// $("#...") resolves through the #curve-widget root stub, which consults
+// this map first so identity is stable across queries.
 const weightsReadout = createReadoutEl();
-const weightsBenchSlot = {
-  innerHTML: "",
-  appendChild(child) { this._child = child; },
-};
-const curveStatus = { innerHTML: "" };
-const positionWeightControls = { innerHTML: "", replaceChildren() {}, appendChild() {}, querySelector() { return null; } };
-const rosterShapeControls = { innerHTML: "", replaceChildren() {}, appendChild() {}, querySelector() { return null; } };
+const weightsBenchSlot = proxiedNoop("weightsBenchSlot", "div");
+weightsBenchSlot.appendChild = function (child) { this._child = child; this.children.push(child); return child; };
+const curveStatus = { innerHTML: "", querySelector() { return null; }, querySelectorAll() { return []; },
+  classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } } };
+const staticStub = (id) => proxiedNoop(id, "div");
 const elements = new Map([
   ["#weightsReadout", weightsReadout],
   ["#weightsBenchSlot", weightsBenchSlot],
   ["#curve-status", curveStatus],
-  ["#positionWeightControls", positionWeightControls],
-  ["#rosterShapeControls", rosterShapeControls],
+  ["#positionWeightControls", staticStub("positionWeightControls")],
+  ["#rosterShapeControls", staticStub("rosterShapeControls")],
 ]);
-function $(sel) { return elements.get(sel) || null; }
-
-// No-op stubs for everything else curve-widget.js touches during init.
-const noopEl = {
-  innerHTML: "", textContent: "", title: "", style: {}, value: "", checked: false,
-  disabled: false, dataset: {}, classList: { add() {}, remove() {}, toggle() {} },
-  replaceChildren() {}, appendChild() {}, addEventListener() {}, removeEventListener() {},
-  setAttribute() {}, querySelector() { return null; }, querySelectorAll() { return []; },
-};
 function fillMissingElements() {
-  // Any selector the widget asks for that we haven't stubbed: give it a noopEl.
-  // We patch $() to lazily create noop elements for unknown ids so the init
-  // doesn't crash on selectors we don't care about.
-  const base = $;
-  globalThis.window.$ = (sel) => {
+  // window.$ backs document.getElementById. Unknown ids get a stable
+  // registered stub; the #curve-widget root consults the static map first
+  // so the widget's own $("#weightsReadout") hits OUR readout object.
+  const rootQuery = (rootEl) => (sel) => {
     if (elements.has(sel)) return elements.get(sel);
-    const el = Object.assign({}, noopEl, { id: sel.replace(/^#/, "") });
+    const found = deepFindAll(rootEl, sel)[0];
+    if (found) return found;
+    const el = proxiedNoop(sel.replace(/^#/, ""), "div");
     elements.set(sel, el);
     return el;
   };
+  globalThis.window.$ = (sel) => {
+    if (elements.has(sel)) return elements.get(sel);
+    const el = proxiedNoop(sel.replace(/^#/, ""), "div");
+    elements.set(sel, el);
+    if (sel === "#curve-widget") el.querySelector = rootQuery(el);
+    return el;
+  };
+  // Mount the static page elements under the widget root so the widget's
+  // own $("#benchShareBlock") deep search finds the REAL block the widget
+  // appended to #weightsBenchSlot (same as in the browser).
+  const root = globalThis.window.$("#curve-widget");
+  for (const el of elements.values()) {
+    if (el && el !== root && !root.children.includes(el)) root.children.push(el);
+  }
 }
 
 // document stub: createElement returns a fresh noop element; the benchShare
@@ -103,18 +149,13 @@ function fillMissingElements() {
 // #weightsBenchSlot — we need that to be OUR block so the slider events fire
 // on our input and the block querySelector returns our valueEl/readout/fill.
 const documentStub = {
+  getElementById(id) {
+    if (id === "players-data") return playersDataEl;
+    return globalThis.window.$("#" + id);
+  },
   createElement(tag) {
     if (tag === "input") return createRangeInput(0, 1, 0.001, 0.15);
-    if (tag === "label" || tag === "span" || tag === "div" || tag === "p" || tag === "button") {
-      const e = Object.assign({}, noopEl, {
-        classList: { add() {}, remove() {}, toggle() {} },
-        style: {}, dataset: {}, children: [],
-        appendChild(child) { (this.children = this.children || []).push(child); return child; },
-        append(...children) { (this.children = this.children || []).push(...children); },
-      });
-      return e;
-    }
-    return Object.assign({}, noopEl);
+    return proxiedNoop(tag, tag);
   },
   activeElement: null,
   querySelector() { return null; },
@@ -158,12 +199,20 @@ async function main() {
   globalThis.window = globalThis;
   globalThis.document = documentStub;
   globalThis.fetch = fetchStub;
-  globalThis.window.$ = $;
   fillMissingElements();
   // requestAnimationFrame / setTimeout exist natively in Node.
   globalThis.CustomEvent = class CustomEvent { constructor(name, init) { this.type = name; this.detail = init && init.detail; } };
   if (typeof globalThis.dispatchEvent !== "function") {
     globalThis.dispatchEvent = () => true;
+  }
+  if (typeof globalThis.addEventListener !== "function") {
+    globalThis.addEventListener = () => {};
+  }
+  if (typeof globalThis.removeEventListener !== "function") {
+    globalThis.removeEventListener = () => {};
+  }
+  if (typeof globalThis.matchMedia !== "function") {
+    globalThis.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
   }
 
   loadWidget();
@@ -195,7 +244,7 @@ async function main() {
   // Also fire 'change' (matches the production handler which listens to both).
   slider._fire("change");
   const afterSliderReadout = weightsReadout.textContent;
-  const afterSliderBlockValue = blockReadout.textContent;
+  const afterSliderBlockValue = blockValue.textContent;
   const sliderText = afterSliderReadout;
   const sliderMatches = /Bench 20\.0%/.test(sliderText);
 
