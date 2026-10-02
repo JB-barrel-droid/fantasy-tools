@@ -29,6 +29,7 @@ from build_ddf_two_tier_leg import (
     REF_SLOTS,
     REF_FLEX_COUNT,
     REF_FLEX_ELIGIBLE,
+    bench_mix_for_teams,
     POSITIONS,
 )
 
@@ -55,21 +56,26 @@ def load_ranked_values(source: str, combo_key: str) -> dict[str, list[tuple[str,
     return by_pos
 
 
-def roster_waiver_line(ranked: list[tuple[str, float]], n_starters: int) -> tuple[float, str]:
+def roster_waiver_line(ranked: list[tuple[str, float]], n_starters: int, n_bench: int) -> tuple[float, str]:
     """Get waiver line value from roster settings.
     
-    The waiver line is the value of the first non-rostered player.
-    Deterministic from roster construction, not inferred from curve shape.
+    The waiver line is the value of the first non-ROSTERED player
+    (not starter, not bench). Determined by roster construction.
+    
+    Args:
+        ranked: [(player_id, value), ...] sorted descending by value
+        n_starters: number of starting slots (teams * slots_per_team)
+        n_bench: number of bench slots for this position
     
     Returns: (waiver_value, method)
     """
-    if len(ranked) <= n_starters:
+    n_rostered = n_starters + n_bench
+    if len(ranked) <= n_rostered:
         # They don't rank enough players to reach waiver
-        # Use the last player's value as a conservative proxy
         return ranked[-1][1] if ranked else 0.0, "insufficient_coverage"
     
-    # Waiver line = first non-starter's value
-    return ranked[n_starters][1], "roster_determined"
+    # Waiver line = first non-rostered player's value
+    return ranked[n_rostered][1], "roster_determined"
 
 
 def compute_vorp_via_roster(source: str, teams: int = 12, 
@@ -85,6 +91,7 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
     """
     combo_key = f"half_{teams}" if scoring == "half_ppr" else f"{scoring}_{teams}"
     ranked = load_ranked_values(source, combo_key)
+    bench_mix = bench_mix_for_teams(teams)
     
     result = {
         "source": source,
@@ -100,7 +107,8 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
             continue
         
         n_start = teams * REF_SLOTS.get(pos, 0)
-        waiver_val, method = roster_waiver_line(players, n_start)
+        n_bench = bench_mix.get(pos, 0)
+        waiver_val, method = roster_waiver_line(players, n_start, n_bench)
         
         # VORP for each player
         vorp_list = []
@@ -114,6 +122,8 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
         result["positions"][pos] = {
             "n_players": len(players),
             "n_starters": n_start,
+            "n_bench": n_bench,
+            "n_rostered": n_start + n_bench,
             "waiver_line_value": round(waiver_val, 2),
             "waiver_method": method,
             "max_value": round(players[0][1], 2) if players else 0,
@@ -152,7 +162,8 @@ def main():
         if not p:
             continue
         print(f"\n  {pos}:")
-        print(f"    Ranked players: {p['n_players']}, Starters: {p['n_starters']}")
+        print(f"    Ranked: {p['n_players']}, Starters: {p['n_starters']}, "
+              f"Bench: {p['n_bench']}, Rostered: {p['n_rostered']}")
         print(f"    Waiver line value: {p['waiver_line_value']} ({p['waiver_method']})")
         print(f"    Max value: {p['max_value']} → Max VORP: {p['max_vorp']}")
         print(f"    Total VORP: {p['total_vorp']}, Implied weight: {p['implied_weight']:.1%}")
