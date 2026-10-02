@@ -60,6 +60,35 @@ processing, fitting, and promotion times are separate operational timestamps;
 none can advance source vintage. Missing cells or unsupported configurations
 remain unavailable and must never be presented as an adjusted estimate.
 
+## Published-Chart Configuration Coverage
+
+Table and curve views use the same exact scoring/team configuration key.
+Standard is `standard`, half-PPR is `half`, and PPR is `full`, for raw and
+adjusted sources alike. No missing configuration borrows a 12-team chart,
+another scoring format, or another QB variant. A missing combo disables the
+source tile/curve toggle, removes its table column and reference choices,
+and yields null values rather than zeros. The source remains listed as
+unavailable for the selected scoring/team settings.
+
+The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
+native inputs. Their ingestion adapters currently assign `league_teams=12`
+(`save_usatoday_references.py`, `save_fantasypros_references.py`, and
+`save_espn_cbs_references.py`); no independently acquired 8/10/14-team variants
+exist in these fixtures. This is an ingestion/coverage limit, not proof that
+the publishers can never offer other formats. We do not duplicate those
+native charts into new league identities. A future roster-translated estimate
+must be labeled derived and retain the original native configuration/vintage.
+
+FantasyCalc currently has 8/10/12/14-team native charts for all three scoring
+formats and separate `qb1`/`qb2` grains (32, not 24, fixture combos). These
+views explicitly display the 1-QB publisher basis and select only `qb1` for
+both raw and adjusted charts. `qb2` remains a distinct acquired input, not a
+fallback for a missing `qb1`. Custom roster shape changes reprice derived
+values; they do not silently switch the publisher's native QB basis.
+
+Configuration selection never changes source vintage or acquisition/processing
+timestamps. Coverage is independent of freshness and validation status.
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,

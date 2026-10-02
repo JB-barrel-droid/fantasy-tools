@@ -881,12 +881,8 @@
   };
 
   function comboKey(key) {
-    const compact = scoring === "ppr" ? "full" : scoring === "half_ppr" ? "half" : "standard";
-    const score = key.endsWith("_adjusted") && compact === "standard" ? "std" : compact;
-    if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${teams}_qb1`;
-    if (key === "espn") return `${score}_${teams}`;
     if (PURE_VORP_KEYS.includes(key)) return null;
-    return `${score}_${teams}`;
+    return ValueModel.sourceComboKey(key, scoring, teams, 1);
   }
 
   function buildCanonicalMap() {
@@ -2530,6 +2526,7 @@
       input.disabled = !available;
       input.dataset.source = key;
       input.setAttribute("aria-label", `Show ${sourceLabel(key)} curve`);
+      if (key.startsWith("fantasycalc")) label.title = "FantasyCalc publisher basis: 1 QB";
       label.classList.toggle("is-stale", staleWeek && available);
       if (paused) {
         label.classList.add("is-disabled");
