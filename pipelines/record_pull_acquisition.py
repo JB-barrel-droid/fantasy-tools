@@ -15,6 +15,7 @@ block as {status, rows, vintage, recorded_at, reason}, preserving all other keys
 import argparse
 import json
 import os
+from pathlib import Path
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +35,7 @@ def iso_now():
 
 def load_artifact(path):
     """Load the pipeline-checkpoints.json artifact."""
+    path = Path(path)
     if not path.exists():
         raise AcquisitionError(f"Artifact not found: {path}")
 
@@ -116,6 +118,7 @@ def record_acquisition_to_file(path, source, status, rows, vintage, reason=None)
     if status not in ("acquired", "unchanged", "failed"):
         raise AcquisitionError(f"Invalid status: {status}. Must be 'acquired', 'unchanged', or 'failed'")
 
+    path = Path(path)
     if not path.exists():
         raise AcquisitionError(f"Artifact not found: {path}")
 
