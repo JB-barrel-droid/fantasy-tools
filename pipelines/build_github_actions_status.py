@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Build GitHub Actions workflow status for the monitoring dashboard.
 
-Fetches all workflows in the repo, their last run status, and maps each
-to the pipeline stage it covers. Outputs dist/modules/github-actions.json.
+Fetches all workflows in the repo, their recent run history (last 5 runs
+each with times and conclusions), and maps each to the pipeline stage it
+covers. Outputs dist/modules/github-actions.json.
 
 Pipeline coverage map:
   - Rebuild comparison chain: C1-C8 (import -> health -> comparison rebuild)
@@ -95,12 +96,38 @@ def main() -> int:
         wf_id = wf["id"]
         wf_name = wf["name"]
 
-        # Fetch last run
+        # Fetch recent runs (last 5) — JEG-109: track run history, not just latest
         runs_data = fetch_json(
-            f"https://api.github.com/repos/{REPO}/actions/workflows/{wf_id}/runs?per_page=1"
+            f"https://api.github.com/repos/{REPO}/actions/workflows/{wf_id}/runs?per_page=5"
         )
         runs = runs_data.get("workflow_runs", [])
-        last_run = runs[0] if runs else None
+        recent_runs = [
+            {
+                "created_at": r.get("created_at"),
+                "updated_at": r.get("updated_at"),
+                "status": r.get("status"),
+                "conclusion": r.get("conclusion"),
+                "event": r.get("event"),
+                "html_url": r.get("html_url"),
+            }
+            for r in runs
+        ]
+        last_run = recent_runs[0] if recent_runs else None
+
+        # Health signal: ok if last run succeeded (or is in progress);
+        # warn if last run failed but an earlier recent run succeeded;
+        # fail if all recent runs failed or no runs exist.
+        conclusions = [r["conclusion"] for r in recent_runs if r["conclusion"]]
+        if not recent_runs:
+            health = "unknown"
+        elif last_run and last_run["conclusion"] == "success":
+            health = "ok"
+        elif last_run and last_run["status"] in ("in_progress", "queued"):
+            health = "running"
+        elif "success" in conclusions:
+            health = "warn"
+        else:
+            health = "fail"
 
         coverage = PIPELINE_COVERAGE.get(wf_name, {
             "stages": ["Unknown"],
@@ -115,13 +142,10 @@ def main() -> int:
             "path": wf.get("path", ""),
             "state": wf.get("state", "unknown"),
             "coverage": coverage,
-            "last_run": {
-                "created_at": last_run.get("created_at") if last_run else None,
-                "status": last_run.get("status") if last_run else None,
-                "conclusion": last_run.get("conclusion") if last_run else None,
-                "event": last_run.get("event") if last_run else None,
-                "html_url": last_run.get("html_url") if last_run else None,
-            } if last_run else None,
+            "health": health,
+            "last_run": last_run,
+            "recent_runs": recent_runs,
+            "recent_failures": sum(1 for c in conclusions if c == "failure"),
         })
 
     # Check for coverage gaps
@@ -149,10 +173,10 @@ def main() -> int:
         "summary": {
             "total_workflows": len(workflows),
             "active": sum(1 for w in workflows if w["state"] == "active"),
-            "failing": sum(
-                1 for w in workflows
-                if w["last_run"] and w["last_run"]["conclusion"] == "failure"
-            ),
+            "healthy": sum(1 for w in workflows if w["health"] == "ok"),
+            "warn": sum(1 for w in workflows if w["health"] == "warn"),
+            "failing": sum(1 for w in workflows if w["health"] == "fail"),
+            "running": sum(1 for w in workflows if w["health"] == "running"),
             "gaps_count": len(gaps),
         },
     }

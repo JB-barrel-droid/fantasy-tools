@@ -38,9 +38,10 @@ HEALTH = "dist/modules/source-import-health.json"
 OUT_HEALTH = "output/source-import-health.json"
 ADJ_DIST = "dist/assets/adjustment-inputs.json"
 ADJ_APP = "app/trade-value-chart/assets/adjustment-inputs.json"
+GH_ACTIONS = "dist/modules/github-actions.json"
 BASELINE = {FIXTURE: "OLD", MONITOR_FIXTURE: "OLD", MONITOR_STATUS: "OLD-STATUS",
             OUT_STATUS: "OLD-STATUS", HEALTH: "OLD-HEALTH", OUT_HEALTH: "OLD-HEALTH",
-            ADJ_DIST: "OLD-ADJ", ADJ_APP: "OLD-ADJ"}
+            ADJ_DIST: "OLD-ADJ", ADJ_APP: "OLD-ADJ", GH_ACTIONS: "OLD-GH"}
 
 
 def step_blocks(text):

@@ -9,8 +9,16 @@ name: Rebuild comparison chain
 #
 # The GITHUB_TOKEN is automatic; no setup needed.
 
-
 on:
+  schedule:
+    # Every 6 hours — frequent enough to catch new snapshots, light enough
+    # to avoid noise. The chain itself is idempotent: it only promotes when
+    # the fixture is stale.
+    # Re-enabled 2026-09-30: chain validation bypass fixed (fail-closed),
+    # QB duplication scoped, _adjusted sources restored, review combos_match
+    # fixed for section candidates, promote now updates built_at.
+    - cron: '17 */6 * * *'
+  #     - cron: "17 */6 * * *"
   workflow_dispatch:
     # Manual trigger from the Actions tab.
 
@@ -91,6 +99,25 @@ jobs:
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null \
             || echo "No chain status was written; nothing to publish."
 
+      - name: Refresh GitHub Actions status (JEG-109)
+        # Runs on every chain execution (success or failure) so the dashboard's
+        # workflow-health section stays fresh. Unauthenticated API: 7 workflows
+        # x 6 calls each = ~42 calls, well under the 60/hr limit.
+        # MUST always write the file: the commit step's `git add` fails entirely
+        # if a pathspec matches nothing, which would unstage everything else.
+        if: always()
+        run: |
+          python3 pipelines/build_github_actions_status.py \
+            --out dist/modules/github-actions.json \
+            || python3 -c "
+          import json, datetime
+          json.dump({'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                     'repo': 'JB-barrel-droid/fantasy-tools', 'workflows': [],
+                     'coverage_gaps': [], 'error': 'refresh failed',
+                     'summary': {'total_workflows': 0}}, 
+                    open('dist/modules/github-actions.json','w'), indent=2)
+          "
+
       - name: Commit and push if changed
         env:
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
@@ -102,6 +129,7 @@ jobs:
                     dist/modules/comparison-sources-data.json \
                     dist/modules/source-import-health.json \
                     dist/modules/comparison-chain-status.json \
+                    dist/modules/github-actions.json \
                     dist/assets/adjustment-inputs.json \
                     app/trade-value-chart/assets/adjustment-inputs.json \
                     output/source-import-health.json \
@@ -111,6 +139,7 @@ jobs:
             # Chain failed: stage ONLY the status and health files, never the fixture.
             git add dist/modules/source-import-health.json \
                     dist/modules/comparison-chain-status.json \
+                    dist/modules/github-actions.json \
                     output/source-import-health.json \
                     output/comparison-chain-status.json || true
             MESSAGE="Automated chain status (chain failed; fixture not updated)"

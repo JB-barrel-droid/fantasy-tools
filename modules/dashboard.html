@@ -135,6 +135,12 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="deployInfo">Checking…</div>
 </section>
 
+<section class="card" id="ghActionsCard">
+  <h2>GitHub Actions — workflow health</h2>
+  <div class="desc">Recent runs per workflow (last 5 each): when they ran and whether they succeeded. Refreshed with the pipeline chain.</div>
+  <div id="ghActionsInfo">Loading…</div>
+</section>
+
 <section class="card" id="adjCurveCard">
   <h2>Adjusted curves — pipeline stages</h2>
   <div class="desc">
@@ -1120,6 +1126,46 @@ async function main(){
     }
   }catch(e){
     deployInfo.innerHTML = `<span style="color:var(--grey)">?</span> API check failed: ${String(e).slice(0,80)}`;
+  }
+
+  // JEG-109: GitHub Actions workflow health (from the baked status file)
+  const ghEl = document.getElementById("ghActionsInfo");
+  try{
+    const ghResp = await fetch("github-actions.json", {cache:"no-store"});
+    if(ghResp.ok){
+      const gh = await ghResp.json();
+      const s = gh.summary || {};
+      const genAge = gh.generated_at ? timeAgo(gh.generated_at) : "unknown age";
+      const dot = h => h==="ok" ? `<span style="color:var(--green)">●</span>`
+        : h==="warn" ? `<span style="color:var(--yellow)">●</span>`
+        : h==="fail" ? `<span style="color:var(--red)">●</span>`
+        : h==="running" ? `<span style="color:var(--blue)">●</span>`
+        : `<span style="color:var(--grey)">●</span>`;
+      let rows = (gh.workflows||[]).map(w => {
+        const runs = (w.recent_runs||[]).slice(0,5).map(r => {
+          const c = r.conclusion || r.status || "?";
+          const col = c==="success" ? "var(--green)" : c==="failure" ? "var(--red)"
+            : c==="cancelled" ? "var(--grey)" : "var(--yellow)";
+          const when = r.created_at ? timeAgo(r.created_at) : "?";
+          return `<span style="color:${col}" title="${r.created_at||""}">${c}</span> <span style="color:var(--faint)">${when}</span>`;
+        }).join(" · ");
+        const lastUrl = w.last_run && w.last_run.html_url
+          ? ` <a href="${w.last_run.html_url}" style="color:var(--blue)">logs</a>` : "";
+        return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">` +
+          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${lastUrl}<br>` +
+          `<span style="color:var(--faint);font-size:11px">${(w.coverage&&w.coverage.key_task)||""}</span></td>` +
+          `<td style="padding:6px 8px;font-family:monospace">${runs||"<span style='color:var(--faint)'>no runs</span>"}</td></tr>`;
+      }).join("");
+      ghEl.innerHTML =
+        `<div style="margin-bottom:8px;color:var(--dim);font-size:12.5px">` +
+        `${s.healthy||0} healthy · ${s.warn||0} warn · ${s.failing||0} failing · ` +
+        `<span style="color:var(--faint)">refreshed ${genAge}</span></div>` +
+        `<table style="width:100%;border-collapse:collapse"><tbody>${rows}</tbody></table>`;
+    } else {
+      ghEl.innerHTML = `<span style="color:var(--grey)">?</span> github-actions.json not found (status ${ghResp.status}).`;
+    }
+  }catch(e){
+    ghEl.innerHTML = `<span style="color:var(--grey)">?</span> Failed to load: ${String(e).slice(0,80)}`;
   }
 
   // Trade Dashboard QA: rendered output health with root causes

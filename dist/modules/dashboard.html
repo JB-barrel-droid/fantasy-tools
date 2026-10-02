@@ -135,6 +135,12 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="deployInfo">Checking…</div>
 </section>
 
+<section class="card" id="ghActionsCard">
+  <h2>GitHub Actions — workflow health</h2>
+  <div class="desc">Recent runs per workflow (last 5 each): when they ran and whether they succeeded. Refreshed with the pipeline chain.</div>
+  <div id="ghActionsInfo">Loading…</div>
+</section>
+
 <section class="card" id="adjCurveCard">
   <h2>Adjusted curves — pipeline stages</h2>
   <div class="desc">
@@ -155,6 +161,20 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     different method — an honest signal, not a hidden one.
   </div>
   <div id="methodologyConsistency"></div>
+</section>
+
+<section class="card" id="vorpTranslationCard">
+  <h2>VORP translation freshness</h2>
+  <div class="desc">
+    The as-published sources' chart values come from VORP-translated grains in
+    Supabase, refreshed weekly (Wed 06:30 CT) and wired through by the chain's
+    translate_via_vorp stage. <b>Warn</b> = a grain is older than the current
+    NFL week (refresh or wiring pending). <b>Bad</b> = a combo is on
+    reindex-fallback as its steady state — the quantile mapping JEG-64 replaced.
+    Reads the provenance stamped into the fixture: what the chart serves, not
+    what the pipeline claims.
+  </div>
+  <div id="vorpTranslation"></div>
 </section>
 
 <section class="card" id="scaleAgreementCard">
@@ -453,6 +473,9 @@ async function main(){
   if(data.scale_agreement && data.scale_agreement.status){
     tally(data.scale_agreement.status);
   }
+  if(data.vorp_translation && data.vorp_translation.status){
+    tally(data.vorp_translation.status);
+  }
   if(data.adj_curve_pipeline){
     for(const st of Object.values(data.adj_curve_pipeline)){
       if(st && st.status) tally(st.status);
@@ -567,6 +590,25 @@ async function main(){
     </div></div>`;
   } else {
     methHost.innerHTML = `<div style="color:var(--grey)">Methodology consistency data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
+  }
+
+  // VORP translation freshness (JEG-70): rendered (not just counted) so a
+  // stale grain or fallback-as-steady-state is visible, following the
+  // methodology_consistency pattern.
+  const vorpHost = document.getElementById("vorpTranslation");
+  const vt = data.vorp_translation;
+  if(vt && vt.status){
+    const dotCls = vt.status === "ok" ? "ok" : vt.status === "warn" ? "warn" : vt.status === "bad" ? "bad" : "unk";
+    const reasonCls = vt.status === "bad" ? "bad" : vt.status === "warn" ? "warn" : "";
+    const counts = (vt.n_ok != null && vt.n_expected != null)
+      ? `<div style="margin-top:4px;color:var(--dim)">${vt.n_ok} / ${vt.n_expected} grains at current week via vorp-supabase</div>` : "";
+    vorpHost.innerHTML = `<div class="cp-grid"><div class="cp">
+      <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${vt.label || "VORP translation freshness"}</span></div>
+      <div class="cp-time">${shortTs(vt.timestamp)} (${timeAgo(vt.timestamp)})</div>
+      <div class="cp-reason ${reasonCls}">${vt.reason || ""}</div>${counts}
+    </div></div>`;
+  } else {
+    vorpHost.innerHTML = `<div style="color:var(--grey)">VORP translation data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
   }
 
   // Scale agreement: native vs reindexed vs anchor, per source x position.
@@ -796,8 +838,24 @@ async function main(){
     if(linResp.ok){
       const linData = await linResp.json();
       const linSources = linData.sources || {};
-      const order = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"].filter(s => linSources[s]);
-      const labels = {espn:"ESPN", cbs:"CBS", cbsros:"CBS ROS", razzball:"Razzball", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
+      // JEG-98: each adjusted leg follows its parent in the render order so
+      // the lineage reads parent -> adjusted, parent -> adjusted, ...
+      const order = [
+        "espn",
+        "cbs", "cbs_adjusted",
+        "cbsros",
+        "razzball",
+        "fantasycalc", "fantasycalc_adjusted",
+        "fantasypros", "fantasypros_adjusted",
+        "usatoday", "usatoday_adjusted",
+      ].filter(s => linSources[s]);
+      const labels = {
+        espn:"ESPN", cbs:"CBS", cbs_adjusted:"CBS (adjusted)",
+        cbsros:"CBS ROS", razzball:"Razzball",
+        fantasycalc:"FantasyCalc", fantasycalc_adjusted:"FantasyCalc (adjusted)",
+        fantasypros:"FantasyPros", fantasypros_adjusted:"FantasyPros (adjusted)",
+        usatoday:"USA Today", usatoday_adjusted:"USA Today (adjusted)",
+      };
 
       // Count live mismatches
       // Per user requirement: unverifiable sources (no live human-readable page)
@@ -843,7 +901,12 @@ async function main(){
                            !s.live_scraped ? '<span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span>' : '';
           const liveCell = s.live_scraped
             ? `<td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.live_value)} ${liveIcon}</td>`
-            : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span> <span style="color:var(--faint)">unverifiable</span></td>`;
+            : s.parent_source
+              // JEG-98 adjusted leg: live value inherited from parent
+              // source's scrape, but the leg has no live page of its own
+              // so the live-verification column fails red per contract.
+              ? `<td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.live_value)} ${liveIcon}</td>`
+              : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span> <span style="color:var(--faint)">unverifiable</span></td>`;
           return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">
             <td style="padding:6px 8px;color:var(--dim)">${p.rank}</td>
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>
@@ -1063,6 +1126,46 @@ async function main(){
     }
   }catch(e){
     deployInfo.innerHTML = `<span style="color:var(--grey)">?</span> API check failed: ${String(e).slice(0,80)}`;
+  }
+
+  // JEG-109: GitHub Actions workflow health (from the baked status file)
+  const ghEl = document.getElementById("ghActionsInfo");
+  try{
+    const ghResp = await fetch("github-actions.json", {cache:"no-store"});
+    if(ghResp.ok){
+      const gh = await ghResp.json();
+      const s = gh.summary || {};
+      const genAge = gh.generated_at ? timeAgo(gh.generated_at) : "unknown age";
+      const dot = h => h==="ok" ? `<span style="color:var(--green)">●</span>`
+        : h==="warn" ? `<span style="color:var(--yellow)">●</span>`
+        : h==="fail" ? `<span style="color:var(--red)">●</span>`
+        : h==="running" ? `<span style="color:var(--blue)">●</span>`
+        : `<span style="color:var(--grey)">●</span>`;
+      let rows = (gh.workflows||[]).map(w => {
+        const runs = (w.recent_runs||[]).slice(0,5).map(r => {
+          const c = r.conclusion || r.status || "?";
+          const col = c==="success" ? "var(--green)" : c==="failure" ? "var(--red)"
+            : c==="cancelled" ? "var(--grey)" : "var(--yellow)";
+          const when = r.created_at ? timeAgo(r.created_at) : "?";
+          return `<span style="color:${col}" title="${r.created_at||""}">${c}</span> <span style="color:var(--faint)">${when}</span>`;
+        }).join(" · ");
+        const lastUrl = w.last_run && w.last_run.html_url
+          ? ` <a href="${w.last_run.html_url}" style="color:var(--blue)">logs</a>` : "";
+        return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">` +
+          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${lastUrl}<br>` +
+          `<span style="color:var(--faint);font-size:11px">${(w.coverage&&w.coverage.key_task)||""}</span></td>` +
+          `<td style="padding:6px 8px;font-family:monospace">${runs||"<span style='color:var(--faint)'>no runs</span>"}</td></tr>`;
+      }).join("");
+      ghEl.innerHTML =
+        `<div style="margin-bottom:8px;color:var(--dim);font-size:12.5px">` +
+        `${s.healthy||0} healthy · ${s.warn||0} warn · ${s.failing||0} failing · ` +
+        `<span style="color:var(--faint)">refreshed ${genAge}</span></div>` +
+        `<table style="width:100%;border-collapse:collapse"><tbody>${rows}</tbody></table>`;
+    } else {
+      ghEl.innerHTML = `<span style="color:var(--grey)">?</span> github-actions.json not found (status ${ghResp.status}).`;
+    }
+  }catch(e){
+    ghEl.innerHTML = `<span style="color:var(--grey)">?</span> Failed to load: ${String(e).slice(0,80)}`;
   }
 
   // Trade Dashboard QA: rendered output health with root causes
