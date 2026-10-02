@@ -187,7 +187,7 @@ class TestCheckSourceFlips(unittest.TestCase):
                             "reindexed": {
                                 "jsn": 40.0,
                                 "puka": 55.0,
-                                "other": 50.0
+                                "other": 30.0
                             }
                         }
                     }
@@ -231,7 +231,8 @@ class TestCheckSourceFlips(unittest.TestCase):
 
         result = check_source_flips(data, "clean_source")
 
-        self.assertEqual(result["total_flips"], 0,
+        total = sum(c["flips_found"] for c in result["combos"])
+        self.assertEqual(total, 0,
                          "Flip-free data should report 0 total flips")
 
 
@@ -257,6 +258,20 @@ class TestTieHandling(unittest.TestCase):
         # because neither is strictly greater than the other
         self.assertEqual(len(flips), 0,
                         "Equal reindexed values should not create flip with strict inequality")
+
+    def test_native_ties_never_flip(self):
+        """
+        Tied native values have no ordering to preserve, so they can never
+        flip no matter how the reindexed values differ. (Without this skip,
+        set-iteration order made tied pairs flip nondeterministically
+        across runs.)
+        """
+        native = {"player_a": 100.0, "player_b": 100.0}
+        reindexed = {"player_a": 50.0, "player_b": 40.0}
+        for _ in range(5):
+            flips = find_ordering_flips(native, reindexed)
+            self.assertEqual(len(flips), 0,
+                             "Tied native values must never produce a flip")
 
 
 if __name__ == "__main__":

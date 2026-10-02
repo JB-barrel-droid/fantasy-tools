@@ -62,6 +62,15 @@ def find_ordering_flips(native_values, reindexed_values):
     reindexed_rank = {player: rank for rank, player in enumerate(reindexed_sorted)}
     for i, player_a in enumerate(native_sorted):
         for player_b in native_sorted[i+1:]:
+            # Exact ties never count as flips (JEG-100: strict inequality).
+            # A flip needs a strict native ordering to violate; tied native
+            # values have no ordering to preserve. Without these skips,
+            # set-iteration order makes tied pairs flip nondeterministically
+            # across runs (verified: totals varied run to run before this).
+            if native_values[player_a] == native_values[player_b]:
+                continue
+            if reindexed_values[player_a] == reindexed_values[player_b]:
+                continue
             if reindexed_rank[player_a] > reindexed_rank[player_b]:
                 flips.append({"player_a": player_a, "player_b": player_b, "native_a": native_values[player_a], "native_b": native_values[player_b], "reindexed_a": reindexed_values[player_a], "reindexed_b": reindexed_values[player_b]})
     return flips
