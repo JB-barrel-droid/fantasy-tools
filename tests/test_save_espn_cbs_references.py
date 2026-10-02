@@ -325,6 +325,24 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         self.assertTrue(result["dry_run"])
         self.assertEqual(self.writes, [])
 
+    # -- dry run reports the vintage it would write ---------------------------------
+    # defect: the CI dry-run summary printed "vintage None" (JEG-102), so the one
+    # check run before a live write could not show which vintage it would land
+    def test_dry_run_reports_same_vintage_as_live_run(self):
+        row = ["Josh Allen,josh allen,QB,BUF,True,True,1,2,3,4,0,0,0,366.13,3-18,2026-09-21"]
+        for source, kwargs in (("espn", {"csv_rows": row}),
+                               ("cbs", {"tables": [{"title": "Running back",
+                                                    "headers": ["Player", "tm", "non", "0.5", "PPR"],
+                                                    "rows": [["Jahmyr Gibbs", "DET", "45", "46", "47"]]}]})):
+            with self.subTest(source=source):
+                csv_path, meta_path, json_path = self.write_inputs(**kwargs)
+                dry = mod.save_source(source, dry_run=True, espn_csv=csv_path,
+                                      espn_meta=meta_path, cbs_json=json_path, week=4)
+                live = mod.save_source(source, dry_run=False, espn_csv=csv_path,
+                                       espn_meta=meta_path, cbs_json=json_path, week=4)
+                self.assertIsNotNone(dry.get("vintage"))
+                self.assertEqual(dry["vintage"], live["vintage"])
+
     # -- idempotency: upsert on the grain ----------------------------------------------
     # defect: a re-run duplicating rows instead of merging on the grain
     def test_upsert_uses_grain_conflict(self):

@@ -397,9 +397,12 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
     if not clean:
         raise SystemExit(f"Fail closed: source '{name}' resolved to zero clean rows. Never writing an empty save.")
 
+    vintage_label = vintage if name == "espn" else f"Week {week}"
+
     if dry_run:
         print(f"[dry-run] {name}: would upsert {len(clean)} rows into {table} ({len(review)} review)")
-        return {"source": name, "table": table, "dry_run": True, "written": 0, "review_count": len(review), "review": review}
+        return {"source": name, "table": table, "dry_run": True, "written": 0, "review_count": len(review),
+                "review": review, "vintage": vintage_label}
 
     # Create audit record for this write operation
     # (optional: skips gracefully if pipeline_write_audit table not yet created)
@@ -446,7 +449,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         "written": len(clean),
         "review_count": len(review),
         "review": review,
-        "vintage": vintage if name == "espn" else f"Week {week}",
+        "vintage": vintage_label,
         "run_id": audit.run_id if audit else None,
     }
 
