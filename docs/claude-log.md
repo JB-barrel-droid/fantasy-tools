@@ -32,6 +32,34 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-83: audit against the best-practices standard (docs only)
+
+Output: `docs/health/gap-analysis-and-recommendations.md` (30 practices audited, 14 ranked recommendations). Muse's four recurring-finding patterns were used to weight the ranking.
+
+### Verified (checks named)
+
+- Job log of ESPN workflow run 37036078925: `ModuleNotFoundError: No module named 'identity'`, scraper failure swallowed by `|| echo`, save skipped, job green. Supabase: `espn_season_projections` last write 2026-10-01 02:22 UTC, vintage 2026-09-30. Filed JEG-102.
+- `cbsros-supabase-sync.yml` has zero runs; CBS ROS table latest vintage 2026-10-02 (last write 12:57 UTC) vs promoted section vintage 2026-09-30 (read-only SQL, fixture read).
+- Fixture per-source fields and page code (`index.html` ~2252): the page's "content" date comes from `published || espn_snapshot || fetched_at || vintage`, so CBS, FantasyPros and USA Today show `2026-09-15` (content vintage 2026-09-29), FantasyCalc shows its pull date; the per-source badge is a constant `Live`; "As of" is `built_at`.
+- Committed monitor artifacts 25 to 45 hours old (computed from their `generated_at`).
+- Headless input sweep on built `dist/`: scoring, league size, bench share, roster shape (RB, FLEX), a source toggle, lock order and position weights all change the table and return to identical values; the Weights readout stays at `Bench 15.0%` after the slider moves (cause read in `curve-widget.js`). Filed JEG-103.
+- Scheduler slip: ESPN and FantasyCalc scheduled runs started 5 to 6 hours after their cron time (Actions run lists).
+
+### A mistake I made and caught
+
+My first draft said CBS, FantasyPros and USA Today show their pull date as "content". Checking the fixture fields showed they show `published` (2026-09-15) instead. I corrected the document before publishing; the earlier wording never left my working copy.
+
+### Claimed, unverified
+
+- All [E] tags in the standard (no sources fetched).
+- Two uncaught page errors seen once with synthetic events (`NotFoundError ... replaceChildren ... blur`); not reproduced with real typing, so not reported as a defect.
+- Live page, GitHub failure-email routing, branch protection, ESPN run 1's log, curve (canvas) values, mouse use of the slider, input sweeps at league shapes other than 12-team Full PPR.
+
+### Open
+
+- Added GAP-41..GAP-46 and extended GAP-039. Nothing is approved to build: Jeremy chooses which recommendations proceed; JEG-84 turns them into tickets.
+- No code or data changed.
+
 ## 2026-10-02 - JEG-82: consolidated best-practices standard (docs only)
 
 Output: `docs/health/best-practices.md`. Consolidates the Claude, Muse and Codex assessments (all merged). Jeremy asked for this directly; the JEG-78 dependency was already met.
