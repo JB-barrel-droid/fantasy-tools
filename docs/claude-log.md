@@ -32,6 +32,22 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-51: the ESPN-zero staleness signal said "ok" while two sources were stale
+
+### Verified (the repo's fixture and a headless render of the built monitor)
+
+- JEG-51 was already on `main` (`1622577`), but ineffective: `check_espn_zeroed_staleness()` read only a combo literally named `half_12`. FantasyCalc has no such combo (its keys are `half_12_qb1` and so on), and USA Today's row for De'Von Achane sits in `full_12`. So it printed `ok` while FantasyCalc priced him at 39.6-56.9 in 18 combos and USA Today at 28.1.
+- It also had no tests, was not run by `make`/CI, and nothing in `modules/dashboard.html` read `data-accuracy.json`, so even a correct result was invisible in the monitor.
+- Fixed: the check covers every combo of every non-adjusted, non-ESPN source, one violation per (source, player) naming the combos and the highest value; wording says "ESPN zeroed", not "IR" (the data does not record why). New monitor card `espnZeroCard`. Rendered check: the card shows `STALE-SOURCE SIGNALS` with fantasycalc/devon achane 56.9 (18 combos) and usatoday/devon achane 28.1 (full_12), 0 page errors.
+- `tests/test_espn_zeroed_staleness.py` (10 tests). Six mutations each fail a named test: half_12 only, including adjusted sources, flagging zero values, taking the lowest value, never calling the loader, and saying "IR". One test I first wrote pinned which sources are stale today; that would have turned red when the data improves, so I replaced it with a shape check.
+
+### Claimed, unverified
+
+- The live monitor (egress blocked). `dist/modules/data-accuracy.json` is a committed copy from a local run; it is stale until someone re-runs the script (GAP-031).
+
+### Open
+
+- GAP-031 (cadence of the check; the `ir_cross_check` wording). The signal is now red, which is correct today: two sources still price an ESPN-zeroed player.
 ## 2026-10-02 - JEG-68 follow-up: the open question in the entry below was settled by someone else
 
 ### Verified

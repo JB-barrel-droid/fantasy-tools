@@ -108,21 +108,26 @@ def check_ir_values(ir_players):
     return violations, None
 
 
-def check_espn_zeroed_staleness():
-    """JEG-51: If ESPN zeroes a player (season-ending IR) but another source
-    shows positive value, that source is stale on that player.
+def check_espn_zeroed_staleness(fixture=None):
+    """JEG-51: if ESPN explicitly zeroes a player but another source still shows a
+    positive value, that source is stale on that player.
 
-    Uses the fixture's espn_zeroed list (player IDs). For each, checks all
-    other sources' half_12 values. Positive value = staleness signal.
-    This is a monitor/alert, not a data change.
+    Uses the fixture's espn_zeroed list (player_keys). Every combo of every
+    non-adjusted, non-ESPN source is checked (the first version read only a
+    combo named "half_12", which FantasyCalc does not have, and missed
+    USA Today's full_12 row for De'Von Achane, so it reported ok while the
+    chart showed him). One violation per (source, player), naming the combos
+    and the highest value. This is a monitor signal, not a data change: it never
+    zeroes anything. The wording says "ESPN zeroed", not "IR": the fixture does
+    not record why ESPN zeroed a player.
     """
     violations = []
-    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    if fixture is None:
+        fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+        if not fixture_path.exists():
+            return violations, "comparison-sources-data.json not found"
+        fixture = json.load(open(fixture_path))
 
-    if not fixture_path.exists():
-        return violations, "comparison-sources-data.json not found"
-
-    fixture = json.load(open(fixture_path))
     zeroed_ids = fixture.get("espn_zeroed", [])
     if not zeroed_ids:
         return violations, None
@@ -135,21 +140,28 @@ def check_espn_zeroed_staleness():
         name = id_to_name.get(pid)
         if not name:
             continue
-        for src, sdata in sources.items():
+        for src in sorted(sources):
             if src == "espn" or src.endswith("_adjusted"):
                 continue
-            combos = sdata.get("combos", {})
-            combo = combos.get("half_12", {})
-            vals = combo.get("values", combo.get("reindexed", {}))
-            val = vals.get(name)
-            if isinstance(val, (int, float)) and val > 0:
+            hits = {}
+            for combo_name, combo in (sources[src].get("combos") or {}).items():
+                vals = combo.get("values") or combo.get("reindexed") or {}
+                val = vals.get(name)
+                if isinstance(val, (int, float)) and not isinstance(val, bool) and val > 0:
+                    hits[combo_name] = round(val, 2)
+            if hits:
+                top = max(hits.values())
                 violations.append({
                     "player": name,
                     "player_id": pid,
                     "source": src,
                     "espn_value": 0.0,
-                    "source_value": round(val, 2),
-                    "reason": f"ESPN zeroed {name} (IR) but {src} shows {val:.1f} — source is stale",
+                    "source_value": top,
+                    "combos": sorted(hits),
+                    "n_combos": len(hits),
+                    "reason": (f"ESPN zeroed {name} but {src} still shows up to {top:.1f} "
+                               f"in {len(hits)} combo(s) ({', '.join(sorted(hits)[:4])}"
+                               f"{', ...' if len(hits) > 4 else ''}) -- source may be stale on this player"),
                 })
 
     return violations, None

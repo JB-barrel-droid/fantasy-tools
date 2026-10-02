@@ -1,14 +1,62 @@
 {
-  "generated_at": "2026-09-30T01:30:55.199748+00:00",
+  "generated_at": "2026-10-02T02:34:15.287863+00:00",
   "schema": "data-accuracy-v1",
   "checks": [
     {
       "name": "ir_cross_check",
       "status": "ok",
-      "reason": "All 143 IR players have value <= 5.0",
-      "n_ir_players": 143
+      "reason": "All 142 IR players have value <= 5.0",
+      "n_ir_players": 142
+    },
+    {
+      "name": "espn_zeroed_staleness",
+      "status": "bad",
+      "reason": "2 stale signal(s): fantasycalc/devon achane, usatoday/devon achane",
+      "n_violations": 2
     }
   ],
-  "violations": [],
-  "status": "ok"
+  "violations": [
+    {
+      "player": "devon achane",
+      "player_id": 4237,
+      "source": "fantasycalc",
+      "espn_value": 0.0,
+      "source_value": 56.9,
+      "combos": [
+        "full_10_qb1",
+        "full_10_qb2",
+        "full_14_qb1",
+        "full_14_qb2",
+        "full_8_qb1",
+        "full_8_qb2",
+        "half_10_qb1",
+        "half_10_qb2",
+        "half_14_qb1",
+        "half_14_qb2",
+        "half_8_qb1",
+        "half_8_qb2",
+        "standard_10_qb1",
+        "standard_10_qb2",
+        "standard_14_qb1",
+        "standard_14_qb2",
+        "standard_8_qb1",
+        "standard_8_qb2"
+      ],
+      "n_combos": 18,
+      "reason": "ESPN zeroed devon achane but fantasycalc still shows up to 56.9 in 18 combo(s) (full_10_qb1, full_10_qb2, full_14_qb1, full_14_qb2, ...) -- source may be stale on this player"
+    },
+    {
+      "player": "devon achane",
+      "player_id": 4237,
+      "source": "usatoday",
+      "espn_value": 0.0,
+      "source_value": 28.1,
+      "combos": [
+        "full_12"
+      ],
+      "n_combos": 1,
+      "reason": "ESPN zeroed devon achane but usatoday still shows up to 28.1 in 1 combo(s) (full_12) -- source may be stale on this player"
+    }
+  ],
+  "status": "bad"
 }
