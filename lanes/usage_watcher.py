@@ -2,11 +2,11 @@
 """
 Usage watcher - polls lane quotas, enforces 20% dispatch floor.
 
-- ChatGPT lane: JSON-RPC handshake with initialize + account/rateLimits/read (per JEG-99 spec)
+- ChatGPT lane: polls Codex app-server API (DESCOPED from JEG-99: no polling implementation)
 - MiniMax lane: dispatch ledger (lanes/dispatch_ledger.jsonl) with rolling 5h window
-- Claude lane: ledger-based for now with mark_depleted hook
+- Claude lane: ledger-based with mark_depleted hook, returns unknown until real source
 - Writes lanes/usage.json with per-lane {used_percent, remaining_percent, resets_at, source, updated_at}
-- can_dispatch(lane) returns False when remaining < 20%
+- can_dispatch(lane) returns False when remaining < 20% or when status is unknown
 """
 
 import json
@@ -27,12 +27,14 @@ CLAUDE_QUOTA = 100
 
 def get_chatgpt_usage() -> Dict[str, Any]:
     """
-    Poll ChatGPT (Codex) lane quota per JEG-99 spec:
+    Poll ChatGPT (Codex) lane quota:
     - spawn 'codex app-server'
     - send 'initialize' with clientInfo
     - send 'initialized' notification
     - send 'account/rateLimits/read' with NO jsonrpc:2.0 field
     - extract primary (5h) and secondary (weekly) usedPercent + resetsAt
+
+    Note: Codex polling is descoped from JEG-99 - this is legacy implementation.
 
     Returns usage data with used_percent, remaining_percent, resets_at, source.
     """
@@ -162,6 +164,8 @@ def get_minimax_usage() -> Dict[str, Any]:
     """
     Get MiniMax lane usage from dispatch ledger.
     Rolling 5h window: count dispatches in last 5 hours, each dispatch = 1% of quota.
+    Skips lines with event=="depleted" when counting dispatches.
+    If any depletion marker exists, returns 100% used / 0% remaining.
     """
     if not DISPATCH_LEDGER.exists():
         return _default_usage("minimax", "ledger-missing")
@@ -170,6 +174,7 @@ def get_minimax_usage() -> Dict[str, Any]:
         now = datetime.now(timezone.utc)
         cutoff = now - timedelta(hours=5)
         dispatch_count = 0
+        has_depletion_marker = False
 
         with open(DISPATCH_LEDGER, 'r') as f:
             for line in f:
@@ -178,6 +183,15 @@ def get_minimax_usage() -> Dict[str, Any]:
                     continue
                 try:
                     entry = json.loads(line)
+
+                    # Check for depletion marker first
+                    if entry.get("event") == "depleted" and entry.get("lane") == "minimax":
+                        has_depletion_marker = True
+
+                    # Skip depletion markers when counting dispatches
+                    if entry.get("event") == "depleted":
+                        continue
+
                     ts_str = entry.get("ts")
                     if ts_str:
                         # Parse ISO timestamp
@@ -194,6 +208,19 @@ def get_minimax_usage() -> Dict[str, Any]:
                 except (json.JSONDecodeError, ValueError):
                     continue
 
+        # If depletion marker exists, return depleted state
+        if has_depletion_marker:
+            return {
+                "used_percent": 100.0,
+                "remaining_percent": 0.0,
+                "remaining": 0,
+                "resets_at": None,
+                "source": "ledger",
+                "status": "depleted",
+                "updated_at": now.isoformat(),
+                "dispatch_count": dispatch_count
+            }
+
         # Each dispatch = 1% of quota
         used_percent = min(dispatch_count * 1.0, 100.0)
         remaining = max(100 - dispatch_count, 0)
@@ -209,16 +236,72 @@ def get_minimax_usage() -> Dict[str, Any]:
         }
 
     except Exception as e:
-        return _default_usage("minimax", f"ledger-error: {e}")
+        return _default_usage("minimax", "ledger-error")
 
 
 def get_claude_usage() -> Dict[str, Any]:
     """
-    Get Claude lane usage - ledger-based for now.
-    Returns default available until mark_depleted hook is implemented.
+    Get Claude lane usage - ledger-based.
+    Returns unknown until a real data source is implemented.
+    If a depletion marker exists in the ledger, returns 0% remaining with status "depleted".
     """
-    # TODO: Implement Claude ledger tracking
-    return _default_usage("claude", "ledger")
+    if not DISPATCH_LEDGER.exists():
+        return {
+            "used_percent": None,
+            "remaining_percent": None,
+            "remaining": None,
+            "resets_at": None,
+            "source": "none",
+            "status": "unknown",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
+
+    try:
+        now = datetime.now(timezone.utc)
+
+        # Check for depletion marker
+        with open(DISPATCH_LEDGER, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    # Check for Claude depletion marker
+                    if entry.get("event") == "depleted" and entry.get("lane") == "claude":
+                        return {
+                            "used_percent": 100.0,
+                            "remaining_percent": 0.0,
+                            "remaining": 0,
+                            "resets_at": None,
+                            "source": "ledger",
+                            "status": "depleted",
+                            "updated_at": now.isoformat()
+                        }
+                except json.JSONDecodeError:
+                    continue
+
+        # No depletion marker - return unknown
+        return {
+            "used_percent": None,
+            "remaining_percent": None,
+            "remaining": None,
+            "resets_at": None,
+            "source": "none",
+            "status": "unknown",
+            "updated_at": now.isoformat()
+        }
+
+    except Exception as e:
+        return {
+            "used_percent": None,
+            "remaining_percent": None,
+            "remaining": None,
+            "resets_at": None,
+            "source": "none",
+            "status": "unknown",
+            "updated_at": datetime.now(timezone.utc).isoformat()
+        }
 
 
 def mark_minimax_depleted() -> None:
@@ -295,8 +378,13 @@ def can_dispatch(lane: str, usage_data: Optional[Dict[str, Dict[str, Any]]] = No
         # Otherwise, it's already a per-lane dict
 
     if usage_data is None:
-        # Unknown lane - allow by default
-        return True
+        # Unknown lane - fail closed (do not dispatch blind)
+        return False
+
+    # Fail closed for unknown status - never dispatch blind
+    status = usage_data.get("status")
+    if status == "unknown":
+        return False
 
     remaining_percent = usage_data.get("remaining_percent", 100.0)
 
