@@ -699,6 +699,12 @@ def build_checkpoints():
     # headline counts it (a bad here must be impossible to hide).
     result["scale_agreement"] = build_scale_agreement_summary()
 
+    # VORP translation freshness (JEG-70): the as-published sources' chart
+    # values come from Supabase-translated grains wired through by
+    # translate_via_vorp.py. A stale grain or a fallback-as-steady-state
+    # silently reverts the chart to quantile-mapped values.
+    result["vorp_translation"] = build_vorp_translation_summary()
+
     return result
 
 
@@ -756,6 +762,105 @@ def build_scale_agreement_summary():
         "reason": data.get("status_reason", ""),
         "timestamp": data.get("generated_at"),
         "verdict_counts": vc,
+    }
+
+
+def build_vorp_translation_summary():
+    """VORP translation freshness for as-published sources (JEG-70).
+
+    Reads the translation provenance blocks stamped by
+    pipelines/translate_via_vorp.py into the fixture's as-published source
+    combos. This is the end-to-end wired-through signal: what the chart
+    actually serves, not what the pipeline claims.
+
+    Expected: every combo that is not a qb-divergent sibling (data-driven
+    guard in translate_via_vorp._qb_divergent_siblings, which pins those to
+    reindex-fallback by design) has translation.method == "vorp-supabase"
+    with grain.week == the current NFL week.
+
+    Status:
+      ok   - all expected grains at the current week via vorp-supabase
+      warn - any expected grain week < current week (weekly refresh or chain
+             wiring pending), or grain week not recorded (pre-JEG-70
+             provenance; clears on the next chain run)
+      bad  - any expected combo on reindex-fallback (fallback is the steady
+             state -- JEG-70 acceptance criterion 3), or no provenance blocks
+             at all (wiring never ran)
+      unk  - fixture unreadable; never a failure claim
+    """
+    from translate_via_vorp import AS_PUBLISHED_SOURCES, _qb_divergent_siblings
+
+    label = "VORP translation freshness (as-published sources)"
+    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    try:
+        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        return {
+            "label": label,
+            "status": "unk",
+            "reason": f"comparison-sources-data.json unreadable: {e}",
+            "timestamp": None,
+        }
+
+    week = expected_content_week()
+    sources = fixture.get("sources", {}) or {}
+    stale: list[str] = []
+    fallback: list[str] = []
+    unrecorded: list[str] = []
+    n_ok = 0
+    n_expected = 0
+    for source in AS_PUBLISHED_SOURCES:
+        sdata = sources.get(source, {}) or {}
+        combos = sdata.get("combos", {}) or {}
+        guarded = _qb_divergent_siblings(source, sdata)
+        for combo_name, combo in combos.items():
+            if not isinstance(combo, dict):
+                continue
+            if combo_name in guarded:
+                continue  # pinned to reindex-fallback by design (JEG-70)
+            n_expected += 1
+            t = combo.get("translation") or {}
+            method = t.get("method")
+            grain_week = (t.get("grain") or {}).get("week")
+            tag = f"{source}/{combo_name}"
+            if not t or not method:
+                fallback.append(f"{tag}: no translation provenance (wiring never ran)")
+            elif method == "reindex-fallback":
+                fallback.append(f"{tag}: reindex-fallback is the steady state")
+            elif grain_week is None:
+                unrecorded.append(tag)
+            elif grain_week < week:
+                stale.append(f"{tag}: grain week {grain_week} < {week}")
+            else:
+                n_ok += 1
+
+    timestamp = fixture.get("built_at")
+    if fallback:
+        return {
+            "label": label,
+            "status": "bad",
+            "reason": f"{len(fallback)} combo(s) on reindex-fallback: " + "; ".join(fallback[:5]),
+            "timestamp": timestamp,
+            "n_ok": n_ok,
+            "n_expected": n_expected,
+        }
+    problems = stale + [f"{t}: grain week not recorded" for t in unrecorded]
+    if problems:
+        return {
+            "label": label,
+            "status": "warn",
+            "reason": f"{len(problems)} combo(s) stale or unrecorded: " + "; ".join(problems[:5]),
+            "timestamp": timestamp,
+            "n_ok": n_ok,
+            "n_expected": n_expected,
+        }
+    return {
+        "label": label,
+        "status": "ok",
+        "reason": f"All {n_expected} expected grains at week {week} via vorp-supabase.",
+        "timestamp": timestamp,
+        "n_ok": n_ok,
+        "n_expected": n_expected,
     }
 
 

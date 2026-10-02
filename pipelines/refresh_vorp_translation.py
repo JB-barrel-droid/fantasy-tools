@@ -97,9 +97,22 @@ def main() -> int:
                         help="NFL week (default: current from nfl_week.py)")
     parser.add_argument("--no-checkpoint", action="store_true",
                         help="Skip the Supabase freshness checkpoint")
+    parser.add_argument("--check-only", action="store_true",
+                        help="Exit 0 if all grains are fresh, 1 if any stale; "
+                             "writes nothing (for staleness-gated callers)")
     args = parser.parse_args()
 
     week = args.week or current_nfl_week()
+
+    if args.check_only:
+        try:
+            freshness_checkpoint(week)
+        except SystemExit as e:
+            print(f"VORP grains stale for week {week}; refresh needed.")
+            print(e)
+            return 1
+        return 0
+
     print(f"VORP translation refresh: season {SEASON}, week {week} "
           f"({len(GRAINS) * len(SCORINGS)} grains)")
 
