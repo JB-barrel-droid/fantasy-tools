@@ -42,6 +42,16 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
 LEG_DIR = REPO / "data" / "ddf-two-tier"
 
+# JEG-132 R5a: derived sections must record the raw DDF leg they were built
+# from so the sibling R5b checker can detect a derived section lagging its
+# input. See pipelines/lib/lineage_block.py for the schema.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.lineage_block import (  # noqa: E402
+    collect_leg_triples,
+    resolve_raw_vintage,
+    build_lineage_block,
+)
+
 # DDF leg scoring -> fixture combo scoring word.
 SCORING_MAP = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 TEAM_COUNTS = [8, 10, 12, 14]
@@ -143,6 +153,15 @@ def main() -> int:
     legs = {}
     leg_ppgs = {}
     vintages = set()
+    # JEG-132 R5a: gather raw leg triples + provenance across the three
+    # scorings. All three legs must share a vintage (asserted below), so
+    # one set of triples / built_at / content_vintage describes the raw
+    # input the derived section was built from.
+    leg_triples: list = []
+    leg_built_at = None
+    leg_content_vintage = None
+    leg_legacy_vintage = None
+    leg_fetched_at = None
     for scoring in SCORING_MAP:
         leg_path = find_fresh_leg(scoring)
         leg = json.loads(leg_path.read_text(encoding="utf-8"))
@@ -150,6 +169,14 @@ def main() -> int:
         leg_ppgs[scoring] = load_leg_ppg(leg_path)
         vintages.add(leg.get("inputs", {}).get("espn_snapshot_date"))
         print(f"  {scoring}: {leg.get('bake_id')} ({len(legs[scoring])} values)")
+        # First leg's provenance wins (all three share vintage by assertion).
+        if not leg_triples:
+            leg_triples = collect_leg_triples(leg)
+            leg_built_at = leg.get("generated_at")
+            inputs_block = leg.get("inputs") or {}
+            leg_content_vintage = inputs_block.get("content_vintage")
+            leg_legacy_vintage = inputs_block.get("espn_snapshot_date")
+            leg_fetched_at = leg.get("fetched_at")
     if len(vintages) != 1:
         raise SystemExit(f"Leg vintages disagree: {sorted(vintages)}; refusing to mix.")
     vintage = vintages.pop()
@@ -238,6 +265,22 @@ def main() -> int:
     new_section["rails"] = (
         "pipelines/build_espn_section_from_ddf_leg.py (DDF two-tier leg, "
         "fresh values direct, pie measured from current data)"
+    )
+
+    # JEG-132 R5a: stamp the immutable lineage block describing the raw
+    # DDF leg this derived section was built from. See pipelines/lib/
+    # lineage_block.py for the schema consumed by the R5b checker.
+    raw_vintage, vintage_source = resolve_raw_vintage(
+        content_vintage=leg_content_vintage,
+        espn_snapshot=leg_legacy_vintage,
+        vintage=vintage,
+        fetched_at=leg_fetched_at,
+    )
+    new_section["lineage"] = build_lineage_block(
+        triples=leg_triples,
+        raw_vintage=raw_vintage,
+        raw_built_at=leg_built_at,
+        vintage_source=vintage_source,
     )
 
     if args.dry_run:

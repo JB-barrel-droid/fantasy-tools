@@ -48,6 +48,16 @@ OUTPUT_SCHEMA = "trade-value-comparison-section-candidate-v1"
 # comparison fixture's combo vocabulary is full / half / standard.
 SCORING_WORDS = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 
+# JEG-132 R5a: derived sections must record the raw reference artifact(s)
+# they were built from so the sibling R5b checker can detect a derived
+# section lagging its input. See pipelines/lib/lineage_block.py.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.lineage_block import (  # noqa: E402
+    collect_reference_triples,
+    resolve_raw_vintage,
+    build_lineage_block,
+)
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
@@ -281,6 +291,25 @@ def build_section(
         for combo, values in sorted(combos.items())
     }
 
+    # JEG-132 R5a: stamp an immutable lineage block describing the raw
+    # reference input(s) this derived candidate was built from. Multiple
+    # inputs (per-scoring artifacts) are unioned into one candidate and
+    # must share source/fetched_at/content_vintage (asserted above), so
+    # one set of triples + provenance describes the raw input.
+    ref_triples: list = []
+    if len(paths) == 1:
+        ref_doc = load_json(Path(paths[0]))
+        ref_triples = collect_reference_triples(ref_doc)
+    else:
+        for raw in paths:
+            ref_doc = load_json(Path(raw))
+            ref_triples.extend(collect_reference_triples(ref_doc))
+    ref_built_at = reference.get("built_at") if len(paths) == 1 else None
+    raw_vintage, vintage_source = resolve_raw_vintage(
+        content_vintage=content_vintage,
+        fetched_at=fetched_at,
+    )
+
     return {
         "schema": OUTPUT_SCHEMA,
         "generated_at": utc_now(),
@@ -310,6 +339,12 @@ def build_section(
         "source_provenance": source_provenance,
         "native_unit": meta.get("native_unit") or "source published value (as scraped)",
         "combos": combo_payload,
+        "lineage": build_lineage_block(
+            triples=ref_triples,
+            raw_vintage=raw_vintage,
+            raw_built_at=ref_built_at,
+            vintage_source=vintage_source,
+        ),
         "summary": {
             "reference_row_count": len(rows),
             "placed_count": placed,
