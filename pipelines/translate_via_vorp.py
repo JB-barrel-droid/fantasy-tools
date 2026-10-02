@@ -120,11 +120,17 @@ def resolve_key(slug, combo_keys, fixture_keys, name_keys):
     return (name_keys or {}).get(slug.strip().lower())
 
 
-def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys):
-    """Substitute translated values into one combo. Returns a report dict."""
+def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys,
+                week=None, season=None):
+    """Substitute translated values into one combo. Returns a report dict.
+
+    week/season stamp the provenance grain (JEG-70): without them the
+    recorded grain cannot be checked for freshness downstream.
+    """
     grain = parse_combo(combo_name)
     report = {"source": source, "combo": combo_name, "method": None,
-              "n_translated": 0, "n_fallback_reindex": 0, "n_total": 0}
+              "n_translated": 0, "n_fallback_reindex": 0, "n_total": 0,
+              "week": week, "season": season}
     reindexed = combo.get("reindexed")
     if not isinstance(reindexed, dict) or not reindexed:
         report["method"] = "reindex-fallback"
@@ -282,9 +288,8 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False):
             reports.append(report)
             continue
         report = apply_combo(source, combo_name, combo, translated,
-                             fixture_keys, name_keys)
-        report["week"] = week
-        report["season"] = season
+                             fixture_keys, name_keys,
+                             week=week, season=season)
         # Empty grain = same fail-safe path: keep reindexed, mark fallback.
         if not translated:
             combo["translation"] = _provenance({**report, "week": week,
