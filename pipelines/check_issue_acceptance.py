@@ -253,11 +253,21 @@ def main(argv: list[str] | None = None) -> int:
             print(rejection, file=sys.stderr)
         return 1
 
+    # The rendered check only runs for UI-affecting issues; report the
+    # number of checks that actually ran, not a fixed 5/5.
+    n_checks = 5 if issue_is_ui_affecting(issue_body) else 4
+    skip_note = (
+        "" if n_checks == 5 else " (rendered check skipped: not UI-affecting)"
+    )
     if args.stdin:
-        sys.stderr.write("Acceptance (runnable) section OK: 5/5 checks passed.\n")
+        sys.stderr.write(
+            f"Acceptance (runnable) section OK: {n_checks}/5 checks passed"
+            f"{skip_note}.\n"
+        )
     else:
         sys.stderr.write(
-            f"Acceptance (runnable) section OK in {args.issue_body}: 5/5 checks passed.\n"
+            f"Acceptance (runnable) section OK in {args.issue_body}: "
+            f"{n_checks}/5 checks passed{skip_note}.\n"
         )
     return 0
 
