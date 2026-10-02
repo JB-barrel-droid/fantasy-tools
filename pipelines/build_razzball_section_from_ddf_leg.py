@@ -128,6 +128,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
         }
         vintage = vintage or rz_leg.get("inputs", {}).get("razzball_snapshot_date")
     return {
+        "kind": "model projections, valued by our model",
         "provenance": "published",   # Razzball is source-authored; we only index it.
         "source_url": source_url,
         # Razzball is rest-of-season projections, not a week-designated trade
