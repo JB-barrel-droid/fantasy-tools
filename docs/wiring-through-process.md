@@ -71,9 +71,9 @@ The monitoring dashboard must include checks that prove wiring, not just impleme
 - Chris -> Christopher (nickname expansion)
 
 **Fixes applied:**
-1. Created `pipelines/lib/canonical_players.py` with a single `norm_player_name()` function and `resolve()` registry-based resolution
-2. Added `tests/test_player_identity_guard.py` - an AST-based regression test that detects ad-hoc normalization functions in pipeline files
-3. Wired the guard into `make test-unit` to prevent regression
+1. Added `tests/test_player_identity_guard.py` - an AST-based regression test that scans the real pipelines tree and fails on new ad-hoc normalization functions, enforcing future use of the pre-existing `pipelines/lib/canonical_players.py` (`resolve()` registry-based resolution) for identity matching
+2. Wired the guard into `make test-unit` to prevent regression
+3. Deliberately did NOT migrate the existing local normalizers: a tricky-name battery (apostrophes, periods, hyphens, suffixes, nicknames) showed the canonical normalizer differs on 5/13 names (e.g. Chris->Christopher nickname expansion), which would have broken the fail-closed "nothing is guessed" rule in `save_razzball_references.py` and its identity tests. Migration of each existing site needs per-site analysis as follow-up work - the guard guarantees no NEW ad-hoc normalizers appear in the meantime.
 4. Kept existing `normalize_name` in `match_source_snapshot.py` for label-only purposes (not identity matching)
 
 **Verification:** The guard test passes, and the razzball identity tests (`test_nicknames_are_not_guessed`, `test_the_snapshots_own_player_norm_resolves_a_suffix_spelling`, `test_duplicate_players_stay_ambiguous_and_are_never_guessed`) all pass, proving the fail-closed behavior is preserved.
