@@ -30,25 +30,37 @@ jobs:
         with:
           python-version: "3.12"
       - run: make sync
-      - id: validate
-        run: make validate
-        continue-on-error: true
+      # JEG-133: validate runs on every commit (no path-dependent gating) and
+      # is blocking. A red validate blocks the deploy on every push.
+      - run: make validate
       - name: Rebuild source value lineage
         run: python3 pipelines/build_source_value_lineage.py
         continue-on-error: true
-      - name: Check if only monitor files changed
-        id: changes
+      # JEG-133: the rendered gate runs on every path that can reach
+      # production, not only on PRs. Same invocation as preview.yml so a
+      # direct push to main is gated identically to a PR. The step's
+      # `exit $rc` makes the gate blocking; a failed gate stops the deploy.
+      - name: Rendered gate (headless browser on the built dist)
+        id: gate
         run: |
-          if git diff --name-only HEAD~1 HEAD | grep -qv '^dist/modules/'; then
-            echo "product_changed=true" >> $GITHUB_OUTPUT
-          else
-            echo "product_changed=false" >> $GITHUB_OUTPUT
-          fi
-      - name: Fail if product changed but validation failed
-        if: steps.validate.outcome != 'success' && steps.changes.outputs.product_changed == 'true'
-        run: |
-          echo "Product files changed but validation failed. Blocking deploy."
-          exit 1
+          npm ci --prefix tests/rendered_gate
+          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+          set +e
+          node tests/rendered_gate/gate.mjs dist --out rendered-gate.json
+          rc=$?
+          node tests/rendered_gate/bench_share_readout_harness.mjs dist
+          rc2=$?
+          node tests/rendered_gate/gate_flexibility.mjs dist
+          rc3=$?
+          set -e
+          echo "page_errors=$(python3 -c "import json; print(len(json.load(open('rendered-gate.json'))['pageErrors']))")" >> "$GITHUB_OUTPUT"
+          echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
+          if [ $rc2 -ne 0 ]; then echo "JEG-103 bench-share readout guard failed"; fi
+          if [ $rc3 -ne 0 ]; then echo "JEG-135 rendered input sweep failed"; fi
+          exit $rc
+          echo "page_errors=$(python3 -c "import json; print(len(json.load(open('rendered-gate.json'))['pageErrors']))")" >> "$GITHUB_OUTPUT"
+          echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
+          exit $rc
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

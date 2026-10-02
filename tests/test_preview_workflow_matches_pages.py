@@ -107,10 +107,42 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_production_build_steps_are_the_expected_three(self):
         # If pages.yml changes its build steps this fails loudly, so the guard's
         # pinned list is updated deliberately instead of drifting unnoticed.
+        # JEG-133: make validate is blocking on every run (no continue-on-error,
+        # no path-conditional skip); the rendered gate is the next build step
+        # but uses a multi-line run block and is excluded by run_command.
         self.assertEqual(
-            [("make sync", False), ("make validate", True),
+            [("make sync", False), ("make validate", False),
              ("python3 pipelines/build_source_value_lineage.py", True)],
             build_steps(PAGES))
+
+    def test_pages_runs_the_rendered_gate(self):
+        # JEG-133: the rendered gate runs in pages.yml (production deploy),
+        # not only in preview.yml, so a direct push to main is gated too.
+        gate = [b for b in steps(PAGES) if "tests/rendered_gate/gate.mjs" in b]
+        self.assertEqual(len(gate), 1,
+                         "pages.yml must run the rendered gate exactly once")
+        self.assertNotIn("continue-on-error", gate[0],
+                         "the rendered gate must be blocking in pages.yml")
+
+    def test_pages_has_no_path_conditional_validate(self):
+        # JEG-133: the deploy gate must not depend on which files the last
+        # commit touched. A path-conditional skip is exactly the bypass
+        # GAP-037 / PH-6 / BH-1 name.
+        self.assertNotIn("dist/modules/", PAGES,
+                         "pages.yml must not gate on dist/modules/ paths")
+        self.assertNotIn("product_changed", PAGES,
+                         "pages.yml must not have a path-conditional gate step")
+        self.assertNotIn("HEAD~1", PAGES,
+                         "pages.yml must not diff against the previous commit "
+                         "to decide whether to validate")
+
+    def test_pages_validate_is_blocking(self):
+        # JEG-133: make validate must be blocking in pages.yml. The previous
+        # shape used continue-on-error + a path-conditional re-fail step.
+        flags = dict(build_steps(PAGES))
+        self.assertIn("make validate", flags)
+        self.assertFalse(flags["make validate"],
+                         "make validate must block the deploy in pages.yml")
 
     def test_dropping_a_build_step_is_caught(self):
         mutated = PREVIEW.replace("      - run: make sync\n", "")
@@ -176,6 +208,56 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         for word in FORBIDDEN_IN_PREVIEW:
             mutated = PREVIEW + f"\n# {word}\n"
             self.assertCaught(mutated, word)
+
+    # JEG-133 negative tests: catch reintroduction of the bypass GAP-037 names.
+    # The current pages.yml is intentionally clean (no path-conditional skip,
+    # blocking validate, blocking rendered gate); these mutations re-introduce
+    # each defect and must be flagged.
+
+    def test_reintroducing_path_conditional_validate_is_caught(self):
+        # Inject the old diff-based "only monitor files changed" step. The
+        # test_pages_has_no_path_conditional_validate assertions must fail.
+        mutated = PAGES + (
+            "\n      - name: Path-conditional gating (the bug GAP-037 names)\n"
+            "        id: bad\n"
+            "        run: |\n"
+            "          if git diff --name-only HEAD~1 HEAD | grep -qv '^dist/modules/'; then\n"
+            "            echo 'product_changed=true'\n"
+            "          else\n"
+            "            echo 'product_changed=false'\n"
+            "          fi\n"
+        )
+        self.assertNotEqual(PAGES, mutated)
+        # Each of these is exactly one of the assertions in
+        # test_pages_has_no_path_conditional_validate; a regression that
+        # re-introduces the bypass re-introduces at least one of them.
+        self.assertIn("dist/modules/", mutated,
+                      "test_pages_has_no_path_conditional_validate must catch this")
+        self.assertIn("HEAD~1", mutated,
+                      "test_pages_has_no_path_conditional_validate must catch this")
+        self.assertIn("product_changed", mutated,
+                      "test_pages_has_no_path_conditional_validate must catch this")
+
+    def test_reintroducing_non_blocking_rendered_gate_in_pages_is_caught(self):
+        # Take the pages.yml gate block and add continue-on-error: true.
+        mutated = PAGES.replace(
+            "        id: gate\n",
+            "        id: gate\n        continue-on-error: true\n", 1)
+        self.assertNotEqual(PAGES, mutated)
+        gate = [b for b in steps(mutated) if "tests/rendered_gate/gate.mjs" in b]
+        self.assertEqual(len(gate), 1)
+        self.assertIn("continue-on-error", gate[0],
+                      "a non-blocking rendered gate in pages.yml must fail the test")
+
+    def test_reintroducing_non_blocking_validate_in_pages_is_caught(self):
+        # Add continue-on-error back to make validate in pages.yml.
+        mutated = PAGES.replace(
+            "      - run: make validate\n",
+            "      - run: make validate\n        continue-on-error: true\n", 1)
+        self.assertNotEqual(PAGES, mutated)
+        flags = dict(build_steps(mutated))
+        self.assertTrue(flags.get("make validate"),
+                        "a non-blocking validate in pages.yml must fail the test")
 
 
 if __name__ == "__main__":
