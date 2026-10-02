@@ -2,25 +2,35 @@
 """JEG-87 tests: FantasyCalc puller week-coding with fail-closed validation.
 
 The 2026-10-02 USA Today incident (pulled Week 3 article, dashboard labeled
-Week 4) made week-coding a hard rule (docs/week-coding-rules.md). This
-module proves the FantasyCalc puller extracts the week from URL + page
-title AND refuses to label a dataset when those evidence disagree or are
-missing.
+Week 4) made week-coding a hard rule (docs/week-coding-rules.md).
 
-All tests are negative-tested against the named defect: the validator must
-fail closed when URL week != title week != requested week, and must not
-silently fall back to the request alone.
+Honest scope for FantasyCalc (reviewer correction 2026-10-02):
+FantasyCalc's API (/values/current) carries no week in the URL and has no
+week-labeled page title, so there is no page content to extract a week
+from. The first implementation generated a page title from the request
+and appended &week=N to the recorded URL -- synthetic evidence that made
+the validator agree with itself. This module pins the honest behavior:
+the week is asserted from --week-label (fail-closed if unparseable),
+the recorded URL is byte-identical to the URL actually fetched, and the
+evidence dict carries week_url=None / week_titles=[] so downstream
+consumers can see the evidence is request-asserted.
+
+All tests are negative-tested against the named defects:
+1. The validator must fail closed when URL week != title week !=
+   requested week, and must not silently fall back to the request alone.
+2. main() must not record synthetic page evidence (no generated title,
+   no &week= param on a URL the API ignores).
+3. main() must write caches keyed exactly like the real bsd contract
+   (string keys "scoring_teams_qbN"); tuple-unpacking the string keys
+   crashed the write loop in the first implementation.
 """
 
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
-import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 WATCHDOG = ROOT / "ops" / "watchdog"
@@ -38,27 +48,30 @@ def _load(name, path):
     return mod
 
 
-# Load without triggering the GOAL_BIN sys.path side-effect at import time:
-# the test only needs the helpers (extract_* and validate_week_consistency).
-# We monkey-patch sys.path/sys.modules so the module-level
-# `import build_sources_dashboard as bsd` is satisfied with a fake.
+# Mirror the REAL build_sources_dashboard contract (values verified
+# against ~/workspace/goals/football-signal-database-and-app/lottery/bin/
+# build_sources_dashboard.py): SCORINGS uses "half"/"full" (not
+# "half_ppr"/"ppr"), pull keys are "%s_%d_qb%d" strings, and the fetched
+# URL is .../values/current?isDynasty=false&numQbs=N&numTeams=M&ppr=P
+# with ppr in {"standard": 0, "half": 0.5, "full": 1}.
 class _FakeBSD:
-    SCORINGS = ["standard", "half_ppr", "ppr"]
+    SCORINGS = ["standard", "half", "full"]
     TEAM_COUNTS = [8, 10, 12, 14]
     QB_COUNTS = [1, 2]
 
-    def pull_fantasycalc(self, *a, **kw):
-        return [{"player_key": 1, "value": 1} for _ in range(150)]
+    def __init__(self):
+        self.pull_calls = []
+        self.saved_calls = []
 
-    def save_cache(self, *a, **kw):
-        pass
+    def pull_fantasycalc(self, scoring, teams, qbs):
+        self.pull_calls.append((scoring, teams, qbs))
+        return [{"player_key": i, "value": 100 - i} for i in range(150)]
+
+    def save_cache(self, name, payload):
+        self.saved_calls.append((name, payload))
 
 
-_fake_bsd = _FakeBSD()
-sys.modules["build_sources_dashboard"] = _fake_bsd
-# refresh_fantasycalc also imports from GOAL_BIN at module level. Stub it
-# out so the test does not require the user's goal workspace.
-sys.path.insert(0, str(WATCHDOG))  # already there; harmless
+sys.modules["build_sources_dashboard"] = _FakeBSD()
 refresh = _load("refresh_fantasycalc", WATCHDOG / "refresh_fantasycalc.py")
 
 
@@ -79,6 +92,8 @@ class ExtractWeekFromUrlTest(unittest.TestCase):
         self.assertEqual(refresh.extract_week_from_url(url), 7)
 
     def test_missing_week_returns_none(self):
+        # The real FantasyCalc API URL has no week param -- the extractor
+        # must say so (None), not invent one.
         url = ("https://api.fantasycalc.com/values/current"
                "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5")
         self.assertIsNone(refresh.extract_week_from_url(url))
@@ -91,17 +106,6 @@ class ExtractWeekFromUrlTest(unittest.TestCase):
         """A pathological 'week=abc' should not be parsed as 0."""
         url = "https://api.fantasycalc.com/values/current?week=abc"
         self.assertIsNone(refresh.extract_week_from_url(url))
-
-    def test_negative_test_old_behavior_would_have_accepted_unparseable(self):
-        """Negative test: the OLD rule (default-to-request when URL has
-        no week) would have accepted any string. Prove the extractor
-        refuses unparseable input so the test guards the fix, not the
-        bug."""
-        url = "https://api.fantasycalc.com/values/current?week=abc"
-        # Old-style fallback would have returned the requested week; the
-        # extractor must refuse instead so the validator can fail closed.
-        self.assertNotEqual(refresh.extract_week_from_url(url), 0)
-        self.assertNotEqual(refresh.extract_week_from_url(url), "abc")
 
 
 # ---------------------------------------------------------------------------
@@ -116,8 +120,7 @@ class ExtractWeekFromTitleTest(unittest.TestCase):
 
     def test_week_in_middle(self):
         self.assertEqual(
-            refresh.extract_week_from_title("FantasyCalc Week 7 Trade Values "
-                                            "(half_ppr, 12-team, 1QB)"), 7)
+            refresh.extract_week_from_title("FantasyCalc Week 7 Trade Values"), 7)
 
     def test_case_insensitive(self):
         self.assertEqual(
@@ -132,20 +135,6 @@ class ExtractWeekFromTitleTest(unittest.TestCase):
     def test_none_returns_none(self):
         self.assertIsNone(refresh.extract_week_from_title(None))
 
-    def test_two_week_mentions_takes_first(self):
-        """Belt-and-braces: a title that mentions two weeks is malformed,
-        but the first one is what the page would actually show."""
-        self.assertEqual(
-            refresh.extract_week_from_title("Week 4 (was Week 2 last week)"), 4)
-
-    def test_negative_test_old_behavior_would_have_accepted_label_only(self):
-        """Negative test: the OLD rule (label-only) would have accepted a
-        title that just says 'Trade Values' as 'no week evidence'. The
-        extractor must return None so the validator can fail closed
-        instead of silently defaulting to the request."""
-        title = "FantasyCalc Trade Values"  # no week number
-        self.assertIsNone(refresh.extract_week_from_title(title))
-
 
 # ---------------------------------------------------------------------------
 # 3. Validator: agreement + fail-closed
@@ -156,32 +145,25 @@ class ValidateWeekConsistencyTest(unittest.TestCase):
     def test_url_title_request_all_agree(self):
         url = ("https://api.fantasycalc.com/values/current"
                "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5&week=4")
-        title = "FantasyCalc Week 4 Trade Values (half_ppr, 12-team, 1QB)"
+        title = "FantasyCalc Week 4 Trade Values"
         ev = refresh.validate_week_consistency(url, title, 4)
         self.assertEqual(ev["week"], 4)
         self.assertEqual(ev["week_url"], 4)
         self.assertEqual(ev["week_titles"], [4])
         self.assertEqual(ev["week_requested"], 4)
 
-    def test_url_only_request_matches(self):
-        """URL evidence carries the week; no title; request matches."""
-        url = ("https://api.fantasycalc.com/values/current?week=5"
-               "&isDynasty=false&numQbs=1&numTeams=12&ppr=0.5")
-        ev = refresh.validate_week_consistency(url, None, 5)
-        self.assertEqual(ev["week"], 5)
-        self.assertEqual(ev["week_url"], 5)
-        self.assertEqual(ev["week_titles"], [])
-        self.assertEqual(ev["week_requested"], 5)
-
-    def test_title_only_request_matches(self):
-        """Title evidence carries the week; no URL week; request matches."""
-        ev = refresh.validate_week_consistency(
-            "https://api.fantasycalc.com/values/current",
-            "FantasyCalc Week 6 Trade Values", 6)
-        self.assertEqual(ev["week"], 6)
+    def test_request_only_path_is_honest(self):
+        """The FantasyCalc production path: real API URL (no week param),
+        no page title (API pull, not a page scrape), request asserts the
+        week. The evidence dict must show week_url=None / week_titles=[]
+        so consumers know no page corroboration exists."""
+        url = ("https://api.fantasycalc.com/values/current"
+               "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5")
+        ev = refresh.validate_week_consistency(url, None, 4)
+        self.assertEqual(ev["week"], 4)
         self.assertIsNone(ev["week_url"])
-        self.assertEqual(ev["week_titles"], [6])
-        self.assertEqual(ev["week_requested"], 6)
+        self.assertEqual(ev["week_titles"], [])
+        self.assertEqual(ev["week_requested"], 4)
 
     def test_url_title_mismatch_raises(self):
         """The 2026-10-02 defect: URL says Week 3, title says Week 4.
@@ -214,18 +196,6 @@ class ValidateWeekConsistencyTest(unittest.TestCase):
                 "Trade Values", None)
         self.assertIn("could not determine", str(cm.exception).lower())
 
-    def test_request_only_is_evidence(self):
-        """If only the request is supplied, the validator accepts it as
-     the label but still surfaces the missing page evidence so callers
-        can see no URL/title corroboration was found."""
-        ev = refresh.validate_week_consistency(
-            "https://api.fantasycalc.com/values/current",
-            "Trade Values", 4)
-        self.assertEqual(ev["week"], 4)
-        self.assertIsNone(ev["week_url"])
-        self.assertEqual(ev["week_titles"], [])
-        self.assertEqual(ev["week_requested"], 4)
-
     def test_negative_test_old_label_only_rule_would_have_silently_relabeled(self):
         """Negative test for the named defect: the OLD rule (use request
         as label, ignore page evidence) would have labeled this dataset
@@ -241,32 +211,50 @@ class ValidateWeekConsistencyTest(unittest.TestCase):
         # If we got here, the OLD bug is back -- assert what it produced.
         self.fail(
             "Validator returned %r for a request/title mismatch; it must "
-            "have raised to fail closed." % ev)
+            "have raised to fail closed." % (ev,))
 
 
 # ---------------------------------------------------------------------------
-# 4. End-to-end: main() honors week-coding and writes the evidence
+# 4. fantasycalc_url mirrors the real fetch URL
+# ---------------------------------------------------------------------------
+
+
+class FantasycalcUrlTest(unittest.TestCase):
+    def test_url_matches_real_api_shape(self):
+        url = refresh.fantasycalc_url("standard", 8, 1)
+        self.assertEqual(
+            url,
+            "https://api.fantasycalc.com/values/current"
+            "?isDynasty=false&numQbs=1&numTeams=8&ppr=0")
+
+    def test_ppr_mapping_mirrors_bsd(self):
+        """Pin the ppr mapping against bsd.pull_fantasycalc's own
+        {"standard": 0, "half": 0.5, "full": 1}. The first implementation
+        used half_ppr/ppr keys and recorded ppr=0.5 for "full" while the
+        real fetch used ppr=1."""
+        self.assertIn("ppr=0.5", refresh.fantasycalc_url("half", 12, 1))
+        self.assertIn("ppr=1", refresh.fantasycalc_url("full", 12, 1))
+        self.assertIn("ppr=0", refresh.fantasycalc_url("standard", 12, 1))
+
+    def test_no_week_param_recorded(self):
+        """The API ignores unknown params; recording a &week=N URL would
+        be evidence for a request that was never made."""
+        url = refresh.fantasycalc_url("half", 12, 1)
+        self.assertNotIn("week=", url)
+
+
+# ---------------------------------------------------------------------------
+# 5. End-to-end: main() writes honest week evidence
 # ---------------------------------------------------------------------------
 
 
 class MainWeekCodingTest(unittest.TestCase):
-    """Drive main() with mocked bsd.pull_fantasycalc and bsd.save_cache,
-    then assert the cache payloads carry `week` and `week_evidence`."""
+    """Drive main() with a FakeBSD mirroring the real bsd contract."""
 
     def setUp(self):
-        self.saved_calls = []
-
-        def _save(name, payload):
-            self.saved_calls.append((name, payload))
-
-        _bsd = _FakeBSD()
-        _bsd.pull_fantasycalc = lambda *a, **kw: [
-            {"player_key": i, "value": 100 - i} for i in range(150)
-        ]
-        _bsd.save_cache = _save
-        # Patch the bsd reference inside the loaded module.
+        self._fake = _FakeBSD()
         self._orig_bsd = refresh.bsd
-        refresh.bsd = _bsd
+        refresh.bsd = self._fake
 
     def tearDown(self):
         refresh.bsd = self._orig_bsd
@@ -282,54 +270,61 @@ class MainWeekCodingTest(unittest.TestCase):
         finally:
             sys.argv = old_argv
 
-    def test_payloads_include_week_and_week_evidence(self):
+    def test_payloads_include_honest_week_evidence(self):
         self.assertIsNone(self._run_main(["--week-label", "Week 4"]))
         # 24 combo caches + 1 snapshot manifest.
-        self.assertEqual(len(self.saved_calls), 25)
-        for name, payload in self.saved_calls:
-            self.assertIn("week", payload,
-                          "cache %s missing 'week'" % name)
+        self.assertEqual(len(self._fake.saved_calls), 25)
+        for name, payload in self._fake.saved_calls:
             self.assertIn("week_evidence", payload,
                           "cache %s missing 'week_evidence'" % name)
-            self.assertEqual(payload["week"], 4)
-            self.assertEqual(payload["week_evidence"]["week"], 4)
-            self.assertEqual(payload["week_evidence"]["week_url"], 4)
-            self.assertEqual(payload["week_evidence"]["week_requested"], 4)
-            self.assertEqual(payload["week_evidence"]["week_titles"], [4])
+            ev = payload["week_evidence"]
+            self.assertEqual(ev["week"], 4)
+            # Honest request-asserted evidence: no page corroboration.
+            self.assertIsNone(ev["week_url"])
+            self.assertEqual(ev["week_titles"], [])
+            self.assertEqual(ev["week_requested"], 4)
+            # No synthetic page evidence anywhere in the payload.
+            self.assertNotIn("page_title", payload,
+                             "cache %s must not carry a generated title" % name)
+            self.assertNotIn("week=", payload.get("url", ""),
+                             "cache %s records a URL that was never fetched" % name)
+            if name == "fantasycalc_snapshot":
+                # The manifest keeps the human label string: pull_watchdog
+                # formats snap["week"] into its content_vintage line.
+                self.assertEqual(payload["week"], "Week 4")
+            else:
+                self.assertIn("week", payload,
+                              "cache %s missing 'week'" % name)
+                self.assertEqual(payload["week"], 4)
 
-    def test_url_and_title_carry_week_evidence(self):
+    def test_cache_names_match_real_key_shape(self):
+        """Discrimination for the first implementation's crash: it
+        tuple-unpacked the string cache keys ("half_12_qb1") in the write
+        loop, so main() died before writing anything. These names only
+        exist if the loop handles the real bsd key shape."""
+        self.assertIsNone(self._run_main(["--week-label", "Week 4"]))
+        names = [n for n, _ in self._fake.saved_calls]
+        self.assertIn("fantasycalc_half_12_qb1", names)
+        self.assertIn("fantasycalc_full_14_qb2", names)
+        self.assertIn("fantasycalc_standard_8_qb1", names)
+        self.assertIn("fantasycalc_snapshot", names)
+
+    def test_recorded_url_is_the_fetched_url(self):
         self.assertIsNone(self._run_main(["--week-label", "Week 7"]))
-        # Spot-check the first combo cache: its URL must embed week=7
-        # and its page_title must mention Week 7.
-        combo_name, payload = next(
-            (c for c in self.saved_calls if c[0].startswith("fantasycalc_")
-             and c[0] != "fantasycalc_snapshot"))
-        self.assertIn("week=7", payload["url"])
-        self.assertIn("Week 7", payload["page_title"])
-        # Manifest carries the same evidence.
-        snapshot = next(p for n, p in self.saved_calls
-                        if n == "fantasycalc_snapshot")
-        self.assertIn("week=7", snapshot["url"])
-        self.assertIn("Week 7", snapshot["page_title"])
+        payload = dict(self._fake.saved_calls)["fantasycalc_half_12_qb1"]
+        self.assertEqual(
+            payload["url"],
+            "https://api.fantasycalc.com/values/current"
+            "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5")
 
     def test_unparseable_label_refuses_to_pull(self):
         """A request that does not parse as 'Week N' must fail closed
-        before any API call is made."""
+        before any API call is made -- no pulls, no writes."""
         rc = self._run_main(["--week-label", "Sometime soon"])
         self.assertEqual(rc, 1, "main() must sys.exit(1) on unparseable "
                                 "week-label")
-        self.assertEqual(self.saved_calls, [])
-
-    def test_mismatch_in_label_aborts_before_writes(self):
-        """If the label parses AND the constructed URL/title agree with
-        it, the validator should succeed; a mismatch must short-circuit.
-        We can't easily construct a real mismatch in main() (the URL is
-        built from the label), so we instead verify that an unparseable
-        label short-circuits cleanly -- the canonical fail-closed path."""
-        # Verifies the short-circuit path is wired (no writes).
-        rc = self._run_main(["--week-label", "not a week"])
-        self.assertEqual(rc, 1)
-        self.assertEqual(self.saved_calls, [])
+        self.assertEqual(self._fake.pull_calls, [])
+        self.assertEqual(self._fake.saved_calls, [])
 
 
 if __name__ == "__main__":

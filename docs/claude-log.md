@@ -1632,3 +1632,17 @@ executed — naming the checks the reviewer needs to perform)
   documentation evidence only: FantasyCalc's API ignores it (the live
   endpoint is `/values/current`), but adding it makes the URL
   self-describing so a reader can see what week was intended.
+
+### Reviewer correction (Roman, same day)
+- The first implementation had three defects: (1) `page_title()` was
+  generated from the request, not the page -- synthetic evidence that
+  made the validator agree with itself (violates Rule 1); (2) `&week=N`
+  was appended to the recorded URL although the API ignores it, so the
+  recorded URL was never fetched; (3) the write loop tuple-unpacked the
+  string cache keys, crashing main() before any write, and the ppr map
+  used half_ppr/ppr keys (wrong ppr=0.5 recorded for "full").
+- Fixed: `fantasycalc_url()` now mirrors bsd.pull_fantasycalc byte-for-byte
+  (no week param); no page title is recorded (API pull, not a page scrape);
+  the week is request-asserted from --week-label with week_url=None /
+  week_titles=[] so consumers see the evidence grade. 23/23 unittest green,
+  discrimination proven (suite fails 1+3 errors against the old code).
