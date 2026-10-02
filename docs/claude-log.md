@@ -32,6 +32,21 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-18: the razzball_projections table was created (empty)
+
+- Jeremy gave an explicit yes in the Claude session ("yes, run table migration") after I asked him directly and named the statement. Before it, I checked read-only that the table did not exist.
+- Applied the DDL from `sql/migrations/003_razzball_projections.sql` (CREATE TABLE plus the unique and date indexes) with the Supabase `apply_migration` tool, then `NOTIFY pgrst, 'reload schema'`.
+- Verified afterwards, read-only (`information_schema`, `pg_indexes`, `pg_class`): all 21 columns with the expected types, `razzball_projections_pkey` + `razzball_projections_player_date_uidx` + `razzball_projections_snapshot_date_idx`, RLS off (matches `cbs_ros_projections`), 0 rows.
+- No row has been written. The first real save needs `data/raw/sources/razzball/` and the pipeline credentials, which are on Jeremy's machine.
+
+### Not verified
+
+- That the saver's first real upsert works end to end: PostgREST's schema cache after the NOTIFY, and the real snapshot's row shape (the puller is not in the repo). The synthetic round trip passed, which is not the same thing.
+
+### Open
+
+- PR #23 must not merge until the table holds a vintage (GAP-030).
+
 ## 2026-10-02 - JEG-18: migration SQL written, not run; one of my guard tests was wrong
 
 - Muse approved the table design on JEG-18, so `sql/migrations/003_razzball_projections.sql` is in PR #23. It has not been run and nothing was written to Supabase. The rollback (`DROP TABLE IF EXISTS public.razzball_projections;`) is a comment.
