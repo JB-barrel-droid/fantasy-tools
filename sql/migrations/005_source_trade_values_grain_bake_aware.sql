@@ -18,7 +18,9 @@
 -- Apply via the Supabase SQL editor (PostgREST cannot run DDL), then:
 --   NOTIFY pgrst, 'reload schema';
 
-DROP INDEX IF EXISTS public.source_trade_values_grain;
+-- NOTE: source_trade_values_grain was originally a UNIQUE CONSTRAINT (not a plain index),
+-- so we must use ALTER TABLE DROP CONSTRAINT, not DROP INDEX.
+ALTER TABLE public.source_trade_values DROP CONSTRAINT IF EXISTS source_trade_values_grain;
 CREATE UNIQUE INDEX IF NOT EXISTS source_trade_values_grain
     ON public.source_trade_values
     (source, player_norm, scoring, league_teams, qb_slots, season, week, variant, bake_id);
