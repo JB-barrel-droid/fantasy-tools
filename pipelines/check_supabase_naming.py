@@ -15,9 +15,10 @@ CREATE / CREATE OR REPLACE / CREATE MATERIALIZED, the IF NOT EXISTS variant,
 and schema-qualified names (``public.foo``). SQL comments are stripped before
 matching, so a ``-- mentions CREATE TABLE something`` line is not flagged.
 
-Run as part of ``make validate``. Exit 0 if every CREATE in
-``sql/migrations/*.sql`` is conventional or on the exception list; exit 1
-listing every violation with the source file, line, kind, and offending name.
+Run as part of ``make validate`` (wiring is a follow-up; see the JEG-111
+evidence bundle). Exit 0 if every CREATE in ``sql/migrations/*.sql`` is
+conventional or on the exception list; exit 1 listing every violation with
+the source file, line, kind, and offending name.
 """
 
 from __future__ import annotations
