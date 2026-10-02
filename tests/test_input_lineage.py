@@ -138,12 +138,11 @@ def _write_fixture_with_raw_and_adjusted(
                                   "raw_built_at": "x", "vintage_source": "x"}
         section["name"] = f"Raw {src}"
         fixture["sources"][src] = section
-    # espn anchor section so the fixture has the live shape (the derived
-    # sections we test against are _adjusted; cbsros/espn/razzball are
-    # tested separately).
-    espn_section = copy.deepcopy(fixture["sources"]["fantasycalc"])
-    espn_section["name"] = "ESPN raw anchor"
-    fixture["sources"]["espn"] = espn_section
+    # NOTE: no espn/cbsros/razzball sections here. In the live fixture those
+    # keys are DERIVED (R5a stamps lineage on them), so the checker treats any
+    # such key as derived and a lineage-less one is a mismatch. The derived
+    # sections under test here are the _adjusted ones; leg-derived sections
+    # are covered by the dedicated leg tests below.
     fx_path = tmp / "comparison-sources-data.json"
     fx_path.write_text(json.dumps(fixture))
     # Now stamp _adjusted sections. Default: stamp lineage matching the raw.
@@ -244,10 +243,17 @@ def _run_checker(fixture_path: Path, *, output_path: Path | None = None,
         cil.DEFAULT_OUTPUT = output_path or (repo_root / "output" / "input-lineage.json")
         cil.LEG_DIR = leg_dir or (repo_root / "data" / "ddf-two-tier")
         cil.CANDIDATES_DIR = candidates_dir or (repo_root / "output" / "comparison-candidates")
+        cmd = [sys.executable, str(PIPELINES / "check_input_lineage.py"),
+               "--fixture", str(fixture_path),
+               "--output", str(output_path or (repo_root / "output" / "input-lineage.json"))]
+        # The checker runs in a subprocess: module-constant monkey-patches do
+        # NOT propagate, so pass the dirs as CLI args.
+        if leg_dir is not None:
+            cmd += ["--leg-dir", str(leg_dir)]
+        if candidates_dir is not None:
+            cmd += ["--candidates-dir", str(candidates_dir)]
         result = subprocess.run(
-            [sys.executable, str(PIPELINES / "check_input_lineage.py"),
-             "--fixture", str(fixture_path),
-             "--output", str(output_path or (repo_root / "output" / "input-lineage.json"))],
+            cmd,
             capture_output=True, text=True, env={**os.environ, "PYTHONPATH":
                 f"{PIPELINES}:{LIB}"},
         )

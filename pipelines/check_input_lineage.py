@@ -337,7 +337,19 @@ def main() -> int:
                         help="Path to comparison-sources-data.json")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT,
                         help="Where to write the input-lineage.json monitor artifact")
+    parser.add_argument("--leg-dir", type=Path, default=None,
+                        help="Override the DDF leg directory (default: <repo>/data/ddf-two-tier)")
+    parser.add_argument("--candidates-dir", type=Path, default=None,
+                        help="Override the comparison-candidates directory")
     args = parser.parse_args()
+
+    # Overrides must apply before any check runs (module constants are read
+    # at call time, so rebinding here is sufficient).
+    global LEG_DIR, CANDIDATES_DIR
+    if args.leg_dir is not None:
+        LEG_DIR = args.leg_dir
+    if args.candidates_dir is not None:
+        CANDIDATES_DIR = args.candidates_dir
 
     if not args.fixture.exists():
         # Fail closed: a missing fixture means no provenance to verify.
