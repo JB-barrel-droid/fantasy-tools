@@ -289,18 +289,24 @@ class StaticExportTest(unittest.TestCase):
             # rebuild now writes fresh-leg values directly.
             ("espn", "full_12"): 26.9,
             # cbsros (CBS rest-of-season projections through the DDF two-tier
-            # leg, 2026-09-30 vintage): Allen's CBS ROS per-game is 24.357 vs
-            # ESPN's 21.15, yet his indexed value is 20.0 vs ESPN's 26.9 --
-            # the two-tier leg measures positional pies from each source's own
-            # pool, so per-game rank does not transfer directly.
-            # 2026-10-02: Josh Allen's cbsros full_12 value is 20.0
-            # (verified against fixture).
-            ("cbsros", "full_12"): 20.0,
+            # leg): Allen's indexed value vs ESPN's 26.9 -- the two-tier leg
+            # measures positional pies from each source's own pool, so
+            # per-game rank does not transfer directly.
+            # 2026-10-02: automated rebuild on the fresh 2026-10-02 CBS ROS
+            # snapshot (367 players, Supabase-verified); Allen's indexed value
+            # moves 20.0 -> 20.8 on the new data. Native 25.121 (QB #2) ->
+            # indexed 20.8 verified against the committed fixture; monotonic
+            # native->indexed within position confirmed.
+            ("cbsros", "full_12"): 20.8,
             # 2026-10-02 (JEG-88): VORP translation extended to Full PPR combos.
             # Josh Allen's adjusted value moves 26.3 -> 25.8 on the fresh
             # VORP-translated inputs.
-            ("fantasycalc_adjusted", "full_12_qb1"): 25.8,
-            ("usatoday_adjusted", "full_12"): 23.2,
+            # 2026-10-02: automated rebuild refreshes adjusted sections on new
+            # source data (159/197 fantasycalc, 154/249 usatoday players move);
+            # Allen moves 25.8 -> 26.2 (fantasycalc), 23.2 -> 24.3 (usatoday).
+            # Verified against the committed fixture.
+            ("fantasycalc_adjusted", "full_12_qb1"): 26.2,
+            ("usatoday_adjusted", "full_12"): 24.3,
             ("fantasypros_adjusted", "full_12"): 18.1,
         }
         for key, expected_value in expected.items():

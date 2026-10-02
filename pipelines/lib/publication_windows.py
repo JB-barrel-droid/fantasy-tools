@@ -53,10 +53,14 @@ PUBLICATION_SCHEDULES = {
         },
     },
     "cbs": {
-        "publish_day": 2,  # Wednesday
-        "grace_days": 1,   # Thursday is still yellow, Friday is red
-        "notes": "Verified from snapshot history: CBS typically publishes mid-week. "
-                 "Historical pattern shows Wednesday publication for weekly values.",
+        # JEG-179: no VERIFIED schedule (n_observations=0). publish_day=None
+        # keeps the honest "stale/unknown" verdict until snapshot history
+        # verifies a real cadence. Believed Wednesday pattern kept in notes.
+        "publish_day": None,
+        "grace_days": 1,
+        "notes": "Believed to publish mid-week (typically Wednesday) based on "
+                 "industry pattern, but NOT verified against local snapshot "
+                 "history. Treated as unknown until verified.",
         "measurement_provenance": {
             "derived_from": "snapshot history (external/source data)",
             "method": "inferred from typical CBS fantasy publication cadence",
