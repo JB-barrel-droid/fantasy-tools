@@ -108,6 +108,53 @@ def check_ir_values(ir_players):
     return violations, None
 
 
+def check_espn_zeroed_staleness():
+    """JEG-51: If ESPN zeroes a player (season-ending IR) but another source
+    shows positive value, that source is stale on that player.
+
+    Uses the fixture's espn_zeroed list (player IDs). For each, checks all
+    other sources' half_12 values. Positive value = staleness signal.
+    This is a monitor/alert, not a data change.
+    """
+    violations = []
+    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+
+    if not fixture_path.exists():
+        return violations, "comparison-sources-data.json not found"
+
+    fixture = json.load(open(fixture_path))
+    zeroed_ids = fixture.get("espn_zeroed", [])
+    if not zeroed_ids:
+        return violations, None
+
+    player_keys = fixture.get("player_keys", {})
+    id_to_name = {v: k for k, v in player_keys.items()}
+
+    sources = fixture.get("sources", {})
+    for pid in zeroed_ids:
+        name = id_to_name.get(pid)
+        if not name:
+            continue
+        for src, sdata in sources.items():
+            if src == "espn" or src.endswith("_adjusted"):
+                continue
+            combos = sdata.get("combos", {})
+            combo = combos.get("half_12", {})
+            vals = combo.get("values", combo.get("reindexed", {}))
+            val = vals.get(name)
+            if isinstance(val, (int, float)) and val > 0:
+                violations.append({
+                    "player": name,
+                    "player_id": pid,
+                    "source": src,
+                    "espn_value": 0.0,
+                    "source_value": round(val, 2),
+                    "reason": f"ESPN zeroed {name} (IR) but {src} shows {val:.1f} — source is stale",
+                })
+
+    return violations, None
+
+
 def main():
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -151,7 +198,32 @@ def main():
                 "reason": f"All {len(ir_players)} IR players have value <= {IR_VALUE_THRESHOLD}",
                 "n_ir_players": len(ir_players),
             })
-    
+
+    # Check 2: JEG-51 — ESPN-zeroed staleness signal
+    violations, verr = check_espn_zeroed_staleness()
+    if verr:
+        output["checks"].append({
+            "name": "espn_zeroed_staleness",
+            "status": "unk",
+            "reason": verr,
+        })
+    elif violations:
+        output["status"] = "bad"
+        output["violations"].extend(violations)
+        output["checks"].append({
+            "name": "espn_zeroed_staleness",
+            "status": "bad",
+            "reason": f"{len(violations)} stale signal(s): " +
+                     ", ".join(f"{v['source']}/{v['player']}" for v in violations[:3]),
+            "n_violations": len(violations),
+        })
+    else:
+        output["checks"].append({
+            "name": "espn_zeroed_staleness",
+            "status": "ok",
+            "reason": "No source shows positive value for ESPN-zeroed players",
+        })
+
     # Write output
     out_path = REPO / "output" / "data-accuracy.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
