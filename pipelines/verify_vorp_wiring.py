@@ -28,12 +28,14 @@ ORDERING_TESTS = [
 
 # JEG-73: Adjusted sections must preserve the raw ordering for the same players.
 # If raw has A > B, the _adjusted section must also have A > B.
-# Covers all 4 adjusted sources to catch stale adjusted sections.
-ADJUSTED_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
+# One pair per adjusted source (fantasycalc, usatoday, fantasypros, cbs) so a
+# stale adjusted section on ANY source trips the check, not just fantasycalc.
 ADJUSTED_ORDERING_TESTS = [
-    # (source, combo, higher_name, lower_name) - same pairs as ORDERING_TESTS
-    # but checked against the _adjusted section
+    # (source, combo, higher_name, lower_name)
     ("fantasycalc", "half_12_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("usatoday", "half_12", "jahmyr gibbs", "bijan robinson"),
+    ("fantasypros", "half_12", "jahmyr gibbs", "bijan robinson"),
+    ("cbs", "half_12", "jahmyr gibbs", "bijan robinson"),
 ]
 
 def load_supabase_translated(source: str, scoring: str, teams: int, week: int) -> dict[str, float]:

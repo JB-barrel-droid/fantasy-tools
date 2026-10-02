@@ -1,12 +1,12 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "6b5317c11d27ec49a811c1beca3926ca479232b985759e91245e4408829a82d8",
+    "comparison-sources-data.json": "87828b13210f3bb196629c40a9b22bc2bf8e5e4da908d923c3a1172e0adcdd31",
     "player-news.json": "295b487f16ec02a37f3e92e085c1b34aa69736b267dc265567902c7b2b94bff4",
     "players.json": "526404f35b81ee26126e93f05f5929f6fc8886513385012384eef21b8caf1c12",
     "source-import-health.json": "b09b3c94d2a4e4d35ce2ebaa94c86fc4da92c56d395b1b55009444b7f96b4c25"
   },
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-02T07:51:27-05:00",
+  "generated_at": "2026-10-02T08:07:53-05:00",
   "import_health_source": "output/source-import-health.json",
   "items": [
     {
@@ -107,15 +107,15 @@
     },
     {
       "age_days": 0,
-      "changed_since_prior_report": false,
+      "changed_since_prior_report": true,
       "enforced": false,
       "freshness_ok": true,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
-      "note": "unchanged",
+      "note": "changed",
       "status": "same_day",
-      "value": "2026-10-02T12:33:43Z"
+      "value": "2026-10-02T12:57:40Z"
     },
     {
       "age_days": 0,
@@ -127,7 +127,7 @@
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "Week 4"
     },
@@ -141,9 +141,9 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
-      "value": "2026-09-30"
+      "value": "2026-10-02"
     },
     {
       "age_days": 0,
@@ -155,7 +155,7 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "2026-09-30"
     },
@@ -169,7 +169,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "Week 4"
     },
@@ -183,7 +183,7 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "2026-09-29"
     },
@@ -197,7 +197,7 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-01"
     },
@@ -211,7 +211,7 @@
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T12:33:43Z; content_vintage is source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-02T12:57:40Z; content_vintage is source provenance, not pull time",
       "status": "same_day",
       "value": "2026-09-29"
     }
@@ -241,7 +241,7 @@
     "l1_unhealthy_count": 0,
     "max_age_days": 2,
     "stale_count": 6,
-    "unchanged_count": 9,
+    "unchanged_count": 8,
     "unknown_count": 1
   },
   "today": "2026-10-02"
