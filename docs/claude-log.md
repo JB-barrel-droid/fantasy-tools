@@ -2194,3 +2194,75 @@ legend/activeSources with table untouched); FAILS on the pre-JEG-103
 build (`bench-mouse readout: got 15, want ~21.4`). Also restored the
 `test_jeg103_bench_share_readout` Makefile line that JEG-112's merge
 accidentally dropped.
+
+## 2026-10-02 - JEG-132 (R5a): lineage block writers on derived sections (minimax)
+
+Branch: `minimax/jeg-132-lineage-writers`
+Commits: `8c474e9` (writers + tests), `66179f1` (report), `8a972fa` (lane inbox).
+
+### Done
+- New helper `pipelines/lib/lineage_block.py` (`compute_raw_sha`,
+  `collect_fixture_section_triples`, `collect_leg_triples`,
+  `collect_reference_triples`, `resolve_raw_vintage`, `build_lineage_block`).
+- Five builders stamp the 4-field `lineage` block on every DERIVED section
+  they write: `build_adjusted_fixture_sections.py` (raw: fixture raw
+  sources{}), `build_cbsros_section_from_ddf_leg.py` /
+  `build_espn_section_from_ddf_leg.py` /
+  `build_razzball_section_from_ddf_leg.py` (raw: DDF leg files),
+  `build_comparison_source_section.py` (raw: reference artifact).
+- New test `tests/test_lineage_writers.py` (unittest; matches existing
+  patterns in `test_content_vintage_schema.py` / `test_lineage_merge.py`).
+- Report at `JEG-132-report.md`; lane inbox at
+  `lanes/inbox/minimax/JEG-132-lineage-writers.md`.
+
+### Schema (stable for R5b)
+```
+section["lineage"] == {
+  "raw_vintage":         Any,    # content_vintage OR legacy fallback
+  "raw_content_sha256":  str,    # 64-char hex (SHA-256)
+  "raw_built_at":        Any,
+  "vintage_source":      "content_vintage" | "legacy_fallback",
+}
+```
+
+### Verified
+- File-boundary compliance: diff is exactly the 7 files in the
+  file-boundary-allowed list (5 builders + helper + test). NOT touched:
+  `promote_comparison_section.py`, `lib/publication_windows.py`,
+  `check_input_lineage.py`, `Makefile`, `app/`, `modules/`, `dist/`.
+- Schema shape: 4 fields, exactly the names the brief mandates.
+- Promotion preservation: `promote_comparison_section.py:299` does
+  `new_section = copy.deepcopy(fx_section)` before writing known keys;
+  unknown keys (incl. `lineage`) survive untouched. Verified by reading
+  the relevant lines, no edit needed (R4a's file is off-limits here).
+- Fallback visibility: `resolve_raw_vintage` returns `"legacy_fallback"`
+  for any non-`content_vintage` source (incl. all-`None` case).
+- SHA determinism: triples sorted by `player_key`, JSON encoded with
+  `sort_keys=True` and `separators=(",", ":")`. Insertion-order
+  independent; `None` values survive.
+- No raw-section mutation in `build_adjusted_fixture_sections.py`
+  (reads `raw_source` but never assigns back; raw sections get no
+  `lineage` block).
+
+### Unverified (sandbox blocks)
+- `python3 -m unittest tests.test_lineage_writers -v` exit. The brief
+  explicitly says I cannot run tests in the sandbox; reviewer runs.
+  Tried `python3 -m py_compile` on each modified file and the new
+  test file; the sandbox intermittently blocked the call with
+  `HOST_CAPABILITY_UNAVAILABLE`. Reviewer's run is the source of
+  truth for this acceptance.
+- `make validate` exit (reviewer-only per brief).
+- End-to-end lineage on real fixture / real DDF legs (reviewer's
+  `make sync`).
+
+### Notes for the sibling briefs
+- R5b (`pipelines/check_input_lineage.py`) can import
+  `pipelines.lib.lineage_block` to recompute SHAs against any raw
+  input shape (fixture section / DDF leg / reference artifact).
+- R4a promotion preserves `lineage` via deep-copy; if a future
+  promotion pass adds unknown-key sanitization, that's the spot
+  to look — not here.
+- The brief's "base commit 5df093c9b199" was stale; the brief itself
+  corrected to "origin/main". I worked against the
+  current `minimax/jeg-132-lineage-writers` branch created from
+  origin/main at session start (HEAD~ = `0f9d6fd`).
