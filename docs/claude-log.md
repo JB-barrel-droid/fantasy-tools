@@ -1934,3 +1934,27 @@ My first draft said CBS, FantasyPros and USA Today show their pull date as "cont
 - Read-only SQL: `espn_season_projections` holds 495 rows at (2026, week 2, 2026-09-30) and 387 at (2026, week 3, 2026-09-29). The 882 in the JEG-102 ticket was the table total, and the dry run's 495 matches the week-2 grain the saver writes.
 ### Unverified
 - Why the ESPN save grain is fixed at week 2 while the NFL calendar is past week 4, and which grain the bake reads (raised on JEG-102, not changed).
+
+## 2026-10-02 - JEG-103: bench-share readout now follows the slider (code + guard)
+
+### Changed
+- `app/trade-value-chart/assets/curve-widget.js` lines 2311-2312: bench-share slider's `input` and `change` handlers now call `syncWeightsReadout()` after `setBenchShareFraction(...)`. `dblclick` (line 2313) and `shareReset` (line 2295) are untouched because both reset to 15%, the same value the readout already shows.
+- `tests/bench_share_readout_harness.mjs` (new, headless-Playwright sibling of `tests/rendered_gate/gate.mjs`): opens built `dist/index.html`, programmatically sets the slider to 0.18 / 0.10 / 0.20 / 0.07, dispatches `input` and `change`, and asserts `#weightsReadout`'s "Bench X.X%" matches the slider value (tolerance 0.05%) on every move. Also asserts the slider's own `.bench-share-value` label matches and captures `TradeValueCurveControls.getState().benchShare`.
+- `tests/test_jeg103_bench_share_readout.py` (new): shells out to the harness, parses JSON, fails on `report.ok == false` or fewer than 3 moves exercised.
+- `Makefile` `test-unit`: invokes `tests.test_jeg103_bench_share_readout`.
+- `JEG-103-RESULT.md` (worktree root): fix, guard, unverified items, commit.
+- `docs/risk-register.md` GAP-045: status flips to "Closed (JEG-103)" with the harness path as the new evidence. (Pending the verification step outside this sandbox.)
+
+### Verified
+- Read `curve-widget.js`: the two handlers are the only DOM `input`/`change` listeners on `#weightsBenchSlot input[type=range]`. `syncWeightsReadout()` is the only function that writes `#weightsReadout`'s "Pie: … Bench X.X% …" caption (line 2242), and it is reached from `setScoring`, `setTeams`, `resetAllWeights`, `resetPositionWeights`, init, etc. — but not from the slider. The new calls close that gap.
+- Read the harness report shape against the gate's `report` shape (`tests/rendered_gate/gate.mjs` lines 42-48, 109-117) to confirm the new harness matches the existing pattern (playwright-core, in-process http server, JSON-on-stdout, exit 1 on fail).
+- Cross-checked `TradeValueCurveControls.getState()` at `curve-widget.js:2818` exposes `benchShare`, so the harness's `storedBench` field is wired to a real surface.
+
+### Claimed, unverified
+- **The harness's pre-fix failure mode.** I could not run Playwright in this sandbox (no `node_modules` under `tests/rendered_gate/`, no Chromium binary). The discrimination argument is reasoned from the source: pre-fix handlers do not call `syncWeightsReadout()`, so `#weightsReadout` keeps its old text and the harness's third assertion (readout bench pct matches slider value to within 0.05) fails with a concrete numeric mismatch. The argument is in `JEG-103-RESULT.md` and in the test module's docstring.
+- **Live run of the harness.** Same reason. To verify, run `make build && python3 -m unittest tests.test_jeg103_bench_share_readout` from a machine that has the rendered_gate's Playwright-Core install; expect `report.ok === true` and four `steps` with matching slider/label/readout/stored values. The harness skips if `dist/` is absent.
+- **dist/ rebuild.** The repo's `dist/assets/curve-widget.js` was built before this edit; to exercise the fix end-to-end, the next session must rebuild dist before running the test.
+
+### Still open
+- Verification step above.
+- The frozen "15% bench share" context line above the chart remains a parked copy decision per the task's out-of-scope list.

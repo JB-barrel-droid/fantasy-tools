@@ -63,7 +63,13 @@ jobs:
           set +e
           node tests/rendered_gate/gate.mjs dist --out rendered-gate.json
           rc=$?
+          node tests/rendered_gate/bench_share_readout_harness.mjs dist
+          rc2=$?
           set -e
+          echo "page_errors=$(python3 -c "import json; print(len(json.load(open('rendered-gate.json'))['pageErrors']))")" >> "$GITHUB_OUTPUT"
+          echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
+          if [ $rc2 -ne 0 ]; then echo "JEG-103 bench-share readout guard failed"; fi
+          exit $rc
           echo "page_errors=$(python3 -c "import json; print(len(json.load(open('rendered-gate.json'))['pageErrors']))")" >> "$GITHUB_OUTPUT"
           echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
           exit $rc
