@@ -911,7 +911,9 @@ async function main(){
             <td style="padding:6px 8px;color:var(--dim)">${p.rank}</td>
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>
             ${liveCell}
-            <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.native)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Publisher's published value (or ESPN ROS projections)">${fmt(p.native)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)" ${p.vorp_inferred_position ? `title="Position ${p.vorp_inferred_position}: replacement tier ${fmt(p.vorp_replacement_level)} (inferred n_rostered ${p.vorp_inferred_n_rostered})"` : `title="VORP round-trip unavailable for this row"`}>${fmt(p.implied_vorp)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="DDF-rebuilt value (what the chart actually displays)">${fmt(p.ddf_rebuilt)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.index_mult)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.indexed)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.reweight_mult)}</td>
@@ -919,6 +921,47 @@ async function main(){
             <td style="padding:6px 8px;font-family:monospace;text-align:right;font-weight:700">${fmt(p.chart_value)} ${matchIcon}</td>
           </tr>`;
         }).join("");
+
+        // JEG-107: render the inferred replacement levels per position above
+        // the table so the publisher's assumptions are inspectable alongside
+        // the player rows. Only shown when the VORP chain computed at build.
+        let vorpAssumptions = '';
+        const rt = s.vorp_round_trip;
+        if (rt && rt.positions && Object.keys(rt.positions).length) {
+          const posCells = ['QB', 'RB', 'WR', 'TE'].map(pos => {
+            const info = rt.positions[pos];
+            if (!info || info.waiver_line_value === null
+                || info.waiver_line_value === undefined) {
+              return `<div style="display:flex;justify-content:space-between;gap:8px;font-family:monospace;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line)">
+                <span style="color:var(--dim)">${pos}</span>
+                <span style="color:var(--faint)">n/a</span>
+              </div>`;
+            }
+            const wk = info.waiver_line_value;
+            const roster = `${info.n_rostered} rostered (${info.n_dedicated}+${info.n_flex} flex + ${info.n_bench} bench)`;
+            const method = info.waiver_method || '';
+            return `<div style="display:flex;justify-content:space-between;gap:8px;font-family:monospace;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line)">
+              <span style="color:var(--dim);min-width:30px">${pos}</span>
+              <span style="text-align:right" title="${roster} · method=${method}">waiver ${wk}</span>
+            </div>`;
+          }).join('');
+          const errNote = rt.error
+            ? `<div style="margin-top:6px;color:var(--red);font-size:11px">VORP chain error: ${String(rt.error).slice(0, 160)}</div>`
+            : '';
+          const inherited = rt.inherited_from
+            ? `<div style="color:var(--dim);font-size:11px">inherited from ${rt.inherited_from}</div>`
+            : '';
+          vorpAssumptions = `<div style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 12px;padding:10px 12px;background:var(--card2);border-radius:8px;border:1px solid var(--line)">
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:4px">Publisher inferred assumptions (VORP round-trip)</div>
+              <div style="min-width:240px">${posCells}</div>
+              ${inherited}${errNote}
+            </div>
+            <div style="font-size:11px;color:var(--dim);max-width:340px;line-height:1.4">
+              Replacement tier = first non-rostered player's value under the inferred 12-team Half PPR roster (1 QB, 2 RB, 2 WR, 1 TE, 1 flex RB/WR/TE, 6 bench; flex share = seats × roster-derived VORP at the margin). Hover any VORP cell to see the tier per row.
+            </div>
+          </div>`;
+        }
 
         return `<div class="src open" style="margin-bottom:12px">
           <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="this.parentElement.classList.toggle('open')">
@@ -929,14 +972,17 @@ async function main(){
           </div>
           <div class="src-body" style="padding:0 16px 16px;border-top:1px solid var(--line)">
             <div style="margin-top:12px;font-size:12px;color:var(--dim);margin-bottom:8px">${s.source_note}</div>
+            ${vorpAssumptions}
             <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;min-width:700px">
+            <table style="width:100%;border-collapse:collapse;min-width:900px">
               <thead>
                 <tr style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);border-bottom:2px solid var(--line)">
                   <th style="padding:8px;text-align:left">#</th>
                   <th style="padding:8px;text-align:left">Player</th>
                   <th style="padding:8px;text-align:right">Live</th>
-                  <th style="padding:8px;text-align:right">Native</th>
+                  <th style="padding:8px;text-align:right" title="Publisher's published value (or ESPN ROS projections)">Native</th>
+                  <th style="padding:8px;text-align:right" title="Publisher's implied VORP under inferred roster assumptions">Impl. VORP</th>
+                  <th style="padding:8px;text-align:right" title="DDF-rebuilt value (what the chart displays)">DDF rebuilt</th>
                   <th style="padding:8px;text-align:right">Idx mult</th>
                   <th style="padding:8px;text-align:right">Indexed</th>
                   <th style="padding:8px;text-align:right">Rewgt mult</th>
@@ -948,7 +994,8 @@ async function main(){
             </table>
             </div>
             <div style="font-size:11px;color:var(--faint);margin-top:8px">
-              Live = scraped from the human-readable source page right now · Native = value in our pipeline snapshot ·
+              Live = scraped from the human-readable source page right now · Native = publisher's value ·
+              Impl. VORP = native − inferred replacement tier · DDF rebuilt = chart's final translated value ·
               Idx mult = indexed ÷ native · Rewgt mult = reweighted ÷ indexed ·
               Chart ✓ = matches indexed value · Live ✓ = matches our snapshot, ✗ = differs
             </div>
