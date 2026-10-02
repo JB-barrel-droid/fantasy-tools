@@ -1915,3 +1915,12 @@ My first draft said CBS, FantasyPros and USA Today show their pull date as "cont
 - Two uncaught page errors seen once with synthetic events (`NotFoundError ... replaceChildren ... blur`); not reproduced with real typing, so not reported as a defect.
 - Live page, GitHub failure-email routing, branch protection, ESPN run 1's log, curve (canvas) values, mouse use of the slider, input sweeps at league shapes other than 12-team Full PPR.
 - Added GAP-41..GAP-46 and extended GAP-039. Nothing is approved to build: Jeremy chooses which recommendations proceed; JEG-84 turns them into tickets.
+## 2026-10-02 - JEG-83: Jeremy's decisions recorded in the gap analysis (docs only)
+### Changed
+- `docs/health/gap-analysis-and-recommendations.md`: section 1's open-decisions paragraph replaced with Jeremy's four answers (given in chat to Claude, also posted on JEG-83); R2 drops the alert recipient, R4 and R10 use week-and-publication limits, R4 excludes invalid values instead of labelling them.
+### Verified
+- Wording of the decisions matches the JEG-83 comment of 2026-10-02 19:41 UTC.
+### Unverified
+- Each source's publication timing (needed by decision 4) has not been measured yet.
+### Still open
+- Which recommendations to build (section 6) is undecided; JEG-84 waits on it.
