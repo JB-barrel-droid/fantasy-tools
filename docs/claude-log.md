@@ -1,5 +1,28 @@
 # Claude session log
 
+## 2026-10-02 - JEG-133 scratch exercises: deploy gate proven on red builds
+
+Both acceptance exercises ran against the merged gate (340f46c) via
+workflow_dispatch on scratch branches.
+
+### Exercise A — red validate + dist/modules-only HEAD (run 37065928007)
+Branch `roman/jeg-133-scratch-red-build`: commit 1 adds a deliberately failing
+unit test (red `make validate`); HEAD commit touches only
+`dist/modules/source-import-health.json` (the old path-conditional bypass).
+Run conclusion: **failure** — `make validate` ran unconditionally and its red
+exit blocked the job before the deploy steps. No Pages build published.
+(Two earlier attempts were cancelled by the `pages` concurrency group during
+main's push activity; the third ran clean.)
+
+### Exercise B — JS error in chart page (run 37065334467)
+Branch `roman/jeg-133-scratch-js-error`: top-level
+`throw new Error("jeg133-scratch-js-error")` in `app/trade-value-chart/index.html`.
+Run conclusion: **failure** — `make validate` passed (Python tests unaffected by
+page JS); the rendered gate step caught the page error and its non-zero exit
+blocked the deploy. `verify_live.py` after the run: LIVE OK on build
+tv-20261002-1604-3528152 — the scratch branch never deployed.
+
+Scratch branches left on the remote for the record; they touch no production path.
 ## 2026-10-02 - JEG-134 (R7): first real CBS ROS production run — green and verified
 
 Workflow `.github/workflows/cbsros-supabase-sync.yml` dispatched on main.
