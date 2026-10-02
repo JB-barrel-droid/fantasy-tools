@@ -57,7 +57,71 @@ Do not delegate when the task is a small code/doc edit, a simple command check,
 or a local fix that ChatGPT/Codex can complete faster than writing and reviewing
 a handoff.
 
-## Claude Code Handoff Template
+## Acceptance (Runnable) Convention
+
+Every lane issue carries an `Acceptance (runnable)` section that names the
+exact commands a reviewer can paste and re-execute to prove "done". The goal is
+that the reviewer's job is checking the evidence, not re-deriving it.
+
+### What the section must contain
+
+- **Tests** — full `python3 -m unittest tests.test_<x>` invocations, in the
+  order they must be run. Module names, not descriptions. No "run the tests".
+- **Verify scripts** — exact `python3 pipelines/verify_<x>.py` entries with
+  any required flags (`--nfl-week`, `--trigger`, `--source`, etc.). Each
+  one must exit 0.
+- **Rendered / output check** — for UI or published-output changes, the
+  command that exercises the artifact a reader actually sees:
+  - `node tests/rendered_gate/gate.mjs dist --out output/rendered-gate.json`
+    (12-shape Playwright sweep; must exit 0 and report 0 uncaught page
+    errors, and, when the issue touches it, DDF pie sums to 100.0 in all 12
+    shapes),
+  - `python3 verify_live.py tv-YYYYMMDD-HHMM-<sha>` (HTTP 200, build tag
+    match, fix markers present in deployed HTML/JS),
+  - a headless Playwright capture for one-shot UI checks (e.g. the JEG-45
+    pattern in `tests/test_lock_revert_notice_render.py`).
+- **Negative-test note** — at least one sentence naming the simulated broken
+  state that the regression guard must catch. A guard that asserts current
+  behaviour without checking which state is right is worse than no guard
+  (CLAUDE.md standing rule).
+
+### Evidence bundle (required to claim done)
+
+A lane may not claim done without attaching all of:
+
+1. The exit code and the last ~20 lines of every `Acceptance (runnable)`
+   command's output, pasted in the PR description or commit body.
+2. The `verify_live.py` result for any change that affects published bytes
+   (build-tag match, fix markers), with the build tag it was checked against.
+3. The rendered/output check artifact (the rendered gate's
+   `output/rendered-gate.json`, a Playwright text/JSON capture, or a
+   `verify_live.py` transcript).
+4. A one-line statement of what the negative test against a simulated broken
+   state demonstrated (which test failed and on which mutation).
+
+### Rejection language is a copy-paste
+
+When an issue's evidence bundle is missing or incomplete, reject with the
+exact missing piece named:
+
+- **Missing tests** — "Acceptance (runnable) does not name which
+  `python3 -m unittest` modules run. Paste the module list and the exit
+  codes."
+- **Missing verify script** — "Acceptance (runnable) does not name the
+  `python3 pipelines/verify_<x>.py` command(s) and flags. Paste them."
+- **Missing rendered check** — "Acceptance (runnable) does not name the
+  rendered/output command. Paste `node tests/rendered_gate/gate.mjs dist`
+  (or equivalent) and its exit code."
+- **Missing negative-test proof** — "Acceptance (runnable) does not show the
+  regression guard catches the bug it names. Add a sentence naming the
+  simulated broken state and which test fails on it."
+- **Missing evidence bundle** — "PR/commit does not paste exit codes and the
+  last ~20 lines for each Acceptance (runnable) command. Paste them or this
+  cannot be reviewed."
+
+Out of scope: changing what "done" means for methodology, copy, or publish
+(still the human's gate). A passing evidence bundle proves the engine
+worked; it does not approve publishing.
 
 ```text
 Repo: fantasy-tools
@@ -70,6 +134,15 @@ Context:
 - <files/docs to read first>
 - <project rules that matter, especially fail-closed data rules>
 - <known commands, failures, or observations>
+
+Acceptance (runnable):
+- Tests: <exact `python3 -m unittest tests.test_<x>` modules, in order, that must exit 0>
+- Verify scripts: <exact `python3 pipelines/verify_<x>.py --...` entries, in order, that must exit 0>
+- Rendered/output check: <exact command(s) that exercise the published artifact, e.g.
+  `node tests/rendered_gate/gate.mjs dist --out output/rendered-gate.json`,
+  `python3 verify_live.py tv-YYYYMMDD-HHMM-<sha>`, or a headless Playwright capture>
+- Evidence bundle: paste the exit codes and the last ~20 lines of each command's output
+  in the PR description or commit message; a lane may not claim done without them.
 
 Please do:
 - <expected output shape: findings, options, patch plan, debug trace>

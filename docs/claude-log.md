@@ -32,6 +32,82 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-92: machine-checkable acceptance convention + pilot retrofit
+
+Output: `docs/delegation-workflow.md` (Acceptance (runnable) Convention section +
+evidence-bundle rule on the Claude Code Handoff Template) and
+`docs/jeg92-pilot-retrofits.md` (paste-ready sections for JEG-22, JEG-23, JEG-45,
+JEG-29, JEG-17). No code changed. Commit on `minimax/jeg-92-machine-acceptance`.
+
+### Verified (checks named)
+
+- `docs/delegation-workflow.md` (read): 162 lines before edit; new "Acceptance
+  (Runnable) Convention" section sits between "When To Delegate" and the
+  existing Claude Code Handoff Template, and the Claude Code Handoff Template
+  template body now contains an "Acceptance (runnable)" block naming Tests,
+  Verify scripts, Rendered/output check, and Evidence bundle.
+- The five pilot issues are the items in the "Owner Labels (Linear, 2026-10-01)"
+  block: Claude lane has JEG-23, JEG-44, JEG-21, JEG-22, JEG-24, JEG-8 open;
+  ChatGPT lane has JEG-17, JEG-29, JEG-45 open. The pilot picks one
+  representative from each lane plus the most-active batches: JEG-22 (caption),
+  JEG-23 (table), JEG-45 (lock notice), JEG-29 (harness), JEG-17 (QA pass).
+- Each pilot section names exact commands: `python3 -m unittest
+  tests.test_two_tier_frontend`, `python3 pipelines/check_naming_drift.py`,
+  `python3 pipelines/verify_import_health.py --nfl-week <CURRENT_NFL_WEEK>`,
+  `node tests/rendered_gate/gate.mjs dist --out ...`, `node
+  tools/guard_harness.mjs --assert-good` and `--simulate tier-mismatch
+  --assert-bad`, `python3 verify_live.py tv-YYYYMMDD-HHMM-<sha>`. File paths
+  cross-checked against `tests/` (`tests/test_lock_revert_notice_render.py`,
+  `tests/test_guard_harness_recorded.py`, `tests/test_jeg68_starter_markup.py`,
+  `tests/rendered_gate/gate.mjs`) and against `pipelines/verify_vorp_wiring.py`,
+  `pipelines/verify_import_health.py`, and `verify_live.py`.
+- `tests/test_lock_revert_notice_render.py` (read, lines 82-94): the
+  Playwright test asserts `page.wait_for_selector(".lock-revert-notice",
+  timeout=2000)` then auto-dismisses; this is the JEG-45 acceptance test the
+  pilot references verbatim.
+- `tools/guard_harness.mjs` (read, lines 64-77, 422-457): `--assert-good`,
+  `--simulate tier-mismatch --assert-bad`, and `--assert-jeg5-recorded` are
+  the documented harness surface the JEG-29 section names.
+- `tests/rendered_gate/gate.mjs` (read, lines 6-16, 86-108): the gate's
+  negative-test mechanism is real (inject a throw and a bad pie readout,
+  require the gate to catch both) and is the negative-test proof the JEG-17
+  section demands.
+- `Makefile` (read, lines 110-156, 179): `make validate` runs `naming reference
+  sync guard-harness test-unit`; `make test-unit` and `make test-integration`
+  are the canonical test-runner surface. The pilot sections name `python3 -
+  unittest` directly so reviewers don't need to translate `make` targets.
+
+### Claimed, unverified
+
+- I did NOT run any of the named commands — sandbox blocks test execution
+  (per the JEG-92 task's IMPORTANT SANDBOX NOTE). The named exit codes and
+  transcripts in the retrofit file are the *expected* outputs based on the
+  test source, not observed results. Settle this by running the named
+  commands outside the sandbox and pasting the transcripts into the PR.
+- I did NOT post the retrofit sections to Linear. The sandbox blocks the
+  Linear CLI per the same note. Posting is Roman's lane.
+- The JEG-23 rendered check assumes a future `tests/test_table_refresh.py`
+  with a bake-in shape-sweep assertion. That file does not exist yet (per
+  `docs/claude-log.md` 2026-10-01 — "Table-update (JEG-23) ... checks are
+  deliberately not in this gate yet"). The pilot documents the gap rather
+  than inventing a test.
+- I did not add a row to `docs/risk-register.md` for the new convention. The
+  convention is docs-only and the existing "regression-guard rule" entry in
+  CLAUDE.md and the renderered-gate history in `docs/claude-log.md` cover
+  the same ground; promote-to-risk-register only if the convention fails
+  in pilot.
+
+### Open
+
+- The five pilot sections are drafts. Roman/Muse own the paste-in to
+  Linear; this session writes the file.
+- A future session should add a small `make issue-acceptance-check ISSUE=<id>`
+  helper that reads the `Acceptance (runnable)` block out of the pasted
+  Linear comment and shells out to the named commands — out of scope for
+  JEG-92 but the natural next step.
+- I did not push, merge, or deploy. The commit is on
+  `minimax/jeg-92-machine-acceptance` only.
+
 ## 2026-10-02 - JEG-79: Claude lane best-practices assessment (docs only)
 
 Output: `docs/health/claude-best-practices.md`. I did not read the Muse or Codex documents first.
