@@ -32,6 +32,23 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - Dataset health panel never filled since JEG-26; every PR's rendered gate went red
+
+### Verified (headless Chromium on a local build of `origin/main`, then the fix)
+
+- JEG-26 (`d8c1628`) replaced the inline `<details id="dataHealth">` with a modal dialog, but `renderHealth()` still ran `document.getElementById("dataHealth").open = ...`. The element is gone, so every page load threw `TypeError: Cannot set properties of null (setting 'open')` before the panel was filled. User-visible: the "Dataset health" panel stays on "Checking..." with 0 source cards. Before the fix: title "Checking...", 0 cards, 1 page error. After: the real title, 12 cards, 0 page errors.
+- This is what turned the rendered gate (JEG-47) red on PR #23 (a PR that touches no front-end code): the gate reported 1 uncaught page error. The gate did its job.
+- Fix: `if(health) health.open = ...` in `renderHealth()` (source `app/trade-value-chart/index.html`, same line in `dist/index.html`).
+
+### Claimed, unverified
+
+- That the live site shows the stuck panel: not checked (egress blocked). It would, if JEG-26 is deployed.
+- `dist/` on `main` also differs from what `make sync` produces for some assets (comparison-dashboard.js/css, fixture copies); I did not commit those.
+
+### Open
+
+- The rendered gate only checks page errors, not that the health panel populated. A "panel has cards" check would have caught this class of break without relying on an exception.
+
 ## 2026-10-01 - JEG-19: K/DST source audit and recommendation (diagnosis only)
 
 ### Verified (fixtures and inputs in the repo)
