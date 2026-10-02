@@ -25,6 +25,7 @@ from typing import Optional
 
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 sys.path.insert(0, str(REPO))
 
 from build_ddf_two_tier_leg import (
@@ -38,6 +39,9 @@ from pipelines.vorp_translation.vorp_via_roster import (
     bench_for_teams,
     rostered_for_teams,
 )
+# Canonical identity: all name resolution goes through the naming table via
+# player_key (standing rule 2026-10-02; JEG-75). Never match on raw strings.
+from canonical_players import Registry, norm_player_name, resolve as _resolve_key
 
 # NFL season year for the JEG-62 Supabase grain (part of every unique key).
 SEASON = 2026
@@ -111,18 +115,32 @@ def load_native_values(source: str, scoring: str, teams: int,
 
     fixture = json.loads(fixture_path.read_text())
     players = json.loads(players_path.read_text())
-    pos_by_name = {p["name"].lower(): p["pos"] for p in players["players"]}
-    key_by_name = {p["name"].lower(): p["player_key"] for p in players["players"]}
+    # Canonical registry built from the naming table (players.json). Identity
+    # resolves through norm_player_name + player_key -- never raw strings, so
+    # 'jaxon smithnjigba' (fixture slug) matches 'Jaxon Smith-Njigba'.
+    reg = Registry([
+        {"player_key": p["player_key"], "full_name": p["name"],
+         "position": p.get("pos"), "active": True}
+        for p in players["players"] if p.get("player_key") is not None
+    ])
 
     sdata = fixture["sources"].get(source, {})
     combo_key = resolve_combo_key(sdata, scoring, teams)
     native = sdata.get("combos", {}).get(combo_key, {}).get("native", {})
 
     by_pos: dict[str, list[tuple[str, float]]] = {p: [] for p in POSITIONS}
+    key_by_name: dict[str, str] = {}
     for name, val in native.items():
-        pos = pos_by_name.get(name.lower())
-        if pos in POSITIONS and val is not None:
+        if val is None:
+            continue
+        key = _resolve_key(name, registry=reg)
+        if key is None:
+            # Unresolvable identity -> excluded (fail-closed upstream).
+            continue
+        pos = reg.by_key[key]["position"]
+        if pos in POSITIONS:
             by_pos[pos].append((name, float(val)))
+            key_by_name[norm_player_name(name)] = str(key)
     for pos in by_pos:
         by_pos[pos].sort(key=lambda x: -x[1])
     return by_pos, key_by_name
@@ -183,7 +201,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
         # Fail closed: every translated name must resolve to a canonical key.
         ranked_keyed = []
         for name, val in players:
-            pkey = key_by_name.get(name.lower())
+            pkey = key_by_name.get(norm_player_name(name))
             if not pkey:
                 raise SystemExit(
                     f"JEG-62 fail-closed: '{name}' ({pos}) has no player_key "

@@ -17,8 +17,33 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 
 # (source, combo_key, higher_native_name, lower_native_name)
 # If native higher > native lower, then reindexed higher must > reindexed lower.
+# Covers ALL as-published combos (not just half-PPR): the 2026-10-02 follow-up
+# found the flip persisting in Full PPR (the chart default) and in
+# usatoday/fantasypros/cbs because JSN had no translated row for those grains.
+# qb2 combos are deliberately excluded: they fall back to reindex by design
+# (grain has no qb dimension; see _qb_divergent_siblings).
 ORDERING_CASES = [
     ("fantasycalc", "half_12_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "full_12_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "full_10_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "full_14_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "full_8_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "half_10_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "half_14_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "half_8_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "standard_10_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "standard_12_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "standard_14_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "standard_8_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("usatoday", "full_12", "jaxon smithnjigba", "puka nacua"),
+    ("usatoday", "half_12", "jaxon smithnjigba", "puka nacua"),
+    ("usatoday", "standard_12", "jaxon smithnjigba", "puka nacua"),
+    ("fantasypros", "full_12", "jaxon smithnjigba", "puka nacua"),
+    ("fantasypros", "half_12", "jaxon smithnjigba", "puka nacua"),
+    ("fantasypros", "standard_12", "jaxon smithnjigba", "puka nacua"),
+    ("cbs", "full_12", "jaxon smithnjigba", "puka nacua"),
+    ("cbs", "half_12", "jaxon smithnjigba", "puka nacua"),
+    ("cbs", "standard_12", "jaxon smithnjigba", "puka nacua"),
 ]
 
 
@@ -52,6 +77,37 @@ class TestVorpWiring(unittest.TestCase):
                     f"reindexed {higher_trans:.1f} <= {lower_trans:.1f}. "
                     f"VORP wiring is broken."
                 )
+
+
+class TestCanonicalIdentityResolution(unittest.TestCase):
+    """VORP translation must resolve names through the canonical naming table.
+
+    Regression for the 2026-10-02 follow-up: the fixture slug
+    'jaxon smithnjigba' (no hyphen) did not match players.json
+    'Jaxon Smith-Njigba', so JSN was silently excluded from every VORP
+    translation grain except one -- and every as-published source fell back
+    to the old quantile reindex for him, flipping Puka > JSN against native.
+    """
+
+    def test_hyphenless_slug_resolves_to_canonical_key(self):
+        import sys
+        sys.path.insert(0, str(REPO / "pipelines"))
+        from vorp_translation.unified import load_native_values
+
+        by_pos, key_by_name = load_native_values("fantasycalc", "ppr", 12)
+        from canonical_players import norm_player_name
+        key = key_by_name.get(norm_player_name("jaxon smithnjigba"))
+        self.assertEqual(
+            "3247", key,
+            "JSN's fixture slug must resolve to canonical player_key 3247; "
+            "an unresolved identity silently drops the player from VORP "
+            "translation and flips orderings downstream.",
+        )
+        wr_names = [n for n, _ in by_pos["WR"]]
+        self.assertTrue(
+            any("njigba" in n for n in wr_names),
+            "JSN must appear in the WR translation input.",
+        )
 
 
 if __name__ == "__main__":
