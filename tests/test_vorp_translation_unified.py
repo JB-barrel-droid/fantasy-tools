@@ -8,6 +8,7 @@ client — no DB dependency, CI-safe).
 """
 
 import sys
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -109,17 +110,22 @@ class TestComboResolution(unittest.TestCase):
 
 
 class TestScoringAwareFlex(unittest.TestCase):
-    def test_real_usatoday_scoring_direction(self):
+    def test_pinned_usatoday_scoring_direction(self):
+        snapshot = json.loads((ROOT / 'tests' / 'fixtures' /
+                               'jeg61_usatoday_ranked_values.json').read_text())
+        allocations = []
+        for scoring in ('standard', 'half_ppr', 'ppr'):
+            ranked = {pos: [(str(i), value) for i, value in enumerate(values)]
+                      for pos, values in snapshot['ranked'][scoring].items()}
+            roster = roster_math.rostered_for_teams(12, ranked=ranked)
+            allocations.append(tuple(roster[p]['flex'] for p in ('RB', 'WR', 'TE')))
+        self.assertEqual(allocations, [(9, 3, 0), (8, 4, 0), (7, 4, 1)])
+
+    def test_real_usatoday_waiver_and_weight_integration(self):
         results = [unified.translate_source('usatoday', scoring=s)
                    for s in ('standard', 'half_ppr', 'ppr')]
-        allocations = [tuple(r['positions'][p]['n_flex'] for p in ('RB', 'WR', 'TE'))
-                       for r in results]
-        self.assertEqual(len(set(allocations)), 3)
-        self.assertGreater(allocations[0][0], allocations[1][0])
-        self.assertGreater(allocations[1][0], allocations[2][0])
-        self.assertLess(allocations[0][1], allocations[2][1])
-        self.assertLessEqual(allocations[0][1], allocations[1][1])
-        self.assertLessEqual(allocations[1][1], allocations[2][1])
+        # Current charts may legitimately round to the same allocation after
+        # refresh. The strict JEG-61 direction is pinned in the regression above.
         for r in results:
             ranked, _ = unified.load_native_values(r['source'], r['scoring'], r['teams'])
             expected = roster_math.rostered_for_teams(12, ranked=ranked)
@@ -189,6 +195,14 @@ class TestScoringAwareFlex(unittest.TestCase):
             result = roster_math.rostered_for_teams(12, ranked={}, flex_count=total)
             self.assertEqual(sum(r['flex'] for r in result.values()), 12 * total)
 
+    def test_shallow_te_chart_keeps_observed_surplus(self):
+        ranked = {p: [(str(i), 20.0) for i in range(100)]
+                  for p in ('RB', 'WR')}
+        ranked['TE'] = [(str(i), 100.0) for i in range(15)]
+        result = roster_math.allocate_flex_vorp_weighted(ranked, 12)
+        self.assertEqual(sum(result.values()), 12)
+        self.assertGreater(result['TE'], 0)
+
     def test_invalid_roster_settings(self):
         for kwargs in ({'teams': 0}, {'teams': 12, 'flex_count': -1},
                        {'teams': 12, 'bench_per_team': -1}):
@@ -199,6 +213,13 @@ class TestScoringAwareFlex(unittest.TestCase):
         for value in (float('nan'), float('inf')):
             with self.assertRaises(ValueError):
                 roster_math.allocate_flex_vorp_weighted({'RB': [('bad', value)]}, 12)
+
+    def test_custom_roster_settings_cannot_overwrite_default_storage_grain(self):
+        for settings in ({'bench_per_team': 3}, {'flex_count': 2}):
+            with patch.object(unified, '_write_to_supabase') as writer:
+                with self.assertRaises(SystemExit):
+                    unified.translate_source('usatoday', write_supabase=True, **settings)
+                writer.assert_not_called()
 
 
 class TestTranslatePipeline(unittest.TestCase):

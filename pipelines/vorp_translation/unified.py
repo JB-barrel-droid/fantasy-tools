@@ -157,6 +157,11 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
     translated is keyed by canonical player_key (naming-table identity), not
     display name.
     """
+    # The current storage grain does not distinguish custom roster settings.
+    # Keep them read-only until that contract can represent them separately.
+    if write_supabase and (bench_per_team != 6.0 or
+                           flex_count not in (None, REF_FLEX_COUNT)):
+        raise SystemExit("custom roster settings cannot overwrite default-grain VORP rows")
     ranked, key_by_name = load_native_values(source, scoring, teams)
     roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked)
 

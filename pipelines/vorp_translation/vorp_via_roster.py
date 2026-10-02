@@ -178,6 +178,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
     allocation scoring-aware: PPR shifts flex toward WR, standard toward RB.
     
     All values scale with teams, bench_per_team, and flex_count.
+    This is a one-pass bootstrap using preliminary slot-proportional waiver
+    estimates. Final waiver lines are recomputed, not iterated to convergence.
     
     Args:
         teams: league size

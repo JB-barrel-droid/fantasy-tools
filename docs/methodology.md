@@ -78,6 +78,8 @@ waiver lines and implied weights are recomputed from the resulting roster.
 This is a one-pass estimate, not a self-consistent optimization of waiver
 lines or proof of actual manager lineup preferences. Different formats can
 legitimately round to identical allocations; they are never forced apart.
+Custom bench/flex settings are calculation-only until storage grain includes
+those settings; database writes with nondefault settings fail closed.
 
 ## Detailed Rule Owners
 
