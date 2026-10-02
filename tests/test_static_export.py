@@ -690,7 +690,7 @@ class StaticExportTest(unittest.TestCase):
 
     def test_player_table_supports_configurable_expandable_fields(self):
         text = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
-        self.assertIn('key:"latest_news"', text)
+        self.assertNotIn('key:"latest_news"', text)
         self.assertIn("visibleColumns()", text)
         self.assertIn("setTableSort", text)
         self.assertIn("renderExpandedRow", text)

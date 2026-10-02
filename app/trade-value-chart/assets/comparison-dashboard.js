@@ -78,8 +78,7 @@
     {key:"pos", label:"Pos", badge:"field"},
     {key:"team", label:"Team", badge:"field"},
     {key:"espn_role", label:"ESPN tier", badge:"role"},
-    {key:"disagreement", label:"Disagreement", badge:"spread"},
-    {key:"latest_news", label:"Latest news", badge:"context"}
+    {key:"disagreement", label:"Disagreement", badge:"spread"}
   ];
 
   const root = document.getElementById("comparisonDashboard");
@@ -708,7 +707,7 @@
 
   function visibleColumns() {
     const allowed = new Set(allColumnKeys());
-    const defaults = ["pos", "team", "espn_role", "disagreement", "latest_news", "espn", "espn_vorp", "cbsros_vorp", "razzball_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
+    const defaults = ["pos", "team", "espn_role", "disagreement", "espn", "espn_vorp", "cbsros_vorp", "razzball_vorp", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => allowed.has(key));
     const cols = Array.isArray(state.columns) ? state.columns.filter(key => allowed.has(key)) : defaults;
     return cols.length ? cols : defaults;
   }
@@ -775,12 +774,21 @@
     ].map(value => String(value || "").toLowerCase());
     const valueWords = /\b(injury|injured|practice|limited|out|questionable|doubtful|suspend|suspension|discipline|snap|role|starter|backup|depth|target|touch|carry|route|usage|trade|contract|holdout|return|active|inactive|bench|waiver|fantasy|value)\b/i;
     const personalOnly = /\b(birthday|wedding|charity|family|vacation|podcast|interview only)\b/i;
+    // JEG-41: filter out pure fantasy trade speculation. Articles that are only
+    // about "trade for X" / "trade away Y" / "trade targets" without injury,
+    // scheme, or role substance don't affect projected scoring.
+    const tradeSpeculation = /\b(trade\s+(for|away|targets?)|fantasy\s+trade|trade\s+value|trade\s+deadline\s+deals?)\b/i;
+    const substanceWords = /\b(injury|injured|practice|limited|questionable|doubtful|suspend|suspension|discipline|snap|role|starter|backup|depth\s+chart|target\s+share|coaching|scheme|play-?call)/i;
     const valueRelated = tags.some(tag => ["injury","availability","role","usage","depth","discipline","suspension","transaction","fantasy","player_value"].includes(tag)) || valueWords.test(title) || valueWords.test(String(entry.summary || ""));
     if (!valueRelated || personalOnly.test(title)) return null;
+    if (tradeSpeculation.test(title) && !substanceWords.test(title) && !substanceWords.test(String(entry.summary || ""))) return null;
     const published = new Date(entry.published_at || entry.published || "");
     const publishedAt = Number.isNaN(published.getTime()) ? null : published;
     const valueDate = tradePublishedAt();
     const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "fresher than values" : "older than values") : "timing unavailable";
+    // JEG-41: only news newer than the source values affects projected scoring.
+    // Older news was already priced into the projections.
+    if (timing !== "fresher than values") return null;
     return {
       type: "news",
       title,
@@ -845,7 +853,6 @@
   function sortValue(row, column) {
     if (column === "name") return row.name;
     if (column === "espn_role") return row.espn_role;
-    if (column === "latest_news") return latestNews(row)?.publishedAt?.getTime() ?? null;
     return row[column];
   }
 
@@ -1042,7 +1049,12 @@
     const colSpan = keys.length + 1;
     const body = list.map(row => {
       const open = state.expanded.has(row.player_key);
-      const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player"><button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button><span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
+      // JEG-41: only expandable when the player has relevant news/adjustments.
+      const hasContext = playerContext(row.player_key).length > 0;
+      const nameCell = hasContext
+        ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button>`
+        : `<strong>${esc(row.name)}</strong>`;
+      const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player">${nameCell}<span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
       return main + renderExpandedRow(row, colSpan);
     }).join("");
     wrap.innerHTML = `<table class="all-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
@@ -1105,7 +1117,7 @@
     if (Number.isFinite(importedBenchShare)) state.benchShare = Math.max(0, Math.min(0.5, importedBenchShare));
     if (["ALL","QB","RB","WR","TE","FLEX"].includes(raw.filters?.position)) state.filters.position = raw.filters.position;
     state.filters.search = String(raw.filters?.search || "").slice(0, 80);
-    if (["name","pos","team","espn_role","disagreement","latest_news",...renderKeys].includes(raw.sort?.column)) {
+    if (["name","pos","team","espn_role","disagreement",...renderKeys].includes(raw.sort?.column)) {
       state.sort.column = raw.sort.column;
       state.compareSource = raw.sort.column;
       state.sort.direction = raw.sort.direction === "asc" ? "asc" : "desc";
