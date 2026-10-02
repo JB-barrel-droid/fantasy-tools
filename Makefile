@@ -163,6 +163,8 @@ test-unit:
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
 	python3 -m unittest tests.test_github_actions_status
+	python3 -m unittest tests.test_production_verify
+	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
 	python3 -m unittest lanes.test_plan_tracker
 
