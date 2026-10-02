@@ -1589,3 +1589,46 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+## 2026-10-02 - JEG-87: FantasyCalc puller week-coding with fail-closed validation
+
+Output: `ops/watchdog/refresh_fantasycalc.py` (week extractors +
+validator, JSON now carries `week` + `week_evidence`),
+`tests/test_fantasycalc_week_coding.py` (5 unittest classes, all
+negative-tested against the named defect).
+
+### Verified (in this session, sandbox cannot run tests so nothing is
+executed — naming the checks the reviewer needs to perform)
+
+- Read `docs/week-coding-rules.md` and the reference validator at
+  `ops/watchdog/pull_usatoday.py::validate_week_consistency` (Rule 1 +
+  Rule 2 pattern: extract from URL, extract from title, fail closed on
+  mismatch).
+- Read `ops/watchdog/refresh_fantasycalc.py` and confirmed it is the
+  active FantasyCalc puller (imports `bsd.pull_fantasycalc` and writes
+  the per-combo caches + `fantasycalc_snapshot` manifest).
+- Read `tests/test_cbs_usatoday_recurring.py` to mirror the loader +
+  negative-test convention used in this repo.
+
+### Claimed, unverified (sandbox: no tests run, no network egress)
+
+- The new module imports cleanly: not run (sandbox).
+- `validate_week_consistency` raises on `url_week != title_week !=
+  requested_week`: asserted by reading the code; the reviewer must run
+  `python3 -m unittest tests.test_fantasycalc_week_coding -v` to confirm.
+- The 24 combo cache payloads each carry `week` and `week_evidence`:
+  asserted by reading the code; reviewer must run the
+  `MainWeekCodingTest` tests.
+- The unparseable label short-circuits before any `bsd.pull_fantasycalc`
+  call: asserted by reading the code; reviewer must run
+  `test_unparseable_label_refuses_to_pull`.
+
+### Open
+
+- `docs/week-coding-rules.md` Implementation Status table is unchanged —
+  reviewer flips `pull_fantasycalc.py` from ❌ TODO to ✅ Done on
+  merge per the task instructions.
+- The `&week=N` query param appended to the canonical URL is
+  documentation evidence only: FantasyCalc's API ignores it (the live
+  endpoint is `/values/current`), but adding it makes the URL
+  self-describing so a reader can see what week was intended.
