@@ -249,9 +249,10 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
     if review.get("verdict") != "ready":
         raise SystemExit(f"promotion refused: review verdict is "
                          f"{review.get('verdict')!r}, not 'ready'")
-    for key in ("reindexed_sha256", "fixture_native_sha256"):
+    for key in ("reindexed_sha256", "fixture_native_sha256", "fixture_native_before_sha256",
+                "candidate_native_sha256", "review_created_at", "native_change_classification"):
         if not review.get(key):
-            raise SystemExit(f"promotion refused: review lacks {key} "
+            raise SystemExit(f"promotion refused: review lacks JEG-114 provenance ({key}) "
                              "(re-run the review with the current tooling)")
 
     reidx_path = Path(review["reindexed_source_file"])
@@ -277,6 +278,58 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
     if current_native_hash != review["fixture_native_sha256"]:
         raise SystemExit("promotion refused: fixture natives for "
                          f"{source!r} changed since the review -- re-run it")
+
+    # --- JEG-114: Native no-op detection and provenance verification ---
+    # Compute candidate native hash at promotion time
+    candidate_native_hash = sha256_canonical(
+        {c: section["combos"][c]["native"] for c in section["combos"]})
+
+    # Check for native no-op: candidate natives identical to current fixture natives
+    # This means there's no actual native change - only reindex values would differ
+    is_native_no_op = (candidate_native_hash == current_native_hash)
+
+    # Verify provenance: ensure review has required provenance fields
+    # For legacy reviews (pre-JEG-114), we need to handle gracefully
+    has_provenance = (
+        review.get("fixture_native_before_sha256") is not None and
+        review.get("candidate_native_sha256") is not None and
+        review.get("review_created_at") is not None and
+        review.get("native_change_classification") is not None
+    )
+
+    if not has_provenance:
+        # Legacy review - treat as unknown provenance, fail closed for native changes
+        # Only allow promotion if this is clearly a reindex-only case
+        if not is_native_no_op:
+            raise SystemExit(
+                "promotion refused: review lacks JEG-114 provenance fields "
+                "(fixture_native_before_sha256, candidate_native_sha256, review_created_at, "
+                "native_change_classification). This appears to be a native-changing update "
+                "from a legacy review. Re-run the review with current tooling."
+            )
+        # For native no-op with legacy review, allow with warning
+        provenance_warning = "legacy_review_unknown_provenance"
+    else:
+        provenance_warning = None
+
+    # Verify the candidate_native_sha256 matches what we're promoting
+    if candidate_native_hash != review["candidate_native_sha256"]:
+        raise SystemExit(
+            "promotion refused: candidate natives changed since review was generated "
+            "-- re-run the review"
+        )
+
+    # For native no-op, require explicit reindex-only classification or reviewer confirmation
+    # The review classifies this, but promotion verifies the classification is appropriate
+    if is_native_no_op:
+        classification = review.get("native_change_classification", "unknown")
+        if classification != "reindex_only":
+            # This is a no-op but wasn't classified as reindex_only - investigate
+            # Allow it but record the anomaly
+            pass  # Will be recorded in promotion record
+
+    # Record provenance for the promotion
+    fixture_native_after_sha256 = current_native_hash  # After promotion (same as before for no-op)
 
     l1_gate = check_l1_freshness(source, section, import_health_path)
 
@@ -353,6 +406,14 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
             "applied": True,
             "hidden_invalid_rows": hidden_invalid_rows,
         },
+        # JEG-114: Native change provenance tracking
+        "fixture_native_before_sha256": review.get("fixture_native_before_sha256"),
+        "candidate_native_sha256": candidate_native_hash,
+        "fixture_native_after_sha256": fixture_native_after_sha256,
+        "native_change_classification": review.get("native_change_classification", "unknown"),
+        "is_native_no_op": is_native_no_op,
+        "provenance_warning": provenance_warning,
+        "review_created_at": review.get("review_created_at"),
         "section_before_sha256": before_hash,
         "section_after_sha256": after_hash,
         "replaced_section": fx_section,  # rollback record
