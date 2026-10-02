@@ -145,6 +145,18 @@ jobs:
             git push
           fi
 
+      - name: Upload review artifacts (JEG-113)
+        # The review JSONs are gitignored, so a bare "hold" in the log says
+        # nothing about WHY. Upload them on every run so the failing checks
+        # and review rows are inspectable from the workflow run page.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: comparison-reviews
+          path: output/reviewed/
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Fail the job if the chain failed
         if: steps.chain.outcome == 'failure'
         run: |

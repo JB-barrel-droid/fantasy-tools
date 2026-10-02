@@ -221,6 +221,32 @@ class FailClosedTest(unittest.TestCase):
         self.assertNotIn("promote_comparison_section.py", fake.calls)
         self.assertEqual(result["promoted"], 0)
 
+    def test_hold_halt_names_failing_checks(self):
+        """JEG-113: a review hold's halt detail names the failing checks.
+
+        The 2026-10-02 CI runs held with only "verdict is 'hold', not 'ready'"
+        in the log; the review JSON is gitignored and was not uploaded, so the
+        reason was unknowable from CI. The halt detail must carry the
+        failing check names/details. Simulated broken state: a hold whose
+        review artifact records a named failing check.
+        """
+        fake = WireFake(self.repo, verdicts={"*": "hold"})
+        # WireFake predates the vorp-translate stage (JEG-64); stub it via a
+        # wrapper so this test exercises the review-hold path, not the stale
+        # fake. (Instance attribute can't override __call__; wrap instead.)
+        def run_fn(cmd, **kwargs):
+            if Path(cmd[1]).name == "translate_via_vorp.py":
+                return True, "vorp-translate: ok"
+            return fake(cmd, **kwargs)
+
+        sec = self.repo / "held-section.json"
+        sec.write_text("{}")
+        with self.assertRaises(chain.ChainHalt) as ctx:
+            chain.process_section(sec, self.repo, run_fn)
+        self.assertEqual(ctx.exception.stage, "review")
+        self.assertIn("coverage:x", ctx.exception.detail)
+        self.assertIn("fail", ctx.exception.detail)
+
     def test_no_verdict_rewrite_code_paths_remain(self):
         """Static guard: the bypass mechanisms must not reappear."""
         src = Path(chain.__file__).read_text()

@@ -172,11 +172,20 @@ def process_section(section, repo, run_fn, nfl_week=None):
         raise ChainHalt("review", f"{base}: review artifact unreadable: {e}")
 
     # The verdict is read-only. NEVER rewrite hold -> ready.
+    # JEG-113: name the failing checks in the halt detail so the CI log
+    # self-diagnoses the hold (the review artifact is gitignored and was not
+    # uploaded, so "hold" alone said nothing).
     verdict = review_data.get("verdict")
     if verdict != "ready":
+        bad = [c for c in review_data.get("checks", [])
+               if c.get("status") not in ("pass", "info")]
+        check_str = ("; ".join(
+            f"{c.get('name')}:{c.get('status')} -- {c.get('detail', '')}"
+            for c in bad) or "no failing checks recorded")
         raise ChainHalt(
             "review",
             f"{base}: verdict is {verdict!r}, not 'ready' — refusing to promote. "
+            f"Failing checks: {check_str}. "
             "A hold means a human must review first; the chain will not override it.",
         )
 
