@@ -135,9 +135,9 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         return [p for p in self.outdir.rglob("snapshot.json") if "_superseded" not in p.parts]
 
     # -- guard 1: unknown source -> fail closed --------------------------------
-    # defect: importing a non-dashboard source (ECR/Vegas/Razzball sneaking in)
+    # defect: importing a non-dashboard source (ECR/Vegas sneaking in; razzball joined the DB-backed sources in JEG-18)
     def test_unknown_source_fails_closed(self):
-        for bad in ("ecr", "vegas", "razzball", "prediction_markets", "fantasypros_ecr", "nflverse"):
+        for bad in ("ecr", "vegas", "prediction_markets", "fantasypros_ecr", "nflverse"):
             with self.assertRaises(SystemExit, msg=bad):
                 mod.import_source(bad, output_dir=self.outdir)
         self.assertEqual(self.snapshot_files(), [])

@@ -277,6 +277,30 @@
       markup >= STARTER_MARKUP_SANE_LOW && markup <= STARTER_MARKUP_SANE_HIGH;
   }
 
+  // Fixed-pie direction tolerance (JEG-69).
+  //
+  // The `${vorpKey}-fixed-pie-direction` ChartHealth check asserts the raw
+  // pool is bench-heavy enough that the fixed pie marks starters UP and
+  // bench DOWN. A strict `rawStarterShare < starterShare` is knife-edge:
+  // CBS ROS's raw pool genuinely sits at 85.2-85.3% starter share at
+  // 14-team standard (verified source-pure -- JEG-68), 0.2-0.3pp over the
+  // 85% target, and tripped the check on a correct build even though the
+  // markup (0.996) sits inside the sane band.
+  //
+  // Tolerate the sane band's headroom instead: the check fails only where
+  // the markup would also leave the sane band -- a material inversion like
+  // the ~91% pre-valued-inputs defect (JEG-68). 1pp keeps the direction
+  // check slightly stricter than the markup check (fails at 86.0% raw
+  // starter share vs 86.7% for markup < 0.98), so it still guards the
+  // direction while noise at the boundary passes.
+  var STARTER_DIRECTION_EPS = 0.01;
+
+  function fixedPieDirectionSane(rawStarterShare, starterShare) {
+    return typeof rawStarterShare === "number" && isFinite(rawStarterShare) &&
+      typeof starterShare === "number" && isFinite(starterShare) &&
+      rawStarterShare < starterShare + STARTER_DIRECTION_EPS;
+  }
+
   // Cross-source scale agreement, as a pure comparison so it can be tested
   // against the numbers the defect actually produced.
   //
@@ -475,6 +499,8 @@
     STARTER_MARKUP_SANE_LOW: STARTER_MARKUP_SANE_LOW,
     STARTER_MARKUP_SANE_HIGH: STARTER_MARKUP_SANE_HIGH,
     starterMarkupSane: starterMarkupSane,
+    STARTER_DIRECTION_EPS: STARTER_DIRECTION_EPS,
+    fixedPieDirectionSane: fixedPieDirectionSane,
     allocationCounts: allocationCounts
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

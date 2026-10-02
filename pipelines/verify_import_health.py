@@ -6,8 +6,8 @@ VERIFY it landed with fresh content vintage before any fixture update
 (match/reference/section/promote). A missing, stale, or failed import fails
 closed (no fixture update, loud signal).
 
-For each source (espn, usatoday, fantasycalc, fantasypros, cbs, cbsros --
-never ecr/vegas/razzball; unknown names are a hard error), the gate checks:
+For each source (espn, usatoday, fantasycalc, fantasypros, cbs, cbsros, razzball --
+never ecr/vegas; unknown names are a hard error), the gate checks:
   - a snapshot exists under data/raw/sources/<source>/ with a manifest;
   - the snapshot bytes match the manifest sha256
     (defect guarded: unverified bytes promoted);
@@ -51,8 +51,8 @@ DEFAULT_SOURCES_ROOT = ROOT / "data" / "raw" / "sources"
 DEFAULT_OUTPUT = ROOT / "output" / "source-import-health.json"
 HEALTH_SCHEMA = "trade-value-import-health-v1"
 
-DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros")
-# All six dashboard sources are now DB-backed. (cbsros was snapshot-only until
+DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros", "razzball")
+# All seven dashboard sources are now DB-backed (razzball: JEG-18). (cbsros was snapshot-only until
 # 2026-10-01 when public.cbs_ros_projections was created.)
 SNAPSHOT_ONLY_SOURCES: tuple[str, ...] = ()
 DASHBOARD_SOURCES = DB_SOURCES + SNAPSHOT_ONLY_SOURCES
@@ -100,10 +100,16 @@ SOURCE_CONFIGS = {
         "vintage_date_col": "cbs_snapshot_date",
         "table_holds_review_rows": False,
     },
+    "razzball": {
+        "api_table": "razzball_projections",
+        "params": "?select=player_key,razzball_snapshot_date,week,created_at",
+        "vintage_date_col": "razzball_snapshot_date",
+        "table_holds_review_rows": False,
+    },
 }
 
 # Sources that must never be health-checked here, even if someone names them.
-HARD_EXCLUSIONS = ("ecr", "vegas", "razzball", "prediction_markets", "prediction-markets")
+HARD_EXCLUSIONS = ("ecr", "vegas", "prediction_markets", "prediction-markets")
 
 FAILURE_CODES = (
     "MISSING_SNAPSHOT",

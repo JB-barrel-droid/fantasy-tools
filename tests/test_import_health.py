@@ -132,6 +132,9 @@ def table_rows_for(table: str, params: str, *, n: int, week: int | None, date: s
     if table == "cbs_ros_projections":
         assert "cbs_snapshot_date" in params and "source=eq" not in params, params
         return db_rows(n, source_content_date=date, week=week, date_col="cbs_snapshot_date")
+    if table == "razzball_projections":
+        assert "razzball_snapshot_date" in params and "source=eq" not in params, params
+        return db_rows(n, source_content_date=date, week=week, date_col="razzball_snapshot_date")
     assert "source_content_date" in params, params
     return db_rows(n, source_content_date=date, week=week)
 
@@ -195,14 +198,18 @@ class VerifyImportHealthTest(unittest.TestCase):
         make_snapshot(self.root, "cbsros", dated,
                       content_vintage=dated, week_designated=None,
                       supabase_table="public.cbs_ros_projections")
+        # razzball: DB-backed since JEG-18 (public.razzball_projections), dated daily rule
+        make_snapshot(self.root, "razzball", dated,
+                      content_vintage=dated, week_designated=None,
+                      supabase_table="public.razzball_projections")
 
     # -- hard error: unknown / excluded sources --------------------------------
     # defect: a non-dashboard source name sneaking into the gate
     def test_unknown_and_excluded_sources_hard_error(self):
-        for bad in ("ecr", "vegas", "razzball", "nflverse", "fantasypros_ecr"):
+        for bad in ("ecr", "vegas", "prediction_markets", "nflverse", "fantasypros_ecr"):
             with self.assertRaises(SystemExit, msg=bad):
                 mod.check_source(bad)
-        for good in ("espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros"):
+        for good in ("espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball"):
             self.assertEqual(mod.check_source(good), good)
 
     # -- defect 1: missing snapshot -> missing + non-zero ------------------------
@@ -265,6 +272,55 @@ class VerifyImportHealthTest(unittest.TestCase):
         )
         self.assertEqual(entry["status"], "failed")
         self.assertTrue(entry["failure_reason"].startswith("BYTE_MISMATCH"))
+
+    # -- razzball (JEG-18): DB-backed, dated daily rule like cbsros/espn ----------
+    def razzball_entry(self, vintage, table_date=None, n=10):
+        table_date = table_date or vintage
+        mod.fetch_table_summary = lambda table, params: table_rows_for(
+            table, params, n=n, week=None, date=table_date)
+        make_snapshot(self.root, "razzball", vintage,
+                      content_vintage=vintage, week_designated=None,
+                      supabase_table="public.razzball_projections")
+        entry, _ = mod.verify_source(
+            "razzball", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        return entry
+
+    def test_razzball_fresh_within_two_days_is_ok(self):
+        entry = self.razzball_entry("2026-09-20")  # check_date 2026-09-21
+        self.assertEqual(entry["status"], "ok", entry.get("failure_reason"))
+        self.assertEqual(entry["db_latest_vintage"], "2026-09-20")
+
+    def test_razzball_older_than_two_days_is_stale_on_content_vintage(self):
+        entry = self.razzball_entry("2026-09-15")
+        self.assertNotEqual(entry["status"], "ok")
+        self.assertIn("2026-09-15", str(entry.get("failure_reason")))
+
+    def test_razzball_table_row_count_drift_fails(self):
+        entry = self.razzball_entry("2026-09-21", n=8)  # manifest expects 10
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+
+    def test_razzball_table_vintage_drift_fails(self):
+        entry = self.razzball_entry("2026-09-21", table_date="2026-09-18")
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+
+    def test_razzball_requeries_its_own_table_and_date_column(self):
+        seen = {}
+
+        def spy(table, params):
+            seen["table"], seen["params"] = table, params
+            return table_rows_for(table, params, n=10, week=None, date="2026-09-21")
+
+        mod.fetch_table_summary = spy
+        make_snapshot(self.root, "razzball", "2026-09-21", content_vintage="2026-09-21",
+                      week_designated=None, supabase_table="public.razzball_projections")
+        mod.verify_source("razzball", sources_root=self.root, nfl_week=3,
+                          check_date=self.check_date, prev_entry=None, checked_at="t")
+        self.assertEqual(seen["table"], "razzball_projections")
+        self.assertIn("razzball_snapshot_date", seen["params"])
 
     # -- cbsros: snapshot-only source skips the table stage by design -----------
     def test_cbsros_db_backed_checks_table(self):
@@ -548,7 +604,7 @@ class VerifyImportHealthTest(unittest.TestCase):
         self.assertEqual(health["schema"], "trade-value-import-health-v1")
         self.assertEqual(health["nfl_week"], 3)
         self.assertEqual(set(health["sources"].keys()),
-                         {"espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros"})
+                         {"espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball"})
         for source, entry in health["sources"].items():
             with self.subTest(source=source):
                 # exact shape: no missing keys, no extra keys

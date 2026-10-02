@@ -110,10 +110,14 @@ def newest_file(directory, pattern):
 
 
 def process_section(section, repo, run_fn):
-    """Reindex -> review -> promote ONE section. Fail-closed.
+    """Reindex -> VORP-translate -> review -> promote ONE section. Fail-closed.
 
     Returns "promoted". Raises ChainHalt on any hold/failure/error.
     NEVER modifies the review artifact: a hold stays a hold.
+
+    The VORP-translate step (JEG-64) is fail-safe, not fail-closed: missing
+    Supabase grains and transport errors keep the reindexed values and record
+    reindex-fallback provenance. It can never halt the chain.
     """
     base = section.stem  # e.g., usatoday-standard-12-section
 
@@ -126,6 +130,16 @@ def process_section(section, repo, run_fn):
     ])
     if not ok or not reindexed.is_file():
         raise ChainHalt("reindex", f"{base}: reindex failed: {out[-300:]}")
+
+    # VORP translation (JEG-64): substitute Supabase translated values for the
+    # quantile-mapped ones on as-published sources. Fail-safe by design --
+    # never raises, never halts the chain (fallback is acceptance #3).
+    tr_ok, tr_out = run_fn([
+        "python3", "pipelines/translate_via_vorp.py",
+        "--section", str(reindexed),
+    ])
+    tr_line = tr_out.strip().splitlines()[-1] if tr_out and tr_out.strip() else "no output"
+    print(f"  vorp-translate: {'ok' if tr_ok else 'STEP-FAILED-LOGGED'}: {tr_line}")
 
     # Review. The reviewer exits non-zero when the verdict is not ready,
     # but still writes the artifact — a missing artifact is itself a failure.

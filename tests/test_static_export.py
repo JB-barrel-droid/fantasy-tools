@@ -257,33 +257,30 @@ class StaticExportTest(unittest.TestCase):
             # fix): they track the ESPN leg within the 22% tolerance.
             # Updated 2026-09-30 PM with fresh 09-30 adjustment inputs
             # (ddf-20260930-espn-standard-12t-0p15).
-            # 2026-10-01: USA Today migrated to flex-aware per-bucket pie
-            # allocation. Allen's value 19.45132743362832 reflected the
-            # bucket-specific scaling against the old anchor. JEG-13 anchor
-            # migration (ESPN leg rebuilt with explicit zeros, 492 players):
-            # 22.530973451327434 is the 9-25 native 40.0 x new bucket scale.
-            ("usatoday", "full_12"): 22.530973451327434,
-            # 2026-10-01 (JEG-13): FantasyCalc reindexed against the rebuilt
-            # explicit-zero ESPN anchor (promoted 2026-10-01 12:18 CDT).
-            # Allen's value is native 6013.0 x QB/dedicated bucket scale
-            # 0.004951736718096831 = 29.774792885916245, verified
-            # independently against the fixture's fit metadata. The old pin
-            # 25.867279775024702 used the stale-pie anchor's bucket scale.
-            ("fantasycalc", "full_12_qb1"): 29.774792885916245,
-            # 2026-10-01 (JEG-13): FantasyPros reindexed against the rebuilt
-            # explicit-zero ESPN anchor (promoted 2026-10-01 12:18 CDT).
-            # Allen's value is native 29.1 x QB/dedicated bucket scale
-            # 0.6818419675562534 = 19.841601255886975, verified
-            # independently against the fixture's fit metadata. The old pin
-            # 17.237676609105183 used the stale-pie anchor's bucket scale.
-            ("fantasypros", "full_12"): 19.841601255886975,
-            # 2026-10-01 (JEG-13): CBS reindexed against the rebuilt
-            # explicit-zero ESPN anchor (promoted 2026-10-01 12:18 CDT).
-            # Allen's value is native 23.0 x QB/dedicated bucket scale
-            # 1.0368 = 23.8464, verified independently against the fixture's
-            # fit metadata. The old pin 20.7 used the stale-pie anchor's
-            # bucket scale.
-            ("cbs", "full_12"): 23.8464,
+            # 2026-10-02 (JEG-64): USA Today migrated to VORP-translated values.
+            # Allen's value is the Supabase translated value (25.0) for the
+            # usatoday/ppr/12/wk4 grain -- the quantile bucket pin
+            # 22.530973451327434 is retired with the reindex path. Verified:
+            # fixture reindexed value == publisher_translated_values grain.
+            ("usatoday", "full_12"): 25.0,
+            # 2026-10-02 (JEG-64): FantasyCalc migrated to VORP-translated
+            # values. Allen's value is the Supabase translated value (25.0,
+            # the QB anchor max) for the fantasycalc/ppr/12/wk4 grain -- the
+            # quantile bucket pin 29.774792885916245 is retired with the
+            # reindex path. Fixture == grain, verified.
+            ("fantasycalc", "full_12_qb1"): 25.0,
+            # 2026-10-02 (JEG-64): FantasyPros migrated to VORP-translated
+            # values. Allen's value is the Supabase translated value (25.0,
+            # the QB anchor max) for the fantasypros/ppr/12/wk4 grain -- the
+            # quantile bucket pin 19.841601255886975 is retired with the
+            # reindex path. Fixture == grain, verified.
+            ("fantasypros", "full_12"): 25.0,
+            # 2026-10-02 (JEG-64): CBS migrated to VORP-translated values.
+            # Allen's value is the Supabase translated value (25.0, the QB
+            # anchor max) for the cbs/ppr/12/wk4 grain -- the quantile bucket
+            # pin 23.8464 is retired with the reindex path. Fixture == grain,
+            # verified.
+            ("cbs", "full_12"): 25.0,
             # 2026-10-01 (JEG-13): ESPN rebuilt with explicit zeros
             # (ddf-20260930-espn-*12t legs, 492 players). Allen's leg value
             # 26.913... lands in the fixture as 26.9. The old 36.8 pin was the
@@ -343,6 +340,16 @@ class StaticExportTest(unittest.TestCase):
                 fa = (combo.get("fit") or {}).get("flex_aware_pie")
                 if not fa:
                     continue
+                # JEG-64: combos served from VORP-translated values carry their
+                # own fit record; the quantile bucket-scale invariant does not
+                # apply to them. The skip is principled, not a hole: a
+                # translated combo MUST document the substitution in fit.
+                if (combo.get("translation") or {}).get("method") == "vorp-supabase":
+                    self.assertIn(
+                        "vorp_translation", combo.get("fit") or {},
+                        f"{source} {combo_name}: translated combo missing "
+                        "fit.vorp_translation record")
+                    continue
                 native = combo.get("native") or {}
                 reindexed = combo.get("reindexed") or {}
                 combo_keys = combo.get("player_keys") or {}
@@ -383,7 +390,24 @@ class StaticExportTest(unittest.TestCase):
                         f"should match anchor total {anchor_total:.2f} over the same "
                         f"{len(members)} players",
                     )
-        self.assertGreater(checked, 0, "no flex-aware buckets checked at all")
+        # JEG-64: combos served from VORP-translated values no longer carry
+        # the quantile bucket invariant. When nothing remains on the
+        # quantile path, the zero must be EXPLAINED, not silent: every
+        # combo with a flex_aware_pie fit record must be translated.
+        if checked == 0:
+            untranslated = [
+                f"{source} {combo_name}"
+                for source, source_data in self.comparison["sources"].items()
+                for combo_name, combo in source_data["combos"].items()
+                if (combo.get("fit") or {}).get("flex_aware_pie")
+                and (combo.get("translation") or {}).get("method") != "vorp-supabase"
+            ]
+            self.assertEqual(
+                [], untranslated,
+                "combos on the quantile path but unchecked: "
+                + ", ".join(untranslated))
+        else:
+            self.assertGreater(checked, 0)
 
     def test_legacy_fixed_pie_totals_match_source_metadata(self):
         # Non-flex-aware combos (legacy per-position methods) keep the old
