@@ -646,6 +646,47 @@ def run_adjusted_sections(repo, run_fn):
     print("  ✓ _adjusted fixture sections built")
 
 
+def run_vorp_refresh(nfl_week, repo, run_fn):
+    """Stage 9 (JEG-70): refresh VORP translation grains if stale.
+
+    Demand-driven instead of a separate scheduled workflow: the chain
+    already runs every 6h with Supabase access. If any of the 21
+    as-published grains is older than the current NFL week, re-run the
+    unified translation now. Reads the freshly promoted fixture, so the
+    next chain run's vorp-translate stage wires the new grains.
+
+    Fail-safe: refresh failure is logged, never halts the chain (the
+    per-combo vorp-translate stage falls back to reindex).
+    """
+    try:
+        # Staleness check first: cheap, writes nothing.
+        ok, out = run_fn([
+            "python3", "pipelines/refresh_vorp_translation.py",
+            "--check-only", "--week", str(nfl_week),
+        ])
+    except Exception as e:
+        print(f"  ✗ VORP staleness check failed (non-fatal): {e}")
+        return {"status": "failed", "detail": f"staleness check failed: {e}"}
+    if ok:
+        print("  ✓ VORP grains fresh; no refresh needed")
+        return {"status": "ok", "detail": "grains fresh, no refresh needed"}
+    print("  VORP grains stale; refreshing...")
+    try:
+        ok, out = run_fn([
+            "python3", "pipelines/refresh_vorp_translation.py",
+            "--week", str(nfl_week),
+        ])
+    except Exception as e:
+        print(f"  ✗ VORP refresh failed (non-fatal): {e}")
+        return {"status": "failed", "detail": f"refresh failed: {e}"}
+    last = out.strip().splitlines()[-1] if out and out.strip() else "no output"
+    if ok:
+        print(f"  ✓ VORP refresh complete: {last}")
+        return {"status": "ok", "detail": f"refreshed: {last}"}
+    print(f"  ✗ VORP refresh failed (non-fatal): {last}")
+    return {"status": "failed", "detail": f"refresh failed: {last}"}
+
+
 def describe_result(result):
     """Human-readable one-line status for the dashboard (string, not a code)."""
     if result["status"] == "ok":
@@ -765,6 +806,23 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             print("STAGE 8: ADJUSTED FIXTURE SECTIONS — SKIPPED")
             print("=" * 60)
 
+        # Stage 9: VORP translation refresh (JEG-70, demand-driven).
+        # Refreshes the Supabase grains when stale; the next chain run's
+        # vorp-translate stage wires them. Fail-safe: never halts the chain.
+        vorp_result = {"status": "skipped", "detail": "no nfl_week"}
+        if nfl_week is not None:
+            print("\n" + "=" * 60)
+            print("STAGE 9: VORP TRANSLATION REFRESH (if stale)")
+            print("=" * 60)
+            try:
+                vorp_result = run_vorp_refresh(nfl_week, repo, run_fn)
+            except Exception as e:
+                vorp_result = {"status": "failed",
+                               "detail": f"unexpected error: {e}"}
+                print(f"  ✗ VORP refresh error (non-fatal): {e}")
+        else:
+            print("  VORP refresh skipped: no nfl_week")
+
         print("\n" + "=" * 60)
         print("CHAIN COMPLETE")
         print("=" * 60)
@@ -774,6 +832,7 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             print(f"  fit: {fit_result['status']}")
         if adjusted_result is not None:
             print(f"  adjusted_sections: {adjusted_result['status']}")
+        print(f"  vorp_refresh: {vorp_result['status']}")
     finally:
         # Always record the run, even on interruption or unexpected error.
         # results/fit_result/adjusted_result may be partially populated — write what's known.
