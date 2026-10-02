@@ -343,6 +343,16 @@ class StaticExportTest(unittest.TestCase):
                 fa = (combo.get("fit") or {}).get("flex_aware_pie")
                 if not fa:
                     continue
+                # JEG-64: combos served from VORP-translated values carry their
+                # own fit record; the quantile bucket-scale invariant does not
+                # apply to them. The skip is principled, not a hole: a
+                # translated combo MUST document the substitution in fit.
+                if (combo.get("translation") or {}).get("method") == "vorp-supabase":
+                    self.assertIn(
+                        "vorp_translation", combo.get("fit") or {},
+                        f"{source} {combo_name}: translated combo missing "
+                        "fit.vorp_translation record")
+                    continue
                 native = combo.get("native") or {}
                 reindexed = combo.get("reindexed") or {}
                 combo_keys = combo.get("player_keys") or {}
