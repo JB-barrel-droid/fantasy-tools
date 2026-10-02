@@ -1,5 +1,34 @@
 # Claude session log
 
+## 2026-10-02 - JEG-134 (R7): first real CBS ROS production run — green and verified
+
+Workflow `.github/workflows/cbsros-supabase-sync.yml` dispatched on main.
+Run 37065360913 (2026-10-02 21:11 UTC): scrape succeeded, save succeeded,
+conclusion success. Two earlier runs the same day (37059509615, 37063023888)
+failed the saver's row-count check at the Save to Supabase step.
+
+### Verified
+- `public.cbs_ros_projections` holds 363 rows for vintage 2026-10-02 (all
+  distinct player_keys), matching the afternoon CBS scrape exactly.
+- 0 value mismatches vs the fresh snapshot's clean rows across ros_standard /
+  ros_half_ppr / ros_ppr / per_game_* / gp / receptions; 0 keys outside the
+  snapshot. Content hash 97973c9ddb76930f.
+- 4 review rows (Trubisky, Brooks, Knight, Okonkwo — no_match) correctly
+  excluded, never written.
+
+### Incident and remediation (same day)
+- Root cause of the two failed runs: a morning local save wrote 363 rows for
+  vintage 2026-10-02; CBS updated its ROS pages intraday (dropped Calvin Ridley,
+  Andrew Beck, Darius Cooper, Michael Burton; added Ashton Dulin, Corey Kiner,
+  Will Shipley, Laquon Treadwell). The saver's merge-upsert on
+  (player_key, cbs_snapshot_date) franken-merged both snapshots into 367 rows,
+  so the `live != len(clean)` check failed closed twice. The review rows were
+  never the problem — the ticket description's hypothesis was wrong.
+- Remediation: deleted the 4 stale morning rows (keys 2282/3077/3561/4283);
+  re-dispatched the workflow → green. Full analysis on the JEG-125 thread.
+- Durable fix is JEG-125 (saver replace-semantics per vintage: upsert then prune
+  keys absent from the fresh snapshot), dispatched to the minimax lane.
+
 ## 2026-10-02 - JEG-104 migration replay correction (Codex)
 
 ### Verified
