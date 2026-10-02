@@ -18,11 +18,19 @@ FantasyPros, USA Today, and CBS are scraped live from their article pages.
 FantasyCalc is via the API that powers its human-visible page (same numbers
 a human sees). ESPN, CBS ROS, and Razzball have no published trade value
 chart; their values are calculated from rest-of-season projections.
+
+JEG-200: When the builder cannot run (missing snapshots in CI), it stamps
+the committed artifact with `stale_relative_to_fixture: true` and
+`lag_seconds` (fixture.built_at - existing_lineage.generated_at). The
+fields are explicit, non-degrading, and never silent: a served artifact
+that disagrees with the fixture MUST carry the badge instead of silently
+shipping stale rows.
 """
 
 import json
 import os
 import sys
+from datetime import datetime as _dt, timezone as _tz
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Live values come from dist/modules/live-page-scrape.json (written by
@@ -813,6 +821,69 @@ def merge_fixture_only(names):
     print(f"Wrote {OUT_PATH}")
 
 
+def _parse_iso(ts):
+    """Parse an ISO-8601 timestamp, accepting both +00:00 and trailing Z."""
+    if not ts or not isinstance(ts, str):
+        return None
+    try:
+        return _dt.fromisoformat(ts.replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def stamp_staleness_badge(out_path=OUT_PATH, fixture_path=DATA_PATH, reason="builder_raised"):
+    """Stamp a committed lineage artifact with explicit staleness metadata.
+
+    JEG-200: when the builder cannot run (missing snapshots in CI), the
+    committed artifact must carry an explicit, non-silent staleness badge
+    instead of silently shipping stale rows. This is the "floor" -- honest
+    staleness over silent contradiction.
+
+    Reads the existing artifact and the current fixture, computes
+    `lag_seconds = fixture.built_at - lineage.generated_at`, and writes back
+    the artifact with two top-level fields:
+
+      stale_relative_to_fixture: bool
+      lag_seconds: float | None
+      stale_reason: str
+      stale_stamped_at: iso8601   (wall-clock when the badge was stamped)
+
+    The function is read-only on the fixture and never touches generated_at
+    on the artifact (the artifact still reflects the fixture vintage at the
+    time it was last successfully built; lag is computed from that).
+
+    Returns the new artifact, or None if no committed artifact exists (a
+    builder that has never produced a real lineage has nothing to badge).
+    """
+    if not os.path.exists(out_path):
+        return None
+    try:
+        with open(out_path) as f:
+            artifact = json.load(f)
+    except Exception:
+        return None
+    try:
+        with open(fixture_path) as f:
+            fixture = json.load(f)
+    except Exception:
+        return None
+    fixture_built = _parse_iso(fixture.get("built_at") or fixture.get("generated_at"))
+    lineage_gen = _parse_iso(artifact.get("generated_at"))
+    lag = None
+    stale = False
+    if fixture_built is not None and lineage_gen is not None:
+        lag = (fixture_built - lineage_gen).total_seconds()
+        stale = lag > 0
+    artifact["stale_relative_to_fixture"] = bool(stale)
+    artifact["lag_seconds"] = lag
+    artifact["stale_reason"] = reason
+    artifact["stale_stamped_at"] = _dt.now(_tz.utc).isoformat()
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    with open(out_path, "w") as f:
+        json.dump(artifact, f, indent=2)
+    return artifact
+
+
 def main():
     if "--merge" in sys.argv:
         i = sys.argv.index("--merge")
@@ -899,4 +970,36 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # JEG-200: the lineage rebuild only succeeds where raw snapshots exist.
+    # In CI the snapshots are gitignored and require_snapshot_natives() raises
+    # SystemExit; pages.yml has continue-on-error: true and the previously
+    # committed artifact ships untouched. Before that ship, stamp an explicit,
+    # non-degrading staleness badge on the existing artifact so the dashboard
+    # renders honest "STALE" instead of silently contradicting the fixture.
+    try:
+        main()
+    except SystemExit as e:
+        # require_snapshot_natives() / merge_fixture_only() raise SystemExit;
+        # only stamp when there's a committed artifact to badge (the floor
+        # contract). Re-raise so the CI gate stays fail-closed.
+        existing = stamp_staleness_badge()
+        if existing is not None:
+            print(f"  stamped staleness badge: "
+                  f"stale_relative_to_fixture={existing.get('stale_relative_to_fixture')}, "
+                  f"lag_seconds={existing.get('lag_seconds')}")
+        raise
+    # On success, clear any stale badge so a fresh build never inherits one.
+    if os.path.exists(OUT_PATH):
+        try:
+            with open(OUT_PATH) as f:
+                doc = json.load(f)
+            if any(k in doc for k in ("stale_relative_to_fixture", "lag_seconds",
+                                       "stale_reason", "stale_stamped_at")):
+                doc.pop("stale_relative_to_fixture", None)
+                doc.pop("lag_seconds", None)
+                doc.pop("stale_reason", None)
+                doc.pop("stale_stamped_at", None)
+                with open(OUT_PATH, "w") as f:
+                    json.dump(doc, f, indent=2)
+        except Exception:
+            pass
