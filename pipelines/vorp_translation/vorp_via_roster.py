@@ -56,20 +56,49 @@ def load_ranked_values(source: str, combo_key: str) -> dict[str, list[tuple[str,
     return by_pos
 
 
-def roster_waiver_line(ranked: list[tuple[str, float]], n_starters: int, n_bench: int) -> tuple[float, str]:
+def allocate_flex(ranked: dict[str, list[tuple[str, float]]], 
+                  dedicated: dict[str, set[str]],
+                  teams: int) -> dict[str, set[str]]:
+    """Allocate flex slots to best available across eligible positions.
+    
+    Args:
+        ranked: {pos: [(player_id, value), ...]} sorted descending
+        dedicated: {pos: set(player_ids)} already assigned as dedicated starters
+        teams: league size
+    
+    Returns:
+        {pos: set(player_ids)} assigned to flex
+    """
+    # Pool all non-dedicated players from flex-eligible positions
+    pool = []
+    for pos in REF_FLEX_ELIGIBLE:
+        for pid, val in ranked.get(pos, []):
+            if pid not in dedicated.get(pos, set()):
+                pool.append((pid, val, pos))
+    
+    # Sort by value descending, take top flex slots
+    pool.sort(key=lambda x: -x[1])
+    n_flex = teams * REF_FLEX_COUNT
+    
+    flex = {pos: set() for pos in POSITIONS}
+    for pid, _, pos in pool[:n_flex]:
+        flex[pos].add(pid)
+    
+    return flex
+
+
+def roster_waiver_line(ranked: list[tuple[str, float]], n_rostered: int) -> tuple[float, str]:
     """Get waiver line value from roster settings.
     
-    The waiver line is the value of the first non-ROSTERED player
-    (not starter, not bench). Determined by roster construction.
+    The waiver line is the value of the first non-ROSTERED player.
+    Rostered = dedicated starters + flex starters + bench.
     
     Args:
         ranked: [(player_id, value), ...] sorted descending by value
-        n_starters: number of starting slots (teams * slots_per_team)
-        n_bench: number of bench slots for this position
+        n_rostered: total number of rostered players for this position
     
     Returns: (waiver_value, method)
     """
-    n_rostered = n_starters + n_bench
     if len(ranked) <= n_rostered:
         # They don't rank enough players to reach waiver
         return ranked[-1][1] if ranked else 0.0, "insufficient_coverage"
@@ -84,14 +113,24 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
     
     Steps:
     1. Load their ranked values per position
-    2. Apply roster settings: n_starters = teams * slots
-    3. Waiver line = value at (n_starters + 1)th rank
-    4. VORP = value - waiver_line
-    5. Implied positional weights = sum(VORP) per position / total
+    2. Assign dedicated starters (teams × slots)
+    3. Allocate flex to best available across RB/WR/TE
+    4. Waiver line = first non-rostered (dedicated + flex + bench)
+    5. VORP = value - waiver_line
+    6. Implied positional weights = sum(VORP) per position / total
     """
     combo_key = f"half_{teams}" if scoring == "half_ppr" else f"{scoring}_{teams}"
     ranked = load_ranked_values(source, combo_key)
     bench_mix = bench_mix_for_teams(teams)
+    
+    # Step 2: Dedicated starters
+    dedicated: dict[str, set[str]] = {}
+    for pos in POSITIONS:
+        n_ded = teams * REF_SLOTS.get(pos, 0)
+        dedicated[pos] = set(pid for pid, _ in ranked.get(pos, [])[:n_ded])
+    
+    # Step 3: Flex allocation
+    flex = allocate_flex(ranked, dedicated, teams)
     
     result = {
         "source": source,
@@ -106,9 +145,12 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
         if not players:
             continue
         
-        n_start = teams * REF_SLOTS.get(pos, 0)
+        n_ded = len(dedicated.get(pos, set()))
+        n_flex = len(flex.get(pos, set()))
         n_bench = bench_mix.get(pos, 0)
-        waiver_val, method = roster_waiver_line(players, n_start, n_bench)
+        n_rostered = n_ded + n_flex + n_bench
+        
+        waiver_val, method = roster_waiver_line(players, n_rostered)
         
         # VORP for each player
         vorp_list = []
@@ -121,9 +163,11 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
         
         result["positions"][pos] = {
             "n_players": len(players),
-            "n_starters": n_start,
+            "n_dedicated": n_ded,
+            "n_flex": n_flex,
+            "n_starters": n_ded + n_flex,
             "n_bench": n_bench,
-            "n_rostered": n_start + n_bench,
+            "n_rostered": n_rostered,
             "waiver_line_value": round(waiver_val, 2),
             "waiver_method": method,
             "max_value": round(players[0][1], 2) if players else 0,
@@ -162,7 +206,8 @@ def main():
         if not p:
             continue
         print(f"\n  {pos}:")
-        print(f"    Ranked: {p['n_players']}, Starters: {p['n_starters']}, "
+        print(f"    Ranked: {p['n_players']}, Dedicated: {p['n_dedicated']}, "
+              f"Flex: {p['n_flex']}, Starters: {p['n_starters']}, "
               f"Bench: {p['n_bench']}, Rostered: {p['n_rostered']}")
         print(f"    Waiver line value: {p['waiver_line_value']} ({p['waiver_method']})")
         print(f"    Max value: {p['max_value']} → Max VORP: {p['max_vorp']}")
