@@ -1915,3 +1915,12 @@ My first draft said CBS, FantasyPros and USA Today show their pull date as "cont
 - Two uncaught page errors seen once with synthetic events (`NotFoundError ... replaceChildren ... blur`); not reproduced with real typing, so not reported as a defect.
 - Live page, GitHub failure-email routing, branch protection, ESPN run 1's log, curve (canvas) values, mouse use of the slider, input sweeps at league shapes other than 12-team Full PPR.
 - Added GAP-41..GAP-46 and extended GAP-039. Nothing is approved to build: Jeremy chooses which recommendations proceed; JEG-84 turns them into tickets.
+## 2026-10-02 - JEG-102: dry-run summary reports its vintage (code, draft PR)
+### Changed
+- `pipelines/save_espn_cbs_references.py`: the dry-run result now carries the same `vintage` the live result does (computed once as `vintage_label`). CI dry run 37054696886 printed `vintage None`.
+- `tests/test_save_espn_cbs_references.py`: `test_dry_run_reports_same_vintage_as_live_run` (ESPN and CBS).
+### Verified
+- The new test fails on the old saver (both subtests: `unexpectedly None`) and passes with the fix; the module's 16 tests pass.
+- Read-only SQL: `espn_season_projections` holds 495 rows at (2026, week 2, 2026-09-30) and 387 at (2026, week 3, 2026-09-29). The 882 in the JEG-102 ticket was the table total, and the dry run's 495 matches the week-2 grain the saver writes.
+### Unverified
+- Why the ESPN save grain is fixed at week 2 while the NFL calendar is past week 4, and which grain the bake reads (raised on JEG-102, not changed).
