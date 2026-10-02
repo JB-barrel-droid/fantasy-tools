@@ -108,9 +108,16 @@ def parse_routing(routing_path: Path):
             lane: cells[1 + j].strip()
             for j, lane in enumerate(header_lanes)
         }
-        # Normalize the row name for lookup (lowercase, collapse runs of
-        # whitespace to single space).
-        norm = re.sub(r"\s+", " ", row_name.strip().lower())
+        # Normalize the row name with the same normalize_capability() the
+        # brief tokens go through, so "needs vision / OCR" (row) and
+        # "vision/OCR" (brief) meet at "vision ocr". Defined below; resolved
+        # at call time.
+        norm = normalize_capability(row_name)
+        if norm in matrix:
+            raise RuntimeError(
+                f"{routing_path}: two matrix rows normalize to {norm!r}; "
+                "row names must stay distinct after normalization"
+            )
         matrix[norm] = per_lane
     return matrix, header_lanes
 
@@ -232,7 +239,7 @@ def validate_send(lane: str, brief_path: Path, root: Path):
         if not lane_allows(lanes, lane):
             answer = (lanes or {}).get(lane.lower(), "?")
             refusals.append(
-                f"lane '{lane}' cannot do '{row_name}' (matrix answer: {answer})"
+                f"lane '{lane}' cannot do '{cap}' (matrix answer: {answer})"
             )
 
     if refusals:
@@ -282,7 +289,7 @@ def cmd_poll(args: argparse.Namespace) -> int:
     inbox_dir = root / "inbox" / lane
     outbox_dir = root / "outbox" / lane
     if not inbox_dir.exists():
-        print(f"(no inbox directory: {inbox_dir})")
+        print(f"(no result files: no inbox directory at {inbox_dir})")
         return 0
     results = sorted(inbox_dir.glob("*-result.md"))
     if not results:
