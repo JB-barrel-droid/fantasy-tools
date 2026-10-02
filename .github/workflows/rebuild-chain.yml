@@ -57,7 +57,7 @@ jobs:
         run: |
           # import_supabase_references.py takes --source (one of the six),
           # not --nfl-week. Import each source explicitly.
-          for src in fantasycalc usatoday fantasypros espn cbs cbsros; do
+          for src in fantasycalc usatoday fantasypros espn cbs cbsros razzball; do
             python3 pipelines/import_supabase_references.py --source "$src"
           done
 

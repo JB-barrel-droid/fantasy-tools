@@ -32,6 +32,24 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-18: Razzball through Supabase, code only (table not created)
+
+### Verified
+
+- Read-only schema look (`list_tables`, no queries, no writes): there is no `razzball_projections` table; `public.cbs_ros_projections` (363 rows, RLS off, columns as in migration 002) is the template. I proposed the Razzball table on JEG-18 and wait for Jeremy's yes; no migration file written, none run, no row written.
+- Built the saver, the importer's `build_razzball_snapshot()`, health coverage (daily dated rule), the lifted `razzball` hard exclusion, and the rebuild-chain loop entry. `make validate` passes.
+- `tests/test_razzball_supabase.py` (12 tests) plus 5 health tests. Round trip: a file snapshot goes through the saver, the importer rebuilds it, and the rebuilt rows equal the originals field for field; the real `build_razzball_ddf_leg.load_razzball_lists` then reads the rebuilt snapshot and returns the same per-game numbers. That round trip found a bug: an empty `health` string came back as null; fixed (stored verbatim). Mutations caught by a named test: dropping raw_stats in the saver, dropping it in the importer, swapping half and ppr, re-excluding razzball, blending vintages, skipping the post-upsert count check, dropping razzball from the health sources, and treating it as week-designated. One mutation (stamping the season from the run date) first passed because the run year equals the test year; I made the test use vintages far from today and it now fails.
+- Existing assertions that named razzball as hard-excluded or counted six sources were updated; the JEG-18 acceptance criteria call for exactly that.
+
+### Claimed, unverified
+
+- The real snapshot row shape. `pipelines/pull_razzball_ros.py` (named in the issue) is not in the repo; the shape is inferred from `data/inputs/razzball_projections.csv` and the leg builder. Muse reports 701 rows and a stable schema; not checked.
+- Row counts and bake_id: not produced; they need the real snapshot and the pipeline credentials.
+
+### Open
+
+- GAP-030: do not merge until the table exists and holds a vintage, or the chain goes red on `MISSING razzball`.
+
 ## 2026-10-01 - JEG-19: K/DST source audit and recommendation (diagnosis only)
 
 ### Verified (fixtures and inputs in the repo)
