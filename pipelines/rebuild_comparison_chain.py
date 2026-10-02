@@ -90,6 +90,9 @@ def find_latest_snapshot(repo, source):
     candidates = []
     for child in source_dir.iterdir():
         if child.is_dir() and (child / "snapshot.json").is_file():
+            # Skip archived snapshots (prefixed with _)
+            if child.name.startswith("_"):
+                continue
             candidates.append(child)
     if not candidates:
         return None
