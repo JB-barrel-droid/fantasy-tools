@@ -25,13 +25,18 @@ from typing import Optional
 
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO))
 
 from build_ddf_two_tier_leg import (
     REF_SLOTS,
     REF_FLEX_COUNT,
     REF_FLEX_ELIGIBLE,
     POSITIONS,
-    BENCH_MIX_12,
+)
+from pipelines.vorp_translation.vorp_via_roster import (
+    apportion,
+    bench_for_teams,
+    rostered_for_teams,
 )
 
 # NFL season year for the JEG-62 Supabase grain (part of every unique key).
@@ -55,49 +60,12 @@ OUR_MAX = {
 }
 
 
-def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
-    """Scale bench by teams and bench size."""
-    base_per_team = sum(BENCH_MIX_12.values()) / 12
-    return {
-        pos: int(BENCH_MIX_12[pos] * (teams / 12) * (bench_per_team / base_per_team) + 0.5)
-        for pos in POSITIONS
-    }
-
-
 def flex_for_teams(teams: int, flex_count: Optional[int] = None) -> dict[str, int]:
-    """Allocate flex proportionally to slots (JEG-61 will make scoring-aware)."""
+    """Slot-proportional fallback when publisher values are unavailable."""
     if flex_count is None:
         flex_count = REF_FLEX_COUNT
     total_flex = teams * flex_count
-    flex_slots = sum(REF_SLOTS.get(pos, 0) for pos in REF_FLEX_ELIGIBLE)
-    result = {}
-    for pos in POSITIONS:
-        if pos not in REF_FLEX_ELIGIBLE:
-            result[pos] = 0
-        else:
-            result[pos] = int(total_flex * REF_SLOTS.get(pos, 0) / flex_slots + 0.5)
-    # Fix rounding
-    diff = total_flex - sum(result.values())
-    if diff:
-        largest = max(REF_FLEX_ELIGIBLE, key=lambda p: REF_SLOTS.get(p, 0))
-        result[largest] += diff
-    return result
-
-
-def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
-                       flex_count: Optional[int] = None) -> dict[str, dict]:
-    """Compute rostered counts per position."""
-    flex_alloc = flex_for_teams(teams, flex_count)
-    bench_alloc = bench_for_teams(teams, bench_per_team)
-    return {
-        pos: {
-            'dedicated': teams * REF_SLOTS.get(pos, 0),
-            'flex': flex_alloc[pos],
-            'bench': bench_alloc[pos],
-            'rostered': teams * REF_SLOTS.get(pos, 0) + flex_alloc[pos] + bench_alloc[pos],
-        }
-        for pos in POSITIONS
-    }
+    return apportion({pos: REF_SLOTS[pos] for pos in REF_FLEX_ELIGIBLE}, total_flex)
 
 
 def resolve_combo_key(sdata: dict, scoring: str, teams: int) -> str:
@@ -110,7 +78,8 @@ def resolve_combo_key(sdata: dict, scoring: str, teams: int) -> str:
     Fail-closed when nothing matches — a silent empty translation would
     write zero rows and look like success.
     """
-    exact = f"half_{teams}" if scoring == "half_ppr" else f"{scoring}_{teams}"
+    prefix = {"half_ppr": "half", "ppr": "full"}.get(scoring, scoring)
+    exact = f"{prefix}_{teams}"
     combos = sdata.get("combos", {})
     if exact in combos:
         return exact
@@ -161,7 +130,8 @@ def load_native_values(source: str, scoring: str, teams: int,
 
 def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
                      week: int = 4, bench_per_team: float = 6.0,
-                     write_supabase: bool = False) -> dict:
+                     write_supabase: bool = False,
+                     flex_count: Optional[int] = None) -> dict:
     """Unified VORP translation for any as-published source.
     
     Args:
@@ -171,6 +141,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
         week: NFL week
         bench_per_team: bench spots per team (ESPN default 6.0)
         write_supabase: if True, write intermediates to Supabase
+        flex_count: flex slots per team (default REF_FLEX_COUNT)
     
     Returns:
         {
@@ -186,8 +157,13 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
     translated is keyed by canonical player_key (naming-table identity), not
     display name.
     """
+    # The current storage grain does not distinguish custom roster settings.
+    # Keep them read-only until that contract can represent them separately.
+    if write_supabase and (bench_per_team != 6.0 or
+                           flex_count not in (None, REF_FLEX_COUNT)):
+        raise SystemExit("custom roster settings cannot overwrite default-grain VORP rows")
     ranked, key_by_name = load_native_values(source, scoring, teams)
-    roster = rostered_for_teams(teams, bench_per_team)
+    roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked)
 
     result = {
         'source': source,
@@ -383,13 +359,17 @@ def main():
                         choices=["standard", "half_ppr", "ppr"])
     parser.add_argument("--teams", type=int, default=12)
     parser.add_argument("--week", type=int, default=4)
+    parser.add_argument("--bench-per-team", type=float, default=6.0)
+    parser.add_argument("--flex-count", type=int, default=REF_FLEX_COUNT)
     parser.add_argument("--write-supabase", action="store_true",
                         help="Write intermediates to Supabase (requires the "
                              "JEG-62 migration to have run)")
     args = parser.parse_args()
 
     result = translate_source(args.source, args.scoring, args.teams, args.week,
-                              write_supabase=args.write_supabase)
+                              bench_per_team=args.bench_per_team,
+                              write_supabase=args.write_supabase,
+                              flex_count=args.flex_count)
     
     print(f"\nVORP Translation: {args.source} ({args.scoring}, {args.teams}t, W{args.week})")
     print("=" * 70)

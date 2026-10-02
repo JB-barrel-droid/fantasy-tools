@@ -89,6 +89,27 @@ values; they do not silently switch the publisher's native QB basis.
 Configuration selection never changes source vintage or acquisition/processing
 timestamps. Coverage is independent of freshness and validation status.
 
+## Publisher Flex Allocation
+
+The translation module shares one roster allocator (JEG-61). Dedicated
+starters are excluded from flex candidates. At each eligible position, the
+next `teams * flex_count` ranked players define the potential flex range;
+missing candidates contribute zero observed surplus. The weight is dedicated
+slots per team times average publisher-native surplus above a preliminary
+waiver line. That preliminary line comes from slot-proportional flex plus
+the configured bench mix, not a scoring-specific constant.
+
+Flex and bench capacities use deterministic highest-averages (D'Hondt)
+apportionment. This guarantees exact integer totals and monotone allocations
+for fixed weights as capacity grows, but favors larger weights over smaller
+ones. A zero-surplus chart falls back to dedicated-slot proportions. Final
+waiver lines and implied weights are recomputed from the resulting roster.
+This is a one-pass estimate, not a self-consistent optimization of waiver
+lines or proof of actual manager lineup preferences. Different formats can
+legitimately round to identical allocations; they are never forced apart.
+Custom bench/flex settings are calculation-only until storage grain includes
+those settings; database writes with nondefault settings fail closed.
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,
