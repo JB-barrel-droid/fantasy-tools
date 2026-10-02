@@ -121,6 +121,7 @@ test-unit:
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_guard_harness_recorded
 	python3 -m unittest tests.test_jeg68_starter_markup
+	python3 -m unittest tests.test_jeg69_direction_check
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_projection_source_kind

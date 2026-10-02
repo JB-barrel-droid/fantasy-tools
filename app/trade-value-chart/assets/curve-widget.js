@@ -1176,9 +1176,15 @@
     const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
     const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * normalizedBenchShare) / benchRaw : 0;
     // Active invariant checks: the fixed-pie must mark starters UP and bench
-    // DOWN relative to the raw curve. If the raw pool is already
-    // starter-heavy (>= target share), the pie inverts -- the exact defect
-    // this guards against. These run on every build; failures are visible,
+    // DOWN relative to the raw curve. If the raw pool is materially
+    // starter-heavy, the pie inverts -- the exact defect this guards against
+    // (pre-valued inputs at ~91% raw starter share, JEG-68). The share and
+    // scale inequalities below are the same strict condition stated three
+    // ways (starterScale > rawScale and benchScale < rawScale both reduce to
+    // rawStarterShare < starterShare for positive pools), so the single
+    // epsilon-tolerant predicate replaces all three -- a strict inequality
+    // is knife-edge (CBS ROS genuinely sits 0.2-0.3pp over target at 14-team
+    // standard, JEG-69). These run on every build; failures are visible,
     // never silent.
     // For ESPN these two describe the FALL-BACK leg: the browser-derived
     // pricing that `adjusted` carries. While the pipeline's built leg is
@@ -1201,8 +1207,9 @@
       recordForKey(
         `${vorpKey}-fixed-pie-direction`,
         `${def.short} fixed-pie direction (starters up, bench down)`,
-        rawStarterShare < starterShare && starterScale > rawScale && benchScale < rawScale,
-        `raw starter share ${(rawStarterShare * 100).toFixed(1)}% vs target ${(starterShare * 100).toFixed(1)}%; ` +
+        ValueModel.fixedPieDirectionSane(rawStarterShare, starterShare),
+        `raw starter share ${(rawStarterShare * 100).toFixed(1)}% vs target ${(starterShare * 100).toFixed(1)}% ` +
+        `(tolerance +${(ValueModel.STARTER_DIRECTION_EPS * 100).toFixed(1)}pp); ` +
         `starter scale ${starterScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}, bench scale ${benchScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}`
       );
       // The starter markup ratio is deterministic: target_share / raw_share.
