@@ -12,6 +12,7 @@ Output: dist/modules/player-trace.json
 
 import json
 import glob
+import sys
 from pathlib import Path
 from collections import defaultdict
 
