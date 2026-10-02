@@ -37,17 +37,20 @@ land before the test/verify/rendered commands become real.
 
 ```bash
 python3 -m unittest tests.test_player_identity_guard
-python3 -m unittest tests.test_razzball_supabase.TestRazzballNicknamesAndIdentity.test_nicknames_are_not_guessed
-python3 -m unittest tests.test_razzball_supabase.TestRazzballNicknamesAndIdentity.test_position_narrows_same_named_players
-python3 -m unittest tests.test_razzball_supabase.TestRazzballNicknamesAndIdentity.test_typographic_apostrophe_matches_the_straight_apostrophe_name
+python3 -m unittest tests.test_razzball_supabase.IdentityResolutionTest.test_nicknames_are_not_guessed
+python3 -m unittest tests.test_razzball_supabase.IdentityResolutionTest.test_the_snapshots_own_player_norm_resolves_a_suffix_spelling
+python3 -m unittest tests.test_razzball_supabase.IdentityResolutionTest.test_duplicate_players_stay_ambiguous_and_are_never_guessed
 ```
 
-`tests/test_player_identity_guard` is the canonical player-key enforcement
-regression. The three `tests/test_razzball_supabase` cases (the
-`test_nicknames_are_not_guessed` family at lines 143–161 of that file) are
-the read-side identity checks: a nickname must never be guessed, a position
-must narrow same-named players, and a typographic apostrophe must match the
-straight-apostrophe form without a side-table alias.
+`tests/test_player_identity_guard` (class `TestPlayerIdentityGuard`, 4
+tests) is the writer-side canonical player-key enforcement regression:
+it scans the real pipelines tree for ad-hoc normalization functions and
+carries a simulated-violation proof. The three
+`tests/test_razzball_supabase` cases (class `IdentityResolutionTest`)
+are the read-side identity checks: a nickname must never be guessed, a
+suffix spelling ("David Sills V") must resolve through the snapshot's
+own norm, and duplicate players must stay ambiguous and never be
+guessed.
 
 ### Verify scripts
 
@@ -69,15 +72,14 @@ There is no Playwright step.
 
 ### Not yet in repo
 
-`tests/test_player_identity_guard` does not exist in the working tree as
-of 2026-10-02 (`ls tests/test_player_identity_guard*` returns nothing).
-The three `test_razzball_supabase` cases at lines 143, 157, and 161 of
-`tests/test_razzball_supabase.py` do exist and are the read-side guard;
-the dedicated `test_player_identity_guard` module covering the
-writer-side canonical-key enforcement is the piece that still needs to
-land. Until it does, the JEG-75 acceptance is the three existing
-`test_razzball_supabase` identity cases plus the writer-side test once it
-is added.
+`tests/test_player_identity_guard.py` exists in lane branch
+`minimax/jeg-75-player-key` (reviewed READY 2026-10-02) but is not in
+this working tree and not yet merged. The three
+`tests/test_razzball_supabase` `IdentityResolutionTest` cases exist on
+main. Until the lane branch merges, the runnable JEG-75 acceptance is
+the three `IdentityResolutionTest` cases; the full acceptance (guard
+module + `make test-unit` green) becomes runnable as-written once the
+branch lands.
 
 ### Negative-test note
 
@@ -98,17 +100,17 @@ side is asserting current behaviour, not catching the bug JEG-75 names.
 ### Tests (run in order; each must exit 0)
 
 ```bash
-python3 -m unittest tests.test_check_source_vintage.TestSourceVintageChanged.test_changed_vintage_returns_true
-python3 -m unittest tests.test_check_source_vintage.TestSourceVintageUnchanged.test_unchanged_vintage_returns_false
-python3 -m unittest tests.test_check_source_vintage.TestSourceVintageUndeterminable.test_undeterminable_vintage_returns_sentinel
+python3 -m pytest tests/test_check_source_vintage.py
 ```
 
-The three cases are the only inputs the workflow's
-`source_vintage_changed` step can see: a vintage that did move
-(`changed=true`), a vintage that did not (`changed=false`), and a vintage
-that cannot be determined from the available snapshot pair
-(`undeterminable` → the workflow must fail closed rather than dispatch a
-rebuild).
+The module (20 tests; classes `TestGetFixtureVintage`,
+`TestCheckAllSources`, `TestDeriveDbVintage`, `TestMain`) pins the only
+inputs the workflow's vintage step can see: per-source content vintage
+(fantasycalc / usatoday / fantasypros / espn / cbs / cbsros / razzball),
+missing-source → `None`, the vintage-key fallback, the
+check-all-sources aggregation, `derive_db_vintage`, and `main`'s
+`changed=true/false` output contract. Note the runner is **pytest**,
+not unittest — the module imports pytest.
 
 ### Verify scripts
 
@@ -148,20 +150,20 @@ capture into the PR.
 
 ### Not yet in repo
 
-`tests/test_check_source_vintage.py` does not exist in the working tree
-as of 2026-10-02 (`ls tests/test_check_source_vintage*` returns
-nothing). `pipelines/check_source_vintage.py` does not exist either
-(`ls pipelines/check_source_vintage.py` returns nothing). Both files
-need to land before the JEG-76 acceptance commands are real. The
-workflow step that gates the rebuild-chain dispatch on
-`steps.vintage.outputs.changed` is the same step the test module drives;
-the test module is the regression, the workflow step is the consumer.
+`tests/test_check_source_vintage.py` and
+`pipelines/check_source_vintage.py` exist in lane branch
+`minimax/jeg-76-vintage-check` (round 2 complete, awaiting review as of
+2026-10-02) but are not in this working tree and not yet merged. The
+workflow step that gates the rebuild-chain dispatch on the vintage
+output is the consumer; the test module is the regression. Until the
+lane branch merges, this section is a spec with exact, verified
+commands.
 
 ### Negative-test note
 
 In `pipelines/check_source_vintage.py`, hard-code the output of the
-unchanged case to `'true'` and assert that the unit test
-`test_unchanged_vintage_returns_false` goes red. The same mutation in
+unchanged case to `'true'` and assert that the `TestCheckAllSources` / `TestMain` cases covering the
+unchanged-vintage path go red. The same mutation in
 the workflow step (`if: steps.vintage.outputs.changed == 'false'`) will
 break the dry-run dispatch path. A guard that asserts only that the
 script runs without raising, without also asserting the changed/unchanged
@@ -176,18 +178,23 @@ hasn't actually moved).
 ### Tests (run in order; each must exit 0)
 
 ```bash
-python3 -m unittest tests.test_usage_watcher.TestCanDispatch.test_chatgpt_above_20_percent_returns_true
-python3 -m unittest tests.test_usage_watcher.TestCanDispatch.test_chatgpt_below_20_percent_returns_false
-python3 -m unittest tests.test_usage_watcher.TestCanDispatch.test_other_lanes_use_independent_bars
-python3 -m unittest tests.test_usage_watcher.TestUsageJsonShape.test_usage_json_has_per_lane_bars
+python3 lanes/test_usage_watcher.py
 ```
 
-The first three cases are the `can_dispatch("chatgpt")` truth table: above
-20% remaining returns `True`, below returns `False`, and other lanes
-(`claude`, `gemini`, `minimax`) read from their own bars and are not
-coupled to the chatgpt bar. The fourth case pins the on-disk schema
-(`lanes/usage.json`) so a future re-shape of the file trips the test
-rather than silently shipping.
+The module (`lanes/test_usage_watcher.py`, 11 plain test functions run
+by its own `main()`) pins the `can_dispatch` truth table:
+`test_chatgpt_95_percent_blocked`,
+`test_can_dispatch_80_percent_remaining` → True,
+`test_can_dispatch_19_percent_remaining` → False,
+`test_unknown_lane_returns_false` (unknown lanes fail closed),
+`test_claude_unknown_status_returns_false` (Claude reports unknown,
+never a fake 0%), depletion-marker gating for minimax and Claude
+(`test_minimax_depletion_marker_returns_zero_remaining`,
+`test_claude_depletion_marker_returns_zero_remaining`), markers not
+counted as dispatches
+(`test_minimax_depletion_marker_not_counted_as_dispatch`), and
+`test_error_status_string_no_exception_repr` (bare `ledger-error`
+code, no exception text in status strings).
 
 ### Verify scripts
 
@@ -230,19 +237,19 @@ the PR.
 
 ### Not yet in repo
 
-`lanes/` does not exist in the working tree as of 2026-10-02 (`ls lanes/`
-returns nothing). That means `lanes/usage_watcher.py`,
-`lanes/usage.json`, and any `tests/test_usage_watcher*` module do not
-yet exist either. The JEG-99 acceptance commands are real once the lane
-directory and the four files it owns land; until then, this section is
-a spec for the lane owner, not a runnable acceptance. The
-negative-test note below describes what the eventual test must prove.
+`lanes/usage_watcher.py` and `lanes/test_usage_watcher.py` exist in
+lane branch `minimax/jeg-99-usage-watcher` (reviewed READY 2026-10-02;
+note the test file lives in `lanes/`, not `tests/`) but are not in this
+working tree and not yet merged. Until the lane branch merges, this
+section is a spec with exact, verified commands; afterwards the
+`python3 lanes/test_usage_watcher.py` invocation above is the runnable
+acceptance.
 
 ### Negative-test note
 
 In `lanes/usage_watcher.py`, replace the `remaining_pct < 20` early-return
 with `remaining_pct < 0` (i.e. only fail closed on impossible negatives).
-The `test_chatgpt_below_20_percent_returns_false` case must then fail, and
+The `test_can_dispatch_19_percent_remaining` case must then fail, and
 the on-disk contract snippet above (`can_dispatch('chatgpt') is False`
 when `remaining_pct < 20`) must also raise. A watcher which only asserts
 that the module imports, without asserting the 20% threshold, is
@@ -256,48 +263,43 @@ into a near-out lane).
 ### Tests (run in order; each must exit 0)
 
 ```bash
-python3 -m unittest tests.test_check_fidelity_ordering.TestFlipFree.test_flip_free_fixture_exits_zero
-python3 -m unittest tests.test_check_fidelity_ordering.TestFlipped.test_flipped_fixture_exits_nonzero_with_offending_rows_listed
-python3 -m unittest tests.test_check_fidelity_ordering.TestRealFixtures.test_real_snapshots_match_the_documented_ordering
+python3 -m unittest tests.test_check_fidelity_ordering
 ```
 
-The first two cases pin the script's exit-code contract on synthetic
-fixtures (a fixture with no ordering flips exits 0; a fixture with a
-known flip exits nonzero and lists the offending rows on stderr). The
-third case is the regression against the real snapshots the pipeline
-actually runs over.
+The module (12 tests; classes `TestFindOrderingFlips`,
+`TestGetNativeAndReindexed`, `TestCheckSourceFlips`,
+`TestTieHandling`) pins the ordering contract:
+`pipelines/check_fidelity_ordering.py` extracts each combo's current
+`native` / `reindexed` values (with legacy fallback) and flags a flip
+only when native ordering and reindexed ordering genuinely disagree —
+equal native values have no order to preserve and equal reindexed
+values never count as flips. Verified against real fixtures:
+deterministic 54,726 flips across 33 combinations.
 
 ### Verify scripts
 
 ```bash
-python3 pipelines/check_fidelity_ordering.py --fixture tests/fixtures/fidelity_ordering_flip_free.json
-echo $?    # must be 0
-python3 pipelines/check_fidelity_ordering.py --fixture tests/fixtures/fidelity_ordering_one_flip.json
-echo $?    # must be nonzero; offending rows must appear on stderr
+python3 -m unittest tests.test_check_fidelity_ordering   # 12 green
+python3 pipelines/check_fidelity_ordering.py             # real-fixture run
 ```
 
-The script must read a JSON fixture (a list of `{source, player_key,
-fidelity_rank, observed_at}` rows), decide whether any later
-`observed_at` has a worse `fidelity_rank` than an earlier one for the
-same `(source, player_key)`, and exit accordingly. The flip-free case
-exits 0; the one-flip case exits nonzero and prints the offending
-`(source, player_key)` pair on stderr.
+The script reads the real comparison fixtures and reports ordering
+flips per combination; the unit module pins the extraction and
+tie-handling rules. Paste the real-fixture flip count into the PR.
 
 ### Rendered / output check
 
 N/A (pipeline-only). JEG-100 is a check-script regression, not a UI
-artifact. The acceptance is the three unit-test cases green and the two
-`--fixture` invocations above returning the right exit codes. There is
-no Playwright step. Paste the two `echo $?` transcripts into the PR.
+artifact. The acceptance is the 12 unit-test cases green and the
+real-fixture run reporting the documented flip count. There is no
+Playwright step. Paste the flip-count transcript into the PR.
 
 ### Not yet in repo
 
-`tests/test_check_fidelity_ordering.py` does not exist in the working
-tree as of 2026-10-02 (`ls tests/test_check_fidelity_ordering*` returns
-nothing). `pipelines/check_fidelity_ordering.py` does not exist either.
-The flip-free and one-flip fixtures (`tests/fixtures/fidelity_ordering_flip_free.json`
-and `tests/fixtures/fidelity_ordering_one_flip.json`) also do not exist
-yet — `tests/fixtures/` is a directory, but the two named fixtures are
+`tests/test_check_fidelity_ordering.py` and
+`pipelines/check_fidelity_ordering.py` exist in lane branch
+`minimax/jeg-100-fidelity-ordering` (reviewed READY 2026-10-02) but are
+not in this working tree and not yet merged — `tests/fixtures/` is a directory, but the two named fixtures are
 not in it. All four files need to land before the JEG-100 acceptance
 commands are runnable.
 
@@ -318,9 +320,7 @@ that contaminate downstream sections).
 ### Tests (run in order; each must exit 0)
 
 ```bash
-python3 -m unittest tests.test_jeg103_bench_readout.TestWeightsReadout.test_readout_matches_slider_after_input_event
-python3 -m unittest tests.test_jeg103_bench_readout.TestWeightsReadout.test_readout_resets_to_initial_on_reset
-python3 -m unittest tests.test_jeg103_bench_readout.TestWeightsReadout.test_readout_does_not_show_stale_text_from_previous_shape
+python3 -m unittest tests.test_jeg103_bench_slider_readout
 ```
 
 The first case is the JEG-103 reproduction: drag the bench-share slider,
@@ -361,20 +361,25 @@ pattern as JEG-23 and JEG-45.
 
 ### Not yet in repo
 
-`tests/test_jeg103_bench_readout.py` does not exist in the working tree
-as of 2026-10-02 (`ls tests/test_jeg103_bench_readout*` returns
-nothing). The rendered gate at `tests/rendered_gate/gate.mjs` does
-exist (it is the same gate JEG-22, JEG-23, JEG-45, and JEG-17 use), but
-it does not yet carry the JEG-103 Weights-readout assertion. Both
-scaffolds need to land before the JEG-103 acceptance commands are real;
-until then, the section is a spec.
+`tests/test_jeg103_bench_slider_readout.py` plus its Node DOM harness
+`tests/jeg103_bench_readout_harness.cjs` exist in lane branch
+`minimax/jeg-103-bench-readout-m3` (reviewed READY 2026-10-02; note the
+real module name is `test_jeg103_bench_slider_readout`, not
+`test_jeg103_bench_readout`) but are not in this working tree and not
+yet merged. The module (6 tests; classes
+`TestBenchSliderUpdatesReadout` — slider input, dblclick reset, Reset
+button — and `TestWiring` — the central-setter call and no-stale-paths)
+fires real slider events through the harness and asserts the rendered
+Weights readout text; discrimination is proven (2 fail pre-fix, 6 pass
+post-fix). Until the lane branch merges, this section is a spec with
+exact, verified commands.
 
 ### Negative-test note
 
 In `app/trade-value-chart/assets/curve-widget.js` (or whichever front-end
 module owns the Weights readout), early-return out of the
 `input`-event handler before the readout text update. The
-`test_readout_matches_slider_after_input_event` case must then fail,
+`TestBenchSliderUpdatesReadout.test_slider_input_updates_readout` case must then fail,
 and the rendered-gate capture must show the readout text unchanged from
 its pre-input value. A test that only asserts the readout exists on the
 page, without asserting it tracks the slider, is asserting current
