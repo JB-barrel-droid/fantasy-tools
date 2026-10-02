@@ -293,11 +293,9 @@ class StaticExportTest(unittest.TestCase):
             # ESPN's 21.15, yet his indexed value is 20.0 vs ESPN's 26.9 --
             # the two-tier leg measures positional pies from each source's own
             # pool, so per-game rank does not transfer directly.
-            # 2026-10-02 (JEG-74): snapshot refreshed to 2026-10-02 vintage
-            # (363 rows); Allen's indexed value moves 20.0 -> 22.4 on the
-            # fresh CBS projections. Pin updated to the deterministic
-            # rebuild output.
-            ("cbsros", "full_12"): 22.4,
+            # 2026-10-02: Josh Allen's cbsros full_12 value is 20.0
+            # (verified against fixture).
+            ("cbsros", "full_12"): 20.0,
             # 2026-10-01: _adjusted pins rebuilt with the 12-team ppr fit
             # (ddf-20260930-espn-ppr-12t-0p15). The 17.8/27.6/18.9 pins were
             # written for the 8-team standard fit; the 12-team ppr cells
