@@ -54,9 +54,11 @@ jobs:
           if python3 pipelines/check_fantasycalc_drift.py --trigger; then
             echo "drifted=false" >> $GITHUB_OUTPUT
             echo "No drift detected."
+            echo "FantasyCalc drift check: unchanged since last refresh" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "drifted=true" >> $GITHUB_OUTPUT
             echo "Drift detected and pipeline refreshed."
+            echo "FantasyCalc drift check: drift detected, pipeline refreshed" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Re-import to Supabase
