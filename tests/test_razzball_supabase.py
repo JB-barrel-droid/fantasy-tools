@@ -70,6 +70,56 @@ def write_snapshot(directory, vintage="2026-10-01", rows=None):
     return path
 
 
+class MigrationMatchesSaverTest(unittest.TestCase):
+    """The saver can only write columns the table has; a missing column is a 400 at
+    the first real save, after the table was already created. Guard it here."""
+
+    SQL = (ROOT / "sql" / "migrations" / "003_razzball_projections.sql").read_text()
+
+    def columns(self):
+        import re
+        body = self.SQL.split("CREATE TABLE IF NOT EXISTS public.razzball_projections (", 1)[1]
+        body = body.split("\n);", 1)[0]
+        cols = set()
+        for line in body.splitlines():
+            line = line.split("--", 1)[0].strip()
+            m = re.match(r"([a-z_]+)\s+[A-Z]", line)
+            if m:
+                cols.add(m.group(1))
+        return cols
+
+    def test_every_column_the_saver_writes_exists_in_the_migration(self):
+        saver.fetch_players = lambda: PLAYERS
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                clean, _, _ = saver.build_razzball_rows(write_snapshot(tmp))
+        finally:
+            saver.fetch_players = saver._default_fetch_players
+        written = set().union(*(row.keys() for row in clean))
+        self.assertEqual(set(), written - self.columns(), "saver writes columns the table lacks")
+
+    def test_every_column_the_importer_reads_exists_in_the_migration(self):
+        for col in ("player_key", "player_norm", "pos", "team", "health", "games_reported",
+                    "per_game_standard", "per_game_half_ppr", "per_game_ppr", "raw_stats",
+                    "razzball_snapshot_date", "week"):
+            self.assertIn(col, self.columns())
+
+    def test_upsert_key_is_a_unique_index_matching_the_saver(self):
+        self.assertEqual("player_key,razzball_snapshot_date", saver.CONFLICT)
+        self.assertIn("CREATE UNIQUE INDEX IF NOT EXISTS razzball_projections_player_date_uidx", self.SQL)
+        self.assertIn("(player_key, razzball_snapshot_date)", self.SQL)
+
+    def test_the_migration_creates_only_this_table_and_the_rollback_stays_a_comment(self):
+        self.assertEqual(1, self.SQL.count("CREATE TABLE"))
+        executable = [l.strip() for l in self.SQL.splitlines()
+                      if l.strip() and not l.strip().startswith("--")]
+        for line in executable:
+            self.assertFalse(line.upper().startswith(("DROP ", "DELETE ", "TRUNCATE ", "ALTER ")),
+                             f"destructive statement is executable: {line}")
+        self.assertIn("-- Rollback", self.SQL)
+        self.assertIn("DROP TABLE IF EXISTS public.razzball_projections;", self.SQL)
+
+
 class SaverTest(unittest.TestCase):
     def setUp(self):
         self._fetch = saver.fetch_players

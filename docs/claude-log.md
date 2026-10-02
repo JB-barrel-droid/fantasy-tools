@@ -32,6 +32,13 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-18: migration SQL written, not run; one of my guard tests was wrong
+
+- Muse approved the table design on JEG-18, so `sql/migrations/003_razzball_projections.sql` is in PR #23. It has not been run and nothing was written to Supabase. The rollback (`DROP TABLE IF EXISTS public.razzball_projections;`) is a comment.
+- Guards (`MigrationMatchesSaverTest`): every column the saver writes and the importer reads exists in the migration, the upsert key is a unique index, only one table is created, and no destructive statement is executable. Each of three mutations (a dropped column, a non-unique index, an executable DROP) fails a named test.
+- Correction to my own test: the first version of the rollback guard stripped the `--` prefix before searching, which un-commented the rollback and made the test fail on correct SQL. The assertion was wrong, not the SQL; it now scans only executable lines.
+- Not verified: the DDL itself has never run against Postgres, so syntax errors would only show at run time. It copies the shape of migration 002, which did run.
+
 ## 2026-10-02 - Dataset health panel never filled since JEG-26; every PR's rendered gate went red
 
 ### Verified (headless Chromium on a local build of `origin/main`, then the fix)
