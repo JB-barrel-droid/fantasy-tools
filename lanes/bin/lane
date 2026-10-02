@@ -1,0 +1,437 @@
+#!/usr/bin/env python3
+"""Mechanical lane outbox/inbox CLI (JEG-94).
+
+File-based dispatch protocol between Roman (``owner:muse``) and the lanes
+(see ``lanes/LANES.md``). Linear comments are the wake-up signal; this CLI
+copies briefs into ``lanes/outbox/<lane>/`` and prints the comment the human
+posts to Linear. It never calls Linear, never opens a socket, never reads a
+credential. The capability guard reads ``lanes/ROUTING.md`` so a doc edit
+shows up in the dispatch decision without touching this script.
+
+Subcommands:
+
+* ``send --lane <claude|chatgpt|minimax> --issue JEG-nn --brief <path>``
+    - Validate the brief file exists, run the capability guard, copy it into
+      ``lanes/outbox/<lane>/<issue>-brief.md`` and print the exact Linear
+      wake-up comment line for the human to post.
+* ``poll --lane <lane>``
+    - List ``lanes/inbox/<lane>/`` result files with mtimes; flag any result
+      newer than its matching brief (``lanes/outbox/<lane>/<issue>-brief.md``).
+* ``list``
+    - Show outbox briefs across all three lanes with no matching inbox result
+      (= awaiting a lane).
+
+Hard constraints (per JEG-94):
+    - NO credentials, NO OAuth, NO network calls, NO Linear API.
+    - The CLI prints the wake-up line; it does not post to Linear.
+"""
+from __future__ import annotations
+
+import argparse
+import re
+import shutil
+import sys
+from pathlib import Path
+
+
+# -----------------------------------------------------------------------------
+# Capability matrix parsing
+# -----------------------------------------------------------------------------
+# An answer counts as YES iff it begins with the literal "YES" (case
+# insensitive). Everything else -- NO, MAYBE, advise, relay, em-dash,
+# "(unavailable)", "Tier 2", or empty -- denies a mechanical dispatch. The
+# lanes/LANES.md note "minimax: no vision/OCR, no live browser, no credentials,
+# no Mac-only files, no methodology/values/copy" describes the exact set the
+# guard refuses; this function is what enforces it.
+def _value_is_yes(value: str) -> bool:
+    """True iff the matrix cell for the lane reads YES (or YES (note))."""
+    return value.strip().upper().startswith("YES")
+
+
+def _lane_key(header_cell: str) -> str:
+    """Map a routing-table header cell to the lane key the CLI uses.
+
+    Headers in ``lanes/ROUTING.md`` include annotations like
+    "minimax (mcode)" or "muse (Roman)". The CLI accepts
+    ``--lane claude|chatgpt|minimax``; the first whitespace-separated token
+    of the header is the key.
+    """
+    return header_cell.strip().split()[0].lower()
+
+
+def parse_routing(routing_path: Path):
+    """Parse ``lanes/ROUTING.md``'s capability matrix.
+
+    Returns ``(matrix, header_lanes)`` where:
+
+    * ``matrix`` maps a normalized capability row name to a dict of
+      ``{lane_key: raw_cell_value}``.
+    * ``header_lanes`` is the ordered list of lane keys from the header row.
+
+    Only the FIRST markdown table whose first column header is "Task class"
+    is read; the capability guard (lines 148-153 of LANES.md) refers to
+    this one and not any later status/usage tables.
+    """
+    text = routing_path.read_text(encoding="utf-8")
+    lines = text.splitlines()
+
+    header_idx = None
+    header_lanes = []
+    for i, line in enumerate(lines):
+        if line.lstrip().startswith("| Task class |"):
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            header_lanes = [_lane_key(c) for c in cells[1:]]
+            header_idx = i
+            break
+    if header_idx is None:
+        raise RuntimeError(
+            f"{routing_path}: no '| Task class |' header found; cannot load guard"
+        )
+
+    # The row immediately after the header is the alignment separator
+    # (e.g. "|---|---|..."); skip it. Subsequent rows starting with "|" are
+    # table rows until the first non-table line.
+    matrix: dict = {}
+    for line in lines[header_idx + 2:]:
+        if not line.startswith("|"):
+            if matrix:
+                # Non-table prose after the matrix -- stop reading.
+                break
+            continue
+        cells = [c.strip() for c in line.strip().strip("|").split("|")]
+        if len(cells) - 1 < len(header_lanes):
+            continue
+        row_name = cells[0]
+        if not row_name or row_name.lower() == "task class":
+            continue
+        per_lane = {
+            lane: cells[1 + j].strip()
+            for j, lane in enumerate(header_lanes)
+        }
+        # Normalize the row name with the same normalize_capability() the
+        # brief tokens go through, so "needs vision / OCR" (row) and
+        # "vision/OCR" (brief) meet at "vision ocr". Defined below; resolved
+        # at call time.
+        norm = normalize_capability(row_name)
+        if norm in matrix:
+            raise RuntimeError(
+                f"{routing_path}: two matrix rows normalize to {norm!r}; "
+                "row names must stay distinct after normalization"
+            )
+        matrix[norm] = per_lane
+    return matrix, header_lanes
+
+
+def normalize_capability(name: str) -> str:
+    """Normalize a capability token from a brief for matrix lookup.
+
+    Lowercase, drop a leading ``needs `` prefix (some writers add it, others
+    don't), and collapse runs of non-alphanumerics to single spaces.
+    """
+    n = name.strip().lower()
+    n = re.sub(r"^needs\s+", "", n)
+    n = re.sub(r"[^a-z0-9]+", " ", n).strip()
+    return n
+
+
+def lookup_capability(matrix, requested):
+    """Find the matrix row for a requested capability token.
+
+    Tries exact normalized equality first, then substring containment in
+    either direction (so brief writers can say ``vision`` or ``vision/OCR``
+    and both match the row ``needs vision / ocr``). Returns
+    ``(row_name, lane_dict)`` or ``(None, None)`` if nothing matches.
+    """
+    norm = normalize_capability(requested)
+    if norm in matrix:
+        return norm, matrix[norm]
+    candidates = []
+    for row_name, lanes in matrix.items():
+        if norm in row_name or row_name in norm:
+            candidates.append((row_name, lanes, len(row_name)))
+    if not candidates:
+        return None, None
+    candidates.sort(key=lambda c: c[2])
+    return candidates[0][0], candidates[0][1]
+
+
+def lane_allows(matrix_lanes, lane: str) -> bool:
+    """True iff ``lane``'s answer for the matched row is YES.
+
+    MAYBE / advise / relay / em-dash / "(unavailable)" / "Tier 2" all deny
+    a mechanical dispatch -- only "YES" (or "YES (note)") accepts.
+    """
+    if matrix_lanes is None:
+        return False
+    answer = matrix_lanes.get(lane.lower())
+    if answer is None:
+        return False
+    return _value_is_yes(answer)
+
+
+# -----------------------------------------------------------------------------
+# Brief parsing
+# -----------------------------------------------------------------------------
+_REQUIRED_LINE_RE = re.compile(
+    r"^\s*required\s+capabilities[^:]*:\s*(.*)$", re.IGNORECASE
+)
+
+
+def find_required_capabilities(brief_path: Path):
+    """Return the list of capability names declared on a brief.
+
+    Reads every line that starts with ``Required capabilities:`` (with an
+    optional parenthetical, e.g. ``Required capabilities (lane minimax):``)
+    and splits the tail on commas and the word ``and``. Leading bullets,
+    dashes, asterisks, and surrounding whitespace are stripped. If the
+    brief has no such line, no capabilities are required and the guard is
+    trivially satisfied.
+    """
+    text = brief_path.read_text(encoding="utf-8")
+    caps = []
+    for raw in text.splitlines():
+        m = _REQUIRED_LINE_RE.match(raw)
+        if not m:
+            continue
+        tail = m.group(1)
+        parts = re.split(r",|\band\b", tail)
+        for part in parts:
+            cap = part.strip().strip("-").strip("*").strip()
+            if cap:
+                caps.append(cap)
+    return caps
+
+
+# -----------------------------------------------------------------------------
+# send validation
+# -----------------------------------------------------------------------------
+def validate_send(lane: str, brief_path: Path, root: Path):
+    """Run all send-time checks. Returns ``(ok, message)``.
+
+    ``ok=False`` means refuse; the CLI exits non-zero with ``message`` on
+    stderr and copies nothing. ``ok=True`` means the caller may copy and
+    print the wake-up line.
+    """
+    if not brief_path.exists():
+        return False, f"brief file not found: {brief_path}"
+    if not brief_path.is_file():
+        return False, f"brief path is not a regular file: {brief_path}"
+
+    routing = root / "ROUTING.md"
+    if not routing.exists():
+        return False, f"routing file not found: {routing}"
+    matrix, header_lanes = parse_routing(routing)
+    if lane.lower() not in header_lanes:
+        return False, (
+            f"lane '{lane}' not in routing matrix "
+            f"(known: {', '.join(header_lanes)})"
+        )
+
+    required = find_required_capabilities(brief_path)
+    refusals = []
+    for cap in required:
+        row_name, lanes = lookup_capability(matrix, cap)
+        if row_name is None:
+            refusals.append(
+                f"unknown capability '{cap}' (no matching row in ROUTING.md)"
+            )
+            continue
+        if not lane_allows(lanes, lane):
+            answer = (lanes or {}).get(lane.lower(), "?")
+            refusals.append(
+                f"lane '{lane}' cannot do '{cap}' (matrix answer: {answer})"
+            )
+
+    if refusals:
+        bullet = "\n  - ".join(refusals)
+        return False, (
+            "refusing send: brief requires capabilities the target lane lacks:\n"
+            f"  - {bullet}"
+        )
+    return True, ""
+
+
+# -----------------------------------------------------------------------------
+# Subcommand implementations
+# -----------------------------------------------------------------------------
+def cmd_send(args: argparse.Namespace) -> int:
+    lane = args.lane
+    issue = args.issue
+    brief_path = Path(args.brief).resolve()
+    root = Path(args.root).resolve()
+
+    ok, msg = validate_send(lane, brief_path, root)
+    if not ok:
+        print(msg, file=sys.stderr)
+        return 2
+
+    outbox_dir = root / "outbox" / lane
+    outbox_dir.mkdir(parents=True, exist_ok=True)
+    dest = outbox_dir / f"{issue}-brief.md"
+    shutil.copy2(brief_path, dest)
+
+    # The wake-up line is the EXACT comment the human posts to Linear.
+    # ``lanes/outbox/<lane>/<file>`` is the canonical form per
+    # lanes/LANES.md; printing it relative to root's parent means the line
+    # is unchanged whether the CLI is invoked from a real checkout or a
+    # tmp dir.
+    try:
+        rel = dest.relative_to(root.parent)
+    except ValueError:
+        rel = dest
+    print(f"Brief ready: {rel}")
+    return 0
+
+
+def cmd_poll(args: argparse.Namespace) -> int:
+    lane = args.lane
+    root = Path(args.root).resolve()
+    inbox_dir = root / "inbox" / lane
+    outbox_dir = root / "outbox" / lane
+    if not inbox_dir.exists():
+        print(f"(no result files: no inbox directory at {inbox_dir})")
+        return 0
+    results = sorted(inbox_dir.glob("*-result.md"))
+    if not results:
+        print(f"(no result files in {inbox_dir})")
+        return 0
+    flagged = 0
+    for result in results:
+        issue = result.name[: -len("-result.md")]
+        brief = outbox_dir / f"{issue}-brief.md"
+        result_mtime = result.stat().st_mtime
+        if brief.exists():
+            brief_mtime = brief.stat().st_mtime
+            newer = result_mtime > brief_mtime
+            brief_mtime_str = f"{brief_mtime:.0f}"
+        else:
+            newer = False
+            brief_mtime_str = "missing"
+        flag = "NEWER " if newer else "      "
+        print(
+            f"{flag}{result.name}  "
+            f"result_mtime={result_mtime:.0f}  "
+            f"brief_mtime={brief_mtime_str}"
+        )
+        if newer:
+            flagged += 1
+    print(f"\n{flagged} result(s) newer than their matching brief(s).")
+    return 0
+
+
+def cmd_list(args: argparse.Namespace) -> int:
+    root = Path(args.root).resolve()
+    LANES = ("claude", "chatgpt", "minimax")
+    any_briefs = False
+    awaiting_total = 0
+    for lane in LANES:
+        outbox = root / "outbox" / lane
+        if not outbox.exists():
+            continue
+        briefs = sorted(outbox.glob("*-brief.md"))
+        if not briefs:
+            continue
+        any_briefs = True
+        print(f"[{lane}]")
+        for brief in briefs:
+            issue = brief.name[: -len("-brief.md")]
+            result = root / "inbox" / lane / f"{issue}-result.md"
+            if result.exists():
+                mark = "DONE   "
+            else:
+                mark = "AWAITING"
+                awaiting_total += 1
+            print(f"  {mark} {brief.name}")
+    if not any_briefs:
+        print("(no briefs in any outbox)")
+        return 0
+    print(f"\n{awaiting_total} brief(s) awaiting a lane result.")
+    return 0
+
+
+# -----------------------------------------------------------------------------
+# Argparse
+# -----------------------------------------------------------------------------
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog="lane",
+        description=(
+            "Mechanical lane outbox/inbox CLI (JEG-94). File-based only: "
+            "no Linear API, no network, no credentials."
+        ),
+    )
+    p.add_argument(
+        "--root",
+        default=None,
+        help=(
+            "Path to the lanes/ directory. Default: the lanes/ directory "
+            "next to the lanes/bin/lane script."
+        ),
+    )
+
+    sub = p.add_subparsers(dest="cmd", required=True, metavar="<subcommand>")
+
+    p_send = sub.add_parser(
+        "send",
+        help=(
+            "Copy a brief into outbox/<lane>/ and print the Linear wake-up line."
+        ),
+    )
+    p_send.add_argument(
+        "--lane",
+        required=True,
+        choices=("claude", "chatgpt", "minimax"),
+        help="Target lane.",
+    )
+    p_send.add_argument(
+        "--issue",
+        required=True,
+        help="Issue ID, e.g. JEG-94. Used as the brief filename.",
+    )
+    p_send.add_argument(
+        "--brief",
+        required=True,
+        help="Path to the brief file to copy.",
+    )
+    p_send.set_defaults(func=cmd_send)
+
+    p_poll = sub.add_parser(
+        "poll",
+        help=(
+            "List inbox/<lane>/ results with mtimes; flag results newer than "
+            "their matching briefs."
+        ),
+    )
+    p_poll.add_argument(
+        "--lane",
+        required=True,
+        choices=("claude", "chatgpt", "minimax"),
+        help="Lane whose inbox to inspect.",
+    )
+    p_poll.set_defaults(func=cmd_poll)
+
+    p_list = sub.add_parser(
+        "list",
+        help=(
+            "Show outbox briefs across all lanes with no matching inbox "
+            "result (= awaiting a lane)."
+        ),
+    )
+    p_list.set_defaults(func=cmd_list)
+
+    return p
+
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    if args.root is None:
+        # Default: lanes/ next to the script. Real users invoke the CLI from
+        # the repo root with `lanes/bin/lane ...`; tests pass --root.
+        args.root = Path(__file__).resolve().parent.parent
+    args.root = Path(args.root).resolve()
+    return args.func(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))
