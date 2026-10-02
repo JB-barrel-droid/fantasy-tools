@@ -45,6 +45,16 @@ def _load_bench_share():
         return 0.15
 DEFAULT_BENCH_SHARE = _load_bench_share()
 
+# JEG-132 R5a: derived sections must record the raw DDF leg they were built
+# from so the sibling R5b checker can detect a derived section lagging its
+# input. See pipelines/lib/lineage_block.py for the schema.
+sys.path.insert(0, str(Path(__file__).resolve().parents[0]))
+from lib.lineage_block import (  # noqa: E402
+    collect_leg_triples,
+    resolve_raw_vintage,
+    build_lineage_block,
+)
+
 
 def load_fixture(path: Path) -> dict:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -93,6 +103,12 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
     slug_to_pos = load_slug_to_pos(fixture)
     values_by_combo = {}
     vintage = None
+    # JEG-132 R5a: gather raw leg triples + provenance across all combos.
+    leg_triples: list = []
+    leg_built_at = None
+    leg_content_vintage = None
+    leg_legacy_vintage = None
+    leg_fetched_at = None
     for combo in combo_keys:
         scoring_prefix, _, teams_s = combo.rpartition("_")
         scoring = SCORING_LEG[scoring_prefix]
@@ -127,6 +143,25 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
             "index_total": index_total,
         }
         vintage = vintage or rz_leg.get("inputs", {}).get("razzball_snapshot_date")
+        # First leg wins; all legs in one run should share vintage + built_at.
+        if not leg_triples:
+            leg_triples = collect_leg_triples(rz_leg)
+            leg_built_at = rz_leg.get("generated_at")
+            inputs_block = rz_leg.get("inputs") or {}
+            leg_content_vintage = inputs_block.get("content_vintage")
+            leg_legacy_vintage = inputs_block.get("razzball_snapshot_date")
+            leg_fetched_at = rz_leg.get("fetched_at")
+    raw_vintage, vintage_source = resolve_raw_vintage(
+        content_vintage=leg_content_vintage,
+        vintage=leg_legacy_vintage,
+        fetched_at=leg_fetched_at,
+    )
+    lineage = build_lineage_block(
+        triples=leg_triples,
+        raw_vintage=raw_vintage,
+        raw_built_at=leg_built_at,
+        vintage_source=vintage_source,
+    )
     return {
         "kind": "model projections, valued by our model",
         "provenance": "published",   # Razzball is source-authored; we only index it.
@@ -142,6 +177,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
         "method_group": "ddf-methodology",
         "combos": values_by_combo,
         "vintage": vintage,
+        "lineage": lineage,
     }
 
 

@@ -78,6 +78,11 @@ from build_adjustment_inputs import (
     clamp_value,
 )
 import re
+from lib.lineage_block import (
+    collect_fixture_section_triples,
+    resolve_raw_vintage,
+    build_lineage_block,
+)
 
 
 def role_map_for_teams(published: dict[int, float],
@@ -345,6 +350,25 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
         # Build the _adjusted source entry
         meta = ADJUSTED_META[source]
         adjusted_key = f"{source}_adjusted"
+
+        # JEG-132 R5a: derived sections must record which raw section they
+        # were built from (the un-adjusted raw_source in the fixture).
+        # The raw section has no lineage block itself (inputs do not get
+        # lineage; see JEG-132-lineage-writers.md).
+        raw_triples = collect_fixture_section_triples(raw_source)
+        raw_vintage, vintage_source = resolve_raw_vintage(
+            content_vintage=raw_source.get("content_vintage"),
+            espn_snapshot=raw_source.get("espn_snapshot"),
+            vintage=raw_source.get("vintage"),
+            fetched_at=raw_source.get("fetched_at"),
+        )
+        lineage = build_lineage_block(
+            triples=raw_triples,
+            raw_vintage=raw_vintage,
+            raw_built_at=raw_source.get("built_at"),
+            vintage_source=vintage_source,
+        )
+
         sources[adjusted_key] = {
             "name": meta["name"],
             "kind": meta["kind"],
@@ -363,6 +387,7 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
             "fetched_at": raw_source.get("fetched_at"),
             "fit_bake_id": fit_bake_id,
             "combos": adjusted_combos,
+            "lineage": lineage,
         }
         source_validation[adjusted_key] = "live"
         stats[source] = {
