@@ -64,7 +64,10 @@ def extract_page_headline(html: str) -> str | None:
     so the week lives in the page headline — not the table titles.
     """
     for pattern in (
-        r"<meta[^>]*property=[\"']og:title[\"'][^>]*content=[\"']([^\"']+)[\"']",
+        # og:title with double-quoted content (may contain apostrophes,
+        # e.g. "Dave Richard's Week 4 Trade Chart ..."), then single-quoted.
+        r'<meta[^>]*property=["\']og:title["\'][^>]*content="([^"]+)"',
+        r"<meta[^>]*property=[\"']og:title[\"'][^>]*content='([^']+)'",
         r"<title[^>]*>(.*?)</title>",
         r"<h1[^>]*>(.*?)</h1>",
     ):

@@ -114,6 +114,22 @@ class TestCbsPageHeadline(unittest.TestCase):
         self.assertIsNone(cbs.extract_page_headline(
             "<html><body>no headline</body></html>"))
 
+    def test_og_title_with_apostrophe_is_not_truncated(self):
+        """Discrimination for a real-page bug: the live CBS og:title is
+        "Dave Richard's Week 4 Trade Chart ..." -- the first regex used
+        [^\"']+ for the content value, so it stopped at the apostrophe and
+        returned "Dave Richard" (no week), silently dropping the week
+        evidence on the production path."""
+        html = ('<html><head><meta property="og:title" content="Dave Richard\'s '
+                'Week 4 Trade Chart and rest of season Fantasy Football '
+                'rankings help you win now" /></head><body></body></html>')
+        headline = cbs.extract_page_headline(html)
+        self.assertEqual(
+            headline,
+            "Dave Richard's Week 4 Trade Chart and rest of season "
+            "Fantasy Football rankings help you win now")
+        self.assertEqual(cbs.extract_week_from_title(headline), 4)
+
 
 class TestCbsValidateWeekConsistency(unittest.TestCase):
     """The fail-closed gate. Every match path must work; every mismatch
@@ -192,15 +208,23 @@ class TestCbsJsonContainsWeekEvidence(unittest.TestCase):
     def _run_main(self, argv, fetch_fn, swallow_errors=False):
         """Invoke pull_cbs.main() with argv + a fake fetch.
 
+        Note: patching pull_cbs.fetch does NOT work -- pull()'s default
+        fetch_fn=fetch was bound at def time. Wrap pull() itself so the
+        fake fetch actually flows through (a stale patch here silently
+        hits the live network, which is how the first version of this
+        test passed for the wrong reason).
+
         When swallow_errors=True, RuntimeError from a fail-closed validation
         is caught (returning None) so callers can assert post-conditions like
         "no JSON file was written". When False (default), the exception
         propagates so callers can use assertRaises() around _run_main.
         """
+        real_pull = cbs.pull
         old_argv = sys.argv
         sys.argv = argv
         try:
-            with patch("pull_cbs.fetch", fetch_fn):
+            with patch.object(cbs, "pull",
+                              lambda url: real_pull(url, fetch_fn)):
                 try:
                     cbs.main()
                 except RuntimeError:
