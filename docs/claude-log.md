@@ -1589,3 +1589,105 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+---
+
+## 2026-10-02 - JEG-86: FantasyPros puller week-coding with fail-closed validation
+
+Sandbox note: this session could not run `make validate`, run the linear CLI,
+or fetch from network. All checks below were read-time verifications; the
+test suite was not executed. Reviewer must run
+`python3 -m unittest tests/test_pull_fantasypros.py` and `make validate`
+before merge.
+
+### Files
+
+- `ops/watchdog/pull_fantasypros.py` (new, sibling of `pull_usatoday.py` /
+  `pull_cbs.py`): page puller with `extract_week_from_url`,
+  `extract_week_from_title`, `discover_url`, `pull`, `validate_week_consistency`.
+  URL slug is `trade-value-chart-week-N-2026`; title parses `\bweek\s+(\d+)\b`
+  (case-insensitive, whole-word so "midweek" cannot trip it). Discovery walks
+  week N, N-1, N-2 and only returns a URL whose headline week matches its slug
+  week — same class of catch as the 2026-10-02 USA Today incident.
+- `weekly_vegas/pipeline/loaders/fantasypros.py` (edited): added
+  `extract_week_from_filename`, `fp_week_sidecar_path`, and
+  `validate_filename_week_consistency`. Wired the validation into `load_ecr`
+  and `load_projections` so the guard runs on the loader's main path. Sidecar
+  JSON is `<csv>.week.json` next to each CSV; the page puller can cache it,
+  but absence is non-fatal (filename alone is sufficient evidence until the
+  sidecar exists).
+- `tests/test_pull_fantasypros.py` (new, stdlib unittest): 24 tests across
+  eight classes — TestExtractWeekFromUrl, TestExtractWeekFromTitle,
+  TestExtractTitleText, TestValidateWeekConsistency, TestPagePull,
+  TestDiscoverUrl, TestExtractWeekFromFilename,
+  TestValidateFilenameWeekConsistency. Hermetic (mocked fetch, tmp dirs).
+  Negative tests cover every failure mode the rules doc names: URL ≠ title,
+  requested ≠ page, URL with no slug, title with no `Week N`, draft CSV with
+  non-zero requested week, sidecar disagrees with filename.
+- `docs/week-coding-rules.md`: NOT edited (shared with sibling tickets; the
+  reviewer updates the status table at merge per the JEG-86 task).
+
+### Verified (read-time only; tests not executed here)
+
+- `docs/week-coding-rules.md:9-58` (read): the five rules the implementation
+  must satisfy. Status table at lines 60-68 names `ops/watchdog/pull_usatoday.py`
+  as the reference and lists the FantasyPros puller as `❌ TODO (JEG-77)`.
+- `ops/watchdog/pull_usatoday.py:121-169` (read): reference
+  `validate_week_consistency` — same shape (url_week, title_weeks,
+  requested_week, evidence returned), same fail-closed semantics. The new
+  FantasyPros validator matches this shape but uses a single title (the
+  article's `<title>`/`<h1>`) instead of a table-titles set, because the FP
+  chart article carries the week in the headline, not per-table.
+- `ops/watchdog/pull_usatoday.py:106,117` (read): the regex shapes for URL
+  (`trade-value-chart-week-(\d+)-`) and title (`\bweek\s+(\d+)\b`). The FP
+  version keeps the title regex identical and changes the URL regex to
+  match FP's `fantasy-football-trade-value-chart-week-N-2026` slug.
+- `ops/watchdog/pull_cbs.py` (read): the third-sibling page-pull pattern;
+  confirms `discover_url` + `pull` + `validate_week_consistency` is the repo's
+  established stage-2 page-pull shape.
+- `weekly_vegas/pipeline/loaders/fantasypros.py:142-151` (read):
+  `ecr_csv_path` confirms filenames encode `_wk{N}` per position and ECR type
+  — `_wk(\d+)` is the right regex.
+- `pipelines/save_fantasypros_references.py:62-64` (read): the
+  `fantasypros_chart_fetch_log.jsonl` shape proves page-pull metadata lives
+  in the goal workspace, not in this repo; that is why the sidecar path is
+  a real new artifact on disk.
+- `tests/test_pull_watchdog.py:458+` (read): the established naming and
+  shape for sibling puller tests (mocked fetch, tmp dirs, stdlib only).
+  The new `tests/test_pull_fantasypros.py` follows the same convention.
+
+### Claimed, unverified
+
+- The regex `\bweek\s+(\d+)\b` does not match `"midweek"`: stated from
+  regex semantics (`\b` whole-word boundary on both sides of `week`),
+  asserted by `test_title_with_only_word_does_not_match`. Sandbox could not
+  run `python3 -m unittest` to confirm; the assertion is the check.
+- The page-pull slug `fantasy-football-trade-value-chart-week-N-2026/`
+  matches the live FantasyPros URL pattern seen in
+  `pipelines/scrape_live_source_pages.py:71-74` (read); not verified against
+  a live fetch in this sandbox.
+- `make validate` exits 0 after this change: not executed here. Reviewer
+  must run before merge.
+- That the wiring in `load_ecr` and `load_projections` does not break the
+  existing ECR + projection loads for the Week 4 / Week 5 fixtures used by
+  CI: not exercised here. The filename validator passes when the filename
+  week equals the caller's `--week`, which is exactly the current happy
+  path, so the guard should be a no-op on green fixtures — but the
+  reviewer must confirm before merge.
+
+### Open
+
+- The reviewer updates `docs/week-coding-rules.md` status table at merge to
+  move the FantasyPros puller row from `❌ TODO (JEG-77)` to `✅ Done
+  2026-10-02 (JEG-86)`. Not done in this session per the task.
+- `pull_fantasypros.py` is a stub that fetches the page and validates the
+  week label; it does NOT parse the trade-chart table itself. The
+  table-parser lives in the goal-workspace
+  `lottery/bin/pull_fantasypros_chart.py` and is outside JEG-86's scope.
+  The CSV downstream
+  (`weekly_vegas/pipeline/loaders/fantasypros.py::load_ecr`/`load_projections`)
+  is the path that turns the article into Supabase rows, and JEG-86
+  validates its week via the filename guard.
+- No follow-up needed on the URL-slug or headline regexes against
+  publication 2026-09-29 / 2026-09-30 changes; the patterns are stable for
+  at least the 2026 season.
