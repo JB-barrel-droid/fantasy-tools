@@ -688,7 +688,9 @@
       } catch (e) {
         return {error: String(e?.message || e)};
       }
-    }
+    },
+    // Expose benchShare for regression testing (JEG-103).
+    benchShare: () => benchShare
   };
 
   const root = typeof document !== "undefined" ? document.getElementById("curve-widget") : null;
@@ -2308,8 +2310,8 @@
     shareInput.step = "0.001";
     shareInput.value = String(benchShare);
     shareInput.setAttribute("aria-label", "Bench share");
-    shareInput.addEventListener("input", () => setBenchShareFraction(Number(shareInput.value), false));
-    shareInput.addEventListener("change", () => { setBenchShareFraction(Number(shareInput.value), false); publishShared(); });
+    shareInput.addEventListener("input", () => { setBenchShareFraction(Number(shareInput.value), false); syncWeightsReadout(); });
+    shareInput.addEventListener("change", () => { setBenchShareFraction(Number(shareInput.value), false); publishShared(); syncWeightsReadout(); });
     shareInput.addEventListener("dblclick", () => setBenchShareFraction(TwoTier.DEFAULT_BENCH_SHARE));
     slider.append(track, tick, fill, shareInput);
     const readout = document.createElement("p");
