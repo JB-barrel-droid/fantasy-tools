@@ -101,10 +101,12 @@ CBS_TABLEBUILDER_HTML = "<html><body>\n%s\n</body></html>" % "".join([
 
 class CbsRowRecognitionTest(unittest.TestCase):
     def _tables(self):
-        return pull_cbs.pull(
+        # JEG-85: pull() now returns (tables, headline); tests want only tables.
+        tables, _headline = pull_cbs.pull(
             "https://example.com/cbs",
             fetch_fn=lambda url: (200, CBS_TABLEBUILDER_HTML),
         )
+        return tables
 
     def test_name_first_cells_parse(self):
         """The current CBS markup has no numeric rank column; player rows

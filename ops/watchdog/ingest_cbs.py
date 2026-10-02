@@ -33,7 +33,9 @@ def _discover_fn(week: int) -> str:
 def _pull_fn(url: str) -> list[dict[str, Any]]:
     import pull_cbs
 
-    return pull_cbs.pull(url)
+    # JEG-85: pull() returns (tables, headline); ingest only needs tables.
+    tables, _headline = pull_cbs.pull(url)
+    return tables
 
 
 def _build_fn(json_path: str, week: int, _bake_id: str | None):
