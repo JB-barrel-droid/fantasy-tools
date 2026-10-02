@@ -1051,9 +1051,12 @@
       const open = state.expanded.has(row.player_key);
       // JEG-41: only expandable when the player has relevant news/adjustments.
       const hasContext = playerContext(row.player_key).length > 0;
+      // JEG-50: badge players ESPN has explicitly zeroed (season-ending IR).
+      const isEspnZeroed = window.TradeValueComparisonData?.espn_zeroed?.includes(Number(row.player_key));
+      const zeroBadge = isEspnZeroed ? ` <span class="espn-zero-badge" title="ESPN projects 0.0 PPG — likely season-ending IR">ESPN Out</span>` : "";
       const nameCell = hasContext
-        ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button>`
-        : `<strong>${esc(row.name)}</strong>`;
+        ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong>${zeroBadge}</button>`
+        : `<strong>${esc(row.name)}</strong>${zeroBadge}`;
       const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player">${nameCell}<span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
       return main + renderExpandedRow(row, colSpan);
     }).join("");
