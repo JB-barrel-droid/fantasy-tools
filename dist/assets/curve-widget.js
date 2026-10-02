@@ -2180,23 +2180,29 @@
     }
   }
 
+  // Displayed pie percentages: largest-remainder rounding to 0.1% so the four
+  // shown shares always total exactly 100.0 (independent toFixed(1) per
+  // position missed by 0.1 in 5 of the 12 league shapes, JEG-24). Display
+  // only: the underlying weights, pies and calibration stay exact.
+  function pieDisplayTenths(weights) {
+    const raw = TwoTier.POSITIONS.map(pos => Math.max(0, Number(weights?.[pos]) || 0));
+    const total = raw.reduce((s, v) => s + v, 0);
+    if (!(total > 0)) return raw.map(() => 0);
+    const scaled = raw.map(v => (v / total) * 1000);
+    const tenths = scaled.map(v => Math.floor(v + 1e-9));
+    let remainder = 1000 - tenths.reduce((s, v) => s + v, 0);
+    const order = scaled
+      .map((v, i) => ({i, frac: v - Math.floor(v + 1e-9)}))
+      .sort((a, b) => b.frac - a.frac || a.i - b.i);
+    for (let k = 0; remainder > 0; k = (k + 1) % order.length, remainder -= 1) tenths[order[k].i] += 1;
+    return tenths;
+  }
+
   function syncPositionWeightControls() {
     const grid = $("#positionWeightControls");
     if (!grid) return;
     const weights = activePositionWeights();
-    // Largest-remainder rounding so displayed percentages sum to exactly 100.0%.
-    const raw = TwoTier.POSITIONS.map(pos => (weights[pos] || 0) * 100);
-    const floored = raw.map(v => Math.floor(v * 10 + 1e-9) / 10);
-    let remainderTenths = Math.round(1000 - floored.reduce((s, v) => s + Math.round(v * 10), 0));
-    const order = raw
-      .map((v, i) => ({i, frac: v * 10 - Math.floor(v * 10 + 1e-9)}))
-      .sort((a, b) => b.frac - a.frac);
-    const displayTenths = floored.map(v => Math.round(v * 10));
-    for (const {i} of order) {
-      if (remainderTenths <= 0) break;
-      displayTenths[i] += 1;
-      remainderTenths -= 1;
-    }
+    const displayTenths = pieDisplayTenths(weights);
     let total = 0;
     TwoTier.POSITIONS.forEach((pos, idx) => {
       const wrap = grid.querySelector(`.weight-step[data-pos="${pos}"]`);
@@ -2218,9 +2224,11 @@
     if (!readout) return;
     const weights = activePositionWeights();
     const baked = bakedPositionWeights();
-    const parts = TwoTier.POSITIONS.map(pos => {
-      const pct = ((weights[pos] || 0) * 100).toFixed(1);
-      const b = baked ? ` (default ${(baked[pos] * 100).toFixed(1)}%)` : "";
+    const shown = pieDisplayTenths(weights);
+    const shownBaked = baked ? pieDisplayTenths(baked) : null;
+    const parts = TwoTier.POSITIONS.map((pos, idx) => {
+      const pct = (shown[idx] / 10).toFixed(1);
+      const b = shownBaked ? ` (default ${(shownBaked[idx] / 10).toFixed(1)}%)` : "";
       return `${pos} ${pct}%${b}`;
     });
     const benchPct = (benchShare * 100).toFixed(1);

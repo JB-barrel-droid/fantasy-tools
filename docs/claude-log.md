@@ -32,6 +32,25 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-01 - JEG-24: displayed pie sums to exactly 100.0; the pie check now blocks
+
+Muse approved option (b) (largest-remainder rounding at read time, baked weights untouched, a check that the four shares sum to 100.0 in all 12 shapes).
+
+### Verified (headless Chromium, 12 scoring x league-size shapes)
+
+- On `main`, the Pie readout missed 100.0 in 5 of 12 shapes (Standard/8 100.1, Half/8 99.9, Half/10 100.1, Half/12 99.9, Full/12 99.9). With the fix, 0 of 12 miss. The rendered tables across all 12 shapes are identical before and after (only the readout text changed), and there are 0 page errors.
+- The rendered gate now blocks on the pie sum. Run against `main`'s `curve-widget.js` it exits 1 with the five shapes; against the fix it exits 0. Each run also injects a bad-pie copy and a throwing copy and requires the gate to catch both.
+- `make validate` passes.
+
+### Deviation from the instruction, for review
+
+- Muse said to do the rounding in `activePositionWeights()`. I added `pieDisplayTenths()` and used it for the readout and the slider labels instead, leaving `activePositionWeights()` exact. Reason: it is also the source for the pies and the calibration, so rounding it would shift real values by up to 0.05% once a user moves a slider. The displayed result is what was asked for; say so if you want the literal placement.
+- The 0.1 lands on the largest remainder (Half/12 moves QB to 7.0, not the biggest bucket).
+
+### Open
+
+- Not checked on the live site (egress blocked). The readout text still says "sums to 100%", now true.
+
 ## 2026-10-01 - JEG-35: Razzball is not stale; Achane comes from FantasyCalc and USA Today
 
 Muse asked for root cause first: is the Razzball data stale, or the fixture, and is the Razzball leg wired in?
