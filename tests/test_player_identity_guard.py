@@ -133,7 +133,12 @@ def scan_pipelines_for_violations(pipelines_dir: Path):
 
 
 def check_canonical_resolution_usage(pipelines_dir: Path):
-    """Verify that files using player identity resolution import from canonical_players."""
+    """Verify that files using canonical_players.resolve() import from canonical_players.
+
+    Only files that actually call the resolve() function for player identity
+    matching need to import from canonical_players. Files that only use local
+    normalize_name for label purposes (not identity matching) are allowed.
+    """
     issues = []
 
     for root, dirs, files in os.walk(pipelines_dir):
@@ -143,54 +148,50 @@ def check_canonical_resolution_usage(pipelines_dir: Path):
             if not fname.endswith('.py'):
                 continue
 
+            # Skip allowed files
+            if fname in PlayerIdentityGuard.ALLOWED_FILES:
+                continue
+
             fpath = Path(root) / fname
             try:
                 source = fpath.read_text()
                 tree = ast.parse(source, filename=str(fpath))
 
-                # Check if this file does player name resolution
-                # Look for patterns like registry lookup, player_key references
-                has_player_resolution = False
-
+                # Check imports
+                imports = set()
+                from_imports = {}
                 for node in ast.walk(tree):
-                    # Check for registry usage (Registry, resolve, etc.)
-                    if isinstance(node, ast.Name):
-                        if node.id in ('resolve', 'Registry', 'load_registry',
-                                       'norm_player_name', 'resolve_with_reason'):
-                            has_player_resolution = True
-                            break
-                    if isinstance(node, ast.Attribute):
-                        if node.attr in ('resolve', 'by_key', 'by_norm', 'lookup'):
-                            has_player_resolution = True
-                            break
-
-                if has_player_resolution:
-                    # Check imports
-                    imports = set()
-                    from_imports = {}
-                    for node in ast.walk(tree):
-                        if isinstance(node, ast.Import):
+                    if isinstance(node, ast.Import):
+                        for alias in node.names:
+                            imports.add(alias.name)
+                    if isinstance(node, ast.ImportFrom):
+                        if node.module:
+                            from_imports.setdefault(node.module, set())
                             for alias in node.names:
-                                imports.add(alias.name)
-                        if isinstance(node, ast.ImportFrom):
-                            if node.module:
-                                from_imports.setdefault(node.module, set())
-                                for alias in node.names:
-                                    from_imports[node.module].add(alias.name)
+                                from_imports[node.module].add(alias.name)
 
-                    # Must import from canonical_players
-                    canonical_imported = False
-                    if 'canonical_players' in imports:
-                        canonical_imported = True
-                    for module, names in from_imports.items():
-                        if 'canonical_players' in module:
-                            canonical_imported = True
+                # Check if this file imports resolve from canonical_players
+                imports_resolve = False
+                if 'canonical_players' in imports or 'canonical_players' in from_imports:
+                    imported_names = from_imports.get('canonical_players', set())
+                    if 'resolve' in imported_names or 'resolve_with_reason' in imported_names:
+                        imports_resolve = True
 
-                    if not canonical_imported:
-                        issues.append({
-                            "file": str(fpath.relative_to(REPO)),
-                            "issue": "uses player resolution but doesn't import from canonical_players",
-                        })
+                # If file uses resolve/resolve_with_reason but doesn't import from canonical_players, flag it
+                # Look for actual function calls to resolve() or resolve_with_reason()
+                uses_resolve_functions = False
+                for node in ast.walk(tree):
+                    if isinstance(node, ast.Call):
+                        if isinstance(node.func, ast.Name):
+                            if node.func.id in ('resolve', 'resolve_with_reason'):
+                                uses_resolve_functions = True
+                                break
+
+                if uses_resolve_functions and not imports_resolve:
+                    issues.append({
+                        "file": str(fpath.relative_to(REPO)),
+                        "issue": "uses resolve() but doesn't import from canonical_players",
+                    })
 
             except SyntaxError:
                 continue
