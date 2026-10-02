@@ -503,8 +503,10 @@ def build_source_entry(src, sources, live_data, snapshot_natives, vorp_chain=Non
     else:
         sort_vals = reindexed
 
+    # JEG-106: keep numeric zero (0.0) -- only None means missing.
+    # `if v` would drop legitimate zero values.
     top25_keys = sorted(
-        [k for k in sort_vals if sort_vals[k]],
+        [k for k in sort_vals if sort_vals[k] is not None],
         key=lambda k: sort_vals[k],
         reverse=True
     )[:25]
@@ -550,6 +552,23 @@ def build_source_entry(src, sources, live_data, snapshot_natives, vorp_chain=Non
         else:
             chart_val = idx_val
 
+        # JEG-106: Check if an adjusted leg exists for this parent source.
+        # If so, the parent chart column is N/A because the chart actually
+        # uses the adjusted leg's value, not the parent's indexed value.
+        # Compare against adjusted value if available, otherwise compare against indexed.
+        has_adjusted = bool(adj_src and adj_reindexed.get(pkey))
+        if has_adjusted:
+            # Chart uses adjusted value, so parent's chart column is N/A
+            display_chart_val = None
+            chart_matches = None
+        else:
+            display_chart_val = chart_val
+            # Original comparison: chart matches indexed
+            chart_matches = (
+                abs(chart_val - idx_val) < 0.01
+                if chart_val and idx_val else None
+            )
+
         # Effective multipliers
         index_mult = (idx_val / nat_val) if idx_val and nat_val else None
         reweighted_val = adj_reindexed.get(pkey)
@@ -565,11 +584,10 @@ def build_source_entry(src, sources, live_data, snapshot_natives, vorp_chain=Non
             "indexed": round(idx_val, 2) if idx_val else None,
             "reweight_mult": round(reweight_mult, 4) if reweight_mult else None,
             "reweighted": round(reweighted_val, 2) if reweighted_val else None,
-            "chart_value": round(chart_val, 2) if chart_val else None,
-            "chart_matches_indexed": (
-                abs(chart_val - idx_val) < 0.01
-                if chart_val and idx_val else None
-            ),
+            "chart_value": round(display_chart_val, 2) if display_chart_val is not None else None,
+            "chart_matches_indexed": chart_matches,
+            # JEG-106: Flag to indicate adjusted version is available
+            "has_adjusted_leg": has_adjusted,
         })
         if vorp_chain is not None:
             # JEG-107: the chain shows three steps per player. For DDF-native
@@ -595,6 +613,9 @@ def build_source_entry(src, sources, live_data, snapshot_natives, vorp_chain=Non
             or sources[src].get("fetched_at")
             or "unknown"
         ),
+        # JEG-106: When an adjusted leg exists for this parent source,
+        # provide a pointer to it for the dashboard UI.
+        "adjusted_leg_pointer": adj_src,
         # JEG-107: VORP round-trip. Inspectable per position so a reader can
         # see the publisher's inferred roster assumptions (waiver line per
         # position, number of rostered players, how flex was apportioned).
@@ -702,16 +723,15 @@ def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives,
             "indexed": round(idx_val, 2) if idx_val else None,
             "reweight_mult": round(vorp_mult, 4) if vorp_mult else None,
             "reweighted": round(chart_val, 2) if chart_val else None,
-            "chart_value": round(chart_val, 2) if chart_val else None,
-            # JEG-105: the chart renders the VORP-adjusted value for adjusted
-            # legs, so the match check is against the leg's own final
-            # (adjusted) value -- green by construction, exactly as shallow
-            # as the parent legs' check (chart_value set to indexed, then
-            # compared to indexed). Comparing against the parent's indexed
-            # here would be red on every row permanently by design, which
-            # trains the reader to ignore the Chart column. Real
-            # chart-vs-artifact verification is JEG-77's end-to-end job.
-            "chart_matches_indexed": True if chart_val else None,
+            "chart_value": round(chart_val, 2) if chart_val is not None else None,
+            # JEG-106: For adjusted legs, compare chart value (adjusted) against
+            # parent's indexed value. This shows the actual difference between
+            # what the chart displays (adjusted) vs what the parent published (indexed).
+            # A red X means the chart value differs from parent's indexed.
+            "chart_matches_indexed": (
+                abs(chart_val - idx_val) < 0.01
+                if chart_val and idx_val else None
+            ),
         })
         if vorp_chain is not None:
             # JEG-107: adjusted leg inherits the parent's implied VORP
