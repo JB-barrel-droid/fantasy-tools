@@ -373,6 +373,19 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
     resolved, id_review, aliases_used = resolve_identities(lists, fixture_path)
     review_rows = csv_review + id_review
 
+    # Match CBS ROS/Razzball: deep bench tails must not inflate the DDF pie.
+    for pos in POSITIONS:
+        cap = REF_SLOTS.get(pos, 1) * teams * 3
+        rows = sorted(resolved[pos], key=lambda d: (-d["x"], d["player_key"]))
+        if len(rows) > cap:
+            review_rows.append({
+                "reason": "pool_cap",
+                "pos": pos,
+                "capped_from": len(rows),
+                "capped_to": cap,
+            })
+        resolved[pos] = rows[:cap]
+
     # Tier pool keyed by canonical player_key (stable total order by key).
     pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]] for pos in POSITIONS}
 

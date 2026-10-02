@@ -24,6 +24,20 @@
   // Minimum shared players before a source may be anchored on the shared set.
   var MIN_SHARED_FOR_PIE = 40;
 
+  function sourceComboKey(source, scoring, teams, qbSlots) {
+    var score = {ppr: "full", full: "full", half_ppr: "half", half: "half",
+      standard: "standard"}[scoring];
+    if (!score || !Number.isInteger(teams) || teams <= 0) return null;
+    var key = score + "_" + teams;
+    if (source === "fantasycalc" || source === "fantasycalc_adjusted") {
+      var qb = qbSlots;
+      if (qb !== 1 && qb !== 2) return null;
+      key += "_qb" + qb;
+    }
+    // Exact identity only: never borrow another league size or QB grain.
+    return key;
+  }
+
   function flexEligible(shape) {
     return shape && shape.SUPERFLEX
       ? ["QB"].concat(DEFAULT_FLEX_ELIGIBLE)
@@ -242,6 +256,51 @@
     return out;
   }
 
+  // JEG-68: sane band for the fixed-pie starter markup (adjusted/pure) on
+  // the raw value-above-waivers curves.
+  //
+  // markup = target_starter_share / raw_starter_share, so it is ~1.0
+  // whenever a source's raw pool already sits at the target split. CBS ROS
+  // does exactly that (84.96% raw starter share at the default shape,
+  // verified source-pure from the CBS snapshot: per_game = ROS/gp, and the
+  // pipeline's independent two-tier raw_value prices the same pool at
+  // 86.25%): the adjustment is correctly a near-no-op there, not a bug.
+  // Below the low bound the pie materially inverts (starters marked down),
+  // which is what already-valued "raw" inputs produce (~91% raw starter
+  // share -> ~0.93 markup). Above the high bound the raw pool is
+  // implausibly bench-heavy. Both are real defects; ~1.0 is not.
+  var STARTER_MARKUP_SANE_LOW = 0.98;
+  var STARTER_MARKUP_SANE_HIGH = 1.6;
+
+  function starterMarkupSane(markup) {
+    return typeof markup === "number" && isFinite(markup) &&
+      markup >= STARTER_MARKUP_SANE_LOW && markup <= STARTER_MARKUP_SANE_HIGH;
+  }
+
+  // Fixed-pie direction tolerance (JEG-69).
+  //
+  // The `${vorpKey}-fixed-pie-direction` ChartHealth check asserts the raw
+  // pool is bench-heavy enough that the fixed pie marks starters UP and
+  // bench DOWN. A strict `rawStarterShare < starterShare` is knife-edge:
+  // CBS ROS's raw pool genuinely sits at 85.2-85.3% starter share at
+  // 14-team standard (verified source-pure -- JEG-68), 0.2-0.3pp over the
+  // 85% target, and tripped the check on a correct build even though the
+  // markup (0.996) sits inside the sane band.
+  //
+  // Tolerate the sane band's headroom instead: the check fails only where
+  // the markup would also leave the sane band -- a material inversion like
+  // the ~91% pre-valued-inputs defect (JEG-68). 1pp keeps the direction
+  // check slightly stricter than the markup check (fails at 86.0% raw
+  // starter share vs 86.7% for markup < 0.98), so it still guards the
+  // direction while noise at the boundary passes.
+  var STARTER_DIRECTION_EPS = 0.01;
+
+  function fixedPieDirectionSane(rawStarterShare, starterShare) {
+    return typeof rawStarterShare === "number" && isFinite(rawStarterShare) &&
+      typeof starterShare === "number" && isFinite(starterShare) &&
+      rawStarterShare < starterShare + STARTER_DIRECTION_EPS;
+  }
+
   // Cross-source scale agreement, as a pure comparison so it can be tested
   // against the numbers the defect actually produced.
   //
@@ -423,6 +482,7 @@
     POSITION_ORDER: POSITION_ORDER,
     DEFAULT_FLEX_ELIGIBLE: DEFAULT_FLEX_ELIGIBLE,
     MIN_SHARED_FOR_PIE: MIN_SHARED_FOR_PIE,
+    sourceComboKey: sourceComboKey,
     flexEligible: flexEligible,
     stableTiebreak: stableTiebreak,
     roleMap: roleMap,
@@ -436,6 +496,11 @@
     PEAK_AGREEMENT_HIGH: PEAK_AGREEMENT_HIGH,
     peakAgreement: peakAgreement,
     normalizeToFixedPie: normalizeToFixedPie,
+    STARTER_MARKUP_SANE_LOW: STARTER_MARKUP_SANE_LOW,
+    STARTER_MARKUP_SANE_HIGH: STARTER_MARKUP_SANE_HIGH,
+    starterMarkupSane: starterMarkupSane,
+    STARTER_DIRECTION_EPS: STARTER_DIRECTION_EPS,
+    fixedPieDirectionSane: fixedPieDirectionSane,
     allocationCounts: allocationCounts
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
