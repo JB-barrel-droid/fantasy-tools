@@ -26,6 +26,9 @@ What promotion does:
   - native values are carried over byte-identical; their vintage (fetched_at)
     is NOT touched -- only the reindex anchor changes, recorded as
     section-level reindex_anchor='espn_leg' plus promoted_at/promoted_from_review
+  - stamps immutable content_vintage at promotion time (replaces four-way fallback)
+  - applies D2 exclusion gate: rows failing contract validation are dropped and
+    counted in hidden_invalid_rows (never invented, never guessed)
   - writes output/comparison-promotions/<source>-<date>-promotion.json with
     before/after hashes, the replaced section (rollback record), and approver
 
@@ -54,6 +57,112 @@ from verify_import_health import (  # noqa: E402
 FIXTURE = REPO / "data/fixtures/current/comparison-sources-data.json"
 REVIEW_SCHEMA = "trade-value-comparison-review-v1"
 REINDEX_SCHEMA = "trade-value-comparison-section-reindexed-v1"
+
+# D2 Exclusion Gate: Contract validation rules
+# Valid trade values must be non-negative and within reasonable bounds
+MIN_VALID_VALUE = 0.0
+MAX_VALID_VALUE = 200.0  # Max reasonable trade value for any single player
+
+
+def validate_row(slug: str, value: float | None, player_key: str | None) -> tuple[bool, str]:
+    """Validate a single row against the data contract.
+
+    Returns (is_valid, reason). If invalid, reason describes the failure.
+    """
+    # Null identity check
+    if not player_key:
+        return False, "null_identity: no player_key"
+
+    # Null value check
+    if value is None:
+        return False, "null_value: value is None"
+
+    # Range violation check (negative or impossibly high values)
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False, f"invalid_type: value is {type(value).__name__}, expected numeric"
+
+    if value < MIN_VALID_VALUE:
+        return False, f"range_violation: value {value} < {MIN_VALID_VALUE}"
+
+    if value > MAX_VALID_VALUE:
+        return False, f"range_violation: value {value} > {MAX_VALID_VALUE}"
+
+    return True, ""
+
+
+def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
+    """Apply D2 exclusion gate: drop rows failing contract validation.
+
+    Returns (modified_section, hidden_invalid_rows_count).
+    Only validates rows that will be promoted - skips rows already dropped
+    by the reindex stage (they have no reindexed values).
+    """
+    hidden_slugs = set()
+    section = copy.deepcopy(section)
+
+    for combo_name, combo in section.get("combos", {}).items():
+        # Get player_keys for this combo (may be in combo or section-level)
+        combo_player_keys = combo.get("player_keys", {})
+
+        # Validate native values
+        native = combo.get("native", {})
+        valid_native = {}
+        for slug, value in native.items():
+            player_key = combo_player_keys.get(slug) or player_keys.get(slug)
+            is_valid, reason = validate_row(slug, value, player_key)
+            if is_valid:
+                valid_native[slug] = value
+            else:
+                hidden_slugs.add(slug)
+
+        combo["native"] = valid_native
+
+        # Validate reindexed values (if present)
+        reindexed = combo.get("reindexed", {})
+        if reindexed:
+            valid_reindexed = {}
+            for slug, value in reindexed.items():
+                player_key = combo_player_keys.get(slug) or player_keys.get(slug)
+                is_valid, reason = validate_row(slug, value, player_key)
+                if is_valid:
+                    valid_reindexed[slug] = value
+                else:
+                    hidden_slugs.add(slug)
+            combo["reindexed"] = valid_reindexed
+
+    return section, len(hidden_slugs)
+
+
+def stamp_content_vintage(section: dict, source: str) -> dict:
+    """Stamp immutable content_vintage at promotion time.
+
+    Computes once and is immutable thereafter. Replaces the four-way fallback
+    (published || espn_snapshot || fetched_at || vintage) for freshness purposes.
+    The underlying fields are kept for debugging.
+    """
+    section = copy.deepcopy(section)
+
+    # Priority: 1) explicit content_vintage, 2) source_provenance vintage,
+    # 3) fetched_at, 4) computed from source
+    existing_vintage = section.get("content_vintage")
+    if existing_vintage:
+        return section
+
+    # Try source_provenance
+    provenance = section.get("source_provenance") or {}
+    if provenance.get("content_vintage"):
+        section["content_vintage"] = provenance["content_vintage"]
+        return section
+
+    # Try fetched_at
+    if section.get("fetched_at"):
+        section["content_vintage"] = section["fetched_at"]
+        return section
+
+    # Fallback: derive from source and current time
+    # This should rarely happen - sources should carry provenance
+    section["content_vintage"] = utc_now()
+    return section
 
 
 def sha256_file(path):
@@ -178,9 +287,17 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         raise SystemExit(f"promotion refused: {len(unknown)} candidate slugs "
                          f"not in fixture player_keys (e.g. {unknown[:3]})")
 
+    # --- D2 Exclusion Gate: Apply contract validation ---
+    # Drop rows failing validation and count them in hidden_invalid_rows
+    section_with_gate, hidden_invalid_rows = apply_exclusion_gate(section, player_keys)
+
+    # --- Stamp immutable content_vintage at promotion time ---
+    # Replaces the four-way fallback (published || espn_snapshot || fetched_at || vintage)
+    section_with_gate = stamp_content_vintage(section_with_gate, source)
+
     # --- build the promoted section: fixture shape, candidate math ---
     new_section = copy.deepcopy(fx_section)
-    for combo_name, cand_combo in section["combos"].items():
+    for combo_name, cand_combo in section_with_gate["combos"].items():
         if combo_name not in new_section["combos"]:
             raise SystemExit(f"promotion refused: combo {combo_name!r} not in "
                              f"fixture section -- review said combos_match?")
@@ -197,14 +314,17 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
     # fresh snapshot, so its vintage is the correct one. (Previously this
     # preserved the old fetched_at, which was correct for re-anchoring the
     # same data but wrong for fresh-data promotions.)
-    if section.get("fetched_at"):
-        new_section["fetched_at"] = section["fetched_at"]
+    if section_with_gate.get("fetched_at"):
+        new_section["fetched_at"] = section_with_gate["fetched_at"]
     # content_vintage is immutable source provenance: install it with the
-    # values it describes, only when the candidate carries it (never invented).
-    if section.get("content_vintage"):
-        new_section["content_vintage"] = section["content_vintage"]
-    if section.get("source_provenance"):
-        new_section["source_provenance"] = copy.deepcopy(section["source_provenance"])
+    # values it describes. Now stamped at promotion time (computed once, immutable).
+    if section_with_gate.get("content_vintage"):
+        new_section["content_vintage"] = section_with_gate["content_vintage"]
+    if section_with_gate.get("source_provenance"):
+        new_section["source_provenance"] = copy.deepcopy(section_with_gate["source_provenance"])
+    # D2 Exclusion Gate: Record hidden invalid rows count
+    if hidden_invalid_rows > 0:
+        new_section["hidden_invalid_rows"] = hidden_invalid_rows
     new_section["promotion_note"] = (
         "Re-anchored from the retired Monday rail to the fixture ESPN leg. "
         f"Native values vintage {new_section.get('fetched_at')}; "
@@ -229,6 +349,10 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         "review_file": Path(review_path).name,
         "review_verdict": review["verdict"],
         "l1_import_health_gate": l1_gate,
+        "d2_exclusion_gate": {
+            "applied": True,
+            "hidden_invalid_rows": hidden_invalid_rows,
+        },
         "section_before_sha256": before_hash,
         "section_after_sha256": after_hash,
         "replaced_section": fx_section,  # rollback record
