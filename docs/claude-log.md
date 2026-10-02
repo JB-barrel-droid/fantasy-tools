@@ -32,6 +32,29 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-100: Fidelity ordering fix commit
+
+**Task:** Commit the round 2 fix for JEG-100 fidelity ordering issue.
+
+### Verified (checks named)
+
+- `git status`: Found modified `pipelines/check_fidelity_ordering.py` and new `tests/test_check_fidelity_ordering.py`
+- `git diff pipelines/check_fidelity_ordering.py` (read): Confirmed fix adds primary path for direct combo-level storage (`combo_data["native"]`, `combo_data["reindexed"]`) with fallback to fit-level lookups
+- `tests/test_check_fidelity_ordering.py` (read): New test file with 10 test cases covering flip detection, tie handling, extraction from fixture-like data
+- `git commit`: Successfully committed with message 'JEG-100 round 2: fix review blockers'
+
+### Blocked
+
+- Linear CLI (`linear issue view JEG-100`): HOST_CAPABILITY_UNAVAILABLE - cannot add comment to ticket
+- Python execution: HOST_CAPABILITY_UNAVAILABLE - cannot run tests locally to validate
+
+### Claimed, unverified
+
+- Tests would pass if Python were executable (test code is well-structured with proper assertions)
+- The fix correctly addresses the bug: original code looked under `fit.*` but fixtures store values directly under `combos.<combo>.native` and `combos.<combo>.reindexed`
+
+---
+
 ## 2026-10-02 - JEG-79: Claude lane best-practices assessment (docs only)
 
 Output: `docs/health/claude-best-practices.md`. I did not read the Muse or Codex documents first.
