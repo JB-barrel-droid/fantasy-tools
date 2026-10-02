@@ -28,14 +28,30 @@ ORDERING_TESTS = [
 
 # JEG-73: Adjusted sections must preserve the raw ordering for the same players.
 # If raw has A > B, the _adjusted section must also have A > B.
-# One pair per adjusted source (fantasycalc, usatoday, fantasypros, cbs) so a
-# stale adjusted section on ANY source trips the check, not just fantasycalc.
+# Covers every 12-team combo (the chart defaults) on all 4 adjusted sources,
+# so a stale adjusted section on ANY source/combo trips the check.
+# Pairs are the raw top-2 of each combo (verified 2026-10-02); the affine
+# (position, tier) adjustment cells are monotonic, so a flip means staleness.
 ADJUSTED_ORDERING_TESTS = [
     # (source, combo, higher_name, lower_name)
+    # fantasycalc: canonical JEG-73 case + top pair on every 12-team combo
     ("fantasycalc", "half_12_qb1", "jaxon smithnjigba", "puka nacua"),
+    ("fantasycalc", "full_12_qb1", "jahmyr gibbs", "bijan robinson"),
+    ("fantasycalc", "full_12_qb2", "jahmyr gibbs", "bijan robinson"),
+    ("fantasycalc", "half_12_qb1", "jahmyr gibbs", "bijan robinson"),
+    ("fantasycalc", "half_12_qb2", "jahmyr gibbs", "bijan robinson"),
+    ("fantasycalc", "standard_12_qb1", "jahmyr gibbs", "bijan robinson"),
+    ("fantasycalc", "standard_12_qb2", "jahmyr gibbs", "bijan robinson"),
+    # usatoday / fantasypros / cbs: all three 12-team combos each
+    ("usatoday", "full_12", "jahmyr gibbs", "jonathan taylor"),
     ("usatoday", "half_12", "jahmyr gibbs", "bijan robinson"),
+    ("usatoday", "standard_12", "jahmyr gibbs", "ceedee lamb"),
+    ("fantasypros", "full_12", "jahmyr gibbs", "bijan robinson"),
     ("fantasypros", "half_12", "jahmyr gibbs", "bijan robinson"),
+    ("fantasypros", "standard_12", "jahmyr gibbs", "bijan robinson"),
+    ("cbs", "full_12", "jahmyr gibbs", "bijan robinson"),
     ("cbs", "half_12", "jahmyr gibbs", "bijan robinson"),
+    ("cbs", "standard_12", "jahmyr gibbs", "bijan robinson"),
 ]
 
 def load_supabase_translated(source: str, scoring: str, teams: int, week: int) -> dict[str, float]:

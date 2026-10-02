@@ -45,3 +45,17 @@ The monitoring dashboard must include checks that prove wiring, not just impleme
 5. Added `pipelines/verify_vorp_wiring.py` monitoring script
 
 **Verification:** Fixture now has JSN 55.0 > Puka 41.0, matching native order. Test passes.
+
+### Example: Stale _adjusted Sections (JEG-73, 2026-10-02)
+
+**What happened:** The VORP-translation fix corrected raw FantasyCalc values (JSN 55.0 > Puka 41.0), but the `_adjusted` fixture sections were built from the OLD raw values and still showed the flipped ordering (JSN 31.2 < Puka 34.0). The live chart's adjusted curves were stale until someone manually re-ran the builder.
+
+**Root cause:** `pipelines/translate_via_vorp.py` rewrote the raw `reindexed` values in the fixture but never triggered a rebuild of the `_adjusted` sections. The two writes were decoupled — the fix was implemented but not wired through to its downstream consumer.
+
+**Fixes applied:**
+1. Added `--rebuild-adjusted` to `translate_via_vorp.py`: after raw values change, it re-runs the (position, tier) affine adjustment cells over the fresh values and rewrites all four `{source}_adjusted` sections in the same pass. One write, no stale window.
+2. Extended `pipelines/verify_vorp_wiring.py` with `ADJUSTED_ORDERING_TESTS`: 16 raw-vs-adjusted ordering pairs covering every 12-team combo on all 4 adjusted sources (fantasycalc, usatoday, fantasypros, cbs). The affine cells are monotonic, so any flip is staleness by definition.
+
+**Verification:** `verify_vorp_wiring.py` prints all 16 OKs (e.g. fantasycalc_adjusted/half_12_qb1: JSN 40.0 > Puka 31.3). A stale rebuild would trip the check with the exact remediation (`build_adjusted_fixture_sections.py`).
+
+**Wiring lesson:** When a pipeline stage rewrites values that a downstream stage derives from, the rebuild of the downstream stage belongs INSIDE the same write path (flag or automatic), never as a separate manual step someone must remember.

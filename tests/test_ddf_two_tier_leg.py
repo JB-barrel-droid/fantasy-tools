@@ -95,15 +95,41 @@ def feasible_share_for(tier, pie, requested=DEFAULT_BENCH_SHARE):
     """Mirror build_ddf_two_tier_leg's per-position feasible share logic.
 
     The requested share (default 0.15) may be infeasible for thin positions;
-    the builder binary-searches for the highest feasible share <= requested.
+    the builder searches for the closest feasible share -- downward for the
+    "too high" modes (highest feasible <= requested), upward for the
+    "not positive" mode (lowest feasible >= requested; JEG-74).
     Tests must use the same share the builder uses, or parity checks fail
-    on data where 0.15 is infeasible (e.g. TE after IR removals).
+    on data where 0.15 is infeasible (e.g. TE after IR removals, or QB
+    8-team standard on the 2026-10-02 cbsros snapshot).
     """
     try:
         calibrate_position(tier, pie, requested)
         return requested
-    except ValueError:
-        pass
+    except ValueError as e:
+        msg = str(e)
+    if "not positive" in msg:
+        # JEG-74: scan upward for the minimum feasible share >= requested.
+        lo = requested
+        hi = None
+        s = requested
+        while s < 0.99:
+            s = min(0.99, s + 0.01)
+            try:
+                calibrate_position(tier, pie, s)
+                hi = s
+                break
+            except ValueError:
+                lo = s
+        if hi is None:
+            raise AssertionError("no feasible bench share found")
+        for _ in range(15):
+            mid = (lo + hi) / 2
+            try:
+                calibrate_position(tier, pie, mid)
+                hi = mid
+            except ValueError:
+                lo = mid
+        return hi
     lo, hi = 0.01, requested
     best = None
     for _ in range(20):
@@ -291,6 +317,27 @@ class TestFailClosed(unittest.TestCase):
         # degenerate exposures cannot calibrate.
         with self.assertRaises(ValueError):
             solve_tier_prices(0.0, 0.0, 0.0, 0.0, 100.0, "QB", 0.15)
+
+    def test_not_positive_searches_upward_jeg74(self):
+        # JEG-74: cbsros 2026-10-02 QB 8-team standard. The tier's feasible
+        # bench-share window sits just ABOVE 0.15 (pb=-0.08 at 0.15), so the
+        # downward-only fallback raised instead of recovering. The mirror
+        # must find the upward share, matching the builder.
+        tier = {
+            "a_bench": 11.830519510724733, "b_bench": 1.447480489275251,
+            "a_start": 22.849352374207143, "b_start": 7.494647625792851,
+            "surplus": 43.621999999999986, "rw": 18.286, "rs": 21.5355,
+            "tau": 0.30,
+        }
+        pie = tier["surplus"]
+        with self.assertRaisesRegex(ValueError, "not positive"):
+            calibrate_position(tier, pie, 0.15)
+        found = feasible_share_for(tier, pie, 0.15)
+        self.assertGreater(found, 0.15)
+        self.assertLessEqual(found, 0.99)
+        cal = calibrate_position(tier, pie, found)
+        self.assertGreater(cal["pb"], 0)
+        self.assertGreater(cal["ps"], cal["pb"])
 
     def test_nonpositive_pie_raises(self):
         _, pool_lists, _ = real_inputs()
