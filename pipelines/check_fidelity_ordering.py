@@ -9,25 +9,46 @@ def load_fixture_data(fixture_path):
         return json.load(f)
 
 def get_native_and_reindexed(data, source):
+    """
+    Extract native and reindexed values for each combo in a source.
+
+    The fixture stores these directly under combos.<combo>.native and
+    combos.<combo>.reindexed. Falls back to fit-level lookups for
+    backward compatibility with older fixture formats.
+    """
     results = []
     if source not in data.get("sources", {}):
         return results
     source_data = data["sources"][source]
     combos = source_data.get("combos", {})
     for combo_name, combo_data in combos.items():
-        fit = combo_data.get("fit", {})
         native_values = None
         reindexed_values = None
-        if "native" in fit:
-            native_values = fit["native"]
-        elif "flex_aware_pie" in fit:
-            fap = fit["flex_aware_pie"]
-            if "native" in fap:
-                native_values = fap["native"]
-            if "reindexed" in fap:
-                reindexed_values = fap["reindexed"]
-        if "reindexed" in fit:
-            reindexed_values = fit["reindexed"]
+
+        # Primary path: direct combo-level storage (current fixture format)
+        if "native" in combo_data:
+            native_values = combo_data["native"]
+        if "reindexed" in combo_data:
+            reindexed_values = combo_data["reindexed"]
+
+        # Fallback: fit-level lookups (older fixture format)
+        if not native_values or not reindexed_values:
+            fit = combo_data.get("fit", {})
+            if not native_values:
+                if "native" in fit:
+                    native_values = fit["native"]
+                elif "flex_aware_pie" in fit:
+                    fap = fit["flex_aware_pie"]
+                    if "native" in fap:
+                        native_values = fap["native"]
+            if not reindexed_values:
+                if "reindexed" in fit:
+                    reindexed_values = fit["reindexed"]
+                elif "flex_aware_pie" in fit:
+                    fap = fit["flex_aware_pie"]
+                    if "reindexed" in fap:
+                        reindexed_values = fap["reindexed"]
+
         if native_values and reindexed_values:
             results.append({"combo": combo_name, "native": native_values, "reindexed": reindexed_values})
     return results
