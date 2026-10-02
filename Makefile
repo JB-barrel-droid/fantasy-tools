@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog plan-status
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -87,6 +87,10 @@ source-news:
 naming:
 	python3 pipelines/check_naming_drift.py
 
+# JEG-111: fail-closed Supabase naming-convention check.
+naming-convention:
+	python3 pipelines/check_supabase_naming.py
+
 reference:
 	python3 pipelines/build_reference_data.py --today $(TODAY)
 
@@ -159,8 +163,8 @@ test-unit:
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
 	python3 -m unittest tests.test_github_actions_status
-	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
+	python3 -m unittest lanes.test_plan_tracker
 
 
 # Integration tests: require data/raw snapshots, Supabase, or pipeline artifacts.
@@ -185,7 +189,11 @@ test: test-unit test-integration
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
 
-validate: naming reference sync guard-harness test-unit
+validate: naming naming-convention reference sync guard-harness test-unit
+
+# Operating-model plan status (JEG-96). Reads lanes/plan.json + lanes/linear_fixture.json.
+plan-status:
+	@python3 lanes/plan_status.py
 
 serve:
 	python3 -m http.server $(PORT) --directory app/trade-value-chart

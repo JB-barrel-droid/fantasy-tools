@@ -1,0 +1,209 @@
+{
+  "_comment": "JEG-96 operating-model phase tracker. State is derived from lanes/linear_fixture.json at read time; this file describes structure only and is hand-maintained for phases/tickets/criteria. To refresh ticket statuses, re-export from Linear and replace lanes/linear_fixture.json (see lanes/PLAN.md).",
+  "version": 1,
+  "owner": "minimax",
+  "approved_by": "jeremy",
+  "approved_at": "2026-10-02T15:50:00-05:00",
+  "source_issue": "JEG-96",
+  "phases": [
+    {
+      "id": "phase-0",
+      "name": "Guards first",
+      "ticket_ids": ["JEG-78", "JEG-79", "JEG-80", "JEG-81", "JEG-82", "JEG-83", "JEG-84", "JEG-77"],
+      "entry_criteria": [
+        "tracker exists and a Lane can answer 'what phase are we in' from it"
+      ],
+      "exit_criteria": [
+        "every standing check listed in lanes/linear_fixture.json for the JEG-78..84 + JEG-77 tickets is in status Done or Verified",
+        "JEG-77 (end-to-end source fidelity) has at least one green run recorded in fixtures/"
+      ],
+      "blocks": ["phase-1"],
+      "blocked_by": [],
+      "parallel_with": ["phase-4"]
+    },
+    {
+      "id": "phase-1",
+      "name": "Remove the taps (merge charter + queue)",
+      "ticket_ids": ["JEG-91"],
+      "entry_criteria": [
+        "phase-0 exit criteria met",
+        "docs/merge-charter.md committed with three tiers and exact gates",
+        "lanes/merge_charter.py encodes the tier rules and queue"
+      ],
+      "exit_criteria": [
+        "a Tier-0 pilot PR auto-merges end-to-end with the tier posted as a comment",
+        "a Tier-2 pilot PR is held for Jeremy's tap with the reason stated",
+        "Jeremy approves the tier definitions (one-time decision replacing per-PR taps)",
+        "merge queue proven: serial merges with rebase + re-verify per item"
+      ],
+      "blocks": ["phase-2"],
+      "blocked_by": ["phase-0"],
+      "parallel_with": ["phase-4"]
+    },
+    {
+      "id": "phase-2",
+      "name": "Remove the hunting (acceptance + cross-model review)",
+      "ticket_ids": ["JEG-92"],
+      "entry_criteria": [
+        "phase-0 exit criteria met",
+        "phase-1 merge charter in place (cross-model review wired into Tier 1/2 path)"
+      ],
+      "exit_criteria": [
+        "every Linear issue carries runnable acceptance criteria",
+        "lane PRs attach evidence bundles; Roman rejects done-claims without the bundle",
+        "cross-model review wired into the merge path"
+      ],
+      "blocks": ["phase-3"],
+      "blocked_by": ["phase-0", "phase-1"],
+      "parallel_with": ["phase-4"]
+    },
+    {
+      "id": "phase-3",
+      "name": "Remove the courier and the detector",
+      "ticket_ids": ["JEG-94", "JEG-71", "JEG-55", "JEG-77"],
+      "entry_criteria": [
+        "phase-0 exit criteria met (JEG-77 monitor is the detector)",
+        "JEG-71 (CBS ROS pull/save) and JEG-55 (ESN snapshot to Supabase) shipped"
+      ],
+      "exit_criteria": [
+        "JEG-77 monitor is green so nobody screenshots the live page",
+        "pulls run in CI (no scheduled owner) — CBS, ESPN, Razzball all in workflow",
+        "JEG-94 outbox/inbox protocol + Codex CLI device-auth: Roman can fan out codex exec tasks in parallel",
+        "Linear comments remain the wake-up signal; the protocol is the lane channel"
+    ,
+        "no claude/chatgpt lane adapters built (Muse-only proven — see PLAN.md 'Out of scope today')"
+      ],
+      "blocks": [],
+      "blocked_by": ["phase-0"],
+      "parallel_with": ["phase-4"]
+    },
+    {
+      "id": "phase-4",
+      "name": "Remove the parking (decision queue + digest)",
+      "ticket_ids": ["JEG-93"],
+      "entry_criteria": [
+        "tracker exists (this file)"
+      ],
+      "exit_criteria": [
+        "docs/decisions.md exists and is committed",
+        "the four known parked items converted to decision issues with recommendations + deadlines",
+        "the first deadline passes with a recorded proceed-or-veto outcome",
+        "morning digest is fail-closed on monitor staleness (BH-8 / GAP-039)"
+      ],
+      "blocks": [],
+      "blocked_by": [],
+      "parallel_with": ["phase-0", "phase-1", "phase-2", "phase-3"]
+    }
+  ],
+  "boundary": {
+    "always_with_jeremy": [
+      "values calls",
+      "methodology changes",
+      "user-facing copy",
+      "destructive production actions",
+      "outward-facing changes",
+      "Tier-2 merge taps"
+    ],
+    "hands_off_routine": [
+      "data refreshes that follow the same methodology and run fresh data through the pipeline to the published chart"
+    ]
+  },
+  "out_of_scope_today": [
+    "claude lane adapter (Codex CLI never verified working; not reachable from Muse)",
+    "chatgpt lane adapter (codex account out of usage; not reachable from Muse)",
+    "full API-key lane identity machinery (cheap signed-result-files only; graduate to API keys only if cheap version is ever gamed)"
+  ],
+  "tier_definitions": {
+    "_comment": "Encoded as checkable rules in lanes/merge_charter.py. Tier classification is the lane's responsibility up front, with Roman re-classifying on review.",
+    "tier_0": {
+      "auto_merge": true,
+      "human_in_loop": false,
+      "file_globs": [
+        "docs/**",
+        "tests/**",
+        "lanes/**",
+        "tools/**",
+        "ops/**",
+        "*.md",
+        ".github/workflows/*.yml"
+      ],
+      "forbidden_paths": [
+        "app/**",
+        "data/**",
+        "pipelines/**",
+        "modules/**",
+        "supabase/**",
+        "sql/**",
+        "dist/**",
+        "verify_live.py",
+        "Makefile"
+      ],
+      "gates": [
+        "make validate green",
+        "verify_live.py green",
+        "diff is mechanically checkable (no binary blobs, no large generated bundles)"
+      ]
+    },
+    "tier_1": {
+      "auto_merge": true,
+      "human_in_loop": "roman",
+      "file_globs": [
+        "app/**",
+        "ops/**",
+        "lanes/**",
+        "tools/**",
+        "pipelines/**",
+        "modules/**"
+      ],
+      "forbidden_paths": [
+        "data/**",
+        "supabase/**",
+        "sql/**",
+        "dist/**"
+      ],
+      "forbidden_content_patterns": [
+        "methodology",
+        "values",
+        "user-facing copy",
+        "publish",
+        "DDL",
+        "pricing math",
+        "fixed-pie",
+        "indexation"
+      ],
+      "gates": [
+        "contract tests green",
+        "wiring verification (verify_vorp_wiring.py or equivalent) green",
+        "evidence bundle attached",
+        "different-lane review posted"
+      ]
+    },
+    "tier_2": {
+      "auto_merge": false,
+      "human_in_loop": "jeremy",
+      "trigger_conditions": [
+        "PR touches any forbidden_content_pattern",
+        "PR touches dist/, supabase/, sql/, data/",
+        "PR touches the fixed-pie or indexation logic",
+        "PR changes pricing math or DDL",
+        "PR changes user-facing copy"
+      ],
+      "gates": [
+        "Jeremy explicitly approves the tap"
+      ]
+    }
+  },
+  "merge_queue": {
+    "_comment": "Encoded as checkable rules in lanes/merge_charter.py. Jeremy 2026-10-02 scope addition: merge queue serializes merges to main with rebase + re-verify per item, eliminating collision cancellations.",
+    "serialize": true,
+    "max_concurrent": 1,
+    "per_item": [
+      "rebase onto current main tip",
+      "re-run make validate",
+      "re-run verify_live.py",
+      "re-classify the tier (reviewer may upgrade)",
+      "post the tier as a PR comment"
+    ],
+    "rationale": "5 of the 20 most recent Deploy dashboard runs on 2026-10-02 were cancelled by newer pushes; WIP limits alone only reduce collisions, the queue eliminates them."
+  }
+}
