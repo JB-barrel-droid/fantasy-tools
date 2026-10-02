@@ -120,6 +120,25 @@ async function main() {
       report.steps.push(step);
       check(`move-to-${v}`, v, snap, mismatch);
     }
+    // Reset paths (Roman 2026-10-02): the caption must also follow the
+    // "Reset to 15%" button and slider dblclick, which funnel through
+    // setBenchShareFraction without touching the slider handlers.
+    await moveSliderTo(page, 0.20);
+    await page.evaluate(() => {
+      const btn = document.querySelector("#weightsBenchSlot .bench-share-reset");
+      if (!btn) throw new Error("bench-share reset button not found");
+      btn.click();
+    });
+    await page.waitForTimeout(120);
+    check("reset-button", 0.15, await snapshot(page), mismatch);
+    await moveSliderTo(page, 0.18);
+    await page.evaluate(() => {
+      const input = document.querySelector("#weightsBenchSlot input[type=range]");
+      if (!input) throw new Error("bench-share slider not found");
+      input.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    });
+    await page.waitForTimeout(120);
+    check("slider-dblclick", 0.15, await snapshot(page), mismatch);
     if (pageErrors.length) mismatch.push(`${pageErrors.length} uncaught page error(s): ${pageErrors[0]}`);
     if (mismatch.length) {
       report.ok = false;

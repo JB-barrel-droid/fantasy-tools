@@ -27,7 +27,7 @@ import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-HARNESS = REPO / "tests" / "bench_share_readout_harness.mjs"
+HARNESS = REPO / "tests" / "rendered_gate" / "bench_share_readout_harness.mjs"
 DIST = REPO / "dist"
 
 
@@ -35,6 +35,13 @@ class BenchShareReadoutSyncTest(unittest.TestCase):
     def test_readout_follows_slider_after_drag(self):
         if not DIST.exists():
             self.skipTest("dist/ not built; run `make build` before this test")
+        # playwright-core resolves relative to the harness file; without the
+        # rendered_gate node_modules the harness cannot start. Skip (do not
+        # fail) so `make test-unit` keeps its "safe in CI" contract -- the
+        # preview workflow runs this harness where Chromium is installed.
+        gate_modules = REPO / "tests" / "rendered_gate" / "node_modules" / "playwright-core"
+        if not gate_modules.exists():
+            self.skipTest("playwright-core not installed; see preview.yml rendered gate step")
         env = os.environ.copy()
         # The harness is invoked with the dist dir and prints a report on stdout.
         proc = subprocess.run(

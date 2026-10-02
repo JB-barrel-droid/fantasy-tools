@@ -2681,6 +2681,7 @@
     benchShare = next;
     crossRank = null;
     syncBenchShareControl();
+    syncWeightsReadout();
     if (publish) publishShared();
   }
 
