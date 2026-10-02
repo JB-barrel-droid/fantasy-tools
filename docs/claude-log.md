@@ -1,5 +1,73 @@
 # Claude session log
 
+## 2026-10-02 - JEG-94: lane outbox/inbox mechanical CLI (minimax)
+
+Branch `minimax/jeg-94-lane-cli`. Commits `b420805` (lane + tests) and
+`b0d06db` (inbox result file). File boundaries respected: only
+`lanes/bin/lane` (new, executable) and `tests/test_lane_cli.py` (new)
+were touched; `lanes/outbox/*` and `lanes/inbox/*` runtime data
+untouched; no network, credentials, or Linear API.
+
+### Verified (checks named)
+
+- `lanes/bin/lane --help` exits 0; the help output lists all three
+  subcommands (`send`, `poll`, `list`) and the `--root` flag. Paste of
+  the output is in `lanes/inbox/minimax/JEG-94-lane-cli.md`.
+- `lanes/bin/lane send --help`, `poll --help`, `list --help` each exit 0.
+- File is executable: `git update-index --chmod=+x lanes/bin/lane &&
+  git checkout -- lanes/bin/lane` set mode 770 — the read/run log shows
+  `-rwxrwx---`. Direct invocation via the shebang works; tests use
+  `python3 lanes/bin/lane ...` so the bit is not load-bearing for them.
+- `git commit b420805` and `b0d06db` exist on `minimax/jeg-94-lane-cli`
+  and contain exactly `lanes/bin/lane`, `tests/test_lane_cli.py`, and
+  `lanes/inbox/minimax/JEG-94-lane-cli.md` (no other paths modified).
+- The script's full module loads (argparse + subcommand wiring runs to
+  completion during the `--help` call), so any syntax error would have
+  surfaced there.
+
+### Unverified (reviewer runs)
+
+- `python3 -m py_compile lanes/bin/lane tests/test_lane_cli.py` —
+  `HOST_CAPABILITY_UNAVAILABLE` from the host permission gate
+  (consistent with the brief: "sandbox blocks test execution").
+  Argparse running through the full module during `--help` is the
+  indirect check that nothing is syntactically broken.
+- `python3 -m unittest tests.test_lane_cli -v` — same gate. 24 tests
+  cover the four acceptance criteria plus parser guards, positive
+  controls for every negative control, and the all-five-forbidden-rows
+  refusal list.
+- `make validate` — depends on the unittest run; reviewer runs it.
+  The CLI touches no `data/`, `dist/`, `modules/`, `pipelines/`,
+  `app/`, or `docs/` file and adds no dependency, so it cannot on its
+  own make `make validate` red.
+
+### Design
+
+- The guard reads `lanes/ROUTING.md` on every `send` (no caching) so a
+  doc edit shows up in dispatch decisions without touching this script.
+- Lane-key extraction is first whitespace token of each header cell, so
+  `minimax (mcode)` → `minimax`. YES detection is strict
+  (`v.upper().startswith("YES")`); MAYBE/advise/relay/em-dash/(unavailable)/
+  Tier 2/NO all deny.
+- Brief capability parsing accepts `Required capabilities:` with an
+  optional parenthetical and splits on commas / `and`. A brief with no
+  such line is trivially OK (no capabilities required).
+- Wake-up line is built with `relative_to(root.parent)` so it is always
+  `lanes/outbox/<lane>/<file>` whether `--root` is the repo's real
+  `lanes/` or a tmp test dir.
+
+### Open
+
+- Two untracked doc files (`lanes/LANES.md`, `lanes/ROUTING.md`) came
+  pre-staged in this worktree but were not part of `git status`'s
+  branch base; I did not commit them since they are outside the
+  file-boundaries list. The lane CLI reads them at runtime; whether
+  they should land as part of this branch is a Roman call.
+- `lanes/LANES.md` does not yet formally document the
+  `Required capabilities:` line. The dispatch guard depends on it; a
+  follow-up doc PR should add the field to the brief format template.
+  Out of scope for JEG-94.
+
 ## 2026-10-02 - JEG-104 migration replay correction (Codex)
 
 ### Verified
