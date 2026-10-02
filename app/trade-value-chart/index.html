@@ -2244,19 +2244,87 @@
         const staleRefs=Number(freshness?.summary?.stale_count||0);
         document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${freshness?`<span class="health-count ${staleRefs?"pending":""}">${staleRefs} stale refs</span>`:""}${news?`<span class="health-count">${Number(newsMeta.matched_item_count||0)} news matches</span><span class="health-count ${reviewCount?"pending":""}">${reviewCount} review</span>`:""}`;
         document.getElementById("dataHealthIntro").textContent="Coverage is measured against the 596-player canonical snapshot. Content, fit, and news dates identify the data actually powering the dashboard.";
+        // JEG-131 R4b: Publication schedules for badge states (mirrors
+        // pipelines/lib/publication_windows.py). Used to determine green/amber/red.
+        const PUBLICATION_SCHEDULES={
+          "usatoday":{publishDay:1,graceDays:1},  // Tuesday
+          "cbs":{publishDay:2,graceDays:1},       // Wednesday
+          "cbsros":{publishDay:2,graceDays:1},    // Wednesday
+          "fantasycalc":{publishDay:1,graceDays:1}, // Tuesday
+          "fantasypros":{publishDay:1,graceDays:1}, // Tuesday
+          "espn":{publishDay:null,graceDays:2},   // Daily; 2-day freshness gate
+        };
+        // JEG-131 R4b: Determine badge state for a source.
+        // Returns {cls, label} where cls is the CSS class and label is the badge text.
+        // - green "Week N": current week, within publication window
+        // - amber "Week N-1": within grace (one week behind, or 1-2 days for daily)
+        // - red "STALE since <date>": past the limit
+        // - "no freshness rule": source has no publication schedule (never green)
+        function vintageBadgeState(sourceKey, source, currentWeek){
+          const vintage=source.content_vintage;
+          const schedule=PUBLICATION_SCHEDULES[sourceKey];
+          if(!schedule){
+            return {cls:"status-pending", label:"no freshness rule"};
+          }
+          if(!vintage){
+            return {cls:"status-stale", label:"STALE since unknown"};
+          }
+          // Parse "Week N" format
+          const weekMatch=String(vintage).match(/Week\s+(\d+)/i);
+          if(weekMatch){
+            const vintageWeek=parseInt(weekMatch[1],10);
+            if(vintageWeek===currentWeek){
+              return {cls:"status-live", label:"Week "+vintageWeek};
+            }else if(vintageWeek===currentWeek-1){
+              return {cls:"status-caution", label:"Week "+vintageWeek};
+            }else{
+              return {cls:"status-stale", label:"STALE since Week "+vintageWeek};
+            }
+          }
+          // Date format: compare against publication schedule
+          // For simplicity: if within graceDays of today, amber; else red
+          // (Full window logic requires check_date; using vintage date directly)
+          const vintageDate=new Date(String(vintage).slice(0,10)+"T00:00:00Z");
+          if(Number.isNaN(vintageDate.getTime())){
+            return {cls:"status-pending", label:"no freshness rule"};
+          }
+          const now=new Date();
+          const daysOld=Math.floor((now-vintageDate)/(1000*60*60*24));
+          if(schedule.publishDay===null){
+            // Daily source (ESPN): 2-day freshness gate
+            if(daysOld<=2) return {cls:"status-live", label:"current"};
+            else if(daysOld<=4) return {cls:"status-caution", label:daysOld+"d old"};
+            else return {cls:"status-stale", label:"STALE since "+String(vintage).slice(0,10)};
+          }
+          // Weekly source: green if <7 days old, amber if <14, red otherwise
+          // (Simplified; full logic in Python publication_windows.py)
+          if(daysOld<7) return {cls:"status-live", label:"current"};
+          else if(daysOld<14) return {cls:"status-caution", label:daysOld+"d old"};
+          else return {cls:"status-stale", label:"STALE since "+String(vintage).slice(0,10)};
+        }
+        // JEG-131 R4b: Get current NFL week from data (fallback to 4)
+        const currentWeek=Number(data.value_weeks?.monday||data.value_weeks?.espn||4)||4;
         const cards=live.map(key=>{
           const source=data.sources[key]||data.sources.cbs||{};
           const combo=source.combos?.[comboKey(key)]||{};
           const coverage=Number.isFinite(Number(combo.n))?Number(combo.n):Object.keys(combo.values||combo.reindexed||{}).length;
           const match=String(source.fit_bake_id||"").match(/(\d{4}-\d{2}-\d{2})/);
-          const contentDate=String(source.published||source.espn_snapshot||source.fetched_at||source.vintage||"").slice(0,10)||"unavailable";
+          // JEG-131 R4b: Date display reads content_vintage (not the four-way fallback).
+          // Underlying fields stay for debugging; fallback only if content_vintage absent.
+          const contentDate=String(source.content_vintage||source.published||source.espn_snapshot||source.fetched_at||source.vintage||"").slice(0,10)||"unavailable";
           const freshness=key.endsWith("_adjusted")?`fit ${monthDay(match?.[1])}`:`content ${contentDate}`;
           // JEG-64: as-published sources served from VORP-translated values are
           // labeled "VORP-translated"; combos still on the quantile reindex
           // (fallback provenance) keep the "reindexed" label.
           const translated=combo.translation&&combo.translation.method==="vorp-supabase";
           const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "DDF methodology · common scale" : (translated ? "As published · VORP-translated" : "As published · reindexed"));
-          return `<article class="dataset-card status-live"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">Live</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div></dl></article>`;
+          // JEG-131 R4b: Badge is a state (green/amber/red), not constant "Live".
+          // Per D1 the source stays on the chart, toggleable and labelled — never hidden.
+          const badge=vintageBadgeState(key, source, currentWeek);
+          // JEG-131 R4b D2: Hidden invalid rows (defensive: missing → 0, never crash).
+          const hiddenRows=Number(source.hidden_invalid_rows||0)||0;
+          const hiddenLine=hiddenRows?`<div><dt>Hidden</dt><dd>${hiddenRows} invalid row${hiddenRows===1?"":"s"}</dd></div>`:"";
+          return `<article class="dataset-card ${badge.cls}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badge.label)}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div>${hiddenLine}</dl></article>`;
         });
         if(news){
           const adjustments=Object.values(news.adjustments_by_player_key||{}).flat();
@@ -2270,7 +2338,18 @@
           cards.push(`<article class="dataset-card ${Number(summary.stale_count||0)?"status-caution":"status-news"}"><div class="dataset-card-head"><h3>Reference freshness pipe</h3><span class="dataset-badge">${Number(summary.stale_count||0)?"Watch":"Same day"}</span></div><p class="dataset-role">Same-day audit runs during dashboard sync; unchanged references are recorded rather than silently refreshed.</p><dl class="dataset-facts"><div><dt>Audit date</dt><dd>${esc(freshness.today||"unavailable")}</dd></div><div><dt>Same-day</dt><dd>${summary.all_known_dates_same_day?"yes":"no"}</dd></div><div><dt>Stale refs</dt><dd>${Number(summary.stale_count||0)}</dd></div><div><dt>Unchanged</dt><dd>${Number(summary.unchanged_count||0)}</dd></div></dl>${staleItems.length?`<p class="dataset-caveat">${esc(staleItems.join(" · "))}</p>`:""}</article>`);
         }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
-        document.getElementById("asOfDate").textContent=monthDayTime(data.built_at);
+        // JEG-131 R4b: Top "As of" shows the oldest DISPLAYED content_vintage
+        // across currently shown sources, not built_at.
+        const vintages=live.map(k=>{
+          const s=data.sources[k]||{};
+          const v=s.content_vintage||s.published||s.espn_snapshot||s.fetched_at||s.vintage||"";
+          return String(v).slice(0,10);
+        }).filter(v=>v&&v!=="unavailable");
+        // For "Week N" vintages, the oldest is the smallest N; for dates, earliest date.
+        // Sort: week vintages by N, date vintages chronologically; week beats date recency
+        // is ambiguous, so we display the raw oldest string actually shown on cards.
+        const oldestVintage=vintages.length?vintages.sort()[0]:"";
+        document.getElementById("asOfDate").textContent=oldestVintage?("content "+oldestVintage):monthDayTime(data.built_at);
         document.getElementById("expertVintageLabel").textContent="Source snapshot";
         document.getElementById("ecrContentDate").textContent=monthDayTime(data.built_at);
         document.getElementById("ecrFreshnessBadge").textContent="9 shown";
