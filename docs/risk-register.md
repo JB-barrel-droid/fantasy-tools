@@ -80,6 +80,12 @@ exists in chat or a session transcript.
 
 ## Required Approval Gates
 
+JEG-104 follow-up to GAP-023 (2026-10-02): migration 005's repository
+replay used DROP INDEX against a constraint-owned index. Corrected to
+ALTER TABLE ... DROP CONSTRAINT IF EXISTS. Two regression checks discriminate
+the original SQL and run in make test-unit; make validate passed. No database
+DDL was executed, and live schema state was not reverified in this change.
+
 Stop for user approval before:
 
 - Any production Supabase write or schema change.

@@ -1,5 +1,20 @@
 # Claude session log
 
+## 2026-10-02 - JEG-104 migration replay correction (Codex)
+
+### Verified
+- Migration 005 now drops the legacy UNIQUE constraint through ALTER TABLE,
+  preserving the existing bake-aware replacement index definition.
+- Both tests in tests.test_migrations failed against the original migration
+  and passed after the fix. The suite is wired into make test-unit.
+- make validate exited 0 on the fix. Existing optional tests were skipped.
+- No database writes or migrations were executed. Validation-generated app/dist
+  changes are excluded from this SQL-only change.
+
+### Unverified
+- No live database replay was attempted; this ticket fixes the repository SQL,
+  not production schema state.
+
 Handoff notes between AI sessions ("harnesses"). Newest entry first.
 
 **Why this exists:** a session ends with claims in its chat transcript and nothing

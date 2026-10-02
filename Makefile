@@ -108,6 +108,7 @@ monitor-lineage:
 # Unit tests: no data/raw, snapshot, or external service dependency.
 # Safe to run in CI (Pages deploy) where gitignored data is absent.
 test-unit:
+	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_adjusted_curve_pause
 	python3 -m unittest tests.test_adjusted_fixture_sections
 	python3 -m unittest tests.test_adjustment_inputs
