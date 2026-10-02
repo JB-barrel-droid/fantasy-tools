@@ -123,6 +123,7 @@ test-unit:
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_projection_source_kind
+	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_methodology_consistency
