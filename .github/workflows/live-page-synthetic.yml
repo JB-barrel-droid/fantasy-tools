@@ -1,0 +1,177 @@
+name: Live page synthetic gate
+
+on:
+  schedule:
+    # Daily at 06:00 UTC (1:00 AM CDT) - runs after the chart build
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL to test (defaults to production)"
+        required: false
+        default: ""
+      expected_build:
+        description: "Expected build tag (defaults to reading from dist)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  live-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        working-directory: tests/rendered_gate
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+
+      - name: Get build tag from dist
+        id: build-tag
+        run: |
+          if [ -n "${{ github.inputs.expected_build }}" ]; then
+            echo "tag=${{ github.inputs.expected_build }}" >> $GITHUB_OUTPUT
+          elif [ -f "dist/index.html" ]; then
+            TAG=$(grep -oP 'name="trade-chart-build" content="\K[^"]+' dist/index.html || echo "")
+            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          else
+            echo "tag=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Determine URL to test
+        id: url-to-test
+        run: |
+          if [ -n "${{ github.inputs.url }}" ]; then
+            echo "url=${{ github.inputs.url }}" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://jb-barrel-droid.github.io/fantasy-tools/" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run live page synthetic gate
+        id: gate
+        run: |
+          set +e
+          node tests/rendered_gate/live.mjs \
+            --url "${{ steps.url-to-test.outputs.url }}" \
+            --expected-build "${{ steps.build-tag.outputs.tag }}" \
+            --out output/live-page-synthetic.json
+          GATE_RC=$?
+          set -e
+          echo "gate_rc=$GATE_RC" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-page-synthetic-results
+          path: output/live-page-synthetic.json
+          retention-days: 7
+
+      - name: Publish to monitor (if artifact exists)
+        if: always()
+        run: |
+          if [ -f output/live-page-synthetic.json ]; then
+            echo "Live page synthetic results:"
+            cat output/live-page-synthetic.json
+            # Create the live-page-synthetic.json in output for the monitor bridge
+            mkdir -p output
+            cp output/live-page-synthetic.json output/live-page-synthetic.json
+          else
+            echo "No results file generated - gate may have failed early"
+            # Create a failure artifact for the monitor
+            echo '{"generatedAt":"'"$(date -Iseconds)"'","error":"Gate failed to produce results","passed":false}' > output/live-page-synthetic.json
+          fi
+
+      - name: Check gate result
+        run: |
+          if [ ${{ steps.gate.outputs.gate_rc }} -ne 0 ]; then
+            echo "Live page gate FAILED"
+            exit 1
+          fi
+          echo "Live page gate PASSED"
+
+  # This job runs after the main gate to create the monitor bridge artifact
+  monitor-bridge:
+    needs: live-gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: live-page-synthetic-results
+          path: output/
+
+      - name: Validate and prepare monitor artifact
+        run: |
+          if [ -f output/live-page-synthetic.json ]; then
+            # Validate JSON is well-formed
+            python3 -c "import json; json.load(open('output/live-page-synthetic.json'))"
+            echo "Artifact is valid JSON"
+
+            # Add run metadata
+            python3 << 'EOF'
+import json
+from datetime import datetime, timedelta
+
+with open('output/live-page-synthetic.json') as f:
+    data = json.load(f)
+
+# Add run metadata
+data['run_url'] = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+data['run_id'] = '${{ github.run_id }}'
+
+# Determine freshness (36 hour window)
+generated_at = datetime.fromisoformat(data['generated_at'].replace('Z', '+00:00'))
+now = datetime.now(generated_at.tzinfo)
+age_hours = (now - generated_at).total_seconds() / 3600
+
+# Check if result is fresh (within 36 hours)
+is_fresh = age_hours <= 36
+
+# Determine status
+passed = data.get('passed', len(data.get('problems', [])) == 0)
+is_stale = not is_fresh
+
+data['monitor'] = {
+    'freshness': {
+        'age_hours': round(age_hours, 1),
+        'is_fresh': is_fresh,
+        'threshold_hours': 36
+    },
+    'status': 'green' if (passed and is_fresh) else ('stale' if is_stale else 'red')
+}
+
+with open('output/live-page-synthetic.json', 'w') as f:
+    json.dump(data, f, indent=2)
+
+print(f"Status: {data['monitor']['status']}")
+print(f"Age: {age_hours:.1f} hours")
+print(f"Passed: {passed}")
+EOF
+          else
+            echo "No artifact found - creating failure record"
+            echo '{"generated_at":"'"$(date -Iseconds)"'","passed":false,"error":"No artifact","monitor":{"status":"red"}}' > output/live-page-synthetic.json
+          fi
+
+      - name: Upload monitor artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-page-synthetic-monitor
+          path: output/live-page-synthetic.json
+          retention-days: 7
