@@ -256,6 +256,27 @@
     return out;
   }
 
+  // JEG-68: sane band for the fixed-pie starter markup (adjusted/pure) on
+  // the raw value-above-waivers curves.
+  //
+  // markup = target_starter_share / raw_starter_share, so it is ~1.0
+  // whenever a source's raw pool already sits at the target split. CBS ROS
+  // does exactly that (84.96% raw starter share at the default shape,
+  // verified source-pure from the CBS snapshot: per_game = ROS/gp, and the
+  // pipeline's independent two-tier raw_value prices the same pool at
+  // 86.25%): the adjustment is correctly a near-no-op there, not a bug.
+  // Below the low bound the pie materially inverts (starters marked down),
+  // which is what already-valued "raw" inputs produce (~91% raw starter
+  // share -> ~0.93 markup). Above the high bound the raw pool is
+  // implausibly bench-heavy. Both are real defects; ~1.0 is not.
+  var STARTER_MARKUP_SANE_LOW = 0.98;
+  var STARTER_MARKUP_SANE_HIGH = 1.6;
+
+  function starterMarkupSane(markup) {
+    return typeof markup === "number" && isFinite(markup) &&
+      markup >= STARTER_MARKUP_SANE_LOW && markup <= STARTER_MARKUP_SANE_HIGH;
+  }
+
   // Cross-source scale agreement, as a pure comparison so it can be tested
   // against the numbers the defect actually produced.
   //
@@ -451,6 +472,9 @@
     PEAK_AGREEMENT_HIGH: PEAK_AGREEMENT_HIGH,
     peakAgreement: peakAgreement,
     normalizeToFixedPie: normalizeToFixedPie,
+    STARTER_MARKUP_SANE_LOW: STARTER_MARKUP_SANE_LOW,
+    STARTER_MARKUP_SANE_HIGH: STARTER_MARKUP_SANE_HIGH,
+    starterMarkupSane: starterMarkupSane,
     allocationCounts: allocationCounts
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
