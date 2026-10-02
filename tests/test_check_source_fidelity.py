@@ -161,7 +161,7 @@ class TestLiveExtractNative(unittest.TestCase):
         # Puka @52, JSN @55 from the synthetic HTML (not 60/73)
         self.assertEqual(out["puka nacua"], 62.0)  # JEG-77 stale case fixture=60, live=62
         self.assertEqual(out["jaxon smithnjigba"], 73.0)
-        self.assertEqual(out["ja'marr chase"], 70.0)
+        self.assertEqual(out["jamarr chase"], 70.0)
 
     def test_full_combo_uses_ppr_column(self):
         out = csf.live_extract_native(self.tables, "full_12")
@@ -217,7 +217,7 @@ class TestCheckLiveFreshness(unittest.TestCase):
         # Built from SYNTHETIC_USATODAY_HTML half column for WR (Puka=62, JSN=73).
         "jaxon smithnjigba": 73.0,
         "puka nacua": 62.0,
-        "ja'marr chase": 70.0,
+        "jamarr chase": 70.0,
         "jahmyr gibbs": 74.0,
         "bijan robinson": 71.0,
         "brock bowers": 36.0,
@@ -297,9 +297,10 @@ class TestCheckLiveFreshness(unittest.TestCase):
 
     def test_live_extra_player_is_not_a_failure(self):
         # Live has a slug not in fixture -- not a failure (informational).
+        # Puka is at live parity (62.0) so the only delta is the new player.
         live = dict(self.LIVE_HALF_NATIVE)
         live["newly published player"] = 12.0
-        fixture = make_fixture({"puka nacua": 60.0, "jaxon smithnjigba": 73.0})
+        fixture = make_fixture({"puka nacua": 62.0, "jaxon smithnjigba": 73.0})
         failures = csf.check_live_freshness(
             "usatoday", fixture, {"half_12": live},
             combo="half_12", tolerance=0.0,
@@ -453,7 +454,8 @@ class TestRunLiveUsatodayCheck(unittest.TestCase):
 
     def test_live_extras_reported_in_live_pull(self):
         # Fixture doesn't know about "newly added" player; live has them.
-        fixture = make_fixture({"puka nacua": 60.0, "jaxon smithnjigba": 73.0})
+        # Puka at live parity (62.0) so extras are the only delta.
+        fixture = make_fixture({"puka nacua": 62.0, "jaxon smithnjigba": 73.0})
         fetch = FakeFetch({
             csf.LIVE_SITEMAP_MONTH
                 % (datetime.now(timezone.utc).year,
@@ -487,16 +489,24 @@ class TestLiveFetchUsesUrllib(unittest.TestCase):
         src = inspect.getsource(csf.live_fetch)
         self.assertIn("urllib.request", src)
         self.assertIn("urlopen", src)
-        # And the default opener callable, when introspected, is urllib's.
-        self.assertIs(csf.live_fetch.__defaults__[0], None)
+        # And the default opener callable, when introspected, is None
+        # (keyword-only args live in __kwdefaults__, not __defaults__).
+        self.assertIs(csf.live_fetch.__kwdefaults__["opener"], None)
 
     def test_no_browser_imports(self):
         import inspect
         import check_source_fidelity
         src = inspect.getsource(check_source_fidelity)
+        # Only import statements count: the module legitimately mentions
+        # selenium/playwright in comments explaining what it does NOT use.
+        import_lines = [
+            line for line in src.splitlines()
+            if line.strip().startswith(("import ", "from "))
+        ]
         for banned in ("selenium", "playwright", "pyppeteer", "requests_html"):
-            self.assertNotIn(banned, src,
-                             "%s must not appear in check_source_fidelity" % banned)
+            for line in import_lines:
+                self.assertNotIn(banned, line,
+                                 "%s must not be imported by check_source_fidelity" % banned)
 
 
 class TestMainArgparse(unittest.TestCase):
@@ -521,7 +531,7 @@ class TestMainArgparse(unittest.TestCase):
                     "--source", "usatoday", "--live",
                     "--live-combo", "half_12", "--live-tolerance", "0.0",
                     "--json",
-                ])
+                ], fetch_fn=fetch)
             self.assertEqual(rc, 1,
                              "main() must exit 1 when staleness drift is found")
             report = json.loads(buf.getvalue())
@@ -581,7 +591,7 @@ class _InMemoryFixturePath:
 
 # Attach the helper as an attribute on the module so tests can use it
 # as a context manager.
-csf._patch_fixture = _PatchFixture
+csf._patch_fixture = lambda fixture_dict: _PatchFixture(fixture_dict)._patch()
 
 
 if __name__ == "__main__":

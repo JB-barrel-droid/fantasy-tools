@@ -360,11 +360,33 @@ def parse_usatoday_tables(html: str) -> list[dict]:
     return tables
 
 
+def live_slug(name: str) -> str:
+    """Slug a live-pulled player name to the fixture's native-key shape.
+
+    JEG-77 identity rule: the fixture's native keys are lowercase display
+    names with non-alphanumeric characters REMOVED (not spaced) and
+    whitespace collapsed -- e.g. 'Jaxon Smith-Njigba' -> 'jaxon smithnjigba',
+    'A.J. Brown' -> 'aj brown', 'Brian Thomas Jr' -> 'brian thomas jr'
+    (suffixes kept). Verified 2026-10-02 (Roman): reproduces all 249 native
+    keys of the usatoday half_12 combo from the 2026-09-29 watchdog snapshot
+    names, with zero mismatches and zero extras.
+
+    NOTE: match_source_snapshot.normalize_name is documented label-only
+    ("not for identity matching") -- it spaces hyphens ('smith njigba')
+    and strips suffixes ('brian thomas'), so it must NOT be used here:
+    27/249 fixture keys would false-positive as staleness_missing_in_live
+    on every live run.
+    """
+    text = str(name or "").lower()
+    text = re.sub(r"[^a-z0-9 ]", "", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 def live_extract_native(tables: list[dict], combo: str) -> dict[str, float]:
     """Extract {slug: value} from parsed tables for one fixture combo.
 
-    Slugs come from match_source_snapshot.normalize_name so they match
-    the fixture's `native` keys exactly (player_norm shape). QBs use the
+    Slugs come from live_slug so they match the fixture's `native` keys
+    exactly (verified 249/249 against the current fixture). QBs use the
     1QB column for std/half/full/ppr (per save_usatoday_references.py
     IMPLIED rule mirroring the CBS fixture); RB/WR/TE use the
     scoring-specific column.
@@ -372,7 +394,6 @@ def live_extract_native(tables: list[dict], combo: str) -> dict[str, float]:
     Players whose table has no value column are skipped (never guessed).
     Tables whose position could not be inferred are skipped.
     """
-    from match_source_snapshot import normalize_name
 
     col = LIVE_FIXTURE_COMBO_TO_HEADER.get(combo)
     if col is None:
@@ -403,7 +424,7 @@ def live_extract_native(tables: list[dict], combo: str) -> dict[str, float]:
             except (ValueError, IndexError):
                 continue
             name = row[1] if len(row) > 1 else ""
-            slug = normalize_name(name)
+            slug = live_slug(name)
             if slug:
                 out[slug] = value
 
@@ -562,7 +583,8 @@ def run_live_usatoday_check(
     return live_pull, failures
 
 
-def main(argv=None) -> int:
+def main(argv=None, *, fetch_fn=None) -> int:
+    """fetch_fn is a test seam: production always passes None (real urllib)."""
     import argparse
     ap = argparse.ArgumentParser(description="End-to-end source fidelity checks (JEG-77)")
     ap.add_argument("--source", choices=SOURCES, help="Check only this source")
@@ -599,7 +621,7 @@ def main(argv=None) -> int:
         # Freshness: live (--live) OR snapshot-age proxy
         if args.live and source == "usatoday":
             live_pull, live_failures = run_live_usatoday_check(
-                fixture, week=None, fetch_fn=None,
+                fixture, week=None, fetch_fn=fetch_fn,
                 tolerance=args.live_tolerance, combo=args.live_combo,
             )
             live_pull_report = live_pull
