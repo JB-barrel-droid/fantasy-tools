@@ -1958,3 +1958,116 @@ My first draft said CBS, FantasyPros and USA Today show their pull date as "cont
 ### Still open
 - Verification step above.
 - The frozen "15% bench share" context line above the chart remains a parked copy decision per the task's out-of-scope list.
+
+## 2026-10-02 - JEG-135: rendered-input sweep for bench share / roster / source / lock
+
+Branch `jeremyburstyn/jeg-135-rendered-input-sweep`. Extends the rendered-gate
+suite (tests/rendered_gate/) to cover the four input classes the JEG-47 gate
+does not: bench share, roster shape, source toggle, lock order (best-practices
+§6 / BH-4). Sister work to JEG-103 — JEG-103 uses programmatic slider events
+and a reset button; this harness uses real `page.mouse` + `page.keyboard` and
+real typing, so it catches the same class of regressions on the user-event
+paths.
+
+### Changed
+- `tests/rendered_gate/gate_flexibility.mjs` (new): opens the built
+  `dist/index.html`, drives the four input classes with real gestures
+  (mouse down/move/up on the slider track, keyboard ArrowRight + Tab on
+  the slider, focus+select+Delete+type+Tab on roster number inputs,
+  `click({force:true})` on source checkboxes, `selectOption` on the lock
+  select), hashes the rendered comparison table
+  (`#tableWrap table.all-table tbody tr.row-main` cells, in document
+  order, SHA-256 prefix) at each step, asserts the table hash is
+  byte-identical to baseline after returning each setting to its default.
+- `tests/test_jeg135_rendered_flexibility.py` (new): same graceful-skip
+  pattern as `test_jeg103_bench_share_readout.py` — skip when `dist/` is
+  absent or `playwright-core` not installed. Invokes the harness, parses
+  the JSON report, asserts `ok` and every required phase was exercised.
+- `Makefile` `test-unit`: `tests.test_jeg135_rendered_flexibility` runs
+  immediately after `tests.test_jeg103_bench_share_readout`.
+- `.github/workflows/preview.yml` rendered-gate step: runs
+  `gate_flexibility.mjs` after the JEG-103 harness; both report non-zero
+  exits as PR-comment lines; gate exit still keys on `gate.mjs`.
+- `JEG-135-RESULT.md` (worktree root): what the sweep covers, how table
+  hashes are computed, discrimination argument, unverified items.
+
+### Verified
+- Read `dist/assets/curve-widget.js` lines 2245-2314
+  (`makeRosterControls` builds the inputs and binds `change` →
+  `setRosterSpot`), 2513-2585 (`makeSourceToggles` builds
+  checkboxes with `change` listeners that mutate `activeSources` and
+  call `draw()`), 2587-2612 (`makeLockControl` binds `onchange` →
+  `setLockOrder`). All four input classes have an event-driven entry
+  point the harness can drive with real gestures.
+- Read `dist/assets/comparison-dashboard.js` line 882-890
+  (`renderSourceCards` writes `#sourceCards .source-card .source-title`)
+  and 1024-1071 (`renderTable` writes `#tableWrap table.all-table tbody`)
+  to confirm the harness's selectors target stable, single-writer
+  surfaces.
+- Cross-checked the harness's `expectClose(...)` against the JEG-103
+  harness's `check(...)` in
+  `tests/rendered_gate/bench_share_readout_harness.mjs` lines 72-84:
+  same `tol = 0.05` on the Bench X.X% comparison, same shape of failure
+  message. The new harness does not duplicate JEG-103 — JEG-103 is
+  programmatic slider + reset button + dblclick; this is real mouse +
+  real keyboard + real typing, so it catches a different user-event
+  path.
+- Verified that the harness's away-and-back table-hash assertion targets
+  `#tableWrap table.all-table tbody tr.row-main` (the only DOM path
+  `renderTable` writes), so any cache-stuck-bypass-result rendering bug
+  surfaces as a hash delta.
+
+### Claimed, unverified
+- **End-to-end run of the harness.** This sandbox has no Chromium
+  binary and `tests/rendered_gate/node_modules/playwright-core` is not
+  installed here. The discrimination argument is reasoned from the
+  source — see `JEG-135-RESULT.md` for the three named failure modes.
+  To verify, run `make build && python3 -m unittest
+  tests.test_jeg135_rendered_flexibility` from a machine with the
+  rendered_gate Playwright-Core install; expect
+  `report.ok === true` and a non-empty `steps` array covering each of
+  the four input classes.
+- **The discrimination argument against a reverted-JEG-103 build.**
+  Not run; reasoned from the source. The bench-share assertion fails
+  on a slider whose `input`/`change` listeners miss `syncWeightsReadout`
+  (same defect JEG-103 fixed). The roster / source / lock assertions
+  fail on a widget that caches the table under a stale settings
+  object (BH-4 violation).
+- **dist/ rebuild.** The harness reads `dist/`; to exercise the guard
+  end-to-end against the JEG-135 code, the next session must rebuild
+  dist before running the test.
+
+### Still open
+- Verification step above.
+- The lock-order step's ordering-vs-hash trade-off is in
+  `JEG-135-RESULT.md` under "Open uncertainty" — the harness compares
+  hashes, not row order, for the return assertion. The
+  `data-player-key` first-five slice is recorded in the JSON report
+  for human inspection.
+
+### Review (Roman, 2026-10-02)
+
+Independent review fixed four harness defects before integration (committed
+on the branch): (1) the mouse drag was vacuous — `boundingBox()` returns
+0x0 for this `appearance:none` input, so all drag coordinates collapsed to
+x+0 and the slider never moved; geometry now comes from
+`getBoundingClientRect()` with the thumb center computed per Chrome's thumb
+layout; (2) both bench phases now carry `expectChanged` guards so a missed
+gesture fails loudly instead of passing trivially; (3) the bench slider
+and roster inputs live inside closed `<details>` panels — the harness now
+clicks the summaries open first, as a real user would (the weights body is
+forced `display:block` by CSS, which left `#sourceToggles` painting over
+the slider); (4) the source-toggle contract was inverted — the comparison
+table intentionally ignores curve toggles, so the harness now asserts
+checkbox + `#legend` + `getState().activeSources` track the toggle while
+the table hash stays at baseline; the dead `#sourceCards` surface
+(`renderSourceCards()` always no-ops — no such container in the served
+page) is flagged, not asserted.
+
+Verified with headless Chromium: PASSES on fixed code (10 phases, genuine
+movement: drag 0.15→0.214/readout 21.4, keyboard →0.216/readout 21.6,
+reset →0.15; roster and lock round-trips byte-identical; toggle moves
+legend/activeSources with table untouched); FAILS on the pre-JEG-103
+build (`bench-mouse readout: got 15, want ~21.4`). Also restored the
+`test_jeg103_bench_share_readout` Makefile line that JEG-112's merge
+accidentally dropped.

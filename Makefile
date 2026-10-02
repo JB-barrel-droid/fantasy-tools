@@ -123,6 +123,8 @@ test-unit:
 	python3 -m unittest tests.test_guard_harness_recorded
 	python3 -m unittest tests.test_jeg68_starter_markup
 	python3 -m unittest tests.test_jeg69_direction_check
+	python3 -m unittest tests.test_jeg103_bench_share_readout
+	python3 -m unittest tests.test_jeg135_rendered_flexibility
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_vorp_refresh
@@ -157,6 +159,7 @@ test-unit:
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
 	python3 -m unittest tests.test_github_actions_status
+	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
 
 
