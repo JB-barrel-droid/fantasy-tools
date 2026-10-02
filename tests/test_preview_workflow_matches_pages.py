@@ -150,9 +150,19 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertCaught(mutated, "build commands differ")
 
     def test_reordering_build_steps_is_caught(self):
+        # JEG-139 inserted a multi-line step (the PR discrimination check)
+        # between "make sync" and "make validate", so the old two-line swap
+        # no longer matches any text. Swap the two adjacent single-line build
+        # steps instead: "make validate" and the lineage rebuild.
         mutated = PREVIEW.replace(
-            "      - run: make sync\n      - run: make validate\n",
-            "      - run: make validate\n      - run: make sync\n")
+            "      - run: make validate\n"
+            "      - name: Rebuild source value lineage\n"
+            "        run: python3 pipelines/build_source_value_lineage.py\n"
+            "        continue-on-error: true\n",
+            "      - name: Rebuild source value lineage\n"
+            "        run: python3 pipelines/build_source_value_lineage.py\n"
+            "        continue-on-error: true\n"
+            "      - run: make validate\n")
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "build commands differ")
 
