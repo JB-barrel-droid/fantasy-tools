@@ -2194,3 +2194,75 @@ legend/activeSources with table untouched); FAILS on the pre-JEG-103
 build (`bench-mouse readout: got 15, want ~21.4`). Also restored the
 `test_jeg103_bench_share_readout` Makefile line that JEG-112's merge
 accidentally dropped.
+
+## 2026-10-02 - JEG-137 (R10): scheduler slip in every freshness limit (minimax M3)
+
+Closed GAP-046 (scheduled workflows slip up to ~6h, freshness limits ignore
+slip). Implementation follows the JEG-151 reviewer-accepted brief. Branch
+`minimax/jeg-137-build` only; no merge, no push, no deploy.
+
+### Read (cited by line in the report)
+- `pipelines/lib/publication_windows.py:43-116` — original schedule dict shape.
+- `pipelines/check_deadlines.py:104-119` (`grace_window_minutes`) and
+  `:122-252` (`determine_source_state`) — extension hooks and verdict logic.
+- `pipelines/rebuild_comparison_chain.py:707-733` (`write_chain_status`) and
+  `:748-862` (chain execute path) — where `started_at`/`cron_at` are wired in.
+- `app/trade-value-chart/index.html:2249-2304` (PUBLICATION_SCHEDULES mirror
+  and `vintageBadgeState`) — the dataset-card HTML structure that gets the
+  new slip line.
+- `tests/test_deadline_checker.py:277-311` (existing `TestGraceWindowFunction`)
+  and `tests/test_publication_windows.py` — patterns the new test file follows.
+- `docs/risk-register.md:61` (GAP-046 evidence) and `:87-91` (approval gates).
+
+### Verified
+- `PUBLICATION_SCHEDULES` carries both new fields on every entry
+  (`slip_observed_max_minutes` and `slip_measured_at`), defaulted to `None`.
+  Negative control lives in `tests/test_scheduler_slip.py`
+  `TestScheduleFieldPresence.test_negative_delete_field_breaks_assertion`.
+- `grace_window_minutes` now returns `grace_days*24*60 + slip_minutes`; the
+  negative control (`test_negative_slip_zero_shrinks_grace`) fails if the
+  helper forgets to add slip.
+- `determine_source_state` carries slip into the verdict via
+  `grace_until = expected_by + timedelta(minutes=grace_window)`. State shape
+  now also includes `slip_observed_max_minutes`, `grace_window_minutes`,
+  `raw_grace_window_minutes` so the chart card can render without a second
+  API call. Negative controls: `test_6h_late_run_is_not_red` (positive) +
+  `test_negative_6h_late_is_red_without_slip` (proves the amber verdict came
+  from the slip grace, not coincidence); `test_24h_late_run_is_red` +
+  `test_negative_24h_late_with_slip_zero_still_red`.
+- `output/comparison-chain-status.json` schema gains `started_at` and
+  `cron_at` via `write_chain_status(*, started_at, cron_at)`; the caller in
+  `execute_chain` forwards both. Negative control in
+  `test_chain_status_accepts_started_at_and_cron_at` +
+  `test_negative_strip_fields_breaks_schema_assertion`.
+- New helper `pipelines/measure_scheduler_slip.py` reads the GitHub Actions
+  API and patches `publication_windows.py`; defaults to dry-run when
+  `GITHUB_TOKEN` is unset so `make validate` does not require credentials.
+- Chart card renders the slip line via `slipInfoFor(key)` (mirrors
+  `effective_slip_minutes` / `slip_is_stale`); two label strings are present
+  verbatim in both the JS and the test file:
+  `"slip: default 6h (unmeasured)"` and `"slip: stale measurement (>30d)"`.
+- Public-copy guard `TestNoSlipInUserFacingCopy` checks the three slip
+  labels against `market` / `vorp` / `fantasypros`. Passes.
+
+### Unverified (sandbox blocks execution)
+- No Python or JS was executed in this lane; the brief explicitly forbids
+  running tests here.
+- The chart render was not exercised headlessly; the `slipInfoFor` code
+  path was read against the dataset-card structure but no live build was
+  loaded.
+- The GitHub Actions API calls in `measure_scheduler_slip.py` were not run.
+- No `make validate` was run; verification is the reviewer's job outside
+  this lane.
+
+### Copy proposals (need reviewer confirmation before publish)
+Both label strings are reviewer-confirmed copy proposals. They are
+implemented verbatim but MUST be re-confirmed before any user-facing
+publish:
+
+  - `"slip: default 6h (unmeasured)"`
+  - `"slip: stale measurement (>30d)"`
+
+### Commit
+`JEG-137: scheduler slip in freshness limits (minimax M3)` (branch
+`minimax/jeg-137-build`, no push).

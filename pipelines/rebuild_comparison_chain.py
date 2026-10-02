@@ -704,8 +704,17 @@ def describe_result(result):
     return f"FAILED at stage '{stage}': {result.get('detail', '')}"
 
 
-def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner):
-    """Write the chain status JSON for the monitoring dashboard."""
+def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner,
+                       *, started_at=None, cron_at=None):
+    """Write the chain status JSON for the monitoring dashboard.
+
+    JEG-137 R10: ``started_at`` (Actions run start) and ``cron_at`` (intended
+    fire time) are recorded so the deadline checker can compute scheduler
+    slip per source. Both default to ``None`` so existing callers (tests,
+    one-off local runs) keep working; the scheduled workflows set them via
+    ``${{ github.run_started_at }}`` and ``${{ github.event.schedule }}``
+    forwarded into the chain entry point.
+    """
     failed = [s for s, r in results.items() if r["status"] != "ok"]
     if fit_result is not None and fit_result["status"] != "ok":
         failed.append("fit")
@@ -713,6 +722,9 @@ def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, run
         failed.append("adjusted_sections")
     status_data = {
         "run_at": datetime.now(timezone.utc).isoformat(),
+        # JEG-137 R10: schedule-aware fields for the deadline checker's slip math.
+        "started_at": started_at,
+        "cron_at": cron_at,
         "nfl_week": nfl_week,
         "sources": {s: describe_result(r) for s, r in results.items()},
         "failed": sorted(set(failed)),
@@ -733,11 +745,16 @@ def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, run
     return status_data
 
 
-def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
+def execute_chain(nfl_week=None, repo=REPO, run_fn=run, *,
+                   started_at=None, cron_at=None):
     """Run the full chain. Returns (status_data, exit_code).
 
     Status is written through a finally block so partial/interrupted runs
     are always recorded.
+
+    JEG-137 R10: ``started_at`` / ``cron_at`` are forwarded from the caller
+    (the workflow passes ``github.run_started_at`` and the parsed schedule
+    time). They default to ``None`` for local/test execution.
     """
     repo = Path(repo)
     runner = "github-actions" if os.environ.get("GITHUB_ACTIONS") == "true" else "local"
@@ -845,7 +862,9 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     finally:
         # Always record the run, even on interruption or unexpected error.
         # results/fit_result/adjusted_result may be partially populated — write what's known.
-        status_data = write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner)
+        status_data = write_chain_status(repo, results, fit_result, adjusted_result,
+                                         nfl_week, runner,
+                                         started_at=started_at, cron_at=cron_at)
         print(f"\nStatus written to output/comparison-chain-status.json "
               f"(success={status_data['success']})")
     return status_data

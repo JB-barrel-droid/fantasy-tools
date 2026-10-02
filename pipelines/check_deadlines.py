@@ -23,7 +23,11 @@ from typing import Any
 
 # Import existing modules (read-only consumers)
 from pipelines.nfl_week import current_nfl_week
-from pipelines.lib.publication_windows import PUBLICATION_SCHEDULES
+from pipelines.lib.publication_windows import (
+    PUBLICATION_SCHEDULES,
+    DEFAULT_SLIP_MINUTES,
+    effective_slip_minutes,
+)
 
 
 # Configuration
@@ -104,19 +108,23 @@ def parse_iso_datetime(dt_str: str) -> datetime:
 def grace_window_minutes(source: str, rule: dict | None) -> int | None:
     """Calculate the grace window in minutes for a source.
 
-    This function exists to allow R10 to extend the slip grace.
-    Currently returns grace_days converted to minutes.
+    JEG-137 R10: Returns ``grace_days * 24 * 60 + slip_observed_max_minutes``
+    (or the 6-hour default when unmeasured). Callers that need to render the
+    slip component separately should read ``effective_slip_minutes(rule)``
+    from ``pipelines.lib.publication_windows`` directly.
 
     Args:
         source: Source name
         rule: Publication schedule rule from PUBLICATION_SCHEDULES
 
     Returns:
-        Grace window in minutes, or None if no rule
+        Grace window in minutes (slip-adjusted), or None if no rule
     """
     if rule is None or rule.get("grace_days") is None:
         return None
-    return rule["grace_days"] * 24 * 60  # Convert days to minutes
+    base_minutes = rule["grace_days"] * 24 * 60  # grace_days → minutes
+    slip_minutes = effective_slip_minutes(rule)
+    return base_minutes + slip_minutes
 
 
 def determine_source_state(
@@ -180,8 +188,19 @@ def determine_source_state(
         tzinfo=timezone.utc,
     )
 
-    # Add grace period
-    grace_until = expected_by + timedelta(days=grace_days)
+    # Add grace period (slip-adjusted per JEG-137 R10). grace_window_minutes
+    # already folds in measured (or default) scheduler slip; we use it here so
+    # the freshness verdict accounts for slow Actions runs.
+    slip_minutes = effective_slip_minutes(rule)
+    grace_window = grace_window_minutes(source, rule)
+    if grace_window is None:
+        # Defensive fallback: if the helper returns None for an unexpected
+        # reason, fall back to the raw grace_days so the verdict still works.
+        grace_window = (grace_days or 0) * 24 * 60 + slip_minutes
+    grace_until = expected_by + timedelta(minutes=grace_window)
+    # Raw grace window (days-only, slip excluded) — kept so the card label
+    # can show "slip-adjusted grace = Xh + slip Yh" without re-computing.
+    raw_grace_minutes = (grace_days or 0) * 24 * 60
 
     # Determine state based on last_write.
     # The verdict judges the WRITE against the deadline, not the check time
@@ -214,13 +233,21 @@ def determine_source_state(
                 "lag_minutes": lag_minutes,
                 "state": "unknown",
                 "reason": f"No {source} write yet for Week {nfl_week} (still within grace)",
+                "slip_observed_max_minutes": slip_minutes,
+                "grace_window_minutes": grace_window,
+                "raw_grace_window_minutes": raw_grace_minutes,
             }
         return {
             "expected_by": expected_by.isoformat(),
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "red",
-            "reason": f"No {source} write for Week {nfl_week}; past {grace_days}-day grace period",
+            "reason": f"No {source} write for Week {nfl_week}; past slip-adjusted grace "
+                      f"({grace_window // 60}h{grace_window % 60:02d}m = {raw_grace_minutes // 60}h "
+                      f"+ slip {slip_minutes}m)",
+            "slip_observed_max_minutes": slip_minutes,
+            "grace_window_minutes": grace_window,
+            "raw_grace_window_minutes": raw_grace_minutes,
         }
 
     if last_write <= expected_by:
@@ -231,15 +258,22 @@ def determine_source_state(
             "lag_minutes": lag_minutes,
             "state": "green",
             "reason": f"Published on time for Week {nfl_week}",
+            "slip_observed_max_minutes": slip_minutes,
+            "grace_window_minutes": grace_window,
+            "raw_grace_window_minutes": raw_grace_minutes,
         }
     elif last_write <= grace_until:
-        # Late but within grace - amber
+        # Late but within slip-adjusted grace - amber
         return {
             "expected_by": expected_by.isoformat(),
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "amber",
-            "reason": f"Published late for Week {nfl_week} (within {grace_days}-day grace period)",
+            "reason": f"Published late for Week {nfl_week} (within slip-adjusted grace "
+                      f"{grace_window // 60}h{grace_window % 60:02d}m)",
+            "slip_observed_max_minutes": slip_minutes,
+            "grace_window_minutes": grace_window,
+            "raw_grace_window_minutes": raw_grace_minutes,
         }
     else:
         # Published after grace - red
@@ -248,7 +282,12 @@ def determine_source_state(
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "red",
-            "reason": f"Published past {grace_days}-day grace period for Week {nfl_week}",
+            "reason": f"Published past slip-adjusted grace for Week {nfl_week} "
+                      f"({grace_window // 60}h{grace_window % 60:02d}m = {raw_grace_minutes // 60}h "
+                      f"+ slip {slip_minutes}m)",
+            "slip_observed_max_minutes": slip_minutes,
+            "grace_window_minutes": grace_window,
+            "raw_grace_window_minutes": raw_grace_minutes,
         }
 
 

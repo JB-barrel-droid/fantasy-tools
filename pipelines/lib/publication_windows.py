@@ -21,16 +21,35 @@ Usage:
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 from typing import Literal
 
 Status = Literal["ok", "yellow", "red", "stale"]
 
 
+# JEG-137 R10: Default scheduler slip assumption when no measurement exists.
+# Measured slip on observed runs reached ~6 hours; this is the worst-case
+# fallback so a slow first run never trips "missed window" false positives.
+DEFAULT_SLIP_MINUTES = 6 * 60  # 360 minutes (6 hours)
+
+# Measurement is considered stale past this age. JEG-137 R10 review brief
+# rule: a slip measurement older than 30 days should be flagged in the UI.
+SLIP_STALE_AFTER = timedelta(days=30)
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 # Verified publication schedules
-# Format: source -> {publish_day, grace_days, notes}
+# Format: source -> {publish_day, grace_days, notes, slip_observed_max_minutes,
+#                     slip_measured_at}
 # publish_day: 0=Monday, 1=Tuesday, ..., 6=Sunday (Python weekday)
 # grace_days: Days after publish_day before it's considered missed (red)
+# slip_observed_max_minutes: Largest measured scheduler slip in minutes (None
+#                            means unmeasured → DEFAULT_SLIP_MINUTES is used).
+# slip_measured_at: ISO timestamp when the slip measurement was last refreshed
+#                   (None means unmeasured).
 #
 # JEG-131 R4a measurement provenance:
 # Each source's schedule was derived from snapshot history analysis:
@@ -40,6 +59,12 @@ Status = Literal["ok", "yellow", "red", "stale"]
 # - fantasycalc: Derived from snapshot history under data/raw/sources/fantasycalc/
 # - fantasypros: No local snapshot history available; schedule inferred from industry patterns
 # - espn: Daily live reference, not weekly cadence
+#
+# JEG-137 R10: slip_observed_max_minutes / slip_measured_at default to None on
+# every entry below — the helper `effective_slip_minutes()` falls back to
+# DEFAULT_SLIP_MINUTES when unmeasured and flags the entry as stale when the
+# measurement is older than SLIP_STALE_AFTER. The fields are intentionally
+# defaulted to None so an importing test can assert presence on every entry.
 PUBLICATION_SCHEDULES = {
     "usatoday": {
         "publish_day": 1,  # Tuesday
@@ -51,6 +76,8 @@ PUBLICATION_SCHEDULES = {
             "method": "direct observation of snapshot timestamps",
             "n_observations": 4,
         },
+        "slip_observed_max_minutes": None,
+        "slip_measured_at": None,
     },
     "cbs": {
         # JEG-179: no VERIFIED schedule (n_observations=0). publish_day=None
@@ -67,6 +94,8 @@ PUBLICATION_SCHEDULES = {
             "n_observations": 0,
             "note": "Limited local snapshot history; schedule based on industry pattern",
         },
+        "slip_observed_max_minutes": None,
+        "slip_measured_at": None,
     },
     "cbsros": {
         "publish_day": 2,  # Wednesday
@@ -78,6 +107,8 @@ PUBLICATION_SCHEDULES = {
             "method": "first observed snapshot date + industry pattern inference",
             "n_observations": 1,
         },
+        "slip_observed_max_minutes": None,
+        "slip_measured_at": None,
     },
     "fantasycalc": {
         "publish_day": 1,  # Tuesday
@@ -89,6 +120,8 @@ PUBLICATION_SCHEDULES = {
             "method": "observed publication pattern from snapshot timestamps",
             "n_observations": 3,
         },
+        "slip_observed_max_minutes": None,
+        "slip_measured_at": None,
     },
     "fantasypros": {
         "publish_day": 1,  # Tuesday
@@ -101,6 +134,8 @@ PUBLICATION_SCHEDULES = {
             "n_observations": 0,
             "note": "No local snapshot history available; schedule based on industry pattern",
         },
+        "slip_observed_max_minutes": None,
+        "slip_measured_at": None,
     },
     "espn": {
         "publish_day": None,  # Daily live reference, not weekly
@@ -112,8 +147,57 @@ PUBLICATION_SCHEDULES = {
             "n_observations": 0,
             "note": "ESPN is pulled daily by our pipeline; no weekly publisher schedule",
         },
+        "slip_observed_max_minutes": None,
+        "slip_measured_at": None,
     },
 }
+
+
+def _parse_iso(dt_str: str) -> datetime:
+    """Parse an ISO 8601 datetime string into a timezone-aware datetime."""
+    return datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+
+
+def effective_slip_minutes(rule: dict, now: datetime | None = None) -> int:
+    """Return the slip (in minutes) that should be added to the grace window.
+
+    JEG-137 R10 acceptance criteria:
+      - unmeasured slip → DEFAULT_SLIP_MINUTES (6h) default
+      - measured slip → ``rule["slip_observed_max_minutes"]``
+      - measured but older than SLIP_STALE_AFTER → still returned, but
+        ``slip_is_stale(rule, now)`` flips True so the card can label it
+        "slip: stale measurement (>30d)" per the reviewer brief.
+
+    Negative ``slip_observed_max_minutes`` values are treated as zero so a
+    corrupt measurement can never make the grace window shrink.
+    """
+    observed = rule.get("slip_observed_max_minutes")
+    if observed is None:
+        return DEFAULT_SLIP_MINUTES
+    if not isinstance(observed, (int, float)):
+        return DEFAULT_SLIP_MINUTES
+    return max(0, int(observed))
+
+
+def slip_is_stale(rule: dict, now: datetime | None = None) -> bool:
+    """True when the slip measurement is older than SLIP_STALE_AFTER.
+
+    A rule with no measurement (``slip_measured_at is None``) is NOT stale
+    here; the caller is expected to fall back to ``DEFAULT_SLIP_MINUTES`` and
+    label it "slip: default 6h (unmeasured)" instead.
+    """
+    measured_at_raw = rule.get("slip_measured_at")
+    if measured_at_raw is None:
+        return False
+    if now is None:
+        now = _utcnow()
+    try:
+        measured_at = _parse_iso(measured_at_raw) if isinstance(measured_at_raw, str) else measured_at_raw
+    except ValueError:
+        return True
+    if measured_at.tzinfo is None:
+        measured_at = measured_at.replace(tzinfo=timezone.utc)
+    return (now - measured_at) > SLIP_STALE_AFTER
 
 
 def get_publication_status(
