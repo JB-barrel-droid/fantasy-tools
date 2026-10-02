@@ -157,6 +157,20 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="methodologyConsistency"></div>
 </section>
 
+<section class="card" id="vorpTranslationCard">
+  <h2>VORP translation freshness</h2>
+  <div class="desc">
+    The as-published sources' chart values come from VORP-translated grains in
+    Supabase, refreshed weekly (Wed 06:30 CT) and wired through by the chain's
+    translate_via_vorp stage. <b>Warn</b> = a grain is older than the current
+    NFL week (refresh or wiring pending). <b>Bad</b> = a combo is on
+    reindex-fallback as its steady state — the quantile mapping JEG-64 replaced.
+    Reads the provenance stamped into the fixture: what the chart serves, not
+    what the pipeline claims.
+  </div>
+  <div id="vorpTranslation"></div>
+</section>
+
 <section class="card" id="scaleAgreementCard">
   <h2>Scale agreement — native vs reindexed vs anchor</h2>
   <div class="desc">
@@ -453,6 +467,9 @@ async function main(){
   if(data.scale_agreement && data.scale_agreement.status){
     tally(data.scale_agreement.status);
   }
+  if(data.vorp_translation && data.vorp_translation.status){
+    tally(data.vorp_translation.status);
+  }
   if(data.adj_curve_pipeline){
     for(const st of Object.values(data.adj_curve_pipeline)){
       if(st && st.status) tally(st.status);
@@ -567,6 +584,25 @@ async function main(){
     </div></div>`;
   } else {
     methHost.innerHTML = `<div style="color:var(--grey)">Methodology consistency data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
+  }
+
+  // VORP translation freshness (JEG-70): rendered (not just counted) so a
+  // stale grain or fallback-as-steady-state is visible, following the
+  // methodology_consistency pattern.
+  const vorpHost = document.getElementById("vorpTranslation");
+  const vt = data.vorp_translation;
+  if(vt && vt.status){
+    const dotCls = vt.status === "ok" ? "ok" : vt.status === "warn" ? "warn" : vt.status === "bad" ? "bad" : "unk";
+    const reasonCls = vt.status === "bad" ? "bad" : vt.status === "warn" ? "warn" : "";
+    const counts = (vt.n_ok != null && vt.n_expected != null)
+      ? `<div style="margin-top:4px;color:var(--dim)">${vt.n_ok} / ${vt.n_expected} grains at current week via vorp-supabase</div>` : "";
+    vorpHost.innerHTML = `<div class="cp-grid"><div class="cp">
+      <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${vt.label || "VORP translation freshness"}</span></div>
+      <div class="cp-time">${shortTs(vt.timestamp)} (${timeAgo(vt.timestamp)})</div>
+      <div class="cp-reason ${reasonCls}">${vt.reason || ""}</div>${counts}
+    </div></div>`;
+  } else {
+    vorpHost.innerHTML = `<div style="color:var(--grey)">VORP translation data not available. Run <code>python3 pipelines/build_pipeline_checkpoints.py</code>.</div>`;
   }
 
   // Scale agreement: native vs reindexed vs anchor, per source x position.
