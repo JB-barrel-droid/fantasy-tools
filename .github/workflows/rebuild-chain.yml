@@ -10,15 +10,9 @@ name: Rebuild comparison chain
 # The GITHUB_TOKEN is automatic; no setup needed.
 
 on:
-  schedule:
-    # Every 6 hours — frequent enough to catch new snapshots, light enough
-    # to avoid noise. The chain itself is idempotent: it only promotes when
-    # the fixture is stale.
-    # Re-enabled 2026-09-30: chain validation bypass fixed (fail-closed),
-    # QB duplication scoped, _adjusted sources restored, review combos_match
-    # fixed for section candidates, promote now updates built_at.
-    - cron: '17 */6 * * *'
-  #     - cron: "17 */6 * * *"
+  # JEG-76: no fixed schedule. The hourly source-vintage-check.yml dispatches
+  # this workflow only when DB content vintage differs from fixture vintage.
+  # JEG-109's status-refresh step still runs on every dispatched execution.
   workflow_dispatch:
     # Manual trigger from the Actions tab.
 

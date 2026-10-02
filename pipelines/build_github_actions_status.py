@@ -32,7 +32,7 @@ PIPELINE_COVERAGE = {
     "Rebuild comparison chain": {
         "stages": ["C1", "C2", "C3", "C4", "C5", "C6", "C7", "C8"],
         "description": "Import snapshots from Supabase, health check, rebuild comparison chain",
-        "schedule": "Every 6 hours (17 */6 * * *)",
+        "schedule": "On vintage change (hourly source-vintage-check dispatches it; JEG-76)",
         "key_task": "Automated pipeline refresh",
     },
     "FantasyCalc drift check and refresh": {
@@ -58,6 +58,12 @@ PIPELINE_COVERAGE = {
         "description": "Rebuild player trace artifact from latest pipeline data",
         "schedule": "Every 6 hours (47 */6 * * *)",
         "key_task": "Player Trace rebuild",
+    },
+    "Source vintage check": {
+        "stages": ["C1"],
+        "description": "Hourly DB-vs-fixture vintage comparison; dispatches the rebuild chain on change",
+        "schedule": "Hourly (JEG-76)",
+        "key_task": "Vintage-gated rebuild trigger",
     },
 }
 
