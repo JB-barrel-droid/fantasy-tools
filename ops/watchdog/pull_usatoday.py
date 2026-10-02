@@ -90,6 +90,78 @@ def discover_url(week=None, fetch_fn=fetch):
         "(tried sitemaps: %s)" % (week, tried))
 
 
+def extract_week_from_url(url: str) -> int | None:
+    """Extract week number from the USA Today article URL slug.
+
+    URL pattern: .../fantasy-football-trade-value-chart-week-N-ros-rankings/...
+    Returns None if no week found.
+    """
+    m = re.search(r"trade-value-chart-week-(\d+)-", url)
+    return int(m.group(1)) if m else None
+
+
+def extract_week_from_title(title: str) -> int | None:
+    """Extract week number from a table title.
+
+    Title pattern: "Week N <position> trade value chart"
+    e.g. "Week 4 wide receiver trade value chart" -> 4
+    Returns None if no week found.
+    """
+    m = re.search(r"\bweek\s+(\d+)\b", title, re.I)
+    return int(m.group(1)) if m else None
+
+
+def validate_week_consistency(url: str, tables: list[dict], requested_week: int | None) -> dict:
+    """Validate that URL, table titles, and requested week all agree.
+
+    Jeremy 2026-10-02: "We need to codify elements of the page such as the
+    headline to the dataset, so that we do not have these errors, along with
+    rules on how weeks get coded to datasets."
+
+    Fail-closed: raises RuntimeError on any mismatch. Returns a dict with
+    the validated week and the evidence (url_week, title_weeks).
+    """
+    url_week = extract_week_from_url(url)
+    title_weeks = set()
+    for t in tables:
+        w = extract_week_from_title(t.get("title", ""))
+        if w is not None:
+            title_weeks.add(w)
+
+    # All table titles should agree on the week
+    if len(title_weeks) > 1:
+        raise RuntimeError(
+            "USA Today table titles disagree on week: %s (url=%s). "
+            "Refusing to label dataset." % (sorted(title_weeks), url))
+    title_week = next(iter(title_weeks)) if title_weeks else None
+
+    # URL week and title week should agree
+    if url_week is not None and title_week is not None and url_week != title_week:
+        raise RuntimeError(
+            "USA Today URL week (%d) != table title week (%d) (url=%s). "
+            "Refusing to label dataset." % (url_week, title_week, url))
+
+    # Requested week should match what we found
+    validated = title_week if title_week is not None else url_week
+    if requested_week is not None and validated is not None and requested_week != validated:
+        raise RuntimeError(
+            "USA Today requested week (%d) != page week (%d) (url=%s). "
+            "Page content does not match request; refusing to label dataset."
+            % (requested_week, validated, url))
+
+    if validated is None:
+        raise RuntimeError(
+            "USA Today: could not determine week from URL or table titles "
+            "(url=%s). Refusing to label dataset without week evidence." % url)
+
+    return {
+        "week": validated,
+        "week_url": url_week,
+        "week_titles": sorted(title_weeks),
+        "week_requested": requested_week,
+    }
+
+
 def pull(url, fetch_fn=fetch):
     """Fetch + parse the article's position tables. Same table shape as the
     goal-workspace pull_usatoday(): [{title, headers, rows}]. Raises on
@@ -155,12 +227,23 @@ def main():
     print("tables: %d, rows: %d" % (len(tables), total_rows), flush=True)
     for t in tables:
         print("  %-28s %d rows" % (t["title"][:28], len(t["rows"])))
+
+    # JEG-77 / Jeremy 2026-10-02: codify the week from page elements.
+    # The dataset must carry evidence of what week it represents,
+    # derived from the page headline/titles, not just the request.
+    week_info = validate_week_consistency(url, tables, args.week)
+    print("week validated: %d (url=%s, titles=%s, requested=%s)" % (
+        week_info["week"], week_info["week_url"],
+        week_info["week_titles"], week_info["week_requested"]), flush=True)
+
     if args.write:
         outdir = os.path.join(REPO, "ops", "watchdog", "pulls")
         os.makedirs(outdir, exist_ok=True)
         outp = os.path.join(outdir, "usatoday-%s.json" % date.today().isoformat())
         with open(outp, "w") as f:
             json.dump({"url": url, "fetched_at": date.today().isoformat(),
+                       "week": week_info["week"],
+                       "week_evidence": week_info,
                        "tables": tables}, f)
         print("wrote", outp)
 
