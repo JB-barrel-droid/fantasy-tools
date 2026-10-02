@@ -274,10 +274,17 @@ def load_ecr(pos, week, season, recorded_at, ecr_type="weekly"):
     path = ecr_csv_path(ecr_type, pos, week)
     if not os.path.exists(path):
         return {"skipped": f"missing {path}"}
+    # week scoping: weekly/ros are week-stamped (ros = "as of week N");
+    # draft/dynasty are not week-scoped -> week 0
+    w = week if ecr_type in ("weekly", "ros") else 0
     # JEG-86 / Jeremy 2026-10-02: the dataset's week must come from page
     # evidence, not from the caller. Validate the CSV filename week against
-    # the caller's --week before any row is trusted; fail closed otherwise.
-    week_evidence = validate_filename_week_consistency(path, week)
+    # the EFFECTIVE week (w) before any row is trusted; fail closed
+    # otherwise. Draft/dynasty validate as week 0 -- their filenames carry
+    # no week and their rows are stamped week 0, so validating against the
+    # raw --week would break the previously-valid `--week N --ecr-type
+    # draft` invocation for no benefit.
+    week_evidence = validate_filename_week_consistency(path, w)
     headers, rows = read_csv(path)
     i_player = find_col(headers, "player", "playername")
     i_rank = find_col(headers, "rk", "rank", "ecr", "rankecr", "thisweekrk")
@@ -288,9 +295,6 @@ def load_ecr(pos, week, season, recorded_at, ecr_type="weekly"):
     ranker_id = upsert_ranker(pos, ecr_type)
     from engine.canonical_players import load_registry
     _reg = load_registry()
-    # week scoping: weekly/ros are week-stamped (ros = "as of week N");
-    # draft/dynasty are not week-scoped -> week 0
-    w = week if ecr_type in ("weekly", "ros") else 0
     # idempotent refresh: drop this scope's rows for this position's ranker
     sbclient.delete("ranker_rankings",
                     f"?ranker_id=eq.{ranker_id}&season=eq.{season}&week=eq.{w}")
@@ -325,7 +329,7 @@ def load_ecr(pos, week, season, recorded_at, ecr_type="weekly"):
     for i in range(0, len(out), 200):
         sbclient.post("ranker_rankings", out[i:i + 200])
     return {"ranker_id": ranker_id, "rows": len(out), "gaps": gaps,
-            "ranks": ranks}
+            "ranks": ranks, "week_evidence": week_evidence}
 
 
 def validate_proj_headers(pos, headers):
