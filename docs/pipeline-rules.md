@@ -151,7 +151,9 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
 - Unique index: `source_trade_values_bake_version_uidx` on
   (source, variant, scoring, league_teams, qb_slots, season, week,
   player_key, bake_id) -- see sql/migrations/004. The 8-column grain index
-  stays for the not-yet-versioned savers (FantasyPros, FantasyCalc).
+  was retired (sql/migrations/006) after all three as-published savers
+  (usatoday, fantasypros, fantasycalc) moved to the versioned grain; the
+  legacy player_norm grain was made bake-aware (sql/migrations/005).
 
 ## 8. Import health gates fixture updates
 
