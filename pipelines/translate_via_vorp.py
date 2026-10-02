@@ -314,6 +314,11 @@ def main(argv=None):
     ap.add_argument("--out", default=None, help="Output path (default: in place).")
     ap.add_argument("--strict", action="store_true",
                     help="Raise on Supabase errors instead of falling back.")
+    ap.add_argument("--rebuild-adjusted", action="store_true",
+                    help="Rebuild the _adjusted fixture sections after translating "
+                         "(runs pipelines/build_adjusted_fixture_sections.py). "
+                         "Required when raw values change, otherwise the adjusted "
+                         "curves go stale and show wrong orderings (JEG-73).")
     args = ap.parse_args(argv)
 
     path = Path(args.section or args.fixture or
@@ -326,6 +331,22 @@ def main(argv=None):
     for r in summary["reports"]:
         print(f"  {r['source']}/{r['combo']}: {r['method']} "
               f"translated={r['n_translated']} fallback={r['n_fallback_reindex']}")
+
+    # JEG-73: Rebuild _adjusted sections so they don't go stale when raw values change.
+    # The adjusted curves are built from raw values via affine cells; if we update
+    # raw without rebuilding adjusted, the chart shows wrong orderings.
+    if args.rebuild_adjusted and not args.section:
+        import subprocess
+        builder = REPO / "pipelines" / "build_adjusted_fixture_sections.py"
+        print("Rebuilding _adjusted fixture sections (JEG-73)...")
+        result = subprocess.run(
+            [sys.executable, str(builder), "--fixture", str(out_path)],
+            capture_output=True, text=True, cwd=str(REPO),
+        )
+        if result.returncode != 0:
+            print(f"WARNING: _adjusted rebuild failed:\n{result.stderr}", file=sys.stderr)
+        else:
+            print("_adjusted sections rebuilt.")
     return 0
 
 
