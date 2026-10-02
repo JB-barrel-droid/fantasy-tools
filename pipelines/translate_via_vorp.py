@@ -158,6 +158,45 @@ def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys):
     return report
 
 
+def _qb_divergent_siblings(source, sdata):
+    """Find qb-split combos whose natives diverge from the canonical one.
+
+    Some sources publish per-QB-config variants (fantasycalc ..._qb1/_qb2).
+    The JEG-62 Supabase grain (source, scoring, league_teams, week, season)
+    has no qb dimension, and resolve_combo_key treats the first-sorted
+    variant (qb1) as canonical. When a sibling's natives differ materially
+    from the canonical variant's, a single grain must not serve both --
+    the sibling falls back to the reindex. Data-driven: no per-source
+    branching. Returns {combo_name: reason} for combos that must fall back.
+    """
+    by_base = {}
+    for combo_name, combo in (sdata.get("combos") or {}).items():
+        m = re.match(r"^((?:half|full|standard)_\d+)_qb\d+$", combo_name)
+        if not m or not isinstance(combo, dict):
+            continue
+        by_base.setdefault(m.group(1), []).append(combo_name)
+    must_fallback = {}
+    for base, names in by_base.items():
+        if len(names) < 2:
+            continue
+        names = sorted(names)
+        canon = (sdata["combos"][names[0]].get("native") or {})
+        for other in names[1:]:
+            native = (sdata["combos"][other].get("native") or {})
+            if set(native) != set(canon):
+                must_fallback[other] = (
+                    "qb-split natives cover different players than the "
+                    "canonical variant; grain has no qb dimension")
+                continue
+            maxd = max((abs(float(native[k]) - float(canon[k]))
+                        for k in canon), default=0.0)
+            if maxd > 1e-9:
+                must_fallback[other] = (
+                    f"qb-split natives diverge from canonical {names[0]} "
+                    f"(max|d|={maxd:.1f}); grain has no qb dimension")
+    return must_fallback
+
+
 def _provenance(report, grain):
     scoring, teams = grain if grain else (None, None)
     return {
@@ -193,13 +232,33 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False):
             fixture_keys = {}
 
     jobs = []  # (source, combo_name, combo, translated_or_error)
+    reports = []
     sources = doc["sources"] if "sources" in doc else {doc.get("source_key"): doc}
     for source, sdata in (sources or {}).items():
         if source not in AS_PUBLISHED_SOURCES or not isinstance(sdata, dict):
             continue
+        qb_guarded = _qb_divergent_siblings(source, sdata)
         for combo_name, combo in (sdata.get("combos") or {}).items():
             grain = parse_combo(combo_name)
             if grain is None or not isinstance(combo, dict):
+                continue
+            if combo_name in qb_guarded:
+                # Fail-safe: a single non-qb-aware grain must not serve a
+                # diverging qb variant. Record the fallback explicitly.
+                report = {"source": source, "combo": combo_name,
+                          "method": "reindex-fallback",
+                          "n_translated": 0,
+                          "n_fallback_reindex": len(combo.get("reindexed") or {}),
+                          "n_total": len(combo.get("reindexed") or {}),
+                          "week": week, "season": season,
+                          "reason": qb_guarded[combo_name]}
+                combo["translation"] = _provenance(report, grain)
+                combo["translation"]["note"] = (
+                    qb_guarded[combo_name] + ". Quantile reindex kept as "
+                    "fail-safe fallback. See JEG-70.")
+                # Strip any stale fit record from an earlier mis-application.
+                (combo.get("fit") or {}).pop("vorp_translation", None)
+                reports.append(report)
                 continue
             scoring, teams = grain
             try:
@@ -211,7 +270,6 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False):
                 continue
             jobs.append((source, combo_name, combo, translated))
 
-    reports = []
     for source, combo_name, combo, translated in jobs:
         if isinstance(translated, Exception):
             report = {"source": source, "combo": combo_name,

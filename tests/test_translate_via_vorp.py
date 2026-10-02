@@ -126,6 +126,40 @@ class TestSubstitution(unittest.TestCase):
         self.assertNotIn("translation", doc["sources"]["espn"]["combos"]["half_12"])
 
 
+class TestQbDivergenceGuard(unittest.TestCase):
+    """The JEG-62 grain has no qb dimension. When a source's qb-split
+    variants diverge (fantasycalc 8/10/14t), the non-canonical variant must
+    fall back to the reindex -- a single grain must not serve both."""
+
+    def _section(self, qb2_native):
+        def combo(native):
+            return {"reindexed": {s: v * 0.5 for s, v in native.items()},
+                    "native": dict(native),
+                    "player_keys": {s: str(i) for i, s in enumerate(native)}}
+        return {"source_key": "fantasycalc",
+                "combos": {"half_8_qb1": combo({"a": 100.0, "b": 50.0}),
+                           "half_8_qb2": combo(qb2_native)}}
+
+    def test_diverging_qb2_falls_back(self):
+        doc = self._section({"a": 900.0, "b": 450.0})  # materially different
+        with patch.object(tv, "fetch_translated", return_value={"0": 70.0, "1": 30.0}):
+            summary = tv.translate_document(doc, week=4, season=2026)
+        by_combo = {r["combo"]: r for r in summary["reports"]}
+        self.assertEqual(by_combo["half_8_qb1"]["method"], "vorp-supabase")
+        self.assertEqual(by_combo["half_8_qb2"]["method"], "reindex-fallback")
+        self.assertIn("qb", (by_combo["half_8_qb2"].get("reason") or "").lower())
+        # The mis-applied values are gone; reindexed keeps its own numbers.
+        self.assertEqual(doc["combos"]["half_8_qb2"]["reindexed"]["a"], 450.0)
+
+    def test_identical_qb_variants_both_translate(self):
+        doc = self._section({"a": 100.0, "b": 50.0})  # 12t-style identical
+        with patch.object(tv, "fetch_translated", return_value={"0": 70.0, "1": 30.0}):
+            summary = tv.translate_document(doc, week=4, season=2026)
+        by_combo = {r["combo"]: r for r in summary["reports"]}
+        self.assertEqual(by_combo["half_8_qb1"]["method"], "vorp-supabase")
+        self.assertEqual(by_combo["half_8_qb2"]["method"], "vorp-supabase")
+
+
 class TestJeg64RegressionGuard(unittest.TestCase):
     """Acceptance #4: USA Today RB shows ~70 (not the compressed 48-64
     reindexed band). The guard is state-aware: it must PASS on the translated
