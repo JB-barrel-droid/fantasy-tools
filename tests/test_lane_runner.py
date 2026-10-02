@@ -256,7 +256,7 @@ class TestUsageChecks(unittest.TestCase):
         plans = runner.run(issues)
 
         self.assertEqual(plans[0].action, "wait")
-        self.assertIn("unknown", plans[0].reason.lower())
+        self.assertIn("no usage data", plans[0].reason.lower())
 
 
 # ---------------------------------------------------------------------------
@@ -403,7 +403,7 @@ class TestCapabilityGuard(unittest.TestCase):
         plans = runner.run(issues)
 
         self.assertEqual(plans[0].action, "escalate")
-        self.assertIn("OCR", plans[0].reason)
+        self.assertIn("ocr", plans[0].reason.lower())
 
     def test_browser_refused(self):
         """Browser capability should be refused for MiniMax."""

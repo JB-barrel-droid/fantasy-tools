@@ -673,9 +673,11 @@ def main() -> int:
         print("No issues to process", file=sys.stderr)
         return 1
 
-    # Run with lock
+    # Run with lock (nullcontext in dry-run so --dry-run works without a lock file)
+    from contextlib import nullcontext
+    lock_ctx = ProcessLock() if not args.dry_run else nullcontext()
     try:
-        with ProcessLock() if not args.dry_run else None:
+        with lock_ctx:
             runner = LaneRunner(dry_run=args.dry_run, pilot=args.pilot)
             plans = runner.run(issues)
 
