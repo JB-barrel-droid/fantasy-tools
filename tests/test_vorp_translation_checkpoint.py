@@ -246,3 +246,61 @@ class ChainWeekThreadingTest(unittest.TestCase):
                      if Path(c[1]).name == "translate_via_vorp.py"]
         self.assertEqual(len(vorp_cmds), 1)
         self.assertNotIn("--week", vorp_cmds[0])
+
+
+class VorpRefreshStageTest(unittest.TestCase):
+    """JEG-70: the chain's VORP refresh stage is demand-driven and fail-safe."""
+
+    def _fake(self, check_ok=True, refresh_ok=True):
+        calls = []
+
+        def run_fn(cmd, **kwargs):
+            calls.append(cmd)
+            if "--check-only" in cmd:
+                return check_ok, "check"
+            return refresh_ok, "refreshed"
+
+        return run_fn, calls
+
+    def test_skips_refresh_when_grains_fresh(self):
+        import rebuild_comparison_chain as chain
+
+        run_fn, calls = self._fake(check_ok=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = chain.run_vorp_refresh(5, Path(tmp), run_fn)
+        self.assertEqual(result["status"], "ok")
+        # Only the check ran; no full refresh.
+        self.assertEqual(len(calls), 1)
+        self.assertIn("--check-only", calls[0])
+
+    def test_refreshes_when_grains_stale(self):
+        import rebuild_comparison_chain as chain
+
+        run_fn, calls = self._fake(check_ok=False, refresh_ok=True)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = chain.run_vorp_refresh(5, Path(tmp), run_fn)
+        self.assertEqual(result["status"], "ok")
+        self.assertEqual(len(calls), 2)
+        self.assertNotIn("--check-only", calls[1])
+        self.assertIn("--week", calls[1])
+
+    def test_refresh_failure_never_raises(self):
+        import rebuild_comparison_chain as chain
+
+        run_fn, _ = self._fake(check_ok=False, refresh_ok=False)
+        with tempfile.TemporaryDirectory() as tmp:
+            result = chain.run_vorp_refresh(5, Path(tmp), run_fn)
+        # Fail-safe: failure is reported, not raised (the per-combo
+        # vorp-translate stage falls back to reindex).
+        self.assertEqual(result["status"], "failed")
+
+    def test_unexpected_error_never_raises(self):
+        import rebuild_comparison_chain as chain
+
+        def boom(cmd, **kwargs):
+            raise RuntimeError("transport down")
+
+        with tempfile.TemporaryDirectory() as tmp:
+            result = chain.run_vorp_refresh(5, Path(tmp), boom)
+        self.assertEqual(result["status"], "failed")
+        self.assertIn("transport down", result["detail"])
