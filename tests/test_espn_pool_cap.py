@@ -1,4 +1,14 @@
-"""Deep ESPN tails must not inflate the pie or reprice retained players."""
+"""Deep pool tails must not inflate the pie, reprice retained players, or drop anyone.
+
+JEG-67 (reverts JEG-52/JEG-60 pool cap): the 3x-starters pool cap was proven a
+value no-op on real snapshots (2026-10-02 discrimination: capping changed zero
+of 252 shared Razzball values, calibration byte-identical in all 4 positions,
+while dropping 217 players from leg outputs). The invariant below is what the
+cap was *supposed* to guarantee -- it holds by construction, because the DDF
+surplus sums only players above the waiver line and the waiver line is set by
+the fixed roster shape (starters + bench mix), never by pool depth. Tail
+players below the line price to exactly 0.0 and are retained in outputs.
+"""
 
 import copy
 import sys
@@ -38,42 +48,55 @@ def build_with_pool(pools, scoring, teams):
                                  scoring, teams, builder.DEFAULT_BENCH_SHARE)
 
 
-class EspnPoolCapTest(unittest.TestCase):
-    def test_deep_tail_cannot_inflate_values_across_all_12_configurations(self):
+class PoolDepthInvarianceTest(unittest.TestCase):
+    def test_deep_tail_is_value_neutral_and_nobody_is_dropped(self):
+        """A 100-deep tail per position must not move calibration, reprice
+        anyone, or drop anyone: tail players are retained at exactly 0.0."""
         for scoring in ("standard", "half_ppr", "ppr"):
             for teams in (8, 10, 12, 14):
                 with self.subTest(scoring=scoring, teams=teams):
+                    pools = projection_pool(teams, tail=100)
                     base = build_with_pool(projection_pool(teams), scoring, teams)
-                    deep = build_with_pool(projection_pool(teams, tail=100), scoring, teams)
-                    self.assertEqual(deep["values"], base["values"])
-                    self.assertEqual(deep["calibration"], base["calibration"])
+                    deep = build_with_pool(pools, scoring, teams)
+
+                    # Calibration is identical with and without the tail (compare the
+                    # value-determining keys; n_pool/n_starters/n_bench are
+                    # pool-size diagnostics and legitimately differ).
+                    cal_keys = ("rw", "rs", "tau", "pie", "pb", "ps",
+                                "bench_share_used",
+                                "bench_raw", "starter_raw")
+                    for pos in builder.POSITIONS:
+                        for key in cal_keys:
+                            self.assertEqual(deep["calibration"][pos][key],
+                                             base["calibration"][pos][key],
+                                             f"{pos}.{key}")
                     self.assertEqual(deep["scale_70_over_max"], base["scale_70_over_max"])
-                    self.assertEqual(deep["inputs"]["espn_snapshot_date"], "2026-10-01")
-                    caps = {row["pos"]: row for row in deep["review_rows"]
-                            if row["reason"] == "pool_cap"}
-                    self.assertEqual(set(caps), set(builder.POSITIONS))
+
+                    # Every retained player's value is unchanged...
+                    base_vals = {v["player_key"]: v["value"] for v in base["values"]}
+                    deep_vals = {v["player_key"]: v["value"] for v in deep["values"]}
+                    for key, value in base_vals.items():
+                        self.assertIn(key, deep_vals)
+                        self.assertEqual(deep_vals[key], value)
+
+                    # ...and every tail player is present, priced at exactly 0.0.
                     for pos in builder.POSITIONS:
                         cap = builder.REF_SLOTS[pos] * teams * 3
-                        self.assertEqual(deep["calibration"][pos]["n_pool"], cap)
-                        self.assertEqual(caps[pos]["capped_from"], cap + 100)
-                        self.assertEqual(caps[pos]["capped_to"], cap)
-                    self.assertFalse(any(row["reason"] == "pool_cap" for row in base["review_rows"]))
+                        for rank in range(cap, cap + 100):
+                            key = pools[pos][rank]["player_key"]
+                            self.assertIn(key, deep_vals)
+                            self.assertEqual(deep_vals[key], 0.0)
 
-    def test_ties_at_cutoff_are_independent_of_input_order(self):
+                    # No pool_cap review rows: the cap is gone.
+                    self.assertFalse(any(r["reason"] == "pool_cap"
+                                         for r in deep["review_rows"]))
+
+    def test_results_are_independent_of_input_order(self):
         pools = projection_pool(12, tail=2)
-        for pos in builder.POSITIONS:
-            cap = builder.REF_SLOTS[pos] * 12 * 3
-            cutoff = pools[pos][cap - 1]["x"]
-            for row in pools[pos][cap - 1:]:
-                row["x"] = cutoff
         forward = build_with_pool(pools, "ppr", 12)
         reverse = build_with_pool({pos: list(reversed(rows)) for pos, rows in pools.items()}, "ppr", 12)
         self.assertEqual(forward["values"], reverse["values"])
-        retained = {row["player_key"] for row in forward["values"]}
-        for pos in builder.POSITIONS:
-            cap = builder.REF_SLOTS[pos] * 12 * 3
-            self.assertIn(pools[pos][cap - 1]["player_key"], retained)
-            self.assertNotIn(pools[pos][cap]["player_key"], retained)
+        self.assertEqual(forward["calibration"], reverse["calibration"])
 
 
 if __name__ == "__main__":

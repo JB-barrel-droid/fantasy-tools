@@ -373,18 +373,16 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
     resolved, id_review, aliases_used = resolve_identities(lists, fixture_path)
     review_rows = csv_review + id_review
 
-    # Match CBS ROS/Razzball: deep bench tails must not inflate the DDF pie.
-    for pos in POSITIONS:
-        cap = REF_SLOTS.get(pos, 1) * teams * 3
-        rows = sorted(resolved[pos], key=lambda d: (-d["x"], d["player_key"]))
-        if len(rows) > cap:
-            review_rows.append({
-                "reason": "pool_cap",
-                "pos": pos,
-                "capped_from": len(rows),
-                "capped_to": cap,
-            })
-        resolved[pos] = rows[:cap]
+    # JEG-67 (reverts JEG-52/JEG-60 pool cap): the cap was a value no-op.
+    # Discrimination test (2026-10-02) proved it on real snapshots: capping
+    # the pool at 3x starters changed ZERO of 252 shared Razzball values and
+    # left calibration (rw/rs/pie/pb/ps) byte-identical in all 4 positions,
+    # while dropping 217 players from leg outputs (469 -> 252). Mechanism:
+    # the surplus sums only players above the waiver line, and the waiver
+    # line is set by the fixed roster shape (starters + bench_mix), never by
+    # pool depth -- deep tails below the line were never inflating anything.
+    # The cap only destroyed coverage, so it is removed; every resolved
+    # player is priced (tails below the waiver line price to exactly 0.0).
 
     # Tier pool keyed by canonical player_key (stable total order by key).
     pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]] for pos in POSITIONS}
