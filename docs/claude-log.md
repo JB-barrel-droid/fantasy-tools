@@ -32,6 +32,25 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-18: dry run against the real snapshot found and fixed three problems
+
+### Verified (the real `razzball-snapshot-2026-10-01.json` from Drive, 505,273 bytes, sha256 prefix `4e21b385a2`, the same file the 12 DDF legs record; saver and importer code run locally, nothing written)
+
+- Snapshot: vintage 2026-10-01, 701 rows (QB 100, RB 173, WR 270, TE 158) plus 13 review rows of its own (`ppg_inconsistent`), as Muse reported.
+- First dry run: 679 clean, 22 review. 21 were `no_match`, including Ja'Marr Chase, D'Andre Swift and Wan'Dale Robinson. Cause: `public.players` spells these with a straight apostrophe, the snapshot with a typographic one, and `normalize_name` turns them into different strings. Fix: a space-free fallback form, plus the snapshot's own `player_norm` (the leg's join key). Now 692 clean, 9 review. Four mutations each fail a named test (no space-free fallback, ignoring the hint, guessing on ambiguity, dropping position narrowing).
+- The 9 left: Mitch Trubisky, Kenny Gainwell, Joshua Palmer, J. Sturdivant, Jalen Cropper, Chigoziem Okonkwo, Drew Ogletree, Miles Kitselman (no matching name in `public.players`, so they need verified aliases) and Audric Estime (two RB rows in `public.players`: 1475 "Audric Estim\u00e9" and 4642 "Audric Estime", so the saver refuses to guess). The DDF leg cannot resolve the first eight either.
+- Real-data round trip (692 rows -> importer rebuild -> real `load_razzball_lists`): rebuilt rows equal the original file for all 692 (ignoring name spelling), and the leg inputs match for 468 of 469 players in all three scorings. The one difference is Audric Estime (RB, key 4642), whom the leg prices and the database copy holds in review. He is a 0.1 PPG fringe player.
+- Found by that round trip: the importer took `pos` from `public.players`, which differs from Razzball's label for 9 fringe players (e.g. Connor Heyward RB vs TE; Ben VanSumeren RB vs LB), so the two build paths would bucket them differently. The importer now prefers the table's stored Razzball `pos`; one mutation fails a named test.
+
+### Claimed, unverified
+
+- The write itself, and PostgREST accepting the real rows. Nothing has been written to `public.razzball_projections` (still 0 rows).
+- Whether dropping Estime from the leg matters downstream: it should be negligible, but the duplicate player row needs a decision.
+
+### Open
+
+- Alias decisions for 8 names and the 1475/4642 duplicate (not mine to guess; the aliases live in `build_ddf_two_tier_leg.ALIASES`).
+
 ## 2026-10-02 - JEG-18: the razzball_projections table was created (empty)
 
 - Jeremy gave an explicit yes in the Claude session ("yes, run table migration") after I asked him directly and named the statement. Before it, I checked read-only that the table did not exist.

@@ -112,6 +112,17 @@ upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
 
 
+def compact(norm: str) -> str:
+    """A normalized name with its spaces removed.
+
+    public.players spells "Ja'Marr Chase" with a straight apostrophe, which
+    normalize_name turns into a space ("ja marr chase"); the Razzball snapshot spells
+    it with a typographic one, which normalize_name drops ("jamarr chase"). Comparing
+    the space-free form makes the two meet without guessing any spelling.
+    """
+    return norm.replace(" ", "")
+
+
 def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
     index: dict[str, list[dict[str, Any]]] = {}
     for record in players:
@@ -119,23 +130,39 @@ def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, 
         name = str(record.get("full_name") or "").strip()
         if not isinstance(key, int) or not name:
             continue
-        index.setdefault(normalize_name(name), []).append(
-            {
-                "player_key": key,
-                "full_name": name,
-                "position": str(record.get("position") or "").strip().upper() or None,
-            }
-        )
+        entry = {
+            "player_key": key,
+            "full_name": name,
+            "position": str(record.get("position") or "").strip().upper() or None,
+        }
+        norm = normalize_name(name)
+        index.setdefault(norm, []).append(entry)
+        index.setdefault("\0" + compact(norm), []).append(entry)  # space-free fallback
     return index
 
 
 def resolve_name(
-    name: str, pos: str | None, index: dict[str, list[dict[str, Any]]]
+    name: str,
+    pos: str | None,
+    index: dict[str, list[dict[str, Any]]],
+    norm_hint: str | None = None,
 ) -> tuple[int | None, str | None]:
-    """Return (player_key, reason). Unresolved -> (None, reason)."""
-    norm = normalize_name(name)
-    norm = ALIASES.get(norm, norm)
-    candidates = index.get(norm, [])
+    """Return (player_key, reason). Unresolved -> (None, reason).
+
+    Order: exact normalized name, the verified ALIASES, the space-free form, then the
+    snapshot's own `player_norm` (the join key the DDF leg uses; it catches "David
+    Sills V" -> "david sills"). Several players under one form are narrowed by
+    position; still more than one is "ambiguous" and goes to review. Nothing is guessed.
+    """
+    forms = [normalize_name(name)]
+    if norm_hint:
+        forms.append(normalize_name(norm_hint))
+    candidates: list[dict[str, Any]] = []
+    for norm in forms:
+        norm = ALIASES.get(norm, norm)
+        candidates = index.get(norm) or index.get("\0" + compact(norm), [])
+        if candidates:
+            break
     if not candidates:
         return None, "no_match"
     if len(candidates) == 1:
@@ -189,7 +216,7 @@ def build_razzball_rows(
         if not name:
             review.append({"reason": "missing_player_name", "pos": pos, "team": row.get("team")})
             continue
-        key, reason = resolve_name(name, pos, index)
+        key, reason = resolve_name(name, pos, index, row.get("player_norm"))
         if key is None:
             review.append(
                 {

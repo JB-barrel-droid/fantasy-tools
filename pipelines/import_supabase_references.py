@@ -877,7 +877,11 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             )
             continue
         fixture_pos, fixture_team = fixture_map.get(key, (None, None))
-        pos = positions.get(key) or row.get("pos") or fixture_pos
+        # Razzball's own position label (stored in the table from the snapshot) wins over
+        # public.players.position: the DDF leg was built with it, and 9 fringe players
+        # differ between the two (e.g. RB vs TE). Using the canonical position here would
+        # move them between positional pools depending on which path built the snapshot.
+        pos = row.get("pos") or positions.get(key) or fixture_pos
         if not pos:
             review_rows.append(
                 {"reason": "missing_pos", "player_key": key, "player_name": name,
@@ -942,7 +946,8 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "filter": (
             "public.razzball_projections (latest snapshot date); native Razzball "
             "shape (rz_*_ppg from per_game_*, other row fields from raw_stats "
-            "verbatim); pos from public.players.position, team from the table"
+            "verbatim); pos and team from the table (Razzball's own labels; "
+            "public.players.position only as a fallback)"
             f"{date_scope_note}"
         ),
         "content_vintage": content_vintage,

@@ -120,6 +120,50 @@ class MigrationMatchesSaverTest(unittest.TestCase):
         self.assertIn("DROP TABLE IF EXISTS public.razzball_projections;", self.SQL)
 
 
+class IdentityResolutionTest(unittest.TestCase):
+    """The first dry run against the real 2026-10-01 snapshot dropped 21 of 701 players,
+    including Ja'Marr Chase, because public.players uses straight apostrophes and the
+    snapshot uses typographic ones. These pin the fixes and keep the fail-closed rules."""
+
+    PLAYERS = [
+        {"player_key": 1, "full_name": "Ja'Marr Chase", "position": "WR"},
+        {"player_key": 2, "full_name": "David Sills", "position": "WR"},
+        {"player_key": 3, "full_name": "Josh Sills", "position": "OL"},
+        {"player_key": 4, "full_name": "Audric Estim\u00e9", "position": "RB"},
+        {"player_key": 5, "full_name": "Audric Estime", "position": "RB"},
+        {"player_key": 6, "full_name": "Pat Twin", "position": "WR"},
+        {"player_key": 7, "full_name": "Pat Twin", "position": "TE"},
+        {"player_key": 8, "full_name": "Josh Palmer", "position": "WR"},
+    ]
+
+    def resolve(self, name, pos, hint=None):
+        index = saver.build_name_index(self.PLAYERS)
+        return saver.resolve_name(name, pos, index, hint)
+
+    def test_typographic_apostrophe_matches_the_straight_apostrophe_name(self):
+        self.assertEqual((1, None), self.resolve("Ja\u2019Marr Chase", "WR"))
+        self.assertEqual((1, None), self.resolve("Ja'Marr Chase", "WR"))
+
+    def test_the_snapshots_own_player_norm_resolves_a_suffix_spelling(self):
+        self.assertEqual((None, "no_match"), self.resolve("David Sills V", "WR"))
+        self.assertEqual((2, None), self.resolve("David Sills V", "WR", "david sills"))
+
+    def test_the_hint_never_overrides_a_name_that_already_resolves(self):
+        self.assertEqual((2, None), self.resolve("David Sills", "WR", "josh sills"))
+
+    def test_duplicate_players_stay_ambiguous_and_are_never_guessed(self):
+        self.assertEqual((None, "ambiguous"), self.resolve("Audric Estime", "RB"))
+
+    def test_position_narrows_same_named_players(self):
+        self.assertEqual((6, None), self.resolve("Pat Twin", "WR"))
+        self.assertEqual((7, None), self.resolve("Pat Twin", "TE"))
+
+    def test_nicknames_are_not_guessed(self):
+        # "Joshua Palmer" vs "Josh Palmer" needs a verified alias, not a heuristic.
+        self.assertEqual((None, "no_match"), self.resolve("Joshua Palmer", "WR", "joshua palmer"))
+        self.assertEqual((None, "no_match"), self.resolve("Nobody Real", "WR", "nobody real"))
+
+
 class SaverTest(unittest.TestCase):
     def setUp(self):
         self._fetch = saver.fetch_players
@@ -237,6 +281,15 @@ class ImporterTest(unittest.TestCase):
         self.assertEqual("public.razzball_projections", manifest["supabase_table"])
         self.assertIsNone(manifest["week_designated"])  # daily rule, never a week label
         self.assertIn("razzball_snapshot_date", manifest["content_vintage_derived_from"])
+
+    def test_the_tables_razzball_position_wins_over_the_canonical_one(self):
+        # public.players says RB; Razzball (and so the leg) said TE. The rebuilt row
+        # must keep Razzball's label so the two build paths bucket the player the same.
+        importer.fetch_player_positions = lambda keys: {869: "RB", 2227: "RB"}
+        rows = self.table_rows()
+        snapshot = json.loads(self.import_rows(rows)["snapshot_path"].read_text())
+        by_name = {r["player_name"]: r["pos"] for r in snapshot["rows"]}
+        self.assertEqual("QB", by_name["Josh Allen"])  # the table's pos, not players.position
 
     def test_missing_per_game_goes_to_review(self):
         rows = self.table_rows()
