@@ -2222,9 +2222,9 @@
       const health=document.getElementById("dataHealth");
       const embedded=JSON.parse(document.getElementById("players-data")?.textContent||"{}");
       const startCollapsed=embedded.meta?.dataset_status?.ui_hint?.start_collapsed;
-      // JEG-26: dataHealth is now a modal dialog, not a <details>. Guard against
-      // the element being absent (e.g., during partial renders).
-      if(health) health.open=startCollapsed===false;
+      // JEG-26 replaced the inline <details id="dataHealth"> with a modal dialog, so
+      // the element can be absent. Throwing here aborted the whole health render.
+      if(health)health.open=startCollapsed===false;
       try{
         const [response,newsResponse,freshnessResponse]=await Promise.all([
           fetch("assets/comparison-sources-data.json"),
