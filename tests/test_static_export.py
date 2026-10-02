@@ -296,23 +296,11 @@ class StaticExportTest(unittest.TestCase):
             # 2026-10-02: Josh Allen's cbsros full_12 value is 20.0
             # (verified against fixture).
             ("cbsros", "full_12"): 20.0,
-            # 2026-10-01: _adjusted pins rebuilt with the 12-team ppr fit
-            # (ddf-20260930-espn-ppr-12t-0p15). The 17.8/27.6/18.9 pins were
-            # written for the 8-team standard fit; the 12-team ppr cells
-            # change the bias correction. Values verified deterministic:
-            # build_adjusted_fixture_sections.py reproduces them exactly.
-            # 2026-10-02 (JEG-72): JEG-16's find_leg half_ppr preference
-            # silently retargeted the fit at half-PPR DDF values while the
-            # x-inputs stayed Full-PPR -- reverted to the ppr leg (the true
-            # chart default). Fit population also grew on JEG-13's
-            # explicit-zero ESPN legs (fantasycalc pairs 192->197, review
-            # rows 142->3). The _adjusted builder now residual-corrects the
-            # 1-decimal rounding so position totals hit pie targets exactly
-            # (usatoday half_12 WR drifted 2.1 over the 2.0 test tolerance on
-            # 104 WRs). New pins are the deterministic builder output
-            # against the corrected ppr target.
-            ("fantasycalc_adjusted", "full_12_qb1"): 26.3,
-            ("usatoday_adjusted", "full_12"): 23.4,
+            # 2026-10-02 (JEG-88): VORP translation extended to Full PPR combos.
+            # Josh Allen's adjusted value moves 26.3 -> 25.8 on the fresh
+            # VORP-translated inputs.
+            ("fantasycalc_adjusted", "full_12_qb1"): 25.8,
+            ("usatoday_adjusted", "full_12"): 23.2,
             ("fantasypros_adjusted", "full_12"): 18.1,
         }
         for key, expected_value in expected.items():
