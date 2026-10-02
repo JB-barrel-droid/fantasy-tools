@@ -468,6 +468,33 @@ class TestUsatodayDiscovery(unittest.TestCase):
             usat.pull("https://example.com/x",
                       fetch_fn=lambda u: (200, "<html>no tables here</html>"))
 
+
+def _sitemap_fetch_new_slug(url):
+    """Serve the week-4 article under USA Today's NEW slug pattern.
+
+    Regression for 2026-10-02: USA Today renamed the article slug between
+    week 3 and week 4 ("fantasy-football-trade-value-chart-week-N" ->
+    "fantasy-trade-value-chart-week-N"). Discovery matched only the old
+    pattern, so the Oct 1/2 scheduled runs failed closed on the stale week-3
+    article even though the week-4 article (2026-09-29) was in the sitemap.
+    """
+    if re.search(r"web-sitemap-\d{4}-\d{2}", url):
+        return (200, "<urlset><url><loc>https://www.usatoday.com/story/sports/fantasy/football/"
+                     "2026/09/29/fantasy-trade-value-chart-week-4-"
+                     "ros-rankings/92008742007/</loc></url></urlset>")
+    return (404, "")
+
+
+class TestUsatodayDiscoverySlugChange(unittest.TestCase):
+    def test_discovers_article_under_new_slug(self):
+        url = usat.discover_url(4, fetch_fn=_sitemap_fetch_new_slug)
+        self.assertIn("week-4-ros-rankings", url)
+        self.assertIn("92008742007/", url)
+
+    def test_still_discovers_article_under_old_slug(self):
+        url = usat.discover_url(3, fetch_fn=_sitemap_fetch)
+        self.assertIn("week-3-ros-rankings", url)
+
     def test_pull_parses_tables(self):
         html = "".join(
             '<h2 class=gnt_ar_b_h2>Quarterback Trade Value Chart</h2>'

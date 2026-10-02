@@ -28,7 +28,14 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import fetch, nfl_week, today_ct, REPO
 
-SECTION_SLUG = "fantasy-football-trade-value-chart-week-%d-ros-rankings"
+SECTION_SLUG = "trade-value-chart-week-%d-ros-rankings"
+# NOTE (2026-10-02): USA Today changed the article slug between week 3 and
+# week 4 -- "fantasy-football-trade-value-chart-week-N-ros-rankings" became
+# "fantasy-trade-value-chart-week-N-ros-rankings". Matching on the common
+# "trade-value-chart-week-N-ros-rankings" substring covers both, so a slug
+# rename can never again make discovery silently miss the current article
+# while the sitemap still lists last week's (which then fails closed as a
+# "stale article"). extract_week_from_url already matches both patterns.
 SITEMAP_INDEX = "https://www.usatoday.com/web-sitemap-index.xml"
 SITEMAP_MONTH = "https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-%04d-%02d.xml"
 TABLE_MARK = "gnt_ar_b_tbl"
