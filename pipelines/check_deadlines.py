@@ -4,7 +4,7 @@
 This checker runs independently of the comparison chain itself, allowing it to
 detect when the chain has not run for an extended period (staleness).
 
-Per D3 (JEG-83, 2026-10-02): NO alert recipient — no email, webhooks, or
+Per D3 (JEG-83, 2026-10-02): NO alert recipient — no messages, no callbacks, no
 third-party integration. The only consumer is the rendered monitor route.
 
 Usage:
