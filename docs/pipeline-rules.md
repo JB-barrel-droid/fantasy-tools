@@ -83,6 +83,24 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
   section. The replaced section is kept in the promotion record as a rollback
   record.
 
+### 3a. Promotion provenance (JEG-114)
+
+- A review generated AFTER a fixture edit must NOT be able to rubber-stamp that edit.
+- `review_comparison_candidate.py` records provenance at review creation time:
+  - `fixture_native_before_sha256`: hash of fixture natives when review was created
+  - `candidate_native_sha256`: hash of candidate's native values
+  - `review_created_at`: ISO timestamp when review was generated
+  - `native_change_classification`: `native_change` | `reindex_only` | `native_new_source`
+- `promote_comparison_section.py` verifies the provenance chain:
+  - Requires all provenance fields in the review (fail-closed for missing)
+  - Verifies candidate natives haven't changed since review was generated
+  - Detects native no-op: candidate natives identical to current fixture natives
+  - Records `fixture_native_after_sha256` in promotion record
+- Legacy reviews (pre-JEG-114) without provenance fields:
+  - Native-changing updates: fails closed, requires re-running review
+  - Reindex-only (natives identical): allowed with provenance_warning
+- The promotion record captures the full provenance chain for audit.
+
 ## 4. Null, never zero
 
 - A missing source value stays missing (null / absent key). It is never

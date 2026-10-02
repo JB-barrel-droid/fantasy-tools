@@ -24,6 +24,14 @@ Checks:
                       ESPN leg; the fixture's existing sections were baked
                       against the retired Monday rail. Divergence is measured
                       and reported, never asserted equal.
+  native_change_classification: classify as native_change, reindex_only, or
+                      native_no_op (candidate natives identical to fixture natives)
+
+Provenance tracking (JEG-114):
+  - fixture_native_before_sha256: hash of fixture natives at review creation time
+  - candidate_native_sha256: hash of candidate's native values
+  - review_created_at: ISO timestamp when review was generated
+  - These enable promotion to verify the review was created BEFORE any fixture edits
 
 Writes (under output/ only):
   output/comparison-review/<source>-<asof>-review.json
@@ -35,7 +43,7 @@ import argparse
 import hashlib
 import json
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -258,6 +266,31 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                    for c in checks):
             checks.append(_check("coverage", "pass", "no priced-count regressions"))
 
+    # --- JEG-114: Native change classification and provenance tracking ---
+    # Compute candidate native hash for provenance tracking
+    candidate_native_hash = _sha256_canonical(
+        {c: cand["combos"][c]["native"] for c in cand["combos"]})
+
+    # Classify the change type based on native comparison
+    if fx_section is None:
+        native_change_classification = "native_new_source"
+        native_change_detail = "new source, no fixture baseline for comparison"
+    elif candidate_native_hash == fixture_native_sha256:
+        # Candidate natives exactly match fixture natives - this is a reindex-only change
+        # (or potentially a no-op if reindexed values also match)
+        native_change_classification = "reindex_only"
+        native_change_detail = "candidate natives identical to fixture natives - reindex only, no native change"
+    else:
+        # Candidate natives differ from fixture - this is a native-changing update
+        native_change_classification = "native_change"
+        native_change_detail = "candidate natives differ from fixture natives - actual native update"
+
+    checks.append(_check("native_change_classification", "pass", native_change_detail))
+
+    # Record provenance information for JEG-114
+    # This enables promotion to verify review was created BEFORE any fixture edits
+    review_created_at = datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
     verdict = "hold" if any(c["status"] == "fail" for c in checks) else "ready"
 
     report = {
@@ -271,7 +304,12 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         "triaged": triaged,
         "reindexed_source_file": str(reindexed_path),
         "reindexed_sha256": _sha256_file(reindexed_path),
-        "fixture_native_sha256": fixture_native_sha256,
+        # JEG-114: Provenance tracking for native change detection
+        "fixture_native_before_sha256": fixture_native_sha256,  # Fixture natives when review was created
+        "fixture_native_sha256": fixture_native_sha256,  # Alias: promote checks this key
+        "candidate_native_sha256": candidate_native_hash,  # Candidate's native values
+        "review_created_at": review_created_at,  # When review was generated
+        "native_change_classification": native_change_classification,  # native_change | reindex_only | native_new_source
         "note": ("'ready' means the candidate MAY be promoted by a human. "
                  "This script never writes under data/."),
     }
