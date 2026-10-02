@@ -110,8 +110,8 @@ class TestUnverifiedSourceRule(unittest.TestCase):
         check_time = datetime(2026, 10, 2, 12, 0, 0, tzinfo=timezone.utc)
         last_write = datetime(2026, 10, 1, 12, 0, 0, tzinfo=timezone.utc)
 
-        # Use a source with None publish_day (unverified)
-        result = determine_source_state("fantasypros", last_write, 4, check_time)
+        # espn has publish_day = None (daily live reference, not weekly)
+        result = determine_source_state("espn", last_write, 4, check_time)
 
         self.assertEqual(result["state"], "unknown",
             f"Unverified source should be unknown, got {result['state']}")
@@ -288,7 +288,9 @@ class TestGraceWindowFunction(unittest.TestCase):
         result = grace_window_minutes("usatoday", rule)
 
         self.assertIsNotNone(result)
-        self.assertEqual(result, 1 * 24 * 60)  # 1 day in minutes
+        # R10: grace = grace_days*24*60 + measured-or-default slip.
+        # usatoday has no measured slip, so the 6h (360m) default applies.
+        self.assertEqual(result, 1 * 24 * 60 + 360)  # 24h + 6h default slip
 
     def test_grace_window_none_for_missing_rule(self):
         """grace_window_minutes returns None for missing rules."""
@@ -298,15 +300,15 @@ class TestGraceWindowFunction(unittest.TestCase):
 
         self.assertIsNone(result)
 
-    def test_grace_window_none_for_unverified(self):
-        """grace_window_minutes returns None for unverified sources."""
+    def test_grace_window_none_for_no_grace_days(self):
+        """grace_window_minutes returns None when the rule has no grace_days."""
         from pipelines.check_deadlines import grace_window_minutes
-        from pipelines.lib.publication_windows import PUBLICATION_SCHEDULES
 
-        # fantasypros has publish_day = None (unverified)
-        rule = PUBLICATION_SCHEDULES.get("fantasypros")
+        # The None branch is about grace_days, not publish_day: a rule with
+        # no grace_days yields None regardless of verification status.
+        rule = {"publish_day": None, "grace_days": None}
 
-        result = grace_window_minutes("fantasypros", rule)
+        result = grace_window_minutes("hypothetical_source", rule)
 
         self.assertIsNone(result)
 

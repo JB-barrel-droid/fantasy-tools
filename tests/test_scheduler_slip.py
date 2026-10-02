@@ -112,7 +112,10 @@ class TestSourceStateWithSlip(unittest.TestCase):
     def _rule_with_slip(self, slip_minutes):
         return {
             "publish_day": 1,  # Tuesday
-            "grace_days": 1,
+            # grace_days=0 so the slip is the ONLY thing standing between a
+            # 6h-late write and a red verdict: the negative controls prove the
+            # amber came from the slip math, not from a generous raw grace.
+            "grace_days": 0,
             "slip_observed_max_minutes": slip_minutes,
             "slip_measured_at": None,
         }
@@ -123,9 +126,10 @@ class TestSourceStateWithSlip(unittest.TestCase):
         from pipelines.check_deadlines import determine_source_state
         rule = self._rule_with_slip(slip_minutes=360)
 
-        # Tuesday 2026-10-06 12:00 UTC, content week 4.
+        # Tuesday 2026-10-06 12:00 UTC, NFL content week 5 (weeks anchor on
+        # Tuesday 2026-09-08, so week 5's Tuesday is Oct 6).
         # The expected_by lands on Tuesday 23:59 of that week.
-        # A 6-hour-late write is Wednesday 05:59 UTC, within the 24h + 6h slip
+        # A 6-hour-late write is Wednesday 05:59 UTC, within the 0h + 6h slip
         # grace, so it must be amber (not red).
         check_time = datetime(2026, 10, 7, 12, 0, 0, tzinfo=timezone.utc)  # Wed noon
         last_write = datetime(2026, 10, 7, 5, 59, 0, tzinfo=timezone.utc)  # 6h late Wed
@@ -135,7 +139,7 @@ class TestSourceStateWithSlip(unittest.TestCase):
         try:
             PUBLICATION_SCHEDULES["usatoday"] = rule
             result = determine_source_state(
-                "usatoday", last_write, nfl_week=4, check_time=check_time,
+                "usatoday", last_write, nfl_week=5, check_time=check_time,
             )
         finally:
             PUBLICATION_SCHEDULES["usatoday"] = original
@@ -159,7 +163,7 @@ class TestSourceStateWithSlip(unittest.TestCase):
         try:
             PUBLICATION_SCHEDULES["usatoday"] = rule
             result = determine_source_state(
-                "usatoday", last_write, nfl_week=4, check_time=check_time,
+                "usatoday", last_write, nfl_week=5, check_time=check_time,
             )
         finally:
             PUBLICATION_SCHEDULES["usatoday"] = original
@@ -176,10 +180,9 @@ class TestSourceStateWithSlip(unittest.TestCase):
         from pipelines.check_deadlines import determine_source_state
         rule = self._rule_with_slip(slip_minutes=360)
 
-        # Tuesday's expected_by is Tuesday 23:59. A 24-hour-late write is
-        # Wednesday 23:59 UTC — past the 30-hour grace (24h + 6h slip) only
-        # if check_time is later. Use Friday as check time so the verdict
-        # cannot be "still within grace".
+        # Tuesday's expected_by is Tuesday 23:59 of NFL week 5. A 24-hour-late
+        # write is Wednesday 23:59 UTC — past the 6h slip grace. Use Friday as
+        # check time so the verdict cannot be "still within grace".
         check_time = datetime(2026, 10, 9, 12, 0, 0, tzinfo=timezone.utc)  # Fri
         last_write = datetime(2026, 10, 7, 23, 59, 0, tzinfo=timezone.utc)  # Wed 24h late
 
@@ -187,7 +190,7 @@ class TestSourceStateWithSlip(unittest.TestCase):
         try:
             PUBLICATION_SCHEDULES["usatoday"] = rule
             result = determine_source_state(
-                "usatoday", last_write, nfl_week=4, check_time=check_time,
+                "usatoday", last_write, nfl_week=5, check_time=check_time,
             )
         finally:
             PUBLICATION_SCHEDULES["usatoday"] = original
@@ -210,7 +213,7 @@ class TestSourceStateWithSlip(unittest.TestCase):
         try:
             PUBLICATION_SCHEDULES["usatoday"] = rule
             result = determine_source_state(
-                "usatoday", last_write, nfl_week=4, check_time=check_time,
+                "usatoday", last_write, nfl_week=5, check_time=check_time,
             )
         finally:
             PUBLICATION_SCHEDULES["usatoday"] = original
