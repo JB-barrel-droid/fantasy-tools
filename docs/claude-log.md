@@ -1,5 +1,61 @@
 # Claude session log
 
+## 2026-10-02 - JEG-96: operating-model machine-readable pieces (minimax)
+
+### Verified
+- The phase tracker derives state from `lanes/linear_fixture.json` at read time:
+  `lanes/plan_status.py::compute_state()` walks each phase, looks up each
+  ticket id in the fixture, and reports `active`/`blocked`/`done`. `plan.json`
+  carries structure (which tickets belong to which phase, blocking graph,
+  entry/exit criteria) but never a single status field. Confirmed by reading
+  `compute_state()` line-by-line and the four `PlanTrackerDerivationTest`
+  cases that assert behaviour against broken and correct fixtures.
+- The merge charter tiers are encoded as checkable rules, not prose:
+  `lanes/merge_charter.py::classify_pr(changed_files, **gates)` returns a
+  `TierResult(tier, auto_merge, human_in_loop, gates, unmet_gates, reasons)`
+  from the path globs + content-trigger flags in `lanes/plan.json`. Path
+  match sets the tier ceiling; any content trigger upgrades to Tier 2. The
+  `MergeQueue.from_plan` `next_action` returns `serialize=True`,
+  `max_concurrent=1`, with rebase+re-run-validate+re-run-verify per item.
+- Tier routing decision survives the negative tests: a docs-only PR with
+  `touches_methodology=True` is forced to Tier 2; a Tier-1 PR without
+  `different_lane_review_posted` does NOT auto-merge (the Phase 2 wiring
+  guard). Both discrimination cases are in `lanes/test_plan_tracker.py`.
+- JEG-95 is **not** in any phase's `ticket_ids` array; the fixture marks
+  it Cancelled/Superseded. A tracker that auto-included all known tickets
+  would inflate Done counts and fail `test_jeg95_cancelled_does_not_count_as_complete_work`.
+- `make plan-status` target added to Makefile; `lanes.test_plan_tracker`
+  appended to `test-unit` so `make validate` picks it up.
+- `docs/merge-charter.md` written for JEG-91 acceptance item 1 (committed
+  with the three tiers and exact gates). Tier 0/1/2 and the merge queue
+  are documented; the sweep-cron wiring items (JEG-91 acceptance 2/3) are
+  flagged as follow-on work.
+- No pipeline / module / fixture / chart / methodology code touched.
+  Only `lanes/`, `docs/`, and `Makefile` (test wiring) were modified.
+
+### Unverified
+- `make validate` was not run end-to-end in this sandbox. The host blocks
+  CI unit tests that need gitignored `data/raw`; the brief acknowledges
+  verification happens outside. `python3 -m py_compile` and
+  `python3 -m unittest lanes.test_plan_tracker -v` both refused with
+  `[Errno 28] No space left on device` (`/tmp` was 99% full from sibling
+  worktrees, ~37 MB each, ~512 MB tmpfs). The test file was visually
+  inspected: the only syntax issue (a copy-paste artifact
+  `if p["phases"] if False else p` at line 129) was removed before the
+  second attempt. Settles on a real `make validate` run.
+- The Linear CLI is not reachable from this sandbox, so
+  `lanes/linear_fixture.json` is a hand-written snapshot of the current
+  Linear state. The refresh procedure is documented in `lanes/PLAN.md`.
+  Settles on a real Linear export from a machine with API access.
+- Tier routing wired into the PR sweep cron is a follow-on (JEG-91
+  acceptance items 2/3). The rules are encoded; the cron wiring is not.
+
+### Open
+- None added by this session. The tracker is process tooling; if it ever
+  silently stops reading the fixture (e.g. someone hand-edits `plan.json`
+  with status fields), the discrimination tests catch it on the next CI
+  run.
+
 ## 2026-10-02 - JEG-104 migration replay correction (Codex)
 
 ### Verified

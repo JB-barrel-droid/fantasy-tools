@@ -1,6 +1,6 @@
 # Risk And Gap Register
 
-Last updated: 2026-10-01.
+Last updated: 2026-10-02.
 
 This is the durable register for repo gaps, risks, unresolved questions, and
 recently fixed correctness defects. A gap is not considered recorded if it only

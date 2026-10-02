@@ -1,0 +1,23 @@
+{
+  "_comment": "Fixture of Linear ticket statuses. Last refreshed 2026-10-02. Replace via the procedure in lanes/PLAN.md (Linear export -> rename keys -> write). Tickets not listed here are unknown to the tracker (treated as 'missing', not 'todo').",
+  "_last_refreshed": "2026-10-02",
+  "_refresh_procedure": "Linear: export issue view as CSV -> map id->status -> write JSON with lowercase status. Sandbox cannot run the Linear CLI; do it on a machine with the API token.",
+  "tickets": {
+    "JEG-77":  {"status": "Backlog",     "title": "End-to-end source fidelity checks: live publisher vs dashboard", "owner": "minimax", "note": "Pipelines file pipelines/check_source_fidelity.py exists; not yet wired into monitor. Status reflects the Linear state."},
+    "JEG-78":  {"status": "Done",        "title": "Health program 1/4: each lane assesses best practices for data pipeline", "owner": "minimax"},
+    "JEG-79":  {"status": "Done",        "title": "Health program 2/4", "owner": "minimax"},
+    "JEG-80":  {"status": "Done",        "title": "Health program 3/4", "owner": "minimax"},
+    "JEG-81":  {"status": "Done",        "title": "Health program 4/4: build out the tickets that strengthen the projects", "owner": "minimax"},
+    "JEG-82":  {"status": "Done",        "title": "Health program 4/4", "owner": "minimax"},
+    "JEG-83":  {"status": "Done",        "title": "Health program 4/4", "owner": "minimax"},
+    "JEG-84":  {"status": "Backlog",     "title": "Health program 4/4", "owner": "minimax", "note": "2026-10-02 scope: build R1(residual)-R12 from the audit, defer R13/R14. R1 removes fail-open from every pull workflow + standard run summaries. R2 monitor-only checker (no alert recipient, per decision 3). R4 bakes in decisions 1/2/4. R7 includes the CBS ROS workflow's first real run (needs Jeremy's approval). R8 waits on JEG-103."},
+    "JEG-91":  {"status": "Backlog",     "title": "Standing merge charter: pre-authorized auto-merge tiers for lane PRs", "owner": "muse", "note": "Phase 1 ticket. Charter machine-encoded in lanes/merge_charter.py; tiers 0/1/2 plus merge queue serialized per-item (rebase + re-verify)."},
+    "JEG-92":  {"status": "Backlog",     "title": "Machine-checkable acceptance on every Linear issue: evidence bundles on lane PRs", "owner": "muse", "note": "Phase 2 ticket."},
+    "JEG-93":  {"status": "Backlog",     "title": "Time-boxed decision queue for parked judgment calls", "owner": "muse", "note": "Phase 4 ticket (runs in parallel with Phase 0 per Jeremy). Fail-closed digest scope addition recorded 2026-10-02T15:00."},
+    "JEG-94":  {"status": "Backlog",     "title": "Lane outbox/inbox protocol + CLI connectors for direct inter-LLM tasking", "owner": "muse", "note": "Phase 3 ticket. Codex CLI device-auth login in progress 2026-10-02. Cheap signed-result-files only; full API-key machinery deferred."},
+    "JEG-95":  {"status": "Cancelled",   "title": "Operating model: how to move faster with less of Jeremy's policing (proposal thread)", "owner": "muse", "note": "Superseded by JEG-96. Tracker must NOT include JEG-95 as plan work."},
+    "JEG-96":  {"status": "In Progress", "title": "Operating-model plan: move faster with less policing (compiled from JEG-91..95)", "owner": "minimax", "note": "This tracker is the deliverable."},
+    "JEG-71":  {"status": "Backlog",     "title": "Automate the CBS ROS pull/save (no scheduled owner, ESPN/CBS already)", "owner": "muse", "note": "Phase 3 pull-into-CI ticket."},
+    "JEG-55":  {"status": "Backlog",     "title": "Move ESPN snapshots to Supabase", "owner": "muse", "note": "Phase 3 pull-into-CI ticket."}
+  }
+}
