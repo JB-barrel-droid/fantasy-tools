@@ -83,13 +83,17 @@ def _parse_front_matter(body):
     """Return (dict, body_after_front_matter).
 
     Front matter is the leading contiguous run of `- key: value` lines
-    (each line starts with "- "). The first non-front-matter line starts
-    the body. Keys with empty values (`- key:`) are accepted as present
-    but flagged downstream if they are required.
+    (each line starts with "- "). Leading blank lines between the entry
+    heading and the front matter are tolerated. The first non-blank,
+    non-front-matter line starts the body. Keys with empty values
+    (`- key:`) are accepted as present but flagged downstream if they
+    are required.
     """
     fm = {}
     lines = body.splitlines()
     i = 0
+    while i < len(lines) and not lines[i].strip():
+        i += 1
     while i < len(lines):
         line = lines[i]
         if not line.startswith("- "):
@@ -132,8 +136,13 @@ def _format_entry(entry_id, title, *, missing=(), **overrides):
 
     `missing` is an iterable of required keys to omit (so the fixture
     can prove it catches the omission). `overrides` lets tests tweak
-    individual keys.
+    individual keys; Python-style kwarg names are normalized to
+    front-matter keys (`silence_default` -> `silence-default`).
     """
+    overrides = {
+        "silence-default" if k == "silence_default" else k: v
+        for k, v in overrides.items()
+    }
     keys = {k: overrides.get(k, "") for k in REQUIRED_KEYS}
     for k in missing:
         keys.pop(k, None)

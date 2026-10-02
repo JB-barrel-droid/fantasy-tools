@@ -43,7 +43,9 @@ Each entry is a second-level heading `## <id>: <title>` followed by
 a front-matter block, four required content sections, and an outcome
 block.
 
-Required front-matter keys (every key must be present, in any order):
+Required front-matter keys (every key must be present, in any order).
+Blank lines between the `## <id>:` heading and the first `- key:`
+line are tolerated by the validator.
 
 | Key | Format | Notes |
 | --- | --- | --- |
