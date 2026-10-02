@@ -1638,3 +1638,47 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+## 2026-10-02 — JEG-92 round 2: pilot retrofits on open issues
+
+### Verified
+
+- The five pilot sections in `docs/jeg92-pilot-retrofits.md` previously
+  covered JEG-22, JEG-23, JEG-45, JEG-29, JEG-17 — all closed/done.
+  The section now covers JEG-75, JEG-76, JEG-99, JEG-100, JEG-103
+  (all `owner: minimax`, all currently open). [read from `docs/jeg92-pilot-retrofits.md`,
+  compared to Linear ticket state captured by reviewer]
+- For each renamed path, `ls`/`grep` against the working tree
+  (`ls tests/test_player_identity_guard*`,
+  `ls tests/test_check_source_vintage*`, `ls tests/test_check_fidelity_ordering*`,
+  `ls tests/test_jeg103_bench_readout*`, `ls pipelines/check_source_vintage.py`,
+  `ls pipelines/check_fidelity_ordering.py`, `ls lanes/`, `grep -rn usage_watcher`). 
+  Of the named paths, only `tests/test_razzball_supabase.py` (which carries
+  the three identity cases at lines 143, 157, 161), `make test-unit`
+  (Makefile line 110), and `tests/rendered_gate/gate.mjs` exist.
+  Each non-existent path is called out under an explicit
+  `Not yet in repo` subhead in the file.
+- `docs/delegation-workflow.md` left untouched per ticket instructions.
+
+### Claimed, unverified
+
+- The three `TestRazzballNicknamesAndIdentity.test_*` names I picked
+  (lines 143, 157, 161 of `tests/test_razzball_supabase.py`) are the
+  likely identity guard set. They are not currently grouped under a
+  `TestRazzballNicknamesAndIdentity` class — that grouping would be
+  added when the writer-side `tests/test_player_identity_guard` module
+  lands. A real run settles whether the existing test class names are
+  the right ones to point at.
+
+### Open
+
+- Five sections of JEG-92 round 2 are specs, not yet runnable: `lanes/`
+  does not exist (JEG-99), `tests/test_player_identity_guard` does
+  not exist (JEG-75), `pipelines/check_source_vintage.py` and its test
+  module do not exist (JEG-76), `pipelines/check_fidelity_ordering.py`
+  and its test module do not exist (JEG-100),
+  `tests/test_jeg103_bench_readout.py` does not exist (JEG-103).
+  Each is recorded in `docs/risk-register.md` so a future session does
+  not have to re-discover them.
+- Test runs and Linear posts were not performed; sandbox blocks both.
+  Commit only; no push, no merge, no deploy.
