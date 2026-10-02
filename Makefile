@@ -122,9 +122,9 @@ test-unit:
 	python3 -m unittest tests.test_guard_harness_recorded
 	python3 -m unittest tests.test_jeg68_starter_markup
 	python3 -m unittest tests.test_jeg69_direction_check
-	python3 -m unittest tests.test_jeg67_pool_cap
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_espn_pool_cap
+	python3 -m unittest tests.test_vorp_refresh
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_translate_via_vorp
