@@ -330,8 +330,8 @@ class TestD2ExclusionGate(unittest.TestCase):
                             "Row with null value should be excluded from native")
             self.assertNotIn("player_rb0", reindexed,
                             "Row with null value should be excluded from reindexed")
-            self.assertEqual(hidden_count, 2,
-                           "hidden_invalid_rows should be 2 (native + reindexed)")
+            self.assertEqual(hidden_count, 1,
+                           "hidden_invalid_rows counts distinct rows, not per-dict occurrences")
 
     def test_negative_value_excluded(self):
         """Rows with negative values (range violation) are excluded."""
@@ -352,9 +352,9 @@ class TestD2ExclusionGate(unittest.TestCase):
             self.assertNotIn("player_rb0", native,
                             "Row with negative value should be excluded")
 
-            # Should have 2 hidden (native + reindexed)
-            self.assertEqual(hidden_count, 2,
-                           "hidden_invalid_rows should be 2 (native + reindexed)")
+            # One distinct row hidden (not double-counted across native/reindexed)
+            self.assertEqual(hidden_count, 1,
+                           "hidden_invalid_rows counts distinct rows, not per-dict occurrences")
 
     def test_hidden_invalid_rows_in_promoted_fixture(self):
         """Promoted fixture section includes hidden_invalid_rows when gate is applied."""

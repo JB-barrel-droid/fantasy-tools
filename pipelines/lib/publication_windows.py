@@ -102,6 +102,12 @@ PUBLICATION_SCHEDULES = {
         "publish_day": None,  # Daily live reference, not weekly
         "grace_days": 2,       # 2-day freshness limit (existing logic)
         "notes": "Daily live reference; 2-day freshness gate applies.",
+        "measurement_provenance": {
+            "derived_from": "pipeline pull cadence (daily ESPN scrape)",
+            "method": "observed puller schedule, not publisher cadence",
+            "n_observations": 0,
+            "note": "ESPN is pulled daily by our pipeline; no weekly publisher schedule",
+        },
     },
 }
 

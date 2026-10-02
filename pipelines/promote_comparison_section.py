@@ -97,7 +97,7 @@ def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
     Only validates rows that will be promoted - skips rows already dropped
     by the reindex stage (they have no reindexed values).
     """
-    hidden_count = 0
+    hidden_slugs = set()
     section = copy.deepcopy(section)
 
     for combo_name, combo in section.get("combos", {}).items():
@@ -113,7 +113,7 @@ def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
             if is_valid:
                 valid_native[slug] = value
             else:
-                hidden_count += 1
+                hidden_slugs.add(slug)
 
         combo["native"] = valid_native
 
@@ -127,10 +127,10 @@ def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
                 if is_valid:
                     valid_reindexed[slug] = value
                 else:
-                    hidden_count += 1
+                    hidden_slugs.add(slug)
             combo["reindexed"] = valid_reindexed
 
-    return section, hidden_count
+    return section, len(hidden_slugs)
 
 
 def stamp_content_vintage(section: dict, source: str) -> dict:
@@ -149,7 +149,7 @@ def stamp_content_vintage(section: dict, source: str) -> dict:
         return section
 
     # Try source_provenance
-    provenance = section.get("source_provenance", {})
+    provenance = section.get("source_provenance") or {}
     if provenance.get("content_vintage"):
         section["content_vintage"] = provenance["content_vintage"]
         return section
