@@ -46,6 +46,12 @@ from typing import Any, Callable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.publication_windows import get_publication_status  # noqa: E402
 
+# Canonical bake-aware selection pattern (JEG-90): a week may hold multiple
+# immutable bakes; never blend them. Imported, not reimplemented -- single
+# source of truth for what "latest bake" means.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from import_supabase_references import _select_latest_bake  # noqa: E402
+
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_SOURCES_ROOT = ROOT / "data" / "raw" / "sources"
 DEFAULT_OUTPUT = ROOT / "output" / "source-import-health.json"
@@ -66,19 +72,19 @@ WEEK_DESIGNATED_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs", "cbs
 SOURCE_CONFIGS = {
     "fantasycalc": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at&source=eq.fantasycalc&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasycalc&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "usatoday": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at&source=eq.usatoday&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.usatoday&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "fantasypros": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at&source=eq.fantasypros&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasypros&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
@@ -90,7 +96,7 @@ SOURCE_CONFIGS = {
     },
     "cbs": {
         "api_table": "cbs_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at&source=eq.cbs&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.cbs&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": False,
     },
@@ -323,6 +329,15 @@ def latest_vintage_rows(
     deleted), but verification and display only ever see the newest one --
     older rows are ignored, never removed. Multiple dates -> newest date;
     no dates -> newest week.
+
+    Bake-aware (JEG-90): within the selected week, multiple immutable bakes
+    may coexist; this read scopes to exactly one bake via the canonical
+    _select_latest_bake (imported from import_supabase_references). Single
+    source of truth for what "latest bake" means -- greatest max(created_at)
+    across the bake's rows, tie-broken by greatest bake_id for determinism,
+    fail-closed when no row carries created_at. Re-reads that omit bake_id
+    collapse every row into one implicit bake and the no-blend guarantee is
+    only as good as the table contract.
     """
     dates = sorted({str(r.get(date_col)) for r in rows if r.get(date_col)})
     weeks = sorted(
@@ -331,13 +346,19 @@ def latest_vintage_rows(
     )
     if dates:
         latest = dates[-1]
-        return latest, [r for r in rows if str(r.get(date_col)) == latest]
-    if weeks:
+        candidates = [r for r in rows if str(r.get(date_col)) == latest]
+    elif weeks:
         latest_week = weeks[-1]
-        return f"Week {latest_week}", [
+        latest = f"Week {latest_week}"
+        candidates = [
             r for r in rows if _week_sort_key(r.get("week")) == _week_sort_key(latest_week)
         ]
-    raise _NoVintage("table has no source_content_date and no week on any row")
+    else:
+        raise _NoVintage("table has no source_content_date and no week on any row")
+    # _select_latest_bake raises SystemExit when multiple bakes have no
+    # created_at -- preserve that as a fail-closed signal at the call site.
+    scoped, _ = _select_latest_bake(candidates)
+    return latest, scoped
 
 
 def table_vintage(rows: list[dict[str, Any]], *, date_col: str = "source_content_date") -> str:
@@ -457,6 +478,10 @@ def verify_source(
             live_vintage, latest_rows = latest_vintage_rows(rows, date_col=config["vintage_date_col"])
         except _NoVintage as exc:
             return fail("TABLE_DRIFT", f"table vintage undeterminable: {exc}")
+        except SystemExit as exc:
+            # _select_latest_bake fails closed (no-blend): multiple bakes, no
+            # created_at on any row -> recency would be a guess.
+            return fail("TABLE_DRIFT", f"bake scoping failed (no-blend guard): {exc}")
         entry["ignored_older_rows"] = len(rows) - len(latest_rows)
         # Checkpoint fields: expose what's actually in the DB so the dashboard
         # can show it separately from the snapshot vintage.
