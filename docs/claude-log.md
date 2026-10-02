@@ -15,7 +15,78 @@
 - No live database replay was attempted; this ticket fixes the repository SQL,
   not production schema state.
 
-Handoff notes between AI sessions ("harnesses"). Newest entry first.
+## 2026-10-02 - JEG-133: pages.yml deploy gate is no longer path-conditional and runs the rendered gate
+
+Branch `jeremyburstyn/jeg-133-deploy-gate` (worktree at
+`/home/hatch/workspace/worktrees/jeg133`). Closed GAP-037 / PH-6 / BH-1.
+
+### Verified (checks named)
+
+- `pages.yml` read end-to-end before and after the edit. Before: the
+  `make validate` step was `continue-on-error: true`, a separate "Check if
+  only monitor files changed" step set `product_changed=true|false` by
+  diffing `HEAD~1 HEAD` and grepping `^dist/modules/`, and a third step
+  `Fail if product changed but validation failed` re-raised the failure
+  only when `product_changed == 'true'`. After: validate is a plain
+  blocking `run: make validate`, the two path-conditional steps are gone,
+  and the rendered gate step (the same multi-line `run: |` block as
+  `preview.yml`, including `npm ci --prefix tests/rendered_gate`,
+  `npx --prefix tests/rendered_gate playwright-core install --with-deps
+  chromium`, and the `set +e`/`set -e`/`exit $rc` pattern) sits between
+  the lineage step and the deploy artifact steps.
+- The gate's blocking failure mode is the same as `preview.yml`: the
+  step runs `node tests/rendered_gate/gate.mjs dist --out
+  rendered-gate.json`, captures its exit code in `$rc`, then `exit $rc`.
+  A red gate therefore fails the step, the job, and the deploy.
+- `test_production_build_steps_are_the_expected_three` updated: the
+  pinned list is now `[(make sync, False), (make validate, False),
+  (python3 pipelines/build_source_value_lineage.py, True)]`. The
+  rendered gate step is a multi-line `run: |` block, so `run_command`
+  filters it out and `build_steps` is unchanged in shape.
+- New guard tests in `tests/test_preview_workflow_matches_pages.py`:
+  - `test_pages_runs_the_rendered_gate` -- exactly one gate step in
+    `pages.yml`, no `continue-on-error`.
+  - `test_pages_has_no_path_conditional_validate` -- the strings
+    `dist/modules/`, `product_changed`, and `HEAD~1` must not appear in
+    `pages.yml`.
+  - `test_pages_validate_is_blocking` -- `make validate` must not have
+    `continue-on-error: true`.
+  - Three negative tests (`test_reintroducing_path_conditional_validate
+    _is_caught`, `test_reintroducing_non_blocking_rendered_gate_in_pages
+    _is_caught`, `test_reintroducing_non_blocking_validate_in_pages_is
+    _caught`) re-inject each defect and assert the discrimination proof.
+- All three negative tests are name-checked against the assertions they
+  must trip. They are not generic "the regex is present" tests; they
+  assert that the *guard* would catch the regression.
+
+### Claimed, unverified
+
+- I could not run the test suite, GitHub Actions, or the rendered gate
+  headlessly in this sandbox (no `python3 -m unittest`, no `node`, no
+  Actions runner, no display server). The previous entries' standing
+  reason applies: the runtime cannot prompt for permission. Verification
+  must happen on the dispatcher or on a host that can run them.
+- I did not delete the duplicate `exit $rc` lines inside the gate step
+  (the lines after the first `exit $rc` are unreachable but pre-existing
+  in `preview.yml`; mirroring exactly is what the ticket asked for).
+  This is a latent dead-code defect, not new in this change.
+- I did not exercise the gate on a deliberately red build pushed to
+  main, because the ticket says I cannot push. The dispatcher's
+  scratch-branch deploy exercises are listed as out of scope.
+- I did not check whether `pages.yml`'s `cron: "30 11 * * *"` schedule
+  currently runs on the same runner image as `preview.yml`; if it does
+  not, the gate's `npm ci --prefix tests/rendered_gate` may need
+  additional setup. Today it is identical to the existing PR gate.
+
+### Open
+
+- The dead `exit $rc` duplicate in the rendered gate step is unchanged
+  in both workflows. Fixing it means editing `preview.yml` too, which is
+  out of scope for JEG-133. Left untouched on purpose.
+- GAP-037 marked Fixed in the risk register; BH-1 and PH-6 in
+  `docs/health/best-practices.md` still say "Partly" until the
+  dispatcher confirms the gate fires on a real red push. I did not
+  rewrite those rows.
 
 **Why this exists:** a session ends with claims in its chat transcript and nothing
 in the repo. The next session starts blind, re-derives what the last one already
