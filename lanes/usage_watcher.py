@@ -2,11 +2,18 @@
 """
 Usage watcher - polls lane quotas, enforces 20% dispatch floor.
 
-- ChatGPT lane: polls Codex app-server API (DESCOPED from JEG-99: no polling implementation)
+- ChatGPT lane: per-account codex poll data (JEG-101, descoped from JSON-RPC polling)
 - MiniMax lane: dispatch ledger (lanes/dispatch_ledger.jsonl) with rolling 5h window
-- Claude lane: ledger-based with mark_depleted hook, returns unknown until real source
-- Writes lanes/usage.json with per-lane {used_percent, remaining_percent, resets_at, source, updated_at}
-- can_dispatch(lane) returns False when remaining < 20% or when status is unknown
+- Claude lane: per-account ledger-based depletion markers; legacy flat get_claude_usage()
+  remains for backward compat with the 11 existing tests.
+- Writes lanes/usage.json with the new multi-account shape:
+    {
+      "chatgpt": {"jeremy": {...}, "wife": {...}},
+      "claude":  {"jeremy": {...}, "wife": {...}},
+      "minimax": {...flat...}
+    }
+- can_dispatch(lane, usage_data) returns 'jeremy' | 'wife' for multi-account lanes, or bool
+  for legacy flat lanes, or False when the lane is unknown.
 """
 
 import json
@@ -24,110 +31,88 @@ CODEX_API_URL = os.environ.get("CODEX_API_URL", "http://localhost:8080")
 MINIMAX_QUOTA = 100  # 100 dispatches per window = 100%
 CLAUDE_QUOTA = 100
 
+# Module-level cache for codex poll data, keyed by account name.
+# Populated by inject_codex_poll_data(account, data), drained by get_chatgpt_usage().
+_codex_poll_data: Dict[str, Dict[str, Any]] = {}
 
-def get_chatgpt_usage() -> Dict[str, Any]:
+
+# ---------------------------------------------------------------------------
+# Codex poll-data injection (JEG-101)
+# ---------------------------------------------------------------------------
+
+def inject_codex_poll_data(account: str, data: Dict[str, Any]) -> None:
     """
-    Poll ChatGPT (Codex) lane quota:
-    - spawn 'codex app-server'
-    - send 'initialize' with clientInfo
-    - send 'initialized' notification
-    - send 'account/rateLimits/read' with NO jsonrpc:2.0 field
-    - extract primary (5h) and secondary (weekly) usedPercent + resetsAt
-
-    Note: Codex polling is descoped from JEG-99 - this is legacy implementation.
-
-    Returns usage data with used_percent, remaining_percent, resets_at, source.
+    Inject codex rate-limit poll data for a given account ('jeremy' or 'wife').
+    Consumed by get_chatgpt_usage(); clear_codex_poll_data() removes all injections.
     """
-    try:
-        import requests
+    _codex_poll_data[account] = data
 
-        # Step 1: Send initialize with clientInfo (NOT jsonrpc:2.0 wrapper)
-        resp = requests.post(
-            CODEX_API_URL,
-            json={
-                "id": 1,
-                "method": "initialize",
-                "params": {
-                    "clientInfo": {
-                        "name": "data-driven-football",
-                        "version": "1.0.0"
-                    }
-                }
-            },
-            timeout=5
-        )
-        if resp.status_code != 200:
-            return _default_usage("chatgpt", "codex-unreachable")
 
-        # Step 2: Send initialized notification (no id, no jsonrpc wrapper)
-        resp = requests.post(
-            CODEX_API_URL,
-            json={
-                "method": "initialized",
-                "params": {}
-            },
-            timeout=5
-        )
-        # Ignore response - this is a notification
+def clear_codex_poll_data() -> None:
+    """Remove all injected codex poll data (used between tests)."""
+    _codex_poll_data.clear()
 
-        # Step 3: Send account/rateLimits/read with NO jsonrpc:2.0 field
-        resp = requests.post(
-            CODEX_API_URL,
-            json={
-                "id": 2,
-                "method": "account/rateLimits/read",
-                "params": {}
-            },
-            timeout=5
-        )
-        if resp.status_code != 200:
-            return _default_usage("chatgpt", "codex-unreachable")
 
-        data = resp.json()
+# ---------------------------------------------------------------------------
+# ChatGPT lane
+# ---------------------------------------------------------------------------
 
-        # Parse the Codex response - may have primary (5h) and secondary (weekly) limits
-        if "result" in data:
-            result = data.get("result", {})
+def get_chatgpt_usage() -> Dict[str, Dict[str, Any]]:
+    """
+    Get ChatGPT lane usage from injected codex poll data only (JEG-101).
+    CodeX JSON-RPC polling remains descoped.
 
-            # Get primary limit (5-hour window)
-            primary = result.get("primary", {})
-            limit = primary.get("limit", 100)
-            remaining = primary.get("remaining", 100)
-            used = limit - remaining
+    Returns a dict mapping account name to usage data:
+        {'jeremy': {...}, 'wife': {...}}
 
-            # Use usedPercent if provided, otherwise calculate
-            if "usedPercent" in primary:
-                used_percent = primary.get("usedPercent", 0)
-            else:
-                used_percent = (used / limit * 100) if limit > 0 else 0
+    Each value is the injected payload normalized into the standard
+    {used_percent, remaining_percent, remaining, resets_at, source, updated_at}
+    shape. Missing accounts fall back to a default with source='codex-uninjected'.
+    """
+    accounts = ("jeremy", "wife")
+    out: Dict[str, Dict[str, Any]] = {}
+    for account in accounts:
+        payload = _codex_poll_data.get(account)
+        if payload is None:
+            out[account] = _default_usage("chatgpt", "codex-uninjected")
+            continue
+        out[account] = _normalize_codex_payload(account, payload)
+    return out
 
-            # Get resetsAt from primary
-            resets_at = primary.get("resetsAt")
-            if resets_at:
-                # Handle ISO format
-                if isinstance(resets_at, str):
-                    if not resets_at.endswith("Z") and "+" not in resets_at:
-                        resets_at = resets_at + "Z"
-            else:
-                # Fallback to secondary if primary has no reset
-                secondary = result.get("secondary", {})
-                resets_at = secondary.get("resetsAt")
 
-            return {
-                "used_percent": round(used_percent, 1),
-                "remaining_percent": round(100 - used_percent, 1),
-                "remaining": remaining,
-                "resets_at": resets_at,
-                "source": "codex-api",
-                "updated_at": datetime.now(timezone.utc).isoformat()
-            }
+def _normalize_codex_payload(account: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Normalize a raw codex poll payload into the standard usage shape.
+    Accepts either used_percent/remaining_percent directly, or limit/remaining.
+    """
+    if "used_percent" in payload:
+        used_percent = float(payload.get("used_percent", 0.0))
+    else:
+        limit = float(payload.get("limit", 100))
+        remaining = float(payload.get("remaining", limit))
+        used_percent = ((limit - remaining) / limit * 100.0) if limit > 0 else 0.0
 
-        return _default_usage("chatgpt", "codex-no-result")
+    used_percent = max(0.0, min(used_percent, 100.0))
+    remaining_percent = 100.0 - used_percent
 
-    except Exception as e:
-        # If Codex API fails, return short status string (no exception repr)
-        return _default_usage("chatgpt", "codex-unreachable")
+    resets_at = payload.get("resets_at")
+    if isinstance(resets_at, str) and resets_at and not resets_at.endswith("Z") and "+" not in resets_at:
+        resets_at = resets_at + "Z"
 
+    return {
+        "account": account,
+        "used_percent": round(used_percent, 1),
+        "remaining_percent": round(remaining_percent, 1),
+        "remaining": payload.get("remaining"),
+        "resets_at": resets_at,
+        "source": payload.get("source", "codex-poll"),
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Legacy / shared helpers
+# ---------------------------------------------------------------------------
 
 def _default_usage(lane: str, source: str) -> Dict[str, Any]:
     """Return default usage when API is unavailable."""
@@ -239,11 +224,18 @@ def get_minimax_usage() -> Dict[str, Any]:
         return _default_usage("minimax", "ledger-error")
 
 
+# ---------------------------------------------------------------------------
+# Claude lane
+# ---------------------------------------------------------------------------
+
 def get_claude_usage() -> Dict[str, Any]:
     """
     Get Claude lane usage - ledger-based.
     Returns unknown until a real data source is implemented.
     If a depletion marker exists in the ledger, returns 0% remaining with status "depleted".
+
+    Backward compat: this is the FLAT single-lane accessor used by the 11 existing tests.
+    Per-account data is served by get_claude_account_usage().
     """
     if not DISPATCH_LEDGER.exists():
         return {
@@ -304,6 +296,102 @@ def get_claude_usage() -> Dict[str, Any]:
         }
 
 
+def get_claude_account_usage(account: str, config_dir: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Get Claude lane usage for a single account (JEG-101).
+
+    Reads per-account depletion markers from <config_dir>/dispatch_ledger.jsonl.
+    NEVER reads credential files - only the ledger.
+
+    Args:
+        account: 'jeremy' or 'wife'.
+        config_dir: directory holding dispatch_ledger.jsonl for this account.
+            If None, looks up:
+              - CLAUDE_CONFIG_DIR        (jeremy's account)
+              - CLAUDE_CONFIG_DIR_WIFE   (wife's account)
+            If both are unset, returns 'unknown' WITHOUT touching the filesystem.
+
+    Returns:
+        Standard usage dict. status is 'depleted' if the ledger contains a
+        depletion marker for this account; otherwise 'unknown'.
+    """
+    if config_dir is None:
+        env_var = "CLAUDE_CONFIG_DIR_WIFE" if account == "wife" else "CLAUDE_CONFIG_DIR"
+        config_dir = os.environ.get(env_var)
+        if not config_dir:
+            return {
+                "account": account,
+                "used_percent": None,
+                "remaining_percent": None,
+                "remaining": None,
+                "resets_at": None,
+                "source": "none",
+                "status": "unknown",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+    ledger_path = Path(config_dir) / "dispatch_ledger.jsonl"
+    if not ledger_path.exists():
+        return {
+            "account": account,
+            "used_percent": None,
+            "remaining_percent": None,
+            "remaining": None,
+            "resets_at": None,
+            "source": "ledger-missing",
+            "status": "unknown",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+    try:
+        now = datetime.now(timezone.utc)
+        with open(ledger_path, 'r') as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if (
+                    entry.get("event") == "depleted"
+                    and entry.get("lane") == "claude"
+                    and entry.get("account") == account
+                ):
+                    return {
+                        "account": account,
+                        "used_percent": 100.0,
+                        "remaining_percent": 0.0,
+                        "remaining": 0,
+                        "resets_at": None,
+                        "source": "ledger",
+                        "status": "depleted",
+                        "updated_at": now.isoformat(),
+                    }
+        return {
+            "account": account,
+            "used_percent": None,
+            "remaining_percent": None,
+            "remaining": None,
+            "resets_at": None,
+            "source": "ledger",
+            "status": "unknown",
+            "updated_at": now.isoformat(),
+        }
+    except Exception:
+        return {
+            "account": account,
+            "used_percent": None,
+            "remaining_percent": None,
+            "remaining": None,
+            "resets_at": None,
+            "source": "ledger-error",
+            "status": "unknown",
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+
+
 def mark_minimax_depleted() -> None:
     """
     Hook to mark MiniMax lane as depleted when quota is hit.
@@ -340,63 +428,91 @@ def mark_claude_depleted() -> None:
 
 def get_all_usage() -> Dict[str, Dict[str, Any]]:
     """
-    Get usage for all lanes.
-    Returns dict mapping lane name to usage data.
+    Get usage for all lanes (JEG-101 multi-account shape).
+
+    Returns:
+        {
+            "chatgpt": {"jeremy": {...}, "wife": {...}},
+            "claude":  {"jeremy": {...}, "wife": {...}},
+            "minimax": {...flat...},
+        }
     """
     return {
         "chatgpt": get_chatgpt_usage(),
+        "claude": {
+            "jeremy": get_claude_account_usage("jeremy"),
+            "wife": get_claude_account_usage("wife"),
+        },
         "minimax": get_minimax_usage(),
-        "claude": get_claude_usage()
     }
 
 
-def can_dispatch(lane: str, usage_data: Optional[Dict[str, Dict[str, Any]]] = None) -> bool:
+def can_dispatch(lane: str, usage_data: Optional[Dict[str, Dict[str, Any]]] = None) -> Any:
     """
-    Check if a lane can accept new dispatches.
-    Returns False when remaining < 20% (i.e., used >= 80%).
+    Check if a lane can accept new dispatches (JEG-101 multi-account aware).
+
+    Behavior:
+      - If the lane's data has 'jeremy'/'wife' sub-keys (multi-account), return
+        the first account whose remaining >= 20% AND status is not 'depleted'.
+        Order: 'jeremy', then 'wife'. False if neither qualifies.
+      - Otherwise, fall through to the legacy flat path: return True iff
+        remaining_percent >= 20% AND status is not 'unknown' / 'depleted'.
+      - If the lane is unknown, return False (fail closed).
 
     Args:
-        lane: Lane name ("chatgpt", "minimax", "claude")
-        usage_data: Optional pre-fetched usage data. Can be:
-            - None: fetches fresh data for all lanes
-            - A per-lane dict (single lane data): uses directly
-            - An all-lanes dict {"chatgpt": {...}, "minimax": {...}, ...}: looks up the lane internally
-
-    Returns:
-        True if lane can accept dispatch, False if below 20% remaining threshold.
+        lane: Lane name ('chatgpt', 'claude', 'minimax').
+        usage_data: Optional pre-fetched usage data, either an all-lanes dict
+            (as returned by get_all_usage) or a per-lane dict.
     """
     if usage_data is None:
-        all_usage = get_all_usage()
-        usage_data = all_usage.get(lane)
+        usage_data = get_all_usage()
+
+    # If we got an all-lanes dict, look up the lane.
+    if isinstance(usage_data, dict) and lane in usage_data and isinstance(usage_data.get(lane), dict):
+        lane_data = usage_data[lane]
     else:
-        # Check if this is an all-lanes dict or a per-lane dict
-        # If usage_data has keys that are lane names (chatgpt, minimax, claude),
-        # it's an all-lanes dict and we need to look up the specific lane
-        if lane in usage_data:
-            # It's an all-lanes dict, extract the lane
-            usage_data = usage_data.get(lane)
-        # Otherwise, it's already a per-lane dict
+        lane_data = usage_data
 
-    if usage_data is None:
-        # Unknown lane - fail closed (do not dispatch blind)
+    if not isinstance(lane_data, dict) or lane_data is None:
         return False
 
-    # Fail closed for unknown status - never dispatch blind
-    status = usage_data.get("status")
-    if status == "unknown":
+    # Multi-account path: dict with 'jeremy' / 'wife' sub-keys.
+    if "jeremy" in lane_data or "wife" in lane_data:
+        for account in ("jeremy", "wife"):
+            account_data = lane_data.get(account)
+            if not isinstance(account_data, dict):
+                continue
+            if account_data.get("status") in ("depleted", "unknown"):
+                continue
+            remaining = account_data.get("remaining_percent")
+            if remaining is None:
+                continue
+            if remaining >= 20.0:
+                return account
         return False
 
-    remaining_percent = usage_data.get("remaining_percent", 100.0)
-
-    # Enforce 20% dispatch floor
+    # Legacy flat path.
+    status = lane_data.get("status")
+    if status in ("unknown", "depleted"):
+        return False
+    remaining_percent = lane_data.get("remaining_percent", 100.0)
     return remaining_percent >= 20.0
 
 
 def write_usage_json() -> None:
     """
-    Write current usage to lanes/usage.json.
+    Write current usage to lanes/usage.json (JEG-101 multi-account shape).
     """
     usage = get_all_usage()
+    # Per-entry fresh updated_at (already set by the leaf functions, but refresh
+    # once more at the top level so the file stamp is monotonic on every write).
+    now = datetime.now(timezone.utc).isoformat()
+    for lane_data in usage.values():
+        if isinstance(lane_data, dict):
+            # Could be {"jeremy": {...}, "wife": {...}} or flat.
+            for sub in lane_data.values():
+                if isinstance(sub, dict) and "updated_at" in sub:
+                    sub["updated_at"] = now
     with open(USAGE_JSON, 'w') as f:
         json.dump(usage, f, indent=2)
     print(f"Wrote usage to {USAGE_JSON}")
@@ -412,11 +528,21 @@ def main():
 
     for lane, data in usage.items():
         print(f"\n{lane.upper()}:")
-        print(f"  Used: {data['used_percent']}%")
-        print(f"  Remaining: {data['remaining_percent']}% ({data.get('remaining', 'N/A')} dispatches)")
-        print(f"  Resets: {data.get('resets_at', 'N/A')}")
-        print(f"  Source: {data['source']}")
-        print(f"  Can dispatch: {can_dispatch(lane, data)}")
+        if isinstance(data, dict) and ("jeremy" in data or "wife" in data):
+            for account, sub in data.items():
+                print(f"  [{account}]")
+                print(f"    Used:      {sub.get('used_percent')}%")
+                print(f"    Remaining: {sub.get('remaining_percent')}% ({sub.get('remaining', 'N/A')})")
+                print(f"    Resets:    {sub.get('resets_at', 'N/A')}")
+                print(f"    Source:    {sub.get('source')}")
+                print(f"    Status:    {sub.get('status', 'ok')}")
+                print(f"    Pick:      {can_dispatch(lane, {lane: {account: sub}})}")
+        else:
+            print(f"  Used: {data.get('used_percent')}%")
+            print(f"  Remaining: {data.get('remaining_percent')}% ({data.get('remaining', 'N/A')} dispatches)")
+            print(f"  Resets: {data.get('resets_at', 'N/A')}")
+            print(f"  Source: {data.get('source')}")
+            print(f"  Can dispatch: {can_dispatch(lane, data)}")
 
     print("\n" + "=" * 60)
     print(f"Usage written to: {USAGE_JSON}")

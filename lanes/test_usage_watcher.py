@@ -345,6 +345,75 @@ def test_error_status_string_no_exception_repr():
         os.rmdir(ledger_path)
 
 
+# ---------------------------------------------------------------------------
+# JEG-101: multi-account usage watcher tests
+# ---------------------------------------------------------------------------
+
+def test_chatgpt_overflow_his_95_hers_10_picks_wife():
+    """
+    JEG-101: his codex is 95% used (5% remaining, below 20% floor),
+    hers is 10% used (90% remaining). can_dispatch('chatgpt', data) must pick
+    'wife' because she is the only account with remaining >= 20%.
+    """
+    usage_watcher.clear_codex_poll_data()
+    try:
+        usage_watcher.inject_codex_poll_data(
+            "jeremy", {"used_percent": 95.0, "remaining_percent": 5.0,
+                       "resets_at": None, "source": "codex-poll"})
+        usage_watcher.inject_codex_poll_data(
+            "wife", {"used_percent": 10.0, "remaining_percent": 90.0,
+                     "resets_at": None, "source": "codex-poll"})
+        data = {
+            "chatgpt": usage_watcher.get_chatgpt_usage(),
+            "claude": {
+                "jeremy": usage_watcher.get_claude_account_usage("jeremy"),
+                "wife": usage_watcher.get_claude_account_usage("wife"),
+            },
+            "minimax": {
+                "used_percent": 0.0, "remaining_percent": 100.0,
+                "source": "ledger",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        }
+        result = usage_watcher.can_dispatch("chatgpt", data)
+        assert result == "wife", f"Expected 'wife' (overflow target), got {result!r}"
+        print("TEST 12 PASSED: chatgpt 95/10 picks 'wife'")
+    finally:
+        usage_watcher.clear_codex_poll_data()
+
+
+def test_chatgpt_both_above_80_percent_used_returns_false():
+    """
+    JEG-101: both accounts above 80% used (remaining < 20%) -> can_dispatch
+    must return False (fail closed, no account qualifies).
+    """
+    usage_watcher.clear_codex_poll_data()
+    try:
+        usage_watcher.inject_codex_poll_data(
+            "jeremy", {"used_percent": 92.0, "remaining_percent": 8.0,
+                       "resets_at": None, "source": "codex-poll"})
+        usage_watcher.inject_codex_poll_data(
+            "wife", {"used_percent": 85.0, "remaining_percent": 15.0,
+                     "resets_at": None, "source": "codex-poll"})
+        data = {
+            "chatgpt": usage_watcher.get_chatgpt_usage(),
+            "claude": {
+                "jeremy": usage_watcher.get_claude_account_usage("jeremy"),
+                "wife": usage_watcher.get_claude_account_usage("wife"),
+            },
+            "minimax": {
+                "used_percent": 0.0, "remaining_percent": 100.0,
+                "source": "ledger",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            },
+        }
+        result = usage_watcher.can_dispatch("chatgpt", data)
+        assert result is False, f"Expected False when both above 80% used, got {result!r}"
+        print("TEST 13 PASSED: chatgpt both >80% used returns False")
+    finally:
+        usage_watcher.clear_codex_poll_data()
+
+
 def main():
     print("=" * 60)
     print("Running usage_watcher unit tests")
@@ -362,6 +431,8 @@ def main():
         test_claude_depletion_marker_returns_zero_remaining()
         test_claude_no_ledger_returns_unknown()
         test_error_status_string_no_exception_repr()
+        test_chatgpt_overflow_his_95_hers_10_picks_wife()
+        test_chatgpt_both_above_80_percent_used_returns_false()
 
         print("=" * 60)
         print("ALL TESTS PASSED")

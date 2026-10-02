@@ -1562,3 +1562,62 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+---
+
+## 2026-10-02 — JEG-101: multi-account usage watcher with overflow dispatch
+
+Branch: `minimax/jeg-101-usage-watcher-multi-account` (no merge, no push).
+
+### Verified
+
+- `lanes/usage_watcher.py` rewritten per the validated design in the Linear
+  ticket. The legacy flat `get_claude_usage()` is byte-for-byte unchanged
+  apart from a docstring addendum; the 11 existing tests should still see
+  the same surface.
+- New surface area:
+    - `_codex_poll_data` module dict + `inject_codex_poll_data(account, data)`
+      and `clear_codex_poll_data()`. `get_chatgpt_usage()` now reads from
+      this dict only — Codex JSON-RPC polling remains descoped.
+    - `get_claude_account_usage(account, config_dir=None)` reads
+      `<config_dir>/dispatch_ledger.jsonl` and only checks depletion markers
+      with matching `account`. `config_dir=None` falls back to
+      `CLAUDE_CONFIG_DIR` / `CLAUDE_CONFIG_DIR_WIFE`, and returns unknown
+      *without touching the filesystem* if both are unset.
+    - `get_all_usage()` returns the new shape
+      `{'chatgpt': {'jeremy': ..., 'wife': ...}, 'claude': {'jeremy': ..., 'wife': ...}, 'minimax': {...flat...}}`.
+    - `write_usage_json()` writes that shape with a fresh `updated_at` per
+      leaf entry on every call.
+    - `can_dispatch(lane, usage_data)`:
+        - lane missing from data → `False`
+        - lane data has `jeremy`/`wife` sub-keys → returns the first account
+          (order: `jeremy`, `wife`) with `remaining_percent >= 20.0` and
+          status not in `('depleted', 'unknown')`; else `False`.
+        - else → legacy flat path (unchanged logic: True iff
+          `remaining_percent >= 20.0` and status is not `unknown`/`depleted`).
+- `lanes/test_usage_watcher.py` extended with two new tests, both registered
+  in `main()` *after* the 11 existing calls so the existing tests are not
+  modified:
+    - `test_chatgpt_overflow_his_95_hers_10_picks_wife` — injects jeremy=95%
+      used, wife=10% used, asserts `can_dispatch('chatgpt', data) == 'wife'`.
+    - `test_chatgpt_both_above_80_percent_used_returns_false` — injects
+      jeremy=92% used, wife=85% used, asserts result is `False`.
+  Both new tests wrap usage in `clear_codex_poll_data()` / `try/finally` so
+  they cannot leak state into other tests.
+
+### Claimed, unverified
+
+- Sandbox note from the user says tests and the Linear CLI cannot be run
+  here. The two new tests are written to match the design spec but were
+  *not* executed in this session. The 11 existing tests were also not
+  executed in this session — the legacy `get_claude_usage()` was rewritten
+  only inside its docstring, so its test surface is byte-stable, but that
+  is a check on diff shape, not a passing test run. Settling this requires
+  running `python lanes/test_usage_watcher.py` in a real environment.
+
+### Notes
+
+- Did not push, did not merge. Single commit on the working branch only.
+- `usage.json` shape is a breaking change for any downstream reader that
+  expected flat per-lane dicts at the top level. Worth a follow-up ticket
+  if anything outside this file reads `lanes/usage.json` directly.
