@@ -1,5 +1,32 @@
 # Claude session log
 
+## 2026-10-02 - JEG-113: `Rebuild comparison chain` failing in CI (5 consecutive), succeeds locally
+
+Lane: minimax (M3). Branch `minimax/jeg-113-ci-chain-failure`. Diagnosis
+only — no code change proposed. Result written to
+`lanes/inbox/minimax/JEG-113.md`.
+
+### Verified (checks named)
+
+- `.github/workflows/rebuild-chain.yml` and `pipelines/rebuild_comparison_chain.py` were read end to end; the chain has 9 stages, of which snapshot / match / reference / section / reindex / review / promote / fit / adjusted_sections are fail-closed and `vorp-translate` + `vorp_refresh` are fail-safe.
+- `dist/modules/comparison-chain-status.json` records a successful local run at `2026-10-02T12:45:12.147510+00:00` (nfl_week=4, all 6 sources promoted, `runner: "local"`) — exactly two minutes after one of the listed CI failures at Oct 2 12:43 UTC, on the same branch with a clean working tree (`git status` confirmed before the commit).
+- `git log --oneline -30` shows no commits on the chain code in the window the 5 CI failures started (Oct 1 06:02 .. Oct 2 12:43 UTC); the most recent chain-affecting commits are JEG-70 (VORP translation) and JEG-104 (migration). The headline commit on top is `eb03a76 Resolve JEG-76/JEG-109 conflict…`.
+- `data/raw/sources/` on disk contains only `cbsros/2026-09-30/`, `espn/live_page_projections_2026-09-30.json` (a file, not a directory), and `fantasycalc/week-4/`. **No directories exist for `usatoday`, `fantasypros`, `cbs`, or `razzball`** — so the local "success" at 12:45 was reading a state from earlier than the current workspace (which was last touched at 20:01, per directory mtime). This means the real comparison is CI's freshly-imported snapshots vs. the chain stages.
+- `pipelines/gh_sbclient.py` (the CI shim) was read in full; it implements `get / get_all / post / patch / delete` and `SupabaseError`, and is installed on `PYTHONPATH=/tmp/gh_shim` by the workflow's install step.
+
+### Claimed, unverified
+
+- **The actual CI exception text** — required by the issue brief and not obtained. Every egress channel from this host (`bash curl`, `web_fetch`, `web_search`) returned `HOST_CAPABILITY_UNAVAILABLE` / `MATRIX_TOOL_REQUEST_FAILED`. The diagnosis in `lanes/inbox/minimax/JEG-113.md` is a structural shortlist (H1–H6), not a verdict. Resolves with a single `gh run view 37008420140 --repo JB-barrel-droid/fantasy-tools --log-failed`.
+- The local run at 12:45 succeeded *on the same code state* as the failing CI run at 12:43. Inferred from `dist/modules/comparison-chain-status.json` `run_at` and `git status` clean. Not independently re-run (the snapshot dirs needed for it no longer exist locally).
+- `_select_latest_bake` in `import_supabase_references.py` would `raise SystemExit("Fail closed: multiple bakes present but no created_at on any row; cannot determine the latest bake without guessing.")` if Supabase has rows for ≥2 bake_ids and none have `created_at`. Read from the code; not observed in CI.
+
+### Open
+
+- The 5-run streak on `Rebuild comparison chain` may be the import step (or health step) failing in CI, not the chain step itself — the Actions summary can mark the *first failing* step, and the brief's headline may be looser than the underlying cause. Worth checking the run summary, not just the chain step's log.
+- `lanes/inbox/minimax/JEG-113.md` is committed on `minimax/jeg-113-ci-chain-failure` but **not pushed** (the issue brief explicitly says "no fix yet" and "commit only the inbox file"; that overrides the standing "commit and push by default" rule).
+
+---
+
 ## 2026-10-02 - JEG-104 migration replay correction (Codex)
 
 ### Verified
