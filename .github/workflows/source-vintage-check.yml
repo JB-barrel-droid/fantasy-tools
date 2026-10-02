@@ -42,6 +42,11 @@ jobs:
           # Also output for debugging
           echo "Vintage check result: changed=$CHANGED"
           cat /tmp/vintage-check.json
+          if [ "$CHANGED" = "True" ]; then
+            echo "Source vintage check: changes detected, rebuild dispatched" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Source vintage check: unchanged since last check" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Dispatch rebuild-chain on changes
         if: steps.check.outputs.changed == 'True'
