@@ -89,6 +89,17 @@ class LineageMergeTest(unittest.TestCase):
             bsvl.merge_fixture_only(["razzball"])
         self.assertEqual(before, self.out.read_text())
 
+    def test_refuses_adjusted_legs_from_merge_path(self):
+        """JEG-98: adjusted legs need a parent source's live scrape to inherit,
+        so they cannot be merged via the fixture-only --merge path. Every
+        adjusted leg name must be rejected."""
+        before = self.out.read_text()
+        for adj in ("fantasypros_adjusted", "usatoday_adjusted",
+                    "fantasycalc_adjusted", "cbs_adjusted"):
+            with self.assertRaises(SystemExit):
+                bsvl.merge_fixture_only([adj])
+        self.assertEqual(before, self.out.read_text())
+
 
 if __name__ == "__main__":
     unittest.main()

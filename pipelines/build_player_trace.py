@@ -16,15 +16,18 @@ from pathlib import Path
 from collections import defaultdict
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "pipelines"))
 
 # Sources to trace (the main ones, not _adjusted)
 SOURCES = ["espn", "fantasycalc", "fantasypros", "usatoday", "cbs", "cbsros"]
+
 
 def norm_name(n):
     """Normalize a name for matching: lowercase, underscores/hyphens to spaces, strip."""
     if not isinstance(n, str):
         return str(n)
     return n.lower().replace("_", " ").replace("-", " ").strip()
+
 
 def load_fixture():
     """Load the current fixture."""

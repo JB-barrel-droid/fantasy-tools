@@ -59,3 +59,21 @@ The monitoring dashboard must include checks that prove wiring, not just impleme
 **Verification:** `verify_vorp_wiring.py` prints all 16 OKs (e.g. fantasycalc_adjusted/half_12_qb1: JSN 40.0 > Puka 31.3). A stale rebuild would trip the check with the exact remediation (`build_adjusted_fixture_sections.py`).
 
 **Wiring lesson:** When a pipeline stage rewrites values that a downstream stage derives from, the rebuild of the downstream stage belongs INSIDE the same write path (flag or automatic), never as a separate manual step someone must remember.
+
+### Example: Player Identity Resolution (JEG-75, 2026-10-02)
+
+**What happened:** Ad-hoc name normalization functions (`_norm_name`, `normalize_name`) were scattered across pipeline files, each implementing slightly different rules. This caused inconsistent player matching and broke the fail-closed identity rule ("nothing is guessed").
+
+**Root cause:** Each saver implemented its own normalization logic instead of using a single canonical source. The differences in normalization (apostrophe handling, hyphen stripping, suffix handling, nickname expansion) caused 5/13 tricky names to differ, including:
+- Ja'Marr (apostrophe variant)
+- A.J. (period spacing)
+- Amon-Ra (hyphen)
+- Chris -> Christopher (nickname expansion)
+
+**Fixes applied:**
+1. Added `tests/test_player_identity_guard.py` - an AST-based regression test that scans the real pipelines tree and fails on new ad-hoc normalization functions, enforcing future use of the pre-existing `pipelines/lib/canonical_players.py` (`resolve()` registry-based resolution) for identity matching
+2. Wired the guard into `make test-unit` to prevent regression
+3. Deliberately did NOT migrate the existing local normalizers: a tricky-name battery (apostrophes, periods, hyphens, suffixes, nicknames) showed the canonical normalizer differs on 5/13 names (e.g. Chris->Christopher nickname expansion), which would have broken the fail-closed "nothing is guessed" rule in `save_razzball_references.py` and its identity tests. Migration of each existing site needs per-site analysis as follow-up work - the guard guarantees no NEW ad-hoc normalizers appear in the meantime.
+4. Kept existing `normalize_name` in `match_source_snapshot.py` for label-only purposes (not identity matching)
+
+**Verification:** The guard test passes, and the razzball identity tests (`test_nicknames_are_not_guessed`, `test_the_snapshots_own_player_norm_resolves_a_suffix_spelling`, `test_duplicate_players_stay_ambiguous_and_are_never_guessed`) all pass, proving the fail-closed behavior is preserved.

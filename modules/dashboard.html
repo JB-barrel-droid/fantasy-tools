@@ -832,8 +832,24 @@ async function main(){
     if(linResp.ok){
       const linData = await linResp.json();
       const linSources = linData.sources || {};
-      const order = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"].filter(s => linSources[s]);
-      const labels = {espn:"ESPN", cbs:"CBS", cbsros:"CBS ROS", razzball:"Razzball", fantasycalc:"FantasyCalc", fantasypros:"FantasyPros", usatoday:"USA Today"};
+      // JEG-98: each adjusted leg follows its parent in the render order so
+      // the lineage reads parent -> adjusted, parent -> adjusted, ...
+      const order = [
+        "espn",
+        "cbs", "cbs_adjusted",
+        "cbsros",
+        "razzball",
+        "fantasycalc", "fantasycalc_adjusted",
+        "fantasypros", "fantasypros_adjusted",
+        "usatoday", "usatoday_adjusted",
+      ].filter(s => linSources[s]);
+      const labels = {
+        espn:"ESPN", cbs:"CBS", cbs_adjusted:"CBS (adjusted)",
+        cbsros:"CBS ROS", razzball:"Razzball",
+        fantasycalc:"FantasyCalc", fantasycalc_adjusted:"FantasyCalc (adjusted)",
+        fantasypros:"FantasyPros", fantasypros_adjusted:"FantasyPros (adjusted)",
+        usatoday:"USA Today", usatoday_adjusted:"USA Today (adjusted)",
+      };
 
       // Count live mismatches
       // Per user requirement: unverifiable sources (no live human-readable page)
@@ -879,7 +895,12 @@ async function main(){
                            !s.live_scraped ? '<span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span>' : '';
           const liveCell = s.live_scraped
             ? `<td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.live_value)} ${liveIcon}</td>`
-            : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span> <span style="color:var(--faint)">unverifiable</span></td>`;
+            : s.parent_source
+              // JEG-98 adjusted leg: live value inherited from parent
+              // source's scrape, but the leg has no live page of its own
+              // so the live-verification column fails red per contract.
+              ? `<td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.live_value)} ${liveIcon}</td>`
+              : `<td style="padding:6px 8px;font-family:monospace;text-align:right"><span style="color:var(--red)" title="FAIL: No live human-readable page available for verification">✗</span> <span style="color:var(--faint)">unverifiable</span></td>`;
           return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">
             <td style="padding:6px 8px;color:var(--dim)">${p.rank}</td>
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>

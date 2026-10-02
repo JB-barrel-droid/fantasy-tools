@@ -20,6 +20,7 @@ Usage:
 """
 import argparse
 import csv
+import json
 import os
 import re
 import sys
@@ -151,6 +152,97 @@ def ecr_csv_path(ecr_type, pos, week):
     raise ValueError(f"unknown ecr_type {ecr_type}")
 
 
+# JEG-86 / Jeremy 2026-10-02: the dataset's week must come from the page
+# evidence, not from the caller's --week. For the CSV path the URL slug
+# analog is the filename week: ecr_qb_wk4.csv -> 4, proj_wr_wk5.csv -> 5.
+# The page headline analog is whatever evidence the upstream page puller
+# (ops/watchdog/pull_fantasypros.py) cached; that lives in a sidecar JSON
+# named <csv>.week.json next to the CSV. We validate filename week against
+# the requested --week and against the sidecar, fail-closed on any mismatch.
+_FP_WEEK_FROM_FILENAME = re.compile(r"_wk(\d+)(?:\.csv)?$", re.I)
+
+
+def read_json(path):
+    try:
+        with open(path) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def extract_week_from_filename(path: str) -> int | None:
+    """Extract week number from the CSV filename (URL-slug analog).
+
+    Matches `_wk<N>` immediately before the `.csv` suffix (or at end of
+    stem). e.g. "ecr_qb_wk4.csv" -> 4, "proj_wr_wk5.csv" -> 5,
+    "ecr_ros_qb_wk3.csv" -> 3. Returns None for non-week-stamped files
+    (draft / dynasty / season snapshots) so the guard only fires for files
+    that actually encode a week.
+    """
+    base = os.path.basename(path)
+    m = _FP_WEEK_FROM_FILENAME.search(base)
+    return int(m.group(1)) if m else None
+
+
+def fp_week_sidecar_path(csv_path: str) -> str:
+    """Path to the week_evidence sidecar JSON cached by the page puller."""
+    return csv_path + ".week.json"
+
+
+def validate_filename_week_consistency(csv_path: str,
+                                       requested_week: int | None) -> dict:
+    """Validate the CSV filename's week against the requested --week, and
+    against any cached week_evidence sidecar from the page puller.
+
+    Fail-closed: raises RuntimeError on any mismatch. A dataset without a
+    validated week is worse than no dataset.
+
+    The CSV loader is week-stamped by its filename (the URL-slug analog for
+    the snapshot path). The page-pull sidecar (writeable by
+    ops/watchdog/pull_fantasypros.py) carries the page headline evidence;
+    when present, the filename week must agree with the headline week —
+    the same URL==title check as the page puller, just one hop downstream.
+    """
+    filename_week = extract_week_from_filename(csv_path)
+    if filename_week is None:
+        # Draft / dynasty / season-snapshot CSVs are not week-stamped; only
+        # fail if the caller explicitly asked for a non-zero week, which is a
+        # caller/snapshot mismatch we should never silently accept.
+        if requested_week not in (None, 0):
+            raise RuntimeError(
+                "FantasyPros CSV %s has no week in filename but caller "
+                "requested week=%d. Refusing to label without week evidence."
+                % (csv_path, requested_week))
+        return {"week": 0, "week_filename": None,
+                "week_requested": requested_week, "week_titles": []}
+
+    if requested_week is not None and filename_week != requested_week:
+        raise RuntimeError(
+            "FantasyPros CSV filename week (%d) != requested week (%d) "
+            "(path=%s). Refusing to label dataset without week evidence."
+            % (filename_week, requested_week, csv_path))
+
+    sidecar = read_json(fp_week_sidecar_path(csv_path))
+    sidecar_week = (sidecar or {}).get("week")
+    sidecar_titles = ((sidecar or {}).get("week_evidence") or {}).get(
+        "week_titles") or []
+    if sidecar_week is not None and sidecar_week != filename_week:
+        raise RuntimeError(
+            "FantasyPros CSV filename week (%d) != page puller week (%d) "
+            "(path=%s, sidecar=%s). Page evidence does not match the "
+            "snapshot; refusing to label dataset."
+            % (filename_week, sidecar_week, csv_path,
+               fp_week_sidecar_path(csv_path)))
+
+    return {
+        "week": filename_week,
+        "week_filename": filename_week,
+        "week_requested": requested_week,
+        "week_titles": sidecar_titles,
+        "week_sidecar_week": sidecar_week,
+    }
+
+
 def upsert_ranker(pos, ecr_type="weekly"):
     """One rankers row per position per ECR type ('FantasyPros Weekly ECR QB').
 
@@ -182,6 +274,17 @@ def load_ecr(pos, week, season, recorded_at, ecr_type="weekly"):
     path = ecr_csv_path(ecr_type, pos, week)
     if not os.path.exists(path):
         return {"skipped": f"missing {path}"}
+    # week scoping: weekly/ros are week-stamped (ros = "as of week N");
+    # draft/dynasty are not week-scoped -> week 0
+    w = week if ecr_type in ("weekly", "ros") else 0
+    # JEG-86 / Jeremy 2026-10-02: the dataset's week must come from page
+    # evidence, not from the caller. Validate the CSV filename week against
+    # the EFFECTIVE week (w) before any row is trusted; fail closed
+    # otherwise. Draft/dynasty validate as week 0 -- their filenames carry
+    # no week and their rows are stamped week 0, so validating against the
+    # raw --week would break the previously-valid `--week N --ecr-type
+    # draft` invocation for no benefit.
+    week_evidence = validate_filename_week_consistency(path, w)
     headers, rows = read_csv(path)
     i_player = find_col(headers, "player", "playername")
     i_rank = find_col(headers, "rk", "rank", "ecr", "rankecr", "thisweekrk")
@@ -192,9 +295,6 @@ def load_ecr(pos, week, season, recorded_at, ecr_type="weekly"):
     ranker_id = upsert_ranker(pos, ecr_type)
     from engine.canonical_players import load_registry
     _reg = load_registry()
-    # week scoping: weekly/ros are week-stamped (ros = "as of week N");
-    # draft/dynasty are not week-scoped -> week 0
-    w = week if ecr_type in ("weekly", "ros") else 0
     # idempotent refresh: drop this scope's rows for this position's ranker
     sbclient.delete("ranker_rankings",
                     f"?ranker_id=eq.{ranker_id}&season=eq.{season}&week=eq.{w}")
@@ -229,7 +329,7 @@ def load_ecr(pos, week, season, recorded_at, ecr_type="weekly"):
     for i in range(0, len(out), 200):
         sbclient.post("ranker_rankings", out[i:i + 200])
     return {"ranker_id": ranker_id, "rows": len(out), "gaps": gaps,
-            "ranks": ranks}
+            "ranks": ranks, "week_evidence": week_evidence}
 
 
 def validate_proj_headers(pos, headers):
@@ -266,6 +366,9 @@ def load_projections(pos, week, season, snapshot_at, batch_id, ecr_ranks=None):
     path = os.path.join(DATA_DIR, f"proj_{pos}_wk{week}.csv")
     if not os.path.exists(path):
         return None
+    # JEG-86 / Jeremy 2026-10-02: validate the snapshot week from filename +
+    # optional page-puller sidecar against the caller's --week. Fail closed.
+    week_evidence = validate_filename_week_consistency(path, week)
     headers, rows = read_csv(path)
     col_idx = validate_proj_headers(pos, headers)
     schema = PROJ_SCHEMA[pos]
