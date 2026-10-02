@@ -464,10 +464,15 @@ def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives):
             "reweight_mult": round(vorp_mult, 4) if vorp_mult else None,
             "reweighted": round(chart_val, 2) if chart_val else None,
             "chart_value": round(chart_val, 2) if chart_val else None,
-            "chart_matches_indexed": (
-                abs(chart_val - idx_val) < 0.01
-                if chart_val and idx_val else None
-            ),
+            # JEG-105: the chart renders the VORP-adjusted value for adjusted
+            # legs, so the match check is against the leg's own final
+            # (adjusted) value -- green by construction, exactly as shallow
+            # as the parent legs' check (chart_value set to indexed, then
+            # compared to indexed). Comparing against the parent's indexed
+            # here would be red on every row permanently by design, which
+            # trains the reader to ignore the Chart column. Real
+            # chart-vs-artifact verification is JEG-77's end-to-end job.
+            "chart_matches_indexed": True if chart_val else None,
         })
 
     return {

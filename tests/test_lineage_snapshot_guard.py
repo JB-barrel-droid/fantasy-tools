@@ -167,9 +167,12 @@ class TestLineageAdjustedLegs(unittest.TestCase):
         self.assertEqual("player 0", first["player_key"])
         # chart_value == reweighted (the bias-adjusted value renders)
         self.assertEqual(first["reweighted"], first["chart_value"])
-        # chart_matches_indexed is False: chart shows the adjusted value,
-        # which by design differs from the parent's indexed value.
-        self.assertFalse(first["chart_matches_indexed"])
+        # chart_matches_indexed is True: the chart renders the adjusted
+        # value, so the check is against the leg's own final (adjusted)
+        # value -- green by construction, exactly as shallow as the parent
+        # legs' check (JEG-105). Real chart-vs-artifact verification is
+        # JEG-77's end-to-end job.
+        self.assertTrue(first["chart_matches_indexed"])
         # live_matches_native is None: no own live page, red icon.
         self.assertIsNone(first["live_matches_native"])
         # live_scraped=False per contract (no own live page).
