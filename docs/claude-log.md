@@ -2194,3 +2194,50 @@ legend/activeSources with table untouched); FAILS on the pre-JEG-103
 build (`bench-mouse readout: got 15, want ~21.4`). Also restored the
 `test_jeg103_bench_share_readout` Makefile line that JEG-112's merge
 accidentally dropped.
+
+## 2026-10-02 - JEG-132 (R5b): input lineage mismatch checker (minimax)
+
+Branch `minimax/jeg-132-lineage-checker`. New checker reads each derived
+section's `lineage` block and recomputes what the current raw input looks
+like, comparing field-by-field. Reuses the R5a helpers
+(`collect_fixture_section_triples`, `collect_leg_triples`,
+`collect_reference_triples`, `compute_raw_sha`, `resolve_raw_vintage`,
+`build_lineage_block`) from `pipelines/lib/lineage_block.py`; the triple
+contract and SHA computation are not reimplemented.
+
+### Files
+- `pipelines/check_input_lineage.py` (new) — CLI, exits 0/1, writes
+  `output/input-lineage.json` with shape `{generated_at, mismatches,
+  checked}`. Each mismatch record has `section`, `reason`, and
+  `claimed`/`actual` when informative.
+- `tests/test_input_lineage.py` (new) — 9 tests across 6 classes for
+  brief states A (missing lineage), B (stale adjusted vintage), C
+  (CBS-ROS Week 3 vs Week 4 lag, the 2026-10-02 incident), D
+  (sabotaged SHA on adjusted sections), plus artifact-shape + empty
+  fixture invariants.
+- `JEG-132b-report.md` (new) — files changed, VERIFIED/UNVERIFIED
+  split, artifact shape contract for the sequenced render brief.
+
+### Verified (executed in sandbox)
+- `python3 -m py_compile pipelines/check_input_lineage.py` -> exit 0
+  (syntax-only).
+- `python3 -m py_compile tests/test_input_lineage.py` -> exit 0
+  (syntax-only).
+- Read the live `data/fixtures/current/comparison-sources-data.json`
+  structure and confirmed the derived-key -> raw-input mapping the
+  checker encodes (4 _adjusted keys -> parent raw, espn/cbsros/razzball
+  -> leg filename globbed under `data/ddf-two-tier/`).
+
+### Claimed, unverified
+- The 9 unittest cases were authored but not run. Sandbox lacks the
+  unittest runner permission gate.
+- `make validate` not run; the change does not edit any wired-into-Make
+  file and does not edit the Makefile itself.
+- The CBS-ROS 4h-lag acceptance invocation was not run.
+
+### Constraints honored
+- Did not touch `pipelines/build_pipeline_checkpoints.py` or
+  `pipelines/promote_comparison_section.py` (running-worker files).
+- Did not touch any R5a writer.
+- Did not edit the Makefile.
+- Committed only on this branch; no merge, push, or deploy.
