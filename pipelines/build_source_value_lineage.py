@@ -31,6 +31,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"))
 from canonical_players import norm_player_name
 
+# JEG-107: the VORP round-trip in the lineage card uses translate_source()
+# from JEG-62 to compute the publisher's implied waiver line per position
+# and the implied VORP per player. Pure read+pure compute; no I/O.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "vorp_translation"))
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_PATH = os.path.join(REPO, "dist/assets/comparison-sources-data.json")
 OUT_PATH = os.path.join(REPO, "dist/modules/source-value-lineage.json")
@@ -252,6 +257,172 @@ ADJUSTED_LEG_PARENT = {
 ALL_ADJUSTED_LEGS = list(ADJUSTED_LEG_PARENT.keys())
 
 
+# JEG-107: VORP round-trip helpers ------------------------------------------
+#
+# Each source's top-25 lineage card must show the three steps:
+#   1. native          — publisher's published value (publisher's domain)
+#   2. implied_vorp    — native minus the publisher's inferred waiver line,
+#                        computed by translate_source() under the JEG-62
+#                        inferred roster assumptions (roster settings are not
+#                        inputs the publisher exposes — we infer them).
+#   3. ddf_rebuilt     — what DDF shows after running through our methodology,
+#                        i.e. the chart value (reindexed for published
+#                        sources, native-scale DDF value for DDF-native
+#                        sources, adjusted reindexed for adjusted legs).
+#
+# Per-player the lineage also carries:
+#   vorp_replacement_level — the inferred waiver-line value for the player's
+#                        position (the implied read on the model's
+#                        replacement tier, from translate_source()).
+# Failure-closed — no data, no row; never a guessed placeholder.
+
+# Sources where the "native" really is a publisher-published trade value that
+# goes through JEG-62 VORP translation. For these, implied_vorp is computed
+# directly from the publisher native via translate_source().
+_PUBLISHED_VORP_SOURCES = {"fantasypros", "usatoday", "fantasycalc", "cbs"}
+
+# Sources where the "native" is a stat projection (no publisher trade value at
+# all), and the VORP comes from running our own inferred roster assumptions on
+# the projection. For these, implied_vorp is computed via
+# compute_vorp_via_roster() from vorp_via_roster.py.
+_DDF_NATIVE_VORP_SOURCES = {"espn", "cbsros", "razzball"}
+
+_LINEAGE_WEEK = 4  # documented at build time; lineage is a snapshot, not a feed
+
+
+def _compute_vorp_chain_for_source(src, sources, scoring="half_ppr", teams=12):
+    """Compute implied VORP + waiver lines for one source.
+
+    Returns a dict with:
+      positions: {pos: {waiver_line_value, n_rostered, n_dedicated, n_flex, n_bench}}
+      player_vorp: {pkey: float}         implied VORP per player (>= 0)
+      player_pos: {pkey: pos}            position per player
+      player_native: {pkey: float}       publisher native used (for sanity)
+      ddf_rebuilt: {pkey: float}         DDF-rebuilt value per player
+      method: str                         "published" | "ddf_native"
+      error: str | None
+    """
+    if src in _PUBLISHED_VORP_SOURCES:
+        try:
+            from unified import translate_source
+            r = translate_source(src, scoring=scoring, teams=teams,
+                                 week=_LINEAGE_WEEK, bench_per_team=6.0,
+                                 write_supabase=False)
+            # JEG-107: translate_source() keys `translated` by numeric player
+            # id, but lineage rows join on the canonical normalized name
+            # (the same norm_player_name join the rest of this builder
+            # uses). Re-key by normalized name so _attach_vorp_fields
+            # finds the players; fail-closed is preserved (missing name ->
+            # no row match -> null, never a guess).
+            translated = r["translated"]
+            return {
+                "positions": r["positions"],
+                "player_vorp": {
+                    norm_player_name(t["name"]): t["vorp"]
+                    for t in translated.values()
+                },
+                "player_pos": {
+                    norm_player_name(t["name"]): t["pos"]
+                    for t in translated.values()
+                },
+                "player_native": {
+                    norm_player_name(t["name"]): t["native"]
+                    for t in translated.values()
+                },
+                "ddf_rebuilt": {
+                    norm_player_name(t["name"]): t["translated"]
+                    for t in translated.values()
+                },
+                "method": "published",
+                "error": None,
+            }
+        except Exception as e:
+            return {"positions": {}, "player_vorp": {}, "player_pos": {},
+                    "player_native": {}, "ddf_rebuilt": {},
+                    "method": "published", "error": str(e)}
+
+    if src in _DDF_NATIVE_VORP_SOURCES:
+        # DDF-native: native is a stat projection. Implied VORP comes from
+        # running our own inferred roster (DDF's roster) on the projection.
+        try:
+            from vorp_via_roster import (
+                load_ranked_values, rostered_for_teams,
+            )
+            prefix = {"half_ppr": "half", "ppr": "full"}.get(scoring, scoring)
+            combo_key = f"{prefix}_{teams}"
+            ranked = load_ranked_values(src, combo_key)
+            roster = rostered_for_teams(teams, 6.0, ranked=ranked,
+                                        use_vorp_weighting=True)
+            positions = {}
+            player_vorp = {}
+            player_pos = {}
+            player_native = {}
+            for pos, players in ranked.items():
+                if not players:
+                    continue
+                r = roster[pos]
+                n_rost = r["rostered"]
+                if len(players) > n_rost:
+                    waiver = players[n_rost][1]
+                    method = "roster_determined"
+                elif players:
+                    waiver = players[-1][1]
+                    method = "insufficient_coverage"
+                else:
+                    waiver = 0.0
+                    method = "no_players"
+                positions[pos] = {
+                    "waiver_line_value": round(waiver, 2),
+                    "n_rostered": n_rost,
+                    "n_dedicated": r["dedicated"],
+                    "n_flex": r["flex"],
+                    "n_bench": r["bench"],
+                    "waiver_method": method,
+                }
+                for name, val in players:
+                    # Fail closed on identity: skip names the canonical
+                    # registry cannot resolve. Chain dicts are keyed by
+                    # normalized name -- the same join _attach_vorp_fields
+                    # (and the rest of this builder) uses for lineage rows.
+                    from canonical_players import resolve as _resolve
+                    if _resolve(name) is None:
+                        continue
+                    nkey = norm_player_name(name)
+                    vorp = max(0.0, val - waiver)
+                    player_vorp[nkey] = round(vorp, 2)
+                    player_pos[nkey] = pos
+                    player_native[nkey] = round(val, 2)
+            return {
+                "positions": positions,
+                "player_vorp": player_vorp,
+                "player_pos": player_pos,
+                "player_native": player_native,
+                "ddf_rebuilt": {},  # filled in by caller from chart values
+                "method": "ddf_native",
+                "error": None,
+            }
+        except Exception as e:
+            return {"positions": {}, "player_vorp": {}, "player_pos": {},
+                    "player_native": {}, "ddf_rebuilt": {},
+                    "method": "ddf_native", "error": str(e)}
+
+    return {"positions": {}, "player_vorp": {}, "player_pos": {},
+            "player_native": {}, "ddf_rebuilt": {}, "method": "unknown",
+            "error": f"unknown source {src!r}"}
+
+
+def _vorp_chain_for_sources(srcs, sources):
+    """Build the VORP round-trip chain for every source we render.
+
+    Returns {src: chain_dict}. Computed once and reused across parent + adjusted
+    legs so the parent chain is what an adjusted leg inherits.
+    """
+    out = {}
+    for src in srcs:
+        out[src] = _compute_vorp_chain_for_source(src, sources)
+    return out
+
+
 def require_snapshot_natives(snapshot_natives):
     """Fail-closed guard: refuse to build when a required source snapshot is
     missing or empty.
@@ -273,7 +444,45 @@ def require_snapshot_natives(snapshot_natives):
         )
 
 
-def build_source_entry(src, sources, live_data, snapshot_natives):
+def _attach_vorp_fields(player_row, pkey, vorp_chain, ddf_rebuilt_override=None):
+    """Attach implied_vorp / vorp_replacement_level / ddf_rebuilt to a player row.
+
+    ddf_rebuilt_override: for DDF-native sources we already have the chart
+    value in the lineage row; we keep that as the DDF-rebuilt value rather
+    than the unified.translate_value (which would re-scale to OUR_MAX,
+    producing a value the chart doesn't display).
+    """
+    pkey_norm = norm_player_name(pkey)
+    # Explicit None checks, not `or`: a legitimate 0.0 VORP (player exactly
+    # at the replacement tier) must not fall through to the second lookup.
+    pos = vorp_chain.get("player_pos", {}).get(pkey)
+    if pos is None:
+        pos = vorp_chain.get("player_pos", {}).get(pkey_norm)
+    vorp = vorp_chain.get("player_vorp", {}).get(pkey)
+    if vorp is None:
+        vorp = vorp_chain.get("player_vorp", {}).get(pkey_norm)
+    if pos is not None:
+        positions = vorp_chain.get("positions", {})
+        waiver = positions.get(pos, {}).get("waiver_line_value")
+        n_rost = positions.get(pos, {}).get("n_rostered")
+    else:
+        waiver = None
+        n_rost = None
+    player_row["implied_vorp"] = round(vorp, 2) if vorp is not None else None
+    player_row["vorp_replacement_level"] = round(waiver, 2) if waiver is not None else None
+    player_row["vorp_inferred_position"] = pos
+    player_row["vorp_inferred_n_rostered"] = n_rost
+    if ddf_rebuilt_override is not None:
+        player_row["ddf_rebuilt"] = round(ddf_rebuilt_override, 2)
+    else:
+        rebuilt = vorp_chain.get("ddf_rebuilt", {}).get(pkey)
+        if rebuilt is None:
+            rebuilt = vorp_chain.get("ddf_rebuilt", {}).get(pkey_norm)
+        player_row["ddf_rebuilt"] = round(rebuilt, 2) if rebuilt is not None else None
+    return player_row
+
+
+def build_source_entry(src, sources, live_data, snapshot_natives, vorp_chain=None):
     """Build one source's lineage block (top 25 by chart value) from the fixture."""
     combo_key = COMBO_KEYS[src]
     combo = sources[src]["combos"].get(combo_key, {})
@@ -362,6 +571,13 @@ def build_source_entry(src, sources, live_data, snapshot_natives):
                 if chart_val and idx_val else None
             ),
         })
+        if vorp_chain is not None:
+            # JEG-107: the chain shows three steps per player. For DDF-native
+            # sources (espn/cbsros/razzball) the chart value IS the DDF-rebuilt
+            # value -- the chart renders our methodology directly, so passing
+            # the chart value as the override makes the chain consistent.
+            _attach_vorp_fields(players[-1], pkey, vorp_chain,
+                                ddf_rebuilt_override=chart_val)
 
     return {
         "source_url": SOURCE_URLS[src]["url"],
@@ -379,11 +595,34 @@ def build_source_entry(src, sources, live_data, snapshot_natives):
             or sources[src].get("fetched_at")
             or "unknown"
         ),
+        # JEG-107: VORP round-trip. Inspectable per position so a reader can
+        # see the publisher's inferred roster assumptions (waiver line per
+        # position, number of rostered players, how flex was apportioned).
+        # Only populated when translate_source / vorp_via_roster succeeded.
+        "vorp_round_trip": (
+            {
+                "method": vorp_chain.get("method"),
+                "positions": {
+                    pos: {
+                        "waiver_line_value": info.get("waiver_line_value"),
+                        "n_rostered": info.get("n_rostered"),
+                        "n_dedicated": info.get("n_dedicated"),
+                        "n_flex": info.get("n_flex"),
+                        "n_bench": info.get("n_bench"),
+                        "waiver_method": info.get("waiver_method"),
+                    }
+                    for pos, info in (vorp_chain.get("positions") or {}).items()
+                },
+                "error": vorp_chain.get("error"),
+            }
+            if vorp_chain is not None else None
+        ),
         "top25": players,
     }
 
 
-def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives):
+def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives,
+                             vorp_chain=None):
     """Build one adjusted leg's lineage block (top 25 by chart value).
 
     Adjusted legs render the VORP-translated values on the chart. They have
@@ -474,6 +713,14 @@ def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives):
             # chart-vs-artifact verification is JEG-77's end-to-end job.
             "chart_matches_indexed": True if chart_val else None,
         })
+        if vorp_chain is not None:
+            # JEG-107: adjusted leg inherits the parent's implied VORP
+            # (same publisher native, same inferred roster), but the
+            # DDF-rebuilt value is the adjusted reindexed (what the chart
+            # displays for the adjusted leg), not the parent's translated
+            # value -- so we override ddf_rebuilt with chart_val here.
+            _attach_vorp_fields(players[-1], pkey, vorp_chain,
+                                ddf_rebuilt_override=chart_val)
 
     return {
         "source_url": SOURCE_URLS[parent_src]["url"],
@@ -491,6 +738,28 @@ def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives):
             sources[adj_src].get("promoted_at")
             or sources[adj_src].get("fetched_at")
             or "unknown"
+        ),
+        # JEG-107: VORP round-trip inherited from the parent source.
+        # Same publisher assumptions, different final translated value.
+        "vorp_round_trip": (
+            {
+                "method": (vorp_chain or {}).get("method"),
+                "positions": {
+                    pos: {
+                        "waiver_line_value": info.get("waiver_line_value"),
+                        "n_rostered": info.get("n_rostered"),
+                        "n_dedicated": info.get("n_dedicated"),
+                        "n_flex": info.get("n_flex"),
+                        "n_bench": info.get("n_bench"),
+                        "waiver_method": info.get("waiver_method"),
+                    }
+                    for pos, info in ((vorp_chain or {})
+                                       .get("positions") or {}).items()
+                },
+                "error": (vorp_chain or {}).get("error"),
+                "inherited_from": parent_src,
+            }
+            if vorp_chain is not None else None
         ),
         "top25": players,
     }
@@ -557,8 +826,30 @@ def main():
         print(f"  {src}: loaded {len(snapshot_natives[src])} native values from snapshot")
     require_snapshot_natives(snapshot_natives)
 
+    # JEG-107: compute the VORP round-trip (native -> implied publisher VORP
+    # -> DDF-rebuilt) for every source that has a lineage card, including
+    # parents (so adjusted legs can inherit). Failed chains degrade to empty
+    # positions -- the lineage row keeps its native and chart columns, with
+    # vorp_* fields null and a recorded error in vorp_round_trip.error.
+    print("Computing VORP round-trip per source...")
+    chain_for = _vorp_chain_for_sources(
+        list(ALL_SOURCES) + list(ALL_ADJUSTED_LEGS), sources
+    )
     for src in ALL_SOURCES:
-        result["sources"][src] = build_source_entry(src, sources, live_data, snapshot_natives)
+        c = chain_for.get(src, {})
+        if c.get("error"):
+            print(f"  {src}: VORP chain failed ({c['error']}) -- "
+                  "implied_vorp/vorp_replacement_level will be null")
+        else:
+            print(f"  {src}: VORP chain OK "
+                  f"({len(c.get('positions', {}))} positions, "
+                  f"{len(c.get('player_vorp', {}))} players)")
+
+    for src in ALL_SOURCES:
+        result["sources"][src] = build_source_entry(
+            src, sources, live_data, snapshot_natives,
+            vorp_chain=chain_for.get(src),
+        )
 
     # JEG-98: build the 4 VORP-translated adjusted legs as standalone top-25
     # audit tables. Each inherits native + indexed + live from the parent
@@ -566,8 +857,13 @@ def main():
     # builder raises if a leg cannot be built, so this loop is fail-closed.
     print("Building adjusted legs...")
     for adj_src in ALL_ADJUSTED_LEGS:
+        # JEG-107: adjusted legs inherit the parent's VORP round-trip
+        # because the publisher assumptions are the same; only the final
+        # translated value differs (the bias-adjusted reindexed).
+        parent = ADJUSTED_LEG_PARENT[adj_src]
         result["sources"][adj_src] = build_adjusted_leg_entry(
-            adj_src, sources, live_data, snapshot_natives
+            adj_src, sources, live_data, snapshot_natives,
+            vorp_chain=chain_for.get(parent),
         )
         print(f"  {adj_src}: {len(result['sources'][adj_src]['top25'])} players")
 
