@@ -42,7 +42,7 @@ from save_espn_cbs_references import (  # noqa: E402
     count_rows,
 )
 from save_usatoday_references import (  # noqa: E402
-    USAT_UPSERT_CONFLICT,
+    USAT_UPSERT_CONFLICT_VERSIONED,
     SCORING_LABELS,
     apply_reindex,
 )
@@ -181,7 +181,7 @@ def save_fantasypros(
             "bake_id": bake_id,
         }
 
-    upsert_rows("source_trade_values", clean, USAT_UPSERT_CONFLICT)
+    upsert_rows("source_trade_values", clean, USAT_UPSERT_CONFLICT_VERSIONED)
     live = count_rows(
         "source_trade_values",
         f"?select=player_key&source=eq.fantasypros&variant=eq.as_published"

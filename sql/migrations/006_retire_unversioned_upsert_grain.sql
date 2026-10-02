@@ -1,0 +1,26 @@
+-- 006: retire the unversioned 8-column upsert grain
+--
+-- Week-versioning practice (Jeremy 2026-10-02): a week may hold multiple
+-- immutable bakes. The 8-column unique index
+-- source_trade_values_upsert_grain_uidx (source, variant, scoring,
+-- league_teams, qb_slots, season, week, player_key) -- created by migration
+-- 003 -- allows only ONE row per grain, so it rejects the second version of
+-- any week with a 23505 duplicate-key error even when the upsert arbitrates
+-- the 9-column versioned grain (Postgres checks every unique index, not just
+-- the arbiter).
+--
+-- All three writers to source_trade_values (usatoday, fantasypros,
+-- fantasycalc) now upsert on the 9-column versioned grain
+-- (USAT_UPSERT_CONFLICT_VERSIONED, bake_id included), arbitrating
+-- source_trade_values_bake_version_uidx (migration 004). The 8-column index
+-- is therefore dead weight AND an active blocker: drop it.
+--
+-- Same-day re-runs still merge: every saver stamps a date-based bake_id
+-- (usatwk/fpwk/fcwk{week}_{date}_v1), so a re-run targets the same 9-column
+-- grain. New days / changed content create new versions; the importer
+-- selects exactly one latest bake per week and never blends.
+--
+-- Apply via the Supabase SQL editor (PostgREST cannot run DDL), then:
+--   NOTIFY pgrst, 'reload schema';
+
+DROP INDEX IF EXISTS public.source_trade_values_upsert_grain_uidx;

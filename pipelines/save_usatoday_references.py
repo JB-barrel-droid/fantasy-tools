@@ -67,14 +67,14 @@ from save_espn_cbs_references import (  # noqa: E402
 # Writer audit for Supabase write provenance
 from lib.writer_audit import WriterAudit  # noqa: E402
 
-USAT_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key"
-# Versioned grain (2026-10-02, Jeremy directive: keep multiple versions of a
-# week): bake_id joins the conflict target so a re-ingest of changed
+# Versioned upsert grain (2026-10-02, Jeremy directive: keep multiple versions
+# of a week): bake_id joins the conflict target so a re-ingest of changed
 # same-week content inserts a NEW version instead of overwriting the prior
 # bake. Requires the source_trade_values_bake_version_uidx unique index
-# (sql/migrations/004_source_trade_values_bake_version.sql). The other
-# as-published savers keep the 8-column grain (overwrite) until their flows
-# are version-aware -- do not widen this constant without versioning them.
+# (sql/migrations/004_source_trade_values_bake_version.sql). All three
+# as-published savers (usatoday, fantasypros, fantasycalc) arbitrate this
+# grain; the retired 8-column grain (migration 006) allowed only one row per
+# week and rejected second versions.
 USAT_UPSERT_CONFLICT_VERSIONED = (
     "source,variant,scoring,league_teams,qb_slots,season,week,player_key,bake_id"
 )

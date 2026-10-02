@@ -618,3 +618,45 @@ class TestCbsDiscovery(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# --- Versioned upsert grain: all source_trade_values writers -----------------
+
+class TestVersionedUpsertGrain(unittest.TestCase):
+    """Every writer to source_trade_values must arbitrate the 9-column
+    versioned grain (bake_id included). The retired 8-column grain allowed
+    only one row per week and rejected second versions with 23505."""
+
+    VERSIONED = ("source,variant,scoring,league_teams,qb_slots,season,week,"
+                 "player_key,bake_id")
+
+    def test_versioned_constant_is_9col_with_bake(self):
+        from pipelines.save_usatoday_references import USAT_UPSERT_CONFLICT_VERSIONED
+        self.assertEqual(USAT_UPSERT_CONFLICT_VERSIONED, self.VERSIONED)
+
+    def test_legacy_8col_constant_is_gone(self):
+        import pipelines.save_usatoday_references as usat
+        self.assertFalse(hasattr(usat, "USAT_UPSERT_CONFLICT"),
+                         "legacy 8-col USAT_UPSERT_CONFLICT must be removed")
+
+    def test_fantasypros_upserts_on_versioned_grain(self):
+        import pipelines.save_fantasypros_references as fp
+        import inspect
+        tree = inspect.getsource(fp.save_fantasypros)
+        self.assertIn("USAT_UPSERT_CONFLICT_VERSIONED", tree)
+
+    def test_fantasycalc_upserts_on_versioned_grain(self):
+        import pipelines.save_fantasycalc_references as fc
+        import inspect
+        tree = inspect.getsource(fc.save_fantasycalc)
+        self.assertIn("USAT_UPSERT_CONFLICT_VERSIONED", tree)
+
+    def test_usat_saver_upserts_on_versioned_grain(self):
+        import pipelines.save_usatoday_references as usat
+        import inspect
+        tree = inspect.getsource(usat.save_usatoday)
+        self.assertIn("USAT_UPSERT_CONFLICT_VERSIONED", tree)
+
+
+if __name__ == "__main__":
+    unittest.main()

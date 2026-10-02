@@ -74,7 +74,7 @@ from save_espn_cbs_references import (  # noqa: E402
 )
 from save_usatoday_references import (  # noqa: E402
     apply_reindex,
-    USAT_UPSERT_CONFLICT as FC_UPSERT_CONFLICT,
+    USAT_UPSERT_CONFLICT_VERSIONED,
 )
 
 GOAL = Path(os.path.expanduser("~")) / "workspace" / "goals" / "football-signal-database-and-app"
@@ -217,7 +217,7 @@ def save_fantasycalc(
             "pulled_at": pulled_at,
         }
 
-    upsert_rows("source_trade_values", clean, FC_UPSERT_CONFLICT)
+    upsert_rows("source_trade_values", clean, USAT_UPSERT_CONFLICT_VERSIONED)
     live = count_rows(
         "source_trade_values",
         f"?select=player_key&source=eq.fantasycalc&variant=eq.as_published"
