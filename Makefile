@@ -157,6 +157,7 @@ test-unit:
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
 	python3 -m unittest tests.test_github_actions_status
+	python3 -m unittest tests.test_identity_case_duplicates
 
 
 # Integration tests: require data/raw snapshots, Supabase, or pipeline artifacts.
