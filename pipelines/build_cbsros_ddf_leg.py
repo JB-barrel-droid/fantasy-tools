@@ -148,7 +148,23 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
     resolved, review_rows, aliases_used, snap_meta = load_cbsros_lists(
         snapshot_path, scoring, fixture_path)
 
-    pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]]
+    # JEG-52: Cap pool depth per position (same as Razzball). Deep third-string
+    # pools drag the waiver baseline down and inflate starter values.
+    capped = {}
+    for pos in POSITIONS:
+        starters = REF_SLOTS.get(pos, 1) * teams
+        cap = starters * 3
+        sorted_pos = sorted(resolved[pos], key=lambda d: d["x"], reverse=True)
+        capped[pos] = sorted_pos[:cap]
+        if len(resolved[pos]) > cap:
+            review_rows.append({
+                "reason": "pool_cap",
+                "pos": pos,
+                "capped_from": len(resolved[pos]),
+                "capped_to": cap,
+            })
+
+    pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in capped[pos]]
                   for pos in POSITIONS}
     pool = build_position_tiers(pool_lists, teams, dict(REF_SLOTS), REF_FLEX_COUNT,
                                 list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(teams))
@@ -186,7 +202,7 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
     raw: dict[int, float] = {}
     for pos in POSITIONS:
         cal = calibration[pos]
-        for d in resolved[pos]:
+        for d in capped[pos]:
             raw[d["player_key"]] = price_for_projection(d["x"], cal)
     mx = max(raw.values()) if raw else 0.0
     if not (mx > 0):
@@ -204,7 +220,7 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
 
     values = []
     for pos in POSITIONS:
-        for d in resolved[pos]:
+        for d in capped[pos]:
             key = d["player_key"]
             tier = ("starter" if key in pool["starters"]
                     else ("bench" if key in pool["bench"] else "waiver"))
@@ -255,9 +271,9 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
                 "rw": c["rw"], "rs": c["rs"], "tau": c["tau"], "pie": c.get("pie_used"),
                 "pb": c["pb"], "ps": c["ps"],
                 "bench_share_used": c.get("bench_share_used", bench_share),
-                "n_starters": sum(1 for d in resolved[pos] if d["player_key"] in pool["starters"]),
-                "n_bench": sum(1 for d in resolved[pos] if d["player_key"] in pool["bench"]),
-                "n_pool": len(resolved[pos]),
+                "n_starters": sum(1 for d in capped[pos] if d["player_key"] in pool["starters"]),
+                "n_bench": sum(1 for d in capped[pos] if d["player_key"] in pool["bench"]),
+                "n_pool": len(capped[pos]),
                 "bench_raw": c["bench_raw"], "starter_raw": c["starter_raw"],
             } for pos, c in calibration.items()
         },
