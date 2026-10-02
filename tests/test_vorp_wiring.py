@@ -109,6 +109,26 @@ class TestCanonicalIdentityResolution(unittest.TestCase):
             "JSN must appear in the WR translation input.",
         )
 
+    def test_legacy_loader_resolves_hyphenless_slug(self):
+        # The legacy roster-math loader (vorp_via_roster.load_ranked_values)
+        # had the same exact-lowercase identity bug: JSN was silently dropped
+        # from the legacy ranked lists while unified.load_native_values
+        # included him, breaking unified-vs-legacy flex parity
+        # (test_unified_custom_capacity_and_legacy_parity, 6 != 5).
+        # JEG-75: every loader resolves through the canonical naming table.
+        import sys
+        sys.path.insert(0, str(REPO / "pipelines"))
+        sys.path.insert(0, str(REPO / "pipelines" / "vorp_translation"))
+        from vorp_via_roster import load_ranked_values
+
+        ranked = load_ranked_values("usatoday", "half_12")
+        wr_names = [n for n, _ in ranked["WR"]]
+        self.assertTrue(
+            any("njigba" in n for n in wr_names),
+            "JSN's hyphenless fixture slug must resolve in the legacy "
+            "loader too; a silent drop breaks parity with the unified path.",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

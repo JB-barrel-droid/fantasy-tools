@@ -25,6 +25,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 
 from build_ddf_two_tier_leg import (
     REF_SLOTS,
@@ -32,27 +33,45 @@ from build_ddf_two_tier_leg import (
     REF_FLEX_ELIGIBLE,
     POSITIONS,
 )
+# Canonical identity: all name resolution goes through the naming table via
+# player_key (standing rule 2026-10-02; JEG-75). Never match on raw strings.
+from canonical_players import Registry, resolve as _resolve_key
 
 
 def load_ranked_values(source: str, combo_key: str) -> dict[str, list[tuple[str, float]]]:
     """Load publisher values as ranked lists per position."""
     fixture = json.loads((REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json").read_text())
     players = json.loads((REPO / "data" / "fixtures" / "current" / "players.json").read_text())
-    pos_by_name = {p["name"].lower(): p["pos"] for p in players["players"]}
-    
+    # Canonical registry built from the naming table (players.json). Identity
+    # resolves through player_key -- never raw strings, so 'jaxon smithnjigba'
+    # (fixture slug) matches 'Jaxon Smith-Njigba'. (JEG-75 standing rule;
+    # the old exact-lowercase match silently dropped such players, breaking
+    # parity with unified.load_native_values.)
+    reg = Registry([
+        {"player_key": p["player_key"], "full_name": p["name"],
+         "position": p.get("pos"), "active": True}
+        for p in players["players"] if p.get("player_key") is not None
+    ])
+
     sdata = fixture["sources"].get(source, {})
     combo = sdata.get("combos", {}).get(combo_key, {})
     native = combo.get("native", {})
-    
+
     by_pos: dict[str, list[tuple[str, float]]] = {p: [] for p in POSITIONS}
     for name, val in native.items():
-        pos = pos_by_name.get(name.lower())
-        if pos in POSITIONS and val is not None:
+        if val is None:
+            continue
+        key = _resolve_key(name, registry=reg)
+        if key is None:
+            # Unresolvable identity -> excluded (fail-closed upstream).
+            continue
+        pos = reg.by_key[key]["position"]
+        if pos in POSITIONS:
             by_pos[pos].append((name, float(val)))
-    
+
     for pos in by_pos:
         by_pos[pos].sort(key=lambda x: -x[1])
-    
+
     return by_pos
 
 
