@@ -112,9 +112,9 @@ DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
 ADJUSTED_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
 # NOTE: "cbsros" (CBS rest-of-season projections) is intentionally NOT listed.
-# The adjusted family carries bias-correction cells fitted against actuals from
-# a prior season; no CBS-ROS cells have been fitted, so there is no
-# cbsros_adjusted variant. (Same reason "espn" is absent.)
+# DDF-native sources already apply our utilization methodology to their own
+# projections. Separate *_adjusted sections would duplicate that transform.
+# See docs/methodology.md for the JEG-58 exemption covering all three sources.
 
 # Human-readable metadata for the _adjusted sources
 ADJUSTED_META = {
