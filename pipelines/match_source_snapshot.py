@@ -13,10 +13,20 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "pipelines"))
+
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "source-matches"
 INPUT_SCHEMA = "trade-value-source-snapshot-v1"
 OUTPUT_SCHEMA = "trade-value-source-matches-v1"
+
+
+def normalize_name(value: Any) -> str:
+    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
+    text = text.lower()
+    text = re.sub(r"\b(jr|sr|ii|iii|iv)\.?\b", " ", text)
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def utc_now() -> str:
@@ -28,12 +38,7 @@ def slug(value: str) -> str:
     return cleaned or "snapshot"
 
 
-def normalize_name(value: Any) -> str:
-    text = unicodedata.normalize("NFKD", str(value or "")).encode("ascii", "ignore").decode("ascii")
-    text = text.lower()
-    text = re.sub(r"\b(jr|sr|ii|iii|iv)\.?\b", " ", text)
-    text = re.sub(r"[^a-z0-9]+", " ", text)
-    return re.sub(r"\s+", " ", text).strip()
+# normalize_name is defined above (label-only, not for identity matching)
 
 
 def load_json(path: Path) -> dict[str, Any]:

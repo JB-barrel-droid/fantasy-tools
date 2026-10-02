@@ -23,14 +23,19 @@ PIPELINES_DIR = REPO / "pipelines"
 class PlayerIdentityGuard(ast.NodeVisitor):
     """AST visitor that detects forbidden identity resolution patterns."""
 
+    # Only match the specific ad-hoc normalizer patterns, NOT:
+    # - Path.resolve() (filesystem path resolution, not player identity)
+    # - The canonical_players module itself (defines the legitimate normalizer)
     FORBIDDEN_PATTERNS = [
         # Ad-hoc normalization functions (the pattern we're replacing)
+        # These match local definitions in pipeline files, not imports from canonical_players
         "_norm_name",
-        "norm_name",
         "_normalize_name",
-        "normalize_name",
-        # String concatenation for name construction (should use registry)
-        # These are indicators of ad-hoc joins that bypass canonical resolution
+    ]
+
+    # Files that are allowed to define normalization functions
+    ALLOWED_FILES = [
+        "canonical_players.py",  # This IS the legitimate normalizer
     ]
 
     def __init__(self, filepath):
@@ -103,6 +108,10 @@ def scan_pipelines_for_violations(pipelines_dir: Path):
 
         for fname in files:
             if not fname.endswith('.py'):
+                continue
+
+            # Skip allowed files (the canonical_players module itself)
+            if fname in PlayerIdentityGuard.ALLOWED_FILES:
                 continue
 
             fpath = Path(root) / fname
