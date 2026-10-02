@@ -131,6 +131,7 @@ test-unit:
 	python3 -m unittest tests.test_public_copy_no_vorp
 	python3 -m unittest tests.test_publication_windows
 	python3 -m unittest tests.test_qb_slot_scoping
+	python3 -m unittest tests.test_source_combo_contract
 	python3 -m unittest tests.test_razzball_monitor_coverage
 	python3 -m unittest tests.test_lineage_merge
 	python3 -m unittest tests.test_reference_freshness
