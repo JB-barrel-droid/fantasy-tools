@@ -127,6 +127,7 @@ test-unit:
 	python3 -m unittest tests.test_vorp_refresh
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
+	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
