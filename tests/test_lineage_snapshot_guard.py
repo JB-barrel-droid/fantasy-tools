@@ -116,6 +116,28 @@ class TestLineageAdjustedLegs(unittest.TestCase):
                     "reindexed": {f"u {i}": (40.0 - i) * 0.85 for i in range(30)}
                 }},
             },
+            "fantasycalc": {
+                "combos": {"half_12_qb1": {
+                    "native": {f"f {i}": 80.0 - i for i in range(30)},
+                    "reindexed": {f"f {i}": 60.0 - i for i in range(30)},
+                }},
+            },
+            "fantasycalc_adjusted": {
+                "combos": {"half_12_qb1": {
+                    "reindexed": {f"f {i}": (60.0 - i) * 0.92 for i in range(30)}
+                }},
+            },
+            "cbs": {
+                "combos": {"half_12": {
+                    "native": {f"c {i}": 90.0 - i for i in range(30)},
+                    "reindexed": {f"c {i}": 65.0 - i for i in range(30)},
+                }},
+            },
+            "cbs_adjusted": {
+                "combos": {"half_12": {
+                    "reindexed": {f"c {i}": (65.0 - i) * 0.88 for i in range(30)}
+                }},
+            },
         }
 
     def test_all_four_adjusted_legs_are_declared(self):

@@ -844,11 +844,11 @@ async function main(){
         "usatoday", "usatoday_adjusted",
       ].filter(s => linSources[s]);
       const labels = {
-        espn:"ESPN", cbs:"CBS", cbs_adjusted:"CBS",
+        espn:"ESPN", cbs:"CBS", cbs_adjusted:"CBS (adjusted)",
         cbsros:"CBS ROS", razzball:"Razzball",
-        fantasycalc:"FantasyCalc", fantasycalc_adjusted:"FantasyCalc",
-        fantasypros:"FantasyPros", fantasypros_adjusted:"FantasyPros",
-        usatoday:"USA Today", usatoday_adjusted:"USA Today",
+        fantasycalc:"FantasyCalc", fantasycalc_adjusted:"FantasyCalc (adjusted)",
+        fantasypros:"FantasyPros", fantasypros_adjusted:"FantasyPros (adjusted)",
+        usatoday:"USA Today", usatoday_adjusted:"USA Today (adjusted)",
       };
 
       // Count live mismatches
@@ -886,8 +886,13 @@ async function main(){
         const rows = (s.top25 || []).map(p => {
           const fmt = v => (v === null || v === undefined) ? '<span style="color:var(--faint)">N/A</span>' : v;
           const fmtMult = v => (v === null || v === undefined) ? '<span style="color:var(--faint)">—</span>' : '×' + v;
+          // JEG-98: for adjusted legs the chart shows the VORP-adjusted value,
+          // never the parent indexed value -- the red ✗ is by design, so it
+          // carries a title instead of reading as breakage.
+          const chartTitle = (p.chart_matches_indexed === false && s.parent_source)
+            ? ' title="Chart shows the VORP-adjusted value, not the parent indexed value (by design)"' : '';
           const matchIcon = p.chart_matches_indexed === true ? '<span style="color:var(--green)">✓</span>' :
-                            p.chart_matches_indexed === false ? '<span style="color:var(--red)">✗</span>' : '';
+                            p.chart_matches_indexed === false ? `<span style="color:var(--red)"${chartTitle}>✗</span>` : '';
           // Live page verification icon
           // Unverifiable sources (no live human-readable page) FAIL RED per the contract.
           const liveIcon = p.live_matches_native === true ? '<span style="color:var(--green)">✓</span>' :
