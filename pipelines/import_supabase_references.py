@@ -3,8 +3,8 @@
 
 Stage 1 of the repo import chain: Supabase -> data/raw/sources/.
 
-All six dashboard sources (fantasycalc, usatoday, fantasypros, espn, cbs, cbsros)
-are DB-backed. The big three read public.source_trade_values
+All seven dashboard sources (fantasycalc, usatoday, fantasypros, espn, cbs, cbsros,
+razzball) are DB-backed. The big three read public.source_trade_values
 (variant='as_published' only -- that is the source's own scraped value;
 'bias_adjusted' is our fitted calibration and is never imported here).
 ESPN reads public.espn_season_projections and CBS reads
@@ -37,7 +37,7 @@ provenance with different bytes still fails closed -- a stamped snapshot is
 never silently replaced.
 
 Fail-closed guards (each negative-tested in tests/test_supabase_import.py):
-  - unknown source name (ECR/Vegas/Razzball can never sneak in)
+  - unknown source name (ECR/Vegas can never sneak in)
   - source resolves to zero rows (never writes an empty snapshot)
   - content vintage undeterminable (NULL source_content_date AND no week/file vintage)
   - stamped snapshot exists with different bytes under the SAME provenance
@@ -77,12 +77,12 @@ from import_source_snapshot import (  # noqa: E402
     utc_now,
 )
 
-DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros")
+DB_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros", "razzball")
 DASHBOARD_SOURCES = DB_SOURCES
 
 # Supabase table per source. The big three share public.source_trade_values;
 # ESPN and CBS have their own reference tables (stage 1b closed 2026-09-22).
-# CBS ROS has its own projections table (wired 2026-10-01).
+# CBS ROS has its own projections table (wired 2026-10-01); Razzball likewise (JEG-18).
 SOURCE_TABLES = {
     "fantasycalc": "public.source_trade_values",
     "usatoday": "public.source_trade_values",
@@ -90,10 +90,11 @@ SOURCE_TABLES = {
     "espn": "public.espn_season_projections",
     "cbs": "public.cbs_trade_values",
     "cbsros": "public.cbs_ros_projections",
+    "razzball": "public.razzball_projections",
 }
 
 # Sources that must never be importable here, even if someone names them.
-HARD_EXCLUSIONS = ("ecr", "vegas", "razzball", "prediction_markets", "prediction-markets")
+HARD_EXCLUSIONS = ("ecr", "vegas", "prediction_markets", "prediction-markets")
 
 # Repo reference-level scoring vocabulary: ppr/half_ppr/standard (the fixture
 # maps these onto full/half/standard at the comparison stage).
@@ -118,7 +119,7 @@ def check_source(source: str) -> str:
     if name in HARD_EXCLUSIONS or is_ecr_flavored(name):
         raise SystemExit(
             f"Refusing to import '{source}': not a dashboard trade-value source "
-            f"(hard exclusions: ECR, Vegas, Razzball, prediction markets)."
+            f"(hard exclusions: ECR, Vegas, prediction markets)."
         )
     if name not in DASHBOARD_SOURCES:
         raise SystemExit(
@@ -360,6 +361,8 @@ def build_db_snapshot(source: str) -> tuple[dict[str, Any], dict[str, Any]]:
         return build_cbs_snapshot()
     if source == "cbsros":
         return build_cbsros_snapshot()
+    if source == "razzball":
+        return build_razzball_snapshot()
     raise SystemExit(f"No DB importer defined for source '{source}'")  # unreachable
 
 
@@ -814,6 +817,149 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "fetched_at_note": "no fetched_at on the native cbsros shape; content vintage is the table's cbs_snapshot_date",
     }
     return snapshot, manifest_fields
+
+
+def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
+    """Razzball: public.razzball_projections -> NATIVE snapshot shape (JEG-18).
+
+    Like cbsros, Razzball does not go through the generic match chain. Its
+    production pipeline is snapshot -> 12 DDF legs (build_razzball_ddf_leg.py)
+    -> section, and the leg reads the snapshot's NATIVE rows: top-level
+    vintage_date, and per row player_name / player_norm / pos / team plus the
+    published per-game columns rz_std_ppg / rz_half_ppr_ppg / rz_ppr_ppg.
+    This rebuilds exactly that: the per-game columns come back from
+    per_game_standard / per_game_half_ppr / per_game_ppr, and every other
+    original row field comes back from raw_stats verbatim, so a file-built and a
+    DB-rebuilt snapshot carry the same values.
+    """
+    rows = fetch_supabase_rows("razzball_projections", "?select=*")
+    if not rows:
+        raise SystemExit(
+            "Fail closed: source 'razzball' resolved to zero rows in "
+            "public.razzball_projections. Never writing an empty snapshot."
+        )
+    rows, scoped_date = _select_latest_snapshot_date(rows, date_key="razzball_snapshot_date")
+    date_scope_note = (
+        f" import scoped to latest snapshot date present ({scoped_date})"
+        if scoped_date is not None else ""
+    )
+    content_vintage, vintage_note, table_week = derive_db_vintage(
+        rows, date_column="razzball_snapshot_date"
+    )
+
+    keys = sorted({k for k in (canonical_player_key(r.get("player_key")) for r in rows) if k is not None})
+    names = fetch_player_names(keys)
+    positions = fetch_player_positions(keys)
+    fixture_map = fixture_pos_team()
+
+    per_game_cols = (
+        ("rz_std_ppg", "per_game_standard"),
+        ("rz_half_ppr_ppg", "per_game_half_ppr"),
+        ("rz_ppr_ppg", "per_game_ppr"),
+    )
+    clean_rows: list[dict[str, Any]] = []
+    review_rows: list[dict[str, Any]] = []
+    for row in rows:
+        key = canonical_player_key(row.get("player_key"))
+        if key is None:
+            review_rows.append(
+                {
+                    "reason": "non_numeric_player_key",
+                    "player_key_raw": row.get("player_key"),
+                    "player_norm": row.get("player_norm"),
+                }
+            )
+            continue
+        name = names.get(key)
+        if not name:
+            review_rows.append(
+                {"reason": "unresolved_player_key", "player_key": key, "player_norm": row.get("player_norm")}
+            )
+            continue
+        fixture_pos, fixture_team = fixture_map.get(key, (None, None))
+        # Razzball's own position label (stored in the table from the snapshot) wins over
+        # public.players.position: the DDF leg was built with it, and 9 fringe players
+        # differ between the two (e.g. RB vs TE). Using the canonical position here would
+        # move them between positional pools depending on which path built the snapshot.
+        pos = row.get("pos") or positions.get(key) or fixture_pos
+        if not pos:
+            review_rows.append(
+                {"reason": "missing_pos", "player_key": key, "player_name": name,
+                 "player_norm": row.get("player_norm")}
+            )
+            continue
+        # The leg builds all three scorings from the per-game columns; a row
+        # missing any of them cannot price every leg, so review it here rather
+        # than letting the leg stage drop it silently per scoring.
+        per_game = {out: parse_float(row.get(col)) for out, col in per_game_cols}
+        if any(v is None for v in per_game.values()):
+            review_rows.append(
+                {
+                    "reason": "missing_or_non_numeric_per_game",
+                    "player_key": key,
+                    "player_name": name,
+                    "per_game_raw": {col: row.get(col) for _, col in per_game_cols},
+                }
+            )
+            continue
+        raw_stats = row.get("raw_stats") if isinstance(row.get("raw_stats"), dict) else {}
+        clean_rows.append(
+            {
+                **raw_stats,
+                "player_name": name,
+                "player_norm": row.get("player_norm"),
+                "pos": pos,
+                "team": row.get("team") or fixture_team,
+                "health": row.get("health"),
+                "games_reported": parse_float(row.get("games_reported")),
+                **per_game,
+            }
+        )
+    if not clean_rows:
+        raise SystemExit(
+            f"Fail closed: source 'razzball' resolved to zero clean rows "
+            f"({len(review_rows)} in review). Never writing an empty snapshot."
+        )
+
+    by_pos: dict[str, int] = {}
+    for r in clean_rows:
+        by_pos[r["pos"]] = by_pos.get(r["pos"], 0) + 1
+
+    snapshot = {
+        "schema": "trade-value-razzball-snapshot-v1",
+        "source": "razzball",
+        # The DDF leg (build_razzball_ddf_leg.py) fail-closes without this.
+        "vintage_date": scoped_date,
+        "rows": clean_rows,
+        "review_rows": review_rows,
+        "summary": {"n_rows": len(clean_rows), "n_review": len(review_rows), "by_pos": by_pos},
+        "scoring_note": (
+            "Razzball's Games column and counting totals are doubled; the published "
+            "per-game columns (rz_*_ppg) are the canonical values the leg prices from."
+        ),
+        "row_count": len(clean_rows),
+        "review_count": len(review_rows),
+    }
+    manifest_fields = {
+        "supabase_table": SOURCE_TABLES["razzball"],
+        "from_file": None,
+        "filter": (
+            "public.razzball_projections (latest snapshot date); native Razzball "
+            "shape (rz_*_ppg from per_game_*, other row fields from raw_stats "
+            "verbatim); pos and team from the table (Razzball's own labels; "
+            "public.players.position only as a fallback)"
+            f"{date_scope_note}"
+        ),
+        "content_vintage": content_vintage,
+        "content_vintage_derived_from": vintage_note,
+        # Daily rule like cbsros: the health gate judges the dated vintage.
+        "week_designated": None,
+        "table_week": table_week,
+        "save_gap": None,
+        "fetched_at_note": "no fetched_at on the native razzball shape; content vintage is the table's razzball_snapshot_date",
+    }
+    return snapshot, manifest_fields
+
 
 # ---------------------------------------------------------------------------
 # Stamping

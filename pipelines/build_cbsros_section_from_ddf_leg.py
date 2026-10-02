@@ -127,6 +127,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
         }
         vintage = vintage or cbs_leg.get("inputs", {}).get("cbsros_snapshot_date")
     return {
+        "kind": "model projections, valued by our model",
         "provenance": "published",   # CBS ROS is source-authored; we only rescore receptions.
         "source_url": source_url,
         # CBS ROS is rest-of-season projections, not a week-designated trade

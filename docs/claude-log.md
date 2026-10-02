@@ -48,6 +48,129 @@ useful than a tidy file.
 ### Open
 
 - GAP-031 (cadence of the check; the `ir_cross_check` wording). The signal is now red, which is correct today: two sources still price an ESPN-zeroed player.
+## 2026-10-02 - JEG-68 follow-up: the open question in the entry below was settled by someone else
+
+### Verified
+
+- `origin/main` carries `668282a` (JEG-68: recalibrate starter-markup sanity check, 0.98-1.6 band), read from `git log`; JEG-68 is Done on Linear.
+- The JEG-68 ticket comments say a second agent reproduced my numbers (CBS ROS 649.87 / 115.02, 84.9625% starter share, markup 1.0004), so the diagnosis below stands.
+
+### Claimed, unverified
+
+- The live page passing the check, and the 11 regression tests: taken from the ticket comment, not run by me.
+
+### Open
+
+- GAP-032 is now marked Fixed. The sibling direction check is brittle at non-default shapes (JEG-69, not mine).
+- I had asked for a decision instead of changing the check; the fix landed without it. No code of mine shipped for JEG-68.
+
+## 2026-10-02 - JEG-68: CBS ROS "starter markup 1.000" is not a no-op bug (diagnosis only)
+
+### Verified
+
+- Reproduced the failure: headless Chromium (`/opt/pw-browsers/chromium`) against the built `dist/` at the default shape logs `[ChartHealth] FAIL: CBS ROS starter markup ratio sane -- starter adjusted/pure = 1.000`. It is the only markup failure; ESPN and Razzball pass.
+- Cause, from a temporary `console.warn` in a scratch copy of `dist/` (repo untouched): `buildVorpRows` raw pools are ESPN starter 646.53 / bench 169.54 (79.2% starter), CBS ROS 649.87 / 115.02 (**84.96%**), Razzball 598.30 / 167.70 (78.1%). The check computes `starterScale / rawScale`, which equals `target starter share / raw starter share` = 0.85 / 0.8496 = 1.0004.
+- So the adjustment runs. CBS ROS's raw pool already has almost exactly the 85/15 split, so the markup is correctly about 1.0. The direction check (`rawStarterShare < starterShare`) passes.
+
+### Claimed, unverified
+
+- Other 11 league/scoring shapes: not swept. The failure was seen live at the default shape only.
+- Live production page: egress blocked, not checked.
+
+### Open
+
+- The ticket's acceptance criterion 1 (ratio > 1.05 on CBS ROS) cannot be met honestly without changing CBS ROS's valuation; criterion 2 (a test that fails on a 1.000 build) would fail on today's correct build. Not changed: weakening or rewriting the check needs Muse's/Jeremy's decision (GAP-032).
+- No code changed this session.
+## 2026-10-02 - JEG-18: `public.razzball_projections` now holds the first real vintage (written by someone else)
+
+### Verified (read-only `execute_sql` against project iskiybsimubiujwuchsl, 11:4x UTC)
+
+- 692 rows, 692 distinct `player_key`, 1 vintage (`razzball_snapshot_date` 2026-10-01), `_run_id` `razzball-save-2026-10-01`, `_writer_identity` `save_razzball_references.py`, `_written_at` 2026-10-02 11:32:02 to 11:32:03 UTC.
+- By `pos`: QB 99, RB 171, WR 267, TE 155. Sums of per-game columns: standard 1909.5, half_ppr 2244.4, ppr 2577.6. These are exactly the numbers I prepared from the real snapshot before any write, so the table matches the dry run.
+- I did not write these rows. No Linear approval of the statement had reached me, and the writer identity is the real saver script, not my connector batches. I do not know who ran it or from where.
+
+### Claimed, unverified
+
+- That the importer and import-health gate read these rows correctly from the real table (needs the next `rebuild-chain` run or credentials here).
+- That the 9 review rows (8 alias gaps plus the Audric Estime duplicate) are still absent: not checked row by row, only that the count is 692.
+
+### Open
+
+- GAP-030: table condition for merging PR #23 is now met; the 9 review rows remain.
+## 2026-10-02 - JEG-18: dry run against the real snapshot found and fixed three problems
+
+### Verified (the real `razzball-snapshot-2026-10-01.json` from Drive, 505,273 bytes, sha256 prefix `4e21b385a2`, the same file the 12 DDF legs record; saver and importer code run locally, nothing written)
+
+- Snapshot: vintage 2026-10-01, 701 rows (QB 100, RB 173, WR 270, TE 158) plus 13 review rows of its own (`ppg_inconsistent`), as Muse reported.
+- First dry run: 679 clean, 22 review. 21 were `no_match`, including Ja'Marr Chase, D'Andre Swift and Wan'Dale Robinson. Cause: `public.players` spells these with a straight apostrophe, the snapshot with a typographic one, and `normalize_name` turns them into different strings. Fix: a space-free fallback form, plus the snapshot's own `player_norm` (the leg's join key). Now 692 clean, 9 review. Four mutations each fail a named test (no space-free fallback, ignoring the hint, guessing on ambiguity, dropping position narrowing).
+- The 9 left: Mitch Trubisky, Kenny Gainwell, Joshua Palmer, J. Sturdivant, Jalen Cropper, Chigoziem Okonkwo, Drew Ogletree, Miles Kitselman (no matching name in `public.players`, so they need verified aliases) and Audric Estime (two RB rows in `public.players`: 1475 "Audric Estim\u00e9" and 4642 "Audric Estime", so the saver refuses to guess). The DDF leg cannot resolve the first eight either.
+- Real-data round trip (692 rows -> importer rebuild -> real `load_razzball_lists`): rebuilt rows equal the original file for all 692 (ignoring name spelling), and the leg inputs match for 468 of 469 players in all three scorings. The one difference is Audric Estime (RB, key 4642), whom the leg prices and the database copy holds in review. He is a 0.1 PPG fringe player.
+- Found by that round trip: the importer took `pos` from `public.players`, which differs from Razzball's label for 9 fringe players (e.g. Connor Heyward RB vs TE; Ben VanSumeren RB vs LB), so the two build paths would bucket them differently. The importer now prefers the table's stored Razzball `pos`; one mutation fails a named test.
+
+### Claimed, unverified
+
+- The write itself, and PostgREST accepting the real rows. Nothing has been written to `public.razzball_projections` (still 0 rows).
+- Whether dropping Estime from the leg matters downstream: it should be negligible, but the duplicate player row needs a decision.
+
+### Open
+
+- Alias decisions for 8 names and the 1475/4642 duplicate (not mine to guess; the aliases live in `build_ddf_two_tier_leg.ALIASES`).
+
+## 2026-10-02 - JEG-18: the razzball_projections table was created (empty)
+
+- Jeremy gave an explicit yes in the Claude session ("yes, run table migration") after I asked him directly and named the statement. Before it, I checked read-only that the table did not exist.
+- Applied the DDL from `sql/migrations/003_razzball_projections.sql` (CREATE TABLE plus the unique and date indexes) with the Supabase `apply_migration` tool, then `NOTIFY pgrst, 'reload schema'`.
+- Verified afterwards, read-only (`information_schema`, `pg_indexes`, `pg_class`): all 21 columns with the expected types, `razzball_projections_pkey` + `razzball_projections_player_date_uidx` + `razzball_projections_snapshot_date_idx`, RLS off (matches `cbs_ros_projections`), 0 rows.
+- No row has been written. The first real save needs `data/raw/sources/razzball/` and the pipeline credentials, which are on Jeremy's machine.
+
+### Not verified
+
+- That the saver's first real upsert works end to end: PostgREST's schema cache after the NOTIFY, and the real snapshot's row shape (the puller is not in the repo). The synthetic round trip passed, which is not the same thing.
+
+### Open
+
+- PR #23 must not merge until the table holds a vintage (GAP-030).
+
+## 2026-10-02 - JEG-18: migration SQL written, not run; one of my guard tests was wrong
+
+- Muse approved the table design on JEG-18, so `sql/migrations/003_razzball_projections.sql` is in PR #23. It has not been run and nothing was written to Supabase. The rollback (`DROP TABLE IF EXISTS public.razzball_projections;`) is a comment.
+- Guards (`MigrationMatchesSaverTest`): every column the saver writes and the importer reads exists in the migration, the upsert key is a unique index, only one table is created, and no destructive statement is executable. Each of three mutations (a dropped column, a non-unique index, an executable DROP) fails a named test.
+- Correction to my own test: the first version of the rollback guard stripped the `--` prefix before searching, which un-commented the rollback and made the test fail on correct SQL. The assertion was wrong, not the SQL; it now scans only executable lines.
+- Not verified: the DDL itself has never run against Postgres, so syntax errors would only show at run time. It copies the shape of migration 002, which did run.
+
+## 2026-10-02 - Dataset health panel never filled since JEG-26; every PR's rendered gate went red
+
+### Verified (headless Chromium on a local build of `origin/main`, then the fix)
+
+- JEG-26 (`d8c1628`) replaced the inline `<details id="dataHealth">` with a modal dialog, but `renderHealth()` still ran `document.getElementById("dataHealth").open = ...`. The element is gone, so every page load threw `TypeError: Cannot set properties of null (setting 'open')` before the panel was filled. User-visible: the "Dataset health" panel stays on "Checking..." with 0 source cards. Before the fix: title "Checking...", 0 cards, 1 page error. After: the real title, 12 cards, 0 page errors.
+- This is what turned the rendered gate (JEG-47) red on PR #23 (a PR that touches no front-end code): the gate reported 1 uncaught page error. The gate did its job.
+- Fix: `if(health) health.open = ...` in `renderHealth()` (source `app/trade-value-chart/index.html`, same line in `dist/index.html`).
+
+### Claimed, unverified
+
+- That the live site shows the stuck panel: not checked (egress blocked). It would, if JEG-26 is deployed.
+- `dist/` on `main` also differs from what `make sync` produces for some assets (comparison-dashboard.js/css, fixture copies); I did not commit those.
+
+### Open
+
+- The rendered gate only checks page errors, not that the health panel populated. A "panel has cards" check would have caught this class of break without relying on an exception.
+## 2026-10-02 - JEG-18: Razzball through Supabase, code only (table not created)
+
+### Verified
+
+- Read-only schema look (`list_tables`, no queries, no writes): there is no `razzball_projections` table; `public.cbs_ros_projections` (363 rows, RLS off, columns as in migration 002) is the template. I proposed the Razzball table on JEG-18 and wait for Jeremy's yes; no migration file written, none run, no row written.
+- Built the saver, the importer's `build_razzball_snapshot()`, health coverage (daily dated rule), the lifted `razzball` hard exclusion, and the rebuild-chain loop entry. `make validate` passes.
+- `tests/test_razzball_supabase.py` (12 tests) plus 5 health tests. Round trip: a file snapshot goes through the saver, the importer rebuilds it, and the rebuilt rows equal the originals field for field; the real `build_razzball_ddf_leg.load_razzball_lists` then reads the rebuilt snapshot and returns the same per-game numbers. That round trip found a bug: an empty `health` string came back as null; fixed (stored verbatim). Mutations caught by a named test: dropping raw_stats in the saver, dropping it in the importer, swapping half and ppr, re-excluding razzball, blending vintages, skipping the post-upsert count check, dropping razzball from the health sources, and treating it as week-designated. One mutation (stamping the season from the run date) first passed because the run year equals the test year; I made the test use vintages far from today and it now fails.
+- Existing assertions that named razzball as hard-excluded or counted six sources were updated; the JEG-18 acceptance criteria call for exactly that.
+
+### Claimed, unverified
+
+- The real snapshot row shape. `pipelines/pull_razzball_ros.py` (named in the issue) is not in the repo; the shape is inferred from `data/inputs/razzball_projections.csv` and the leg builder. Muse reports 701 rows and a stable schema; not checked.
+- Row counts and bake_id: not produced; they need the real snapshot and the pipeline credentials.
+
+### Open
+
+- GAP-030: do not merge until the table exists and holds a vintage, or the chain goes red on `MISSING razzball`.
 
 ## 2026-10-01 - JEG-19: K/DST source audit and recommendation (diagnosis only)
 
