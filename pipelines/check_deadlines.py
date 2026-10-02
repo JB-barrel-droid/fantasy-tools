@@ -161,13 +161,13 @@ def determine_source_state(
             "reason": f"Publication schedule for '{source}' is unverified",
         }
 
-    # Calculate expected publication time for current week
-    # Content week starts on Tuesday (day 1), so find the Tuesday of this content week
-    today = check_time.date()
+    # Calculate expected publication time for current week.
+    # content_week_start is anchored to Tuesday 2026-09-08, so adding
+    # (nfl_week - 1) weeks lands exactly on the Tuesday of the given NFL week.
+    # Use it directly: subtracting days_since_tuesday would shift the expected
+    # publish date back to the wrong week on any day after Tuesday.
     content_week_start = date(2026, 9, 8) + timedelta(weeks=nfl_week - 1)
-    # Day of week: Tuesday = 1
-    days_since_tuesday = (today.weekday() - 1) % 7
-    this_week_tuesday = content_week_start - timedelta(days=days_since_tuesday)
+    this_week_tuesday = content_week_start
 
     # Expected publish time is the Tuesday of the content week at some hour
     # For simplicity, use end of day as the expected publication window
@@ -183,7 +183,15 @@ def determine_source_state(
     # Add grace period
     grace_until = expected_by + timedelta(days=grace_days)
 
-    # Determine state based on last_write
+    # Determine state based on last_write.
+    # The verdict judges the WRITE against the deadline, not the check time
+    # against the deadline: a source that published on time stays green when
+    # we check later. A write dated before this content week's Tuesday belongs
+    # to a previous cycle and does not satisfy this week's deadline.
+    week_start = datetime(
+        this_week_tuesday.year, this_week_tuesday.month, this_week_tuesday.day,
+        tzinfo=timezone.utc,
+    )
     if last_write is None:
         return {
             "expected_by": expected_by.isoformat(),
@@ -197,32 +205,50 @@ def determine_source_state(
     lag_timedelta = check_time - last_write
     lag_minutes = int(lag_timedelta.total_seconds() / 60)
 
-    if check_time <= expected_by:
-        # Within publication window - green
-        return {
-            "expected_by": expected_by.isoformat(),
-            "actual_at": last_write.isoformat(),
-            "lag_minutes": lag_minutes,
-            "state": "green",
-            "reason": f"Within publication window for Week {nfl_week}",
-        }
-    elif check_time <= grace_until:
-        # Within grace period - amber
-        return {
-            "expected_by": expected_by.isoformat(),
-            "actual_at": last_write.isoformat(),
-            "lag_minutes": lag_minutes,
-            "state": "amber",
-            "reason": f"Within {grace_days}-day grace period",
-        }
-    else:
-        # Past grace period - red
+    if last_write < week_start:
+        # No write yet this content week: stale write from a previous cycle.
+        if check_time <= grace_until:
+            return {
+                "expected_by": expected_by.isoformat(),
+                "actual_at": last_write.isoformat(),
+                "lag_minutes": lag_minutes,
+                "state": "unknown",
+                "reason": f"No {source} write yet for Week {nfl_week} (still within grace)",
+            }
         return {
             "expected_by": expected_by.isoformat(),
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "red",
-            "reason": f"Past {grace_days}-day grace period (missed publication window)",
+            "reason": f"No {source} write for Week {nfl_week}; past {grace_days}-day grace period",
+        }
+
+    if last_write <= expected_by:
+        # Published on time - green, regardless of when we check
+        return {
+            "expected_by": expected_by.isoformat(),
+            "actual_at": last_write.isoformat(),
+            "lag_minutes": lag_minutes,
+            "state": "green",
+            "reason": f"Published on time for Week {nfl_week}",
+        }
+    elif last_write <= grace_until:
+        # Late but within grace - amber
+        return {
+            "expected_by": expected_by.isoformat(),
+            "actual_at": last_write.isoformat(),
+            "lag_minutes": lag_minutes,
+            "state": "amber",
+            "reason": f"Published late for Week {nfl_week} (within {grace_days}-day grace period)",
+        }
+    else:
+        # Published after grace - red
+        return {
+            "expected_by": expected_by.isoformat(),
+            "actual_at": last_write.isoformat(),
+            "lag_minutes": lag_minutes,
+            "state": "red",
+            "reason": f"Published past {grace_days}-day grace period for Week {nfl_week}",
         }
 
 
