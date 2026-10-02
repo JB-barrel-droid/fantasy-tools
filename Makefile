@@ -157,6 +157,7 @@ test-unit:
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_dist_manifest
+	python3 -m unittest tests.test_content_vintage_render
 	python3 -m unittest tests.test_preview_workflow_matches_pages
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
