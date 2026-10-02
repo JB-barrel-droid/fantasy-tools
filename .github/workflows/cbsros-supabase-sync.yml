@@ -1,0 +1,50 @@
+name: CBS ROS scrape to Supabase
+
+# Scrapes fresh CBS rest-of-season projections (Dave Richards ROS pages) and
+# saves them to Supabase public.cbs_ros_projections.
+# This closes the automation gap where CBS ROS data was only updated
+# via manual pull + save runs (JEG-71).
+#
+# Runs weekly on Wednesdays at 11:00 UTC (06:00 CT), ahead of the midweek
+# chart rebuilds. CBS publishes ROS projections weekly.
+
+on:
+  schedule:
+    # Weekly Wednesday 11:00 UTC (06:00 CT)
+    - cron: '0 11 * * 3'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py 2>/dev/null || true
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Scrape CBS ROS projections
+        id: scrape
+        run: |
+          # Fail-closed: the puller exits non-zero on scraper failure or
+          # empty snapshot; the save step never runs on a bad pull.
+          python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
+          echo "snapshot=/tmp/cbsros_snapshot/snapshot.json" >> $GITHUB_OUTPUT
+
+      - name: Save to Supabase
+        if: steps.scrape.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/save_cbsros_references.py --snapshot /tmp/cbsros_snapshot/snapshot.json
