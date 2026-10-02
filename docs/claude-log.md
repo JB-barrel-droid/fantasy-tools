@@ -32,6 +32,24 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-68: CBS ROS "starter markup 1.000" is not a no-op bug (diagnosis only)
+
+### Verified
+
+- Reproduced the failure: headless Chromium (`/opt/pw-browsers/chromium`) against the built `dist/` at the default shape logs `[ChartHealth] FAIL: CBS ROS starter markup ratio sane -- starter adjusted/pure = 1.000`. It is the only markup failure; ESPN and Razzball pass.
+- Cause, from a temporary `console.warn` in a scratch copy of `dist/` (repo untouched): `buildVorpRows` raw pools are ESPN starter 646.53 / bench 169.54 (79.2% starter), CBS ROS 649.87 / 115.02 (**84.96%**), Razzball 598.30 / 167.70 (78.1%). The check computes `starterScale / rawScale`, which equals `target starter share / raw starter share` = 0.85 / 0.8496 = 1.0004.
+- So the adjustment runs. CBS ROS's raw pool already has almost exactly the 85/15 split, so the markup is correctly about 1.0. The direction check (`rawStarterShare < starterShare`) passes.
+
+### Claimed, unverified
+
+- Other 11 league/scoring shapes: not swept. The failure was seen live at the default shape only.
+- Live production page: egress blocked, not checked.
+
+### Open
+
+- The ticket's acceptance criterion 1 (ratio > 1.05 on CBS ROS) cannot be met honestly without changing CBS ROS's valuation; criterion 2 (a test that fails on a 1.000 build) would fail on today's correct build. Not changed: weakening or rewriting the check needs Muse's/Jeremy's decision (GAP-032).
+- No code changed this session.
+
 ## 2026-10-01 - JEG-19: K/DST source audit and recommendation (diagnosis only)
 
 ### Verified (fixtures and inputs in the repo)
