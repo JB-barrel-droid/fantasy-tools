@@ -1,5 +1,105 @@
 # Claude session log
 
+## 2026-10-02 - JEG-110 Supabase features for pipeline stability (MiniMax lane)
+
+Branch `minimax/jeg-110-supabase-features`. Research-only ticket. Output:
+`docs/supabase-features-recommendation.md` (the four-feature
+recommendation) and `lanes/inbox/minimax/JEG-110-supabase-features.md`
+(the lane handoff). No code, no schema, no DB access attempted; the
+only files written are the doc, the lane note, and this log entry.
+
+### Verified (checks named)
+
+- `.github/workflows/*.yml` cron blocks read end-to-end:
+  `espn-supabase-sync.yml` (daily 11:30 UTC, line 11-13 cron, GAP-036
+  "fails open at line 41"), `fantasycalc-drift.yml` (daily 11:45 UTC,
+  line 13-18), `cbsros-supabase-sync.yml` (weekly Wed 11:00 UTC,
+  line 11-14), `source-vintage-check.yml` (hourly, line 5), and
+  `rebuild-chain.yml` (`workflow_dispatch` only, line 16-17 — not a
+  pg_cron candidate).
+- The canonical writer pattern
+  (audit → upsert → post-write count check) is real and duplicated:
+  `pipelines/save_usatoday_references.py:375-423` is the canonical
+  version; `save_espn_cbs_references.py`,
+  `save_fantasypros_references.py`,
+  `save_fantasycalc_references.py` follow the same shape.
+- `USAT_UPSERT_CONFLICT_VERSIONED` constant in
+  `save_usatoday_references.py:78-80`; the FP and FC equivalents
+  exist by file listing in `pipelines/` and the migration 005 / 006
+  chain is the durable proof all three savers need to coordinate on
+  the bake-aware grain.
+- `pipelines/lib/writer_audit.py:210-229` stamps
+  `_writer_identity / _run_id / _written_at` per row in Python;
+  `migration 001_pipeline_write_audit_repair.sql` step 5 forbids
+  bare NOT NULL on these columns on the data tables (the "invented
+  sentinel value would corrupt the 'undeclared write' detection"
+  stance) and step 6 forbids FORCE RLS. Both fed the §4
+  recommendation to use a trigger-mediated default.
+- Migration 005 (`source_trade_values_grain_bake_aware.sql`) drops
+  the legacy constraint via `ALTER TABLE ... DROP CONSTRAINT IF
+  EXISTS` then re-creates it as an index with the same name — the
+  JEG-104 fix.
+- `docs/pipeline-rules.md` §7a (week-versioning, bake_id per
+  ingest), §5 (freshness is content vintage), §8 (no fixture update
+  on a red gate) are the standing rules the recommendation respects
+  without weakening.
+- The JEG-104 / GAP-023 / GAP-012 anchor chain is real:
+  `docs/claude-log.md` lines 3-16 (JEG-104), `docs/risk-register.md`
+  row 40 (GAP-023), row 29 (GAP-012). The doc's §4 "constraints as
+  guards" section grounds its "JEG-104 was a constraint bug" claim in
+  these.
+- `docs/architecture-current.md` line 120: "RLS and pg_cron state
+  are unverified in the handoff and must not be assumed" — fed the
+  §3 "verify-before-adopt" caveat and the UNVERIFIED line in the
+  lane handoff.
+- `pg_cron` is **not** referenced anywhere in this checkout (grep
+  result). The Supabase project's actual extension state is
+  unknown; the recommendation treats this as a hard prerequisite.
+- `docs/risk-register.md` GAP-035 ("No notify/issue/webhook step in
+  any workflow") + GAP-046 (cron slip up to ~6 hours) are why §3
+  ranks pg_cron last with an explicit "do not pay straight up"
+  caveat.
+
+### Claimed, unverified
+
+- Whether the production Supabase project has the `pg_cron`
+  extension enabled. Verify on the Supabase dashboard before §3 can
+  land.
+- Whether `public.players.player_key` is the declared primary key
+  in `pg_constraint` on the production schema. Needed for the §4(c)
+  FK recommendation; `docs/supabase-source-mapping.md` line 86
+  calls it "numeric player_key (bigint)" but the live constraint
+  row was not read this session.
+- The "unchanged content skips quietly" branch in each of the three
+  as-published savers — cited at `docs/pipeline-rules.md` §7a but
+  the line numbers in `save_usatoday_references.py` /
+  `save_fantasypros_references.py` /
+  `save_fantasycalc_references.py` were not enumerated.
+- Whether the legacy `source_trade_values_grain` lives in
+  `pg_constraint` as a CONSTRAINT or in `pg_indexes` as an INDEX.
+  Migration 005 reframes the legacy grain as an index with the
+  same name; the doc's §4 cites both forms as "constraints" and a
+  future reader should check.
+
+### Open
+
+- GAP-036 (ESPN daily fails open at line 41) and GAP-041 (ESPN
+  daily CI crashes on missing `identity` module) are both directly
+  improved by §4(a) (NOT NULL via trigger) — when the trigger
+  refuses a write without an audit row, both gaps close because
+  the audit row is the only path to a data row. No code change
+  this ticket.
+- The trigger-mediated default of `_writer_identity` from
+  `current_setting('weaver.identity', true)` requires the writer
+  helper to `set_config` the GUC on the connection. Acceptable but
+  non-trivial; tracked for the implementation ticket that would
+  follow §1.
+- §2(d) reindex → review dance is marked optional pending
+  adoption by a second saver (today only USA Today reindexes at
+  save time).
+
+---
+
 ## 2026-10-02 - JEG-104 migration replay correction (Codex)
 
 ### Verified
