@@ -68,6 +68,16 @@ from save_espn_cbs_references import (  # noqa: E402
 from lib.writer_audit import WriterAudit  # noqa: E402
 
 USAT_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key"
+# Versioned grain (2026-10-02, Jeremy directive: keep multiple versions of a
+# week): bake_id joins the conflict target so a re-ingest of changed
+# same-week content inserts a NEW version instead of overwriting the prior
+# bake. Requires the source_trade_values_bake_version_uidx unique index
+# (sql/migrations/004_source_trade_values_bake_version.sql). The other
+# as-published savers keep the 8-column grain (overwrite) until their flows
+# are version-aware -- do not widen this constant without versioning them.
+USAT_UPSERT_CONFLICT_VERSIONED = (
+    "source,variant,scoring,league_teams,qb_slots,season,week,player_key,bake_id"
+)
 
 # scoring label used in source_trade_values for USA Today (matches the fit-bake).
 SCORING_LABELS = ("std", "half", "full")
@@ -387,9 +397,11 @@ def save_usatoday(
     try:
         # Add audit fields to rows (if audit available)
         rows_to_save = audit.audit_rows(clean) if audit else clean
-        # Upsert on the grain's unique index (JEG-28), the same shared path the other savers use,
-        # so re-running a save for the same vintage merges instead of duplicating or failing.
-        upsert_rows("source_trade_values", rows_to_save, USAT_UPSERT_CONFLICT)
+        # Versioned upsert grain (2026-10-02): bake_id is part of the conflict
+        # target, so each ingest writes an immutable version; prior bakes are
+        # retained, never overwritten. Readers select one bake per week
+        # (import_supabase_references._select_latest_bake) -- never blended.
+        upsert_rows("source_trade_values", rows_to_save, USAT_UPSERT_CONFLICT_VERSIONED)
         if audit:
             audit.complete(row_count=len(clean))
     except Exception as e:

@@ -332,6 +332,42 @@ def _select_latest_week(
     return [r for r in rows if r.get("week") == latest], latest
 
 
+def _select_latest_bake(
+    rows: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Scope one week's rows to a single bake version. Never blend bakes.
+
+    Week-versioning practice (Jeremy 2026-10-02): a week may hold multiple
+    immutable bakes (re-ingests of revised publisher content). A snapshot
+    must represent exactly one of them, so the import deterministically
+    selects the latest bake: greatest max(created_at) across the bake's
+    rows, tie-broken by greatest bake_id for determinism. Older bakes are
+    retained in the table as the audit trail; they are excluded, not merged.
+    Fail-closed when no row carries created_at -- recency would be a guess.
+    Rows with bake_id NULL (pre-versioning writes) form their own bake and
+    lose to any timestamped bake.
+    """
+    bakes: dict[Any, list[dict[str, Any]]] = {}
+    for r in rows:
+        bakes.setdefault(r.get("bake_id"), []).append(r)
+    if len(bakes) == 1:
+        return rows, next(iter(bakes))
+    stamps = {
+        b: [r.get("created_at") for r in rs if r.get("created_at")]
+        for b, rs in bakes.items()
+    }
+    if not any(stamps.values()):
+        raise SystemExit(
+            "Fail closed: multiple bakes present but no created_at on any "
+            "row; cannot determine the latest bake without guessing."
+        )
+    best = max(
+        bakes,
+        key=lambda b: (max(stamps[b]) if stamps[b] else "", str(b or "")),
+    )
+    return bakes[best], best
+
+
 def _select_latest_snapshot_date(
     rows: list[dict[str, Any]], *, date_key: str
 ) -> tuple[list[dict[str, Any]], str | None]:
@@ -389,6 +425,14 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
         if scoped_week is not None else ""
     )
 
+    # Multi-bake weeks: prior bakes are retained, but the snapshot is one
+    # bake -- select the latest bake deterministically (never blended).
+    rows, scoped_bake = _select_latest_bake(rows)
+    bake_scope_note = (
+        f" scoped to latest bake present (bake_id={scoped_bake})"
+        if scoped_bake is not None else ""
+    )
+
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 
     keys = sorted({k for k in (canonical_player_key(r.get("player_key")) for r in rows) if k is not None})
@@ -434,7 +478,7 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
             f"select=*&source=eq.{source}&variant=eq.as_published "
             f"(as_published only: the source's own scraped value); "
             f"python backstop dropped {len(ecr_dropped)} ECR-flavored row(s)"
-            f"{week_scope_note}"
+            f"{week_scope_note}{bake_scope_note}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,
@@ -598,6 +642,10 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         f" import scoped to latest week present (week={scoped_week})"
         if scoped_week is not None else ""
     )
+
+    # Single-bake scoping (no-op while CBS rows carry no bake_id; keeps the
+    # read contract uniform for when CBS versions).
+    rows, _ = _select_latest_bake(rows)
 
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 

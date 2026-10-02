@@ -580,6 +580,52 @@ class LatestVintageScopingTest(unittest.TestCase):
         self.assertEqual(len(scoped), 1)
         self.assertEqual(scoped[0]["espn_snapshot_date"], "2026-09-25")
 
+    def test_select_latest_bake_single_bake_unchanged(self):
+        rows = [db_row(bake_id="usatwk4_2026-09-29_v1",
+                       created_at="2026-09-29T22:26:00+00:00"),
+                db_row(player_key=870, bake_id="usatwk4_2026-09-29_v1",
+                       created_at="2026-09-29T22:26:01+00:00")]
+        scoped, best = mod._select_latest_bake(rows)
+        self.assertEqual(best, "usatwk4_2026-09-29_v1")
+        self.assertEqual(scoped, rows)
+
+    def test_select_latest_bake_picks_newest_created_at_never_blends(self):
+        old = [db_row(bake_id="usatwk4_2026-09-29_v1",
+                      created_at="2026-09-29T22:26:00+00:00")]
+        new = [db_row(bake_id="usatwk4_2026-10-02_v1", player_key=870,
+                      created_at="2026-10-02T14:00:00+00:00"),
+               db_row(bake_id="usatwk4_2026-10-02_v1", player_key=871,
+                      created_at="2026-10-02T14:00:01+00:00")]
+        scoped, best = mod._select_latest_bake(old + new)
+        self.assertEqual(best, "usatwk4_2026-10-02_v1")
+        self.assertEqual(len(scoped), 2)
+        self.assertTrue(all(r["bake_id"] == "usatwk4_2026-10-02_v1"
+                            for r in scoped))
+
+    def test_select_latest_bake_tiebreak_is_deterministic(self):
+        # Same created_at on both bakes: greatest bake_id wins, every time.
+        rows = [db_row(bake_id="usatwk4_2026-10-02_v1",
+                       created_at="2026-10-02T14:00:00+00:00"),
+                db_row(bake_id="usatwk4_2026-10-02_v2",
+                       created_at="2026-10-02T14:00:00+00:00")]
+        scoped, best = mod._select_latest_bake(rows)
+        self.assertEqual(best, "usatwk4_2026-10-02_v2")
+        self.assertEqual([r["bake_id"] for r in scoped],
+                         ["usatwk4_2026-10-02_v2"])
+
+    def test_select_latest_bake_null_bake_loses_to_timestamped(self):
+        rows = [db_row(bake_id=None, created_at="2026-09-20T00:00:00+00:00"),
+                db_row(bake_id="usatwk4_2026-10-02_v1",
+                       created_at="2026-10-02T14:00:00+00:00")]
+        scoped, best = mod._select_latest_bake(rows)
+        self.assertEqual(best, "usatwk4_2026-10-02_v1")
+
+    def test_select_latest_bake_fails_closed_without_any_created_at(self):
+        rows = [db_row(bake_id="b1", created_at=None),
+                db_row(bake_id="b2", created_at=None)]
+        with self.assertRaises(SystemExit):
+            mod._select_latest_bake(rows)
+
 
 spec_saver = importlib.util.spec_from_file_location(
     "save_cbsros_references", PIPELINES / "save_cbsros_references.py"

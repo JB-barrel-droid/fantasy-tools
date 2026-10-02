@@ -75,20 +75,29 @@ def bake_id_fn(week: int, state: dict[str, Any]) -> str:
 
 def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
                     clean: list[dict[str, Any]]) -> str | None:
-    """Smart same-week guard for the (usatoday, as_published) grain.
+    """Same-week versioning guard for the (usatoday, as_published) grain.
 
-    Semantics (resolved 2026-09-22 from the live read-only comparison):
+    Week-versioning practice (Jeremy 2026-10-02): a week may hold multiple
+    bakes; each ingest writes an immutable version, never overwrites. So:
       - No existing rows for the week -> proceed with the write.
       - Existing rows with IDENTICAL published (native) values -> quiet skip
         ("unchanged"): the article's numbers are already in the DB, so no
         write is needed. The reindex is deterministic, so identical natives
         imply identical reindexed values.
-      - Existing rows with DIFFERENT published values, or a different key
-        set -> fail closed (IngestError). Same-week replacement semantics
-        (which bake the numbers belong to, and how bias_adjusted stays
-        consistent) are still unresolved, so a changed re-pull never writes
-        on its own.
+      - Existing rows with DIFFERENT published values -> proceed: the new
+        pull becomes a new versioned bake (bake_id in the upsert grain).
+        Readers select one bake per week; versions are never blended.
+      - Fail closed only on a degenerate pull: if more than 5% of the
+        existing week's keys are absent from the new pull, the pull is
+        probably truncated (e.g. a table failed to parse) and must not
+        become the current version. Legitimate same-week revisions add or
+        adjust players; they don't vaporize the chart.
     """
+    # Share of existing keys allowed to vanish before the pull is judged
+    # degenerate. Same-week revisions (2026-10-02: +12 keys, 0 removed)
+    # sit far below this; a missed table parse would blow past it.
+    MAX_KEY_ATTRITION_FRAC = 0.05
+
     existing = db.grain_native_values(CFG["table"], CFG["source"],
                                       CFG["variant"], CFG["season"], week)
     if not existing:
@@ -96,29 +105,25 @@ def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
     new: dict[tuple[int, str], float] = {}
     for r in clean:
         new[(int(r["player_key"]), str(r["scoring"]))] = float(r["native_value"])
-    if set(new) != set(existing):
-        only_new = set(new) - set(existing)
-        only_old = set(existing) - set(new)
+    only_old = set(existing) - set(new)
+    if only_old and len(only_old) / len(existing) > MAX_KEY_ATTRITION_FRAC:
         raise ic.IngestError(
-            "[usatoday] same-week rows exist for week "
-            f"{week} but the player/scoring key set differs "
-            f"(only in new pull: {len(only_new)}, only in DB: {len(only_old)}); "
-            "same-week replacement semantics are unresolved -- not writing.")
-    diffs = [(k, existing[k], new[k]) for k in new
-             if abs(existing[k] - new[k]) > 1e-9]
-    if diffs:
-        sample = ", ".join(
-            f"player_key={k[0]} {k[1]}: db={a} pull={b}"
-            for k, a, b in diffs[:5])
-        raise ic.IngestError(
-            f"[usatoday] same-week rows exist for week {week} but "
-            f"{len(diffs)} published values changed under the existing bake "
-            f"(e.g. {sample}); same-week replacement semantics are "
-            "unresolved -- not writing.")
-    print(f"[usatoday] same-week content unchanged in DB "
-          f"({len(new)} keys, native values identical); skipping write",
+            f"[usatoday] new pull is missing {len(only_old)}/{len(existing)} "
+            f"existing week-{week} keys (>{MAX_KEY_ATTRITION_FRAC:.0%} attrition); "
+            "probable truncated pull -- not writing a new version.")
+    if set(new) == set(existing):
+        diffs = [k for k in new if abs(existing[k] - new[k]) > 1e-9]
+        if not diffs:
+            print(f"[usatoday] same-week content unchanged in DB "
+                  f"({len(new)} keys, native values identical); skipping write",
+                  flush=True)
+            return "unchanged"
+    n_new = len(set(new) - set(existing))
+    n_chg = sum(1 for k in new if k in existing and abs(existing[k] - new[k]) > 1e-9)
+    print(f"[usatoday] same-week content changed: {n_new} new keys, "
+          f"{n_chg} changed values; writing as a new versioned bake",
           flush=True)
-    return "unchanged"
+    return None
 
 
 CFG: dict[str, Any] = {

@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
 import pull_watchdog as wd
 import pull_usatoday as usat
 import pull_cbs as cbs
+import ingest_usatoday as ing_usat
+import ingest_common as ing_common
 from _common import REPO, classify_run_line, todays_run_lines
 
 DAY = date(2026, 9, 22)  # a Tuesday; nfl_week == 2
@@ -494,6 +496,61 @@ class TestUsatodayDiscoverySlugChange(unittest.TestCase):
     def test_still_discovers_article_under_old_slug(self):
         url = usat.discover_url(3, fetch_fn=_sitemap_fetch)
         self.assertIn("week-3-ros-rankings", url)
+
+
+class _FakeDb:
+    """Minimal stand-in for ingest_common.Db.grain_native_values."""
+    def __init__(self, existing):
+        self._existing = existing
+
+    def grain_native_values(self, table, source, variant, season, week):
+        return dict(self._existing)
+
+
+def _guard_row(player_key, scoring, native_value):
+    return {"player_key": player_key, "scoring": scoring,
+            "native_value": native_value}
+
+
+class TestUsatodaySameWeekVersioning(unittest.TestCase):
+    """Week-versioning guard (Jeremy 2026-10-02): changed same-week content
+    writes a NEW version; only degenerate pulls fail closed."""
+
+    def test_no_existing_rows_proceeds(self):
+        clean = [_guard_row(1, "std", 40.0)]
+        self.assertIsNone(
+            ing_usat.pre_write_guard(_FakeDb({}), 4, {"std": 1}, clean))
+
+    def test_identical_content_skips_quietly(self):
+        existing = {(1, "std"): 40.0}
+        clean = [_guard_row(1, "std", 40.0)]
+        self.assertEqual(
+            ing_usat.pre_write_guard(_FakeDb(existing), 4, {"std": 1}, clean),
+            "unchanged")
+
+    def test_changed_values_and_new_keys_version_instead_of_refusing(self):
+        # Mirrors the real 2026-10-02 case: Sep-29 bake vs Oct-2 pull
+        # (+12 keys, 9 bumped values, 0 removed) must NOT fail closed.
+        existing = {(1, "std"): 40.0, (2, "std"): 58.0}
+        clean = [_guard_row(1, "std", 40.0),   # unchanged
+                 _guard_row(2, "std", 60.0),   # bumped
+                 _guard_row(3, "std", 2.0)]    # new key
+        self.assertIsNone(
+            ing_usat.pre_write_guard(_FakeDb(existing), 4, {"std": 3}, clean))
+
+    def test_degenerate_pull_fails_closed(self):
+        # >5% of existing keys vanished: probable truncated pull.
+        existing = {(k, "std"): 10.0 for k in range(100)}
+        clean = [_guard_row(k, "std", 10.0) for k in range(90)]  # 10% gone
+        with self.assertRaises(ing_common.IngestError):
+            ing_usat.pre_write_guard(_FakeDb(existing), 4, {"std": 90}, clean)
+
+    def test_small_attrition_does_not_trip(self):
+        # 3% key attrition is legitimate chart churn, not a broken pull.
+        existing = {(k, "std"): 10.0 for k in range(100)}
+        clean = [_guard_row(k, "std", 10.0) for k in range(97)]
+        self.assertIsNone(
+            ing_usat.pre_write_guard(_FakeDb(existing), 4, {"std": 97}, clean))
 
     def test_pull_parses_tables(self):
         html = "".join(

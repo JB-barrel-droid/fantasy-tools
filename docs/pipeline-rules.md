@@ -131,6 +131,28 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
   Vegas/prediction-markets, and Razzball are never imported as comparison
   sources.
 
+### 7a. Week versioning: multiple immutable bakes per week (Jeremy 2026-10-02)
+
+- A week may hold multiple bakes. Every ingest writes an immutable version
+  (`bake_id` in the upsert grain); prior bakes are retained, never
+  overwritten. Rows are never deleted -- old bakes are the audit trail.
+- Same-week re-ingest rules (USA Today; the pattern for all versioned
+  writers): byte-identical content skips quietly ("unchanged"); changed
+  content writes a new versioned bake; a pull missing >5% of the existing
+  week's keys fails closed as a probable truncated pull (a missed table
+  parse would blow past 5%; legitimate revisions sit far below it).
+- Read rule: exactly one bake per week, never blended. The import selects
+  the latest week, then the latest bake within it (greatest max(created_at),
+  tie-broken by greatest bake_id; fail-closed when no created_at exists).
+  `import_supabase_references._select_latest_bake` is the single choke
+  point; every reader of a versioned table goes through it.
+- Post-write verification counts are scoped to the new bake_id, never the
+  whole week grain (which now legitimately holds multiple versions).
+- Unique index: `source_trade_values_bake_version_uidx` on
+  (source, variant, scoring, league_teams, qb_slots, season, week,
+  player_key, bake_id) -- see sql/migrations/004. The 8-column grain index
+  stays for the not-yet-versioned savers (FantasyPros, FantasyCalc).
+
 ## 8. Import health gates fixture updates
 
 - `make import-health NFL_WEEK=<n>` verifies every active source's snapshot:

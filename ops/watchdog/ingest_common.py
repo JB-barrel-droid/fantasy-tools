@@ -358,16 +358,23 @@ def verify_counts(cfg: dict[str, Any], db: Db, week: int, season: int,
 
     Named defects this catches: short/over write, cross-scoring bleed,
     prior-week clobbering, wrong bake id.
+
+    Week-versioning (2026-10-02): a week may hold multiple bakes, so the
+    per-scoring counts are scoped to the new bake_id when one is provided.
+    The unscoped grain check would count every retained version and false-fail
+    on a healthy versioned write. Sources without bake versioning (bake_id
+    None) keep the legacy whole-grain check.
     """
     name = cfg["name"]
     total = 0
     for s, expected in sorted(per_scoring.items()):
         got = db.grain_count(cfg["table"], cfg["source"], cfg["variant"],
-                             s, season, week)
+                             s, season, week, bake_id=bake_id)
         total += got
         if got != expected:
+            scope = f" bake_id={bake_id}" if bake_id else " (whole week grain)"
             raise IngestError(
-                f"[{name}] post-write count mismatch scoring={s}: "
+                f"[{name}] post-write count mismatch scoring={s}{scope}: "
                 f"db={got} expected={expected}")
     if total != sum(per_scoring.values()):
         raise IngestError(
