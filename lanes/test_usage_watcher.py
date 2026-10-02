@@ -414,6 +414,25 @@ def test_chatgpt_both_above_80_percent_used_returns_false():
         usage_watcher.clear_codex_poll_data()
 
 
+def test_chatgpt_uninjected_accounts_fail_closed():
+    """
+    JEG-101 reviewer fix: uninjected codex poll accounts have no real data.
+    can_dispatch must return False (fail closed), never dispatch to an
+    account we know nothing about. Guards against the _default_usage
+    100%-remaining fail-open.
+    """
+    usage_watcher.clear_codex_poll_data()
+    try:
+        data = {"chatgpt": usage_watcher.get_chatgpt_usage()}
+        jeremy = data["chatgpt"]["jeremy"]
+        assert jeremy["status"] == "unknown", f"Expected status unknown, got {jeremy['status']!r}"
+        result = usage_watcher.can_dispatch("chatgpt", data)
+        assert result is False, f"Expected False for uninjected accounts, got {result!r}"
+        print("TEST 14 PASSED: uninjected chatgpt accounts fail closed")
+    finally:
+        usage_watcher.clear_codex_poll_data()
+
+
 def main():
     print("=" * 60)
     print("Running usage_watcher unit tests")
@@ -433,6 +452,7 @@ def main():
         test_error_status_string_no_exception_repr()
         test_chatgpt_overflow_his_95_hers_10_picks_wife()
         test_chatgpt_both_above_80_percent_used_returns_false()
+        test_chatgpt_uninjected_accounts_fail_closed()
 
         print("=" * 60)
         print("ALL TESTS PASSED")

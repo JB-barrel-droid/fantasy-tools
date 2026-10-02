@@ -74,7 +74,19 @@ def get_chatgpt_usage() -> Dict[str, Dict[str, Any]]:
     for account in accounts:
         payload = _codex_poll_data.get(account)
         if payload is None:
-            out[account] = _default_usage("chatgpt", "codex-uninjected")
+            # No injected poll data: unknown, NEVER dispatch (fail closed).
+            # _default_usage would report 100% remaining, which would be a
+            # fail-open lie for an account we have no data on.
+            out[account] = {
+                "account": account,
+                "used_percent": None,
+                "remaining_percent": None,
+                "remaining": None,
+                "resets_at": None,
+                "source": "codex-uninjected",
+                "status": "unknown",
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
             continue
         out[account] = _normalize_codex_payload(account, payload)
     return out
@@ -106,6 +118,7 @@ def _normalize_codex_payload(account: str, payload: Dict[str, Any]) -> Dict[str,
         "remaining": payload.get("remaining"),
         "resets_at": resets_at,
         "source": payload.get("source", "codex-poll"),
+        "status": payload.get("status"),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -464,6 +477,8 @@ def can_dispatch(lane: str, usage_data: Optional[Dict[str, Dict[str, Any]]] = No
         usage_data: Optional pre-fetched usage data, either an all-lanes dict
             (as returned by get_all_usage) or a per-lane dict.
     """
+    _KNOWN_LANES = ("chatgpt", "claude", "minimax")
+
     if usage_data is None:
         usage_data = get_all_usage()
 
@@ -471,6 +486,10 @@ def can_dispatch(lane: str, usage_data: Optional[Dict[str, Dict[str, Any]]] = No
     if isinstance(usage_data, dict) and lane in usage_data and isinstance(usage_data.get(lane), dict):
         lane_data = usage_data[lane]
     else:
+        if isinstance(usage_data, dict) and any(k in _KNOWN_LANES for k in usage_data):
+            # All-lanes dict that does not contain this lane: unknown lane,
+            # fail closed (never treat the whole dict as a per-lane payload).
+            return False
         lane_data = usage_data
 
     if not isinstance(lane_data, dict) or lane_data is None:
