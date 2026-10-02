@@ -56,35 +56,107 @@ def load_ranked_values(source: str, combo_key: str) -> dict[str, list[tuple[str,
     return by_pos
 
 
-def allocate_flex(ranked: dict[str, list[tuple[str, float]]], 
-                  dedicated: dict[str, set[str]],
-                  teams: int) -> dict[str, set[str]]:
-    """Allocate flex slots to best available across eligible positions.
+def allocate_flex_proportional(teams: int, flex_count: int = None) -> dict[str, int]:
+    """Allocate flex slots proportionally to dedicated slot counts.
+    
+    Math: flex[pos] = (teams × flex_count) × (slots[pos] / total_flex_slots)
+    
+    This reflects real leagues: positions with more dedicated slots
+    get proportionally more flex usage. Scales with teams and flex_count.
+    
+    Example 12-team, 1 flex (RB 2, WR 3, TE 1):
+      RB: 12 × 2/6 = 4.0
+      WR: 12 × 3/6 = 6.0
+      TE: 12 × 1/6 = 2.0
     
     Args:
-        ranked: {pos: [(player_id, value), ...]} sorted descending
-        dedicated: {pos: set(player_ids)} already assigned as dedicated starters
         teams: league size
+        flex_count: flex slots per team (default from REF_FLEX_COUNT)
     
     Returns:
-        {pos: set(player_ids)} assigned to flex
+        {pos: flex_slots} (rounded, sums to teams × flex_count)
     """
-    # Pool all non-dedicated players from flex-eligible positions
-    pool = []
-    for pos in REF_FLEX_ELIGIBLE:
-        for pid, val in ranked.get(pos, []):
-            if pid not in dedicated.get(pos, set()):
-                pool.append((pid, val, pos))
+    if flex_count is None:
+        flex_count = REF_FLEX_COUNT
     
-    # Sort by value descending, take top flex slots
-    pool.sort(key=lambda x: -x[1])
-    n_flex = teams * REF_FLEX_COUNT
+    total_flex = teams * flex_count
+    flex_slots = sum(REF_SLOTS.get(pos, 0) for pos in REF_FLEX_ELIGIBLE)
     
-    flex = {pos: set() for pos in POSITIONS}
-    for pid, _, pos in pool[:n_flex]:
-        flex[pos].add(pid)
+    result = {}
+    for pos in POSITIONS:
+        if pos not in REF_FLEX_ELIGIBLE:
+            result[pos] = 0
+        else:
+            # Proportional allocation, round half up
+            raw = total_flex * REF_SLOTS.get(pos, 0) / flex_slots
+            result[pos] = int(raw + 0.5)
     
-    return flex
+    # Adjust for rounding to ensure sum matches
+    diff = total_flex - sum(result.values())
+    if diff != 0:
+        # Add/subtract from largest position (WR typically)
+        largest = max(REF_FLEX_ELIGIBLE, key=lambda p: REF_SLOTS.get(p, 0))
+        result[largest] += diff
+    
+    return result
+
+
+def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
+    """Scale bench by teams and bench size.
+    
+    Math: bench[pos] = BENCH_MIX_12[pos] × (teams/12) × (bench_per_team/6.67)
+    
+    BENCH_MIX_12 assumes 6.67 bench/team. We rescale to the actual
+    bench size (ESPN default 6.0).
+    
+    Args:
+        teams: league size
+        bench_per_team: bench spots per team (ESPN default 6.0)
+    
+    Returns:
+        {pos: bench_slots}
+    """
+    from build_ddf_two_tier_leg import BENCH_MIX_12
+    
+    # BENCH_MIX_12 totals 80 = 6.67 per team
+    base_per_team = sum(BENCH_MIX_12.values()) / 12
+    
+    result = {}
+    for pos in POSITIONS:
+        raw = BENCH_MIX_12[pos] * (teams / 12) * (bench_per_team / base_per_team)
+        result[pos] = int(raw + 0.5)
+    
+    return result
+
+
+def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
+                       flex_count: int = None) -> dict[str, dict[str, int]]:
+    """Compute rostered players per position with flexible math.
+    
+    All values scale with teams, bench_per_team, and flex_count.
+    
+    Returns:
+        {pos: {'dedicated': int, 'flex': int, 'bench': int, 'rostered': int}}
+    """
+    if flex_count is None:
+        flex_count = REF_FLEX_COUNT
+    
+    flex_alloc = allocate_flex_proportional(teams, flex_count)
+    bench_alloc = bench_for_teams(teams, bench_per_team)
+    
+    result = {}
+    for pos in POSITIONS:
+        dedicated = teams * REF_SLOTS.get(pos, 0)
+        flex = flex_alloc.get(pos, 0)
+        bench = bench_alloc.get(pos, 0)
+        result[pos] = {
+            'dedicated': dedicated,
+            'flex': flex,
+            'bench': bench,
+            'rostered': dedicated + flex + bench,
+        }
+    
+    return result
 
 
 def roster_waiver_line(ranked: list[tuple[str, float]], n_rostered: int) -> tuple[float, str]:
@@ -108,34 +180,31 @@ def roster_waiver_line(ranked: list[tuple[str, float]], n_rostered: int) -> tupl
 
 
 def compute_vorp_via_roster(source: str, teams: int = 12, 
-                            scoring: str = "half_ppr") -> dict:
+                            scoring: str = "half_ppr",
+                            bench_per_team: float = 6.0) -> dict:
     """Compute VORP using roster settings to dictate waiver line.
     
     Steps:
     1. Load their ranked values per position
-    2. Assign dedicated starters (teams × slots)
-    3. Allocate flex to best available across RB/WR/TE
-    4. Waiver line = first non-rostered (dedicated + flex + bench)
-    5. VORP = value - waiver_line
-    6. Implied positional weights = sum(VORP) per position / total
+    2. Compute rostered per position via flexible math:
+       - Dedicated: teams × slots
+       - Flex: proportional to slot counts (scales with teams)
+       - Bench: scaled by teams and bench_per_team
+    3. Waiver line = first non-rostered
+    4. VORP = value - waiver_line
+    5. Implied positional weights = sum(VORP) per position / total
     """
     combo_key = f"half_{teams}" if scoring == "half_ppr" else f"{scoring}_{teams}"
     ranked = load_ranked_values(source, combo_key)
-    bench_mix = bench_mix_for_teams(teams)
     
-    # Step 2: Dedicated starters
-    dedicated: dict[str, set[str]] = {}
-    for pos in POSITIONS:
-        n_ded = teams * REF_SLOTS.get(pos, 0)
-        dedicated[pos] = set(pid for pid, _ in ranked.get(pos, [])[:n_ded])
-    
-    # Step 3: Flex allocation
-    flex = allocate_flex(ranked, dedicated, teams)
+    # Flexible roster math (scales with teams, bench_per_team)
+    roster = rostered_for_teams(teams, bench_per_team)
     
     result = {
         "source": source,
         "teams": teams,
         "scoring": scoring,
+        "bench_per_team": bench_per_team,
         "positions": {},
     }
     
@@ -145,10 +214,8 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
         if not players:
             continue
         
-        n_ded = len(dedicated.get(pos, set()))
-        n_flex = len(flex.get(pos, set()))
-        n_bench = bench_mix.get(pos, 0)
-        n_rostered = n_ded + n_flex + n_bench
+        r = roster[pos]
+        n_rostered = r['rostered']
         
         waiver_val, method = roster_waiver_line(players, n_rostered)
         
@@ -163,10 +230,10 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
         
         result["positions"][pos] = {
             "n_players": len(players),
-            "n_dedicated": n_ded,
-            "n_flex": n_flex,
-            "n_starters": n_ded + n_flex,
-            "n_bench": n_bench,
+            "n_dedicated": r['dedicated'],
+            "n_flex": r['flex'],
+            "n_starters": r['dedicated'] + r['flex'],
+            "n_bench": r['bench'],
             "n_rostered": n_rostered,
             "waiver_line_value": round(waiver_val, 2),
             "waiver_method": method,
