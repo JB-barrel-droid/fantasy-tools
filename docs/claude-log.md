@@ -1562,3 +1562,65 @@ Defects found and fixed this session:
   value-above-waivers series gives both 0 because the current ESPN projection
   allocation marks both as waiver-tier players. This is expected once the
   labels/lock behavior are honest.
+
+## 2026-10-02 - JEG-103: sync weights readout from slider (M3 branch)
+
+Branch `minimax/jeg-103-bench-readout-m3`. Sandbox cannot run tests or the
+linear CLI; verification will happen outside the sandbox per the ticket
+note.
+
+### Verified (checks named)
+
+- Read `app/trade-value-chart/assets/curve-widget.js` lines 2228-2242
+  (`syncWeightsReadout` — prints `benchShare * 100` into `#weightsReadout`).
+- Read lines 2311-2313 (slider input/change/dblclick handlers — call
+  `setBenchShareFraction` and `publishShared` only, never
+  `syncWeightsReadout`; the diagnosis in the ticket matches the source).
+- Read lines 2667-2691 (`setBenchShareFraction` — central mutator of the
+  module-level `benchShare`; called from the slider handlers, the
+  `Reset to 15%` button, `resetAllWeights`, and via the exported
+  `window.TradeValueTwoTierLive.setBenchShareFraction` surface).
+- grep for other `benchShare =` writers: only the module-level `let`
+  declaration and the two writes inside `setBenchShareFraction` /
+  `syncBenchShareControl` (bounds clamp). No third path can mutate
+  `benchShare` outside the central setter, so fixing the setter covers
+  every stale-readout hazard the ticket names (slider input/change,
+  dblclick reset, Reset-to-15% button, `resetAllWeights`, external
+  `setBenchShareFraction` callers).
+- Added `syncWeightsReadout()` between `syncBenchShareControl()` and the
+  `if (publish) publishShared()` line in `setBenchShareFraction`
+  (curve-widget.js:2689). Comment cites JEG-103.
+
+### Claimed, unverified
+
+- The regression test (`tests/test_jeg103_bench_slider_readout.py` +
+  `tests/jeg103_bench_readout_harness.cjs`) follows the existing harness
+  pattern (Node harness + `python3 -m unittest` driver) used by
+  `tests/test_anchor_scale_guard.py` and `tests/test_curve_default_guard.py`.
+  The harness stubs a minimal DOM (`#weightsReadout`, `#weightsBenchSlot`,
+  `#benchShareBlock` with range input + `.bench-share-value` +
+  `.bench-share-readout` + `.bench-share-tick` + `.fill` +
+  `.bench-share-reset`), intercepts `fetch` to serve
+  `dist/assets/comparison-sources-data.json` and
+  `dist/assets/adjustment-inputs.json` (the dist copy is present in this
+  sandbox at 2.74MB), then loads `value-model.js` + `curve-widget.js`
+  and waits for `window.TradeValueTwoTierLive.setBenchShareFraction`.
+  On broken code: the slider's `.bench-share-value` label updates but
+  `#weightsReadout.textContent` stays at "Bench 15.0%". On fixed code:
+  the readout updates to "Bench 20.0%" after input, "Bench 15.0%" after
+  dblclick, "Bench 15.0%" after the Reset button. Discrimination:
+  `test_slider_input_updates_readout` asserts
+  `re.search(r"Bench 20.0%", afterSliderReadout)`.
+  **Not run in this sandbox** (per ticket note). I did not verify
+  whether the dist data files load cleanly enough for `init()` to reach
+  the `window.TradeValueTwoTierLive` assignment, nor whether the
+  minimal DOM stub satisfies enough selectors for `init()` to complete
+  without throwing into the catch block. A guard at the head of the
+  harness reports `"Errored: <trace>"` to stdout if `init()` does not
+  expose the export, so a failure will be visible — not silent.
+- The wiring check `test_setBenchShareFraction_calls_syncWeightsReadout`
+  uses a regex against the widget source. The regex
+  `syncBenchShareControl\(\);\s*\n\s*syncWeightsReadout\(\);\s*\n\s*if \(publish\) publishShared`
+  matches the literal sequence I committed. Future refactors that
+  preserve the call but reformat will need to update the regex; that
+  is acceptable for a regression guard on a single fix site.
