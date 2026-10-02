@@ -57,6 +57,35 @@ Do not delegate when the task is a small code/doc edit, a simple command check,
 or a local fix that ChatGPT/Codex can complete faster than writing and reviewing
 a handoff.
 
+## Acceptance (Runnable) Convention
+
+Every lane issue carries an `Acceptance (runnable)` section that names the
+exact commands a reviewer can paste and re-execute to prove "done". The goal
+is that the reviewer's job is checking the evidence, not re-deriving it.
+
+A lane may use `pipelines/check_issue_acceptance.py` (JEG-92) to machine-
+check the section before opening a PR. The script reads an issue body from
+a file path or `--stdin` and exits 0 on pass, 1 on reject, naming the
+exact missing piece in the copy-paste language below:
+
+- **Missing section** — "Acceptance (runnable) section is missing."
+- **Missing tests** — "Acceptance (runnable) does not name which
+  `python3 -m unittest` modules run. Paste the module list and the exit
+  codes."
+- **Missing verify script** — "Acceptance (runnable) does not name the
+  `python3 pipelines/verify_<x>.py` command(s) and flags. Paste them."
+- **Missing rendered check** (UI-affecting issues only) — "Acceptance
+  (runnable) does not name the rendered/output command. Paste
+  `node tests/rendered_gate/gate.mjs dist` (or `python3 verify_live.py
+  tv-<build>`) and its exit code."
+- **Missing negative-test note** — "Acceptance (runnable) does not show
+  the regression guard catches the bug it names. Add a sentence naming
+  the simulated broken state and which test fails on it."
+
+Out of scope: changing what "done" means for methodology, copy, or publish
+(still the human's gate). A passing check proves the section is shaped
+right; it does not approve publishing.
+
 ## Claude Code Handoff Template
 
 ```text
