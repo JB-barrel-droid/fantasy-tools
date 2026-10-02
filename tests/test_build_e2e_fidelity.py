@@ -60,8 +60,8 @@ class StatusAggregationTest(unittest.TestCase):
     def test_no_failures_yields_ok(self):
         # Fresh today → freshness OK; no fidelity pairs → no fidelity failures.
         fx = _fixture_with(fetched_at=_now_minus(0))
-        payload = builder.build(Path("/nonexistent.json"), 2.0)  # overwritten below
-        # Actually drive with the temp fixture
+        # Drive with the temp fixture (the builder fail-closes on missing
+        # fixture files, so no stray build() call belongs here).
         with tempfile.TemporaryDirectory() as td:
             fx_path = Path(td) / "fx.json"
             fx_path.write_text(json.dumps(fx))
@@ -101,16 +101,24 @@ class StatusAggregationTest(unittest.TestCase):
         self.assertEqual(payload["summary"]["status"], "unk")
 
     def test_missing_source_in_fixture_yields_unk(self):
-        # The fixture exists but is missing every source.
+        # The fixture exists but is missing every source. Fail-closed: the
+        # builder emits a freshness_unknown entry per missing source (never a
+        # silent empty payload that would read as "all clean").
         fx = {"sources": {}}
         with tempfile.TemporaryDirectory() as td:
             fx_path = Path(td) / "fx.json"
             fx_path.write_text(json.dumps(fx))
             payload = builder.build(fx_path, 2.0)
-        # builder skips missing sources entirely → empty payload
-        self.assertEqual(payload["sources"], {})
-        self.assertEqual(payload["summary"]["n_failures"], 0)
-        self.assertEqual(payload["summary"]["status"], "ok")
+        self.assertEqual(set(payload["sources"].keys()),
+                         {"fantasycalc", "usatoday", "fantasypros", "cbs"})
+        for src, s in payload["sources"].items():
+            self.assertEqual(s["freshness"]["status"], "unk", src)
+            self.assertEqual(s["status"], "unk", src)
+            self.assertEqual(s["n_failures"], 1, src)
+            self.assertEqual(s["freshness"]["failures"][0]["type"],
+                             "freshness_unknown", src)
+        self.assertEqual(payload["summary"]["n_failures"], 4)
+        self.assertEqual(payload["summary"]["status"], "unk")
 
 
 class ShapeContractTest(unittest.TestCase):
@@ -186,8 +194,12 @@ class ImportsNotDuplicatesTest(unittest.TestCase):
         # reindexed ordering swaps them — that's a fidelity flip.
         flip_combos = {
             flip_combo: {
+                # Slug shape must match the real fixture's native keys
+                # ("jaxon smithnjigba", not the spaced label form) — that is
+                # what check_fidelity's FIDELITY_PAIRS fragments match via
+                # find_slug. A spaced slug silently skips the pair.
                 "native": {
-                    "jaxon smith njigba": 73.0,
+                    "jaxon smithnjigba": 73.0,
                     "puka nacua": 62.0,
                     "justin jefferson": 50.0,
                     "amonra st brown": 67.0,
@@ -195,16 +207,17 @@ class ImportsNotDuplicatesTest(unittest.TestCase):
                 "reindexed": {
                     # Swap: lower players now higher in reindexed (flip).
                     "puka nacua": 73.0,
-                    "jaxon smith njigba": 62.0,
+                    "jaxon smithnjigba": 62.0,
                     "justin jefferson": 67.0,
                     "amonra st brown": 50.0,
                 },
             }
         }
+        # _fixture_with applies the same per-source combos to every source,
+        # so pass flip_combos directly (not wrapped per-source).
         fx = _fixture_with(
             fetched_at=_now_minus(0),
-            combos={"usatoday": flip_combos, "fantasycalc": {},
-                    "fantasypros": {}, "cbs": {}},
+            combos=flip_combos,
         )
         with tempfile.TemporaryDirectory() as td:
             fx_path = Path(td) / "fx.json"
