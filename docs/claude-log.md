@@ -32,6 +32,22 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-18: `public.razzball_projections` now holds the first real vintage (written by someone else)
+
+### Verified (read-only `execute_sql` against project iskiybsimubiujwuchsl, 11:4x UTC)
+
+- 692 rows, 692 distinct `player_key`, 1 vintage (`razzball_snapshot_date` 2026-10-01), `_run_id` `razzball-save-2026-10-01`, `_writer_identity` `save_razzball_references.py`, `_written_at` 2026-10-02 11:32:02 to 11:32:03 UTC.
+- By `pos`: QB 99, RB 171, WR 267, TE 155. Sums of per-game columns: standard 1909.5, half_ppr 2244.4, ppr 2577.6. These are exactly the numbers I prepared from the real snapshot before any write, so the table matches the dry run.
+- I did not write these rows. No Linear approval of the statement had reached me, and the writer identity is the real saver script, not my connector batches. I do not know who ran it or from where.
+
+### Claimed, unverified
+
+- That the importer and import-health gate read these rows correctly from the real table (needs the next `rebuild-chain` run or credentials here).
+- That the 9 review rows (8 alias gaps plus the Audric Estime duplicate) are still absent: not checked row by row, only that the count is 692.
+
+### Open
+
+- GAP-030: table condition for merging PR #23 is now met; the 9 review rows remain.
 ## 2026-10-02 - JEG-18: dry run against the real snapshot found and fixed three problems
 
 ### Verified (the real `razzball-snapshot-2026-10-01.json` from Drive, 505,273 bytes, sha256 prefix `4e21b385a2`, the same file the 12 DDF legs record; saver and importer code run locally, nothing written)
