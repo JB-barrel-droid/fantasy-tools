@@ -112,7 +112,7 @@ def newest_file(directory, pattern):
     return files[-1]
 
 
-def process_section(section, repo, run_fn):
+def process_section(section, repo, run_fn, nfl_week=None):
     """Reindex -> VORP-translate -> review -> promote ONE section. Fail-closed.
 
     Returns "promoted". Raises ChainHalt on any hold/failure/error.
@@ -137,10 +137,17 @@ def process_section(section, repo, run_fn):
     # VORP translation (JEG-64): substitute Supabase translated values for the
     # quantile-mapped ones on as-published sources. Fail-safe by design --
     # never raises, never halts the chain (fallback is acceptance #3).
-    tr_ok, tr_out = run_fn([
+    # JEG-70: pass the chain week so the stage fetches the current week's
+    # Supabase grain (fetch_translated filters week=eq) and stamps it in the
+    # provenance. Without this the stage silently reuses the default week
+    # after rollover.
+    vorp_cmd = [
         "python3", "pipelines/translate_via_vorp.py",
         "--section", str(reindexed),
-    ])
+    ]
+    if nfl_week is not None:
+        vorp_cmd += ["--week", str(nfl_week)]
+    tr_ok, tr_out = run_fn(vorp_cmd)
     tr_line = tr_out.strip().splitlines()[-1] if tr_out and tr_out.strip() else "no output"
     print(f"  vorp-translate: {'ok' if tr_ok else 'STEP-FAILED-LOGGED'}: {tr_line}")
 
@@ -267,7 +274,7 @@ def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
         #    are processed for this source. result["promoted"] is updated
         #    inside the loop so a halt still reports the true count.
         for section in sections:
-            process_section(section, repo, run_fn)
+            process_section(section, repo, run_fn, nfl_week=nfl_week)
             result["promoted"] += 1
         promoted = result["promoted"]
 
