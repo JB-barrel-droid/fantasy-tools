@@ -166,13 +166,17 @@ class TestCheckAllSources:
         mock_fixture_path.exists.return_value = True
         mock_fixture_path.read_text.return_value = json.dumps({
             "sources": {
-                "fantasycalc": {
-                    "content_vintage": "Week 4"
-                }
+                "fantasycalc": {"content_vintage": "Week 4"},
+                "usatoday": {"content_vintage": "Week 4"},
+                "fantasypros": {"content_vintage": "Week 4"},
+                "espn": {"espn_snapshot": "Week 4"},
+                "cbs": {"content_vintage": "Week 4"},
+                "cbsros": {"vintage": "Week 4"},
+                "razzball": {"vintage": "Week 4"},
             }
         })
 
-        # Current DB returns same vintage
+        # Current DB returns same vintage for every chain source
         mock_get_vintage.return_value = "Week 4"
 
         result = check_source_vintage.check_all_sources()
@@ -277,8 +281,7 @@ class TestMain:
     """Tests for main function."""
 
     @patch("check_source_vintage.check_all_sources")
-    @patch("check_source_vintage.sys")
-    def test_json_output(self, mock_sys, mock_check):
+    def test_json_output(self, mock_check, capsys):
         """Should output JSON when --json flag is provided."""
         mock_check.return_value = {
             "changed": True,
@@ -291,27 +294,15 @@ class TestMain:
             }
         }
 
-        # Capture print output
-        mock_sys.argv = ["check_source_vintage.py", "--json"]
-        mock_sys.stdout = MagicMock()
-        mock_sys.stderr = MagicMock()
+        # argparse reads the real sys.argv via its own sys import, so patch
+        # the real argv (patching check_source_vintage.sys does not affect it).
+        with patch.object(sys, "argv", ["check_source_vintage.py", "--json"]):
+            with pytest.raises(SystemExit) as exc:
+                check_source_vintage.main()
 
-        # Create a mock that can be used as context manager for stdout
-        mock_stdout = MagicMock()
-        mock_sys.stdout = mock_stdout
-        mock_sys.stderr = MagicMock()
-
-        # Use StringIO-like approach
-        output = []
-        def capture_print(*args, **kwargs):
-            output.append(" ".join(str(a) for a in args))
-
-        mock_stdout.write = lambda x: output.append(x) or None
-
-        check_source_vintage.main()
-
-        # Check JSON was printed
-        printed = "".join(output)
+        # changed=True -> exit 1
+        assert exc.value.code == 1
+        printed = capsys.readouterr().out
         assert '"changed": true' in printed
         assert '"fantasycalc"' in printed
 
