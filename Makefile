@@ -120,6 +120,7 @@ test-unit:
 	python3 -m unittest tests.test_bake_cbsros_intake
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_guard_harness_recorded
+	python3 -m unittest tests.test_jeg68_starter_markup
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_projection_source_kind
@@ -131,6 +132,7 @@ test-unit:
 	python3 -m unittest tests.test_public_copy_no_vorp
 	python3 -m unittest tests.test_publication_windows
 	python3 -m unittest tests.test_qb_slot_scoping
+	python3 -m unittest tests.test_source_combo_contract
 	python3 -m unittest tests.test_razzball_monitor_coverage
 	python3 -m unittest tests.test_lineage_merge
 	python3 -m unittest tests.test_reference_freshness

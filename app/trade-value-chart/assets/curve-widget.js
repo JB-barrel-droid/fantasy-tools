@@ -881,12 +881,8 @@
   };
 
   function comboKey(key) {
-    const compact = scoring === "ppr" ? "full" : scoring === "half_ppr" ? "half" : "standard";
-    const score = key.endsWith("_adjusted") && compact === "standard" ? "std" : compact;
-    if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${teams}_qb1`;
-    if (key === "espn") return `${score}_${teams}`;
     if (PURE_VORP_KEYS.includes(key)) return null;
-    return `${score}_${teams}`;
+    return ValueModel.sourceComboKey(key, scoring, teams, 1);
   }
 
   function buildCanonicalMap() {
@@ -1210,14 +1206,17 @@
         `starter scale ${starterScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}, bench scale ${benchScale.toFixed(3)} vs raw ${rawScale.toFixed(3)}`
       );
       // The starter markup ratio is deterministic: target_share / raw_share.
-      // Flag it if it collapses toward 1.0 (curves nearly identical) or
-      // inverts (< 1.0) -- both mean the adjustment is not doing its job.
+      // ~1.0 is correct when a source's raw pool already sits at the target
+      // split (CBS ROS: 84.96% raw starter share, verified source-pure --
+      // JEG-68); the adjustment is vacuous there, not broken. Flag material
+      // inversions (starters marked down: pre-valued inputs) and absurd
+      // inflations instead -- see ValueModel.starterMarkupSane.
       const markup = starterScale / rawScale;
       recordForKey(
         `${vorpKey}-starter-markup`,
         `${def.short} starter markup ratio sane`,
-        markup > 1.05,
-        `starter adjusted/pure = ${markup.toFixed(3)} (expected > 1.05; ~${(starterShare / Math.max(rawStarterShare, 1e-9)).toFixed(2)} at ${(rawStarterShare * 100).toFixed(1)}% raw starter share)`
+        ValueModel.starterMarkupSane(markup),
+        `starter adjusted/pure = ${markup.toFixed(3)} (sane band ${ValueModel.STARTER_MARKUP_SANE_LOW}-${ValueModel.STARTER_MARKUP_SANE_HIGH}; ~${(starterShare / Math.max(rawStarterShare, 1e-9)).toFixed(2)} at ${(rawStarterShare * 100).toFixed(1)}% raw starter share)`
       );
     } else {
       ChartHealth.warn(
@@ -2530,6 +2529,7 @@
       input.disabled = !available;
       input.dataset.source = key;
       input.setAttribute("aria-label", `Show ${sourceLabel(key)} curve`);
+      if (key.startsWith("fantasycalc")) label.title = "FantasyCalc publisher basis: 1 QB";
       label.classList.toggle("is-stale", staleWeek && available);
       if (paused) {
         label.classList.add("is-disabled");

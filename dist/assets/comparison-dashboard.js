@@ -281,12 +281,8 @@
   }
 
   function comboKeyFor(key) {
-    const score = (key.endsWith("_adjusted") && state.scoring === "standard") ? "std" : state.scoring;
-    if (key === "fantasycalc" || key === "fantasycalc_adjusted") return `${score}_${state.teams}_qb1`;
-    if (key === "espn") return `${score}_${state.teams}`;
     if (PURE_VORP_KEYS.includes(key)) return null;
-    if (key === "cbs_adjusted") return comboKeyFor("cbs");
-    return `${score}_${state.teams}`;
+    return ValueModel.sourceComboKey(key, state.scoring, state.teams, 1);
   }
 
   function sourceComboExists(key) {
@@ -633,7 +629,7 @@
   }
 
   function selectedCombo(key) {
-    const comboKey = state.combos[key] || comboKeyFor(key);
+    const comboKey = comboKeyFor(key);
     return data.sources?.[key]?.combos?.[comboKey] || null;
   }
 
@@ -734,8 +730,9 @@
     const coverage = sourceMaps.get(key)?.size || 0;
     if (!sourceComboExists(key)) return `Not available for ${scoreLabel(state.scoring)} · ${state.teams} teams`;
     const stale = sourceIsStale(key) ? ` · stale, waiting Week ${activeReferenceWeek()}` : "";
-    if (sourceIsStale(key)) return `${coverage}/${universeSize} · ${sourceDate(key)}${stale}`;
-    return `${coverage}/${universeSize} · ${sourceDate(key)}`;
+    const basis = key.startsWith("fantasycalc") ? " · 1 QB" : "";
+    if (sourceIsStale(key)) return `${coverage}/${universeSize} · ${sourceDate(key)}${basis}${stale}`;
+    return `${coverage}/${universeSize} · ${sourceDate(key)}${basis}`;
   }
 
   function columnLabel(key) {
@@ -1051,9 +1048,12 @@
       const open = state.expanded.has(row.player_key);
       // JEG-41: only expandable when the player has relevant news/adjustments.
       const hasContext = playerContext(row.player_key).length > 0;
+      // JEG-50: badge players ESPN has explicitly zeroed (season-ending IR).
+      const isEspnZeroed = window.TradeValueComparisonData?.espn_zeroed?.includes(Number(row.player_key));
+      const zeroBadge = isEspnZeroed ? ` <span class="espn-zero-badge" title="ESPN projects 0.0 PPG — likely season-ending IR">ESPN Out</span>` : "";
       const nameCell = hasContext
-        ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong></button>`
-        : `<strong>${esc(row.name)}</strong>`;
+        ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong>${zeroBadge}</button>`
+        : `<strong>${esc(row.name)}</strong>${zeroBadge}`;
       const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player">${nameCell}<span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
       return main + renderExpandedRow(row, colSpan);
     }).join("");
@@ -1128,6 +1128,7 @@
     SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
     rebuildSourceMaps();
     renderAll();
+    runRegressionGuards();
   }
 
   function normalizeRosterShape(shape) {
@@ -1196,6 +1197,7 @@
     if (!data) return;
     rebuildSourceMaps();
     renderAll();
+    runRegressionGuards();
   }
 
   window.TradeValueComparisonControls = {
@@ -1258,11 +1260,14 @@
   function runRegressionGuards() {
     const allSources = renderKeys.length === SOURCE_KEYS.length && SOURCE_KEYS.every(key => renderKeys.includes(key));
     const fullPpr12TeamQbs = state.scoring === "full" && state.teams === 12 && rows().filter(row => row.pos === "QB").length;
-    const fullPpr12TeamQbsAvailable = fullPpr12TeamQbs > 0;
+    const fullPpr12TeamQbsAvailable = state.scoring !== "full" || state.teams !== 12 || fullPpr12TeamQbs > 0;
     const availableSources = renderKeys.filter(sourceAvailable);
-    const configurableColumns = allColumnKeys().includes("latest_news") && allColumnKeys().includes("disagreement") && availableSources.every(key => allColumnKeys().includes(key));
-    const rolloverAware = renderKeys.every(key => !isWeekCurrent(key) || sourceAvailable(key));
-    const diagnostics = {allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
+    const configurableColumns = FIELD_COLUMNS.every(column => allColumnKeys().includes(column.key)) && availableSources.every(key => allColumnKeys().includes(key));
+    // Current vintage does not imply a chart exists for every league size.
+    const rolloverAware = renderKeys.every(key => !sourceComboExists(key)
+      ? !allColumnKeys().includes(key)
+      : PURE_VORP_KEYS.includes(key) || Boolean(selectedCombo(key === "cbs_adjusted" ? "cbs" : key)));
+    const diagnostics = {allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, scoring:state.scoring, teams:state.teams, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
     window.TradeValueComparisonDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["allSources", "fullPpr12TeamQbsAvailable", "configurableColumns", "rolloverAware"].includes(key) && value !== true);
     if (failed.length) throw new Error(`Comparison regression guard failed: ${failed.map(([key]) => key).join(", ")}`);

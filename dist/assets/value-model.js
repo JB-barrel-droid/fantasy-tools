@@ -24,6 +24,20 @@
   // Minimum shared players before a source may be anchored on the shared set.
   var MIN_SHARED_FOR_PIE = 40;
 
+  function sourceComboKey(source, scoring, teams, qbSlots) {
+    var score = {ppr: "full", full: "full", half_ppr: "half", half: "half",
+      standard: "standard"}[scoring];
+    if (!score || !Number.isInteger(teams) || teams <= 0) return null;
+    var key = score + "_" + teams;
+    if (source === "fantasycalc" || source === "fantasycalc_adjusted") {
+      var qb = qbSlots;
+      if (qb !== 1 && qb !== 2) return null;
+      key += "_qb" + qb;
+    }
+    // Exact identity only: never borrow another league size or QB grain.
+    return key;
+  }
+
   function flexEligible(shape) {
     return shape && shape.SUPERFLEX
       ? ["QB"].concat(DEFAULT_FLEX_ELIGIBLE)
@@ -423,6 +437,7 @@
     POSITION_ORDER: POSITION_ORDER,
     DEFAULT_FLEX_ELIGIBLE: DEFAULT_FLEX_ELIGIBLE,
     MIN_SHARED_FOR_PIE: MIN_SHARED_FOR_PIE,
+    sourceComboKey: sourceComboKey,
     flexEligible: flexEligible,
     stableTiebreak: stableTiebreak,
     roleMap: roleMap,
