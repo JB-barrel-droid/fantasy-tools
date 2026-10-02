@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog plan-status
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog plan-status pr-checklist
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -34,6 +34,7 @@ help:
 	@echo "  make serve             Serve the local dashboard"
 	@echo "  make preview-local     Build dist/ the way production does, then serve dist/"
 	@echo "  make deploy-status     Show recent GitHub deploy runs"
+	@echo "  make pr-checklist      Validate PR discrimination proof checklist (requires BODY_FILE and DIFF_FILE)"
 
 supabase-import:
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc|usatoday|fantasypros|espn|cbs" && exit 1)
@@ -166,6 +167,7 @@ test-unit:
 	python3 -m unittest tests.test_production_verify
 	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
+	python3 -m unittest tests.test_pr_template_checklist
 	python3 -m unittest tests.test_doc_vs_code
 	python3 -m unittest lanes.test_plan_tracker
 
@@ -208,3 +210,8 @@ preview-local: sync
 
 deploy-status:
 	gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard" --limit 5
+
+pr-checklist:
+	@test -n "$(BODY_FILE)" || (echo "Set BODY_FILE=<pr-body.md>" && exit 1)
+	@test -n "$(DIFF_FILE)" || (echo "Set DIFF_FILE=<pr.diff>" && exit 1)
+	python3 pipelines/check_pr_discrimination.py --body-file $(BODY_FILE) --diff-file $(DIFF_FILE)

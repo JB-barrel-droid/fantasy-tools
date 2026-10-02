@@ -36,6 +36,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: make sync
+      - name: Check PR discrimination proof (JEG-139)
+        if: github.event_name == 'pull_request'
+        run: |
+          # Write PR body to temp file
+          echo "${{ github.event.pull_request.body }}" > /tmp/pr_body.md
+
+          # Generate diff from changed files
+          git diff HEAD~1 --no-color > /tmp/pr.diff
+
+          # Run the checklist checker
+          python3 pipelines/check_pr_discrimination.py \
+            --body-file /tmp/pr_body.md \
+            --diff-file /tmp/pr.diff
       - run: make validate
       - name: Rebuild source value lineage
         run: python3 pipelines/build_source_value_lineage.py
