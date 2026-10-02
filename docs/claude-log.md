@@ -32,6 +32,31 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-79: Claude lane best-practices assessment (docs only)
+
+Output: `docs/health/claude-best-practices.md`. I did not read the Muse or Codex documents first.
+
+### Verified (checks named)
+
+- `reference-freshness.json` (read): 16 items, `expired_count` 7, `enforced_keys` only `comparison.built_at`, `enforced_expired_count` 0.
+- `promote_comparison_section.py:216-219` (read): any promotion sets `built_at` to now.
+- GitHub Actions run list: scheduled `Rebuild comparison chain` runs 3 to 9 all failed; `output/comparison-chain-status.json` shows `runner: local`, success, 12:45 UTC.
+- `espn-supabase-sync.yml:41` (read): scrape ends `|| echo "Scraper failed, using existing data"`.
+- No notify/issue/webhook step in any workflow (grep); `verify_live.py` is manual (read header; no workflow references it).
+- Deploy history: of the 20 most recent `Deploy dashboard` runs, 14 success, 1 failure, 5 cancelled (Actions list).
+- `docs/import-health-schema.md` says five sources and Razzball hard exclusion; `rebuild-chain.yml` imports seven including razzball.
+
+### Claimed, unverified
+
+- All [E] "established practice" tags: named from general knowledge, **no sources were fetched** (egress restricted), none checked against a reference.
+- The `pages.yml` gate hole (a `dist/modules/`-only commit passes with red validation): read from the workflow, **not exercised**.
+- Live-page behaviour for stale items, GitHub failure-email routing, where the USA Today / FantasyPros / prediction-market pulls run, branch protection on `main`.
+
+### Open
+
+- Six durable gaps added to the risk register as GAP-033 to GAP-038. Muse and Codex assessments (JEG-80, JEG-81) are still to come; JEG-82 consolidates.
+- I made no code or data change.
+
 ## 2026-10-02 - JEG-51: the ESPN-zero staleness signal said "ok" while two sources were stale
 
 ### Verified (the repo's fixture and a headless render of the built monitor)
