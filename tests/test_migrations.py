@@ -3,12 +3,12 @@
 import re
 from pathlib import Path
 
-import pytest
+import unittest
 
 MIGRATIONS_DIR = Path(__file__).parent.parent / "sql" / "migrations"
 
 
-class TestMigration005ConstraintSyntax:
+class TestMigration005ConstraintSyntax(unittest.TestCase):
     """Test that migration 005 uses correct DROP CONSTRAINT syntax."""
 
     def test_migration_005_uses_drop_constraint_not_index(self):
