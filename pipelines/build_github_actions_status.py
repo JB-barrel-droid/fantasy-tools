@@ -2,8 +2,23 @@
 """Build GitHub Actions workflow status for the monitoring dashboard.
 
 Fetches all workflows in the repo, their recent run history (last 5 runs
-each with times and conclusions), and maps each to the pipeline stage it
-covers. Outputs dist/modules/github-actions.json.
+each with times, conclusions, and durations), and maps each to the
+pipeline stage it covers. Outputs dist/modules/github-actions.json.
+
+Per-run and per-workflow fields (JEG-109):
+  - run.duration_s         wall-clock seconds from created_at to updated_at
+  - workflow.consecutive_failures
+                           count back from the most recent run; stop at the
+                           first non-failure (success, cancelled, in_progress,
+                           skipped, or null conclusion). Distinct from
+                           recent_failures (last-5 failure count).
+  - workflow.last_success_at
+                           ISO timestamp of the most recent run with
+                           conclusion == "success"; null if none in the window.
+  - workflow.failing_streak alert flag: consecutive_failures >=
+                           FAILING_STREAK_THRESHOLD. Threshold of 3 would
+                           have flagged the 5-consecutive-failure JEG-113
+                           outage two runs before it stopped the chain.
 
 Pipeline coverage map:
   - Rebuild comparison chain: C1-C8 (import -> health -> comparison rebuild)
@@ -26,6 +41,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "JB-barrel-droid/fantasy-tools"
+
+# A failing streak this long or longer is a deploy-blocking alert. JEG-113
+# was a 5-run outage on "Rebuild comparison chain"; the threshold of 3
+# would have surfaced it two runs earlier (per JEG-109 brief).
+FAILING_STREAK_THRESHOLD = 3
 
 # Map workflow names to pipeline coverage
 PIPELINE_COVERAGE = {
@@ -81,6 +101,67 @@ def fetch_json(url: str) -> dict:
         return json.loads(resp.read().decode())
 
 
+def _parse_iso(ts: str | None) -> datetime | None:
+    """Parse a GitHub ISO-8601 timestamp into a tz-aware datetime, or None."""
+    if not ts:
+        return None
+    try:
+        # GitHub returns "...Z"; datetime.fromisoformat wants +00:00 in 3.10
+        return datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def run_duration_s(run: dict) -> int | None:
+    """Wall-clock seconds from created_at to updated_at for a single run.
+
+    Returns None if either timestamp is missing or unparseable. GitHub
+    occasionally re-queues a run, which can make updated_at < created_at;
+    in that case we return 0 rather than a negative number so the duration
+    field is always a non-negative integer or null.
+    """
+    start = _parse_iso(run.get("created_at"))
+    end = _parse_iso(run.get("updated_at"))
+    if start is None or end is None:
+        return None
+    delta = (end - start).total_seconds()
+    return max(0, int(delta))
+
+
+def consecutive_failures(runs: list[dict]) -> int:
+    """Count consecutive failures back from the most recent run.
+
+    A run counts as a failure only when its conclusion is exactly
+    "failure". Cancelled, skipped, in_progress, queued, and runs with a
+    null conclusion all break the streak (they are not the same as a
+    confirmed failure). The streak stops at the first non-failure.
+
+    This is intentionally different from `recent_failures`, which counts
+    every failure in the last 5 runs regardless of position. A single
+    old failure with four recent successes is recent_failures=1 but
+    consecutive_failures=0 — and that is correct, because the chain is
+    not currently broken.
+    """
+    count = 0
+    for r in runs:
+        if r.get("conclusion") == "failure":
+            count += 1
+        else:
+            break
+    return count
+
+
+def last_success_at(runs: list[dict]) -> str | None:
+    """ISO timestamp of the most recent run with conclusion == "success",
+    or None if no run in the window succeeded. Returned as the raw
+    created_at string from GitHub so the dashboard can localise the
+    display with timeAgo() without re-parsing."""
+    for r in runs:
+        if r.get("conclusion") == "success":
+            return r.get("created_at")
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -115,6 +196,7 @@ def main() -> int:
                 "conclusion": r.get("conclusion"),
                 "event": r.get("event"),
                 "html_url": r.get("html_url"),
+                "duration_s": run_duration_s(r),
             }
             for r in runs
         ]
@@ -135,6 +217,12 @@ def main() -> int:
         else:
             health = "fail"
 
+        # Streak / last-success signal (JEG-109): count back from the latest
+        # run, stop at the first non-failure. failing_streak is the alert
+        # flag that would have caught the JEG-113 5-run outage at run 3.
+        streak = consecutive_failures(recent_runs)
+        success_ts = last_success_at(recent_runs)
+
         coverage = PIPELINE_COVERAGE.get(wf_name, {
             "stages": ["Unknown"],
             "description": "No coverage mapping defined",
@@ -152,6 +240,9 @@ def main() -> int:
             "last_run": last_run,
             "recent_runs": recent_runs,
             "recent_failures": sum(1 for c in conclusions if c == "failure"),
+            "consecutive_failures": streak,
+            "last_success_at": success_ts,
+            "failing_streak": streak >= FAILING_STREAK_THRESHOLD,
         })
 
     # Check for coverage gaps
@@ -183,6 +274,8 @@ def main() -> int:
             "warn": sum(1 for w in workflows if w["health"] == "warn"),
             "failing": sum(1 for w in workflows if w["health"] == "fail"),
             "running": sum(1 for w in workflows if w["health"] == "running"),
+            "failing_streak_count": sum(1 for w in workflows if w.get("failing_streak")),
+            "max_consecutive_failures": max((w.get("consecutive_failures", 0) for w in workflows), default=0),
             "gaps_count": len(gaps),
         },
     }
