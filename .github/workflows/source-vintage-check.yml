@@ -1,0 +1,57 @@
+name: Source vintage check
+
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py 2>/dev/null || \
+            (mkdir -p /tmp/gh_shim && cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py)
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Check source vintage
+        id: check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Run the check and capture JSON output
+          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json
+
+          # Check the exit code - script exits 1 if changed, 0 if same
+          # But we want to continue even if changed, so we ignore the exit code
+          CHANGED=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json'))['changed'])")
+
+          # Write to GITHUB_OUTPUT for downstream steps
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+
+          # Also output for debugging
+          echo "Vintage check result: changed=$CHANGED"
+          cat /tmp/vintage-check.json
+
+      - name: Dispatch rebuild-chain on changes
+        if: steps.check.outputs.changed == 'True'
+        run: |
+          echo "Changes detected - dispatching rebuild-chain.yml"
+          gh workflow run rebuild-chain.yml -f source="source-vintage-check"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report no changes
+        if: steps.check.outputs.changed == 'False'
+        run: |
+          echo "No changes detected - skipping rebuild"
