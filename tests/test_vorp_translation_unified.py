@@ -8,6 +8,7 @@ client — no DB dependency, CI-safe).
 """
 
 import sys
+import json
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -17,6 +18,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "vorp_translation"))
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 import unified  # noqa: E402
+from pipelines.vorp_translation import vorp_via_roster as roster_math
 from build_ddf_two_tier_leg import REF_FLEX_COUNT  # noqa: E402
 
 
@@ -91,6 +93,9 @@ class TestRosterScaling(unittest.TestCase):
 
 
 class TestComboResolution(unittest.TestCase):
+    def test_ppr_uses_full_fixture_key(self):
+        self.assertEqual(unified.resolve_combo_key({'combos': {'full_12': {}}},
+                                                   'ppr', 12), 'full_12')
     def test_exact_key_preferred(self):
         sdata = {'combos': {'half_12': {}, 'half_12_qb1': {}}}
         self.assertEqual(unified.resolve_combo_key(sdata, 'half_ppr', 12), 'half_12')
@@ -102,6 +107,119 @@ class TestComboResolution(unittest.TestCase):
     def test_no_match_fails_closed(self):
         with self.assertRaises(SystemExit):
             unified.resolve_combo_key({'combos': {}}, 'half_ppr', 12)
+
+
+class TestScoringAwareFlex(unittest.TestCase):
+    def test_pinned_usatoday_scoring_direction(self):
+        snapshot = json.loads((ROOT / 'tests' / 'fixtures' /
+                               'jeg61_usatoday_ranked_values.json').read_text())
+        allocations = []
+        for scoring in ('standard', 'half_ppr', 'ppr'):
+            ranked = {pos: [(str(i), value) for i, value in enumerate(values)]
+                      for pos, values in snapshot['ranked'][scoring].items()}
+            roster = roster_math.rostered_for_teams(12, ranked=ranked)
+            allocations.append(tuple(roster[p]['flex'] for p in ('RB', 'WR', 'TE')))
+        self.assertEqual(allocations, [(9, 3, 0), (8, 4, 0), (7, 4, 1)])
+
+    def test_real_usatoday_waiver_and_weight_integration(self):
+        results = [unified.translate_source('usatoday', scoring=s)
+                   for s in ('standard', 'half_ppr', 'ppr')]
+        # Current charts may legitimately round to the same allocation after
+        # refresh. The strict JEG-61 direction is pinned in the regression above.
+        for r in results:
+            ranked, _ = unified.load_native_values(r['source'], r['scoring'], r['teams'])
+            expected = roster_math.rostered_for_teams(12, ranked=ranked)
+            self.assertEqual(sum(p['n_flex'] for p in r['positions'].values()), 12)
+            total = sum(p['total_vorp'] for p in r['positions'].values())
+            for pos, stats in r['positions'].items():
+                self.assertEqual(stats['n_rostered'], expected[pos]['rostered'])
+                waiver, _ = roster_math.roster_waiver_line(ranked[pos], stats['n_rostered'])
+                self.assertEqual(stats['waiver_line_value'], round(waiver, 2))
+                self.assertEqual(stats['implied_weight'], round(stats['total_vorp'] / total, 4))
+
+    def test_capacity_matrix(self):
+        # 81 settings, using identical native charts to isolate roster scaling.
+        for scoring in ('standard', 'half_ppr', 'ppr'):
+            ranked, _ = unified.load_native_values('usatoday', scoring, 12)
+            for teams in (10, 12, 14):
+                for bench in (0, 3, 6):
+                    for flex in (0, 1, 2):
+                        with self.subTest(scoring=scoring, teams=teams, bench=bench, flex=flex):
+                            roster = roster_math.rostered_for_teams(teams, bench, flex, ranked)
+                            self.assertEqual(sum(r['flex'] for r in roster.values()), teams * flex)
+                            self.assertEqual(sum(r['bench'] for r in roster.values()), teams * bench)
+                            self.assertEqual(roster['QB']['flex'], 0)
+                            self.assertTrue(all(r['flex'] >= 0 for r in roster.values()))
+
+    def test_unified_custom_capacity_and_legacy_parity(self):
+        original_load = unified.load_native_values
+        for scoring in ('standard', 'half_ppr', 'ppr'):
+            for teams in (10, 12, 14):
+                with self.subTest(scoring=scoring, teams=teams):
+                    # USA Today currently publishes only 12-team fixture combos.
+                    # Inject the same observed chart to exercise other roster sizes.
+                    with patch.object(unified, 'load_native_values',
+                                      side_effect=lambda source, scoring, teams:
+                                      original_load(source, scoring, 12)):
+                        result = unified.translate_source('usatoday', scoring=scoring,
+                                                          teams=teams, bench_per_team=3,
+                                                          flex_count=2)
+                    self.assertEqual(sum(p['n_flex'] for p in result['positions'].values()), teams * 2)
+                    self.assertEqual(sum(p['n_bench'] for p in result['positions'].values()), teams * 3)
+                    legacy = roster_math.compute_vorp_via_roster('usatoday', 12, scoring)
+                    default = unified.translate_source('usatoday', scoring=scoring, teams=12)
+                    for pos in legacy['positions']:
+                        self.assertEqual(legacy['positions'][pos]['n_flex'],
+                                         default['positions'][pos]['n_flex'])
+
+    def test_dedicated_starters_do_not_affect_flex_margin(self):
+        ranked = {p: [(str(i), 100 - i) for i in range(120)]
+                  for p in roster_math.POSITIONS}
+        expected = roster_math.allocate_flex_vorp_weighted(ranked, 12)
+        changed = {p: [(name, val + 1000 if i < 12 * roster_math.REF_SLOTS[p] else val)
+                       for i, (name, val) in enumerate(rows)] for p, rows in ranked.items()}
+        self.assertEqual(roster_math.allocate_flex_vorp_weighted(changed, 12), expected)
+
+    def test_apportion_exact_monotone_and_deterministic(self):
+        weights = {'RB': 7.5, 'WR': 4.1, 'TE': 0.4}
+        previous = {p: 0 for p in roster_math.POSITIONS}
+        for total in range(50):
+            result = roster_math.apportion(weights, total)
+            self.assertEqual(sum(result.values()), total)
+            self.assertTrue(all(result[p] >= previous[p] for p in previous))
+            self.assertEqual(result, roster_math.apportion(dict(reversed(list(weights.items()))), total))
+            previous = result
+
+    def test_empty_and_zero_surplus_have_exact_fallback(self):
+        for total in (0, 1, 2):
+            result = roster_math.rostered_for_teams(12, ranked={}, flex_count=total)
+            self.assertEqual(sum(r['flex'] for r in result.values()), 12 * total)
+
+    def test_shallow_te_chart_keeps_observed_surplus(self):
+        ranked = {p: [(str(i), 20.0) for i in range(100)]
+                  for p in ('RB', 'WR')}
+        ranked['TE'] = [(str(i), 100.0) for i in range(15)]
+        result = roster_math.allocate_flex_vorp_weighted(ranked, 12)
+        self.assertEqual(sum(result.values()), 12)
+        self.assertGreater(result['TE'], 0)
+
+    def test_invalid_roster_settings(self):
+        for kwargs in ({'teams': 0}, {'teams': 12, 'flex_count': -1},
+                       {'teams': 12, 'bench_per_team': -1}):
+            with self.assertRaises(ValueError):
+                roster_math.rostered_for_teams(**kwargs)
+
+    def test_nonfinite_publisher_margin_rejected(self):
+        for value in (float('nan'), float('inf')):
+            with self.assertRaises(ValueError):
+                roster_math.allocate_flex_vorp_weighted({'RB': [('bad', value)]}, 12)
+
+    def test_custom_roster_settings_cannot_overwrite_default_storage_grain(self):
+        for settings in ({'bench_per_team': 3}, {'flex_count': 2}):
+            with patch.object(unified, '_write_to_supabase') as writer:
+                with self.assertRaises(SystemExit):
+                    unified.translate_source('usatoday', write_supabase=True, **settings)
+                writer.assert_not_called()
 
 
 class TestTranslatePipeline(unittest.TestCase):

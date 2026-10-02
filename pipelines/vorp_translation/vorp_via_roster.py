@@ -20,6 +20,7 @@ The roster settings are KNOWN (not inferred). For 12-team:
 from __future__ import annotations
 import json
 import sys
+import math
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent.parent
@@ -29,15 +30,14 @@ from build_ddf_two_tier_leg import (
     REF_SLOTS,
     REF_FLEX_COUNT,
     REF_FLEX_ELIGIBLE,
-    bench_mix_for_teams,
     POSITIONS,
 )
 
 
 def load_ranked_values(source: str, combo_key: str) -> dict[str, list[tuple[str, float]]]:
     """Load publisher values as ranked lists per position."""
-    fixture = json.load(open(REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"))
-    players = json.load(open(REPO / "data" / "fixtures" / "current" / "players.json"))
+    fixture = json.loads((REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json").read_text())
+    players = json.loads((REPO / "data" / "fixtures" / "current" / "players.json").read_text())
     pos_by_name = {p["name"].lower(): p["pos"] for p in players["players"]}
     
     sdata = fixture["sources"].get(source, {})
@@ -54,6 +54,26 @@ def load_ranked_values(source: str, combo_key: str) -> dict[str, list[tuple[str,
         by_pos[pos].sort(key=lambda x: -x[1])
     
     return by_pos
+
+
+def apportion(weights: dict[str, float], total: int) -> dict[str, int]:
+    """Highest-averages allocation: exact totals and monotone seat counts.
+
+    Stable position order breaks ties. Unlike independent rounding, adding
+    a league slot never removes an already allocated slot.
+    """
+    if total < 0 or int(total) != total:
+        raise ValueError("slot total must be a nonnegative integer")
+    if any(not math.isfinite(w) or w < 0 for w in weights.values()):
+        raise ValueError("allocation weights must be finite and nonnegative")
+    result = {pos: 0 for pos in POSITIONS}
+    eligible = [pos for pos in POSITIONS if weights.get(pos, 0) > 0]
+    if total and not eligible:
+        raise ValueError("positive slot total requires positive weights")
+    for _ in range(total):
+        pos = max(eligible, key=lambda p: weights[p] / (result[p] + 1))
+        result[pos] += 1
+    return result
 
 
 def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
@@ -83,6 +103,8 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
     """
     if flex_count is None:
         flex_count = REF_FLEX_COUNT
+    if teams <= 0 or int(teams) != teams or flex_count < 0 or int(flex_count) != flex_count:
+        raise ValueError("teams must be positive and flex count nonnegative integers")
     if waiver_estimates is None:
         waiver_estimates = {pos: 0.0 for pos in POSITIONS}
     
@@ -96,11 +118,13 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
         n_ded = teams * REF_SLOTS.get(pos, 0)
         players = ranked.get(pos, [])
         waiver = waiver_estimates.get(pos, 0.0)
+        if not math.isfinite(waiver) or any(not math.isfinite(val) for _, val in players):
+            raise ValueError(f"{pos}: publisher values and waiver must be finite")
         
-        # Look at players 5 before to 10 after the dedicated cutoff
-        # These are the flex candidates
-        start_idx = max(0, n_ded - 5)
-        end_idx = min(len(players), n_ded + 15)
+        # Only non-dedicated players can fill flex; the league's total flex
+        # capacity bounds the candidate window at every eligible position.
+        start_idx = n_ded
+        end_idx = min(len(players), n_ded + total_flex)
         candidates = players[start_idx:end_idx]
         
         if not candidates:
@@ -109,46 +133,15 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
         
         # Average VORP of candidates
         vorps = [max(0.0, val - waiver) for _, val in candidates]
-        avg_vorp = sum(vorps) / len(vorps) if vorps else 0.0
+        # Missing candidates contribute no observed surplus, not extra weight.
+        avg_vorp = sum(vorps) / total_flex if total_flex else 0.0
         
         # Weight = slots × avg_vorp (economic weight)
         weights[pos] = REF_SLOTS.get(pos, 0) * avg_vorp
     
-    total_weight = sum(weights.values())
-    if total_weight <= 0:
-        # Fall back to slot-proportional
-        total_flex = teams * flex_count
-        flex_slots = sum(REF_SLOTS.get(pos, 0) for pos in REF_FLEX_ELIGIBLE)
-        result = {}
-        for pos in POSITIONS:
-            if pos not in REF_FLEX_ELIGIBLE:
-                result[pos] = 0
-            else:
-                raw = total_flex * REF_SLOTS.get(pos, 0) / flex_slots
-                result[pos] = int(raw + 0.5)
-        diff = total_flex - sum(result.values())
-        if diff != 0:
-            largest = max(REF_FLEX_ELIGIBLE, key=lambda p: REF_SLOTS.get(p, 0))
-            result[largest] += diff
-        return result
-    
-    # Allocate proportionally to weights
-    result = {}
-    for pos in POSITIONS:
-        if pos not in REF_FLEX_ELIGIBLE:
-            result[pos] = 0
-        else:
-            raw = total_flex * weights[pos] / total_weight
-            result[pos] = int(raw + 0.5)
-    
-    # Adjust for rounding
-    diff = total_flex - sum(result.values())
-    if diff != 0:
-        # Adjust the position with highest weight
-        largest = max(REF_FLEX_ELIGIBLE, key=lambda p: weights.get(p, 0))
-        result[largest] += diff
-    
-    return result
+    if sum(weights.values()) <= 0:
+        weights = {pos: REF_SLOTS[pos] for pos in REF_FLEX_ELIGIBLE}
+    return apportion(weights, total_flex)
 
 
 def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
@@ -168,15 +161,10 @@ def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
     """
     from build_ddf_two_tier_leg import BENCH_MIX_12
     
-    # BENCH_MIX_12 totals 80 = 6.67 per team
-    base_per_team = sum(BENCH_MIX_12.values()) / 12
-    
-    result = {}
-    for pos in POSITIONS:
-        raw = BENCH_MIX_12[pos] * (teams / 12) * (bench_per_team / base_per_team)
-        result[pos] = int(raw + 0.5)
-    
-    return result
+    total = teams * bench_per_team
+    if not math.isfinite(total) or total < 0:
+        raise ValueError("bench capacity must be finite and nonnegative")
+    return apportion(BENCH_MIX_12, int(total + 0.5))
 
 
 def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
@@ -190,6 +178,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
     allocation scoring-aware: PPR shifts flex toward WR, standard toward RB.
     
     All values scale with teams, bench_per_team, and flex_count.
+    This is a one-pass bootstrap using preliminary slot-proportional waiver
+    estimates. Final waiver lines are recomputed, not iterated to convergence.
     
     Args:
         teams: league size
@@ -203,6 +193,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
     """
     if flex_count is None:
         flex_count = REF_FLEX_COUNT
+    if teams <= 0 or int(teams) != teams or flex_count < 0 or int(flex_count) != flex_count:
+        raise ValueError("teams must be positive and flex count nonnegative integers")
     
     # Flex allocation: VORP-weighted if we have values, else slot-proportional
     if ranked is not None and use_vorp_weighting:
@@ -223,20 +215,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
         flex_alloc = allocate_flex_vorp_weighted(ranked, teams, flex_count, waiver_est)
     else:
         # Slot-proportional fallback
-        total_flex = teams * flex_count
-        flex_slots = sum(REF_SLOTS.get(pos, 0) for pos in REF_FLEX_ELIGIBLE)
-        flex_alloc = {}
-        for pos in POSITIONS:
-            if pos not in REF_FLEX_ELIGIBLE:
-                flex_alloc[pos] = 0
-            else:
-                raw = total_flex * REF_SLOTS.get(pos, 0) / flex_slots
-                flex_alloc[pos] = int(raw + 0.5)
-        # Adjust rounding
-        diff = total_flex - sum(flex_alloc.values())
-        if diff != 0:
-            largest = max(REF_FLEX_ELIGIBLE, key=lambda p: REF_SLOTS.get(p, 0))
-            flex_alloc[largest] += diff
+        flex_alloc = apportion({pos: REF_SLOTS[pos] for pos in REF_FLEX_ELIGIBLE},
+                              teams * flex_count)
     
     bench_alloc = bench_for_teams(teams, bench_per_team)
     
@@ -284,13 +264,14 @@ def compute_vorp_via_roster(source: str, teams: int = 12,
     1. Load their ranked values per position
     2. Compute rostered per position via flexible math:
        - Dedicated: teams × slots
-       - Flex: proportional to slot counts (scales with teams)
+       - Flex: proportional to publisher marginal VORP times dedicated slots
        - Bench: scaled by teams and bench_per_team
     3. Waiver line = first non-rostered
     4. VORP = value - waiver_line
     5. Implied positional weights = sum(VORP) per position / total
     """
-    combo_key = f"half_{teams}" if scoring == "half_ppr" else f"{scoring}_{teams}"
+    prefix = {"half_ppr": "half", "ppr": "full"}.get(scoring, scoring)
+    combo_key = f"{prefix}_{teams}"
     ranked = load_ranked_values(source, combo_key)
     
     # Flexible roster math with VORP-weighted flex (scoring-aware)
@@ -358,9 +339,10 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--source", default="usatoday")
     parser.add_argument("--teams", type=int, default=12)
+    parser.add_argument("--scoring", choices=("standard", "half_ppr", "ppr"), default="half_ppr")
     args = parser.parse_args()
     
-    result = compute_vorp_via_roster(args.source, args.teams)
+    result = compute_vorp_via_roster(args.source, args.teams, args.scoring)
     
     print(f"\nVORP via Roster Settings: {args.source} ({args.teams}t)")
     print("=" * 70)
