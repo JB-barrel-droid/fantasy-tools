@@ -15,9 +15,9 @@ data as Razzball, the numbers come from Razzball's rest-of-season
 projections only, never blended from experts. Players without Razzball
 projections are excluded, not ECR-filled.
 
-No `_adjusted` variant is built for Razzball: the adjusted family carries
-bias-correction cells fitted against actuals from a prior season, and no
-Razzball cells have been fitted (documented, not silently omitted).
+No `_adjusted` variant is built for Razzball: this section already applies
+our DDF methodology to Razzball's own projections. A second adjustment
+would duplicate that transform (JEG-58; see docs/methodology.md).
 """
 
 from __future__ import annotations
