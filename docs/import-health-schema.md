@@ -9,15 +9,15 @@ coordinating with the watchdog builder.
 - **Path:** `output/source-import-health.json` (repo-relative). `output/` is
   gitignored — the file is runtime state, never committed.
 - **Writer:** `make import-health NFL_WEEK=<n>` runs
-  `pipelines/verify_import_health.py --nfl-week <n>`, which verifies all five
+  `pipelines/verify_import_health.py --nfl-week <n>`, which verifies all seven
   active dashboard trade-value sources and writes this file.
 - **Update cadence / trigger:** the pull watchdog runs `make import-health`
   after each source pull's expected time and reads this file. `NFL_WEEK` is
   passed by the watchdog/cron (the current NFL week); the verifier does not
   infer it.
-- **Sources covered (exactly these five, never others):**
-  `espn`, `usatoday`, `fantasycalc`, `fantasypros`, `cbs`.
-  ECR, Vegas, and Razzball are hard exclusions — an unknown source name is a
+- **Sources covered (exactly these seven, never others):**
+  `fantasycalc`, `usatoday`, `fantasypros`, `espn`, `cbs`, `cbsros`, `razzball`.
+  ECR, Vegas, and prediction markets are hard exclusions — an unknown source name is a
   hard error in the verifier.
 
 ## Schema
@@ -50,7 +50,7 @@ Top-level object (key order as written; parsers must read by name):
 | `schema` | string | Always `"trade-value-import-health-v1"`. Bump the version if the shape changes. |
 | `checked_at` | string | UTC timestamp (`YYYY-MM-DDTHH:MM:SSZ`) of this check run. |
 | `nfl_week` | int | The NFL week the check judged freshness against (echo of `--nfl-week`). |
-| `sources` | object | Exactly the five source keys above. |
+| `sources` | object | Exactly the seven source keys above. |
 
 ### Per-source entry
 
@@ -96,10 +96,10 @@ Supabase table (`public.espn_season_projections`, `public.cbs_trade_values`),
 saved by `pipelines/save_espn_cbs_references.py` and imported DB-backed like
 the other three sources. There is no `GAP ... stage1b` line anymore, no
 `save_gap: "no-supabase-table-stage1b"` manifests, and `supabase_landing` is
-true for all five sources. The old file-backed ESPN/CBS snapshots were
+true for all seven sources. The old file-backed ESPN/CBS snapshots were
 migrated, not silently replaced: the importer archives the prior pair under
 `_superseded/<utc-timestamp>/` and records a `supersedes` audit field on the
-new manifest. Watchdog note: all five sources are DB-backed — no special
+new manifest. Watchdog note: all seven sources are DB-backed — no special
 file-cache handling remains.
 
 Per-source table notes for the watchdog: ESPN vintage comes from the
@@ -114,7 +114,7 @@ are written once per scoring (standard/half_ppr/ppr) from the single published
   `missing`/`stale`/`failed` → non-zero exit plus a loud human-readable
   summary on stderr ending in `GATE: RED`.
 - **No fixture update (`match`/`reference`/`section`/`promote`) may run on a
-  red health check.** Promotion is wired to this contract for the five active
+  red health check.** Promotion is wired to this contract for the seven active
   raw sources: `promote_comparison_section.py` refuses when the source entry is
   not `ok`, when the candidate lacks immutable `content_vintage` provenance,
   or when the candidate vintage differs from the fresh L1 vintage. Earlier

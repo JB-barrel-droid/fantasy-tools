@@ -15,7 +15,7 @@ help:
 	@echo "Modular dashboard commands:"
 	@echo "  make source-import     Import SOURCE_FILE into standard raw source format"
 	@echo "  make supabase-import   Import SOURCE from its Supabase table into a vintage-stamped snapshot"
-	@echo "  make import-health   Verify all five import sources are fresh (needs NFL_WEEK=<current NFL week>, passed by the watchdog/cron)"
+	@echo "  make import-health   Verify all seven import sources are fresh (needs NFL_WEEK=<current NFL week>, passed by the watchdog/cron)"
 	@echo "  make source-match      Match SNAPSHOT_FILE rows to canonical player_key values"
 	@echo "  make source-reference  Build source reference artifact(s) from MATCH_FILE (one per scoring/teams/qb group)"
 	@echo "  make comparison-section Build a candidate comparison section from REFERENCE_FILE (or REFERENCE_FILES=\"a.json b.json\" for multi-group sources)"
@@ -166,6 +166,7 @@ test-unit:
 	python3 -m unittest tests.test_production_verify
 	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
+	python3 -m unittest tests.test_doc_vs_code
 	python3 -m unittest lanes.test_plan_tracker
 
 
