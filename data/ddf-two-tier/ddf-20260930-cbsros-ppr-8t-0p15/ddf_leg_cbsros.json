@@ -19,7 +19,7 @@
       "bench_raw": 32.11695,
       "bench_share_used": 0.15,
       "n_bench": 18,
-      "n_pool": 84,
+      "n_pool": 87,
       "n_starters": 21,
       "pb": 0.7733048288864921,
       "pie": 214.113,
@@ -33,7 +33,7 @@
       "bench_raw": 5.6887500000000015,
       "bench_share_used": 0.15,
       "n_bench": 7,
-      "n_pool": 90,
+      "n_pool": 91,
       "n_starters": 8,
       "pb": 0.7274500285826101,
       "pie": 37.92500000000001,
@@ -58,17 +58,17 @@
       "tau": 0.6492499999999999
     }
   },
-  "generated_at": "2026-10-01T12:49:27Z",
+  "generated_at": "2026-10-02T12:45:10Z",
   "identity": {
     "alias_note": "Shared verified alias map with the ESPN DDF leg (build_ddf_two_tier_leg.ALIASES). Unresolvable identities are excluded, never guessed.",
     "aliases_used": []
   },
   "inputs": {
     "bench_share": 0.15,
-    "cbsros_snapshot": "data/raw/sources/cbsros/2026-09-30/snapshot.json",
+    "cbsros_snapshot": "/home/hatch/workspace/fantasy-tools/data/raw/sources/cbsros/2026-09-30/snapshot.json",
     "cbsros_snapshot_date": "2026-09-30",
-    "cbsros_snapshot_rows": 367,
-    "cbsros_snapshot_sha256": "bd1960a2f754720722ccbc57db7f9155f53576a35d758f902635dcb592cbb23a",
+    "cbsros_snapshot_rows": 363,
+    "cbsros_snapshot_sha256": "4c54dade6216cda8dc1b4a269b6c3a04c2b4518d18a14fb062ae3b5d1dbcea53",
     "per_game_note": "per-game = CBS ROS total / gp (per-player games). CBS publishes nonppr totals only; half_ppr/ppr add 0.5/1.0 per reception (reception points are the only scoring difference). Arithmetic on CBS components only; no expert blending.",
     "pies_note": "Positional pies measured from the current CBS data (tier surplus). No pies file: a static file goes stale when the player pool changes.",
     "scoring": "ppr",
@@ -98,144 +98,9 @@
   },
   "review_rows": [
     {
-      "player": "Michael Penix Jr.",
-      "player_norm": "michael penix",
-      "pos": "QB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Case Keenum",
-      "player_norm": "case keenum",
-      "pos": "QB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Mitch Trubisky",
-      "player_norm": "mitch trubisky",
-      "pos": "QB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Carson Wentz",
-      "player_norm": "carson wentz",
-      "pos": "QB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Athan Kaliakmanis",
-      "player_norm": "athan kaliakmanis",
-      "pos": "QB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Kenneth Walker III",
-      "player_norm": "kenneth walker",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Mike Washington Jr.",
-      "player_norm": "mike washington",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Chris Rodriguez Jr.",
-      "player_norm": "chris rodriguez",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Ollie Gordon II",
-      "player_norm": "ollie gordon",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Christopher Brooks",
-      "player_norm": "christopher brooks",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Kyle Juszczyk",
-      "pos": "FB",
-      "reason": "non_skill_position"
-    },
-    {
-      "player": "DJ Herman",
-      "player_norm": "dj herman",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Tyler Goodson",
-      "player_norm": "tyler goodson",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "CJ Donaldson",
-      "player_norm": "cj donaldson",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
       "player": "Austin Ekeler",
       "player_norm": "austin ekeler",
       "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "LeQuint Allen",
-      "player_norm": "lequint allen",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Zonovan Knight",
-      "player_norm": "zonovan knight",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Dare Ogunbowale",
-      "player_norm": "dare ogunbowale",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Andrew Beck",
-      "pos": "FB",
-      "reason": "non_skill_position"
-    },
-    {
-      "player": "Michael Burton",
-      "pos": "FB",
-      "reason": "non_skill_position"
-    },
-    {
-      "player": "Tyrone Tracy Jr.",
-      "player_norm": "tyrone tracy",
-      "pos": "RB",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Luther Burden III",
-      "player_norm": "luther burden",
-      "pos": "WR",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Brian Thomas Jr.",
-      "player_norm": "brian thomas",
-      "pos": "WR",
-      "reason": "unresolved_identity"
-    },
-    {
-      "player": "Deebo Samuel",
-      "player_norm": "deebo samuel",
-      "pos": "WR",
       "reason": "unresolved_identity"
     },
     {
@@ -245,14 +110,14 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "Jordan Watkins",
-      "player_norm": "jordan watkins",
-      "pos": "WR",
+      "player": "E.J. Jenkins",
+      "player_norm": "ej jenkins",
+      "pos": "TE",
       "reason": "unresolved_identity"
     },
     {
-      "player": "Ted Hurst",
-      "player_norm": "ted hurst",
+      "player": "Brian Thomas Jr.",
+      "player_norm": "brian thomas",
       "pos": "WR",
       "reason": "unresolved_identity"
     },
@@ -263,14 +128,50 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "Harold Fannin Jr.",
-      "player_norm": "harold fannin",
+      "player": "Dare Ogunbowale",
+      "player_norm": "dare ogunbowale",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Zach Ertz",
+      "player_norm": "zach ertz",
       "pos": "TE",
       "reason": "unresolved_identity"
     },
     {
-      "player": "Chigoziem Okonkwo",
-      "player_norm": "chigoziem okonkwo",
+      "player": "CJ Donaldson",
+      "player_norm": "cj donaldson",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Michael Penix Jr.",
+      "player_norm": "michael penix",
+      "pos": "QB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Carson Wentz",
+      "player_norm": "carson wentz",
+      "pos": "QB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Chris Rodriguez Jr.",
+      "player_norm": "chris rodriguez",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Case Keenum",
+      "player_norm": "case keenum",
+      "pos": "QB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Patrick Herbert",
+      "player_norm": "patrick herbert",
       "pos": "TE",
       "reason": "unresolved_identity"
     },
@@ -281,21 +182,46 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "Zach Ertz",
-      "player_norm": "zach ertz",
-      "pos": "TE",
+      "player": "Mike Washington Jr.",
+      "player_norm": "mike washington",
+      "pos": "RB",
       "reason": "unresolved_identity"
     },
     {
-      "player": "Matthew Hibner",
-      "player_norm": "matthew hibner",
-      "pos": "TE",
+      "player": "Kenneth Walker III",
+      "player_norm": "kenneth walker",
+      "pos": "RB",
       "reason": "unresolved_identity"
     },
     {
-      "player": "Connor Heyward",
-      "pos": "FB",
-      "reason": "non_skill_position"
+      "player": "Luther Burden III",
+      "player_norm": "luther burden",
+      "pos": "WR",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Ted Hurst III",
+      "player_norm": "ted hurst",
+      "pos": "WR",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Ollie Gordon II",
+      "player_norm": "ollie gordon",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Jordan Watkins",
+      "player_norm": "jordan watkins",
+      "pos": "WR",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "DJ Herman",
+      "player_norm": "dj herman",
+      "pos": "RB",
+      "reason": "unresolved_identity"
     },
     {
       "player": "Thomas Fidone II",
@@ -310,15 +236,45 @@
       "reason": "unresolved_identity"
     },
     {
-      "player": "E.J. Jenkins",
-      "player_norm": "ej jenkins",
+      "player": "Tyrone Tracy Jr.",
+      "player_norm": "tyrone tracy",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Harold Fannin Jr.",
+      "player_norm": "harold fannin",
       "pos": "TE",
       "reason": "unresolved_identity"
     },
     {
-      "player": "Patrick Herbert",
-      "player_norm": "patrick herbert",
+      "player": "Deebo Samuel Sr.",
+      "player_norm": "deebo samuel",
+      "pos": "WR",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Matthew Hibner",
+      "player_norm": "matthew hibner",
       "pos": "TE",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "LeQuint Allen Jr.",
+      "player_norm": "lequint allen",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Tyler Goodson",
+      "player_norm": "tyler goodson",
+      "pos": "RB",
+      "reason": "unresolved_identity"
+    },
+    {
+      "player": "Athan Kaliakmanis",
+      "player_norm": "athan kaliakmanis",
+      "pos": "QB",
       "reason": "unresolved_identity"
     }
   ],
@@ -327,10 +283,10 @@
   "summary": {
     "calibration_notes": [],
     "n_bench": 54,
-    "n_review": 38,
+    "n_review": 30,
     "n_starters": 64,
-    "n_values": 329,
-    "n_waiver": 211
+    "n_values": 333,
+    "n_waiver": 215
   },
   "values": [
     {
@@ -587,7 +543,7 @@
       "value": 23.23186273145426
     },
     {
-      "player": "James Cook III",
+      "player": "James Cook",
       "player_key": 1110,
       "player_norm": "james cook",
       "pos": "RB",
@@ -1643,6 +1599,17 @@
       "value": 0.0
     },
     {
+      "player": "Kyle Juszczyk",
+      "player_key": 30,
+      "player_norm": "kyle juszczyk",
+      "pos": "RB",
+      "ppg": 3.143,
+      "raw_value": 0.0,
+      "team": "SF",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
       "player": "Kaleb Johnson",
       "player_key": 65,
       "player_norm": "kaleb johnson",
@@ -2039,6 +2006,17 @@
       "value": 0.0
     },
     {
+      "player": "Connor Heyward",
+      "player_key": 914,
+      "player_norm": "connor heyward",
+      "pos": "TE",
+      "ppg": 2.286,
+      "raw_value": 0.0,
+      "team": "LV",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
       "player": "Tyler Allgeier",
       "player_key": 917,
       "player_norm": "tyler allgeier",
@@ -2083,7 +2061,7 @@
       "value": 0.0
     },
     {
-      "player": "Brian Robinson Jr.",
+      "player": "Brian Robinson",
       "player_key": 1032,
       "player_norm": "brian robinson",
       "pos": "RB",
@@ -2540,7 +2518,7 @@
       "pos": "QB",
       "ppg": 0.833,
       "raw_value": 0.0,
-      "team": "NYG",
+      "team": "MIN",
       "tier": "waiver",
       "value": 0.0
     },
@@ -3113,6 +3091,17 @@
       "ppg": 1.286,
       "raw_value": 0.0,
       "team": "HOU",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
+      "player": "Andrew Beck",
+      "player_key": 3077,
+      "player_norm": "andrew beck",
+      "pos": "RB",
+      "ppg": 0.643,
+      "raw_value": 0.0,
+      "team": "NYJ",
       "tier": "waiver",
       "value": 0.0
     },
@@ -3828,6 +3817,17 @@
       "ppg": 0.286,
       "raw_value": 0.0,
       "team": "PHI",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
+      "player": "Michael Burton",
+      "player_key": 4283,
+      "player_norm": "michael burton",
+      "pos": "RB",
+      "ppg": 0.714,
+      "raw_value": 0.0,
+      "team": "CLE",
       "tier": "waiver",
       "value": 0.0
     },

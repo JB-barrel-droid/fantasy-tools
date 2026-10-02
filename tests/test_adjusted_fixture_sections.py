@@ -167,6 +167,41 @@ class TestAdjustedFixtureSections(unittest.TestCase):
                 assert s1["fit_bake_id"] == s2["fit_bake_id"], f"{key} fit_bake_id differs"
 
 
+    def test_rescale_exact_hits_target(self):
+        """JEG-72: the 1-decimal store rounding must not break the pie invariant.
+
+        Naive rescale-then-round leaves up to 0.05/player of residual; with
+        104 WRs the usatoday half_12 total drifted 2.1 over the 2.0 test
+        tolerance. _rescale_exact must land the stored total on the target
+        to within half a cent, deterministically.
+        """
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        from build_adjusted_fixture_sections import _rescale_exact
+
+        # 104 synthetic values (seeded) whose naive rescale+round drifts 1.0
+        # off an 843.7 target -- the discrimination case: the old code path
+        # leaves a real residual here.
+        import random
+        random.seed(198)
+        vals = {f"p{i:03d}": round(random.uniform(0.5, 40), 3) for i in range(104)}
+        slugs = sorted(vals)
+        target = 843.7
+        # Prove the naive path actually drifts on this input (discrimination):
+        naive_total = sum(round(v * target / sum(vals.values()), 1) for v in vals.values())
+        self.assertGreater(abs(naive_total - target), 0.5)
+        _rescale_exact(vals, slugs, target)
+        total = round(sum(vals[s] for s in slugs), 2)
+        self.assertLessEqual(abs(total - target), 0.005,
+                             f"rescaled total {total} != target {target}")
+        # Deterministic: same input -> same per-player values.
+        import random
+        random.seed(198)
+        vals2 = {f"p{i:03d}": round(random.uniform(0.5, 40), 3) for i in range(104)}
+        _rescale_exact(vals2, slugs, target)
+        self.assertEqual(vals, vals2)
+        # No negative values introduced.
+        self.assertTrue(all(v >= 0 for v in vals.values()))
+
     def test_reference_data_validation_passes(self):
         """build_reference_data.py must pass with _adjusted sources present."""
         result = subprocess.run(

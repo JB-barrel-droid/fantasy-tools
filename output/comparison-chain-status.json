@@ -1,28 +1,24 @@
 {
-  "run_at": "2026-10-02T12:43:59.053481+00:00",
+  "run_at": "2026-10-02T12:45:12.147510+00:00",
   "nfl_week": 4,
   "sources": {
-    "usatoday": "FAILED at stage 'review': usatoday-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
+    "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1"
   },
-  "failed": [
-    "adjusted_sections",
-    "fit",
-    "usatoday"
-  ],
-  "success": false,
-  "runner": "github-actions",
+  "failed": [],
+  "success": true,
+  "runner": "local",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "failed",
-      "stage": "review",
-      "detail": "usatoday-half-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. A hold means a human must review first; the chain will not override it.",
-      "promoted": 1,
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
       "sections": 3
     },
     "fantasycalc": {
@@ -67,11 +63,11 @@
     }
   },
   "fit": {
-    "status": "skipped",
-    "detail": "skipped: sources failed: usatoday"
+    "status": "ok",
+    "detail": "fit complete"
   },
   "adjusted_sections": {
-    "status": "skipped",
-    "detail": "skipped: fit skipped"
+    "status": "ok",
+    "detail": "_adjusted sections built"
   }
 }

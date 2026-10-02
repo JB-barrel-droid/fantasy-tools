@@ -179,10 +179,16 @@ def find_leg(ddf_dir: Path, scoring: str | None = None,
     else:
         # No scoring requested: keep the historical 12-team preference, then
         # prefer the chart's default scoring so the pick is not arbitrary.
+        # The default is Full PPR ("ppr"): the main chart opens with
+        # `let scoring = "ppr"` (curve-widget.js) and the comparison
+        # dashboard with `scoring: "full"` (comparison-dashboard.js).
+        # (2026-10-02 JEG-72: a half_ppr preference here silently retargeted
+        # the bias-correction fit at half-PPR DDF values while its x-inputs
+        # stayed Full-PPR combos -- a scoring mismatch.)
         legs_12t = [m for m in metas if m["teams"] == 12]
         pool = legs_12t or metas
-        half = [m for m in pool if m["scoring"] == "half_ppr"]
-        metas = half or pool
+        ppr = [m for m in pool if m["scoring"] == "ppr"]
+        metas = ppr or pool
     if teams is not None:
         metas = [m for m in metas if m["teams"] == teams]
     if not metas:

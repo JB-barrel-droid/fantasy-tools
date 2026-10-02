@@ -39,6 +39,35 @@ import math
 import sys
 from pathlib import Path
 
+
+def _rescale_exact(adjusted: dict, slugs: list, target: float) -> None:
+    """Rescale `adjusted[slug]` for slug in slugs so their sum equals target.
+
+    The fixture stores 1-decimal values, and naive rescale-then-round leaves
+    a rounding residual (up to 0.05 per player) that breaks the fixed-pie
+    invariant the builder documents. After the proportional rescale + round,
+    distribute the residual in 0.1 steps over the largest values (largest-
+    remainder apportionment), so the stored total matches the target to
+    within half a cent. Deterministic: ties break by slug.
+    """
+    total = sum(adjusted[s] for s in slugs)
+    if not (target and total > 0):
+        return
+    factor = target / total
+    for s in slugs:
+        adjusted[s] = round(adjusted[s] * factor, 1)
+    residual = round(target - sum(adjusted[s] for s in slugs), 1)
+    # Apply in 0.1 units; each step moves the total 0.1 toward the target.
+    step = 0.1 if residual > 0 else -0.1
+    ordered = sorted(slugs, key=lambda s: (-adjusted[s], s))
+    i = 0
+    while abs(residual) >= 0.05 and i < len(ordered) * 20:
+        s = ordered[i % len(ordered)]
+        if adjusted[s] + step >= 0:
+            adjusted[s] = round(adjusted[s] + step, 1)
+            residual = round(residual - step, 1)
+        i += 1
+
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from build_adjustment_inputs import (
@@ -281,10 +310,10 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
                 pos_slugs.setdefault(pos, []).append(slug)
             for pos, total in pos_totals.items():
                 target = (index_total.get(pos) or {}).get("target_total")
-                if target and total > 0:
-                    factor = target / total
-                    for slug in pos_slugs[pos]:
-                        adjusted[slug] = round(adjusted[slug] * factor, 1)
+                # Exact pie invariant: rescale + residual-correct so the
+                # stored 1-decimal values sum to the target (rounding alone
+                # leaves up to 0.05/player of drift).
+                _rescale_exact(adjusted, pos_slugs[pos], target or 0.0)
 
             # Legacy "global" pie (VORP>0 overlap method): no per-position
             # targets exist, so rescale the whole combo to the global target.
@@ -292,13 +321,11 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
             # (2026-10-01: usatoday/fantasypros half_12 and standard_12).
             global_target = (index_total.get("global") or {}).get("target_total")
             if global_target:
-                global_total = sum(
-                    v for v in adjusted.values() if isinstance(v, (int, float))
+                _rescale_exact(
+                    adjusted,
+                    [s for s in adjusted if isinstance(adjusted[s], (int, float))],
+                    global_target,
                 )
-                if global_total > 0:
-                    factor = global_target / global_total
-                    for slug in adjusted:
-                        adjusted[slug] = round(adjusted[slug] * factor, 1)
 
             adjusted_combos[combo_name] = {
                 "reindexed": adjusted,

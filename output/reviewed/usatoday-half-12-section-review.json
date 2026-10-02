@@ -1,6 +1,6 @@
 {
  "schema": "trade-value-comparison-review-v1",
- "source_key": "fantasypros",
+ "source_key": "usatoday",
  "asof": null,
  "verdict": "ready",
  "checks": [
@@ -25,14 +25,14 @@
    "detail": "1 candidate combos exist in fixture"
   },
   {
-   "name": "native_drift:full_12",
+   "name": "native_drift:half_12",
    "status": "pass",
    "detail": "native values match fixture"
   },
   {
-   "name": "zero_preservation:full_12",
+   "name": "zero_preservation:half_12",
    "status": "pass",
-   "detail": "0 zeros match"
+   "detail": "3 zeros match"
   },
   {
    "name": "anchor_disclosure",
@@ -46,8 +46,8 @@
   }
  ],
  "combos": {
-  "full_12": {
-   "native_shared": 178,
+  "half_12": {
+   "native_shared": 249,
    "native_drifted": 0,
    "native_drift_frac": 0.0,
    "coverage": {
@@ -56,38 +56,38 @@
      "fixture": 32
     },
     "RB": {
-     "candidate": 52,
-     "fixture": 52
-    },
-    "WR": {
      "candidate": 74,
      "fixture": 74
     },
+    "WR": {
+     "candidate": 104,
+     "fixture": 104
+    },
     "TE": {
-     "candidate": 20,
-     "fixture": 20
+     "candidate": 36,
+     "fixture": 36
     }
    },
-   "zeros_candidate": 0,
-   "zeros_fixture": 0,
+   "zeros_candidate": 3,
+   "zeros_fixture": 3,
    "anchor_divergence": {
     "QB": {
-     "n": 32,
+     "n": 35,
      "mean_abs": 0.0,
      "max_abs": 0.0
     },
     "RB": {
-     "n": 52,
-     "mean_abs": 0.0,
-     "max_abs": 0.0
-    },
-    "WR": {
      "n": 74,
      "mean_abs": 0.0,
      "max_abs": 0.0
     },
+    "WR": {
+     "n": 104,
+     "mean_abs": 0.0,
+     "max_abs": 0.0
+    },
     "TE": {
-     "n": 20,
+     "n": 36,
      "mean_abs": 0.0,
      "max_abs": 0.0
     }
@@ -96,8 +96,8 @@
  },
  "review_rows": [],
  "triaged": {},
- "reindexed_source_file": "/home/hatch/workspace/fantasy-tools/output/reindexed/fantasypros-full-12-section-reindexed.json",
- "reindexed_sha256": "90d4cf5f72d571cb9d0b6b6b65a06873f92d6a5543b39066134d6c29a864204c",
- "fixture_native_sha256": "2ff25a2a34472a7a70723fdd7164f1b35af42352823ff175512aa61e63a62d86",
+ "reindexed_source_file": "/home/hatch/workspace/fantasy-tools/output/reindexed/usatoday-half-12-section-reindexed.json",
+ "reindexed_sha256": "fe2b00011dc24f027d26b12cd242dbc0873d9f2912df72d5b147b8d9f332af6d",
+ "fixture_native_sha256": "eb9843813779c1bc49c9c8b78399b6525605b6de6d7936455ac2faec4ba2ef94",
  "note": "'ready' means the candidate MAY be promoted by a human. This script never writes under data/."
 }

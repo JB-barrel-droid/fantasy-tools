@@ -378,12 +378,20 @@ class TestFindLeg(unittest.TestCase):
         with self.assertRaises(SystemExit):
             find_leg(self.tmp, scoring="standard")
 
-    def test_default_prefers_12t_then_half_ppr(self):
+    def test_default_prefers_12t_then_ppr(self):
+        # JEG-72: the default is the chart's default scoring, Full PPR
+        # ("ppr") -- the main chart opens with `let scoring = "ppr"` and the
+        # comparison dashboard with `scoring: "full"`. JEG-16 pinned
+        # half_ppr on the false premise that the charts default to half PPR;
+        # that silently retargeted the bias-correction fit at half-PPR DDF
+        # values while its x-inputs stayed Full-PPR combos.
         self._leg("ddf-20260930-espn-ppr-8t-0p15", "ppr", 8,
                   "2026-09-30", "2026-10-01T00:00:00Z")
-        half12 = self._leg("ddf-20260929-espn-half_ppr-12t-0p15", "half_ppr", 12,
-                           "2026-09-29", "2026-09-30T00:00:00Z")
-        self.assertEqual(find_leg(self.tmp), half12)
+        ppr12 = self._leg("ddf-20260929-espn-ppr-12t-0p15", "ppr", 12,
+                          "2026-09-29", "2026-09-30T00:00:00Z")
+        self._leg("ddf-20260930-espn-half_ppr-12t-0p15", "half_ppr", 12,
+                  "2026-09-30", "2026-10-01T00:00:00Z")
+        self.assertEqual(find_leg(self.tmp), ppr12)
 
 
 if __name__ == "__main__":
