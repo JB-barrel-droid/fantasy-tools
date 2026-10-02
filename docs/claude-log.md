@@ -32,6 +32,33 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-82: consolidated best-practices standard (docs only)
+
+Output: `docs/health/best-practices.md`. Consolidates the Claude, Muse and Codex assessments (all merged). Jeremy asked for this directly; the JEG-78 dependency was already met.
+
+### Verified (checks named)
+
+- `make validate` on `main` at `bb51ebd`: exit 0. Codex's lane reports it red on its older baseline `81b2a8d`; I did not investigate why.
+- `pages.yml` and `Makefile` grep: the rendered gate runs only in `preview.yml`.
+- `build_pipeline_checkpoints.py` C10: fetches the live served JSON and JS and checks content week and served bytes versus the fixture. A live data check, not a rendered-DOM check. This corrects my JEG-79 document, which said no live check existed.
+- `pipelines/lib/publication_windows.py` (read): rules exist only for USA Today and ESPN; CBS, CBS ROS, FantasyCalc and FantasyPros are marked unverified.
+- `dist/modules/pipeline-checkpoints.json` on `main`: `generated_at` 2026-10-01T16:07Z (about 22 hours old when checked); last commit titled "Dashboard 30-min health push" is 2026-10-01 16:07Z.
+- Workflow read: an import or import-health failure ends `rebuild-chain.yml` before the status-publish steps.
+- Control ids and shapes read from `index.html`, `gate.mjs`, `curve-widget.js`.
+
+### Claimed, unverified
+
+- Every [E] "established practice" tag (no sources fetched, egress restricted).
+- That C10 currently runs on a schedule (taken from Muse's lane document and commit titles; the last health-push commit is old).
+- The proposed freshness limits for derived artifacts (15 minutes, 12 hours, 1 hour): my judgement, marked as proposals needing the owner.
+- Whether a live copy of the monitor artifacts is fresher than the committed one.
+
+### Open
+
+- Added GAP-039 (monitor stale) and GAP-040 (import failure publishes no status); noted on GAP-037 that `pages.yml` skips the rendered gate.
+- Three values calls are listed for Jeremy in the document (section 8). Step 3 (JEG-83) audits the project against this standard.
+- No code or data changed.
+
 ## 2026-10-02 - JEG-79: Claude lane best-practices assessment (docs only)
 
 Output: `docs/health/claude-best-practices.md`. I did not read the Muse or Codex documents first.
