@@ -32,6 +32,29 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-102: ESPN CI scrape made to run and fail closed (code, draft PR)
+
+### Changed
+
+- `pipelines/pull_espn_projections.py`: appends `waiver_wire/pipeline/bin` to `sys.path` so `import identity` resolves in the repo layout (appended, so the goal-workspace layout still wins); uses `data/inputs/player_identity_map.json` when the goal-workspace snapshot is absent; keeps working files in the gitignored `output/espn_pull/` instead of beside the repo; creates the output directories before the atomic writes. No valuation code touched.
+- `.github/workflows/espn-supabase-sync.yml`: the scrape step now has `set -euo pipefail`, no `|| echo`, fails on no CSV or fewer than 100 rows, and prints "acquired N rows"; the save step lost its skip branch; new `dry_run` dispatch input passes `--dry-run` to the saver (no Supabase write).
+- `tests/test_espn_ci_workflow.py` (12 tests), registered in `make test-unit`.
+
+### Verified
+
+- `python3 -B -m unittest tests.test_espn_ci_workflow`: 12 pass. 9 mutations (re-adding the swallow, dropping `set -e`, dropping the no-CSV check, floor 0, re-adding the skip branch, ignoring `dry_run`, dropping the path fallback, no-op directory creation, working files outside the repo) each fail a named test. The old scrape step, kept as text in the test, is shown to swallow a crash.
+- The scraper module imports in the repo layout and finds the identity snapshot (subprocess with `PYTHONPATH` cleared).
+
+### Claimed, unverified
+
+- That the scraper now completes in CI. I cannot reach ESPN from here; the dry-run dispatch is the check, and a live run is a production write that needs Muse's approval.
+- That `data/inputs/player_identity_map.json` (529 canonical, 592 aliases, last committed 2026-10-01) is the same snapshot the local run used. If it differs, identity resolution may exclude different players (it fails closed). The 100-row floor is my judgement and may need tuning.
+- Other CI incompatibilities beyond the ones found may exist; the first CI run will show.
+
+### Open
+
+- GAP-041 stays open until a CI run is verified. The identity snapshot is a copy of an input with no freshness rule of its own.
+
 ## 2026-10-02 - JEG-82: consolidated best-practices standard (docs only)
 
 Output: `docs/health/best-practices.md`. Consolidates the Claude, Muse and Codex assessments (all merged). Jeremy asked for this directly; the JEG-78 dependency was already met.

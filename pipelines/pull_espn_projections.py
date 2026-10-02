@@ -67,7 +67,12 @@ _args = sys.argv[1:]
 _out_idx = _args.index("--out") if "--out" in _args else -1
 _meta_idx = _args.index("--meta") if "--meta" in _args else -1
 
+REPO = BIN.parent
 GOAL = BIN.parent.parent                      # football-signal-database-and-app
+if not (GOAL / "files").is_dir():
+    # JEG-102: repo / CI layout. There is no goal workspace beside the repo; keep
+    # working files inside the repo's gitignored output/ instead of beside it.
+    GOAL = REPO / "output" / "espn_pull"
 FILES = GOAL / "files"
 HIDDEN = GOAL / "hidden_files"
 LOG = HIDDEN / "espn_projections_runs.log"
@@ -78,7 +83,18 @@ SIDECAR = HIDDEN / "espn_ros_ppg.json"
 FORCE = "--force" in _args  # bypass the hash no-op (backfills only)
 
 sys.path.insert(0, str(BIN))
+# JEG-102: in the repo (and in CI) `identity` lives with the waiver-wire pipeline,
+# not beside this script as it did in the goal workspace. Append (never prepend) so
+# a local layout that has it next to the script still wins.
+IDENTITY_DIR = REPO / "waiver_wire" / "pipeline" / "bin"
+if IDENTITY_DIR.is_dir() and str(IDENTITY_DIR) not in sys.path:
+    sys.path.append(str(IDENTITY_DIR))
 import identity as ident  # noqa: E402  (shared Supabase IdentityMap snapshot)
+
+# The snapshot sits at <lottery>/data/player_identity_map.json in the goal workspace
+# (what `ident.SNAP` points at); the repo carries a copy under data/inputs/.
+IDENTITY_SNAPSHOT = (Path(ident.SNAP) if Path(ident.SNAP).exists()
+                     else REPO / "data" / "inputs" / "player_identity_map.json")
 
 API = ("https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/"
        "segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info")
@@ -115,6 +131,13 @@ TEAM_FALLBACK = {
 
 def now_ct():
     return datetime.now(ZoneInfo("America/Chicago"))
+
+
+def ensure_output_dirs():
+    """JEG-102: the goal workspace had files/ and hidden_files/; a CI checkout does not.
+    The atomic writers below put their temp files in these directories."""
+    for d in (FILES, HIDDEN):
+        d.mkdir(parents=True, exist_ok=True)
 
 
 def log_line(status, detail):
@@ -224,7 +247,8 @@ def main():
 
     team_map = load_team_map(problems)
     imap = ident.IdentityMap(
-        chart_keys=json.load(open(ident.SNAP))["canonical"].keys())
+        chart_keys=json.load(open(IDENTITY_SNAPSHOT))["canonical"].keys(),
+        snapshot_path=IDENTITY_SNAPSHOT)
 
     # ---- 1. played weeks, detected empirically from 2026 actuals ----
     actual_counts = {}
@@ -359,6 +383,7 @@ def main():
         return 0
 
     # ---- 5. atomic writes ----
+    ensure_output_dirs()
     def fmt1(x):
         return f"{x:.1f}"
 

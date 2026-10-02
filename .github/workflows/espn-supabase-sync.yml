@@ -12,6 +12,11 @@ on:
     # Daily at 11:30 UTC (06:30 CT)
     - cron: '30 11 * * *'
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Scrape and resolve identities, but do not write to Supabase"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -36,24 +41,33 @@ jobs:
 
       - name: Scrape ESPN projections
         run: |
-          # Run the ESPN scraper (outputs to /tmp/espn_projections.csv)
-          # The scraper is idempotent: only writes if data changed
-          python3 pipelines/pull_espn_projections.py --out /tmp/espn_projections.csv --meta /tmp/espn_meta.json || echo "Scraper failed, using existing data"
+          # JEG-102: fail closed. A scraper failure, a missing CSV or a suspiciously
+          # small CSV fails the job. A zero exit with no CSV would mean "payload
+          # unchanged", which CI cannot establish (no stored hash), so it is an error.
+          set -euo pipefail
+          rm -f /tmp/espn_projections.csv /tmp/espn_meta.json
+          python3 pipelines/pull_espn_projections.py --out /tmp/espn_projections.csv --meta /tmp/espn_meta.json
+          test -s /tmp/espn_projections.csv || { echo "::error::ESPN scrape exited 0 but produced no CSV"; exit 1; }
+          rows=$(( $(wc -l < /tmp/espn_projections.csv) - 1 ))
+          if [ "$rows" -lt 100 ]; then
+            echo "::error::ESPN scrape produced only ${rows} rows (floor is 100)"
+            exit 1
+          fi
+          echo "ESPN acquired ${rows} rows"
+          echo "ESPN scrape: acquired ${rows} rows" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save to Supabase
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
-          # Save the scraped CSV to Supabase
-          # Uses --espn-csv to specify the fresh scrape output
-          if [ -f /tmp/espn_projections.csv ]; then
-            python3 pipelines/save_espn_cbs_references.py --source espn \
-              --espn-csv /tmp/espn_projections.csv \
-              --espn-meta /tmp/espn_meta.json
-          else
-            echo "No fresh ESPN data, skipping Supabase save"
-          fi
+          set -euo pipefail
+          flag=""
+          if [ "${DRY_RUN:-}" = "true" ]; then flag="--dry-run"; fi
+          python3 pipelines/save_espn_cbs_references.py --source espn $flag \
+            --espn-csv /tmp/espn_projections.csv \
+            --espn-meta /tmp/espn_meta.json
 
       - name: Commit scraper updates if changed
         run: |
