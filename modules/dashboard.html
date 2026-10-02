@@ -204,6 +204,20 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="fidelitySources"></div>
 </section>
 
+<section class="card" id="e2eFidelityCard">
+  <h2>Source fidelity — end to end (live vs dashboard)</h2>
+  <div class="desc">
+    End-to-end check: live snapshot vs the rendered dashboard, per source.
+    Two failure classes — <b>freshness</b> (snapshot is older than the threshold,
+    meaning the publisher may have done a midweek update we missed) and <b>fidelity flip</b>
+    (a reindex step swapped the ordering the publisher ranks players in — JEG-73-class bug).
+    Built by <code>pipelines/build_e2e_fidelity.py</code> which imports the checks from
+    <code>pipelines/check_source_fidelity.py</code> — one implementation, no duplication.
+  </div>
+  <div id="e2eFidelitySummary" style="margin-bottom:16px"></div>
+  <div id="e2eFidelitySources"></div>
+</section>
+
 <section class="card" id="indexMathCard">
   <h2>Index math — raw to indexed transformation</h2>
   <div class="desc">
@@ -746,6 +760,96 @@ async function main(){
     }
   } catch(e) {
     fidelityHost.innerHTML = `<div style="color:var(--grey)">Failed to load fidelity data: ${String(e).slice(0,80)}</div>`;
+  }
+
+  // Source fidelity — end to end (live vs dashboard): freshness + fidelity flips.
+  // Follows the fidelity card render pattern (fetch e2e-fidelity.json, render
+  // per-source cards, color pills by per-source status, top-line summary).
+  const e2eHost = document.getElementById("e2eFidelitySources");
+  const e2eSummary = document.getElementById("e2eFidelitySummary");
+  try {
+    const e2eResp = await fetch("e2e-fidelity.json", {cache:"no-store"});
+    if(e2eResp.ok){
+      const e2e = await e2eResp.json();
+      const e2eSources = e2e.sources || {};
+      const e2eOrder = ["fantasycalc", "usatoday", "fantasypros", "cbs"].filter(s => e2eSources[s]);
+
+      // Top-line summary counts (failures, not sources).
+      let e2eOkCount = 0, e2eWarnCount = 0, e2eBadCount = 0;
+      e2eOrder.forEach(s => {
+        const st = e2eSources[s]?.status;
+        if(st === "ok") e2eOkCount++;
+        else if(st === "bad") e2eBadCount++;
+        else e2eWarnCount++;
+      });
+      const e2eSumColor = e2eBadCount > 0 ? "var(--red)" : e2eWarnCount > 0 ? "var(--yellow)" : "var(--green)";
+      e2eSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
+        <div><span style="font-size:24px;font-weight:800;color:${e2eSumColor}">${e2eOkCount}</span><span style="color:var(--dim);font-size:13px"> / ${e2eOrder.length} sources clean</span></div>
+        <div style="font-size:12.5px;color:var(--dim)">${e2eBadCount} fidelity-flip · ${e2eWarnCount} freshness-stale or unknown<br>Max age: ${e2e.max_age_days ?? "?"}d · Generated: ${shortTs(e2e.generated_at)}</div>
+      </div>`;
+
+      // Per-source cards.
+      e2eHost.innerHTML = e2eOrder.map(srcKey => {
+        const s = e2eSources[srcKey];
+        if(!s) return "";
+        const fres = s.freshness || {};
+        const fid = s.fidelity || {};
+        const fresStatus = fres.status || "unk";
+        const fidStatus = fid.status || "unk";
+        // Pill color follows the worst-of-the-two per-source rule.
+        const dotCls = s.status === "ok" ? "ok" : s.status === "bad" ? "bad" : s.status === "warn" ? "warn" : "unk";
+        const statusIcon = s.status === "ok" ? "✓" : s.status === "bad" ? "✗" : s.status === "warn" ? "!" : "?";
+        const statusColor = s.status === "ok" ? "var(--green)" : s.status === "bad" ? "var(--red)" : s.status === "warn" ? "var(--yellow)" : "var(--grey)";
+
+        const freshnessBadge = (status, count) => {
+          const col = status === "ok" ? "var(--green)" : status === "bad" ? "var(--red)" : status === "warn" ? "var(--yellow)" : "var(--grey)";
+          const icon = status === "ok" ? "✓" : status === "bad" ? "✗" : status === "warn" ? "!" : "?";
+          return `<span style="color:${col};font-weight:700">${icon} ${count}</span> ${status}`;
+        };
+        const freshnessFails = (fres.failures || []).map(f =>
+          `<div style="padding:6px 10px;margin:4px 0;background:${f.type === "fidelity_flip" ? "var(--red-bg)" : "var(--yellow-bg)"};border-radius:6px;font-size:12.5px">${f.message}</div>`
+        ).join("");
+        const fidelityFails = (fid.failures || []).map(f =>
+          `<div style="padding:6px 10px;margin:4px 0;background:var(--red-bg);border-radius:6px;font-size:12.5px">
+            <b>FLIP</b> ${f.higher || "?"} (native ${f.native_higher?.toFixed?.(1) ?? "?"}) → reindexed ${f.reindexed_higher?.toFixed?.(1) ?? "?"} vs ${f.lower || "?"} (native ${f.native_lower?.toFixed?.(1) ?? "?"}, reindexed ${f.reindexed_lower?.toFixed?.(1) ?? "?"})
+            <div style="font-size:11px;color:var(--dim);margin-top:2px">${f.message || ""}</div>
+          </div>`
+        ).join("");
+
+        const fetchedAt = s.fetched_at ? shortTs(s.fetched_at) : "—";
+        const vintage = s.content_vintage || "—";
+        const reason = (fres.failures && fres.failures[0]?.message) || (fid.failures && fid.failures[0]?.message) || "fresh, ordering preserved";
+
+        return `<div class="src" style="margin-bottom:12px">
+          <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="this.parentElement.classList.toggle('open')">
+            <span class="cp-dot ${dotCls}"></span>
+            <b style="font-size:14px">${s.label}</b>
+            <span style="color:${statusColor};font-weight:700">${statusIcon} ${(s.status || "unk").toUpperCase()}</span>
+            <span style="color:var(--dim);font-size:12px;margin-left:auto">${reason}</span>
+          </div>
+          <div class="src-body" style="display:none;padding:0 16px 16px;border-top:1px solid var(--line)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px">FRESHNESS</div>
+                <div style="font-size:13px">${freshnessBadge(fresStatus, (fres.failures || []).length)}</div>
+                <div style="font-size:11px;color:var(--faint);margin-top:6px">Snapshot: ${fetchedAt} · Vintage: ${vintage}</div>
+                ${freshnessFails || '<div style="color:var(--green);font-size:12.5px;margin-top:6px">✓ within age threshold</div>'}
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px">FIDELITY (ordering preservation)</div>
+                <div style="font-size:13px">${freshnessBadge(fidStatus, (fid.failures || []).length)}</div>
+                <div style="font-size:11px;color:var(--faint);margin-top:6px">Native ordering vs reindexed ordering per publisher pair</div>
+                ${fidelityFails || '<div style="color:var(--green);font-size:12.5px;margin-top:6px">✓ no ordering flips detected</div>'}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+    } else {
+      e2eHost.innerHTML = `<div style="color:var(--grey)">End-to-end fidelity data not available. Run <code>python3 pipelines/build_e2e_fidelity.py</code>.</div>`;
+    }
+  } catch(e) {
+    e2eHost.innerHTML = `<div style="color:var(--grey)">Failed to load e2e fidelity data: ${String(e).slice(0,80)}</div>`;
   }
 
   // Index math: raw -> indexed transformation verification
