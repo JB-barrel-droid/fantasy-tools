@@ -32,7 +32,34 @@ useful than a tidy file.
 
 ---
 
-## 2026-10-02 - JEG-82: consolidated best-practices standard (docs only)
+## 2026-10-02 - JEG-98: lineage top-25 tables for the 4 VORP-adjusted legs
+
+Branch `minimax/jeg-98-lineage-adjusted-legs`. The monitor's "Source value
+lineage" section rendered 7 source legs but the comparison data carries 11;
+the 4 VORP-translated adjusted legs (fantasypros_adjusted, usatoday_adjusted,
+fantasycalc_adjusted, cbs_adjusted) had no standalone audit table even
+though the builder already loaded them via ADJUSTED_SOURCES for the existing
+parent rows' reweight column.
+
+### Verified (checks named)
+
+- Re-read `pipelines/build_source_value_lineage.py` and `dist/assets/comparison-sources-data.json` shape: adjusted sources live at `sources.{parent}_adjusted.combos.{combo_key}.reindexed` exactly like parents; the builder's existing ADJUSTED_SOURCES map already keys each parent to its adjusted twin.
+- `modules/dashboard.html` (line 827-865) reads `linData.sources`, iterates an `order` array, and sums `top25` lengths + unverifiable rows for the summary counters. Adding adjusted legs to `order` flows them into tracedPlayers, liveChecked, and liveMismatches with no JS counter change.
+- Renderer fields reused unchanged for adjusted: `live_value`, `native`, `index_mult`, `indexed`, `reweight_mult`, `reweighted`, `chart_value`, `chart_matches_indexed`. The "VORP-translation mult" maps to existing `reweight_mult` and "translated/adjusted value" maps to existing `reweighted` — no new column vocabulary.
+- `liveIcon` for `!live_scraped` already returns a red ✗ with the existing "FAIL: No live human-readable page available for verification" title; that satisfies the standing contract for adjusted legs.
+- Existing tests `test_lineage_merge.py` (5 tests) and `test_lineage_snapshot_guard.py` (4 tests) load via `importlib.util`; pytest is not on PATH (per ticket).
+
+### Claimed, unverified
+
+- Local test execution — sandbox cannot run `python3 -m unittest` (host permission gate is unavailable for `bash`). Reviewer must run `python3 -m unittest tests.test_lineage_snapshot_guard tests.test_lineage_merge -v` on a host with permission and report back.
+- Whether the new summary "× players traced" count and red live-mismatch count look sensible on the live monitor with the rebuilt artifact — no deploy was made.
+- Whether `comparison-sources-data.json` actually contains all four adjusted keys with non-empty `half_12.reindexed` on the host that runs the rebuild; only `fantasypros_adjusted` and `usatoday_adjusted` were visible in the first 200 lines of the fixture on this checkout.
+- The dashboard render order is parent then adjusted; I did not verify visual placement against the existing top-25 tables in a browser.
+
+### Open
+
+- Adjusted legs intentionally set `live_matches_native = null` and `live_scraped = false`. They contribute 25 rows × 4 = 100 to `liveMismatches` and 100 to `liveChecked` by the standing "no live page = FAIL RED, not silent skip" contract. The summary's red number will grow from the current count by 100. If the owner wants adjusted rows in the green column instead, that needs a renderer rule change and a standing-contract decision.
+- The fixture's CBS published-player coverage is thinner than other sources (CTL-006). `cbs_adjusted` will produce a top 25 only where CBS has reindexed players; reviewer's local build will be the check.
 
 Output: `docs/health/best-practices.md`. Consolidates the Claude, Muse and Codex assessments (all merged). Jeremy asked for this directly; the JEG-78 dependency was already met.
 

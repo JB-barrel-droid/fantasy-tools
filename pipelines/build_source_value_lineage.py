@@ -239,6 +239,18 @@ ADJUSTED_SOURCES = {
     "usatoday": "usatoday_adjusted",
 }
 
+# Map adjusted leg -> parent source key. Adjusted legs render the
+# VORP-translated values on the chart and inherit the parent's publisher
+# native, indexed value, and live scrape (no own live page).
+# JEG-98: each gets a standalone top-25 audit table.
+ADJUSTED_LEG_PARENT = {
+    "fantasypros_adjusted": "fantasypros",
+    "usatoday_adjusted": "usatoday",
+    "fantasycalc_adjusted": "fantasycalc",
+    "cbs_adjusted": "cbs",
+}
+ALL_ADJUSTED_LEGS = list(ADJUSTED_LEG_PARENT.keys())
+
 
 def require_snapshot_natives(snapshot_natives):
     """Fail-closed guard: refuse to build when a required source snapshot is
@@ -371,6 +383,114 @@ def build_source_entry(src, sources, live_data, snapshot_natives):
     }
 
 
+def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives):
+    """Build one adjusted leg's lineage block (top 25 by chart value).
+
+    Adjusted legs render the VORP-translated values on the chart. They have
+    no live page of their own, so live verification uses the parent source's
+    scrape and the live-verification column fails red per the standing
+    contract. The builder raises (fail-closed) when the adjusted combo
+    cannot be built, so a partial artifact is never written.
+    """
+    if adj_src not in ADJUSTED_LEG_PARENT:
+        raise ValueError(f"build_source_value_lineage: unknown adjusted leg {adj_src!r}")
+    parent_src = ADJUSTED_LEG_PARENT[adj_src]
+    combo_key = COMBO_KEYS[parent_src]
+    if adj_src not in sources:
+        raise ValueError(
+            f"build_source_value_lineage: adjusted leg {adj_src!r} missing from fixture; "
+            f"refusing to write partial output"
+        )
+    parent_combo = sources.get(parent_src, {}).get("combos", {}).get(combo_key, {})
+    adj_combo = sources.get(adj_src, {}).get("combos", {}).get(combo_key, {})
+
+    if not adj_combo or not adj_combo.get("reindexed"):
+        raise ValueError(
+            f"build_source_value_lineage: adjusted leg {adj_src!r} combo "
+            f"{combo_key!r} has no reindexed rows; refusing to write partial output"
+        )
+
+    # Native: parent's publisher native (snapshot overrides combo)
+    parent_native = parent_combo.get("native", {})
+    if parent_src in snapshot_natives and snapshot_natives[parent_src]:
+        parent_native = snapshot_natives[parent_src]
+
+    parent_reindexed = parent_combo.get("reindexed", {})
+    adj_reindexed = adj_combo.get("reindexed", {})
+
+    # Top 25 by chart value (= adjusted reindexed for adjusted legs)
+    top25_keys = sorted(
+        [k for k in adj_reindexed if adj_reindexed[k]],
+        key=lambda k: adj_reindexed[k],
+        reverse=True,
+    )[:25]
+
+    if not top25_keys:
+        raise ValueError(
+            f"build_source_value_lineage: adjusted leg {adj_src!r} produced no "
+            f"top-25 rows; refusing to write partial output"
+        )
+
+    players = []
+    for rank, pkey in enumerate(top25_keys, 1):
+        # Publisher native (parent's snapshot overrides combo)
+        nat_val = parent_native.get(norm_player_name(pkey))
+        if nat_val is None:
+            nat_val = parent_native.get(pkey)
+        # Indexed = parent combo's reindexed
+        idx_val = parent_reindexed.get(pkey)
+        # Chart value = adjusted reindexed (what renders on the chart)
+        chart_val = adj_reindexed.get(pkey)
+        # Live value: inherited from parent source's live scrape
+        live_pkey = norm_player_name(pkey)
+        live_val = live_data.get(parent_src, {}).get(live_pkey)
+        if live_val is None:
+            live_val = live_data.get(parent_src, {}).get(pkey)
+        # Effective multipliers
+        index_mult = (idx_val / nat_val) if idx_val and nat_val else None
+        vorp_mult = (chart_val / idx_val) if chart_val and idx_val else None
+        # No own live page: live_matches stays None; the dashboard renders
+        # the live column FAIL RED via the !live_scraped contract.
+        live_matches = None
+
+        players.append({
+            "rank": rank,
+            "player_key": pkey,
+            "live_value": round(live_val, 2) if live_val is not None else None,
+            "native": round(nat_val, 2) if nat_val else None,
+            "live_matches_native": live_matches,
+            "index_mult": round(index_mult, 4) if index_mult else None,
+            "indexed": round(idx_val, 2) if idx_val else None,
+            "reweight_mult": round(vorp_mult, 4) if vorp_mult else None,
+            "reweighted": round(chart_val, 2) if chart_val else None,
+            "chart_value": round(chart_val, 2) if chart_val else None,
+            "chart_matches_indexed": (
+                abs(chart_val - idx_val) < 0.01
+                if chart_val and idx_val else None
+            ),
+        })
+
+    return {
+        "source_url": SOURCE_URLS[parent_src]["url"],
+        "source_note": (
+            f"VORP-translated bias-adjusted variant of {parent_src}; inherits "
+            f"{SOURCE_URLS[parent_src]['note']}"
+        ),
+        "source_type": SOURCE_TYPES[parent_src],
+        "combo_key": combo_key,
+        "parent_source": parent_src,
+        "player_count": len(adj_reindexed),
+        "live_scraped": False,
+        "live_inherits_from": parent_src,
+        "source_built_at": (
+            sources[adj_src].get("promoted_at")
+            or sources[adj_src].get("fetched_at")
+            or "unknown"
+        ),
+        "top25": players,
+    }
+
+
 def merge_fixture_only(names):
     """Merge fixture-only sources into the existing lineage artifact.
 
@@ -434,6 +554,17 @@ def main():
 
     for src in ALL_SOURCES:
         result["sources"][src] = build_source_entry(src, sources, live_data, snapshot_natives)
+
+    # JEG-98: build the 4 VORP-translated adjusted legs as standalone top-25
+    # audit tables. Each inherits native + indexed + live from the parent
+    # source and renders the adjusted reindexed as the chart value. The
+    # builder raises if a leg cannot be built, so this loop is fail-closed.
+    print("Building adjusted legs...")
+    for adj_src in ALL_ADJUSTED_LEGS:
+        result["sources"][adj_src] = build_adjusted_leg_entry(
+            adj_src, sources, live_data, snapshot_natives
+        )
+        print(f"  {adj_src}: {len(result['sources'][adj_src]['top25'])} players")
 
     # Write output
     os.makedirs(os.path.dirname(OUT_PATH), exist_ok=True)
