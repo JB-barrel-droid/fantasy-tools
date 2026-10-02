@@ -232,13 +232,14 @@ def test_minimax_depletion_marker_not_counted_as_dispatch():
 
         minimax_usage = usage_watcher.get_minimax_usage()
 
-        # Should be 1% (1 dispatch), not 2%
-        assert minimax_usage["used_percent"] == 1.0, \
-            f"Expected 1% used (1 dispatch), got {minimax_usage['used_percent']}"
-        assert minimax_usage["remaining"] == 99, \
-            f"Expected 99 remaining, got {minimax_usage['remaining']}"
+        # Any depletion marker => depleted (100% used / 0 remaining),
+        # but the marker itself must not inflate the dispatch count.
+        assert minimax_usage["status"] == "depleted"
+        assert minimax_usage["used_percent"] == 100.0
+        assert minimax_usage["dispatch_count"] == 1, \
+            "marker must not count as a dispatch"
 
-        print("TEST 8 PASSED: depletion marker NOT counted as dispatch (1% = 1 dispatch)")
+        print("TEST 8 PASSED: depletion marker gates (100% used) and is not counted as dispatch")
 
         usage_watcher.DISPATCH_LEDGER = original_ledger
     finally:
@@ -317,10 +318,10 @@ def test_error_status_string_no_exception_repr():
     import contextlib
 
     # Patch the ledger to cause an exception during read
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.jsonl', delete=False) as f:
-        ledger_path = f.name
-        # Write invalid JSON
-        f.write("not valid json\n")
+    # Point the ledger at a directory: open() raises IsADirectoryError,
+    # exercising the real exception path (corrupt JSON lines are skipped
+    # per-line and do NOT trigger this path).
+    ledger_path = tempfile.mkdtemp()
 
     try:
         original_ledger = usage_watcher.DISPATCH_LEDGER
@@ -341,7 +342,7 @@ def test_error_status_string_no_exception_repr():
 
         usage_watcher.DISPATCH_LEDGER = original_ledger
     finally:
-        os.unlink(ledger_path)
+        os.rmdir(ledger_path)
 
 
 def main():
