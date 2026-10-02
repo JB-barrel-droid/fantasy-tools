@@ -22,13 +22,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 import usage_watcher
 
 
-def test_codex_95_percent_blocked():
+def test_chatgpt_95_percent_blocked():
     """
-    Unit test: stubbed 95%-used codex response => can_dispatch("codex") is False
+    Unit test: stubbed 95%-used chatgpt response => can_dispatch("chatgpt") is False
     """
     # Create stubbed usage data simulating 95% used
     usage_data = {
-        "codex": {
+        "chatgpt": {
             "used_percent": 95.0,
             "remaining_percent": 5.0,
             "resets_at": "2026-10-02T16:00:00Z",
@@ -51,9 +51,9 @@ def test_codex_95_percent_blocked():
         }
     }
 
-    result = usage_watcher.can_dispatch("codex", usage_data)
+    result = usage_watcher.can_dispatch("chatgpt", usage_data)
     assert result == False, f"Expected can_dispatch to be False for 95% used, got {result}"
-    print("TEST 1 PASSED: 95% used codex returns can_dispatch=False")
+    print("TEST 1 PASSED: 95% used chatgpt returns can_dispatch=False")
 
 
 def test_minimax_3_dispatches():
@@ -102,7 +102,7 @@ def test_can_dispatch_80_percent_remaining():
     Test can_dispatch with exactly 80% remaining (should be True)
     """
     usage_data = {
-        "codex": {
+        "chatgpt": {
             "used_percent": 20.0,
             "remaining_percent": 80.0,
             "resets_at": None,
@@ -111,7 +111,7 @@ def test_can_dispatch_80_percent_remaining():
         }
     }
 
-    result = usage_watcher.can_dispatch("codex", usage_data)
+    result = usage_watcher.can_dispatch("chatgpt", usage_data)
     assert result == True, f"Expected True for 80% remaining, got {result}"
     print("TEST 3 PASSED: 80% remaining returns can_dispatch=True")
 
@@ -121,7 +121,7 @@ def test_can_dispatch_19_percent_remaining():
     Test can_dispatch with 19% remaining (should be False - below 20% floor)
     """
     usage_data = {
-        "codex": {
+        "chatgpt": {
             "used_percent": 81.0,
             "remaining_percent": 19.0,
             "resets_at": None,
@@ -130,7 +130,7 @@ def test_can_dispatch_19_percent_remaining():
         }
     }
 
-    result = usage_watcher.can_dispatch("codex", usage_data)
+    result = usage_watcher.can_dispatch("chatgpt", usage_data)
     assert result == False, f"Expected False for 19% remaining, got {result}"
     print("TEST 4 PASSED: 19% remaining returns can_dispatch=False")
 
@@ -141,7 +141,7 @@ def main():
     print("=" * 60)
 
     try:
-        test_codex_95_percent_blocked()
+        test_chatgpt_95_percent_blocked()
         test_minimax_3_dispatches()
         test_can_dispatch_80_percent_remaining()
         test_can_dispatch_19_percent_remaining()
