@@ -32,6 +32,22 @@ useful than a tidy file.
 
 ---
 
+## 2026-10-02 - JEG-68 follow-up: the open question in the entry below was settled by someone else
+
+### Verified
+
+- `origin/main` carries `668282a` (JEG-68: recalibrate starter-markup sanity check, 0.98-1.6 band), read from `git log`; JEG-68 is Done on Linear.
+- The JEG-68 ticket comments say a second agent reproduced my numbers (CBS ROS 649.87 / 115.02, 84.9625% starter share, markup 1.0004), so the diagnosis below stands.
+
+### Claimed, unverified
+
+- The live page passing the check, and the 11 regression tests: taken from the ticket comment, not run by me.
+
+### Open
+
+- GAP-032 is now marked Fixed. The sibling direction check is brittle at non-default shapes (JEG-69, not mine).
+- I had asked for a decision instead of changing the check; the fix landed without it. No code of mine shipped for JEG-68.
+
 ## 2026-10-02 - JEG-68: CBS ROS "starter markup 1.000" is not a no-op bug (diagnosis only)
 
 ### Verified
