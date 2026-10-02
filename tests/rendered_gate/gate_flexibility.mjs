@@ -18,10 +18,12 @@
 //   (b) Roster shape -- type "3" into the RB input and "2" into the FLEX input
 //                     via real keystrokes. Assert the table changes; assert
 //                     away-and-back returns the original hash.
-//   (c) Source toggle-- click the first available source card's checkbox off,
-//                     assert the card's text changes (the card label keeps
-//                     updating per curve-widget.js:makeSourceToggles), and back;
-//                     assert the table hash round-trips.
+//   (c) Source toggle-- click a source checkbox off and on with a real click.
+//                     Assert the checkbox state, the #legend entry count, and
+//                     getState().activeSources all track the toggle. The
+//                     comparison table is independent of curve toggles, so its
+//                     hash must STAY at baseline (the toggle must not corrupt
+//                     table state).
 //   (d) Lock order   -- choose a non-default order from #curveLockOrder, then
 //                     back; assert the table hash round-trips.
 //
@@ -96,25 +98,57 @@ function sha256(s) {
   return crypto.createHash("sha256").update(s).digest("hex").slice(0, 16);
 }
 
+async function ensureWeightsPanelOpen(page) {
+  // The bench slider lives inside a closed <details id="weightsSection">.
+  // Its body is forced display:block by CSS, which leaves the layout in a
+  // half-rendered state where other sections paint over the slider (a real
+  // user opens the panel first). Click the summary, exactly as a user would.
+  const opened = await page.evaluate(() => {
+    const d = document.querySelector("#weightsSection");
+    if (!d) throw new Error("weights section missing");
+    if (!d.open) { d.querySelector("summary").click(); return true; }
+    return false;
+  });
+  if (opened) await page.waitForTimeout(200);
+}
+
+async function sliderGeometry(page) {
+  // Playwright's boundingBox() returns 0x0 for this input (appearance:none +
+  // pointer-events:none on the input; only the ::-webkit-slider-thumb takes
+  // pointer events), so read the real box via getBoundingClientRect and
+  // compute the thumb center the way Chrome lays it out.
+  return await page.evaluate(() => {
+    const i = document.querySelector("#weightsBenchSlot input[type=range]");
+    const r = i.getBoundingClientRect();
+    const min = parseFloat(i.min), max = parseFloat(i.max), val = parseFloat(i.value);
+    const frac = (val - min) / (max - min);
+    const thumbW = 17; // matches curve-widget.css ::-webkit-slider-thumb
+    return {
+      x: r.x, y: r.y, w: r.width, h: r.height,
+      thumbCX: r.x + thumbW / 2 + frac * (r.width - thumbW),
+      value: val,
+    };
+  });
+}
+
 async function moveBenchViaMouse(page, fraction) {
-  // Drive the slider with page.mouse + page.keyboard per the JEG-135 spec.
-  // The slider has step=0.001 and a known min/max from its `min`/`max`
-  // attributes (resolved in curve-widget.js:2280-2314).
-  const box = await page.locator("#weightsBenchSlot input[type=range]").boundingBox();
-  if (!box) throw new Error("bench-share slider bounding box missing");
-  await page.mouse.move(box.x + box.width * fraction, box.y + box.height / 2);
+  // True drag on the thumb: press at the thumb center, drag to the target
+  // fraction of the track, release. Fires the stream of input events a real
+  // user drag produces (plus change on release).
+  const g = await sliderGeometry(page);
+  if (!(g.w > 0)) throw new Error("bench-share slider has no layout box");
+  const y = g.y + g.h / 2;
+  await page.mouse.move(g.thumbCX, y);
   await page.mouse.down();
-  // Some click positions need an initial nudge before further drags take.
-  await page.mouse.move(box.x + box.width * fraction, box.y + box.height / 2, { steps: 4 });
+  await page.mouse.move(g.x + g.w * fraction, y, { steps: 12 });
   await page.mouse.up();
-  await page.waitForTimeout(120);
+  await page.waitForTimeout(150);
 }
 
 async function moveBenchViaKeyboard(page, deltaSteps) {
-  // Focus the slider then press ArrowRight/Left. The slider's input handler
-  // is `setBenchShareFraction(Number(shareInput.value), false)` plus
-  // `publishShared()` on change -- so arrows alone (input event, no change
-  // commit) are enough to test the input path the JEG-103 fix wires.
+  // Focus the slider then press ArrowRight/Left. Each arrow fires the input
+  // handler (setBenchShareFraction + syncWeightsReadout); the final Tab
+  // commits the change event too.
   await page.focus("#weightsBenchSlot input[type=range]");
   for (let i = 0; i < deltaSteps; i++) {
     if (deltaSteps > 0) await page.keyboard.press("ArrowRight");
@@ -125,8 +159,23 @@ async function moveBenchViaKeyboard(page, deltaSteps) {
   await page.waitForTimeout(120);
 }
 
+async function ensureRosterPanelOpen(page) {
+  // The roster inputs live inside a closed <details class="roster-shape-panel">.
+  // Playwright's actionability checks treat content of a closed <details> as
+  // hidden (a real user must expand it first), so click the summary open once.
+  const open = await page.evaluate(() => {
+    const d = document.querySelector(".roster-shape-panel");
+    if (!d) throw new Error("roster-shape panel missing");
+    if (!d.open) { d.querySelector("summary").click(); return true; }
+    return false;
+  });
+  if (open) await page.waitForTimeout(150);
+}
+
 async function typeIntoRoster(page, key, newValue) {
-  // Real typing path: focus, clear, type the number, Tab to commit change.
+  // Real typing path: expand the panel, focus, clear, type the number, Tab to
+  // commit the change event the widget listens for.
+  await ensureRosterPanelOpen(page);
   const sel = `#rosterShapeControls input[type=number][data-roster-key="${key}"]`;
   await page.focus(sel);
   await page.locator(sel).selectText();
@@ -145,15 +194,35 @@ async function toggleSource(page, sourceKey, wantChecked) {
     await page.locator(sel).click({ force: true });
     await page.waitForTimeout(120);
   }
+  return await page.locator(sel).evaluate(el => el.checked);
 }
 
-async function sourceCardLabel(page, sourceKey) {
-  // Source cards live in #sourceCards (comparison-dashboard.js:882-890). The
-  // card list is in the SAME order as renderKeys -- mirror that by index.
-  return await page.evaluate((key) => {
-    const cards = document.querySelectorAll("#sourceCards .source-card");
-    return cards.length ? cards[0].querySelector(".source-title")?.textContent.trim() : null;
-  }, sourceKey);
+// NOTE (Roman, review 2026-10-02): #sourceCards exists NOWHERE in the served
+// page -- comparison-dashboard.js renderSourceCards() always no-ops
+// (`if (!container) return`). The source-card label is therefore not an
+// observable surface on this page; the toggle checkbox, the #legend entries,
+// and getState().activeSources are. If the cards are meant to render, that's
+// a separate product defect; the dead function should otherwise be removed.
+async function topOrdering(page) {
+  return await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#tableWrap table.all-table tbody tr.row-main")];
+    return rows.slice(0, 5).map(r => r.dataset.playerKey).join(",");
+  });
+}
+
+async function legendState(page) {
+  // The #legend div holds one <span> per ACTIVE curve source; the widget also
+  // exposes the active set via getState().activeSources. Both must track the
+  // toggle. (The comparison TABLE is intentionally independent of curve
+  // toggles -- comparison-dashboard.js never reads activeSources -- so the
+  // table hash must stay put, not change.)
+  return await page.evaluate(() => {
+    const legend = document.querySelectorAll("#legend > span").length;
+    const st = (window.TradeValueCurveControls &&
+                typeof window.TradeValueCurveControls.getState === "function")
+      ? window.TradeValueCurveControls.getState().activeSources : null;
+    return { legendCount: legend, activeSources: st };
+  });
 }
 
 async function chooseLockOrder(page, value) {
@@ -168,6 +237,14 @@ async function currentBenchFraction(page) {
 function expectClose(label, got, want, tol, sink) {
   if (got == null || Math.abs(got - want) > tol) {
     sink.push(`${label}: got ${got}, want ~${want} (tol ${tol})`);
+  }
+}
+
+function expectChanged(label, before, after, sink) {
+  // Guards against vacuous gestures: if the control never moved, the
+  // follow-on assertions would pass trivially. Fail loudly instead.
+  if (before === after) {
+    sink.push(`${label}: control did not move (before=${before} after=${after}) -- gesture missed`);
   }
 }
 
@@ -195,11 +272,15 @@ async function main() {
     if (!baselineHash) report.mismatches.push("baseline: comparison table not rendered");
 
     // ===== (a) Bench share: real mouse + real keyboard =====
-    // Mouse drag: 15% -> ~22% (fraction 0.7 of the track, then nudged).
+    // Open the weights panel first (see ensureWeightsPanelOpen).
+    await ensureWeightsPanelOpen(page);
+    const benchBefore = await currentBenchFraction(page);
+    // Mouse drag: thumb -> 70% of the track.
     await moveBenchViaMouse(page, 0.7);
     const afterMouse = await snapshotWeights(page);
     const mouseFraction = await currentBenchFraction(page);
     report.steps.push({ phase: "bench-mouse", fraction: mouseFraction, ...afterMouse });
+    expectChanged("bench-mouse gesture", benchBefore, mouseFraction, report.mismatches);
     expectClose("bench-mouse readout", afterMouse.readoutBench, mouseFraction * 100, 0.05, report.mismatches);
 
     // Keyboard arrows: 2 right from current value.
@@ -207,6 +288,7 @@ async function main() {
     const afterKey = await snapshotWeights(page);
     const keyFraction = await currentBenchFraction(page);
     report.steps.push({ phase: "bench-keyboard", fraction: keyFraction, ...afterKey });
+    expectChanged("bench-keyboard gesture", mouseFraction, keyFraction, report.mismatches);
     expectClose("bench-keyboard readout", afterKey.readoutBench, keyFraction * 100, 0.05, report.mismatches);
 
     // Back to default via the published "Reset to 15%" button (the same path
@@ -277,25 +359,52 @@ async function main() {
     if (!firstChecked) {
       report.mismatches.push("source-toggle: no available checked source to toggle");
     } else {
-      // Capture the card label BEFORE -- the source card label sits in #sourceCards.
-      const labelBefore = await sourceCardLabel(page, firstChecked);
-      await toggleSource(page, firstChecked, false);
-      const labelAfterOff = await sourceCardLabel(page, firstChecked);
+      // The toggle drives CURVES, not the comparison table (the table never
+      // reads activeSources -- verified in comparison-dashboard.js). So the
+      // correct contract is: checkbox + #legend + getState().activeSources
+      // track the toggle, and the table hash STAYS at baseline throughout.
+      const legendBefore = await legendState(page);
+      const checkedAfterOff = await toggleSource(page, firstChecked, false);
+      const legendAfterOff = await legendState(page);
       const hashAfterToggleOff = await hashTable(page);
       report.steps.push({
         phase: "source-off", source: firstChecked,
-        cardLabelBefore: labelBefore, cardLabelAfter: labelAfterOff,
+        checkboxChecked: checkedAfterOff,
+        legendBefore: legendBefore.legendCount, legendAfterOff: legendAfterOff.legendCount,
+        activeSourcesAfterOff: legendAfterOff.activeSources,
         tableHash: hashAfterToggleOff ? sha256(hashAfterToggleOff) : null,
       });
-      if (!hashAfterToggleOff || sha256(hashAfterToggleOff) === report.baseline.tableHash) {
-        report.mismatches.push(`source-off (${firstChecked}): table hash did not change`);
+      if (checkedAfterOff !== false) {
+        report.mismatches.push(`source-off (${firstChecked}): checkbox did not uncheck`);
       }
-      await toggleSource(page, firstChecked, true);
+      if (legendAfterOff.legendCount !== legendBefore.legendCount - 1) {
+        report.mismatches.push(`source-off (${firstChecked}): legend entries ${legendBefore.legendCount} -> ${legendAfterOff.legendCount}, want -1`);
+      }
+      if (legendAfterOff.activeSources && legendAfterOff.activeSources.includes(firstChecked)) {
+        report.mismatches.push(`source-off (${firstChecked}): still in getState().activeSources`);
+      }
+      if (!hashAfterToggleOff || sha256(hashAfterToggleOff) !== report.baseline.tableHash) {
+        report.mismatches.push(`source-off (${firstChecked}): table hash moved (toggles must not touch the table)`);
+      }
+      const checkedAfterOn = await toggleSource(page, firstChecked, true);
+      const legendAfterOn = await legendState(page);
       const hashAfterToggleOn = await hashTable(page);
       report.steps.push({
         phase: "source-on", source: firstChecked,
+        checkboxChecked: checkedAfterOn,
+        legendAfterOn: legendAfterOn.legendCount,
+        activeSourcesAfterOn: legendAfterOn.activeSources,
         tableHash: hashAfterToggleOn ? sha256(hashAfterToggleOn) : null,
       });
+      if (checkedAfterOn !== true) {
+        report.mismatches.push(`source-on (${firstChecked}): checkbox did not re-check`);
+      }
+      if (legendAfterOn.legendCount !== legendBefore.legendCount) {
+        report.mismatches.push(`source-on (${firstChecked}): legend entries ${legendAfterOn.legendCount}, want baseline ${legendBefore.legendCount}`);
+      }
+      if (legendAfterOn.activeSources && !legendAfterOn.activeSources.includes(firstChecked)) {
+        report.mismatches.push(`source-on (${firstChecked}): missing from getState().activeSources`);
+      }
       if (!hashAfterToggleOn || sha256(hashAfterToggleOn) !== report.baseline.tableHash) {
         report.mismatches.push(`source-toggle return: table hash does not match baseline (${firstChecked})`);
       }
@@ -313,32 +422,18 @@ async function main() {
     if (!altLock) {
       report.mismatches.push("lock-order: no alternate value available");
     } else {
+      // Capture the true baseline ordering BEFORE mutating (Roman, review
+      // 2026-10-02: the worker's version captured it post-mutation, which
+      // proved nothing).
+      const orderingBefore = await topOrdering(page);
       await chooseLockOrder(page, altLock);
       const hashAfterLock = await hashTable(page);
+      const orderingAfter = await topOrdering(page);
       report.steps.push({
         phase: "lock-change", from: currentLock, to: altLock,
         tableHash: hashAfterLock ? sha256(hashAfterLock) : null,
+        orderingBefore, orderingAfterLock: orderingAfter,
       });
-      // Lock changes re-rank rows; the table values themselves are usually
-      // unchanged but the row ORDER is. That's a real change, so the hash
-      // SHOULD differ. If it doesn't differ, that's still fine for the
-      // ability contract -- what the contract forbids is a stuck table that
-      // doesn't follow the lock change at all. We assert "table responded"
-      // by comparing per-row first-player-key ordering instead of the hash.
-      const orderingChanged = await page.evaluate(() => {
-        const rows = [...document.querySelectorAll("#tableWrap table.all-table tbody tr.row-main")];
-        return rows.slice(0, 5).map(r => r.dataset.playerKey).join(",");
-      });
-      const baselineOrdering = await page.evaluate(() => {
-        const rows = [...document.querySelectorAll("#tableWrap table.all-table tbody tr.row-main")];
-        return rows.slice(0, 5).map(r => r.dataset.playerKey).join(",");
-      });
-      report.steps.push({
-        phase: "lock-ordering", baselineOrdering, afterLockOrdering: orderingChanged,
-      });
-      // NOTE: after choosing altLock we mutated the table, so the "baseline
-      // ordering" above is post-mutation. Reset below and compare hash
-      // round-trip instead.
 
       await chooseLockOrder(page, currentLock);
       const hashAfterLockReturn = await hashTable(page);

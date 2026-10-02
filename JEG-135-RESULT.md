@@ -154,3 +154,60 @@ real broken state:
   pre-existing `test_lock_revert_notice_render.py` and
   `test_methodology_consistency.py`; this sweep deliberately does
   not duplicate that surface.
+## Review addendum (Roman, 2026-10-02 ~16:30 CDT)
+
+Independent review found and fixed four harness defects before integration.
+All fixes are committed on the branch; the harness below is the reviewed version.
+
+1. **Vacuous mouse drag (critical).** The worker's `moveBenchViaMouse` used
+   `locator.boundingBox()`, which returns 0x0 for this input
+   (`appearance:none` + `pointer-events:none` on the input; only the
+   17px `::-webkit-slider-thumb` takes pointer events). The drag coordinates
+   were all x+0 — the slider never moved and the readout assertions passed
+   trivially. Fixed: geometry now comes from `getBoundingClientRect()` via
+   `evaluate`, and the drag starts at the computed thumb center
+   (thumbW/2 + frac*(w-thumbW)), matching Chrome's thumb layout.
+2. **Vacuous keyboard phase (critical).** Same root cause family: without a
+   real gesture the value never changed. Fixed alongside (1); both phases now
+   carry an `expectChanged` guard that fails loudly if the control did not
+   move, so a missed gesture can never pass silently again.
+3. **Closed `<details>` panels.** The bench slider and roster inputs live
+   inside closed `<details>` elements. The weights body is forced
+   `display:block` by CSS, which leaves a half-rendered layout where
+   `#sourceToggles` paints OVER the slider (elementFromPoint confirmed);
+   Playwright's actionability checks refuse the roster inputs entirely.
+   Fixed: the harness now clicks the panel summaries open first, exactly as
+   a real user would (`ensureWeightsPanelOpen`, `ensureRosterPanelOpen`).
+4. **Source-toggle contract was wrong.** The worker asserted the comparison
+   table hash *changes* when a source is toggled. It does not — and should
+   not: the toggles drive curves only (`activeSources` is never read by
+   comparison-dashboard.js). The correct contract, now asserted: checkbox
+   state + `#legend` entry count + `getState().activeSources` track the
+   toggle, and the table hash *stays* at baseline (the toggle must not
+   corrupt table state).
+5. **Dead `#sourceCards` surface.** `#sourceCards` exists nowhere in the
+   served page — `renderSourceCards()` always no-ops. The worker's
+   `sourceCardLabel()` therefore always returned null (and was never
+   asserted). Replaced with the observable surfaces in (4); the dead code
+   is flagged as a separate product decision (render the cards or remove
+   the function).
+6. **Lock-order dead comparison.** The worker captured the "baseline"
+   top-5 ordering *after* choosing the alternate lock. Fixed: captured
+   before the change; both orderings recorded.
+
+### Verification (Roman, headless Chromium, this run)
+
+- **Fixed code** (main + JEG-103): `ok: true`, zero mismatches, zero page
+  errors. All 10 phases exercised with genuine movement: mouse drag
+  0.15→0.214 (readout 21.4), keyboard 0.214→0.216 (readout 21.6), reset
+  →0.15; roster RB 2→3 and FLEX 1→2 each change the table hash, return
+  round-trips to baseline; source toggle moves checkbox/legend/activeSources
+  with the table hash untouched; lock change reorders rows
+  (2227,217,3189,1095,547 → 217,751,1095,2227,547), return round-trips.
+- **Pre-fix code** (JEG-103 reverted): `ok: false` with exactly the expected
+  failures — `bench-mouse readout: got 15, want ~21.4` and
+  `bench-keyboard readout: got 15, want ~21.6`. The slider moves; the
+  caption stays stale. Discrimination proven against real user gestures.
+- Python wrapper: skips gracefully without the npm install (1 skip);
+  `test_preview_workflow_matches_pages` (14 tests) passes with the
+  preview.yml wiring.
