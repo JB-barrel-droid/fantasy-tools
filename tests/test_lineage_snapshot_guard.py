@@ -167,18 +167,36 @@ class TestLineageAdjustedLegs(unittest.TestCase):
         self.assertEqual("player 0", first["player_key"])
         # chart_value == reweighted (the bias-adjusted value renders)
         self.assertEqual(first["reweighted"], first["chart_value"])
-        # chart_matches_indexed is True: the chart renders the adjusted
-        # value, so the check is against the leg's own final (adjusted)
-        # value -- green by construction, exactly as shallow as the parent
-        # legs' check (JEG-105). Real chart-vs-artifact verification is
-        # JEG-77's end-to-end job.
-        self.assertTrue(first["chart_matches_indexed"])
+        # chart_matches_indexed compares the adjusted chart value against
+        # the PARENT's indexed value (JEG-106 lineage semantics): the
+        # synthetic adjusted leg is a 0.9x down-shift of the parent, so the
+        # check is False by construction here -- a red X means the chart
+        # value genuinely differs from what the parent published. The old
+        # "green by construction" expectation predates JEG-106 (c413d95),
+        # which changed the builder without updating this pin.
+        self.assertFalse(first["chart_matches_indexed"])
         # live_matches_native is None: no own live page, red icon.
         self.assertIsNone(first["live_matches_native"])
         # live_scraped=False per contract (no own live page).
         self.assertFalse(entry["live_scraped"])
         self.assertEqual("fantasypros", entry["parent_source"])
         self.assertEqual("fantasypros", entry["live_inherits_from"])
+
+    def test_chart_matches_indexed_true_when_adjusted_equals_parent(self):
+        """Positive companion (JEG-106 semantics): when the adjusted leg's
+        reindexed value equals the parent's indexed value, the check is
+        True. Proves the column is a live comparison, not constant False."""
+        sources = self._sources()
+        parent_reindexed = sources["fantasypros"]["combos"]["half_12"]["reindexed"]
+        sources["fantasypros_adjusted"]["combos"]["half_12"]["reindexed"] = dict(
+            parent_reindexed
+        )
+        entry = self.b.build_adjusted_leg_entry(
+            "fantasypros_adjusted", sources, {}, {},
+        )
+        first = entry["top25"][0]
+        self.assertEqual(first["chart_value"], first["indexed"])
+        self.assertTrue(first["chart_matches_indexed"])
 
     def test_inherits_publisher_native_indexed_and_live_from_parent(self):
         live_data = {"fantasypros": {"player 0": 100.0, "player 1": 99.0}}

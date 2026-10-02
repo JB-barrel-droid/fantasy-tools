@@ -2194,3 +2194,119 @@ legend/activeSources with table untouched); FAILS on the pre-JEG-103
 build (`bench-mouse readout: got 15, want ~21.4`). Also restored the
 `test_jeg103_bench_share_readout` Makefile line that JEG-112's merge
 accidentally dropped.
+
+## 2026-10-02 - JEG-187: R4 verified-not-assumed fix for fantasypros and fantasycalc
+
+Branch `minimax/jeg187-brief`, based on `origin/main` `54b851c`.
+
+### Changed
+
+- `pipelines/lib/publication_windows.py`: `fantasypros` and `fantasycalc` `publish_day` set to `None` per the R4 / decision-4 verified-not-assumed contract that JEG-179 already established for CBS. Notes updated to honestly reflect the unverified state; `fantasycalc` `n_observations` corrected from 3 (claimed in JEG-131) to 0 (matches disk reality: the repo's data/raw/sources/fantasycalc/ holds a single week-4 snapshot, and the gap-analysis section-4 audit lists FantasyCalc as an "undefined" freshness limit). `fantasypros` already had `n_observations=0`; the schedule was inferred (JEG-131 R4a) and the JEG-131 R4a header comment already noted "schedule inferred from industry patterns" for this source.
+- `tests/test_publication_windows.py`: two new test classes (`TestFantasyProsUnknown`, `TestFantasyCalcUnknown`) with 2 tests each. Each test fails on the pre-fix code (`status="red"`) and passes on the post-fix code (`status="stale"`), exercising both the gap-analysis scenario (Week 3 vintage at Week 4 on 2026-09-29 Tuesday) and the gate-test scenario mirrored exactly (Week 2 vintage at Week 3 on 2026-09-21 Monday). Four negative-control tests total.
+
+### Verified (checks named)
+
+- Read `pipelines/lib/publication_windows.py` (pre-fix and post-fix). With `publish_day=None` for fantasypros and fantasycalc, `get_publication_status` takes the branch at line 185 and returns `("stale", "STALE_VINTAGE: content vintage Week X != current Week Y. No verified publication schedule for <source>; <notes>")` — matches both failing assertions' substring expectations verbatim.
+- Read `tests/test_import_health.py:228-241` (fantasycalc) and `tests/test_import_health.py:620-643` (fantasypros): both expect `status=="stale"`, `failure_reason` starts with `"STALE_VINTAGE"` and contains `"No verified publication schedule"`. Post-fix code satisfies all four assertions.
+- Read `tests/test_publication_windows.py`: the pre-existing `TestCbsUnknown.test_cbs_behind_is_stale` is the JEG-179 pattern reference. The two new test classes mirror its shape.
+- Traced all status assertions in `tests/test_import_health.py` against the post-fix implementation: every `entry["status"] == "ok"` assertion uses vintage_week==current_week (the first-return branch at line 165 of `get_publication_status`) and is unaffected by my fix. Every `"red"` assertion uses usatoday (publish_day=1, unchanged). Every `"failed"` assertion uses a failure code other than freshness (BYTE_MISMATCH / TABLE_DRIFT / NO_VINTAGE). Every `"stale"` assertion now goes through the post-fix branch.
+- Read `tests/test_verify_health_bake_selection.py`: stamps fantasycalc at Week 3 against nfl_week=3 (current week). No publication-window involvement; unaffected.
+- Read `docs/health/gap-analysis-and-recommendations.md` line 32 (decision 4) and line 138 (R4 recommendation): "Freshness limits follow the NFL week and each source's publication timing, not a fixed number of days. ... Each source's expected publication timing is measured from its own history (this covers CBS, CBS ROS, FantasyCalc and FantasyPros, which had no rule)." FantasyCalc and FantasyPros explicitly named.
+- Read JEG-179 commit `903cfcd`: established the `publish_day=None` + `n_observations=0` pattern for unverified schedules; my fix is the same shape applied to the two remaining unverified sources.
+- Read JEG-131 commit `bdc66db`: set schedules for all 6 sources with measurement provenance; JEG-179 reconciled one source; JEG-187 reconciles the other two week-designated sources.
+
+### Claimed, unverified
+
+- Test execution. Sandbox cannot run `python3 -m unittest`. Roman runs `python3 -m unittest tests.test_publication_windows tests.test_import_health -v` on a host with permission.
+- The local data/raw/sources/fantasycalc/ directory is gitignored; the repo holds only week-4 there. JEG-131's review claimed `n_observations=3` from local data Roman saw. I do not have access to that data. The post-fix value `n_observations=0` matches the gap-analysis audit and the test author's pre-JEG-131 comment; if Roman's observation count is correct and the team prefers FantasyCalc to be treated as verified, the targeted revert is to put `fantasycalc` back to `publish_day=1` with `n_observations=3` AND update `test_week2_vintage_stale_with_nfl_week_3` (line 236) and `test_fantasycalc_*` tests to expect `"red"`. I did not take that path because the gap-analysis audit, the test author's comment, and JEG-179's verified-not-assumed pattern all converge on unverified.
+- `make validate` exit code: not executed.
+
+### Open
+
+- Whether the JEG-131 measurement-provenance ledger should keep a numeric `n_observations` for sources with no real history. `n_observations=0` is the honest value; an auditor reading `n_observations=0` may assume zero verification attempts, when JEG-131's review did examine local data. A clearer label might be `verification_status: "industry-pattern-only"` instead of a numeric count. Out of scope for JEG-187; flagging for the eventual schedule-verification sprint.
+- Whether `fantasycalc` should have an observed-cadence audit added (data/raw/sources/fantasycalc/ on the runner machine; commit provenance; observation count). The R4 contract treats this as required before the gate can return yellow/red on fantasycalc. Out of scope for JEG-187.
+
+## 2026-10-02 - JEG-189 (R10 wiring): scheduler slip into deadline checker
+
+Wired `pipelines/measure_scheduler_slip.py` (built in JEG-137, never
+production-connected) into `pipelines/check_deadlines.py`. Per-source
+slip is now carried by `PUBLICATION_SCHEDULES[...]` and extends the
+grace window.
+
+### What I changed (claimed)
+- `pipelines/lib/publication_windows.py`:
+  - Added `slip_observed_max_minutes`, `slip_measured_at`,
+    `slip_status` fields to every entry in `PUBLICATION_SCHEDULES`
+    (initial values: None / None / "unmeasured").
+  - Added module-level constants `DEFAULT_SLIP_MINUTES = 360` and
+    `SLIP_STALE_AFTER = timedelta(days=30)`.
+  - Added helpers `effective_slip_minutes(rule)`,
+    `slip_is_stale(rule, now=None)`, `format_slip_reason(source)`,
+    `get_slip_minutes(source)`, `get_slip_status(source)`, and the
+    module mutators `reset_slip_overrides()` /
+    `load_slip_overrides(measurement)`.
+  - Added `WORKFLOW_SOURCE_MAP` mirroring
+    `pipelines/measure_scheduler_slip.WORKFLOW_SOURCE_MAP`.
+- `pipelines/check_deadlines.py`:
+  - Imports the new slip helpers.
+  - `grace_window_minutes()` now returns
+    `publication_window + get_slip_minutes(source)` (was publication
+    alone).
+  - `determine_source_state()` uses
+    `effective_grace_until = grace_until + slip_minutes`, surfaces
+    `slip_status` and `slip_minutes` on the result, and the reason
+    string contains the slip label.
+  - New `compute_slip_measurement(slip_history_fn)` calls
+    `compute_scheduler_slip(history)` from measure_scheduler_slip.py
+    and applies the result via `load_slip_overrides()`. Default
+    `slip_history_fn = get_slip_history` raises NotImplementedError
+    so production needs explicit injection (same contract as
+    `get_supabase_last_write`).
+  - `check_deadlines()` accepts a new `slip_history_fn` parameter,
+    calls `compute_slip_measurement()` before deciding states, and
+    surfaces the result as `artifact["slip_measurement"]`.
+- `tests/test_deadline_checker.py`:
+  - Updated `test_grace_window_function_exists` to expect
+    `1 * 24 * 60 + 360` (R10's default slip).
+  - Renamed `test_grace_window_none_for_unverified` to
+    `test_grace_window_none_for_no_grace_days` (the None branch is
+    about grace_days, not publish_day). Switched the test to use a
+    hypothetical rule with `grace_days: None`.
+  - Updated `test_unverified_source_is_unknown` to use `espn`
+    (publish_day=None) — fantasypros now has publish_day=1 since R4,
+    so it was no longer the unverified source.
+- `tests/test_jeg189_slip_wiring.py` (NEW): 33 tests in 6 classes
+  covering: schedule-fields presence, grace math, source-state with
+  slip (6h-late NOT red, 24h-late IS red), verbatim label strings
+  ("slip: default 6h (unmeasured)" /
+  "slip: stale measurement (>30d)" /
+  "slip: <N>m measured"), `load_slip_overrides` semantics, the
+  `check_deadlines()` wiring (calls compute_slip_measurement,
+  applies slip to source states), and public-vocabulary hygiene.
+
+### What I verified (not yet)
+- File syntax: read each modified file end-to-end; imports and
+  function signatures cross-checked against the test file.
+- Existing tests' assertions traced manually against the new
+  implementation:
+  - `test_usatoday_within_window_is_green`: still green (last_write
+    ≤ expected_by → green before any grace math).
+  - `test_usatoday_past_grace_is_red`: still red (last_write before
+    week_start + check_time far past effective_grace_until).
+  - `test_unverified_is_never_green`: still red (last_write far past
+    effective_grace_until).
+  - `test_cbs_is_unknown`: still unknown (publish_day=None returns
+    early).
+- Roman verifies by running `make validate` outside the sandbox; I
+  did NOT run the test suite per the brief's constraints.
+
+### What I deliberately did NOT change
+- `pipelines/measure_scheduler_slip.py` was already production-ready
+  per JEG-137 (Roman direct follow-up wired tests into
+  `make validate`). I imported from it; I did not touch it.
+- No GitHub Actions workflow changes. `slip_history_fn` is injectable
+  via `check_deadlines(slip_history_fn=...)`; the operator that
+  invokes `check_deadlines` (e.g., a future workflow step or a
+  local cron) is responsible for passing a real fetcher.
+- No push to `main`. Worktree is `minimax/jeg189-brief` on top of
+  `2e1f354` (origin/main HEAD).

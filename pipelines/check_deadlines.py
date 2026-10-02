@@ -7,6 +7,13 @@ detect when the chain has not run for an extended period (staleness).
 Per D3 (JEG-83, 2026-10-02): NO alert recipient — no messages, no callbacks, no
 third-party integration. The only consumer is the rendered monitor route.
 
+JEG-189 (R10 wiring): each source's grace is extended by measured scheduler
+slip. `grace_window_minutes()` returns `publication_window +
+slip_observed_max_minutes`, where unmeasured sources fall back to the
+6h default and stale measurements are surfaced in the reason string. The
+slip itself is loaded by `compute_slip_measurement()` from
+`pipelines.measure_scheduler_slip` (called here from `check_deadlines()`).
+
 Usage:
     python3 pipelines/check_deadlines.py --nfl-week 4
     # Writes output/deadline-checker.json and exits 0
@@ -23,7 +30,15 @@ from typing import Any
 
 # Import existing modules (read-only consumers)
 from pipelines.nfl_week import current_nfl_week
-from pipelines.lib.publication_windows import PUBLICATION_SCHEDULES
+from pipelines.lib.publication_windows import (
+    PUBLICATION_SCHEDULES,
+    DEFAULT_SLIP_MINUTES,
+    format_slip_reason,
+    get_slip_minutes,
+    get_slip_status,
+    load_slip_overrides,
+    reset_slip_overrides,
+)
 
 
 # Configuration
@@ -104,19 +119,113 @@ def parse_iso_datetime(dt_str: str) -> datetime:
 def grace_window_minutes(source: str, rule: dict | None) -> int | None:
     """Calculate the grace window in minutes for a source.
 
-    This function exists to allow R10 to extend the slip grace.
-    Currently returns grace_days converted to minutes.
+    Per JEG-189 (R10 wiring), the returned window is
+    `publication_window + slip_observed_max_minutes`, so the deadline
+    checker uses a single value to extend its grace. Slip comes from
+    PUBLICATION_SCHEDULES[source]["slip_observed_max_minutes"] when
+    "measured" and fresh, else the 6h default fallback. Unverified
+    schedules return `None`.
 
     Args:
-        source: Source name
+        source: Source name (used to look up slip from PUBLICATION_SCHEDULES)
         rule: Publication schedule rule from PUBLICATION_SCHEDULES
 
     Returns:
-        Grace window in minutes, or None if no rule
+        Grace window in minutes (publication + slip), or None if no rule.
     """
     if rule is None or rule.get("grace_days") is None:
         return None
-    return rule["grace_days"] * 24 * 60  # Convert days to minutes
+    publication_minutes = rule["grace_days"] * 24 * 60
+    slip_minutes = get_slip_minutes(source)
+    return publication_minutes + slip_minutes
+
+
+def _slip_status_for_source(source: str) -> str:
+    """Wrap get_slip_status with the default for unknown sources."""
+    return get_slip_status(source) if source in PUBLICATION_SCHEDULES else "unmeasured"
+
+
+def compute_slip_measurement(slip_history_fn: callable | None = None) -> dict[str, Any]:
+    """Compute and load the per-source scheduler slip measurement.
+
+    JEG-189 (R10 wiring). Calls
+    `pipelines.measure_scheduler_slip.compute_scheduler_slip(history)` and
+    applies the result via `load_slip_overrides()`. The returned dict is
+    the raw measurement (also available from `PUBLICATION_SCHEDULES[...]`
+    via the slip helpers).
+
+    Args:
+        slip_history_fn: Optional callable returning the list of workflow
+            runs. If `None`, defaults to `get_slip_history()`, which raises
+            `NotImplementedError` (same contract as `get_supabase_last_write`).
+            Tests inject a fake.
+
+    Returns:
+        The full measurement dict as returned by `compute_scheduler_slip`.
+        On error (missing measurement, GitHub API failure) returns a dict
+        with `error` set and leaves slip_status at "unmeasured".
+    """
+    try:
+        from pipelines.measure_scheduler_slip import compute_scheduler_slip
+    except ImportError as e:
+        return {"error": f"measure_scheduler_slip import failed: {e}"}
+
+    fetch = slip_history_fn or get_slip_history
+    try:
+        history = fetch()
+    except NotImplementedError:
+        # No injection and no default fetcher; treat as unmeasured.
+        reset_slip_overrides()
+        return {
+            "generated_at": None,
+            "sources": {},
+            "error": "no_slip_history_injected",
+        }
+    except Exception as e:  # pragma: no cover - injected by tests when needed
+        # Network/API error -- fail closed to defaults so the checker keeps
+        # running. Operator sees the slip reason "default 6h (unmeasured)".
+        reset_slip_overrides()
+        return {
+            "generated_at": None,
+            "sources": {},
+            "error": f"slip_history_fetch_failed: {type(e).__name__}: {e}",
+        }
+
+    if not isinstance(history, list):
+        reset_slip_overrides()
+        return {
+            "generated_at": None,
+            "sources": {},
+            "error": "slip_history_not_a_list",
+        }
+
+    try:
+        measurement = compute_scheduler_slip(history)
+    except Exception as e:  # pragma: no cover
+        reset_slip_overrides()
+        return {
+            "generated_at": None,
+            "sources": {},
+            "error": f"compute_scheduler_slip_failed: {type(e).__name__}: {e}",
+        }
+
+    load_slip_overrides(measurement)
+    return measurement
+
+
+def get_slip_history() -> list[dict[str, Any]]:
+    """Return GitHub Actions workflow runs for slip measurement.
+
+    Default raises `NotImplementedError`, matching the
+    `get_supabase_last_write` injection contract. Production injects a
+    fetcher (e.g., the GitHub REST API). Tests inject canned runs.
+
+    JEG-189 (R10 wiring).
+    """
+    raise NotImplementedError(
+        "Workflow run history requires external injection. "
+        "Use a mock in tests or inject via config in production."
+    )
 
 
 def determine_source_state(
@@ -126,6 +235,11 @@ def determine_source_state(
     check_time: datetime,
 ) -> dict[str, Any]:
     """Determine the state for a single source.
+
+    JEG-189 (R10 wiring): the grace window is extended by measured
+    scheduler slip (`publication_window + slip_observed_max_minutes`).
+    Unmeasured sources use the 6h default fallback; stale measurements
+    are surfaced in the reason string.
 
     Args:
         source: Source name
@@ -180,8 +294,14 @@ def determine_source_state(
         tzinfo=timezone.utc,
     )
 
-    # Add grace period
+    # Add base publication grace
     grace_until = expected_by + timedelta(days=grace_days)
+
+    # JEG-189 (R10 wiring): extend grace by measured scheduler slip.
+    slip_minutes = get_slip_minutes(source)
+    effective_grace_until = grace_until + timedelta(minutes=slip_minutes)
+    slip_reason = format_slip_reason(source)
+    slip_status = _slip_status_for_source(source)
 
     # Determine state based on last_write.
     # The verdict judges the WRITE against the deadline, not the check time
@@ -207,20 +327,31 @@ def determine_source_state(
 
     if last_write < week_start:
         # No write yet this content week: stale write from a previous cycle.
-        if check_time <= grace_until:
+        if check_time <= effective_grace_until:
             return {
                 "expected_by": expected_by.isoformat(),
                 "actual_at": last_write.isoformat(),
                 "lag_minutes": lag_minutes,
                 "state": "unknown",
-                "reason": f"No {source} write yet for Week {nfl_week} (still within grace)",
+                "reason": (
+                    f"No {source} write yet for Week {nfl_week} "
+                    f"(within slip-adjusted grace; {slip_reason})"
+                ),
+                "slip_status": slip_status,
+                "slip_minutes": slip_minutes,
             }
         return {
             "expected_by": expected_by.isoformat(),
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "red",
-            "reason": f"No {source} write for Week {nfl_week}; past {grace_days}-day grace period",
+            "reason": (
+                f"No {source} write for Week {nfl_week}; "
+                f"past {grace_days}-day grace + {slip_minutes}min slip "
+                f"({slip_reason})"
+            ),
+            "slip_status": slip_status,
+            "slip_minutes": slip_minutes,
         }
 
     if last_write <= expected_by:
@@ -231,24 +362,40 @@ def determine_source_state(
             "lag_minutes": lag_minutes,
             "state": "green",
             "reason": f"Published on time for Week {nfl_week}",
+            "slip_status": slip_status,
+            "slip_minutes": slip_minutes,
         }
-    elif last_write <= grace_until:
-        # Late but within grace - amber
+    elif last_write <= effective_grace_until:
+        # Late but within slip-extended grace - amber
+        slip_extra = (
+            f"; {slip_reason}" if slip_status == "measured" else
+            f" ({slip_reason})" if slip_status == "stale" else ""
+        )
         return {
             "expected_by": expected_by.isoformat(),
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "amber",
-            "reason": f"Published late for Week {nfl_week} (within {grace_days}-day grace period)",
+            "reason": (
+                f"Published late for Week {nfl_week} "
+                f"(within {grace_days}-day grace + {slip_minutes}min slip){slip_extra}"
+            ),
+            "slip_status": slip_status,
+            "slip_minutes": slip_minutes,
         }
     else:
-        # Published after grace - red
+        # Published after slip-adjusted grace - red
         return {
             "expected_by": expected_by.isoformat(),
             "actual_at": last_write.isoformat(),
             "lag_minutes": lag_minutes,
             "state": "red",
-            "reason": f"Published past {grace_days}-day grace period for Week {nfl_week}",
+            "reason": (
+                f"Published past {grace_days}-day grace + {slip_minutes}min slip "
+                f"for Week {nfl_week} ({slip_reason})"
+            ),
+            "slip_status": slip_status,
+            "slip_minutes": slip_minutes,
         }
 
 
@@ -329,19 +476,32 @@ def check_deadlines(
     nfl_week: int,
     check_time: datetime | None = None,
     source_last_write_fn: callable | None = None,
+    slip_history_fn: callable | None = None,
 ) -> dict[str, Any]:
     """Check all deadlines and generate the deadline checker artifact.
+
+    JEG-189 (R10 wiring): calls `compute_slip_measurement()` first so
+    every source's grace is slip-adjusted before `determine_source_state`
+    decides green/amber/red. Pass `slip_history_fn` to inject a fake
+    workflow-run history (tests do this).
 
     Args:
         nfl_week: NFL week to check
         check_time: Optional check time (defaults to now)
         source_last_write_fn: Optional injectable function for source timestamps
+        slip_history_fn: Optional injectable function for GitHub workflow runs
 
     Returns:
         The complete deadline checker artifact
     """
     if check_time is None:
         check_time = datetime.now(timezone.utc)
+
+    # JEG-189 (R10 wiring): compute and load slip BEFORE deciding source
+    # states, so each call to determine_source_state() picks up the fresh
+    # slip via PUBLICATION_SCHEDULES. Reset is implicit inside
+    # load_slip_overrides(), so a stale load never leaks across runs.
+    slip_measurement = compute_slip_measurement(slip_history_fn)
 
     # Read chain status
     chain_status = read_chain_status()
@@ -369,6 +529,11 @@ def check_deadlines(
         "nfl_week": nfl_week,
         "sources": sources,
         "chain": chain_state,
+        "slip_measurement": {
+            "generated_at": slip_measurement.get("generated_at"),
+            "sources": slip_measurement.get("sources", {}),
+            "error": slip_measurement.get("error"),
+        },
     }
 
     return artifact
