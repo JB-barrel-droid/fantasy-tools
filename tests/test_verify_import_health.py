@@ -127,8 +127,26 @@ class RazzballFreshnessDrivesC5Test(unittest.TestCase):
         self.root = Path(self.tmp.name) / "sources"
         self.out = Path(self.tmp.name) / "output" / "source-import-health.json"
         self._fetch = mod.fetch_table_summary
-        mod.fetch_table_summary = lambda table, params: []
+        # Stub must return real-looking rows: an empty list trips TABLE_DRIFT in
+        # step 4 before the JEG-307 freshness block can run. Each row carries
+        # razzball_snapshot_date + created_at matching the manifest vintage (5
+        # rows to match row_count) so _select_latest_bake can scope one bake
+        # without failing closed.
+        self.razzball_stub_vintage: list[str] = [""]
+        mod.fetch_table_summary = self._stub_fetch
         self.check_date = date(2026, 10, 3)
+
+    def _stub_fetch(self, table: str, params: str) -> list[dict[str, object]]:
+        vintage = self.razzball_stub_vintage[0]
+        return [
+            {
+                "player_key": f"p{i}",
+                "razzball_snapshot_date": vintage,
+                "week": 4,
+                "created_at": f"{vintage}T12:00:00Z",
+            }
+            for i in range(5)
+        ]
 
     def tearDown(self):
         mod.fetch_table_summary = self._fetch
@@ -138,7 +156,11 @@ class RazzballFreshnessDrivesC5Test(unittest.TestCase):
         # Mirrors test_import_health.make_snapshot for razzball: a minimal
         # snapshot+manifest that verify_source will accept. The freshness
         # entry is derived from the directory name, so the manifest's
-        # content_vintage is set to the same ISO date.
+        # content_vintage is set to the same ISO date. The DB stub vintage is
+        # captured here so fetch_table_summary returns rows whose
+        # razzball_snapshot_date matches the manifest (required for step 4 to
+        # verify cleanly and let the JEG-307 freshness block run).
+        self.razzball_stub_vintage[0] = vintage
         snap_dir = self.root / "razzball" / vintage
         snap_dir.mkdir(parents=True, exist_ok=True)
         snap_bytes = (json.dumps({

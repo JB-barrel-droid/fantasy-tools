@@ -610,7 +610,52 @@ def verify_source(
     # 5. freshness ------------------------------------------------------------
     # Uses source-specific publication windows (pipelines/lib/publication_windows.py)
     # to determine yellow (within window) vs red (missed window) vs stale (no verified schedule).
+    # Razzball is handled FIRST and exempt from the ESPN-style 2d daily-staleness
+    # early-return: Razzball is a file-scraped source with no CI puller (GAP-024),
+    # so its freshness window is the JEG-307 2d/6d bands driven from the snapshot
+    # directory date, not the ESPN daily-live reference rule.
     verified_at = checked_at  # the snapshot landed and verified; record it
+    if source == "razzball":
+        # JEG-307: Razzball freshness. The DB-backed verification above can pass
+        # while the snapshot itself is stale (GAP-024: no CI puller refreshes it).
+        # The c5 health verdict is driven from the snapshot directory's date so a
+        # drifting snapshot fails the gate even when the DB still agrees. Must
+        # ALWAYS write vintage_date/age_days for Razzball so the downstream c5
+        # branch sees them -- prior implementation placed this AFTER step 5's
+        # ESPN-style early-return and never ran when the snapshot was older than
+        # the 2d daily limit (JEG-307 review: dead code).
+        freshness = razzball_freshness_entry(sources_root, check_date)
+        entry["vintage_date"] = freshness["vintage_date"]
+        entry["age_days"] = freshness["age_days"]
+        if freshness["status"] == "ok":
+            entry["status"] = "ok"
+            entry["last_successful_import"] = verified_at
+            return entry, loud
+        entry["status"] = freshness["status"]
+        if freshness["status"] == "unk":
+            # No snapshot at all (no source dir, no parseable ISO dir with
+            # snapshot.json). Never interpolate None into the reason string --
+            # report the missing snapshot as the cause so the dashboard doesn't
+            # show "snapshot dated None is Noned old".
+            entry["failure_reason"] = (
+                "RAZZBALL_STALE: no Razzball snapshot found under "
+                "data/raw/sources/razzball/ (GAP-024, no CI puller)"
+            )
+            return entry, loud
+        vd = freshness["vintage_date"]
+        age = freshness["age_days"]
+        if freshness["status"] == "warn":
+            entry["failure_reason"] = (
+                f"RAZZBALL_STALE: snapshot dated {vd} is {age}d old "
+                f"(>{RAZZBALL_FRESH_DAYS}d fresh, <= {RAZZBALL_WARN_DAYS}d warn). "
+                "No CI puller refreshes Razzball (GAP-024)."
+            )
+        else:  # bad
+            entry["failure_reason"] = (
+                f"RAZZBALL_STALE: snapshot dated {vd} is {age}d old "
+                f"(>{RAZZBALL_WARN_DAYS}d). Snapshot is too old to back a fixture update."
+            )
+        return entry, loud
     if source in WEEK_DESIGNATED_SOURCES:
         # Use publication window logic for week-designated sources
         pub_status, pub_reason = get_publication_status(
@@ -630,6 +675,7 @@ def verify_source(
             age_days = abs((check_date - vintage_date).days)
             if age_days > 2:
                 entry["last_successful_import"] = verified_at
+                # Source-aware: only ESPN applies the 2d daily-live rule.
                 entry["failure_reason"] = (
                     f"STALE_VINTAGE: ESPN content vintage {vintage_display} is "
                     f"{age_days} days from check date {check_date} (> 2d daily limit)"
@@ -645,33 +691,6 @@ def verify_source(
 
     entry["status"] = "ok"
     entry["last_successful_import"] = verified_at
-
-    # JEG-307: Razzball freshness. The DB-backed verification above can pass
-    # while the snapshot itself is stale (GAP-024: no CI puller refreshes it).
-    # The c5 health verdict is driven from the snapshot directory's date so a
-    # drifting snapshot fails the gate even when the DB still agrees.
-    if source == "razzball":
-        freshness = razzball_freshness_entry(sources_root, check_date)
-        entry["vintage_date"] = freshness["vintage_date"]
-        entry["age_days"] = freshness["age_days"]
-        if freshness["status"] == "ok":
-            return entry, loud
-        entry["status"] = freshness["status"]
-        age = freshness["age_days"]
-        vd = freshness["vintage_date"]
-        if freshness["status"] == "warn":
-            entry["failure_reason"] = (
-                f"RAZZBALL_STALE: snapshot dated {vd} is {age}d old "
-                f"(>{RAZZBALL_FRESH_DAYS}d fresh, <= {RAZZBALL_WARN_DAYS}d warn). "
-                "No CI puller refreshes Razzball (GAP-024)."
-            )
-        else:  # bad
-            entry["failure_reason"] = (
-                f"RAZZBALL_STALE: snapshot dated {vd} is {age}d old "
-                f"(>{RAZZBALL_WARN_DAYS}d). Snapshot is too old to back a fixture update."
-            )
-        return entry, loud
-
     return entry, loud
 
 
