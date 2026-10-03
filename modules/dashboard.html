@@ -118,7 +118,9 @@
   <button id="refresh" onclick="location.reload()">↻ Refresh</button>
 </header>
 <p class="sub">Trade Value Chart · 10 explicit checkpoints per source · all timestamps from real artifacts, never inferred.<br>
-Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span></p>
+Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span><br>
+<span id="monitorFreshness" style="display:inline-block;margin-top:4px">Monitor last refreshed: <span id="monitorFreshnessText" style="color:var(--dim)">…</span></span></p>
+<script>fetch("pipeline-checkpoints.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(d){var T=document.getElementById("monitorFreshnessText");if(!T||!d)return;var g=d.generated_at;if(!g){T.textContent="never";T.style.color="var(--grey)";return;}var a=(Date.now()-new Date(g).getTime())/60000,m=Math.max(0,Math.floor(a));T.textContent=m<1?"just now":m<60?m+"m ago":Math.floor(m/60)+"h "+(m%60)+"m ago";T.style.color=a>120?"var(--red)":a>60?"var(--yellow)":"var(--dim)"}).catch(function(){var T=document.getElementById("monitorFreshnessText");if(T){T.textContent="unavailable";T.style.color="var(--grey)"}});</script>
 
 <div id="err"></div>
 
