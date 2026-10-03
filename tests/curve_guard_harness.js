@@ -5,6 +5,12 @@
 // Usage: node curve_guard_harness.js < payload.json
 // payload: {inputsPath, active: [...keys], deselected: [...keys]}
 // Output: {satisfied: bool, defaults: [...keys], oldPredicateWouldThrow: bool}
+//
+// JEG-211 note: the old indexed-publisher guard branch
+// (indexedCurvesSatisfied over available publisher keys) was retired from
+// production in 0ca6ab4 (K/DST honest exclusion). The guard now checks the
+// computed default set via defaultCurvesSatisfied, so the harness only
+// exercises that contract.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -29,9 +35,7 @@ const defaults = P.defaultIndexedSourceKeys(inputs);
 // The pre-fix predicate, for proving the test discriminates the old bug.
 const oldPredicateWouldThrow = !defaults.every(key => active.has(key));
 const out = {
-  satisfied: payload.indexedAvailable
-    ? P.indexedCurvesSatisfied(payload.indexedAvailable, active, deselected)
-    : P.defaultCurvesSatisfied(inputs, active, deselected),
+  satisfied: P.defaultCurvesSatisfied(inputs, active, deselected),
   defaults,
   oldPredicateWouldThrow,
 };

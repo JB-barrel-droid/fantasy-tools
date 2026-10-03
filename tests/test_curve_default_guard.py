@@ -10,6 +10,14 @@ event and froze on the old scoring with no visible error.
 Fix: defaultCurvesSatisfied() exempts curves the user explicitly deselected
 (tracked in userDeselectedSources by the toggle handler). A default that
 vanishes WITHOUT the user asking still fails the guard.
+
+JEG-211 contract change (2026-10-03, 0ca6ab4): the old indexed-publisher
+guard branch (indexedCurvesSatisfied over available publisher keys, added by
+JEG-221) was retired from production with the K/DST honest exclusion and the
+placeholder view-mode tabs. The guard now checks the computed default set
+only: every defaultIndexedSourceKeys(inputs) key must be active or explicitly
+user-deselected. The indexedAvailable scenarios below were removed with the
+branch they tested; the remaining tests cover the live contract.
 """
 import json
 import subprocess
@@ -21,10 +29,8 @@ HARNESS = Path(__file__).resolve().parent / "curve_guard_harness.js"
 INPUTS = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
 
 
-def run_case(active, deselected, indexed_available=None):
+def run_case(active, deselected):
     payload = {"inputsPath": str(INPUTS), "active": active, "deselected": deselected}
-    if indexed_available is not None:
-        payload["indexedAvailable"] = indexed_available
     proc = subprocess.run(
         ["node", str(HARNESS)],
         input=json.dumps(payload).encode(),
@@ -69,27 +75,13 @@ class TestDefaultCurvesSatisfied(unittest.TestCase):
         )
         self.assertTrue(res["satisfied"])
 
-    def test_indexed_publisher_selection_does_not_require_adjusted_defaults(self):
-        result = run_case(["usatoday"], [], ["usatoday", "fantasycalc", "fantasypros", "cbs"])
-        self.assertTrue(result["satisfied"])
-        self.assertTrue(result["oldPredicateWouldThrow"])
-
-    def test_indexed_empty_selection_requires_explicit_user_hiding(self):
-        self.assertFalse(run_case([], [], ["usatoday", "cbs"])["satisfied"])
-        self.assertFalse(run_case([], ["usatoday"], ["usatoday", "cbs"])["satisfied"])
-        self.assertTrue(run_case([], ["usatoday", "cbs"], ["usatoday", "cbs"])["satisfied"])
-        self.assertFalse(run_case(["espn"], [], ["usatoday", "cbs"])["satisfied"])
-
-    def test_indexed_missing_coverage_does_not_pass_guard(self):
-        self.assertFalse(run_case([], [], [])["satisfied"])
-
     def test_toggle_handler_tracks_deselection(self):
         """The source-toggle change handler must maintain userDeselectedSources
         so the guard exemption reflects real user intent."""
         src = (REPO / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text()
         self.assertIn("userDeselectedSources.add(key)", src)
         self.assertIn("userDeselectedSources.delete(key)", src)
-        self.assertIn("const defaultGroupedSources = indexedCurvesSatisfied(", src)
+        self.assertIn("const defaultGroupedSources = defaultCurvesSatisfied(", src)
 
 
 if __name__ == "__main__":

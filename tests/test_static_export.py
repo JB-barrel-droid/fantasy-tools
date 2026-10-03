@@ -666,7 +666,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("sourceIsStale", comparison)
         self.assertIn("stale", comparison)
 
-    def test_kdst_projection_path_is_available_without_preseason_rank(self):
+    def test_kdst_honestly_excluded_from_chart_but_kept_as_evidence(self):
+        # JEG-211 (Jeremy 2026-10-03): K/DST are honestly excluded from the
+        # chart; the computed values remain as internal evidence only.
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         players = load_json(FIXTURES / "players.json")["players"]
         specialists = [player for player in players if player.get("pos") in {"K", "DST"}]
@@ -675,9 +677,11 @@ class StaticExportTest(unittest.TestCase):
         # their numbers come from ESPN projections, never experts.
         self.assertTrue(all(player.get("pricing") == "espn_only" for player in specialists))
         self.assertTrue(any(max((value for value in (player.get("espn_ppg") or {}).values() if isinstance(value, (int, float))), default=0) > 0 for player in specialists))
-        self.assertIn('"K", "K"', text)
-        self.assertIn('"DST", "DST"', text)
-        self.assertIn("K/DST projection artifact", text)
+        # Chart surfaces exclude K/DST: CHART_POSITIONS is the skill-position
+        # order only, and rows outside it are dropped before render.
+        self.assertIn("const CHART_POSITIONS = [...POSITION_ORDER];", text)
+        self.assertIn("if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;", text)
+        self.assertNotIn("K/DST projection artifact", text)
 
     def test_all_position_order_and_y_axis_use_visible_window(self):
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
