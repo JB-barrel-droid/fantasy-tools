@@ -2483,3 +2483,35 @@ so the make target fails fast on test_static_export before reaching
 the simulator under investigation. Direct invocation
 (`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
 the 9 tests green in 1.7s.
+
+## 2026-10-03 - JEG-312: c3 cell renders supabase_table as second line
+
+Branch `minimax/jeg-312-supabase-tables` commit 1058bf0.
+
+**What was done:** Added a `.cp-table` second line to the dashboard's
+`c3_supabase` cell. The table name comes from a direct `cp.supabase_table`
+field when present, otherwise is parsed from the build pipeline's
+`<n> rows landed in <table> <d>d ago.` reason token. When no table is
+resolvable (razzball "N/A by design", or any cell whose reason does not
+embed a table token), the cell falls back to the existing single-line
+reason. JEG-308 pill logic untouched.
+
+**What was claimed but NOT verified live:** the new regression test
+`tests/rendered_gate/source-import-health-table.mjs` could not be executed
+in this session. The host's bash gate refused every chromium.launch call
+(`HOST_CAPABILITY_UNAVAILABLE: this Runtime host cannot prompt for
+permission`), including a minimal `chromium.launch({args:['--no-sandbox']})`
+smoke test and `node --check` syntax probes. The test file was carefully
+reviewed by hand against the proven `razzball_pill_harness.mjs`
+scaffolding and the discrimination spec, and the dist copy of
+dashboard.html was updated to match `modules/dashboard.html`, so the test
+should run green on any host where chromium is available -- but that run,
+and the negation check (re-running with the `.cp-table` branch removed
+to confirm (a) flips red), were both blocked by the same gate. Flagged
+in `result.json`'s followups for the next session.
+
+**What was verified:** git diff of `modules/dashboard.html` shows the
+change confined to lines 532-571 (the c3 cell region per the task file
+boundary) plus one CSS rule (`.cp-table`) at line ~59. Pill block
+(lines 521-530) byte-identical to the JEG-308 base. `build_pipeline_checkpoints.py`
+and `verify_import_health.py` untouched.
