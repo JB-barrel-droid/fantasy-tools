@@ -523,11 +523,25 @@ async function main(){
       if(!cp) return "";
       const dotCls = cp.status === "ok" ? "ok" : cp.status === "warn" ? "warn" : cp.status === "bad" ? "bad" : "unk";
       const reasonCls = cp.status === "bad" ? "bad" : cp.status === "warn" ? "warn" : "";
+      // JEG-312: c3 cell renders the supabase_table name as a second line under
+      // the row count, so readers can see which Supabase table each verdict
+      // refers to. The build pipeline embeds "<n> rows landed in <table>" in
+      // the reason text. When no table is parseable (e.g. "N/A by design:
+      // file-scraped source."), fall back to the existing single-line reason.
+      let tableLine = "";
+      if(cpDef.key === "c3_supabase"){
+        const m = (cp.reason || "").match(/rows landed in (\S+)/);
+        if(m){
+          const tbl = m[1];
+          tableLine = `<div class="cp-table" style="font-size:11.5px;color:#7fb3ff;font-family:ui-monospace,Menlo,monospace;margin-top:4px;letter-spacing:.2px">${tbl}</div>`;
+        }
+      }
       return `<div class="cp">
         <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${cpDef.label}</span></div>
         <div class="cp-what">${cpDef.what}</div>
         <div class="cp-time">${shortTs(cp.timestamp)} (${timeAgo(cp.timestamp)})</div>
         <div class="cp-reason ${reasonCls}">${cp.reason}</div>
+        ${tableLine}
       </div>`;
     }).join("");
 
