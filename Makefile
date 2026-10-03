@@ -146,6 +146,7 @@ test-unit:
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_vorp_wiring
+	python3 -m unittest tests.test_three_view_pipeline_wiring
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
@@ -203,6 +204,21 @@ test-integration:
 
 # Full suite (local dev / rebuild workflow).
 test: test-unit test-integration
+
+# Three-view candidate refresh (JEG-242): wires the reviewed imputation /
+# reweight producers into a versioned refresh path with the schema-specific
+# review as a fail-closed gate. Candidate-only: writes to VORP_VIEWS_OUT_DIR,
+# never Supabase, never promotion. Requires explicit weights via
+# VORP_VIEWS_WEIGHT_ARGS ("--controls <file>" or "--reference <file>") --
+# no defaults are invented; weight approval stays with Jeremy.
+refresh-vorp-views:
+	@test -n "$(VORP_VIEWS_VALUES_DIR)" || (echo "VORP_VIEWS_VALUES_DIR required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_GROUP_VORPS)" || (echo "VORP_VIEWS_GROUP_VORPS required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_ROSTER_CONFIG)" || (echo "VORP_VIEWS_ROSTER_CONFIG required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_OUT_DIR)" || (echo "VORP_VIEWS_OUT_DIR required" >&2; exit 2)
+	python3 pipelines/refresh_vorp_views.py --values-dir "$(VORP_VIEWS_VALUES_DIR)" \
+		--group-vorps "$(VORP_VIEWS_GROUP_VORPS)" --roster-config "$(VORP_VIEWS_ROSTER_CONFIG)" \
+		$(VORP_VIEWS_WEIGHT_ARGS) --out-dir "$(VORP_VIEWS_OUT_DIR)"
 
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py

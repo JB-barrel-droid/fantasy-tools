@@ -115,3 +115,36 @@ numerical/rendered three-view parity; (4) tests.test_three_view_pipeline_wiring
 in required checks. The blend reference for (2) needs Jeremy's
 weighting/horizon decision (reweight_reference.py accepts an explicit
 candidate policy; weights are not invented by the lane).
+
+## 2026-10-03 01:35 CDT — step (4) complete; refresh wiring landed on main
+
+The parent defect (producers exist, nothing invokes them) is fixed at the
+refresh layer:
+
+- pipelines/refresh_vorp_views.py (new): candidate refresh orchestrator.
+  Runs build_imputed_vorps -> build_reweighted_values over a publisher-native
+  values dir + JEG-206 group VORPs, gates the candidate with
+  review_batch70_views (--batch hash admission), and writes a versioned
+  run manifest (schema vorp-views-refresh-run-v1) pinning every input hash,
+  the review report, and the candidate bytes. Candidate-only: no Supabase,
+  no promotion, no view wiring. Exactly one of --controls/--reference is
+  required (fail-closed, no invented weights); any step failure aborts
+  nonzero before the manifest is written.
+- Makefile: `refresh-vorp-views` target (all inputs via required
+  VORP_VIEWS_* vars; weight args passed through, never defaulted) and
+  tests.test_three_view_pipeline_wiring registered in test-unit.
+- tests/test_three_view_pipeline_wiring.py (6 tests): positive end-to-end
+  candidate refresh on fixtures (impute -> reweight -> review gates ->
+  manifest with pinned hashes, all 7 SOURCE_KINDS accounted for); negative
+  regressions against the exact parent defect -- orchestrator carries no
+  unified.translate_source reference (the old refresh would fail this;
+  discrimination proven by grep), missing --controls/--reference exits
+  nonzero, tampered values abort with no manifest, unknown source files are
+  not admitted, Makefile names the wiring (target + test-unit registration).
+- `make validate` exits 0 on the integration HEAD; git diff --check clean.
+
+Remaining: (2) local candidate refresh over REAL publisher native snapshots
++ DDF group VORPs (the orchestrator exists; running it on production inputs
+needs Jeremy's weighting/horizon decision for the reference policy --
+weights are not invented by the lane); (3) copied-dashboard preview with
+numerical/rendered three-view parity. JEG-242 stays In Progress.
