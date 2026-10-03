@@ -127,6 +127,15 @@ FAILURE_CODES = (
 )
 
 # ---------------------------------------------------------------------------
+# Alert thresholds (Jeremy 2026-10-03): minor drift is a warning, not a page.
+# Direction matters. Fresher data + stale manifest = bookkeeping lag (warning);
+# stale or missing data = real problem (failed). A 1-row drift on a successful
+# load must never page.
+# ---------------------------------------------------------------------------
+DRIFT_WARN_ROW_PCT = 0.02  # row drift within 2% -> warning
+DRIFT_WARN_ROW_ABS = 10     # ...or within 10 rows absolute, whichever is larger
+
+# ---------------------------------------------------------------------------
 # 2026 NFL week calendar (editorial weeks, Tuesday -> Monday, the trade-chart
 # cadence). VERIFIED 2026-09-21 against the published 2026 schedule
 # (sportsnet.ca/nfl/article/nfl-announces-2026-regular-season-schedule,
@@ -416,6 +425,16 @@ def verify_source(
             entry["last_successful_import"] = prev_entry.get("last_successful_import")
         return entry, loud
 
+    def warn(code: str, detail: str) -> tuple[dict[str, Any], list[str]]:
+        assert code in FAILURE_CODES, code
+        entry["failure_reason"] = f"{code}: {detail}"
+        entry["status"] = "warning"
+        # A warning is not a failure: the data verified, only the bookkeeping
+        # drifted. Keep the previous known-good import time like fail() does.
+        if prev_entry:
+            entry["last_successful_import"] = prev_entry.get("last_successful_import")
+        return entry, loud
+
     # 1. snapshot + manifest exist ------------------------------------------
     try:
         manifest_dir, manifest = find_latest_manifest(sources_root, source)
@@ -492,18 +511,43 @@ def verify_source(
         arrived = [r.get("created_at") for r in latest_rows if r.get("created_at")]
         entry["db_latest_arrived_at"] = max(arrived) if arrived else None
         drift_bits: list[str] = []
-        if len(latest_rows) != expected:
-            drift_bits.append(
+        warn_bits: list[str] = []
+        manifest_vintage = str(manifest.get("content_vintage"))
+        # Row drift: small differences are noise (a publisher adding/dropping a
+        # player), large ones signal a partial load or data problem.
+        row_drift = len(latest_rows) - expected
+        row_tol = max(DRIFT_WARN_ROW_ABS, DRIFT_WARN_ROW_PCT * expected)
+        # Vintage drift: direction matters. Table NEWER than the manifest means
+        # a load succeeded and the stamp is lagging -- bookkeeping, not data
+        # loss. Table OLDER means the data is genuinely stale. Same vintage
+        # with row drift means the table doesn't hold what was snapshotted.
+        vintage_newer = live_vintage > manifest_vintage
+        vintage_older = live_vintage < manifest_vintage
+        if row_drift != 0:
+            bit = (
                 f"table has {len(latest_rows)} rows at latest vintage {live_vintage}, "
                 f"manifest expects {expected}"
             )
-        if live_vintage != str(manifest.get("content_vintage")):
+            if vintage_newer and abs(row_drift) <= row_tol:
+                warn_bits.append(bit + " (within tolerance; stamping lag)")
+            else:
+                drift_bits.append(bit)
+        if vintage_older:
             drift_bits.append(
-                f"table latest vintage {live_vintage} != manifest vintage "
-                f"{manifest.get('content_vintage')} -- run stage-1 import to stamp it"
+                f"table latest vintage {live_vintage} < manifest vintage "
+                f"{manifest_vintage} -- run stage-1 import to stamp it"
             )
+        elif vintage_newer:
+            warn_bits.append(
+                f"table latest vintage {live_vintage} != manifest vintage "
+                f"{manifest_vintage} -- run stage-1 import to stamp it "
+                f"(table is fresher: stamping lag)"
+            )
+        # Same vintage: no vintage bit. Any row drift above already failed.
         if drift_bits:
             return fail("TABLE_DRIFT", "; ".join(drift_bits) + " -- partial/stale table, not complete")
+        if warn_bits:
+            return warn("TABLE_DRIFT", "; ".join(warn_bits))
 
     # 5. freshness ------------------------------------------------------------
     # Uses source-specific publication windows (pipelines/lib/publication_windows.py)
@@ -597,14 +641,14 @@ def run_health(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(health, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-    counts = {"ok": 0, "stale": 0, "missing": 0, "failed": 0}
+    counts = {"ok": 0, "warning": 0, "stale": 0, "missing": 0, "failed": 0}
     for entry in sources.values():
         counts[entry["status"]] = counts.get(entry["status"], 0) + 1
 
     err: list[str] = []
     err.append(
         f"IMPORT HEALTH [{checked_at} | NFL week {nfl_week}]: "
-        f"{counts['ok']} ok / {counts['stale']} stale / "
+        f"{counts['ok']} ok / {counts['warning']} warn / {counts['stale']} stale / "
         f"{counts['missing']} missing / {counts['failed']} failed"
     )
     for source in DASHBOARD_SOURCES:

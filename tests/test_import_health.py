@@ -477,7 +477,9 @@ class VerifyImportHealthTest(unittest.TestCase):
 
     def test_mixed_table_newer_than_manifest_is_drift(self):
         # table's latest vintage (Week 3) is ahead of the manifest (Week 2):
-        # a partial import -- the manifest must be stamped, not bypassed
+        # stamping lag -- the manifest must be stamped, but the data is
+        # complete so this is a warning, not a gate-blocking failure
+        # (threshold policy, Jeremy 2026-10-03).
         def tables(table, params):
             return table_rows_for(table, params, n=10, week=3, date=None) + \
                 table_rows_for(table, params, n=10, week=2, date=None)
@@ -488,10 +490,41 @@ class VerifyImportHealthTest(unittest.TestCase):
             "fantasycalc", sources_root=self.root, nfl_week=3,
             check_date=self.check_date, prev_entry=None, checked_at="t",
         )
-        self.assertEqual(entry["status"], "failed")
+        self.assertEqual(entry["status"], "warning")
         self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
         self.assertIn("latest vintage Week 3", entry["failure_reason"])
         self.assertEqual(entry["ignored_older_rows"], 10)
+
+    def test_table_newer_large_row_drift_still_fails(self):
+        # table newer than manifest but row count far off tolerance:
+        # significant shape change, still a failure.
+        def tables(table, params):
+            return table_rows_for(table, params, n=25, week=3, date=None) + \
+                table_rows_for(table, params, n=10, week=2, date=None)
+        mod.fetch_table_summary = tables
+        make_snapshot(self.root, "fantasycalc", "week-2",
+                      content_vintage="Week 2", week_designated=2)
+        entry, _ = mod.verify_source(
+            "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "failed")
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
+
+    def test_table_newer_small_row_drift_is_warning(self):
+        # ESPN real case 2026-10-03: 496 rows @ 2026-10-03 vs manifest 495 @
+        # 2026-10-02 -- 1-row drift on a successful load is a warning.
+        mod.fetch_table_summary = lambda table, params: table_rows_for(
+            table, params, n=496, week=None, date="2026-10-03")
+        make_snapshot(self.root, "espn", "2026-10-02",
+                      content_vintage="2026-10-02", week_designated=None,
+                      row_count=495, supabase_table="public.espn_season_projections")
+        entry, _ = mod.verify_source(
+            "espn", sources_root=self.root, nfl_week=4,
+            check_date=date(2026, 10, 3), prev_entry=None, checked_at="t",
+        )
+        self.assertEqual(entry["status"], "warning", entry.get("failure_reason"))
+        self.assertTrue(entry["failure_reason"].startswith("TABLE_DRIFT"))
 
     def test_espn_mixed_dates_latest_wins(self):
         # 10 rows at 2026-09-21 (latest) + 4 older rows at 2026-09-20;
