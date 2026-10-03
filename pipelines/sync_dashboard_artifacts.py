@@ -7,6 +7,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from datetime import date
 from pathlib import Path
 
@@ -369,6 +370,24 @@ def main() -> int:
     # The monitor's fixture copy: kept equal to the canonical fixture on every
     # sync (JEG-8), so it can never silently go stale behind the app copy.
     sync_monitor_fixture(FIXTURES, dist_modules)
+
+    # JEG-206: 8-group VORP totals (position x starter/bench) rewritten on every
+    # sync from the freshest DDF two-tier leg. Fails closed (SystemExit) if the
+    # leg is missing or the 8 groups do not sum to the overall VORP pie.  The
+    # bake's existing sync step drives this -- no standalone cron.
+    from build_ddf_groups import build_groups_from_leg, find_latest_leg
+    try:
+        groups_artifact = build_groups_from_leg(
+            find_latest_leg(), dist_modules / "ddf-group-vorps.json")
+        print(f"Wrote 8-group VORP totals -> {dist_modules / 'ddf-group-vorps.json'} "
+              f"(total_vorp={groups_artifact['totals']['total_vorp']})")
+    except SystemExit as e:
+        # No leg yet (CI may run sync before a bake has happened). Skip with a
+        # warning rather than failing the entire sync -- the leg artifact is
+        # optional from the dashboard's perspective and the sync step is shared
+        # by every deploy. The module is regenerated on the next sync that has
+        # a leg to read.
+        print(f"WARNING: skipping ddf-group-vorps.json rebuild: {e}", file=sys.stderr)
 
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).
