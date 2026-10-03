@@ -15,6 +15,35 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURES = ROOT / "data" / "fixtures" / "current"
 DEFAULT_OUTPUT = ROOT / "output" / "reference-freshness.json"
 DEFAULT_ENFORCED_KEYS = ("comparison.built_at",)
+# JEG-316: chart inputs are a small subset of freshness rows that feed the
+# trade-value chart directly. Surfacing them with a stable age-band color
+# lets the dashboard flag stale inputs even when the comparison artifact
+# itself is current.
+DEFAULT_CHART_INPUT_KEYS: tuple[str, ...] = (
+    "players.as_of",
+    "players.kdst_snapshot",
+    "news.generated_at",
+)
+
+
+def color_for(age_days: int | None, max_age_days: int) -> str:
+    """Map age (in days) to a dashboard age-band color.
+
+    Bands, expressed against `max_age_days` (the existing freshness gate):
+    - green:   age <= max_age_days        (within freshness window)
+    - yellow:  max_age_days < age <= 2 * max_age_days  (warning band)
+    - red:     age > 2 * max_age_days     (well past the window)
+    - unknown: no observed date (e.g. "?")
+    """
+    if age_days is None:
+        return "unknown"
+    if age_days < 0:
+        return "unknown"
+    if age_days <= max_age_days:
+        return "green"
+    if age_days <= 2 * max_age_days:
+        return "yellow"
+    return "red"
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -86,6 +115,7 @@ def make_item(
         "age_days": age_days,
         "max_age_days": max_age_days,
         "freshness_ok": freshness_ok,
+        "color": color_for(age_days, max_age_days),
         "enforced": key in enforced_keys,
         "changed_since_prior_report": changed,
         "note": note,
@@ -113,6 +143,7 @@ def make_import_item(
         "age_days": age_days,
         "max_age_days": max_age_days,
         "freshness_ok": freshness_ok,
+        "color": color_for(age_days, max_age_days),
         "enforced": key in enforced_keys,
         "changed_since_prior_report": True,
         "note": (
@@ -140,6 +171,7 @@ def build_report(
     max_age_days: int = 2,
     enforced_keys: tuple[str, ...] = DEFAULT_ENFORCED_KEYS,
     import_health_path: Path | None = None,
+    chart_input_keys: tuple[str, ...] = DEFAULT_CHART_INPUT_KEYS,
 ) -> dict[str, Any]:
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
@@ -151,6 +183,7 @@ def build_report(
     player_meta = players.get("meta", {})
     news_meta = news.get("meta", {})
     enforced_set = set(enforced_keys)
+    chart_input_set = set(chart_input_keys)
     items = [
         make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous, max_age_days, enforced_set),
         make_item("players.ecr_content_date", "Expert/ECR content date", player_meta.get("ecr_content_date"), today, previous, max_age_days, enforced_set),
@@ -201,6 +234,18 @@ def build_report(
         and item["key"] != "source_import.checked_at"
         and not item["freshness_ok"]
     ]
+    # JEG-316: chart inputs are a small subset of freshness rows that feed the
+    # trade-value chart directly. Surface them as a dedicated section so the
+    # dashboard can flag stale inputs even when the comparison artifact is
+    # current. Order is the brief's order, falling back to discovery order.
+    chart_inputs: list[dict[str, Any]] = []
+    seen_chart_keys: set[str] = set()
+    for key in chart_input_keys:
+        for item in items:
+            if item["key"] == key and key not in seen_chart_keys:
+                chart_inputs.append({**item, "chart_input": True})
+                seen_chart_keys.add(key)
+                break
     return {
         "generated_at": datetime.now().astimezone().isoformat(timespec="seconds"),
         "today": today.isoformat(),
@@ -219,10 +264,21 @@ def build_report(
             "unchanged_count": sum(1 for item in items if not item["changed_since_prior_report"]),
             "max_age_days": max_age_days,
             "enforced_keys": list(enforced_keys),
+            # JEG-316: chart-input rollup so the dashboard summary tile can
+            # render a count without re-scanning the chart_inputs list.
+            "chart_input_count": len(chart_inputs),
+            "chart_input_at_risk_count": sum(
+                1 for item in chart_inputs if item["color"] in ("yellow", "red")
+            ),
+            "chart_input_keys": list(chart_input_keys),
         },
         "source_validation": comparison.get("source_validation", {}),
         "artifact_hashes": hashes,
         "items": items,
+        # JEG-316: dedicated section listing only the chart-feeding inputs.
+        # Each row carries the same shape as `items` plus `chart_input: true`
+        # and an age-band `color` (green/yellow/red/unknown).
+        "chart_inputs": chart_inputs,
     }
 
 
