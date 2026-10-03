@@ -79,3 +79,11 @@ Formula capture/canonical matching and all runtime integration steps remain.
 Required Makefile includes the oracle module. Old rounded producer cannot match
 full-precision oracle at relative1e-12; no translation columns are accepted as
 batch70 truth. The preserved arithmetic report records195/0, not rendered parity.
+
+Oracle slice full composite `make validate` exits0, log
+/private/tmp/jeg242-oracle-validate.log. Composite based on main5792ba5 plus
+PR43/47–52 and the oracle code; later main39a3f29 not integrated. The cherry-pick
+of268b6d3 had a documentation-only modify/delete conflict because the prior
+handoff-only commit was absent in the validation checkout; resolved by keeping
+the complete author handoff. Runtime/test code applied unchanged before validation.
+Draft PR53 contains this incremental oracle/handoff slice. JEG242 is not complete.
