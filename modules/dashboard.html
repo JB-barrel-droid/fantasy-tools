@@ -492,6 +492,28 @@ async function main(){
       if(st && st.status) tally(st.status);
     }
   }
+  // JEG-319: VORP / Adj view statuses from the per-view artifacts. The view
+  // cards (vorpCard / adjCard) read these files for their own sections; the
+  // headline tally must include them too, otherwise it can claim "0 broken"
+  // while a view is bad.
+  const readViewStatus = async (file, expectedView) => {
+    try {
+      const r = await fetch(file, {cache:"no-store"});
+      if(!r.ok) return "bad";
+      const t = await r.text();
+      if(!t || !t.trim()) return "bad";
+      const j = JSON.parse(t);
+      if(j.view !== expectedView) return "bad";
+      const s = j.status;
+      return (s === "ok" || s === "warn" || s === "bad" || s === "unk") ? s : "unk";
+    } catch(e){ return "bad"; }
+  };
+  const [vorpViewStatus, adjViewStatus] = await Promise.all([
+    readViewStatus("vorp-view.json", "vorp"),
+    readViewStatus("adj-view.json", "adj"),
+  ]);
+  tally(vorpViewStatus);
+  tally(adjViewStatus);
   const total = counts.ok + counts.warn + counts.bad + counts.unk;
   document.getElementById("okCount").textContent = counts.ok;
   document.getElementById("totalCount").textContent = total;
