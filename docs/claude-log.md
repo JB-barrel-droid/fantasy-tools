@@ -2310,3 +2310,86 @@ grace window.
   local cron) is responsible for passing a real fetcher.
 - No push to `main`. Worktree is `minimax/jeg189-brief` on top of
   `2e1f354` (origin/main HEAD).
+
+## 2026-10-03 - JEG-211: K/DST VORP computation under the group framework
+
+Build phase. New K/DST computation lives on branch
+`minimax/jeg-211-kdst`; main is untouched. Implements the contract in
+`docs/kdst-group-contract.md` exactly: K/DST are (K|DST) x (starter|bench)
+groups, SEPARATE and OPTIONAL from the 8 skill-position groups, computed
+but flagged "not displayed".
+
+### What I changed
+- `pipelines/build_ddf_kdst_leg.py` (new): K/DST-specific DDF leg
+  builder. Reuses the locked two-tier math from `build_ddf_two_tier_leg`
+  (`build_position_tiers`, `calibrate_position`, `price_for_projection`)
+  with K slots=1, DST slots=1, no flex, bench count defaulting to
+  `teams` (overridable via `--bench-k` / `--bench-dst`). Reads the two
+  ESPN input files (`espn_k_ppg_2026-09-21.json`,
+  `espn_dst_ros_2026-09-21.json`); resolves K by full_name and DST by
+  team abbr against `data/fixtures/current/players.json`. Schema
+  `trade-value-ddf-leg-kdst-v1`; output filename `ddf_leg_kdst.json`
+  (deliberately NOT `ddf_leg.json` so glob tools that read
+  `*/ddf_leg.json` never pick up K/DST).
+- `pipelines/build_ddf_kdst_groups.py` (new): 4-group artifact builder.
+  Schema `trade-value-ddf-kdst-groups-v1`; output
+  `dist/modules/ddf-kdst-group-vorps.json`. Same methodology as the
+  8-group artifact (`raw_surplus_ppg` = `sum(max(0, ppg - rw))`,
+  fail-closed on empty groups, non-finite values, leakage). Marked
+  `display_status: computed_not_displayed` with
+  `excluded_from_guards: ["fixedPieIndexed", "sourceScaleAgreement"]`
+  per the contract's display section.
+- `pipelines/sync_dashboard_artifacts.py`: appended a JEG-211 step that
+  runs after the existing 8-group rebuild and writes
+  `ddf-kdst-group-vorps.json` from the freshest K/DST leg. Same
+  skip-and-warn shape as the 8-group step when the leg is absent.
+- `tests/test_kdst_vorp.py` (new): five test classes covering group
+  emission, non-negativity (raw + calibrated), sum invariants, display
+  marker, 8-group invariance (skill `compute_groups` rejects K/DST;
+  K/DST `compute_groups` rejects the skill leg schema; the 8-group
+  schema string is unchanged), fail-closed paths (unsupported schema,
+  missing values, missing teams, unknown position, unknown tier,
+  empty group, negative value, missing calibration), input loaders,
+  identity resolution against the fixture, and a live-leg integration
+  test that skips if no K/DST leg has been built locally.
+
+### What I deliberately did NOT change
+- `app/trade-value-chart/` -- verified by `grep` (kDst in POSSIBLE_POSITIONS
+  but the 8-group logic never emits K/DST; the chart already excludes
+  them). No UI changes per the assignment.
+- `pipelines/build_ddf_groups.py` -- byte-identical to current behavior.
+  The skill leg's 8-group emission and the K/DST compute_groups are
+  isolated; K/DST positions raise on the skill runner and the skill
+  schema raises on the K/DST runner.
+- `pipelines/build_ddf_two_tier_leg.py` -- the skill leg does not gain
+  K/DST positions. K/DST reach the two-tier math only through the new
+  `build_ddf_kdst_leg.py` with its own roster config.
+- `config/roster.json` -- per the audit, K/DST must not enter the skill
+  pie or its guards. K/DST roster config lives in the new module.
+- No push to `main`. Branch `minimax/jeg-211-kdst` only; commit pending
+  in the next session step.
+
+### Verified (this session)
+- K/DST inputs read: 45 kickers and 32 defenses parsed from the
+  current `data/inputs/espn_k_ppg_2026-09-21.json` and
+  `espn_dst_ros_2026-09-21.json` (`load_kicker_pool`,
+  `load_dst_pool`). Identity resolution: all 45 K names match the
+  fixture by full_name; all 32 DST abbrs match by team (assertion
+  in `tests/test_kdst_vorp.py::LoadInputTests`).
+- Chart UI inspection: `app/trade-value-chart/` references K/DST in
+  toggle copy and roster-shape controls only -- the 8-group
+  `compute_groups` never produces them. No code path in the chart
+  reads `ddf-kdst-group-vorps.json`. Confirmed by `grep` on the
+  `assets/` directory.
+
+### Unverified
+- Tests not run in this sandbox; verification happens in the next
+  harness step. `make validate` has not been run from this branch.
+- No live bake of `pipelines/build_ddf_kdst_leg.py` has been performed.
+  The first end-to-end run happens when the bake triggers it.
+- The identity-resolution test against the fixture may fail if any
+  kicker's ESPN name has drifted from the fixture's `full_name` since
+  2026-09-21; the contract requires unmatched rows to go to
+  `review_rows` (never guessed), so the leg still publishes but
+  flags the drift. The audit's 2026-10-01 snapshot showed all 45 K
+  and 32 DST resolve cleanly.

@@ -155,21 +155,27 @@ def bench_mix_for_teams(teams: int) -> dict[str, int]:
 
 def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,
                          slots: dict[str, int], flex_count: int,
-                         flex_eligible: list[str], bench_mix: dict[str, int]) -> dict[str, Any]:
+                         flex_eligible: list[str], bench_mix: dict[str, int],
+                         positions: list[str] | None = None) -> dict[str, Any]:
+    # positions defaults to the module POSITIONS (skill slots). Callers for
+    # other position sets (e.g. the K/DST leg, JEG-211) pass their own list;
+    # the tier economics are identical, only the iterated positions change.
+    # Existing callers see byte-identical behavior (default None -> POSITIONS).
+    _positions = POSITIONS if positions is None else positions
     by_pos: dict[str, list[dict[str, Any]]] = {}
-    for pos in POSITIONS:
+    for pos in _positions:
         rows = [{"id": d["id"], "x": d["x"]} for d in lists.get(pos, [])
                 if isinstance(d.get("x"), float) and math.isfinite(d["x"])]
         rows.sort(key=lambda d: (-d["x"], d["id"]))
         by_pos[pos] = rows
     dedicated: set[str] = set()
     starters: set[str] = set()
-    for pos in POSITIONS:
+    for pos in _positions:
         for d in by_pos[pos][: teams * slots.get(pos, 0)]:
             dedicated.add(d["id"])
             starters.add(d["id"])
     flex_pool: list[dict[str, Any]] = []
-    for pos in POSITIONS:
+    for pos in _positions:
         if pos not in flex_eligible:
             continue
         for d in by_pos[pos]:
@@ -180,12 +186,12 @@ def build_position_tiers(lists: dict[str, list[dict[str, Any]]], teams: int,
         starters.add(d["id"])
     rostered = set(starters)
     bench: set[str] = set()
-    for pos in POSITIONS:
+    for pos in _positions:
         for d in [d for d in by_pos[pos] if d["id"] not in rostered][: bench_mix.get(pos, 0)]:
             rostered.add(d["id"])
             bench.add(d["id"])
     tiers: dict[str, Any] = {}
-    for pos in POSITIONS:
+    for pos in _positions:
         lst = by_pos[pos]
         if not lst:
             tiers[pos] = None
