@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-03T22:06:00Z",
+  "generated_at": "2026-10-03T22:17:03Z",
   "items": [
     {
       "name": "data/fixtures/current/comparison-sources-data.json",
@@ -26,22 +26,11 @@
       "last_checked": "2026-10-02T23:38:43-05:00"
     },
     {
-      "name": "data/fixtures/current/actuals_2026-09-16.json",
-      "freshness_source": "YTD actuals subtracted from ECR leg (288 players); no freshness monitor",
-      "monitor_check": false,
-      "last_checked": null
-    },
-    {
-      "name": "data/fixtures/current/actuals_2026-09-17.json",
-      "freshness_source": "YTD actuals subtracted from ECR leg (288 players); no freshness monitor",
-      "monitor_check": false,
-      "last_checked": null
-    },
-    {
-      "name": "data/fixtures/current/actuals_2026-09-22.json",
-      "freshness_source": "YTD actuals subtracted from ECR leg (288 players); no freshness monitor",
-      "monitor_check": false,
-      "last_checked": null
+      "name": "data/fixtures/current/actuals_*.json",
+      "freshness_source": "mtime of most recent actuals_*.json (newest = data/fixtures/current/actuals_2026-09-22.json, mtime=2026-10-03T22:14:02Z; age 0d, band=ok); dashboard paints amber when >7d, red when >14d",
+      "monitor_check": true,
+      "last_checked": "2026-10-03T22:17:03Z",
+      "mtime": "2026-10-03T22:14:02Z"
     },
     {
       "name": "data/fixtures/current/player-news.json",

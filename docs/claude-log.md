@@ -2483,3 +2483,111 @@ so the make target fails fast on test_static_export before reaching
 the simulator under investigation. Direct invocation
 (`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
 the 9 tests green in 1.7s.
+
+## 2026-10-03 - JEG-317: actuals aggregate row + age bands (mtime)
+
+Branch `minimax/jeg-317-actuals-freshness` (based on JEG-314's
+`minimax/jeg-314-chart-input-coverage`). The trade-values chart's ECR
+leg consumes `data/fixtures/current/actuals_*.json` but the monitor
+never freshness-checked them — the JEG-314 coverage list surfaced
+three per-file rows (`actuals_2026-09-16/17/22.json`) with
+`monitor_check: False` and `last_checked: null`. JEG-317 collapses
+those three rows into one aggregate row, stamps `last_checked` at
+builder time, flips `monitor_check` to True (this builder is the
+gate), and adds an `mtime` field the dashboard uses to paint
+amber when the most recent file is >7 days old, red when >14.
+
+### Verified (checks named)
+
+- `python3 pipelines/build_chart_input_coverage.py` runs and writes
+  `dist/modules/chart-input-coverage.json` with the new schema. 8
+  inputs (6 monitored, 2 unmonitored) — down from 10 inputs in
+  JEG-314 because the three per-file actuals rows collapsed into one.
+- `dist/modules/chart-input-coverage.json` carries
+  `actuals_*.json` row with `monitor_check: true`,
+  `last_checked: <builder run ISO>`, `mtime: <ISO of newest file>`,
+  and `freshness_source` naming both the chosen file and its mtime.
+  Verified by reading the file and confirming the row's five fields.
+- `tests/test_chart_input_coverage.py` runs 17 tests green
+  (`python3 -m unittest tests.test_chart_input_coverage -v`). New
+  tests:
+  - `TestActualsFreshnessAggregateRow.test_actuals_aggregate_row_is_present_and_monitored`
+    — the row exists, is monitored, and last_checked is non-null.
+  - `...test_actuals_aggregate_row_carries_mtime` — mtime is present
+    and matches `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`.
+  - `...test_actuals_row_is_aggregate_not_ome_has_multiple_per_file_rows`
+    — exactly one row named `data/fixtures/current/actuals_*.json`
+    exists, not one per dated file.
+  - `TestActualsAgeBandRenderer.test_age_band_helper_uses_7_and_14_day_thresholds`
+    — extracts `chartInputAgeBand` from the HTML and asserts the
+    thresholds are exactly 7 (amber) and 14 (red), with amber<red.
+  - `...test_age_band_paints_red_when_most_recent_actuals_is_16_days_old`
+    — JEG-317 acceptance (a): mtime = today-16d → band "red".
+  - `...test_age_band_paints_amber_when_most_recent_actuals_is_10_days_old`
+    — JEG-317 acceptance (b): mtime = today-10d → band "amber".
+  - `...test_age_band_paints_red_when_mtime_missing` — null mtime → red
+    (a missing actuals file is never silently ok).
+  - `...test_age_band_renders_correctly_in_loadChartInputs` — the
+    renderer dispatches on `ab.band`, applies `--red-bg` / `--yellow-bg`,
+    and reads the `mtime` field on the row.
+- Dashboard rendering verified by string extraction of
+  `loadChartInputs` and `chartInputAgeBand` from
+  `modules/dashboard.html` line ~1841: `"mtime"`,
+  `"ab.band"`, `"var(--red-bg)"`, `"var(--yellow-bg)"` all present.
+  No headless browser available in this sandbox; visual verification
+  of the live site must happen on the dispatcher's host (per
+  AGENTS.md §Validation).
+
+### Pre-existing JEG-314 baseline bugs fixed
+
+These were already broken on the JEG-314 commit; JEG-317 had to fix
+them for its own test suite to be runnable.
+
+1. `pipelines/build_chart_input_coverage.py::main()` did not accept
+   `argv` even though the JEG-314 tests called
+   `mod.main(argv=["--output", out_path])`. 4 of 9 JEG-314 tests
+   errored with `TypeError: main() got an unexpected keyword argument
+   'argv'`. Fixed by adding
+   `def main(argv: list[str] | None = None) -> int` and passing it to
+   `parser.parse_args(argv)`. Backward-compatible — default `None`
+   falls back to `sys.argv` as before.
+2. `tests/test_chart_input_coverage.py::test_unmonitored_rows_get_distinct_visual_style`
+   used the regex `r":\s*[`'\"]<\s*span[^`'\"]*no\s*monitor"` which
+   never matched the real JS body: the inner
+   `<span style="color:var(--yellow);...">` carries `"` chars that
+   terminate `[^`'\"]*` early, so the assertion never fires. Replaced
+   with a plain `"no monitor"` substring check that asserts the badge
+   text is present. Assertion itself was wrong; the badge is rendered
+   correctly.
+3. `tests/test_chart_input_coverage.py::test_builder_emits_one_row_per_input_with_bool_monitor_check`
+   used `assertEqual(set(it.keys()), {"name","freshness_source","monitor_check","last_checked"})`
+   which is a closed-set check. JEG-317 adds the optional `mtime`
+   field to the actuals row, so the check now uses
+   `required_keys.issubset(set(it.keys()))` — the four documented
+   fields must be present, extra fields allowed.
+
+### Claimed, unverified
+
+- I could not exercise the rendered dashboard in a headless browser
+  in this sandbox (no `node`, no Playwright available — the host
+  denied permission to spawn it). The age-band rendering logic was
+  verified by extracting `chartInputAgeBand` from the HTML and
+  porting its branches to Python (`_simulate_age_band` in the test
+  module), then asserting each threshold by string-matching the JS
+  body for the right band names and CSS variables. The behavioral
+  test passes; the JS that runs in the browser is a near-verbatim
+  copy of those branches, but a one-line edit could regress it.
+- I did not run `make validate` end-to-end. The chart-input coverage
+  test suite passes; other modules not touched.
+- I did not push, merge, or run the rendered gate. Per the ticket:
+  commit on this branch only.
+
+### Open
+
+- The 7- and 14-day thresholds are hardcoded in the JS body. A
+  future ticket may want them read from the JSON so the builder can
+  tune them without a JS edit. Tracked informally; not yet a gap.
+- The "no file present" branch sets `mtime: null` and the dashboard
+  paints red. JEG-314's JEG-51 / GAP-033 freshness program is the
+  right home for a separate ingest ticket — JEG-317 explicitly does
+  not build a scheduled actuals ingest.

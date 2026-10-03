@@ -1,0 +1,23 @@
+{
+  "ticket": "JEG-317",
+  "branch": "minimax/jeg-317-actuals-freshness",
+  "status": "complete",
+  "summary": "JEG-317 closes the actuals_*.json freshness gap on JEG-314's chart-inputs coverage section. The builder collapses the three per-file actuals rows into one aggregate row carrying an `mtime` field (mtime of the most recent actuals_*.json file), flips monitor_check to True (this builder is the gate), and stamps last_checked at builder run time. The dashboard's loadChartInputs paints the row amber when >7 days old and red when >14 days old via a new chartInputAgeBand helper.",
+  "files_changed": [
+    "pipelines/build_chart_input_coverage.py",
+    "modules/dashboard.html",
+    "tests/test_chart_input_coverage.py",
+    "dist/modules/chart-input-coverage.json",
+    "docs/claude-log.md"
+  ],
+  "tests": "17 tests in tests/test_chart_input_coverage.py pass green (9 pre-existing JEG-314 tests + 8 new JEG-317 tests). New tests: TestActualsFreshnessAggregateRow (3 tests verifying the row is present, monitored, carries ISO mtime, and is a single aggregate row not one-per-file); TestActualsAgeBandRenderer (5 tests verifying the 7/14 day thresholds, red band for 16-day-old mtime, amber band for 10-day-old mtime, red for null mtime, and that loadChartInputs applies var(--red-bg)/var(--yellow-bg) on the band branches).",
+  "pre_existing_jeg_314_bugs_fixed": [
+    "build_chart_input_coverage.main() now accepts argv=list[str]|None (was raising TypeError when called with argv=).",
+    "test_unmonitored_rows_get_distinct_visual_style regex `r\":\\s*[`'\\\"]<\\s*span[^`'\\\"]*no\\s*monitor\"` never matched the JS body because the inner `<span style=\"...\">` carries quote chars that terminated the negation class early. Replaced with a plain `'no monitor'` substring check.",
+    "test_builder_emits_one_row_per_input_with_bool_monitor_check used assertEqual on the exact key set; the new mtime field required switching to a required-keys subset check."
+  ],
+  "regenerated": "dist/modules/chart-input-coverage.json — 8 inputs (6 monitored, 2 unmonitored); the actuals_*.json aggregate row is monitored with mtime stamped to the newest file's mtime and last_checked stamped to builder run time.",
+  "commit_only": true,
+  "merged": false,
+  "pushed": false
+}

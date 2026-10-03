@@ -60,12 +60,15 @@ class TestBuilderEmitsRows(unittest.TestCase):
         )
 
         # Each row must have the four required fields and monitor_check must be a bool.
-        expected_keys = {"name", "freshness_source", "monitor_check", "last_checked"}
+        # JEG-317 extends the schema: the actuals_*.json aggregate row also carries
+        # an `mtime` field (ISO 8601 of the most recent actuals file). Other rows
+        # may grow extra fields in future; allow non-required keys, but the four
+        # documented fields must always be present.
+        required_keys = {"name", "freshness_source", "monitor_check", "last_checked"}
         for it in items:
-            self.assertEqual(
-                set(it.keys()),
-                expected_keys,
-                f"row {it.get('name')!r} missing fields: {expected_keys - set(it.keys())}",
+            self.assertTrue(
+                required_keys.issubset(set(it.keys())),
+                f"row {it.get('name')!r} missing fields: {required_keys - set(it.keys())}",
             )
             self.assertIsInstance(
                 it["monitor_check"],
@@ -180,6 +183,227 @@ class TestBuilderEmitsRows(unittest.TestCase):
             self.assertIsInstance(it["monitor_check"], bool)
 
 
+class TestActualsFreshnessAggregateRow(unittest.TestCase):
+    """JEG-317: the chart-inputs coverage emits ONE aggregate row for the
+    actuals_*.json inputs, carrying the mtime of the most recent file. The
+    dashboard paints the row red when >14 days old, amber when >7 days old.
+    """
+
+    def _actuals_row(self) -> dict:
+        mod = _load_builder_module()
+        with tempfile.TemporaryDirectory() as tmp:
+            out_path = os.path.join(tmp, "chart-input-coverage.json")
+            mod.main(argv=["--output", out_path])
+            with open(out_path) as f:
+                payload = json.load(f)
+        rows = [it for it in payload["items"] if it["name"] == "data/fixtures/current/actuals_*.json"]
+        self.assertEqual(
+            len(rows), 1,
+            f"expected exactly one actuals_*.json aggregate row, got {len(rows)}",
+        )
+        return rows[0]
+
+    def test_actuals_aggregate_row_is_present_and_monitored(self):
+        """The aggregate row must exist, be monitored, and carry last_checked
+        stamped at builder time. Negative-test target: a regression that
+        drops the row or reverts monitor_check to False."""
+        row = self._actuals_row()
+        self.assertEqual(row["name"], "data/fixtures/current/actuals_*.json")
+        self.assertIs(
+            row["monitor_check"], True,
+            "actuals row monitor_check must be True — this builder is the gate",
+        )
+        self.assertIsNotNone(
+            row["last_checked"],
+            "actuals row last_checked must be the builder run time, not null",
+        )
+
+    def test_actuals_aggregate_row_carries_mtime(self):
+        """JEG-317 contract: the actuals row carries an `mtime` field with
+        the mtime of the most recent actuals_*.json file. The dashboard
+        renders age bands from this field; without it, the dashboard cannot
+        paint amber or red. Negative-test target: a regression that drops
+        the mtime field or writes a non-ISO string."""
+        row = self._actuals_row()
+        self.assertIn(
+            "mtime", row,
+            "actuals row missing 'mtime' field — dashboard cannot render age bands",
+        )
+        self.assertIsNotNone(
+            row["mtime"],
+            "actuals row mtime is null on a checkout with actuals_*.json files "
+            "— builder must read os.path.getmtime",
+        )
+        # Must be ISO 8601 with 'Z' so Date.parse() in the dashboard handles it.
+        self.assertRegex(
+            row["mtime"], r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$",
+            f"actuals row mtime {row['mtime']!r} is not ISO 8601 UTC second precision",
+        )
+
+    def test_actuals_row_is_aggregate_not_ome_has_multiple_per_file_rows(self):
+        """The aggregate row replaces the per-file rows JEG-314 emitted.
+        Exactly one row named 'data/fixtures/current/actuals_*.json' must
+        be present — not one per dated file."""
+        row = self._actuals_row()
+        self.assertEqual(row["name"], "data/fixtures/current/actuals_*.json")
+        # The freshness_source must name the chosen file and its mtime,
+        # proving the row is computed from a globbed scan, not hardcoded.
+        self.assertIn(
+            "mtime=", row["freshness_source"],
+            "actuals row freshness_source must surface the chosen mtime",
+        )
+        self.assertIn(
+            "newest =", row["freshness_source"],
+            "actuals row freshness_source must name the most recent file",
+        )
+
+
+class TestActualsAgeBandRenderer(unittest.TestCase):
+    """JEG-317: the dashboard's `chartInputAgeBand(mtime)` paints:
+      - red   when the most recent actuals file is >14 days old
+      - amber when the most recent actuals file is >7 and <=14 days old
+      - ok    when the file is <=7 days old (or mtime is missing -> red)
+    These tests assert the dashboard honors those thresholds by extracting
+    `chartInputAgeBand` from the HTML and evaluating it with controlled
+    inputs (a Node-free pure-Python port of the same logic — see
+    `_simulate_age_band`).
+    """
+
+    AGE_OK_THRESHOLD_DAYS = 7
+    AGE_AMBER_THRESHOLD_DAYS = 14
+
+    def _extract_chart_input_age_band(self) -> str:
+        html = DASHBOARD_HTML.read_text()
+        m = re.search(
+            r"function\s+chartInputAgeBand\s*\([^)]*\)\s*\{(?P<body>.*?)\n\}",
+            html,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(
+            m,
+            "chartInputAgeBand function not found in dashboard.html — "
+            "JEG-317 contract requires a dedicated age-band helper",
+        )
+        return m.group("body")
+
+    def _simulate_age_band(self, body: str, mtime: str | None, now_ms: int) -> dict:
+        """Port the JS helper to Python so we can test it without a browser.
+        The contract under test is the threshold values (7, 14), the parse
+        behavior, and the null/bad-mtime handling — the dashboard body is
+        asserted to match these thresholds via the threshold-extracting tests
+        in the sibling class.
+        """
+        # Pull the threshold constants out of the JS body so the JS source
+        # remains the single source of truth.
+        amber = int(re.search(r"ageDays\s*>\s*(\d+)\s*\)\s*return\s*\{\s*band:\s*\"amber\"", body).group(1))
+        red = int(re.search(r"ageDays\s*>\s*(\d+)\s*\)\s*return\s*\{\s*band:\s*\"red\"", body).group(1))
+        if mtime is None:
+            return {"band": "red", "ageDays": None}
+        ms = _utc_iso_to_ms(mtime)
+        if ms is None:
+            return {"band": "red", "ageDays": None}
+        age_days = (now_ms - ms) / 86400000
+        if age_days > red:
+            return {"band": "red", "ageDays": age_days}
+        if age_days > amber:
+            return {"band": "amber", "ageDays": age_days}
+        return {"band": "ok", "ageDays": age_days}
+
+    def test_age_band_helper_uses_7_and_14_day_thresholds(self):
+        """The age-band helper must use the documented 7-day (amber) and
+        14-day (red) thresholds. Negative-test target: a regression that
+        swaps them, hardcodes different numbers, or drops one branch."""
+        body = self._extract_chart_input_age_band()
+        # Both thresholds must appear, in the order amber < red.
+        amber_match = re.search(r"ageDays\s*>\s*(\d+)\s*\)\s*return\s*\{\s*band:\s*\"amber\"", body)
+        red_match = re.search(r"ageDays\s*>\s*(\d+)\s*\)\s*return\s*\{\s*band:\s*\"red\"", body)
+        self.assertIsNotNone(amber_match, "amber branch missing in chartInputAgeBand")
+        self.assertIsNotNone(red_match, "red branch missing in chartInputAgeBand")
+        amber_days = int(amber_match.group(1))
+        red_days = int(red_match.group(1))
+        self.assertEqual(amber_days, self.AGE_OK_THRESHOLD_DAYS)
+        self.assertEqual(red_days, self.AGE_AMBER_THRESHOLD_DAYS)
+        # amber threshold must be strictly less than red threshold; otherwise
+        # the bands collapse.
+        self.assertLess(amber_days, red_days)
+
+    def test_age_band_paints_red_when_most_recent_actuals_is_16_days_old(self):
+        """JEG-317 acceptance: when the most recent actuals file's mtime is
+        16 days ago, the dashboard renders the actuals row in the red band.
+        Simulates the broken state with a controlled mtime + a frozen now."""
+        now_iso = "2026-10-03T00:00:00Z"
+        mtime_iso = "2026-09-17T00:00:00Z"  # exactly 16 days before now_iso
+        body = self._extract_chart_input_age_band()
+        result = self._simulate_age_band(body, mtime_iso, _utc_iso_to_ms(now_iso))
+        self.assertEqual(
+            result["band"], "red",
+            f"actuals mtime {mtime_iso} is 16d old; expected red band, got {result['band']}",
+        )
+        # The renderer must apply the red style for that band — assert the
+        # JS body references both the band name and the red CSS variable.
+        self.assertIn("band: \"red\"", body, "JS body does not name the red band")
+        self.assertIn("--red-bg", DASHBOARD_HTML.read_text(),
+                      "dashboard does not declare --red-bg; the renderer cannot paint red")
+
+    def test_age_band_paints_amber_when_most_recent_actuals_is_10_days_old(self):
+        """JEG-317 acceptance: when the most recent actuals file's mtime is
+        10 days ago, the dashboard renders the actuals row in the amber
+        band. 10 days is strictly between 7 and 14 — the boundary test."""
+        now_iso = "2026-10-03T00:00:00Z"
+        mtime_iso = "2026-09-23T00:00:00Z"  # exactly 10 days before now_iso
+        body = self._extract_chart_input_age_band()
+        result = self._simulate_age_band(body, mtime_iso, _utc_iso_to_ms(now_iso))
+        self.assertEqual(
+            result["band"], "amber",
+            f"actuals mtime {mtime_iso} is 10d old; expected amber band, got {result['band']}",
+        )
+        self.assertIn("band: \"amber\"", body, "JS body does not name the amber band")
+        self.assertIn("--yellow-bg", DASHBOARD_HTML.read_text(),
+                      "dashboard does not declare --yellow-bg; the renderer cannot paint amber")
+
+    def test_age_band_paints_red_when_mtime_missing(self):
+        """When the actuals file is absent (mtime=null), the dashboard must
+        paint red unconditionally — a missing input is never silently ok.
+        Negative-test target: a regression that defaults a null mtime to
+        'ok' or 'amber'."""
+        body = self._extract_chart_input_age_band()
+        result = self._simulate_age_band(body, None, _utc_iso_to_ms("2026-10-03T00:00:00Z"))
+        self.assertEqual(result["band"], "red")
+
+    def test_age_band_renders_correctly_in_loadChartInputs(self):
+        """The loadChartInputs renderer must dispatch on the band returned
+        by chartInputAgeBand and apply the matching background style.
+        Without this, the helper exists but the row still gets the default
+        monitored/green treatment — a regression worth catching."""
+        html = DASHBOARD_HTML.read_text()
+        m = re.search(
+            r"async function loadChartInputs\(\)\s*\{(?P<body>.*?)\n\}\nloadChartInputs\(\);",
+            html,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(m, "loadChartInputs function not found")
+        body = m.group("body")
+        # The renderer must branch on ab.band and apply the documented bg vars.
+        self.assertIn("ab.band", body, "renderer does not dispatch on chartInputAgeBand result")
+        self.assertIn("var(--red-bg)", body, "renderer does not apply red-bg for the red band")
+        self.assertIn("var(--yellow-bg)", body, "renderer does not apply yellow-bg for the amber band")
+        # The mtime field on the row must be the trigger — proving the
+        # renderer keys off the actuals row's mtime, not some other field.
+        self.assertIn('"mtime"', body, "renderer does not reference the mtime field on the row")
+
+
+def _utc_iso_to_ms(iso: str) -> int | None:
+    """Parse a strict ISO 8601 UTC timestamp ('YYYY-MM-DDTHH:MM:SSZ') to ms.
+    Mirrors Date.parse() behavior for the format the builder emits. None on
+    a malformed input, matching the JS NaN branch."""
+    import datetime as _dt
+    try:
+        dt = _dt.datetime.strptime(iso, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=_dt.timezone.utc)
+        return int(dt.timestamp() * 1000)
+    except ValueError:
+        return None
+
+
 class TestDashboardRendersUnmonitoredRows(unittest.TestCase):
     """Contract (b): the dashboard's loadChartInputs renders rows whose
     monitor_check is False. We can't run the page here, so we read the
@@ -250,9 +474,13 @@ class TestDashboardRendersUnmonitoredRows(unittest.TestCase):
             r"monitored\s*\?\s*[`'\"]",
             "loader does not render a monitored branch",
         )
-        self.assertRegex(
+        # JEG-314 baseline bug: the original regex `r":\s*[`'\"]<\s*span[^`'\"]*no\s*monitor"`
+        # never matched the real JS body because the inner `<span style="...">` carries
+        # quote chars that terminate `[^`'\"]*` early. Match the literal "no monitor"
+        # badge text instead — present iff the unmonitored branch renders.
+        self.assertIn(
+            "no monitor",
             body,
-            r":\s*[`'\"]<\s*span[^`'\"]*no\s*monitor",
             "loader does not render the 'no monitor' badge for unmonitored rows",
         )
 

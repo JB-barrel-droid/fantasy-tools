@@ -1839,6 +1839,20 @@ loadIdentityVerification();
 loadPlayerTrace();
 
 // JEG-314: chart inputs coverage — every file the chart reads, with monitor_check.
+// JEG-317: the actuals_*.json row also carries an `mtime` field; the dashboard
+// paints that row amber when the most recent actuals file is older than 7 days,
+// red when older than 14 days. Exposed as a window-scope helper so the
+// regression test in tests/test_chart_input_coverage.py can call it directly.
+function chartInputAgeBand(mtime) {
+  if (!mtime) return {band: "red", ageDays: null, label: "no file"};
+  const ms = Date.parse(mtime);
+  if (Number.isNaN(ms)) return {band: "red", ageDays: null, label: "bad mtime"};
+  const ageDays = (Date.now() - ms) / 86400000;
+  if (ageDays > 14) return {band: "red", ageDays: ageDays, label: `${Math.round(ageDays)}d old`};
+  if (ageDays > 7) return {band: "amber", ageDays: ageDays, label: `${Math.round(ageDays)}d old`};
+  return {band: "ok", ageDays: ageDays, label: `${Math.round(ageDays)}d old`};
+}
+
 async function loadChartInputs() {
   const summaryEl = document.getElementById("chartInputsSummary");
   const tableEl = document.getElementById("chartInputsTable");
@@ -1861,6 +1875,8 @@ async function loadChartInputs() {
 
     // Unmonitored rows are visually distinct: yellow background + a "(no monitor)" badge
     // so the gap is unmistakable; monitored rows stay on the default card background.
+    // Rows carrying an `mtime` field (currently just the actuals_*.json aggregate) are
+    // rendered with age bands: amber when >7 days old, red when >14 days old.
     let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
       <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd">Name</th>
       <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd">Freshness source</th>
@@ -1869,10 +1885,27 @@ async function loadChartInputs() {
     </tr></thead><tbody>`;
     items.forEach(it => {
       const monitored = !!it.monitor_check;
-      const rowBg = monitored ? "var(--card)" : "var(--yellow-bg)";
-      const monitorCell = monitored
+      let rowBg = monitored ? "var(--card)" : "var(--yellow-bg)";
+      let monitorCell = monitored
         ? `<span style="color:var(--green);font-weight:bold">✓ monitored</span>`
         : `<span style="color:var(--yellow);font-weight:bold">⚠ no monitor</span>`;
+
+      // JEG-317: age band for inputs that carry an `mtime` field. mtime is null
+      // when the file is missing — that's red, not silently ok. The thresholds
+      // (7 days, 14 days) are the documented contract in the builder.
+      if (Object.prototype.hasOwnProperty.call(it, "mtime")) {
+        const ab = chartInputAgeBand(it.mtime);
+        if (ab.band === "red") {
+          rowBg = "var(--red-bg)";
+          monitorCell = `<span style="color:var(--red);font-weight:bold">✗ ${esc(ab.label)}</span>`;
+        } else if (ab.band === "amber") {
+          rowBg = "var(--yellow-bg)";
+          monitorCell = `<span style="color:var(--yellow);font-weight:bold">⚠ ${esc(ab.label)}</span>`;
+        } else if (ab.band === "ok") {
+          monitorCell = `<span style="color:var(--green);font-weight:bold">✓ ${esc(ab.label)}</span>`;
+        }
+      }
+
       html += `<tr style="background:${rowBg}">
         <td style="padding:6px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${esc(it.name)}</td>
         <td style="padding:6px;border-bottom:1px solid #eee">${esc(it.freshness_source || "")}</td>

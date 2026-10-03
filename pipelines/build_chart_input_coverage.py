@@ -4,9 +4,9 @@ JEG-314: enumerate every input file the trade-values chart reads, with a
 honest "is there an automated freshness check?" flag. The dashboard surfaces
 the full list so gaps in monitoring are visible.
 
-JEG-317 will extend this with live, validated row counts and puller timestamps.
-This first pass keeps the schema deliberately small: name, freshness_source,
-monitor_check, last_checked.
+JEG-317: extend with a single aggregate row for the actuals_*.json inputs,
+plus the `mtime` field the dashboard reads to render age bands (amber when
+the most recent file is older than 7 days, red when older than 14 days).
 
 Schema
 ------
@@ -16,7 +16,8 @@ Schema
     {"name": "<path>",
      "freshness_source": "<human-readable source>",
      "monitor_check": <bool>,
-     "last_checked": "<iso8601 or null>"}
+     "last_checked": "<iso8601 or null>",
+     "mtime": "<iso8601 or null>"}   # present only on the actuals aggregate
   ]
 }
 
@@ -42,6 +43,11 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 def _now_utc() -> str:
     """ISO 8601 UTC timestamp, second precision."""
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _now_epoch() -> float:
+    """UTC unix epoch seconds, used for age math."""
+    return _dt.datetime.now(_dt.timezone.utc).timestamp()
 
 
 def _load_json(path: str) -> dict[str, Any] | None:
@@ -156,16 +162,45 @@ def build_items(now: str) -> list[dict[str]]:
         "last_checked": rf_generated,
     })
 
-    # 5. data/fixtures/current/actuals_*.json — consumed by ECR leg, NOT monitored.
+    # 5. data/fixtures/current/actuals_*.json — aggregate freshness.
+    # JEG-317 collapses the per-file rows into one row carrying the mtime of
+    # the most recent file; the dashboard renders age bands from this mtime
+    # (amber > 7d, red > 14d). Monitored = True: this builder is the gate.
     actuals_pattern = _resolve("data/fixtures/current/actuals_*.json")
     actuals_files = sorted(glob.glob(actuals_pattern))
-    for path in actuals_files:
-        rel = os.path.relpath(path, REPO_ROOT)
+    if actuals_files:
+        newest_path = max(actuals_files, key=os.path.getmtime)
+        newest_mtime_ts = os.path.getmtime(newest_path)
+        newest_mtime_iso = _dt.datetime.fromtimestamp(
+            newest_mtime_ts, tz=_dt.timezone.utc
+        ).strftime("%Y-%m-%dT%H:%M:%SZ")
+        newest_rel = os.path.relpath(newest_path, REPO_ROOT)
+        age_days = int((_now_epoch() - newest_mtime_ts) // 86400)
+        band = "red" if age_days > 14 else ("amber" if age_days > 7 else "ok")
         items.append({
-            "name": rel,
-            "freshness_source": "YTD actuals subtracted from ECR leg (288 players); no freshness monitor",
-            "monitor_check": False,
-            "last_checked": None,
+            "name": "data/fixtures/current/actuals_*.json",
+            "freshness_source": (
+                f"mtime of most recent actuals_*.json (newest = {newest_rel}, "
+                f"mtime={newest_mtime_iso}; age {age_days}d, band={band}); "
+                "dashboard paints amber when >7d, red when >14d"
+            ),
+            "monitor_check": True,
+            "last_checked": now,
+            "mtime": newest_mtime_iso,
+        })
+    else:
+        # No actuals files present — still list the row so the gap is visible
+        # in the dashboard. mtime is null; the dashboard paints red unconditionally
+        # when there's no file to check.
+        items.append({
+            "name": "data/fixtures/current/actuals_*.json",
+            "freshness_source": (
+                "no actuals_*.json files present on this checkout; "
+                "ECR leg cannot subtract any YTD actuals"
+            ),
+            "monitor_check": True,
+            "last_checked": now,
+            "mtime": None,
         })
 
     # 6. data/fixtures/current/player-news.json — monitored via reference-freshness.
@@ -211,14 +246,14 @@ def build_items(now: str) -> list[dict[str]]:
     return items
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build chart-input-coverage.json")
     parser.add_argument(
         "--output",
         default=os.path.join(REPO_ROOT, "dist/modules/chart-input-coverage.json"),
         help="Path to write the coverage JSON (default: dist/modules/chart-input-coverage.json)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     now = _now_utc()
     payload = {
