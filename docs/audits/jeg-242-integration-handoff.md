@@ -148,3 +148,45 @@ Remaining: (2) local candidate refresh over REAL publisher native snapshots
 needs Jeremy's weighting/horizon decision for the reference policy --
 weights are not invented by the lane); (3) copied-dashboard preview with
 numerical/rendered three-view parity. JEG-242 stays In Progress.
+
+## 2026-10-03 02:05 CDT — step (3) complete (data layer); gate-4 contract fix
+
+Copied-dashboard preview with numerical three-view parity is wired and green:
+
+- `pipelines/preview_vorp_views.py` (new): loads a REVIEWED candidate into a
+  COPIED `app/trade-value-chart` (production untouched), derives the three
+  per-view display maps, and proves numerical parity by independent
+  re-derivation: indexed_display = native * 70 / provisional_maximum (one
+  common all-source peak, tight tolerance); vorp/adj_values are the candidate
+  maps verbatim; genuine 0.0 values are kept in every view; absent keys stay
+  absent; granular Indexed is unavailable WITH an explicit reason. Writes
+  `assets/vorp-views-preview.json` (schema vorp-views-preview-v1) plus
+  `preview.manifest.json` pinning every input hash and the review report.
+- `preview/check_preview_parity.js` (new): independent second-language
+  re-derivation under node; discriminates the legacy per-source-peak
+  signature (verified: a tampered payload peaking each source at 70 fails).
+- `tests/test_vorp_views_preview.py` (5 tests, registered in Makefile
+  test-unit): positive end-to-end (refresh -> preview -> copied dashboard ->
+  node agreement); negatives: tampered candidate aborts with no preview dir,
+  mismatched batch natives abort, unknown source aborts.
+- Makefile: `preview-vorp-views` target (candidate + batch from a
+  refresh-vorp-views out dir, then the node check).
+
+Contract fix found while building the preview (new Linear issue to file):
+the review's view gate required every source's indexed map to be a NONEMPTY
+mapping, but the producer contract emits `"indexed": {}` for granular kinds
+(espn/cbsros/razzball have no as-published native trade values) -- so no
+reviewed candidate could ever carry a granular source, contradicting the
+batch contract that explicitly admits them. The gate is now tighter, not
+looser: published sources must carry a nonempty indexed map with the
+identical key set; granular sources must carry an EMPTY indexed map (a
+nonempty one is wrong-kind wiring, not data). Discrimination tests prove
+all three directions. review_batch70_views docstring updated.
+
+Remaining for JEG-242: (2) run the candidate refresh over REAL publisher
+native snapshots + DDF group VORPs -- BLOCKED on Jeremy's weighting/horizon
+decision (the lane invents no weights); rendered (DOM-level) parity for
+vorp/adj views is blocked on the same data landing, since the production
+curve-widget.js views are still pending placeholders (JEG-210) -- the
+preview payload contract is forward-placed at
+assets/vorp-views-preview.json for that wiring.

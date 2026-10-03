@@ -147,6 +147,7 @@ test-unit:
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
+	python3 -m unittest tests.test_vorp_views_preview
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
@@ -219,6 +220,21 @@ refresh-vorp-views:
 	python3 pipelines/refresh_vorp_views.py --values-dir "$(VORP_VIEWS_VALUES_DIR)" \
 		--group-vorps "$(VORP_VIEWS_GROUP_VORPS)" --roster-config "$(VORP_VIEWS_ROSTER_CONFIG)" \
 		$(VORP_VIEWS_WEIGHT_ARGS) --out-dir "$(VORP_VIEWS_OUT_DIR)"
+
+# Three-view preview (JEG-242): loads a REVIEWED candidate into a COPIED
+# output dashboard and proves per-view numerical parity (indexed =
+# native*70/common peak; vorp/adj verbatim; genuine zeros kept; absent keys
+# stay absent). Candidate-only; production is never touched. Run after
+# refresh-vorp-views with the same VORP_VIEWS_OUT_DIR.
+preview-vorp-views:
+	@test -n "$(VORP_VIEWS_OUT_DIR)" || (echo "VORP_VIEWS_OUT_DIR required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_PREVIEW_DIR)" || (echo "VORP_VIEWS_PREVIEW_DIR required" >&2; exit 2)
+	python3 pipelines/preview_vorp_views.py \
+		--candidate "$(VORP_VIEWS_OUT_DIR)/candidate.json" \
+		--batch "$(VORP_VIEWS_OUT_DIR)/work/batch.json" \
+		--out-dir "$(VORP_VIEWS_PREVIEW_DIR)"
+	node preview/check_preview_parity.js \
+		"$(VORP_VIEWS_PREVIEW_DIR)/preview-dashboard/assets/vorp-views-preview.json"
 
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py

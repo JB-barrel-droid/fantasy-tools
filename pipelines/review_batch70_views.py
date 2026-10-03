@@ -14,8 +14,12 @@ What this review checks (fail-closed; every failure names its gate):
      are positive finite; total_budget_per_source == batch_scale.
   3. Allocation: allocation_fractions covers exactly the eight POS/role groups,
      sums to 1; group_budgets == batch_scale * fraction per group.
-  4. Views: every source carries exactly {indexed, vorp, adj_values} with
-     identical nonempty key sets; all values finite and >= 0.
+  4. Views: every source carries exactly {indexed, vorp, adj_values}.
+     Published sources: indexed is the nonempty native map with the identical
+     key set as vorp/adj_values. Granular sources (espn/cbsros/razzball) carry
+     no as-published native trade values, so their indexed map must be EMPTY
+     (a nonempty one is wrong-kind wiring, not data); vorp/adj_values stay
+     nonempty with identical key sets. All values finite and >= 0.
   5. One common 70 anchor: the global adj_values maximum is 70 (tight
      tolerance) and no source exceeds it. Per-source independent 70 peaks are
      the legacy reindex signature, not this pipeline's output.
@@ -162,18 +166,46 @@ def check_views(doc, scale: float) -> dict:
             raise GateFailure(
                 f"sources[{name}]: must carry exactly indexed/vorp/adj_values"
             )
+        kind = SOURCE_KINDS.get(name)
+        if kind is None:
+            raise GateFailure(f"sources[{name}]: unknown source kind")
         keysets = []
-        for view in ("indexed", "vorp", "adj_values"):
+        indexed_map = views["indexed"]
+        if kind == "granular":
+            # Granular sources (espn/cbsros/razzball) carry no as-published
+            # native trade values, so Indexed is genuinely unavailable for
+            # them. An EMPTY indexed map is the contract; a nonempty one is
+            # wrong-kind wiring, not data.
+            if not isinstance(indexed_map, dict) or indexed_map:
+                raise GateFailure(
+                    f"sources[{name}]: granular source must carry an empty "
+                    "indexed map (it has no as-published natives)"
+                )
+        else:
+            if not isinstance(indexed_map, dict) or not indexed_map:
+                raise GateFailure(
+                    f"sources[{name}].indexed: nonempty mapping required "
+                    "for published sources"
+                )
+            for k, v in indexed_map.items():
+                _finite_nonneg(v, f"sources[{name}].indexed[{k}]")
+            keysets.append(set(indexed_map))
+        for view in ("vorp", "adj_values"):
             mapping = views[view]
             if not isinstance(mapping, dict) or not mapping:
                 raise GateFailure(f"sources[{name}].{view}: nonempty mapping required")
             for k, v in mapping.items():
                 _finite_nonneg(v, f"sources[{name}].{view}[{k}]")
             keysets.append(set(mapping))
-        if not (keysets[0] == keysets[1] == keysets[2]):
+        if keysets[0] != keysets[1]:
             raise GateFailure(
-                f"sources[{name}]: indexed/vorp/adj_values key sets differ "
+                f"sources[{name}]: vorp/adj_values key sets differ "
                 "(view wiring mismatch)"
+            )
+        if kind != "granular" and keysets[2] != keysets[0]:
+            raise GateFailure(
+                f"sources[{name}]: indexed key set differs from "
+                "vorp/adj_values (view wiring mismatch)"
             )
         adj = views["adj_values"]
         peak = max(adj.values())

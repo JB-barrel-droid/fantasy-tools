@@ -15,6 +15,9 @@ Negative (each must fail the review):
     diverge and conservation fails)
   - included-but-unexcluded unknown source
   - sidecar/artifact hash mismatch
+  - granular empty indexed is the contract (no as-published natives);
+    granular nonempty indexed fails (wrong-kind wiring); published empty
+    indexed fails (wiring gap)
 """
 import copy
 import hashlib
@@ -31,7 +34,7 @@ sys.path.insert(0, str(REPO / "pipelines"))
 
 from build_imputed_vorps import main as impute_main  # noqa: E402
 from build_reweighted_values import main as reweight_main  # noqa: E402
-from review_batch70_views import main as review_main  # noqa: E402
+from review_batch70_views import GateFailure, check_views, main as review_main  # noqa: E402
 
 ROSTER = {
     "schema": "option-c-publisher-roster-v1",
@@ -272,6 +275,52 @@ class TestReviewBatch70Views(unittest.TestCase):
                        for v in views["adj_values"].values())
             self.assertTrue(math.isclose(peak, 70.0, rel_tol=1e-9, abs_tol=1e-9),
                             f"global peak {peak} != 70")
+
+
+    def test_granular_empty_indexed_is_the_contract(self):
+        """Granular sources carry no as-published natives, so an EMPTY indexed
+        map passes the view gate (vorp/adj keep identical key sets)."""
+        doc = {
+            "sources": {
+                "espn": {
+                    "indexed": {},
+                    "vorp": {"90001": 40.0, "90002": 12.0},
+                    "adj_values": {"90001": 70.0, "90002": 0.0},
+                }
+            }
+        }
+        maxima = check_views(doc, 70.0)
+        self.assertIn("espn", maxima)
+
+    def test_granular_nonempty_indexed_fails(self):
+        """A granular source WITH an indexed map is wrong-kind wiring, not
+        data: the gate must reject it (discrimination proven)."""
+        doc = {
+            "sources": {
+                "espn": {
+                    "indexed": {"90001": 9914.0},
+                    "vorp": {"90001": 40.0, "90002": 12.0},
+                    "adj_values": {"90001": 70.0, "90002": 0.0},
+                }
+            }
+        }
+        with self.assertRaises(GateFailure):
+            check_views(doc, 70.0)
+
+    def test_published_empty_indexed_fails(self):
+        """A published source with an empty indexed map is a wiring gap, not
+        a design choice: the gate must reject it."""
+        doc = {
+            "sources": {
+                "fantasycalc": {
+                    "indexed": {},
+                    "vorp": {"90001": 40.0, "90002": 12.0},
+                    "adj_values": {"90001": 70.0, "90002": 0.0},
+                }
+            }
+        }
+        with self.assertRaises(GateFailure):
+            check_views(doc, 70.0)
 
 
 if __name__ == "__main__":
