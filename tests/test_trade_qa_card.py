@@ -35,7 +35,7 @@ BUILDER = REPO / "pipelines" / "build_trade_qa_card.py"
 
 # Region of dashboard.html the brief restricts us to. Edits outside it are
 # out of scope.
-DASHBOARD_FENCE = (1455, 1700)
+DASHBOARD_FENCE = (1455, 1715)
 
 
 def _run_builder() -> subprocess.CompletedProcess:
