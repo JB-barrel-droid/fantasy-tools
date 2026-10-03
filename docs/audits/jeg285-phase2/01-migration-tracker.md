@@ -7,17 +7,21 @@ Cut over = new path is authoritative, old disabled but recoverable.
 Verified = new path proven stable over N cycles, old implementation archived.
 Decommissioned = old implementation removed.
 
+**Design decisions (Jeremy, 2026-10-03):**
+- **Q1 — No-op dispatches vs intent logging:** Log intent only. When pg_cron fires, it dispatches to the GitHub workflow; the Python workflow itself no-ops cheaply when there's nothing to do (e.g., vintage check finds no changes). Dispatching empty runs just for history isn't worth the Actions minutes.
+- **Q2 — Tracker currency:** This tracker reflects the current state (pg_cron as trigger). Historical GHA cron schedules are noted as "migrated from" — the full audit trail lives in git history.
+
 ## Scheduling migrations (GitHub cron → pg_cron)
 
-| # | Workflow | Current trigger | Target | Status | Shadow plan | Cutover gate |
+| # | Workflow | Current trigger | Migrated from | Status | Shadow plan | Cutover gate |
 |---|---|---|---|---|---|---|
-| 1 | `source-vintage-check` (hourly) | GHA cron `0 * * * *` | pg_cron + SQL/Edge Function | CUT OVER (2026-10-03, job `vintage-check-live` active) | Run pg_cron job hourly alongside GHA; compare dispatch decisions for 72h | 72h of identical dispatch decisions, zero missed triggers |
-| 2 | `rebuild-chain` trigger (6-hourly) | GHA cron `17 */6 * * *` + vintage-check dispatch | pg_cron → repository_dispatch | CUT OVER (2026-10-03, job `rebuild-chain-live` active) | pg_cron dispatches to a no-op Action run; verify dispatch fires on schedule | 3 consecutive on-time dispatches matching the 6h cadence |
-| 3 | `player-trace-rebuild` (6-hourly) | GHA cron `47 */6 * * *` | pg_cron → repository_dispatch | CUT OVER (2026-10-03, job `trigger-player-trace-live` active) | Same as #2 | Same as #2 |
-| 4 | `espn-supabase-sync` (daily) | GHA cron `30 11 * * *` | pg_cron → repository_dispatch | CUT OVER (2026-10-03, job `trigger-espn-sync-live` active) | Same pattern | 3 consecutive on-time dispatches |
-| 5 | `cbsros-supabase-sync` (weekly) | GHA cron `0 11 * * 3` | pg_cron → repository_dispatch | CUT OVER (2026-10-03, job `trigger-cbsros-sync-live` active) | Same pattern | 2 consecutive on-time dispatches (weekly cadence) |
-| 6 | `fantasycalc-drift` (daily) | GHA cron `45 11 * * *` | pg_cron → repository_dispatch | CUT OVER (2026-10-03, job `trigger-fantasycalc-drift-live` active) | Same pattern | 3 consecutive on-time dispatches |
-| 7 | `live-page-synthetic` (daily) | GHA cron `0 6 * * *` | Edge Function (full move, no Action) | NOT STARTED (2026-10-03, shadow removed; Edge Function not built) | Edge Function runs daily alongside GHA; compare verdicts for 7d | 7d of matching verdicts |
+| 1 | `source-vintage-check` (hourly) | pg_cron `vintage-check-live` (`0 * * * *`) → dispatches `source-vintage-check.yml` | GHA cron `0 * * * *` | CUT OVER (2026-10-03) | Run pg_cron job hourly alongside GHA; compare dispatch decisions for 72h | 72h of identical dispatch decisions, zero missed triggers |
+| 2 | `rebuild-chain` trigger (6-hourly) | pg_cron `rebuild-chain-live` (`17 */6 * * *`) → repository_dispatch | GHA cron `17 */6 * * *` + vintage-check dispatch | CUT OVER (2026-10-03) | pg_cron dispatches to a no-op Action run; verify dispatch fires on schedule | 3 consecutive on-time dispatches matching the 6h cadence |
+| 3 | `player-trace-rebuild` (6-hourly) | pg_cron `trigger-player-trace-live` (`47 */6 * * *`) → repository_dispatch | GHA cron `47 */6 * * *` | CUT OVER (2026-10-03) | Same as #2 | Same as #2 |
+| 4 | `espn-supabase-sync` (daily) | pg_cron `trigger-espn-sync-live` (`30 11 * * *`) → repository_dispatch | GHA cron `30 11 * * *` | CUT OVER (2026-10-03) | Same pattern | 3 consecutive on-time dispatches |
+| 5 | `cbsros-supabase-sync` (weekly) | pg_cron `trigger-cbsros-sync-live` (`0 11 * * 3`) → repository_dispatch | GHA cron `0 11 * * 3` | CUT OVER (2026-10-03) | Same pattern | 2 consecutive on-time dispatches (weekly cadence) |
+| 6 | `fantasycalc-drift` (daily) | pg_cron `trigger-fantasycalc-drift-live` (`45 11 * * *`) → repository_dispatch | GHA cron `45 11 * * *` | CUT OVER (2026-10-03) | Same pattern | 3 consecutive on-time dispatches |
+| 7 | `live-page-synthetic` (daily) | pg_cron `live-page-synthetic-live` (`0 6 * * *`) → Edge Function | GHA cron `0 6 * * *` | CUT OVER (2026-10-03, Edge Function deployed, job ID 15) | Edge Function runs daily alongside GHA; compare verdicts for 7d | 7d of matching verdicts |
 
 ## Compute (stays on GitHub Actions — no migration)
 
