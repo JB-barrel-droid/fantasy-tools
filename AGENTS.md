@@ -6,28 +6,35 @@ session is allowed to be the only holder of process memory.
 
 ## Operating Model
 
+`lanes/ROUTING.md` is the authoritative lane table; this section summarizes it.
+Never route work to a lane ROUTING.md marks unavailable.
+
 | Work type | Default route |
 | --- | --- |
-| Orchestration, final decisions, implementation, validation, handoffs | ChatGPT/Codex |
-| Architecture/design options, code review, broad debugging, migration analysis | Claude Code MCP |
-| Raw scraping, reference-dashboard comparison, research sweeps, visual exploration | Muse.ai/Muse |
-| Small obvious fixes, narrow docs edits, simple command checks | ChatGPT/Codex directly |
+| Implementation, validation, research sweeps, docs, routine fixes | minimax (M3) first — the default worker lane |
+| Architecture/design, debugging, code review | minimax (M3) first; escalate to Roman after 2 failed attempts |
+| Review, integration, merge/push/deploy, owner:muse tickets | Roman (per the merge charter) |
+| Anything minimax cannot do (live browser, credentials, vision/OCR, Mac-only files) | Roman |
+| Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
 
-- ChatGPT/Codex is the hub and final integrator. It frames tasks, chooses what
-  to delegate, supplies enough context, reviews delegated output, makes final
-  decisions, edits the repo, validates changes, and keeps GitHub current.
-- Claude Code MCP is the preferred delegate for token-intensive work when it is
-  available: long reasoning, architecture/design exploration, code review,
-  debugging investigations, broad repo searches, migration planning, and second
-  opinions before risky changes.
-- Muse.ai/Muse tooling is useful when its abundant usage can produce concrete
-  project value: source scraping, raw data capture, UI/design exploration,
-  quick prototypes, research sweeps, and comparisons against the current Muse
-  reference dashboard.
+- **minimax (M3)** is the default FIRST option for everything it can physically do
+  (Jeremy directive 2026-10-02; M3 only, no M2.5). Workers write code/docs and
+  commit to branches; they never merge, push, or deploy, and their "tests pass"
+  claims are verified independently before integration.
+- **Roman (Muse)** owns review, integration, all deploys to `main`, conflict
+  management between lanes, and the owner:muse tickets. Standing rules: never
+  publish on known flaws, never display unvalidated values, verify rendered
+  production after every deploy — never ask Jeremy to re-check.
+- **ChatGPT/Codex lane: UNAVAILABLE** (account out of usage; Jeremy ruled out
+  ChatGPT Plus, 2026-10-02). **Claude Code MCP lane: UNAVAILABLE** (Claude CLI
+  was never verified working from Muse; Jeremy: "Stop trying to use the claude
+  CLI", 2026-10-02). Do not design dispatches around either lane.
 - Avoid delegation for small edits, obvious fixes, simple command checks, or any
   handoff where writing the brief would take longer than doing the work.
 
-## ChatGPT/Codex Responsibilities
+## Delegation hygiene
+
+Whoever dispatches (usually Roman sending work to minimax):
 
 - Own the task brief and success criteria before delegating.
 - Keep delegated tasks narrow, context-rich, and output-oriented.
@@ -38,39 +45,17 @@ session is allowed to be the only holder of process memory.
 - Run the appropriate validation path before declaring work complete.
 - Commit and push coherent, validated slices often enough that another harness
   can continue within about 10-20 minutes.
+- Request one of these output shapes: findings with file/line references,
+  options with tradeoffs and a recommendation, a minimal patch plan, a
+  reproduction/debugging trace, or a concise risk list and test suggestions.
+- For review-only handoffs, say "do not edit files" in the prompt rather than
+  starving the worker of normal tools.
 
-## Claude Code MCP Use
+## Claude Code MCP (RETIRED)
 
-Use Claude Code MCP for work that benefits from a separate long context window
-or independent review, especially:
-
-- investigations spanning several files or subsystems
-- changes to pipeline rules or promotion paths
-- architecture or data-pipeline design options
-- debugging a failing test or data mismatch
-- code review before promotion, deployment, or broad refactors
-- finding consequences of a proposed schema, fixture, or UI change
-- summarizing a large subsystem before ChatGPT/Codex edits it
-
-When starting Claude Code through `claude-code-mcp`, pass `allowedTools` with at
-least `Read`, `Edit`, `Write`, `Glob`, `Grep`, and `Bash`. If the desired role is
-review-only, say "do not edit files" in the prompt rather than starving the
-session of normal project tools.
-
-Claude handoffs should request one of these output shapes:
-
-- findings with file/line references
-- options with tradeoffs and a recommendation
-- a minimal patch plan
-- a reproduction/debugging trace
-- a concise risk list and test suggestions
-
-ChatGPT/Codex must make the final call and perform or coordinate the final repo
-change.
-
-Claude Code should not push to `main` or trigger deployment autonomously. GitHub
-Pages deploys from `main`, so ChatGPT/Codex or the human operator owns that final
-publish decision.
+This lane is unavailable (see Operating Model above). The section is kept as a
+pointer only: do not start work through `claude-code-mcp`, and do not treat it
+as a fallback for anything minimax cannot do — escalate to Roman instead.
 
 ## Muse.ai / Muse Use
 
