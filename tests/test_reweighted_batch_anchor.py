@@ -45,6 +45,21 @@ class SharedAnchorTests(unittest.TestCase):
         after=build_batch_three_views(changed,native,{g:b*3 for g,b in budgets().items()})
         self.assertEqual(before['sources'],{s:{**out,'vorp':before['sources'][s]['vorp']} for s,out in after['sources'].items()})
 
+    def test_derived_avg_does_not_move_publisher_constraints_or_anchor(self):
+        pools,natives=pair()
+        before=build_batch_three_views(pools,natives,budgets())
+        with_avg={**pools,'avg':records(14,6)}
+        with_avg_natives={**natives,'avg':{}}
+        after=build_batch_three_views(with_avg,with_avg_natives,budgets())
+        self.assertEqual(after['derived_sources'],['avg'])
+        self.assertEqual(after['anchor_sources'],['fantasycalc','usat'])
+        self.assertEqual(before['provisional_maximum'],after['provisional_maximum'])
+        self.assertEqual(before['allocation_fractions'],after['allocation_fractions'])
+        self.assertEqual(before['control_constraints'],after['control_constraints'])
+        self.assertEqual(before['sources']['fantasycalc'],after['sources']['fantasycalc'])
+        self.assertEqual(before['sources']['usat'],after['sources']['usat'])
+        self.assertEqual(after['sources']['avg']['indexed'],{})
+
     def test_explicit_common_peak_required_and_stale_peak_rejected(self):
         with self.assertRaises(TypeError):apply_70_anchor({'1':10})
         with self.assertRaises(ValueError):apply_70_anchor({'1':10},batch_maximum=9)
