@@ -100,6 +100,11 @@
     const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
     const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
     if (fitWeek) return Number(fitWeek[1]);
+    // JEG-293: the pipeline no longer emits fitwk bake ids, so read the source's
+    // own week designation ("Week 4") before falling back to the global active
+    // week. "rest of season" sources carry no week and keep the old behavior.
+    const designated = String(source.week_designated || "").match(/week\s*(\d+)/i);
+    if (designated) return Number(designated[1]);
     return Number(data?.value_weeks?.monday) || null;
   }
 
