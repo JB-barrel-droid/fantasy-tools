@@ -781,6 +781,32 @@
   // throws inside runRegressionGuards() before draw()/publishShared() and
   // the comparison table freezes on the old scoring with no visible error.
   let userDeselectedSources = new Set();
+  // JEG-210: chart view toggle (Indexed | Value above waivers | Adjusted values).
+  // "indexed" is the only data-backed mode right now; the other two render a
+  // "Pending data" placeholder until the imputed value-above-waivers and shared
+  // reweight data lands via JEG-182. The Indexed view restricts the active
+  // source set to the four publishers with native trade-value charts, since
+  // the DDF-style sources (espn/cbsros/razzball) do not carry as-published
+  // trade values to reindex.
+  const VIEW_MODE_DEFS = {
+    indexed: {
+      title: "Indexed",
+      pendingTitle: "This view is coming soon",
+      pendingBody: 'Switch back to <strong>Indexed</strong> to see the chart with current data. The other views land with the next data pipeline update.'
+    },
+    vorp: {
+      title: "Value above waivers",
+      pendingTitle: "Value above waivers is coming soon",
+      pendingBody: "This view will show every source in <strong>value above waivers</strong> units. The data pipeline that produces these values is still in development."
+    },
+    adj: {
+      title: "Adjusted values",
+      pendingTitle: "Adjusted values are coming soon",
+      pendingBody: "This view will show every source through the shared weighting model. The data pipeline that produces these values is still in development."
+    }
+  };
+  const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
+  let viewMode = "indexed";
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -2584,6 +2610,60 @@
     });
   }
 
+  // JEG-210: chart view mode toggle. Only "indexed" is data-backed; the
+  // other two modes show a "Pending data" placeholder until the imputed
+  // value-above-waivers and shared-model data lands via JEG-182. When the
+  // user picks Indexed, the active source set is restricted to the four
+  // publishers with native trade values, because the DDF sources do not
+  // carry trade values to reindex.
+  function setViewMode(mode, publish = true) {
+    if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
+    viewMode = mode;
+    const tabs = document.querySelectorAll("#viewModeTabs [data-view-mode]");
+    tabs.forEach(tab => {
+      const selected = tab.dataset.viewMode === mode;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+    const pending = $("#viewModePending");
+    const chartArea = $("#viewModeChartArea");
+    const title = $("#viewModePendingTitle");
+    const body = $("#viewModePendingBody");
+    const def = VIEW_MODE_DEFS[mode];
+    if (title) title.textContent = def.pendingTitle;
+    if (body) body.innerHTML = def.pendingBody;
+    if (mode === "indexed") {
+      if (pending) pending.hidden = true;
+      if (chartArea) chartArea.hidden = false;
+      // Restrict active sources to the published charts only. If the user
+      // had a non-published source selected (e.g. espn from the default
+      // set), keep the existing picks but make sure at least one published
+      // source is on so the chart isn't empty.
+      const publishedAvailable = [...AS_PUBLISHED_KEYS].filter(key => sourceAvailable(key) && sourceMaps.get(key)?.size > 0);
+      const hasAnyPublished = [...activeSources].some(key => AS_PUBLISHED_KEYS.has(key));
+      if (!hasAnyPublished && publishedAvailable.length) {
+        activeSources = new Set([publishedAvailable[0]]);
+      }
+      userDeselectedSources = new Set();
+      makeSourceToggles();
+      draw();
+      syncCurveStatus();
+    } else {
+      if (pending) pending.hidden = false;
+      if (chartArea) chartArea.hidden = true;
+    }
+    if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", {detail: {viewMode: mode}}));
+  }
+
+  function makeViewModeTabs() {
+    const container = $("#viewModeTabs");
+    if (!container) return;
+    const tabs = container.querySelectorAll("[data-view-mode]");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => setViewMode(tab.dataset.viewMode));
+    });
+    setViewMode(viewMode, false);
+  }
+
   function makeLockControl() {
     const select = $("#curveLockOrder");
     if (!select) return;
@@ -2749,6 +2829,7 @@
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
+    makeViewModeTabs();
     renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
@@ -2782,6 +2863,7 @@
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
+    makeViewModeTabs();
     renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
