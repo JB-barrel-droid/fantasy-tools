@@ -5,9 +5,9 @@
  * Reads the vorp-views-preview.json payload and re-derives the Indexed display
  * map with independent JS arithmetic: indexed[k] === native[k] * 70 / peak.
  * Also verifies vorp/adj maps are finite-nonnegative, that indexed-excluded
- * sources carry an explicit reason (never a silent gap), and that every view
- * map's keys agree with the native key set (genuine 0.0 kept, absent stays
- * absent).
+ * sources carry an explicit reason (never a silent gap), and that publisher
+ * native keys are a subset of VORP/Adjusted when AVG backstops missing players
+ * (genuine 0.0 kept, absent stays absent).
  *
  * The Python preview builder does the primary derivation; this script must
  * agree with it exactly. Any disagreement names the failing check.
@@ -61,11 +61,12 @@ function main() {
       fail(`${src}: vorp/adj_values keys differ (dropped/invented players)`);
     }
     if (Object.keys(nativeMap).length > 0) {
-      if (vorpKeys !== nativeKeys) {
-        fail(`${src}: vorp keys differ from native key set (dropped/invented players)`);
-      }
-      if (adjKeys !== nativeKeys) {
-        fail(`${src}: adj_values keys differ from native key set (dropped/invented players)`);
+      const vorpSet = new Set(Object.keys(vorp));
+      const adjSet = new Set(Object.keys(adj));
+      for (const k of Object.keys(nativeMap)) {
+        if (!vorpSet.has(k) || !adjSet.has(k)) {
+          fail(`${src}: native key ${k} missing from VORP/Adjusted`);
+        }
       }
     } else if (vorpKeys === "") {
       fail(`${src}: vorp/adj_values maps are empty`);
