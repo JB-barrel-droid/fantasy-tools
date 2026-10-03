@@ -63,12 +63,12 @@ class RosterConfigTests(unittest.TestCase):
         g={x:0 for x in GROUPS};g['QB','starter']=20
         out=compute_imputed_vorps(values,g,cfg,require_complete=True)
         self.assertEqual(out['100'],{'group':'QB|Cut','alloc_factor':0,'imputed_vorp':0,'native':1})
-        views=build_three_views(out,{k:r[1] for k,r in values.items()},g)
+        views=build_three_views(out,{k:r[1] for k,r in values.items()},g,batch_maximum=20)
         self.assertEqual(views['vorp']['100'],0)
         self.assertEqual(views['adj_values']['100'],0)
         self.assertEqual(views['indexed']['100'],1)
         bad={**out,'100':{**out['100'],'imputed_vorp':1}}
-        with self.assertRaises(ValueError): build_three_views(bad,{'100':1,'869':2},g)
+        with self.assertRaises(ValueError): build_three_views(bad,{'100':1,'869':2},g,batch_maximum=20)
 
     def test_cli_matching_manifest_and_separate_bench_counts(self):
         cfg=RosterConfig(12,DEDICATED,1,72,'half_ppr')
