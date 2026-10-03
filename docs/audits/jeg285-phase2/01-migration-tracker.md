@@ -36,7 +36,7 @@ Decommissioned = old implementation removed.
 | # | Capability | Target | Status | Depends on |
 |---|---|---|---|---|
 | 8 | Chain failure notification | DB webhook → Slack/Discord | NOT STARTED | Jeremy: webhook URL |
-| 9 | pg_cron retention policy | `cron.job_run_details` cleanup job | NOT STARTED | None — do first |
+| 9 | pg_cron retention policy | `cron.job_run_details` cleanup job | NOT STARTED — spec delivered (04-pgcron-retention-policy.md, dc3a7779) | Jeremy: go on implementation |
 | 10 | Audit-table migration | `001_pipeline_write_audit_repair.sql` | NOT STARTED | Jeremy: explicit approval |
 
 ## Prerequisites order
