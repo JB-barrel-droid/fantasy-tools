@@ -19,16 +19,25 @@ sys.path.insert(0, str(REPO / "pipelines"))
 import build_pipeline_checkpoints as bpc  # noqa: E402
 
 
-def _fixture(method_by_combo, tmpdir):
-    """Minimal comparison-sources-data.json shaped like the real fixture."""
+def _fixture(method_by_combo, tmpdir, extra_fit=None):
+    """Minimal comparison-sources-data.json shaped like the real fixture.
+
+    extra_fit: optional dict merged into every combo's fit block (e.g. a
+    vorp_translation step as written by pipelines/translate_via_vorp.py).
+    """
+    def _combo(src, cn):
+        fit = {"flex_aware_pie": {"method": method_by_combo.get((src, cn)), "anchor": "espn_leg"}}
+        if extra_fit:
+            fit.update(extra_fit)
+        return {"fit": fit}
     combos_fc = {
-        cn: {"fit": {"flex_aware_pie": {"method": method_by_combo.get(("fantasycalc", cn)), "anchor": "espn_leg"}}}
+        cn: _combo("fantasycalc", cn)
         for cn in ("full_12_qb1", "half_12_qb1", "standard_12_qb1")
     }
     sources = {"fantasycalc": {"combos": combos_fc}}
     for src in ("fantasypros", "usatoday", "cbs"):
         sources[src] = {"combos": {
-            cn: {"fit": {"flex_aware_pie": {"method": method_by_combo.get((src, cn)), "anchor": "espn_leg"}}}
+            cn: _combo(src, cn)
             for cn in ("full_12", "half_12", "standard_12")
         }}
     p = Path(tmpdir) / "data" / "fixtures" / "current"
@@ -38,10 +47,10 @@ def _fixture(method_by_combo, tmpdir):
 
 
 class TestMethodologyConsistency(unittest.TestCase):
-    def _run_with(self, method_by_combo):
+    def _run_with(self, method_by_combo, extra_fit=None):
         tmp = tempfile.mkdtemp()
         old_repo = bpc.REPO
-        bpc.REPO = Path(_fixture(method_by_combo, tmp))
+        bpc.REPO = Path(_fixture(method_by_combo, tmp, extra_fit=extra_fit))
         try:
             return bpc.build_methodology_consistency()
         finally:
@@ -80,3 +89,38 @@ class TestMethodologyConsistency(unittest.TestCase):
         res = self._run_with(m)
         self.assertEqual(res["status"], "bad", res.get("reason"))
         self.assertIn("usatoday/full_12", res["reason"])
+
+    def test_vorp_translation_fit_key_is_not_held_to_reindex_method(self):
+        """The vorp_translation step (method vorp-supabase, written by
+        pipelines/translate_via_vorp.py) is a separate transformation step
+        with its own dedicated check (build_vorp_translation_summary). The
+        methodology-consistency check must scope its reindex method/anchor
+        expectation to the reindex fit key only.
+
+        Discrimination: the pre-fix loop iterated every fit key, so this
+        fixture -- which mirrors the real production fixture -- returned
+        "bad" with 12 vorp-supabase inconsistencies. Post-fix it is "ok".
+        """
+        extra = {"vorp_translation": {"method": "vorp-supabase", "n_translated": 176}}
+        res = self._run_with(self._all_current(), extra_fit=extra)
+        self.assertEqual(res["status"], "ok", res.get("reason"))
+        self.assertIn("reindex fit", res.get("reason", ""))
+
+    def test_missing_reindex_fit_is_bad(self):
+        """A combo present in the fixture but missing the reindex fit means
+        the reindex step never stamped it -- fail closed rather than passing
+        a combo the check cannot verify."""
+        tmp = tempfile.mkdtemp()
+        m = self._all_current()
+        old_repo = bpc.REPO
+        bpc.REPO = Path(_fixture(m, tmp))
+        try:
+            p = bpc.REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+            d = json.loads(p.read_text())
+            del d["sources"]["cbs"]["combos"]["full_12"]["fit"]["flex_aware_pie"]
+            p.write_text(json.dumps(d))
+            res = bpc.build_methodology_consistency()
+        finally:
+            bpc.REPO = old_repo
+        self.assertEqual(res["status"], "bad", res.get("reason"))
+        self.assertIn("cbs/full_12", res["reason"])

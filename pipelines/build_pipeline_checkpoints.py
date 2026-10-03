@@ -112,6 +112,14 @@ def evaluate_pages_deploy(runs):
     (observed 2026-10-01 08:38 UTC: a healthy in-flight deploy from the routine
     03:37 CDT health push was reported bad). A failed completed deploy stays
     bad; a stale (>2d) successful deploy warns.
+
+    A "cancelled" conclusion on a run that has a NEWER run ahead of it in the
+    list is a push-race supersede (GitHub cancels the older in-flight run when
+    a new push arrives), not a deploy failure -- observed 2026-10-03 14:42 UTC
+    when the checkpoint rebuild judged a superseded cancel bad while the
+    newer push's deploy was still in flight. Such runs are skipped before
+    judging. A cancelled run with nothing newer is still bad: the newest
+    deploy never succeeded.
     """
     def verdict(run):
         run_status = run.get("status")
@@ -127,7 +135,11 @@ def evaluate_pages_deploy(runs):
         return {"timestamp": run_updated, "status": "ok",
                 "reason": f"Pages deployed successfully {(run_days or 0):.1f}d ago."}
 
-    completed = [r for r in runs if r.get("status") == "completed"]
+    # runs arrive newest-first. Drop superseded cancels before judging.
+    judged = [r for i, r in enumerate(runs)
+              if not (i > 0 and r.get("status") == "completed"
+                      and r.get("conclusion") == "cancelled")]
+    completed = [r for r in judged if r.get("status") == "completed"]
     if completed:
         latest = completed[0]
         v = verdict(latest)
@@ -253,8 +265,14 @@ def razzball_health_from_fixture(fixture):
 
 
 def build_checkpoints():
-    # Load health file
-    health_path = REPO / "output" / "source-import-health.json"
+    # Load health file: freshest valid input wins. The gitignored output/
+    # runtime file only exists on the machine that ran the health gate; a
+    # manual rebuild elsewhere (clean worktree, CI) must resolve to the
+    # freshest committed copy instead of silently producing "unk" checkpoints
+    # from an absent file. Same rule as sync_dashboard_artifacts.py's
+    # import_health_source (2026-10-01): never a hardcoded fallback.
+    from sync_dashboard_artifacts import import_health_source
+    health_path = import_health_source(REPO)
     health = {}
     health_checked_at = None
     if health_path.exists():
@@ -732,6 +750,29 @@ def _reindex_pipeline_method():
     return m.group(1)
 
 
+def _reindex_pipeline_fit_key():
+    """Fit-dict key the reindex pipeline writes for as-published sources.
+
+    Parsed from pipelines/reindex_comparison_section.py (the single source of
+    truth) alongside _reindex_pipeline_method(). The methodology-consistency
+    check scopes its reindex method/anchor expectation to this key only --
+    other fit keys (e.g. "vorp_translation", written by
+    pipelines/translate_via_vorp.py with its own method family) are separate
+    transformation steps with their own dedicated checks and must not be
+    held to the reindex method. Fail-closed: raises unless the pipeline
+    writes exactly one distinct fit key.
+    """
+    pipelines_dir = Path(__file__).resolve().parent
+    src = (pipelines_dir / "reindex_comparison_section.py").read_text()
+    keys = set(re.findall(r'\["fit"\]\["([a-z0-9_]+)"\]\s*=', src))
+    if len(keys) != 1:
+        raise RuntimeError(
+            "build_pipeline_checkpoints: expected exactly one fit key written "
+            f"by reindex_comparison_section.py, found {sorted(keys)}"
+        )
+    return keys.pop()
+
+
 def build_scale_agreement_summary():
     """Surface the scale-agreement section status for the fleet headline.
 
@@ -881,6 +922,16 @@ def build_methodology_consistency():
          (full_12, half_12, standard_12).
       M3 Anchor consistency: all reindex fits anchor to espn_leg.
 
+    Scope: M1/M3 apply ONLY to the reindex fit key (whatever key the reindex
+    pipeline writes -- derived, not hardcoded). Other fit keys are separate
+    transformation steps with their own dedicated checks: the
+    "vorp_translation" step (method vorp-supabase, written by
+    pipelines/translate_via_vorp.py) is covered by build_vorp_translation_summary,
+    and legacy position-scoped fits (e.g. isotonic_pava on non-12-team combos)
+    predate the current reindex contract. Holding them to the reindex method
+    is a false bad (2026-10-03: the check flagged the intentional
+    vorp-supabase translation step on all 12 combos).
+
     Status: ok/warn/bad. Any deviation is bad (methodology drift is a
     data-integrity failure, not a tolerance issue).
     """
@@ -904,6 +955,7 @@ def build_methodology_consistency():
     # proportional_scaling_flex_aware_per_position; the old hardcoded
     # constant falsely flagged the intentional change as a bad checkpoint.)
     EXPECTED_METHOD = _reindex_pipeline_method()
+    EXPECTED_FIT_KEY = _reindex_pipeline_fit_key()
     EXPECTED_ANCHOR = "espn_leg"
     COMBOS = ["full_12", "half_12", "standard_12"]
 
@@ -923,21 +975,30 @@ def build_methodology_consistency():
                 continue
             checked += 1
             fit = combos[actual_cn].get("fit", {})
-            for fit_key, fit_val in fit.items():
-                if not isinstance(fit_val, dict):
-                    continue
-                method = fit_val.get("method")
-                anchor = fit_val.get("anchor")
-                if method and method != EXPECTED_METHOD:
-                    issues.append(
-                        f"{src}/{actual_cn}/{fit_key}: method={method} "
-                        f"(expected {EXPECTED_METHOD})"
-                    )
-                if anchor and anchor != EXPECTED_ANCHOR:
-                    issues.append(
-                        f"{src}/{actual_cn}/{fit_key}: anchor={anchor} "
-                        f"(expected {EXPECTED_ANCHOR})"
-                    )
+            # Scope: only the reindex fit key is held to the reindex method
+            # and anchor. Other fit keys (vorp_translation, legacy
+            # position-scoped fits) are separate transformation steps with
+            # their own checks; demanding the reindex method of them is a
+            # false bad.
+            reindex_fit = fit.get(EXPECTED_FIT_KEY)
+            if not isinstance(reindex_fit, dict):
+                issues.append(
+                    f"{src}/{actual_cn}: missing {EXPECTED_FIT_KEY} fit "
+                    f"(reindex step not recorded)"
+                )
+                continue
+            method = reindex_fit.get("method")
+            anchor = reindex_fit.get("anchor")
+            if method and method != EXPECTED_METHOD:
+                issues.append(
+                    f"{src}/{actual_cn}/{EXPECTED_FIT_KEY}: method={method} "
+                    f"(expected {EXPECTED_METHOD})"
+                )
+            if anchor and anchor != EXPECTED_ANCHOR:
+                issues.append(
+                    f"{src}/{actual_cn}/{EXPECTED_FIT_KEY}: anchor={anchor} "
+                    f"(expected {EXPECTED_ANCHOR})"
+                )
 
     if not checked:
         status, reason = "bad", "No as-published combos found in fixture."
@@ -949,7 +1010,8 @@ def build_methodology_consistency():
     else:
         status, reason = "ok", (
             f"All {checked} as-published combos use {EXPECTED_METHOD} "
-            f"anchored to {EXPECTED_ANCHOR}."
+            f"anchored to {EXPECTED_ANCHOR} on the {EXPECTED_FIT_KEY} reindex fit "
+            f"(translation step checked separately)."
         )
 
     return {
@@ -959,6 +1021,7 @@ def build_methodology_consistency():
         "status": status,
         "reason": reason,
         "expected_method": EXPECTED_METHOD,
+        "expected_fit_key": EXPECTED_FIT_KEY,
         "expected_anchor": EXPECTED_ANCHOR,
         "combos_checked": checked,
         "issues": issues,

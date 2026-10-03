@@ -89,6 +89,40 @@ class PagesDeployVerdictTest(unittest.TestCase):
         v = bpc.evaluate_pages_deploy([_run("in_progress", None, 1)])
         self.assertEqual("unk", v["status"], v["reason"])
 
+    def test_superseded_cancel_is_not_bad(self):
+        # 2026-10-03 14:42 UTC: a newer push's deploy was in flight while the
+        # older push's run showed completed/cancelled (GitHub cancels the
+        # superseded in-flight run on a new push). The cancelled run has a
+        # newer run ahead of it, so it must be skipped, not judged bad.
+        # Discrimination: the pre-fix code returns bad for this fixture.
+        runs = [_run("in_progress", None, 1),
+                _run("completed", "cancelled", 3),
+                _run("completed", "success", 30)]
+        v = bpc.evaluate_pages_deploy(runs)
+        self.assertEqual("ok", v["status"], v["reason"])
+        self.assertIn("in progress", v["reason"].lower())
+
+    def test_superseded_cancel_behind_success_is_ok(self):
+        # Cancelled run with a newer completed run ahead of it: the cancel
+        # was a supersede, the newer deploy succeeded.
+        runs = [_run("completed", "success", 5),
+                _run("completed", "cancelled", 30),
+                _run("completed", "success", 60)]
+        v = bpc.evaluate_pages_deploy(runs)
+        self.assertEqual("ok", v["status"], v["reason"])
+
+    def test_newest_cancel_with_nothing_newer_is_bad(self):
+        # A cancelled run that is itself the newest run was not superseded:
+        # the newest deploy never succeeded -- still a failure signal.
+        runs = [_run("completed", "cancelled", 10),
+                _run("completed", "success", 60)]
+        v = bpc.evaluate_pages_deploy(runs)
+        self.assertEqual("bad", v["status"], v["reason"])
+
+    def test_lone_cancelled_run_is_bad(self):
+        v = bpc.evaluate_pages_deploy([_run("completed", "cancelled", 10)])
+        self.assertEqual("bad", v["status"], v["reason"])
+
 
 if __name__ == "__main__":
     unittest.main()

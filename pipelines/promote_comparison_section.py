@@ -252,6 +252,29 @@ def check_l1_freshness(source, section, import_health_path=None):
     }
 
 
+def _merge_promoted_combo(new_combo, cand_combo):
+    """Copy a reviewed candidate combo's fields into the promoted fixture combo.
+
+    new_combo starts as a deepcopy of the existing fixture combo; every field
+    the candidate pipeline recomputed is replaced wholesale. The candidate's
+    "translation" provenance block (stamped by pipelines/translate_via_vorp.py
+    with method + week/season grain) MUST travel with the values it describes:
+    without this the fixture kept a stale translation block (null grain) while
+    the fresh fit["vorp_translation"] carried the real provenance (observed
+    2026-10-03 -- the monitor's vorp_translation section warned "grain week
+    not recorded" on otherwise fresh data). When the candidate carries no
+    translation block the existing fixture block is left untouched (fail-closed:
+    never invent or destroy provenance).
+    """
+    new_combo["native"] = dict(cand_combo["native"])
+    new_combo["reindexed"] = dict(cand_combo["reindexed"])
+    new_combo["fit"] = copy.deepcopy(cand_combo["fit"])
+    new_combo["n"] = sum(cand_combo["n"].values())
+    new_combo["index_total"] = copy.deepcopy(cand_combo["index_total"])
+    if "translation" in cand_combo:
+        new_combo["translation"] = copy.deepcopy(cand_combo["translation"])
+
+
 def promote(review_path, approve, fixture_path=None, record_dir=None,
             import_health_path=None):
     if not approve or not approve.strip():
@@ -370,11 +393,7 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
             raise SystemExit(f"promotion refused: combo {combo_name!r} not in "
                              f"fixture section -- review said combos_match?")
         new_combo = new_section["combos"][combo_name]
-        new_combo["native"] = dict(cand_combo["native"])
-        new_combo["reindexed"] = dict(cand_combo["reindexed"])
-        new_combo["fit"] = copy.deepcopy(cand_combo["fit"])
-        new_combo["n"] = sum(cand_combo["n"].values())
-        new_combo["index_total"] = copy.deepcopy(cand_combo["index_total"])
+        _merge_promoted_combo(new_combo, cand_combo)
     new_section["reindex_anchor"] = "espn_leg"
     new_section["promoted_at"] = utc_now()
     new_section["promoted_from_review"] = Path(review_path).name

@@ -321,5 +321,63 @@ class TestPromote(unittest.TestCase):
         self.assertFalse(rec["l1_import_health_gate"]["applied"])
 
 
+class MergePromotedComboTest(unittest.TestCase):
+    """_merge_promoted_combo must carry the candidate's translation provenance.
+
+    2026-10-03: promote() copied native/reindexed/fit/n/index_total but not
+    the "translation" block stamped by translate_via_vorp.py, so the fixture
+    kept a stale translation provenance (null week/season grain) while the
+    fresh fit["vorp_translation"] carried the real one. The monitor's
+    vorp_translation section warned "grain week not recorded" on fresh data.
+    """
+
+    def _combo(self, translation):
+        combo = {
+            "native": {"a": 100.0},
+            "reindexed": {"a": 10.0},
+            "fit": {"flex_aware_pie": {"method": "m"}},
+            "n": {"qb": 1},
+            "index_total": {},
+        }
+        if translation is not None:
+            combo["translation"] = translation
+        return combo
+
+    def test_merge_carries_candidate_translation(self):
+        # Discrimination: pre-fix merge drops the candidate's translation
+        # block, so the promoted combo keeps the stale null-grain block.
+        new_combo = self._combo({"method": "vorp-supabase",
+                                 "grain": {"week": None, "season": None}})
+        cand = self._combo({"method": "vorp-supabase",
+                            "grain": {"week": 4, "season": 2026},
+                            "n_translated": 176})
+        promo._merge_promoted_combo(new_combo, cand)
+        self.assertEqual(new_combo["translation"]["grain"]["week"], 4)
+        self.assertEqual(new_combo["translation"]["grain"]["season"], 2026)
+        self.assertEqual(new_combo["translation"]["n_translated"], 176)
+        # Candidate mutation must not alias the fixture block.
+        cand["translation"]["grain"]["week"] = 99
+        self.assertEqual(new_combo["translation"]["grain"]["week"], 4)
+
+    def test_merge_without_candidate_translation_keeps_existing(self):
+        # Fail-closed: when the candidate carries no translation block the
+        # existing fixture provenance is left untouched, never invented.
+        existing = {"method": "vorp-supabase",
+                    "grain": {"week": 3, "season": 2026}}
+        new_combo = self._combo(existing)
+        cand = self._combo(None)
+        promo._merge_promoted_combo(new_combo, cand)
+        self.assertEqual(new_combo["translation"], existing)
+
+    def test_merge_still_copies_value_fields(self):
+        new_combo = self._combo(None)
+        cand = self._combo({"method": "reindex-fallback",
+                            "grain": {"week": 4, "season": 2026}})
+        cand["reindexed"] = {"a": 11.0}
+        promo._merge_promoted_combo(new_combo, cand)
+        self.assertEqual(new_combo["reindexed"], {"a": 11.0})
+        self.assertEqual(new_combo["translation"]["method"], "reindex-fallback")
+
+
 if __name__ == "__main__":
     unittest.main()
