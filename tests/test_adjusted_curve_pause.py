@@ -230,7 +230,7 @@ class TestPauseWiring(unittest.TestCase):
         # legacy helper still preserves computed adjusted defaults and
         # intentional user deselection for future data-backed modes.
         self.assertIn(
-            "const defaultGroupedSources = indexedCurvesSatisfied(",
+            "const defaultGroupedSources = defaultCurvesSatisfied(",
             self.text)
         self.assertIn("function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet)",
                       self.text)
