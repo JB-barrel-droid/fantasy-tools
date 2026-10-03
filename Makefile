@@ -151,6 +151,7 @@ test-unit:
 	python3 -m unittest tests.test_jeg242_blend_reference
 	python3 -m unittest tests.test_run_as_published_vorp
 	python3 -m unittest tests.test_transform_batch70_to_comparison
+	python3 -m unittest tests.test_backstop_hash_roundtrip
 	python3 -m unittest tests.test_vintage_trigger
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
