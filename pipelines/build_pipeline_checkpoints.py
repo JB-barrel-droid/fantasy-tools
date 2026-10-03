@@ -744,7 +744,7 @@ def build_scale_agreement_summary():
     If scale-agreement.json is absent (builder not yet run), status is "unk",
     never a failure claim.
     """
-    label = "Scale agreement (native vs reindexed vs anchor)"
+    label = "Adj: legacy scale agreement (native vs reindexed vs anchor)"
     path = REPO / "dist" / "modules" / "scale-agreement.json"
     try:
         data = json.loads(path.read_text())
@@ -790,7 +790,7 @@ def build_vorp_translation_summary():
     """
     from translate_via_vorp import AS_PUBLISHED_SOURCES, _qb_divergent_siblings
 
-    label = "VORP translation freshness (as-published sources)"
+    label = "VORP: legacy translation freshness (not Option C readiness)"
     fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
     try:
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
@@ -953,8 +953,8 @@ def build_methodology_consistency():
         )
 
     return {
-        "label": "Methodology consistency",
-        "what": "All as-published sources use the same reindex method and anchor at each transformation step",
+        "label": "VORP / Adj: legacy methodology consistency",
+        "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
         "timestamp": iso_now(),
         "status": status,
         "reason": reason,

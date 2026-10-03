@@ -154,40 +154,20 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="methodologyCard">
-  <h2>Methodology consistency</h2>
-  <div class="desc">
-    All as-published sources must use the same reindex method and anchor at each
-    transformation step. A <b>bad</b> here means some combos were baked with a
-    different method — an honest signal, not a hidden one.
-  </div>
+  <h2>VORP / Adj — legacy methodology consistency</h2>
+  <div class="desc">The current check audits legacy fixture reindex methods and the ESPN anchor. It does not certify the eight-group proportional VORP contract or the shared reweight. Those views remain pending their pipeline integration. Indexed trade charts use a simple native rescale; no VORP logic is applied.</div>
   <div id="methodologyConsistency"></div>
 </section>
 
 <section class="card" id="vorpTranslationCard">
-  <h2>VORP translation freshness</h2>
-  <div class="desc">
-    The as-published sources' chart values come from VORP-translated grains in
-    Supabase, refreshed weekly (Wed 06:30 CT) and wired through by the chain's
-    translate_via_vorp stage. <b>Warn</b> = a grain is older than the current
-    NFL week (refresh or wiring pending). <b>Bad</b> = a combo is on
-    reindex-fallback as its steady state — the quantile mapping JEG-64 replaced.
-    Reads the provenance stamped into the fixture: what the chart serves, not
-    what the pipeline claims.
-  </div>
+  <h2>VORP — legacy translation freshness</h2>
+  <div class="desc">This checks legacy Supabase translation provenance and grain freshness, not Option C eight-group readiness. A current legacy grain does not certify the new VORP view. Stale or fallback findings remain visible below. Indexed uses native trade values and does not call this translation.</div>
   <div id="vorpTranslation"></div>
 </section>
 
 <section class="card" id="scaleAgreementCard">
-  <h2>Scale agreement — native vs reindexed vs anchor</h2>
-  <div class="desc">
-    For each as-published source × position: does the source's <b>published</b>
-    shape track the ESPN anchor, and did our <b>reindexing</b> keep it there?<br>
-    <b>Agreement</b> = both track. <b>Genuine disagreement</b> = the published
-    numbers already differ from the anchor (needs Jeremy's accept-vs-fix call,
-    not a pipeline fix). <b>Indexation artifact</b> = the published shape tracks
-    the anchor but our reindex moved it — a pipeline defect.
-    Band 0.80–1.25x, same as the chart's Chart Health scale-agreement check.
-  </div>
+  <h2>Adj — legacy scale agreement (native vs reindexed vs anchor)</h2>
+  <div class="desc">This legacy derived-scale diagnostic compares fixture reindexed or DDF values with the ESPN anchor. It is not an Indexed rescale check or proof of the approved shared reweight. Natural source disagreement stays visible; legacy artifact flags require review. Band 0.80–1.25x is the existing diagnostic band.</div>
   <div id="scaleAgreementSummary" style="margin-bottom:16px"></div>
   <div id="scaleAgreement"></div>
 </section>
@@ -219,29 +199,15 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="indexMathCard">
-  <h2>Index math — raw to indexed transformation</h2>
-  <div class="desc">
-    How the <b>pre-indexed (native)</b> numbers become the <b>indexed values</b> shown on the dashboard.
-    The transformation is recomputed and compared against the actual indexed numbers — they must match <b>exactly</b>.
-  </div>
+  <h2>Indexed — native trade-value rescale</h2>
+  <div class="desc">For CBS, FantasyCalc, FantasyPros and USA Today only: indexed = native × 70 / max(native) for the exact source/configuration. No VORP, waiver subtraction, positional weighting, DDF or isotonic mapping is applied. This report computes target arithmetic; it does not certify the currently rendered Indexed values.</div>
   <div id="indexMathSummary" style="margin-bottom:16px"></div>
   <div id="indexMathSources"></div>
 </section>
 
 <section class="card" id="lineageCard">
-  <h2>Source value lineage — top 25 players per source</h2>
-  <div class="desc">
-    For each source, the <b>25 most valuable players</b> in <b>12-team Half PPR</b>, traced from the
-    <b>live source page</b> through every transformation to the <b>chart value</b>.
-    <b>Live</b> = scraped directly from the human-readable source page right now ·
-    <b>Native</b> = value stored in our pipeline snapshot ·
-    <b>Group</b> = 8-group bucket (QB/RB/WR/TE × Starter/Bench, flex → Starter) ·
-    <b>Alloc factor</b> = our group VORP ÷ sum of publisher values in this group ·
-    <b>Our group VORP</b> = the 8-group input total (N/A until the 8-group bake artifact lands) ·
-    <b>Imputed VORP</b> = native × alloc factor (Option C method).
-    Multipliers show the effective ratio at each step.
-    A red <b>✗</b> in the Live column means the live page value does not match our stored snapshot.
-  </div>
+  <h2>VORP / Adj — source value lineage</h2>
+  <div class="desc">The top-25 trace combines JEG-207's group, allocation factor and Option C imputed VORP columns with historical fixture indexing and derived chart estimates. Group VORP is the eight-group input total; absent inputs remain unavailable. These audit columns do not certify the new chart views. Live values come from the recorded scrape vintage, not a fresh scrape on page load. Legacy Indexed/Reweighted/Chart columns remain historical estimates pending view integration.</div>
   <div id="lineageSummary" style="margin-bottom:16px"></div>
   <div id="lineageSources"></div>
 </section>
@@ -861,6 +827,9 @@ async function main(){
     const mathResp = await fetch("index-math.json", {cache:"no-store"});
     if(mathResp.ok){
       const mathData = await mathResp.json();
+      if (mathData.view !== "indexed" || mathData.model !== "simple-native-rescale") {
+        throw new Error("Legacy index-math artifact is not an Indexed rescale report; rebuild required");
+      }
       const sources = mathData.sources || {};
       const order = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"].filter(s => sources[s]);
       
@@ -870,10 +839,10 @@ async function main(){
         if(st === "ok") okCount++;
         else if(st === "bad") badCount++;
       });
-      const sumColor = badCount > 0 ? "var(--red)" : "var(--green)";
+      const sumColor = badCount > 0 ? "var(--red)" : okCount === order.length && order.length > 0 ? "var(--green)" : "var(--yellow)";
       mathSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
-        <div><span style="font-size:24px;font-weight:800;color:${sumColor}">${okCount}</span><span style="color:var(--dim);font-size:13px"> / ${order.length} transformations exact</span></div>
-        <div style="font-size:12.5px;color:var(--dim)">Recomputed indexed values must match actual indexed values exactly.<br>Generated: ${shortTs(mathData.generated_at)}</div>
+        <div><span style="font-size:24px;font-weight:800;color:${sumColor}">${okCount}</span><span style="color:var(--dim);font-size:13px"> / ${order.length} rendered transformations verified</span></div>
+        <div style="font-size:12.5px;color:var(--dim)">${order.length - okCount} source(s) pending rendered verification.<br>Native-only target arithmetic; rendered Indexed wiring remains unverified.<br>Generated: ${shortTs(mathData.generated_at)}</div>
       </div>`;
       
       mathHost.innerHTML = order.map(srcKey => {
@@ -889,11 +858,11 @@ async function main(){
         
         const combos = Object.entries(s.combos || {}).map(([comboName, c]) => {
           const samples = (c.samples || []).map(sm => {
-            const matchIcon = sm.match ? "✓" : "✗";
-            const matchColor = sm.match ? "var(--green)" : "var(--red)";
+            const matchIcon = sm.match === true ? "✓" : sm.match === false ? "✗" : "unverified";
+            const matchColor = sm.match === true ? "var(--green)" : sm.match === false ? "var(--red)" : "var(--yellow)";
             return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);font-size:13px">
               <span>${sm.player}</span>
-              <span style="font-family:monospace">${sm.native} → ${sm.leg_value || sm.reindexed} → <b>${sm.fixture_value || sm.reindexed}</b> <span style="color:${matchColor}">${matchIcon}</span></span>
+              <span style="font-family:monospace">${sm.native} → ${sm.leg_value ?? sm.reindexed ?? "N/A"} → <b>${sm.fixture_value ?? "unverified"}</b> <span style="color:${matchColor}">${matchIcon}</span></span>
             </div>`;
           }).join("");
           return `<div style="margin:12px 0;padding:12px;background:var(--card2);border-radius:8px">
@@ -921,7 +890,7 @@ async function main(){
               ${steps}
             </div>
             <div style="margin-top:12px">
-              <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px">VERIFICATION SAMPLES (native → recomputed → actual)</div>
+              <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px">TARGET SAMPLES (native → rescaled → rendered verification)</div>
               ${combos || '<div style="color:var(--grey)">No data</div>'}
             </div>
             ${mism ? `<div style="margin-top:12px"><div style="font-size:12px;font-weight:700;color:var(--red);margin-bottom:6px">MISMATCHES (must be zero)</div>${mism}</div>` : ""}
@@ -987,7 +956,7 @@ async function main(){
       lineageSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
         <div><span style="font-size:24px;font-weight:800;color:var(--blue)">${tracedPlayers}</span><span style="color:var(--dim);font-size:13px"> players traced</span></div>
         <div><span style="font-size:24px;font-weight:800;color:${liveMismatches > 0 ? 'var(--red)' : 'var(--green)'}">${liveMismatches}</span><span style="color:var(--dim);font-size:13px"> live mismatches</span></div>
-        <div style="font-size:12.5px;color:var(--dim)">12-team Half PPR · Top 25 per source by chart value<br>Generated: ${shortTs(linData.generated_at)} · Live checked: ${liveChecked} rows</div>
+        <div style="font-size:12.5px;color:var(--dim)">12-team Half PPR · Legacy top 25 per source by stored chart estimate<br>Generated: ${shortTs(linData.generated_at)} · Live checked: ${liveChecked} rows</div>
       </div>`;
 
       lineageHost.innerHTML = order.map(srcKey => {
@@ -1029,7 +998,7 @@ async function main(){
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our group VORP divided by the sum of publisher values in this group. The multiplier that scales each publisher native into our imputed VORP.">${fmtMult(p.alloc_factor)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (N/A until the 8-group bake artifact lands)">${fmt(p.our_group_vorp)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)" title="Imputed VORP = native x alloc_factor. Replaces the legacy implied_vorp which ran the old translate_source method.">${fmt(p.imputed_vorp)}</td>
-            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="DDF-rebuilt value (what the chart actually displays)">${fmt(p.ddf_rebuilt)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Legacy DDF-rebuilt estimate; not verified for the new view">${fmt(p.ddf_rebuilt)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.index_mult)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.indexed)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.reweight_mult)}</td>
