@@ -1,0 +1,482 @@
+{
+  "schema": "jeg242-sheet-sentinel-capture-v1",
+  "spreadsheet_id": "1cjMD7GlsNv1vAk2eC-p5maw1JK0s4kB8oJ-QV83JqTU",
+  "captured_at": "2026-10-03T04:25:00Z",
+  "scope": "Bounded A1:L12 sentinel reads only; incomplete oracle, not approval or production parity",
+  "sheets": [
+    {
+      "sheet": "README",
+      "status": "fulfilled",
+      "data": {
+        "range": "README!A1:L12",
+        "majorDimension": "ROWS",
+        "values": [
+          [
+            "JEG-180 Option C — FantasyCalc working model"
+          ],
+          [
+            "Backing the ranker's implied VORPs out of their published values, then rebuilding through our economics."
+          ],
+          [],
+          [
+            "How to read this workbook (tabs run left to right):"
+          ],
+          [
+            "IN_League — league settings. Every roster number lives here; no formula anywhere types a roster number."
+          ],
+          [
+            "IN_Assump — modeling choices: trend method, weight caps, OUR economics for the rebuild step."
+          ],
+          [
+            "IN_FC — raw FantasyCalc published values (half-PPR, 12-team, 1-QB), 195 players."
+          ],
+          [
+            "CALC_Params — the inference: per-position trend fits, inferred (position, role) weights, waiver lines."
+          ],
+          [
+            "IN_League",
+            "League-level roster settings + imputed construction (flex/bench from values).",
+            "IN_Assump",
+            "Our economics for the rebuild + OUR_MAX anchors."
+          ],
+          [
+            "IN_FC",
+            "195 published FantasyCalc values, untouched.",
+            "IN_Ours",
+            "Our 8 group VORP totals (editable; refresh via JEG-206)."
+          ],
+          [
+            "CALC_Params",
+            "Group allocation: per group, sum of publisher values, our group VORP, alloc factor.",
+            "CALC_Main",
+            "Per-player: imputed VORP = value x group alloc factor. Cut = 0."
+          ],
+          [
+            "OUT_Translated",
+            "Imputed VORP + 0-70 rescale.",
+            "CHECKS",
+            "Audit: allocations, sums, errors."
+          ]
+        ]
+      }
+    },
+    {
+      "sheet": "IN_League",
+      "status": "fulfilled",
+      "data": {
+        "range": "IN_League!A1:L12",
+        "majorDimension": "ROWS",
+        "values": [
+          [
+            "Roster construction — imputed from chart values at the league level"
+          ],
+          [],
+          [
+            "Teams",
+            12
+          ],
+          [
+            "Flex slots per team",
+            1
+          ],
+          [
+            "Bench slots per team",
+            6
+          ],
+          [
+            "Total flex slots (league)",
+            12
+          ],
+          [
+            "Total bench slots (league)",
+            72
+          ],
+          [],
+          [
+            "Position",
+            "Starters / team",
+            "Dedicated starters",
+            "Flex slots (imputed)",
+            "Bench slots (imputed)",
+            "Total rostered",
+            "Waiver rank"
+          ],
+          [
+            "QB",
+            1,
+            12,
+            0,
+            15,
+            27,
+            28
+          ],
+          [
+            "RB",
+            2,
+            24,
+            7,
+            23,
+            54,
+            55
+          ],
+          [
+            "WR",
+            3,
+            36,
+            5,
+            23,
+            64,
+            65
+          ]
+        ]
+      }
+    },
+    {
+      "sheet": "IN_Ours",
+      "status": "fulfilled",
+      "data": {
+        "range": "IN_Ours!A1:L12",
+        "majorDimension": "ROWS",
+        "values": [
+          [
+            "Our system group VORP totals — from DDF pipeline (ESPN/Razzball/CBS ROS). EDITABLE INPUTS."
+          ],
+          [
+            "Real JEG-206 pipeline output 2026-10-02 (ddf-20260929 leg, Half PPR, 12 teams). Total pie: 2662.99."
+          ],
+          [],
+          [
+            "Group key",
+            "Position",
+            "Role",
+            "Our group VORP",
+            "Note"
+          ],
+          [
+            "QB|Starter",
+            "QB",
+            "Starter",
+            148.84,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "QB|Bench",
+            "QB",
+            "Bench",
+            26.27,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "RB|Starter",
+            "RB",
+            "Starter",
+            995.91,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "RB|Bench",
+            "RB",
+            "Bench",
+            175.75,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "WR|Starter",
+            "WR",
+            "Starter",
+            975.04,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "WR|Bench",
+            "WR",
+            "Bench",
+            172.07,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "TE|Starter",
+            "TE",
+            "Starter",
+            145.73,
+            "total VORP for this position x role in our system"
+          ],
+          [
+            "TE|Bench",
+            "TE",
+            "Bench",
+            23.38,
+            "total VORP for this position x role in our system"
+          ]
+        ]
+      }
+    },
+    {
+      "sheet": "CALC_Params",
+      "status": "fulfilled",
+      "data": {
+        "range": "CALC_Params!A1:L12",
+        "majorDimension": "ROWS",
+        "values": [
+          [
+            "Group allocation — our group VORP distributed to publisher players proportionally to their published values."
+          ],
+          [],
+          [
+            "Group key",
+            "Position",
+            "Role",
+            "Sum publisher values in group",
+            "Our group VORP",
+            "Alloc factor = our VORP / sum pub values"
+          ],
+          [
+            "QB|Starter",
+            "QB",
+            "Starter",
+            26329,
+            148.84,
+            0.005653082152759315
+          ],
+          [
+            "QB|Bench",
+            "QB",
+            "Bench",
+            6690,
+            26.27,
+            0.003926756352765321
+          ],
+          [
+            "RB|Starter",
+            "RB",
+            "Starter",
+            133191,
+            995.91,
+            0.0074773070252494534
+          ],
+          [
+            "RB|Bench",
+            "RB",
+            "Bench",
+            9229,
+            175.75,
+            0.019043233286379888
+          ],
+          [
+            "WR|Starter",
+            "WR",
+            "Starter",
+            133506,
+            975.04,
+            0.007303342171887405
+          ],
+          [
+            "WR|Bench",
+            "WR",
+            "Bench",
+            9074,
+            172.07,
+            0.018962971126294907,
+            "lookup key"
+          ],
+          [
+            "TE|Starter",
+            "TE",
+            "Starter",
+            26143,
+            145.73,
+            0.005574341123818995
+          ],
+          [
+            "TE|Bench",
+            "TE",
+            "Bench",
+            3962,
+            23.38,
+            0.005901060070671378
+          ]
+        ]
+      }
+    },
+    {
+      "sheet": "OUT_Translated",
+      "status": "fulfilled",
+      "data": {
+        "range": "OUT_Translated!A1:L12",
+        "majorDimension": "ROWS",
+        "values": [
+          [
+            "Position",
+            "Player",
+            "Imputed VORP",
+            "Role",
+            "Translated (0-70 scale)",
+            "Max VORP in position",
+            "Translated (new)",
+            "Translated (old method)"
+          ],
+          [
+            "RB",
+            "jahmyr gibbs",
+            80.89698470617384,
+            "Starter",
+            70,
+            80.89698470617384,
+            70,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "RB",
+            "bijan robinson",
+            75.84232515710521,
+            "Starter",
+            65.62621314354377,
+            80.89698470617384,
+            70,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "WR",
+            "jaxon smithnjigba",
+            72.40533429209174,
+            "Starter",
+            70,
+            72.40533429209174,
+            55,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "WR",
+            "jamarr chase",
+            65.91996644345572,
+            "Starter",
+            63.73007867661892,
+            72.40533429209174,
+            55,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "RB",
+            "kenneth walker iii",
+            66.79478365655336,
+            "Starter",
+            57.7973934744431,
+            80.89698470617384,
+            70,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "WR",
+            "amonra st brown",
+            61.45762437643251,
+            "Starter",
+            59.41597740568892,
+            72.40533429209174,
+            55,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "RB",
+            "christian mccaffrey",
+            61.90462486204022,
+            "Starter",
+            53.5659487937887,
+            80.89698470617384,
+            70,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "RB",
+            "jonathan taylor",
+            61.47094105457575,
+            "Starter",
+            53.190683057583875,
+            80.89698470617384,
+            70,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "WR",
+            "ceedee lamb",
+            55.68798406064147,
+            "Starter",
+            53.83800685898729,
+            72.40533429209174,
+            55,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "RB",
+            "derrick henry",
+            56.40132689145663,
+            "Starter",
+            48.80395600332748,
+            80.89698470617384,
+            70,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ],
+          [
+            "WR",
+            "puka nacua",
+            53.94248528156037,
+            "Starter",
+            52.150494250554765,
+            72.40533429209174,
+            55,
+            "#DIV/0! (Function DIVIDE parameter 2 cannot be zero.)"
+          ]
+        ]
+      }
+    },
+    {
+      "sheet": "CHECKS",
+      "status": "fulfilled",
+      "data": {
+        "range": "CHECKS!A1:L12",
+        "majorDimension": "ROWS",
+        "values": [
+          [
+            "Audit checks — every row should read OK. If one reads FAIL, the note says where to look."
+          ],
+          [],
+          [
+            "Check",
+            "Result",
+            "What it means"
+          ],
+          [],
+          [],
+          [
+            "Group VORPs match inputs",
+            "OK",
+            "ranker weights are discounts; >1 means the trend underfits"
+          ],
+          [
+            "All alloc factors positive",
+            "OK",
+            "should equal",
+            12
+          ],
+          [
+            "Imputed VORPs sum to our total",
+            "OK",
+            "should equal",
+            72
+          ],
+          [
+            "No formula errors in CALC_Main",
+            "OK"
+          ],
+          [
+            "No formula errors in OUT_Translated",
+            "OK"
+          ],
+          [
+            "Flex/bench slots allocated",
+            "12/12 flex, 72/72 bench"
+          ]
+        ]
+      }
+    }
+  ]
+}
