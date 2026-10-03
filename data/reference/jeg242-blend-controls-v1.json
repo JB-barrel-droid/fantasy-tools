@@ -1,29 +1,31 @@
 {
-  "schema": "jeg242-blend-controls-v1",
+  "budgets": {
+    "QB/bench": 30.3888,
+    "QB/starter": 172.2033,
+    "RB/bench": 176.3569,
+    "RB/starter": 999.3555,
+    "TE/bench": 16.9682,
+    "TE/starter": 125.3118,
+    "WR/bench": 139.3294,
+    "WR/starter": 789.5332
+  },
   "description": "JEG-242 blend reference: DDF 8-group logic, 15% bench default, rest-of-season",
+  "generated_at": "2026-10-03T12:25:13.221320+00:00",
   "policy": {
-    "methodology": "DDF 8-group (same as ESPN corp)",
-    "bench_share_default": 0.15,
     "bench_share_adjustable": true,
-    "horizon": "rest_of_season",
+    "bench_share_default": 0.15,
     "decision": "Jeremy 2026-10-03: use ESPN corp logic with 15% toggle for bench, ROS",
+    "horizon": "rest_of_season",
+    "methodology": "DDF 8-group (same as ESPN corp)",
     "ticket": "JEG-242"
   },
+  "schema": "jeg242-blend-controls-v1",
   "source": {
+    "budgets_verified": "byte-equal to build_ddf_groups.compute_groups(leg) total_vorp per group, verified 2026-10-03 (night shift heartbeat)",
+    "ddf_groups_sha256": "ab7e7c963abfebabb642041b99b408185e49ed81f79359b1ee9cb477e27f6680",
+    "ddf_groups_sha256_pinned_at": "2026-10-03T13:35:00+00:00",
     "ddf_leg": "data/ddf-two-tier/ddf-20260929-espn-half_ppr-12t-0p15/ddf-20260929-espn-half_ppr-12t-0p15/ddf_leg.json",
-    "ddf_groups_sha256": "computed from leg",
     "scoring": "half_ppr",
     "teams": 12
-  },
-  "budgets": {
-    "QB/starter": 172.2033,
-    "QB/bench": 30.3888,
-    "RB/starter": 999.3555,
-    "RB/bench": 176.3569,
-    "WR/starter": 789.5332,
-    "WR/bench": 139.3294,
-    "TE/starter": 125.3118,
-    "TE/bench": 16.9682
-  },
-  "generated_at": "2026-10-03T12:25:13.221320+00:00"
+  }
 }

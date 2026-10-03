@@ -102,7 +102,11 @@ class SharedAnchorTests(unittest.TestCase):
             result=json.loads(out.read_text())
             self.assertEqual(set(result['sources']),{'fantasycalc','usat','espn'})
             self.assertEqual(result['sources']['espn']['indexed'],{})
-            self.assertEqual(len(result['manifest']['excluded_sources']),4)
+            # JEG-242 (ce53a55): "avg" joined SOURCE_KINDS, so derive the
+            # excluded set from the registry instead of a hardcoded count --
+            # a count literal goes stale every time a source kind is added.
+            self.assertEqual(set(result['manifest']['excluded_sources']),
+                             set(SOURCE_KINDS) - {'fantasycalc','usat','espn'})
             self.assertEqual(result['manifest']['batch_sha256'],hashlib.sha256(batch.read_bytes()).hexdigest())
             self.assertLess(max(result['sources']['fantasycalc']['adj_values'].values()),70)
             self.assertEqual(max(result['sources']['usat']['adj_values'].values()),70)
