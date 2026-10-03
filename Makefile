@@ -149,6 +149,7 @@ test-unit:
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
+	python3 -m unittest tests.test_review_batch70_views
 	python3 -m unittest tests.test_vorp_views_preview
 	python3 -m unittest tests.test_jeg242_blend_reference
 	python3 -m unittest tests.test_jeg298_roster_shape_no_kdst
