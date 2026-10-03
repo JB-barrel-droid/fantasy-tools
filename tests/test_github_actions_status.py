@@ -209,5 +209,65 @@ class LastSuccessAtTest(unittest.TestCase):
         self.assertIsNone(gh.last_success_at([]))
 
 
+class CoverageGapsTest(unittest.TestCase):
+    """JEG-311: coverage_gaps must reflect workflows present in the API
+    list but absent from PIPELINE_COVERAGE. The previous hardcoded
+    `coverage_gaps: []` masked CBS ROS, Live page synthetic gate, and
+    Preview build, which rendered as 'Unmapped' on the dashboard.
+
+    These are negative tests against the regression: a workflow present
+    in the API list but missing from the coverage map MUST appear in
+    coverage_gaps, and the gaps list MUST be sorted deterministically.
+    """
+
+    def test_unmapped_workflow_appears_in_gaps(self):
+        # CBS ROS is the JEG-311 case: present in the API list, missing
+        # from PIPELINE_COVERAGE before this commit. Simulate the broken
+        # pre-fix state by passing a synthetic coverage_keys set without
+        # it; gaps must surface it.
+        api_names = [
+            "CBS ROS scrape to Supabase",
+            "Rebuild comparison chain",
+        ]
+        coverage_keys = {"Rebuild comparison chain"}
+        gaps = gh.compute_coverage_gaps(api_names, coverage_keys)
+        self.assertIn("CBS ROS scrape to Supabase", gaps)
+
+    def test_all_nine_workflows_mapped_yields_empty_gaps(self):
+        # Pin the post-fix invariant: once all 9 current workflows are
+        # in PIPELINE_COVERAGE, coverage_gaps must be empty. We pass the
+        # full set of workflow names plus the full PIPELINE_COVERAGE
+        # keys; the gap set must be the empty set.
+        all_nine = set(gh.PIPELINE_COVERAGE.keys()) | {
+            "Live page synthetic gate",
+            "Preview build",
+        }
+        gaps = gh.compute_coverage_gaps(sorted(all_nine), set(gh.PIPELINE_COVERAGE.keys()))
+        self.assertEqual(gaps, [])
+
+    def test_gaps_are_sorted_deterministically(self):
+        # Order matters for stable diffs / dashboard rendering.
+        api_names = ["Zeta workflow", "Alpha workflow", "Beta workflow"]
+        gaps = gh.compute_coverage_gaps(api_names, set())
+        self.assertEqual(gaps, ["Alpha workflow", "Beta workflow", "Zeta workflow"])
+
+    def test_duplicate_api_names_dedupe_in_gaps(self):
+        # GitHub returns one entry per workflow; dedupe defensively.
+        api_names = ["New workflow", "New workflow", "Known workflow"]
+        coverage_keys = {"Known workflow"}
+        gaps = gh.compute_coverage_gaps(api_names, coverage_keys)
+        self.assertEqual(gaps, ["New workflow"])
+
+    def test_cbs_ros_now_present_in_coverage_map(self):
+        # Positive pin: the CBS ROS backfill entry exists with the
+        # fields the JEG-311 brief specifies. This guards against a
+        # future refactor that drops or renames it.
+        self.assertIn("CBS ROS scrape to Supabase", gh.PIPELINE_COVERAGE)
+        entry = gh.PIPELINE_COVERAGE["CBS ROS scrape to Supabase"]
+        self.assertEqual(entry["stages"], ["C2", "C3"])
+        self.assertEqual(entry["description"], "Weekly CBS ROS scrape to Supabase")
+        self.assertEqual(entry["schedule"], "Weekly Wed 11:00 UTC (06:00 CT)")
+
+
 if __name__ == "__main__":
     unittest.main()

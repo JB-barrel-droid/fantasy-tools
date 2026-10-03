@@ -9,11 +9,12 @@
       "state": "active",
       "coverage": {
         "stages": [
-          "Unknown"
+          "C2",
+          "C3"
         ],
-        "description": "No coverage mapping defined",
-        "schedule": "Unknown",
-        "key_task": "Unmapped"
+        "description": "Weekly CBS ROS scrape to Supabase",
+        "schedule": "Weekly Wed 11:00 UTC (06:00 CT)",
+        "key_task": "CBS ROS scrape to Supabase"
       },
       "health": "ok",
       "last_run": {
@@ -659,7 +660,7 @@
       "failing_streak": false
     }
   ],
-  "coverage_gaps": [],
+  "coverage_gaps": ["Live page synthetic gate", "Preview build"],
   "summary": {
     "total_workflows": 9,
     "active": 9,
@@ -669,6 +670,6 @@
     "running": 0,
     "failing_streak_count": 1,
     "max_consecutive_failures": 3,
-    "gaps_count": 0
+    "gaps_count": 2
   }
 }

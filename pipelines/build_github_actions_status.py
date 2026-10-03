@@ -85,7 +85,30 @@ PIPELINE_COVERAGE = {
         "schedule": "Hourly (JEG-76)",
         "key_task": "Vintage-gated rebuild trigger",
     },
+    "CBS ROS scrape to Supabase": {
+        # JEG-311: closes the automation gap where CBS ROS data was only
+        # updated via manual pull + save runs (JEG-71). Writes to
+        # public.cbs_ros_projections. Cron `0 11 * * 3` per
+        # .github/workflows/cbsros-supabase-sync.yml.
+        "stages": ["C2", "C3"],
+        "description": "Weekly CBS ROS scrape to Supabase",
+        "schedule": "Weekly Wed 11:00 UTC (06:00 CT)",
+        "key_task": "CBS ROS scrape to Supabase",
+    },
 }
+
+
+def compute_coverage_gaps(workflow_names: list[str], coverage_keys: set[str]) -> list[str]:
+    """Return sorted workflow names present in the API list but missing
+    from PIPELINE_COVERAGE.
+
+    JEG-311: the previous hardcoded `coverage_gaps: []` masked the fact
+    that workflows like CBS ROS, Live page synthetic gate, and Preview
+    build were rendering as "Unmapped" on the dashboard. Gaps are now
+    computed as `set(workflow_names) - coverage_keys`, sorted for
+    deterministic ordering.
+    """
+    return sorted(set(workflow_names) - coverage_keys)
 
 
 def fetch_json(url: str) -> dict:
@@ -245,22 +268,13 @@ def main() -> int:
             "failing_streak": streak >= FAILING_STREAK_THRESHOLD,
         })
 
-    # Check for coverage gaps
-    all_stages = set()
-    for wf in workflows:
-        all_stages.update(wf["coverage"]["stages"])
-
-    # Key tasks that should have automation
-    required_tasks = [
-        "Automated pipeline refresh",
-        "FantasyCalc source freshness",
-        "Production deployment",
-        "ESPN scrape to Supabase",  # Currently manual/cron, not GitHub Action
-        "Player Trace rebuild",  # May be manual
-    ]
-
-    covered_tasks = {wf["coverage"]["key_task"] for wf in workflows}
-    gaps = [t for t in required_tasks if t not in covered_tasks]
+    # Check for coverage gaps — JEG-311: workflows present in the API list
+    # but absent from the PIPELINE_COVERAGE map. Previously this was the
+    # hardcoded `coverage_gaps: []`, which masked unmapped entries
+    # (CBS ROS, Live page synthetic gate, Preview build) on the dashboard.
+    api_workflow_names = [wf["name"] for wf in workflows]
+    coverage_keys = set(PIPELINE_COVERAGE.keys())
+    gaps = compute_coverage_gaps(api_workflow_names, coverage_keys)
 
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
