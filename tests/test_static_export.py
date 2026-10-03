@@ -309,16 +309,14 @@ class StaticExportTest(unittest.TestCase):
             # 2026-10-02 16:21 rebuild: Stage 9 VORP refresh landed fresh
             # translated values (159/197 players moved) -- Allen 25.8 -> 26.2,
             # verified against fixture.
-            # 2026-10-03: adjustment cells refit against the 2026-10-03 ESPN
-            # anchor (ddf-20261003-espn-ppr-12t-0p15); Allen 26.2 -> 28.0 is
-            # the refit + pie-rescale, verified against the rebuilt fixture.
-            ("fantasycalc_adjusted", "full_12_qb1"): 28.0,
-            # usatoday_adjusted moved 23.2 -> 24.3 on the same refresh
-            # (154/249 players moved), verified against fixture.
-            # 2026-10-03 refit: 24.3 -> 26.0.
-            ("usatoday_adjusted", "full_12"): 26.0,
-            # 2026-10-03 refit: 18.1 -> 19.1.
-            ("fantasypros_adjusted", "full_12"): 19.1,
+            # 2026-10-03 17:00 CDT automated rebuild refit against the 2026-10-03
+            # ESPN anchor; Allen 28.0 -> 25.4 is the fresh refit, verified
+            # against the rebuilt fixture.
+            ("fantasycalc_adjusted", "full_12_qb1"): 25.4,
+            # 2026-10-03 17:00 CDT rebuild refit: 26.0 -> 23.8.
+            ("usatoday_adjusted", "full_12"): 23.8,
+            # 2026-10-03 17:00 CDT rebuild refit: 19.1 -> 17.4.
+            ("fantasypros_adjusted", "full_12"): 17.4,
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
