@@ -8,6 +8,7 @@ network, no git).
 """
 
 import json
+import re
 import sys
 import tempfile
 import unittest
@@ -133,6 +134,59 @@ class CodeChangeTriggerTests(unittest.TestCase):
         csv_mod.record_code_hash(state, first["code_hash"])
         second = csv_mod.check_code_change(state_path=state, repo_root=d)
         self.assertFalse(second["code_changed"])
+
+
+class VintageWorkflowContractTests(unittest.TestCase):
+    """JEG-205 follow-up: the workflow must actually dispatch on code changes.
+
+    Regression: the first shipped workflow recorded the pipelines code hash
+    without dispatching the chain (the dispatch step fired only on vintage
+    change), silently consuming the code-change trigger -- zero dispatches for
+    the core case instead of exactly one. These tests pin the step conditions
+    against .github/workflows/source-vintage-check.yml.
+    """
+
+    WORKFLOW = ROOT / ".github" / "workflows" / "source-vintage-check.yml"
+
+    @classmethod
+    def _step_block(cls, step_name):
+        text = cls.WORKFLOW.read_text(encoding="utf-8")
+        marker = "- name: " + step_name
+        idx = text.index(marker)
+        nxt = text.find("\n      - name: ", idx + 1)
+        return text[idx:] if nxt == -1 else text[idx:nxt]
+
+    @classmethod
+    def _step_if(cls, step_name):
+        block = cls._step_block(step_name)
+        m = re.search(r"^\s*if:\s*(.+)$", block, re.M)
+        assert m, "no if: condition on step %r" % step_name
+        return m.group(1).strip()
+
+    def test_dispatch_fires_on_code_change(self):
+        cond = self._step_if("Dispatch rebuild-chain on changes")
+        self.assertIn("code_changed", cond)
+
+    def test_dispatch_fires_on_vintage_change(self):
+        cond = self._step_if("Dispatch rebuild-chain on changes")
+        self.assertIn("changed", cond)
+
+    def test_dispatch_step_has_id(self):
+        self.assertIn("id: dispatch", self._step_block("Dispatch rebuild-chain on changes"))
+
+    def test_record_requires_successful_dispatch(self):
+        # Negative regression: a bare `code_changed == 'True'` record step
+        # consumes the trigger without a dispatch. The record must be gated
+        # on the dispatch step's success so a failed dispatch retries next
+        # hour instead of losing the code change.
+        cond = self._step_if("Record pipelines code hash")
+        self.assertIn("code_changed", cond)
+        self.assertIn("steps.dispatch.outcome", cond)
+
+    def test_report_only_when_nothing_triggered(self):
+        cond = self._step_if("Report no changes")
+        self.assertIn("changed", cond)
+        self.assertIn("code_changed", cond)
 
 
 if __name__ == "__main__":

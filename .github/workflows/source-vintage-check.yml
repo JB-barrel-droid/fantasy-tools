@@ -56,7 +56,11 @@ jobs:
           fi
 
       - name: Dispatch rebuild-chain on changes
-        if: steps.check.outputs.changed == 'True'
+        id: dispatch
+        # JEG-205: a pipelines/ code change dispatches the chain exactly like
+        # a source-vintage change -- code fixes re-run the chain on their own,
+        # not incidentally on the next data refresh.
+        if: steps.check.outputs.changed == 'True' || steps.check.outputs.code_changed == 'True'
         run: |
           echo "Changes detected - dispatching rebuild-chain.yml"
           gh workflow run rebuild-chain.yml -f source="source-vintage-check"
@@ -65,9 +69,11 @@ jobs:
 
       - name: Record pipelines code hash
         # JEG-205: persist the dispatched hash as the loop guard -- exactly one
-        # dispatch per code change. Runs only after a successful dispatch (a
-        # failed dispatch skips this step, so the next hourly run retries).
-        if: steps.check.outputs.code_changed == 'True'
+        # dispatch per code change. Records ONLY after the dispatch step ran
+        # successfully: a failed or skipped dispatch skips this step, so the
+        # next hourly run retries the same code change instead of silently
+        # consuming the trigger.
+        if: steps.check.outputs.code_changed == 'True' && steps.dispatch.outcome == 'success'
         run: |
           python3 - <<'EOF'
           import sys
@@ -83,6 +89,6 @@ jobs:
           git push
 
       - name: Report no changes
-        if: steps.check.outputs.changed == 'False'
+        if: steps.check.outputs.changed == 'False' && steps.check.outputs.code_changed == 'False'
         run: |
           echo "No changes detected - skipping rebuild"
