@@ -178,8 +178,17 @@ def apply_70_anchor(values, *, batch_maximum):
     return result
 
 
-def _prepare_values(imputed, budgets):
+def _prepare_values(imputed, budgets, *, skip_iron=False):
+    """Map imputed VORP to provisional values.
+
+    Derived sources (e.g. AVG) inherit the effective batch budgets computed
+    from controlling published sources; the within-position inversion
+    diagnostic only validates budgets against the pools they were derived
+    from, so it is skipped for derived sources.
+    """
     values = linear_reweight(imputed, budgets)
+    if skip_iron:
+        return values
     ironed = iron_within_position_inversions(values, imputed)
     if ironed != values:
         raise ValueError("unexpected player alteration after effective budget mapping")
@@ -244,7 +253,8 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
     for source, pool in imputed_sources.items():
         _validate_imputed(pool)
         _validated_native(native_sources[source], pool)
-        provisional[source] = _prepare_values(pool, effective)
+        provisional[source] = _prepare_values(
+            pool, effective, skip_iron=(source in derived_sources))
 
     maximum = max(
         (v for source, pool in provisional.items()

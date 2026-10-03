@@ -110,6 +110,91 @@ def configured_target_count(publisher_roster: dict) -> int:
     return teams * (sum(slots.values()) + flex_count) + bench_total
 
 
+def exclude_by_rank_and_sources(players, roster_size=168, min_sources=2,
+                                high_value_vorp=10.0):
+    """Two-tier exclusion of sub-rosterable players before cohort selection.
+
+    Jeremy (2026-10-03): "If the largest roster size matrixes have fewer
+    players than those players rank, easiest to exclude them. Else we should
+    stick with math and logic."
+
+    Tier 1 (rank): a player's best rank across sources (by imputed VORP within
+    each source, 1 = highest) exceeding roster_size means no source considers
+    them rosterable at this league size -> excluded with reason.
+
+    Tier 2 (sources): a Tier-1 survivor appearing in fewer than min_sources
+    is excluded when low-value (mean VORP < high_value_vorp) with reason, or
+    raises ValueError when high-value -- a high-value single-source player
+    must never silently disappear from the league cohort.
+
+    players: dict mapping pkey -> list of (source, imputed_vorp, group).
+    Returns (kept_players, exclusions); exclusions is a list of dicts carrying
+    player/tier/reason plus diagnostics. Both tiers log to stderr.
+    """
+    # Per-source rank by imputed VORP (descending); ties broken by pkey for
+    # determinism, matching the cohort-selection sort order.
+    rank_of: dict[tuple[str, str], int] = {}
+    by_source: dict[str, list[tuple[str, float]]] = {}
+    for pkey, entries in players.items():
+        for source, vorp, _group in entries:
+            by_source.setdefault(source, []).append((pkey, vorp))
+    for source, lst in by_source.items():
+        lst.sort(key=lambda t: (-t[1], str(t[0])))
+        for i, (pkey, _vorp) in enumerate(lst, start=1):
+            rank_of[(source, pkey)] = i
+
+    exclusions: list[dict] = []
+    kept: dict[str, list[tuple[str, float, str]]] = {}
+    for pkey, entries in players.items():
+        sources = sorted(e[0] for e in entries)
+        mean_vorp = sum(e[1] for e in entries) / len(entries)
+        best_rank = min(rank_of[(s, pkey)] for s in sources)
+        # Tier 1: no source ranks this player within the roster size.
+        if best_rank > roster_size:
+            reason = (
+                f"rank {best_rank} exceeds {roster_size}-player roster size"
+            )
+            exclusions.append({
+                "player": pkey,
+                "tier": 1,
+                "reason": reason,
+                "best_rank": best_rank,
+                "roster_size": roster_size,
+                "sources": sources,
+                "mean_vorp": round(mean_vorp, 2),
+            })
+            print(f"  exclude {pkey}: {reason} ({', '.join(sources)})",
+                  file=sys.stderr)
+            continue
+        # Tier 2: sub-consensus among the rank-eligible.
+        if len(entries) < min_sources:
+            if mean_vorp >= high_value_vorp:
+                raise ValueError(
+                    f"high-value player {pkey} (mean VORP {mean_vorp:.1f}) "
+                    f"ranked by only {len(entries)} source(s) "
+                    f"({', '.join(sources)}); refusing to silently drop them"
+                )
+            src_label = (f"{sources[0]} only" if len(sources) == 1
+                         else f"{len(sources)} sources ({', '.join(sources)})")
+            reason = (
+                f"single-source ({src_label}), not consensus rosterable, "
+                f"value {mean_vorp:.1f} deep bench"
+            )
+            exclusions.append({
+                "player": pkey,
+                "tier": 2,
+                "reason": reason,
+                "n_sources": len(entries),
+                "min_sources": min_sources,
+                "sources": sources,
+                "mean_vorp": round(mean_vorp, 2),
+            })
+            print(f"  exclude {pkey}: {reason}", file=sys.stderr)
+            continue
+        kept[pkey] = entries
+    return kept, exclusions
+
+
 def _cohort_sha(keys: list[str]) -> str:
     payload = ("\n".join(keys) + "\n").encode("utf-8")
     return hashlib.sha256(payload).hexdigest()
@@ -169,6 +254,27 @@ def main(argv=None) -> int:
                 continue
             players.setdefault(pkey, []).append((source, float(vorp), group))
 
+    target_count = args.target_count if args.target_count is not None else configured_target_count(
+        first_manifest.get("publisher_roster") if first_manifest else None
+    )
+    if type(target_count) is not int or target_count <= 0:
+        raise ValueError("target_count must be a positive integer")
+
+    # Two-tier exclusion (JEG-242): Tier 1 drops players no source ranks
+    # within the roster size ("easiest to exclude them"); Tier 2 drops
+    # low-value sub-consensus players and fail-closes on high-value
+    # single-source players ("stick with math and logic"). Runs before cohort
+    # selection so exclusions are explicit, never silent.
+    players, exclusions = exclude_by_rank_and_sources(
+        players, roster_size=target_count, min_sources=args.min_sources
+    )
+    excl_path = out_dir / "cohort-exclusions.json"
+    excl_path.write_text(
+        json.dumps(exclusions, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(f"  cohort exclusions: {len(exclusions)} -> {excl_path.name}",
+          file=sys.stderr)
+
     # Build a union score first. Target selection must not happen AFTER
     # min-sources filtering, or a high-value player ranked by one publisher can
     # silently disappear from the 168-player league cohort.
@@ -183,11 +289,6 @@ def main(argv=None) -> int:
             "avg_n": len(entries),
         }
 
-    target_count = args.target_count if args.target_count is not None else configured_target_count(
-        first_manifest.get("publisher_roster") if first_manifest else None
-    )
-    if type(target_count) is not int or target_count <= 0:
-        raise ValueError("target_count must be a positive integer")
     if len(consensus_candidates) < target_count:
         raise ValueError(
             f"published union covers only {len(consensus_candidates)} players; "
