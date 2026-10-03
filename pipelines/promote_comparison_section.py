@@ -59,15 +59,25 @@ REVIEW_SCHEMA = "trade-value-comparison-review-v1"
 REINDEX_SCHEMA = "trade-value-comparison-section-reindexed-v1"
 
 # D2 Exclusion Gate: Contract validation rules
-# Valid trade values must be non-negative and within reasonable bounds
+# Valid trade values must be non-negative and within reasonable bounds.
+# The upper bound applies ONLY to reindexed values, which live on the 0-70
+# display scale. Native (as-published) values carry source-specific units
+# with no universal upper bound -- FantasyCalc publishes in the thousands
+# (JSN 9914, Gibbs 10825) -- so capping them drops valid source data
+# (JEG-275: 154 valid FantasyCalc natives hidden by this cap).
 MIN_VALID_VALUE = 0.0
-MAX_VALID_VALUE = 200.0  # Max reasonable trade value for any single player
+MAX_VALID_VALUE = 200.0  # Max reasonable REINDEXED (0-70 scale) value for any single player
 
 
-def validate_row(slug: str, value: float | None, player_key: str | None) -> tuple[bool, str]:
+def validate_row(slug: str, value: float | None, player_key: str | None,
+                 check_upper_bound: bool = True) -> tuple[bool, str]:
     """Validate a single row against the data contract.
 
     Returns (is_valid, reason). If invalid, reason describes the failure.
+    check_upper_bound=False for native (as-published) values: their units are
+    source-specific (FantasyCalc: thousands) and no universal cap exists.
+    The lower bound (>= 0) still applies: negative published values are
+    corruption in every unit.
     """
     # Null identity check
     if not player_key:
@@ -84,7 +94,7 @@ def validate_row(slug: str, value: float | None, player_key: str | None) -> tupl
     if value < MIN_VALID_VALUE:
         return False, f"range_violation: value {value} < {MIN_VALID_VALUE}"
 
-    if value > MAX_VALID_VALUE:
+    if check_upper_bound and value > MAX_VALID_VALUE:
         return False, f"range_violation: value {value} > {MAX_VALID_VALUE}"
 
     return True, ""
@@ -104,12 +114,15 @@ def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
         # Get player_keys for this combo (may be in combo or section-level)
         combo_player_keys = combo.get("player_keys", {})
 
-        # Validate native values
+        # Validate native values. Natives are as-published source units
+        # (FantasyCalc: thousands); no universal upper bound exists, so the
+        # reindexed-scale cap must not apply (JEG-275).
         native = combo.get("native", {})
         valid_native = {}
         for slug, value in native.items():
             player_key = combo_player_keys.get(slug) or player_keys.get(slug)
-            is_valid, reason = validate_row(slug, value, player_key)
+            is_valid, reason = validate_row(slug, value, player_key,
+                                            check_upper_bound=False)
             if is_valid:
                 valid_native[slug] = value
             else:
@@ -117,13 +130,15 @@ def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
 
         combo["native"] = valid_native
 
-        # Validate reindexed values (if present)
+        # Validate reindexed values (if present). Reindexed values live on the
+        # 0-70 display scale, so the upper bound is a genuine corruption check.
         reindexed = combo.get("reindexed", {})
         if reindexed:
             valid_reindexed = {}
             for slug, value in reindexed.items():
                 player_key = combo_player_keys.get(slug) or player_keys.get(slug)
-                is_valid, reason = validate_row(slug, value, player_key)
+                is_valid, reason = validate_row(slug, value, player_key,
+                                                check_upper_bound=True)
                 if is_valid:
                     valid_reindexed[slug] = value
                 else:
@@ -375,9 +390,13 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         new_section["content_vintage"] = section_with_gate["content_vintage"]
     if section_with_gate.get("source_provenance"):
         new_section["source_provenance"] = copy.deepcopy(section_with_gate["source_provenance"])
-    # D2 Exclusion Gate: Record hidden invalid rows count
+    # D2 Exclusion Gate: Record hidden invalid rows count. Clear any stale
+    # count carried over from a previous promotion: a 0 this run means the
+    # section is clean now (JEG-275).
     if hidden_invalid_rows > 0:
         new_section["hidden_invalid_rows"] = hidden_invalid_rows
+    else:
+        new_section.pop("hidden_invalid_rows", None)
     new_section["promotion_note"] = (
         "Re-anchored from the retired Monday rail to the fixture ESPN leg. "
         f"Native values vintage {new_section.get('fetched_at')}; "
