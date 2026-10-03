@@ -4,6 +4,20 @@
 // two missing cells with a single pill that documents the vintage date
 // pulled from the razzball entry in pipeline-checkpoints.json.
 //
+// IMPORTANT — dist sync: this harness reads <dist-dir>/modules/dashboard.html,
+// NOT modules/dashboard.html. The repo's published contract (AGENTS.md,
+// "make sync is the single publish path") requires dist/modules/dashboard.html
+// to be rebuilt from modules/dashboard.html after every edit. If you change
+// modules/dashboard.html without rebuilding dist/, this harness will run
+// against STALE code and silently pass green (or red, but for the wrong
+// reason). Always run `make sync` (or equivalent dist mirror) BEFORE this
+// guard in either verification mode below:
+//   * branch verify (PASS expected): dist/modules/dashboard.html reflects
+//     the pill branch — pill present, c6/c7 absent.
+//   * main verify (RED expected): dist/modules/dashboard.html mirrors
+//     origin/main's modules/dashboard.html — pill absent, c6/c7 render.
+// Negative-testing this guard against a stale dist is a false-pass.
+//
 // Discrimination:
 //   (a) Razzball source: the rendered card MUST contain a .razzball-pill cell
 //       with the text "Direct fixture update · vintage YYYY-MM-DD" matching
@@ -88,8 +102,13 @@ const SYNTHETIC_CP = {
         // Vintage date lives in this reason string -- the pill must parse it.
         c4_snapshot:     { timestamp: "2026-10-01T13:22:04+00:00",                status: "ok",  reason: "Snapshot stamped (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-01)." },
         c5_health:       { timestamp: "2026-10-01T12:56:00+00:00",                status: "ok",  reason: "Health gate ok." },
-        // c6/c7 deliberately missing -- the dashboard previously rendered two
-        // empty "unk" cells for these. After JEG-308 they must NOT render.
+        // c6/c7 present with "unk" status — before JEG-308 the dashboard
+        // rendered these as two empty "unk" cells. After JEG-308 they MUST
+        // NOT render (the explicit razzball skip on c6_candidate/c7_promotion
+        // keys fires regardless of payload status). This exercises the
+        // belt-and-suspenders guard, not just the `if(!cp) return ""` guard.
+        c6_candidate:    { timestamp: null,                                       status: "unk", reason: "" },
+        c7_promotion:    { timestamp: null,                                       status: "unk", reason: "" },
         c8_sync:         { timestamp: "2026-10-03T22:00:00+00:00",                status: "ok",  reason: "Comparison data fresh." },
         c9_deploy:       { timestamp: "2026-10-03T22:00:00+00:00",                status: "ok",  reason: "Pages deployed successfully." },
         c10_rendered:    { timestamp: "2026-10-03T22:00:00+00:00",                status: "ok",  reason: "Production serves Week 4 labels." },
