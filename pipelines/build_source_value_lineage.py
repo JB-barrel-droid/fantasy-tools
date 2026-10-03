@@ -831,7 +831,7 @@ def _parse_iso(ts):
         return None
 
 
-def stamp_staleness_badge(out_path=OUT_PATH, fixture_path=DATA_PATH, reason="builder_raised"):
+def stamp_staleness_badge(out_path=None, fixture_path=None, reason="builder_raised"):
     """Stamp a committed lineage artifact with explicit staleness metadata.
 
     JEG-200: when the builder cannot run (missing snapshots in CI), the
@@ -854,7 +854,14 @@ def stamp_staleness_badge(out_path=OUT_PATH, fixture_path=DATA_PATH, reason="bui
 
     Returns the new artifact, or None if no committed artifact exists (a
     builder that has never produced a real lineage has nothing to badge).
+
+    Paths default to the module's OUT_PATH / DATA_PATH, resolved at CALL time
+    (not def time) so tests can patch the module attributes.
     """
+    if out_path is None:
+        out_path = OUT_PATH
+    if fixture_path is None:
+        fixture_path = DATA_PATH
     if not os.path.exists(out_path):
         return None
     try:
@@ -885,6 +892,52 @@ def stamp_staleness_badge(out_path=OUT_PATH, fixture_path=DATA_PATH, reason="bui
 
 
 def main():
+    """Entry point: build the lineage artifact, stamping a staleness badge on
+    any failure (JEG-200) and clearing it on success.
+
+    The badge handler lives here (not just under __main__) so every invocation
+    path -- CLI, chain subprocess, or direct import -- leaves an explicit,
+    non-silent staleness signal instead of a silently stale artifact. Any
+    builder failure (SystemExit from require_snapshot_natives, ValueError from
+    a stale live-scrape artifact, or anything else) stamps the badge and
+    re-raises, so the CI gate stays fail-closed.
+    """
+    try:
+        _main_impl()
+    except BaseException:
+        # JEG-200: the lineage rebuild only succeeds where raw snapshots exist
+        # and the live-scrape artifact is fresh. In CI the snapshots are
+        # gitignored and require_snapshot_natives() raises SystemExit;
+        # pages.yml has continue-on-error: true and the previously committed
+        # artifact ships untouched. Before that ship, stamp an explicit,
+        # non-degrading staleness badge on the existing artifact so the
+        # dashboard renders honest "STALE" instead of silently contradicting
+        # the fixture. Only stamp when there's a committed artifact to badge
+        # (the floor contract). Re-raise so the gate stays fail-closed.
+        existing = stamp_staleness_badge()
+        if existing is not None:
+            print(f"  stamped staleness badge: "
+                  f"stale_relative_to_fixture={existing.get('stale_relative_to_fixture')}, "
+                  f"lag_seconds={existing.get('lag_seconds')}")
+        raise
+    # On success, clear any stale badge so a fresh build never inherits one.
+    if os.path.exists(OUT_PATH):
+        try:
+            with open(OUT_PATH) as f:
+                doc = json.load(f)
+            if any(k in doc for k in ("stale_relative_to_fixture", "lag_seconds",
+                                       "stale_reason", "stale_stamped_at")):
+                doc.pop("stale_relative_to_fixture", None)
+                doc.pop("lag_seconds", None)
+                doc.pop("stale_reason", None)
+                doc.pop("stale_stamped_at", None)
+                with open(OUT_PATH, "w") as f:
+                    json.dump(doc, f, indent=2)
+        except Exception:
+            pass
+
+
+def _main_impl():
     if "--merge" in sys.argv:
         i = sys.argv.index("--merge")
         merge_fixture_only([n for n in sys.argv[i + 1].split(",") if n])
@@ -970,36 +1023,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # JEG-200: the lineage rebuild only succeeds where raw snapshots exist.
-    # In CI the snapshots are gitignored and require_snapshot_natives() raises
-    # SystemExit; pages.yml has continue-on-error: true and the previously
-    # committed artifact ships untouched. Before that ship, stamp an explicit,
-    # non-degrading staleness badge on the existing artifact so the dashboard
-    # renders honest "STALE" instead of silently contradicting the fixture.
-    try:
-        main()
-    except SystemExit as e:
-        # require_snapshot_natives() / merge_fixture_only() raise SystemExit;
-        # only stamp when there's a committed artifact to badge (the floor
-        # contract). Re-raise so the CI gate stays fail-closed.
-        existing = stamp_staleness_badge()
-        if existing is not None:
-            print(f"  stamped staleness badge: "
-                  f"stale_relative_to_fixture={existing.get('stale_relative_to_fixture')}, "
-                  f"lag_seconds={existing.get('lag_seconds')}")
-        raise
-    # On success, clear any stale badge so a fresh build never inherits one.
-    if os.path.exists(OUT_PATH):
-        try:
-            with open(OUT_PATH) as f:
-                doc = json.load(f)
-            if any(k in doc for k in ("stale_relative_to_fixture", "lag_seconds",
-                                       "stale_reason", "stale_stamped_at")):
-                doc.pop("stale_relative_to_fixture", None)
-                doc.pop("lag_seconds", None)
-                doc.pop("stale_reason", None)
-                doc.pop("stale_stamped_at", None)
-                with open(OUT_PATH, "w") as f:
-                    json.dump(doc, f, indent=2)
-        except Exception:
-            pass
+    main()

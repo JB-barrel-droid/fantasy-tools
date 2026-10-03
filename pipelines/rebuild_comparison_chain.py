@@ -706,10 +706,29 @@ def run_lineage_rebuild(repo, run_fn):
     absent (CI), the builder raises SystemExit and stamps an explicit
     staleness badge on the committed artifact instead.
 
+    The builder reads its fixture input from dist/assets/ (DATA_PATH), so
+    Stage 10 first syncs the canonical fixture
+    (data/fixtures/current/comparison-sources-data.json) there -- otherwise
+    the "fresh" rebuild would bake stale inputs, and the staleness badge
+    would compare the lineage against a stale copy and report lag 0.
+
     Fail-safe: a rebuild failure is logged and never halts the chain. The
     lineage is a monitoring artifact, not a deployment gate. We mirror
     Stage 9's fail-safe pattern: try / except / log / return status dict.
     """
+    canonical = os.path.join(repo, "data", "fixtures", "current",
+                             "comparison-sources-data.json")
+    builder_input = os.path.join(repo, "dist", "assets",
+                                 "comparison-sources-data.json")
+    try:
+        if os.path.exists(canonical):
+            os.makedirs(os.path.dirname(builder_input), exist_ok=True)
+            shutil.copy2(canonical, builder_input)
+            print(f"  synced fixture -> {builder_input}")
+        else:
+            print(f"  ! canonical fixture missing: {canonical} (continuing)")
+    except Exception as e:
+        print(f"  ! fixture sync failed (non-fatal): {e}")
     try:
         ok, out = run_fn([
             "python3", "pipelines/build_source_value_lineage.py",

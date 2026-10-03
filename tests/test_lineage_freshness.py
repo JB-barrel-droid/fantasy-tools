@@ -38,6 +38,7 @@ FIXTURE_PATH = ROOT / "data/fixtures/current/comparison-sources-data.json"
 BUILDER = ROOT / "pipelines/build_source_value_lineage.py"
 
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+sys.path.insert(0, str(ROOT / "pipelines"))
 from canonical_players import norm_player_name  # noqa: E402
 
 
@@ -199,7 +200,7 @@ class LineageFreshnessTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             float(jsn_lin), float(jsn_fix), places=2,
-            f"usatoday JSN chart_value {jsn_lin} != fixture reindexed {jsn_fix}",
+            msg=f"usatoday JSN chart_value {jsn_lin} != fixture reindexed {jsn_fix}",
         )
         # Belt-and-suspenders: the chart value the brief names.
         self.assertAlmostEqual(float(jsn_lin), 55.0, places=1)
@@ -215,7 +216,7 @@ class LineageFreshnessTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             float(lin_idx[lamb_n]), float(fixture_reindexed[lamb_n]), places=2,
-            f"usatoday Lamb chart_value {lin_idx[lamb_n]} != fixture reindexed {fixture_reindexed[lamb_n]}",
+            msg=f"usatoday Lamb chart_value {lin_idx[lamb_n]} != fixture reindexed {fixture_reindexed[lamb_n]}",
         )
         # Belt-and-suspenders: the chart value the brief names.
         self.assertAlmostEqual(float(lin_idx[lamb_n]), 46.4, places=1)
@@ -302,13 +303,27 @@ class LineageFreshnessTests(unittest.TestCase):
             # Make data/raw/sources/*/snapshot.json absent under the temp root.
             # The builder uses absolute paths from REPO; we import the module,
             # patch SNAPSHOT_PATHS so every path is under tmp/nonexistent.
+            # Also give the builder a FRESH live-scrape artifact: the committed
+            # one is >48h old, which would raise ValueError before the snapshot
+            # check runs. We want require_snapshot_natives() -> SystemExit.
             import build_source_value_lineage as bsvl
             orig_data, orig_out = bsvl.DATA_PATH, bsvl.OUT_PATH
             orig_snapshot_paths = dict(bsvl.SNAPSHOT_PATHS)
             orig_repo = bsvl.REPO
+            orig_scrape = bsvl.LIVE_PAGE_SCRAPE_PATH
+            fresh_scrape = Path(tmp) / "live-page-scrape.json"
+            fresh_scrape.write_text(json.dumps({
+                "scraped_at": datetime.now(timezone.utc).isoformat(),
+                "sources": {
+                    src: {"status": "ok",
+                          "top25": [["Test Player", 10.0]]}
+                    for src in ("fantasypros", "usatoday", "cbs", "fantasycalc")
+                },
+            }))
             try:
                 bsvl.DATA_PATH = str(fixture_p)
                 bsvl.OUT_PATH = str(lineage_p)
+                bsvl.LIVE_PAGE_SCRAPE_PATH = str(fresh_scrape)
                 nonexistent = Path(tmp) / "no_such_snapshot.json"
                 bsvl.SNAPSHOT_PATHS = {
                     "fantasypros": str(nonexistent),
@@ -316,7 +331,7 @@ class LineageFreshnessTests(unittest.TestCase):
                     "fantasycalc": str(nonexistent),
                 }
                 # Invoke the main() function directly; require_snapshot_natives()
-                # must raise SystemExit and the outer handler must stamp the badge.
+                # must raise SystemExit and the handler must stamp the badge.
                 with self.assertRaises(SystemExit):
                     bsvl.main()
             finally:
@@ -324,6 +339,7 @@ class LineageFreshnessTests(unittest.TestCase):
                 bsvl.OUT_PATH = orig_out
                 bsvl.SNAPSHOT_PATHS = orig_snapshot_paths
                 bsvl.REPO = orig_repo
+                bsvl.LIVE_PAGE_SCRAPE_PATH = orig_scrape
             # Badge must now be on disk
             with open(lineage_p) as f:
                 on_disk = json.load(f)
@@ -409,37 +425,94 @@ class LineageFreshnessTests(unittest.TestCase):
         import rebuild_comparison_chain as rcc
         # Sanity: function exists and is callable
         self.assertTrue(callable(run_lineage_rebuild))
-        # Patch run_fn so we capture what it would invoke, then patch
-        # write_chain_status so the test does not touch real status files.
-        calls = []
-        def fake_run(cmd, **kw):
-            calls.append(cmd)
-            return (True, "ok")
-        # Replace write_chain_status on the module so the finally block
-        # does not write to disk.
-        orig_wcs = rcc.write_chain_status
-        rcc.write_chain_status = lambda *a, **kw: {"success": True}
+        # Use a temp repo so Stage 10's fixture sync does not touch the real tree.
+        tmp = tempfile.mkdtemp(prefix="jeg200-stage10-wiring-")
         try:
-            execute_chain(nfl_week=4, run_fn=fake_run)
+            fixdir = Path(tmp) / "data/fixtures/current"
+            fixdir.mkdir(parents=True)
+            (fixdir / "comparison-sources-data.json").write_text(
+                json.dumps({"built_at": "2026-10-02T21:21:44+00:00", "sources": {}}))
+            # Patch run_fn so we capture what it would invoke, then patch
+            # write_chain_status so the test does not touch real status files.
+            calls = []
+            def fake_run(cmd, **kw):
+                calls.append(cmd)
+                return (True, "ok")
+            # Replace write_chain_status on the module so the finally block
+            # does not write to disk.
+            orig_wcs = rcc.write_chain_status
+            rcc.write_chain_status = lambda *a, **kw: {"success": True}
+            try:
+                execute_chain(nfl_week=4, repo=tmp, run_fn=fake_run)
+            finally:
+                rcc.write_chain_status = orig_wcs
+            # Stage 10 must invoke build_source_value_lineage.py
+            lineage_calls = [c for c in calls if "build_source_value_lineage.py" in " ".join(c)]
+            self.assertTrue(
+                len(lineage_calls) >= 1,
+                f"Stage 10 did not invoke build_source_value_lineage.py; calls={calls}",
+            )
         finally:
-            rcc.write_chain_status = orig_wcs
-        # Stage 10 must invoke build_source_value_lineage.py
-        lineage_calls = [c for c in calls if "build_source_value_lineage.py" in " ".join(c)]
-        self.assertTrue(
-            len(lineage_calls) >= 1,
-            f"Stage 10 did not invoke build_source_value_lineage.py; calls={calls}",
-        )
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_stage_10_fail_safe_does_not_halt_chain(self):
         """Stage 10 mirrors Stage 9: rebuild failure is logged, chain continues."""
         from rebuild_comparison_chain import run_lineage_rebuild
-        def fake_run(cmd, **kw):
-            return (False, "SystemExit: missing snapshots")
-        result = run_lineage_rebuild(repo=ROOT, run_fn=fake_run)
-        self.assertEqual(result["status"], "failed")
-        # Must not raise -- chain continues.
-        # And the detail explains the badge stamping path.
-        self.assertIn("builder raised", result["detail"].lower())
+        # Use a temp repo dir so the fixture sync does not touch the real tree.
+        tmp = tempfile.mkdtemp(prefix="jeg200-stage10-")
+        try:
+            fixdir = Path(tmp) / "data/fixtures/current"
+            fixdir.mkdir(parents=True)
+            (fixdir / "comparison-sources-data.json").write_text(
+                json.dumps({"built_at": "2026-10-02T21:21:44+00:00", "sources": {}}))
+            def fake_run(cmd, **kw):
+                return (False, "SystemExit: missing snapshots")
+            result = run_lineage_rebuild(repo=tmp, run_fn=fake_run)
+            self.assertEqual(result["status"], "failed")
+            # Must not raise -- chain continues.
+            # And the detail explains the badge stamping path.
+            self.assertIn("builder raised", result["detail"].lower())
+            # The sync must have copied the canonical fixture to the builder
+            # input path even though the build itself failed.
+            synced = Path(tmp) / "dist/assets/comparison-sources-data.json"
+            self.assertTrue(synced.exists(),
+                            "Stage 10 must sync the fixture before building")
+            self.assertEqual(
+                json.loads(synced.read_text())["built_at"],
+                "2026-10-02T21:21:44+00:00")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+    def test_stage_10_syncs_fixture_before_build(self):
+        """Stage 10 syncs the canonical fixture to the builder's input path
+        (dist/assets/) BEFORE invoking the builder, so a fresh rebuild never
+        bakes stale inputs. Negative control: without the sync, the builder
+        would read the stale dist copy."""
+        from rebuild_comparison_chain import run_lineage_rebuild
+        tmp = tempfile.mkdtemp(prefix="jeg200-stage10-sync-")
+        try:
+            fixdir = Path(tmp) / "data/fixtures/current"
+            fixdir.mkdir(parents=True)
+            fresh_built_at = "2026-10-02T21:21:44+00:00"
+            (fixdir / "comparison-sources-data.json").write_text(
+                json.dumps({"built_at": fresh_built_at, "sources": {}}))
+            # Seed a STALE builder input, as on main before the fix.
+            builder_input = Path(tmp) / "dist/assets/comparison-sources-data.json"
+            builder_input.parent.mkdir(parents=True)
+            builder_input.write_text(json.dumps(
+                {"built_at": "2026-10-02T12:45:09+00:00", "sources": {}}))
+            seen = {}
+            def fake_run(cmd, **kw):
+                # Capture the builder input's built_at at invocation time.
+                seen["built_at"] = json.loads(builder_input.read_text())["built_at"]
+                return (True, "ok")
+            result = run_lineage_rebuild(repo=tmp, run_fn=fake_run)
+            self.assertEqual(result["status"], "ok")
+            self.assertEqual(
+                seen.get("built_at"), fresh_built_at,
+                "builder must see the fresh fixture, not the stale dist copy")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 if __name__ == "__main__":
