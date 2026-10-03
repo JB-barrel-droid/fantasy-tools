@@ -692,9 +692,11 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("selectedRankSourceKey", text)
         self.assertIn("every curve shares", text)
         self.assertIn("sharedPlayerAxis", text)
-        # 2026-10-03: variable renamed sourceKey -> key in refactor; the
-        # visible-window logic still reads row values per key.
-        self.assertIn("row.values[key]", text)
+        # 2026-10-03: orderComparator was refactored to (a, b) params using
+        # values[lockOrder] (was row.values[sourceKey]); the ALL-position
+        # ordering still keys off the current lockOrder value.
+        self.assertIn("a.values[lockOrder]", text)
+        self.assertIn("b.values[lockOrder]", text)
         self.assertIn("slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))", text)
         self.assertIn("syncYAxis", text)
         self.assertIn("yAxisAuto", text)

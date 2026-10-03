@@ -2393,3 +2393,93 @@ but flagged "not displayed".
   `review_rows` (never guessed), so the leg still publishes but
   flags the drift. The audit's 2026-10-01 snapshot showed all 45 K
   and 32 DST resolve cleanly.
+
+## 2026-10-03 - JEG-299 (follow-up): rebuild-chain test simulator is NOT stale — brief hypothesis refuted
+
+The dispatch brief (lanes/outbox/minimax/JEG-299-test-simulator.md) claimed
+`make test-unit` is red on clean origin/main with 2 failures in
+`tests/test_rebuild_chain_workflow.py` (`test_real_workflow_is_clean` and
+`test_red_chain_pushes_only_status_and_health_files`), caused by the
+simulator not being updated for the post-JEG-299 workflow restructures
+(56d9b52, a297978, bc7cf74, df73cff).
+
+**Verified** — directly run on `minimax/jeg-299-test-simulator` (df73cff):
+
+```
+python3 -m unittest tests.test_rebuild_chain_workflow -v
+test_a_job_that_stays_green_after_a_failed_chain_is_caught ... ok
+test_dropping_the_fail_step_condition_is_caught ... ok
+test_green_chain_pushes_fixture_and_monitor_copy ... ok
+test_green_path_not_syncing_the_monitor_copy_is_caught ... ok
+test_losing_continue_on_error_is_caught ... ok
+test_not_publishing_status_on_failure_is_caught ... ok
+test_real_workflow_is_clean ... ok
+test_red_chain_pushes_only_status_and_health_files ... ok
+test_staging_the_fixture_on_failure_is_caught ... ok
+----------------------------------------------------------------------
+Ran 9 tests in 1.732s
+
+OK
+```
+
+All 9 tests pass, including the full assertCaught mutation battery
+(every mutation still rejected). Hand-trace of the failure scenario
+(`run_scenario(WORKFLOW, "failure")`):
+
+- `red["changed"]` = `{"dist/modules/comparison-chain-status.json",
+  "output/comparison-chain-status.json"}` — matches the test's
+  `{MONITOR_STATUS, OUT_STATUS}` assertion exactly.
+- `red["fixture"]` = `"OLD"` (the partial `PARTIAL` fixture written by
+  `run_scenario` was correctly NOT added by the red-path
+  `dist/modules/source-import-health.json \
+   dist/modules/comparison-chain-status.json \
+   dist/modules/github-actions.json \
+   output/source-import-health.json \
+   output/comparison-chain-status.json` `git add`).
+- `red["monitor_status"]` = `"RED"` — PUBLISH_RED's `cp` ran.
+- `red["fail_rc"]` = `1` — the "Fail the job if the chain failed" step
+  ran with `exit 1`.
+
+Hand-trace of the success scenario:
+
+- `green["changed"]` includes FIXTURE, MONITOR_FIXTURE, MONITOR_STATUS,
+  OUT_STATUS, ADJ_APP, plus ADJ_DIST (the JEG-211-honest-exclusion copy
+  SYNC_OK adds to dist) — 6 files, all expected.
+
+`static_problems(WORKFLOW)` returns `[]`; `behaviour_problems(WORKFLOW)`
+returns `[]`. The simulator's plain-text step parser
+(`step_blocks`/`find_step`/`script_of` at
+tests/test_rebuild_chain_workflow.py:47-84) handles the restructured
+workflow (the added "Refresh GitHub Actions status (JEG-109)" step
+at line 110 and the JEG-299 rebase logic at 167 are correctly outside
+the simulated steps; `GH_ACTIONS` was added to BASELINE at JEG-109 and
+stays at its OLD-GH content because the simulator does not exercise the
+if:always() refresh step).
+
+**Verdict**: workflow is correct (publishes RED, stages only status/health,
+keeps fixture OLD, fails rc=1); simulator parses the restructured workflow
+correctly. Brief was based on a stale observation — neither the workflow
+nor the simulator needs fixing for JEG-299 follow-up.
+
+**What I did NOT change**
+
+- No edits to `tests/test_rebuild_chain_workflow.py` (already correct).
+- No edits to `.github/workflows/rebuild-chain.yml` (already correct).
+- No weakening of any assertion.
+
+**Unrelated red on this branch**
+
+`make test-unit` IS red on this branch (df73cff) but the failure is
+**not** in `test_rebuild_chain_workflow.py`. It is in
+`tests/test_static_export.py::StaticExportTest::test_all_position_order_and_y_axis_use_visible_window`
+(asserts `"row.values[sourceKey]"` in `app/trade-value-chart/assets/curve-widget.js`;
+the served widget uses `b.values[lockOrder]` / `a.values[lockOrder]` instead —
+pinned for an older naming). This pre-dates JEG-299 and is outside the
+scope of this dispatch brief; flagging for the next sweep.
+
+`make -n test-unit` ordering: test_static_export (line 61 of the
+test-unit target) runs before test_rebuild_chain_workflow (line 71),
+so the make target fails fast on test_static_export before reaching
+the simulator under investigation. Direct invocation
+(`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
+the 9 tests green in 1.7s.
