@@ -432,14 +432,26 @@ function shortTs(iso){
 // Vintage may be a date string ("2026-10-03") or a "Week N" label. "Week N"
 // is intentionally rendered as grey/unk -- it carries no age information
 // and the dashboard's freshness bands only make sense for dated vintages.
+//
+// Display nit (JEG-315 follow-up): anchor "today" at UTC midnight so a
+// vintage dated exactly 4 or 7 calendar days ago computes as 4.0 / 7.0
+// days old -- not 4.5 / 7.5 -- and the band stays stable within a
+// calendar day. Using Date.now() directly made a 4d vintage flip
+// green<->amber at noon UTC.
 function vintageLine(contentVintage){
   if(!contentVintage) return `<div class="src-vintage unk">Content vintage: unknown</div>`;
   const m = String(contentVintage).match(/^(\d{4}-\d{2}-\d{2})$/);
   if(!m){
     return `<div class="src-vintage unk">Content vintage: ${contentVintage}</div>`;
   }
-  const vt = new Date(m[1] + "T00:00:00Z").getTime();
-  const ageDays = (Date.now() - vt) / 86400000;
+  // UTC midnight today: floor Date.now() to the nearest day boundary.
+  const todayMs = Math.floor(Date.now() / 86400000) * 86400000;
+  const vt = Date.UTC(
+    parseInt(m[1].slice(0,4), 10),
+    parseInt(m[1].slice(5,7), 10) - 1,
+    parseInt(m[1].slice(8,10), 10)
+  );
+  const ageDays = (todayMs - vt) / 86400000;
   let band = "red";
   if(ageDays <= 4) band = "green";
   else if(ageDays <= 7) band = "amber";
