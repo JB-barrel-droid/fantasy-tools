@@ -258,6 +258,50 @@ def newest_razzball_leg():
     return str(leg_path.relative_to(REPO)), leg
 
 
+def c6_candidate_verdict(src, cand_mtime, review_mtime, chain_result, chain_run_at):
+    """Compute the C6 (candidate build/review) verdict for a source.
+
+    Razzball is a file-scraped source by project rule (JEG-306): it has no
+    candidate/review artifact by design, so reporting `unk` is a false gap.
+    The c6/c7 stages are N/A for Razzball, which is an honest "ok" rather
+    than a missing-artifact alarm. JEG-307 owns whether Razzball should join
+    the candidate/promotion chain; this branch only changes the verdict for
+    the by-design-empty case.
+
+    For other sources, the verdict falls back through (newest timestamp) ->
+    (chain status) -> (unk) tiers, same as the previous inline logic.
+    """
+    # Use the newer of candidate build and review
+    c6_ts = None
+    for ts in [cand_mtime, review_mtime]:
+        if ts and (not c6_ts or parse_iso(ts) > parse_iso(c6_ts)):
+            c6_ts = ts
+    c6_days = days_old(c6_ts)
+    if src == "razzball":
+        return {
+            "timestamp": None,
+            "status": "ok",
+            "reason": "File-scraped source; c6/c7 stages N/A by design.",
+        }
+    if c6_ts and c6_days is not None:
+        if c6_days > 14:
+            return {"timestamp": c6_ts, "status": "bad",
+                "reason": f"Last candidate/review {c6_days:.0f}d ago. Build pipeline may be broken."}
+        if c6_days > 7:
+            return {"timestamp": c6_ts, "status": "warn",
+                "reason": f"Last candidate/review {c6_days:.0f}d ago."}
+        return {"timestamp": c6_ts, "status": "ok",
+            "reason": f"Candidate built and reviewed {c6_days:.1f}d ago."}
+    if chain_result:
+        # Fall back to chain status timestamp
+        c6_days = days_old(chain_run_at)
+        return {"timestamp": chain_run_at,
+            "status": "warn" if (c6_days or 99) > 2 else "ok",
+            "reason": f"No candidate/review artifacts on disk. Chain reported '{chain_result}' at {chain_run_at}."}
+    return {"timestamp": None, "status": "unk",
+        "reason": "No candidate or review artifacts found."}
+
+
 def razzball_health_from_fixture(fixture):
     """Synthesize monitor health for Razzball from fixture + DDF leg metadata.
 
@@ -516,27 +560,14 @@ def build_checkpoints():
         for ts in [cand_mtime, review_mtime]:
             if ts and (not c6_ts or parse_iso(ts) > parse_iso(c6_ts)):
                 c6_ts = ts
-        c6_days = days_old(c6_ts)
         chain_result = chain_sources.get(src, "")
-        if c6_ts and c6_days is not None:
-            if c6_days > 14:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "bad",
-                    "reason": f"Last candidate/review {c6_days:.0f}d ago. Build pipeline may be broken."}
-            elif c6_days > 7:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "warn",
-                    "reason": f"Last candidate/review {c6_days:.0f}d ago."}
-            else:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "ok",
-                    "reason": f"Candidate built and reviewed {c6_days:.1f}d ago."}
-        elif chain_result:
-            # Fall back to chain status timestamp
-            c6_days = days_old(chain_run_at)
-            cps["c6_candidate"] = {"timestamp": chain_run_at,
-                "status": "warn" if (c6_days or 99) > 2 else "ok",
-                "reason": f"No candidate/review artifacts on disk. Chain reported '{chain_result}' at {chain_run_at}."}
-        else:
-            cps["c6_candidate"] = {"timestamp": None, "status": "unk",
-                "reason": "No candidate or review artifacts found."}
+        cps["c6_candidate"] = c6_candidate_verdict(
+            src=src,
+            cand_mtime=cand_mtime,
+            review_mtime=review_mtime,
+            chain_result=chain_result,
+            chain_run_at=chain_run_at,
+        )
 
         # C7: Fixture promotion - from promotion file (real promoted_at + review_verdict)
         promo_path, promo_mtime = newest_file_mtime("output/comparison-promotions", rf"^{src}-.*-promotion\.json$")
