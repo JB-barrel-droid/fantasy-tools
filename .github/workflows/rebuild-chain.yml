@@ -15,6 +15,15 @@ on:
   # JEG-109's status-refresh step still runs on every dispatched execution.
   workflow_dispatch:
     # Manual trigger from the Actions tab.
+    inputs:
+      # JEG-269: source-vintage-check.yml dispatches with
+      # -f source="source-vintage-check". The dispatches API rejects inputs
+      # that are not declared here (HTTP 422: workflow does not have the
+      # input), so this must stay in sync with the caller's -f/--field args.
+      source:
+        description: "Which dispatcher triggered this run (provenance)"
+        required: false
+        default: "manual"
 
 permissions:
   contents: write  # needed to commit and push the rebuilt fixture

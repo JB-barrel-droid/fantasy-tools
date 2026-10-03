@@ -200,5 +200,87 @@ class VintageWorkflowContractTests(unittest.TestCase):
         self.assertIn("|| true", m.group(0))
 
 
+class DispatchInputContractTests(unittest.TestCase):
+    """JEG-269: `gh workflow run -f/--field` inputs must be declared.
+
+    Regression: source-vintage-check.yml dispatched rebuild-chain.yml with
+    `-f source="source-vintage-check"` while rebuild-chain.yml declared no
+    inputs block. gh / the dispatches API rejects undeclared inputs
+    (HTTP 422: workflow does not have the input), so the dispatch step failed
+    even though the dispatch condition was satisfied. Production proof: run
+    37111598432 (2026-10-03 ~09:02 UTC) -- check step success, dispatch step
+    failure, record skipped, run failure.
+    """
+
+    WF_DIR = ROOT / ".github" / "workflows"
+
+    @classmethod
+    def _declared_inputs(cls, workflow_file):
+        """Names under `on: workflow_dispatch: inputs:` (regex parse)."""
+        lines = workflow_file.read_text(encoding="utf-8").splitlines()
+        base = None
+        for i, line in enumerate(lines):
+            if re.match(r"^\s*workflow_dispatch:\s*(#.*)?$", line):
+                base = len(line) - len(line.lstrip())
+                start = i
+                break
+        if base is None:
+            return set()
+        declared = set()
+        in_inputs = False
+        inputs_indent = None
+        for line in lines[start + 1:]:
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(line) - len(line.lstrip())
+            if indent <= base:
+                break
+            if re.match(r"^\s*inputs:\s*(#.*)?$", line):
+                in_inputs = True
+                inputs_indent = indent
+                continue
+            if in_inputs:
+                if indent <= inputs_indent:
+                    break
+                m = re.match(r"^\s*([\w-]+):", line)
+                if m and indent == inputs_indent + 2:
+                    declared.add(m.group(1))
+        return declared
+
+    @classmethod
+    def _dispatch_invocations(cls, workflow_file):
+        """Yield (target workflow file, [input names]) per `gh workflow run`."""
+        text = workflow_file.read_text(encoding="utf-8")
+        for m in re.finditer(r"gh workflow run\s+(\S+)", text):
+            target, rest_start = m.group(1), m.end()
+            tail = text[rest_start:rest_start + 400].split("\n      - ")[0]
+            inputs = re.findall(r"(?:^|\s)(?:-f|--field)\s+([\w-]+)=", tail)
+            tgt = cls.WF_DIR / target
+            if not tgt.exists() and not target.endswith(".yml"):
+                alt = cls.WF_DIR / (target + ".yml")
+                if alt.exists():
+                    tgt = alt
+            yield tgt, inputs
+
+    def test_rebuild_chain_declares_source_input(self):
+        declared = self._declared_inputs(self.WF_DIR / "rebuild-chain.yml")
+        self.assertIn("source", declared)
+
+    def test_all_dispatched_inputs_are_declared(self):
+        failures = []
+        for wf in sorted(self.WF_DIR.glob("*.yml")):
+            for target, inputs in self._dispatch_invocations(wf):
+                if not inputs or not target.exists():
+                    continue
+                declared = self._declared_inputs(target)
+                for name in inputs:
+                    if name not in declared:
+                        failures.append(
+                            "%s passes -f %s= to %s, which does not declare it"
+                            % (wf.name, name, target.name))
+        self.assertEqual([], failures)
+
+
 if __name__ == "__main__":
     unittest.main()
