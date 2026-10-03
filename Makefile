@@ -148,6 +148,9 @@ test-unit:
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
 	python3 -m unittest tests.test_vorp_views_preview
+	python3 -m unittest tests.test_jeg242_blend_reference
+	python3 -m unittest tests.test_run_as_published_vorp
+	python3 -m unittest tests.test_transform_batch70_to_comparison
 	python3 -m unittest tests.test_vintage_trigger
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
@@ -223,6 +226,33 @@ refresh-vorp-views:
 		--group-vorps "$(VORP_VIEWS_GROUP_VORPS)" --roster-config "$(VORP_VIEWS_ROSTER_CONFIG)" \
 		$(VORP_VIEWS_WEIGHT_ARGS) --out-dir "$(VORP_VIEWS_OUT_DIR)"
 
+# As-published VORP orchestration (JEG-242): resolves Jeremy's pinned blend
+# reference (leg-sha verification, group-VORP rebuild from the pinned leg,
+# --controls extracted mechanically from the reference budgets) and runs the
+# reviewed refresh_vorp_views path end-to-end. Candidate-only: writes to
+# VORP_VIEWS_OUT_DIR, never Supabase, never promotion. No weights invented.
+run-as-published-vorp:
+	@test -n "$(VORP_VIEWS_VALUES_DIR)" || (echo "VORP_VIEWS_VALUES_DIR required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_ROSTER_CONFIG)" || (echo "VORP_VIEWS_ROSTER_CONFIG required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_OUT_DIR)" || (echo "VORP_VIEWS_OUT_DIR required" >&2; exit 2)
+	python3 pipelines/run_as_published_vorp.py --values-dir "$(VORP_VIEWS_VALUES_DIR)" \
+		--roster-config "$(VORP_VIEWS_ROSTER_CONFIG)" --out-dir "$(VORP_VIEWS_OUT_DIR)" \
+		$(if $(VORP_VIEWS_REFERENCE),--reference "$(VORP_VIEWS_REFERENCE)") \
+		$(if $(VORP_VIEWS_GROUP_VORPS_OVERRIDE),--group-vorps "$(VORP_VIEWS_GROUP_VORPS_OVERRIDE)")
+
+# Batch70 -> comparison bridge (JEG-242): rewrites a REVIEWED batch70
+# candidate's three views into the vorp_views blocks the JEG-210 chart view
+# toggle consumes. Writes a candidate copy; promotion to the live fixture is
+# a separate reviewed step.
+transform-vorp-views:
+	@test -n "$(VORP_VIEWS_OUT_DIR)" || (echo "VORP_VIEWS_OUT_DIR required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_COMPARISON_IN)" || (echo "VORP_VIEWS_COMPARISON_IN required" >&2; exit 2)
+	@test -n "$(VORP_VIEWS_COMPARISON_OUT)" || (echo "VORP_VIEWS_COMPARISON_OUT required" >&2; exit 2)
+	python3 pipelines/transform_batch70_to_comparison.py \
+		--batch70 "$(VORP_VIEWS_OUT_DIR)/candidate.json" \
+		--comparison "$(VORP_VIEWS_COMPARISON_IN)" \
+		--out "$(VORP_VIEWS_COMPARISON_OUT)"
+
 # Three-view preview (JEG-242): loads a REVIEWED candidate into a COPIED
 # output dashboard and proves per-view numerical parity (indexed =
 # native*70/common peak; vorp/adj verbatim; genuine zeros kept; absent keys
@@ -237,6 +267,17 @@ preview-vorp-views:
 		--out-dir "$(VORP_VIEWS_PREVIEW_DIR)"
 	node preview/check_preview_parity.js \
 		"$(VORP_VIEWS_PREVIEW_DIR)/preview-dashboard/assets/vorp-views-preview.json"
+	# JEG-242: bridge the REVIEWED candidate into the COPIED dashboard's
+	# comparison data (the vorp_views view contract) and verify it with an
+	# independent second-language check. The transformer's output is consumed
+	# and verified here; production promotion stays a separate reviewed step.
+	python3 pipelines/transform_batch70_to_comparison.py \
+		--batch70 "$(VORP_VIEWS_OUT_DIR)/candidate.json" \
+		--comparison "$(VORP_VIEWS_PREVIEW_DIR)/preview-dashboard/assets/comparison-sources-data.json" \
+		--out "$(VORP_VIEWS_PREVIEW_DIR)/preview-dashboard/assets/comparison-sources-data.json"
+	node preview/check_vorp_views_parity.js \
+		"$(VORP_VIEWS_OUT_DIR)/candidate.json" \
+		"$(VORP_VIEWS_PREVIEW_DIR)/preview-dashboard/assets/comparison-sources-data.json"
 
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
