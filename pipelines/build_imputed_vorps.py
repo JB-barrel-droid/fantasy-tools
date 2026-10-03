@@ -170,8 +170,8 @@ def compute_imputed_vorps(
         imputed = _nonnegative_finite(val * alloc[g], f"imputed {pkey}")
         result[pkey] = {
             "group": f"{pos}|{role.title()}",
-            "alloc_factor": round(alloc[g], 6),
-            "imputed_vorp": round(imputed, 2),
+            "alloc_factor": alloc[g],
+            "imputed_vorp": imputed,
             "native": val,
         }
     return result
