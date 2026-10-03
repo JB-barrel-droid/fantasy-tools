@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Consolidation Watcher — Trade Value Data</title>
+<style>
+  :root {
+    --bg: #0f1419;
+    --card: #1a2332;
+    --border: #2a3a4d;
+    --text: #e6edf3;
+    --muted: #8b9bb4;
+    --accent: #4da6ff;
+    --green: #3fb950;
+    --yellow: #d29922;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    margin: 0;
+    padding: 16px;
+  }
+  h1 { font-size: 1.4rem; margin: 0 0 4px 0; }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 16px; }
+  .data-source {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: #1a3a1a;
+    color: var(--green);
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+  .data-source.fallback { background: #3a2a1a; color: var(--yellow); }
+
+  /* Filter bar */
+  .filters {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .filter-group { display: flex; flex-direction: column; }
+  .filter-group label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .filter-group input, .filter-group select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+  .filter-group input:focus, .filter-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .search-group { grid-column: 1 / -1; }
+  .search-group input {
+    font-size: 1rem;
+    padding: 10px 14px;
+  }
+  .filter-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  button {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:hover { opacity: 0.9; }
+  button.secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .row-count { color: var(--muted); font-size: 0.85rem; margin-left: auto; }
+
+  /* Trend view */
+  .trend-view {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: none;
+  }
+  .trend-view.visible { display: block; }
+  .trend-view h2 { font-size: 1.1rem; margin: 0 0 12px 0; }
+  .trend-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  .trend-table th, .trend-table td {
+    padding: 6px 10px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  .trend-table th { color: var(--muted); font-weight: 600; }
+
+  /* Data table */
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow-x: auto;
+  }
+  table.data { width: 100%; border-collapse: collapse; font-size: 0.85rem; min-width: 900px; }
+  table.data th {
+    position: sticky;
+    top: 0;
+    background: #223047;
+    padding: 10px 12px;
+    text-align: left;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  table.data th:hover { background: #2a3a55; }
+  table.data th .info {
+    display: inline-block;
+    width: 16px; height: 16px;
+    border-radius: 50%;
+    background: var(--border);
+    color: var(--muted);
+    font-size: 0.65rem;
+    text-align: center;
+    line-height: 16px;
+    margin-left: 4px;
+    cursor: help;
+    font-style: normal;
+  }
+  table.data td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+  table.data tr:hover td { background: #1e2a3f; }
+  .sort-ind { color: var(--accent); margin-left: 4px; }
+
+  /* Pagination */
+  .pagination {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+
+  /* Column guide */
+  .guide {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+  }
+  .guide h2 { font-size: 1.1rem; margin: 0 0 12px 0; }
+  .guide dl { margin: 0; display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; }
+  .guide dt { font-weight: 600; color: var(--accent); font-size: 0.85rem; }
+  .guide dd { margin: 0; font-size: 0.85rem; color: var(--text); }
+
+  .loading { text-align: center; padding: 40px; color: var(--muted); }
+  .error { background: #3a1a1a; border: 1px solid #6a2a2a; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+
+  @media (max-width: 768px) {
+    .filters { grid-template-columns: 1fr 1fr; }
+    .search-group { grid-column: 1 / -1; }
+    .guide dl { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Consolidation Watcher <span class="data-source" id="dataSource">Connecting…</span></h1>
+<p class="subtitle">Live view of the trade value consolidation layer — every player × every source × every week. One final value per cell.</p>
+
+<div class="filters">
+  <div class="filter-group search-group">
+    <label for="searchPlayer">Search player</label>
+    <input type="text" id="searchPlayer" placeholder="Type a player name… (e.g., josh allen)">
+  </div>
+  <div class="filter-group">
+    <label for="filterSource">Source</label>
+    <select id="filterSource"><option value="">All sources</option></select>
+  </div>
+  <div class="filter-group">
+    <label for="filterSeason">Season</label>
+    <select id="filterSeason"><option value="">All seasons</option></select>
+  </div>
+  <div class="filter-group">
+    <label for="filterWeek">Week</label>
+    <select id="filterWeek"><option value="">All weeks</option></select>
+  </div>
+  <div class="filter-group">
+    <label for="filterScoring">Scoring</label>
+    <select id="filterScoring">
+      <option value="">All</option>
+      <option value="full">Full PPR</option>
+      <option value="half">Half PPR</option>
+      <option value="standard">Standard</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="filterTeams">Teams</label>
+    <select id="filterTeams">
+      <option value="">All</option>
+      <option value="8">8</option>
+      <option value="10">10</option>
+      <option value="12">12</option>
+      <option value="14">14</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="filterView">View</label>
+    <select id="filterView">
+      <option value="">All</option>
+      <option value="combo_reindexed">Combo Reindexed</option>
+      <option value="vorp_indexed">VORP Indexed</option>
+      <option value="vorp">VORP</option>
+      <option value="adj_values">Adj Values</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="filterQb">QB Variant</label>
+    <select id="filterQb">
+      <option value="">All</option>
+      <option value="qb1">QB1</option>
+      <option value="qb2">QB2</option>
+    </select>
+  </div>
+  <div class="filter-actions">
+    <button id="btnTrend">Week-over-week trend</button>
+    <button class="secondary" id="btnClear">Clear filters</button>
+    <span class="row-count" id="rowCount"></span>
+  </div>
+</div>
+
+<div class="trend-view" id="trendView">
+  <h2 id="trendTitle">Week-over-week trend</h2>
+  <div style="overflow-x:auto"><table class="trend-table" id="trendTable"></table></div>
+</div>
+
+<div id="errorBox"></div>
+
+<div class="table-wrap">
+  <div class="loading" id="loading">Loading consolidation data…</div>
+  <table class="data" id="dataTable" style="display:none">
+    <thead><tr id="headerRow"></tr></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="pagination" id="pagination" style="display:none">
+    <button class="secondary" id="btnPrev">← Prev</button>
+    <span id="pageInfo"></span>
+    <button class="secondary" id="btnNext">Next →</button>
+  </div>
+</div>
+
+<div class="guide">
+  <h2>Column Guide</h2>
+  <dl>
+    <dt>Player</dt>
+    <dd>Canonical lowercase player key from the project's naming table. Identity is resolved before any pricing — ambiguous names are excluded, never guessed.</dd>
+    <dt>Source</dt>
+    <dd>Which publisher the value comes from: <code>fantasycalc_adjusted</code>, <code>fantasypros_adjusted</code>, <code>usatoday_adjusted</code>, <code>cbsros</code>, <code>espn</code>, etc. The <code>_adjusted</code> suffix means as-published values run through the adjustment-cell refit.</dd>
+    <dt>Season</dt>
+    <dd>NFL season year (e.g., 2026).</dd>
+    <dt>Week</dt>
+    <dd>NFL week number (1–18). All weeks are retained — no aging out.</dd>
+    <dt>Scoring</dt>
+    <dd>League scoring: <code>full</code> (Full PPR), <code>half</code> (Half PPR), <code>standard</code> (no PPR).</dd>
+    <dt>Teams</dt>
+    <dd>League size: 8, 10, 12, or 14 teams.</dd>
+    <dt>QB</dt>
+    <dd>QB variant — only applies to FantasyCalc sources (<code>qb1</code>/<code>qb2</code>). All other sources show blank.</dd>
+    <dt>View</dt>
+    <dd>Which value family: <code>combo_reindexed</code> = chart-ready values after pie indexation; <code>vorp_indexed</code> / <code>vorp</code> / <code>adj_values</code> = VORP translation outputs.</dd>
+    <dt>Value</dt>
+    <dd>The exact final value — stored unrounded in consolidation. Rounding happens in presentation only.</dd>
+  </dl>
+</div>
+
+<script>
+// Column definitions with tooltips
+const COLUMNS = [
+  { key: 'player',   label: 'Player',  tip: 'Canonical lowercase player key. Identity resolved before pricing.' },
+  { key: 'source',   label: 'Source',  tip: 'Publisher: fantasycalc_adjusted, fantasypros_adjusted, usatoday_adjusted, cbsros, espn, etc.' },
+  { key: 'season',   label: 'Season',  tip: 'NFL season year.' },
+  { key: 'week',     label: 'Week',    tip: 'NFL week 1-18. All weeks retained.' },
+  { key: 'scoring',  label: 'Scoring', tip: 'full = Full PPR, half = Half PPR, standard = no PPR.' },
+  { key: 'teams',    label: 'Teams',   tip: 'League size: 8, 10, 12, or 14.' },
+  { key: 'qb_variant', label: 'QB',    tip: 'QB variant — FantasyCalc only (qb1/qb2). Blank for all other sources.' },
+  { key: 'view',     label: 'View',    tip: 'combo_reindexed = chart values; vorp_indexed/vorp/adj_values = VORP outputs.' },
+  { key: 'value',    label: 'Value',   tip: 'Exact final value (unrounded). Rounding is presentation-only.' },
+];
+
+const SUPABASE_URL = 'https://iskiybsimubiujwuchsl.supabase.co';
+const PAGE_SIZE = 100;
+
+let allRows = [];
+let filteredRows = [];
+let currentPage = 0;
+let sortKey = null;
+let sortDir = 1;
+let usingFallback = false;
+
+async function loadData() {
+  const dsEl = document.getElementById('dataSource');
+  try {
+    // Try Supabase REST API (public read enabled via RLS policy)
+    const resp = await fetch(
+      `${SUPABASE_URL}/rest/v1/consolidated_values?select=*&limit=100000`,
+      { headers: { 'apikey': 'public', 'Accept': 'application/json' } }
+    );
+    if (!resp.ok) throw new Error(`Supabase: HTTP ${resp.status}`);
+    allRows = await resp.json();
+    dsEl.textContent = `Live: Supabase (${allRows.length.toLocaleString()} rows)`;
+    dsEl.classList.remove('fallback');
+  } catch (e) {
+    // Fallback to JSON export
+    usingFallback = true;
+    try {
+      const resp = await fetch('../consolidated-values.json');
+      if (!resp.ok) throw new Error('JSON fallback unavailable');
+      const data = await resp.json();
+      allRows = data.rows || [];
+      dsEl.textContent = 'Fallback: JSON export';
+      dsEl.classList.add('fallback');
+    } catch (e2) {
+      showError(`Could not load data from Supabase or JSON fallback. ${e.message}`);
+      return;
+    }
+  }
+  populateFilterOptions();
+  applyFilters();
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('dataTable').style.display = '';
+  document.getElementById('pagination').style.display = '';
+}
+
+function showError(msg) {
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('errorBox').innerHTML = `<div class="error">${msg}</div>`;
+}
+
+function populateFilterOptions() {
+  const sources = [...new Set(allRows.map(r => r.source))].sort();
+  const seasons = [...new Set(allRows.map(r => r.season))].sort((a,b) => b-a);
+  const weeks = [...new Set(allRows.map(r => r.week))].sort((a,b) => a-b);
+
+  const srcSel = document.getElementById('filterSource');
+  sources.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    srcSel.appendChild(o);
+  });
+
+  const seasonSel = document.getElementById('filterSeason');
+  seasons.forEach(s => {
+    const o = document.createElement('option');
+    o.value = s; o.textContent = s;
+    seasonSel.appendChild(o);
+  });
+
+  const weekSel = document.getElementById('filterWeek');
+  weeks.forEach(w => {
+    const o = document.createElement('option');
+    o.value = w; o.textContent = `Week ${w}`;
+    weekSel.appendChild(o);
+  });
+}
+
+function getFilters() {
+  return {
+    player: document.getElementById('searchPlayer').value.trim().toLowerCase(),
+    source: document.getElementById('filterSource').value,
+    season: document.getElementById('filterSeason').value,
+    week: document.getElementById('filterWeek').value,
+    scoring: document.getElementById('filterScoring').value,
+    teams: document.getElementById('filterTeams').value,
+    view: document.getElementById('filterView').value,
+    qb: document.getElementById('filterQb').value,
+  };
+}
+
+function applyFilters() {
+  const f = getFilters();
+  filteredRows = allRows.filter(r => {
+    if (f.player && !(r.player || '').toLowerCase().includes(f.player)) return false;
+    if (f.source && r.source !== f.source) return false;
+    if (f.season && String(r.season) !== f.season) return false;
+    if (f.week && String(r.week) !== f.week) return false;
+    if (f.scoring && r.scoring !== f.scoring) return false;
+    if (f.teams && String(r.teams) !== f.teams) return false;
+    if (f.view && r.view !== f.view) return false;
+    if (f.qb && r.qb_variant !== f.qb) return false;
+    return true;
+  });
+  currentPage = 0;
+  if (sortKey) sortRows();
+  renderTable();
+  document.getElementById('rowCount').textContent =
+    `${filteredRows.length.toLocaleString()} of ${allRows.length.toLocaleString()} rows`;
+}
+
+function sortRows() {
+  filteredRows.sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey];
+    if (va == null) va = '';
+    if (vb == null) vb = '';
+    if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * sortDir;
+    return String(va).localeCompare(String(vb)) * sortDir;
+  });
+}
+
+function renderTable() {
+  // Header
+  const hr = document.getElementById('headerRow');
+  hr.innerHTML = '';
+  COLUMNS.forEach(c => {
+    const th = document.createElement('th');
+    th.innerHTML = `${c.label}<i class="info" title="${c.tip}">?</i>${sortKey === c.key ? `<span class="sort-ind">${sortDir > 0 ? '▲' : '▼'}</span>` : ''}`;
+    th.onclick = (e) => {
+      if (e.target.classList.contains('info')) return;
+      if (sortKey === c.key) sortDir *= -1;
+      else { sortKey = c.key; sortDir = 1; }
+      sortRows();
+      renderTable();
+    };
+    hr.appendChild(th);
+  });
+
+  // Body
+  const tb = document.getElementById('tableBody');
+  tb.innerHTML = '';
+  const start = currentPage * PAGE_SIZE;
+  const page = filteredRows.slice(start, start + PAGE_SIZE);
+  page.forEach(r => {
+    const tr = document.createElement('tr');
+    COLUMNS.forEach(c => {
+      const td = document.createElement('td');
+      let v = r[c.key];
+      if (v == null) v = '—';
+      if (c.key === 'value' && typeof v === 'number') v = v.toFixed(1);
+      td.textContent = v;
+      tr.appendChild(td);
+    });
+    tb.appendChild(tr);
+  });
+
+  // Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  document.getElementById('pageInfo').textContent = `Page ${currentPage + 1} of ${totalPages.toLocaleString()}`;
+  document.getElementById('btnPrev').disabled = currentPage === 0;
+  document.getElementById('btnNext').disabled = currentPage >= totalPages - 1;
+}
+
+function showTrend() {
+  const f = getFilters();
+  if (!f.player) { alert('Enter a player name first to see their week-over-week trend.'); return; }
+  const trendRows = allRows.filter(r =>
+    (r.player || '').toLowerCase().includes(f.player) &&
+    (!f.source || r.source === f.source) &&
+    (!f.scoring || r.scoring === f.scoring) &&
+    (!f.teams || String(r.teams) === f.teams) &&
+    (!f.view || r.view === f.view)
+  );
+  if (!trendRows.length) { alert('No rows match for trend view.'); return; }
+
+  // Group by source, then week
+  const bySource = {};
+  trendRows.forEach(r => {
+    const k = `${r.source} | ${r.scoring} | ${r.teams}t | ${r.view}`;
+    if (!bySource[k]) bySource[k] = {};
+    bySource[k][r.week] = r.value;
+  });
+
+  const allWeeks = [...new Set(trendRows.map(r => r.week))].sort((a,b) => a-b);
+  const title = `Week-over-week: ${f.player}${f.source ? ` — ${f.source}` : ''}`;
+  document.getElementById('trendTitle').textContent = title;
+
+  const tt = document.getElementById('trendTable');
+  tt.innerHTML = '';
+  const trh = document.createElement('tr');
+  trh.innerHTML = '<th>Source | Scoring | Teams | View</th>' +
+    allWeeks.map(w => `<th>Week ${w}</th>`).join('') + '<th>Δ (last−first)</th>';
+  tt.appendChild(trh);
+
+  Object.entries(bySource).forEach(([k, weeks]) => {
+    const tr = document.createElement('tr');
+    const vals = allWeeks.map(w => weeks[w]);
+    const first = vals.find(v => v != null);
+    const last = [...vals].reverse().find(v => v != null);
+    const delta = (first != null && last != null) ? (last - first).toFixed(1) : '—';
+    const deltaColor = parseFloat(delta) > 0 ? 'var(--green)' : parseFloat(delta) < 0 ? '#f85149' : 'inherit';
+    tr.innerHTML = `<td>${k}</td>` +
+      vals.map(v => `<td>${v != null ? Number(v).toFixed(1) : '—'}</td>`).join('') +
+      `<td style="color:${deltaColor};font-weight:600">${delta}</td>`;
+    tt.appendChild(tr);
+  });
+
+  document.getElementById('trendView').classList.add('visible');
+  document.getElementById('trendView').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Events
+['searchPlayer','filterSource','filterSeason','filterWeek','filterScoring','filterTeams','filterView','filterQb']
+  .forEach(id => {
+    document.getElementById(id).addEventListener('input', applyFilters);
+    document.getElementById(id).addEventListener('change', applyFilters);
+  });
+
+document.getElementById('btnPrev').onclick = () => { if (currentPage > 0) { currentPage--; renderTable(); } };
+document.getElementById('btnNext').onclick = () => {
+  if ((currentPage + 1) * PAGE_SIZE < filteredRows.length) { currentPage++; renderTable(); }
+};
+document.getElementById('btnTrend').onclick = showTrend;
+document.getElementById('btnClear').onclick = () => {
+  document.getElementById('searchPlayer').value = '';
+  ['filterSource','filterSeason','filterWeek','filterScoring','filterTeams','filterView','filterQb']
+    .forEach(id => document.getElementById(id).value = '');
+  document.getElementById('trendView').classList.remove('visible');
+  applyFilters();
+};
+
+loadData();
+</script>
+</body>
+</html>
