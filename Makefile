@@ -137,6 +137,7 @@ test-unit:
 	python3 -m unittest tests.test_kdst_optional
 	python3 -m unittest tests.test_reweighted_batch_anchor
 	python3 -m unittest tests.test_option_c_sheet_oracle
+	python3 -m unittest tests.test_sheet_oracle_canonical
 	python3 -m unittest tests.test_reweight_reference_contract
 	python3 -m unittest tests.test_reweight_inversion_budget
 	python3 -m unittest tests.test_espn_pool_cap
