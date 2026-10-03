@@ -143,12 +143,19 @@ class ThreeViewPipelineWiringTests(unittest.TestCase):
             self.assertEqual(manifest["schema"], "vorp-views-refresh-run-v1")
             self.assertEqual(manifest["weight_selection"], "controls")
             self.assertEqual(manifest["promotion"], "none: candidate only; promotion is a separate reviewed step")
-            self.assertEqual(set(manifest["sources_included"]), {"fantasycalc", "usat"})
+            self.assertEqual(set(manifest["sources_included"]), {"fantasycalc", "usat", "avg"})
+            self.assertEqual(manifest["steps"], ["impute", "avg_backstop", "reweight", "review"])
+            self.assertEqual(manifest["avg_backstop"]["target_count"], 168)
+            self.assertEqual(manifest["avg_backstop"]["method"], "cross-source-average-v1")
+            self.assertIn("avg", candidate["sources"])
+            self.assertEqual(candidate["sources"]["avg"]["indexed"], {})
             # Every known source is accounted for: included or explicitly excluded.
             self.assertEqual(set(manifest["sources_included"]) | set(manifest["excluded_sources"]),
                              set(SOURCE_KINDS))
             # Every input hash is pinned; the manifest pins the candidate bytes.
             self.assertIn("values/fantasycalc", manifest["input_sha256"])
+            self.assertIn("pre_backstop_batch", manifest["input_sha256"])
+            self.assertIn("backstopped_batch", manifest["input_sha256"])
             self.assertIn("controls", manifest["input_sha256"])
             self.assertEqual(len(manifest["candidate_sha256"]), 64)
             # The review report is embedded: all gates ran and passed.
@@ -190,6 +197,14 @@ class ThreeViewPipelineWiringTests(unittest.TestCase):
             manifest = json.loads((tmp / "out" / "refresh-run.manifest.json").read_text())
             self.assertNotIn("mystery", manifest["sources_included"])
             self.assertNotIn("mystery", manifest["excluded_sources"])
+
+    def test_refresh_really_invokes_avg_backstop_stage(self):
+        """Regression for the 2026-10-03 integration trap: the AVG/backstop
+        helper existed with tests but refresh_vorp_views never invoked it."""
+        src = (REPO / "pipelines" / "refresh_vorp_views.py").read_text()
+        self.assertIn("backstop_main", src)
+        self.assertIn("avg_backstop", src)
+        self.assertIn("vorp-source-batch-augmented-v1.json", src)
 
     def test_orchestrator_does_not_touch_legacy_path(self):
         """The parent defect's signature: the old refresh runs
