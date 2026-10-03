@@ -312,6 +312,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     QA runs repeatedly until zero errors remain.
   </div>
   <div id="tradeQaSummary" style="margin-bottom:16px"></div>
+  <div id="tradeQaOpenFindings" style="margin-bottom:16px"></div>
   <div id="tradeQaErrors"></div>
   <div id="tradeQaCriteria" style="margin-top:24px"></div>
 </section>
@@ -1452,6 +1453,7 @@ async function main(){
 
   // Trade Dashboard QA: rendered output health with root causes
   const qaSummary = document.getElementById("tradeQaSummary");
+  const qaOpenFindings = document.getElementById("tradeQaOpenFindings");
   const qaErrors = document.getElementById("tradeQaErrors");
   const qaCriteria = document.getElementById("tradeQaCriteria");
 
@@ -1656,9 +1658,33 @@ async function main(){
     ? `<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">FIXED</span>`
     : `<span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:11px">OPEN</span>`;
 
+  // Open QA findings sub-row: each open finding with its OWNER LANE named (JEG-318).
+  // Operational copy only — no methodology decisions, no resolution claims.
+  const qaOwnerLanes = {
+    "QA-004": "chart-build lane",
+    "QA-007": "data-pipeline lane"
+  };
+  const openFindings = qaData.errors.filter(e => e.status === "open");
+  if (openFindings.length > 0) {
+    qaOpenFindings.innerHTML = `<div style="padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
+      <div style="font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Open QA findings — owner lane</div>
+      <ul style="margin:0;padding:0;list-style:none;font-size:13px">
+        ${openFindings.map(f => `
+          <li style="margin-bottom:6px;line-height:1.5">
+            <span style="color:${sevColor[f.severity] || "var(--fg)"};font-weight:700">[${(f.severity || "open").toUpperCase()}]</span>
+            <a href="#qaFinding-${f.id}" style="color:var(--blue);font-weight:600">${f.id}: ${f.title}</a>
+            <span style="color:var(--dim)"> — owner: </span>
+            <span style="color:var(--fg);font-weight:600">${qaOwnerLanes[f.id] || "(unassigned)"}</span>
+          </li>`).join("")}
+      </ul>
+    </div>`;
+  } else {
+    qaOpenFindings.innerHTML = "";
+  }
+
   qaErrors.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Errors with root cause analysis</h3>` +
     qaData.errors.map(e => `
-    <details style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
+    <details id="qaFinding-${e.id}" style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
       <summary style="cursor:pointer;font-size:13px">
         <span style="color:${sevColor[e.severity]};font-weight:700">[${e.severity.toUpperCase()}]</span>
         <b>${e.id}: ${e.title}</b> ${statusBadge(e.status)}
