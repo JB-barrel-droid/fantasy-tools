@@ -11,13 +11,13 @@ Decommissioned = old implementation removed.
 
 | # | Workflow | Current trigger | Target | Status | Shadow plan | Cutover gate |
 |---|---|---|---|---|---|---|
-| 1 | `source-vintage-check` (hourly) | GHA cron `0 * * * *` | pg_cron + SQL/Edge Function | NOT STARTED | Run pg_cron job hourly alongside GHA; compare dispatch decisions for 72h | 72h of identical dispatch decisions, zero missed triggers |
-| 2 | `rebuild-chain` trigger (6-hourly) | GHA cron `17 */6 * * *` + vintage-check dispatch | pg_cron → repository_dispatch | NOT STARTED | pg_cron dispatches to a no-op Action run; verify dispatch fires on schedule | 3 consecutive on-time dispatches matching the 6h cadence |
-| 3 | `player-trace-rebuild` (6-hourly) | GHA cron `47 */6 * * *` | pg_cron → repository_dispatch | NOT STARTED | Same as #2 | Same as #2 |
-| 4 | `espn-supabase-sync` (daily) | GHA cron `30 11 * * *` | pg_cron → repository_dispatch | NOT STARTED | Same pattern | 3 consecutive on-time dispatches |
-| 5 | `cbsros-supabase-sync` (weekly) | GHA cron `0 11 * * 3` | pg_cron → repository_dispatch | NOT STARTED | Same pattern | 2 consecutive on-time dispatches (weekly cadence) |
-| 6 | `fantasycalc-drift` (daily) | GHA cron `45 11 * * *` | pg_cron → repository_dispatch | NOT STARTED | Same pattern | 3 consecutive on-time dispatches |
-| 7 | `live-page-synthetic` (daily) | GHA cron `0 6 * * *` | Edge Function (full move, no Action) | NOT STARTED | Edge Function runs daily alongside GHA; compare verdicts for 7d | 7d of matching verdicts |
+| 1 | `source-vintage-check` (hourly) | GHA cron `0 * * * *` | pg_cron + SQL/Edge Function | SHADOW (2026-10-03, job `vintage-check-shadow` live) | Run pg_cron job hourly alongside GHA; compare dispatch decisions for 72h | 72h of identical dispatch decisions, zero missed triggers |
+| 2 | `rebuild-chain` trigger (6-hourly) | GHA cron `17 */6 * * *` + vintage-check dispatch | pg_cron → repository_dispatch | SHADOW (2026-10-03, job `rebuild-chain-shadow` live) | pg_cron dispatches to a no-op Action run; verify dispatch fires on schedule | 3 consecutive on-time dispatches matching the 6h cadence |
+| 3 | `player-trace-rebuild` (6-hourly) | GHA cron `47 */6 * * *` | pg_cron → repository_dispatch | SHADOW (2026-10-03, job `trigger-player-trace-shadow` live) | Same as #2 | Same as #2 |
+| 4 | `espn-supabase-sync` (daily) | GHA cron `30 11 * * *` | pg_cron → repository_dispatch | SHADOW (2026-10-03, job `trigger-espn-sync-shadow` live) | Same pattern | 3 consecutive on-time dispatches |
+| 5 | `cbsros-supabase-sync` (weekly) | GHA cron `0 11 * * 3` | pg_cron → repository_dispatch | SHADOW (2026-10-03, job `trigger-cbsros-sync-shadow` live) | Same pattern | 2 consecutive on-time dispatches (weekly cadence) |
+| 6 | `fantasycalc-drift` (daily) | GHA cron `45 11 * * *` | pg_cron → repository_dispatch | SHADOW (2026-10-03, job `trigger-fantasycalc-drift-shadow` live) | Same pattern | 3 consecutive on-time dispatches |
+| 7 | `live-page-synthetic` (daily) | GHA cron `0 6 * * *` | Edge Function (full move, no Action) | SHADOW (2026-10-03, job `live-page-synthetic-shadow` live) | Edge Function runs daily alongside GHA; compare verdicts for 7d | 7d of matching verdicts |
 
 ## Compute (stays on GitHub Actions — no migration)
 
