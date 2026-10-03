@@ -140,8 +140,8 @@ def main(argv=None) -> int:
 
     # Write avg artifact + manifest
     avg_values_path = out_dir / "avg.imputed.json"
-    avg_json = json.dumps(avg_pool, indent=2, sort_keys=True, allow_nan=False)
-    avg_values_path.write_text(avg_json + "\n", encoding="utf-8")
+    avg_json = json.dumps(avg_pool, indent=2, sort_keys=True, allow_nan=False) + "\n"
+    avg_values_path.write_text(avg_json, encoding="utf-8")
     # Inherit publisher_roster from the first source (all share the batch config)
     _, first_manifest = load_imputed(batch_path, present[0])
     avg_manifest = {
@@ -187,8 +187,8 @@ def main(argv=None) -> int:
 
         # Write backstopped artifact
         bs_values_path = out_dir / f"{source}.backstopped.imputed.json"
-        bs_json = json.dumps(backstopped, indent=2, sort_keys=True, allow_nan=False)
-        bs_values_path.write_text(bs_json + "\n", encoding="utf-8")
+        bs_json = json.dumps(backstopped, indent=2, sort_keys=True, allow_nan=False) + "\n"
+        bs_values_path.write_text(bs_json, encoding="utf-8")
         bs_manifest = {
             "schema": "option-c-imputation-manifest-v1",
             "method": "eight-group-proportional-v1+avg-backstop-v1",
