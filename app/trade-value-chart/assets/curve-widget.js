@@ -637,6 +637,15 @@
       key => activeSet.has(key) || (userHiddenSet && userHiddenSet.has(key)));
   }
   globalThis.TradeValueCurvePause.defaultCurvesSatisfied = defaultCurvesSatisfied;
+  // JEG-221: Indexed selects at least one available publisher, not the legacy
+  // ESPN/adjusted defaults. An empty selection is valid only when the user
+  // explicitly hid every available publisher; unexplained disappearance fails.
+  function indexedCurvesSatisfied(availableKeys, activeSet, userHiddenSet) {
+    return availableKeys.length > 0 && (availableKeys.some(key => activeSet.has(key))
+      || availableKeys.every(key => userHiddenSet && userHiddenSet.has(key)));
+  }
+  globalThis.TradeValueCurvePause.indexedCurvesSatisfied = indexedCurvesSatisfied;
+
 
   // Collapse guard, pure in (peaks) so it is unit-testable without a DOM.
   // `peaks` maps an active source key to that curve's maximum indexed value.
@@ -2639,11 +2648,11 @@
       // set), keep the existing picks but make sure at least one published
       // source is on so the chart isn't empty.
       const publishedAvailable = [...AS_PUBLISHED_KEYS].filter(key => sourceAvailable(key) && sourceMaps.get(key)?.size > 0);
-      const hasAnyPublished = [...activeSources].some(key => AS_PUBLISHED_KEYS.has(key));
-      if (!hasAnyPublished && publishedAvailable.length) {
-        activeSources = new Set([publishedAvailable[0]]);
+      const hasAnyPublished = publishedAvailable.some(key => activeSources.has(key));
+      const selectable = publishedAvailable.filter(key => !userDeselectedSources.has(key));
+      if (!hasAnyPublished && selectable.length) {
+        activeSources = new Set([selectable[0]]);
       }
-      userDeselectedSources = new Set();
       makeSourceToggles();
       draw();
       syncCurveStatus();
@@ -3590,7 +3599,12 @@
         ? `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ${scaleAgreement.offenders.join("; ")}`
         : `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
     );
-    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources);
+    // VORP/Adj tabs are pending placeholders; settings still rebuild the
+    // Indexed data behind them, so selecting a placeholder cannot require
+    // legacy adjusted defaults or throw before the shared table update.
+    const defaultGroupedSources = indexedCurvesSatisfied(
+      [...AS_PUBLISHED_KEYS].filter(key => sourceAvailable(key) && sourceMaps.get(key)?.size > 0),
+      activeSources, userDeselectedSources);
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
@@ -3632,6 +3646,7 @@
       makeValueBandControl();
       makeSourceToggles();
       makeLockControl();
+      makeViewModeTabs();
       renderAdjustmentWeights();
       bindZoom();
       resetZoom();

@@ -226,11 +226,11 @@ class TestPauseWiring(unittest.TestCase):
         self.assertIn("defaultIndexedSourceKeys", self.text)
 
     def test_regression_guard_checks_computed_default_set(self):
-        # DEFECT 1 (2026-10-01): the guard routes through
-        # defaultCurvesSatisfied(), which checks the computed default set
-        # while exempting curves the user deliberately deselected.
+        # JEG-221: the live Indexed path checks available publishers; the
+        # legacy helper still preserves computed adjusted defaults and
+        # intentional user deselection for future data-backed modes.
         self.assertIn(
-            "defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources)",
+            "const defaultGroupedSources = indexedCurvesSatisfied(",
             self.text)
         self.assertIn("function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet)",
                       self.text)
