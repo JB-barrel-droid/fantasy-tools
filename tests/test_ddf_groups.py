@@ -18,6 +18,7 @@ exists locally.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -61,6 +62,7 @@ def _make_leg(values, scoring="ppr", teams=12, snapshot_date="2026-10-02"):
             "flex_eligible": ["RB", "WR", "TE"],
             "bench_mix": bench_mix_for_teams(teams),
         },
+        "calibration": {pos: {"rw": 0.0} for pos in POSITIONS},
         "values": values,
     }
 
@@ -109,7 +111,7 @@ class EightGroupEmissionTests(unittest.TestCase):
                 ("WR", "starter", 60.0), ("WR", "bench", 15.0),
                 ("TE", "starter", 50.0), ("TE", "bench", 8.0)]
         art = compute_groups(_make_leg(_values(rows)))
-        required = {"position", "role", "total_vorp", "n_players"}
+        required = {"position", "role", "total_vorp", "raw_surplus_ppg", "n_players"}
         for g in art["groups"]:
             self.assertTrue(required.issubset(g.keys()),
                             f"group missing required fields: {g}")
@@ -323,6 +325,7 @@ class WriteArtifactTests(unittest.TestCase):
             self.assertEqual(loaded["schema"], SCHEMA)
             self.assertEqual(len(loaded["groups"]), 8)
             self.assertEqual(art["groups"], loaded["groups"])
+            self.assertEqual(loaded["input_leg_sha256"], hashlib.sha256(leg_path.read_bytes()).hexdigest())
 
     def test_artifact_is_deterministic_for_same_leg(self):
         rows = [("QB", "starter", 80.0), ("QB", "bench", 5.0),
@@ -364,6 +367,65 @@ class LiveLegIntegrationTests(unittest.TestCase):
         n_waiver = sum(1 for v in leg_values if v.get("tier") == "waiver")
         n_in_groups = sum(g["n_players"] for g in art["groups"])
         self.assertEqual(n_in_groups + n_waiver, len(leg_values))
+
+
+class RawUnitContractTests(unittest.TestCase):
+    def leg(self):
+        leg = _make_leg(_values([(p, r, 10.0) for p, r in GROUPS]))
+        for row in leg["values"]:
+            row["ppg"] = 5.0 if row["tier"] == "starter" else 2.0
+        leg["calibration"] = {p: {"rw": 1.0} for p in POSITIONS}
+        return leg
+
+    def test_raw_surplus_is_not_calibrated_chart_value(self):
+        art = compute_groups(self.leg())
+        self.assertEqual(art["totals"]["total_vorp"], 80.0)
+        self.assertEqual(art["totals"]["raw_surplus_ppg"], 20.0)
+        self.assertEqual(art["totals"]["raw_sum_groups"], 20.0)
+        self.assertEqual([g["raw_surplus_ppg"] for g in art["groups"]], [4.0, 1.0]*4)
+        self.assertEqual(art["units"]["total_vorp"], "legacy_calibrated_chart_value")
+        self.assertEqual(art["raw_surplus_contract"], "ddf-raw-surplus-ppg-v1")
+        # Changing calibrated values must not change the raw reference.
+        leg = self.leg()
+        for row in leg["values"]:
+            row["value"] *= 3
+        changed = compute_groups(leg)
+        self.assertEqual(changed["totals"]["raw_surplus_ppg"], 20)
+        self.assertEqual(changed["totals"]["total_vorp"], 240)
+
+    def test_real_raw_totals_match_independent_ppg_arithmetic(self):
+        p = REPO / "data/ddf-two-tier/ddf-20260930-espn-half_ppr-12t-0p15/ddf_leg.json"
+        leg = json.loads(p.read_text())
+        art = compute_groups(leg)
+        expected = sum(max(0, r["ppg"]-leg["calibration"][r["pos"]]["rw"])
+                       for r in leg["values"] if r["tier"] in ("starter", "bench"))
+        self.assertAlmostEqual(art["totals"]["raw_surplus_ppg"], expected, places=10)
+        self.assertNotAlmostEqual(expected, art["totals"]["total_vorp"], places=2)
+
+    def test_missing_bad_projection_replacement_or_chart_value_rejected(self):
+        for field in ("ppg", "rw", "value"):
+            for bad in (None, True, "2", float("nan"), float("inf")):
+                with self.subTest(field=field, bad=bad):
+                    leg = self.leg()
+                    if field == "rw":
+                        leg["calibration"]["QB"]["rw"] = bad
+                    else:
+                        leg["values"][0][field] = bad
+                    with self.assertRaises(ValueError):
+                        compute_groups(leg)
+        leg = self.leg()
+        del leg["calibration"]
+        with self.assertRaises(ValueError):
+            compute_groups(leg)
+
+    def test_genuine_zero_is_preserved_and_waiver_excluded(self):
+        leg = self.leg()
+        leg["values"][0]["ppg"] = 1.0
+        leg["values"].append({"pos": "QB", "tier": "waiver", "value": 0, "ppg": 0})
+        art = compute_groups(leg)
+        self.assertEqual(art["groups"][0]["raw_surplus_ppg"], 0)
+        self.assertEqual(art["totals"]["raw_surplus_ppg"], 16)
+        self.assertEqual(art["totals"]["n_waiver"], 1)
 
 
 class FindLatestLegTests(unittest.TestCase):
