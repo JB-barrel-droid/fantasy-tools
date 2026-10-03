@@ -27,11 +27,7 @@ on:
 
 permissions:
   contents: write  # needed to commit and push the rebuilt fixture
-  # JEG-300: the JEG-274 "Trigger Pages deploy" step runs `gh workflow run
-  # pages.yml`, which calls the workflow-dispatches API. Without
-  # `actions: write` that call fails with HTTP 403 "Resource not accessible
-  # by integration" (chain run 37144650856) and the rebuild never deploys.
-  actions: write
+  actions: write  # needed to dispatch pages.yml via API (JEG-274)
 
 jobs:
   rebuild:
