@@ -15,11 +15,11 @@ What this review checks (fail-closed; every failure names its gate):
   3. Allocation: allocation_fractions covers exactly the eight POS/role groups,
      sums to 1; group_budgets == batch_scale * fraction per group.
   4. Views: every source carries exactly {indexed, vorp, adj_values}.
-     Published sources: indexed is the nonempty native map with the identical
-     key set as vorp/adj_values. Granular sources (espn/cbsros/razzball) carry
-     no as-published native trade values, so their indexed map must be EMPTY
-     (a nonempty one is wrong-kind wiring, not data); vorp/adj_values stay
-     nonempty with identical key sets. All values finite and >= 0.
+     Published sources: indexed contains only genuine publisher natives and may
+     be a strict subset of vorp/adj_values when AVG backstops players the
+     publisher did not rank. Derived AVG and granular sources carry no
+     as-published native trade values, so indexed must be EMPTY; vorp/adj_values
+     stay nonempty with identical key sets. All values finite and >= 0.
   5. One common 70 anchor: the global adj_values maximum is 70 (tight
      tolerance) and no source exceeds it. Per-source independent 70 peaks are
      the legacy reindex signature, not this pipeline's output.
@@ -69,8 +69,16 @@ EXPECTED_SCHEMA = "shared-batch70-views-v1"
 EXPECTED_STATUS = "candidate"
 # (manifest schema, manifest method) per source kind.
 EXPECTED_MANIFEST = {
-    "published": ("option-c-imputation-manifest-v1", "eight-group-proportional-v1"),
-    "granular": ("granular-vorp-manifest-v1", "ppg-above-waiver-v1"),
+    "published": {
+        ("option-c-imputation-manifest-v1", "eight-group-proportional-v1"),
+        ("option-c-imputation-manifest-v1", "eight-group-proportional-v1+avg-backstop-v1"),
+    },
+    "derived": {
+        ("option-c-imputation-manifest-v1", "cross-source-average-v1"),
+    },
+    "granular": {
+        ("granular-vorp-manifest-v1", "ppg-above-waiver-v1"),
+    },
 }
 GROUP_KEYS = {f"{p}/{r}" for p, r in GROUPS}
 REL_TOL = 1e-9
@@ -169,18 +177,14 @@ def check_views(doc, scale: float) -> dict:
         kind = SOURCE_KINDS.get(name)
         if kind is None:
             raise GateFailure(f"sources[{name}]: unknown source kind")
-        keysets = []
         indexed_map = views["indexed"]
-        if kind == "granular":
-            # Granular sources (espn/cbsros/razzball) carry no as-published
-            # native trade values, so Indexed is genuinely unavailable for
-            # them. An EMPTY indexed map is the contract; a nonempty one is
-            # wrong-kind wiring, not data.
+        if kind in ("granular", "derived"):
             if not isinstance(indexed_map, dict) or indexed_map:
                 raise GateFailure(
-                    f"sources[{name}]: granular source must carry an empty "
+                    f"sources[{name}]: {kind} source must carry an empty "
                     "indexed map (it has no as-published natives)"
                 )
+            indexed_keys = set()
         else:
             if not isinstance(indexed_map, dict) or not indexed_map:
                 raise GateFailure(
@@ -189,7 +193,8 @@ def check_views(doc, scale: float) -> dict:
                 )
             for k, v in indexed_map.items():
                 _finite_nonneg(v, f"sources[{name}].indexed[{k}]")
-            keysets.append(set(indexed_map))
+            indexed_keys = set(indexed_map)
+        keysets = []
         for view in ("vorp", "adj_values"):
             mapping = views[view]
             if not isinstance(mapping, dict) or not mapping:
@@ -202,10 +207,10 @@ def check_views(doc, scale: float) -> dict:
                 f"sources[{name}]: vorp/adj_values key sets differ "
                 "(view wiring mismatch)"
             )
-        if kind != "granular" and keysets[2] != keysets[0]:
+        if kind == "published" and not indexed_keys.issubset(keysets[0]):
             raise GateFailure(
-                f"sources[{name}]: indexed key set differs from "
-                "vorp/adj_values (view wiring mismatch)"
+                f"sources[{name}]: indexed contains keys absent from "
+                "vorp/adj_values (invented or stale native rows)"
             )
         adj = views["adj_values"]
         peak = max(adj.values())
@@ -262,11 +267,12 @@ def check_manifest(doc) -> dict:
             raise GateFailure(f"input_pins[{name}]: hashes must be 64-hex digests")
         meta = pin["manifest"]
         expected = EXPECTED_MANIFEST[SOURCE_KINDS[name]]
-        if not isinstance(meta, dict) or (meta.get("schema"), meta.get("method")) != expected:
+        actual = (meta.get("schema"), meta.get("method")) if isinstance(meta, dict) else None
+        if actual not in expected:
             raise GateFailure(
                 f"input_pins[{name}]: manifest (schema, method) "
-                f"{(meta.get('schema'), meta.get('method')) if isinstance(meta, dict) else '?'} "
-                f"!= {expected} (method mismatch)"
+                f"{actual if actual is not None else '?'} not in {sorted(expected)} "
+                "(method mismatch)"
             )
     return manifest
 
@@ -312,7 +318,9 @@ def check_batch_admission(doc, manifest, batch_path: Path) -> None:
                         "artifact bytes (sidecar/artifact mismatch)"
                     )
                 src_config_key = (
-                    "publisher_roster" if SOURCE_KINDS[name] == "published" else "source_config"
+                    "publisher_roster"
+                    if SOURCE_KINDS[name] in ("published", "derived")
+                    else "source_config"
                 )
                 src_config = meta.get(src_config_key)
                 if not isinstance(src_config, dict) or any(
