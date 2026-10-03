@@ -156,7 +156,30 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "$MESSAGE"
-            git push
+            # Push races: another commit can land on main between checkout and
+            # push (observed 2026-10-03: run 37114053764 rebuilt SUCCESSFULLY but
+            # lost its commit on a non-fast-forward push; recorded on JEG-205).
+            # Retry with rebase, bounded; never force-push; fail LOUDLY on
+            # conflict instead of silently dropping the rebuilt fixture.
+            PUSHED=0
+            for attempt in 1 2 3; do
+              if git push; then
+                PUSHED=1
+                break
+              fi
+              echo "Push attempt $attempt failed; fetching and rebasing onto latest main..."
+              git fetch origin main
+              if ! git rebase origin/main; then
+                echo "Rebase conflicted; aborting loudly instead of dropping the commit."
+                git rebase --abort
+                exit 1
+              fi
+              sleep $((attempt * 10))
+            done
+            if [ "$PUSHED" = "0" ]; then
+              echo "Push failed after 3 attempts; failing loudly so the loss is visible."
+              exit 1
+            fi
           fi
 
       - name: Upload review artifacts (JEG-113)
