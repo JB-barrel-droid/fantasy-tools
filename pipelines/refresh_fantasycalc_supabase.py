@@ -1,12 +1,21 @@
 #!/usr/bin/env python3
-"""Refresh Supabase FantasyCalc Week 4 as_published rows from the live API snapshot.
+"""Refresh Supabase FantasyCalc Week 4 as_published rows from the latest matched snapshot.
 
-Replaces the 580 stale Week 4 rows with the 584 fresh matched rows from
-the 2026-09-30 API-direct snapshot. This clears the TABLE_DRIFT gate.
+Replaces the stale Week 4 rows with the fresh matched rows produced by
+match_source_snapshot.py (latest dated run under output/source-matches/fantasycalc/).
+This clears the TABLE_DRIFT gate.
 
-Fail-closed: verifies the delete count and insert count before committing.
+The match file is resolved dynamically (JEG-294): match_source_snapshot.py writes
+each refresh to output/source-matches/fantasycalc/<YYYY-MM-DD>/, so a hardcoded
+date goes stale on the next drift day. Latest dated directory wins; --match-path
+overrides for manual re-runs.
+
+Fail-closed: no match file -> exit 1 before touching Supabase; verifies the
+delete count and insert count before committing.
 """
+import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,6 +32,9 @@ VARIANT = "as_published"
 WEEK = 4
 SEASON = 2026
 
+MATCH_BASE = Path("output") / "source-matches" / "fantasycalc"
+DATE_DIR_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
 SCORING_MAP = {
     "standard": "std",
     "half_ppr": "half",
@@ -34,14 +46,51 @@ def normalize_name(name: str) -> str:
     return name.lower().strip()
 
 
-def main() -> int:
+def resolve_match_path(repo_root: Path, override: str | None = None) -> Path:
+    """Return the FantasyCalc match file to import.
+
+    Latest dated match directory wins (YYYY-MM-DD sorts lexically, newest
+    first); --match-path overrides for manual re-runs. Fail-closed: raises
+    FileNotFoundError when nothing usable exists, so the caller exits before
+    touching Supabase.
+    """
+    if override:
+        p = Path(override)
+        if not p.is_file():
+            raise FileNotFoundError(f"--match-path not found: {p}")
+        return p
+    base = repo_root / MATCH_BASE
+    dated = sorted(
+        (d for d in base.iterdir() if d.is_dir() and DATE_DIR_RE.match(d.name)),
+        key=lambda d: d.name,
+    )
+    for day in reversed(dated):  # newest first
+        cands = sorted(day.glob("fantasycalc-*-matched.json"))
+        if cands:
+            return cands[-1]
+    raise FileNotFoundError(
+        f"no fantasycalc match file under {base} "
+        "(expected output/source-matches/fantasycalc/<YYYY-MM-DD>/fantasycalc-*-matched.json)"
+    )
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(
+        description="Refresh Supabase FantasyCalc as_published rows from the "
+                    "latest matched snapshot (dynamic match path, JEG-294).")
+    ap.add_argument("--match-path", default=None,
+                    help="explicit match file; default: latest dated run under "
+                         "output/source-matches/fantasycalc/")
+    args = ap.parse_args(argv)
+
     # Load the matched data (has player_key)
-    match_path = REPO / "output/source-matches/fantasycalc/2026-09-30/fantasycalc-mixed-12-matched.json"
-    if not match_path.exists():
-        print(f"match file not found: {match_path}", file=sys.stderr)
+    try:
+        match_path = resolve_match_path(REPO, args.match_path)
+    except FileNotFoundError as e:
+        print(str(e), file=sys.stderr)
         return 1
     matched = json.load(open(match_path))["matched_rows"]
-    print(f"Loaded {len(matched)} matched rows")
+    print(f"Loaded {len(matched)} matched rows from {match_path}")
 
     # Load the snapshot for native values
     snap = json.load(open(REPO / "data/raw/sources/fantasycalc/week-4/snapshot.json"))
