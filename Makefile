@@ -134,6 +134,7 @@ test-unit:
 	python3 -m unittest tests.test_imputed_vorps_validation
 	python3 -m unittest tests.test_imputed_vorps_precision
 	python3 -m unittest tests.test_imputed_roster_config
+	python3 -m unittest tests.test_kdst_optional
 	python3 -m unittest tests.test_reweighted_batch_anchor
 	python3 -m unittest tests.test_option_c_sheet_oracle
 	python3 -m unittest tests.test_reweight_reference_contract
