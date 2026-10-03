@@ -87,3 +87,31 @@ of268b6d3 had a documentation-only modify/delete conflict because the prior
 handoff-only commit was absent in the validation checkout; resolved by keeping
 the complete author handoff. Runtime/test code applied unchanged before validation.
 Draft PR53 contains this incremental oracle/handoff slice. JEG242 is not complete.
+
+## 2026-10-03 01:07 CDT — step (1) complete on main
+
+c62770c "JEG-242: complete Sheet oracle — approved formulas pinned, 195/195
+canonical player-key matches (7 tests)" is on origin/main. The approved
+CALC_Main formulas (role/group/alloc-factor/imputed-VORP) are pinned in
+docs/audits/jeg-242-sheet-oracle-complete.json, all 195 rows match canonical
+player_keys via pipelines/lib/canonical_players.py (reason == "ok"), and
+tests/test_sheet_oracle_canonical.py (7 tests) passes on main. This supersedes
+the synthetic-ID oracle for formula/canonical purposes; the synthetic oracle
+module remains as a values-level reference only.
+
+Also on this branch (muse/jeg-242-batch70-review): pipelines/review_batch70_views.py,
+the schema-specific review for shared-batch70-views-v1 candidates (gates:
+schema/status, scale, 8-group allocation, three-view shape, one common 70
+anchor, per-source budget conservation, manifest provenance, --batch hash
+admission; control provenance surfaced, never approved), plus
+tests/test_review_batch70_views.py (9 tests: real-producer candidate passes;
+tampered batch, missing manifest, non-candidate status, legacy per-source 70
+scaling, unexcluded source, sidecar mismatch all fail). Registered in
+Makefile test-unit.
+
+Remaining: (2) local candidate refresh over publisher native snapshots +
+DDF group VORPs with the review wired in; (3) copied-dashboard preview with
+numerical/rendered three-view parity; (4) tests.test_three_view_pipeline_wiring
+in required checks. The blend reference for (2) needs Jeremy's
+weighting/horizon decision (reweight_reference.py accepts an explicit
+candidate policy; weights are not invented by the lane).
