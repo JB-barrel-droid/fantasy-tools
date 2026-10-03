@@ -67,6 +67,11 @@
   .src-dot.unk{background:var(--grey)}
   .src-name{font-size:15px;font-weight:700}
   .src-sub{font-size:12px;color:var(--dim);margin-top:2px}
+  .src-vintage{font-size:11.5px;color:var(--grey);margin-top:2px;font-family:ui-monospace,Menlo,monospace}
+  .src-vintage.green{color:var(--green)}
+  .src-vintage.amber{color:var(--yellow)}
+  .src-vintage.red{color:var(--red)}
+  .src-vintage.unk{color:var(--grey)}
   .pill{margin-left:auto;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px;flex:none}
   .pill.ok{background:var(--green-bg);color:var(--green)}
   .pill.warn{background:var(--yellow-bg);color:var(--yellow)}
@@ -419,6 +424,29 @@ function shortTs(iso){
   return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 }
 
+// JEG-315, GAP-043: render per-source content_vintage line under each
+// source's row count / per-source card. Color the line:
+//   green: vintage <= today - 4d (fresh)
+//   amber: vintage 4-7d old (aging)
+//   red:   vintage > 7d old (stale)
+// Vintage may be a date string ("2026-10-03") or a "Week N" label. "Week N"
+// is intentionally rendered as grey/unk -- it carries no age information
+// and the dashboard's freshness bands only make sense for dated vintages.
+function vintageLine(contentVintage){
+  if(!contentVintage) return `<div class="src-vintage unk">Content vintage: unknown</div>`;
+  const m = String(contentVintage).match(/^(\d{4}-\d{2}-\d{2})$/);
+  if(!m){
+    return `<div class="src-vintage unk">Content vintage: ${contentVintage}</div>`;
+  }
+  const vt = new Date(m[1] + "T00:00:00Z").getTime();
+  const ageDays = (Date.now() - vt) / 86400000;
+  let band = "red";
+  if(ageDays <= 4) band = "green";
+  else if(ageDays <= 7) band = "amber";
+  const ageStr = `${ageDays.toFixed(1)}d old`;
+  return `<div class="src-vintage ${band}" title="Per-source content vintage from data/fixtures/current/comparison-sources-data.json">Content vintage: ${contentVintage} · ${ageStr}</div>`;
+}
+
 const rank = {bad:0, warn:1, unk:2, ok:3};
 const pillTxt = {ok:"healthy", warn:"degraded", bad:"broken", unk:"unknown"};
 
@@ -540,7 +568,8 @@ async function main(){
       <div class="src-head" onclick="document.getElementById('src-${src}').classList.toggle('open')">
         <span class="src-dot ${st}"></span>
         <div><div class="src-name">${sdata.label}</div>
-        <div class="src-sub">${cpCounts.ok}✓ ${cpCounts.warn}! ${cpCounts.bad}✗ ${cpCounts.unk}? · 10 checkpoints</div></div>
+        <div class="src-sub">${cpCounts.ok}✓ ${cpCounts.warn}! ${cpCounts.bad}✗ ${cpCounts.unk}? · 10 checkpoints</div>
+        ${vintageLine(sdata.content_vintage)}</div>
         <span class="pill ${st}">${pillTxt[st]}</span><span class="chev">▸</span>
       </div>
       <div class="src-body">

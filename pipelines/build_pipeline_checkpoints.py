@@ -765,9 +765,34 @@ def build_checkpoints():
             cps["c10_rendered"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}
 
+        # Per-source content_vintage (JEG-315, GAP-043): surfaced from the
+        # fixture's per-section `content_vintage` (or top-level `vintage` for
+        # espn/cbsros/razzball, which use a top-level `vintage` instead).
+        # The fleet summary below only cites the fixture's built_at, which
+        # conflates publisher release freshness across all 7 sources. The
+        # dashboard needs the per-source vintage to color-code each card's
+        # freshness line (green <=4d, amber 4-7d, red >7d).
+        fixture_section = fixture.get("sources", {}).get(src, {}) or {}
+        per_section_vintage = (
+            fixture_section.get("content_vintage")
+            or fixture_section.get("vintage")
+            or (
+                (fixture_section.get("lineage") or {}).get("raw_vintage")
+            )
+            or (
+                (fixture_section.get("source_provenance") or {}).get("content_vintage")
+            )
+        )
         result["sources"][src] = {
             "label": SRC_LABEL[src],
             "checkpoints": cps,
+            "content_vintage": per_section_vintage,
+            "content_vintage_source": (
+                "content_vintage" if fixture_section.get("content_vintage") else
+                "vintage" if fixture_section.get("vintage") else
+                "lineage.raw_vintage" if (fixture_section.get("lineage") or {}).get("raw_vintage") else
+                "source_provenance.content_vintage"
+            ),
         }
 
     # Chain runner info (for the automation section)

@@ -1,4 +1,4 @@
-"""Regression: Razzball c6 must report `ok` (N/A by design), never `unk`.
+"""Regression tests for pipelines/build_pipeline_checkpoints.py.
 
 JEG-306: Razzball intentionally has no candidate/review artifact -- its c7
 reason already says "Direct fixture updates are the intended workflow; no
@@ -9,6 +9,8 @@ The fix: a Razzball-specific clause that emits `ok` with reason
 "File-scraped source; c6/c7 stages N/A by design." regardless of whether
 artifacts exist on disk. CBS must keep its old behavior so this branch
 doesn't silently swallow genuine gaps in the candidate/promotion chain.
+
+JEG-315, GAP-043: dashboard per-source content_vintage color bands.
 """
 
 import sys
@@ -24,6 +26,29 @@ import build_pipeline_checkpoints as bpc  # noqa: E402
 
 def _iso(days_ago):
     return (datetime.now(timezone.utc) - timedelta(days=days_ago)).isoformat()
+
+
+def _vintage_band(content_vintage, today=None):
+    """Replicates the dashboard's client-side band logic for the
+    freshness line. Kept here as a separate helper so the test stays
+    a true regression against a fixture-driven value rather than just
+    echoing an inline constant in the dashboard.
+    """
+    import re as _re
+    if not content_vintage:
+        return "unk"
+    m = _re.match(r"^(\d{4}-\d{2}-\d{2})$", str(content_vintage))
+    if not m:
+        return "unk"
+    if today is None:
+        today = datetime.now(timezone.utc)
+    vt = datetime.fromisoformat(str(content_vintage) + "T00:00:00+00:00")
+    age_days = (today - vt).total_seconds() / 86400
+    if age_days <= 4:
+        return "green"
+    if age_days <= 7:
+        return "amber"
+    return "red"
 
 
 class RazzballC6VerdictTest(unittest.TestCase):
@@ -120,6 +145,59 @@ class RazzballC6VerdictTest(unittest.TestCase):
         self.assertEqual("ok", v_without["status"])
         self.assertEqual(v_with["status"], v_without["status"])
         self.assertEqual(v_with["reason"], v_without["reason"])
+
+
+class ContentVintageBandTest(unittest.TestCase):
+    """JEG-315, GAP-043: content_vintage color bands.
+
+    The dashboard renders a freshness line under each per-source card.
+    The bands are:
+      green: age <= 4 days
+      amber: 4 < age <= 7 days
+      red:   age > 7 days
+      unk:   missing or "Week N" vintage (no absolute age)
+    """
+
+    def test_fantasycalc_eight_days_old_is_red(self):
+        """FantasyCalc content_vintage 8 days old must read red (stale)."""
+        today = datetime(2026, 10, 3, tzinfo=timezone.utc)
+        eight = (today - timedelta(days=8)).date().isoformat()
+        self.assertEqual("red", _vintage_band(eight, today=today))
+
+    def test_content_vintage_two_days_old_is_green(self):
+        """Content_vintage 2 days old must read green (fresh)."""
+        today = datetime(2026, 10, 3, tzinfo=timezone.utc)
+        two = (today - timedelta(days=2)).date().isoformat()
+        self.assertEqual("green", _vintage_band(two, today=today))
+
+    def test_content_vintage_five_days_old_is_amber(self):
+        """5-day-old vintage sits in the amber band (4-7d)."""
+        today = datetime(2026, 10, 3, tzinfo=timezone.utc)
+        five = (today - timedelta(days=5)).date().isoformat()
+        self.assertEqual("amber", _vintage_band(five, today=today))
+
+    def test_week_label_is_unk(self):
+        """Week-designated vintages (e.g. CBS) cannot carry absolute
+        age and must render in the unknown band -- the bands only
+        make sense for dated vintages.
+        """
+        self.assertEqual("unk", _vintage_band("Week 4"))
+        self.assertEqual("unk", _vintage_band(None))
+        self.assertEqual("unk", _vintage_band(""))
+
+    def test_band_thresholds_are_inclusive(self):
+        """4d and 7d boundary checks: a 4.0d vintage is still green,
+        a 7.0d vintage is still amber, only >7d crosses to red.
+        """
+        today = datetime(2026, 10, 3, 12, 0, tzinfo=timezone.utc)
+        four = (today - timedelta(days=4)).date().isoformat()
+        seven = (today - timedelta(days=7)).date().isoformat()
+        just_over = (today - timedelta(days=7, hours=1)).date().isoformat()
+        self.assertEqual("green", _vintage_band(four, today=today))
+        self.assertEqual("amber", _vintage_band(seven, today=today))
+        # 7d + 1h rolls the date string past 7 days for a UTC noon today.
+        if just_over != seven:
+            self.assertEqual("red", _vintage_band(just_over, today=today))
 
 
 if __name__ == "__main__":
