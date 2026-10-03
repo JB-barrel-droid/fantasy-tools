@@ -31,6 +31,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # JEG-137 R10: capture the run start time as early as possible so the
+      # scheduler-slip measurement (started_at - cron_at) reflects when the
+      # run began, not when the recording step runs at the end of the job.
+      - name: Record workflow start time (JEG-137 R10)
+        run: echo "WORKFLOW_STARTED_AT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -55,9 +60,11 @@ jobs:
           if python3 pipelines/check_fantasycalc_drift.py --trigger; then
             echo "drifted=false" >> $GITHUB_OUTPUT
             echo "No drift detected."
+            echo "FantasyCalc drift check: unchanged since last refresh" >> "$GITHUB_STEP_SUMMARY"
           else
             echo "drifted=true" >> $GITHUB_OUTPUT
             echo "Drift detected and pipeline refreshed."
+            echo "FantasyCalc drift check: drift detected, pipeline refreshed" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Re-import to Supabase
@@ -92,5 +99,27 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "FantasyCalc drift refresh (GitHub Actions)"
+            # Push-race guard (2026-10-03): automated pushers (the 30-min health
+            # cron, other workflows) can land commits on main between this job's
+            # checkout and this push. Rebase onto the latest main first so the
+            # push stays fast-forward instead of failing non-fast-forward.
+            # --autostash: this step deliberately leaves unstaged changes behind
+            # (e.g. the held-back partial fixture on a red chain); stash them
+            # across the rebase instead of refusing.
+            git pull --rebase --autostash origin main
             git push
           fi
+
+      # JEG-137 R10: record started_at and cron_at for the deadline checker.
+      - name: Record workflow run (JEG-137 R10)
+        if: always()
+        run: |
+          STATUS="success"
+          if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
+          python3 pipelines/lib/record_workflow_run.py \
+            --workflow "FantasyCalc drift check and refresh" \
+            --started-at "${WORKFLOW_STARTED_AT:-$(date -u +%FT%TZ)}" \
+            --cron "45 11 * * *" \
+            --run-id "$GITHUB_RUN_ID" \
+            --status "$STATUS" \
+            --output output/comparison-chain-status.json
