@@ -237,7 +237,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     <b>Native</b> = value stored in our pipeline snapshot ·
     <b>Group</b> = 8-group bucket (QB/RB/WR/TE × Starter/Bench, flex → Starter) ·
     <b>Alloc factor</b> = our group VORP ÷ sum of publisher values in this group ·
-    <b>Our group VORP</b> = the 8-group input total (placeholder when JEG-206 output is absent) ·
+    <b>Our group VORP</b> = the 8-group input total (N/A until the 8-group bake artifact lands) ·
     <b>Imputed VORP</b> = native × alloc factor (Option C method).
     Multipliers show the effective ratio at each step.
     A red <b>✗</b> in the Live column means the live page value does not match our stored snapshot.
@@ -1027,7 +1027,7 @@ async function main(){
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Publisher's published value (or ESPN ROS projections)">${fmt(p.native)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Position and role bucket — Starter or Bench (flex players are tagged Starter)">${fmt(p.group)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our group VORP divided by the sum of publisher values in this group. The multiplier that scales each publisher native into our imputed VORP.">${fmtMult(p.alloc_factor)}</td>
-            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (placeholder when JEG-206 output is absent)">${fmt(p.our_group_vorp)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (N/A until the 8-group bake artifact lands)">${fmt(p.our_group_vorp)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)" title="Imputed VORP = native x alloc_factor. Replaces the legacy implied_vorp which ran the old translate_source method.">${fmt(p.imputed_vorp)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="DDF-rebuilt value (what the chart actually displays)">${fmt(p.ddf_rebuilt)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.index_mult)}</td>
@@ -1099,7 +1099,7 @@ async function main(){
                   <th style="padding:8px;text-align:right" title="Publisher's published value (or ESPN ROS projections)">Native</th>
                   <th style="padding:8px;text-align:right" title="Position and role bucket — Starter or Bench (flex players are tagged Starter)">Group</th>
                   <th style="padding:8px;text-align:right" title="Our group VORP divided by the sum of publisher values in this group. Multiplier that scales each publisher native into our imputed VORP.">Alloc factor</th>
-                  <th style="padding:8px;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (placeholder when JEG-206 output is absent)">Our group VORP</th>
+                  <th style="padding:8px;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (N/A until the 8-group bake artifact lands)">Our group VORP</th>
                   <th style="padding:8px;text-align:right" title="Imputed VORP = native x alloc_factor. Replaces the legacy translate_source-based implied VORP.">Imputed VORP</th>
                   <th style="padding:8px;text-align:right" title="DDF-rebuilt value (what the chart displays)">DDF rebuilt</th>
                   <th style="padding:8px;text-align:right">Idx mult</th>
@@ -1116,7 +1116,7 @@ async function main(){
               Live = scraped from the human-readable source page right now · Native = publisher's value ·
               Group = 8-group bucket (QB/RB/WR/TE x Starter/Bench; flex = Starter) ·
               Alloc factor = our group VORP / sum of publisher values in this group ·
-              Our group VORP = the 8-group input total (placeholder when JEG-206 output is absent) ·
+              Our group VORP = the 8-group input total (N/A until the 8-group bake artifact lands) ·
               Imputed VORP = native x alloc factor · DDF rebuilt = chart's final translated value ·
               Idx mult = indexed ÷ native · Rewgt mult = reweighted ÷ indexed ·
               Chart ✓ = matches indexed value · Live ✓ = matches our snapshot, ✗ = differs

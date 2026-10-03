@@ -282,10 +282,12 @@ ALL_ADJUSTED_LEGS = list(ADJUSTED_LEG_PARENT.keys())
 # Starter; i.e. flex players are pulled from the top of the flex-eligible
 # non-starters (RB/WR/TE) and labeled Starter.
 #
-# our_group_vorp comes from data/ddf-group-vorps.json when present (JEG-206
-# output). When the file is missing or empty we stamp a clearly-marked
-# placeholder (group_vorp_placeholder: true) and a flag at the source level
-# so the dashboard renders a visible warning.
+# our_group_vorp comes from dist/modules/ddf-group-vorps.json when present
+# (JEG-206 output, generated on every bake by sync_dashboard_artifacts.py).
+# When the file is missing or malformed we emit nulls for the value columns
+# (our_group_vorp / alloc_factor / imputed_vorp) and stamp group_placeholder:
+# true at the source level so the dashboard renders "N/A" -- no placeholder
+# numbers are ever invented (standing rule: never display unvalidated values).
 #
 # Per-row lineage fields added by Option C:
 #   group               — "RB|Starter" style label
@@ -313,48 +315,53 @@ _IMPUTED_FLEX_PER_TEAM = 1.0  # RB/WR/TE only
 _IMPUTED_FLEX_ELIGIBLE = ("RB", "WR", "TE")
 _IMPUTED_POSITIONS = ("QB", "RB", "WR", "TE")
 
-# Placeholder group VORPs (used when JEG-206 output is absent). These are
-# clearly-marked defaults chosen so alloc_factor is bounded away from 0 and
-# the dashboard renders a visible "PLACEHOLDER" badge. The values are not
-# load-bearing in any committed artifact -- they are explicitly flagged.
-_IMPUTED_PLACEHOLDER_GROUP_VORP = {
-    "QB|Starter": 200.0,
-    "QB|Bench":   60.0,
-    "RB|Starter": 350.0,
-    "RB|Bench":   120.0,
-    "WR|Starter": 320.0,
-    "WR|Bench":   130.0,
-    "TE|Starter": 110.0,
-    "TE|Bench":   40.0,
-}
+# Fail-closed group VORP loading (JEG-207 review fix): no placeholder values
+# are ever invented. When the JEG-206 artifact is absent or malformed, the
+# Option C value columns (our_group_vorp / alloc_factor / imputed_vorp)
+# are emitted as null and the dashboard renders them "N/A" -- never a
+# guessed number. Standing rule: never display unvalidated values.
 
 
 def _load_ddf_group_vorps():
-    """Load JEG-206 output (data/ddf-group-vorps.json) if it exists.
+    """Load JEG-206 output (dist/modules/ddf-group-vorps.json) if it exists.
 
-    Shape expected (per JEG-206 contract):
-        {"groups": {"QB|Starter": float, "QB|Bench": float, ...}}
+    JEG-206 contract (pipelines/build_ddf_groups.py):
+        {"groups": [{"position": "QB", "role": "starter",
+                     "total_vorp": float, "n_players": int}, ... 8 rows]}
 
-    Returns (groups_dict, available_bool). available is False when the file
-    is missing, empty, or malformed -- callers then stamp a placeholder.
+    Returns (groups_dict, available_bool) where groups_dict maps
+    "QB|Starter"-style labels to total_vorp floats. available is False
+    when the file is missing, empty, malformed, or any of the 8 groups
+    is missing/non-numeric -- callers then emit nulls, never guesses.
     """
-    path = os.path.join(REPO, "data", "ddf-group-vorps.json")
+    path = os.path.join(REPO, "dist", "modules", "ddf-group-vorps.json")
     if not os.path.exists(path):
         return {}, False
     try:
         with open(path) as f:
             doc = json.load(f)
-        groups = (doc or {}).get("groups") or {}
-        if not isinstance(groups, dict) or not groups:
+        rows = (doc or {}).get("groups") or []
+        if not isinstance(rows, list) or not rows:
             return {}, False
-        # Coerce values to float and drop any non-numeric.
         clean = {}
-        for k, v in groups.items():
+        for r in rows:
+            if not isinstance(r, dict):
+                return {}, False
+            pos = r.get("position")
+            role = r.get("role")
+            val = r.get("total_vorp")
+            if pos not in ("QB", "RB", "WR", "TE") or role not in ("starter", "bench"):
+                return {}, False
             try:
-                clean[k] = float(v)
+                clean[f"{pos}|{role.capitalize()}"] = float(val)
             except (TypeError, ValueError):
-                continue
-        return clean, bool(clean)
+                return {}, False
+        # All 8 groups must be present; a partial file is a malformed file.
+        expected = {f"{p}|{r}" for p in ("QB", "RB", "WR", "TE")
+                    for r in ("Starter", "Bench")}
+        if set(clean) != expected:
+            return {}, False
+        return clean, True
     except Exception:
         return {}, False
 
@@ -463,19 +470,22 @@ def _impute_groups_for_source(src, vorp_chain_keys, native_map):
             continue
         group_publisher_sum[g] = group_publisher_sum.get(g, 0.0) + float(val)
 
-    # 4) our_group_vorp + alloc_factor.
+    # 4) our_group_vorp + alloc_factor. Fail closed: when the JEG-206
+    # artifact is absent, the value columns are null (dashboard renders
+    # "N/A"). No placeholder numbers are ever invented -- the group
+    # assignment itself is deterministic from the publisher's own values
+    # and is still emitted.
     group_vorp_dict, available = _load_ddf_group_vorps()
     our_group_vorp_map = {}
     alloc_factor_map = {}
     placeholder_flag = not available
     for group_label, total in group_publisher_sum.items():
-        if available:
-            ogv = group_vorp_dict.get(group_label)
-            if ogv is None:
-                ogv = _IMPUTED_PLACEHOLDER_GROUP_VORP.get(group_label, 0.0)
-                placeholder_flag = True
-        else:
-            ogv = _IMPUTED_PLACEHOLDER_GROUP_VORP.get(group_label, 0.0)
+        ogv = group_vorp_dict.get(group_label) if available else None
+        if ogv is None:
+            our_group_vorp_map[group_label] = None
+            alloc_factor_map[group_label] = None
+            placeholder_flag = True
+            continue
         our_group_vorp_map[group_label] = round(ogv, 2)
         if total and total > 0:
             alloc_factor_map[group_label] = round(ogv / total, 4)

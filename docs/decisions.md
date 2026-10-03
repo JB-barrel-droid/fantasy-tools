@@ -78,3 +78,33 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+## jeg-209-001: Eight-group VORP reweight — approve the allocation policy
+- id: jeg-209-001
+- created: 2026-10-02
+- deadline: 2026-10-09
+- category: methodology
+- silence-default: explicit-tap
+- outcome: pending
+- outcome_date:
+- recommendation: Approve the squared-surplus allocation with ESPN as the pinned economics reference and the all-source batch 70 anchor, OR choose plain global linear rescale and keep the bench-share slider as the bench-economics control.
+
+### Context
+
+JEG-209 produced a design proposal (PR #41, draft) for reweighting VORP into chart values on the 0-70 scale, covering group budget allocation across the 8 position x starter/bench groups plus the per-player VORP-to-value mapping. Roman independently re-ran the pinned worked example (2026-09-29 ESPN half-PPR 12-team leg, 351 rows) and verified the arithmetic: all 8 group numbers reproduce the doc table, full-group conservation holds exactly, total budget B = 1940.94, 70 anchor = Jahmyr Gibbs. No math bug. The proposal is pure algebra (no optimizer), as Jeremy required. Nothing is implemented and nothing is merged; JEG-182 stays in Backlog until this spec is approved.
+
+### Problem
+
+Which allocation policy governs the Adj values view: (a) the proposed reference-squared-surplus policy, where each group's budget share is proportional to the sum of squared waiver-line surpluses (rewarding concentration of hard-to-replace surplus), or (b) plain global linear rescale, where group budgets follow raw VORP sums and allocation collapses to a single scale factor? The choice also settles two downstream questions: whether the standing bench-share slider (default 15%, user-settable) applies to Adj values, and whether the 70 anchor stays ESPN-only or moves to the all-source batch maximum.
+
+### Options
+
+1. **Approve the squared-surplus policy as proposed.** Group budgets derive from one pinned granular reference (ESPN in the example); bench economics are derived, not user-set (bench shares of each position's budget: QB 9.3%, RB 6.4%, WR 6.6%, TE 3.1%; TE/bench gets 0.09% of the total budget); the all-source batch shares one 70 anchor. Cross-role inversions are reported, not ironed.
+2. **Approve with linear rescale instead.** Keep the 8-group structure and conservation, but set group budget shares proportional to raw group VORP sums (allocation collapses to one global scale factor). Bench economics stay closer to the standing 15% slider; Mark Andrews (TE/bench) reads 6.09 instead of 0.56.
+3. **Approve with modifications.** e.g. squared-surplus allocation but the bench-share slider retained as an explicit override for the Adj view; or a different pinned reference than ESPN; or retain the ESPN-only 70 anchor and allow values above 70.
+4. **Reject.** The Adj view does not ship; the chart keeps the current fixed-pie indexing for as-published sources.
+
+### Recommendation
+
+Put the choice to Jeremy with the worked-example numbers in front of him: the squared premium is a real economic judgment (bench players are worth nearly nothing) dressed as algebra, and it retires the user-settable bench-share control for the Adj view. The honest comparison is Option 1 vs Option 2 on the same sample table (Gibbs 70.0 both; Josh Allen 11.89 vs 27.80; Mark Andrews 0.56 vs 6.09). Jeremy's call; nothing proceeds without his explicit tap.
+
+### Outcome Note
