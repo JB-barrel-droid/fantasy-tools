@@ -149,6 +149,7 @@ test-unit:
 	python3 -m unittest tests.test_three_view_pipeline_wiring
 	python3 -m unittest tests.test_vorp_views_preview
 	python3 -m unittest tests.test_vintage_trigger
+	python3 -m unittest tests.test_vintage_dispatch_contract
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
