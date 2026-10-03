@@ -135,6 +135,7 @@ test-unit:
 	python3 -m unittest tests.test_imputed_vorps_precision
 	python3 -m unittest tests.test_imputed_roster_config
 	python3 -m unittest tests.test_reweighted_batch_anchor
+	python3 -m unittest tests.test_reweight_inversion_budget
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_vorp_refresh
 	python3 -m unittest tests.test_projection_source_kind

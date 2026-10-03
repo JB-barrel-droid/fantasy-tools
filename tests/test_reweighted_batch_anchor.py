@@ -66,12 +66,15 @@ class SharedAnchorTests(unittest.TestCase):
         with self.assertRaises(ValueError):build_batch_three_views(pools,{**native,'fantasycalc':bad_native},budgets())
         with self.assertRaises(ValueError):build_three_views(records(10,10),bad_native,budgets(),batch_maximum=10)
 
-    def test_existing_player_clamp_is_rejected_before_batch_output(self):
+    def test_inversion_budget_conserves_after_visible_constraint(self):
         p={str(i):{'group':'QB|'+('Starter' if i<3 else 'Bench'),'imputed_vorp':u,'native':u}
            for i,u in ((1,1),(2,10),(3,1),(4,2))}
         g={x:0 for x in GROUPS};g['QB','starter']=20;g['QB','bench']=10
-        with self.assertRaisesRegex(ValueError,'conserving budget'):
-            build_batch_three_views({'test':p},{'test':{k:r['native'] for k,r in p.items()}},g)
+        result=build_batch_three_views({'test':p},{'test':{k:r['native'] for k,r in p.items()}},g)
+        out=result['sources']['test']['adj_values']
+        self.assertTrue(result['control_constraints']['QB']['constrained'])
+        self.assertTrue(math.isclose(math.fsum(out.values()),result['total_budget_per_source'],rel_tol=1e-12))
+        self.assertTrue(math.isclose(out['3']/out['4'],.5,rel_tol=1e-12))
 
     def fixture(self,tmp,with_granular=False):
         root=Path(tmp);cfg=RosterConfig(1,{'QB':0,'RB':2,'WR':0,'TE':0},0,0,'half_ppr').manifest()
