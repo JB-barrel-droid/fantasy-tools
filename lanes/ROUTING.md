@@ -29,8 +29,15 @@ only if every capability it requires is in that lane's column.
   CLI was never verified working from Muse (auth hit Anthropic's
   token-endpoint rate limit and never recovered). Do not design around it as
   an active lane.
-- **chatgpt/codex lane: UNAVAILABLE.** His account is out of usage; Jeremy
-  already ruled out ChatGPT Plus.
+- **chatgpt/codex lane: AVAILABLE (verified 2026-10-03 ~14:05 CDT).** Jeremy
+  corrected the mechanism to ChatGPT subscription OAuth (not metered API
+  billing); device-auth completed, `codex login status` = "Logged in using
+  ChatGPT", and a `codex exec` smoke probe returned OK. M3 stays the default
+  FIRST option (standing directive); codex is a valid second/parallel lane
+  for repo code changes and wiring verification per the capability table.
+  Dispatch still needs `lanes/protocol.py::KNOWN_LANES` to list it (currently
+  `("minimax",)` only) — re-enabling dispatch is a deliberate dispatcher
+  change, not automatic.
 - **Effective routing:** minimax (M3) for everything it can physically do
   (per the capability guard); muse (Roman) for the rest. Escalation on two
   failures goes to muse, never to an unavailable lane.
@@ -171,7 +178,7 @@ evidence (issue links). The blocklist wins over the matrix.
 | `minimax`   | `minimax`        | reachable  | `MiniMaxAdapter` | Self-dispatch — used for the JEG-94 dry-run demo.  |
 | any lane    | `minimax`        | reachable  | `MiniMaxAdapter` | The only lane Muse can route to today.             |
 | any lane    | `claude`         | NOT BUILT  | —                | The claude CLI was never verified working from Muse. Stop trying. |
-| any lane    | `chatgpt`/`codex` | DEAD      | —                | The Codex account is out of usage.                 |
+| any lane    | `chatgpt`/`codex` | AVAILABLE | —                | Verified 2026-10-03: ChatGPT subscription OAuth + `codex exec` smoke probe OK. No adapter built yet (see KNOWN_LANES note below). |
 
 `lanes/protocol.py::KNOWN_LANES` is `("minimax",)` — the protocol refuses
 any lane name it does not know. To add a destination lane: implement
