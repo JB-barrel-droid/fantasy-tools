@@ -67,3 +67,15 @@ Prior validation remains35 targeted tests and composite make validate0 for PR52,
 not current main39a3f29 or this unimplemented integration. Architecture investigation
 session13a86542-bbb3-4d61-9c40-0581a8c55c00 completed read-only. JEG242 stays
 In Progress, parent JEG183 In Review. Do not mark either Done from this note.
+
+Continuation: captured all195 IN_FC/CALC_Main/OUT_Translated effective-value rows
+plus IN_League A1:G13 in jeg-242-sheet-values.json (SHA256
+ee21497ce441ccde935a464fa03980b7657ab0b68818c2b9f3f625a9788357e0).
+`python3 -m unittest tests.test_option_c_sheet_oracle` runs1 meaningful pinned
+oracle test:195 roles/groups/full-precision imputed values match with0 differences.
+Together with reference/inversion/anchor18 tests pass. Synthetic enumeration IDs
+are arithmetic placeholders only; no canonical membership/production parity claim.
+Formula capture/canonical matching and all runtime integration steps remain.
+Required Makefile includes the oracle module. Old rounded producer cannot match
+full-precision oracle at relative1e-12; no translation columns are accepted as
+batch70 truth. The preserved arithmetic report records195/0, not rendered parity.
