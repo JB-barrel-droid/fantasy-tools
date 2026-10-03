@@ -1,13 +1,13 @@
 name: Source vintage check
 
 on:
-  schedule:
-    - cron: '0 * * * *'
+  # JEG-285: cron disabled 2026-10-03, now triggered by Supabase pg_cron
+#   schedule:
+#     - cron: '0 * * * *'
   workflow_dispatch:
 
 permissions:
   actions: write
-  contents: write # JEG-205: record the dispatched pipelines code hash
 
 jobs:
   check:
@@ -30,68 +30,29 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          # Run the check and capture JSON output. The script exits 1 whenever
-          # it detects a change (fail-closed, including on errors), so `|| true`
-          # keeps the step alive -- without it, bash -e fails the step on every
-          # detection and the dispatch below never fires (JEG-268).
-          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json || true
+          # Run the check and capture JSON output
+          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json
 
-          # Read the JSON report the script always prints: changed=True on a
-          # detected change or on any error, by design (fail-closed).
+          # Check the exit code - script exits 1 if changed, 0 if same
+          # But we want to continue even if changed, so we ignore the exit code
           CHANGED=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json'))['changed'])")
-          # JEG-205: code-change trigger rides the same dispatch. Default True
-          # (fail-safe) if the field is absent, e.g. an older script version.
-          CODE_CHANGED=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json')).get('code_changed', True))")
-          CODE_HASH=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json')).get('code_hash') or '')")
 
           # Write to GITHUB_OUTPUT for downstream steps
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
-          echo "code_changed=$CODE_CHANGED" >> $GITHUB_OUTPUT
-          echo "code_hash=$CODE_HASH" >> $GITHUB_OUTPUT
 
           # Also output for debugging
-          echo "Vintage check result: changed=$CHANGED code_changed=$CODE_CHANGED"
+          echo "Vintage check result: changed=$CHANGED"
           cat /tmp/vintage-check.json
-          if [ "$CHANGED" = "True" ]; then
-            echo "Source vintage check: changes detected, rebuild dispatched" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "Source vintage check: unchanged since last check" >> "$GITHUB_STEP_SUMMARY"
-          fi
 
       - name: Dispatch rebuild-chain on changes
-        id: dispatch
-        # JEG-205: a pipelines/ code change dispatches the chain exactly like
-        # a source-vintage change -- code fixes re-run the chain on their own,
-        # not incidentally on the next data refresh.
-        if: steps.check.outputs.changed == 'True' || steps.check.outputs.code_changed == 'True'
+        if: steps.check.outputs.changed == 'True'
         run: |
           echo "Changes detected - dispatching rebuild-chain.yml"
           gh workflow run rebuild-chain.yml -f source="source-vintage-check"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Record pipelines code hash
-        # JEG-205: persist the dispatched hash as the loop guard -- exactly one
-        # dispatch per code change. Records ONLY after the dispatch step ran
-        # successfully: a failed or skipped dispatch skips this step, so the
-        # next hourly run retries the same code change instead of silently
-        # consuming the trigger.
-        if: steps.check.outputs.code_changed == 'True' && steps.dispatch.outcome == 'success'
-        run: |
-          python3 - <<'EOF'
-          import sys
-          sys.path.insert(0, 'pipelines')
-          from check_source_vintage import record_code_hash, CODE_STATE_PATH
-          record_code_hash(CODE_STATE_PATH, "${{ steps.check.outputs.code_hash }}")
-          EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/source-vintage-state.json
-          git diff --cached --quiet || git commit -m "JEG-205: record dispatched pipelines code hash"
-          git pull --rebase origin main || true
-          git push
-
       - name: Report no changes
-        if: steps.check.outputs.changed == 'False' && steps.check.outputs.code_changed == 'False'
+        if: steps.check.outputs.changed == 'False'
         run: |
           echo "No changes detected - skipping rebuild"

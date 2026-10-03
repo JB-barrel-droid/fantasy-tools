@@ -9,9 +9,10 @@ name: CBS ROS scrape to Supabase
 # chart rebuilds. CBS publishes ROS projections weekly.
 
 on:
-  schedule:
-    # Weekly Wednesday 11:00 UTC (06:00 CT)
-    - cron: '0 11 * * 3'
+  # JEG-285: cron disabled 2026-10-03, now triggered by Supabase pg_cron
+#   schedule:
+#     # Weekly Wednesday 11:00 UTC (06:00 CT)
+#     - cron: '0 11 * * 3'
   workflow_dispatch:
 
 permissions:
@@ -23,11 +24,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # JEG-137 R10: capture the run start time as early as possible so the
-      # scheduler-slip measurement (started_at - cron_at) reflects when the
-      # run began, not when the recording step runs at the end of the job.
-      - name: Record workflow start time (JEG-137 R10)
-        run: echo "WORKFLOW_STARTED_AT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -45,9 +41,6 @@ jobs:
           # empty snapshot; the save step never runs on a bad pull.
           python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
           echo "snapshot=/tmp/cbsros_snapshot/snapshot.json" >> $GITHUB_OUTPUT
-          rows=$(python3 -c "import json; print(json.load(open('/tmp/cbsros_snapshot/snapshot.json'))['row_count'])")
-          vintage=$(date -u +%F)
-          echo "CBS ROS scrape: acquired ${rows} rows at vintage ${vintage}" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save to Supabase
         if: steps.scrape.outcome == 'success'
@@ -56,17 +49,3 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 pipelines/save_cbsros_references.py --snapshot /tmp/cbsros_snapshot/snapshot.json
-
-      # JEG-137 R10: record started_at and cron_at for the deadline checker.
-      - name: Record workflow run (JEG-137 R10)
-        if: always()
-        run: |
-          STATUS="success"
-          if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
-          python3 pipelines/lib/record_workflow_run.py \
-            --workflow "CBS ROS scrape to Supabase" \
-            --started-at "${WORKFLOW_STARTED_AT:-$(date -u +%FT%TZ)}" \
-            --cron "0 11 * * 3" \
-            --run-id "$GITHUB_RUN_ID" \
-            --status "$STATUS" \
-            --output output/comparison-chain-status.json

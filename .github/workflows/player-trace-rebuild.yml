@@ -4,9 +4,10 @@ name: Rebuild player trace
 # from the latest pipeline data. Runs after the comparison chain rebuild.
 
 on:
-  schedule:
-    # Every 6 hours, offset from the comparison chain rebuild
-    - cron: '47 */6 * * *'
+  # JEG-285: cron disabled 2026-10-03, now triggered by Supabase pg_cron
+#   schedule:
+#     # Every 6 hours, offset from the comparison chain rebuild
+#     - cron: '47 */6 * * *'
   workflow_dispatch:
 
 permissions:
@@ -47,13 +48,5 @@ jobs:
             echo "No changes to commit."
           else
             git commit -m "Automated player trace rebuild (GitHub Actions)"
-            # Push-race guard (2026-10-03): automated pushers (the 30-min health
-            # cron, other workflows) can land commits on main between this job's
-            # checkout and this push. Rebase onto the latest main first so the
-            # push stays fast-forward instead of failing non-fast-forward.
-            # --autostash: this step deliberately leaves unstaged changes behind
-            # (e.g. the held-back partial fixture on a red chain); stash them
-            # across the rebase instead of refusing.
-            git pull --rebase --autostash origin main
             git push
           fi
