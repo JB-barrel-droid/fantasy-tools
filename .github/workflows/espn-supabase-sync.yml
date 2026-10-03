@@ -69,6 +69,20 @@ jobs:
             --espn-csv /tmp/espn_projections.csv \
             --espn-meta /tmp/espn_meta.json
 
+      # JEG-137 R10: record started_at and cron_at for the deadline checker.
+      - name: Record workflow run (JEG-137 R10)
+        if: always()
+        run: |
+          STATUS="success"
+          if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
+          python3 pipelines/lib/record_workflow_run.py \
+            --workflow "ESPN scrape to Supabase" \
+            --started-at "$(date -u +%FT%TZ)" \
+            --cron "30 11 * * *" \
+            --run-id "$GITHUB_RUN_ID" \
+            --status "$STATUS" \
+            --output output/comparison-chain-status.json
+
       - name: Commit scraper updates if changed
         run: |
           git config user.name "github-actions[bot]"

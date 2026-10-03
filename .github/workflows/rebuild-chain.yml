@@ -162,3 +162,21 @@ jobs:
         run: |
           echo "Comparison chain failed (fail-closed). Status published; fixture not updated."
           exit 1
+
+      # JEG-137 R10: record this run's started_at and cron_at (null for dispatch)
+      # into comparison-chain-status.json so the deadline checker can see whether
+      # the chain started when it should have.
+      - name: Record workflow run (JEG-137 R10)
+        if: always()
+        env:
+          CHAIN_OUTCOME_FOR_RECORD: ${{ steps.chain.outcome }}
+        run: |
+          STATUS="success"
+          if [ "$CHAIN_OUTCOME_FOR_RECORD" = "failure" ]; then STATUS="failure"; fi
+          python3 pipelines/lib/record_workflow_run.py \
+            --workflow "Rebuild comparison chain" \
+            --started-at "$(date -u +%FT%TZ)" \
+            --cron "" \
+            --run-id "$GITHUB_RUN_ID" \
+            --status "$STATUS" \
+            --output output/comparison-chain-status.json

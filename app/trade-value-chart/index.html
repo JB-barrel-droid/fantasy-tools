@@ -2260,15 +2260,17 @@
       // the element being absent (e.g., during partial renders).
       if(health) health.open=startCollapsed===false;
       try{
-        const [response,newsResponse,freshnessResponse]=await Promise.all([
+        const [response,newsResponse,freshnessResponse,deadlineResponse]=await Promise.all([
           fetch("assets/comparison-sources-data.json"),
           fetch("assets/player-news.json").catch(()=>null),
-          fetch("assets/reference-freshness.json").catch(()=>null)
+          fetch("assets/reference-freshness.json").catch(()=>null),
+          fetch("assets/deadline-checker.json").catch(()=>null)
         ]);
         if(!response.ok)throw new Error(`Source snapshot request failed (${response.status})`);
         const data=await response.json();
         const news=newsResponse?.ok?await newsResponse.json():null;
         const freshness=freshnessResponse?.ok?await freshnessResponse.json():null;
+        const deadlineArtifact=deadlineResponse?.ok?await deadlineResponse.json():null;
         const newsMeta=news?.meta||{};
         const universe=(embedded.players||[]).length;
         const live=order.filter(key=>key==="cbs_adjusted"?data.source_validation?.cbs==="live":data.source_validation?.[key]==="live");
@@ -2358,7 +2360,7 @@
           // JEG-131 R4b D2: Hidden invalid rows (defensive: missing → 0, never crash).
           const hiddenRows=Number(source.hidden_invalid_rows||0)||0;
           const hiddenLine=hiddenRows?`<div><dt>Hidden</dt><dd>${hiddenRows} invalid row${hiddenRows===1?"":"s"}</dd></div>`:"";
-          return `<article class="dataset-card ${badge.cls}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badge.label)}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div>${hiddenLine}</dl></article>`;
+          return `<article class="dataset-card ${badge.cls}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badge.label)}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div><div><dt>Grace</dt><dd>${esc(graceLabel(key))}</dd></div>${slipCard(key)}${hiddenLine}</dl></article>`;
         });
         if(news){
           const adjustments=Object.values(news.adjustments_by_player_key||{}).flat();
@@ -2372,8 +2374,31 @@
           cards.push(`<article class="dataset-card ${Number(summary.stale_count||0)?"status-caution":"status-news"}"><div class="dataset-card-head"><h3>Reference freshness pipe</h3><span class="dataset-badge">${Number(summary.stale_count||0)?"Watch":"Same day"}</span></div><p class="dataset-role">Same-day audit runs during dashboard sync; unchanged references are recorded rather than silently refreshed.</p><dl class="dataset-facts"><div><dt>Audit date</dt><dd>${esc(freshness.today||"unavailable")}</dd></div><div><dt>Same-day</dt><dd>${summary.all_known_dates_same_day?"yes":"no"}</dd></div><div><dt>Stale refs</dt><dd>${Number(summary.stale_count||0)}</dd></div><div><dt>Unchanged</dt><dd>${Number(summary.unchanged_count||0)}</dd></div></dl>${staleItems.length?`<p class="dataset-caveat">${esc(staleItems.join(" · "))}</p>`:""}</article>`);
         }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
-        // JEG-131 R4b: Top "As of" shows the oldest DISPLAYED content_vintage
-        // across currently shown sources, not built_at.
+        // JEG-137 R10: Render a slip card per source showing the measured
+        // scheduler slip that extends the deadline checker's grace. Reads
+        // slip_measurement.sources from the deadline-checker artifact when
+        // available; falls back to the 6h default (unmeasured). Also renders
+        // the slip-adjusted grace in hours so a reader can see what was added.
+        const slipBySource=(deadlineArtifact?.slip_measurement?.sources)||{};
+        const graceLabel=(sourceKey)=>{
+          const sched=PUBLICATION_SCHEDULES[sourceKey];
+          if(!sched) return "unverified";
+          const baseHours=Number(sched.graceDays??0)*24;
+          const m=slipBySource[sourceKey];
+          const slipMin=m&&Number.isFinite(Number(m.slip_minutes))?Number(m.slip_minutes):(m&&m.is_stale?360:360);
+          const totalHours=baseHours+slipMin/60;
+          return `${baseHours}h base + ${(slipMin/60).toFixed(1)}h slip = ${totalHours.toFixed(1)}h`;
+        };
+        const slipCard=(sourceKey)=>{
+          const m=slipBySource[sourceKey];
+          if(!m||m.slip_minutes==null){
+            return `<div><dt>Slip</dt><dd class="slip-line">slip: default 6h (unmeasured)</dd></div>`;
+          }
+          if(m.is_stale){
+            return `<div><dt>Slip</dt><dd class="slip-line">slip: stale measurement (&gt;30d)</dd></div>`;
+          }
+          return `<div><dt>Slip</dt><dd class="slip-line">slip: ${Number(m.slip_minutes)}m measured</dd></div>`;
+        };
         const vintages=live.map(k=>{
           const s=data.sources[k]||{};
           const v=s.content_vintage||s.published||s.espn_snapshot||s.fetched_at||s.vintage||"";

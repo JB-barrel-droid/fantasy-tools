@@ -95,3 +95,17 @@ jobs:
             git commit -m "FantasyCalc drift refresh (GitHub Actions)"
             git push
           fi
+
+      # JEG-137 R10: record started_at and cron_at for the deadline checker.
+      - name: Record workflow run (JEG-137 R10)
+        if: always()
+        run: |
+          STATUS="success"
+          if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
+          python3 pipelines/lib/record_workflow_run.py \
+            --workflow "FantasyCalc drift check and refresh" \
+            --started-at "$(date -u +%FT%TZ)" \
+            --cron "45 11 * * *" \
+            --run-id "$GITHUB_RUN_ID" \
+            --status "$STATUS" \
+            --output output/comparison-chain-status.json
