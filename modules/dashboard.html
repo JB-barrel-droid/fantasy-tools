@@ -517,10 +517,22 @@ async function main(){
       return `<span class="flow-step ${s}" title="${cpDef.label}: ${cp ? cp.reason : 'no data'}">${num}</span>`;
     }).join('<span class="flow-arrow">→</span>');
 
-    // Checkpoint cards
+    // Razzball: c6/c7 are by design empty (direct fixture updates). Replace the
+    // two missing cells with a single pill that documents the vintage date
+    // pulled from the razzball entry in pipeline-checkpoints.json (JEG-308).
+    // All other sources render unchanged.
+    const razzballPill = (src === "razzball") ? (() => {
+      const reason = (cps.c4_snapshot && cps.c4_snapshot.reason) || "";
+      const m = reason.match(/vintage (\d{4}-\d{2}-\d{2})/);
+      const vintage = m ? m[1] : ((cps.c1_publication && cps.c1_publication.timestamp) || "n/a");
+      return `<div class="cp razzball-pill"><div class="cp-reason">Direct fixture update · vintage ${vintage}</div></div>`;
+    })() : "";
+
+    // Checkpoint cards (skip c6/c7 for razzball -- documented in the pill above)
     const cpCards = data.checkpoints.map(cpDef => {
       const cp = cps[cpDef.key];
       if(!cp) return "";
+      if(src === "razzball" && (cpDef.key === "c6_candidate" || cpDef.key === "c7_promotion")) return "";
       const dotCls = cp.status === "ok" ? "ok" : cp.status === "warn" ? "warn" : cp.status === "bad" ? "bad" : "unk";
       const reasonCls = cp.status === "bad" ? "bad" : cp.status === "warn" ? "warn" : "";
       return `<div class="cp">
@@ -543,7 +555,7 @@ async function main(){
       </div>
       <div class="src-body">
         <div class="flow">${flowSteps}</div>
-        <div class="cp-grid">${cpCards}</div>
+        <div class="cp-grid">${razzballPill}${cpCards}</div>
       </div>
     </div>`;
   }).join("");
