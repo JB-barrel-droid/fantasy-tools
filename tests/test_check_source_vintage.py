@@ -161,9 +161,13 @@ class TestCheckAllSources:
 
     @patch.object(check_source_vintage, "DEFAULT_FIXTURE_PATH")
     @patch.object(check_source_vintage, "get_current_vintage")
-    def test_unchanged_same_vintage(self, mock_get_vintage, mock_fixture_path):
+    @patch.object(check_source_vintage, "check_code_change")
+    def test_unchanged_same_vintage(self, mock_code_change, mock_get_vintage, mock_fixture_path):
         """Should report changed=False when vintage matches."""
         mock_fixture_path.exists.return_value = True
+        # JEG-205: isolate the vintage assertion from the code-version stamp
+        mock_code_change.return_value = {
+            "code_changed": False, "code_hash": "abc", "reason": "test"}
         mock_fixture_path.read_text.return_value = json.dumps({
             "sources": {
                 "fantasycalc": {"content_vintage": "Week 4"},

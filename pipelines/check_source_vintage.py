@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -12,6 +13,11 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURE_PATH = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+# JEG-205: persisted code-version stamp for the hourly check. The workflow
+# records the pipelines/ hash here each time it dispatches on a code change;
+# the hash is the loop guard (exactly one dispatch per code change).
+CODE_STATE_PATH = ROOT / ".github" / "source-vintage-state.json"
+STATE_FIELD_LAST_CODE_HASH = "last_code_hash"
 SUPABASE_SKILL_BIN = os.environ.get(
     "SUPABASE_FOOTBALL_SIGNAL_BIN",
     os.path.expanduser("~/workspace/skills/supabase-football-signal/bin"),
@@ -168,12 +174,91 @@ def get_fixture_vintage(source, fixture_data):
     return source_data.get("vintage")
 
 
+def compute_pipelines_code_hash(repo_root=ROOT):
+    """Deterministic SHA-256 over the pipelines/ tree (JEG-205).
+
+    Walks pipelines/ in sorted relative-path order, hashing each relative
+    path and its bytes. Excludes __pycache__ and *.pyc so bytecode churn
+    never counts as a code change. Raises on any failure -- callers apply
+    the fail-safe policy (trigger on uncertainty).
+    """
+    pipelines_dir = Path(repo_root) / "pipelines"
+    if not pipelines_dir.is_dir():
+        raise FileNotFoundError(f"pipelines/ not found under {repo_root}")
+    files = []
+    for p in pipelines_dir.rglob("*"):
+        if p.is_dir():
+            continue
+        if "__pycache__" in p.parts:
+            continue
+        if p.suffix == ".pyc":
+            continue
+        files.append(p)
+    if not files:
+        raise FileNotFoundError(f"no files under {pipelines_dir}")
+    h = hashlib.sha256()
+    for p in sorted(files, key=lambda q: q.relative_to(pipelines_dir).as_posix()):
+        rel = p.relative_to(pipelines_dir).as_posix().encode("utf-8")
+        h.update(rel + b"\x00" + p.read_bytes() + b"\x00")
+    return h.hexdigest()
+
+
+def check_code_change(state_path=CODE_STATE_PATH, repo_root=ROOT):
+    """Compare the current pipelines/ hash vs the persisted stamp (JEG-205).
+
+    Never raises: any failure to compute the hash or read the state is
+    fail-safe (code_changed=True -- a code change earns its chain run,
+    and uncertainty triggers rather than skips).
+    """
+    try:
+        current = compute_pipelines_code_hash(repo_root)
+    except BaseException as e:
+        return {"code_changed": True, "code_hash": None,
+                "reason": f"fail-safe: cannot hash pipelines/: {e}"}
+    try:
+        state = json.loads(Path(state_path).read_text(encoding="utf-8"))
+        recorded = state.get(STATE_FIELD_LAST_CODE_HASH) if isinstance(state, dict) else None
+    except BaseException as e:
+        return {"code_changed": True, "code_hash": current,
+                "reason": f"fail-safe: cannot read state file: {e}"}
+    if not recorded:
+        return {"code_changed": True, "code_hash": current,
+                "reason": "fail-safe: no recorded hash (first run)"}
+    if recorded != current:
+        return {"code_changed": True, "code_hash": current,
+                "reason": "pipelines/ hash differs from recorded stamp"}
+    return {"code_changed": False, "code_hash": current,
+            "reason": "pipelines/ hash matches recorded stamp"}
+
+
+def record_code_hash(state_path, code_hash):
+    """Persist the dispatched code hash (JEG-205). Preserves other state fields."""
+    path = Path(state_path)
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict):
+            state = {}
+    except BaseException:
+        state = {}
+    state[STATE_FIELD_LAST_CODE_HASH] = code_hash
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+
 def check_all_sources():
     """Check all sources and return results."""
+    results = {"sources": {}, "changed": False}
+    # JEG-205: pipeline-code changes also earn a chain run. This check never
+    # raises: any failure to compute or read state is fail-safe (trigger).
+    code = check_code_change()
+    results["code_changed"] = code["code_changed"]
+    results["code_hash"] = code["code_hash"]
+    results["code_change_reason"] = code["reason"]
+    if code["code_changed"]:
+        results["changed"] = True
     if not DEFAULT_FIXTURE_PATH.exists():
         raise SystemExit(f"Fixture not found: {DEFAULT_FIXTURE_PATH}")
     fixture_data = json.loads(DEFAULT_FIXTURE_PATH.read_text(encoding="utf-8"))
-    results = {"sources": {}, "changed": False}
     for source in CHAIN_SOURCES:
         sr = {}
         try:
@@ -202,12 +287,20 @@ def main():
     try:
         result = check_all_sources()
     except BaseException as e:
-        # Catch SystemExit so --json still emits a report on fail-closed paths
+        # Catch SystemExit so --json still emits a report on fail-closed paths.
+        # JEG-205: the code-change fields are always reported, even here.
         result = {"error": str(e), "changed": True, "sources": {}}
+        code = check_code_change()
+        result["code_changed"] = code["code_changed"]
+        result["code_hash"] = code["code_hash"]
+        result["code_change_reason"] = code["reason"]
     if args.json:
         print(json.dumps(result, indent=2))
     else:
         print(f'Changed: {result["changed"]}')
+        if "code_changed" in result:
+            print(f'  code: {"CHANGED" if result["code_changed"] else "same"} '
+                  f'({result.get("code_change_reason")})')
         for source, sr in result.get("sources", {}).items():
             print(f'  {source}: {sr.get("current_vintage")} vs {sr.get("fixture_vintage")} ({"CHANGED" if sr.get("changed") else "same"})')
     sys.exit(0 if not result["changed"] else 1)
