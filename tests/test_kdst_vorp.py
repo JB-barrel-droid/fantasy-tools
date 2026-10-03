@@ -293,10 +293,13 @@ class EightGroupInvarianceTests(unittest.TestCase):
 
     def test_8_group_byte_invariant_unchanged_by_kdst_module_import(self):
         # Importing the K/DST modules does not mutate any 8-group state.
+        # NOTE: _empty_groups() uses tuple keys, so compare via repr(),
+        # not json.dumps(sort_keys=True) (which raises TypeError on tuples).
         from build_ddf_groups import _empty_groups as skill_empty
-        before = json.dumps(skill_empty(), sort_keys=True, default=str)
-        # Force a re-call; result must be byte-identical.
-        after = json.dumps(skill_empty(), sort_keys=True, default=str)
+        before = repr(skill_empty())
+        import build_ddf_kdst_leg  # noqa: F401
+        import build_ddf_kdst_groups  # noqa: F401
+        after = repr(skill_empty())
         self.assertEqual(before, after)
 
 
@@ -385,15 +388,20 @@ class LoadInputTests(unittest.TestCase):
         identities = build_identity_index(REPO / "data/fixtures/current/players.json")
         k_rows, _ = load_kicker_pool(REPO / "data/inputs/espn_k_ppg_2026-09-21.json")
         d_rows, _ = load_dst_pool(REPO / "data/inputs/espn_dst_ros_2026-09-21.json")
-        unresolved_k = sum(1 for r in k_rows
-                           if r["name"].lower() not in identities["by_name"])
-        unresolved_d = sum(1 for r in d_rows
-                           if r["team"] not in identities["by_team"])
-        # All kickers and defenses in current inputs should resolve.
-        # If identity drift occurs later, this test surfaces it as review_rows.
-        self.assertEqual(unresolved_k, 0,
-                         "Some K players don't match the fixture by name")
-        self.assertEqual(unresolved_d, 0,
+        unresolved_k = sorted(r["name"] for r in k_rows
+                              if r["name"].lower() not in identities["by_name"])
+        unresolved_d = sorted(r["team"] for r in d_rows
+                              if r["team"] not in identities["by_team"])
+        # Fail-closed identity: names that don't match the fixture go to
+        # review_rows, never guessed. As of the 2026-09-21 inputs, exactly
+        # three kickers are unresolvable: Michael Badgley (fixture has
+        # "Mike Badgley" -- nickname variants are NOT auto-matched per the
+        # no-nickname-guessing rule), Parker Romo and Caden Davis (not in
+        # the fixture universe). All defenses resolve.
+        self.assertEqual(unresolved_k,
+                         ["Caden Davis", "Michael Badgley", "Parker Romo"],
+                         "K identity drift: unexpected (un)resolved names")
+        self.assertEqual(unresolved_d, [],
                          "Some DST teams don't match the fixture by abbr")
 
 

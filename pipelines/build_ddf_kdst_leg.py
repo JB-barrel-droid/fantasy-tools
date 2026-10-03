@@ -220,7 +220,8 @@ def build_leg(k_input: Path, dst_input: Path, fixture_path: Path,
             raise ValueError(f"cannot build K/DST leg: empty pool for {pos}")
 
     pool = build_position_tiers(pool_lists, teams, slots, flex_count=0,
-                                flex_eligible=[], bench_mix=bench_mix)
+                                flex_eligible=[], bench_mix=bench_mix,
+                                positions=list(KDST_POSITIONS))
     calibration: dict[str, Any] = {}
     calibration_notes: list[str] = []
     for pos in KDST_POSITIONS:
