@@ -303,19 +303,20 @@ class VorpRoundTripRenderTest(unittest.TestCase):
         cls.html = (REPO / "modules" / "dashboard.html").read_text()
 
     def test_three_step_columns_present_in_table_header(self):
-        # The lineage table header now includes the three VORP steps
-        # in addition to the existing reindex chain columns.
-        for col in ("Native", "Impl. VORP", "DDF rebuilt"):
+        # JEG-207: the lineage table header now carries the Option C
+        # 8-group columns instead of the old translate_source VORP steps.
+        for col in ("Native", "Group", "Alloc factor", "Our group VORP", "Imputed VORP"):
             self.assertIn(
                 col, self.html,
                 f"lineage table header must carry {col!r} column"
             )
 
     def test_each_row_carries_three_step_cells(self):
-        # The row template renders all three VORP cells per player row.
-        self.assertIn("p.implied_vorp", self.html)
-        self.assertIn("p.ddf_rebuilt", self.html)
-        self.assertIn("p.vorp_replacement_level", self.html)
+        # JEG-207: the row template renders the Option C 8-group cells
+        # per player row (replacing the old translate_source VORP steps).
+        self.assertIn("p.group", self.html)
+        self.assertIn("p.alloc_factor", self.html)
+        self.assertIn("p.imputed_vorp", self.html)
 
     def test_inferred_replacement_panel_renders(self):
         # The publisher's inferred assumptions are shown per source.

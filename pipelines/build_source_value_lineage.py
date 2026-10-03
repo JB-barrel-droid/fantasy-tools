@@ -298,6 +298,12 @@ ALL_ADJUSTED_LEGS = list(ADJUSTED_LEG_PARENT.keys())
 # (other readers may depend on them), but the lineage TABLE in
 # modules/dashboard.html renders the Option C columns instead.
 
+# Sources where the "native" is a publisher-published trade value.
+# Kept for _compute_vorp_chain_for_source (used by other readers/tests);
+# the lineage TABLE uses the Option C 8-group columns instead.
+_PUBLISHED_VORP_SOURCES = {"fantasypros", "usatoday", "fantasycalc", "cbs"}
+_DDF_NATIVE_VORP_SOURCES = {"espn", "cbsros", "razzball"}
+
 _LINEAGE_WEEK = 4  # documented at build time; lineage is a snapshot, not a feed
 
 # Group computation matches the dashboard's 12-team Half PPR reference:
