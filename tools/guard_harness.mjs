@@ -12,18 +12,22 @@ const REAL_CONSOLE_ERROR = console.error.bind(console);
 const REAL_CONSOLE_WARN = console.warn.bind(console);
 const POSITIONS = ["QB", "RB", "WR", "TE"];
 const EXPECTED_JEG5 = {
-  total: 858.126551,
+  // Re-recorded 2026-10-03: ESPN leg refreshed to 2026-10-03 input data
+  // (data/inputs/espn_projections.csv). The simulated JEG-5 bug numbers
+  // shift with the fixture; the simulation mechanism is unchanged
+  // (current fixture still passes fixedPieIndexed; pie targets unchanged).
+  total: 860.200245,
   target: 862.62,
-  delta: -4.493449,
+  delta: -2.419755,
   displayScale: 2.5701,
   n: 168,
   liveCells: 8,
   bakedCells: 8,
   perPos: {
-    QB: {total: 52.86, pie: 52.97},
-    RB: {total: 381.21, pie: 381.32},
-    WR: {total: 372.44, pie: 375.64},
-    TE: {total: 51.62, pie: 52.69},
+    QB: {total: 52.42, pie: 52.97},
+    RB: {total: 382.67, pie: 381.32},
+    WR: {total: 373.54, pie: 375.64},
+    TE: {total: 51.57, pie: 52.69},
   },
 };
 

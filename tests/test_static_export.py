@@ -287,7 +287,12 @@ class StaticExportTest(unittest.TestCase):
             # stale-pie value the old builder rescaled fresh leg values to
             # (fresh stamp, old-level numbers -- the stale-pie class). The
             # rebuild now writes fresh-leg values directly.
-            ("espn", "full_12"): 26.9,
+            # 2026-10-03: ESPN input refreshed to 2026-10-03 projections
+            # (ddf-20261003-espn-*12t legs, 493 players). Allen's leg value
+            # 26.6985... lands in the fixture as 26.7 -- genuine data move
+            # (Allen ppg 21.15 -> 19.65 on the fresh ESPN pull), verified
+            # against the rebuilt leg.
+            ("espn", "full_12"): 26.7,
             # cbsros (CBS rest-of-season projections through the DDF two-tier
             # leg): Allen's CBS ROS per-game is 24.357 vs ESPN's 21.15, yet
             # his indexed value is 20.8 vs ESPN's 26.9 -- the two-tier leg
@@ -304,11 +309,16 @@ class StaticExportTest(unittest.TestCase):
             # 2026-10-02 16:21 rebuild: Stage 9 VORP refresh landed fresh
             # translated values (159/197 players moved) -- Allen 25.8 -> 26.2,
             # verified against fixture.
-            ("fantasycalc_adjusted", "full_12_qb1"): 26.2,
+            # 2026-10-03: adjustment cells refit against the 2026-10-03 ESPN
+            # anchor (ddf-20261003-espn-ppr-12t-0p15); Allen 26.2 -> 28.0 is
+            # the refit + pie-rescale, verified against the rebuilt fixture.
+            ("fantasycalc_adjusted", "full_12_qb1"): 28.0,
             # usatoday_adjusted moved 23.2 -> 24.3 on the same refresh
             # (154/249 players moved), verified against fixture.
-            ("usatoday_adjusted", "full_12"): 24.3,
-            ("fantasypros_adjusted", "full_12"): 18.1,
+            # 2026-10-03 refit: 24.3 -> 26.0.
+            ("usatoday_adjusted", "full_12"): 26.0,
+            # 2026-10-03 refit: 18.1 -> 19.1.
+            ("fantasypros_adjusted", "full_12"): 19.1,
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
