@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""JEG-206: 8-group VORP totals from a DDF two-tier leg.
+"""JEG-206/233: eight-group totals with explicit raw-vs-calibrated units.
+
+JEG-233 adds raw_surplus_ppg using ppg minus waiver; total_vorp remains the
+legacy sum of calibrated row.value for compatibility. units and derivation
+identify each quantity. Raw consumers must use raw_surplus_contract and
+raw_surplus_ppg, never total_vorp. Raw inputs fail closed when unavailable.
+
+Legacy artifact contract follows:
 
 Refactor target: emit total VORP per (position x role) for the eight groups
     QB Starter, QB Bench,RB Starter, RB Bench, WR Starter, WR Bench,
@@ -47,7 +54,9 @@ Wired into pipelines/sync_dashboard_artifacts.py via build_groups_from_leg
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import math
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -81,7 +90,7 @@ def utc_now() -> str:
 
 def _empty_groups() -> dict[tuple[str, str], dict[str, Any]]:
     return {(pos, role): {"position": pos, "role": role,
-                          "total_vorp": 0.0, "n_players": 0}
+                          "total_vorp": 0.0, "raw_surplus_ppg": 0.0, "n_players": 0}
             for pos, role in GROUPS}
 
 
@@ -138,7 +147,17 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
     n_dedicated = {pos: teams * REF_SLOTS.get(pos, 0) for pos in POSITIONS}
     n_flex_target = teams * REF_FLEX_COUNT
 
+    calibration = leg.get("calibration") or {}
+    waiver_ppg = {}
+    for pos in POSITIONS:
+        entry = calibration.get(pos)
+        rw = entry.get("rw") if isinstance(entry, dict) else None
+        if isinstance(rw, bool) or not isinstance(rw, (int, float)) or not math.isfinite(rw):
+            raise ValueError(f"missing or non-finite waiver PPG for {pos}: {rw!r}")
+        waiver_ppg[pos] = float(rw)
+
     groups = _empty_groups()
+    raw_rows = []
     total_vorp = 0.0
     n_total = 0
     seen_positions: set[str] = set()
@@ -152,14 +171,22 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
             raise ValueError(f"unknown position {pos!r} for player {v.get('player')}")
         if tier not in ("starter", "bench", "waiver"):
             raise ValueError(f"unknown tier {tier!r} for player {v.get('player')}")
-        if not isinstance(value, (int, float)) or not (value >= 0):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or value < 0:
             raise ValueError(f"non-finite or negative value for player {v.get('player')}: {value!r}")
         seen_positions.add(pos)
         seen_tiers.add(tier)
         total_vorp += float(value)
         n_total += 1
         if tier in ("starter", "bench"):
+            ppg = v.get("ppg")
+            if isinstance(ppg, bool) or not isinstance(ppg, (int, float)) or not math.isfinite(ppg):
+                raise ValueError(f"missing or non-finite projection PPG for player {v.get('player')}: {ppg!r}")
+            raw = max(0.0, float(ppg) - waiver_ppg[pos])
+            if not math.isfinite(raw):
+                raise ValueError("raw surplus overflow")
+            raw_rows.append(raw)
             g = groups[(pos, tier)]
+            g["raw_surplus_ppg"] += raw
             g["total_vorp"] += float(value)
             g["n_players"] += 1
 
@@ -171,6 +198,12 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
             f"empty groups: {missing_groups}")
 
     sum_groups = sum(g["total_vorp"] for g in groups.values())
+    raw_total = math.fsum(raw_rows)
+    raw_sum_groups = math.fsum(g["raw_surplus_ppg"] for g in groups.values())
+    if not all(math.isfinite(x) for x in (total_vorp, sum_groups, raw_total, raw_sum_groups)):
+        raise ValueError("non-finite group aggregate")
+    if not math.isclose(raw_total, raw_sum_groups, rel_tol=1e-12, abs_tol=1e-12):
+        raise ValueError("raw surplus group leakage")
     tol = 1e-6 * max(1.0, total_vorp)
     if abs(sum_groups - total_vorp) > tol:
         raise ValueError(
@@ -183,6 +216,7 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
     # roster shape).
     groups_list = [{"position": p, "role": r,
                     "total_vorp": round(groups[(p, r)]["total_vorp"], 4),
+                    "raw_surplus_ppg": groups[(p, r)]["raw_surplus_ppg"],
                     "n_players": groups[(p, r)]["n_players"]}
                    for (p, r) in GROUPS]
 
@@ -192,6 +226,16 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
 
     return {
         "schema": SCHEMA,
+        "raw_surplus_contract": "ddf-raw-surplus-ppg-v1",
+        "units": {
+            "total_vorp": "legacy_calibrated_chart_value",
+            "sum_groups": "legacy_calibrated_chart_value",
+            "raw_surplus_ppg": "fantasy_points_per_game_above_position_waiver",
+            "raw_sum_groups": "fantasy_points_per_game_above_position_waiver",
+        },
+        "source_generated_at": leg.get("generated_at"),
+        "source_inputs": inputs,
+        "waiver_ppg": waiver_ppg,
         "generated_at": utc_now(),
         "bake_id": leg.get("bake_id"),
         "scoring": scoring,
@@ -207,10 +251,14 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
         "totals": {
             "total_vorp": round(total_vorp, 4),
             "sum_groups": round(sum_groups, 4),
+            "raw_surplus_ppg": raw_total,
+            "raw_sum_groups": raw_sum_groups,
             "n_players": n_total,
             "n_waiver": sum(1 for v in values if v.get("tier") == "waiver"),
         },
         "derivation": {
+            "raw_surplus": "sum(max(0, row.ppg - calibration[position].rw)) for starter/bench rows; no legacy value/raw_value or softplus",
+            "legacy_total_vorp": "sum(row.value); retained for existing consumers, not raw VORP PPG",
             "flex_allocation": "highest-vorp at margin (see build_ddf_two_tier_leg.build_position_tiers)",
             "waiver_excluded": True,
             "waiver_value_zero_by_construction": True,
@@ -223,10 +271,12 @@ def build_groups_from_leg(leg_path: Path, out_path: Path = DIST_PATH) -> dict[st
 
     The sync step uses this; tests use compute_groups + a fixture leg.
     """
-    leg = json.loads(leg_path.read_text(encoding="utf-8"))
+    input_bytes = leg_path.read_bytes()
+    leg = json.loads(input_bytes)
     artifact = compute_groups(leg)
+    artifact["input_leg_sha256"] = hashlib.sha256(input_bytes).hexdigest()
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(artifact, indent=2, sort_keys=True) + "\n",
+    out_path.write_text(json.dumps(artifact, indent=2, sort_keys=True, allow_nan=False) + "\n",
                         encoding="utf-8")
     return artifact
 
