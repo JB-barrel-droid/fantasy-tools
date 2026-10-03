@@ -2,7 +2,8 @@
 """JEG-242: candidate refresh for the three-view (Indexed/VORP/Adj) pipeline.
 
 This is the missing refresh wiring the parent defect names: the reviewed
-producers (pipelines/build_imputed_vorps.py -> pipelines/build_reweighted_values.py)
+producers (pipelines/build_imputed_vorps.py -> pipelines/backstop_shallow_sources.py
+-> pipelines/build_reweighted_values.py)
 had no refresh, promotion, or view path invoking them. This script wires them
 into a versioned refresh path with pipelines/review_batch70_views.py as the
 fail-closed gate.
@@ -51,10 +52,12 @@ from build_imputed_vorps import main as impute_main  # noqa: E402
 from build_imputed_vorps import RosterConfig, _unique_object  # noqa: E402
 from build_reweighted_values import SOURCE_KINDS  # noqa: E402
 from build_reweighted_values import main as reweight_main  # noqa: E402
+from backstop_shallow_sources import main as backstop_main  # noqa: E402
 from review_batch70_views import main as review_main  # noqa: E402
 
 SCHEMA = "vorp-views-refresh-run-v1"
 PUBLISHED = tuple(s for s, k in SOURCE_KINDS.items() if k == "published")
+DERIVED = tuple(s for s, k in SOURCE_KINDS.items() if k == "derived")
 GRANULAR = tuple(s for s, k in SOURCE_KINDS.items() if k == "granular")
 
 
@@ -152,8 +155,39 @@ def refresh(args) -> int:
         "sources": batch_sources,
         "excluded_sources": excluded,
     }
-    batch_path = work / "batch.json"
-    batch_path.write_text(json.dumps(batch, indent=2, sort_keys=True))
+
+    # AVG/backstop is an actual stage of the reviewed pipeline, not a sidecar
+    # utility. With two or more published sources, derive the league-cohort AVG
+    # line and backstop any publisher missing members of that cohort. With only
+    # one published source, AVG is impossible by definition and is explicitly
+    # excluded rather than invented.
+    pre_backstop_path = work / "batch.pre-backstop.json"
+    pre_backstop_path.write_text(json.dumps(batch, indent=2, sort_keys=True))
+    if len(supplied) >= 2:
+        code, log = _capture(
+            backstop_main,
+            "--batch", str(pre_backstop_path),
+            "--out-dir", str(work),
+        )
+        step_log.append(f"avg/backstop: exit={code}\n{log}")
+        if code != 0:
+            print(f"REFRESH FAILED at avg/backstop:\n{log}", file=sys.stderr)
+            return 1
+        augmented_path = work / "vorp-source-batch-augmented-v1.json"
+        batch_path = work / "batch.json"
+        batch_path.write_bytes(augmented_path.read_bytes())
+        batch = json.loads(batch_path.read_bytes())
+        batch_sources = dict(batch["sources"])
+        excluded = dict(batch["excluded_sources"])
+    else:
+        for src in DERIVED:
+            excluded.setdefault(src, "cross-source average requires at least 2 published sources")
+        batch["excluded_sources"] = excluded
+        batch_path = work / "batch.json"
+        batch_path.write_text(json.dumps(batch, indent=2, sort_keys=True))
+    input_pins["pre_backstop_batch"] = _sha256(pre_backstop_path)
+    if len(supplied) >= 2:
+        input_pins["backstopped_batch"] = _sha256(batch_path)
 
     candidate_path = out_dir / "candidate.json"
     weight_args = ["--controls", str(args.controls)] if args.controls else ["--reference", str(args.reference)]
@@ -177,9 +211,11 @@ def refresh(args) -> int:
     manifest = {
         "schema": SCHEMA,
         "refreshed_at": datetime.now(timezone.utc).isoformat(),
-        "steps": ["impute", "reweight", "review"],
+        "steps": ["impute", "avg_backstop", "reweight", "review"] if len(supplied) >= 2
+                 else ["impute", "reweight", "review"],
         "sources_included": sorted(batch_sources),
         "excluded_sources": excluded,
+        "avg_backstop": batch.get("_backstop"),
         "weight_selection": "controls" if args.controls else "reference",
         "input_sha256": input_pins,
         "candidate_sha256": hashlib.sha256(candidate_bytes).hexdigest(),
