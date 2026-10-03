@@ -692,7 +692,9 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("selectedRankSourceKey", text)
         self.assertIn("every curve shares", text)
         self.assertIn("sharedPlayerAxis", text)
-        self.assertIn("row.values[sourceKey]", text)
+        # 2026-10-03: variable renamed sourceKey -> key in refactor; the
+        # visible-window logic still reads row values per key.
+        self.assertIn("row.values[key]", text)
         self.assertIn("slice(Math.max(0, zoomLow - 1), Math.max(zoomLow, zoomHigh))", text)
         self.assertIn("syncYAxis", text)
         self.assertIn("yAxisAuto", text)
