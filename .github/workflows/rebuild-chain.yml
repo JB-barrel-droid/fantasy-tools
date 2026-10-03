@@ -158,6 +158,11 @@ jobs:
             echo "pushed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "$MESSAGE"
+            # Push-race guard (2026-10-03): automated pushers (the 30-min health
+            # cron, other workflows) can land commits on main between this job's
+            # checkout and this push. Rebase onto the latest main first so the
+            # push stays fast-forward instead of failing non-fast-forward.
+            git pull --rebase origin main
             git push
             echo "pushed=true" >> $GITHUB_OUTPUT
           fi
