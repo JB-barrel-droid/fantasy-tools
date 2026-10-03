@@ -50,3 +50,14 @@ This candidate slice is stacked on PR50. JEG243 still owns verified blend defaul
 JEG242 owns pipeline/view integration and production gates. No fixtures, canonical
 coverage, source-vintage approval or production promotion is claimed. Roman owns
 independent integration and deployment; JEG183 remains in review.
+
+Read-only Claude Code MCP review independently ran13 inversion/anchor tests and
+found no correctness defect. Codex checked the proof and reran31 combined tests.
+The review's description of the zero boundary was imprecise: the passing case has
+one zero starter and one positive starter, not absent starters. The failing case
+has an all-zero starter pool. The test/code evidence above is authoritative.
+
+`make validate` exits0 on the detached composite based on main5792ba5 plus
+PR47–50/this change and pending PR43. Log: /private/tmp/jeg241-combined-validate.log.
+This does not certify later main39a3f29 or production. No generated outputs are
+included in this branch.
