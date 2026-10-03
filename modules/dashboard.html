@@ -235,8 +235,10 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     <b>live source page</b> through every transformation to the <b>chart value</b>.
     <b>Live</b> = scraped directly from the human-readable source page right now ·
     <b>Native</b> = value stored in our pipeline snapshot ·
-    <b>Indexed</b> = after 0–70 scale indexing ·
-    <b>Reweighted</b> = after DDF adjustment · <b>Chart</b> = what the dashboard displays.
+    <b>Group</b> = 8-group bucket (QB/RB/WR/TE × Starter/Bench, flex → Starter) ·
+    <b>Alloc factor</b> = our group VORP ÷ sum of publisher values in this group ·
+    <b>Our group VORP</b> = the 8-group input total (placeholder when JEG-206 output is absent) ·
+    <b>Imputed VORP</b> = native × alloc factor (Option C method).
     Multipliers show the effective ratio at each step.
     A red <b>✗</b> in the Live column means the live page value does not match our stored snapshot.
   </div>
@@ -1023,7 +1025,10 @@ async function main(){
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>
             ${liveCell}
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Publisher's published value (or ESPN ROS projections)">${fmt(p.native)}</td>
-            <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)" ${p.vorp_inferred_position ? `title="Position ${p.vorp_inferred_position}: replacement tier ${fmt(p.vorp_replacement_level)} (inferred n_rostered ${p.vorp_inferred_n_rostered})"` : `title="VORP round-trip unavailable for this row"`}>${fmt(p.implied_vorp)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Position and role bucket — Starter or Bench (flex players are tagged Starter)">${fmt(p.group)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our group VORP divided by the sum of publisher values in this group. The multiplier that scales each publisher native into our imputed VORP.">${fmtMult(p.alloc_factor)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (placeholder when JEG-206 output is absent)">${fmt(p.our_group_vorp)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)" title="Imputed VORP = native x alloc_factor. Replaces the legacy implied_vorp which ran the old translate_source method.">${fmt(p.imputed_vorp)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right" title="DDF-rebuilt value (what the chart actually displays)">${fmt(p.ddf_rebuilt)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.index_mult)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.indexed)}</td>
@@ -1085,14 +1090,17 @@ async function main(){
             <div style="margin-top:12px;font-size:12px;color:var(--dim);margin-bottom:8px">${s.source_note}</div>
             ${vorpAssumptions}
             <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;min-width:900px">
+            <table style="width:100%;border-collapse:collapse;min-width:1180px">
               <thead>
                 <tr style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);border-bottom:2px solid var(--line)">
                   <th style="padding:8px;text-align:left">#</th>
                   <th style="padding:8px;text-align:left">Player</th>
                   <th style="padding:8px;text-align:right">Live</th>
                   <th style="padding:8px;text-align:right" title="Publisher's published value (or ESPN ROS projections)">Native</th>
-                  <th style="padding:8px;text-align:right" title="Publisher's implied VORP under inferred roster assumptions">Impl. VORP</th>
+                  <th style="padding:8px;text-align:right" title="Position and role bucket — Starter or Bench (flex players are tagged Starter)">Group</th>
+                  <th style="padding:8px;text-align:right" title="Our group VORP divided by the sum of publisher values in this group. Multiplier that scales each publisher native into our imputed VORP.">Alloc factor</th>
+                  <th style="padding:8px;text-align:right" title="Our total VORP for this group — the input total from the 8-group methodology (placeholder when JEG-206 output is absent)">Our group VORP</th>
+                  <th style="padding:8px;text-align:right" title="Imputed VORP = native x alloc_factor. Replaces the legacy translate_source-based implied VORP.">Imputed VORP</th>
                   <th style="padding:8px;text-align:right" title="DDF-rebuilt value (what the chart displays)">DDF rebuilt</th>
                   <th style="padding:8px;text-align:right">Idx mult</th>
                   <th style="padding:8px;text-align:right">Indexed</th>
@@ -1106,7 +1114,10 @@ async function main(){
             </div>
             <div style="font-size:11px;color:var(--faint);margin-top:8px">
               Live = scraped from the human-readable source page right now · Native = publisher's value ·
-              Impl. VORP = native − inferred replacement tier · DDF rebuilt = chart's final translated value ·
+              Group = 8-group bucket (QB/RB/WR/TE x Starter/Bench; flex = Starter) ·
+              Alloc factor = our group VORP / sum of publisher values in this group ·
+              Our group VORP = the 8-group input total (placeholder when JEG-206 output is absent) ·
+              Imputed VORP = native x alloc factor · DDF rebuilt = chart's final translated value ·
               Idx mult = indexed ÷ native · Rewgt mult = reweighted ÷ indexed ·
               Chart ✓ = matches indexed value · Live ✓ = matches our snapshot, ✗ = differs
             </div>
