@@ -6,7 +6,8 @@ Jeremy's pinned blend reference (data/reference/jeg242-blend-controls-v1.json)
 into the explicit inputs the reviewed refresh path requires, then delegates to
 pipelines/refresh_vorp_views.py, which runs:
 
-  build_imputed_vorps.py -> build_reweighted_values.py --controls <extracted>
+  build_imputed_vorps.py -> backstop_shallow_sources.py
+      -> build_reweighted_values.py --controls <extracted>
       -> review_batch70_views.py (fail-closed gate) -> versioned run manifest
 
 CANDIDATE-ONLY: artifacts land under --out-dir. Nothing is written to
@@ -175,7 +176,7 @@ def orchestrate(args) -> int:
                       "schema": REFERENCE_SCHEMA},
         "group_vorps": group_provenance,
         "controls": controls_provenance,
-        "refresh": "pipelines/refresh_vorp_views.py (impute -> reweight --controls -> review)",
+        "refresh": "pipelines/refresh_vorp_views.py (impute -> avg/backstop -> reweight --controls -> review)",
         "promotion": "none: candidate only; promotion is a separate reviewed step",
     }
     (out_dir / "orchestrator.json").write_text(
