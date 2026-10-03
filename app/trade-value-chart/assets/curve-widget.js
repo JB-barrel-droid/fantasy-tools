@@ -72,8 +72,12 @@
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const EXPECTED_ADJUSTMENT_CELL_KEYS = POSITION_ORDER.flatMap(pos => ["starter", "bench"].map(tier => `${pos}|${tier}`));
-  const SPECIALIST_POSITIONS = ["K", "DST"];
-  const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
+  // JEG-211 (Jeremy 2026-10-03): K/DST are honestly excluded from the chart.
+  // The computed artifact (dist/modules/ddf-kdst-group-vorps.json) remains as
+  // internal evidence, but no chart surface renders K/DST.
+  // (Re-restored 2026-10-03: the JEG-292 commit 49cd201 reintroduced
+  // SPECIALIST_POSITIONS/CHART_POSITIONS-with-specialists from a stale base.)
+  const CHART_POSITIONS = [...POSITION_ORDER];
   // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
   // TwoTier below and build_ddf_two_tier_leg.py). The previous WR:2/FLEX:2
   // default disagreed with the shape every published number was priced under.
@@ -772,7 +776,6 @@
   let yAxisAuto = true;
   let yLow = 0;
   let yHigh = 100;
-  let includeSpecialists = false;
   let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   // DEFECT 1 (2026-10-01): curves the user deliberately unchecked. The
@@ -892,19 +895,15 @@
       const playerKey = Number(player.player_key);
       const name = String(player.full_name || player.name || "").trim();
       if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;
-      const specialistProjection = SPECIALIST_POSITIONS.includes(player.pos)
-        // ECR is out of the build: no ECR fallback may reach a curve labelled ESPN.
-        ? (player.espn_ppg || player.kdst_ppg || null)
-        : null;
       map.set(playerKey, {
         player_key: playerKey,
         name,
         team: String(player.team || "—"),
         pos: player.pos,
-        espn_ppg: player.espn_ppg || specialistProjection,
+        espn_ppg: player.espn_ppg || null,
         rz_ppg: player.rz_ppg || null,
         cbsros_ppg: player.cbsros_ppg || null,
-        projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
+        projectionSource: player.espn_ppg ? "ESPN" : null
       });
     });
     return map;
@@ -1593,7 +1592,7 @@
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null]));
       return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values};
     }).filter(Boolean);
-    orderedRows = universe.filter(row => (includeSpecialists || !SPECIALIST_POSITIONS.includes(row.pos)) && isPosition(row)).sort(orderComparator);
+    orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
     syncPlayerOptions();
     syncContext();
   }
@@ -1637,10 +1636,6 @@
       button.className = "tab";
       button.dataset.value = key;
       button.textContent = key === "ALL" ? "All" : key === "FLEX" ? "Flex" : key;
-      if (SPECIALIST_POSITIONS.includes(key) && !includeSpecialists) {
-        button.disabled = true;
-        button.title = "K/DST need ESPN projection-derived values before they can be charted.";
-      }
       button.addEventListener("click", () => setPosition(key));
       posTabs.appendChild(button);
     });
@@ -2250,9 +2245,9 @@
       ["WR", "WR"],
       ["TE", "TE"],
       ["FLEX", "Flex"],
-      ["BENCH", "Bench"],
-      ["K", "K"],
-      ["DST", "DST"]
+      ["BENCH", "Bench"]
+      // JEG-298: K/DST inputs removed — JEG-211 excluded K/DST from the chart
+      // entirely, and these inputs were no-ops (POSITION_ORDER has no K/DST).
     ];
     grid.replaceChildren();
     controls.forEach(([key, label]) => {
@@ -2262,8 +2257,8 @@
       text.textContent = label;
       const input = document.createElement("input");
       input.type = "number";
-      input.min = ["BENCH", "K", "DST"].includes(key) ? "0" : "1";
-      input.max = key === "BENCH" ? "14" : key === "K" || key === "DST" ? "3" : "5";
+      input.min = key === "BENCH" ? "0" : "1";
+      input.max = key === "BENCH" ? "14" : "5";
       input.step = "1";
       input.value = rosterShape[key];
       input.dataset.rosterKey = key;
@@ -2322,36 +2317,6 @@
       benchSlot.appendChild(shareBlock);
     } else {
       grid.appendChild(shareBlock);
-    }
-    const specialistToggle = $("#includeSpecialists");
-    const specialistNote = $("#specialistNote");
-    const specialistPlayers = [...canonicalByKey.values()].filter(player => SPECIALIST_POSITIONS.includes(player.pos));
-    const hasSpecialists = specialistPlayers.some(player => player.espn_ppg && Object.values(player.espn_ppg).some(Number.isFinite));
-    const hasTrueEspnSpecialists = specialistPlayers.some(player => player.projectionSource === "ESPN");
-    if (specialistToggle) {
-      specialistToggle.checked = includeSpecialists && hasSpecialists;
-      specialistToggle.disabled = !hasSpecialists;
-      specialistToggle.onchange = event => {
-        includeSpecialists = event.target.checked && hasSpecialists;
-        if (includeSpecialists) {
-          if (!rosterShape.K) rosterShape.K = 1;
-          if (!rosterShape.DST) rosterShape.DST = 1;
-        }
-        if (!includeSpecialists && SPECIALIST_POSITIONS.includes(position)) position = "ALL";
-        rebuildDomain();
-        makeTabs();
-        resetZoom();
-        draw();
-        publishShared();
-      };
-    }
-    if (specialistNote) {
-      specialistNote.textContent = hasSpecialists
-        ? (hasTrueEspnSpecialists
-          ? "K/DST use ESPN projection-derived values only."
-          : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
-        : "K/DST are waiting for projection-derived values in the artifact.";
-      specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% of trade-value points and bench receives ${Math.round(DISPLAY_BENCH_SHARE * 100)}%.`;
     }
     syncBenchShareControl();
   }
@@ -2692,8 +2657,8 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const min = ["BENCH", "K", "DST"].includes(key) ? 0 : 1;
-    const max = key === "BENCH" ? 14 : key === "K" || key === "DST" ? 3 : 5;
+    const min = key === "BENCH" ? 0 : 1;
+    const max = key === "BENCH" ? 14 : 5;
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();
@@ -2957,8 +2922,8 @@
   function rosterOrdinals() {
     const counts = allocationCounts();
     if (position === "ALL") return {
-      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0)),
-      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0))
+      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX),
+      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH)
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,

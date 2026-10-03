@@ -246,39 +246,27 @@ class KdstDatasetStatusTest(unittest.TestCase):
 
 
 class KdstToggleDefaultOffTest(unittest.TestCase):
-    """Tests for K/DST toggle in the UI."""
+    """Tests for K/DST toggle in the UI.
 
-    def test_kdst_toggle_default_off_in_frontend(self):
-        """The 'Include K/DST' toggle should default to off.
+    JEG-211 (Jeremy 2026-10-03) removed K/DST from the chart entirely
+    (honest exclusion): the old includeSpecialists checkbox was removed with
+    it. This test guards that exclusion -- the toggle must NOT exist.
+    """
 
-        This is already implemented in the frontend (includeSpecialists checkbox).
-        This test verifies the expected default state.
+    def test_kdst_toggle_absent_in_frontend(self):
+        """The 'Include K/DST' toggle must not exist after JEG-211.
+
+        JEG-211 excluded K/DST from the chart entirely (honest exclusion);
+        the old includeSpecialists checkbox was removed. A reintroduced
+        toggle would imply a capability the chart no longer has.
         """
-        # The frontend has: <input type="checkbox" id="includeSpecialists">
-        # Default should be unchecked (off)
-        # This is a documentation test - the actual default is in index.html
-
-        expected_default_state = False  # Off by default
-
-        # Verify the toggle exists in the expected location
-        # This is verified by grepping for 'includeSpecialists' in the codebase
         from pathlib import Path
         index_html = ROOT / "app" / "trade-value-chart" / "index.html"
 
         if index_html.exists():
             content = index_html.read_text()
-            # Toggle should exist
-            self.assertIn("includeSpecialists", content,
-                "K/DST toggle (includeSpecialists) must exist in index.html")
-
-            # Should be unchecked by default (no 'checked' attribute)
-            # The checkbox without 'checked' attribute defaults to unchecked
-            toggle_line = [line for line in content.split('\n')
-                          if 'includeSpecialists' in line and 'checkbox' in line]
-            if toggle_line:
-                # Verify it's a checkbox (input type="checkbox")
-                self.assertIn('type="checkbox"', toggle_line[0],
-                    "includeSpecialists must be a checkbox")
+            self.assertNotIn("includeSpecialists", content,
+                "includeSpecialists toggle must not exist after JEG-211 honest exclusion")
 
 
 class KdstScoringInvariantTest(unittest.TestCase):
