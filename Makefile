@@ -175,6 +175,7 @@ test-unit:
 	python3 -m unittest tests.test_review_candidate
 	python3 -m unittest tests.test_source_reference_build
 	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_consolidation_reconciliation
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
