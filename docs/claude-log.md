@@ -2310,3 +2310,20 @@ grace window.
   local cron) is responsible for passing a real fetcher.
 - No push to `main`. Worktree is `minimax/jeg189-brief` on top of
   `2e1f354` (origin/main HEAD).
+
+## 2026-10-02 - JEG-210: chart view toggle UI scaffold (Indexed | Value above waivers | Adjusted values)
+
+Lane minimax (M3). Branch minimax/jeg-210-toggle, worktree wt-jeg210-toggle. Commit 7f8853a.
+
+### What I changed
+- app/trade-value-chart/index.html: added .view-mode-tabs and .view-mode-pending styling, the toggle group above the source toggles, and wrapped the chart-area markup in <div id="viewModeChartArea"> so the pending state can hide it. Three tabs: Indexed (default), Value above waivers, Adjusted values. Copy rules satisfied (no VORP in user-facing copy).
+- app/trade-value-chart/assets/curve-widget.js: added VIEW_MODE_DEFS, VIEW_MODE_ORDER, viewMode state, setViewMode(), and makeViewModeTabs() near makeSourceToggles(). Click handlers attached at init. setViewMode(indexed) restricts activeSources so at least one AS_PUBLISHED_KEYS source is enabled; other modes hide the chart area and show a mode-specific placeholder. Wired into rebuildDomain() paths.
+
+### Verified
+git status clean apart from the two intended files; branch minimax/jeg-210-toggle. HTML structure verified by reading. Copy rule satisfied: no VORP string.
+
+### Claimed, not verified
+No test was run (sandbox blocks node --check and make validate per the task brief).
+
+### Open
+JEG-182 must land before VORP and Adj views are data-backed. View mode is local-only state; not exported via the JSON import/export. No push to main.
