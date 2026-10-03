@@ -206,6 +206,21 @@
     .method-source-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .method-source-tabs button { border: 1px solid var(--line-strong); background: var(--white); border-radius: 14px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--navy); }
     .method-source-tabs button[aria-selected="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+    /* JEG-210: chart view toggle (Indexed | Value above waivers | Adjusted values) */
+    .view-mode-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 12px; padding: 4px; border: 1px solid var(--line-strong); border-radius: 10px; background: #f7f9fa; }
+    .view-mode-tab { border: 0; background: transparent; padding: 9px 12px; border-radius: 7px; text-align: left; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 2px; min-width: 0; font-family: inherit; }
+    .view-mode-tab:hover, .view-mode-tab:focus-visible { background: #eef1ed; outline: 2px solid var(--orange); outline-offset: -2px; }
+    .view-mode-tab[aria-selected="true"] { background: var(--navy); color: var(--white); box-shadow: 0 2px 6px rgba(18,32,44,.18); }
+    .view-mode-tab[aria-selected="true"]:hover, .view-mode-tab[aria-selected="true"]:focus-visible { background: var(--navy); }
+    .view-mode-title { display: block; font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .view-mode-sub { display: block; font-size: 10px; color: var(--muted); line-height: 1.35; }
+    .view-mode-tab[aria-selected="true"] .view-mode-sub { color: #d8e3ea; }
+    .view-mode-pending { padding: clamp(28px,5vw,52px) 24px; border: 1px dashed var(--line-strong); border-radius: 10px; background: #f7f9fa; color: var(--muted); text-align: center; }
+    .view-mode-pending[hidden] { display: none; }
+    .view-mode-pending h3 { margin: 0 0 8px; color: var(--navy); font-size: 17px; letter-spacing: -.02em; }
+    .view-mode-pending p { margin: 0 auto; max-width: 540px; font-size: 12px; line-height: 1.55; }
+    .view-mode-pending .pending-tag { display: inline-block; margin-bottom: 12px; padding: 3px 9px; background: #fff4df; color: #704b12; border: 1px solid #b17b2a; border-radius: 14px; font: 700 9px/1.2 "IBM Plex Mono", monospace; text-transform: uppercase; }
+    .view-mode-pending strong { color: var(--ink); }
     .mover-row { display: grid; grid-template-columns: 132px 1fr; gap: 8px; align-items: center; margin-bottom: 9px; }
     .mover-name { font-size: 11px; font-weight: 600; color: var(--ink); line-height: 1.35; }
     .mover-name small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; }
@@ -1681,8 +1696,27 @@
   </div>
   <fieldset class="src-group">
     <legend>Source curves</legend>
+    <div class="view-mode-tabs" id="viewModeTabs" role="tablist" aria-label="Chart view mode">
+      <button type="button" role="tab" class="view-mode-tab" id="viewModeIndexedTab" data-view-mode="indexed" aria-selected="true" aria-controls="viewModeChartArea">
+        <strong class="view-mode-title">Indexed</strong>
+        <small class="view-mode-sub">Trade values from each publisher</small>
+      </button>
+      <button type="button" role="tab" class="view-mode-tab" id="viewModeVorpTab" data-view-mode="vorp" aria-selected="false" aria-controls="viewModeChartArea">
+        <strong class="view-mode-title">Value above waivers</strong>
+        <small class="view-mode-sub">Data pending</small>
+      </button>
+      <button type="button" role="tab" class="view-mode-tab" id="viewModeAdjTab" data-view-mode="adj" aria-selected="false" aria-controls="viewModeChartArea">
+        <strong class="view-mode-title">Adjusted values</strong>
+        <small class="view-mode-sub">Data pending</small>
+      </button>
+    </div>
+    <div id="viewModePending" class="view-mode-pending" hidden role="region" aria-label="View pending">
+      <span class="pending-tag">Pending data</span>
+      <h3 id="viewModePendingTitle">This view is coming soon</h3>
+      <p id="viewModePendingBody">Switch back to <strong>Indexed</strong> to see the chart with current data. The other views land with the next data pipeline update.</p>
+    </div>
+    <div id="viewModeChartArea">
     <div class="source-toggles" id="sourceToggles"></div>
-  </fieldset>
   <span class="lbl">Position:</span>
   <div class="tabs" id="posTabs" aria-label="Position"></div>
   <div class="row curve-tools">
@@ -1731,7 +1765,7 @@
   </details>
   <div id="tip"></div>
   </div>
-</details>
+  </fieldset>
 
 <details id="comparisonDashboard" open aria-label="Trade value chart comparison">
   <summary class="comparison-section-summary"><span>Player table and source comparison</span></summary>
