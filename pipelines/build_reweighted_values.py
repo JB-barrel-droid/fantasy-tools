@@ -177,10 +177,19 @@ def _prepare_values(imputed, budgets):
     return values
 
 
+def _validated_native(native, imputed):
+    if not isinstance(native, dict) or (native and set(native) != set(imputed)):
+        raise ValueError("native pool must match imputed keys, or explicitly be unavailable")
+    for key, value in native.items():
+        _nonnegative_finite(value, f"native {key}")
+    return dict(native)
+
+
 def build_three_views(imputed, native_values, budgets, *, batch_maximum):
     """Single-source adapter requires the caller's common batch maximum."""
     values = _prepare_values(imputed, budgets)
-    return {"indexed": dict(native_values),
+    native = _validated_native(native_values, imputed)
+    return {"indexed": native,
             "vorp": {k: r["imputed_vorp"] for k, r in imputed.items()},
             "adj_values": apply_70_anchor(values, batch_maximum=batch_maximum)}
 
@@ -201,11 +210,7 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
     provisional = {}
     for source, pool in imputed_sources.items():
         _validate_imputed(pool)
-        native = native_sources[source]
-        if not isinstance(native, dict) or (native and set(native) != set(pool)):
-            raise ValueError("native pool must match imputed keys, or explicitly be unavailable")
-        for key, value in native.items():
-            _nonnegative_finite(value, f"native {source}/{key}")
+        _validated_native(native_sources[source], pool)
         provisional[source] = _prepare_values(pool, fractions)
     maximum = max((v for pool in provisional.values() for v in pool.values()), default=0.0)
     if maximum <= 0:

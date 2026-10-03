@@ -62,6 +62,9 @@ class SharedAnchorTests(unittest.TestCase):
             changed={**pools,'usat':records(bad,0)}
             with self.subTest(bad=bad),self.assertRaises(ValueError):build_batch_three_views(changed,native,budgets())
         with self.assertRaises(ValueError):build_batch_three_views({**pools,'usat':records(0,0)},native,budgets())
+        bad_native={'2227':None,'2821':10}
+        with self.assertRaises(ValueError):build_batch_three_views(pools,{**native,'fantasycalc':bad_native},budgets())
+        with self.assertRaises(ValueError):build_three_views(records(10,10),bad_native,budgets(),batch_maximum=10)
 
     def test_existing_player_clamp_is_rejected_before_batch_output(self):
         p={str(i):{'group':'QB|'+('Starter' if i<3 else 'Bench'),'imputed_vorp':u,'native':u}
