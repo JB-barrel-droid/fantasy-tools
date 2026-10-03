@@ -97,22 +97,55 @@ def string_literals(source):
     return literals
 
 
+# JEG-225: one internal view-ID declaration, not a global exemption for "vorp".
+# A visible label using that exact word anywhere else must still fail.
+INTERNAL_VIEW_ORDER_RE = re.compile(
+    r'^\s*const VIEW_MODE_ORDER = \["indexed", "vorp", "adj"\];\s*$'
+)
+
+
+def visible_vorp_literals(source):
+    lines = source.splitlines()
+    offenders = []
+    for lineno, text, quote in string_literals(source):
+        if text in INTERNAL_LITERALS:
+            continue
+        if text == "vorp" and INTERNAL_VIEW_ORDER_RE.fullmatch(lines[lineno - 1]):
+            continue
+        if VORP_RE.search(static_text(text, quote)):
+            offenders.append((lineno, text))
+    return offenders
+
+
 class PublicCopyNoVorpTest(unittest.TestCase):
     def test_no_vorp_in_user_visible_strings(self):
         offenders = []
         for path in WIDGETS:
             self.assertTrue(path.is_file(), "widget file missing: %s" % path)
-            for lineno, text, quote in string_literals(path.read_text(encoding="utf-8")):
-                if text in INTERNAL_LITERALS:
-                    continue
-                if VORP_RE.search(static_text(text, quote)):
-                    offenders.append("%s:%d: %r" % (path.name, lineno, text))
+            for lineno, text in visible_vorp_literals(path.read_text(encoding="utf-8")):
+                offenders.append("%s:%d: %r" % (path.name, lineno, text))
         self.assertEqual(
             offenders,
             [],
             "user-visible strings must say 'value above waivers', never 'VORP':\n"
             + "\n".join(offenders),
         )
+
+    def test_internal_view_id_does_not_exempt_visible_labels(self):
+        internal = 'const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];'
+        self.assertEqual(visible_vorp_literals(internal), [])
+        for visible in ('caption.textContent = "VORP";', 'caption.textContent = "vorp";',
+                        'const title = "Raw VORP";'):
+            with self.subTest(visible=visible):
+                self.assertEqual(len(visible_vorp_literals(internal + "\n" + visible)), 1)
+
+    def test_extra_rendered_literal_on_enum_line_is_not_exempt(self):
+        source = 'const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"]; caption.textContent = "vorp";'
+        self.assertTrue(visible_vorp_literals(source))
+
+    def test_template_copy_and_data_keys_keep_their_existing_rules(self):
+        self.assertTrue(visible_vorp_literals('const title = `Publisher VORP`;'))
+        self.assertEqual(visible_vorp_literals('const key = "espn_vorp";'), [])
 
 
 if __name__ == "__main__":
