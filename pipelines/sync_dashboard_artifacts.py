@@ -335,6 +335,13 @@ def main() -> int:
     shutil.copy2(FIXTURES / "comparison-sources-data.json", APP / "assets" / "comparison-sources-data.json")
     shutil.copy2(FIXTURES / "player-news.json", APP / "assets" / "player-news.json")
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
+    # JEG-137 R10: the per-source dataset cards read assets/deadline-checker.json
+    # for the slip measurement behind the Grace/Slip rows. Only copied when a
+    # checker run has produced it -- the page falls back to the 6h default
+    # (unmeasured) when the asset is absent.
+    deadline_checker = ROOT / "output" / "deadline-checker.json"
+    if deadline_checker.exists():
+        shutil.copy2(deadline_checker, APP / "assets" / "deadline-checker.json")
 
     index_path = APP / "index.html"
     index_html = replace_inline_players(index_path.read_text(encoding="utf-8"), players)
