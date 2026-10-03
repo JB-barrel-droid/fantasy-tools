@@ -64,6 +64,8 @@ Top-level object (key order as written; parsers must read by name):
 | `supabase_table` | string | The Supabase table backing the source: `public.source_trade_values` (fantasycalc/usatoday/fantasypros), `public.espn_season_projections` (espn), `public.cbs_trade_values` (cbs). Always non-null since stage 1b closed (2026-09-22). |
 | `supabase_landing` | bool | true when the snapshot's bytes were re-verified against the Supabase table this run. Always true since stage 1b closed — every source re-queries its table. |
 | `snapshot_path` | string \| null | Repo-relative path of the verified snapshot (`data/raw/sources/<source>/<vintage>/snapshot.json`), null when no snapshot exists. |
+| `vintage_date` | string \| null | Razzball only: ISO date (`YYYY-MM-DD`) of the newest snapshot directory under `data/raw/sources/razzball/`. Drives the c5 health verdict (JEG-307). null when no snapshot exists. |
+| `age_days` | int \| null | Razzball only: `check_date - vintage_date`, in days. Razzball has no CI puller (GAP-024), so this entry detects a snapshot that has drifted while the DB landing still agrees. |
 | `failure_reason` | string \| null | null on `ok`; otherwise `"<CODE>: <one-line detail>"`. Codes: |
 
 ### Status enum
@@ -88,6 +90,7 @@ Top-level object (key order as written; parsers must read by name):
 | `TABLE_DRIFT` | The Supabase table's row count or unanimous vintage no longer matches the manifest — a partial or stale table is not treated as complete. |
 | `NO_VINTAGE` | No content vintage is derivable from the manifest — a vintage-less snapshot may never back fixture updates. |
 | `IMPORT_FAILED` | The verification itself could not run (e.g. Supabase re-query error, unreadable snapshot, missing file ref for a gap source). |
+| `RAZZBALL_STALE` | Razzball only (JEG-307): the snapshot directory is older than the freshness window (`age_days > 2` warn, `> 6` bad). The DB landing can still be fresh; this entry is read-only and watches the snapshot itself because no CI puller refreshes Razzball (GAP-024). |
 
 ## Stage 1b closed (2026-09-22)
 

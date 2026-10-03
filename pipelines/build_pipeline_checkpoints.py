@@ -533,23 +533,41 @@ def build_checkpoints():
                 "reason": f"Snapshot path {snap_path} not found on disk."}
 
         # C5: Health verification - from checked_at + status
-        c5_status = h.get("status", "unknown")
-        c5_checked_at = h.get("_checked_at") or health_checked_at
-        c5_days = days_old(c5_checked_at)
-        c5_reason = h.get("failure_reason", "")
-        if c5_status == "ok":
-            cps["c5_health"] = {"timestamp": c5_checked_at,
-                "status": "ok" if (c5_days or 99) < 2 else "warn",
-                "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
-        elif c5_status == "warning":
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
-                "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
-        elif c5_status in ("failed", "missing", "error"):
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
-                "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
+        # JEG-307: Razzball c5 is driven by the new vintage_date / age_days
+        # freshness entry (no CI puller refreshes Razzball -- GAP-024).
+        if src == "razzball":
+            vd = h.get("vintage_date")
+            age = h.get("age_days")
+            if vd is None or age is None:
+                cps["c5_health"] = {"timestamp": None, "status": "unk",
+                    "reason": "No Razzball freshness entry (no snapshot under data/raw/sources/razzball/)."}
+            elif age <= 2:
+                cps["c5_health"] = {"timestamp": vd, "status": "ok",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (within 2d fresh window)."}
+            elif age <= 6:
+                cps["c5_health"] = {"timestamp": vd, "status": "warn",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (3-6d warn window). No CI puller refreshes it (GAP-024)."}
+            else:
+                cps["c5_health"] = {"timestamp": vd, "status": "bad",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (>6d -- snapshot is stale)."}
         else:
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
-                "reason": "No health record for this source."}
+            c5_status = h.get("status", "unknown")
+            c5_checked_at = h.get("_checked_at") or health_checked_at
+            c5_days = days_old(c5_checked_at)
+            c5_reason = h.get("failure_reason", "")
+            if c5_status == "ok":
+                cps["c5_health"] = {"timestamp": c5_checked_at,
+                    "status": "ok" if (c5_days or 99) < 2 else "warn",
+                    "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
+            elif c5_status == "warning":
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
+                    "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
+            elif c5_status in ("failed", "missing", "error"):
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
+                    "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
+            else:
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
+                    "reason": "No health record for this source."}
 
         # C6: Candidate build/review - from candidate dir + review file
         cand_dir = REPO / "output" / "comparison-candidates" / src

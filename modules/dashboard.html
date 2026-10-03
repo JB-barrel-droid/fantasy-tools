@@ -140,6 +140,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     Each checkpoint shows <b>what it is</b>, <b>when it last ran</b> (real timestamp from artifacts), and <b>why</b> it has its status.
     Green requires a fresh timestamp — stale data never shows green.
     <b>C6/C7</b> are N/A by design for file-scraped sources (e.g. Razzball) — no candidate or promotion artifact is expected for them.
+    For <b>Razzball</b>, the <b>C5</b> health verdict is driven by a fresh <code>vintage_date</code>/<code>age_days</code> entry on the snapshot directory (JEG-307): green when the snapshot is &le;2 days old, yellow 3&ndash;6, red &gt;6. No CI puller refreshes Razzball (GAP-024), so this freshness signal is the only thing that catches a drifting snapshot before the dashboard reads it.
   </div>
   <div id="sources"></div>
 </section>
