@@ -36,7 +36,7 @@ class ImputationPrecisionTests(unittest.TestCase):
             for i in range(count):
                 rows[str(10000+len(rows))] = (pos, 100-i)
         roles = infer_roster(rows)
-        self.assertEqual({(rows[k][0],r) for k,r in roles.items()}, set(GROUPS))
+        self.assertEqual({(rows[k][0],r) for k,r in roles.items() if r != "cut"}, set(GROUPS))
         g = {group: (j+1)/7 for j,group in enumerate(GROUPS)}
         out = compute_imputed_vorps(rows,g)
         for group in GROUPS:
@@ -46,10 +46,12 @@ class ImputationPrecisionTests(unittest.TestCase):
 
     def test_cli_json_roundtrip_keeps_full_precision(self):
         with tempfile.TemporaryDirectory() as tmp:
-            vals, groups, out = (Path(tmp)/x for x in ['vals.json','groups.json','out.json'])
+            vals, groups, out, config = (Path(tmp)/x for x in ['vals.json','groups.json','out.json','config.json'])
+            shape={'schema':'option-c-publisher-roster-v1','teams':1,'slots':{'QB':0,'RB':3,'WR':0,'TE':0},'flex_count':0,'flex_eligible':['RB','WR','TE'],'bench_total':0,'scoring':'half_ppr'}
+            config.write_text(json.dumps(shape))
             vals.write_text(json.dumps({'2227':['RB',1], '2821':['RB',1], '1307':['RB',1]}))
-            groups.write_text(json.dumps({'groups':[{'position':p,'role':r,'total_vorp':targets()[p,r]} for p,r in GROUPS]}))
-            self.assertEqual(main(['--values',str(vals),'--group-vorps',str(groups),'--out',str(out)]),0)
+            groups.write_text(json.dumps({'teams':1,'scoring':'half_ppr','roster':{'slots':shape['slots'],'flex_count':0,'flex_eligible':shape['flex_eligible'],'bench_mix':{'QB':0,'RB':0,'WR':0,'TE':0}},'groups':[{'position':p,'role':r,'total_vorp':targets()[p,r]} for p,r in GROUPS]}))
+            self.assertEqual(main(['--values',str(vals),'--group-vorps',str(groups),'--out',str(out),'--roster-config',str(config)]),0)
             loaded=json.loads(out.read_text())
             self.assertEqual(loaded['2227']['alloc_factor'],20/3)
             self.assertTrue(math.isclose(math.fsum(r['imputed_vorp'] for r in loaded.values()),20,abs_tol=1e-12))

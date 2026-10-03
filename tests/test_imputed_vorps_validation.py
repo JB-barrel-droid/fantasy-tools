@@ -63,12 +63,14 @@ class ImputationValidationTests(unittest.TestCase):
                  ('{"2227":["RB",1],"2227":["RB",2]}', good_groups),
                  ('{"2227":["RB",1]}', good_groups + [good_groups[0]])]
         with tempfile.TemporaryDirectory() as tmp:
-            values, groups, out = (Path(tmp)/x for x in ('values.json', 'groups.json', 'out.json'))
+            values, groups, out, config = (Path(tmp)/x for x in ('values.json', 'groups.json', 'out.json', 'config.json'))
+            shape={'schema':'option-c-publisher-roster-v1','teams':1,'slots':{'QB':0,'RB':1,'WR':0,'TE':0},'flex_count':0,'flex_eligible':['RB','WR','TE'],'bench_total':0,'scoring':'half_ppr'}
+            config.write_text(json.dumps(shape))
             for raw, rows in cases:
-                values.write_text(raw); groups.write_text(json.dumps({'groups': rows}))
+                values.write_text(raw); groups.write_text(json.dumps({'teams':1,'scoring':'half_ppr','roster':{'slots':shape['slots'],'flex_count':0,'flex_eligible':shape['flex_eligible'],'bench_mix':{'QB':0,'RB':0,'WR':0,'TE':0}},'groups': rows}))
                 out.write_text('sentinel')
                 with self.assertRaises(ValueError):
-                    main(['--values', str(values), '--group-vorps', str(groups), '--out', str(out)])
+                    main(['--values', str(values), '--group-vorps', str(groups), '--out', str(out), '--roster-config', str(config)])
                 self.assertEqual(out.read_text(), 'sentinel')
 
 
