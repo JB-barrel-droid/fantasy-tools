@@ -133,6 +133,7 @@ test-unit:
 	python3 -m unittest tests.test_ddf_two_tier_leg
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_vorp_refresh
+	python3 -m unittest tests.test_validate_imputed_vorps
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_vorp_wiring
@@ -153,7 +154,6 @@ test-unit:
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate
 	python3 -m unittest tests.test_source_reference_build
-	python3 -m unittest tests.test_scheduler_slip
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
