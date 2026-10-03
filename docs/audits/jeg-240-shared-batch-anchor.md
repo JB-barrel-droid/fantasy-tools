@@ -74,7 +74,11 @@ output. The original49 producer reproduces140/77.8 unequal totals; new outputs
 match77.7777778. Synthetic examples/IDs do not certify real source coverage.
 Makefile includes the new anchor module.
 
-Independent review/full composite results follow in PR/Linear. Stacked on PR49
+Independent read-only Claude Code MCP review confirmed the common scale,
+normalized budgets and candidate admission checks. Codex reran25 tests after
+native validation hardening; reviewer naming/count errors are not test evidence.
+`make validate` exits0 on composite main5792ba5 + PR47/48/49/this slice +
+pending PR43. Current main/prod readiness is not claimed. Stacked on PR49
 (48→47); main's separate guard fix is PR43. No fixture, UI, promotion or production
 ready claim. Roman independently reviews/integrates/deploys. JEG183 remains open;
 JEG241–243 complete inversion/default/integration contracts.
