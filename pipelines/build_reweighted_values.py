@@ -37,36 +37,17 @@ GROUPS = [
     ("TE", "starter"), ("TE", "bench"),
 ]
 
+if __package__:
+    from .reweight_reference import load_linear_blend_reference
+else:
+    from reweight_reference import load_linear_blend_reference
+
 DISPLAY_MAX = 70.0
 
 
-def load_group_budgets(
-    ddf_leg_path: Path,
-    controls_path: Path | None = None,
-) -> dict[tuple[str, str], float]:
-    """Legacy calibration reader, unused by the batch CLI.
-
-    Verified linear blend defaults require the separate JEG243 contract.
-
-    Decision 2: blend (not ESPN alone) as pinned economics reference.
-    Decision 5: defaults from pipeline, user-adjustable via --controls JSON.
-    Controls format: {"QB/starter": 123.4, ...} — overrides specific boxes.
-    """
-    leg = json.loads(ddf_leg_path.read_text())
-    budgets = {}
-    for pos, role in GROUPS:
-        # DDF leg calibration: {POS: {starter_raw, bench_raw, pie}}
-        cal = leg["calibration"][pos]
-        key = "starter_raw" if role == "starter" else "bench_raw"
-        budgets[(pos, role)] = float(cal[key])
-
-    if controls_path:
-        overrides = json.loads(controls_path.read_text())
-        for k, v in overrides.items():
-            pos, role = k.split("/")
-            budgets[(pos, role)] = float(v)
-
-    return budgets
+def load_group_budgets(reference_path: Path) -> dict[tuple[str, str], float]:
+    """Compatibility API now requires the explicit raw blend contract."""
+    return load_linear_blend_reference(reference_path)[0]
 
 
 def _validate_budgets(budgets):
@@ -323,18 +304,25 @@ def load_source_batch(path):
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Shared batch70 candidate; explicit source manifest and eight controls required.")
     ap.add_argument("--batch", type=Path, required=True, help="vorp-source-batch-v1 JSON")
-    ap.add_argument("--controls", type=Path, required=True, help="JSON: all eight POS/role nonnegative weights")
+    selection = ap.add_mutually_exclusive_group(required=True)
+    selection.add_argument("--controls", type=Path, help="JSON: all eight explicit user weights")
+    selection.add_argument("--reference", type=Path, help="linear-blend-reference-v1 defaults")
     ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
     imputed, native, pins = load_source_batch(args.batch)
-    control_bytes = args.controls.read_bytes()
-    raw = json.loads(control_bytes, object_pairs_hook=_unique_object)
-    if not isinstance(raw, dict) or set(raw) != {f"{p}/{r}" for p,r in GROUPS}:
-        raise ValueError("complete explicit eight controls required; default reference contract pending JEG243")
-    budgets = {g: raw[f"{g[0]}/{g[1]}"] for g in GROUPS}
+    if args.reference:
+        budgets, reference = load_linear_blend_reference(args.reference, pins["configuration"])
+        controls = {"control_origin": "linear_blend_reference", "reference": reference}
+    else:
+        control_bytes = args.controls.read_bytes()
+        raw = json.loads(control_bytes, object_pairs_hook=_unique_object)
+        if not isinstance(raw, dict) or set(raw) != {f"{p}/{r}" for p,r in GROUPS}:
+            raise ValueError("complete explicit eight controls required")
+        budgets = {g: raw[f"{g[0]}/{g[1]}"] for g in GROUPS}
+        controls = {"control_origin": "explicit_user_weights", "controls_sha256": hashlib.sha256(control_bytes).hexdigest(),
+                    "requested_control_weights": raw}
     result = build_batch_three_views(imputed, native, budgets)
-    result["manifest"] = {**pins, "controls_sha256": hashlib.sha256(control_bytes).hexdigest(),
-                          "requested_control_weights": raw}
+    result["manifest"] = {**pins, **controls}
     text = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(text, encoding="utf-8")
