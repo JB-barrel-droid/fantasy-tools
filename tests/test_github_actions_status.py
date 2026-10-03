@@ -185,6 +185,33 @@ class ConsecutiveFailuresTest(unittest.TestCase):
         self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
 
 
+class AlertNeededTest(unittest.TestCase):
+    """GAP-035: alert_needed is the boolean the dashboard GH Actions card
+    reads to render the 'alert: failing streak' badge. It is true iff
+    consecutive_failures >= FAILING_STREAK_THRESHOLD (3). These tests pin
+    the boundary conditions the dashboard rendering depends on."""
+
+    def test_consecutive_failures_exactly_3_sets_alert_needed_true(self):
+        # Three failures in a row hits the threshold exactly; alert_needed
+        # must be true. The rebuild chain's runs 3-9 in GAP-035 had this
+        # shape and nothing alerted — the badge is the first surface.
+        runs = [_run("failure", days_ago=i) for i in range(3)]
+        streak = gh.consecutive_failures(runs)
+        self.assertEqual(streak, 3)
+        self.assertTrue(streak >= gh.FAILING_STREAK_THRESHOLD)
+        # The exact expression written to disk.
+        self.assertEqual(streak >= gh.FAILING_STREAK_THRESHOLD, True)
+
+    def test_consecutive_failures_2_alert_needed_false(self):
+        # Two failures in a row is concerning, not alerting: badge off.
+        runs = [_run("failure", days_ago=i) for i in range(2)] + [
+            _run("success", days_ago=2),
+        ]
+        streak = gh.consecutive_failures(runs)
+        self.assertEqual(streak, 2)
+        self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+
 class LastSuccessAtTest(unittest.TestCase):
     """The last_success_at timestamp drives the "X since last green" line."""
 

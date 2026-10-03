@@ -19,6 +19,12 @@ Per-run and per-workflow fields (JEG-109):
                            FAILING_STREAK_THRESHOLD. Threshold of 3 would
                            have flagged the 5-consecutive-failure JEG-113
                            outage two runs before it stopped the chain.
+  - workflow.alert_needed GAP-035 alert surface: true when
+                           consecutive_failures >= 3. Mirrors
+                           failing_streak for now; the destination of the
+                           alert is decided separately. The dashboard GH
+                           Actions card reads this field and renders an
+                           "alert: failing streak" badge.
 
 Pipeline coverage map:
   - Rebuild comparison chain: C1-C8 (import -> health -> comparison rebuild)
@@ -266,6 +272,12 @@ def main() -> int:
             "consecutive_failures": streak,
             "last_success_at": success_ts,
             "failing_streak": streak >= FAILING_STREAK_THRESHOLD,
+            # GAP-035: alert_needed is the boolean the dashboard reads to
+            # render the "alert: failing streak" badge. Currently the
+            # same condition as failing_streak; kept as a separate field
+            # so the alert destination work can pivot on alert_needed
+            # without touching the existing failing_streak consumers.
+            "alert_needed": streak >= FAILING_STREAK_THRESHOLD,
         })
 
     # Check for coverage gaps — JEG-311: workflows present in the API list
@@ -289,6 +301,7 @@ def main() -> int:
             "failing": sum(1 for w in workflows if w["health"] == "fail"),
             "running": sum(1 for w in workflows if w["health"] == "running"),
             "failing_streak_count": sum(1 for w in workflows if w.get("failing_streak")),
+            "alert_needed_count": sum(1 for w in workflows if w.get("alert_needed")),
             "max_consecutive_failures": max((w.get("consecutive_failures", 0) for w in workflows), default=0),
             "gaps_count": len(gaps),
         },

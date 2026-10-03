@@ -1433,8 +1433,18 @@ async function main(){
         }).join(" · ");
         const lastUrl = w.last_run && w.last_run.html_url
           ? ` <a href="${w.last_run.html_url}" style="color:var(--blue)">logs</a>` : "";
+        // GAP-035: neutral operational badge when alert_needed is true.
+        // No methodology claim — just the existence of a failing streak.
+        const alertBadge = w.alert_needed
+          ? ` <span style="display:inline-block;padding:1px 6px;margin-left:4px;` +
+              `border:1px solid var(--red);color:var(--red);` +
+              `border-radius:8px;font-size:10.5px;font-weight:600;` +
+              `letter-spacing:0.3px;vertical-align:1px"` +
+              ` title="Workflow has failed ${w.consecutive_failures} consecutive times">` +
+              `alert: failing streak</span>`
+          : "";
         return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">` +
-          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${lastUrl}<br>` +
+          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${alertBadge}${lastUrl}<br>` +
           `<span style="color:var(--faint);font-size:11px">${(w.coverage&&w.coverage.key_task)||""}</span></td>` +
           `<td style="padding:6px 8px;font-family:monospace">${runs||"<span style='color:var(--faint)'>no runs</span>"}</td></tr>`;
       }).join("");
