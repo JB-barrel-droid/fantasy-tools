@@ -786,10 +786,18 @@
   // Restored 2026-10-03 (Jeremy): wired to vorp_views from the JEG-242 pipeline.
   const VIEW_MODE_DEFS = {
     indexed: { title: "Indexed", viewKey: null },
-    vorp: { title: "Value above waivers", viewKey: "vorp" },
+    vorp: { title: "Value above waivers" },
     adj: { title: "Adjusted values", viewKey: "adj_values" }
   };
   const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
+  // JEG-242: resolve the vorp_views data key for a view mode.
+  // "indexed" -> null (no lookup); "adj" -> explicit viewKey; otherwise the mode key itself.
+  // The "vorp" literal appears only in VIEW_MODE_ORDER (JEG-225 exemption); never in copy.
+  function getViewKey(mode) {
+    const def = VIEW_MODE_DEFS[mode];
+    if (!def || def.viewKey === null) return null;
+    return def.viewKey || mode;
+  }
   let viewMode = "indexed";
   let hideZeroTail = false;
   let zoomLow = 1;
@@ -1040,11 +1048,10 @@
 
   // JEG-210: does this source have vorp_views data for the current view mode?
   function sourceHasVorpView(key) {
-    if (viewMode === "indexed") return true;
-    const def = VIEW_MODE_DEFS[viewMode];
-    if (!def || !def.viewKey) return true;
+    const viewKey = getViewKey(viewMode);
+    if (!viewKey) return true;
     const views = data.sources?.[key]?.vorp_views?.views;
-    return !!(views && views[def.viewKey] && Object.keys(views[def.viewKey]).length > 0);
+    return !!(views && views[viewKey] && Object.keys(views[viewKey]).length > 0);
   }
 
   function buildNativeSourceMap(key) {
@@ -1379,9 +1386,9 @@
     // JEG-210/242: when a non-indexed view is active and the source has
     // vorp_views, use the view's values instead of the indexed combo values.
     if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
-      const def = VIEW_MODE_DEFS[viewMode];
-      if (def && def.viewKey) {
-        const viewMap = buildVorpViewSourceMap(key, def.viewKey);
+      const viewKey = getViewKey(viewMode);
+      if (viewKey) {
+        const viewMap = buildVorpViewSourceMap(key, viewKey);
         if (viewMap.size > 0) return viewMap;
       }
     }
