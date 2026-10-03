@@ -39,9 +39,9 @@ function extractTallyBlock(html) {
   // `document`). The DOM writes live on the next two lines in dashboard.html.
   const endRe = /const total\s*=\s*counts\.ok\s*\+\s*counts\.warn\s*\+\s*counts\.bad\s*\+\s*counts\.unk\s*;/;
   const start = html.search(startRe);
-  const end = html.search(endRe);
-  if (start < 0 || end < 0) throw new Error("tally block markers not found in dashboard.html");
-  return html.slice(start, end + endRe.source.length);
+  const endMatch = endRe.exec(html);
+  if (start < 0 || !endMatch) throw new Error("tally block markers not found in dashboard.html");
+  return html.slice(start, endMatch.index + endMatch[0].length);
 }
 
 function makeFetch(artifacts) {
@@ -105,10 +105,15 @@ function cleanData() {
 // removed. Used to prove the guard fails on the pre-fix code path.
 function brokenTallySource(html) {
   const block = extractTallyBlock(html);
-  // Strip everything from the JEG-319 marker to the end (the readViewStatus
-  // helper + the two `tally(...)` calls).
+  // Strip everything from the JEG-319 marker up to (but not including) the
+  // `const total = ...` line, then re-append the total line: the broken block
+  // must still define `total` or the self-test crashes with ReferenceError
+  // instead of proving the guard is vacuous.
   const cutAt = block.indexOf("// JEG-319:");
-  return cutAt > 0 ? block.slice(0, cutAt) : block;
+  if (cutAt <= 0) return block;
+  const totalIdx = block.indexOf("const total");
+  const totalLine = totalIdx >= 0 ? block.slice(totalIdx) : "";
+  return block.slice(0, cutAt) + totalLine;
 }
 
 async function runBrokenTally(html, data, artifacts) {
@@ -163,11 +168,13 @@ async function main() {
   const report = { passed: true, problems: [], scenarios: [] };
 
   // ---- (a) both views ok -> total goes up by 2, ok fraction still 100% ----
+  // Baseline is the pre-JEG-319 tally (views not counted); the fixed tally
+  // must add exactly the two OK views. (Production counts missing view
+  // artifacts as "bad", so an empty-artifact baseline would not be clean.)
   {
-    const baseline = await runTally(html, cleanData(), {});
-    const withViews = await runTally(html, cleanData(), {
-      "vorp-view.json": VORP_OK, "adj-view.json": ADJ_OK,
-    });
+    const artifacts = { "vorp-view.json": VORP_OK, "adj-view.json": ADJ_OK };
+    const baseline = await runBrokenTally(html, cleanData(), artifacts);
+    const withViews = await runTally(html, cleanData(), artifacts);
     const a = withViews;
     const okFraction = a.total === 0 ? 0 : (a.counts.ok / a.total) * 100;
     const step = {
@@ -180,17 +187,16 @@ async function main() {
     };
     report.scenarios.push(step);
     assertEq("(a) total adds 2", a.total - baseline.total, 2, report.problems);
-    assertEq("(a) ok count unchanged", a.counts.ok, baseline.counts.ok + 2, report.problems);
-    assertEq("(a) bad count is 0", a.counts.bad, 0, report.problems);
+    assertEq("(a) ok count adds 2", a.counts.ok - baseline.counts.ok, 2, report.problems);
+    assertEq("(a) bad count unchanged", a.counts.bad - baseline.counts.bad, 0, report.problems);
     assertEq("(a) ok fraction is 100%", okFraction, 100, report.problems);
   }
 
   // ---- (b) one view bad -> bad count +1 ----
   {
-    const baseline = await runTally(html, cleanData(), {});
-    const withOneBad = await runTally(html, cleanData(), {
-      "vorp-view.json": VORP_OK, "adj-view.json": ADJ_BAD,
-    });
+    const artifacts = { "vorp-view.json": VORP_OK, "adj-view.json": ADJ_BAD };
+    const baseline = await runBrokenTally(html, cleanData(), artifacts);
+    const withOneBad = await runTally(html, cleanData(), artifacts);
     const b = withOneBad;
     const step = {
       name: "b_one_view_bad",
@@ -201,7 +207,7 @@ async function main() {
     };
     report.scenarios.push(step);
     assertEq("(b) bad count adds 1", b.counts.bad - baseline.counts.bad, 1, report.problems);
-    assertEq("(b) ok count +1", b.counts.ok - baseline.counts.ok, 1, report.problems);
+    assertEq("(b) ok count adds 1", b.counts.ok - baseline.counts.ok, 1, report.problems);
   }
 
   // ---- (c) vorp-view.json = {view:'vorp', status:'bad', sources:{}} -> bad=1 ----
