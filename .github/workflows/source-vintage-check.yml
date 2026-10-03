@@ -7,6 +7,7 @@ on:
 
 permissions:
   actions: write
+  contents: write # JEG-205: record the dispatched pipelines code hash
 
 jobs:
   check:
@@ -35,12 +36,18 @@ jobs:
           # Check the exit code - script exits 1 if changed, 0 if same
           # But we want to continue even if changed, so we ignore the exit code
           CHANGED=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json'))['changed'])")
+          # JEG-205: code-change trigger rides the same dispatch. Default True
+          # (fail-safe) if the field is absent, e.g. an older script version.
+          CODE_CHANGED=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json')).get('code_changed', True))")
+          CODE_HASH=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json')).get('code_hash') or '')")
 
           # Write to GITHUB_OUTPUT for downstream steps
           echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+          echo "code_changed=$CODE_CHANGED" >> $GITHUB_OUTPUT
+          echo "code_hash=$CODE_HASH" >> $GITHUB_OUTPUT
 
           # Also output for debugging
-          echo "Vintage check result: changed=$CHANGED"
+          echo "Vintage check result: changed=$CHANGED code_changed=$CODE_CHANGED"
           cat /tmp/vintage-check.json
           if [ "$CHANGED" = "True" ]; then
             echo "Source vintage check: changes detected, rebuild dispatched" >> "$GITHUB_STEP_SUMMARY"
@@ -55,6 +62,25 @@ jobs:
           gh workflow run rebuild-chain.yml -f source="source-vintage-check"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Record pipelines code hash
+        # JEG-205: persist the dispatched hash as the loop guard -- exactly one
+        # dispatch per code change. Runs only after a successful dispatch (a
+        # failed dispatch skips this step, so the next hourly run retries).
+        if: steps.check.outputs.code_changed == 'True'
+        run: |
+          python3 - <<'EOF'
+          import sys
+          sys.path.insert(0, 'pipelines')
+          from check_source_vintage import record_code_hash, CODE_STATE_PATH
+          record_code_hash(CODE_STATE_PATH, "${{ steps.check.outputs.code_hash }}")
+          EOF
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/source-vintage-state.json
+          git diff --cached --quiet || git commit -m "JEG-205: record dispatched pipelines code hash"
+          git pull --rebase origin main || true
+          git push
 
       - name: Report no changes
         if: steps.check.outputs.changed == 'False'
