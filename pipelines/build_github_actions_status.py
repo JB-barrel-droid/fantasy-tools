@@ -19,6 +19,11 @@ Per-run and per-workflow fields (JEG-109):
                            FAILING_STREAK_THRESHOLD. Threshold of 3 would
                            have flagged the 5-consecutive-failure JEG-113
                            outage two runs before it stopped the chain.
+  - workflow.alert_needed  (JEG-313) Same predicate as failing_streak
+                           (consecutive_failures >= FAILING_STREAK_THRESHOLD);
+                           kept as a separate field so the dashboard can
+                           show a distinct "alert: failing streak" badge
+                           without conflating the two signals.
 
 Pipeline coverage map:
   - Rebuild comparison chain: C1-C8 (import -> health -> comparison rebuild)
@@ -243,6 +248,13 @@ def main() -> int:
             "consecutive_failures": streak,
             "last_success_at": success_ts,
             "failing_streak": streak >= FAILING_STREAK_THRESHOLD,
+            # JEG-313: per-workflow alert flag. Same threshold as
+            # failing_streak (consecutive_failures >= FAILING_STREAK_THRESHOLD).
+            # This is the well-scoped part of the dispatch: the pipeline
+            # surfaces alert_needed on each workflow so the dashboard can
+            # show a badge. The actual alert destination (Slack, GitHub
+            # Issue, etc.) is a separate dispatch owned by Roman.
+            "alert_needed": streak >= FAILING_STREAK_THRESHOLD,
         })
 
     # Check for coverage gaps
@@ -275,6 +287,9 @@ def main() -> int:
             "failing": sum(1 for w in workflows if w["health"] == "fail"),
             "running": sum(1 for w in workflows if w["health"] == "running"),
             "failing_streak_count": sum(1 for w in workflows if w.get("failing_streak")),
+            # JEG-313: mirror of failing_streak_count at the summary level so the
+            # dashboard can render an aggregate badge without re-counting.
+            "alert_needed_count": sum(1 for w in workflows if w.get("alert_needed")),
             "max_consecutive_failures": max((w.get("consecutive_failures", 0) for w in workflows), default=0),
             "gaps_count": len(gaps),
         },

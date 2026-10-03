@@ -1433,14 +1433,22 @@ async function main(){
         }).join(" · ");
         const lastUrl = w.last_run && w.last_run.html_url
           ? ` <a href="${w.last_run.html_url}" style="color:var(--blue)">logs</a>` : "";
+        // JEG-313: neutral operational badge on workflows where the
+        // failing streak has reached FAILING_STREAK_THRESHOLD (>=3).
+        // Copy is intentionally operational ("alert: failing streak"),
+        // not a methodology claim — Roman owns the alert destination.
+        const alertBadge = w.alert_needed
+          ? ` <span style="display:inline-block;margin-left:4px;padding:1px 6px;border-radius:3px;background:var(--red);color:#fff;font-size:10.5px;letter-spacing:.02em" title="consecutive_failures ≥ ${3}">alert: failing streak</span>`
+          : "";
         return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">` +
-          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${lastUrl}<br>` +
+          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${alertBadge}${lastUrl}<br>` +
           `<span style="color:var(--faint);font-size:11px">${(w.coverage&&w.coverage.key_task)||""}</span></td>` +
           `<td style="padding:6px 8px;font-family:monospace">${runs||"<span style='color:var(--faint)'>no runs</span>"}</td></tr>`;
       }).join("");
       ghEl.innerHTML =
         `<div style="margin-bottom:8px;color:var(--dim);font-size:12.5px">` +
         `${s.healthy||0} healthy · ${s.warn||0} warn · ${s.failing||0} failing · ` +
+        `${s.alert_needed_count||0} alert · ` +
         `<span style="color:var(--faint)">refreshed ${genAge}</span></div>` +
         `<table style="width:100%;border-collapse:collapse"><tbody>${rows}</tbody></table>`;
     } else {

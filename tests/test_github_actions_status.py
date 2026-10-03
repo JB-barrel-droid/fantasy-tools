@@ -185,6 +185,76 @@ class ConsecutiveFailuresTest(unittest.TestCase):
         self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
 
 
+class AlertNeededTest(unittest.TestCase):
+    """JEG-313: alert_needed is a per-workflow alert flag driven by the same
+    FAILING_STREAK_THRESHOLD as failing_streak. The brief pins the boundary
+    at exactly 3 — at 3 the badge must show, at 2 it must not. Two tests
+    below cover the boundary from each side so a guard that asserts
+    current behaviour is wrong (e.g. "> 3" instead of ">= 3") will fail."""
+
+    def test_alert_needed_true_at_threshold(self):
+        # Exactly FAILING_STREAK_THRESHOLD failures in a row must surface.
+        runs = [_run("failure", days_ago=i) for i in range(gh.FAILING_STREAK_THRESHOLD)]
+        streak = gh.consecutive_failures(runs)
+        self.assertEqual(streak, gh.FAILING_STREAK_THRESHOLD)
+        self.assertTrue(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+    def test_alert_needed_false_below_threshold(self):
+        # One short of the threshold must not surface.
+        runs = [_run("failure", days_ago=i) for i in range(gh.FAILING_STREAK_THRESHOLD - 1)]
+        streak = gh.consecutive_failures(runs)
+        self.assertEqual(streak, gh.FAILING_STREAK_THRESHOLD - 1)
+        self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+    def test_alert_needed_true_for_jeg113_outage_shape(self):
+        # The JEG-113 shape: five failures in a row. Even well above the
+        # threshold, alert_needed must remain true. Pins that we did not
+        # accidentally cap the flag at the threshold.
+        runs = [_run("failure", days_ago=i) for i in range(5)]
+        streak = gh.consecutive_failures(runs)
+        self.assertGreater(streak, gh.FAILING_STREAK_THRESHOLD)
+        self.assertTrue(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+    def test_alert_needed_resets_on_first_non_failure(self):
+        # Two failures, then a success: streak is 2, alert is off.
+        # A bug that always returned True (or always false) would
+        # obviously fail this; a more subtle bug — e.g. counting the
+        # success as a failure — would also fail this.
+        runs = [
+            _run("failure", days_ago=0),
+            _run("failure", days_ago=1),
+            _run("success", days_ago=2),
+        ]
+        streak = gh.consecutive_failures(runs)
+        self.assertEqual(streak, 2)
+        self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+    def test_alert_needed_breaks_on_cancelled(self):
+        # cancelled breaks the streak — same predicate as consecutive_failures.
+        # Most-recent-first ordering: 2 failures, then a cancelled run, then
+        # older failures. The cancelled run is at position 2 (zero-indexed),
+        # so the trailing streak is 2 — below the threshold, alert is off.
+        # A bug that did not honour cancelled as a streak-breaker would
+        # walk past it and count 4 failures, which would surface the alert.
+        runs = [
+            _run("failure", days_ago=0),     # most recent
+            _run("failure", days_ago=1),
+            _run("cancelled", days_ago=2),    # breaks the streak
+            _run("failure", days_ago=3),
+            _run("failure", days_ago=4),
+        ]
+        streak = gh.consecutive_failures(runs)
+        self.assertEqual(streak, 2)
+        self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+    def test_alert_needed_false_on_empty_runs(self):
+        # No runs at all — streak is 0, alert is off. Guards against a
+        # regression that defaults the flag to True for empty windows.
+        streak = gh.consecutive_failures([])
+        self.assertEqual(streak, 0)
+        self.assertFalse(streak >= gh.FAILING_STREAK_THRESHOLD)
+
+
 class LastSuccessAtTest(unittest.TestCase):
     """The last_success_at timestamp drives the "X since last green" line."""
 
