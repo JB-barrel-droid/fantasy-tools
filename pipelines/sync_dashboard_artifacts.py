@@ -396,6 +396,31 @@ def main() -> int:
         # a leg to read.
         print(f"WARNING: skipping ddf-group-vorps.json rebuild: {e}", file=sys.stderr)
 
+    # JEG-265: per-view addressable artifacts (vorp-view.json, adj-view.json).
+    # Reads dist/modules/source-value-lineage.json and writes a slim per-view
+    # JSON for the dashboard's VORP / Adj cards. Skip with a warning when the
+    # lineage artifact is missing (CI may run sync before a lineage build has
+    # happened) -- the dashboard's renderers fail closed with an explicit badge.
+    try:
+        from build_view_artifacts import build_vorp_view, build_adj_view
+        lineage_path = DIST / "modules" / "source-value-lineage.json"
+        if lineage_path.exists():
+            lineage = json.loads(lineage_path.read_text(encoding="utf-8"))
+            v = build_vorp_view(lineage)
+            a = build_adj_view(lineage)
+            (dist_modules / "vorp-view.json").write_text(
+                json.dumps(v, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            (dist_modules / "adj-view.json").write_text(
+                json.dumps(a, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+            print(f"Wrote per-view artifacts -> vorp-view.json (status={v['status']}), "
+                  f"adj-view.json (status={a['status']})")
+        else:
+            print(f"WARNING: skipping vorp-view.json / adj-view.json rebuild: "
+                  f"source-value-lineage.json missing at {lineage_path}",
+                  file=sys.stderr)
+    except SystemExit as e:
+        print(f"WARNING: skipping per-view artifacts: {e}", file=sys.stderr)
+
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).
     # The published dist/ slugs are unchanged.

@@ -3,15 +3,19 @@
 The "Source value lineage — top 25 players per source" view must show, for
 every parent and every adjusted leg, the three steps per player:
   1. native          -- publisher's published value (publisher's domain)
-  2. implied_vorp    -- native minus the publisher's inferred replacement tier
+  2. imputed_vorp    -- Option C 8-group imputation (native x alloc_factor)
   3. ddf_rebuilt     -- DDF-rebuilt value through our methodology
 
 The publisher's inferred roster assumptions (replacement tier per position,
 rostered slots, flex share) must also be inspectable per source via the
 vorp_round_trip block on each lineage entry.
 
+JEG-266: the legacy translate_source-based implied_vorp column was removed;
+the Option C imputation is the only VORP column carried. vorp_replacement_level
+stays for the inferred-roster debug block.
+
 Failing closed: no VORP step may be guessed or rendered as a placeholder.
-A source whose chain cannot be computed carries None for implied_vorp /
+A source whose chain cannot be computed carries None for imputed_vorp /
 vorp_replacement_level / ddf_rebuilt and a populated vorp_round_trip.error.
 """
 import importlib.util
@@ -32,7 +36,7 @@ def _load_builder():
     return mod
 
 
-# Each "leg" gets at least one player row carrying native / implied_vorp /
+# Each "leg" gets at least one player row carrying native / imputed_vorp /
 # vorp_replacement_level / ddf_rebuilt. Parents and adjusted legs share
 # the same shape so the lineage renders the same columns for every source.
 PARENT_LEGS = ["espn", "cbs", "cbsros", "razzball",
@@ -158,7 +162,7 @@ class VorpRoundTripPerLegTest(unittest.TestCase):
                              f"{adj} must record {parent} as the chain source")
 
     def test_each_player_row_carries_the_three_steps(self):
-        """Every row in every leg's top25 has native / implied_vorp /
+        """Every row in every leg's top25 has native / imputed_vorp /
         vorp_replacement_level / ddf_rebuilt, even when None (no guess)."""
         for src in PARENT_LEGS:
             chain = self.b._compute_vorp_chain_for_source(src, self.sources)
@@ -166,23 +170,27 @@ class VorpRoundTripPerLegTest(unittest.TestCase):
                 src, self.sources, {}, {}, vorp_chain=chain
             )
             for p in entry["top25"]:
-                for k in ("native", "implied_vorp",
+                for k in ("native", "imputed_vorp",
                           "vorp_replacement_level", "ddf_rebuilt"):
                     self.assertIn(
                         k, p,
                         f"{src}/{p['player_key']} missing {k} column"
                     )
+                # JEG-266: legacy implied_vorp removed -- Option C imputation is the
+                # canonical VORP column. The lineage builder MUST NOT write it.
+                self.assertNotIn("implied_vorp", p,
+                                 f"{src}/{p['player_key']}: legacy implied_vorp leaked")
                 # When the chain produced a VORP, the three numeric cells
                 # must be numeric (not string, not None).
-                if p["implied_vorp"] is not None:
-                    self.assertIsInstance(p["implied_vorp"], (int, float))
+                if p["imputed_vorp"] is not None:
+                    self.assertIsInstance(p["imputed_vorp"], (int, float))
                 if p["vorp_replacement_level"] is not None:
                     self.assertIsInstance(p["vorp_replacement_level"], (int, float))
                 if p["ddf_rebuilt"] is not None:
                     self.assertIsInstance(p["ddf_rebuilt"], (int, float))
 
-    def test_adjusted_leg_rows_carry_inherited_implied_vorp(self):
-        """Adjusted legs inherit the parent's implied VORP (same publisher
+    def test_adjusted_leg_rows_carry_inherited_imputed_vorp(self):
+        """Adjusted legs inherit the parent's imputed VORP (same publisher
         native, same inferred roster) but show the adjusted reindexed as
         the DDF-rebuilt value."""
         for adj in ADJUSTED_LEGS:
@@ -205,8 +213,8 @@ class VorpRoundTripPerLegTest(unittest.TestCase):
                 if parent_row is None:
                     continue
                 self.assertEqual(
-                    parent_row["implied_vorp"], row["implied_vorp"],
-                    f"{adj}/{row['player_key']}: implied_vorp must "
+                    parent_row["imputed_vorp"], row["imputed_vorp"],
+                    f"{adj}/{row['player_key']}: imputed_vorp must "
                     "inherit from parent"
                 )
                 self.assertEqual(
@@ -261,9 +269,24 @@ class VorpRoundTripPlayerTraceTest(unittest.TestCase):
     def test_jsn_fantasycalc_half_12_qb1_full_chain(self):
         sources = self._sources_with_jsn()
         chain = self.b._compute_vorp_chain_for_source("fantasycalc", sources)
-        parent = self.b.build_source_entry(
-            "fantasycalc", sources, {}, {}, vorp_chain=chain
-        )
+        # JEG-266: imputed_vorp is attached only when the JEG-206 group
+        # artifact is available; the test sandbox has no
+        # dist/modules/ddf-group-vorps.json, and the builder fails closed
+        # (nulls, never guesses) without it. Inject a synthetic 8-group
+        # artifact so this test exercises the real imputation path; the
+        # absent-artifact fail-closed behavior is covered by
+        # test_each_player_row_carries_the_three_steps.
+        fake_groups = {f"{pos}|{role}": 100.0
+                       for pos in ("QB", "RB", "WR", "TE")
+                       for role in ("Starter", "Bench")}
+        orig_loader = self.b._load_ddf_group_vorps
+        self.b._load_ddf_group_vorps = lambda: (dict(fake_groups), True)
+        try:
+            parent = self.b.build_source_entry(
+                "fantasycalc", sources, {}, {}, vorp_chain=chain
+            )
+        finally:
+            self.b._load_ddf_group_vorps = orig_loader
         jsn = next(
             (p for p in parent["top25"]
              if "jaxon" in p["player_key"].lower()),
@@ -274,14 +297,32 @@ class VorpRoundTripPlayerTraceTest(unittest.TestCase):
         )
         # Native = publisher native (publisher's published value).
         self.assertEqual(9914.0, jsn["native"])
-        # implied_vorp: the position's inferred replacement tier was
-        # subtracted from native. We don't pin the number (the test
-        # fixture is synthetic) but the field must be a non-negative
-        # number when a replacement tier exists for WR.
+        # imputed_vorp: Option C 8-group imputation (native x alloc_factor).
+        # JEG-266: legacy implied_vorp removed; imputed_vorp is the only VORP column.
+        # We don't pin the number (the test fixture is synthetic) but the
+        # field must be a non-negative number when a replacement tier exists for WR.
+        # With the synthetic 100.0 group totals above, alloc = 100 / group
+        # native sum and imputed = native x alloc, rounded to 2dp.
         if chain["positions"].get("WR", {}).get("waiver_line_value") is not None:
-            self.assertIsNotNone(jsn["implied_vorp"])
-            self.assertGreaterEqual(jsn["implied_vorp"], 0)
+            self.assertIsNotNone(jsn["imputed_vorp"])
+            self.assertGreaterEqual(jsn["imputed_vorp"], 0)
             self.assertIsNotNone(jsn["vorp_replacement_level"])
+            self.assertEqual(jsn["group"], "WR|Starter")
+            # Relational check (no roster-logic reimplementation): imputed
+            # must equal native x the row's own attached alloc factor, and
+            # the attached group total must be the synthetic 100.0.
+            # Relational check (no roster-logic reimplementation): imputed
+            # must equal native x the row's own attached alloc factor. The
+            # row carries alloc_factor rounded to 4dp while imputed uses the
+            # full-precision factor, so allow the bounded 4dp error
+            # (9914 x 5e-5 + 2dp rounding < 0.51); a wrong factor would miss
+            # by far more.
+            self.assertIsNotNone(jsn["alloc_factor"])
+            self.assertEqual(jsn["our_group_vorp"], 100.0)
+            self.assertLess(
+                abs(jsn["imputed_vorp"] - 9914.0 * jsn["alloc_factor"]),
+                0.51,
+            )
         # ddf_rebuilt: the chart value (what the chart actually displays).
         # For published sources it comes from translate_source's
         # ddf_rebuilt dict, NOT the chart_value (which for published
@@ -363,7 +404,7 @@ class VorpRoundTripArtifactTest(unittest.TestCase):
     def test_vorp_chain_fails_closed_on_missing_combo(self):
         """A source whose combo can't be loaded still returns a chain dict
         with error set; the lineage row keeps native + chart columns and
-        marks implied_vorp / vorp_replacement_level / ddf_rebuilt as None."""
+        marks imputed_vorp / vorp_replacement_level / ddf_rebuilt as None."""
         bad = {"not_a_real_source": {"combos": {}}}
         chain = self.b._compute_vorp_chain_for_source(
             "not_a_real_source", bad

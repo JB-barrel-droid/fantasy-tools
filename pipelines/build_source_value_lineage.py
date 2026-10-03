@@ -296,9 +296,11 @@ ALL_ADJUSTED_LEGS = list(ADJUSTED_LEG_PARENT.keys())
 #   alloc_factor        — our_group_vorp / sum_publisher_values_in_group
 #   imputed_vorp        — native x alloc_factor (rounded to 2)
 #
-# The legacy implied_vorp / vorp_replacement_level columns stay in the JSON
-# (other readers may depend on them), but the lineage TABLE in
-# modules/dashboard.html renders the Option C columns instead.
+# JEG-266: the legacy translate_source-based implied_vorp column was removed
+# from this builder entirely. The Option C imputation (imputed_vorp) is the
+# canonical replacement; the lineage TABLE in modules/dashboard.html renders
+# the Option C columns, and the inferred roster debug fields still ship in the
+# JSON for the VORP round-trip block.
 
 # Sources where the "native" is a publisher-published trade value.
 # Kept for _compute_vorp_chain_for_source (used by other readers/tests);
@@ -504,9 +506,9 @@ def _impute_groups_for_source(src, vorp_chain_keys, native_map):
 def _attach_lineage_group_fields(player_row, pkey, group_info):
     """Attach the 4 Option C lineage fields (group/alloc/our_group_vorp/imputed).
 
-    Replaces the legacy implied_vorp column at the dashboard level (the JSON
-    still carries implied_vorp for downstream readers; the lineage TABLE
-    renders the new four).
+    JEG-266: the legacy implied_vorp column was removed entirely from this
+    builder; the Option C (8-group) imputation attached here is the only
+    VORP column the lineage JSON carries.
     """
     g = group_info["group"].get(pkey)
     af = group_info["alloc_factor"].get(pkey)
@@ -678,7 +680,13 @@ def require_snapshot_natives(snapshot_natives):
 
 
 def _attach_vorp_fields(player_row, pkey, vorp_chain, ddf_rebuilt_override=None):
-    """Attach implied_vorp / vorp_replacement_level / ddf_rebuilt to a player row.
+    """Attach ddf_rebuilt / inferred roster fields to a player row.
+
+    JEG-266: the legacy translate_source-based implied_vorp column was removed
+    from this builder. The lineage JSON now ships only the Option C
+    (8-group proportional) imputation under imputed_vorp (see
+    _attach_lineage_group_fields) and the inferred-roster debug fields used
+    by the lineage card's VORP round-trip block.
 
     ddf_rebuilt_override: for DDF-native sources we already have the chart
     value in the lineage row; we keep that as the DDF-rebuilt value rather
@@ -691,9 +699,6 @@ def _attach_vorp_fields(player_row, pkey, vorp_chain, ddf_rebuilt_override=None)
     pos = vorp_chain.get("player_pos", {}).get(pkey)
     if pos is None:
         pos = vorp_chain.get("player_pos", {}).get(pkey_norm)
-    vorp = vorp_chain.get("player_vorp", {}).get(pkey)
-    if vorp is None:
-        vorp = vorp_chain.get("player_vorp", {}).get(pkey_norm)
     if pos is not None:
         positions = vorp_chain.get("positions", {})
         waiver = positions.get(pos, {}).get("waiver_line_value")
@@ -701,7 +706,9 @@ def _attach_vorp_fields(player_row, pkey, vorp_chain, ddf_rebuilt_override=None)
     else:
         waiver = None
         n_rost = None
-    player_row["implied_vorp"] = round(vorp, 2) if vorp is not None else None
+    # JEG-266: implied_vorp removed -- Option C imputation attached by
+    # _attach_lineage_group_fields via build_source_entry /
+    # build_adjusted_leg_entry is the canonical replacement.
     player_row["vorp_replacement_level"] = round(waiver, 2) if waiver is not None else None
     player_row["vorp_inferred_position"] = pos
     player_row["vorp_inferred_n_rostered"] = n_rost
@@ -712,10 +719,6 @@ def _attach_vorp_fields(player_row, pkey, vorp_chain, ddf_rebuilt_override=None)
         if rebuilt is None:
             rebuilt = vorp_chain.get("ddf_rebuilt", {}).get(pkey_norm)
         player_row["ddf_rebuilt"] = round(rebuilt, 2) if rebuilt is not None else None
-    # JEG-207: legacy implied_vorp above is the translate_source-based read
-    # (kept in the JSON for backward compatibility). The Option C
-    # (8-group proportional) imputation is attached separately by
-    # _attach_lineage_group_fields via build_source_entry / build_adjusted_leg_entry.
     return player_row
 
 
@@ -1241,7 +1244,7 @@ def _main_impl():
         c = chain_for.get(src, {})
         if c.get("error"):
             print(f"  {src}: VORP chain failed ({c['error']}) -- "
-                  "implied_vorp/vorp_replacement_level will be null")
+                  "vorp_replacement_level will be null")
         else:
             print(f"  {src}: VORP chain OK "
                   f"({len(c.get('positions', {}))} positions, "

@@ -138,7 +138,6 @@ test-unit:
 	python3 -m unittest tests.test_reweighted_batch_anchor
 	python3 -m unittest tests.test_option_c_sheet_oracle
 	python3 -m unittest tests.test_sheet_oracle_canonical
-	python3 -m unittest tests.test_review_batch70_views
 	python3 -m unittest tests.test_reweight_reference_contract
 	python3 -m unittest tests.test_reweight_inversion_budget
 	python3 -m unittest tests.test_espn_pool_cap
@@ -168,6 +167,9 @@ test-unit:
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
+	python3 -m unittest tests.test_dashboard_view_tags
+	python3 -m unittest tests.test_view_artifacts
+	python3 -m unittest tests.test_lineage_view_indicators
 	python3 -m unittest tests.test_dist_manifest
 	python3 -m unittest tests.test_preview_workflow_matches_pages
 	python3 -m unittest tests.test_sync_monitor_fixture

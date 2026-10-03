@@ -94,6 +94,20 @@
     text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--line)}
   .scale-table td{padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
   .scale-table tr:last-child td{border-bottom:none}
+  /* JEG-264: view tag pill — every top-level section heading carries one */
+  .view-tag{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.5px;
+    padding:3px 8px;border-radius:5px;margin-right:8px;vertical-align:2px}
+  .view-tag-indexed{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,209,123,.4)}
+  .view-tag-vorp{background:rgba(90,171,255,.15);color:var(--blue);border:1px solid rgba(90,171,255,.4)}
+  .view-tag-adj{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(240,180,41,.4)}
+  .view-tag-legacy{background:var(--grey-bg);color:var(--grey);border:1px solid rgba(125,140,163,.4)}
+  /* JEG-266: VORP / Adj view indicator badges on the lineage card */
+  .view-indicator{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;
+    border-radius:8px;font-size:13px;font-weight:700;margin-right:8px}
+  .view-indicator.ok{background:var(--green-bg);color:var(--green);border:1px solid rgba(52,209,123,.4)}
+  .view-indicator.warn{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(240,180,41,.4)}
+  .view-indicator.bad{background:var(--red-bg);color:var(--red);border:1px solid rgba(244,88,92,.4)}
+  .view-indicator.unk{background:var(--grey-bg);color:var(--grey);border:1px solid rgba(125,140,163,.4)}
 </style>
 </head>
 <body>
@@ -109,7 +123,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 <div id="err"></div>
 
 <section class="summary">
-  <h2>Fleet health — 10 checkpoints × monitored sources</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Fleet health — 10 checkpoints × monitored sources</h2>
   <div class="bignum"><span id="okCount">–</span><small> / <span id="totalCount">–</span> checkpoints healthy</small></div>
   <div class="segbar" id="segbar"></div>
   <div class="legend" id="legend"></div>
@@ -117,7 +131,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card">
-  <h2>Data flow — 10 checkpoints</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Data flow — 10 checkpoints</h2>
   <div class="desc">
     <b>C1</b> Publication/discovery → <b>C2</b> Raw collection → <b>C3</b> Supabase landing →
     <b>C4</b> Snapshot/manifest (Supabase → repo) → <b>C5</b> Health verification →
@@ -130,19 +144,19 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="deployCard">
-  <h2>Deployment — live verification</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Deployment — live verification</h2>
   <div class="desc">C9 is checked live in your browser via the GitHub Actions API (no cached status files).</div>
   <div id="deployInfo">Checking…</div>
 </section>
 
 <section class="card" id="ghActionsCard">
-  <h2>GitHub Actions — workflow health</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> GitHub Actions — workflow health</h2>
   <div class="desc">Recent runs per workflow (last 5 each): when they ran and whether they succeeded. Refreshed with the pipeline chain.</div>
   <div id="ghActionsInfo">Loading…</div>
 </section>
 
 <section class="card" id="adjCurveCard">
-  <h2>Adjusted curves — pipeline stages</h2>
+  <h2><span class="view-tag view-tag-adj">[Adj]</span> Adjusted curves — pipeline stages</h2>
   <div class="desc">
     The <b>_adjusted</b> curves (FC Adjusted, USAT Adjusted, FP Adjusted, CBS Adjusted) flow through 5 stages:
     <b>A1</b> Input data → <b>A2</b> Fit executed → <b>A3</b> Sections baked →
@@ -154,26 +168,26 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="methodologyCard">
-  <h2>VORP / Adj — legacy methodology consistency</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> VORP / Adj — legacy methodology consistency</h2>
   <div class="desc">The current check audits legacy fixture reindex methods and the ESPN anchor. It does not certify the eight-group proportional VORP contract or the shared reweight. Those views remain pending their pipeline integration. Indexed trade charts use a simple native rescale; no VORP logic is applied.</div>
   <div id="methodologyConsistency"></div>
 </section>
 
 <section class="card" id="vorpTranslationCard">
-  <h2>VORP — legacy translation freshness</h2>
+  <h2><span class="view-tag view-tag-vorp">[VORP]</span> VORP — legacy translation freshness</h2>
   <div class="desc">This checks legacy Supabase translation provenance and grain freshness, not Option C eight-group readiness. A current legacy grain does not certify the new VORP view. Stale or fallback findings remain visible below. Indexed uses native trade values and does not call this translation.</div>
   <div id="vorpTranslation"></div>
 </section>
 
 <section class="card" id="scaleAgreementCard">
-  <h2>Adj — legacy scale agreement (native vs reindexed vs anchor)</h2>
+  <h2><span class="view-tag view-tag-adj">[Adj]</span> Adj — legacy scale agreement (native vs reindexed vs anchor)</h2>
   <div class="desc">This legacy derived-scale diagnostic compares fixture reindexed or DDF values with the ESPN anchor. It is not an Indexed rescale check or proof of the approved shared reweight. Natural source disagreement stays visible; legacy artifact flags require review. Band 0.80–1.25x is the existing diagnostic band.</div>
   <div id="scaleAgreementSummary" style="margin-bottom:16px"></div>
   <div id="scaleAgreement"></div>
 </section>
 
 <section class="card" id="fidelityCard">
-  <h2>Source fidelity — pre-indexed values</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Source fidelity — pre-indexed values</h2>
   <div class="desc">
     The <b>pre-indexed (native)</b> numbers are the raw per-game projections before DDF indexing.
     These are compared <b>directly against the source data</b> — they must match <b>exactly</b>.<br>
@@ -185,7 +199,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="e2eFidelityCard">
-  <h2>Source fidelity — end to end (live vs dashboard)</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Source fidelity — end to end (live vs dashboard)</h2>
   <div class="desc">
     End-to-end check: live snapshot vs the rendered dashboard, per source.
     Two failure classes — <b>freshness</b> (snapshot is older than the threshold,
@@ -199,21 +213,36 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="indexMathCard">
-  <h2>Indexed — native trade-value rescale</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Indexed — native trade-value rescale</h2>
   <div class="desc">For CBS, FantasyCalc, FantasyPros and USA Today only: indexed = native × 70 / max(native) for the exact source/configuration. No VORP, waiver subtraction, positional weighting, DDF or isotonic mapping is applied. This report computes target arithmetic; it does not certify the currently rendered Indexed values.</div>
   <div id="indexMathSummary" style="margin-bottom:16px"></div>
   <div id="indexMathSources"></div>
 </section>
 
 <section class="card" id="lineageCard">
-  <h2>VORP / Adj — source value lineage</h2>
+  <h2><span class="view-tag view-tag-vorp">[VORP]</span> VORP / Adj — source value lineage</h2>
+  <div id="lineageViewIndicators" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px"></div>
   <div class="desc">The top-25 trace combines JEG-207's group, allocation factor and Option C imputed VORP columns with historical fixture indexing and derived chart estimates. Group VORP is the eight-group input total; absent inputs remain unavailable. These audit columns do not certify the new chart views. Live values come from the recorded scrape vintage, not a fresh scrape on page load. Legacy Indexed/Reweighted/Chart columns remain historical estimates pending view integration.</div>
   <div id="lineageSummary" style="margin-bottom:16px"></div>
   <div id="lineageSources"></div>
 </section>
 
+<section class="card" id="vorpViewCard">
+  <h2><span class="view-tag view-tag-vorp">[VORP]</span> VORP view — per-source</h2>
+  <div class="desc">Reads only <code>vorp-view.json</code>. The addressable per-view artifact generated by the same pipeline builders the dashboard uses; JEG-265 wires it through <code>make sync</code>.</div>
+  <div id="vorpViewSummary" style="margin-bottom:12px"></div>
+  <div id="vorpViewSources"></div>
+</section>
+
+<section class="card" id="adjViewCard">
+  <h2><span class="view-tag view-tag-adj">[Adj]</span> Adj view — per-source</h2>
+  <div class="desc">Reads only <code>adj-view.json</code>. The addressable per-view artifact; JEG-265 wires it through <code>make sync</code>.</div>
+  <div id="adjViewSummary" style="margin-bottom:12px"></div>
+  <div id="adjViewSources"></div>
+</section>
+
 <section class="card" id="playerTraceCard">
-  <h2>Player Trace — end-to-end value path</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Player Trace — end-to-end value path</h2>
   <div class="desc">
     Pick a player to see their number at <b>every pipeline stop</b>, across <b>all sources</b>.
     Each stage shows the value and the logic that produced it.
@@ -235,7 +264,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="diagnosticsCard">
-  <h2>Aggregate Diagnostics — anomalies & curve health</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Aggregate Diagnostics — anomalies & curve health</h2>
   <div class="desc">
     Automatic checks for bad logic: players with <b>unusually high cross-source disagreement</b>
     (possible stale/flattened values), and <b>curve shape spikes</b> (values that jump instead of
@@ -246,7 +275,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="espnInputsCard">
-  <h2>ESPN input verification — grain-to-grain</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> ESPN input verification — grain-to-grain</h2>
   <div class="desc">
     For the <b>25 most valuable ESPN players</b> (12-team Half PPR), compares the major
     <b>input variables</b> grain-to-grain: what ESPN's <b>live human-readable projections page</b>
@@ -262,7 +291,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="espnRawCard">
-  <h2>ESPN raw trade values — unscaled DDF output</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> ESPN raw trade values — unscaled DDF output</h2>
   <div class="desc">
     ESPN publishes no trade values of its own, so there is no external number to check against.
     Instead this section exposes the <b>raw trade values</b> — the DDF two-tier value-above-waivers
@@ -275,7 +304,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="tradeQaCard">
-  <h2>Trade dashboard QA — rendered output health</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Trade dashboard QA — rendered output health</h2>
   <div class="desc">
     QA findings from rendered production testing of the <b>live trade value dashboard</b>
     (https://jb-barrel-droid.github.io/fantasy-tools/).
@@ -288,7 +317,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="espnZeroCard">
-  <h2>ESPN-zero staleness signal</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> ESPN-zero staleness signal</h2>
   <div class="desc">
     Players ESPN has explicitly zeroed (the badge on the chart) that another source
     still prices above zero, in any league shape. A source that does this may be stale on
@@ -300,7 +329,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="crossSourceCard">
-  <h2>Cross-source agreement — systematic divergence detection</h2>
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Cross-source agreement — systematic divergence detection</h2>
   <div class="desc">
     Every player present in all five sources, compared pairwise. Divergences &gt; 25%
     among starters (value ≥ 20) are flagged — these are places the sources genuinely
@@ -311,7 +340,7 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 </section>
 
 <section class="card" id="identityCard">
-  <h2>Identity resolution — player_key join verification</h2>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Identity resolution — player_key join verification</h2>
   <div class="desc">
     Verifies all sources join via numeric <code>player_key</code> (never name strings),
     with no ambiguous identities or team/position conflicts. Fail-closed: any ambiguity
@@ -908,6 +937,46 @@ async function main(){
   // Source value lineage — top 25 players per source with full transformation chain
   const lineageHost = document.getElementById("lineageSources");
   const lineageSummary = document.getElementById("lineageSummary");
+  // JEG-266: explicit VORP / Adj view indicators on the lineage card. Each
+  // reads its own per-view artifact (vorp-view.json / adj-view.json) so a
+  // missing or failed build renders an explicit fail badge, never a silent gap.
+  const lineageIndicators = document.getElementById("lineageViewIndicators");
+  async function renderLineageIndicator(viewName, file){
+    const pill = (st, txt) => `<span class="view-indicator ${st}">${txt}</span>`;
+    try {
+      const r = await fetch(file, {cache:"no-store"});
+      if(!r.ok){
+        lineageIndicators.insertAdjacentHTML("beforeend",
+          pill("bad", `${viewName} ✗ missing artifact (HTTP ${r.status})`));
+        return;
+      }
+      const t = await r.text();
+      if(!t || t.trim().length === 0){
+        lineageIndicators.insertAdjacentHTML("beforeend",
+          pill("bad", `${viewName} ✗ empty artifact`));
+        return;
+      }
+      const j = JSON.parse(t);
+      // The artifacts carry view-tag and an overall status (ok/warn/bad/unk)
+      if(j.view !== viewName.toLowerCase()){
+        lineageIndicators.insertAdjacentHTML("beforeend",
+          pill("bad", `${viewName} ✗ artifact is view="${j.view}"`));
+        return;
+      }
+      const st = j.status || "unk";
+      const dot = st === "ok" ? "✓" : st === "warn" ? "!" : st === "bad" ? "✗" : "?";
+      const label = `${viewName} ${dot} ${st.toUpperCase()}`;
+      lineageIndicators.insertAdjacentHTML("beforeend", pill(st, label));
+    } catch(e){
+      lineageIndicators.insertAdjacentHTML("beforeend",
+        pill("bad", `${viewName} ✗ fetch failed: ${String(e).slice(0,80)}`));
+    }
+  }
+  // Fire both indicator lookups in parallel.
+  await Promise.all([
+    renderLineageIndicator("VORP", "vorp-view.json"),
+    renderLineageIndicator("Adj", "adj-view.json"),
+  ]);
   try {
     const linResp = await fetch("source-value-lineage.json", {cache:"no-store"});
     if(linResp.ok){
@@ -1265,6 +1334,81 @@ async function main(){
   }catch(e){
     deployInfo.innerHTML = `<span style="color:var(--grey)">?</span> API check failed: ${String(e).slice(0,80)}`;
   }
+
+  // JEG-265: VORP / Adj view cards — read only their per-view artifact.
+  async function renderViewCard(viewName, hostEl, summaryEl, file){
+    if(!hostEl) return;
+    try {
+      const r = await fetch(file, {cache:"no-store"});
+      if(!r.ok){
+        hostEl.innerHTML = `<div class="view-indicator bad">${viewName} ✗ artifact missing (HTTP ${r.status})</div>`;
+        return;
+      }
+      const t = await r.text();
+      if(!t || t.trim().length === 0){
+        hostEl.innerHTML = `<div class="view-indicator bad">${viewName} ✗ empty artifact</div>`;
+        return;
+      }
+      const j = JSON.parse(t);
+      if(j.view !== viewName.toLowerCase()){
+        hostEl.innerHTML = `<div class="view-indicator bad">${viewName} ✗ artifact view mismatch ("${j.view}")</div>`;
+        return;
+      }
+      const sources = j.sources || {};
+      const order = Object.keys(sources);
+      const okN = order.filter(k => sources[k] && sources[k].status === "ok").length;
+      const badN = order.filter(k => sources[k] && sources[k].status === "bad").length;
+      const warnN = order.length - okN - badN;
+      const dot = j.status === "ok" ? "✓" : j.status === "warn" ? "!" : j.status === "bad" ? "✗" : "?";
+      // JEG-265: sample rows carry the artifact's own columns (j.columns),
+      // not a generic "value" field -- render each column honestly.
+      const cols = Array.isArray(j.columns) && j.columns.length ? j.columns : [];
+      const fmtCell = (sm, c) => {
+        const v = sm[c];
+        if(v == null) return "—";
+        if(typeof v === "number") return Number.isInteger(v) ? String(v) : v.toFixed(2);
+        return String(v);
+      };
+      if(summaryEl) summaryEl.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
+        <div><span class="view-indicator ${j.status || 'unk'}">${viewName} ${dot} ${(j.status || 'unknown').toUpperCase()}</span></div>
+        <div style="font-size:12.5px;color:var(--dim)">${okN} / ${order.length} sources healthy · ${warnN} warn · ${badN} bad · Generated: ${shortTs(j.generated_at)}</div>
+      </div>`;
+      hostEl.innerHTML = order.map(srcKey => {
+        const s = sources[srcKey] || {};
+        const st = s.status || "unk";
+        const dotCls = st === "ok" ? "ok" : st === "bad" ? "bad" : st === "warn" ? "warn" : "unk";
+        const icon = st === "ok" ? "✓" : st === "bad" ? "✗" : st === "warn" ? "!" : "?";
+        const reasons = (s.reasons || []).map(r => `<li>${r}</li>`).join("");
+        const samples = (s.samples || []).map(sm =>
+          `<tr><td style="padding:4px 8px">${sm.player || "—"}</td>` +
+          cols.map(c => `<td style="padding:4px 8px;font-family:monospace;text-align:right">${fmtCell(sm, c)}</td>`).join("") +
+          `</tr>`
+        ).join("");
+        const sampleHead = cols.length
+          ? `<tr><th style="padding:4px 8px;text-align:left">player</th>` +
+            cols.map(c => `<th style="padding:4px 8px;text-align:right">${c}</th>`).join("") + `</tr>`
+          : "";
+        return `<div class="src" style="margin-bottom:10px">
+          <div style="padding:12px 16px;display:flex;align-items:center;gap:10px">
+            <span class="cp-dot ${dotCls}"></span>
+            <b style="font-size:13px">${srcKey}</b>
+            <span style="color:var(--${st === "ok" ? "green" : st === "bad" ? "red" : st === "warn" ? "yellow" : "grey"});font-weight:700;margin-left:auto">${icon} ${st.toUpperCase()}</span>
+          </div>
+          <div style="padding:0 16px 14px;font-size:12.5px;color:var(--dim)">
+            <div>${s.reason || ""}</div>
+            ${samples ? `<table style="width:100%;border-collapse:collapse;margin-top:6px"><thead>${sampleHead}</thead><tbody>${samples}</tbody></table>` : ""}
+            ${reasons ? `<ul style="margin:6px 0 0 18px">${reasons}</ul>` : ""}
+          </div>
+        </div>`;
+      }).join("") || `<div style="color:var(--grey);font-size:13px">No sources in ${file}.</div>`;
+    } catch(e){
+      hostEl.innerHTML = `<div class="view-indicator bad">${viewName} ✗ fetch failed: ${String(e).slice(0,80)}</div>`;
+    }
+  }
+  await Promise.all([
+    renderViewCard("VORP", document.getElementById("vorpViewSources"), document.getElementById("vorpViewSummary"), "vorp-view.json"),
+    renderViewCard("Adj", document.getElementById("adjViewSources"), document.getElementById("adjViewSummary"), "adj-view.json"),
+  ]);
 
   // JEG-109: GitHub Actions workflow health (from the baked status file)
   const ghEl = document.getElementById("ghActionsInfo");
