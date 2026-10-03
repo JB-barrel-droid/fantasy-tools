@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"];
+  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];  // JEG-211: K/DST honestly excluded
   const SCORINGS = [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]];
   const SOURCE_LABELS = {
     usatoday: "USA Today",
