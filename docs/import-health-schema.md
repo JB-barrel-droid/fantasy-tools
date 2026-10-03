@@ -64,7 +64,66 @@ Top-level object (key order as written; parsers must read by name):
 | `supabase_table` | string | The Supabase table backing the source: `public.source_trade_values` (fantasycalc/usatoday/fantasypros), `public.espn_season_projections` (espn), `public.cbs_trade_values` (cbs). Always non-null since stage 1b closed (2026-09-22). |
 | `supabase_landing` | bool | true when the snapshot's bytes were re-verified against the Supabase table this run. Always true since stage 1b closed — every source re-queries its table. |
 | `snapshot_path` | string \| null | Repo-relative path of the verified snapshot (`data/raw/sources/<source>/<vintage>/snapshot.json`), null when no snapshot exists. |
+| `vintage_date` | string \| null | Razzball only: ISO date (`YYYY-MM-DD`) of the newest snapshot directory under `data/raw/sources/razzball/`. Drives the c5 health verdict (JEG-307). null when no snapshot exists. |
+| `age_days` | int \| null | Razzball only: `check_date - vintage_date`, in days. Razzball has no CI puller (GAP-024), so this entry detects a snapshot that has drifted while the DB landing still agrees. |
 | `failure_reason` | string \| null | null on `ok`; otherwise `"<CODE>: <one-line detail>"`. Codes: |
+
+## Per-source content_vintage surfaced in `pipeline-checkpoints.json` (JEG-315, GAP-043)
+
+GAP-043: `comparison-sources-data.json` carries both `built_at` (the fixture
+build time, conflates across all sources) and a per-section
+`content_vintage` per source. The dashboard's fleet summary cited only
+`built_at`; per-source content freshness was not surfaced.
+
+`pipelines/build_pipeline_checkpoints.py` now resolves each source's
+content vintage directly from the fixture's per-section field and exposes
+it on the source's checkpoint record:
+
+```json
+{
+  "sources": {
+    "<source>": {
+      "label": "...",
+      "content_vintage": "2026-10-03" | "Week 4" | null,
+      "content_vintage_source": "content_vintage" | "vintage" | "lineage.raw_vintage" | "source_provenance.content_vintage",
+      "checkpoints": { ... }
+    }
+  }
+}
+```
+
+Resolution order (highest priority first):
+
+1. `sources[<src>].content_vintage` — direct per-section content vintage
+   (cbs, fantasycalc, fantasypros, usatoday).
+2. `sources[<src>].vintage` — top-level dated vintage (espn, cbsros,
+   razzball use this field name).
+3. `sources[<src>].lineage.raw_vintage` — the raw input's dated vintage
+   (espn, cbsros; preserves the publisher release date separately from
+   the fixture build time).
+4. `sources[<src>].source_provenance.content_vintage` — cbs / espn /
+   usatoday carry this nested field with `content_vintage_derived_from`
+   provenance notes; used as a final fallback.
+
+`content_vintage` may be an ISO date (`"2026-10-03"`) or a `"Week N"`
+label (e.g. CBS week-designated charts). The dashboard renders the
+**freshness bands** below only for dated vintages — `"Week N"` values
+are rendered in the unknown band because week labels do not carry
+absolute age information.
+
+### Freshness color bands (dashboard per-source card)
+
+| Band | Color | Age (today − content_vintage) |
+|---|---|---|
+| Fresh | green | ≤ 4 days |
+| Aging | amber | 4–7 days |
+| Stale | red | > 7 days |
+| Unknown | grey | not a dated vintage (`null` or `"Week N"`) |
+
+The bands are evaluated client-side from `content_vintage` against
+`Date.now()`. They are not part of the import-health gate — they are a
+display signal that lets a reader see at a glance which sources are
+stale, independent of the pipeline checkpoints' pass/fail status.
 
 ### Status enum
 
@@ -88,6 +147,7 @@ Top-level object (key order as written; parsers must read by name):
 | `TABLE_DRIFT` | The Supabase table's row count or unanimous vintage no longer matches the manifest — a partial or stale table is not treated as complete. |
 | `NO_VINTAGE` | No content vintage is derivable from the manifest — a vintage-less snapshot may never back fixture updates. |
 | `IMPORT_FAILED` | The verification itself could not run (e.g. Supabase re-query error, unreadable snapshot, missing file ref for a gap source). |
+| `RAZZBALL_STALE` | Razzball only (JEG-307): the snapshot directory is older than the freshness window (`age_days > 2` warn, `> 6` bad). The DB landing can still be fresh; this entry is read-only and watches the snapshot itself because no CI puller refreshes Razzball (GAP-024). |
 
 ## Stage 1b closed (2026-09-22)
 

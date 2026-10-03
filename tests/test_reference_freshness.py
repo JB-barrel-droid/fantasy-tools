@@ -185,6 +185,86 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertEqual("stale", item["l1_status"])
             self.assertFalse(item["freshness_ok"])
 
+    def test_players_as_of_ten_days_old_paints_red_on_chart_input(self):
+        """JEG-316 negative test: players.as_of = today - 10d must surface as
+        a red chart-input row, with chart_input=true and chart_input_at_risk
+        counting it. Confirms the chart-input pipeline flags the kind of
+        staleness the dashboard needs to show.
+        """
+        with TemporaryDirectory() as tmp:
+            fixtures = Path(tmp) / "fixtures"
+            output = Path(tmp) / "freshness.json"
+            today_iso = "2026-10-03"
+            self.write_fixtures(fixtures, "2026-09-23")  # today - 10d
+
+            subprocess.run(
+                [
+                    "python3",
+                    "pipelines/check_reference_freshness.py",
+                    "--fixtures",
+                    str(fixtures),
+                    "--output",
+                    str(output),
+                    "--today",
+                    today_iso,
+                    "--max-age-days",
+                    "2",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            chart_inputs = payload.get("chart_inputs") or []
+            self.assertEqual(3, payload["summary"]["chart_input_count"])
+            self.assertEqual(
+                ["players.as_of", "players.kdst_snapshot", "news.generated_at"],
+                payload["summary"]["chart_input_keys"],
+            )
+            as_of = next(
+                (item for item in chart_inputs if item["key"] == "players.as_of"),
+                None,
+            )
+            self.assertIsNotNone(as_of, "players.as_of missing from chart_inputs")
+            self.assertTrue(as_of["chart_input"])
+            self.assertEqual(10, as_of["age_days"])
+            self.assertEqual("red", as_of["color"], "10-day-stale players.as_of must paint red")
+            self.assertFalse(as_of["freshness_ok"])
+            # The red row counts toward the at-risk rollup used by the panel.
+            self.assertGreaterEqual(payload["summary"]["chart_input_at_risk_count"], 1)
+
+    def test_chart_input_color_classification_covers_yellow_and_unknown(self):
+        """JEG-316: assert every age band the dashboard relies on actually
+        fires. Negative test for the color helper: a 3-day-old players.as_of
+        (warning band) must paint yellow, and a '?' kdst_snapshot must paint
+        unknown. Catches a regression where the band thresholds drift or
+        unknown is mis-bucketed as red.
+        """
+        import importlib
+        import sys
+        if "pipelines" not in sys.path:
+            sys.path.insert(0, str(ROOT / "pipelines"))
+        if "check_reference_freshness" not in sys.modules:
+            importlib.import_module("check_reference_freshness")
+        color_for = importlib.import_module("check_reference_freshness").color_for
+
+        # Within the window (max_age_days=2): green
+        self.assertEqual("green", color_for(0, 2))
+        self.assertEqual("green", color_for(2, 2))
+        # Warning band (2*max_age_days = 4): yellow
+        self.assertEqual("yellow", color_for(3, 2))
+        self.assertEqual("yellow", color_for(4, 2))
+        # Past the window: red
+        self.assertEqual("red", color_for(5, 2))
+        self.assertEqual("red", color_for(10, 2))
+        # Missing date: unknown (must NOT be red; otherwise the K/DST gap
+        # would look like an emergency).
+        self.assertEqual("unknown", color_for(None, 2))
+        # Future-dated or negative ages are also unknown.
+        self.assertEqual("unknown", color_for(-1, 2))
+
 
 if __name__ == "__main__":
     unittest.main()

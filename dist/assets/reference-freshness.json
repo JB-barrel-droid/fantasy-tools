@@ -1,17 +1,16 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "1f555c50260bcb4062f9a166daf650c4f6e603f0e48a9dbe4430612fc1775940",
+    "comparison-sources-data.json": "db9bc918e0f92c2b8bd079919bb7fa775ecdbedd158416e9503b0864aeb96d05",
     "player-news.json": "295b487f16ec02a37f3e92e085c1b34aa69736b267dc265567902c7b2b94bff4",
     "players.json": "526404f35b81ee26126e93f05f5929f6fc8886513385012384eef21b8caf1c12",
     "source-import-health.json": "b09b3c94d2a4e4d35ce2ebaa94c86fc4da92c56d395b1b55009444b7f96b4c25"
   },
-  "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-02T23:38:43-05:00",
-  "import_health_source": "dist/modules/source-import-health.json",
-  "items": [
+  "chart_inputs": [
     {
-      "age_days": 9,
+      "age_days": 10,
       "changed_since_prior_report": false,
+      "chart_input": true,
+      "color": "red",
       "enforced": false,
       "freshness_ok": false,
       "key": "players.as_of",
@@ -22,8 +21,55 @@
       "value": "2026-09-23"
     },
     {
+      "age_days": null,
+      "changed_since_prior_report": false,
+      "chart_input": true,
+      "color": "unknown",
+      "enforced": false,
+      "freshness_ok": false,
+      "key": "players.kdst_snapshot",
+      "label": "K/DST snapshot",
+      "max_age_days": 2,
+      "note": "unchanged",
+      "status": "unknown",
+      "value": "?"
+    },
+    {
+      "age_days": 13,
+      "changed_since_prior_report": false,
+      "chart_input": true,
+      "color": "red",
+      "enforced": false,
+      "freshness_ok": false,
+      "key": "news.generated_at",
+      "label": "Player-news artifact generation time",
+      "max_age_days": 2,
+      "note": "unchanged",
+      "status": "stale",
+      "value": "2026-09-20T22:14:45Z"
+    }
+  ],
+  "fixture_dir": "data/fixtures/current",
+  "generated_at": "2026-10-03T22:04:09+00:00",
+  "import_health_source": "data/fixtures/current/source-import-health.json",
+  "items": [
+    {
       "age_days": 10,
       "changed_since_prior_report": false,
+      "color": "red",
+      "enforced": false,
+      "freshness_ok": false,
+      "key": "players.as_of",
+      "label": "Players artifact as_of",
+      "max_age_days": 2,
+      "note": "unchanged",
+      "status": "stale",
+      "value": "2026-09-23"
+    },
+    {
+      "age_days": 11,
+      "changed_since_prior_report": false,
+      "color": "red",
       "enforced": false,
       "freshness_ok": false,
       "key": "players.ecr_content_date",
@@ -34,8 +80,9 @@
       "value": "2026-09-22"
     },
     {
-      "age_days": 3,
+      "age_days": 4,
       "changed_since_prior_report": false,
+      "color": "yellow",
       "enforced": false,
       "freshness_ok": false,
       "key": "players.espn_snapshot",
@@ -46,8 +93,9 @@
       "value": "2026-09-29"
     },
     {
-      "age_days": 10,
+      "age_days": 11,
       "changed_since_prior_report": false,
+      "color": "red",
       "enforced": false,
       "freshness_ok": false,
       "key": "players.pm_snapshot",
@@ -60,6 +108,7 @@
     {
       "age_days": null,
       "changed_since_prior_report": false,
+      "color": "unknown",
       "enforced": false,
       "freshness_ok": false,
       "key": "players.kdst_snapshot",
@@ -72,6 +121,7 @@
     {
       "age_days": 0,
       "changed_since_prior_report": false,
+      "color": "green",
       "enforced": true,
       "freshness_ok": true,
       "key": "comparison.built_at",
@@ -79,11 +129,12 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "same_day",
-      "value": "2026-10-02T21:21:44.892028+00:00"
+      "value": "2026-10-03T18:34:03.677796+00:00"
     },
     {
-      "age_days": 12,
+      "age_days": 13,
       "changed_since_prior_report": false,
+      "color": "red",
       "enforced": false,
       "freshness_ok": false,
       "key": "news.generated_at",
@@ -94,8 +145,9 @@
       "value": "2026-09-20T22:14:45Z"
     },
     {
-      "age_days": 13,
+      "age_days": 14,
       "changed_since_prior_report": false,
+      "color": "red",
       "enforced": false,
       "freshness_ok": false,
       "key": "news.trade_values_published_at",
@@ -106,20 +158,22 @@
       "value": "2026-09-19T15:48:29Z"
     },
     {
-      "age_days": 0,
-      "changed_since_prior_report": true,
+      "age_days": 2,
+      "changed_since_prior_report": false,
+      "color": "green",
       "enforced": false,
       "freshness_ok": true,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
-      "note": "changed",
-      "status": "same_day",
-      "value": "2026-10-02T21:21:31Z"
+      "note": "unchanged",
+      "status": "stale",
+      "value": "2026-10-01T10:37:05Z"
     },
     {
-      "age_days": 0,
+      "age_days": 2,
       "changed_since_prior_report": true,
+      "color": "green",
       "enforced": false,
       "failure_reason": null,
       "freshness_ok": true,
@@ -127,13 +181,14 @@
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T10:37:05Z; content_vintage is source provenance, not pull time",
+      "status": "current",
       "value": "Week 4"
     },
     {
-      "age_days": 0,
+      "age_days": 2,
       "changed_since_prior_report": true,
+      "color": "green",
       "enforced": false,
       "failure_reason": null,
       "freshness_ok": true,
@@ -141,13 +196,14 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
-      "value": "2026-10-02"
+      "note": "L1 status=ok; last_successful_import=2026-10-01T10:37:05Z; content_vintage is source provenance, not pull time",
+      "status": "current",
+      "value": "2026-09-30"
     },
     {
-      "age_days": 0,
+      "age_days": 2,
       "changed_since_prior_report": true,
+      "color": "green",
       "enforced": false,
       "failure_reason": null,
       "freshness_ok": true,
@@ -155,13 +211,14 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T10:37:05Z; content_vintage is source provenance, not pull time",
+      "status": "current",
       "value": "2026-09-30"
     },
     {
-      "age_days": 0,
+      "age_days": 2,
       "changed_since_prior_report": true,
+      "color": "green",
       "enforced": false,
       "failure_reason": null,
       "freshness_ok": true,
@@ -169,13 +226,14 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T10:37:05Z; content_vintage is source provenance, not pull time",
+      "status": "current",
       "value": "Week 4"
     },
     {
-      "age_days": 0,
+      "age_days": 2,
       "changed_since_prior_report": true,
+      "color": "green",
       "enforced": false,
       "failure_reason": null,
       "freshness_ok": true,
@@ -183,27 +241,14 @@
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T10:37:05Z; content_vintage is source provenance, not pull time",
+      "status": "current",
       "value": "2026-09-29"
     },
     {
-      "age_days": 0,
+      "age_days": 2,
       "changed_since_prior_report": true,
-      "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
-      "key": "source_import.razzball",
-      "l1_status": "ok",
-      "label": "L1 razzball content vintage",
-      "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
-      "value": "2026-10-01"
-    },
-    {
-      "age_days": 0,
-      "changed_since_prior_report": true,
+      "color": "green",
       "enforced": false,
       "failure_reason": null,
       "freshness_ok": true,
@@ -211,8 +256,8 @@
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-02T21:21:31Z; content_vintage is source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-01T10:37:05Z; content_vintage is source provenance, not pull time",
+      "status": "current",
       "value": "2026-09-29"
     }
   ],
@@ -233,6 +278,13 @@
   },
   "summary": {
     "all_known_dates_same_day": false,
+    "chart_input_at_risk_count": 2,
+    "chart_input_count": 3,
+    "chart_input_keys": [
+      "players.as_of",
+      "players.kdst_snapshot",
+      "news.generated_at"
+    ],
     "enforced_expired_count": 0,
     "enforced_keys": [
       "comparison.built_at"
@@ -240,9 +292,9 @@
     "expired_count": 7,
     "l1_unhealthy_count": 0,
     "max_age_days": 2,
-    "stale_count": 6,
-    "unchanged_count": 8,
+    "stale_count": 7,
+    "unchanged_count": 9,
     "unknown_count": 1
   },
-  "today": "2026-10-02"
+  "today": "2026-10-03"
 }

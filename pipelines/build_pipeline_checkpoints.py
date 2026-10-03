@@ -258,6 +258,50 @@ def newest_razzball_leg():
     return str(leg_path.relative_to(REPO)), leg
 
 
+def c6_candidate_verdict(src, cand_mtime, review_mtime, chain_result, chain_run_at):
+    """Compute the C6 (candidate build/review) verdict for a source.
+
+    Razzball is a file-scraped source by project rule (JEG-306): it has no
+    candidate/review artifact by design, so reporting `unk` is a false gap.
+    The c6/c7 stages are N/A for Razzball, which is an honest "ok" rather
+    than a missing-artifact alarm. JEG-307 owns whether Razzball should join
+    the candidate/promotion chain; this branch only changes the verdict for
+    the by-design-empty case.
+
+    For other sources, the verdict falls back through (newest timestamp) ->
+    (chain status) -> (unk) tiers, same as the previous inline logic.
+    """
+    # Use the newer of candidate build and review
+    c6_ts = None
+    for ts in [cand_mtime, review_mtime]:
+        if ts and (not c6_ts or parse_iso(ts) > parse_iso(c6_ts)):
+            c6_ts = ts
+    c6_days = days_old(c6_ts)
+    if src == "razzball":
+        return {
+            "timestamp": None,
+            "status": "ok",
+            "reason": "File-scraped source; c6/c7 stages N/A by design.",
+        }
+    if c6_ts and c6_days is not None:
+        if c6_days > 14:
+            return {"timestamp": c6_ts, "status": "bad",
+                "reason": f"Last candidate/review {c6_days:.0f}d ago. Build pipeline may be broken."}
+        if c6_days > 7:
+            return {"timestamp": c6_ts, "status": "warn",
+                "reason": f"Last candidate/review {c6_days:.0f}d ago."}
+        return {"timestamp": c6_ts, "status": "ok",
+            "reason": f"Candidate built and reviewed {c6_days:.1f}d ago."}
+    if chain_result:
+        # Fall back to chain status timestamp
+        c6_days = days_old(chain_run_at)
+        return {"timestamp": chain_run_at,
+            "status": "warn" if (c6_days or 99) > 2 else "ok",
+            "reason": f"No candidate/review artifacts on disk. Chain reported '{chain_result}' at {chain_run_at}."}
+    return {"timestamp": None, "status": "unk",
+        "reason": "No candidate or review artifacts found."}
+
+
 def razzball_health_from_fixture(fixture):
     """Synthesize monitor health for Razzball from fixture + DDF leg metadata.
 
@@ -489,23 +533,41 @@ def build_checkpoints():
                 "reason": f"Snapshot path {snap_path} not found on disk."}
 
         # C5: Health verification - from checked_at + status
-        c5_status = h.get("status", "unknown")
-        c5_checked_at = h.get("_checked_at") or health_checked_at
-        c5_days = days_old(c5_checked_at)
-        c5_reason = h.get("failure_reason", "")
-        if c5_status == "ok":
-            cps["c5_health"] = {"timestamp": c5_checked_at,
-                "status": "ok" if (c5_days or 99) < 2 else "warn",
-                "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
-        elif c5_status == "warning":
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
-                "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
-        elif c5_status in ("failed", "missing", "error"):
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
-                "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
+        # JEG-307: Razzball c5 is driven by the new vintage_date / age_days
+        # freshness entry (no CI puller refreshes Razzball -- GAP-024).
+        if src == "razzball":
+            vd = h.get("vintage_date")
+            age = h.get("age_days")
+            if vd is None or age is None:
+                cps["c5_health"] = {"timestamp": None, "status": "unk",
+                    "reason": "No Razzball freshness entry (no snapshot under data/raw/sources/razzball/)."}
+            elif age <= 2:
+                cps["c5_health"] = {"timestamp": vd, "status": "ok",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (within 2d fresh window)."}
+            elif age <= 6:
+                cps["c5_health"] = {"timestamp": vd, "status": "warn",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (3-6d warn window). No CI puller refreshes it (GAP-024)."}
+            else:
+                cps["c5_health"] = {"timestamp": vd, "status": "bad",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (>6d -- snapshot is stale)."}
         else:
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
-                "reason": "No health record for this source."}
+            c5_status = h.get("status", "unknown")
+            c5_checked_at = h.get("_checked_at") or health_checked_at
+            c5_days = days_old(c5_checked_at)
+            c5_reason = h.get("failure_reason", "")
+            if c5_status == "ok":
+                cps["c5_health"] = {"timestamp": c5_checked_at,
+                    "status": "ok" if (c5_days or 99) < 2 else "warn",
+                    "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
+            elif c5_status == "warning":
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
+                    "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
+            elif c5_status in ("failed", "missing", "error"):
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
+                    "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
+            else:
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
+                    "reason": "No health record for this source."}
 
         # C6: Candidate build/review - from candidate dir + review file
         cand_dir = REPO / "output" / "comparison-candidates" / src
@@ -516,27 +578,14 @@ def build_checkpoints():
         for ts in [cand_mtime, review_mtime]:
             if ts and (not c6_ts or parse_iso(ts) > parse_iso(c6_ts)):
                 c6_ts = ts
-        c6_days = days_old(c6_ts)
         chain_result = chain_sources.get(src, "")
-        if c6_ts and c6_days is not None:
-            if c6_days > 14:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "bad",
-                    "reason": f"Last candidate/review {c6_days:.0f}d ago. Build pipeline may be broken."}
-            elif c6_days > 7:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "warn",
-                    "reason": f"Last candidate/review {c6_days:.0f}d ago."}
-            else:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "ok",
-                    "reason": f"Candidate built and reviewed {c6_days:.1f}d ago."}
-        elif chain_result:
-            # Fall back to chain status timestamp
-            c6_days = days_old(chain_run_at)
-            cps["c6_candidate"] = {"timestamp": chain_run_at,
-                "status": "warn" if (c6_days or 99) > 2 else "ok",
-                "reason": f"No candidate/review artifacts on disk. Chain reported '{chain_result}' at {chain_run_at}."}
-        else:
-            cps["c6_candidate"] = {"timestamp": None, "status": "unk",
-                "reason": "No candidate or review artifacts found."}
+        cps["c6_candidate"] = c6_candidate_verdict(
+            src=src,
+            cand_mtime=cand_mtime,
+            review_mtime=review_mtime,
+            chain_result=chain_result,
+            chain_run_at=chain_run_at,
+        )
 
         # C7: Fixture promotion - from promotion file (real promoted_at + review_verdict)
         promo_path, promo_mtime = newest_file_mtime("output/comparison-promotions", rf"^{src}-.*-promotion\.json$")
@@ -716,9 +765,34 @@ def build_checkpoints():
             cps["c10_rendered"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}
 
+        # Per-source content_vintage (JEG-315, GAP-043): surfaced from the
+        # fixture's per-section `content_vintage` (or top-level `vintage` for
+        # espn/cbsros/razzball, which use a top-level `vintage` instead).
+        # The fleet summary below only cites the fixture's built_at, which
+        # conflates publisher release freshness across all 7 sources. The
+        # dashboard needs the per-source vintage to color-code each card's
+        # freshness line (green <=4d, amber 4-7d, red >7d).
+        fixture_section = fixture.get("sources", {}).get(src, {}) or {}
+        per_section_vintage = (
+            fixture_section.get("content_vintage")
+            or fixture_section.get("vintage")
+            or (
+                (fixture_section.get("lineage") or {}).get("raw_vintage")
+            )
+            or (
+                (fixture_section.get("source_provenance") or {}).get("content_vintage")
+            )
+        )
         result["sources"][src] = {
             "label": SRC_LABEL[src],
             "checkpoints": cps,
+            "content_vintage": per_section_vintage,
+            "content_vintage_source": (
+                "content_vintage" if fixture_section.get("content_vintage") else
+                "vintage" if fixture_section.get("vintage") else
+                "lineage.raw_vintage" if (fixture_section.get("lineage") or {}).get("raw_vintage") else
+                "source_provenance.content_vintage"
+            ),
         }
 
     # Chain runner info (for the automation section)

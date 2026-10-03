@@ -1,0 +1,54 @@
+{
+  "generated_at": "2026-10-03T22:17:03Z",
+  "items": [
+    {
+      "name": "data/fixtures/current/comparison-sources-data.json",
+      "freshness_source": "reference-freshness.json items[comparison.built_at] (value=2026-10-02T21:21:44.892028+00:00; report generated 2026-10-02T23:38:43-05:00)",
+      "monitor_check": true,
+      "last_checked": "2026-10-02T23:38:43-05:00"
+    },
+    {
+      "name": "data/fixtures/current/players.json",
+      "freshness_source": "meta.as_of=2026-09-23; meta.kdst_snapshot=unknown",
+      "monitor_check": true,
+      "last_checked": "2026-10-02T23:38:43-05:00"
+    },
+    {
+      "name": "data/fixtures/current/players.naming-manifest.json",
+      "freshness_source": "manifest of public.players identity projection; re-pinned with players.json (no separate monitor)",
+      "monitor_check": false,
+      "last_checked": "2026-10-02T23:38:43-05:00"
+    },
+    {
+      "name": "app/trade-value-chart/assets/adjustment-inputs.json",
+      "freshness_source": "reference-freshness.json (fit.combo_note / fixture_built_at branch)",
+      "monitor_check": true,
+      "last_checked": "2026-10-02T23:38:43-05:00"
+    },
+    {
+      "name": "data/fixtures/current/actuals_*.json",
+      "freshness_source": "mtime of most recent actuals_*.json (newest = data/fixtures/current/actuals_2026-09-22.json, mtime=2026-10-03T22:14:02Z; age 0d, band=ok); dashboard paints amber when >7d, red when >14d",
+      "monitor_check": true,
+      "last_checked": "2026-10-03T22:17:03Z",
+      "mtime": "2026-10-03T22:14:02Z"
+    },
+    {
+      "name": "data/fixtures/current/player-news.json",
+      "freshness_source": "reference-freshness.json items[news.generated_at] (value=2026-09-20T22:14:45Z; report generated 2026-10-02T23:38:43-05:00)",
+      "monitor_check": true,
+      "last_checked": "2026-10-02T23:38:43-05:00"
+    },
+    {
+      "name": "app/trade-value-chart/assets/reference-freshness.json",
+      "freshness_source": "self (this coverage is derived from it; freshness = its own generated_at)",
+      "monitor_check": true,
+      "last_checked": "2026-10-02T23:38:43-05:00"
+    },
+    {
+      "name": "app/trade-value-chart/assets/espn_inputs*.json",
+      "freshness_source": "ESPN intake inputs (DDF two-tier leg); file not present on this checkout",
+      "monitor_check": false,
+      "last_checked": null
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+{
+  "round": 1,
+  "date": "2026-09-30",
+  "errors": [
+    {
+      "id": "QA-001",
+      "severity": "critical",
+      "title": "Chart renders blank on guard failure",
+      "symptom": "Chart canvas blank white, red alert 'Curves unavailable: Curve regression guard failed: sourceScaleAgreement'",
+      "rootCause": "The sourceScaleAgreement guard was in the blocking guard list in curve-widget.js. When USA Today QB (13.8) vs ESPN anchor (27.2) = 0.51x fell outside the 0.80-1.25x band, the guard threw an Error. The throw in runRegressionGuards() aborted the entire init sequence before draw() was called, leaving a blank canvas.",
+      "reasoning": "A data-quality guard should never block rendering. Guards that detect genuine disagreements (not data corruption) must degrade to warnings. The throw was designed for data-integrity failures (NaN values, missing sources), but scale disagreement is a legitimate data state that users need to see.",
+      "status": "fixed",
+      "fix": "Removed sourceScaleAgreement from blocking guards; now warns via ChartHealth but allows chart to render. VERIFIED on live 2026-09-30: chart renders 5 curves, health shows 1 FAIL but chart visible."
+    },
+    {
+      "id": "QA-002",
+      "severity": "critical",
+      "title": "Player table ignores league settings",
+      "symptom": "Switching scoring (Full\u2192Half\u2192Standard) or teams (12\u21928) updates chart but table values stay byte-identical; caption stays 'Full PPR \u00b7 12 teams'",
+      "rootCause": "Cross-component sync via 'trade-value-shared-change' custom event proved unreliable in production. The curve widget dispatches the event on setScoring()/setTeams(), but the comparison dashboard's listener either missed the event (timing) or the handler failed silently. The event mechanism has no acknowledgment or retry.",
+      "reasoning": "Cross-component sync via custom events is fragile (timing, scope, errors). Critical UI sync needs a fallback mechanism. The polling backup ensures eventual consistency even if events fail.",
+      "status": "fixed",
+      "fix": "Added 2-second polling backup sync in comparison-dashboard.js. VERIFIED on live 2026-09-30: table syncs in ~200ms across all scoring/team combos."
+    },
+    {
+      "id": "QA-003",
+      "severity": "major",
+      "title": "ESPN adjusted checkbox silently reverts",
+      "symptom": "Unchecking 'Show ESPN adjusted curve' appears to work, then reverts with no feedback. Caption says 'locked to ESPN adjusted value'.",
+      "rootCause": "When sourceScaleAgreement failed, the code set lockOrder = defaultValueLock() which forced ESPN adjusted to stay checked. This was a programmatic override of user intent with zero user notification.",
+      "reasoning": "Any programmatic override of user intent must be visible. Silent reverts erode trust because the user cannot distinguish a bug from intentional behavior.",
+      "status": "fixed",
+      "fix": "Added notifyLockRevert() that shows a yellow notification explaining the revert reason. Pushed 2026-09-30."
+    },
+    {
+      "id": "QA-004",
+      "severity": "major",
+      "title": "Curves unavailable in some league setups",
+      "symptom": "Under Standard scoring or 8-team, most curves show 'not available... in the current artifact'",
+      "rootCause": "Data artifact (comparison-sources-data.json) doesn't include all scoring/team combos for all sources. The build pipeline only generates combos for certain configurations.",
+      "reasoning": "If the UI offers a setting, the data must support it. Missing combos are a build coverage gap, not a user error.",
+      "status": "open",
+      "fix": "Needed: Expand build to generate all combos, or disable UI options for missing data."
+    },
+    {
+      "id": "QA-005",
+      "severity": "major",
+      "title": "Contradictory freshness messaging",
+      "symptom": "Table caption says 'sources current' while dataset health shows '9 stale refs', news cells say 'Sep 18 \u00b7 older than values'",
+      "rootCause": "Different components use different freshness definitions. renderDataNotes() uses sourceIsStale() for 'stale refs', but the caption logic says 'sources current' when staleKeys.length === 0. News cells and reference pipe use yet other definitions.",
+      "reasoning": "Freshness must be defined once and used everywhere. Multiple definitions guarantee contradictions that confuse users about data reliability.",
+      "status": "fixed",
+      "fix": "Changed caption from 'sources current' to 'source weeks current' to be specific about what it checks. Pushed 2026-09-30."
+    },
+    {
+      "id": "QA-006",
+      "severity": "minor",
+      "title": "Rank slider range mismatch",
+      "symptom": "Zoom slider says 'Player rank 1\u2013530' but table holds 371 players",
+      "rootCause": "NOT A BUG: The slider uses fullRankMax() = displayRows().length (dynamic, data-driven). The 530 is the chart's row count (all players), 371 is the table's filtered count. Different views, different counts - both correct.",
+      "reasoning": "UI ranges must derive from data, not hardcoded values. This one already does - the apparent mismatch is two different views.",
+      "status": "fixed",
+      "fix": "No fix needed. Verified slider is data-driven via fullRankMax()."
+    },
+    {
+      "id": "QA-007",
+      "severity": "minor",
+      "title": "Coverage baseline confusion",
+      "symptom": "Coverage measured against '596-player canonical snapshot' while sources cover 116\u2013610 of 610",
+      "rootCause": "'596-player canonical snapshot' vs '610' total - different baselines used in different places. No single source of truth for the denominator.",
+      "reasoning": "A single canonical denominator must be used for all coverage calculations. Multiple baselines make coverage numbers incomparable.",
+      "status": "open",
+      "fix": "Needed: Define one canonical player universe count and use everywhere."
+    },
+    {
+      "id": "QA-008",
+      "severity": "data",
+      "title": "Scrambled player-team assignments",
+      "symptom": "Kyler Murray MIN, Tua Tagovailoa ATL, Kenneth Walker III KC, Jaylen Waddle DEN, etc.",
+      "rootCause": "NOT A BUG: verified 2026-10-01 against three independent publishers (ESPN 2026-09-30 snapshot, FantasyPros 2026-09-29, CBS Week 4) -- all agree on MIN/ATL/KC/DEN. These are real 2026 roster moves (same class as the verified DJ Moore-to-BUF trade, 2026-09-17), not a mapping scramble. Fixture teams map matches the fresh ESPN snapshot on 492/494 comparable players.",
+      "reasoning": "Player-team assignments must be validated against official rosters. Cross-publisher agreement is the check -- a lone dissenter is suspect, three agreeing publishers are reality.",
+      "status": "fixed",
+      "fix": "No pipeline change. Verified 2026-10-01: headline examples are genuine 2026 trades. One residual stale entry noted (Jimmy Horn Jr: fixture says CAR, Cleveland practice squad since 2026-09-18 per ESPN snapshot + news) -- refreshes with the next roster-source rebuild."
+    }
+  ],
+  "frameworks": [
+    {
+      "id": "F1",
+      "name": "Render Integrity",
+      "principle": "The UI must actually render what it promises",
+      "rule": "Every visual component must either render correctly or show an explicit, informative fallback \u2014 never a blank screen, never a silent absence. Data-quality guards must degrade to warnings, never block rendering.",
+      "revealedBy": "QA-001 (chart blank on guard failure), QA-004 (curves unavailable in some league setups)",
+      "futureApplication": "Any new chart, table, widget, or visualization: verify it renders under all data conditions (empty, partial, error, disagreement). Any new guard or validation: verify it warns rather than blanks.",
+      "checks": [
+        {
+          "id": "C1",
+          "name": "Chart Render Health",
+          "check": "Chart canvas contains visible curve paths (not blank)",
+          "fail": "Canvas is blank white with no curves rendered",
+          "reasoning": "From QA-001: A blank chart is the worst failure mode \u2014 user gets zero value. The guard that caused it was meant to protect data quality but destroyed usability."
+        },
+        {
+          "id": "C2",
+          "name": "Guard Failure Mode",
+          "check": "When sourceScaleAgreement fails, chart still renders with warning",
+          "fail": "Guard failure blanks the chart",
+          "reasoning": "From QA-001: Guards must distinguish data corruption (block) from genuine disagreement (warn). Scale disagreement is legitimate data."
+        }
+      ]
+    },
+    {
+      "id": "F2",
+      "name": "State Consistency",
+      "principle": "UI state must stay coherent across components and user actions",
+      "rule": "When the user changes a setting, every component must reflect that change. When the system overrides user intent, it must notify visibly. No silent desyncs, no silent reverts.",
+      "revealedBy": "QA-002 (player table ignores league settings), QA-003 (ESPN checkbox silently reverts)",
+      "futureApplication": "Any new setting, toggle, filter, or cross-component interaction: verify all affected components update. Any programmatic state override: verify user gets notified.",
+      "checks": [
+        {
+          "id": "C3",
+          "name": "Table-Chart Settings Sync",
+          "check": "After scoring/team change, table caption matches chart caption within 3 seconds",
+          "fail": "Captions differ, or table values identical across scorings",
+          "reasoning": "From QA-002: The table claims 'using the same league settings as the graph' \u2014 this is a contract with the user. Breaking it silently is worse than an error."
+        },
+        {
+          "id": "C4",
+          "name": "Silent State Reverts",
+          "check": "Any programmatic revert of user action triggers visible notification",
+          "fail": "Checkbox/toggle reverts without user feedback",
+          "reasoning": "From QA-003: Silent reverts are indistinguishable from bugs. Users lose trust when the UI doesn't do what they asked without explanation."
+        }
+      ]
+    },
+    {
+      "id": "F3",
+      "name": "Information Coherence",
+      "principle": "The same information must be presented consistently everywhere",
+      "rule": "Define every metric, label, and range once. Use that single definition in every component. If two places show different values for the same concept, one of them is wrong.",
+      "revealedBy": "QA-005 (contradictory freshness messaging), QA-006 (rank slider range mismatch), QA-007 (coverage baseline confusion)",
+      "futureApplication": "Any new metric, timestamp, count, or range display: verify it uses the canonical definition. Any new UI text describing data: verify it matches what other components say.",
+      "checks": [
+        {
+          "id": "C5",
+          "name": "Freshness Message Consistency",
+          "check": "'Sources current' label only appears when zero stale refs",
+          "fail": "Caption claims 'current' while health shows stale refs",
+          "reasoning": "From QA-005: Contradictory freshness messages make users doubt all data. One definition, used everywhere."
+        },
+        {
+          "id": "C6",
+          "name": "UI Range Accuracy",
+          "check": "Slider max values match actual data counts",
+          "fail": "Slider range differs from data by >5%",
+          "reasoning": "From QA-006: Hardcoded UI values rot. Data-driven UI stays correct as data changes."
+        }
+      ]
+    },
+    {
+      "id": "F4",
+      "name": "Data Integrity",
+      "principle": "The underlying data must be correct, valid, and traceable to source",
+      "rule": "Every value shown must be traceable through the pipeline to its source. Entity relationships (player\u2192team, value\u2192source) must be preserved. Sanity bounds catch corruption before users see absurd values.",
+      "revealedBy": "QA-008 (scrambled player-team assignments), plus the source lineage and index-math verification work",
+      "futureApplication": "Any new data source: verify values match the source exactly. Any new transformation: verify output matches recomputed expected values. Any new entity relationship: verify against authoritative reference.",
+      "checks": [
+        {
+          "id": "C7",
+          "name": "Player-Team Assignment Validity",
+          "check": "Sample of player-team assignments match official rosters",
+          "fail": ">2% mismatch rate",
+          "reasoning": "From QA-008: Team assignments are user-visible and verifiable. Mismatches indicate pipeline issues that may affect other fields."
+        },
+        {
+          "id": "C8",
+          "name": "Value Sanity Bounds",
+          "check": "Top player values within expected ranges (QB: 20-40, RB: 50-75, WR: 30-45, TE: 15-30 for Full PPR 12-team)",
+          "fail": "Values outside 2x expected range",
+          "reasoning": "Sanity bounds catch pipeline errors before users see absurd values. A QB valued at 200 or 2 is clearly wrong."
+        }
+      ]
+    }
+  ]
+}

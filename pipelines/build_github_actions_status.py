@@ -19,6 +19,12 @@ Per-run and per-workflow fields (JEG-109):
                            FAILING_STREAK_THRESHOLD. Threshold of 3 would
                            have flagged the 5-consecutive-failure JEG-113
                            outage two runs before it stopped the chain.
+  - workflow.alert_needed GAP-035 alert surface: true when
+                           consecutive_failures >= 3. Mirrors
+                           failing_streak for now; the destination of the
+                           alert is decided separately. The dashboard GH
+                           Actions card reads this field and renders an
+                           "alert: failing streak" badge.
 
 Pipeline coverage map:
   - Rebuild comparison chain: C1-C8 (import -> health -> comparison rebuild)
@@ -85,7 +91,45 @@ PIPELINE_COVERAGE = {
         "schedule": "Hourly (JEG-76)",
         "key_task": "Vintage-gated rebuild trigger",
     },
+    "CBS ROS scrape to Supabase": {
+        # JEG-311: closes the automation gap where CBS ROS data was only
+        # updated via manual pull + save runs (JEG-71). Writes to
+        # public.cbs_ros_projections. Cron `0 11 * * 3` per
+        # .github/workflows/cbsros-supabase-sync.yml.
+        "stages": ["C2", "C3"],
+        "description": "Weekly CBS ROS scrape to Supabase",
+        "schedule": "Weekly Wed 11:00 UTC (06:00 CT)",
+        "key_task": "CBS ROS scrape to Supabase",
+    },
+    "Live page synthetic gate": {
+        # JEG-311 fixup (Roman): the worker mapped CBS ROS but left these two
+        # real workflows unmapped, which broke the ticket's own AC3
+        # (coverage_gaps empty when all 9 workflows are mapped).
+        "stages": ["C10"],
+        "description": "Daily CI check of the live production page render",
+        "schedule": "Daily 06:00 UTC (01:00 CT)",
+        "key_task": "Live production render check",
+    },
+    "Preview build": {
+        "stages": ["C9"],
+        "description": "PR preview: builds exactly what pages.yml would publish; never deploys",
+        "schedule": "On pull_request",
+        "key_task": "PR deploy-pipeline validation",
+    },
 }
+
+
+def compute_coverage_gaps(workflow_names: list[str], coverage_keys: set[str]) -> list[str]:
+    """Return sorted workflow names present in the API list but missing
+    from PIPELINE_COVERAGE.
+
+    JEG-311: the previous hardcoded `coverage_gaps: []` masked the fact
+    that workflows like CBS ROS, Live page synthetic gate, and Preview
+    build were rendering as "Unmapped" on the dashboard. Gaps are now
+    computed as `set(workflow_names) - coverage_keys`, sorted for
+    deterministic ordering.
+    """
+    return sorted(set(workflow_names) - coverage_keys)
 
 
 def fetch_json(url: str) -> dict:
@@ -243,24 +287,21 @@ def main() -> int:
             "consecutive_failures": streak,
             "last_success_at": success_ts,
             "failing_streak": streak >= FAILING_STREAK_THRESHOLD,
+            # GAP-035: alert_needed is the boolean the dashboard reads to
+            # render the "alert: failing streak" badge. Currently the
+            # same condition as failing_streak; kept as a separate field
+            # so the alert destination work can pivot on alert_needed
+            # without touching the existing failing_streak consumers.
+            "alert_needed": streak >= FAILING_STREAK_THRESHOLD,
         })
 
-    # Check for coverage gaps
-    all_stages = set()
-    for wf in workflows:
-        all_stages.update(wf["coverage"]["stages"])
-
-    # Key tasks that should have automation
-    required_tasks = [
-        "Automated pipeline refresh",
-        "FantasyCalc source freshness",
-        "Production deployment",
-        "ESPN scrape to Supabase",  # Currently manual/cron, not GitHub Action
-        "Player Trace rebuild",  # May be manual
-    ]
-
-    covered_tasks = {wf["coverage"]["key_task"] for wf in workflows}
-    gaps = [t for t in required_tasks if t not in covered_tasks]
+    # Check for coverage gaps — JEG-311: workflows present in the API list
+    # but absent from the PIPELINE_COVERAGE map. Previously this was the
+    # hardcoded `coverage_gaps: []`, which masked unmapped entries
+    # (CBS ROS, Live page synthetic gate, Preview build) on the dashboard.
+    api_workflow_names = [wf["name"] for wf in workflows]
+    coverage_keys = set(PIPELINE_COVERAGE.keys())
+    gaps = compute_coverage_gaps(api_workflow_names, coverage_keys)
 
     output = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -275,6 +316,7 @@ def main() -> int:
             "failing": sum(1 for w in workflows if w["health"] == "fail"),
             "running": sum(1 for w in workflows if w["health"] == "running"),
             "failing_streak_count": sum(1 for w in workflows if w.get("failing_streak")),
+            "alert_needed_count": sum(1 for w in workflows if w.get("alert_needed")),
             "max_consecutive_failures": max((w.get("consecutive_failures", 0) for w in workflows), default=0),
             "gaps_count": len(gaps),
         },

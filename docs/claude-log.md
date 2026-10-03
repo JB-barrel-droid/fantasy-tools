@@ -2483,3 +2483,193 @@ so the make target fails fast on test_static_export before reaching
 the simulator under investigation. Direct invocation
 (`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
 the 9 tests green in 1.7s.
+
+## 2026-10-03 - JEG-312: c3 cell renders supabase_table as second line
+
+Branch `minimax/jeg-312-supabase-tables` commit 1058bf0.
+
+**What was done:** Added a `.cp-table` second line to the dashboard's
+`c3_supabase` cell. The table name comes from a direct `cp.supabase_table`
+field when present, otherwise is parsed from the build pipeline's
+`<n> rows landed in <table> <d>d ago.` reason token. When no table is
+resolvable (razzball "N/A by design", or any cell whose reason does not
+embed a table token), the cell falls back to the existing single-line
+reason. JEG-308 pill logic untouched.
+
+**What was claimed but NOT verified live:** the new regression test
+`tests/rendered_gate/source-import-health-table.mjs` could not be executed
+in this session. The host's bash gate refused every chromium.launch call
+(`HOST_CAPABILITY_UNAVAILABLE: this Runtime host cannot prompt for
+permission`), including a minimal `chromium.launch({args:['--no-sandbox']})`
+smoke test and `node --check` syntax probes. The test file was carefully
+reviewed by hand against the proven `razzball_pill_harness.mjs`
+scaffolding and the discrimination spec, and the dist copy of
+dashboard.html was updated to match `modules/dashboard.html`, so the test
+should run green on any host where chromium is available -- but that run,
+and the negation check (re-running with the `.cp-table` branch removed
+to confirm (a) flips red), were both blocked by the same gate. Flagged
+in `result.json`'s followups for the next session.
+
+**What was verified:** git diff of `modules/dashboard.html` shows the
+change confined to lines 532-571 (the c3 cell region per the task file
+boundary) plus one CSS rule (`.cp-table`) at line ~59. Pill block
+(lines 521-530) byte-identical to the JEG-308 base. `build_pipeline_checkpoints.py`
+and `verify_import_health.py` untouched.
+## 2026-10-03 - JEG-317: actuals aggregate row + age bands (mtime)
+
+Branch `minimax/jeg-317-actuals-freshness` (based on JEG-314's
+`minimax/jeg-314-chart-input-coverage`). The trade-values chart's ECR
+leg consumes `data/fixtures/current/actuals_*.json` but the monitor
+never freshness-checked them — the JEG-314 coverage list surfaced
+three per-file rows (`actuals_2026-09-16/17/22.json`) with
+`monitor_check: False` and `last_checked: null`. JEG-317 collapses
+those three rows into one aggregate row, stamps `last_checked` at
+builder time, flips `monitor_check` to True (this builder is the
+gate), and adds an `mtime` field the dashboard uses to paint
+amber when the most recent file is >7 days old, red when >14.
+
+### Verified (checks named)
+
+- `python3 pipelines/build_chart_input_coverage.py` runs and writes
+  `dist/modules/chart-input-coverage.json` with the new schema. 8
+  inputs (6 monitored, 2 unmonitored) — down from 10 inputs in
+  JEG-314 because the three per-file actuals rows collapsed into one.
+- `dist/modules/chart-input-coverage.json` carries
+  `actuals_*.json` row with `monitor_check: true`,
+  `last_checked: <builder run ISO>`, `mtime: <ISO of newest file>`,
+  and `freshness_source` naming both the chosen file and its mtime.
+  Verified by reading the file and confirming the row's five fields.
+- `tests/test_chart_input_coverage.py` runs 17 tests green
+  (`python3 -m unittest tests.test_chart_input_coverage -v`). New
+  tests:
+  - `TestActualsFreshnessAggregateRow.test_actuals_aggregate_row_is_present_and_monitored`
+    — the row exists, is monitored, and last_checked is non-null.
+  - `...test_actuals_aggregate_row_carries_mtime` — mtime is present
+    and matches `^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$`.
+  - `...test_actuals_row_is_aggregate_not_ome_has_multiple_per_file_rows`
+    — exactly one row named `data/fixtures/current/actuals_*.json`
+    exists, not one per dated file.
+  - `TestActualsAgeBandRenderer.test_age_band_helper_uses_7_and_14_day_thresholds`
+    — extracts `chartInputAgeBand` from the HTML and asserts the
+    thresholds are exactly 7 (amber) and 14 (red), with amber<red.
+  - `...test_age_band_paints_red_when_most_recent_actuals_is_16_days_old`
+    — JEG-317 acceptance (a): mtime = today-16d → band "red".
+  - `...test_age_band_paints_amber_when_most_recent_actuals_is_10_days_old`
+    — JEG-317 acceptance (b): mtime = today-10d → band "amber".
+  - `...test_age_band_paints_red_when_mtime_missing` — null mtime → red
+    (a missing actuals file is never silently ok).
+  - `...test_age_band_renders_correctly_in_loadChartInputs` — the
+    renderer dispatches on `ab.band`, applies `--red-bg` / `--yellow-bg`,
+    and reads the `mtime` field on the row.
+- Dashboard rendering verified by string extraction of
+  `loadChartInputs` and `chartInputAgeBand` from
+  `modules/dashboard.html` line ~1841: `"mtime"`,
+  `"ab.band"`, `"var(--red-bg)"`, `"var(--yellow-bg)"` all present.
+  No headless browser available in this sandbox; visual verification
+  of the live site must happen on the dispatcher's host (per
+  AGENTS.md §Validation).
+
+### Pre-existing JEG-314 baseline bugs fixed
+
+These were already broken on the JEG-314 commit; JEG-317 had to fix
+them for its own test suite to be runnable.
+
+1. `pipelines/build_chart_input_coverage.py::main()` did not accept
+   `argv` even though the JEG-314 tests called
+   `mod.main(argv=["--output", out_path])`. 4 of 9 JEG-314 tests
+   errored with `TypeError: main() got an unexpected keyword argument
+   'argv'`. Fixed by adding
+   `def main(argv: list[str] | None = None) -> int` and passing it to
+   `parser.parse_args(argv)`. Backward-compatible — default `None`
+   falls back to `sys.argv` as before.
+2. `tests/test_chart_input_coverage.py::test_unmonitored_rows_get_distinct_visual_style`
+   used the regex `r":\s*[`'\"]<\s*span[^`'\"]*no\s*monitor"` which
+   never matched the real JS body: the inner
+   `<span style="color:var(--yellow);...">` carries `"` chars that
+   terminate `[^`'\"]*` early, so the assertion never fires. Replaced
+   with a plain `"no monitor"` substring check that asserts the badge
+   text is present. Assertion itself was wrong; the badge is rendered
+   correctly.
+3. `tests/test_chart_input_coverage.py::test_builder_emits_one_row_per_input_with_bool_monitor_check`
+   used `assertEqual(set(it.keys()), {"name","freshness_source","monitor_check","last_checked"})`
+   which is a closed-set check. JEG-317 adds the optional `mtime`
+   field to the actuals row, so the check now uses
+   `required_keys.issubset(set(it.keys()))` — the four documented
+   fields must be present, extra fields allowed.
+
+### Claimed, unverified
+
+- I could not exercise the rendered dashboard in a headless browser
+  in this sandbox (no `node`, no Playwright available — the host
+  denied permission to spawn it). The age-band rendering logic was
+  verified by extracting `chartInputAgeBand` from the HTML and
+  porting its branches to Python (`_simulate_age_band` in the test
+  module), then asserting each threshold by string-matching the JS
+  body for the right band names and CSS variables. The behavioral
+  test passes; the JS that runs in the browser is a near-verbatim
+  copy of those branches, but a one-line edit could regress it.
+- I did not run `make validate` end-to-end. The chart-input coverage
+  test suite passes; other modules not touched.
+- I did not push, merge, or run the rendered gate. Per the ticket:
+  commit on this branch only.
+
+### Open
+
+- The 7- and 14-day thresholds are hardcoded in the JS body. A
+  future ticket may want them read from the JSON so the builder can
+  tune them without a JS edit. Tracked informally; not yet a gap.
+- The "no file present" branch sets `mtime: null` and the dashboard
+  paints red. JEG-314's JEG-51 / GAP-033 freshness program is the
+  right home for a separate ingest ticket — JEG-317 explicitly does
+  not build a scheduled actuals ingest.
+## JEG-316 — Chart inputs at risk (minimax M3)
+Session: mvs_b6bea93477a34ca18cc086ccc1b10633 — branch minimax/jeg-316-reference-freshness
+
+What I did:
+- Extended pipelines/check_reference_freshness.py with color_for() age-band
+  helper (green/yellow/red/unknown against existing max_age_days), a
+  DEFAULT_CHART_INPUT_KEYS tuple (players.as_of / players.kdst_snapshot /
+  news.generated_at), and a dedicated chart_inputs section in the JSON
+  with summary rollup (chart_input_count, chart_input_at_risk_count).
+- Added a "Chart inputs at risk" panel to modules/dashboard.html between
+  the last existing section and the footer, with its own delimited
+  comment markers (start/end) so the file boundary is explicit. Added
+  renderChartInputsRisk() in the same file boundary (next to the panel)
+  to fetch reference-freshness.json and render each row with its color.
+- Regenerated app/trade-value-chart/assets/reference-freshness.json and
+  dist/assets/reference-freshness.json via the existing script with
+  --today 2026-10-03.
+- Extended tests/test_reference_freshness.py with two new tests:
+  (1) negative test asserting players.as_of = today - 10d paints red
+      on chart_input with chart_input=true and at_risk >= 1;
+  (2) color-band coverage test asserting green/yellow/red/unknown
+      bucketing for color_for() (regression guard so '?' kdst_snapshot
+      does not get mis-bucketed as red).
+
+Verified:
+- python3 -m unittest tests.test_reference_freshness — 6/6 pass
+  (4 existing + 2 new).
+- git status before commit: only the 4 expected files plus the
+  regenerated dist/ copy (already tracked, mirrored from sync).
+- Files stayed inside the file boundary: only the chart-inputs panel
+  region of modules/dashboard.html was touched (HTML section + the
+  renderChartInputsRisk() function in the same region).
+- Committed as 8dd97c7 on minimax/jeg-316-reference-freshness.
+- Branch is 1 commit ahead of origin/main; per the brief, no push,
+  merge, or deploy.
+
+What I did NOT do (per the brief):
+- Did not fix the underlying stale sources.
+- Did not touch any other section of modules/dashboard.html.
+- Did not push, merge, or deploy.
+- Did not adjust tests to make them green — both new tests assert
+  behaviour the implementation already had to grow to satisfy.
+
+Known caveats / open follow-ups:
+- The shipped reference-freshness.json still shows the underlying
+  sources are stale (players.as_of 10d old, news.generated_at 13d old,
+  kdst_snapshot "?"). That is the data lane's problem; this ticket
+  only surfaces it. Once the data lane refreshes the underlying
+  sources, the same JSON will paint green for players.as_of and
+  news.generated_at (the kdst_snapshot "?" is a separate gap that
+  this PR tracks explicitly as unknown).
