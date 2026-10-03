@@ -21,9 +21,12 @@ Status: ok/warn/bad/unk with specific reason. Never green on stale data.
 import json
 import os
 import re
+import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+
+import hashlib
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCES = ["espn", "cbs", "cbsros", "razzball", "fantasycalc", "fantasypros", "usatoday"]
@@ -100,6 +103,36 @@ def days_old(iso_str):
         return None
     delta = datetime.now(timezone.utc) - dt
     return delta.total_seconds() / 86400
+
+
+def committed_fixture_sha(fixture_path):
+    """SHA-12 of the fixture as committed on origin/main.
+
+    The C10 rendered check compares what production serves against "what
+    should be live". The shared checkout routinely carries other lanes'
+    uncommitted changes (2026-10-03: the working-tree fixture differed from
+    the committed fixture while the live bytes matched the committed one
+    byte-for-byte), so the working tree is not a trustworthy baseline.
+    Prefer the committed blob; fall back to the working tree only when git
+    cannot provide it (non-git environment, missing ref).
+    """
+    try:
+        rel = fixture_path.relative_to(REPO).as_posix()
+    except ValueError:
+        rel = None
+    if rel:
+        for rev in ("origin/main", "HEAD"):
+            try:
+                out = subprocess.run(
+                    ["git", "-C", str(REPO), "show", f"{rev}:{rel}"],
+                    capture_output=True, timeout=15)
+                if out.returncode == 0 and out.stdout:
+                    return hashlib.sha256(out.stdout).hexdigest()[:12]
+            except Exception:
+                continue
+    if fixture_path.exists():
+        return hashlib.sha256(fixture_path.read_bytes()).hexdigest()[:12]
+    return None
 
 
 def evaluate_pages_deploy(runs):
@@ -608,7 +641,7 @@ def build_checkpoints():
             live_data = json.loads(live_bytes.decode())
             live_sha = hashlib.sha256(live_bytes).hexdigest()[:12]
 
-            # Compare against the fixture bytes, not the committed dist/ copy.
+            # Compare against the COMMITTED fixture bytes, not the working tree.
             # The Pages workflow runs `make sync` before deploying, and sync
             # copies data/fixtures/current/comparison-sources-data.json
             # byte-identically into dist/assets/ — so the fixture is the true
@@ -617,10 +650,13 @@ def build_checkpoints():
             # step); comparing live against that stale copy produced false
             # "Production output WRONG" alarms on 2026-09-30 (live correctly
             # served the fresh fixture while committed dist lagged one commit).
+            # And the working-tree fixture can carry other lanes' uncommitted
+            # changes (2026-10-03: served bytes matched the committed fixture
+            # byte-for-byte while the working tree did not); committed_fixture_sha
+            # prefers the origin/main blob so a dirty checkout cannot false-red
+            # every source's C10.
             fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-            fixture_sha = None
-            if fixture_path.exists():
-                fixture_sha = hashlib.sha256(fixture_path.read_bytes()).hexdigest()[:12]
+            fixture_sha = committed_fixture_sha(fixture_path)
 
             issues = []
             # Check 1: week_designated matches expected

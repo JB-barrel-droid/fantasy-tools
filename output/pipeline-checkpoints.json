@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-03T14:58:53.004005+00:00",
+  "generated_at": "2026-10-03T16:43:14.116773+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -61,27 +61,27 @@
         "c1_publication": {
           "timestamp": "2026-10-02",
           "status": "ok",
-          "reason": "Publisher released 2026-10-02 (1.6d ago)."
+          "reason": "Publisher released 2026-10-02 (1.7d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03T14:51:42.683556+00:00",
-          "status": "ok",
-          "reason": "Pulled 2026-10-03T14:51:42.683556+00:00 (data/raw/sources/espn/2026-10-02/snapshot.json)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for espn in ops/watchdog/pulls/ and no snapshot_path in health file."
         },
         "c3_supabase": {
-          "timestamp": "2026-10-01T02:22:11.700109+00:00",
+          "timestamp": "2026-10-03T15:11:06.412217+00:00",
           "status": "ok",
-          "reason": "495 rows landed in public.espn_season_projections 2.5d ago."
+          "reason": "496 rows landed in public.espn_season_projections 0.1d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:51:42.683556+00:00",
-          "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/espn/2026-10-02/snapshot.json, vintage 2026-10-02)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Snapshot path data/raw/sources/espn/2026-10-02/snapshot.json not found on disk."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T14:37:27Z",
-          "status": "ok",
-          "reason": "Health gate ok (checked 0.0d ago)."
+          "timestamp": "2026-10-03T16:37:05Z",
+          "status": "warn",
+          "reason": "Health gate warning: TABLE_DRIFT: table has 496 rows at latest vintage 2026-10-03, manifest expects 495 (within tolerance; stamping lag); table latest vintage 2026-10-03 != manifest vintage 2026-10-02 -- run stage-1 import to stamp it (table is fresher: stamping lag)."
         },
         "c6_candidate": {
           "timestamp": "2026-10-03T09:13:02.107410+00:00",
@@ -96,15 +96,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:58:56.018045+00:00",
+          "timestamp": "2026-10-03T16:43:20.516763+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 12 combos. Live built 2026-10-03T09:37."
         }
@@ -119,9 +119,9 @@
           "reason": "Publisher released Week 4 (0.0d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03",
-          "status": "ok",
-          "reason": "Pulled 2026-10-03 (ops/watchdog/pulls/cbs-2026-10-03.json)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for cbs in ops/watchdog/pulls/ and no snapshot_path in health file."
         },
         "c3_supabase": {
           "timestamp": "2026-09-29T22:44:26.21804+00:00",
@@ -129,12 +129,12 @@
           "reason": "342 rows landed in public.cbs_trade_values 3.7d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:51:42.685505+00:00",
-          "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Snapshot path data/raw/sources/cbs/week-4/snapshot.json not found on disk."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T14:37:27Z",
+          "timestamp": "2026-10-03T16:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -151,15 +151,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:58:58.259695+00:00",
+          "timestamp": "2026-10-03T16:43:25.805314+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 3 combos. Live built 2026-10-03T09:37."
         }
@@ -171,25 +171,25 @@
         "c1_publication": {
           "timestamp": "2026-10-02",
           "status": "ok",
-          "reason": "Publisher released 2026-10-02 (1.6d ago)."
+          "reason": "Publisher released 2026-10-02 (1.7d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03T14:51:42.692003+00:00",
-          "status": "ok",
-          "reason": "Pulled 2026-10-03T14:51:42.692003+00:00 (data/raw/sources/cbsros/2026-10-02/snapshot.json)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for cbsros in ops/watchdog/pulls/ and no snapshot_path in health file."
         },
         "c3_supabase": {
           "timestamp": "2026-10-02T20:16:45.413474+00:00",
           "status": "ok",
-          "reason": "363 rows landed in public.cbs_ros_projections 0.8d ago."
+          "reason": "363 rows landed in public.cbs_ros_projections 0.9d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:51:42.692003+00:00",
-          "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Snapshot path data/raw/sources/cbsros/2026-10-02/snapshot.json not found on disk."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T14:37:27Z",
+          "timestamp": "2026-10-03T16:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -206,15 +206,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:59:00.405165+00:00",
+          "timestamp": "2026-10-03T16:43:30.526825+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 12 combos. Live built 2026-10-03T09:37."
         }
@@ -226,12 +226,12 @@
         "c1_publication": {
           "timestamp": "2026-10-01",
           "status": "ok",
-          "reason": "Publisher released 2026-10-01 (2.6d ago)."
+          "reason": "Publisher released 2026-10-01 (2.7d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03T14:39:29.405259+00:00",
+          "timestamp": "2026-10-03T16:40:41.955001+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-03T14:39:29.405259+00:00 (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json)."
+          "reason": "Pulled 2026-10-03T16:40:41.955001+00:00 (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json)."
         },
         "c3_supabase": {
           "timestamp": null,
@@ -239,14 +239,14 @@
           "reason": "N/A by design: file-scraped source, no Supabase landing stage."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:39:29.405259+00:00",
+          "timestamp": "2026-10-03T16:40:41.955001+00:00",
           "status": "ok",
           "reason": "Snapshot stamped 0.0d ago (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-01)."
         },
         "c5_health": {
           "timestamp": "2026-10-01T12:56:03Z",
           "status": "warn",
-          "reason": "Health gate ok (checked 2.1d ago)."
+          "reason": "Health gate ok (checked 2.2d ago)."
         },
         "c6_candidate": {
           "timestamp": null,
@@ -261,15 +261,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:59:02.812167+00:00",
+          "timestamp": "2026-10-03T16:43:34.157359+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 12 combos. Live built 2026-10-03T09:37."
         }
@@ -284,9 +284,9 @@
           "reason": "Publisher released Week 4 (0.0d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03T14:51:42.679262+00:00",
+          "timestamp": "2026-10-03T16:40:42.023096+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-03T14:51:42.679262+00:00 (data/raw/sources/fantasycalc/week-4/snapshot.json)."
+          "reason": "Pulled 2026-10-03T16:40:42.023096+00:00 (data/raw/sources/fantasycalc/week-4/snapshot.json)."
         },
         "c3_supabase": {
           "timestamp": "2026-09-30T20:48:01.847527+00:00",
@@ -294,12 +294,12 @@
           "reason": "590 rows landed in public.source_trade_values 2.8d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:51:42.679262+00:00",
+          "timestamp": "2026-10-03T16:40:42.023096+00:00",
           "status": "ok",
           "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T14:37:27Z",
+          "timestamp": "2026-10-03T16:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -316,15 +316,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:59:04.676911+00:00",
+          "timestamp": "2026-10-03T16:43:37.171512+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 24 combos. Live built 2026-10-03T09:37."
         }
@@ -336,25 +336,25 @@
         "c1_publication": {
           "timestamp": "2026-09-29",
           "status": "ok",
-          "reason": "Publisher released 2026-09-29 (4.6d ago)."
+          "reason": "Publisher released 2026-09-29 (4.7d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03T14:51:42.690184+00:00",
-          "status": "ok",
-          "reason": "Pulled 2026-10-03T14:51:42.690184+00:00 (data/raw/sources/fantasypros/2026-09-29/snapshot.json)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for fantasypros in ops/watchdog/pulls/ and no snapshot_path in health file."
         },
         "c3_supabase": {
           "timestamp": "2026-10-01T20:13:46.037266+00:00",
           "status": "ok",
-          "reason": "534 rows landed in public.source_trade_values 1.8d ago."
+          "reason": "534 rows landed in public.source_trade_values 1.9d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:51:42.690184+00:00",
-          "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Snapshot path data/raw/sources/fantasypros/2026-09-29/snapshot.json not found on disk."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T14:37:27Z",
+          "timestamp": "2026-10-03T16:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -371,15 +371,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:59:06.660208+00:00",
+          "timestamp": "2026-10-03T16:43:39.623542+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 3 combos. Live built 2026-10-03T09:37."
         }
@@ -391,25 +391,25 @@
         "c1_publication": {
           "timestamp": "2026-09-29",
           "status": "ok",
-          "reason": "Publisher released 2026-09-29 (4.6d ago)."
+          "reason": "Publisher released 2026-09-29 (4.7d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03",
-          "status": "ok",
-          "reason": "Pulled 2026-10-03 (ops/watchdog/pulls/usatoday-2026-10-03.json)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No pull file found for usatoday in ops/watchdog/pulls/ and no snapshot_path in health file."
         },
         "c3_supabase": {
           "timestamp": "2026-10-02T15:15:41.980347+00:00",
           "status": "ok",
-          "reason": "747 rows landed in public.source_trade_values 1.0d ago."
+          "reason": "747 rows landed in public.source_trade_values 1.1d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-03T14:51:42.688122+00:00",
-          "status": "ok",
-          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Snapshot path data/raw/sources/usatoday/2026-09-29/snapshot.json not found on disk."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T14:37:27Z",
+          "timestamp": "2026-10-03T16:37:05Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -426,15 +426,15 @@
         "c8_sync": {
           "timestamp": "2026-10-03T09:37:18.210356+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.2d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.3d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T14:58:41Z",
+          "timestamp": "2026-10-03T16:40:24Z",
           "status": "ok",
-          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
+          "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T14:59:08.571623+00:00",
+          "timestamp": "2026-10-03T16:43:42.520075+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (8ab9581df440), 3 combos. Live built 2026-10-03T09:37."
         }
@@ -446,7 +446,7 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": true,
-    "run_age_days": 0.24035259564814812,
+    "run_age_days": 0.31296773978009257,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -462,7 +462,7 @@
       "what": "build_adjustment_inputs.py ran recently (adjustment-inputs.json fresh)",
       "timestamp": "2026-10-03T09:13:00Z",
       "status": "ok",
-      "reason": "Fit version ddf-20260930-espn-ppr-12t-0p15 generated 2026-10-03T09:13:00Z (0.2d ago)."
+      "reason": "Fit version ddf-20260930-espn-ppr-12t-0p15 generated 2026-10-03T09:13:00Z (0.3d ago)."
     },
     "a3_sections": {
       "label": "A3 \u00b7 Sections baked",
@@ -474,7 +474,7 @@
     "a4_sync": {
       "label": "A4 \u00b7 Synced to dist",
       "what": "dist/assets/adjustment-inputs.json matches app/ version (ready for deploy)",
-      "timestamp": "2026-10-03T14:39:29.306953+00:00",
+      "timestamp": "2026-10-03T16:40:41.863001+00:00",
       "status": "ok",
       "reason": "dist/ version ddf-20260930-espn-ppr-12t-0p15 matches app/ version."
     },
@@ -489,7 +489,7 @@
   "methodology_consistency": {
     "label": "VORP / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
-    "timestamp": "2026-10-03T14:59:08.955115+00:00",
+    "timestamp": "2026-10-03T16:43:43.388469+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use proportional_scaling_flex_aware_per_position anchored to espn_leg on the flex_aware_pie reindex fit (translation step checked separately).",
     "expected_method": "proportional_scaling_flex_aware_per_position",
