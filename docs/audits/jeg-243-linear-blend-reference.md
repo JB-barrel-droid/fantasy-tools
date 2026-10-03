@@ -61,3 +61,12 @@ without treating illustrative policy inputs as an approved production decision.
 `make validate` exits0 on detached composite main5792ba5 + PR43/47–51 +
 this slice. Log /private/tmp/jeg243-combined-validate.log. This does not certify
 later main39a3f29 or production. Author branch contains no generated artifacts.
+
+Independent read-only Claude Code MCP review ran17 targeted tests successfully.
+It proposed equating granular bench_mix80 with publisher bench_total72. Codex
+rejected that proposed change: JEG180's approved publisher roster and the granular
+reference shape are deliberately distinct (also documented in JEG239/240). The
+contract verifies each shape independently and preserves both, without silently
+rescaling either. Their production economics require explicit review; this
+candidate does not certify semantic equivalence. No other concrete defect was
+reported. Review declaration/URL remains provenance, not authenticated approval.
