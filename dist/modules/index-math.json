@@ -1,460 +1,934 @@
 {
-  "generated_at": "2026-09-30T20:00:06.063323+00:00",
+  "generated_at": "2026-10-03T02:35:18.237772+00:00",
   "sources": {
-    "espn": {
-      "methodology": "DDF two-tier",
-      "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
-      "steps": [
-        "1. Start with ESPN per-game projection (native/ppg)",
-        "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
-        "3. Scale to 70-point index (fixed-pie methodology)",
-        "4. Round to 1 decimal → fixture values"
-      ],
-      "combos": {
-        "full_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 22.92,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 18.47,
-              "leg_value": 50.9,
-              "fixture_value": 50.9,
-              "match": true
-            },
-            {
-              "player": "christian mccaffrey",
-              "native": 17.9,
-              "leg_value": 48.4,
-              "fixture_value": 48.4,
-              "match": true
-            }
-          ]
-        },
-        "half_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 20.85,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 16.77,
-              "leg_value": 52,
-              "fixture_value": 52,
-              "match": true
-            },
-            {
-              "player": "kenneth walker iii",
-              "native": 16.34,
-              "leg_value": 50.1,
-              "fixture_value": 50.1,
-              "match": true
-            }
-          ]
-        },
-        "standard_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 18.79,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "derrick henry",
-              "native": 15.41,
-              "leg_value": 55.1,
-              "fixture_value": 55.1,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 15.06,
-              "leg_value": 53.5,
-              "fixture_value": 53.5,
-              "match": true
-            }
-          ]
-        }
-      },
-      "status": "ok",
-      "mismatches": [],
-      "reason": "All 60/60 verified exact",
-      "label": "ESPN"
-    },
-    "cbsros": {
-      "methodology": "DDF two-tier",
-      "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
-      "steps": [
-        "1. Start with CBS ROS per-game projection (native/ppg)",
-        "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
-        "3. Scale to 70-point index (fixed-pie methodology)",
-        "4. Round to 1 decimal → fixture values"
-      ],
-      "combos": {
-        "full_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 24.929,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 20.857,
-              "leg_value": 54.8,
-              "fixture_value": 54.8,
-              "match": true
-            },
-            {
-              "player": "jonathan taylor",
-              "native": 19.643,
-              "leg_value": 50.2,
-              "fixture_value": 50.2,
-              "match": true
-            }
-          ]
-        },
-        "half_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 22.679,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 18.714,
-              "leg_value": 54.7,
-              "fixture_value": 54.7,
-              "match": true
-            },
-            {
-              "player": "jonathan taylor",
-              "native": 18.357,
-              "leg_value": 53.3,
-              "fixture_value": 53.3,
-              "match": true
-            }
-          ]
-        },
-        "standard_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 20.429,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "jonathan taylor",
-              "native": 17.071,
-              "leg_value": 56.8,
-              "fixture_value": 56.8,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 16.571,
-              "leg_value": 54.8,
-              "fixture_value": 54.8,
-              "match": true
-            }
-          ]
-        }
-      },
-      "status": "ok",
-      "mismatches": [],
-      "reason": "All 60/60 verified exact",
-      "label": "CBS ROS"
-    },
     "cbs": {
-      "methodology": "reindexed-as-given",
-      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
+      "view": "indexed",
+      "methodology": "simple-native-rescale",
+      "formula": "indexed = native * 70 / max(native)",
       "steps": [
-        "1. Start with source's published value (native)",
-        "2. Apply isotonic regression to map onto 0-70 scale",
-        "3. Preserves rank order, monotonic transformation",
-        "4. Result → fixture reindexed"
+        "1. Read the publisher's native trade values for the exact combo",
+        "2. Multiply every priced value by 70 / maximum native value",
+        "3. Preserve genuine zero and missing values; no VORP or roster adjustment",
+        "4. Target arithmetic only; rendered Indexed wiring is not certified"
       ],
       "combos": {
         "full_12": {
+          "status": "warn",
+          "factor": 1.320754716981132,
           "n_native": 116,
-          "n_reindexed": 116,
-          "top10_overlap": "10/10",
+          "rendered_verified": false,
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 53,
-              "reindexed": 95.7,
-              "match": true
+              "native": 53.0,
+              "reindexed": 70.0,
+              "match": null
             },
             {
               "player": "jaxon smithnjigba",
-              "native": 52,
-              "reindexed": 59.9,
-              "match": true
+              "native": 52.0,
+              "reindexed": 68.67924528301886,
+              "match": null
             },
             {
               "player": "bijan robinson",
-              "native": 50,
-              "reindexed": 68.4,
-              "match": true
+              "native": 50.0,
+              "reindexed": 66.0377358490566,
+              "match": null
             }
           ]
-        }
-      },
-      "status": "ok",
-      "mismatches": [],
-      "reason": "Rank order preserved via isotonic reindex",
-      "label": "CBS"
-    },
-    "fantasycalc": {
-      "methodology": "reindexed-as-given",
-      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
-      "steps": [
-        "1. Start with source's published value (native)",
-        "2. Apply isotonic regression to map onto 0-70 scale",
-        "3. Preserves rank order, monotonic transformation",
-        "4. Result → fixture reindexed"
-      ],
-      "combos": {
-        "full_10_qb1": {
-          "n_native": 198,
-          "n_reindexed": 198,
-          "top10_overlap": "9/10",
+        },
+        "half_12": {
+          "status": "warn",
+          "factor": 1.3592233009708738,
+          "n_native": 113,
+          "rendered_verified": false,
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 10724,
-              "reindexed": 81.8,
-              "match": true
+              "native": 51.5,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 50.0,
+              "reindexed": 67.96116504854369,
+              "match": null
             },
             {
               "player": "bijan robinson",
-              "native": 10329,
-              "reindexed": 67.2,
-              "match": true
+              "native": 48.5,
+              "reindexed": 65.92233009708738,
+              "match": null
+            }
+          ]
+        },
+        "standard_12": {
+          "status": "warn",
+          "factor": 1.4,
+          "n_native": 113,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 50.0,
+              "reindexed": 70.0,
+              "match": null
             },
             {
-              "player": "jamarr chase",
-              "native": 9126,
-              "reindexed": 59.1,
-              "match": true
+              "player": "jaxon smithnjigba",
+              "native": 48.0,
+              "reindexed": 67.19999999999999,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 47.0,
+              "reindexed": 65.8,
+              "match": null
             }
           ]
         }
       },
-      "status": "ok",
+      "status": "warn",
       "mismatches": [],
-      "reason": "Rank order preserved via isotonic reindex",
+      "reason": "Native-only target rescale; rendered Indexed values have not been verified.",
+      "label": "CBS"
+    },
+    "fantasycalc": {
+      "view": "indexed",
+      "methodology": "simple-native-rescale",
+      "formula": "indexed = native * 70 / max(native)",
+      "steps": [
+        "1. Read the publisher's native trade values for the exact combo",
+        "2. Multiply every priced value by 70 / maximum native value",
+        "3. Preserve genuine zero and missing values; no VORP or roster adjustment",
+        "4. Target arithmetic only; rendered Indexed wiring is not certified"
+      ],
+      "combos": {
+        "full_10_qb1": {
+          "status": "warn",
+          "factor": 0.006527415143603133,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10724.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10329.0,
+              "reindexed": 67.42167101827675,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 9126.0,
+              "reindexed": 59.56919060052219,
+              "match": null
+            }
+          ]
+        },
+        "full_10_qb2": {
+          "status": "warn",
+          "factor": 0.006697923643670462,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10451.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "josh allen",
+              "native": 10393.0,
+              "reindexed": 69.61152042866712,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10123.0,
+              "reindexed": 67.8030810448761,
+              "match": null
+            }
+          ]
+        },
+        "full_12_qb1": {
+          "status": "warn",
+          "factor": 0.006466512702078522,
+          "n_native": 197,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10825.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10149.0,
+              "reindexed": 65.62863741339491,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 9982.0,
+              "reindexed": 64.54872979214781,
+              "match": null
+            }
+          ]
+        },
+        "full_12_qb2": {
+          "status": "warn",
+          "factor": 0.006466512702078522,
+          "n_native": 197,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10825.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10149.0,
+              "reindexed": 65.62863741339491,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 9982.0,
+              "reindexed": 64.54872979214781,
+              "match": null
+            }
+          ]
+        },
+        "full_14_qb1": {
+          "status": "warn",
+          "factor": 0.006601282534892493,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10604.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10213.0,
+              "reindexed": 67.41889852885703,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 9275.0,
+              "reindexed": 61.22689551112787,
+              "match": null
+            }
+          ]
+        },
+        "full_14_qb2": {
+          "status": "warn",
+          "factor": 0.0064802814293649326,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "josh allen",
+              "native": 10802.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jahmyr gibbs",
+              "native": 10334.0,
+              "reindexed": 66.96722829105721,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10009.0,
+              "reindexed": 64.86113682651362,
+              "match": null
+            }
+          ]
+        },
+        "full_8_qb1": {
+          "status": "warn",
+          "factor": 0.006580184245158865,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10638.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10246.0,
+              "reindexed": 67.42056777589772,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 9030.0,
+              "reindexed": 59.41906373378455,
+              "match": null
+            }
+          ]
+        },
+        "full_8_qb2": {
+          "status": "warn",
+          "factor": 0.00675219446320054,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10367.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10041.0,
+              "reindexed": 67.79878460499663,
+              "match": null
+            },
+            {
+              "player": "josh allen",
+              "native": 10026.0,
+              "reindexed": 67.69750168804862,
+              "match": null
+            }
+          ]
+        },
+        "half_10_qb1": {
+          "status": "warn",
+          "factor": 0.0065304599309637095,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10719.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10324.0,
+              "reindexed": 67.42046832726933,
+              "match": null
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 9085.0,
+              "reindexed": 59.3292284728053,
+              "match": null
+            }
+          ]
+        },
+        "half_10_qb2": {
+          "status": "warn",
+          "factor": 0.006701129618992916,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10446.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "josh allen",
+              "native": 10401.0,
+              "reindexed": 69.69844916714533,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10118.0,
+              "reindexed": 67.80202948497032,
+              "match": null
+            }
+          ]
+        },
+        "half_12_qb1": {
+          "status": "warn",
+          "factor": 0.006470098900083187,
+          "n_native": 195,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10819.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10143.0,
+              "reindexed": 65.62621314354377,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 9914.0,
+              "reindexed": 64.14456049542471,
+              "match": null
+            }
+          ]
+        },
+        "half_12_qb2": {
+          "status": "warn",
+          "factor": 0.006470098900083187,
+          "n_native": 195,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10819.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10143.0,
+              "reindexed": 65.62621314354377,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 9914.0,
+              "reindexed": 64.14456049542471,
+              "match": null
+            }
+          ]
+        },
+        "half_14_qb1": {
+          "status": "warn",
+          "factor": 0.0066050198150594455,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10598.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10208.0,
+              "reindexed": 67.42404227212683,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 9212.0,
+              "reindexed": 60.84544253632761,
+              "match": null
+            }
+          ]
+        },
+        "half_14_qb2": {
+          "status": "warn",
+          "factor": 0.006474886689482934,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "josh allen",
+              "native": 10811.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jahmyr gibbs",
+              "native": 10329.0,
+              "reindexed": 66.87910461566923,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10004.0,
+              "reindexed": 64.77476644158727,
+              "match": null
+            }
+          ]
+        },
+        "half_8_qb1": {
+          "status": "warn",
+          "factor": 0.006583897667419112,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10632.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10240.0,
+              "reindexed": 67.41911211437171,
+              "match": null
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 9012.0,
+              "reindexed": 59.33408577878104,
+              "match": null
+            }
+          ]
+        },
+        "half_8_qb2": {
+          "status": "warn",
+          "factor": 0.006755452615325227,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10362.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10036.0,
+              "reindexed": 67.79772244740397,
+              "match": null
+            },
+            {
+              "player": "josh allen",
+              "native": 10034.0,
+              "reindexed": 67.78421154217332,
+              "match": null
+            }
+          ]
+        },
+        "standard_10_qb1": {
+          "status": "warn",
+          "factor": 0.006489894307435564,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10786.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10389.0,
+              "reindexed": 67.42351195994807,
+              "match": null
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 9143.0,
+              "reindexed": 59.337103652883364,
+              "match": null
+            }
+          ]
+        },
+        "standard_10_qb2": {
+          "status": "warn",
+          "factor": 0.006659056316590563,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10512.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "josh allen",
+              "native": 10277.0,
+              "reindexed": 68.43512176560121,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10181.0,
+              "reindexed": 67.79585235920852,
+              "match": null
+            }
+          ]
+        },
+        "standard_12_qb1": {
+          "status": "warn",
+          "factor": 0.006429686782401029,
+          "n_native": 195,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10887.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10207.0,
+              "reindexed": 65.6278129879673,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 9807.0,
+              "reindexed": 63.05593827500689,
+              "match": null
+            }
+          ]
+        },
+        "standard_12_qb2": {
+          "status": "warn",
+          "factor": 0.006429686782401029,
+          "n_native": 195,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10887.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10207.0,
+              "reindexed": 65.6278129879673,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 9807.0,
+              "reindexed": 63.05593827500689,
+              "match": null
+            }
+          ]
+        },
+        "standard_14_qb1": {
+          "status": "warn",
+          "factor": 0.006563525550867323,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10665.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10272.0,
+              "reindexed": 67.42053445850914,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 9113.0,
+              "reindexed": 59.813408345053915,
+              "match": null
+            }
+          ]
+        },
+        "standard_14_qb2": {
+          "status": "warn",
+          "factor": 0.00655307994757536,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "josh allen",
+              "native": 10682.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jahmyr gibbs",
+              "native": 10394.0,
+              "reindexed": 68.11271297509829,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10067.0,
+              "reindexed": 65.96985583224115,
+              "match": null
+            }
+          ]
+        },
+        "standard_8_qb1": {
+          "status": "warn",
+          "factor": 0.006542667539022338,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10699.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10305.0,
+              "reindexed": 67.4221889896252,
+              "match": null
+            },
+            {
+              "player": "jonathan taylor",
+              "native": 9069.0,
+              "reindexed": 59.335451911393584,
+              "match": null
+            }
+          ]
+        },
+        "standard_8_qb2": {
+          "status": "warn",
+          "factor": 0.006713340366356574,
+          "n_native": 198,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 10427.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "bijan robinson",
+              "native": 10099.0,
+              "reindexed": 67.79802435983504,
+              "match": null
+            },
+            {
+              "player": "josh allen",
+              "native": 9915.0,
+              "reindexed": 66.56276973242544,
+              "match": null
+            }
+          ]
+        }
+      },
+      "status": "warn",
+      "mismatches": [],
+      "reason": "Native-only target rescale; rendered Indexed values have not been verified.",
       "label": "FantasyCalc"
     },
     "fantasypros": {
-      "methodology": "reindexed-as-given",
-      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
+      "view": "indexed",
+      "methodology": "simple-native-rescale",
+      "formula": "indexed = native * 70 / max(native)",
       "steps": [
-        "1. Start with source's published value (native)",
-        "2. Apply isotonic regression to map onto 0-70 scale",
-        "3. Preserves rank order, monotonic transformation",
-        "4. Result → fixture reindexed"
+        "1. Read the publisher's native trade values for the exact combo",
+        "2. Multiply every priced value by 70 / maximum native value",
+        "3. Preserve genuine zero and missing values; no VORP or roster adjustment",
+        "4. Target arithmetic only; rendered Indexed wiring is not certified"
       ],
       "combos": {
         "full_12": {
+          "status": "warn",
+          "factor": 0.9320905459387484,
           "n_native": 178,
-          "n_reindexed": 174,
-          "top10_overlap": "10/10",
+          "rendered_verified": false,
           "samples": [
             {
               "player": "jahmyr gibbs",
               "native": 75.1,
-              "reindexed": 92.2,
-              "match": true
+              "reindexed": 70.0,
+              "match": null
             },
             {
               "player": "bijan robinson",
               "native": 67.5,
-              "reindexed": 67.1,
-              "match": true
+              "reindexed": 62.91611185086552,
+              "match": null
             },
             {
               "player": "kenneth walker iii",
               "native": 60.9,
-              "reindexed": 63.8,
-              "match": true
-            }
-          ]
-        }
-      },
-      "status": "ok",
-      "mismatches": [],
-      "reason": "Rank order preserved via isotonic reindex",
-      "label": "FantasyPros"
-    },
-    "usatoday": {
-      "methodology": "reindexed-as-given",
-      "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
-      "steps": [
-        "1. Start with source's published value (native)",
-        "2. Apply isotonic regression to map onto 0-70 scale",
-        "3. Preserves rank order, monotonic transformation",
-        "4. Result → fixture reindexed"
-      ],
-      "combos": {
-        "full_12": {
-          "n_native": 234,
-          "n_reindexed": 234,
-          "top10_overlap": "10/10",
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 81.8,
-              "reindexed": 69.9,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 67.2,
-              "reindexed": 50.8,
-              "match": true
-            },
-            {
-              "player": "christian mccaffrey",
-              "native": 58.8,
-              "reindexed": 47.3,
-              "match": true
-            }
-          ]
-        }
-      },
-      "status": "ok",
-      "mismatches": [],
-      "reason": "Rank order preserved via isotonic reindex",
-      "label": "USA Today"
-    },
-    "razzball": {
-      "methodology": "DDF two-tier",
-      "formula": "native (ppg) → DDF value-above-waivers → scale to 70 → values",
-      "steps": [
-        "1. Start with Razzball per-game projection (native/ppg)",
-        "2. Compute value-above-waivers via DDF two-tier (positional scarcity, starter/bench weights)",
-        "3. Scale to 70-point index (fixed-pie methodology)",
-        "4. Round to 1 decimal → fixture values"
-      ],
-      "combos": {
-        "full_12": {
-          "checked": 20,
-          "matched": 20,
-          "samples": [
-            {
-              "player": "jahmyr gibbs",
-              "native": 24.4,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
-            },
-            {
-              "player": "bijan robinson",
-              "native": 21.2,
-              "leg_value": 59,
-              "fixture_value": 59,
-              "match": true
-            },
-            {
-              "player": "jaxon smithnjigba",
-              "native": 21,
-              "leg_value": 56.3,
-              "fixture_value": 56.3,
-              "match": true
+              "reindexed": 56.76431424766977,
+              "match": null
             }
           ]
         },
         "half_12": {
-          "checked": 20,
-          "matched": 20,
+          "status": "warn",
+          "factor": 0.9320905459387484,
+          "n_native": 178,
+          "rendered_verified": false,
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 22.3,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
+              "native": 75.1,
+              "reindexed": 70.0,
+              "match": null
             },
             {
               "player": "bijan robinson",
-              "native": 19.8,
-              "leg_value": 60.8,
-              "fixture_value": 60.8,
-              "match": true
+              "native": 67.5,
+              "reindexed": 62.91611185086552,
+              "match": null
             },
             {
-              "player": "jaxon smithnjigba",
-              "native": 17.7,
-              "leg_value": 53.2,
-              "fixture_value": 53.2,
-              "match": true
+              "player": "kenneth walker iii",
+              "native": 60.9,
+              "reindexed": 56.76431424766977,
+              "match": null
             }
           ]
         },
         "standard_12": {
-          "checked": 20,
-          "matched": 20,
+          "status": "warn",
+          "factor": 0.9320905459387484,
+          "n_native": 178,
+          "rendered_verified": false,
           "samples": [
             {
               "player": "jahmyr gibbs",
-              "native": 20.2,
-              "leg_value": 70,
-              "fixture_value": 70,
-              "match": true
+              "native": 75.1,
+              "reindexed": 70.0,
+              "match": null
             },
             {
               "player": "bijan robinson",
-              "native": 18.4,
-              "leg_value": 62.9,
-              "fixture_value": 62.9,
-              "match": true
+              "native": 67.5,
+              "reindexed": 62.91611185086552,
+              "match": null
             },
             {
-              "player": "derrick henry",
-              "native": 15.4,
-              "leg_value": 51.1,
-              "fixture_value": 51.1,
-              "match": true
+              "player": "kenneth walker iii",
+              "native": 60.9,
+              "reindexed": 56.76431424766977,
+              "match": null
             }
           ]
         }
       },
-      "status": "ok",
+      "status": "warn",
       "mismatches": [],
-      "reason": "All 60/60 verified exact",
-      "label": "Razzball"
+      "reason": "Native-only target rescale; rendered Indexed values have not been verified.",
+      "label": "FantasyPros"
+    },
+    "usatoday": {
+      "view": "indexed",
+      "methodology": "simple-native-rescale",
+      "formula": "indexed = native * 70 / max(native)",
+      "steps": [
+        "1. Read the publisher's native trade values for the exact combo",
+        "2. Multiply every priced value by 70 / maximum native value",
+        "3. Preserve genuine zero and missing values; no VORP or roster adjustment",
+        "4. Target arithmetic only; rendered Indexed wiring is not certified"
+      ],
+      "combos": {
+        "full_12": {
+          "status": "warn",
+          "factor": 0.9090909090909091,
+          "n_native": 249,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 77.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 76.0,
+              "reindexed": 69.0909090909091,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 72.0,
+              "reindexed": 65.45454545454545,
+              "match": null
+            }
+          ]
+        },
+        "half_12": {
+          "status": "warn",
+          "factor": 0.9459459459459459,
+          "n_native": 249,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 74.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 73.0,
+              "reindexed": 69.05405405405405,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 70.0,
+              "reindexed": 66.21621621621621,
+              "match": null
+            }
+          ]
+        },
+        "standard_12": {
+          "status": "warn",
+          "factor": 0.9722222222222222,
+          "n_native": 249,
+          "rendered_verified": false,
+          "samples": [
+            {
+              "player": "jahmyr gibbs",
+              "native": 72.0,
+              "reindexed": 70.0,
+              "match": null
+            },
+            {
+              "player": "jaxon smithnjigba",
+              "native": 71.0,
+              "reindexed": 69.02777777777777,
+              "match": null
+            },
+            {
+              "player": "jamarr chase",
+              "native": 68.0,
+              "reindexed": 66.11111111111111,
+              "match": null
+            }
+          ]
+        }
+      },
+      "status": "warn",
+      "mismatches": [],
+      "reason": "Native-only target rescale; rendered Indexed values have not been verified.",
+      "label": "USA Today"
     }
-  }
+  },
+  "view": "indexed",
+  "model": "simple-native-rescale",
+  "rendered_verified": false
 }

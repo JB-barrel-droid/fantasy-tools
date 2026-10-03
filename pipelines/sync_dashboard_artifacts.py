@@ -373,7 +373,7 @@ def main() -> int:
 
     # JEG-206: 8-group VORP totals (position x starter/bench) rewritten on every
     # sync from the freshest DDF two-tier leg. Fails closed (SystemExit) if the
-    # leg is missing or the 8 groups do not sum to the overall VORP pie.  The
+    # leg is missing or the 8 groups do not sum to the overall VORP pie. The
     # bake's existing sync step drives this -- no standalone cron.
     from build_ddf_groups import build_groups_from_leg, find_latest_leg
     try:

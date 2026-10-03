@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
-"""Build index-math.json: verify raw -> indexed transformation is exact.
+"""Build native-only Indexed target arithmetic for published trade charts.
 
-For each source, shows the math of how pre-indexed (native) numbers
-become indexed values, and verifies the transformation produces the
-actual indexed numbers exactly.
-
-ESPN (DDF methodology):
-  native (ppg) -> DDF two-tier (raw_value) -> scale to 70 -> values
-  Verification: fixture values == DDF leg values (rounded to 1 decimal)
-
-Other sources (reindexed-as-given):
-  native (published) -> isotonic reindex -> reindexed
-  Verification: reindexed preserves rank order, values in 0-70 range
-
-Output: dist/modules/index-math.json
+No VORP, DDF, isotonic fit, or fixture reindexed values enter this diagnostic.
+This is a target rescale report, not verification of currently rendered values.
+The standalone legacy verify_ddf_leg helper remains for existing Adj audits.
+Output: dist/modules/index-math.json.
 """
 
 import json
+import math
 from pathlib import Path
 from datetime import datetime, timezone
 
@@ -143,82 +135,56 @@ def verify_ddf_leg(src, label, bake_mark, leg_filename):
     
     return results
 
+def simple_native_rescale(native):
+    """Indexed trade charts: one positive factor; no VORP, DDF or fit metadata."""
+    if not isinstance(native, dict) or not native:
+        raise ValueError("native trade chart unavailable")
+    if any(v is not None and (isinstance(v, bool) or not isinstance(v, (int, float))
+                             or not math.isfinite(v) or v < 0) for v in native.values()):
+        raise ValueError("invalid native trade value")
+    priced = [v for v in native.values() if v is not None]
+    if not priced or max(priced) <= 0:
+        raise ValueError("no positive native maximum to rescale")
+    factor = 70.0 / max(priced)
+    if not math.isfinite(factor):
+        raise ValueError("native rescale factor is not finite")
+    return factor, {key: value * factor if value is not None else None
+                    for key, value in native.items()}
+
+
 def verify_reindexed(src):
-    """Verify reindexed-as-given sources: native -> reindexed preserves order."""
+    """Native-only Indexed target arithmetic; not rendered chart verification."""
     fixture = json.loads(FIXTURE.read_text())
-    src_data = fixture["sources"].get(src, {})
-    
+    src_data = fixture.get("sources", {}).get(src, {})
     results = {
-        "methodology": "reindexed-as-given",
-        "formula": "native (published) → isotonic reindex → reindexed (0-70 scale)",
-        "steps": [
-            "1. Start with source's published value (native)",
-            "2. Apply isotonic regression to map onto 0-70 scale",
-            "3. Preserves rank order, monotonic transformation",
-            "4. Result → fixture reindexed",
-        ],
-        "combos": {},
-        "status": "ok",
-        "mismatches": [],
+        "view": "indexed", "methodology": "simple-native-rescale",
+        "formula": "indexed = native * 70 / max(native)",
+        "steps": ["1. Read the publisher's native trade values for the exact combo",
+                  "2. Multiply every priced value by 70 / maximum native value",
+                  "3. Preserve genuine zero and missing values; no VORP or roster adjustment",
+                  "4. Target arithmetic only; rendered Indexed wiring is not certified"],
+        "combos": {}, "status": "warn", "mismatches": [],
+        "reason": "Native-only target rescale; rendered Indexed values have not been verified.",
     }
-    
-    # Check first combo with both native and reindexed
     for combo_name, combo in src_data.get("combos", {}).items():
-        native = combo.get("native", {})
-        reindexed = combo.get("reindexed", {})
-        if not native or not reindexed:
+        if not isinstance(combo, dict):
             continue
-        
-        # Verify rank order preserved
-        native_sorted = sorted(native.items(), key=lambda x: x[1], reverse=True)
-        reindexed_sorted = sorted(reindexed.items(), key=lambda x: x[1], reverse=True)
-        
-        # Check top 20 order matches
-        native_top = [s for s, _ in native_sorted[:20]]
-        reindexed_top = [s for s, _ in reindexed_sorted[:20]]
-        
-        # Allow for ties, but order should be largely preserved
-        # Simple check: Spearman correlation of ranks
-        common = set(native.keys()) & set(reindexed.keys())
-        if len(common) < 10:
+        try:
+            factor, indexed = simple_native_rescale(combo.get("native"))
+        except ValueError as exc:
+            results["combos"][combo_name] = {"status": "unk", "reason": str(exc), "samples": []}
             continue
-        
-        # Build rank maps
-        native_rank = {s: i for i, (s, _) in enumerate(native_sorted) if s in common}
-        reindexed_rank = {s: i for i, (s, _) in enumerate(reindexed_sorted) if s in common}
-        
-        # Check if order is preserved (Kendall tau approximation)
-        # For simplicity: check that top 10 native are in top 15 reindexed
-        native_top10 = set([s for s, _ in native_sorted[:10]])
-        reindexed_top15 = set([s for s, _ in reindexed_sorted[:15]])
-        overlap = len(native_top10 & reindexed_top15)
-        
-        combo_result = {
-            "n_native": len(native),
-            "n_reindexed": len(reindexed),
-            "top10_overlap": f"{overlap}/10",
-            "samples": [],
+        priced = sorted(((k,v) for k,v in combo["native"].items() if v is not None),
+                        key=lambda row: (-row[1], row[0]))
+        results["combos"][combo_name] = {
+            "status": "warn", "factor": factor, "n_native": len(priced),
+            "rendered_verified": False,
+            "samples": [{"player": k, "native": v, "reindexed": indexed[k],
+                         "match": None} for k,v in priced[:3]],
         }
-        
-        # Samples
-        for slug, nval in native_sorted[:3]:
-            rval = reindexed.get(slug)
-            combo_result["samples"].append({
-                "player": slug,
-                "native": nval,
-                "reindexed": rval,
-                "match": rval is not None,
-            })
-        
-        results["combos"][combo_name] = combo_result
-        break  # Only check first combo
-    
     if not results["combos"]:
-        results["status"] = "warn"
-        results["reason"] = "No combos with native+reindexed found"
-    else:
-        results["reason"] = "Rank order preserved via isotonic reindex"
-    
+        results["status"] = "unk"
+        results["reason"] = "No native trade chart combos available."
     return results
 
 def main():
@@ -227,19 +193,15 @@ def main():
         "sources": {},
     }
     
-    # DDF methodology: ESPN, CBS ROS, and Razzball (per-game projections -> two-tier leg)
-    report["sources"]["espn"] = verify_ddf_leg("espn", "ESPN", "-espn-{scoring}-", "ddf_leg.json")
-    report["sources"]["espn"]["label"] = "ESPN"
-    report["sources"]["cbsros"] = verify_ddf_leg("cbsros", "CBS ROS", "-cbsros-{scoring}-", "ddf_leg_cbsros.json")
-    report["sources"]["cbsros"]["label"] = "CBS ROS"
-    report["sources"]["razzball"] = verify_ddf_leg("razzball", "Razzball", "-razzball-{scoring}-", "ddf_leg_razzball.json")
-    report["sources"]["razzball"]["label"] = "Razzball"
-
-    # Others: reindexed-as-given
+    # Indexed applies only to native published trade charts. Projection sources
+    # have no Indexed trade values; their DDF verification is an Adj diagnostic.
+    report["view"] = "indexed"
+    report["model"] = "simple-native-rescale"
+    report["rendered_verified"] = False
     for src in ["cbs", "fantasycalc", "fantasypros", "usatoday"]:
         report["sources"][src] = verify_reindexed(src)
         report["sources"][src]["label"] = SRC_LABEL[src]
-    
+
     OUTPUT.write_text(json.dumps(report, indent=2))
     print(f"Wrote {OUTPUT}")
     for src, r in report["sources"].items():
