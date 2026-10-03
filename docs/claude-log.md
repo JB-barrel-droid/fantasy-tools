@@ -2673,3 +2673,25 @@ Known caveats / open follow-ups:
   sources, the same JSON will paint green for players.as_of and
   news.generated_at (the kdst_snapshot "?" is a separate gap that
   this PR tracks explicitly as unknown).
+
+## 2026-10-03 - JEG-318: owner-lane decision record for QA-004 and QA-007
+
+Decision (Roman, integrating minimax/jeg-318-qa-owners): the Trade QA card's
+"Open QA findings" sub-row names an owner lane per open finding so every
+finding has exactly one lane accountable for its resolution.
+
+- QA-004 ("Curves unavailable in some league setups", severity major,
+  status open) -> **chart-build lane**. The failure is in curve rendering
+  across league configurations; the chart-build lane owns the curve widget
+  and its league-setup matrix.
+- QA-007 ("Coverage baseline confusion", severity minor, status open) ->
+  **data-pipeline lane**. The failure is a data-coverage definition gap
+  (what counts as the baseline universe); the data-pipeline lane owns
+  source coverage and the canonical naming/identity tables.
+
+Citations: JEG-318 acceptance criteria; the qaData literal in
+modules/dashboard.html (round 1, 2026-09-30) carries both findings with
+status "open". Copy is operational only — no methodology decisions and no
+resolution claims (explicitly deferred per the ticket). Rendered gate
+tests/rendered_gate/trade-qa-open-findings.mjs asserts each open finding
+renders with its owner lane and a #qaFinding-<id> anchor link.
