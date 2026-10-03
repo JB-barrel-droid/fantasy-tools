@@ -206,6 +206,15 @@
     .method-source-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .method-source-tabs button { border: 1px solid var(--line-strong); background: var(--white); border-radius: 14px; padding: 5px 12px; font-size: 11px; font-weight: 600; cursor: pointer; color: var(--navy); }
     .method-source-tabs button[aria-selected="true"] { background: var(--navy); color: #fff; border-color: var(--navy); }
+    /* JEG-210: chart view toggle (Indexed | Value above waivers | Adjusted values) — restored 2026-10-03, wired to vorp_views */
+    .view-mode-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; margin: 0 0 12px; padding: 4px; border: 1px solid var(--line-strong); border-radius: 10px; background: #f7f9fa; }
+    .view-mode-tab { border: 0; background: transparent; padding: 9px 12px; border-radius: 7px; text-align: left; cursor: pointer; color: var(--ink); display: flex; flex-direction: column; gap: 2px; min-width: 0; font-family: inherit; }
+    .view-mode-tab:hover, .view-mode-tab:focus-visible { background: #eef1ed; outline: 2px solid var(--orange); outline-offset: -2px; }
+    .view-mode-tab[aria-selected="true"] { background: var(--navy); color: var(--white); box-shadow: 0 2px 6px rgba(18,32,44,.18); }
+    .view-mode-tab[aria-selected="true"]:hover, .view-mode-tab[aria-selected="true"]:focus-visible { background: var(--navy); }
+    .view-mode-title { display: block; font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .view-mode-sub { display: block; font-size: 10px; color: var(--muted); line-height: 1.35; }
+    .view-mode-tab[aria-selected="true"] .view-mode-sub { color: #d8e3ea; }
     .mover-row { display: grid; grid-template-columns: 132px 1fr; gap: 8px; align-items: center; margin-bottom: 9px; }
     .mover-name { font-size: 11px; font-weight: 600; color: var(--ink); line-height: 1.35; }
     .mover-name small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; }
@@ -1679,6 +1688,20 @@
   </div>
   <fieldset class="src-group">
     <legend>Source curves</legend>
+    <div class="view-mode-tabs" id="viewModeTabs" role="tablist" aria-label="Chart view mode">
+      <button type="button" role="tab" class="view-mode-tab" id="viewModeIndexedTab" data-view-mode="indexed" aria-selected="true">
+        <strong class="view-mode-title">Indexed</strong>
+        <small class="view-mode-sub">Trade values from each publisher</small>
+      </button>
+      <button type="button" role="tab" class="view-mode-tab" id="viewModeVorpTab" data-view-mode="vorp" aria-selected="false">
+        <strong class="view-mode-title">Value above waivers</strong>
+        <small class="view-mode-sub">Every source in value-above-waivers units</small>
+      </button>
+      <button type="button" role="tab" class="view-mode-tab" id="viewModeAdjTab" data-view-mode="adj" aria-selected="false">
+        <strong class="view-mode-title">Adjusted values</strong>
+        <small class="view-mode-sub">Shared 0–70 weighting model</small>
+      </button>
+    </div>
     <div class="source-toggles" id="sourceToggles"></div>
   </fieldset>
   <span class="lbl">Position:</span>

@@ -782,6 +782,15 @@
   // throws inside runRegressionGuards() before draw()/publishShared() and
   // the comparison table freezes on the old scoring with no visible error.
   let userDeselectedSources = new Set();
+  // JEG-210: chart view mode (Indexed | Value above waivers | Adjusted values)
+  // Restored 2026-10-03 (Jeremy): wired to vorp_views from the JEG-242 pipeline.
+  const VIEW_MODE_DEFS = {
+    indexed: { title: "Indexed", viewKey: null },
+    vorp: { title: "Value above waivers", viewKey: "vorp" },
+    adj: { title: "Adjusted values", viewKey: "adj_values" }
+  };
+  const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
+  let viewMode = "indexed";
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -1001,6 +1010,41 @@
       values.set(playerKey, value);
     });
     return values;
+  }
+
+  // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
+  // vorp_views keys are display names; resolve via the player_keys table.
+  function buildVorpViewSourceMap(key, viewKey) {
+    const vorpViews = data.sources?.[key]?.vorp_views;
+    const viewData = vorpViews?.views?.[viewKey];
+    if (!viewData || typeof viewData !== "object") return new Map();
+    // Build reverse lookup: display name -> player key
+    const nameToKey = new Map();
+    Object.entries(data.player_keys || {}).forEach(([sourceId, playerKey]) => {
+      const player = canonicalByKey.get(Number(playerKey));
+      if (player) {
+        const name = String(player.full_name || player.name || "").trim();
+        if (name && !nameToKey.has(name)) nameToKey.set(name, Number(playerKey));
+      }
+    });
+    const values = new Map();
+    Object.entries(viewData).forEach(([displayName, rawValue]) => {
+      const playerKey = nameToKey.get(String(displayName).trim());
+      const player = canonicalByKey.get(playerKey);
+      const value = clampValue(rawValue);
+      if (!player || value === null) return;
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
+  // JEG-210: does this source have vorp_views data for the current view mode?
+  function sourceHasVorpView(key) {
+    if (viewMode === "indexed") return true;
+    const def = VIEW_MODE_DEFS[viewMode];
+    if (!def || !def.viewKey) return true;
+    const views = data.sources?.[key]?.vorp_views?.views;
+    return !!(views && views[def.viewKey] && Object.keys(views[def.viewKey]).length > 0);
   }
 
   function buildNativeSourceMap(key) {
@@ -1332,6 +1376,15 @@
   }
 
   function buildSourceMap(key) {
+    // JEG-210/242: when a non-indexed view is active and the source has
+    // vorp_views, use the view's values instead of the indexed combo values.
+    if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
+      const def = VIEW_MODE_DEFS[viewMode];
+      if (def && def.viewKey) {
+        const viewMap = buildVorpViewSourceMap(key, def.viewKey);
+        if (viewMap.size > 0) return viewMap;
+      }
+    }
     return buildPublishedSourceMap(key);
   }
 
@@ -3488,6 +3541,33 @@
     guardsPassed = true;
   }
 
+  // JEG-210: view mode switching (restored 2026-10-03, wired to vorp_views).
+  function setViewMode(mode, publish = true) {
+    if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
+    viewMode = mode;
+    const tabs = document.querySelectorAll("#viewModeTabs [data-view-mode]");
+    tabs.forEach(tab => {
+      const selected = tab.dataset.viewMode === mode;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+    // Rebuild source maps with the new view's values, then redraw.
+    rebuildDomain();
+    makeSourceToggles();
+    draw();
+    syncCurveStatus();
+    if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));
+  }
+
+  function makeViewModeTabs() {
+    const container = $("#viewModeTabs");
+    if (!container) return;
+    const tabs = container.querySelectorAll("[data-view-mode]");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => setViewMode(tab.dataset.viewMode));
+    });
+    setViewMode(viewMode, false);
+  }
+
   async function init() {
     try {
       data = await loadComparisonData();
@@ -3510,6 +3590,7 @@
       makeTabs();
       makeValueModeControl();
       makeValueBandControl();
+      makeViewModeTabs();
       makeSourceToggles();
       makeLockControl();
       renderAdjustmentWeights();
