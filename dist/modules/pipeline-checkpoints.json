@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-03T20:37:20.009815+00:00",
+  "generated_at": "2026-10-03T21:07:20.335224+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -79,7 +79,7 @@
           "reason": "Snapshot is 2026-10-02 but Supabase has 2026-10-03. Data is STUCK waiting for import."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T20:37:06Z",
+          "timestamp": "2026-10-03T21:07:07Z",
           "status": "warn",
           "reason": "Health gate warning: TABLE_DRIFT: table has 496 rows at latest vintage 2026-10-03, manifest expects 495 (within tolerance; stamping lag); table latest vintage 2026-10-03 != manifest vintage 2026-10-02 -- run stage-1 import to stamp it (table is fresher: stamping lag)."
         },
@@ -94,19 +94,19 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:23.465092+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 12 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:23.024796+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     },
@@ -134,7 +134,7 @@
           "reason": "Snapshot stamped 3.9d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T20:37:06Z",
+          "timestamp": "2026-10-03T21:07:07Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -149,19 +149,19 @@
           "reason": "Promoted 1.0d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:26.003696+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 3 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:24.700718+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     },
@@ -189,7 +189,7 @@
           "reason": "Snapshot stamped 1.3d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T20:37:06Z",
+          "timestamp": "2026-10-03T21:07:07Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -204,19 +204,19 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:28.224666+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 12 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:26.357053+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     },
@@ -259,19 +259,19 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:30.134027+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 12 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:27.979345+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     },
@@ -299,7 +299,7 @@
           "reason": "Snapshot stamped 2.5d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T20:37:06Z",
+          "timestamp": "2026-10-03T21:07:07Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -314,19 +314,19 @@
           "reason": "Promoted 1.0d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:32.173136+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 24 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:29.797429+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     },
@@ -351,17 +351,17 @@
         "c4_snapshot": {
           "timestamp": "2026-10-02T12:33:13.088333+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 1.3d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 1.4d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T20:37:06Z",
+          "timestamp": "2026-10-03T21:07:07Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-10-02T12:34:11.498420+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 1.3d ago."
+          "reason": "Candidate built and reviewed 1.4d ago."
         },
         "c7_promotion": {
           "timestamp": "2026-10-02T20:13:52Z",
@@ -369,19 +369,19 @@
           "reason": "Promoted 1.0d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:34.079744+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 3 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:31.703121+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     },
@@ -409,7 +409,7 @@
           "reason": "Snapshot stamped 1.0d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-03T20:37:06Z",
+          "timestamp": "2026-10-03T21:07:07Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -424,19 +424,19 @@
           "reason": "Promoted 1.0d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-02T21:21:44.892028+00:00",
+          "timestamp": "2026-10-03T18:34:03.677796+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-02, 1.0d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.1d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-03T20:27:50Z",
-          "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "timestamp": "2026-10-03T21:06:17Z",
+          "status": "bad",
+          "reason": "Last Pages deploy: completed/failure. Deploy may have failed."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-03T20:37:36.000152+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (c73db65b6aec), 3 combos. Live built 2026-10-03T18:34."
+          "timestamp": "2026-10-03T21:07:33.393937+00:00",
+          "status": "bad",
+          "reason": "Production output WRONG: served bytes differ from fixture/ (live c73db65b6aec vs fixture 0278778a295e). Live built 2026-10-03T18:34."
         }
       }
     }
@@ -446,16 +446,16 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": true,
-    "run_age_days": 0.9693115295486111,
+    "run_age_days": 0.9901146983796296,
     "stale": false
   },
   "adj_curve_pipeline": {
     "a1_input": {
       "label": "A1 \u00b7 Input data",
       "what": "All 4 adj sources (FC, USAT, FP, CBS) have data in the fixture",
-      "timestamp": "2026-10-02T21:21:44.892028+00:00",
+      "timestamp": "2026-10-03T18:34:03.677796+00:00",
       "status": "ok",
-      "reason": "All 4 sources present in fixture (built 2026-10-02T21:21:44.892028+00:00)."
+      "reason": "All 4 sources present in fixture (built 2026-10-03T18:34:03.677796+00:00)."
     },
     "a2_fit": {
       "label": "A2 \u00b7 Fit executed",
@@ -467,7 +467,7 @@
     "a3_sections": {
       "label": "A3 \u00b7 Sections baked",
       "what": "_adjusted fixture sections built with current fit_bake_id",
-      "timestamp": "2026-10-02T21:21:44.892028+00:00",
+      "timestamp": "2026-10-03T18:34:03.677796+00:00",
       "status": "ok",
       "reason": "All 4 _adjusted sections have fit_bake_id=ddf-20260930-espn-ppr-12t-0p15."
     },
@@ -489,7 +489,7 @@
   "methodology_consistency": {
     "label": "VORP / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
-    "timestamp": "2026-10-03T20:37:37.177186+00:00",
+    "timestamp": "2026-10-03T21:07:34.031501+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use proportional_scaling_flex_aware_per_position anchored to espn_leg on the flex_aware_pie reindex fit (translation step checked separately).",
     "expected_method": "proportional_scaling_flex_aware_per_position",
@@ -513,9 +513,9 @@
   "vorp_translation": {
     "label": "VORP: legacy translation freshness (not Option C readiness)",
     "status": "warn",
-    "reason": "24 combo(s) stale or unrecorded: usatoday/full_12: grain week not recorded; usatoday/half_12: grain week not recorded; usatoday/standard_12: grain week not recorded; fantasypros/full_12: grain week not recorded; fantasypros/half_12: grain week not recorded",
-    "timestamp": "2026-10-02T21:21:44.892028+00:00",
-    "n_ok": 0,
+    "reason": "9 combo(s) stale or unrecorded: fantasycalc/full_10_qb1: grain week not recorded; fantasycalc/full_14_qb1: grain week not recorded; fantasycalc/full_8_qb1: grain week not recorded; fantasycalc/half_10_qb1: grain week not recorded; fantasycalc/half_14_qb1: grain week not recorded",
+    "timestamp": "2026-10-03T18:34:03.677796+00:00",
+    "n_ok": 15,
     "n_expected": 24
   }
 }
