@@ -29,7 +29,9 @@ const defaults = P.defaultIndexedSourceKeys(inputs);
 // The pre-fix predicate, for proving the test discriminates the old bug.
 const oldPredicateWouldThrow = !defaults.every(key => active.has(key));
 const out = {
-  satisfied: P.defaultCurvesSatisfied(inputs, active, deselected),
+  satisfied: payload.indexedAvailable
+    ? P.indexedCurvesSatisfied(payload.indexedAvailable, active, deselected)
+    : P.defaultCurvesSatisfied(inputs, active, deselected),
   defaults,
   oldPredicateWouldThrow,
 };

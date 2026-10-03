@@ -69,6 +69,13 @@ class LockRevertNoticeRenderTest(unittest.TestCase):
                               && document.querySelector("#curveLockOrder option[value='usatoday']")""",
                             timeout=15000,
                         )
+                        # Pending view tabs must be bound on initial load and
+                        # changing settings there must still rebuild Indexed data.
+                        page.locator('#viewModeTabs [data-view-mode="vorp"]').click()
+                        self.assertTrue(page.locator('#viewModePending').is_visible())
+                        page.evaluate('() => window.TradeValueCurveControls.setScoring("standard")')
+                        page.locator('#viewModeTabs [data-view-mode="indexed"]').click()
+                        self.assertTrue(page.locator('#viewModeChartArea').is_visible())
                         page.evaluate(
                             """() => {
                               const controls = window.TradeValueCurveControls;
