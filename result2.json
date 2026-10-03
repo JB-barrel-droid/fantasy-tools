@@ -1,0 +1,43 @@
+{
+  "ticket": "JEG-309",
+  "branch": "minimax/jeg-309-tradeqa-builder",
+  "task": "Bake hardcoded qaData literal in modules/dashboard.html to JSON",
+  "files_changed": [
+    "modules/dashboard.html",
+    "pipelines/build_trade_qa_card.py",
+    "dist/modules/trade-qa-card.json",
+    "tests/test_trade_qa_card.py"
+  ],
+  "files_added": [
+    "pipelines/build_trade_qa_card.py",
+    "dist/modules/trade-qa-card.json",
+    "tests/test_trade_qa_card.py"
+  ],
+  "summary": "Extracted the hardcoded qaData literal (round, date, errors, frameworks) from modules/dashboard.html into dist/modules/trade-qa-card.json via pipelines/build_trade_qa_card.py. The dashboard now fetches the JSON and falls back to the inlined qaDataLiteral on any fetch failure. Tests in tests/test_trade_qa_card.py verify the builder emits a valid JSON file with all four keys and that the fallback wiring in dashboard.html swallows fetch errors so a 404 cannot blank the card.",
+  "verification": {
+    "builder_extracted_lines": "1458-1642",
+    "dashboard_modified_lines": "1455-1700",
+    "json_keys": ["date", "errors", "frameworks", "round"],
+    "round": 1,
+    "date": "2026-09-30",
+    "errors_count": 8,
+    "frameworks_count": 4,
+    "dashboard_html_checks": {
+      "qaDataLiteral_const_present": true,
+      "fetch_trade_qa_card_json_present": true,
+      "try_catch_wrapping_fetch_present": true,
+      "summary_uses_qaData_round_and_date": true
+    },
+    "tests_written": [
+      "BuilderEmitsValidJsonTest (builder runs clean, valid JSON, all four keys, round=1/date=2026-09-30, non-empty errors/frameworks)",
+      "DashboardFallbackContractTest (fallback block in allowed region, fetch call, try/catch swallows errors, qaData falls back to literal, summary uses qaData.round/qaData.date)"
+    ]
+  },
+  "notes": [
+    "Builder extracts the CURRENT hardcoded values from dashboard.html; no new findings invented.",
+    "Builder drops the literal's target key and only emits the four keys the brief lists (round, date, errors, frameworks).",
+    "Dashboard merges the fetched JSON over the literal via Object.assign so literal-only keys (target) survive.",
+    "Builder source range is narrow (1458-1642) so other workers' edits elsewhere in the file do not get parsed.",
+    "Fetch failure paths documented in tests because no headless JS harness is wired in this repo."
+  ]
+}

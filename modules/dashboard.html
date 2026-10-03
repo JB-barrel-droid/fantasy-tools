@@ -1455,7 +1455,7 @@ async function main(){
   const qaErrors = document.getElementById("tradeQaErrors");
   const qaCriteria = document.getElementById("tradeQaCriteria");
 
-  const qaData = {
+  const qaDataLiteral = {
     round: 1,
     date: "2026-09-30",
     target: "https://jb-barrel-droid.github.io/fantasy-tools/",
@@ -1641,57 +1641,75 @@ async function main(){
     ]
   };
 
-  const fixedCount = qaData.errors.filter(e => e.status === "fixed").length;
-  const openCount = qaData.errors.filter(e => e.status === "open").length;
-  const critOpen = qaData.errors.filter(e => e.status === "open" && e.severity === "critical").length;
+  // Resolve qaData: prefer the baked JSON at trade-qa-card.json so future
+  // rounds update the card without editing this HTML. On any fetch failure
+  // (network down, 404, malformed JSON) fall back to qaDataLiteral so the
+  // card still renders. Keys the JSON carries (round, date, errors,
+  // frameworks) override the literal; literal-only keys (target) survive.
+  (async () => {
+    let qaData = qaDataLiteral;
+    try {
+      const resp = await fetch("trade-qa-card.json", {cache: "no-store"});
+      if (resp.ok) {
+        const json = await resp.json();
+        qaData = Object.assign({}, qaDataLiteral, json);
+      }
+    } catch (e) {
+      // Network fail / 404 / parse error -- fall back to literal.
+    }
 
-  const qaColor = critOpen > 0 ? "var(--red)" : openCount > 0 ? "var(--yellow)" : "var(--green)";
-  qaSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
-    <div><span style="font-size:24px;font-weight:800;color:${qaColor}">${fixedCount}</span><span style="color:var(--dim);font-size:13px"> / ${qaData.errors.length} errors fixed</span></div>
-    <div style="font-size:12.5px;color:var(--dim)">QA Round ${qaData.round} · ${qaData.date}<br>${openCount} open (${critOpen} critical) · Target: <a href="${qaData.target}" style="color:var(--blue)">live trade dashboard</a></div>
-  </div>`;
+    const fixedCount = qaData.errors.filter(e => e.status === "fixed").length;
+    const openCount = qaData.errors.filter(e => e.status === "open").length;
+    const critOpen = qaData.errors.filter(e => e.status === "open" && e.severity === "critical").length;
 
-  const sevColor = {critical: "var(--red)", major: "var(--yellow)", minor: "var(--grey)", data: "var(--blue)"};
-  const statusBadge = s => s === "fixed"
-    ? `<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">FIXED</span>`
-    : `<span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:11px">OPEN</span>`;
+    const qaColor = critOpen > 0 ? "var(--red)" : openCount > 0 ? "var(--yellow)" : "var(--green)";
+    qaSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
+      <div><span style="font-size:24px;font-weight:800;color:${qaColor}">${fixedCount}</span><span style="color:var(--dim);font-size:13px"> / ${qaData.errors.length} errors fixed</span></div>
+      <div style="font-size:12.5px;color:var(--dim)">QA Round ${qaData.round} · ${qaData.date}<br>${openCount} open (${critOpen} critical) · Target: <a href="${qaData.target}" style="color:var(--blue)">live trade dashboard</a></div>
+    </div>`;
 
-  qaErrors.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Errors with root cause analysis</h3>` +
-    qaData.errors.map(e => `
-    <details style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
-      <summary style="cursor:pointer;font-size:13px">
-        <span style="color:${sevColor[e.severity]};font-weight:700">[${e.severity.toUpperCase()}]</span>
-        <b>${e.id}: ${e.title}</b> ${statusBadge(e.status)}
-      </summary>
-      <div style="margin-top:8px;font-size:12.5px;color:var(--dim);line-height:1.5">
-        <div style="margin-bottom:6px"><b style="color:var(--fg)">Symptom:</b> ${e.symptom}</div>
-        <div style="margin-bottom:6px"><b style="color:var(--fg)">Root cause:</b> ${e.rootCause}</div>
-        <div style="margin-bottom:6px"><b style="color:var(--fg)">Line of reasoning:</b> <i>${e.reasoning}</i></div>
-        <div><b style="color:var(--fg)">Fix:</b> ${e.fix}</div>
-      </div>
-    </details>`).join("");
+    const sevColor = {critical: "var(--red)", major: "var(--yellow)", minor: "var(--grey)", data: "var(--blue)"};
+    const statusBadge = s => s === "fixed"
+      ? `<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">FIXED</span>`
+      : `<span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:11px">OPEN</span>`;
 
-  qaCriteria.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Monitoring frameworks (enduring lenses, not one-time checks)</h3>
-  <p style="font-size:12.5px;color:var(--dim);margin:0 0 12px;line-height:1.5">Each QA error revealed a <b style="color:var(--fg)">framework</b> — a class of failure that applies to every future feature, not just the bug that exposed it. New work should be evaluated against all four.</p>` +
-    qaData.frameworks.map(f => `
-    <details style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--card)" open>
-      <summary style="cursor:pointer;font-size:13.5px"><b>${f.id}: ${f.name}</b> <span style="color:var(--dim);font-weight:400">— ${f.principle}</span></summary>
-      <div style="margin-top:10px;font-size:12.5px;color:var(--dim);line-height:1.6">
-        <div style="margin-bottom:8px;padding:8px 10px;background:var(--card2);border-radius:6px;border-left:3px solid var(--blue)">
-          <b style="color:var(--fg)">The rule:</b> ${f.rule}
+    qaErrors.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Errors with root cause analysis</h3>` +
+      qaData.errors.map(e => `
+      <details style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
+        <summary style="cursor:pointer;font-size:13px">
+          <span style="color:${sevColor[e.severity]};font-weight:700">[${e.severity.toUpperCase()}]</span>
+          <b>${e.id}: ${e.title}</b> ${statusBadge(e.status)}
+        </summary>
+        <div style="margin-top:8px;font-size:12.5px;color:var(--dim);line-height:1.5">
+          <div style="margin-bottom:6px"><b style="color:var(--fg)">Symptom:</b> ${e.symptom}</div>
+          <div style="margin-bottom:6px"><b style="color:var(--fg)">Root cause:</b> ${e.rootCause}</div>
+          <div style="margin-bottom:6px"><b style="color:var(--fg)">Line of reasoning:</b> <i>${e.reasoning}</i></div>
+          <div><b style="color:var(--fg)">Fix:</b> ${e.fix}</div>
         </div>
-        <div style="margin-bottom:8px"><b style="color:var(--fg)">Revealed by:</b> ${f.revealedBy}</div>
-        <div style="margin-bottom:8px"><b style="color:var(--fg)">Apply to future work:</b> ${f.futureApplication}</div>
-        <div style="margin-top:10px"><b style="color:var(--fg)">Active checks:</b></div>
-        ${f.checks.map(c => `
-          <div style="margin:6px 0 6px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card2)">
-            <div><b style="color:var(--fg)">${c.id}: ${c.name}</b></div>
-            <div style="margin-top:4px"><b>Check:</b> ${c.check}</div>
-            <div><b>Fail:</b> ${c.fail}</div>
-            <div style="margin-top:4px"><i>${c.reasoning}</i></div>
-          </div>`).join("")}
-      </div>
-    </details>`).join("");
+      </details>`).join("");
+
+    qaCriteria.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Monitoring frameworks (enduring lenses, not one-time checks)</h3>
+    <p style="font-size:12.5px;color:var(--dim);margin:0 0 12px;line-height:1.5">Each QA error revealed a <b style="color:var(--fg)">framework</b> — a class of failure that applies to every future feature, not just the bug that exposed it. New work should be evaluated against all four.</p>` +
+      qaData.frameworks.map(f => `
+      <details style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--card)" open>
+        <summary style="cursor:pointer;font-size:13.5px"><b>${f.id}: ${f.name}</b> <span style="color:var(--dim);font-weight:400">— ${f.principle}</span></summary>
+        <div style="margin-top:10px;font-size:12.5px;color:var(--dim);line-height:1.6">
+          <div style="margin-bottom:8px;padding:8px 10px;background:var(--card2);border-radius:6px;border-left:3px solid var(--blue)">
+            <b style="color:var(--fg)">The rule:</b> ${f.rule}
+          </div>
+          <div style="margin-bottom:8px"><b style="color:var(--fg)">Revealed by:</b> ${f.revealedBy}</div>
+          <div style="margin-bottom:8px"><b style="color:var(--fg)">Apply to future work:</b> ${f.futureApplication}</div>
+          <div style="margin-top:10px"><b style="color:var(--fg)">Active checks:</b></div>
+          ${f.checks.map(c => `
+            <div style="margin:6px 0 6px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card2)">
+              <div><b style="color:var(--fg)">${c.id}: ${c.name}</b></div>
+              <div style="margin-top:4px"><b>Check:</b> ${c.check}</div>
+              <div><b>Fail:</b> ${c.fail}</div>
+              <div style="margin-top:4px"><i>${c.reasoning}</i></div>
+            </div>`).join("")}
+        </div>
+      </details>`).join("");
+  })();
 
   document.getElementById("footNote").innerHTML =
     "checkpoints generated: <code>" + shortTs(data.generated_at) + "</code> · " +
