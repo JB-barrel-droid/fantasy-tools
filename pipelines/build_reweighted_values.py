@@ -71,12 +71,18 @@ def linear_reweight(
     """
     # Group players
     groups: dict[tuple[str, str], list[str]] = {g: [] for g in GROUPS}
+    cuts = []
     for pkey, rec in imputed.items():
         pos, role = rec["group"].split("|")
         role = role.lower()
+        if role == "cut":
+            if rec["imputed_vorp"] != 0:
+                raise ValueError("Cut VORP must be genuine zero")
+            cuts.append(pkey)
+            continue
         groups[(pos, role)].append(pkey)
 
-    result = {}
+    result = {key: 0.0 for key in cuts}
     for g, pkeys in groups.items():
         if not pkeys:
             continue
@@ -111,6 +117,8 @@ def iron_within_position_inversions(
     for pkey, rec in imputed.items():
         pos, role = rec["group"].split("|")
         role = role.lower()
+        if role == "cut":
+            continue
         by_pos.setdefault(pos, {"starter": [], "bench": []})
         by_pos[pos][role].append((pkey, values[pkey]))
 

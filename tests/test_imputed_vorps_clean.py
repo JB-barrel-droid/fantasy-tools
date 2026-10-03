@@ -34,13 +34,13 @@ def test_infer_roster_sizes():
     # + 12 flex + 72 bench = 168 rostered
     values = {}
     for i in range(20):
-        values[f"qb{i}"] = ("QB", 100 - i)
+        values[str(1000+i)] = ("QB", 100 - i)
     for i in range(60):
-        values[f"rb{i}"] = ("RB", 100 - i * 0.5)
+        values[str(2000+i)] = ("RB", 100 - i * 0.5)
     for i in range(80):
-        values[f"wr{i}"] = ("WR", 100 - i * 0.5)
+        values[str(3000+i)] = ("WR", 100 - i * 0.5)
     for i in range(30):
-        values[f"te{i}"] = ("TE", 100 - i)
+        values[str(4000+i)] = ("TE", 100 - i)
 
     roles = infer_roster(values)
     starters = sum(1 for r in roles.values() if r == "starter")
@@ -54,19 +54,19 @@ def test_flex_maps_to_starter():
     """Flex-eligible players selected for flex get 'starter' role."""
     values = {}
     for i in range(12):
-        values[f"qb{i}"] = ("QB", 100 - i)
+        values[str(1000+i)] = ("QB", 100 - i)
     for i in range(24):
-        values[f"rb{i}"] = ("RB", 100 - i)
+        values[str(2000+i)] = ("RB", 100 - i)
     # Add extra RBs/WRs that should become flex
     for i in range(24, 40):
-        values[f"rb{i}"] = ("RB", 50 - (i - 24))
+        values[str(2000+i)] = ("RB", 50 - (i - 24))
     for i in range(36):
-        values[f"wr{i}"] = ("WR", 100 - i)
+        values[str(3000+i)] = ("WR", 100 - i)
     for i in range(12):
-        values[f"te{i}"] = ("TE", 100 - i)
+        values[str(4000+i)] = ("TE", 100 - i)
     # Bench fillers
     for i in range(40, 100):
-        values[f"rb{i}"] = ("RB", 10 - (i - 40) * 0.1)
+        values[str(2000+i)] = ("RB", 10 - (i - 40) * 0.1)
 
     roles = infer_roster(values)
     # The top flex-eligible non-starters should be starters (flex)
