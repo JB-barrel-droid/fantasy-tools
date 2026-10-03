@@ -166,7 +166,13 @@ jobs:
           data['run_id'] = '${{ github.run_id }}'
 
           # Determine freshness (36 hour window)
-          generated_at = datetime.fromisoformat(data['generated_at'].replace('Z', '+00:00'))
+          # The producer (tests/rendered_gate/live.mjs) writes camelCase
+          # `generatedAt`; legacy fallback paths write snake_case. Accept both;
+          # neither present means a corrupt artifact -- fail, never guess.
+          raw_ts = data.get('generatedAt', data.get('generated_at'))
+          if not raw_ts:
+              raise SystemExit('live-page-synthetic.json has neither generatedAt nor generated_at')
+          generated_at = datetime.fromisoformat(str(raw_ts).replace('Z', '+00:00'))
           now = datetime.now(generated_at.tzinfo)
           age_hours = (now - generated_at).total_seconds() / 3600
 

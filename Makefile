@@ -177,6 +177,7 @@ test-unit:
 	python3 -m unittest tests.test_preview_workflow_matches_pages
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
+	python3 -m unittest tests.test_live_page_synthetic_workflow
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
 	python3 -m unittest tests.test_github_actions_status
