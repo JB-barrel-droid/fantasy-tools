@@ -184,7 +184,18 @@ jobs:
       - name: Trigger Pages deploy after chain push (JEG-274)
         if: steps.push.outputs.pushed == 'true'
         run: |
-          gh workflow run pages.yml
+          # Retry the dispatch: the GitHub API occasionally returns a
+          # transient error (HTTP 503 killed chain run 37156962345 on
+          # 2026-10-03) and a bare call would fail the whole chain run.
+          for attempt in 1 2 3; do
+            if gh workflow run pages.yml; then
+              exit 0
+            fi
+            echo "Dispatch attempt $attempt failed; retrying in 20s..."
+            sleep 20
+          done
+          echo "::error::gh workflow run pages.yml failed 3 times"
+          exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
