@@ -30,6 +30,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      # JEG-137 R10: capture the run start time as early as possible so the
+      # scheduler-slip measurement (started_at - cron_at) reflects when the
+      # run began, not when the recording step runs at the end of the job.
+      - name: Record workflow start time (JEG-137 R10)
+        run: echo "WORKFLOW_STARTED_AT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -95,3 +100,17 @@ jobs:
             git commit -m "FantasyCalc drift refresh (GitHub Actions)"
             git push
           fi
+
+      # JEG-137 R10: record started_at and cron_at for the deadline checker.
+      - name: Record workflow run (JEG-137 R10)
+        if: always()
+        run: |
+          STATUS="success"
+          if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
+          python3 pipelines/lib/record_workflow_run.py \
+            --workflow "FantasyCalc drift check and refresh" \
+            --started-at "${WORKFLOW_STARTED_AT:-$(date -u +%FT%TZ)}" \
+            --cron "45 11 * * *" \
+            --run-id "$GITHUB_RUN_ID" \
+            --status "$STATUS" \
+            --output output/comparison-chain-status.json
