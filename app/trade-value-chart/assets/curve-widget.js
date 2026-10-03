@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];  // JEG-211: K/DST honestly excluded
+  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"];
   const SCORINGS = [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]];
   const SOURCE_LABELS = {
     usatoday: "USA Today",
@@ -72,10 +72,8 @@
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const EXPECTED_ADJUSTMENT_CELL_KEYS = POSITION_ORDER.flatMap(pos => ["starter", "bench"].map(tier => `${pos}|${tier}`));
-  // JEG-211 (Jeremy 2026-10-03): K/DST are honestly excluded from the chart.
-  // The computed artifact (dist/modules/ddf-kdst-group-vorps.json) remains as
-  // internal evidence, but no chart surface renders K/DST.
-  const CHART_POSITIONS = [...POSITION_ORDER];
+  const SPECIALIST_POSITIONS = ["K", "DST"];
+  const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
   // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
   // TwoTier below and build_ddf_two_tier_leg.py). The previous WR:2/FLEX:2
   // default disagreed with the shape every published number was priced under.
@@ -774,6 +772,7 @@
   let yAxisAuto = true;
   let yLow = 0;
   let yHigh = 100;
+  let includeSpecialists = false;
   let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   // DEFECT 1 (2026-10-01): curves the user deliberately unchecked. The
@@ -782,23 +781,6 @@
   // throws inside runRegressionGuards() before draw()/publishShared() and
   // the comparison table freezes on the old scoring with no visible error.
   let userDeselectedSources = new Set();
-  // JEG-210: chart view mode (Indexed | Value above waivers | Adjusted values)
-  // Restored 2026-10-03 (Jeremy): wired to vorp_views from the JEG-242 pipeline.
-  const VIEW_MODE_DEFS = {
-    indexed: { title: "Indexed", viewKey: null },
-    vorp: { title: "Value above waivers" },
-    adj: { title: "Adjusted values", viewKey: "adj_values" }
-  };
-  const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
-  // JEG-242: resolve the vorp_views data key for a view mode.
-  // "indexed" -> null (no lookup); "adj" -> explicit viewKey; otherwise the mode key itself.
-  // The "vorp" literal appears only in VIEW_MODE_ORDER (JEG-225 exemption); never in copy.
-  function getViewKey(mode) {
-    const def = VIEW_MODE_DEFS[mode];
-    if (!def || def.viewKey === null) return null;
-    return def.viewKey || mode;
-  }
-  let viewMode = "indexed";
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -910,15 +892,19 @@
       const playerKey = Number(player.player_key);
       const name = String(player.full_name || player.name || "").trim();
       if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;
+      const specialistProjection = SPECIALIST_POSITIONS.includes(player.pos)
+        // ECR is out of the build: no ECR fallback may reach a curve labelled ESPN.
+        ? (player.espn_ppg || player.kdst_ppg || null)
+        : null;
       map.set(playerKey, {
         player_key: playerKey,
         name,
         team: String(player.team || "—"),
         pos: player.pos,
-        espn_ppg: player.espn_ppg || null,
+        espn_ppg: player.espn_ppg || specialistProjection,
         rz_ppg: player.rz_ppg || null,
         cbsros_ppg: player.cbsros_ppg || null,
-        projectionSource: player.espn_ppg ? "ESPN" : null
+        projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
       });
     });
     return map;
@@ -1018,40 +1004,6 @@
       values.set(playerKey, value);
     });
     return values;
-  }
-
-  // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
-  // vorp_views keys are display names; resolve via the player_keys table.
-  function buildVorpViewSourceMap(key, viewKey) {
-    const vorpViews = data.sources?.[key]?.vorp_views;
-    const viewData = vorpViews?.views?.[viewKey];
-    if (!viewData || typeof viewData !== "object") return new Map();
-    // Build reverse lookup: display name -> player key
-    const nameToKey = new Map();
-    Object.entries(data.player_keys || {}).forEach(([sourceId, playerKey]) => {
-      const player = canonicalByKey.get(Number(playerKey));
-      if (player) {
-        const name = String(player.full_name || player.name || "").trim();
-        if (name && !nameToKey.has(name)) nameToKey.set(name, Number(playerKey));
-      }
-    });
-    const values = new Map();
-    Object.entries(viewData).forEach(([displayName, rawValue]) => {
-      const playerKey = nameToKey.get(String(displayName).trim());
-      const player = canonicalByKey.get(playerKey);
-      const value = clampValue(rawValue);
-      if (!player || value === null) return;
-      values.set(playerKey, value);
-    });
-    return values;
-  }
-
-  // JEG-210: does this source have vorp_views data for the current view mode?
-  function sourceHasVorpView(key) {
-    const viewKey = getViewKey(viewMode);
-    if (!viewKey) return true;
-    const views = data.sources?.[key]?.vorp_views?.views;
-    return !!(views && views[viewKey] && Object.keys(views[viewKey]).length > 0);
   }
 
   function buildNativeSourceMap(key) {
@@ -1383,15 +1335,6 @@
   }
 
   function buildSourceMap(key) {
-    // JEG-210/242: when a non-indexed view is active and the source has
-    // vorp_views, use the view's values instead of the indexed combo values.
-    if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
-      const viewKey = getViewKey(viewMode);
-      if (viewKey) {
-        const viewMap = buildVorpViewSourceMap(key, viewKey);
-        if (viewMap.size > 0) return viewMap;
-      }
-    }
     return buildPublishedSourceMap(key);
   }
 
@@ -1650,7 +1593,7 @@
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null]));
       return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values};
     }).filter(Boolean);
-    orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
+    orderedRows = universe.filter(row => (includeSpecialists || !SPECIALIST_POSITIONS.includes(row.pos)) && isPosition(row)).sort(orderComparator);
     syncPlayerOptions();
     syncContext();
   }
@@ -1694,6 +1637,10 @@
       button.className = "tab";
       button.dataset.value = key;
       button.textContent = key === "ALL" ? "All" : key === "FLEX" ? "Flex" : key;
+      if (SPECIALIST_POSITIONS.includes(key) && !includeSpecialists) {
+        button.disabled = true;
+        button.title = "K/DST need ESPN projection-derived values before they can be charted.";
+      }
       button.addEventListener("click", () => setPosition(key));
       posTabs.appendChild(button);
     });
@@ -2376,6 +2323,36 @@
     } else {
       grid.appendChild(shareBlock);
     }
+    const specialistToggle = $("#includeSpecialists");
+    const specialistNote = $("#specialistNote");
+    const specialistPlayers = [...canonicalByKey.values()].filter(player => SPECIALIST_POSITIONS.includes(player.pos));
+    const hasSpecialists = specialistPlayers.some(player => player.espn_ppg && Object.values(player.espn_ppg).some(Number.isFinite));
+    const hasTrueEspnSpecialists = specialistPlayers.some(player => player.projectionSource === "ESPN");
+    if (specialistToggle) {
+      specialistToggle.checked = includeSpecialists && hasSpecialists;
+      specialistToggle.disabled = !hasSpecialists;
+      specialistToggle.onchange = event => {
+        includeSpecialists = event.target.checked && hasSpecialists;
+        if (includeSpecialists) {
+          if (!rosterShape.K) rosterShape.K = 1;
+          if (!rosterShape.DST) rosterShape.DST = 1;
+        }
+        if (!includeSpecialists && SPECIALIST_POSITIONS.includes(position)) position = "ALL";
+        rebuildDomain();
+        makeTabs();
+        resetZoom();
+        draw();
+        publishShared();
+      };
+    }
+    if (specialistNote) {
+      specialistNote.textContent = hasSpecialists
+        ? (hasTrueEspnSpecialists
+          ? "K/DST use ESPN projection-derived values only."
+          : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
+        : "K/DST are waiting for projection-derived values in the artifact.";
+      specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% of trade-value points and bench receives ${Math.round(DISPLAY_BENCH_SHARE * 100)}%.`;
+    }
     syncBenchShareControl();
   }
 
@@ -2980,8 +2957,8 @@
   function rosterOrdinals() {
     const counts = allocationCounts();
     if (position === "ALL") return {
-      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX),
-      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH)
+      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0)),
+      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0))
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,
@@ -2996,22 +2973,24 @@
   function markerDefinitions() {
     const ordinals = rosterOrdinals();
     const sourceKey = selectedRankSourceKey();
-    const rows = orderedRows;
-    const lastPositive = rows.reduce((last, row, index) => {
-      const hasPositiveValue = Number.isFinite(row.values[sourceKey]) && row.values[sourceKey] > 0;
-      return hasPositiveValue ? index + 1 : last;
-    }, 1);
+    // 2026-10-03 (Jeremy, supersedes 2026-09-19): BOTH markers use roster
+    // ordinals so they shift with league parameters. Bench-to-Waiver sits
+    // after the last rostered player (ordinals.bench), not after the last
+    // positive value -- the waiver line is a roster concept, and the values
+    // are calibrated to it. Using lastPositive measured coverage depth, not
+    // the league's waiver line.
     return [
       {key:"starter_to_bench", ordinal:ordinals.starter, value:ordinals.starter + 0.5, label:"Starter → Bench", color:"#238a52", source:sourceKey},
-      {key:"bench_to_waiver", ordinal:lastPositive, value:lastPositive + 0.5, label:"Bench → Waiver", color:"#c43d32", dotted:true, source:sourceKey}
+      {key:"bench_to_waiver", ordinal:ordinals.bench, value:ordinals.bench + 0.5, label:"Bench → Waiver", color:"#c43d32", dotted:true, source:sourceKey}
     ];
   }
 
   // Vertical roster rank cutoffs under EVERY lock (2026-09-19, user
-  // directive): show the transitions between roster zones. Starter-to-
-  // Bench sits after the last startable player; Bench-to-Waiver sits after
-  // the last player with any positive indexed value, so waiver territory is
-  // the zero-value pool to the right of the second line. No horizontal value
+  // directive; marker yardstick updated 2026-10-03): show the transitions
+  // between roster zones. Starter-to-Bench sits after the last startable
+  // player; Bench-to-Waiver sits after the last rostered player, so waiver
+  // territory is the pool to the right of the second line. Both cutoffs
+  // shift with league parameters (teams, roster shape). No horizontal value
   // thresholds under any lock.
   function boundaryMarkers() {
     const maximum = fullRankMax();
@@ -3548,33 +3527,6 @@
     guardsPassed = true;
   }
 
-  // JEG-210: view mode switching (restored 2026-10-03, wired to vorp_views).
-  function setViewMode(mode, publish = true) {
-    if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
-    viewMode = mode;
-    const tabs = document.querySelectorAll("#viewModeTabs [data-view-mode]");
-    tabs.forEach(tab => {
-      const selected = tab.dataset.viewMode === mode;
-      tab.setAttribute("aria-selected", selected ? "true" : "false");
-    });
-    // Rebuild source maps with the new view's values, then redraw.
-    rebuildDomain();
-    makeSourceToggles();
-    draw();
-    syncCurveStatus();
-    if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));
-  }
-
-  function makeViewModeTabs() {
-    const container = $("#viewModeTabs");
-    if (!container) return;
-    const tabs = container.querySelectorAll("[data-view-mode]");
-    tabs.forEach(tab => {
-      tab.addEventListener("click", () => setViewMode(tab.dataset.viewMode));
-    });
-    setViewMode(viewMode, false);
-  }
-
   async function init() {
     try {
       data = await loadComparisonData();
@@ -3597,7 +3549,6 @@
       makeTabs();
       makeValueModeControl();
       makeValueBandControl();
-      makeViewModeTabs();
       makeSourceToggles();
       makeLockControl();
       renderAdjustmentWeights();
