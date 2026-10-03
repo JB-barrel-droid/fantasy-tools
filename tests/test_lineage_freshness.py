@@ -53,10 +53,22 @@ class LineageFreshnessTests(unittest.TestCase):
 
     # -- Helpers --------------------------------------------------------
 
+    # Badge fields the builder stamps when it cannot rebuild (JEG-200 floor).
+    BADGE_FIELDS = (
+        "stale_relative_to_fixture",
+        "lag_seconds",
+        "stale_reason",
+        "stale_stamped_at",
+    )
+
     def _make_temp_workspace(self):
         """Create a temp dir with a copy of the current committed lineage and
         a *newer* fixture; the temp dir stands in for the pre-fix state.
         Returns (tmpdir, lineage_path, fixture_path).
+
+        The copied lineage is stripped of any staleness-badge fields so the
+        workspace always represents the badge-free pre-fix state, even after
+        the committed artifact itself carries the badge (JEG-200 floor).
         """
         tmp = tempfile.mkdtemp(prefix="jeg200-freshness-")
         dist = Path(tmp) / "dist/modules"
@@ -66,9 +78,18 @@ class LineageFreshnessTests(unittest.TestCase):
         lineage_p = dist / "source-value-lineage.json"
         fixture_p = fixdir / "comparison-sources-data.json"
 
-        # Copy the committed lineage
+        # Copy the committed lineage, then strip any badge fields so the
+        # temp workspace is the badge-free pre-fix state.
         if LINEAGE_PATH.exists():
             shutil.copy(LINEAGE_PATH, lineage_p)
+            with open(lineage_p) as f:
+                lin = json.load(f)
+            stripped = [k for k in self.BADGE_FIELDS if k in lin]
+            for k in stripped:
+                del lin[k]
+            if stripped:
+                with open(lineage_p, "w") as f:
+                    json.dump(lin, f, indent=2)
 
         # Copy the current fixture and stamp a newer built_at
         if FIXTURE_PATH.exists():
@@ -104,13 +125,14 @@ class LineageFreshnessTests(unittest.TestCase):
 
     # -- Test 1+3: served lineage not older than fixture (or carries badge)
 
-    @unittest.expectedFailure
     def test_served_lineage_not_older_than_fixture(self):
         """Acceptance #3: a stale lineage + no badge = test fails (negative control).
 
-        Marked expectedFailure until the first Stage 10 run rebuilds the
-        lineage on main; after that, an unexpected success means the invariant
-        holds and the marker should be removed (JEG-200 follow-up).
+        Was marked expectedFailure until the first Stage 10 run; the
+        2026-10-03 01:0x UTC rebuild made the invariant hold (generated_at
+        == fixture built_at), so the marker is removed (JEG-200 follow-up,
+        JEG-204 criterion 4). If a future rebuild lands a stale lineage
+        without a badge, this test fails again -- that is the JEG-200 bug.
         """
         if not (LINEAGE_PATH.exists() and FIXTURE_PATH.exists()):
             self.skipTest("committed lineage / fixture not present")
@@ -162,19 +184,26 @@ class LineageFreshnessTests(unittest.TestCase):
 
     # -- Test 4: USA Today JSN / Lamb lineage matches the fixture
 
-    @unittest.expectedFailure
     def test_usatoday_jsn_lamb_matches_fixture(self):
-        """Acceptance #4: usatoday top25 chart_value for jaxon smith-njigba
+        """Acceptance #4: usatoday top25 `indexed` for jaxon smith-njigba
         equals the fixture's reindexed for the same player (within 0.01),
         and ceedee lamb does too.
 
+        NOTE (JEG-106): for a parent source with an adjusted leg, the
+        lineage's `chart_value` is None by design (the parent's own chart
+        column is N/A; the adjusted leg carries the chart value). The field
+        that carries the parent leg's value as rendered on the chart's
+        usatoday column is `indexed` -- that is what must match the
+        fixture's reindexed. The original draft asserted `chart_value`;
+        it could never pass while JEG-106 stands.
+
         The brief wrote "justin jefferson" -- that is a typo for jaxon
         smith-njigba. Asserting the typo would have to fail (jefferson's
-        chart_value is not 55.0); we assert the intended player.
+        value is not 55.0); we assert the intended player.
 
-        Marked expectedFailure until the first Stage 10 run rebuilds the
-        lineage on main; after that, an unexpected success means the values
-        match and the marker should be removed (JEG-200 follow-up).
+        Was marked expectedFailure until the first Stage 10 run rebuilt the
+        lineage; the 2026-10-03 01:0x UTC rebuild made it pass, so the
+        marker is removed (JEG-200 follow-up, JEG-204 criterion 4).
         """
         if not (LINEAGE_PATH.exists() and FIXTURE_PATH.exists()):
             self.skipTest("committed lineage / fixture not present")
@@ -183,10 +212,11 @@ class LineageFreshnessTests(unittest.TestCase):
         with open(FIXTURE_PATH) as f:
             fixture = json.load(f)
         top25 = (lineage.get("sources") or {}).get("usatoday", {}).get("top25", [])
-        # Build lineage index by normalized name
+        # Build lineage index by normalized name. JEG-106: use `indexed`,
+        # the parent leg's chart value; `chart_value` is N/A-by-design here.
         lin_idx = {}
         for row in top25:
-            lin_idx[norm_player_name(row.get("player_key", ""))] = row.get("chart_value")
+            lin_idx[norm_player_name(row.get("player_key", ""))] = row.get("indexed")
         # Build fixture index by normalized name for the usatoday combo
         usatoday_combo = (
             fixture.get("sources", {}).get("usatoday", {})
@@ -211,7 +241,7 @@ class LineageFreshnessTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             float(jsn_lin), float(jsn_fix), places=2,
-            msg=f"usatoday JSN chart_value {jsn_lin} != fixture reindexed {jsn_fix}",
+            msg=f"usatoday JSN indexed {jsn_lin} != fixture reindexed {jsn_fix}",
         )
         # Belt-and-suspenders: the chart value the brief names.
         self.assertAlmostEqual(float(jsn_lin), 55.0, places=1)
@@ -227,7 +257,7 @@ class LineageFreshnessTests(unittest.TestCase):
         )
         self.assertAlmostEqual(
             float(lin_idx[lamb_n]), float(fixture_reindexed[lamb_n]), places=2,
-            msg=f"usatoday Lamb chart_value {lin_idx[lamb_n]} != fixture reindexed {fixture_reindexed[lamb_n]}",
+            msg=f"usatoday Lamb indexed {lin_idx[lamb_n]} != fixture reindexed {fixture_reindexed[lamb_n]}",
         )
         # Belt-and-suspenders: the chart value the brief names.
         self.assertAlmostEqual(float(lin_idx[lamb_n]), 46.4, places=1)
@@ -245,8 +275,8 @@ class LineageFreshnessTests(unittest.TestCase):
                 "sources": {
                     "usatoday": {
                         "top25": [
-                            {"player_key": "jaxon smithnjigba", "chart_value": 37.28},
-                            {"player_key": "ceedee lamb", "chart_value": 55.0},
+                            {"player_key": "jaxon smithnjigba", "indexed": 37.28},
+                            {"player_key": "ceedee lamb", "indexed": 55.0},
                         ]
                     }
                 }
@@ -256,7 +286,7 @@ class LineageFreshnessTests(unittest.TestCase):
             with open(lineage_p) as f:
                 bad = json.load(f)
             jsn_val = next(
-                r["chart_value"] for r in bad["sources"]["usatoday"]["top25"]
+                r["indexed"] for r in bad["sources"]["usatoday"]["top25"]
                 if "smith" in r["player_key"]
             )
             # Confirm pre-fix wrong value

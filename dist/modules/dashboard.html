@@ -204,6 +204,20 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="fidelitySources"></div>
 </section>
 
+<section class="card" id="e2eFidelityCard">
+  <h2>Source fidelity — end to end (live vs dashboard)</h2>
+  <div class="desc">
+    End-to-end check: live snapshot vs the rendered dashboard, per source.
+    Two failure classes — <b>freshness</b> (snapshot is older than the threshold,
+    meaning the publisher may have done a midweek update we missed) and <b>fidelity flip</b>
+    (a reindex step swapped the ordering the publisher ranks players in — JEG-73-class bug).
+    Built by <code>pipelines/build_e2e_fidelity.py</code> which imports the checks from
+    <code>pipelines/check_source_fidelity.py</code> — one implementation, no duplication.
+  </div>
+  <div id="e2eFidelitySummary" style="margin-bottom:16px"></div>
+  <div id="e2eFidelitySources"></div>
+</section>
+
 <section class="card" id="indexMathCard">
   <h2>Index math — raw to indexed transformation</h2>
   <div class="desc">
@@ -748,6 +762,96 @@ async function main(){
     fidelityHost.innerHTML = `<div style="color:var(--grey)">Failed to load fidelity data: ${String(e).slice(0,80)}</div>`;
   }
 
+  // Source fidelity — end to end (live vs dashboard): freshness + fidelity flips.
+  // Follows the fidelity card render pattern (fetch e2e-fidelity.json, render
+  // per-source cards, color pills by per-source status, top-line summary).
+  const e2eHost = document.getElementById("e2eFidelitySources");
+  const e2eSummary = document.getElementById("e2eFidelitySummary");
+  try {
+    const e2eResp = await fetch("e2e-fidelity.json", {cache:"no-store"});
+    if(e2eResp.ok){
+      const e2e = await e2eResp.json();
+      const e2eSources = e2e.sources || {};
+      const e2eOrder = ["fantasycalc", "usatoday", "fantasypros", "cbs"].filter(s => e2eSources[s]);
+
+      // Top-line summary counts (failures, not sources).
+      let e2eOkCount = 0, e2eWarnCount = 0, e2eBadCount = 0;
+      e2eOrder.forEach(s => {
+        const st = e2eSources[s]?.status;
+        if(st === "ok") e2eOkCount++;
+        else if(st === "bad") e2eBadCount++;
+        else e2eWarnCount++;
+      });
+      const e2eSumColor = e2eBadCount > 0 ? "var(--red)" : e2eWarnCount > 0 ? "var(--yellow)" : "var(--green)";
+      e2eSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
+        <div><span style="font-size:24px;font-weight:800;color:${e2eSumColor}">${e2eOkCount}</span><span style="color:var(--dim);font-size:13px"> / ${e2eOrder.length} sources clean</span></div>
+        <div style="font-size:12.5px;color:var(--dim)">${e2eBadCount} fidelity-flip · ${e2eWarnCount} freshness-stale or unknown<br>Max age: ${e2e.max_age_days ?? "?"}d · Generated: ${shortTs(e2e.generated_at)}</div>
+      </div>`;
+
+      // Per-source cards.
+      e2eHost.innerHTML = e2eOrder.map(srcKey => {
+        const s = e2eSources[srcKey];
+        if(!s) return "";
+        const fres = s.freshness || {};
+        const fid = s.fidelity || {};
+        const fresStatus = fres.status || "unk";
+        const fidStatus = fid.status || "unk";
+        // Pill color follows the worst-of-the-two per-source rule.
+        const dotCls = s.status === "ok" ? "ok" : s.status === "bad" ? "bad" : s.status === "warn" ? "warn" : "unk";
+        const statusIcon = s.status === "ok" ? "✓" : s.status === "bad" ? "✗" : s.status === "warn" ? "!" : "?";
+        const statusColor = s.status === "ok" ? "var(--green)" : s.status === "bad" ? "var(--red)" : s.status === "warn" ? "var(--yellow)" : "var(--grey)";
+
+        const freshnessBadge = (status, count) => {
+          const col = status === "ok" ? "var(--green)" : status === "bad" ? "var(--red)" : status === "warn" ? "var(--yellow)" : "var(--grey)";
+          const icon = status === "ok" ? "✓" : status === "bad" ? "✗" : status === "warn" ? "!" : "?";
+          return `<span style="color:${col};font-weight:700">${icon} ${count}</span> ${status}`;
+        };
+        const freshnessFails = (fres.failures || []).map(f =>
+          `<div style="padding:6px 10px;margin:4px 0;background:${f.type === "fidelity_flip" ? "var(--red-bg)" : "var(--yellow-bg)"};border-radius:6px;font-size:12.5px">${f.message}</div>`
+        ).join("");
+        const fidelityFails = (fid.failures || []).map(f =>
+          `<div style="padding:6px 10px;margin:4px 0;background:var(--red-bg);border-radius:6px;font-size:12.5px">
+            <b>FLIP</b> ${f.higher || "?"} (native ${f.native_higher?.toFixed?.(1) ?? "?"}) → reindexed ${f.reindexed_higher?.toFixed?.(1) ?? "?"} vs ${f.lower || "?"} (native ${f.native_lower?.toFixed?.(1) ?? "?"}, reindexed ${f.reindexed_lower?.toFixed?.(1) ?? "?"})
+            <div style="font-size:11px;color:var(--dim);margin-top:2px">${f.message || ""}</div>
+          </div>`
+        ).join("");
+
+        const fetchedAt = s.fetched_at ? shortTs(s.fetched_at) : "—";
+        const vintage = s.content_vintage || "—";
+        const reason = (fres.failures && fres.failures[0]?.message) || (fid.failures && fid.failures[0]?.message) || "fresh, ordering preserved";
+
+        return `<div class="src" style="margin-bottom:12px">
+          <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="this.parentElement.classList.toggle('open')">
+            <span class="cp-dot ${dotCls}"></span>
+            <b style="font-size:14px">${s.label}</b>
+            <span style="color:${statusColor};font-weight:700">${statusIcon} ${(s.status || "unk").toUpperCase()}</span>
+            <span style="color:var(--dim);font-size:12px;margin-left:auto">${reason}</span>
+          </div>
+          <div class="src-body" style="display:none;padding:0 16px 16px;border-top:1px solid var(--line)">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px">FRESHNESS</div>
+                <div style="font-size:13px">${freshnessBadge(fresStatus, (fres.failures || []).length)}</div>
+                <div style="font-size:11px;color:var(--faint);margin-top:6px">Snapshot: ${fetchedAt} · Vintage: ${vintage}</div>
+                ${freshnessFails || '<div style="color:var(--green);font-size:12.5px;margin-top:6px">✓ within age threshold</div>'}
+              </div>
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--dim);margin-bottom:8px">FIDELITY (ordering preservation)</div>
+                <div style="font-size:13px">${freshnessBadge(fidStatus, (fid.failures || []).length)}</div>
+                <div style="font-size:11px;color:var(--faint);margin-top:6px">Native ordering vs reindexed ordering per publisher pair</div>
+                ${fidelityFails || '<div style="color:var(--green);font-size:12.5px;margin-top:6px">✓ no ordering flips detected</div>'}
+              </div>
+            </div>
+          </div>
+        </div>`;
+      }).join("");
+    } else {
+      e2eHost.innerHTML = `<div style="color:var(--grey)">End-to-end fidelity data not available. Run <code>python3 pipelines/build_e2e_fidelity.py</code>.</div>`;
+    }
+  } catch(e) {
+    e2eHost.innerHTML = `<div style="color:var(--grey)">Failed to load e2e fidelity data: ${String(e).slice(0,80)}</div>`;
+  }
+
   // Index math: raw -> indexed transformation verification
   const mathHost = document.getElementById("indexMathSources");
   const mathSummary = document.getElementById("indexMathSummary");
@@ -892,8 +996,15 @@ async function main(){
         const rows = (s.top25 || []).map(p => {
           const fmt = v => (v === null || v === undefined) ? '<span style="color:var(--faint)">N/A</span>' : v;
           const fmtMult = v => (v === null || v === undefined) ? '<span style="color:var(--faint)">—</span>' : '×' + v;
+          // JEG-106: When has_adjusted_leg is true, the parent source's chart column
+          // shows N/A because the chart actually uses the adjusted leg's value.
+          // The match icon is suppressed when chart_value is null.
+          const chartCellValue = (p.chart_value === null || p.chart_value === undefined)
+            ? '<span style="color:var(--faint)">N/A</span>'
+            : p.chart_value;
           const matchIcon = p.chart_matches_indexed === true ? '<span style="color:var(--green)">✓</span>' :
-                            p.chart_matches_indexed === false ? '<span style="color:var(--red)">✗</span>' : '';
+                            p.chart_matches_indexed === false ? '<span style="color:var(--red)">✗</span>' :
+                            (p.has_adjusted_leg ? '<span style="color:var(--dim)" title="Chart uses adjusted leg; see ' + s.adjusted_leg_pointer + '">→</span>' : '');
           // Live page verification icon
           // Unverifiable sources (no live human-readable page) FAIL RED per the contract.
           const liveIcon = p.live_matches_native === true ? '<span style="color:var(--green)">✓</span>' :
@@ -911,14 +1022,57 @@ async function main(){
             <td style="padding:6px 8px;color:var(--dim)">${p.rank}</td>
             <td style="padding:6px 8px;font-weight:600">${p.player_key}</td>
             ${liveCell}
-            <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.native)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="Publisher's published value (or ESPN ROS projections)">${fmt(p.native)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)" ${p.vorp_inferred_position ? `title="Position ${p.vorp_inferred_position}: replacement tier ${fmt(p.vorp_replacement_level)} (inferred n_rostered ${p.vorp_inferred_n_rostered})"` : `title="VORP round-trip unavailable for this row"`}>${fmt(p.implied_vorp)}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right" title="DDF-rebuilt value (what the chart actually displays)">${fmt(p.ddf_rebuilt)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.index_mult)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.indexed)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right;color:var(--blue)">${fmtMult(p.reweight_mult)}</td>
             <td style="padding:6px 8px;font-family:monospace;text-align:right">${fmt(p.reweighted)}</td>
-            <td style="padding:6px 8px;font-family:monospace;text-align:right;font-weight:700">${fmt(p.chart_value)} ${matchIcon}</td>
+            <td style="padding:6px 8px;font-family:monospace;text-align:right;font-weight:700">${chartCellValue} ${matchIcon}</td>
           </tr>`;
         }).join("");
+
+        // JEG-107: render the inferred replacement levels per position above
+        // the table so the publisher's assumptions are inspectable alongside
+        // the player rows. Only shown when the VORP chain computed at build.
+        let vorpAssumptions = '';
+        const rt = s.vorp_round_trip;
+        if (rt && rt.positions && Object.keys(rt.positions).length) {
+          const posCells = ['QB', 'RB', 'WR', 'TE'].map(pos => {
+            const info = rt.positions[pos];
+            if (!info || info.waiver_line_value === null
+                || info.waiver_line_value === undefined) {
+              return `<div style="display:flex;justify-content:space-between;gap:8px;font-family:monospace;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line)">
+                <span style="color:var(--dim)">${pos}</span>
+                <span style="color:var(--faint)">n/a</span>
+              </div>`;
+            }
+            const wk = info.waiver_line_value;
+            const roster = `${info.n_rostered} rostered (${info.n_dedicated}+${info.n_flex} flex + ${info.n_bench} bench)`;
+            const method = info.waiver_method || '';
+            return `<div style="display:flex;justify-content:space-between;gap:8px;font-family:monospace;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line)">
+              <span style="color:var(--dim);min-width:30px">${pos}</span>
+              <span style="text-align:right" title="${roster} · method=${method}">waiver ${wk}</span>
+            </div>`;
+          }).join('');
+          const errNote = rt.error
+            ? `<div style="margin-top:6px;color:var(--red);font-size:11px">VORP chain error: ${String(rt.error).slice(0, 160)}</div>`
+            : '';
+          const inherited = rt.inherited_from
+            ? `<div style="color:var(--dim);font-size:11px">inherited from ${rt.inherited_from}</div>`
+            : '';
+          vorpAssumptions = `<div style="display:flex;gap:24px;flex-wrap:wrap;margin:8px 0 12px;padding:10px 12px;background:var(--card2);border-radius:8px;border:1px solid var(--line)">
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin-bottom:4px">Publisher inferred assumptions (VORP round-trip)</div>
+              <div style="min-width:240px">${posCells}</div>
+              ${inherited}${errNote}
+            </div>
+            <div style="font-size:11px;color:var(--dim);max-width:340px;line-height:1.4">
+              Replacement tier = first non-rostered player's value under the inferred 12-team Half PPR roster (1 QB, 2 RB, 2 WR, 1 TE, 1 flex RB/WR/TE, 6 bench; flex share = seats × roster-derived VORP at the margin). Hover any VORP cell to see the tier per row.
+            </div>
+          </div>`;
+        }
 
         return `<div class="src open" style="margin-bottom:12px">
           <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer" onclick="this.parentElement.classList.toggle('open')">
@@ -929,14 +1083,17 @@ async function main(){
           </div>
           <div class="src-body" style="padding:0 16px 16px;border-top:1px solid var(--line)">
             <div style="margin-top:12px;font-size:12px;color:var(--dim);margin-bottom:8px">${s.source_note}</div>
+            ${vorpAssumptions}
             <div style="overflow-x:auto">
-            <table style="width:100%;border-collapse:collapse;min-width:700px">
+            <table style="width:100%;border-collapse:collapse;min-width:900px">
               <thead>
                 <tr style="font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);border-bottom:2px solid var(--line)">
                   <th style="padding:8px;text-align:left">#</th>
                   <th style="padding:8px;text-align:left">Player</th>
                   <th style="padding:8px;text-align:right">Live</th>
-                  <th style="padding:8px;text-align:right">Native</th>
+                  <th style="padding:8px;text-align:right" title="Publisher's published value (or ESPN ROS projections)">Native</th>
+                  <th style="padding:8px;text-align:right" title="Publisher's implied VORP under inferred roster assumptions">Impl. VORP</th>
+                  <th style="padding:8px;text-align:right" title="DDF-rebuilt value (what the chart displays)">DDF rebuilt</th>
                   <th style="padding:8px;text-align:right">Idx mult</th>
                   <th style="padding:8px;text-align:right">Indexed</th>
                   <th style="padding:8px;text-align:right">Rewgt mult</th>
@@ -948,7 +1105,8 @@ async function main(){
             </table>
             </div>
             <div style="font-size:11px;color:var(--faint);margin-top:8px">
-              Live = scraped from the human-readable source page right now · Native = value in our pipeline snapshot ·
+              Live = scraped from the human-readable source page right now · Native = publisher's value ·
+              Impl. VORP = native − inferred replacement tier · DDF rebuilt = chart's final translated value ·
               Idx mult = indexed ÷ native · Rewgt mult = reweighted ÷ indexed ·
               Chart ✓ = matches indexed value · Live ✓ = matches our snapshot, ✗ = differs
             </div>
