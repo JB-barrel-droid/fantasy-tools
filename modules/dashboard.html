@@ -56,6 +56,7 @@
   .cp-reason{font-size:12px;color:#cfd8e3;line-height:1.5}
   .cp-reason.bad{color:var(--red)}
   .cp-reason.warn{color:var(--yellow)}
+  .cp-table{font-size:11.5px;color:var(--accent,#7fb3ff);font-family:ui-monospace,Menlo,monospace;margin-top:4px;letter-spacing:.2px}
   /* source sections */
   .src{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:var(--card)}
   .src-head{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
@@ -528,6 +529,22 @@ async function main(){
       return `<div class="cp razzball-pill"><div class="cp-reason">Direct fixture update · vintage ${vintage}</div></div>`;
     })() : "";
 
+    // JEG-312: c3 cell renders the supabase_table name as a second line under
+    // the row count, so readers can see which Supabase table each verdict
+    // refers to. Parsed from the reason text the build pipeline embeds
+    // ("<n> rows landed in <table> <d>d ago.") -- when no table is present
+    // (e.g. "N/A by design: file-scraped source." or unknown landing), fall
+    // back to the existing single-line reason.
+    function c3tableFromReason(reason) {
+      const m = (reason || "").match(/rows landed in (\S+)\s+\d/);
+      return m ? m[1] : null;
+    }
+    function escHtml(s) {
+      return String(s).replace(/[&<>"']/g, c => ({
+        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+      }[c]));
+    }
+
     // Checkpoint cards (skip c6/c7 for razzball -- documented in the pill above)
     const cpCards = data.checkpoints.map(cpDef => {
       const cp = cps[cpDef.key];
@@ -535,11 +552,21 @@ async function main(){
       if(src === "razzball" && (cpDef.key === "c6_candidate" || cpDef.key === "c7_promotion")) return "";
       const dotCls = cp.status === "ok" ? "ok" : cp.status === "warn" ? "warn" : cp.status === "bad" ? "bad" : "unk";
       const reasonCls = cp.status === "bad" ? "bad" : cp.status === "warn" ? "warn" : "";
+      // C3 second-line supabase_table (JEG-312). Direct field takes precedence;
+      // otherwise parse from the embedded "<n> rows landed in <table>" token.
+      let reasonHtml = `<div class="cp-reason ${reasonCls}">${escHtml(cp.reason)}</div>`;
+      if(cpDef.key === "c3_supabase") {
+        const tbl = cp.supabase_table != null ? cp.supabase_table : c3tableFromReason(cp.reason);
+        if(tbl) {
+          reasonHtml = `<div class="cp-reason ${reasonCls}">${escHtml(cp.reason)}</div>`
+                    + `<div class="cp-table">${escHtml(tbl)}</div>`;
+        }
+      }
       return `<div class="cp">
         <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${cpDef.label}</span></div>
         <div class="cp-what">${cpDef.what}</div>
         <div class="cp-time">${shortTs(cp.timestamp)} (${timeAgo(cp.timestamp)})</div>
-        <div class="cp-reason ${reasonCls}">${cp.reason}</div>
+        ${reasonHtml}
       </div>`;
     }).join("");
 
