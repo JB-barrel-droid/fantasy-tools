@@ -2483,3 +2483,55 @@ so the make target fails fast on test_static_export before reaching
 the simulator under investigation. Direct invocation
 (`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
 the 9 tests green in 1.7s.
+
+## JEG-316 — Chart inputs at risk (minimax M3)
+Session: mvs_b6bea93477a34ca18cc086ccc1b10633 — branch minimax/jeg-316-reference-freshness
+
+What I did:
+- Extended pipelines/check_reference_freshness.py with color_for() age-band
+  helper (green/yellow/red/unknown against existing max_age_days), a
+  DEFAULT_CHART_INPUT_KEYS tuple (players.as_of / players.kdst_snapshot /
+  news.generated_at), and a dedicated chart_inputs section in the JSON
+  with summary rollup (chart_input_count, chart_input_at_risk_count).
+- Added a "Chart inputs at risk" panel to modules/dashboard.html between
+  the last existing section and the footer, with its own delimited
+  comment markers (start/end) so the file boundary is explicit. Added
+  renderChartInputsRisk() in the same file boundary (next to the panel)
+  to fetch reference-freshness.json and render each row with its color.
+- Regenerated app/trade-value-chart/assets/reference-freshness.json and
+  dist/assets/reference-freshness.json via the existing script with
+  --today 2026-10-03.
+- Extended tests/test_reference_freshness.py with two new tests:
+  (1) negative test asserting players.as_of = today - 10d paints red
+      on chart_input with chart_input=true and at_risk >= 1;
+  (2) color-band coverage test asserting green/yellow/red/unknown
+      bucketing for color_for() (regression guard so '?' kdst_snapshot
+      does not get mis-bucketed as red).
+
+Verified:
+- python3 -m unittest tests.test_reference_freshness — 6/6 pass
+  (4 existing + 2 new).
+- git status before commit: only the 4 expected files plus the
+  regenerated dist/ copy (already tracked, mirrored from sync).
+- Files stayed inside the file boundary: only the chart-inputs panel
+  region of modules/dashboard.html was touched (HTML section + the
+  renderChartInputsRisk() function in the same region).
+- Committed as 8dd97c7 on minimax/jeg-316-reference-freshness.
+- Branch is 1 commit ahead of origin/main; per the brief, no push,
+  merge, or deploy.
+
+What I did NOT do (per the brief):
+- Did not fix the underlying stale sources.
+- Did not touch any other section of modules/dashboard.html.
+- Did not push, merge, or deploy.
+- Did not adjust tests to make them green — both new tests assert
+  behaviour the implementation already had to grow to satisfy.
+
+Known caveats / open follow-ups:
+- The shipped reference-freshness.json still shows the underlying
+  sources are stale (players.as_of 10d old, news.generated_at 13d old,
+  kdst_snapshot "?"). That is the data lane's problem; this ticket
+  only surfaces it. Once the data lane refreshes the underlying
+  sources, the same JSON will paint green for players.as_of and
+  news.generated_at (the kdst_snapshot "?" is a separate gap that
+  this PR tracks explicitly as unknown).
