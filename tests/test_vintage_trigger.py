@@ -188,6 +188,17 @@ class VintageWorkflowContractTests(unittest.TestCase):
         self.assertIn("changed", cond)
         self.assertIn("code_changed", cond)
 
+    def test_check_step_survives_script_exit_1(self):
+        # Regression (JEG-268): the script exits 1 on every change detection
+        # (fail-closed). Without `|| true`, bash -e fails the check step
+        # before outputs are parsed and the dispatch never fires -- the hourly
+        # trigger was dead on its primary path (both scheduled runs failed at
+        # this step). The invocation must tolerate exit 1.
+        block = self._step_block("Check source vintage")
+        m = re.search(r"check_source_vintage\.py --json[^\n]*", block)
+        assert m, "script invocation not found in check step"
+        self.assertIn("|| true", m.group(0))
+
 
 if __name__ == "__main__":
     unittest.main()

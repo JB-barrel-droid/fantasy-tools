@@ -30,11 +30,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          # Run the check and capture JSON output
-          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json
+          # Run the check and capture JSON output. The script exits 1 whenever
+          # it detects a change (fail-closed, including on errors), so `|| true`
+          # keeps the step alive -- without it, bash -e fails the step on every
+          # detection and the dispatch below never fires (JEG-268).
+          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json || true
 
-          # Check the exit code - script exits 1 if changed, 0 if same
-          # But we want to continue even if changed, so we ignore the exit code
+          # Read the JSON report the script always prints: changed=True on a
+          # detected change or on any error, by design (fail-closed).
           CHANGED=$(python3 -c "import json; print(json.load(open('/tmp/vintage-check.json'))['changed'])")
           # JEG-205: code-change trigger rides the same dispatch. Default True
           # (fail-safe) if the field is absent, e.g. an older script version.
