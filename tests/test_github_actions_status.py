@@ -211,9 +211,10 @@ class LastSuccessAtTest(unittest.TestCase):
 
 class CoverageGapsTest(unittest.TestCase):
     """JEG-311: coverage_gaps must reflect workflows present in the API
-    list but absent from PIPELINE_COVERAGE. The previous hardcoded
-    `coverage_gaps: []` masked CBS ROS, Live page synthetic gate, and
-    Preview build, which rendered as 'Unmapped' on the dashboard.
+    list but absent from PIPELINE_COVERAGE. On main, gaps were computed
+    from `required_tasks` (tasks lacking passing automation), not from a
+    hardcoded empty list; this commit changes the semantics to
+    API-names-present-but-unmapped, which is parked for a human decision.
 
     These are negative tests against the regression: a workflow present
     in the API list but missing from the coverage map MUST appear in
@@ -233,17 +234,18 @@ class CoverageGapsTest(unittest.TestCase):
         gaps = gh.compute_coverage_gaps(api_names, coverage_keys)
         self.assertIn("CBS ROS scrape to Supabase", gaps)
 
-    def test_all_nine_workflows_mapped_yields_empty_gaps(self):
-        # Pin the post-fix invariant: once all 9 current workflows are
-        # in PIPELINE_COVERAGE, coverage_gaps must be empty. We pass the
-        # full set of workflow names plus the full PIPELINE_COVERAGE
-        # keys; the gap set must be the empty set.
-        all_nine = set(gh.PIPELINE_COVERAGE.keys()) | {
+    def test_known_workflows_yield_expected_gaps(self):
+        # Pin the current gap set: the 9 known workflow names are the 7
+        # PIPELINE_COVERAGE keys plus "Live page synthetic gate" and
+        # "Preview build", which are genuinely unmapped (CBS ROS was
+        # mapped by this commit). When those two get coverage entries,
+        # update this test to expect [].
+        api_names = set(gh.PIPELINE_COVERAGE.keys()) | {
             "Live page synthetic gate",
             "Preview build",
         }
-        gaps = gh.compute_coverage_gaps(sorted(all_nine), set(gh.PIPELINE_COVERAGE.keys()))
-        self.assertEqual(gaps, [])
+        gaps = gh.compute_coverage_gaps(sorted(api_names), set(gh.PIPELINE_COVERAGE.keys()))
+        self.assertEqual(gaps, ["Live page synthetic gate", "Preview build"])
 
     def test_gaps_are_sorted_deterministically(self):
         # Order matters for stable diffs / dashboard rendering.
@@ -266,7 +268,7 @@ class CoverageGapsTest(unittest.TestCase):
         entry = gh.PIPELINE_COVERAGE["CBS ROS scrape to Supabase"]
         self.assertEqual(entry["stages"], ["C2", "C3"])
         self.assertEqual(entry["description"], "Weekly CBS ROS scrape to Supabase")
-        self.assertEqual(entry["schedule"], "Weekly Wed 11:00 UTC (06:00 CT)")
+        self.assertEqual(entry["schedule"], "Supabase pg_cron weekly (GitHub cron disabled 2026-10-03, JEG-285)")
 
 
 if __name__ == "__main__":

@@ -88,11 +88,12 @@ PIPELINE_COVERAGE = {
     "CBS ROS scrape to Supabase": {
         # JEG-311: closes the automation gap where CBS ROS data was only
         # updated via manual pull + save runs (JEG-71). Writes to
-        # public.cbs_ros_projections. Cron `0 11 * * 3` per
-        # .github/workflows/cbsros-supabase-sync.yml.
+        # public.cbs_ros_projections. The GitHub cron `0 11 * * 3` in
+        # .github/workflows/cbsros-supabase-sync.yml was disabled
+        # 2026-10-03 (JEG-285); the workflow is now Supabase pg_cron-triggered.
         "stages": ["C2", "C3"],
         "description": "Weekly CBS ROS scrape to Supabase",
-        "schedule": "Weekly Wed 11:00 UTC (06:00 CT)",
+        "schedule": "Supabase pg_cron weekly (GitHub cron disabled 2026-10-03, JEG-285)",
         "key_task": "CBS ROS scrape to Supabase",
     },
 }
