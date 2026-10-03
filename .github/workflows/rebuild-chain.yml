@@ -161,8 +161,10 @@ jobs:
             # JEG-299: main is hot (30-min health pushes + lane merges move it
             # during the chain run). Rebase onto the latest tip before pushing
             # so a non-fast-forward rejection doesn't silently drop the rebuild.
+            # --autostash: a failed chain leaves the partial fixture unstaged
+            # by design; stash it across the rebase instead of refusing.
             # On rebase conflict: abort and fail loudly -- never force-push.
-            git pull --rebase origin main || {
+            git pull --rebase --autostash origin main || {
               echo "::error::Rebase onto origin/main failed; rebuild output preserved in run artifacts, manual push needed."
               git rebase --abort || true
               exit 1
