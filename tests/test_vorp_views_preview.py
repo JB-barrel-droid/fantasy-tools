@@ -223,11 +223,18 @@ class VorpViewsPreviewTests(unittest.TestCase):
                     self.assertEqual(views[view][src][ZERO_KEY], 0.0)
                 self.assertNotIn("1", views["vorp"][src])
 
-            # Granular source: Indexed unavailable WITH explicit reason.
-            espn_indexed = views["indexed"]["espn"]
-            self.assertIn("unavailable", espn_indexed)
-            self.assertGreater(len(espn_indexed["unavailable"]), 10)
-            self.assertIn("espn", payload["exclusions"])
+            # Granular and derived AVG sources: Indexed unavailable WITH
+            # explicit reason; VORP/Adjusted remain fully populated.
+            for src in ("espn", "avg"):
+                indexed = views["indexed"][src]
+                self.assertIn("unavailable", indexed)
+                self.assertGreater(len(indexed["unavailable"]), 10)
+                self.assertIn(src, payload["exclusions"])
+                self.assertTrue(views["vorp"][src])
+                self.assertEqual(
+                    set(views["vorp"][src]),
+                    set(views["adj_values"][src]),
+                )
 
             # Second-language agreement: node re-derives the same maps.
             node = subprocess.run(
