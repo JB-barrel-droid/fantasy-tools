@@ -1,242 +1,200 @@
 #!/usr/bin/env python3
-"""Build reweighted chart values per JEG-209+ Jeremy's 5 decisions (2026-10-02).
+"""JEG-209: Reweight imputed VORPs to 0-70 chart values.
 
- Jeremy's 5 decisions:
-   1. LINEAR allocation (no squared premium).
-   2. Blend (not ESPN alone) as the pinned economics reference.
-   3. All-source batch 70 anchor (max across all sources is 70).
-   4. Within-position inversions ironed out; cross-position allowed.
-   5. 8-box budgets: defaults from pipeline (DDF leg pie totals), user-adjustable
-      via the controls input (not hardcoded inside the model).
+Implements Jeremy's 5 decisions (2026-10-02):
+1. LINEAR allocation — no squared premium. Budget share = VORP / sum(VORP).
+2. BLEND reference — group budgets from the DDF blend leg's pie totals, not ESPN alone.
+3. 70 ANCHOR — each source's batch max scales to 70 (all-source batch anchor).
+4. INVERSIONS — within-position (bench > starter) ironed out; cross-position allowed.
+5. 8-BOX CONTROLS — budgets default from pipeline, user-adjustable via --controls JSON.
 
-Output: chart values per source, per player on the 0-70 display scale.
+Input: imputed VORP artifact from build_imputed_vorps.py
+Output: chart values 0-70 per player per source (three views: Indexed, VORP, Adj Values)
 """
+
 from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Mapping, MutableMapping, Optional, Sequence, Tuple
+from pathlib import Path
+from typing import Any
 
-POSITION_ORDER = ("QB", "RB", "WR", "TE")
-EIGHT_GROUPS = tuple((pos, role) for pos in POSITION_ORDER for role in ("starter", "bench"))
-DISPLAY_ANCHOR = 70.0  # Decision 3: all-source batch 70 anchor
+# 8 groups for budget allocation
+GROUPS = [
+    ("QB", "starter"), ("QB", "bench"),
+    ("RB", "starter"), ("RB", "bench"),
+    ("WR", "starter"), ("WR", "bench"),
+    ("TE", "starter"), ("TE", "bench"),
+]
+
+DISPLAY_MAX = 70.0
 
 
-@dataclass
-class BoxBudgets:
-    """ 8-box budgets for the chart's group reweight.
+def load_group_budgets(
+    ddf_leg_path: Path,
+    controls_path: Path | None = None,
+) -> dict[tuple[str, str], float]:
+    """Load 8-box budgets. Defaults from DDF blend leg pie totals.
 
-    Defaults are derived from the DDF leg pie totals (decision 5). Users can
-    override per-box via the controls input; cross-position inversions are
-    allowed but within-position ranks are ironed (decision 4).
+    Decision 2: blend (not ESPN alone) as pinned economics reference.
+    Decision 5: defaults from pipeline, user-adjustable via --controls JSON.
+    Controls format: {"QB/starter": 123.4, ...} — overrides specific boxes.
     """
+    leg = json.loads(ddf_leg_path.read_text())
+    budgets = {}
+    for pos, role in GROUPS:
+        # DDF leg calibration: {POS: {starter_raw, bench_raw, pie}}
+        cal = leg["calibration"][pos]
+        key = "starter_raw" if role == "starter" else "bench_raw"
+        budgets[(pos, role)] = float(cal[key])
 
-    budgets: Dict[Tuple[str, str], float] = field(default_factory=dict)
+    if controls_path:
+        overrides = json.loads(controls_path.read_text())
+        for k, v in overrides.items():
+            pos, role = k.split("/")
+            budgets[(pos, role)] = float(v)
 
-    @classmethod
-    def from_ddf_pies(cls, calibration: Mapping[str, Mapping]) -> "BoxBudgets":
-        b: Dict[Tuple[str, str], float] = {}
-        for pos in POSITION_ORDER:
-            block = calibration.get(pos) or {}
-            b[(pos, "starter")] = float(block.get("pie") or 0.0) - float(
-                block.get("bench_raw") or 0.0
-            )
-            b[(pos, "bench")] = float(block.get("bench_raw") or 0.0)
-        return cls(budgets=b)
-
-    @classmethod
-    def from_user_overrides(
-        cls,
-        calibration: Mapping[str, Mapping],
-        overrides: Optional[Mapping[Tuple[str, str], float]] = None,
-    ) -> "BoxBudgets":
-        base = cls.from_ddf_pies(calibration).budgets
-        if overrides:
-            for k, v in overrides.items():
-                if k in base:
-                    base[k] = float(v)
-        return cls(budgets=base)
-
-    def total(self) -> float:
-        return sum(self.budgets.values())
-
-    def as_dict(self) -> Dict[Tuple[str, str], float]:
-        return dict(self.budgets)
+    return budgets
 
 
 def linear_reweight(
-    imputed_vorps: Mapping[int, float],
-    roles: Mapping[int, Tuple[str, str]],
-    budgets: BoxBudgets,
-) -> Dict[int, float]:
-    """Decision 1+2+5: linear rescale, blend reference, 8-box budgets.
+    imputed: dict[str, dict[str, Any]],
+    budgets: dict[tuple[str, str], float],
+) -> dict[str, float]:
+    """Reweight imputed VORPs to chart values via linear allocation.
 
-    For each of 8 groups:
-        alloc_factor = group_budget / sum(imputed_vorps_in_group)
-        chart_value[player] = imputed_vorp[player] * alloc_factor
+    Decision 1: LINEAR — no squared premium.
+    For each group: chart_value = imputed_vorp * (budget / sum_imputed_in_group).
 
-    The 'blend reference' (decision 2) is implicit: imputed VORPs are already
-    aligned to our (blend) group VORPs, so the linear rescale preserves economic
-    balance relative to the blend leg.
+    This preserves within-group ordering (linear rescale is monotone).
     """
-    factors: Dict[Tuple[str, str], float] = {}
-    group_sums: Dict[Tuple[str, str], float] = {g: 0.0 for g in EIGHT_GROUPS}
-    for pk, val in imputed_vorps.items():
-        r = roles.get(pk)
-        if r is None:
+    # Group players
+    groups: dict[tuple[str, str], list[str]] = {g: [] for g in GROUPS}
+    for pkey, rec in imputed.items():
+        pos, role = rec["group"].split("|")
+        role = role.lower()
+        groups[(pos, role)].append(pkey)
+
+    result = {}
+    for g, pkeys in groups.items():
+        if not pkeys:
             continue
-        group_sums[r] += float(val)
-    for g in EIGHT_GROUPS:
-        s = group_sums[g]
-        budget = budgets.budgets.get(g, 0.0)
-        factors[g] = (budget / s) if s > 0 else 0.0
-    out: Dict[int, float] = {}
-    for pk, val in imputed_vorps.items():
-        r = roles.get(pk)
-        if r is None:
+        total_imputed = sum(imputed[p]["imputed_vorp"] for p in pkeys)
+        budget = budgets[g]
+        if total_imputed <= 0:
+            for p in pkeys:
+                result[p] = 0.0
             continue
-        out[pk] = float(val) * factors[r]
-    return out
+        # Linear: each player's share = their VORP / total VORP * budget
+        for p in pkeys:
+            result[p] = imputed[p]["imputed_vorp"] / total_imputed * budget
+
+    return result
 
 
 def iron_within_position_inversions(
-    values: Mapping[int, float],
-    roles: Mapping[int, Tuple[str, str]],
-    imputed_vorps: Mapping[int, float],
-) -> Dict[int, float]:
-    """Decision 4: iron within-position rank inversions; allow cross-position.
+    values: dict[str, float],
+    imputed: dict[str, dict[str, Any]],
+) -> dict[str, float]:
+    """Iron out within-position inversions (bench player > starter at same position).
 
-    Within the same (pos, role) bucket, sort by imputed_vorp and assign
-    strictly monotonic chart values. Cross-position inversions (RB#15 < TE#3)
-    are not ironed -- they reflect genuine economic preference.
+    Decision 4: within-position inversions are bugs, iron them out.
+    Cross-position inversions (bench RB > starter TE) are legitimate economics — leave them.
+
+    Linear rescale preserves order within (pos, role) groups, so true inversions
+    should not occur. This is a safety net: if a bench player's value exceeds
+    the lowest starter at the same position, clamp it.
     """
-    out: Dict[int, float] = {}
-    by_group: Dict[Tuple[str, str], List[Tuple[int, float, float]]] = {}
-    for pk, val in imputed_vorps.items():
-        r = roles.get(pk)
-        if r is None:
+    # Group by position, separate starter/bench
+    by_pos: dict[str, dict[str, list[tuple[str, float]]]] = {}
+    for pkey, rec in imputed.items():
+        pos, role = rec["group"].split("|")
+        role = role.lower()
+        by_pos.setdefault(pos, {"starter": [], "bench": []})
+        by_pos[pos][role].append((pkey, values[pkey]))
+
+    result = dict(values)
+    for pos, roles in by_pos.items():
+        if not roles["starter"] or not roles["bench"]:
             continue
-        by_group.setdefault(r, []).append((pk, float(val), float(values.get(pk, 0.0))))
-    for g, members in by_group.items():
-        members.sort(key=lambda m: (-m[1], m[0]))
-        # Monotone ascent through the bucket's chart values.
-        for i, (pk, iv, _) in enumerate(members):
-            base = float(values.get(pk, 0.0))
-            # Average of imputed rank position and as-published value so the curve
-            # shape is preserved while removing rank inversions within the bucket.
-            # The reweight stage above preserves monotone rescale; this stage
-            # only acts when an inversion (later imputed player has higher chart).
-            out[pk] = base
-    # The linear_reweight pass already orders strictly by imputed VORP within each
-    # group, so rank inversions within (pos, role) are impossible there. This
-    # helper is intentionally a no-op alias for now: the decision's invariant
-    # is " ensure no two players in the same (pos, role) share the same chart
-    # value when their imputed VORP differs", and the linear rescale satisfies
-    # it as long as input values are positive. Return the linear output as-is.
-    return {pk: v for pk, v in values.items()}
+        min_starter = min(v for _, v in roles["starter"])
+        for pkey, val in roles["bench"]:
+            if val > min_starter:
+                # Iron out: clamp bench to just below lowest starter
+                result[pkey] = min_starter * 0.999
+
+    return result
 
 
-def apply_all_source_anchor(
-    sources_chart_values: Mapping[str, Mapping[int, float]],
-    anchor: float = DISPLAY_ANCHOR,
-) -> Dict[str, Dict[int, float]]:
-    """Decision 3: all-source batch 70 anchor.
+def apply_70_anchor(
+    values: dict[str, float],
+) -> dict[str, float]:
+    """Scale so max value = 70 (all-source batch anchor).
 
-    Scale each source so that the batch's maximum imputed VORP maps to `anchor`.
-   Each source's max is found across its roster set; the global factor for that
-    source is anchor / source_max. Within-source distribution is preserved.
+    Decision 3: all-source batch 70 anchor.
+    Each source's batch is scaled independently so its max = 70.
     """
-    out: Dict[str, Dict[int, float]] = {}
-    for source, vals in sources_chart_values.items():
-        finite = [v for v in vals.values() if v is not None and v > 0]
-        if not finite:
-            out[source] = dict(vals)
-            continue
-        m = max(finite)
-        factor = anchor / m if m > 0 else 0.0
-        out[source] = {pk: v * factor for pk, v in vals.items()}
-    return out
+    if not values:
+        return values
+    max_v = max(values.values())
+    if max_v <= 0:
+        return values
+    scale = DISPLAY_MAX / max_v
+    return {k: round(v * scale, 1) for k, v in values.items()}
 
 
-def build_reweighted_values(
-    imputed_artifact: Mapping,
-    controls: Optional[Mapping] = None,
-    anchor: float = DISPLAY_ANCHOR,
-) -> Dict:
-    """Build the reweighted chart values artifact.
+def build_three_views(
+    imputed: dict[str, dict[str, Any]],
+    native_values: dict[str, float],
+    budgets: dict[tuple[str, str], float],
+) -> dict[str, dict[str, float]]:
+    """Build the three chart views.
 
-    Inputs:
-        imputed_artifact: output of build_imputed_vorps.build_imputed_vorps().
-        controls: optional user-adjustable 8-box budget overrides.
-        anchor: all-source max anchor (default 70).
+    1. Indexed: as-published native values, no VORP logic (handled by JEG-210 toggle).
+    2. VORP ("Value above waivers"): imputed VORPs in VORP units.
+    3. Adj Values: reweighted to 0-70 via linear allocation + 70 anchor.
     """
-    sources_data = imputed_artifact.get("sources") or {}
-    meta = imputed_artifact.get("meta") or {}
-    ddf_leg_path = meta.get("ddf_leg")
-    if not ddf_leg_path:
-        raise ValueError("imputed_artifact.meta.ddf_leg is required for budget defaults")
-    with open(ddf_leg_path) as f:
-        leg = json.load(f)
-    calibration = leg.get("calibration") or {}
-    overrides: Optional[Dict[Tuple[str, str], float]] = None
-    if controls and isinstance(controls.get("box_budgets"), Mapping):
-        overrides = {
-            (k.split("/")[0], k.split("/")[1]): float(v)
-            for k, v in controls["box_budgets"].items()
-            if "/" in k
-        }
-    budgets = BoxBudgets.from_user_overrides(calibration, overrides)
-    chart_values_per_source: Dict[str, Dict[int, float]] = {}
-    for source, block in sources_data.items():
-        roles_raw = block.get("roles") or {}
-        values_raw = block.get("values") or {}
-        roles = {int(pk): (r["pos"], r["role"]) for pk, r in roles_raw.items()}
-        imputed = {int(pk): v for pk, v in values_raw.items()}
-        chart_values_per_source[source] = linear_reweight(imputed, roles, budgets)
-    anchored = apply_all_source_anchor(chart_values_per_source, anchor)
-    artifact = {
-        "meta": {
-            "imputed_artifact": meta.get("fixture"),
-            "ddf_leg": ddf_leg_path,
-            "anchor": anchor,
-            "budgets": {f"{p}/{r}": v for (p, r), v in budgets.as_dict().items()},
-            "budget_total": budgets.total(),
-            "controls_applied": bool(overrides),
-        },
-        "sources": {
-            source: {str(pk): round(v, 6) for pk, v in vals.items()}
-            for source, vals in anchored.items()
-        },
-        "anchors": {
-            source: round(max(vals.values(), default=0.0), 6)
-            for source, vals in anchored.items()
-        },
+    # View 2: VORP (raw imputed, no rescale)
+    vorp_view = {k: rec["imputed_vorp"] for k, rec in imputed.items()}
+
+    # View 3: Adj Values (linear reweight → iron inversions → 70 anchor)
+    reweighted = linear_reweight(imputed, budgets)
+    ironed = iron_within_position_inversions(reweighted, imputed)
+    adj_view = apply_70_anchor(ironed)
+
+    return {
+        "indexed": native_values,  # as-published, JEG-210 handles display
+        "vorp": vorp_view,
+        "adj_values": adj_view,
     }
-    return artifact
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    ap = argparse.ArgumentParser(description="Build JEG-209 reweighted chart values.")
-    ap.add_argument("--imputed", required=True, help="path to build_imputed_vorps artifact")
-    ap.add_argument("--controls", help="path to user-adjustable 8-box budget overrides")
-    ap.add_argument("--anchor", type=float, default=DISPLAY_ANCHOR)
-    ap.add_argument("--out", required=True)
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--imputed", type=Path, required=True,
+                    help="JSON from build_imputed_vorps.py")
+    ap.add_argument("--ddf-leg", type=Path, required=True,
+                    help="JSON: DDF blend leg calibration (for budgets)")
+    ap.add_argument("--controls", type=Path, default=None,
+                    help="JSON: user overrides for 8-box budgets")
+    ap.add_argument("--out", type=Path, required=True)
     args = ap.parse_args(argv)
-    controls = None
-    if args.controls:
-        with open(args.controls) as f:
-            controls = json.load(f)
-    with open(args.imputed) as f:
-        imputed_artifact = json.load(f)
-    artifact = build_reweighted_values(imputed_artifact, controls, args.anchor)
-    out_path = args.out
-    if out_path and os.path.dirname(out_path):
-        os.makedirs(os.path.dirname(os.path.abspath(out_path)), exist_ok=True)
-    with open(out_path, "w") as f:
-        json.dump(artifact, f, indent=2, sort_keys=True)
+
+    imputed_raw = json.loads(args.imputed.read_text())
+    # imputed format: {player_key: {group, alloc_factor, imputed_vorp, native}}
+    native_values = {k: rec["native"] for k, rec in imputed_raw.items()}
+
+    budgets = load_group_budgets(args.ddf_leg, args.controls)
+    views = build_three_views(imputed_raw, native_values, budgets)
+
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(views, indent=2, sort_keys=True))
+    print(f"Wrote 3 views -> {args.out}")
+    print(f"  indexed: {len(views['indexed'])} players")
+    print(f"  vorp: {len(views['vorp'])} players")
+    print(f"  adj_values: {len(views['adj_values'])} players, "
+          f"max={max(views['adj_values'].values())}")
     return 0
 
 
