@@ -56,3 +56,8 @@ Stacked on PR51. Roman owns independent integration/deployment. JEG242 still own
 refresh/view wiring and approved Sheet/canonical/vintage/promotion gates; parent
 JEG183 remains in review. This slice fixes admission and arithmetic contracts,
 without treating illustrative policy inputs as an approved production decision.
+
+35 combined reference/inversion/anchor/roster/precision/failclosed tests pass.
+`make validate` exits0 on detached composite main5792ba5 + PR43/47–51 +
+this slice. Log /private/tmp/jeg243-combined-validate.log. This does not certify
+later main39a3f29 or production. Author branch contains no generated artifacts.
