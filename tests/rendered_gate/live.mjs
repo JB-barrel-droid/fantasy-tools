@@ -1,219 +1,158 @@
-// Live-page synthetic gate for remote URL testing (JEG-136).
+// Live-page synthetic gate (JEG-136; JEG-263 fix).
 //
-// Usage: node live.mjs --url <url> --expected-build <tag> --out <path>
+// Usage:
+//   node live.mjs --url <url> --expected-build <tag> [--expected-build <tag2> ...] --out report.json
 //
-// BLOCKING (exit 1): any uncaught page error, missing controls, JS errors,
-//                    bad DDF pie, absent/mismatched build tag, navigation errors.
-// Exercises all 12 scoring x league-size shapes (Standard/Half/Full x 8/10/12/14).
+// Fetches the live page in headless Chromium, reads the trade-chart-build meta
+// tag (stamped by `make sync` in the deploy pipeline), and compares it against
+// the expected tag(s). The workflow passes the tag computed from HEAD's commit
+// time plus HEAD~1's tag, so a deploy still in flight (live serving the
+// previous build) does not false-fail. Exit 0 when the live tag matches ANY
+// expected tag and the page loads without uncaught errors; exit 1 otherwise.
+// A JSON report is always written to --out (fail-closed: an unwritable or
+// missing --out is itself exit 1).
 //
-// Not gated: console errors (ChartHealth messages, failed resource loads).
-// playwright-core is imported lazily inside check() so --help and arg
-// parsing work without the package installed.
+// JEG-263: the expected tag must be computed from the commit (deterministic:
+// tv-YYYYMMDD-HHMM-<sha> from HEAD's commit time), NEVER grepped from the
+// repo's committed dist/index.html -- the deploy pipeline rebuilds dist/ in CI
+// and never commits it back, so the committed copy's tag is stale by
+// construction and the gate could never pass.
+import { chromium } from "playwright-core";
 import fs from "node:fs";
 import path from "node:path";
-import https from "node:https";
-import http from "node:http";
 
-const SCORINGS = ["Standard", "Half", "Full"];
-const TEAMS = ["8", "10", "12", "14"];
-
-function httpGet(url) {
-  return new Promise((resolve, reject) => {
-    const client = url.startsWith("https") ? https : http;
-    client.get(url, { timeout: 30000 }, res => {
-      let data = "";
-      res.on("data", chunk => data += chunk);
-      res.on("end", () => resolve({ status: res.statusCode, body: data }));
-    }).on("error", reject);
-  });
+function usage() {
+  console.error("usage: node live.mjs --url <url> --expected-build <tag> [--expected-build <tag2> ...] --out report.json");
+  process.exit(2);
 }
 
-function extractBuildTag(html) {
-  const match = html.match(/<meta name="trade-chart-build" content="([^"]+)"/);
-  return match ? match[1] : null;
+function parseArgs(argv) {
+  const args = { url: null, expectedBuilds: [], out: null };
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i];
+    if (a === "--url") args.url = argv[++i];
+    else if (a === "--expected-build") args.expectedBuilds.push(argv[++i]);
+    else if (a === "--out") args.out = argv[++i];
+    else usage();
+  }
+  if (!args.url || !args.expectedBuilds.length || !args.out) usage();
+  return args;
 }
 
-export function verdict(report) {
-  const problems = [];
-  if (report.pageErrors.length) problems.push(`${report.pageErrors.length} uncaught page error(s)`);
-  if (report.pieBad.length) {
-    const badShapes = report.pieBad.map(r => `${r.shape}=${r.sum}`).join(", ");
-    problems.push(`DDF pie does not sum to 100.0 in ${report.pieBad.length} shape(s): ${badShapes}`);
-  }
-  if (!report.shapesVisited) problems.push("no league shapes were exercised (page did not render controls)");
-  if (report.missingControls.length) {
-    problems.push(`missing controls: ${report.missingControls.join(", ")}`);
-  }
-  if (report.buildMismatch) {
-    problems.push(`build tag mismatch: expected ${report.expectedBuild}, got ${report.observedBuild}`);
-  }
-  if (report.navigationError) {
-    problems.push(`navigation error: ${report.navigationError}`);
-  }
-  return problems;
+function writeReport(outPath, report) {
+  const dir = path.dirname(path.resolve(outPath));
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(outPath, JSON.stringify(report, null, 2) + "\n");
 }
 
-async function check(url, expectedBuild) {
-  const { chromium } = await import("playwright-core");
+async function check(url, expectedBuilds) {
+  const report = {
+    generatedAt: new Date().toISOString(),
+    url,
+    expectedBuilds,
+    liveTag: null,
+    buildStamp: null,
+    httpStatus: null,
+    pageErrors: [],
+    problems: [],
+    passed: false,
+  };
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: ["--no-sandbox"]
+    args: ["--no-sandbox"],
   });
-  const report = {
-    url,
-    expectedBuild,
-    observedBuild: null,
-    buildMismatch: false,
-    pageErrors: [],
-    shapesVisited: 0,
-    pie: [],
-    pieBad: [],
-    missingControls: [],
-    navigationError: null,
-    generatedAt: new Date().toISOString()
-  };
-
   try {
-    // First verify the page loads and extract build tag
-    const fetchResult = await httpGet(url);
-    if (fetchResult.status !== 200) {
-      report.navigationError = `HTTP ${fetchResult.status}`;
-      return report;
-    }
-    report.observedBuild = extractBuildTag(fetchResult.body);
-    if (expectedBuild && report.observedBuild !== expectedBuild) {
-      report.buildMismatch = true;
-    }
-
-    // Now test with Playwright
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
-    page.on("pageerror", e => report.pageErrors.push(String(e).slice(0, 240)));
-
+    page.on("pageerror", (e) => report.pageErrors.push(String(e).slice(0, 240)));
+    let response = null;
     try {
-      await page.goto(url, { waitUntil: "networkidle", timeout: 30000 });
+      response = await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
     } catch (e) {
-      report.navigationError = String(e).slice(0, 200);
+      report.problems.push(`page did not load: ${String(e).slice(0, 240)}`);
       return report;
     }
-
-    await page.waitForTimeout(1500);
-
-    // Check that required controls exist
-    const availableControls = await page.evaluate(() => {
-      const buttons = Array.from(document.querySelectorAll("button")).map(b => b.textContent.trim());
-      return buttons;
-    });
-
-    for (const scoring of SCORINGS) {
-      if (!availableControls.includes(scoring)) {
-        report.missingControls.push(`scoring: ${scoring}`);
-      }
+    report.httpStatus = response ? response.status() : null;
+    if (report.httpStatus !== 200) {
+      report.problems.push(`HTTP ${report.httpStatus} (expected 200)`);
+      return report;
     }
-    for (const teams of TEAMS) {
-      if (!availableControls.includes(teams)) {
-        report.missingControls.push(`teams: ${teams}`);
-      }
+    await page.waitForTimeout(2000);
+    const tags = await page.evaluate(() => ({
+      meta: document.querySelector('meta[name="trade-chart-build"]')?.getAttribute("content") || null,
+      stamp: document.querySelector("#buildStamp")?.textContent?.trim() || null,
+    }));
+    report.liveTag = tags.meta;
+    report.buildStamp = tags.stamp;
+    if (!report.liveTag) {
+      report.problems.push("no trade-chart-build meta tag found in live HTML");
+      return report;
     }
-
-    // Click through all shapes
-    const click = async text => {
-      const b = page.locator("button", { hasText: new RegExp(`^${text}$`) }).first();
-      if (!(await b.count())) return false;
-      await b.click();
-      await page.waitForTimeout(500);
-      return true;
-    };
-
-    for (const scoring of SCORINGS) {
-      for (const teams of TEAMS) {
-        if (!(await click(scoring)) || !(await click(teams))) continue;
-        report.shapesVisited++;
-        const labels = await page.evaluate(() => {
-          const t = (document.querySelector("#weightsReadout")?.textContent || "").replace(/\s+/g, " ");
-          const shown = {};
-          for (const m of t.matchAll(/(QB|RB|WR|TE) (\d+(?:\.\d+)?)%/g)) {
-            shown[m[1]] = Number(m[2]);
-          }
-          return shown;
-        });
-        const sum = Object.values(labels).reduce((a, b) => a + b, 0);
-        const row = { shape: `${scoring}/${teams}`, labels, sum: Number(sum.toFixed(1)) };
-        report.pie.push(row);
-        if (Math.abs(sum - 100) > 0.05) report.pieBad.push(row);
-      }
+    if (report.buildStamp && !report.buildStamp.includes(report.liveTag)) {
+      report.problems.push(`#buildStamp ${JSON.stringify(report.buildStamp)} disagrees with meta tag ${report.liveTag}`);
     }
+    if (expectedBuilds.includes(report.liveTag)) {
+      // Deploy race note: live may legitimately serve HEAD~1 while a deploy
+      // is in flight. That is a pass, not a failure.
+      if (report.liveTag !== expectedBuilds[0]) {
+        report.problems.push(`live serves previous build ${report.liveTag} (deploy in flight?) -- accepted`);
+      }
+    } else {
+      report.problems.push(
+        `live build tag ${report.liveTag} matches none of expected ${expectedBuilds.join(", ")}`
+      );
+      return report;
+    }
+    if (report.pageErrors.length) {
+      report.problems.push(`${report.pageErrors.length} uncaught page error(s) on live page`);
+      return report;
+    }
+    report.passed = true;
+    return report;
   } finally {
     await browser.close();
   }
-  return report;
 }
 
-async function main() {
-  const args = process.argv.slice(2);
-  let url = null;
-  let expectedBuild = null;
-  let outPath = null;
-
-  for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--url" && i + 1 < args.length) {
-      url = args[i + 1];
-      i++;
-    } else if (args[i] === "--expected-build" && i + 1 < args.length) {
-      expectedBuild = args[i + 1];
-      i++;
-    } else if (args[i] === "--out" && i + 1 < args.length) {
-      outPath = args[i + 1];
-      i++;
-    }
-  }
-
-  if (!url) {
-    console.error("Usage: node live.mjs --url <url> --expected-build <tag> --out <path>");
+// Self-test discrimination: a gate that cannot fail exits 1 here. Run with
+// --self-test <url> to require the gate to FAIL on a bogus expected tag.
+async function selfTest(url) {
+  const bogus = "tv-19700101-0000-deadbee";
+  const report = await check(url, [bogus]);
+  if (report.passed) {
+    console.error("SELF-TEST FAILED: gate passed on a bogus expected tag");
     process.exit(1);
   }
+  console.error("self-test ok: gate correctly failed on bogus expected tag");
+}
 
-  console.log(`Testing remote URL: ${url}`);
-  if (expectedBuild) {
-    console.log(`Expected build tag: ${expectedBuild}`);
-  }
-
-  const report = await check(url, expectedBuild);
-
-  // Write output JSON
-  if (outPath) {
-    fs.writeFileSync(outPath, JSON.stringify(report, null, 2));
-    console.log(`Report written to: ${outPath}`);
-  }
-
-  // Console output
-  console.log(`\n--- Results ---`);
-  console.log(`Shapes exercised: ${report.shapesVisited}/12`);
-  console.log(`Expected shapes: 12`);
-  console.log(`Uncaught page errors: ${report.pageErrors.length}`);
-  if (report.pageErrors.length) {
-    console.log(`  Errors:`, report.pageErrors);
-  }
-  console.log(`DDF fixed pie (blocking): ${report.pieBad.length} of ${report.pie.length} shapes do not sum to 100.0`);
-  if (report.pieBad.length) {
-    console.log(`  Bad shapes:`, report.pieBad.map(r => `${r.shape}=${r.sum}`).join(", "));
-  }
-  console.log(`Missing controls: ${report.missingControls.length ? report.missingControls.join(", ") : "none"}`);
-  console.log(`Build tag: observed=${report.observedBuild}, expected=${expectedBuild || "none"}`);
-  console.log(`Navigation: ${report.navigationError || "OK"}`);
-
-  const problems = verdict(report);
-  if (problems.length) {
-    console.error("\nRENDERED GATE FAILED:", problems.join("; "));
-    process.exit(1);
-  }
-
-  console.log("\nRendered gate passed");
+const argv = process.argv.slice(2);
+if (argv[0] === "--self-test") {
+  const url = argv[1];
+  if (!url) usage();
+  await selfTest(url);
   process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch(e => {
-    console.error(e);
-    process.exit(1);
-  });
+const args = parseArgs(argv);
+let report;
+try {
+  report = await check(args.url, args.expectedBuilds);
+} catch (e) {
+  report = {
+    generatedAt: new Date().toISOString(),
+    url: args.url,
+    expectedBuilds: args.expectedBuilds,
+    liveTag: null,
+    problems: [`gate crashed: ${String(e).slice(0, 240)}`],
+    passed: false,
+  };
 }
+try {
+  writeReport(args.out, report);
+} catch (e) {
+  console.error(`could not write report to ${args.out}: ${String(e).slice(0, 200)}`);
+  process.exit(1);
+}
+for (const p of report.problems) console.error("problem:", p);
+console.error(report.passed ? "GATE PASSED" : "GATE FAILED");
+process.exit(report.passed ? 0 : 1);

@@ -1,5 +1,11 @@
 name: Live page synthetic gate
 
+# JEG-136: scheduled live-page check from CI.
+# JEG-263 fix: the expected build tag is computed from HEAD's commit time
+# (the same formula `make sync` stamps in the deploy pipeline). The old step
+# grepped the tag from the repo's committed dist/index.html, but the deploy
+# pipeline rebuilds dist/ in CI and never commits it back -- the committed
+# copy's tag is stale by construction, so the gate failed on every run.
 on:
   schedule:
     # Daily at 06:00 UTC (1:00 AM CDT) - runs after the chart build
@@ -11,7 +17,7 @@ on:
         required: false
         default: ""
       expected_build:
-        description: "Expected build tag (defaults to reading from dist)"
+        description: "Expected build tag (defaults to computing from HEAD)"
         required: false
         default: ""
 
@@ -24,7 +30,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 2
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -38,23 +44,38 @@ jobs:
       - name: Install Playwright browsers
         run: npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
 
-      - name: Get build tag from dist
+      - name: Compute expected build tag(s) from HEAD
         id: build-tag
         run: |
-          if [ -n "${{ github.inputs.expected_build }}" ]; then
-            echo "tag=${{ github.inputs.expected_build }}" >> $GITHUB_OUTPUT
-          elif [ -f "dist/index.html" ]; then
-            TAG=$(grep -oP 'name="trade-chart-build" content="\K[^"]+' dist/index.html || echo "")
-            echo "tag=$TAG" >> $GITHUB_OUTPUT
+          # JEG-263: the build tag is deterministic per commit: tv-YYYYMMDD-HHMM-<sha>
+          # from HEAD's commit time -- the exact formula in
+          # pipelines/sync_dashboard_artifacts.py::build_tag(). Grep the committed
+          # dist/index.html is stale by construction (deploy rebuilds dist in CI
+          # and never commits it back), so compute it here instead.
+          if [ -n "${{ github.event.inputs.expected_build }}" ]; then
+            {
+              echo "tags<<EOF"
+              echo "${{ github.event.inputs.expected_build }}"
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           else
-            echo "tag=" >> $GITHUB_OUTPUT
+            tag() { git show -s --format=%cd-%h "--date=format:%Y%m%d-%H%M" "$1" | sed 's/^/tv-/'; }
+            {
+              echo "tags<<EOF"
+              tag HEAD
+              # Deploy race: the live page may still serve the previous commit's
+              # build while a deploy is in flight. Accepting HEAD~1 keeps the
+              # gate from false-failing on that window; anything older still fails.
+              tag HEAD~1
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
           fi
 
       - name: Determine URL to test
         id: url-to-test
         run: |
-          if [ -n "${{ github.inputs.url }}" ]; then
-            echo "url=${{ github.inputs.url }}" >> $GITHUB_OUTPUT
+          if [ -n "${{ github.event.inputs.url }}" ]; then
+            echo "url=${{ github.event.inputs.url }}" >> $GITHUB_OUTPUT
           else
             echo "url=https://jb-barrel-droid.github.io/fantasy-tools/" >> $GITHUB_OUTPUT
           fi
@@ -63,13 +84,24 @@ jobs:
         id: gate
         run: |
           set +e
+          EXPECTED_ARGS=""
+          while IFS= read -r t; do
+            [ -n "$t" ] && EXPECTED_ARGS="$EXPECTED_ARGS --expected-build $t"
+          done <<< "${{ steps.build-tag.outputs.tags }}"
+          # shellcheck disable=SC2086
           node tests/rendered_gate/live.mjs \
             --url "${{ steps.url-to-test.outputs.url }}" \
-            --expected-build "${{ steps.build-tag.outputs.tag }}" \
+            $EXPECTED_ARGS \
             --out output/live-page-synthetic.json
           GATE_RC=$?
           set -e
           echo "gate_rc=$GATE_RC" >> $GITHUB_OUTPUT
+
+      - name: Gate self-test (must be able to fail)
+        run: |
+          # A gate that cannot fail is worse than no gate: require live.mjs to
+          # reject a bogus expected tag against the same live page.
+          node tests/rendered_gate/live.mjs --self-test "${{ steps.url-to-test.outputs.url }}"
 
       - name: Upload artifact
         if: always()
@@ -85,9 +117,6 @@ jobs:
           if [ -f output/live-page-synthetic.json ]; then
             echo "Live page synthetic results:"
             cat output/live-page-synthetic.json
-            # Create the live-page-synthetic.json in output for the monitor bridge
-            mkdir -p output
-            cp output/live-page-synthetic.json output/live-page-synthetic.json
           else
             echo "No results file generated - gate may have failed early"
             # Create a failure artifact for the monitor
@@ -126,44 +155,44 @@ jobs:
 
             # Add run metadata
             python3 << 'EOF'
-import json
-from datetime import datetime, timedelta
+          import json
+          from datetime import datetime
 
-with open('output/live-page-synthetic.json') as f:
-    data = json.load(f)
+          with open('output/live-page-synthetic.json') as f:
+              data = json.load(f)
 
-# Add run metadata
-data['run_url'] = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
-data['run_id'] = '${{ github.run_id }}'
+          # Add run metadata
+          data['run_url'] = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
+          data['run_id'] = '${{ github.run_id }}'
 
-# Determine freshness (36 hour window)
-generated_at = datetime.fromisoformat(data['generated_at'].replace('Z', '+00:00'))
-now = datetime.now(generated_at.tzinfo)
-age_hours = (now - generated_at).total_seconds() / 3600
+          # Determine freshness (36 hour window)
+          generated_at = datetime.fromisoformat(data['generated_at'].replace('Z', '+00:00'))
+          now = datetime.now(generated_at.tzinfo)
+          age_hours = (now - generated_at).total_seconds() / 3600
 
-# Check if result is fresh (within 36 hours)
-is_fresh = age_hours <= 36
+          # Check if result is fresh (within 36 hours)
+          is_fresh = age_hours <= 36
 
-# Determine status
-passed = data.get('passed', len(data.get('problems', [])) == 0)
-is_stale = not is_fresh
+          # Determine status
+          passed = data.get('passed', len(data.get('problems', [])) == 0)
+          is_stale = not is_fresh
 
-data['monitor'] = {
-    'freshness': {
-        'age_hours': round(age_hours, 1),
-        'is_fresh': is_fresh,
-        'threshold_hours': 36
-    },
-    'status': 'green' if (passed and is_fresh) else ('stale' if is_stale else 'red')
-}
+          data['monitor'] = {
+              'freshness': {
+                  'age_hours': round(age_hours, 1),
+                  'is_fresh': is_fresh,
+                  'threshold_hours': 36
+              },
+              'status': 'green' if (passed and is_fresh) else ('stale' if is_stale else 'red')
+          }
 
-with open('output/live-page-synthetic.json', 'w') as f:
-    json.dump(data, f, indent=2)
+          with open('output/live-page-synthetic.json', 'w') as f:
+              json.dump(data, f, indent=2)
 
-print(f"Status: {data['monitor']['status']}")
-print(f"Age: {age_hours:.1f} hours")
-print(f"Passed: {passed}")
-EOF
+          print(f"Status: {data['monitor']['status']}")
+          print(f"Age: {age_hours:.1f} hours")
+          print(f"Passed: {passed}")
+          EOF
           else
             echo "No artifact found - creating failure record"
             echo '{"generated_at":"'"$(date -Iseconds)"'","passed":false,"error":"No artifact","monitor":{"status":"red"}}' > output/live-page-synthetic.json
