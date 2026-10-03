@@ -12,11 +12,10 @@ What this script does:
   2. Derives the three per-view DISPLAY maps exactly as the preview renders
      them:
        - indexed:    native * 70 / provisional_maximum (ONE common all-source
-                    peak; see below). Only for sources that carry as-published
-                    native trade values (the "published" kinds). Granular
-                    sources (espn/cbsros/razzball) have no native trade values
-                    and are recorded as unavailable WITH an explicit reason,
-                    never silently.
+                    peak; see below). Only genuine as-published native rows
+                    are rendered. AVG and granular sources have no native
+                    publisher values; backstopped publisher rows also remain
+                    absent from Indexed rather than receiving invented natives.
        - vorp:      the candidate's imputed value-above-waivers map, verbatim.
        - adj_values: the candidate's shared-model reweighted map, verbatim.
   3. Numerical parity checks (independent re-derivation, tight tolerance):
@@ -137,6 +136,10 @@ def _batch_native_maps(batch_doc, batch_path: Path, sources: set[str]) -> dict[s
             native_map: dict[str, float] = {}
             for key, rec in pool.items():
                 val = rec.get("native")
+                # AVG-backstopped rows intentionally have native=None. They
+                # belong in VORP/Adjusted but must not be fabricated in Indexed.
+                if val is None:
+                    continue
                 if not isinstance(val, (int, float)) or not math.isfinite(val) or val < 0:
                     raise ValueError(f"source {src} player {key}: bad native {val!r}")
                 native_map[key] = float(val)
@@ -219,22 +222,27 @@ def build_preview(candidate: Path, batch: Path, out_dir: Path) -> int:
             views["indexed"][src] = display_indexed
         else:
             reason = (
-                "granular source has no as-published native trade values; "
-                "Indexed view is not rendered for this source (granular VORP "
-                "and Adj views still apply)"
+                "source has no as-published native trade values for this candidate; "
+                "Indexed view is unavailable while VORP/Adjusted remain valid"
             )
             views["indexed"][src] = {"unavailable": reason}
             exclusions.setdefault(src, {})["indexed"] = reason
 
-        # vorp / adj_values are carried verbatim; prove no drops or additions.
+        # vorp / adj_values are carried verbatim. They must agree with one
+        # another; a publisher's native map may be a strict subset when AVG
+        # backstops missing league-cohort players.
+        mapped_nonindexed = {}
         for view in ("vorp", "adj_values"):
             stored = {k: float(v) for k, v in per_view[view].items()}
-            if native_map and set(stored) != set(native_map):
-                return _fail(
-                    f"source {src}: view {view} keys != native key set "
-                    f"(dropped or invented players)"
-                )
+            mapped_nonindexed[view] = stored
             views[view][src] = stored
+        if set(mapped_nonindexed["vorp"]) != set(mapped_nonindexed["adj_values"]):
+            return _fail(f"source {src}: vorp/adj_values key sets differ")
+        if native_map and not set(native_map).issubset(set(mapped_nonindexed["vorp"])):
+            return _fail(
+                f"source {src}: native keys are not a subset of VORP/Adjusted "
+                "(stale or invented native rows)"
+            )
 
         zero_accounting[src] = {
             view: _zero_count(views[view][src]) for view in ("indexed", "vorp", "adj_values")
