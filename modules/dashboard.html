@@ -328,6 +328,21 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="espnZeroTable"></div>
 </section>
 
+<!-- JEG-314: chart inputs coverage (built by pipelines/build_chart_input_coverage.py) -->
+<section class="card" id="chartInputsCard">
+  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Chart inputs — coverage of every file the chart reads</h2>
+  <div class="desc">
+    Every input file the trade-values chart consumes, with an honest flag for whether an
+    automated freshness monitor currently reports on it. Rows marked <b>monitored</b> are
+    covered by <code>reference-freshness.json</code>, <code>source-import-health.json</code>,
+    or another pipeline gate; <b>unmonitored</b> rows are a real coverage gap — visible
+    here on purpose so future tickets (JEG-317) can close them. Rebuild with
+    <code>python3 pipelines/build_chart_input_coverage.py</code>.
+  </div>
+  <div id="chartInputsSummary" style="margin-bottom:16px"></div>
+  <div id="chartInputsTable"></div>
+</section>
+
 <section class="card" id="crossSourceCard">
   <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Cross-source agreement — systematic divergence detection</h2>
   <div class="desc">
@@ -1822,6 +1837,57 @@ async function loadEspnZeroSignal() {
 loadEspnZeroSignal();
 loadIdentityVerification();
 loadPlayerTrace();
+
+// JEG-314: chart inputs coverage — every file the chart reads, with monitor_check.
+async function loadChartInputs() {
+  const summaryEl = document.getElementById("chartInputsSummary");
+  const tableEl = document.getElementById("chartInputsTable");
+  const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+  try {
+    // The coverage JSON is checked into dist/modules/ alongside other dist artifacts,
+    // and the served dashboard copies it to the same dir as the other modules.
+    const resp = await fetch("chart-input-coverage.json", {cache:"no-store"});
+    if (!resp.ok) throw new Error("chart-input-coverage.json not available");
+    const data = await resp.json();
+    const items = Array.isArray(data.items) ? data.items : [];
+    const monitored = items.filter(i => i.monitor_check).length;
+    const unmonitored = items.length - monitored;
+    const color = unmonitored === 0 ? "var(--green)" : "var(--yellow)";
+    summaryEl.innerHTML = `<div style="padding:12px 16px;border-radius:8px;border:1px solid ${color}">
+      <b style="color:${color}">${items.length} input${items.length === 1 ? "" : "s"}</b>
+      · <b style="color:var(--green)">${monitored} monitored</b>
+      · <b style="color:${unmonitored === 0 ? "var(--green)" : "var(--yellow)"}">${unmonitored} unmonitored</b>
+      · generated ${esc(data.generated_at || "n/a")}</div>`;
+
+    // Unmonitored rows are visually distinct: yellow background + a "(no monitor)" badge
+    // so the gap is unmistakable; monitored rows stay on the default card background.
+    let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
+      <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd">Name</th>
+      <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd">Freshness source</th>
+      <th style="padding:6px;border-bottom:2px solid #ddd">Monitor</th>
+      <th style="padding:6px;border-bottom:2px solid #ddd">Last checked</th>
+    </tr></thead><tbody>`;
+    items.forEach(it => {
+      const monitored = !!it.monitor_check;
+      const rowBg = monitored ? "var(--card)" : "var(--yellow-bg)";
+      const monitorCell = monitored
+        ? `<span style="color:var(--green);font-weight:bold">✓ monitored</span>`
+        : `<span style="color:var(--yellow);font-weight:bold">⚠ no monitor</span>`;
+      html += `<tr style="background:${rowBg}">
+        <td style="padding:6px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${esc(it.name)}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee">${esc(it.freshness_source || "")}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${monitorCell}</td>
+        <td style="padding:6px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;text-align:right">${esc(it.last_checked || "—")}</td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    tableEl.innerHTML = html;
+  } catch (e) {
+    summaryEl.innerHTML = `<div style="color:var(--red)">Failed to load chart-input coverage: ${esc(e.message)}</div>`;
+    tableEl.innerHTML = `<div style="color:var(--grey)">Run <code>python3 pipelines/build_chart_input_coverage.py</code> to generate <code>dist/modules/chart-input-coverage.json</code>.</div>`;
+  }
+}
+loadChartInputs();
 loadDiagnostics();
 
 main().catch(e => {
