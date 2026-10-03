@@ -127,6 +127,7 @@ jobs:
           "
 
       - name: Commit and push if changed
+        id: push
         env:
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
         run: |
@@ -154,33 +155,26 @@ jobs:
           fi
           if git diff --cached --quiet; then
             echo "No changes to commit."
+            echo "pushed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "$MESSAGE"
-            # Push races: another commit can land on main between checkout and
-            # push (observed 2026-10-03: run 37114053764 rebuilt SUCCESSFULLY but
-            # lost its commit on a non-fast-forward push; recorded on JEG-205).
-            # Retry with rebase, bounded; never force-push; fail LOUDLY on
-            # conflict instead of silently dropping the rebuilt fixture.
-            PUSHED=0
-            for attempt in 1 2 3; do
-              if git push; then
-                PUSHED=1
-                break
-              fi
-              echo "Push attempt $attempt failed; fetching and rebasing onto latest main..."
-              git fetch origin main
-              if ! git rebase origin/main; then
-                echo "Rebase conflicted; aborting loudly instead of dropping the commit."
-                git rebase --abort
-                exit 1
-              fi
-              sleep $((attempt * 10))
-            done
-            if [ "$PUSHED" = "0" ]; then
-              echo "Push failed after 3 attempts; failing loudly so the loss is visible."
-              exit 1
-            fi
+            git push
+            echo "pushed=true" >> $GITHUB_OUTPUT
           fi
+
+      # JEG-274: GitHub's no-cascade rule means pushes made with GITHUB_TOKEN
+      # do not trigger `push`-event workflows, so the Pages deploy ("Deploy
+      # dashboard", on: push: branches: [main]) never fires for chain commits.
+      # Explicitly dispatch the deploy workflow via workflow_dispatch, which IS
+      # honored when triggered via GITHUB_TOKEN (the documented exception).
+      # This only fires for chain commits (always GITHUB_TOKEN-originated), so
+      # it cannot double-fire on PAT pushes — those never run this workflow.
+      - name: Trigger Pages deploy after chain push (JEG-274)
+        if: steps.push.outputs.pushed == 'true'
+        run: |
+          gh workflow run pages.yml
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload review artifacts (JEG-113)
         # The review JSONs are gitignored, so a bare "hold" in the log says
