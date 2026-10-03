@@ -244,7 +244,8 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
 
 
 SOURCE_KINDS = {"fantasycalc": "published", "usat": "published", "fantasypros": "published",
-                "cbs": "published", "espn": "granular", "cbsros": "granular", "razzball": "granular"}
+                "cbs": "published", "avg": "published",
+                "espn": "granular", "cbsros": "granular", "razzball": "granular"}
 
 
 def load_source_batch(path):
@@ -272,10 +273,19 @@ def load_source_batch(path):
         if not isinstance(meta, dict) or meta.get("output_sha256") != digest:
             raise ValueError("source artifact/manifest hash mismatch")
         kind = SOURCE_KINDS[source]
-        expected = (("option-c-imputation-manifest-v1", "eight-group-proportional-v1") if kind == "published"
-                    else ("granular-vorp-manifest-v1", "ppg-above-waiver-v1"))
-        if (meta.get("schema"), meta.get("method")) != expected:
-            raise ValueError("source VORP method/schema mismatch")
+        # Published sources: standard imputation, avg-backstopped, or cross-source average
+        # (Jeremy 2026-10-03: avg line + backstop for shallow publishers like CBS)
+        if kind == "published":
+            expected_schema = "option-c-imputation-manifest-v1"
+            expected_methods = ("eight-group-proportional-v1",
+                                "eight-group-proportional-v1+avg-backstop-v1",
+                                "cross-source-average-v1")
+            if meta.get("schema") != expected_schema or meta.get("method") not in expected_methods:
+                raise ValueError("source VORP method/schema mismatch")
+        else:
+            expected = ("granular-vorp-manifest-v1", "ppg-above-waiver-v1")
+            if (meta.get("schema"), meta.get("method")) != expected:
+                raise ValueError("source VORP method/schema mismatch")
         source_config = meta.get("publisher_roster" if kind == "published" else "source_config")
         if kind == "published":
             RosterConfig.from_manifest(source_config)
