@@ -187,8 +187,14 @@ def _prepare_values(imputed, budgets):
 
 
 def _validated_native(native, imputed):
-    if not isinstance(native, dict) or (native and set(native) != set(imputed)):
-        raise ValueError("native pool must match imputed keys, or explicitly be unavailable")
+    """Native publisher values may be a strict subset after AVG backstopping.
+
+    Indexed must never invent a publisher value for a player that publisher did
+    not rank. VORP/Adjusted may still include that player via the explicit AVG
+    backstop lineage, so the only valid relationship is native ⊆ imputed.
+    """
+    if not isinstance(native, dict) or not set(native).issubset(set(imputed)):
+        raise ValueError("native pool must be a subset of imputed keys")
     for key, value in native.items():
         _nonnegative_finite(value, f"native {key}")
     return dict(native)
@@ -204,7 +210,13 @@ def build_three_views(imputed, native_values, budgets, *, batch_maximum):
 
 
 def build_batch_three_views(imputed_sources, native_sources, budgets):
-    """One source manifest, unit allocation fractions and one maximum70 scale."""
+    """One source manifest, unit allocation fractions and one maximum70 scale.
+
+    Derived consensus lines (currently AVG) are observational: they use the
+    same effective eight-group budgets, but cannot tighten those budgets or
+    move the common 70 anchor for the underlying publisher/granular sources.
+    Adding/removing AVG therefore cannot silently reprice every other line.
+    """
     if not isinstance(imputed_sources, dict) or not imputed_sources or not isinstance(native_sources, dict) or set(imputed_sources) != set(native_sources):
         raise ValueError("nonempty matching source manifests required")
     if any(not isinstance(s, str) or not s for s in imputed_sources):
@@ -216,15 +228,41 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
     fractions = {g: b/total for g, b in budgets.items()}
     if any(budgets[g] > 0 and fractions[g] == 0 for g in GROUPS):
         raise ValueError("allocation fraction underflow")
-    effective, constraints = constrain_group_budgets(imputed_sources, fractions)
+
+    derived_sources = {
+        s for s in imputed_sources
+        if globals().get("SOURCE_KINDS", {}).get(s) == "derived"
+    }
+    controlling_sources = {
+        s: pool for s, pool in imputed_sources.items() if s not in derived_sources
+    }
+    if not controlling_sources:
+        raise ValueError("at least one non-derived source is required")
+    effective, constraints = constrain_group_budgets(controlling_sources, fractions)
+
     provisional = {}
     for source, pool in imputed_sources.items():
         _validate_imputed(pool)
         _validated_native(native_sources[source], pool)
         provisional[source] = _prepare_values(pool, effective)
-    maximum = max((v for pool in provisional.values() for v in pool.values()), default=0.0)
+
+    maximum = max(
+        (v for source, pool in provisional.items()
+         if source not in derived_sources for v in pool.values()),
+        default=0.0,
+    )
     if maximum <= 0:
         raise ValueError("positive comparison batch peak required")
+    for source in derived_sources:
+        derived_peak = max(provisional[source].values(), default=0.0)
+        if derived_peak > maximum and not math.isclose(
+            derived_peak, maximum, rel_tol=1e-12, abs_tol=1e-12
+        ):
+            raise ValueError(
+                f"derived source {source} peak exceeds the controlling batch peak; "
+                "derived consensus may not rescale publisher lines"
+            )
+
     scale = _nonnegative_finite(DISPLAY_MAX/maximum, "batch scale")
     outputs = {}
     for source, values in provisional.items():
@@ -239,12 +277,14 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
             "requested_allocation_fractions": {f"{p}/{r}": v for (p, r), v in fractions.items()},
             "allocation_fractions": {f"{p}/{r}": v for (p, r), v in effective.items()},
             "control_constraints": constraints,
+            "derived_sources": sorted(derived_sources),
+            "anchor_sources": sorted(controlling_sources),
             "group_budgets": {f"{p}/{r}": scale*v for (p, r), v in effective.items()},
             "sources": outputs}
 
 
 SOURCE_KINDS = {"fantasycalc": "published", "usat": "published", "fantasypros": "published",
-                "cbs": "published", "avg": "published",
+                "cbs": "published", "avg": "derived",
                 "espn": "granular", "cbsros": "granular", "razzball": "granular"}
 
 
@@ -273,21 +313,24 @@ def load_source_batch(path):
         if not isinstance(meta, dict) or meta.get("output_sha256") != digest:
             raise ValueError("source artifact/manifest hash mismatch")
         kind = SOURCE_KINDS[source]
-        # Published sources: standard imputation, avg-backstopped, or cross-source average
-        # (Jeremy 2026-10-03: avg line + backstop for shallow publishers like CBS)
+        # Published sources keep their own native values; derived AVG has no
+        # native publisher unit; granular sources are projection-derived.
         if kind == "published":
             expected_schema = "option-c-imputation-manifest-v1"
             expected_methods = ("eight-group-proportional-v1",
-                                "eight-group-proportional-v1+avg-backstop-v1",
-                                "cross-source-average-v1")
+                                "eight-group-proportional-v1+avg-backstop-v1")
             if meta.get("schema") != expected_schema or meta.get("method") not in expected_methods:
+                raise ValueError("source VORP method/schema mismatch")
+        elif kind == "derived":
+            expected = ("option-c-imputation-manifest-v1", "cross-source-average-v1")
+            if (meta.get("schema"), meta.get("method")) != expected:
                 raise ValueError("source VORP method/schema mismatch")
         else:
             expected = ("granular-vorp-manifest-v1", "ppg-above-waiver-v1")
             if (meta.get("schema"), meta.get("method")) != expected:
                 raise ValueError("source VORP method/schema mismatch")
-        source_config = meta.get("publisher_roster" if kind == "published" else "source_config")
-        if kind == "published":
+        source_config = meta.get("publisher_roster" if kind in ("published", "derived") else "source_config")
+        if kind in ("published", "derived"):
             RosterConfig.from_manifest(source_config)
         else:
             fields = {"schema", "teams", "scoring", "slots", "flex_count", "flex_eligible", "bench_mix"}
@@ -304,7 +347,10 @@ def load_source_batch(path):
             raise ValueError("source configuration mismatch")
         _validate_imputed(pool)
         imputed[source] = pool
-        natives[source] = ({k: rec.get("native") for k, rec in pool.items()} if kind == "published" else {})
+        natives[source] = (
+            {k: rec["native"] for k, rec in pool.items() if rec.get("native") is not None}
+            if kind == "published" else {}
+        )
         pins[source] = {"values_sha256": digest, "manifest_sha256": hashlib.sha256(meta_bytes).hexdigest(),
                         "manifest": meta}
     return imputed, natives, {"batch_sha256": hashlib.sha256(batch_bytes).hexdigest(),
