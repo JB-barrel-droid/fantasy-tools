@@ -265,37 +265,246 @@ ADJUSTED_LEG_PARENT = {
 ALL_ADJUSTED_LEGS = list(ADJUSTED_LEG_PARENT.keys())
 
 
-# JEG-107: VORP round-trip helpers ------------------------------------------
+# JEG-207: 8-group imputation (Option C) ------------------------------------
 #
-# Each source's top-25 lineage card must show the three steps:
-#   1. native          — publisher's published value (publisher's domain)
-#   2. implied_vorp    — native minus the publisher's inferred waiver line,
-#                        computed by translate_source() under the JEG-62
-#                        inferred roster assumptions (roster settings are not
-#                        inputs the publisher exposes — we infer them).
-#   3. ddf_rebuilt     — what DDF shows after running through our methodology,
-#                        i.e. the chart value (reindexed for published
-#                        sources, native-scale DDF value for DDF-native
-#                        sources, adjusted reindexed for adjusted legs).
+# Replaces the old translate_source-based implied_vorp with the Option C
+# spreadsheet method: each player is assigned to one of 8 groups
+# (QB/RB/WR/TE x Starter/Bench, flex -> Starter). Imputed VORP per player is:
 #
-# Per-player the lineage also carries:
-#   vorp_replacement_level — the inferred waiver-line value for the player's
-#                        position (the implied read on the model's
-#                        replacement tier, from translate_source()).
-# Failure-closed — no data, no row; never a guessed placeholder.
-
-# Sources where the "native" really is a publisher-published trade value that
-# goes through JEG-62 VORP translation. For these, implied_vorp is computed
-# directly from the publisher native via translate_source().
-_PUBLISHED_VORP_SOURCES = {"fantasypros", "usatoday", "fantasycalc", "cbs"}
-
-# Sources where the "native" is a stat projection (no publisher trade value at
-# all), and the VORP comes from running our own inferred roster assumptions on
-# the projection. For these, implied_vorp is computed via
-# compute_vorp_via_roster() from vorp_via_roster.py.
-_DDF_NATIVE_VORP_SOURCES = {"espn", "cbsros", "razzball"}
+#     imputed_vorp[player] = native[player] x alloc_factor[group]
+#                              = native[player] x (our_group_vorp[group]
+#                                                / sum_publisher_values_in_group)
+#
+# The 8 groups are computed from an imputed roster built off the publisher's
+# own ranked values: for each position, the top N_starter (= dedicated slots
+# plus flex seats at that position) form the Starter group, and the next
+# N_bench (= bench_per_team x teams) form the Bench group. Flex maps to
+# Starter; i.e. flex players are pulled from the top of the flex-eligible
+# non-starters (RB/WR/TE) and labeled Starter.
+#
+# our_group_vorp comes from data/ddf-group-vorps.json when present (JEG-206
+# output). When the file is missing or empty we stamp a clearly-marked
+# placeholder (group_vorp_placeholder: true) and a flag at the source level
+# so the dashboard renders a visible warning.
+#
+# Per-row lineage fields added by Option C:
+#   group               — "RB|Starter" style label
+#   our_group_vorp      — input total for the player's group (or null)
+#   group_vorp_placeholder — true when JEG-206 output was absent
+#   alloc_factor        — our_group_vorp / sum_publisher_values_in_group
+#   imputed_vorp        — native x alloc_factor (rounded to 2)
+#
+# The legacy implied_vorp / vorp_replacement_level columns stay in the JSON
+# (other readers may depend on them), but the lineage TABLE in
+# modules/dashboard.html renders the Option C columns instead.
 
 _LINEAGE_WEEK = 4  # documented at build time; lineage is a snapshot, not a feed
+
+# Group computation matches the dashboard's 12-team Half PPR reference:
+#   1 QB, 2 RB, 2 WR, 1 TE dedicated + 1 flex RB/WR/TE + 6 bench per team.
+_IMPUTED_BENCH_PER_TEAM = 6.0
+_IMPUTED_FLEX_PER_TEAM = 1.0  # RB/WR/TE only
+_IMPUTED_FLEX_ELIGIBLE = ("RB", "WR", "TE")
+_IMPUTED_POSITIONS = ("QB", "RB", "WR", "TE")
+
+# Placeholder group VORPs (used when JEG-206 output is absent). These are
+# clearly-marked defaults chosen so alloc_factor is bounded away from 0 and
+# the dashboard renders a visible "PLACEHOLDER" badge. The values are not
+# load-bearing in any committed artifact -- they are explicitly flagged.
+_IMPUTED_PLACEHOLDER_GROUP_VORP = {
+    "QB|Starter": 200.0,
+    "QB|Bench":   60.0,
+    "RB|Starter": 350.0,
+    "RB|Bench":   120.0,
+    "WR|Starter": 320.0,
+    "WR|Bench":   130.0,
+    "TE|Starter": 110.0,
+    "TE|Bench":   40.0,
+}
+
+
+def _load_ddf_group_vorps():
+    """Load JEG-206 output (data/ddf-group-vorps.json) if it exists.
+
+    Shape expected (per JEG-206 contract):
+        {"groups": {"QB|Starter": float, "QB|Bench": float, ...}}
+
+    Returns (groups_dict, available_bool). available is False when the file
+    is missing, empty, or malformed -- callers then stamp a placeholder.
+    """
+    path = os.path.join(REPO, "data", "ddf-group-vorps.json")
+    if not os.path.exists(path):
+        return {}, False
+    try:
+        with open(path) as f:
+            doc = json.load(f)
+        groups = (doc or {}).get("groups") or {}
+        if not isinstance(groups, dict) or not groups:
+            return {}, False
+        # Coerce values to float and drop any non-numeric.
+        clean = {}
+        for k, v in groups.items():
+            try:
+                clean[k] = float(v)
+            except (TypeError, ValueError):
+                continue
+        return clean, bool(clean)
+    except Exception:
+        return {}, False
+
+
+def _impute_groups_for_source(src, vorp_chain_keys, native_map):
+    """Compute the 8-group assignment + alloc factor for one source.
+
+    Args:
+        src: source key (espn/fantasypros/...)
+        vorp_chain_keys: {pkey: pos} from vorp_chain['player_pos'] (or empty)
+        native_map: {pkey: float} the publisher-native values used for
+                    lineage native column.
+
+    Returns:
+        {
+            "group":             {pkey: "QB|Starter"|...},
+            "alloc_factor":      {pkey: float},
+            "our_group_vorp":    {pkey: float},   # input from JEG-206
+            "group_publisher_sum": {"RB|Starter": float, ...},
+            "group_placeholder": bool,
+        }
+
+    Methodology:
+      1. Build ranked values per position (native descending).
+      2. Starter per position = top N_dedicated.
+      3. Flex = next top N_flex_pool across (RB, WR, TE) only.
+      4. Bench = top N_bench remaining (per position).
+      5. Sum native per group -> group_publisher_sum.
+      6. alloc_factor = our_group_vorp[group] / group_publisher_sum[group].
+    """
+    n_teams = 12  # Lineage card is 12-team Half PPR.
+    n_dedicated = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}  # per team
+    n_flex_total = int(round(_IMPUTED_FLEX_PER_TEAM * n_teams))
+    n_bench_total = int(round(_IMPUTED_BENCH_PER_TEAM * n_teams))
+    n_flex_seats_per_pos = {
+        "RB": max(1, round(n_flex_total / 3)),
+        "WR": max(1, round(n_flex_total / 3)),
+        "TE": max(0, n_flex_total - 2 * round(n_flex_total / 3)),
+    }
+    # Bench is filled straight per position: top N_bench/4 benchers each.
+    n_bench_per_pos = {
+        "QB": max(1, n_bench_total // 4),
+        "RB": max(1, n_bench_total // 4),
+        "WR": max(1, n_bench_total // 4),
+        "TE": max(1, n_bench_total - 3 * (n_bench_total // 4)),
+    }
+
+    # Rank players by native (descending) per position. Players without a
+    # resolved position (via the VORP chain) are placed into "UNK" and
+    # excluded from group sums; they get None on every group field.
+    by_pos = {p: [] for p in _IMPUTED_POSITIONS}
+    for pkey, val in native_map.items():
+        if val is None or val <= 0:
+            continue
+        pos = vorp_chain_keys.get(pkey)
+        if pos not in by_pos:
+            continue
+        by_pos[pos].append((pkey, float(val)))
+    for pos in by_pos:
+        by_pos[pos].sort(key=lambda x: -x[1])
+
+    # 1) Dedicated starters (top N_dedicated per position).
+    starter_set = set()
+    bench_set = set()
+    group_of = {}
+    for pos in _IMPUTED_POSITIONS:
+        n_st = n_dedicated[pos] * n_teams
+        for pkey, _ in by_pos[pos][:n_st]:
+            group_of[pkey] = f"{pos}|Starter"
+            starter_set.add(pkey)
+        n_bench = n_bench_per_pos[pos]
+        bench_pool = [t for t in by_pos[pos][n_st:] if t[0] not in starter_set]
+        for pkey, _ in bench_pool[:n_bench]:
+            group_of[pkey] = f"{pos}|Bench"
+            bench_set.add(pkey)
+
+    # 2) Flex pool: top N_flex_total of flex-eligible non-starters across
+    # RB/WR/TE. Pull by descending value; tag as Starter group.
+    flex_pool = [
+        t for pos in _IMPUTED_FLEX_ELIGIBLE
+        for t in by_pos[pos]
+        if t[0] not in starter_set and t[0] not in bench_set
+    ]
+    flex_pool.sort(key=lambda x: -x[1])
+    flex_pkeys = []
+    for pkey, _ in flex_pool[:n_flex_total]:
+        # Inherit the position of the player (most flex slots go to RB/WR/TE).
+        # The group label stays <POS>|Starter -- the player's actual pos.
+        pos = vorp_chain_keys.get(pkey)
+        if pos in _IMPUTED_POSITIONS:
+            group_of[pkey] = f"{pos}|Starter"
+            starter_set.add(pkey)
+            flex_pkeys.append(pkey)
+
+    # 3) Sum native per group.
+    group_publisher_sum = {}
+    for group_label in (
+        f"{pos}|{role}" for pos in _IMPUTED_POSITIONS for role in ("Starter", "Bench")
+    ):
+        group_publisher_sum[group_label] = 0.0
+    for pkey, val in native_map.items():
+        g = group_of.get(pkey)
+        if g is None:
+            continue
+        if val is None:
+            continue
+        group_publisher_sum[g] = group_publisher_sum.get(g, 0.0) + float(val)
+
+    # 4) our_group_vorp + alloc_factor.
+    group_vorp_dict, available = _load_ddf_group_vorps()
+    our_group_vorp_map = {}
+    alloc_factor_map = {}
+    placeholder_flag = not available
+    for group_label, total in group_publisher_sum.items():
+        if available:
+            ogv = group_vorp_dict.get(group_label)
+            if ogv is None:
+                ogv = _IMPUTED_PLACEHOLDER_GROUP_VORP.get(group_label, 0.0)
+                placeholder_flag = True
+        else:
+            ogv = _IMPUTED_PLACEHOLDER_GROUP_VORP.get(group_label, 0.0)
+        our_group_vorp_map[group_label] = round(ogv, 2)
+        if total and total > 0:
+            alloc_factor_map[group_label] = round(ogv / total, 4)
+        else:
+            alloc_factor_map[group_label] = None
+
+    return {
+        "group": {pkey: g for pkey, g in group_of.items()},
+        "alloc_factor": {pkey: alloc_factor_map.get(g) for pkey, g in group_of.items()},
+        "our_group_vorp": {pkey: our_group_vorp_map.get(g) for pkey, g in group_of.items()},
+        "group_publisher_sum": {p: round(v, 2) for p, v in group_publisher_sum.items()},
+        "group_placeholder": placeholder_flag,
+    }
+
+
+def _attach_lineage_group_fields(player_row, pkey, group_info):
+    """Attach the 4 Option C lineage fields (group/alloc/our_group_vorp/imputed).
+
+    Replaces the legacy implied_vorp column at the dashboard level (the JSON
+    still carries implied_vorp for downstream readers; the lineage TABLE
+    renders the new four).
+    """
+    g = group_info["group"].get(pkey)
+    af = group_info["alloc_factor"].get(pkey)
+    ogv = group_info["our_group_vorp"].get(pkey)
+    player_row["group"] = g
+    player_row["alloc_factor"] = round(af, 4) if af is not None else None
+    player_row["our_group_vorp"] = round(ogv, 2) if ogv is not None else None
+    nat_val = player_row.get("native")
+    if g is not None and af is not None and nat_val is not None:
+        imputed = round(float(nat_val) * float(af), 2)
+    else:
+        imputed = None
+    player_row["imputed_vorp"] = imputed
+    return player_row
 
 
 def _compute_vorp_chain_for_source(src, sources, scoring="half_ppr", teams=12):
@@ -487,6 +696,10 @@ def _attach_vorp_fields(player_row, pkey, vorp_chain, ddf_rebuilt_override=None)
         if rebuilt is None:
             rebuilt = vorp_chain.get("ddf_rebuilt", {}).get(pkey_norm)
         player_row["ddf_rebuilt"] = round(rebuilt, 2) if rebuilt is not None else None
+    # JEG-207: legacy implied_vorp above is the translate_source-based read
+    # (kept in the JSON for backward compatibility). The Option C
+    # (8-group proportional) imputation is attached separately by
+    # _attach_lineage_group_fields via build_source_entry / build_adjusted_leg_entry.
     return player_row
 
 
@@ -604,6 +817,21 @@ def build_source_entry(src, sources, live_data, snapshot_natives, vorp_chain=Non
             # the chart value as the override makes the chain consistent.
             _attach_vorp_fields(players[-1], pkey, vorp_chain,
                                 ddf_rebuilt_override=chart_val)
+
+    # JEG-207: compute the 8-group (Option C) imputation once per source and
+    # attach group/alloc_factor/our_group_vorp/imputed_vorp to every top-25 row.
+    # We need native values across the full source (not just the top-25
+    # subset) so the alloc factor reflects the publisher's true group pie.
+    full_native = {norm_player_name(n): float(v)
+                   for n, v in native.items() if v is not None}
+    chain_pos_map = {}
+    if vorp_chain is not None:
+        for pkey, pos in (vorp_chain.get("player_pos") or {}).items():
+            chain_pos_map[norm_player_name(pkey)] = pos
+    group_info = _impute_groups_for_source(src, chain_pos_map, full_native)
+    for player_row in players:
+        nkey = norm_player_name(player_row["player_key"])
+        _attach_lineage_group_fields(player_row, nkey, group_info)
 
     return {
         "source_url": SOURCE_URLS[src]["url"],
@@ -749,6 +977,20 @@ def build_adjusted_leg_entry(adj_src, sources, live_data, snapshot_natives,
             # value -- so we override ddf_rebuilt with chart_val here.
             _attach_vorp_fields(players[-1], pkey, vorp_chain,
                                 ddf_rebuilt_override=chart_val)
+
+    # JEG-207: adjusted legs inherit Option C group fields from the parent
+    # (same publisher native, same 8-group imputation). Compute against the
+    # parent's full native so the alloc factor matches the parent block.
+    full_parent_native = {norm_player_name(n): float(v)
+                          for n, v in parent_native.items() if v is not None}
+    chain_pos_map = {}
+    if vorp_chain is not None:
+        for pkey, pos in (vorp_chain.get("player_pos") or {}).items():
+            chain_pos_map[norm_player_name(pkey)] = pos
+    group_info = _impute_groups_for_source(parent_src, chain_pos_map, full_parent_native)
+    for player_row in players:
+        nkey = norm_player_name(player_row["player_key"])
+        _attach_lineage_group_fields(player_row, nkey, group_info)
 
     return {
         "source_url": SOURCE_URLS[parent_src]["url"],
