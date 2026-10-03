@@ -57,10 +57,10 @@ function loadC3Rows(dist) {
   return rows;
 }
 
-async function probe(dist) {
+async function probe(dist, rootOverride) {
   // Serve from the project root (parent of `modules/` and `dist/`) so the
   // dashboard at /modules/dashboard.html can resolve ../dist/modules/*.json.
-  const root = path.resolve(dist, "..");
+  const root = rootOverride || path.resolve(dist, "..");
   const server = await serve(root);
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -70,7 +70,7 @@ async function probe(dist) {
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
     page.on("pageerror", e => report.pageErrors.push(String(e).slice(0, 240)));
-    await page.goto(`http://127.0.0.1:${server.address().port}/dashboard.html`,
+    await page.goto(`http://127.0.0.1:${server.address().port}/modules/dashboard.html`,
       { waitUntil: "networkidle" });
     await page.waitForTimeout(2000);
     // Open every source card so the cp-grid is in the DOM.
@@ -126,13 +126,17 @@ function verdict(report) {
 }
 
 // Self-test injection: strip the JEG-312 second-line logic so the gate must
-// fail when the regression guard has lost its discrimination.
+// fail when the regression guard has lost its discrimination. The change
+// lives in <root>/modules/dashboard.html (NOT dist/), so the stripped copy
+// is served from a temp root at the same /modules/dashboard.html path, with
+// dist/ and output/ symlinked for the fixture JSON the page fetches.
 function stripJEG312(dist) {
+  const root = path.resolve(dist, "..");
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "jeg312-selftest-"));
-  fs.cpSync(dist, tmp, { recursive: true });
-  const p = path.join(tmp, "modules", "dashboard.html");
-  if (!fs.existsSync(p)) throw new Error(`dashboard.html not found at ${p}`);
-  let html = fs.readFileSync(p, "utf8");
+  fs.mkdirSync(path.join(tmp, "modules"), { recursive: true });
+  const src = path.join(root, "modules", "dashboard.html");
+  if (!fs.existsSync(src)) throw new Error(`dashboard.html not found at ${src}`);
+  let html = fs.readFileSync(src, "utf8");
   // Replace the JEG-312 conditional with an unconditional empty tableLine so
   // every c3 cell renders without the second line.
   const stripped = html
@@ -141,7 +145,10 @@ function stripJEG312(dist) {
   if (stripped === html) {
     throw new Error("JEG-312 self-test: could not locate tableLine block to strip");
   }
-  fs.writeFileSync(p, stripped);
+  fs.writeFileSync(path.join(tmp, "modules", "dashboard.html"), stripped);
+  for (const d of ["dist", "output"]) {
+    fs.symlinkSync(path.join(root, d), path.join(tmp, d), "dir");
+  }
   return tmp;
 }
 
@@ -155,7 +162,7 @@ async function main() {
   let selfProblems = ["self-test: probe did not run"];
   let selfReport = null;
   try {
-    selfReport = await probe(strippedDir);
+    selfReport = await probe(dist, strippedDir);
     selfProblems = verdict(selfReport);
   } catch (e) {
     selfProblems = [`self-test: ${String(e).slice(0, 200)}`];
