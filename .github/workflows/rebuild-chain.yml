@@ -158,14 +158,15 @@ jobs:
             echo "pushed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "$MESSAGE"
-            # Push-race guard (2026-10-03): automated pushers (the 30-min health
-            # cron, other workflows) can land commits on main between this job's
-            # checkout and this push. Rebase onto the latest main first so the
-            # push stays fast-forward instead of failing non-fast-forward.
-            # --autostash: this step deliberately leaves unstaged changes behind
-            # (e.g. the held-back partial fixture on a red chain); stash them
-            # across the rebase instead of refusing.
-            git pull --rebase --autostash origin main
+            # JEG-299: main is hot (30-min health pushes + lane merges move it
+            # during the chain run). Rebase onto the latest tip before pushing
+            # so a non-fast-forward rejection doesn't silently drop the rebuild.
+            # On rebase conflict: abort and fail loudly -- never force-push.
+            git pull --rebase origin main || {
+              echo "::error::Rebase onto origin/main failed; rebuild output preserved in run artifacts, manual push needed."
+              git rebase --abort || true
+              exit 1
+            }
             git push
             echo "pushed=true" >> $GITHUB_OUTPUT
           fi
