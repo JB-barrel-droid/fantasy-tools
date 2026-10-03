@@ -5,7 +5,7 @@ Policy targets (remaining reference/control/integration work is JEG241–243):
 1. LINEAR allocation — no squared premium. Budget share = VORP / sum(VORP).
 2. BLEND reference — group budgets from the DDF blend leg's pie totals, not ESPN alone.
 3. 70 ANCHOR — one maximum across all included sources; one common factor.
-4. INVERSIONS — within-position (bench > starter) ironed out; cross-position allowed.
+4. INVERSIONS — common closed-form budget constraint; cross-position allowed.
 5. 8-BOX CONTROLS — CLI requires all eight explicit user weights; verified defaults pending JEG243.
 
 Input: imputed VORP artifact from build_imputed_vorps.py
@@ -116,40 +116,68 @@ def linear_reweight(imputed, budgets):
     return result
 
 
-def iron_within_position_inversions(
-    values: dict[str, float],
-    imputed: dict[str, dict[str, Any]],
-) -> dict[str, float]:
-    """Iron out within-position inversions (bench player > starter at same position).
+def constrain_group_budgets(imputed_sources, requested):
+    """Closed-form shared bench caps; preserve each requested position total."""
+    requested = _validate_budgets(requested)
+    if not isinstance(imputed_sources, dict) or not imputed_sources:
+        raise ValueError("nonempty source batch required for budget constraints")
+    pools, totals = {}, {}
+    for source, rows in imputed_sources.items():
+        _validate_imputed(rows)
+        pools[source] = {g: [] for g in GROUPS}
+        for rec in rows.values():
+            pos, role = rec["group"].split("|")
+            if role.lower() != "cut":
+                pools[source][pos, role.lower()].append(rec["imputed_vorp"])
+        totals[source] = {g: _finite_sum(u, f"constraint sum {source}/{g}")
+                          for g, u in pools[source].items()}
+        for g in GROUPS:
+            if requested[g] > 0 and totals[source][g] == 0:
+                raise ValueError(f"funded group {g} has no positive source pool")
+    effective, constraints = dict(requested), {}
+    for pos in ("QB", "RB", "WR", "TE"):
+        starter, bench = (pos, "starter"), (pos, "bench")
+        caps = {}
+        for source, groups in pools.items():
+            if not groups[starter] or not groups[bench]:
+                caps[source] = 1.0
+                continue
+            a = min(groups[starter])/totals[source][starter] if totals[source][starter] else 0.0
+            b = max(groups[bench])/totals[source][bench] if totals[source][bench] else 0.0
+            caps[source] = a/(a+b) if a+b else 1.0
+        cap = min(caps.values())
+        position = _finite_sum((requested[starter], requested[bench]), f"position budget {pos}")
+        wanted = requested[bench]/position if position else 0.0
+        applied = min(wanted, cap)
+        effective[bench] = position*applied
+        effective[starter] = position-effective[bench]
+        if any(effective[starter] > 0 and sums[starter] == 0 for sums in totals.values()):
+            raise ValueError(f"effective {pos} starter budget requires unavailable positive pool")
+        constraints[pos] = {"requested_bench_fraction": wanted, "effective_bench_fraction": applied,
+                            "maximum_bench_fraction": cap, "per_source_caps": caps,
+                            "limiting_sources": sorted(s for s,c in caps.items() if c == cap),
+                            "constrained": applied < wanted,
+                            "position_total": position}
+    return effective, constraints
 
-    Decision 4: within-position inversions are bugs, iron them out.
-    Cross-position inversions (bench RB > starter TE) are legitimate economics — leave them.
 
-    Linear rescale preserves order within (pos, role) groups, so true inversions
-    should not occur. This is a safety net: if a bench player's value exceeds
-    the lowest starter at the same position, clamp it.
-    """
-    # Group by position, separate starter/bench
-    by_pos: dict[str, dict[str, list[tuple[str, float]]]] = {}
-    for pkey, rec in imputed.items():
+def iron_within_position_inversions(values, imputed):
+    """Compatibility diagnostic only: require effective budgets; never clip rows."""
+    _validate_imputed(imputed)
+    by_pos = {p: {"starter": [], "bench": []} for p in ("QB", "RB", "WR", "TE")}
+    for key, rec in imputed.items():
         pos, role = rec["group"].split("|")
-        role = role.lower()
-        if role == "cut":
-            continue
-        by_pos.setdefault(pos, {"starter": [], "bench": []})
-        by_pos[pos][role].append((pkey, values[pkey]))
-
-    result = dict(values)
-    for pos, roles in by_pos.items():
-        if not roles["starter"] or not roles["bench"]:
-            continue
-        min_starter = min(v for _, v in roles["starter"])
-        for pkey, val in roles["bench"]:
-            if val > min_starter:
-                # Iron out: clamp bench to just below lowest starter
-                result[pkey] = min_starter * 0.999
-
-    return result
+        value = _nonnegative_finite(values[key], f"value {key}")
+        if role.lower() != "cut":
+            by_pos[pos][role.lower()].append(value)
+        elif value != 0:
+            raise ValueError("Cut adjusted value must be zero")
+    for roles in by_pos.values():
+        if roles["starter"] and roles["bench"]:
+            a, b = min(roles["starter"]), max(roles["bench"])
+            if b > a and not math.isclose(a, b, rel_tol=1e-12, abs_tol=1e-12):
+                raise ValueError("use effective shared batch budgets before player mapping")
+    return dict(values)
 
 
 def apply_70_anchor(values, *, batch_maximum):
@@ -173,7 +201,7 @@ def _prepare_values(imputed, budgets):
     values = linear_reweight(imputed, budgets)
     ironed = iron_within_position_inversions(values, imputed)
     if ironed != values:
-        raise ValueError("within-position inversion needs conserving budget constraint (JEG241); refusing player clamp")
+        raise ValueError("unexpected player alteration after effective budget mapping")
     return values
 
 
@@ -207,11 +235,12 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
     fractions = {g: b/total for g, b in budgets.items()}
     if any(budgets[g] > 0 and fractions[g] == 0 for g in GROUPS):
         raise ValueError("allocation fraction underflow")
+    effective, constraints = constrain_group_budgets(imputed_sources, fractions)
     provisional = {}
     for source, pool in imputed_sources.items():
         _validate_imputed(pool)
         _validated_native(native_sources[source], pool)
-        provisional[source] = _prepare_values(pool, fractions)
+        provisional[source] = _prepare_values(pool, effective)
     maximum = max((v for pool in provisional.values() for v in pool.values()), default=0.0)
     if maximum <= 0:
         raise ValueError("positive comparison batch peak required")
@@ -226,8 +255,10 @@ def build_batch_three_views(imputed_sources, native_sources, budgets):
             raise ValueError("source total does not conserve shared budget")
     return {"schema": "shared-batch70-views-v1", "artifact_status": "candidate", "batch_scale": scale,
             "provisional_maximum": maximum, "total_budget_per_source": scale,
-            "allocation_fractions": {f"{p}/{r}": v for (p, r), v in fractions.items()},
-            "group_budgets": {f"{p}/{r}": scale*v for (p, r), v in fractions.items()},
+            "requested_allocation_fractions": {f"{p}/{r}": v for (p, r), v in fractions.items()},
+            "allocation_fractions": {f"{p}/{r}": v for (p, r), v in effective.items()},
+            "control_constraints": constraints,
+            "group_budgets": {f"{p}/{r}": scale*v for (p, r), v in effective.items()},
             "sources": outputs}
 
 
@@ -302,7 +333,8 @@ def main(argv=None):
         raise ValueError("complete explicit eight controls required; default reference contract pending JEG243")
     budgets = {g: raw[f"{g[0]}/{g[1]}"] for g in GROUPS}
     result = build_batch_three_views(imputed, native, budgets)
-    result["manifest"] = {**pins, "controls_sha256": hashlib.sha256(control_bytes).hexdigest()}
+    result["manifest"] = {**pins, "controls_sha256": hashlib.sha256(control_bytes).hexdigest(),
+                          "requested_control_weights": raw}
     text = json.dumps(result, indent=2, sort_keys=True, allow_nan=False)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(text, encoding="utf-8")
