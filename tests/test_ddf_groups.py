@@ -18,6 +18,7 @@ exists locally.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -110,7 +111,7 @@ class EightGroupEmissionTests(unittest.TestCase):
                 ("WR", "starter", 60.0), ("WR", "bench", 15.0),
                 ("TE", "starter", 50.0), ("TE", "bench", 8.0)]
         art = compute_groups(_make_leg(_values(rows)))
-        required = {"position", "role", "total_vorp", "n_players"}
+        required = {"position", "role", "total_vorp", "raw_surplus_ppg", "n_players"}
         for g in art["groups"]:
             self.assertTrue(required.issubset(g.keys()),
                             f"group missing required fields: {g}")
@@ -324,6 +325,7 @@ class WriteArtifactTests(unittest.TestCase):
             self.assertEqual(loaded["schema"], SCHEMA)
             self.assertEqual(len(loaded["groups"]), 8)
             self.assertEqual(art["groups"], loaded["groups"])
+            self.assertEqual(loaded["input_leg_sha256"], hashlib.sha256(leg_path.read_bytes()).hexdigest())
 
     def test_artifact_is_deterministic_for_same_leg(self):
         rows = [("QB", "starter", 80.0), ("QB", "bench", 5.0),
