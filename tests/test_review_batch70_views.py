@@ -63,6 +63,7 @@ CONTROLS = {
 EXCLUDED = {
     "cbs": "test exclusion (not built in fixture)",
     "fantasypros": "test exclusion (not built in fixture)",
+    "avg": "test exclusion (derived avg not built in fixture)",
     "espn": "test exclusion (granular leg not built in fixture)",
     "cbsros": "test exclusion (granular leg not built in fixture)",
     "razzball": "test exclusion (granular leg not built in fixture)",
@@ -321,6 +322,36 @@ class TestReviewBatch70Views(unittest.TestCase):
         }
         with self.assertRaises(GateFailure):
             check_views(doc, 70.0)
+
+    def test_published_partial_indexed_passes_for_backstopped_players(self):
+        """Publisher-native Indexed may be a strict subset once AVG supplies
+        missing VORP/Adjusted rows; no native value may be invented."""
+        doc = {
+            "sources": {
+                "cbs": {
+                    "indexed": {"90001": 40.0},
+                    "vorp": {"90001": 40.0, "90002": 12.0},
+                    "adj_values": {"90001": 70.0, "90002": 0.0},
+                }
+            }
+        }
+        maxima = check_views(doc, 70.0)
+        self.assertIn("cbs", maxima)
+
+    def test_derived_avg_empty_indexed_passes(self):
+        """AVG is a derived consensus line, not a publisher; Indexed must
+        remain empty while VORP/Adjusted carry the line."""
+        doc = {
+            "sources": {
+                "avg": {
+                    "indexed": {},
+                    "vorp": {"90001": 40.0, "90002": 12.0},
+                    "adj_values": {"90001": 70.0, "90002": 0.0},
+                }
+            }
+        }
+        maxima = check_views(doc, 70.0)
+        self.assertIn("avg", maxima)
 
 
 if __name__ == "__main__":
