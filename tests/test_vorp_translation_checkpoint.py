@@ -304,3 +304,104 @@ class VorpRefreshStageTest(unittest.TestCase):
             result = chain.run_vorp_refresh(5, Path(tmp), boom)
         self.assertEqual(result["status"], "failed")
         self.assertIn("transport down", result["detail"])
+
+
+class CommittedFixtureReadTest(unittest.TestCase):
+    """2026-10-04 regression: build_vorp_translation_summary must read the
+    fixture as COMMITTED (what Pages serves), never the working tree.
+
+    In the shared checkout the working tree is routinely dirty with other
+    lanes' uncommitted experiments. A dirty comparison-sources-data.json
+    unpinned the data-driven _qb_divergent_siblings guard, so expected
+    combos sat on reindex-fallback and this check false-redded `bad` three
+    times while production served the committed bytes (which genuinely
+    compute to `warn`). committed_fixture_json() closes that hole; these
+    tests prove the wiring against a simulated broken state.
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self._orig_repo = bpc.REPO
+        self.addCleanup(setattr, bpc, "REPO", self._orig_repo)
+
+    def _doc(self, bad_combo=False):
+        doc = {"built_at": "2026-10-04T00:00:00+00:00", "sources": {}}
+        combos = {}
+        for source in ("usatoday", "fantasypros", "cbs"):
+            combos[source] = {
+                f"{sc}_12": _combo("vorp-supabase", 5)
+                for sc in ("full", "half", "standard")
+            }
+        if bad_combo:
+            # Working-tree broken state: an unexpected reindex-fallback the
+            # guard does not pin -> "bad" if the tree were consulted.
+            combos["fantasypros"]["half_12"] = _combo("reindex-fallback", 5)
+        else:
+            # Committed (served) bytes: one combo with grain week unrecorded
+            # (pre-JEG-70 provenance) -> "warn".
+            combos["cbs"]["half_12"] = _combo("vorp-supabase", None)
+        for source, c in combos.items():
+            doc["sources"][source] = {"combos": c}
+        return doc
+
+    def _write_tree(self, repo, doc):
+        p = (Path(repo) / "data" / "fixtures" / "current"
+             / "comparison-sources-data.json")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps(doc))
+        return p
+
+    def _init_git_repo(self, repo, committed_doc):
+        import shutil
+        import subprocess
+
+        if shutil.which("git") is None:
+            self.skipTest("git not available")
+        self._write_tree(repo, committed_doc)
+        run = lambda *a: subprocess.run(a, check=True, capture_output=True,
+                                        cwd=str(repo))
+        run("git", "init", "-q", "-b", "main", ".")
+        run("git", "add", ".")
+        run("git", "-c", "user.email=t@t.test", "-c", "user.name=t",
+            "commit", "-qm", "committed fixture")
+        # origin/main ref without a network remote: git show works offline.
+        run("git", "update-ref", "refs/remotes/origin/main", "main")
+
+    def _run_summary(self, repo):
+        bpc.REPO = Path(repo)
+        with patch.object(bpc, "expected_content_week", return_value=5):
+            return bpc.build_vorp_translation_summary()
+
+    def test_committed_blob_wins_over_dirty_tree(self):
+        # End-to-end through the real helper: origin/main holds the clean
+        # committed fixture (warn), the working tree holds the dirty fixture
+        # that would report bad. The summary must report warn -- proving the
+        # tree is not consulted. Fails on pre-fix code (reads tree -> bad).
+        repo = Path(self.tmp) / "repo"
+        self._init_git_repo(repo, self._doc(bad_combo=False))
+        self._write_tree(repo, self._doc(bad_combo=True))  # dirty the tree
+        s = self._run_summary(repo)
+        self.assertEqual(s["status"], "warn", s["reason"])
+        self.assertIn("not recorded", s["reason"])
+
+    def test_helper_prefers_committed_over_head_and_tree(self):
+        # Precedence: origin/main > HEAD > working tree.
+        repo = Path(self.tmp) / "repo2"
+        committed = self._doc(bad_combo=False)
+        self._init_git_repo(repo, committed)
+        self._write_tree(repo, self._doc(bad_combo=True))
+        bpc.REPO = Path(repo)
+        data, label = bpc.committed_fixture_json(
+            "data/fixtures/current/comparison-sources-data.json")
+        self.assertEqual(label, "origin/main")
+        self.assertEqual(data, committed)
+
+    def test_unk_when_committed_read_fails_everywhere(self):
+        # No committed blob, no HEAD, no tree file -> unk (never a failure
+        # claim). Pre-fix code had no committed_fixture_json helper, so this
+        # patch raises AttributeError there: the wiring itself is asserted.
+        with patch.object(bpc, "expected_content_week", return_value=5), \
+             patch.object(bpc, "committed_fixture_json",
+                          return_value=(None, "unreadable")):
+            s = bpc.build_vorp_translation_summary()
+        self.assertEqual(s["status"], "unk")

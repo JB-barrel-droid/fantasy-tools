@@ -177,6 +177,37 @@ def committed_fixture_sha(fixture_path):
     return None
 
 
+def committed_fixture_json(rel_path):
+    """Parsed JSON of a repo fixture as committed on origin/main.
+
+    Checks that must report on what Pages serves (vorp_translation, C10)
+    read the committed blob, not the working tree: the shared checkout is
+    routinely dirty with other lanes' uncommitted experiments, and on
+    2026-10-04 that dirt false-redded vorp_translation three times (a lane's
+    fixture edit unpinned the data-driven _qb_divergent_siblings guard, so
+    expected combos sat on reindex-fallback and the monitor cried bad while
+    production served warn). Reads the origin/main blob first (after the same
+    read-only fetch refresh committed_fixture_sha uses), then HEAD, then the
+    working tree. Returns (data, source_label) or (None, "unreadable").
+    """
+    _refresh_fixture_ref()
+    rel = Path(rel_path).as_posix()
+    for rev in ("origin/main", "HEAD"):
+        try:
+            out = subprocess.run(
+                ["git", "-C", str(REPO), "show", f"{rev}:{rel}"],
+                capture_output=True, timeout=15)
+            if out.returncode == 0 and out.stdout:
+                return json.loads(out.stdout.decode("utf-8")), rev
+        except Exception:
+            continue
+    wt = REPO / rel
+    try:
+        return json.loads(wt.read_text(encoding="utf-8")), "working-tree"
+    except (OSError, json.JSONDecodeError):
+        return None, "unreadable"
+
+
 def evaluate_pages_deploy(runs):
     """Classify GitHub Pages deploy health from recent workflow runs.
 
@@ -971,6 +1002,11 @@ def build_vorp_translation_summary():
     reindex-fallback by design) has translation.method == "vorp-supabase"
     with grain.week == the current NFL week.
 
+    The fixture is read as COMMITTED on origin/main (committed_fixture_json),
+    not from the working tree: the shared checkout is routinely dirty with
+    other lanes' experiments, and working-tree reads false-red this check
+    while production serves the committed bytes.
+
     Status:
       ok   - all expected grains at the current week via vorp-supabase
       warn - any expected grain week < current week (weekly refresh or chain
@@ -984,14 +1020,14 @@ def build_vorp_translation_summary():
     from translate_via_vorp import AS_PUBLISHED_SOURCES, _qb_divergent_siblings
 
     label = "VORP: legacy translation freshness (not Option C readiness)"
-    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-    try:
-        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
+    fixture, fixture_source = committed_fixture_json(
+        "data/fixtures/current/comparison-sources-data.json")
+    if fixture is None:
         return {
             "label": label,
             "status": "unk",
-            "reason": f"comparison-sources-data.json unreadable: {e}",
+            "reason": "comparison-sources-data.json unreadable "
+                      "(tried origin/main, HEAD, working tree)",
             "timestamp": None,
         }
 
