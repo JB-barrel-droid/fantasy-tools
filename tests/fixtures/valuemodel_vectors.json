@@ -1,0 +1,3315 @@
+{
+  "schema_version": 1,
+  "description": "Fixed input vectors for JEG-364c value-model.js parity. Expected outputs are computed by running the JS via node and recorded here; the Python reference at pipelines/parity/value_model_parity.py must reproduce them to floating-point tolerance.",
+  "tolerance_abs": 1e-09,
+  "tolerance_rel": 1e-09,
+  "shared_players": {
+    "qb1": {
+      "player_key": "100",
+      "name": "Josh Allen",
+      "pos": "QB"
+    },
+    "qb2": {
+      "player_key": "101",
+      "name": "Lamar Jackson",
+      "pos": "QB"
+    },
+    "qb3": {
+      "player_key": "102",
+      "name": "Patrick Mahomes",
+      "pos": "QB"
+    },
+    "rb1": {
+      "player_key": "200",
+      "name": "Bijan Robinson",
+      "pos": "RB"
+    },
+    "rb2": {
+      "player_key": "201",
+      "name": "Saquon Barkley",
+      "pos": "RB"
+    },
+    "rb3": {
+      "player_key": "202",
+      "name": "Derrick Henry",
+      "pos": "RB"
+    },
+    "rb4": {
+      "player_key": "203",
+      "name": "Josh Jacobs",
+      "pos": "RB"
+    },
+    "wr1": {
+      "player_key": "300",
+      "name": "CeeDee Lamb",
+      "pos": "WR"
+    },
+    "wr2": {
+      "player_key": "301",
+      "name": "Justin Jefferson",
+      "pos": "WR"
+    },
+    "wr3": {
+      "player_key": "302",
+      "name": "Amon-Ra St. Brown",
+      "pos": "WR"
+    },
+    "wr4": {
+      "player_key": "303",
+      "name": "Garrett Wilson",
+      "pos": "WR"
+    },
+    "te1": {
+      "player_key": "400",
+      "name": "Travis Kelce",
+      "pos": "TE"
+    },
+    "te2": {
+      "player_key": "401",
+      "name": "Sam LaPorta",
+      "pos": "TE"
+    },
+    "k1": {
+      "player_key": "500",
+      "name": "Justin Tucker",
+      "pos": "K"
+    },
+    "dst1": {
+      "player_key": "600",
+      "name": "Bills DST",
+      "pos": "DST"
+    },
+    "shared1": {
+      "player_key": "999",
+      "name": "Extra A",
+      "pos": "RB"
+    },
+    "shared2": {
+      "player_key": "998",
+      "name": "Extra B",
+      "pos": "WR"
+    }
+  },
+  "shared_shape_default": {
+    "QB": 1,
+    "RB": 2,
+    "WR": 3,
+    "TE": 1,
+    "FLEX": 1,
+    "BENCH": 6
+  },
+  "vectors": [
+    {
+      "id": "sourceComboKey_espn_full_12",
+      "fn": "sourceComboKey",
+      "inputs": {
+        "source": "espn",
+        "scoring": "ppr",
+        "teams": 12,
+        "qbSlots": null
+      },
+      "expected": "full_12"
+    },
+    {
+      "id": "sourceComboKey_espn_full_variant_full",
+      "fn": "sourceComboKey",
+      "inputs": {
+        "source": "espn",
+        "scoring": "full",
+        "teams": 12,
+        "qbSlots": null
+      },
+      "expected": "full_12"
+    },
+    {
+      "id": "sourceComboKey_espn_half_14",
+      "fn": "sourceComboKey",
+      "inputs": {
+        "source": "espn",
+        "scoring": "half_ppr",
+        "teams": 14,
+        "qbSlots": null
+      },
+      "expected": "half_14"
+    },
+    {
+      "id": "sourceComboKey_fantasycalc_qb1",
+      "fn": "sourceComboKey",
+      "inputs": {
+        "source": "fantasycalc",
+        "scoring": "ppr",
+        "teams": 12,
+        "qbSlots": 1
+      },
+      "expected": "full_12_qb1"
+    },
+    {
+      "id": "sourceComboKey_fantasycalc_qb3_invalid",
+      "fn": "sourceComboKey",
+      "inputs": {
+        "source": "fantasycalc",
+        "scoring": "ppr",
+        "teams": 12,
+        "qbSlots": 3
+      }
+    },
+    {
+      "id": "flexEligible_default",
+      "fn": "flexEligible",
+      "inputs": {
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": [
+        "RB",
+        "WR",
+        "TE"
+      ]
+    },
+    {
+      "id": "flexEligible_superflex",
+      "fn": "flexEligible",
+      "inputs": {
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6,
+          "SUPERFLEX": true
+        }
+      },
+      "expected": [
+        "QB",
+        "RB",
+        "WR",
+        "TE"
+      ]
+    },
+    {
+      "id": "flexEligible_null_shape",
+      "fn": "flexEligible",
+      "inputs": {
+        "shape": null
+      },
+      "expected": [
+        "RB",
+        "WR",
+        "TE"
+      ]
+    },
+    {
+      "id": "stableTiebreak_names_alphabetic",
+      "fn": "stableTiebreak",
+      "inputs": {
+        "a": {
+          "name": "Aaron",
+          "player_key": 1
+        },
+        "b": {
+          "name": "Bob",
+          "player_key": 2
+        }
+      },
+      "expected": -1
+    },
+    {
+      "id": "stableTiebreak_same_names_diff_keys",
+      "fn": "stableTiebreak",
+      "inputs": {
+        "a": {
+          "name": "Same Name",
+          "player_key": 5
+        },
+        "b": {
+          "name": "Same Name",
+          "player_key": 7
+        }
+      },
+      "expected": -2
+    },
+    {
+      "id": "stableTieboth_nulls",
+      "fn": "stableTiebreak",
+      "inputs": {
+        "a": null,
+        "b": {
+          "name": "Bob",
+          "player_key": 2
+        }
+      },
+      "expected": 0
+    },
+    {
+      "id": "stableTiebreak_equal",
+      "fn": "stableTiebreak",
+      "inputs": {
+        "a": {
+          "name": "Same",
+          "player_key": 9
+        },
+        "b": {
+          "name": "Same",
+          "player_key": 9
+        }
+      },
+      "expected": 0
+    },
+    {
+      "id": "roleMap_default_12t_basic",
+      "fn": "roleMap",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "101": 75,
+          "102": 70,
+          "200": 95,
+          "201": 90,
+          "202": 85,
+          "203": 80,
+          "300": 90,
+          "301": 85,
+          "302": 80,
+          "303": 75,
+          "400": 60,
+          "401": 55,
+          "500": 12,
+          "600": 8
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "Josh Allen",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "Lamar Jackson",
+            "pos": "QB"
+          },
+          {
+            "player_key": "102",
+            "name": "Patrick Mahomes",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "Bijan Robinson",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "Saquon Barkley",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "Derrick Henry",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "Josh Jacobs",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "CeeDee Lamb",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "Justin Jefferson",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "Amon-Ra St. Brown",
+            "pos": "WR"
+          },
+          {
+            "player_key": "303",
+            "name": "Garrett Wilson",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "Travis Kelce",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "Sam LaPorta",
+            "pos": "TE"
+          },
+          {
+            "player_key": "500",
+            "name": "Justin Tucker",
+            "pos": "K"
+          },
+          {
+            "player_key": "600",
+            "name": "Bills DST",
+            "pos": "DST"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {
+        "100": "starter",
+        "101": "bench",
+        "102": "bench",
+        "200": "starter",
+        "201": "starter",
+        "202": "starter",
+        "203": "bench",
+        "300": "starter",
+        "301": "starter",
+        "302": "starter",
+        "303": "bench",
+        "400": "starter",
+        "401": "bench"
+      }
+    },
+    {
+      "id": "roleMap_skip_negative_and_nan",
+      "fn": "roleMap",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "101": -5,
+          "102": null,
+          "200": 95,
+          "201": 90,
+          "300": 90,
+          "301": 85,
+          "302": 80
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "Josh Allen",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "Bad QB",
+            "pos": "QB"
+          },
+          {
+            "player_key": "102",
+            "name": "NaN QB",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "Bijan Robinson",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "Saquon Barkley",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "CeeDee Lamb",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "Justin Jefferson",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "Amon-Ra St. Brown",
+            "pos": "WR"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {
+        "100": "starter",
+        "200": "starter",
+        "201": "starter",
+        "300": "starter",
+        "301": "starter",
+        "302": "starter"
+      }
+    },
+    {
+      "id": "roleMap_superflex_QB_in_flex",
+      "fn": "roleMap",
+      "inputs": {
+        "values": {
+          "100": 90,
+          "101": 80,
+          "200": 95,
+          "201": 90,
+          "202": 85,
+          "300": 85,
+          "301": 80,
+          "400": 60
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "Josh Allen",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "Lamar Jackson",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "Bijan Robinson",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "Saquon Barkley",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "Derrick Henry",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "CeeDee Lamb",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "Justin Jefferson",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "Travis Kelce",
+            "pos": "TE"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6,
+          "SUPERFLEX": true
+        }
+      },
+      "expected": {
+        "100": "starter",
+        "101": "bench",
+        "200": "starter",
+        "201": "starter",
+        "202": "starter",
+        "300": "starter",
+        "301": "starter",
+        "400": "starter"
+      }
+    },
+    {
+      "id": "roleMap_empty_values",
+      "fn": "roleMap",
+      "inputs": {
+        "values": {},
+        "players": [],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {}
+    },
+    {
+      "id": "projectionRoles_basic_surplus",
+      "fn": "projectionRoles",
+      "inputs": {
+        "pool": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "RB4",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "303",
+            "name": "WR4",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "TE2",
+            "pos": "TE"
+          }
+        ],
+        "ranks": {
+          "100": 22.0,
+          "101": 20.0,
+          "200": 18.0,
+          "201": 17.0,
+          "202": 15.0,
+          "203": 14.0,
+          "300": 19.0,
+          "301": 18.0,
+          "302": 17.0,
+          "303": 16.0,
+          "400": 12.0,
+          "401": 10.0
+        },
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {
+        "roles": {
+          "100": "starter",
+          "101": "bench",
+          "200": "starter",
+          "201": "starter",
+          "202": "bench",
+          "203": "bench",
+          "300": "starter",
+          "301": "starter",
+          "302": "starter",
+          "303": "starter",
+          "400": "starter",
+          "401": "bench"
+        },
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "baseline": {
+          "QB": 22,
+          "RB": 17,
+          "WR": 17,
+          "TE": 12
+        }
+      }
+    },
+    {
+      "id": "projectionRoles_superflex_uses_surplus_for_flex",
+      "fn": "projectionRoles",
+      "inputs": {
+        "pool": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "TE2",
+            "pos": "TE"
+          }
+        ],
+        "ranks": {
+          "100": 28.0,
+          "101": 25.0,
+          "200": 18.0,
+          "201": 17.0,
+          "202": 16.0,
+          "300": 19.0,
+          "301": 18.0,
+          "302": 17.0,
+          "400": 12.0,
+          "401": 10.0
+        },
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6,
+          "SUPERFLEX": true
+        }
+      },
+      "expected": {
+        "roles": {
+          "100": "starter",
+          "101": "bench",
+          "200": "starter",
+          "201": "starter",
+          "202": "starter",
+          "300": "starter",
+          "301": "starter",
+          "302": "starter",
+          "400": "starter",
+          "401": "bench"
+        },
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "baseline": {
+          "QB": 28,
+          "RB": 17,
+          "WR": 17,
+          "TE": 12
+        }
+      }
+    },
+    {
+      "id": "projectionRoles_empty_pool",
+      "fn": "projectionRoles",
+      "inputs": {
+        "pool": [],
+        "ranks": {},
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {
+        "roles": {},
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "baseline": {
+          "QB": 0,
+          "RB": 0,
+          "WR": 0,
+          "TE": 0
+        }
+      }
+    },
+    {
+      "id": "positionalTierScales_basic",
+      "fn": "positionalTierScales",
+      "inputs": {
+        "rows": [
+          {
+            "pos": "QB",
+            "role": "starter",
+            "value": 50
+          },
+          {
+            "pos": "QB",
+            "role": "bench",
+            "value": 30
+          },
+          {
+            "pos": "RB",
+            "role": "starter",
+            "value": 100
+          },
+          {
+            "pos": "RB",
+            "role": "bench",
+            "value": 40
+          },
+          {
+            "pos": "WR",
+            "role": "starter",
+            "value": 80
+          },
+          {
+            "pos": "WR",
+            "role": "bench",
+            "value": 35
+          },
+          {
+            "pos": "TE",
+            "role": "starter",
+            "value": 40
+          },
+          {
+            "pos": "TE",
+            "role": "bench",
+            "value": 20
+          }
+        ],
+        "targets": {
+          "QB": 100,
+          "RB": 200,
+          "WR": 160,
+          "TE": 80
+        },
+        "share": 0.15
+      },
+      "expected": {
+        "starter": {
+          "QB": 1.7,
+          "RB": 1.7,
+          "WR": 1.7,
+          "TE": 1.7
+        },
+        "bench": {
+          "QB": 0.5,
+          "RB": 0.75,
+          "WR": 0.6857142857142857,
+          "TE": 0.6
+        },
+        "starterRaw": {
+          "QB": 50,
+          "RB": 100,
+          "WR": 80,
+          "TE": 40
+        },
+        "benchRaw": {
+          "QB": 30,
+          "RB": 40,
+          "WR": 35,
+          "TE": 20
+        },
+        "target": {
+          "QB": 100,
+          "RB": 200,
+          "WR": 160,
+          "TE": 80
+        }
+      }
+    },
+    {
+      "id": "positionalTierScales_empty_tier_returns_zero_scale",
+      "fn": "positionalTierScales",
+      "inputs": {
+        "rows": [
+          {
+            "pos": "QB",
+            "role": "starter",
+            "value": 50
+          },
+          {
+            "pos": "RB",
+            "role": "starter",
+            "value": 100
+          },
+          {
+            "pos": "RB",
+            "role": "bench",
+            "value": 40
+          },
+          {
+            "pos": "WR",
+            "role": "starter",
+            "value": 80
+          },
+          {
+            "pos": "WR",
+            "role": "bench",
+            "value": 35
+          },
+          {
+            "pos": "TE",
+            "role": "starter",
+            "value": 40
+          }
+        ],
+        "targets": {
+          "QB": 100,
+          "RB": 200,
+          "WR": 160,
+          "TE": 80
+        },
+        "share": 0.15
+      },
+      "expected": {
+        "starter": {
+          "QB": 1.7,
+          "RB": 1.7,
+          "WR": 1.7,
+          "TE": 1.7
+        },
+        "bench": {
+          "QB": 0,
+          "RB": 0.75,
+          "WR": 0.6857142857142857,
+          "TE": 0
+        },
+        "starterRaw": {
+          "QB": 50,
+          "RB": 100,
+          "WR": 80,
+          "TE": 40
+        },
+        "benchRaw": {
+          "QB": 0,
+          "RB": 40,
+          "WR": 35,
+          "TE": 0
+        },
+        "target": {
+          "QB": 100,
+          "RB": 200,
+          "WR": 160,
+          "TE": 80
+        }
+      }
+    },
+    {
+      "id": "positionalTierScales_share_clamped",
+      "fn": "positionalTierScales",
+      "inputs": {
+        "rows": [
+          {
+            "pos": "QB",
+            "role": "starter",
+            "value": 50
+          },
+          {
+            "pos": "QB",
+            "role": "bench",
+            "value": 30
+          },
+          {
+            "pos": "RB",
+            "role": "starter",
+            "value": 100
+          },
+          {
+            "pos": "RB",
+            "role": "bench",
+            "value": 40
+          }
+        ],
+        "targets": {
+          "QB": 100,
+          "RB": 200,
+          "WR": 160,
+          "TE": 80
+        },
+        "share": 1.5
+      },
+      "expected": {
+        "starter": {
+          "QB": 0,
+          "RB": 0,
+          "WR": 0,
+          "TE": 0
+        },
+        "bench": {
+          "QB": 3.3333333333333335,
+          "RB": 5,
+          "WR": 0,
+          "TE": 0
+        },
+        "starterRaw": {
+          "QB": 50,
+          "RB": 100,
+          "WR": 0,
+          "TE": 0
+        },
+        "benchRaw": {
+          "QB": 30,
+          "RB": 40,
+          "WR": 0,
+          "TE": 0
+        },
+        "target": {
+          "QB": 100,
+          "RB": 200,
+          "WR": 160,
+          "TE": 80
+        }
+      }
+    },
+    {
+      "id": "sharedPieBasis_enough_shared",
+      "fn": "sharedPieBasis",
+      "inputs": {
+        "values": {
+          "200": 95,
+          "201": 90,
+          "202": 85,
+          "203": 80,
+          "204": 75,
+          "205": 70,
+          "206": 65,
+          "207": 60,
+          "208": 55,
+          "209": 50,
+          "210": 45,
+          "211": 40,
+          "212": 38,
+          "213": 36,
+          "214": 34,
+          "215": 32,
+          "216": 30,
+          "217": 28,
+          "218": 26,
+          "219": 24,
+          "220": 22,
+          "221": 20,
+          "222": 19,
+          "223": 18,
+          "224": 17,
+          "225": 16,
+          "226": 15,
+          "227": 14,
+          "228": 13,
+          "229": 12,
+          "230": 11,
+          "231": 10,
+          "232": 9.5,
+          "233": 9,
+          "234": 8.5,
+          "235": 8,
+          "236": 7.5,
+          "237": 7,
+          "238": 6.5,
+          "239": 6,
+          "240": 5.5,
+          "241": 5,
+          "242": 4.5,
+          "243": 4,
+          "244": 3.5,
+          "245": 3,
+          "246": 2.5,
+          "247": 2,
+          "248": 1.5,
+          "249": 1
+        },
+        "anchor": {
+          "200": 100,
+          "201": 95,
+          "202": 90,
+          "203": 85,
+          "204": 80,
+          "205": 75,
+          "206": 70,
+          "207": 65,
+          "208": 60,
+          "209": 55,
+          "210": 50,
+          "211": 45,
+          "212": 40,
+          "213": 38,
+          "214": 36,
+          "215": 34,
+          "216": 32,
+          "217": 30,
+          "218": 28,
+          "219": 26,
+          "220": 24,
+          "221": 22,
+          "222": 20,
+          "223": 19,
+          "224": 18,
+          "225": 17,
+          "226": 16,
+          "227": 15,
+          "228": 14,
+          "229": 13,
+          "230": 12,
+          "231": 11,
+          "232": 10,
+          "233": 9.5,
+          "234": 9,
+          "235": 8.5,
+          "236": 8,
+          "237": 7.5,
+          "238": 7,
+          "239": 6.5,
+          "240": 6,
+          "241": 5.5,
+          "242": 5,
+          "243": 4.5,
+          "244": 4,
+          "245": 3.5,
+          "246": 3,
+          "247": 2.5,
+          "248": 2,
+          "249": 1.5
+        },
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "RB4",
+            "pos": "RB"
+          },
+          {
+            "player_key": "204",
+            "name": "RB5",
+            "pos": "RB"
+          },
+          {
+            "player_key": "205",
+            "name": "RB6",
+            "pos": "RB"
+          },
+          {
+            "player_key": "206",
+            "name": "RB7",
+            "pos": "RB"
+          },
+          {
+            "player_key": "207",
+            "name": "RB8",
+            "pos": "RB"
+          },
+          {
+            "player_key": "208",
+            "name": "RB9",
+            "pos": "RB"
+          },
+          {
+            "player_key": "209",
+            "name": "RB10",
+            "pos": "RB"
+          },
+          {
+            "player_key": "210",
+            "name": "RB11",
+            "pos": "RB"
+          },
+          {
+            "player_key": "211",
+            "name": "RB12",
+            "pos": "RB"
+          },
+          {
+            "player_key": "212",
+            "name": "RB13",
+            "pos": "RB"
+          },
+          {
+            "player_key": "213",
+            "name": "RB14",
+            "pos": "RB"
+          },
+          {
+            "player_key": "214",
+            "name": "RB15",
+            "pos": "RB"
+          },
+          {
+            "player_key": "215",
+            "name": "RB16",
+            "pos": "RB"
+          },
+          {
+            "player_key": "216",
+            "name": "RB17",
+            "pos": "RB"
+          },
+          {
+            "player_key": "217",
+            "name": "RB18",
+            "pos": "RB"
+          },
+          {
+            "player_key": "218",
+            "name": "RB19",
+            "pos": "RB"
+          },
+          {
+            "player_key": "219",
+            "name": "RB20",
+            "pos": "RB"
+          },
+          {
+            "player_key": "220",
+            "name": "RB21",
+            "pos": "RB"
+          },
+          {
+            "player_key": "221",
+            "name": "RB22",
+            "pos": "RB"
+          },
+          {
+            "player_key": "222",
+            "name": "RB23",
+            "pos": "RB"
+          },
+          {
+            "player_key": "223",
+            "name": "RB24",
+            "pos": "RB"
+          },
+          {
+            "player_key": "224",
+            "name": "RB25",
+            "pos": "RB"
+          },
+          {
+            "player_key": "225",
+            "name": "RB26",
+            "pos": "RB"
+          },
+          {
+            "player_key": "226",
+            "name": "RB27",
+            "pos": "RB"
+          },
+          {
+            "player_key": "227",
+            "name": "RB28",
+            "pos": "RB"
+          },
+          {
+            "player_key": "228",
+            "name": "RB29",
+            "pos": "RB"
+          },
+          {
+            "player_key": "229",
+            "name": "RB30",
+            "pos": "RB"
+          },
+          {
+            "player_key": "230",
+            "name": "RB31",
+            "pos": "RB"
+          },
+          {
+            "player_key": "231",
+            "name": "RB32",
+            "pos": "RB"
+          },
+          {
+            "player_key": "232",
+            "name": "RB33",
+            "pos": "RB"
+          },
+          {
+            "player_key": "233",
+            "name": "RB34",
+            "pos": "RB"
+          },
+          {
+            "player_key": "234",
+            "name": "RB35",
+            "pos": "RB"
+          },
+          {
+            "player_key": "235",
+            "name": "RB36",
+            "pos": "RB"
+          },
+          {
+            "player_key": "236",
+            "name": "RB37",
+            "pos": "RB"
+          },
+          {
+            "player_key": "237",
+            "name": "RB38",
+            "pos": "RB"
+          },
+          {
+            "player_key": "238",
+            "name": "RB39",
+            "pos": "RB"
+          },
+          {
+            "player_key": "239",
+            "name": "RB40",
+            "pos": "RB"
+          },
+          {
+            "player_key": "240",
+            "name": "RB41",
+            "pos": "RB"
+          },
+          {
+            "player_key": "241",
+            "name": "RB42",
+            "pos": "RB"
+          },
+          {
+            "player_key": "242",
+            "name": "RB43",
+            "pos": "RB"
+          },
+          {
+            "player_key": "243",
+            "name": "RB44",
+            "pos": "RB"
+          },
+          {
+            "player_key": "244",
+            "name": "RB45",
+            "pos": "RB"
+          },
+          {
+            "player_key": "245",
+            "name": "RB46",
+            "pos": "RB"
+          },
+          {
+            "player_key": "246",
+            "name": "RB47",
+            "pos": "RB"
+          },
+          {
+            "player_key": "247",
+            "name": "RB48",
+            "pos": "RB"
+          },
+          {
+            "player_key": "248",
+            "name": "RB49",
+            "pos": "RB"
+          },
+          {
+            "player_key": "249",
+            "name": "RB50",
+            "pos": "RB"
+          }
+        ]
+      },
+      "expected": {
+        "keys": [
+          "200",
+          "201",
+          "202",
+          "203",
+          "204",
+          "205",
+          "206",
+          "207",
+          "208",
+          "209",
+          "210",
+          "211",
+          "212",
+          "213",
+          "214",
+          "215",
+          "216",
+          "217",
+          "218",
+          "219",
+          "220",
+          "221",
+          "222",
+          "223",
+          "224",
+          "225",
+          "226",
+          "227",
+          "228",
+          "229",
+          "230",
+          "231",
+          "232",
+          "233",
+          "234",
+          "235",
+          "236",
+          "237",
+          "238",
+          "239",
+          "240",
+          "241",
+          "242",
+          "243",
+          "244",
+          "245",
+          "246",
+          "247",
+          "248",
+          "249"
+        ],
+        "target": 1438.5
+      }
+    },
+    {
+      "id": "sharedPieBasis_too_few_shared_returns_null",
+      "fn": "sharedPieBasis",
+      "inputs": {
+        "values": {
+          "200": 95,
+          "201": 90,
+          "202": 85
+        },
+        "anchor": {
+          "200": 100,
+          "201": 95,
+          "202": 90
+        },
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sharedPieBasis_no_anchor_returns_null",
+      "fn": "sharedPieBasis",
+      "inputs": {
+        "values": {
+          "200": 95,
+          "201": 90
+        },
+        "anchor": {},
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          }
+        ]
+      }
+    },
+    {
+      "id": "benchShareOf_two_tier_85_15",
+      "fn": "benchShareOf",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "102": 70,
+          "201": 90,
+          "203": 80,
+          "300": 90,
+          "301": 85,
+          "302": 80,
+          "400": 60
+        },
+        "roles": {
+          "100": "starter",
+          "102": "bench",
+          "201": "starter",
+          "203": "bench",
+          "300": "starter",
+          "301": "starter",
+          "302": "starter",
+          "400": "starter"
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "102",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": 0.23622047244094488
+    },
+    {
+      "id": "benchShareOf_all_starters_returns_null",
+      "fn": "benchShareOf",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "200": 90,
+          "300": 90
+        },
+        "roles": {
+          "100": "starter",
+          "200": "starter",
+          "300": "starter"
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      }
+    },
+    {
+      "id": "benchShareOf_skip_nan_negative",
+      "fn": "benchShareOf",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "101": null,
+          "102": -10,
+          "200": 90,
+          "201": null
+        },
+        "roles": {
+          "100": "starter",
+          "101": "starter",
+          "102": "starter",
+          "200": "bench",
+          "201": "bench"
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "102",
+            "name": "QB3",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": 0.5294117647058824
+    },
+    {
+      "id": "scaleToSharedTotal_basic",
+      "fn": "scaleToSharedTotal",
+      "inputs": {
+        "values": {
+          "200": 50,
+          "201": 45,
+          "202": 40,
+          "203": 35,
+          "204": 30,
+          "205": 25,
+          "206": 20,
+          "207": 18,
+          "208": 16,
+          "209": 14,
+          "210": 12,
+          "211": 11,
+          "212": 10,
+          "213": 9.5,
+          "214": 9,
+          "215": 8.5,
+          "216": 8,
+          "217": 7.5,
+          "218": 7,
+          "219": 6.5,
+          "220": 6,
+          "221": 5.5,
+          "222": 5,
+          "223": 4.5,
+          "224": 4,
+          "225": 3.5,
+          "226": 3,
+          "227": 2.5,
+          "228": 2,
+          "229": 1.5,
+          "230": 1.4,
+          "231": 1.3,
+          "232": 1.2,
+          "233": 1.1,
+          "234": 1.0,
+          "235": 0.9,
+          "236": 0.8,
+          "237": 0.7,
+          "238": 0.6,
+          "239": 0.5,
+          "240": 0.45,
+          "241": 0.4,
+          "242": 0.35,
+          "243": 0.3,
+          "244": 0.25,
+          "245": 0.2,
+          "246": 0.15,
+          "247": 0.1,
+          "248": 0.05,
+          "249": 0.04
+        },
+        "anchor": {
+          "200": 100,
+          "201": 95,
+          "202": 90,
+          "203": 85,
+          "204": 80,
+          "205": 75,
+          "206": 70,
+          "207": 65,
+          "208": 60,
+          "209": 55,
+          "210": 50,
+          "211": 45,
+          "212": 40,
+          "213": 38,
+          "214": 36,
+          "215": 34,
+          "216": 32,
+          "217": 30,
+          "218": 28,
+          "219": 26,
+          "220": 24,
+          "221": 22,
+          "222": 20,
+          "223": 19,
+          "224": 18,
+          "225": 17,
+          "226": 16,
+          "227": 15,
+          "228": 14,
+          "229": 13,
+          "230": 12,
+          "231": 11,
+          "232": 10,
+          "233": 9.5,
+          "234": 9,
+          "235": 8.5,
+          "236": 8,
+          "237": 7.5,
+          "238": 7,
+          "239": 6.5,
+          "240": 6,
+          "241": 5.5,
+          "242": 5,
+          "243": 4.5,
+          "244": 4,
+          "245": 3.5,
+          "246": 3,
+          "247": 2.5,
+          "248": 2,
+          "249": 1.5
+        },
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "RB4",
+            "pos": "RB"
+          },
+          {
+            "player_key": "204",
+            "name": "RB5",
+            "pos": "RB"
+          },
+          {
+            "player_key": "205",
+            "name": "RB6",
+            "pos": "RB"
+          },
+          {
+            "player_key": "206",
+            "name": "RB7",
+            "pos": "RB"
+          },
+          {
+            "player_key": "207",
+            "name": "RB8",
+            "pos": "RB"
+          },
+          {
+            "player_key": "208",
+            "name": "RB9",
+            "pos": "RB"
+          },
+          {
+            "player_key": "209",
+            "name": "RB10",
+            "pos": "RB"
+          },
+          {
+            "player_key": "210",
+            "name": "RB11",
+            "pos": "RB"
+          },
+          {
+            "player_key": "211",
+            "name": "RB12",
+            "pos": "RB"
+          },
+          {
+            "player_key": "212",
+            "name": "RB13",
+            "pos": "RB"
+          },
+          {
+            "player_key": "213",
+            "name": "RB14",
+            "pos": "RB"
+          },
+          {
+            "player_key": "214",
+            "name": "RB15",
+            "pos": "RB"
+          },
+          {
+            "player_key": "215",
+            "name": "RB16",
+            "pos": "RB"
+          },
+          {
+            "player_key": "216",
+            "name": "RB17",
+            "pos": "RB"
+          },
+          {
+            "player_key": "217",
+            "name": "RB18",
+            "pos": "RB"
+          },
+          {
+            "player_key": "218",
+            "name": "RB19",
+            "pos": "RB"
+          },
+          {
+            "player_key": "219",
+            "name": "RB20",
+            "pos": "RB"
+          },
+          {
+            "player_key": "220",
+            "name": "RB21",
+            "pos": "RB"
+          },
+          {
+            "player_key": "221",
+            "name": "RB22",
+            "pos": "RB"
+          },
+          {
+            "player_key": "222",
+            "name": "RB23",
+            "pos": "RB"
+          },
+          {
+            "player_key": "223",
+            "name": "RB24",
+            "pos": "RB"
+          },
+          {
+            "player_key": "224",
+            "name": "RB25",
+            "pos": "RB"
+          },
+          {
+            "player_key": "225",
+            "name": "RB26",
+            "pos": "RB"
+          },
+          {
+            "player_key": "226",
+            "name": "RB27",
+            "pos": "RB"
+          },
+          {
+            "player_key": "227",
+            "name": "RB28",
+            "pos": "RB"
+          },
+          {
+            "player_key": "228",
+            "name": "RB29",
+            "pos": "RB"
+          },
+          {
+            "player_key": "229",
+            "name": "RB30",
+            "pos": "RB"
+          },
+          {
+            "player_key": "230",
+            "name": "RB31",
+            "pos": "RB"
+          },
+          {
+            "player_key": "231",
+            "name": "RB32",
+            "pos": "RB"
+          },
+          {
+            "player_key": "232",
+            "name": "RB33",
+            "pos": "RB"
+          },
+          {
+            "player_key": "233",
+            "name": "RB34",
+            "pos": "RB"
+          },
+          {
+            "player_key": "234",
+            "name": "RB35",
+            "pos": "RB"
+          },
+          {
+            "player_key": "235",
+            "name": "RB36",
+            "pos": "RB"
+          },
+          {
+            "player_key": "236",
+            "name": "RB37",
+            "pos": "RB"
+          },
+          {
+            "player_key": "237",
+            "name": "RB38",
+            "pos": "RB"
+          },
+          {
+            "player_key": "238",
+            "name": "RB39",
+            "pos": "RB"
+          },
+          {
+            "player_key": "239",
+            "name": "RB40",
+            "pos": "RB"
+          },
+          {
+            "player_key": "240",
+            "name": "RB41",
+            "pos": "RB"
+          },
+          {
+            "player_key": "241",
+            "name": "RB42",
+            "pos": "RB"
+          },
+          {
+            "player_key": "242",
+            "name": "RB43",
+            "pos": "RB"
+          },
+          {
+            "player_key": "243",
+            "name": "RB44",
+            "pos": "RB"
+          },
+          {
+            "player_key": "244",
+            "name": "RB45",
+            "pos": "RB"
+          },
+          {
+            "player_key": "245",
+            "name": "RB46",
+            "pos": "RB"
+          },
+          {
+            "player_key": "246",
+            "name": "RB47",
+            "pos": "RB"
+          },
+          {
+            "player_key": "247",
+            "name": "RB48",
+            "pos": "RB"
+          },
+          {
+            "player_key": "248",
+            "name": "RB49",
+            "pos": "RB"
+          },
+          {
+            "player_key": "249",
+            "name": "RB50",
+            "pos": "RB"
+          }
+        ]
+      },
+      "expected": {
+        "200": 166.76714043914765,
+        "201": 150.0904263952329,
+        "202": 133.41371235131814,
+        "203": 116.73699830740337,
+        "204": 100.0602842634886,
+        "205": 83.38357021957383,
+        "206": 66.70685617565907,
+        "207": 60.03617055809316,
+        "208": 53.36548494052725,
+        "209": 46.694799322961345,
+        "210": 40.024113705395436,
+        "211": 36.68877089661249,
+        "212": 33.353428087829535,
+        "213": 31.685756683438058,
+        "214": 30.01808527904658,
+        "215": 28.350413874655104,
+        "216": 26.682742470263626,
+        "217": 25.01507106587215,
+        "218": 23.347399661480672,
+        "219": 21.679728257089195,
+        "220": 20.012056852697718,
+        "221": 18.344385448306245,
+        "222": 16.676714043914767,
+        "223": 15.00904263952329,
+        "224": 13.341371235131813,
+        "225": 11.673699830740336,
+        "226": 10.006028426348859,
+        "227": 8.338357021957384,
+        "228": 6.670685617565907,
+        "229": 5.0030142131744295,
+        "230": 4.6694799322961345,
+        "231": 4.335945651417839,
+        "232": 4.002411370539543,
+        "233": 3.668877089661249,
+        "234": 3.3353428087829533,
+        "235": 3.0018085279046582,
+        "236": 2.6682742470263627,
+        "237": 2.3347399661480672,
+        "238": 2.0012056852697717,
+        "239": 1.6676714043914767,
+        "240": 1.5009042639523291,
+        "241": 1.3341371235131814,
+        "242": 1.1673699830740336,
+        "243": 1.0006028426348859,
+        "244": 0.8338357021957383,
+        "245": 0.6670685617565907,
+        "246": 0.5003014213174429,
+        "247": 0.33353428087829534,
+        "248": 0.16676714043914767,
+        "249": 0.13341371235131813
+      }
+    },
+    {
+      "id": "scaleToSharedTotal_no_anchor_returns_identity",
+      "fn": "scaleToSharedTotal",
+      "inputs": {
+        "values": {
+          "200": 50,
+          "201": 45
+        },
+        "anchor": {},
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          }
+        ]
+      },
+      "expected": {
+        "200": 50,
+        "201": 45
+      }
+    },
+    {
+      "id": "shapeToAnchorPeaksThenSharedTotal_basic",
+      "fn": "shapeToAnchorPeaksThenSharedTotal",
+      "inputs": {
+        "values": {
+          "200": 60,
+          "201": 50,
+          "202": 40,
+          "203": 30,
+          "204": 25,
+          "205": 20,
+          "206": 18,
+          "207": 16,
+          "208": 14,
+          "209": 12,
+          "210": 11,
+          "211": 10,
+          "212": 9,
+          "213": 8.5,
+          "214": 8,
+          "215": 7.5,
+          "216": 7,
+          "217": 6.5,
+          "218": 6,
+          "219": 5.5,
+          "220": 5,
+          "221": 4.5,
+          "222": 4,
+          "223": 3.5,
+          "224": 3,
+          "225": 2.5,
+          "226": 2,
+          "227": 1.8,
+          "228": 1.6,
+          "229": 1.4,
+          "230": 1.2,
+          "231": 1.1,
+          "232": 1.0,
+          "233": 0.95,
+          "234": 0.9,
+          "235": 0.85,
+          "236": 0.8,
+          "237": 0.75,
+          "238": 0.7,
+          "239": 0.65,
+          "240": 0.6,
+          "241": 0.55,
+          "242": 0.5,
+          "243": 0.45,
+          "244": 0.4,
+          "245": 0.35,
+          "246": 0.3,
+          "247": 0.25,
+          "248": 0.2,
+          "249": 0.15
+        },
+        "anchor": {
+          "200": 100,
+          "201": 95,
+          "202": 90,
+          "203": 85,
+          "204": 80,
+          "205": 75,
+          "206": 70,
+          "207": 65,
+          "208": 60,
+          "209": 55,
+          "210": 50,
+          "211": 45,
+          "212": 40,
+          "213": 38,
+          "214": 36,
+          "215": 34,
+          "216": 32,
+          "217": 30,
+          "218": 28,
+          "219": 26,
+          "220": 24,
+          "221": 22,
+          "222": 20,
+          "223": 19,
+          "224": 18,
+          "225": 17,
+          "226": 16,
+          "227": 15,
+          "228": 14,
+          "229": 13,
+          "230": 12,
+          "231": 11,
+          "232": 10,
+          "233": 9.5,
+          "234": 9,
+          "235": 8.5,
+          "236": 8,
+          "237": 7.5,
+          "238": 7,
+          "239": 6.5,
+          "240": 6,
+          "241": 5.5,
+          "242": 5,
+          "243": 4.5,
+          "244": 4,
+          "245": 3.5,
+          "246": 3,
+          "247": 2.5,
+          "248": 2,
+          "249": 1.5
+        },
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "RB4",
+            "pos": "RB"
+          },
+          {
+            "player_key": "204",
+            "name": "RB5",
+            "pos": "RB"
+          },
+          {
+            "player_key": "205",
+            "name": "RB6",
+            "pos": "RB"
+          },
+          {
+            "player_key": "206",
+            "name": "RB7",
+            "pos": "RB"
+          },
+          {
+            "player_key": "207",
+            "name": "RB8",
+            "pos": "RB"
+          },
+          {
+            "player_key": "208",
+            "name": "RB9",
+            "pos": "RB"
+          },
+          {
+            "player_key": "209",
+            "name": "RB10",
+            "pos": "RB"
+          },
+          {
+            "player_key": "210",
+            "name": "RB11",
+            "pos": "RB"
+          },
+          {
+            "player_key": "211",
+            "name": "RB12",
+            "pos": "RB"
+          },
+          {
+            "player_key": "212",
+            "name": "RB13",
+            "pos": "RB"
+          },
+          {
+            "player_key": "213",
+            "name": "RB14",
+            "pos": "RB"
+          },
+          {
+            "player_key": "214",
+            "name": "RB15",
+            "pos": "RB"
+          },
+          {
+            "player_key": "215",
+            "name": "RB16",
+            "pos": "RB"
+          },
+          {
+            "player_key": "216",
+            "name": "RB17",
+            "pos": "RB"
+          },
+          {
+            "player_key": "217",
+            "name": "RB18",
+            "pos": "RB"
+          },
+          {
+            "player_key": "218",
+            "name": "RB19",
+            "pos": "RB"
+          },
+          {
+            "player_key": "219",
+            "name": "RB20",
+            "pos": "RB"
+          },
+          {
+            "player_key": "220",
+            "name": "RB21",
+            "pos": "RB"
+          },
+          {
+            "player_key": "221",
+            "name": "RB22",
+            "pos": "RB"
+          },
+          {
+            "player_key": "222",
+            "name": "RB23",
+            "pos": "RB"
+          },
+          {
+            "player_key": "223",
+            "name": "RB24",
+            "pos": "RB"
+          },
+          {
+            "player_key": "224",
+            "name": "RB25",
+            "pos": "RB"
+          },
+          {
+            "player_key": "225",
+            "name": "RB26",
+            "pos": "RB"
+          },
+          {
+            "player_key": "226",
+            "name": "RB27",
+            "pos": "RB"
+          },
+          {
+            "player_key": "227",
+            "name": "RB28",
+            "pos": "RB"
+          },
+          {
+            "player_key": "228",
+            "name": "RB29",
+            "pos": "RB"
+          },
+          {
+            "player_key": "229",
+            "name": "RB30",
+            "pos": "RB"
+          },
+          {
+            "player_key": "230",
+            "name": "RB31",
+            "pos": "RB"
+          },
+          {
+            "player_key": "231",
+            "name": "RB32",
+            "pos": "RB"
+          },
+          {
+            "player_key": "232",
+            "name": "RB33",
+            "pos": "RB"
+          },
+          {
+            "player_key": "233",
+            "name": "RB34",
+            "pos": "RB"
+          },
+          {
+            "player_key": "234",
+            "name": "RB35",
+            "pos": "RB"
+          },
+          {
+            "player_key": "235",
+            "name": "RB36",
+            "pos": "RB"
+          },
+          {
+            "player_key": "236",
+            "name": "RB37",
+            "pos": "RB"
+          },
+          {
+            "player_key": "237",
+            "name": "RB38",
+            "pos": "RB"
+          },
+          {
+            "player_key": "238",
+            "name": "RB39",
+            "pos": "RB"
+          },
+          {
+            "player_key": "239",
+            "name": "RB40",
+            "pos": "RB"
+          },
+          {
+            "player_key": "240",
+            "name": "RB41",
+            "pos": "RB"
+          },
+          {
+            "player_key": "241",
+            "name": "RB42",
+            "pos": "RB"
+          },
+          {
+            "player_key": "242",
+            "name": "RB43",
+            "pos": "RB"
+          },
+          {
+            "player_key": "243",
+            "name": "RB44",
+            "pos": "RB"
+          },
+          {
+            "player_key": "244",
+            "name": "RB45",
+            "pos": "RB"
+          },
+          {
+            "player_key": "245",
+            "name": "RB46",
+            "pos": "RB"
+          },
+          {
+            "player_key": "246",
+            "name": "RB47",
+            "pos": "RB"
+          },
+          {
+            "player_key": "247",
+            "name": "RB48",
+            "pos": "RB"
+          },
+          {
+            "player_key": "248",
+            "name": "RB49",
+            "pos": "RB"
+          },
+          {
+            "player_key": "249",
+            "name": "RB50",
+            "pos": "RB"
+          }
+        ]
+      },
+      "expected": {
+        "200": 212.6123906885084,
+        "201": 177.1769922404237,
+        "202": 141.74159379233896,
+        "203": 106.3061953442542,
+        "204": 88.58849612021184,
+        "205": 70.87079689616948,
+        "206": 63.783717206552524,
+        "207": 56.69663751693558,
+        "208": 49.60955782731863,
+        "209": 42.52247813770168,
+        "210": 38.97893829289321,
+        "211": 35.43539844808474,
+        "212": 31.891858603276262,
+        "213": 30.120088680872026,
+        "214": 28.34831875846779,
+        "215": 26.57654883606355,
+        "216": 24.804778913659316,
+        "217": 23.03300899125508,
+        "218": 21.26123906885084,
+        "219": 19.489469146446606,
+        "220": 17.71769922404237,
+        "221": 15.945929301638131,
+        "222": 14.174159379233895,
+        "223": 12.402389456829658,
+        "224": 10.63061953442542,
+        "225": 8.858849612021185,
+        "226": 7.087079689616948,
+        "227": 6.378371720655252,
+        "228": 5.669663751693558,
+        "229": 4.9609557827318636,
+        "230": 4.252247813770168,
+        "231": 3.897893829289321,
+        "232": 3.543539844808474,
+        "233": 3.3663628525680496,
+        "234": 3.189185860327626,
+        "235": 3.012008868087203,
+        "236": 2.834831875846779,
+        "237": 2.657654883606355,
+        "238": 2.4804778913659318,
+        "239": 2.303300899125508,
+        "240": 2.126123906885084,
+        "241": 1.9489469146446605,
+        "242": 1.771769922404237,
+        "243": 1.594592930163813,
+        "244": 1.4174159379233895,
+        "245": 1.2402389456829659,
+        "246": 1.063061953442542,
+        "247": 0.8858849612021185,
+        "248": 0.7087079689616947,
+        "249": 0.531530976721271
+      }
+    },
+    {
+      "id": "shapeToAnchorPeaksThenSharedTotal_no_anchor_returns_identity",
+      "fn": "shapeToAnchorPeaksThenSharedTotal",
+      "inputs": {
+        "values": {
+          "200": 50,
+          "201": 45
+        },
+        "anchor": {},
+        "players": [
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          }
+        ]
+      },
+      "expected": {
+        "200": 50,
+        "201": 45
+      }
+    },
+    {
+      "id": "peakAgreement_healthy",
+      "fn": "peakAgreement",
+      "inputs": {
+        "anchorPeaks": {
+          "QB": 16.5,
+          "RB": 78.0,
+          "WR": 72.0,
+          "TE": 25.0
+        },
+        "sources": {
+          "fantasycalc": {
+            "QB": 16.0,
+            "RB": 76.0,
+            "WR": 70.0,
+            "TE": 24.0
+          },
+          "usatoday": {
+            "QB": 17.0,
+            "RB": 78.0,
+            "WR": 73.0,
+            "TE": 25.5
+          },
+          "espn": {
+            "QB": 12.5,
+            "RB": 99.1,
+            "WR": 72.0,
+            "TE": 40.0
+          }
+        },
+        "labels": {
+          "fantasycalc": "FantasyCalc",
+          "usatoday": "USA Today",
+          "espn": "ESPN"
+        }
+      },
+      "expected": {
+        "ok": false,
+        "compared": 12,
+        "offenders": [
+          "ESPN QB 12.5 vs anchor 16.5 (0.76x)",
+          "ESPN RB 99.1 vs anchor 78.0 (1.27x)",
+          "ESPN TE 40.0 vs anchor 25.0 (1.60x)"
+        ],
+        "band": [
+          0.8,
+          1.25
+        ]
+      }
+    },
+    {
+      "id": "peakAgreement_espn_peak_defect_caught",
+      "fn": "peakAgreement",
+      "inputs": {
+        "anchorPeaks": {
+          "QB": 16.5,
+          "RB": 78.0,
+          "WR": 72.0,
+          "TE": 25.0
+        },
+        "sources": {
+          "fantasycalc": {
+            "QB": 16.0,
+            "RB": 76.0,
+            "WR": 70.0,
+            "TE": 24.0
+          },
+          "espn": {
+            "QB": 12.5,
+            "RB": 99.1,
+            "WR": 72.0,
+            "TE": 40.0
+          }
+        },
+        "labels": {
+          "fantasycalc": "FantasyCalc",
+          "espn": "ESPN"
+        }
+      },
+      "expected": {
+        "ok": false,
+        "compared": 8,
+        "offenders": [
+          "ESPN QB 12.5 vs anchor 16.5 (0.76x)",
+          "ESPN RB 99.1 vs anchor 78.0 (1.27x)",
+          "ESPN TE 40.0 vs anchor 25.0 (1.60x)"
+        ],
+        "band": [
+          0.8,
+          1.25
+        ]
+      }
+    },
+    {
+      "id": "peakAgreement_empty_sources",
+      "fn": "peakAgreement",
+      "inputs": {
+        "anchorPeaks": {
+          "QB": 16.5,
+          "RB": 78.0,
+          "WR": 72.0,
+          "TE": 25.0
+        },
+        "sources": {},
+        "labels": {}
+      },
+      "expected": {
+        "ok": false,
+        "compared": 0,
+        "offenders": [],
+        "band": [
+          0.8,
+          1.25
+        ]
+      }
+    },
+    {
+      "id": "peakAgreement_missing_position_is_not_evidence",
+      "fn": "peakAgreement",
+      "inputs": {
+        "anchorPeaks": {
+          "QB": 16.5,
+          "RB": 78.0,
+          "WR": 72.0,
+          "TE": 25.0
+        },
+        "sources": {
+          "sparse": {
+            "QB": 16.0
+          }
+        },
+        "labels": {
+          "sparse": "Sparse Source"
+        }
+      },
+      "expected": {
+        "ok": true,
+        "compared": 1,
+        "offenders": [],
+        "band": [
+          0.8,
+          1.25
+        ]
+      }
+    },
+    {
+      "id": "peakAgreement_custom_band",
+      "fn": "peakAgreement",
+      "inputs": {
+        "anchorPeaks": {
+          "QB": 10.0,
+          "RB": 50.0
+        },
+        "sources": {
+          "s1": {
+            "QB": 12.0,
+            "RB": 48.0
+          }
+        },
+        "low": 0.9,
+        "high": 1.1,
+        "labels": {
+          "s1": "Source 1"
+        }
+      },
+      "expected": {
+        "ok": false,
+        "compared": 2,
+        "offenders": [
+          "Source 1 QB 12.0 vs anchor 10.0 (1.20x)"
+        ],
+        "band": [
+          0.9,
+          1.1
+        ]
+      }
+    },
+    {
+      "id": "normalizeToFixedPie_two_tier_with_anchor",
+      "fn": "normalizeToFixedPie",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "101": 60,
+          "102": 50,
+          "200": 95,
+          "201": 90,
+          "202": 80,
+          "203": 70,
+          "300": 90,
+          "301": 85,
+          "302": 80,
+          "303": 70,
+          "400": 60,
+          "401": 40
+        },
+        "share": 0.15,
+        "roles": {
+          "100": "starter",
+          "101": "bench",
+          "102": "waiver",
+          "200": "starter",
+          "201": "starter",
+          "202": "bench",
+          "203": "bench",
+          "300": "starter",
+          "301": "starter",
+          "302": "starter",
+          "303": "bench",
+          "400": "starter",
+          "401": "bench"
+        },
+        "anchor": {
+          "100": 90,
+          "101": 70,
+          "102": 50,
+          "200": 100,
+          "201": 95,
+          "202": 80,
+          "203": 70,
+          "300": 95,
+          "301": 90,
+          "302": 85,
+          "303": 70,
+          "400": 70,
+          "401": 40
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "102",
+            "name": "QB3",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "203",
+            "name": "RB4",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "303",
+            "name": "WR4",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "TE2",
+            "pos": "TE"
+          }
+        ]
+      },
+      "expected": {
+        "100": 105.51724137931033,
+        "101": 25.3125,
+        "102": 0,
+        "200": 125.30172413793103,
+        "201": 118.70689655172413,
+        "202": 33.75,
+        "203": 29.53125,
+        "300": 118.70689655172413,
+        "301": 112.11206896551724,
+        "302": 105.51724137931033,
+        "303": 29.53125,
+        "400": 79.13793103448275,
+        "401": 16.875
+      }
+    },
+    {
+      "id": "normalizeToFixedPie_single_scale",
+      "fn": "normalizeToFixedPie",
+      "inputs": {
+        "values": {
+          "100": 80,
+          "101": 60,
+          "102": 50,
+          "200": 95,
+          "201": 90,
+          "202": 80,
+          "300": 90,
+          "301": 85,
+          "302": 80,
+          "400": 60,
+          "401": 40
+        },
+        "share": 0.15,
+        "roles": {
+          "100": "starter",
+          "101": "bench",
+          "102": "bench",
+          "200": "starter",
+          "201": "starter",
+          "202": "bench",
+          "300": "starter",
+          "301": "starter",
+          "302": "starter",
+          "400": "starter",
+          "401": "bench"
+        },
+        "anchor": {
+          "100": 90,
+          "101": 70,
+          "102": 50,
+          "200": 100,
+          "201": 95,
+          "202": 80,
+          "300": 95,
+          "301": 90,
+          "302": 85,
+          "400": 70,
+          "401": 40
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "102",
+            "name": "QB3",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "TE2",
+            "pos": "TE"
+          }
+        ],
+        "singleScale": true
+      },
+      "expected": {
+        "100": 80,
+        "101": 60,
+        "102": 50,
+        "200": 95,
+        "201": 90,
+        "202": 80,
+        "300": 90,
+        "301": 85,
+        "302": 80,
+        "400": 60,
+        "401": 40
+      }
+    },
+    {
+      "id": "starterMarkupSane_inside",
+      "fn": "starterMarkupSane",
+      "inputs": {
+        "markup": 1.0
+      },
+      "expected": true
+    },
+    {
+      "id": "starterMarkupSane_near_low_boundary",
+      "fn": "starterMarkupSane",
+      "inputs": {
+        "markup": 0.98
+      },
+      "expected": true
+    },
+    {
+      "id": "starterMarkupSane_above_high",
+      "fn": "starterMarkupSane",
+      "inputs": {
+        "markup": 1.61
+      },
+      "expected": false
+    },
+    {
+      "id": "starterMarkupSane_non_number",
+      "fn": "starterMarkupSane",
+      "inputs": {
+        "markup": null
+      },
+      "expected": false
+    },
+    {
+      "id": "starterMarkupSane_inverted",
+      "fn": "starterMarkupSane",
+      "inputs": {
+        "markup": 0.93
+      },
+      "expected": false
+    },
+    {
+      "id": "fixedPieDirectionSane_just_under_threshold",
+      "fn": "fixedPieDirectionSane",
+      "inputs": {
+        "rawStarterShare": 0.85,
+        "starterShare": 0.86
+      },
+      "expected": true
+    },
+    {
+      "id": "fixedPieDirectionSane_within_eps",
+      "fn": "fixedPieDirectionSane",
+      "inputs": {
+        "rawStarterShare": 0.86,
+        "starterShare": 0.85
+      },
+      "expected": false
+    },
+    {
+      "id": "fixedPieDirectionSane_clear_inversion",
+      "fn": "fixedPieDirectionSane",
+      "inputs": {
+        "rawStarterShare": 0.92,
+        "starterShare": 0.85
+      },
+      "expected": false
+    },
+    {
+      "id": "fixedPieDirectionSane_non_number",
+      "fn": "fixedPieDirectionSane",
+      "inputs": {
+        "rawStarterShare": null,
+        "starterShare": 0.85
+      },
+      "expected": false
+    },
+    {
+      "id": "allocationCounts_basic_with_flex_in",
+      "fn": "allocationCounts",
+      "inputs": {
+        "pool": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          }
+        ],
+        "ranks": {
+          "100": 22.0,
+          "101": 20.0,
+          "200": 18.0,
+          "201": 17.0,
+          "202": 15.0,
+          "300": 19.0,
+          "301": 18.0,
+          "302": 17.0,
+          "400": 12.0
+        },
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "lineup": {
+          "QB": 1,
+          "RB": 3,
+          "WR": 3,
+          "TE": 1
+        },
+        "rostered": {
+          "QB": 2,
+          "RB": 3,
+          "WR": 3,
+          "TE": 1
+        }
+      }
+    },
+    {
+      "id": "allocationCounts_superflex_dual_counted_QB",
+      "fn": "allocationCounts",
+      "inputs": {
+        "pool": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "TE2",
+            "pos": "TE"
+          }
+        ],
+        "ranks": {
+          "100": 28.0,
+          "101": 25.0,
+          "200": 18.0,
+          "201": 17.0,
+          "202": 16.0,
+          "300": 19.0,
+          "301": 18.0,
+          "302": 17.0,
+          "400": 12.0,
+          "401": 10.0
+        },
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6,
+          "SUPERFLEX": true
+        }
+      },
+      "expected": {
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "lineup": {
+          "QB": 1,
+          "RB": 3,
+          "WR": 3,
+          "TE": 1
+        },
+        "rostered": {
+          "QB": 2,
+          "RB": 3,
+          "WR": 3,
+          "TE": 2
+        }
+      }
+    },
+    {
+      "id": "allocationCounts_empty_pool",
+      "fn": "allocationCounts",
+      "inputs": {
+        "pool": [],
+        "ranks": {},
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6
+        }
+      },
+      "expected": {
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "lineup": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "rostered": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        }
+      }
+    }
+  ]
+}
