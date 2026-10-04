@@ -96,5 +96,49 @@ class ViewModeWiringTest(unittest.TestCase):
                       "buildSourceMap must route non-indexed views through vorp_views")
 
 
+class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
+    """JEG-210 follow-up: the tabs must visibly change the chart, not just the tab state.
+
+    The c1809bed wiring switched the *values* of the as-published sources but
+    left the default selection (ESPN + the *_adjusted family, which carry no
+    vorp views) untouched -- so every tab showed identical numbers. The fix
+    makes setViewMode activate the view-capable sources on entry and restore
+    the user's selection on return to Indexed.
+    """
+
+    def test_set_view_mode_activates_vorp_capable_sources(self):
+        """Entering a non-indexed view must switch activeSources to the vorp_view keys."""
+        text = WIDGET.read_text()
+        self.assertIn("savedActiveSourcesForView", text,
+                      "setViewMode must save/restore the user's source selection")
+        # The non-indexed branch must filter AS_PUBLISHED_KEYS by vorp-view availability.
+        self.assertRegex(
+            text,
+            r'\[\.\.\.AS_PUBLISHED_KEYS\]\.filter\(key => sourceHasVorpView\(key\)\)',
+            "setViewMode must activate the vorp-view-capable published sources")
+
+    def test_set_view_mode_restores_indexed_selection(self):
+        """Returning to Indexed must restore the saved source selection."""
+        text = WIDGET.read_text()
+        self.assertRegex(
+            text,
+            r'if \(mode === "indexed"\) \{\s*if \(savedActiveSourcesForView\)',
+            "setViewMode must restore the saved selection on return to Indexed")
+
+    def test_agreement_check_reads_indexed_units(self):
+        """The anchor-band health check must not compare VORP/adjusted units.
+
+        In a non-indexed view the as-published source maps carry VORP/adjusted
+        values; comparing those against the ESPN anchor would false-fail the
+        0.8-1.25x band. agreementFor must read indexed units via
+        indexedMapForAgreement.
+        """
+        text = WIDGET.read_text()
+        self.assertIn("function indexedMapForAgreement", text,
+                      "indexedMapForAgreement must exist")
+        self.assertIn("indexedMapForAgreement(key)", text,
+                      "agreementFor must read indexed units for the anchor band")
+
+
 if __name__ == "__main__":
     unittest.main()

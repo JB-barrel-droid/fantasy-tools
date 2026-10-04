@@ -801,6 +801,9 @@
     return def.viewKey || mode;
   }
   let viewMode = "indexed";
+  // JEG-210: the user's source selection before entering a non-indexed view,
+  // restored when they return to Indexed.
+  let savedActiveSourcesForView = null;
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -3138,11 +3141,20 @@
   function agreementFor(keys, low, high) {
     const sources = {};
     keys.filter(key => sourceMaps.get(key)?.size)
-      .forEach(key => { sources[key] = positionalPeaks(sourceMaps.get(key)); });
+      .forEach(key => { sources[key] = positionalPeaks(indexedMapForAgreement(key)); });
     return ValueModel.peakAgreement({
       anchorPeaks: positionalPeaks(sourceMaps.get("espn")),
       sources, low, high, labelOf: sourceLabel
     });
+  }
+
+  // JEG-210: the anchor-band health checks validate indexed (published) values.
+  // In a non-indexed view the as-published maps carry VORP/adjusted units, which
+  // would false-fail the 0.8-1.25x anchor band; read the indexed builder instead.
+  // The ESPN anchor never switches views, so it always reads the live map.
+  function indexedMapForAgreement(key) {
+    if (viewMode === "indexed" || !AS_PUBLISHED_KEYS.has(key)) return sourceMaps.get(key);
+    return buildPublishedSourceMap(key);
   }
 
   function scaleAgreementDiagnostics() {
@@ -3553,6 +3565,11 @@
   }
 
   // JEG-210: view mode switching (restored 2026-10-03, wired to vorp_views).
+  // The vorp/adj views only exist for the as-published sources with baked
+  // vorp_views. Entering a non-indexed view activates those sources so the
+  // tab visibly changes the chart (the default indexed selection is the
+  // *_adjusted family, which carries no vorp views); returning to Indexed
+  // restores the user's prior source selection.
   function setViewMode(mode, publish = true) {
     if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
     viewMode = mode;
@@ -3561,6 +3578,20 @@
       const selected = tab.dataset.viewMode === mode;
       tab.setAttribute("aria-selected", selected ? "true" : "false");
     });
+    if (mode === "indexed") {
+      if (savedActiveSourcesForView) {
+        activeSources = savedActiveSourcesForView;
+        savedActiveSourcesForView = null;
+        userDeselectedSources = new Set();
+      }
+    } else {
+      if (!savedActiveSourcesForView) savedActiveSourcesForView = new Set(activeSources);
+      const viewKeys = [...AS_PUBLISHED_KEYS].filter(key => sourceHasVorpView(key));
+      if (viewKeys.length) {
+        activeSources = new Set(viewKeys);
+        userDeselectedSources = new Set();
+      }
+    }
     // Rebuild source maps with the new view's values, then redraw.
     rebuildDomain();
     makeSourceToggles();
