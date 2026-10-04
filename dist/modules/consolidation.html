@@ -189,6 +189,92 @@
     .search-group { grid-column: 1 / -1; }
     .guide dl { grid-template-columns: 1fr; }
   }
+
+  /* Pivot bar (hidden by default; toggled on by "Pivot view" button) */
+  .pivot-bar {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    display: none;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+  .pivot-bar.visible { display: grid; }
+  .pivot-bar .filter-group label {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 4px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .pivot-bar .filter-group select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+  .pivot-bar .filter-group select:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .pivot-bar .pivot-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .pivot-bar .pivot-hint {
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-left: auto;
+  }
+
+  /* Pivot table */
+  table.data.pivot th.row-dim {
+    cursor: pointer;
+  }
+  table.data.pivot th.row-dim:hover { background: #2a3a55; }
+  table.data.pivot th.col-dim {
+    cursor: default;
+    background: #223047;
+    color: var(--muted);
+    font-weight: 600;
+    text-align: right;
+    border-left: 1px solid var(--border);
+  }
+  table.data.pivot td.row-key {
+    font-weight: 600;
+    color: var(--text);
+    white-space: nowrap;
+    position: sticky;
+    left: 0;
+    background: var(--card);
+    z-index: 1;
+  }
+  table.data.pivot td.cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    border-left: 1px solid var(--border);
+  }
+  table.data.pivot td.cell.empty { color: var(--muted); }
+  table.data.pivot td.cell.warn {
+    /* Highlight cells where aggregation collected >1 source row */
+    color: var(--yellow);
+  }
+  .pivot-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  button.toggle-on {
+    background: var(--green);
+  }
 </style>
 </head>
 <body>
@@ -223,7 +309,7 @@
     </select>
   </div>
   <div class="filter-group">
-    <label for="filterTeams">Teams</label>
+    <label for="filterTeams">League Members</label>
     <select id="filterTeams">
       <option value="">All</option>
       <option value="8">8</option>
@@ -252,8 +338,51 @@
   </div>
   <div class="filter-actions">
     <button id="btnTrend">Week-over-week trend</button>
+    <button class="secondary" id="btnPivot">Pivot view</button>
     <button class="secondary" id="btnClear">Clear filters</button>
     <span class="row-count" id="rowCount"></span>
+  </div>
+</div>
+
+<div class="pivot-bar" id="pivotBar" aria-label="Pivot configuration">
+  <div class="filter-group">
+    <label for="pivotRows">Rows</label>
+    <select id="pivotRows"></select>
+  </div>
+  <div class="filter-group">
+    <label for="pivotCols">Columns</label>
+    <select id="pivotCols"></select>
+  </div>
+  <div class="filter-group">
+    <label for="pivotVals">Values</label>
+    <select id="pivotVals"></select>
+  </div>
+  <div class="filter-group">
+    <label for="pivotAgg">Aggregate</label>
+    <select id="pivotAgg">
+      <option value="mean">Mean</option>
+      <option value="median">Median</option>
+      <option value="min">Min</option>
+      <option value="max">Max</option>
+      <option value="sum">Sum</option>
+      <option value="count">Count</option>
+      <option value="first">First</option>
+      <option value="last">Last</option>
+    </select>
+  </div>
+  <div class="filter-group">
+    <label for="pivotRowLimit">Row limit</label>
+    <select id="pivotRowLimit">
+      <option value="50">50</option>
+      <option value="100">100</option>
+      <option value="250" selected>250</option>
+      <option value="500">500</option>
+      <option value="0">All</option>
+    </select>
+  </div>
+  <div class="pivot-actions">
+    <button class="secondary" id="btnPivotReset">Reset pivot</button>
+    <span class="pivot-hint" id="pivotHint">Pivot operates on the rows already filtered by the bar above.</span>
   </div>
 </div>
 
@@ -277,6 +406,14 @@
   </div>
 </div>
 
+<div class="table-wrap" id="pivotTableWrap" style="display:none">
+  <table class="data pivot" id="pivotTable">
+    <thead><tr id="pivotHeaderRow"></tr></thead>
+    <tbody id="pivotTableBody"></tbody>
+  </table>
+  <div class="pivot-empty" id="pivotEmpty" style="display:none">No pivot result — current filters produced 0 rows.</div>
+</div>
+
 <div class="guide">
   <h2>Column Guide</h2>
   <dl>
@@ -290,8 +427,8 @@
     <dd>NFL week number (1–18). All weeks are retained — no aging out.</dd>
     <dt>Scoring</dt>
     <dd>League scoring: <code>full</code> (Full PPR), <code>half</code> (Half PPR), <code>standard</code> (no PPR).</dd>
-    <dt>Teams</dt>
-    <dd>League size: 8, 10, 12, or 14 teams.</dd>
+    <dt>League Members</dt>
+    <dd>League size: 8, 10, 12, or 14 members.</dd>
     <dt>QB</dt>
     <dd>QB variant — only applies to FantasyCalc sources (<code>qb1</code>/<code>qb2</code>). All other sources show blank.</dd>
     <dt>View</dt>
@@ -309,7 +446,7 @@ const COLUMNS = [
   { key: 'season',   label: 'Season',  tip: 'NFL season year.' },
   { key: 'week',     label: 'Week',    tip: 'NFL week 1-18. All weeks retained.' },
   { key: 'scoring',  label: 'Scoring', tip: 'full = Full PPR, half = Half PPR, standard = no PPR.' },
-  { key: 'teams',    label: 'Teams',   tip: 'League size: 8, 10, 12, or 14.' },
+  { key: 'teams',    label: 'League Members',   tip: 'League size: 8, 10, 12, or 14 members.' },
   { key: 'qb_variant', label: 'QB',    tip: 'QB variant — FantasyCalc only (qb1/qb2). Blank for all other sources.' },
   { key: 'view',     label: 'View',    tip: 'combo_reindexed = chart values; vorp_indexed/vorp/adj_values = VORP outputs.' },
   { key: 'value',    label: 'Value',   tip: 'Exact final value (unrounded). Rounding is presentation-only.' },
@@ -324,6 +461,32 @@ let currentPage = 0;
 let sortKey = null;
 let sortDir = 1;
 let usingFallback = false;
+
+// Pivot state and metadata.
+// Rows/Cols pick from these dimensions; Values picks from the measures list
+// (kept to numeric fields so the aggregation is well-defined).
+const PIVOT_DIMENSIONS = [
+  { key: 'player',     label: 'Player',  numeric: false },
+  { key: 'source',     label: 'Source',  numeric: false },
+  { key: 'season',     label: 'Season',  numeric: true  },
+  { key: 'week',       label: 'Week',    numeric: true  },
+  { key: 'scoring',    label: 'Scoring', numeric: false },
+  { key: 'teams',      label: 'League Members',   numeric: true  },
+  { key: 'qb_variant', label: 'QB',      numeric: false },
+  { key: 'view',       label: 'View',    numeric: false },
+];
+const PIVOT_MEASURES = [
+  { key: 'value', label: 'Value', numeric: true },
+];
+const PIVOT_AGGREGATIONS = ['mean', 'median', 'min', 'max', 'sum', 'count', 'first', 'last'];
+
+let pivotMode = false;
+let pivotRowDim = 'player';
+let pivotColDim = 'source';
+let pivotValDim = 'value';
+let pivotAgg = 'mean';
+let pivotRowLimit = 250;
+let pivotSortDir = 1;
 
 async function loadData() {
   const dsEl = document.getElementById('dataSource');
@@ -365,6 +528,7 @@ async function loadData() {
     }
   }
   populateFilterOptions();
+  populatePivotSelectors();
   applyFilters();
   document.getElementById('loading').style.display = 'none';
   document.getElementById('dataTable').style.display = '';
@@ -432,6 +596,9 @@ function applyFilters() {
   currentPage = 0;
   if (sortKey) sortRows();
   renderTable();
+  // Pivot renders from filteredRows too — keep it in sync even when hidden
+  // so toggling pivot mode never shows stale data.
+  renderPivot();
   document.getElementById('rowCount').textContent =
     `${filteredRows.length.toLocaleString()} of ${allRows.length.toLocaleString()} rows`;
 }
@@ -515,7 +682,7 @@ function showTrend() {
   const tt = document.getElementById('trendTable');
   tt.innerHTML = '';
   const trh = document.createElement('tr');
-  trh.innerHTML = '<th>Source | Scoring | Teams | View</th>' +
+  trh.innerHTML = '<th>Source | Scoring | League Members | View</th>' +
     allWeeks.map(w => `<th>Week ${w}</th>`).join('') + '<th>Δ (last−first)</th>';
   tt.appendChild(trh);
 
@@ -536,7 +703,248 @@ function showTrend() {
   document.getElementById('trendView').scrollIntoView({ behavior: 'smooth' });
 }
 
-// Events
+// ===== Pivot =====
+function populatePivotSelectors() {
+  // Dimensions: rows and cols.
+  const rowsSel = document.getElementById('pivotRows');
+  const colsSel = document.getElementById('pivotCols');
+  // Reset in case this is called twice (defensive).
+  rowsSel.innerHTML = '';
+  colsSel.innerHTML = '';
+  PIVOT_DIMENSIONS.forEach(d => {
+    const o1 = document.createElement('option'); o1.value = d.key; o1.textContent = d.label;
+    if (d.key === pivotRowDim) o1.selected = true;
+    rowsSel.appendChild(o1);
+    const o2 = document.createElement('option'); o2.value = d.key; o2.textContent = d.label;
+    if (d.key === pivotColDim) o2.selected = true;
+    colsSel.appendChild(o2);
+  });
+  // Measures: values.
+  const valsSel = document.getElementById('pivotVals');
+  valsSel.innerHTML = '';
+  PIVOT_MEASURES.forEach(m => {
+    const o = document.createElement('option'); o.value = m.key; o.textContent = m.label;
+    if (m.key === pivotValDim) o.selected = true;
+    valsSel.appendChild(o);
+  });
+  // Aggregation dropdown defaults.
+  const aggSel = document.getElementById('pivotAgg');
+  aggSel.value = pivotAgg;
+  const limSel = document.getElementById('pivotRowLimit');
+  limSel.value = String(pivotRowLimit);
+}
+
+function pivotDimMeta(key) {
+  return PIVOT_DIMENSIONS.find(d => d.key === key) || { key, label: key, numeric: false };
+}
+function pivotMeasureMeta(key) {
+  return PIVOT_MEASURES.find(m => m.key === key) || { key, label: key, numeric: true };
+}
+
+function pivotCellKey(rk, ck) {
+  return `${rk}${ck}`;
+}
+
+function aggregate(vals, agg) {
+  if (!Array.isArray(vals) || !vals.length) return { value: null, count: 0 };
+  // For numeric aggregations: filter to numbers.
+  if (agg !== 'count' && agg !== 'first' && agg !== 'last') {
+    const nums = vals
+      .map(v => (typeof v === 'number' ? v : (v == null || v === '' ? NaN : Number(v))))
+      .filter(v => Number.isFinite(v));
+    if (!nums.length) return { value: null, count: 0 };
+    switch (agg) {
+      case 'mean':   return { value: nums.reduce((a, b) => a + b, 0) / nums.length, count: nums.length };
+      case 'min':    return { value: Math.min(...nums), count: nums.length };
+      case 'max':    return { value: Math.max(...nums), count: nums.length };
+      case 'sum':    return { value: nums.reduce((a, b) => a + b, 0), count: nums.length };
+      case 'median': {
+        const s = [...nums].sort((a, b) => a - b);
+        const m = Math.floor(s.length / 2);
+        const v = s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+        return { value: v, count: nums.length };
+      }
+      default:       return { value: nums.reduce((a, b) => a + b, 0) / nums.length, count: nums.length };
+    }
+  }
+  if (agg === 'count') {
+    // Count non-null values in the measure column.
+    const c = vals.reduce((acc, v) => acc + (v == null || v === '' ? 0 : 1), 0);
+    return { value: c, count: vals.length };
+  }
+  if (agg === 'first') {
+    const v = vals.find(x => x != null && x !== '');
+    return { value: v == null ? null : v, count: vals.length };
+  }
+  if (agg === 'last') {
+    let last = null;
+    for (let i = vals.length - 1; i >= 0; i--) {
+      if (vals[i] != null && vals[i] !== '') { last = vals[i]; break; }
+    }
+    return { value: last, count: vals.length };
+  }
+  return { value: null, count: 0 };
+}
+
+function compareDimKeys(a, b, numeric) {
+  // Treat null/undefined as "" for stability; numeric dimensions sort numerically.
+  if (a == null && b == null) return 0;
+  if (a == null) return 1;     // nulls last
+  if (b == null) return -1;
+  if (numeric) {
+    const na = Number(a), nb = Number(b);
+    if (Number.isFinite(na) && Number.isFinite(nb)) return na - nb;
+  }
+  return String(a).localeCompare(String(b));
+}
+
+function renderPivot() {
+  const wrap = document.getElementById('pivotTableWrap');
+  const emptyEl = document.getElementById('pivotEmpty');
+  const headerRow = document.getElementById('pivotHeaderRow');
+  const body = document.getElementById('pivotTableBody');
+
+  // Always update the selects' display values from state — they might have been
+  // changed programmatically (e.g., by Reset).
+  document.getElementById('pivotRows').value = pivotRowDim;
+  document.getElementById('pivotCols').value = pivotColDim;
+  document.getElementById('pivotVals').value = pivotValDim;
+  document.getElementById('pivotAgg').value = pivotAgg;
+  document.getElementById('pivotRowLimit').value = String(pivotRowLimit);
+
+  if (!pivotMode) {
+    // Hidden — leave the DOM empty so a future toggle is cheap.
+    headerRow.innerHTML = '';
+    body.innerHTML = '';
+    wrap.style.display = 'none';
+    emptyEl.style.display = 'none';
+    return;
+  }
+
+  // Defensive: if state points at dimensions not present in data (e.g., a custom
+  // field), fall back gracefully.
+  const rowMeta = pivotDimMeta(pivotRowDim);
+  const colMeta = pivotDimMeta(pivotColDim);
+  const valMeta = pivotMeasureMeta(pivotValDim);
+
+  // Build groups.
+  const rowSet = new Set();
+  const colSet = new Set();
+  // Map: `${rowKey}${colKey}` -> [values]
+  const cells = new Map();
+  filteredRows.forEach(r => {
+    const rk = r[pivotRowDim];
+    const ck = r[pivotColDim];
+    if (rk == null) return;          // skip rows without a key in the pivot dim
+    rowSet.add(rk);
+    colSet.add(ck);
+    const k = pivotCellKey(rk, ck);
+    if (!cells.has(k)) cells.set(k, []);
+    cells.get(k).push(r[pivotValDim]);
+  });
+
+  if (rowSet.size === 0 || colSet.size === 0) {
+    wrap.style.display = '';
+    headerRow.innerHTML = '';
+    body.innerHTML = '';
+    emptyEl.style.display = '';
+    document.getElementById('rowCount').textContent =
+      `${filteredRows.length.toLocaleString()} of ${allRows.length.toLocaleString()} rows · 0 pivot rows`;
+    return;
+  }
+
+  // Sort rows: numeric dimensions numerically, others alphabetically.
+  const sortedRows = [...rowSet].sort((a, b) => compareDimKeys(a, b, rowMeta.numeric) * pivotSortDir);
+  const sortedCols = [...colSet].sort((a, b) => compareDimKeys(a, b, colMeta.numeric));
+
+  // Apply row limit (keep the head of the sorted list).
+  const limit = pivotRowLimit > 0 ? pivotRowLimit : sortedRows.length;
+  const displayRows = sortedRows.slice(0, limit);
+
+  // Header row: row-dim label + each col value.
+  const rowLabel = rowMeta.label;
+  const colLabel = colMeta.label;
+  let headerHTML = `<th class="row-dim" id="pivotRowHeader" title="Click to toggle sort">${rowLabel}<span class="sort-ind">${pivotSortDir > 0 ? '▲' : '▼'}</span></th>`;
+  sortedCols.forEach(ck => {
+    const label = ck == null || ck === '' ? '—' : ck;
+    headerHTML += `<th class="col-dim" title="${colLabel} = ${escapeHtml(String(label))}">${escapeHtml(String(label))}</th>`;
+  });
+  headerRow.innerHTML = headerHTML;
+
+  // Wire row-dim sort click.
+  const rh = document.getElementById('pivotRowHeader');
+  if (rh) rh.onclick = () => { pivotSortDir *= -1; renderPivot(); };
+
+  // Body rows.
+  let bodyHTML = '';
+  displayRows.forEach(rk => {
+    let rowHTML = `<td class="row-key">${escapeHtml(rk == null ? '—' : String(rk))}</td>`;
+    sortedCols.forEach(ck => {
+      const vals = cells.get(pivotCellKey(rk, ck));
+      if (!vals) {
+        rowHTML += `<td class="cell empty">—</td>`;
+        return;
+      }
+      const { value, count } = aggregate(vals, pivotAgg);
+      let display, cls = 'cell';
+      if (value == null) {
+        display = '—';
+        cls += ' empty';
+      } else if (pivotAgg === 'count') {
+        display = String(value);
+      } else if (typeof value === 'number') {
+        display = value.toFixed(1);
+        // Warn-style cue: cell aggregated more than one source row.
+        if (count > 1 && (pivotAgg === 'mean' || pivotAgg === 'median' || pivotAgg === 'sum')) cls += ' warn';
+      } else {
+        display = String(value);
+      }
+      const tip = `${count} source row${count === 1 ? '' : 's'} aggregated as ${pivotAgg}`;
+      rowHTML += `<td class="${cls}" title="${escapeAttr(tip)}">${display}</td>`;
+    });
+    bodyHTML += `<tr>${rowHTML}</tr>`;
+  });
+  body.innerHTML = bodyHTML;
+
+  wrap.style.display = '';
+  emptyEl.style.display = 'none';
+
+  const rowWord = displayRows.length === 1 ? 'row' : 'rows';
+  const colWord = sortedCols.length === 1 ? 'col' : 'cols';
+  document.getElementById('rowCount').textContent =
+    `${filteredRows.length.toLocaleString()} of ${allRows.length.toLocaleString()} rows · ` +
+    `${displayRows.length.toLocaleString()} pivot ${rowWord} × ${sortedCols.length.toLocaleString()} ${colWord} ` +
+    `(${pivotAgg} of ${valMeta.label})`;
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+function escapeAttr(s) { return escapeHtml(s); }
+
+function togglePivotMode() {
+  pivotMode = !pivotMode;
+  document.getElementById('pivotBar').classList.toggle('visible', pivotMode);
+  document.getElementById('pivotTableWrap').style.display = pivotMode ? '' : 'none';
+  // Hide the flat table + pagination when pivot is active so we never show
+  // both views at once.
+  const flatVisible = !pivotMode && allRows.length > 0;
+  document.getElementById('dataTable').style.display = flatVisible ? '' : 'none';
+  document.getElementById('pagination').style.display = flatVisible ? '' : 'none';
+  // Toggle the button's visual state.
+  const btn = document.getElementById('btnPivot');
+  btn.classList.toggle('toggle-on', pivotMode);
+  btn.textContent = pivotMode ? 'Flat view' : 'Pivot view';
+  if (pivotMode) renderPivot();
+  else applyFilters();
+}
+
+// ===== Events =====
 ['searchPlayer','filterSource','filterSeason','filterWeek','filterScoring','filterTeams','filterView','filterQb']
   .forEach(id => {
     document.getElementById(id).addEventListener('input', applyFilters);
@@ -554,6 +962,31 @@ document.getElementById('btnClear').onclick = () => {
     .forEach(id => document.getElementById(id).value = '');
   document.getElementById('trendView').classList.remove('visible');
   applyFilters();
+};
+
+// Pivot control wiring
+['pivotRows','pivotCols','pivotVals','pivotAgg','pivotRowLimit'].forEach(id => {
+  const el = document.getElementById(id);
+  el.addEventListener('change', () => {
+    pivotRowDim = document.getElementById('pivotRows').value;
+    pivotColDim = document.getElementById('pivotCols').value;
+    pivotValDim = document.getElementById('pivotVals').value;
+    pivotAgg = document.getElementById('pivotAgg').value;
+    pivotRowLimit = parseInt(document.getElementById('pivotRowLimit').value, 10) || 0;
+    renderPivot();
+  });
+});
+document.getElementById('btnPivot').onclick = togglePivotMode;
+document.getElementById('btnPivotReset').onclick = () => {
+  pivotRowDim = 'player';
+  pivotColDim = 'source';
+  pivotValDim = 'value';
+  pivotAgg = 'mean';
+  pivotRowLimit = 250;
+  pivotSortDir = 1;
+  // Re-populate the selectors so the dropdowns reflect the reset state.
+  populatePivotSelectors();
+  renderPivot();
 };
 
 loadData();
