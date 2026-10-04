@@ -1,0 +1,175 @@
+{
+  "ticket": "JEG-327",
+  "phase": "B — contract draft",
+  "lane": "minimax (M3)",
+  "branch": "minimax/jeg-327-phaseB-contract",
+  "date": "2026-10-04",
+  "status": "DRAFT — review by Roman, then Jeremy",
+  "files_changed": [
+    {
+      "path": "docs/contract/fe-read-contract-v1.md",
+      "state": "created",
+      "size_bytes": 59038,
+      "purpose": "v1 contract (the main Phase B deliverable)"
+    },
+    {
+      "path": "sql/contract/api_v1.sql",
+      "state": "created",
+      "size_bytes": 24706,
+      "purpose": "SQL draft (Stage 1 of security plan); NOT applied"
+    },
+    {
+      "path": "lanes/inbox/minimax/JEG-327-phaseB.md",
+      "state": "created",
+      "size_bytes": 11800,
+      "purpose": "Result file (this JSON's companion)"
+    },
+    {
+      "path": "lanes/inbox/minimax/JEG-327-phaseB.json",
+      "state": "created",
+      "purpose": "This JSON summary"
+    },
+    {
+      "path": "docs/claude-log.md",
+      "state": "appended",
+      "purpose": "Log entry for this session"
+    }
+  ],
+  "verification_report": {
+    "phase_a_inventory_complete": true,
+    "inventory_path": "docs/contract/fe-dependency-inventory.md (also at lanes/inbox/chatgpt/JEG-327-inventory.md in main checkout)",
+    "required_files_covered": {
+      "curve-widget.js": "covered (§2.1)",
+      "comparison-dashboard.js": "covered (§2.2)",
+      "value-model.js": "covered (§2.3)",
+      "index.html": "covered (§2.4 inline IIFEs)",
+      "comparison-sources-data.json": "covered (§3.1)",
+      "players.json (via inline island)": "covered (§3.4)",
+      "player-news.json": "covered (§3.2)",
+      "adjustment-inputs.json": "covered (§3.3)"
+    },
+    "concrete_gaps_found": [],
+    "additional_discoveries_addressed_by_v1": [
+      "reference-freshness.json -> api.product_snapshot.reference_freshness",
+      "methodology-data inline island -> api.product_snapshot.methodology_combos",
+      "espn_zeroed[] -> api.players.ir_zeroed + api.product_snapshot.espn_zeroed",
+      "full_name vs name -> api.players.canonical_name (single field)",
+      "K/DST in fixture -> api.players.pos + kdst_excluded_from_chart flag",
+      "weeks_out_range prose -> verbatim JSON (future MINOR can tighten enum)",
+      "comparison-dashboard export button bug -> reported to risk-register; Phase D",
+      "buildEspnIndexedMap duplicate declaration -> fail-closed in spec; Phase D consolidation"
+    ],
+    "make_validate_run": false,
+    "make_validate_reason": "doc-only per standing rule 'doc-only is fine but say so'"
+  },
+  "contract_summary": {
+    "surfaces": [
+      "api.player_values",
+      "api.players",
+      "api.player_context",
+      "api.product_options",
+      "api.product_snapshot"
+    ],
+    "contract_version": "1.0.0",
+    "jeg331_ground_truth_honored": true,
+    "jeg329_extension_point_reserved": "view='vorp_on_demand' as future MINOR bump",
+    "value_provenance_values": ["native", "indexed", "ddf_translated", "vorp", "vorp_indexed", "adj"],
+    "model_vs_published_values": ["model", "published"],
+    "coverage_class_values": ["full", "view_limited_combo", "view_limited_source", "stale"],
+    "bench_share_default": 0.15,
+    "bench_share_bounds": [0.01, 0.30],
+    "bench_share_user_settable": true,
+    "publish_gate_checks": [
+      "pie_vintage == bake_id (no rescale to a stale pie)",
+      "tier_price_vintage == bake_id (no stale calibration)",
+      "atomic is_active flip per contract_version"
+    ],
+    "fe_adapter": "product-data.js — the ONLY module that reads from the contract",
+    "fail_closed": "unknown contract_version throws; missing api.players throws; missing active snapshot throws; missing source_keys row throws"
+  },
+  "sequencing_recommendation_for_jeg325": "re-scope as JEG-327 Phase D (the strangler-fig per-cutter sequence IS the Phase D cutover sequence)",
+  "phase_d_order": [
+    "curve widget cutover (parity test + 12-combo sweep + runRegressionGuards)",
+    "comparison dashboard cutover (zero direct fixture reads)",
+    "context/news cutover (JEG-326 watcher green)",
+    "selectors cutover (every default from getProductOptions())",
+    "remaining (methodology data, health, methodology renderer, finance inspection)"
+  ],
+  "phase_e_computation_ownership": {
+    "backend_owned": [
+      "value-model.js pure reference (FE keeps versioned interaction transforms)",
+      "TwoTier module live solve (FE uses vector+blend)",
+      "refitLiveCells OLS (FE reads baked cells)",
+      "buildVorpRows raw VORP economics (baked vorp/vorp_indexed/adj_values rows)",
+      "runRegressionGuards 12 checks (FE re-runs as defense-in-depth)",
+      "fixedPieDiagnostics",
+      "buildCbsAdjustedMap"
+    ],
+    "frontend_interaction_transforms": [
+      "rebuildDomain (composition)",
+      "normalizedAdjustedMapFor",
+      "applyRosterShape",
+      "weekForSource, rolloverDate, activeReferenceWeek, isWeekCurrent",
+      "normalizeNewsEntry, normalizeAdjustmentEntry"
+    ],
+    "presentation_only": [
+      "pieDisplayTenths, formatOne, formatTwo",
+      "DOM event listeners, window globals (intra-app wiring)"
+    ],
+    "vector_blend_sketch_lines": 10,
+    "parity_test_acceptance_gate": "blend vs current browser solve across full slider range, every combo; pass = exact or sub-display-unit agreement",
+    "parity_test_decision": "tier assignment being soft vs hard is a TEST OUTCOME, not an assumption"
+  },
+  "open_questions_for_jeremy": [
+    {
+      "question": "full_name vs name canonical",
+      "v1_picks": "canonical_name (single field on api.players)",
+      "needs_decision": "if Jeremy prefers 'name' (matches fixture) instead of 'canonical_name', say so on the JEG-327 ticket"
+    },
+    {
+      "question": "MIN_SHARED_FOR_PIE = 40",
+      "v1_picks": "freeze at 40 on api.product_options.min_shared_for_pie",
+      "needs_decision": "if Jeremy wants this as a defensive constant FE can override per-deployment, say so"
+    }
+  ],
+  "methodology_conflicts": [
+    {
+      "conflict": "JEG-329 on-demand VORP view precondition failed (per JEG-331 verdict)",
+      "resolution": "honored throughout the contract; vorp/vorp_indexed/adj_values views have explicit per-combo coverage metadata; 'vorp_on_demand' reserved as future MINOR bump; no prescience required"
+    }
+  ],
+  "security_stages": [
+    "Stage 0 (today): inventory consumers; no auth",
+    "Stage 1 (this SQL draft): create api.* + underlying tables, no RLS",
+    "Stage 2 (Phase D): anon SELECT on api.* views",
+    "Stage 3 (one release later): restrict public.* anon SELECT",
+    "Stage 4: verify prod"
+  ],
+  "standing_rules_respected": {
+    "no_ddl_applied": true,
+    "no_pipeline_edits": true,
+    "no_fe_edits": true,
+    "no_methodology_changes": true,
+    "no_rescaling_to_stale_pie": true,
+    "vorp_translation_stays_in_supabase": true,
+    "translate_source_is_choke_point": true,
+    "two_tier_bench_share_default_0p15_user_settable_bounded": true,
+    "canonical_naming_table_is_identity_authority": true,
+    "ir_zero_out_badges_representable": true,
+    "k_dst_exclusion_representable": true,
+    "vegas_not_the_market": true,
+    "ecr_not_provider_brand": true,
+    "freshness_is_content_vintage_never_pull_time": true,
+    "fail_closed_everywhere": true,
+    "never_merge_push_deploy": true,
+    "contract_only_no_evidence_bundle_for_published_changes": "doc-only session per standing rule"
+  },
+  "next_steps": [
+    "Roman reviews the contract and SQL draft",
+    "Roman applies Stage 1 DDL via Supabase SQL editor + NOTIFY pgrst, 'reload schema'",
+    "Roman posts the JEG-325 sequencing recommendation + the two open questions on the JEG-327 ticket (lane adaptation)",
+    "Jeremy reviews and either accepts v1.0.0 or redirects the canonical-name field / MIN_SHARED_FOR_PIE decision",
+    "Phase D cutover begins (curve widget first, each with the acceptance gate in the contract §12)",
+    "Phase E parity test runs against every combo"
+  ]
+}
