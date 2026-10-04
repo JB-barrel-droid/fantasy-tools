@@ -98,6 +98,17 @@ jobs:
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null || true
           cp app/trade-value-chart/assets/adjustment-inputs.json dist/assets/adjustment-inputs.json 2>/dev/null || true
 
+      - name: Build consolidation layer (JEG-324)
+        if: steps.chain.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Build consolidation rows from the just-baked fixture and upsert to Supabase.
+          # Fail-closed: if reconciliation fails, the whole chain run fails.
+          python3 pipelines/build_consolidated_values.py --write-supabase
+          echo "Consolidation layer updated in Supabase"
+
       - name: Publish chain status only (chain failed)
         if: steps.chain.outcome == 'failure'
         run: |

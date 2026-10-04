@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS public.consolidated_values (
   week         INT  NOT NULL CHECK (week BETWEEN 1 AND 18),
   scoring      TEXT NOT NULL CHECK (scoring IN ('full', 'half', 'standard')),
   teams        INT  NOT NULL CHECK (teams IN (8, 10, 12, 14)),
-  qb_variant   TEXT CHECK (qb_variant IN ('qb1', 'qb2')),  -- NULL except fantasycalc*
+  qb_variant   TEXT NOT NULL DEFAULT 'none' CHECK (qb_variant IN ('qb1', 'qb2', 'none')),  -- 'none' except fantasycalc* (PK can't be NULL)
   view         TEXT NOT NULL CHECK (view IN ('combo_reindexed', 'vorp_indexed', 'vorp', 'adj_values')),
   value        NUMERIC NOT NULL,  -- exact as computed in detail; never rounded here
   detail_locator TEXT NOT NULL,   -- deterministic path in the detail fixture, e.g.

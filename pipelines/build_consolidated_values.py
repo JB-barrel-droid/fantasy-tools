@@ -109,8 +109,9 @@ def build_rows(detail):
                 diagnostics["skipped_unparseable_combo"].append(f"{source}/{combo_key}")
                 continue
             scoring, teams, qb_variant = parsed
-            # Enforce the qb_variant invariant: non-null IFF fantasycalc*.
-            if qb_variant and source not in QB_VARIANT_SOURCES:
+            # Enforce the qb_variant invariant: qb1/qb2 IFF fantasycalc*.
+            # 'none' sentinel means no variant (replaces NULL for PK compatibility).
+            if qb_variant not in (None, "none") and source not in QB_VARIANT_SOURCES:
                 diagnostics["skipped_qb_violation"].append(f"{source}/{combo_key}")
                 continue
             reindexed = (cdata or {}).get("reindexed", {}) or {}
@@ -124,7 +125,7 @@ def build_rows(detail):
                     "week": week,
                     "scoring": scoring,
                     "teams": teams,
-                    "qb_variant": qb_variant,  # None -> NULL
+                    "qb_variant": qb_variant or "none",
                     "view": "combo_reindexed",
                     "value": value,  # exact; never rounded here
                     "detail_locator": (
@@ -155,7 +156,7 @@ def build_rows(detail):
                     "week": week,
                     "scoring": vv_scoring,
                     "teams": vv_teams,
-                    "qb_variant": None,
+                    "qb_variant": "none",
                     "view": view,
                     "value": value,
                     "detail_locator": (
@@ -221,7 +222,7 @@ def reconcile(rows, detail):
             if parsed is None:
                 continue
             scoring, teams, qb_variant = parsed
-            if qb_variant and source not in QB_VARIANT_SOURCES:
+            if qb_variant not in (None, "none") and source not in QB_VARIANT_SOURCES:
                 continue
             for player, value in ((cdata or {}).get("reindexed", {}) or {}).items():
                 if value is None:
@@ -229,7 +230,7 @@ def reconcile(rows, detail):
                 # week/season are bake-level; recompute cheaply per row is
                 # wasteful, so compare on the week-independent projection.
                 expected_keys.add((player, source, scoring, teams,
-                                   qb_variant, "combo_reindexed"))
+                                   qb_variant or "none", "combo_reindexed"))
     have_keys = {(r["player"], r["source"], r["scoring"], r["teams"],
                   r["qb_variant"], r["view"]) for r in rows
                  if r["view"] == "combo_reindexed"}
@@ -250,7 +251,7 @@ def reconcile(rows, detail):
             errors.append(f"row {i}: invalid scoring {row['scoring']!r}")
         if row["teams"] not in VALID_TEAMS:
             errors.append(f"row {i}: invalid teams {row['teams']!r}")
-        if row["qb_variant"] is not None and row["source"] not in QB_VARIANT_SOURCES:
+        if row["qb_variant"] not in (None, "none") and row["source"] not in QB_VARIANT_SOURCES:
             errors.append(f"row {i}: qb_variant on non-fantasycalc source "
                           f"{row['source']}")
 
@@ -276,7 +277,7 @@ def write_supabase(rows):
         sbclient.post(
             "consolidated_values",
             chunk,
-            params=("on_conflict=player,source,season,week,scoring,teams,"
+            params=("?on_conflict=player,source,season,week,scoring,teams,"
                     "qb_variant,view"),
             prefer="resolution=merge-duplicates",
         )
