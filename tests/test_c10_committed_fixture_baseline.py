@@ -52,6 +52,9 @@ class CommittedFixtureShaTest(unittest.TestCase):
 
     def tearDown(self):
         bpc.REPO = self._real_repo
+        refreshed = getattr(bpc, "_FIXTURE_REF_FETCHED", None)
+        if refreshed is not None:
+            refreshed.discard(str(self.repo))
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _init_repo_with_commit(self, content):
@@ -102,6 +105,45 @@ class CommittedFixtureShaTest(unittest.TestCase):
 
         got = bpc.committed_fixture_sha(self.fixture)
         self.assertEqual(got, hashlib.sha256(COMMITTED).hexdigest()[:12])
+
+    def test_stale_ref_false_reds_pre_fix(self):
+        """Discrimination for the 2026-10-03 ~21:07 CDT defect: the health
+        runner's origin/main ref still pointed at 54eb76a's fixture while main
+        had already moved to the chain's 1ccf84e0 rebuild. Reading
+        origin/main WITHOUT a fetch baselines against the superseded fixture
+        (pre-fix semantics) while the fixed helper fetches first and returns
+        the fresh blob."""
+        remote = self.tmp / "remote.git"
+        _git(self.tmp, "init", "--bare", "-q", "remote.git")
+        _git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+        seed = self.tmp / "seed"
+        _git(self.tmp, "clone", "-q", str(remote), "seed")
+        (seed / REL).parent.mkdir(parents=True, exist_ok=True)
+        (seed / REL).write_bytes(COMMITTED)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v1")
+        _git(seed, "push", "-q", "-u", "origin", "main")
+        consumer = self.tmp / "consumer"
+        _git(self.tmp, "clone", "-q", str(remote), "consumer")
+        # Remote advances; the consumer has not fetched since v1.
+        (seed / REL).write_bytes(DIRTY)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v2")
+        _git(seed, "push", "-q", "origin", "main")
+
+        # Pre-fix semantics (verbatim): read origin/main with no fetch.
+        stale = _git(consumer, "show", "origin/main:" + REL)
+        stale_sha = hashlib.sha256(stale.stdout).hexdigest()[:12]
+        self.assertEqual(stale_sha, hashlib.sha256(COMMITTED).hexdigest()[:12])
+        self.assertNotEqual(stale_sha, hashlib.sha256(DIRTY).hexdigest()[:12])
+
+        # Fixed helper fetches first and returns the fresh blob.
+        bpc.REPO = consumer
+        refreshed = getattr(bpc, "_FIXTURE_REF_FETCHED", None)
+        if refreshed is not None:
+            refreshed.discard(str(consumer))
+        got = bpc.committed_fixture_sha(consumer / REL)
+        self.assertEqual(got, hashlib.sha256(DIRTY).hexdigest()[:12])
 
     def test_falls_back_to_working_tree_without_git(self):
         """Non-git environment: the working tree is the only baseline."""

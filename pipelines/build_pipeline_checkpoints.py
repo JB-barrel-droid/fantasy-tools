@@ -105,6 +105,35 @@ def days_old(iso_str):
     return delta.total_seconds() / 86400
 
 
+_FIXTURE_REF_FETCHED = set()
+
+
+def _refresh_fixture_ref():
+    """Best-effort `git fetch origin main`, once per process per REPO.
+
+    committed_fixture_sha() reads the origin/main blob, which is only as
+    fresh as the checkout's last fetch. On 2026-10-03 ~21:07 CDT the health
+    runner's origin/main ref still pointed at 54eb76a's fixture (8ca0168fc660)
+    while main had already moved to the chain's 1ccf84e0 rebuild
+    (6daa1eccabc3) — the live site served the fresh fixture byte-for-byte, so
+    every source's C10 false-redded "Production output WRONG". Fetching first
+    closes that stale-ref hole. Fetch is read-only: it touches refs only,
+    never the working tree or index, so it is safe in the shared checkout.
+    A failed fetch (offline CI, no origin) is ignored and the function falls
+    back to the existing ref -> HEAD -> working-tree chain.
+    """
+    repo_key = str(REPO)
+    if repo_key in _FIXTURE_REF_FETCHED:
+        return
+    _FIXTURE_REF_FETCHED.add(repo_key)
+    try:
+        subprocess.run(
+            ["git", "-C", repo_key, "fetch", "--quiet", "origin", "main"],
+            capture_output=True, timeout=30)
+    except Exception:
+        pass
+
+
 def committed_fixture_sha(fixture_path):
     """SHA-12 of the fixture as committed on origin/main.
 
@@ -115,7 +144,14 @@ def committed_fixture_sha(fixture_path):
     byte-for-byte), so the working tree is not a trustworthy baseline.
     Prefer the committed blob; fall back to the working tree only when git
     cannot provide it (non-git environment, missing ref).
+
+    The origin/main ref is refreshed with a read-only fetch first: a stale
+    ref (checkout not fetched since before a chain rebuild) would baseline
+    against a superseded fixture and false-red C10 on healthy production
+    (2026-10-03 21:07 CDT: ref pointed at 54eb76a, live served 1ccf84e0's
+    bytes). See _refresh_fixture_ref.
     """
+    _refresh_fixture_ref()
     try:
         rel = fixture_path.relative_to(REPO).as_posix()
     except ValueError:
