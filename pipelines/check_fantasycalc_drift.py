@@ -127,8 +127,6 @@ def main() -> int:
     ap.add_argument("--trigger", action="store_true",
                     help="run the refresh pipeline if drift is detected")
     ap.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
-    ap.add_argument("--force", action="store_true",
-                    help="run the refresh pipeline even if no drift is detected")
     args = ap.parse_args()
 
     try:
@@ -143,12 +141,9 @@ def main() -> int:
         print(f"  {name}: live={live_v:.0f} native={nat_v} ({note})")
     print(f"live top 3: {', '.join(result['live_top3'])}")
 
-    if not result["needs_refresh"] and not args.force:
+    if not result["needs_refresh"]:
         print("OK: snapshot is fresh, no refresh needed")
         return 0
-
-    if args.force and not result["needs_refresh"]:
-        print("FORCE: refreshing even though no drift detected")
 
     print("DRIFT DETECTED: snapshot natives do not match live")
     if not args.trigger:
@@ -156,32 +151,28 @@ def main() -> int:
         return 1
 
     print("triggering FantasyCalc pipeline refresh...")
-    # Refresh the snapshot from the live API first. Fetch all team sizes the
-    # chart serves (Jeremy 2026-10-04: the old 12-team-only refresh left the
-    # 8/10/14 combos stale on every drift cycle).
+    # Refresh the snapshot from the live API first
     from datetime import datetime, timezone
     combos = []
     for scoring, ppr in [("standard", 0), ("half_ppr", 0.5), ("ppr", 1.0)]:
-        for teams in (8, 10, 12, 14):
-            url = (f"https://api.fantasycalc.com/values/current?isDynasty=false"
-                   f"&numQbs=1&numTeams={teams}&ppr={ppr}")
-            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                data = json.load(resp)
-            for p in data:
-                pl = p.get("player", {})
-                if pl.get("name") and p.get("value") is not None:
-                    combos.append({
-                        "player_name": pl["name"],
-                        "pos": pl.get("position"),
-                        "team": pl.get("team"),
-                        "source_player_id": pl.get("id"),
-                        "scoring": scoring,
-                        "teams": teams,
-                        "native_value": float(p["value"]),
-                        "value": float(p["value"]),
-                    })
-            print(f"  fetched {scoring}/{teams}: {len(data)} players", flush=True)
+        url = (f"https://api.fantasycalc.com/values/current?isDynasty=false"
+               f"&numQbs=1&numTeams=12&ppr={ppr}")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.load(resp)
+        for p in data:
+            pl = p.get("player", {})
+            if pl.get("name") and p.get("value") is not None:
+                combos.append({
+                    "player_name": pl["name"],
+                    "pos": pl.get("position"),
+                    "team": pl.get("team"),
+                    "source_player_id": pl.get("id"),
+                    "scoring": scoring,
+                    "teams": 12,
+                    "native_value": float(p["value"]),
+                    "value": float(p["value"]),
+                })
     snap = json.load(open(SNAPSHOT_PATH))
     snap["rows"] = combos
     snap["row_count"] = len(combos)

@@ -190,6 +190,71 @@ class TestReviewStage(unittest.TestCase):
         self.assertEqual(report["verdict"], "hold")
         self.assertEqual(statuses(report)["pie_factors_sane"], "fail")
 
+    def test_live_verified_drift_passes(self):
+        # Jeremy 2026-10-04: when native_drift fails for a source with a live
+        # API, a successful top-25 live verification turns the fail into a
+        # pass (genuine source move, not a pipeline bug).
+        def mutate(nat):
+            for i, s in enumerate(list(nat)):
+                if i % 10 == 0:  # 10% of values move
+                    nat[s] += 5.0
+            return nat
+        cand, fx = build(self.tmp, source="fantasycalc", mutate=mutate)
+        orig = rvw.verify_top25_live
+        rvw.verify_top25_live = lambda src, nat: (True, "live-verified 25/25 top-25 within 5%")
+        try:
+            report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        finally:
+            rvw.verify_top25_live = orig
+        drift = [c for c in report["checks"]
+                 if c["name"] == "native_drift:full_12"][0]
+        self.assertEqual(drift["status"], "pass")
+        self.assertIn("live-verified", drift["detail"])
+        self.assertEqual(report["verdict"], "ready")
+
+    def test_live_verify_mismatch_stays_hold(self):
+        # Live check says the candidate does NOT match the site -> the drift
+        # is a pipeline bug, hold stays.
+        def mutate(nat):
+            for i, s in enumerate(list(nat)):
+                if i % 10 == 0:
+                    nat[s] += 5.0
+            return nat
+        cand, fx = build(self.tmp, source="fantasycalc", mutate=mutate)
+        orig = rvw.verify_top25_live
+        rvw.verify_top25_live = lambda src, nat: (False, "live mismatch 3/25 top-25 match")
+        try:
+            report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        finally:
+            rvw.verify_top25_live = orig
+        self.assertEqual(report["verdict"], "hold")
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
+    def test_no_live_verify_flag_fails_closed(self):
+        # --no-live-verify skips the live check; drift fails hard.
+        def mutate(nat):
+            for i, s in enumerate(list(nat)):
+                if i % 10 == 0:
+                    nat[s] += 5.0
+            return nat
+        cand, fx = build(self.tmp, source="fantasycalc", mutate=mutate)
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx),
+                                      no_live_verify=True)
+        self.assertEqual(report["verdict"], "hold")
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
+    def test_drift_without_live_api_stays_hold(self):
+        # Sources with no live API configured keep the hard fail on drift.
+        def mutate(nat):
+            for i, s in enumerate(list(nat)):
+                if i % 10 == 0:
+                    nat[s] += 5.0
+            return nat
+        cand, fx = build(self.tmp, source="syn", mutate=mutate)
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(report["verdict"], "hold")
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
 
 class TestRealFixtureReview(unittest.TestCase):
     def test_usatoday_explicit_zero_anchor_ready(self):

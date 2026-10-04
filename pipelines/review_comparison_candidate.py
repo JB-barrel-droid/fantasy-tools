@@ -43,8 +43,16 @@ import argparse
 import hashlib
 import json
 import sys
+import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
+
+# JEG-75: live-name matching uses the canonical normalizer -- never an ad-hoc
+# one. (An earlier _normalize_name helper was flagged by
+# tests.test_player_identity_guard; the canonical module is the only
+# legitimate normalizer.)
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from canonical_players import norm_player_name
 
 REPO = Path(__file__).resolve().parent.parent
 SCHEMA = "trade-value-comparison-review-v1"
@@ -52,6 +60,19 @@ POSITIONS = ("QB", "RB", "WR", "TE")
 DRIFT_TOL = 0.05       # per-value tolerance for "same" native
 DRIFT_WARN_FRAC = 0.0  # any drift warns
 DRIFT_FAIL_FRAC = 0.05  # >5% of values drifted fails
+# Live-verification (Jeremy 2026-10-04): when native_drift fails for a source
+# with a live API, verify the top-25 candidate natives against the live site.
+# If they match, the drift is genuine (source moved, not a pipeline bug) and
+# the check passes with a "live-verified" note instead of failing.
+LIVE_VERIFY_N = 25
+LIVE_VERIFY_TOL = 0.05  # per-value tolerance for live match
+LIVE_VERIFY_MIN_MATCH_FRAC = 0.80  # 20+/25 must match to verify
+# Live API endpoints by source key (only sources with a live API get the
+# live-verification bypass; others keep the hard fail on drift).
+LIVE_API_URLS = {
+    "fantasycalc": ("https://api.fantasycalc.com/values/current"
+                    "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5"),
+}
 # Factor bounds: as-published sources on the 10,000-scale (FantasyCalc) have
 # factors ~0.007 to reach the 0-70 indexed scale. Per-position DDF sources
 # have factors ~0.2-5.0. The lower bound accommodates both.
@@ -80,8 +101,66 @@ def _sha256_canonical(obj):
         json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
+def verify_top25_live(source, candidate_natives):
+    """Verify the top-25 candidate natives against the source's live site.
+
+    Returns (verified: bool, detail: str). Only sources in LIVE_API_URLS are
+    verifiable; others return (False, "no live API for source").
+    A network failure returns (False, ...) -- fail closed, never pass on
+    an unverifiable live check.
+    """
+    url = LIVE_API_URLS.get(source)
+    if not url:
+        return False, f"no live API configured for source {source}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.load(resp)
+    except Exception as e:
+        return False, f"live fetch failed: {e}"
+    live = {}
+    for p in data:
+        pl = p.get("player", {})
+        name = pl.get("name")
+        val = p.get("value")
+        if name and val is not None:
+            live[name] = float(val)
+    if not live:
+        return False, "live API returned no players"
+    # Top-25 by candidate native value (these matter most for the chart).
+    # Candidate natives are keyed by slug; match to live names via the
+    # canonical norm_player_name (JEG-75: never an ad-hoc normalizer).
+    live_norm = {norm_player_name(n): v for n, v in live.items()}
+    top = sorted(candidate_natives.items(), key=lambda kv: float(kv[1]),
+                 reverse=True)[:LIVE_VERIFY_N]
+    matched = 0
+    checked = 0
+    mismatches = []
+    for slug, cand_val in top:
+        live_val = live_norm.get(norm_player_name(slug))
+        if live_val is None:
+            continue
+        checked += 1
+        cand_f = float(cand_val)
+        if cand_f == 0:
+            continue
+        if abs(live_val - cand_f) / cand_f <= LIVE_VERIFY_TOL:
+            matched += 1
+        else:
+            mismatches.append(slug)
+    if checked == 0:
+        return False, "no top-25 slugs matched live API names"
+    frac = matched / checked
+    if frac >= LIVE_VERIFY_MIN_MATCH_FRAC:
+        return True, (f"live-verified {matched}/{checked} top-25 "
+                      f"within {LIVE_VERIFY_TOL:.0%}")
+    return False, (f"live mismatch {matched}/{checked} top-25 match "
+                   f"(need {LIVE_VERIFY_MIN_MATCH_FRAC:.0%}); "
+                   f"e.g. {', '.join(mismatches[:3])}")
+
+
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
-                     players_path=None):
+                     players_path=None, no_live_verify=False):
     cand = _load_json(reindexed_path)
     if cand.get("schema") != "trade-value-comparison-section-reindexed-v1":
         raise SystemExit(f"review: unsupported schema {cand.get('schema')}")
@@ -188,8 +267,21 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         detail["native_drifted"] = len(drifted)
         detail["native_drift_frac"] = round(frac, 4)
         if frac > DRIFT_FAIL_FRAC:
-            checks.append(_check(f"native_drift:{combo_name}", "fail",
-                                 f"{len(drifted)}/{len(shared)} values moved > {DRIFT_TOL}"))
+            # Jeremy 2026-10-04: before failing on drift, verify the top-25
+            # candidate natives against the live site. If the live site
+            # matches, the drift is genuine (source moved) not a pipeline
+            # bug, and the check passes as live-verified.
+            verified, verify_detail = (False, "live verification skipped")
+            if not no_live_verify and source in LIVE_API_URLS:
+                verified, verify_detail = verify_top25_live(source, native)
+            if verified:
+                checks.append(_check(f"native_drift:{combo_name}", "pass",
+                                     f"{len(drifted)}/{len(shared)} values moved > "
+                                     f"{DRIFT_TOL} -- {verify_detail}"))
+            else:
+                checks.append(_check(f"native_drift:{combo_name}", "fail",
+                                     f"{len(drifted)}/{len(shared)} values moved > "
+                                     f"{DRIFT_TOL} ({verify_detail})"))
         elif frac > DRIFT_WARN_FRAC:
             checks.append(_check(f"native_drift:{combo_name}", "warn",
                                  f"{len(drifted)}/{len(shared)} values moved"))
@@ -323,9 +415,13 @@ def main(argv=None):
                     help="JSON mapping slug -> triage note for review rows")
     ap.add_argument("--out", default=None,
                     help="output path (default output/comparison-review/<source>-<date>-review.json)")
+    ap.add_argument("--no-live-verify", action="store_true",
+                    help="skip the top-25 live verification on native_drift "
+                         "fail (for CI/offline runs; drift fails hard)")
     args = ap.parse_args(argv)
 
-    report = review_candidate(args.reindexed, args.triage)
+    report = review_candidate(args.reindexed, args.triage,
+                              no_live_verify=args.no_live_verify)
     out = Path(args.out) if args.out else (
         REPO / "output" / "comparison-review"
         / f"{report['source_key']}-{date.today().isoformat()}-review.json")

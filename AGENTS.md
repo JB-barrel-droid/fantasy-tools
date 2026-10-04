@@ -120,6 +120,14 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
   through the day, so 1-3% intraday moves are normal noise — the 5%/20%
   bands prevent constant refresh churn while still catching real corruption
   like the JSN defect.)
+- Live-verification bypass (Jeremy 2026-10-04): when the review stage's
+  `native_drift` check fails for a source with a live API (currently only
+  FantasyCalc), it verifies the top-25 candidate natives against the live
+  site before failing. If 80%+ match within 5%, the drift is genuine (source
+  moved, not a pipeline bug) and the check passes as "live-verified". Network
+  failures fail closed (no pass on unverifiable). `--no-live-verify` skips
+  the check for CI/offline (drift fails hard). Sources without a live API
+  keep the hard fail. Regression: 4 new tests in test_review_candidate.py.
 - The 2026-09-30 JSN defect proved why: `match_source_snapshot.py` was
   dropping `native_value`, so the pipeline used the flattened `value` (50.7)
   instead of the raw FantasyCalc number (9914). The matcher and

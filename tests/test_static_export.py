@@ -268,7 +268,14 @@ class StaticExportTest(unittest.TestCase):
             # the QB anchor max) for the fantasycalc/ppr/12/wk4 grain -- the
             # quantile bucket pin 29.774792885916245 is retired with the
             # reindex path. Fixture == grain, verified.
-            ("fantasycalc", "full_12_qb1"): 25.0,
+            # 2026-10-04: FantasyCalc snapshot refreshed from the live API
+            # (Jeremy-approved acceptance; native drift live-verified
+            # 25/25). The vorp-supabase translation re-derived from the new
+            # natives (n_translated=176): Allen 6331.0 native ->
+            # 29.061033662019717. Verified: the pin is the pipeline-built
+            # fixture value for the fantasycalc/ppr/12/wk4 grain, not a
+            # hand edit; the 25.0 pin was the pre-refresh translation.
+            ("fantasycalc", "full_12_qb1"): 29.061033662019717,
             # 2026-10-02 (JEG-64): FantasyPros migrated to VORP-translated
             # values. Allen's value is the Supabase translated value (25.0,
             # the QB anchor max) for the fantasypros/ppr/12/wk4 grain -- the
@@ -925,8 +932,12 @@ class StaticExportTest(unittest.TestCase):
         # DDF leg (492 players, 76 priced QBs). The last positive is now at
         # 45 (Mariota, last positive-QB boundary in the rebuilt section);
         # the 35 boundary reflected the old 353-player stale-pie section.
-        self.assertEqual(45, last_positive)
-        self.assertEqual(46, last_positive + 1)
+        # 2026-10-04: FantasyCalc's refreshed snapshot (Jeremy-approved)
+        # newly prices Tyson Bagent (native 3.0 -> 0.0135; absent from the
+        # pre-refresh fixture), moving the last-positive QB boundary to 48.
+        # Verified against the pipeline-built fixture, not a hand edit.
+        self.assertEqual(48, last_positive)
+        self.assertEqual(49, last_positive + 1)
 
 
 class BrandingScanTest(unittest.TestCase):
