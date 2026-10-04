@@ -2695,3 +2695,75 @@ status "open". Copy is operational only — no methodology decisions and no
 resolution claims (explicitly deferred per the ticket). Rendered gate
 tests/rendered_gate/trade-qa-open-findings.mjs asserts each open finding
 renders with its owner lane and a #qaFinding-<id> anchor link.
+
+## 2026-10-03 - JEG-328 (item 1): pivotable fields for consolidation watcher
+
+Branch `jeremyburstyn/jeg-328-pivot` (clean checkout of origin/main).
+Commit `6216aac`. Touched only `modules/consolidation.html` (+434, −1).
+Not pushed, not merged, not deployed — per task rules.
+
+### Built
+- Pivot bar (`.pivot-bar`, hidden by default) below the existing `.filters`
+  block, revealed by a new "Pivot view" button in `.filter-actions`. Five
+  selectors (Rows / Columns / Values / Aggregate / Row limit) laid out in
+  the same grid the filter bar uses, reusing `--bg / --card / --border /
+  --muted / --accent`. New pivot table wrap (`.table-wrap#pivotTableWrap`,
+  display:none by default). Pivot-only CSS for sticky row key, right-aligned
+  tabular-nums cells, muted empty cells, yellow "warn" cue on cells that
+  aggregated >1 source row, and a `button.toggle-on` style for the active
+  Pivot view button.
+- Defaults match: Rows=`player`, Cols=`source`, Values=`value`, Agg=`mean`,
+  Row limit=250. Pivot operates on the same `filteredRows` the flat table
+  renders from, so existing filters/search/sort remain authoritative and
+  both Supabase live and JSON-export fallback feed it for free.
+- Eight dimension keys: `player / source / season / week / scoring /
+  teams / qb_variant / view` with `numeric` flags driving sort order
+  (week/season/teams numeric, rest string, nulls last). Aggregations:
+  mean, median, min, max, sum, count, first, last — non-numeric filtering
+  done before the math. Cell map keys joined with `\u0001` (verified via
+  `cat -A` as byte 0x01) so empty-string row/col values can't collide.
+- Pivot row-dim header is clickable to toggle sort direction; pivot bar
+  has a Reset button restoring all five selectors to defaults.
+- Both views never shown at once: `togglePivotMode()` flips visibility on
+  the flat data table + pagination and the pivot table wrap in opposite
+  directions. Pivot mode label flips the button between "Pivot view" /
+  "Flat view".
+
+### Verified (static)
+- Every new ID referenced by JS is defined in HTML (`pivotBar`,
+  `pivotRows`, `pivotCols`, `pivotVals`, `pivotAgg`, `pivotRowLimit`,
+  `pivotHint`, `pivotTableWrap`, `pivotTable`, `pivotHeaderRow`,
+  `pivotTableBody`, `pivotEmpty`, `btnPivot`, `btnPivotReset`).
+- Cell key uses `\u0001` (cat -A confirmed) — no possible collision with
+  any real value.
+- `populatePivotSelectors()` runs only after `loadData()` completes, so
+  the dropdowns are empty during the loading flash.
+- `renderPivot()` early-exits when `pivotMode === false` so the flat table
+  flow is unchanged.
+- `applyFilters()` calls `renderPivot()` after `renderTable()` so the
+  pivot view is never stale on toggle.
+- `git status` clean on the branch after the single commit.
+
+### Not verified (needs live browser)
+- End-to-end UX (click *Pivot view*, see cross-tab; yellow cue on
+  cells aggregated from >1 row).
+- Filter ↔ pivot interaction (narrow player, confirm pivot reflects).
+- Hand-checking one or two aggregation results against the flat table.
+- Reset button restoring all selectors.
+- Pivot under JSON-export fallback (with Supabase URL blocked).
+- No-regression sweep: search, all 8 filters, header sort, prev/next,
+  week-over-week trend, clear filters — all unchanged with pivot off.
+
+### Cross-workspace write note
+The user-specified report path
+`/home/hatch/workspace/fantasy-tools/lanes/inbox/minimax/JEG-328-pivot.md`
+was blocked by the runtime host's permission gate
+(`HOST_CAPABILITY_UNAVAILABLE: this Runtime host cannot prompt for
+permission`) — both `bash touch` and `write` attempts returned the same
+error. The same content was therefore written to
+`docs/JEG-328-pivot.md` on this branch (uncommitted at log time, committed
+as `5c10c93` immediately after). Reviewer should copy that file to the
+inbox path on their side before review, or read it from the branch.
+
+No durable open issues were discovered during this session, so the
+risk register is unchanged.
