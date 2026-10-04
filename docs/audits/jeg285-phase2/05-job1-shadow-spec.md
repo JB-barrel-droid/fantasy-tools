@@ -7,6 +7,29 @@
 **Ground truth for the dispatch decision:**
 `pipelines/check_source_vintage.py` (the Python the GHA cron currently invokes).
 
+## Which concern this spec covers
+
+This shadow covers concern **(2) source-vintage change detection** in
+the three-concern split defined at
+`docs/audits/jeg285-phase2/02-pgcron-job-specs.md` §"Three separate
+concerns". It is not (1) source content freshness/health (that lives
+at `make import-health` / `pipelines/verify_import_health.py`) and
+not (3) the JEG-205 `pipelines/`-hash code-change detection (that
+stays GitHub-side; see `.github/workflows/source-vintage-check.yml`).
+Keep the three surfaces separate in any doc, runbook, or alert that
+references them.
+
+## JEG-323 stub warning
+
+The `public.check_source_vintages()` function body this spec adds in
+the implementation phase is currently **not** defined in this repo.
+Production Supabase exposes a console-only stub that returns
+`{"changed": false, "note": "stub"}`; that stub is tracked under
+JEG-323 for revoke/removal and MUST NOT be cited as a working check.
+The new body below MUST reference at least one relation (FROM or
+JOIN) so the JEG-323 regression test
+(`tests/test_health_function_no_hardcoded_green.py`) stays green.
+
 ## Scope of what is written
 
 - DDL for `pipeline_cron_log` (shadow decision log) and `pipeline_cron_state`
