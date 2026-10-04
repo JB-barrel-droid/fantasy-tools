@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T12:07:30.206622+00:00",
+  "generated_at": "2026-10-04T12:37:22.622216+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -79,7 +79,7 @@
           "reason": "Snapshot is 2026-10-02 but Supabase has 2026-10-04. Data is STUCK waiting for import."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T12:07:10Z",
+          "timestamp": "2026-10-04T12:37:06Z",
           "status": "warn",
           "reason": "Health gate warning: TABLE_DRIFT: table has 496 rows at latest vintage 2026-10-04, manifest expects 495 (within tolerance; stamping lag); table latest vintage 2026-10-04 != manifest vintage 2026-10-02 -- run stage-1 import to stamp it (table is fresher: stamping lag)."
         },
@@ -94,17 +94,17 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T12:07:34.814262+00:00",
+          "timestamp": "2026-10-04T12:37:27.967390+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 12 combos. Live built 2026-10-04T11:00."
         }
@@ -136,7 +136,7 @@
           "reason": "Snapshot stamped 4.6d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T12:07:10Z",
+          "timestamp": "2026-10-04T12:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -151,17 +151,17 @@
           "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T12:07:37.186503+00:00",
+          "timestamp": "2026-10-04T12:37:31.200797+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 3 combos. Live built 2026-10-04T11:00."
         }
@@ -193,7 +193,7 @@
           "reason": "Snapshot stamped 2.0d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T12:07:10Z",
+          "timestamp": "2026-10-04T12:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -208,17 +208,17 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T12:07:39.327506+00:00",
+          "timestamp": "2026-10-04T12:37:35.424145+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 12 combos. Live built 2026-10-04T11:00."
         }
@@ -247,7 +247,7 @@
         "c4_snapshot": {
           "timestamp": "2026-10-01T13:22:04.098015+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 2.9d ago (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-01)."
+          "reason": "Snapshot stamped 3.0d ago (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-01)."
         },
         "c5_health": {
           "timestamp": null,
@@ -265,17 +265,17 @@
           "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T12:07:41.457065+00:00",
+          "timestamp": "2026-10-04T12:37:37.437728+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 12 combos. Live built 2026-10-04T11:00."
         }
@@ -287,34 +287,34 @@
       "label": "FantasyCalc",
       "checkpoints": {
         "c1_publication": {
-          "timestamp": "Week 4",
-          "status": "ok",
-          "reason": "Publisher released Week 4 (0.0d ago)."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No publisher vintage recorded in health file."
         },
         "c2_collection": {
-          "timestamp": "2026-10-01T08:36:18.841542+00:00",
+          "timestamp": "2026-10-04T12:25:50.750119+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-01T08:36:18.841542+00:00 (data/raw/sources/fantasycalc/week-4/snapshot.json)."
+          "reason": "Pulled 2026-10-04T12:25:50.750119+00:00 (data/raw/sources/fantasycalc/week-4/snapshot.json)."
         },
         "c3_supabase": {
-          "timestamp": "2026-10-04T11:45:15.613177+00:00",
-          "status": "ok",
-          "reason": "588 rows landed in public.source_trade_values 0.0d ago."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "No Supabase landing timestamp in health file."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-01T08:36:18.841542+00:00",
+          "timestamp": "2026-10-04T12:25:50.750119+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 3.1d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage None)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T12:07:10Z",
+          "timestamp": "2026-10-04T12:37:06Z",
           "status": "bad",
-          "reason": "Health gate failed: TABLE_DRIFT: table has 588 rows at latest vintage Week 4, manifest expects 590 -- partial/stale table, not complete."
+          "reason": "Health gate failed: BYTE_MISMATCH: snapshot bytes do not match manifest sha256 (manifest eb3a856819050318..., actual 1e820b992b04b1e9...); unverified bytes must never be promoted."
         },
         "c6_candidate": {
-          "timestamp": "2026-10-01T02:27:49.141205+00:00",
+          "timestamp": "2026-10-04T12:25:51.286661+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 3.4d ago."
+          "reason": "Candidate built and reviewed 0.0d ago."
         },
         "c7_promotion": {
           "timestamp": "2026-10-02T20:13:43Z",
@@ -322,19 +322,19 @@
           "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T12:07:43.322667+00:00",
+          "timestamp": "2026-10-04T12:37:42.151923+00:00",
           "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 24 combos. Live built 2026-10-04T11:00. (JS label check skipped: <urlopen error [Errno 111] Connection re)"
+          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 24 combos. Live built 2026-10-04T11:00."
         }
       },
       "content_vintage": "Week 4",
@@ -364,7 +364,7 @@
           "reason": "Snapshot stamped 2.0d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T12:07:10Z",
+          "timestamp": "2026-10-04T12:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -379,19 +379,19 @@
           "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": null,
-          "status": "unk",
-          "reason": "Could not fetch live production JSON: <urlopen error [Errno 111] Connection refused>."
+          "timestamp": "2026-10-04T12:37:45.266205+00:00",
+          "status": "ok",
+          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 3 combos. Live built 2026-10-04T11:00."
         }
       },
       "content_vintage": "2026-09-29",
@@ -421,7 +421,7 @@
           "reason": "Snapshot stamped 1.7d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T12:07:10Z",
+          "timestamp": "2026-10-04T12:37:06Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -436,19 +436,19 @@
           "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
-          "timestamp": "2026-10-03T18:34:03.677796+00:00",
+          "timestamp": "2026-10-03T22:00:42.323533+00:00",
           "status": "ok",
-          "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
+          "reason": "Comparison data fresh (built 2026-10-03, 0.6d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T12:03:31Z",
+          "timestamp": "2026-10-04T12:20:17Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": null,
-          "status": "unk",
-          "reason": "Could not fetch live production JSON: <urlopen error [Errno 111] Connection refused>."
+          "timestamp": "2026-10-04T12:37:48.169623+00:00",
+          "status": "ok",
+          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 3 combos. Live built 2026-10-04T11:00."
         }
       },
       "content_vintage": "2026-09-29",
@@ -460,7 +460,7 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": true,
-    "run_age_days": 0.5881538655787037,
+    "run_age_days": 0.6090416223148148,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -488,22 +488,22 @@
     "a4_sync": {
       "label": "A4 \u00b7 Synced to dist",
       "what": "dist/assets/adjustment-inputs.json matches app/ version (ready for deploy)",
-      "timestamp": "2026-10-03T22:50:48.509362+00:00",
+      "timestamp": "2026-10-04T12:22:38.483315+00:00",
       "status": "ok",
       "reason": "dist/ version ddf-20261003-espn-ppr-12t-0p15 matches app/ version."
     },
     "a5_live": {
       "label": "A5 \u00b7 Live",
       "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
-      "timestamp": null,
-      "status": "unk",
-      "reason": "Could not fetch live adjustment-inputs.json."
+      "timestamp": "2026-10-04T11:00:36Z",
+      "status": "ok",
+      "reason": "Live version ddf-20261003-espn-ppr-12t-0p15 matches local. All 4 sources have 8/8 live cells."
     }
   },
   "methodology_consistency": {
     "label": "VORP / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
-    "timestamp": "2026-10-04T12:07:43.566820+00:00",
+    "timestamp": "2026-10-04T12:37:48.650709+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use proportional_scaling_flex_aware_per_position anchored to espn_leg on the flex_aware_pie reindex fit (translation step checked separately).",
     "expected_method": "proportional_scaling_flex_aware_per_position",
