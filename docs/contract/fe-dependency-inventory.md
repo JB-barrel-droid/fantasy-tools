@@ -405,7 +405,7 @@ curve-shape check, default band [0.80, 1.25]), `allocationCounts`, `stableTiebre
 - `team` missing → `"—"` substituted (row still priced and ranked)
 - `full_name || name || ""` chain; empty name → silent drop
 - `buildEspnIndexedMap` duplicate declaration — second wins, fixture-leg path unreachable (comparison-dashboard.js:604 vs 630)
-- export button: `link.href = blob` coerces Blob to `"[object Blob]"` — export silently does nothing (comparison-dashboard.js:1160-1164) — latent bug, not contract-relevant
+- export button: verified working — `URL.createObjectURL(blob)` assigned to `link.href` (comparison-dashboard.js:1160-1167). An earlier draft of this inventory misreported this as `link.href = blob`; corrected 2026-10-04 after reading the actual code.
 
 ---
 
