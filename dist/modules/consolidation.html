@@ -329,8 +329,12 @@ async function loadData() {
   const dsEl = document.getElementById('dataSource');
   try {
     // Try Supabase REST API (public read enabled via RLS policy)
-    const resp = await fetch(
-      `${SUPABASE_URL}/rest/v1/consolidated_values?select=*&limit=100000`,
+    // Paginate: PostgREST caps at 1000 rows per request
+    allRows = [];
+    let _offset = 0;
+    while (true) {
+      const _resp = await fetch(
+        `${SUPABASE_URL}/rest/v1/consolidated_values?select=*&limit=1000&offset=${_offset}`,
       { headers: {
         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2l5YnNpbXViaXVqd3VjaHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTkyMTEsImV4cCI6MjEwNDYzNTIxMX0.JL_E76TQDtM_xO22-NDcflVIE7rexiHkfrvYHKtQRsY',
         'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2l5YnNpbXViaXVqd3VjaHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTkyMTEsImV4cCI6MjEwNDYzNTIxMX0.JL_E76TQDtM_xO22-NDcflVIE7rexiHkfrvYHKtQRsY',
