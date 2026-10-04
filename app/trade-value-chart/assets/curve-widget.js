@@ -1687,7 +1687,18 @@
     const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
     const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
+    const benchShareText = `${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share`;
+    // JEG-291: the subtitle's bench-share segment is the recommended calibration
+    // parameter, NOT the anchor leg's measured split (that lives in the footnote).
+    // Surface the distinction on hover so readers don't conflate the two.
+    context.replaceChildren(
+      `${scoreLabel()} · ${teams} teams · ${rosterLabel} · `,
+      Object.assign(document.createElement("span"), {
+        textContent: benchShareText,
+        title: "15% bench share — the recommended two-tier calibration parameter; the chart caption shows the anchor leg's measured split."
+      }),
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`
+    );
   }
 
   function makeTabs() {
@@ -3379,7 +3390,18 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts are put on the ESPN leg’s pie and its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% bench split, waiver to 0 · roster transitions: ${markerText}.`;
+    // JEG-290: the middle clause of the footnote must vary by viewMode — the
+    // Indexed/Value-above-waivers/Adjusted tabs each describe a different
+    // underlying valuation, so a single static sentence was misleading readers.
+    // JEG-291: even on Indexed, the X/Y split is the anchor's MEASURED share
+    // (lastDisplayShare, set at rebuild time), not the recommended 15% bench
+    // share (DISPLAY_BENCH_SHARE) the subtitle slider shows.
+    const footnoteMiddle = viewMode === "vorp"
+      ? "raw value-above-waivers curves from each source's own per-game projections — same shared total as Indexed, no fixed-pie re-tiering"
+      : viewMode === "adj"
+      ? "adjusted curves under the shared 0–70 weighting model, with our position weighting applied"
+      : `indexed charts are put on the ESPN leg's pie and matched to its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% measured split, waiver to 0`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; ${footnoteMiddle} · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with the selected player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
