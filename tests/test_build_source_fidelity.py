@@ -90,5 +90,96 @@ class NativeFieldSelectionTest(unittest.TestCase):
         self.assertEqual(natives[("jahmyr gibbs", "ppr")], 68.095)
 
 
+class FakeSbclient:
+    """Minimal stub of the Supabase client for cbsros DB tests."""
+
+    def __init__(self, dates, rows, fail=False):
+        self._dates = dates
+        self._rows = rows
+        self._fail = fail
+
+    def get_all(self, table, params=""):
+        if self._fail:
+            raise RuntimeError("network down")
+        if "cbs_snapshot_date&order" in params:
+            return self._dates
+        return self._rows
+
+
+class CbsrosDbReferenceTest(unittest.TestCase):
+    """Regression (2026-10-04): cbsros is DB-backed since 2026-10-01, so the
+    fidelity check must compare the fixture against the Supabase table -- not
+    the local file. The file held the 20:12 UTC export while the DB/fixture
+    had the 21:21 UTC update; comparing against the file false-redded 50/50
+    on a healthy fixture. These tests fail if load_snapshot_natives("cbsros")
+    reads the file instead of the DB.
+    """
+
+    def test_cbsros_prefers_db_over_file(self):
+        """DB data wins even when a (stale) file snapshot exists."""
+        import tempfile
+        from pathlib import Path
+
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        old_raw = bsf.RAW_DIR
+        bsf.RAW_DIR = Path(tmp.name) / "data" / "raw" / "sources"
+        self.addCleanup(setattr, bsf, "RAW_DIR", old_raw)
+        # Stale file: Gibbs 24.857 (the 20:12 UTC export).
+        d = os.path.join(tmp.name, "data", "raw", "sources", "cbsros", "2026-10-02")
+        os.makedirs(d, exist_ok=True)
+        with open(os.path.join(d, "snapshot.json"), "w", encoding="utf-8") as f:
+            json.dump({"rows": [
+                {"player_norm": "jahmyr gibbs", "per_game_ppr": 24.857,
+                 "per_game_half_ppr": 22.607, "per_game_standard": 20.357},
+            ]}, f)
+        # DB: Gibbs 25.657 (the 21:21 UTC update the fixture was built from).
+        fake = FakeSbclient(
+            dates=[{"cbs_snapshot_date": "2026-10-02"}],
+            rows=[{"player_norm": "jahmyr gibbs", "per_game_ppr": 25.657,
+                   "per_game_half_ppr": 23.407, "per_game_standard": 21.0}],
+        )
+        natives, vintage = bsf.load_cbsros_db_natives(sbclient=fake)
+        self.assertEqual(vintage, "2026-10-02")
+        # Must be the DB value, not the stale file value.
+        self.assertEqual(natives[("jahmyr gibbs", "ppr")], 25.657)
+        self.assertNotEqual(natives[("jahmyr gibbs", "ppr")], 24.857)
+
+    def test_cbsros_db_failure_warns_instead_of_false_bad(self):
+        """DB unreachable -> empty (warn "cannot verify"), never the file.
+
+        Falling back to the file would reintroduce the false-red: a stale
+        file reads as a broken fixture.
+        """
+        fake = FakeSbclient(dates=[], rows=[], fail=True)
+        natives, vintage = bsf.load_cbsros_db_natives(sbclient=fake)
+        self.assertEqual(natives, {})
+        self.assertIsNone(vintage)
+
+    def test_cbsros_db_empty_warns(self):
+        """DB returns no rows -> empty (warn), not a fabricated comparison."""
+        fake = FakeSbclient(dates=[{"cbs_snapshot_date": "2026-10-02"}], rows=[])
+        natives, vintage = bsf.load_cbsros_db_natives(sbclient=fake)
+        self.assertEqual(natives, {})
+        self.assertIsNone(vintage)
+
+    def test_load_snapshot_natives_routes_cbsros_to_db(self):
+        """load_snapshot_natives('cbsros') must use the DB loader, never the
+        file. Fails if the branch reads find_latest_snapshot instead."""
+        calls = []
+        orig = bsf.load_cbsros_db_natives
+        def spy(sbclient=None):
+            calls.append(True)
+            return {("jahmyr gibbs", "ppr"): 25.657}, "2026-10-02"
+        bsf.load_cbsros_db_natives = spy
+        try:
+            natives, vintage = bsf.load_snapshot_natives("cbsros")
+        finally:
+            bsf.load_cbsros_db_natives = orig
+        self.assertTrue(calls, "cbsros branch did not call the DB loader")
+        self.assertEqual(natives[("jahmyr gibbs", "ppr")], 25.657)
+        self.assertEqual(vintage, "2026-10-02")
+
+
 if __name__ == "__main__":
     unittest.main()

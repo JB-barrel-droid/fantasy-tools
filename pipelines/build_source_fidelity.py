@@ -57,7 +57,7 @@ def find_latest_snapshot(src):
         return None
     # Find dated subdirectories, skipping archived/corrupt ones
     dated = sorted(
-        [p for p in src_dir.iterdir() 
+        [p for p in src_dir.iterdir()
          if p.is_dir() and not p.name.startswith("_archived") and not p.name.startswith(".")],
         reverse=True
     )
@@ -99,33 +99,67 @@ def load_razzball_leg_natives():
                 out[(norm, scoring)] = float(ppg)
     return out, max(vintages) if vintages else None
 
-def load_snapshot_natives(src):
-    """Load source native values for fidelity comparison.
-    
-    For ESPN: uses the CSV input (ros_half_ppr / 16) which is the actual
-    source the DDF leg reads. The snapshot has full-season totals which
-    are not comparable to the ROS per-game natives.
-    
-    Returns: ({(player_norm, scoring): per_game_native}, vintage)
-    """
-    # Razzball: use the committed DDF legs. The raw snapshot is gitignored,
-    # but every leg records Razzball's published PPG as the source native.
-    if src == "razzball":
-        return load_razzball_leg_natives()
+def _cbsros_sbclient():
+    """Import the repo's Supabase client (same one the cbsros saver uses).
 
-    # CBS ROS: the snapshot already carries per-game natives per scoring
-    # (per_game_ppr / per_game_half_ppr / per_game_standard), computed as
-    # CBS ROS total / gp. Keys use the row's player_norm (the fixture join
-    # norm), not the display name.
-    if src == "cbsros":
-        snap_path = find_latest_snapshot(src)
-        if not snap_path:
+    Returns the sbclient module, or None if it cannot be imported (e.g. CI
+    without the skill on disk). Callers must fail closed on None.
+    """
+    import sys as _sys
+    import os as _os
+    bin_dir = _os.path.expanduser("~/workspace/skills/supabase-football-signal/bin")
+    if bin_dir not in _sys.path:
+        _sys.path.insert(0, bin_dir)
+    try:
+        import sbclient  # noqa: E402
+        return sbclient
+    except ImportError:
+        return None
+
+
+def load_cbsros_db_natives(sbclient=None):
+    """Load CBS ROS per-game natives from Supabase (the pipeline's actual input).
+
+    cbsros has been DB-backed since 2026-10-01: save_cbsros_references.py
+    writes the pull to public.cbs_ros_projections, import_supabase_references
+    materializes the native snapshot from the table, and the DDF leg reads
+    that snapshot. The local data/raw file is NOT the pipeline input, so
+    comparing the fixture against it false-reds whenever the file goes stale
+    (2026-10-04: the file held the 20:12 UTC export while the DB already had
+    the 21:21 UTC update the fixture was built from -- 50/50 false "bad",
+    while the fixture matched the DB exactly and CBS live within drift).
+
+    Returns ({(player_norm, scoring): per_game}, vintage). On any DB failure
+    returns ({}, None) so the check warns "cannot verify" instead of
+    comparing against the wrong reference.
+    """
+    try:
+        if sbclient is None:
+            sbclient = _cbsros_sbclient()
+        if sbclient is None:
             return {}, None
-        d = json.loads(snap_path.read_text())
-        out = {}
+        dates = sbclient.get_all(
+            "cbs_ros_projections",
+            params="?select=cbs_snapshot_date&order=cbs_snapshot_date.desc&limit=1",
+        )
+        if not dates:
+            return {}, None
+        vintage = dates[0].get("cbs_snapshot_date")
+        if not vintage:
+            return {}, None
+        rows = sbclient.get_all(
+            "cbs_ros_projections",
+            params=(
+                "?select=player_norm,per_game_ppr,per_game_half_ppr,"
+                f"per_game_standard&cbs_snapshot_date=eq.{vintage}&limit=2000"
+            ),
+        )
+        if not rows:
+            return {}, None
         pg_keys = {"ppr": "per_game_ppr", "half_ppr": "per_game_half_ppr",
                    "standard": "per_game_standard"}
-        for row in d.get("rows", []):
+        out = {}
+        for row in rows:
             norm = str(row.get("player_norm", "")).strip()
             if not norm:
                 continue
@@ -133,7 +167,39 @@ def load_snapshot_natives(src):
                 val = row.get(pg_key)
                 if isinstance(val, (int, float)):
                     out[(norm, scoring)] = float(val)
-        return out, snap_path.parent.name if snap_path.parent != RAW_DIR / src else "direct"
+        if not out:
+            return {}, None
+        return out, vintage
+    except Exception:
+        return {}, None
+
+
+def load_snapshot_natives(src):
+    """Load source native values for fidelity comparison.
+
+    For ESPN: uses the CSV input (ros_half_ppr / 16) which is the actual
+    source the DDF leg reads. The snapshot has full-season totals which
+    are not comparable to the ROS per-game natives.
+
+    For cbsros (DB-backed since 2026-10-01): reads the Supabase table, which
+    is the pipeline's actual input. The local file is NOT the input; the
+    2026-10-04 false-red (file held the 20:12 UTC export, DB/fixture had the
+    21:21 UTC update) proved comparing against the file is the wrong check.
+
+    Returns: ({(player_norm, scoring): per_game_native}, vintage)
+    """
+    # Razzball: use the committed DDF legs. The raw snapshot is gitignored,
+    # but every leg records Razzball's published PPG as the source native.
+    if src == "razzball":
+        return load_razzball_leg_natives()
+
+    # CBS ROS (DB-backed since 2026-10-01): the pipeline's actual input is
+    # public.cbs_ros_projections, not the local file. Compare against the DB.
+    # On DB failure return empty (warn "cannot verify") rather than falling
+    # back to the file: the file is not the pipeline input, and the 2026-10-04
+    # false-red proved a stale file reads as a broken fixture.
+    if src == "cbsros":
+        return load_cbsros_db_natives()
 
     # ESPN: use the CSV input file directly
     if src == "espn":
@@ -170,7 +236,7 @@ def load_snapshot_natives(src):
         # Store ineligible set for filtering
         out["_ineligible"] = ineligible
         return out, vintage
-    
+
     # Other sources: use snapshot
     # For "reindexed-as-given" sources, the published value IS the pre-indexed native.
     # Which snapshot field is the fixture native's source of truth differs per
@@ -202,16 +268,16 @@ def load_snapshot_natives(src):
 
 def main():
     fixture_natives = load_fixture_natives()
-    
+
     report = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "sources": {},
     }
-    
+
     for src in SOURCES:
         snap_natives, snap_vintage = load_snapshot_natives(src)
         fixture_combos = fixture_natives.get(src, {})
-        
+
         # Use full_12 or equivalent as the reference combo
         ref_combo = None
         for cand in ["full_12", "full_12_qb1", "half_12", "standard_12"]:
@@ -220,7 +286,7 @@ def main():
                 break
         if not ref_combo and fixture_combos:
             ref_combo = list(fixture_combos.keys())[0]
-        
+
         src_report = {
             "label": SRC_LABEL[src],
             "snapshot_vintage": snap_vintage,
@@ -232,15 +298,15 @@ def main():
             "sample_natives": [],  # Top 5 per position for dashboard display
             "unindexed_curve": {},  # pos -> sorted native values for curve viz
         }
-        
+
         if not ref_combo or not snap_natives:
             src_report["status"] = "warn"
             src_report["reason"] = "No fixture native or snapshot data available"
             report["sources"][src] = src_report
             continue
-        
+
         fixture_vals = fixture_combos[ref_combo]
-        
+
         # Determine scoring/teams from combo name
         # full_12 -> ppr/full, 12 teams; half_12 -> half_ppr, 12 teams
         if ref_combo.startswith("full"):
@@ -256,15 +322,15 @@ def main():
             if f"_{t}" in ref_combo or f"_{t}_" in ref_combo:
                 teams = t
                 break
-        
+
         # Compare: fixture native (per-game) vs source native (per-game)
         mismatches = []
         compared = 0
         matched = 0
-        
+
         # Sample for dashboard: top players by native value
         sorted_fixture = sorted(fixture_vals.items(), key=lambda x: x[1], reverse=True)
-        
+
         for slug, fix_native in sorted_fixture[:50]:  # Check top 50
             # Skip ineligible players (IR/inactive use ECR fill, not ESPN)
             if slug in snap_natives.get("_ineligible", set()):
@@ -281,10 +347,10 @@ def main():
                     if name == slug:
                         src_val = val
                         break
-            
+
             if src_val is None:
                 continue
-            
+
             compared += 1
             # Exact match with small tolerance for floating point
             if abs(fix_native - src_val) < 0.01:
@@ -296,11 +362,11 @@ def main():
                     "source_native": round(src_val, 3),
                     "diff": round(fix_native - src_val, 3),
                 })
-        
+
         src_report["total_compared"] = compared
         src_report["exact_matches"] = matched
         src_report["mismatches"] = mismatches[:10]  # Top 10 mismatches
-        
+
         if compared == 0:
             src_report["status"] = "warn"
             src_report["reason"] = "No comparable players found"
@@ -310,7 +376,7 @@ def main():
         else:
             src_report["status"] = "ok"
             src_report["reason"] = f"All {compared} compared values match exactly"
-        
+
         # Build unindexed curve data: top 20 natives per position
         # Need position info - load from players
         try:
@@ -325,14 +391,14 @@ def main():
                     pos_by_slug[slug] = key_to_pos[key]
         except:
             pos_by_slug = {}
-        
+
         for pos in ["QB", "RB", "WR", "TE"]:
             pos_vals = [(s, v) for s, v in fixture_vals.items() if pos_by_slug.get(s) == pos]
             pos_vals.sort(key=lambda x: x[1], reverse=True)
             src_report["unindexed_curve"][pos] = [
                 {"player": s, "native": v} for s, v in pos_vals[:20]
             ]
-        
+
         # Sample natives for display
         for pos in ["QB", "RB", "WR", "TE"]:
             curve = src_report["unindexed_curve"][pos]
@@ -341,12 +407,12 @@ def main():
                     "pos": pos,
                     "top": curve[0],
                 })
-        
+
         report["sources"][src] = src_report
-    
+
     OUTPUT.write_text(json.dumps(report, indent=2))
     print(f"Wrote {OUTPUT}")
-    
+
     # Summary
     for src, r in report["sources"].items():
         print(f"  {src}: {r['status']} - {r['reason']}")
