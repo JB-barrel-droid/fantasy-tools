@@ -369,6 +369,10 @@ def main() -> int:
     dist_modules = DIST / "modules"
     dist_modules.mkdir(parents=True, exist_ok=True)
     shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
+    # The consolidation watcher is a modules/ page too — copy it on every sync
+    # (JEG-328, 2026-10-03: dist/modules/consolidation.html silently served a
+    # stale copy because only dashboard.html was synced here).
+    shutil.copy2(MODULES / "consolidation.html", dist_modules / "consolidation.html")
     # import_health_source() may resolve to the checked-in dist copy itself
     # (CI picks the freshest valid candidate, which is usually the pushed dist
     # file) -- never copy a file onto itself.

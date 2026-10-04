@@ -430,9 +430,9 @@
     <dt>League Members</dt>
     <dd>League size: 8, 10, 12, or 14 members.</dd>
     <dt>QB</dt>
-    <dd>QB variant — only applies to FantasyCalc sources (<code>qb1</code>/<code>qb2</code>). All other sources show blank.</dd>
+    <dd>QB variant. <code>qb1</code> / <code>qb2</code> appear only on FantasyCalc rows — the 1-QB vs 2-QB league variants of that source's value. Everything else stores <code>none</code>, shown as blank: no QB variant is applied, i.e. the value assumes 1-QB leagues. Verified 2026-10-03 against all 20,532 live rows: qb1/qb2 exist only on <code>fantasycalc</code> / <code>fantasycalc_adjusted</code> rows.</dd>
     <dt>View</dt>
-    <dd>Which value family: <code>combo_reindexed</code> = chart-ready values after pie indexation; <code>vorp_indexed</code> / <code>vorp</code> / <code>adj_values</code> = VORP translation outputs.</dd>
+    <dd>Which value family each row carries — four numbers for the same player, answering different questions. <code>combo_reindexed</code>: the trade value the source itself published, put on the shared chart scale (what the source actually said, not a model guess). <code>vorp</code>: value above waivers — how much better the player is than a waiver-wire replacement, computed from the eight position-and-role groups. <code>vorp_indexed</code>: each source's own raw trade numbers on the shared 0–70 chart scale; sources that publish only projections have no value here. <code>adj_values</code>: the final chart-ready number — shared 0–70 axis where the best player across every source hits exactly 70 and every source's values add up to the same overall budget.</dd>
     <dt>Value</dt>
     <dd>The exact final value — stored unrounded in consolidation. Rounding happens in presentation only.</dd>
   </dl>
@@ -447,8 +447,8 @@ const COLUMNS = [
   { key: 'week',     label: 'Week',    tip: 'NFL week 1-18. All weeks retained.' },
   { key: 'scoring',  label: 'Scoring', tip: 'full = Full PPR, half = Half PPR, standard = no PPR.' },
   { key: 'teams',    label: 'League Members',   tip: 'League size: 8, 10, 12, or 14 members.' },
-  { key: 'qb_variant', label: 'QB',    tip: 'QB variant — FantasyCalc only (qb1/qb2). Blank for all other sources.' },
-  { key: 'view',     label: 'View',    tip: 'combo_reindexed = chart values; vorp_indexed/vorp/adj_values = VORP outputs.' },
+  { key: 'qb_variant', label: 'QB',    tip: 'qb1/qb2 = FantasyCalc 1-QB/2-QB variants only. Blank (none) = 1-QB, no variant applied.' },
+  { key: 'view',     label: 'View',    tip: 'combo_reindexed = what the source published; vorp = value above waivers; vorp_indexed = source natives on 0-70; adj_values = final chart number.' },
   { key: 'value',    label: 'Value',   tip: 'Exact final value (unrounded). Rounding is presentation-only.' },
 ];
 
@@ -641,6 +641,8 @@ function renderTable() {
       const td = document.createElement('td');
       let v = r[c.key];
       if (v == null) v = '—';
+      // qb_variant 'none' is the no-variant default (1-QB leagues) — render as blank.
+      if (c.key === 'qb_variant' && v === 'none') v = '—';
       if (c.key === 'value' && typeof v === 'number') v = v.toFixed(1);
       td.textContent = v;
       tr.appendChild(td);
@@ -864,9 +866,10 @@ function renderPivot() {
   // Header row: row-dim label + each col value.
   const rowLabel = rowMeta.label;
   const colLabel = colMeta.label;
+  const dispKey = (dim, v) => (dim === 'qb_variant' && v === 'none') ? '—' : (v == null || v === '' ? '—' : v);
   let headerHTML = `<th class="row-dim" id="pivotRowHeader" title="Click to toggle sort">${rowLabel}<span class="sort-ind">${pivotSortDir > 0 ? '▲' : '▼'}</span></th>`;
   sortedCols.forEach(ck => {
-    const label = ck == null || ck === '' ? '—' : ck;
+    const label = dispKey(pivotColDim, ck);
     headerHTML += `<th class="col-dim" title="${colLabel} = ${escapeHtml(String(label))}">${escapeHtml(String(label))}</th>`;
   });
   headerRow.innerHTML = headerHTML;
@@ -878,7 +881,7 @@ function renderPivot() {
   // Body rows.
   let bodyHTML = '';
   displayRows.forEach(rk => {
-    let rowHTML = `<td class="row-key">${escapeHtml(rk == null ? '—' : String(rk))}</td>`;
+    let rowHTML = `<td class="row-key">${escapeHtml(String(dispKey(pivotRowDim, rk)))}</td>`;
     sortedCols.forEach(ck => {
       const vals = cells.get(pivotCellKey(rk, ck));
       if (!vals) {
