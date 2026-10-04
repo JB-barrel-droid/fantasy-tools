@@ -461,16 +461,55 @@
   }
 
   function buildPublishedSourceMap(key) {
+    // JEG-325 (2026-10-04): strangler-fig migration onto ConsolidationIndex.
+    // The detail deep-path is preserved for audit; the chart-visible reads
+    // go through the index lookup and are shadow-compared against the detail
+    // value. The dashboard's state.combos bookkeeping stays — it tracks
+    // *which* combos exist, not the values, so it is unaffected by the
+    // consolidation rewrite (§5 step 3).
     const combo = selectedCombo(key);
     const raw = combo?.values || combo?.reindexed || {};
     const native = combo?.native || {};
+    const ck = comboKeyFor(key);
+    const parsedCombo = ck ? (window.TradeValueConsolidation?.parseComboKey?.(ck) || null) : null;
+    const consolidationView = "reindexed";
+    const consolidation = (typeof window !== "undefined") ? window.TradeValueConsolidation : null;
     const values = new Map();
     Object.entries(raw).forEach(([sourceId, rawValue]) => {
       if (["fantasypros","fantasypros_adjusted"].includes(key) && !has(native,sourceId)) return;
       const mapped = data.player_keys?.[sourceId];
       const playerKey = Number(mapped);
       if (!Number.isInteger(playerKey) || !canonicalByKey.has(playerKey)) return;
-      const value = clampValue(rawValue);
+      const detailNumber = Number(rawValue);
+      let consolidatedNumber = null;
+      if (consolidation && parsedCombo) {
+        const qbArg = consolidation.isQbAware?.(key) ? (parsedCombo.qb || "") : "";
+        const looked = consolidation.lookup({
+          player: String(playerKey),
+          source: key,
+          scoring: parsedCombo.scoring,
+          teams: parsedCombo.teams,
+          qb: qbArg,
+          view: consolidationView,
+        });
+        if (looked !== null && looked !== undefined && Number.isFinite(Number(looked))) {
+          consolidatedNumber = Number(looked);
+          if (Number.isFinite(detailNumber)) {
+            consolidation.recordDivergence({
+              source: key,
+              player: playerKey,
+              scoring: parsedCombo.scoring,
+              teams: parsedCombo.teams,
+              qb: qbArg,
+              view: consolidationView,
+              detailValue: detailNumber,
+              consolidatedValue: consolidatedNumber,
+            });
+          }
+        }
+      }
+      const chosenValue = (consolidatedNumber !== null) ? consolidatedNumber : detailNumber;
+      const value = clampValue(chosenValue);
       if (value === null) return;
       if (values.has(playerKey) && values.get(playerKey) !== value) {
         throw new Error(`Conflicting values for canonical player ${playerKey} in ${sourceLabel(key)}.`);
