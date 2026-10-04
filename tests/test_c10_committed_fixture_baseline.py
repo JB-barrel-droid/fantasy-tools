@@ -52,6 +52,7 @@ class CommittedFixtureShaTest(unittest.TestCase):
 
     def tearDown(self):
         bpc.REPO = self._real_repo
+        bpc._FIXTURE_REF_FETCHED_AT.pop(str(self.repo), None)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def _init_repo_with_commit(self, content):
@@ -102,6 +103,121 @@ class CommittedFixtureShaTest(unittest.TestCase):
 
         got = bpc.committed_fixture_sha(self.fixture)
         self.assertEqual(got, hashlib.sha256(COMMITTED).hexdigest()[:12])
+
+    def test_stale_ref_false_reds_pre_fix(self):
+        """Discrimination for the 2026-10-03 ~21:07 CDT defect: the health
+        runner's origin/main ref still pointed at 54eb76a's fixture while main
+        had already moved to the chain's 1ccf84e0 rebuild. Reading
+        origin/main WITHOUT a fetch baselines against the superseded fixture
+        (pre-fix semantics) while the fixed helper fetches first and returns
+        the fresh blob."""
+        remote = self.tmp / "remote.git"
+        _git(self.tmp, "init", "--bare", "-q", "remote.git")
+        _git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+        seed = self.tmp / "seed"
+        _git(self.tmp, "clone", "-q", str(remote), "seed")
+        (seed / REL).parent.mkdir(parents=True, exist_ok=True)
+        (seed / REL).write_bytes(COMMITTED)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v1")
+        _git(seed, "push", "-q", "-u", "origin", "main")
+        consumer = self.tmp / "consumer"
+        _git(self.tmp, "clone", "-q", str(remote), "consumer")
+        # Remote advances; the consumer has not fetched since v1.
+        (seed / REL).write_bytes(DIRTY)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v2")
+        _git(seed, "push", "-q", "origin", "main")
+
+        # Pre-fix semantics (verbatim): read origin/main with no fetch.
+        stale = _git(consumer, "show", "origin/main:" + REL)
+        stale_sha = hashlib.sha256(stale.stdout).hexdigest()[:12]
+        self.assertEqual(stale_sha, hashlib.sha256(COMMITTED).hexdigest()[:12])
+        self.assertNotEqual(stale_sha, hashlib.sha256(DIRTY).hexdigest()[:12])
+
+        # Fixed helper fetches first and returns the fresh blob.
+        bpc.REPO = consumer
+        bpc._FIXTURE_REF_FETCHED_AT.pop(str(consumer), None)
+        got = bpc.committed_fixture_sha(consumer / REL)
+        self.assertEqual(got, hashlib.sha256(DIRTY).hexdigest()[:12])
+
+    def test_mid_run_rebuild_is_picked_up(self):
+        """2026-10-03 ~23:07 CDT defect: the health runner fetched origin/main
+        at process start, the comparison chain committed a new fixture
+        mid-run (752aa00), and C10 compared the served bytes against the
+        superseded blob -- seven "Production output WRONG" false reds on
+        healthy production. The refresh is time-based, so a baseline call
+        after the refresh window re-fetches and sees the rebuilt fixture.
+
+        Discrimination: with the fetch-once-per-process guard the second
+        call returns the stale blob, so this test fails there.
+        """
+        NEWER = b'{"built_at": "2026-10-04T04:00:00", "sources": {}, "rebuilt": true}'
+        remote = self.tmp / "remote.git"
+        _git(self.tmp, "init", "--bare", "-q", "remote.git")
+        _git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+        seed = self.tmp / "seed"
+        _git(self.tmp, "clone", "-q", str(remote), "seed")
+        (seed / REL).parent.mkdir(parents=True, exist_ok=True)
+        (seed / REL).write_bytes(COMMITTED)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v1")
+        _git(seed, "push", "-q", "-u", "origin", "main")
+        consumer = self.tmp / "consumer"
+        _git(self.tmp, "clone", "-q", str(remote), "consumer")
+        bpc.REPO = consumer
+
+        first = bpc.committed_fixture_sha(consumer / REL)
+        self.assertEqual(first, hashlib.sha256(COMMITTED).hexdigest()[:12])
+
+        # The chain rebuilds and pushes a new fixture AFTER our fetch.
+        (seed / REL).write_bytes(NEWER)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v2")
+        _git(seed, "push", "-q", "origin", "main")
+
+        # Sanity: the consumer's origin/main ref is now stale.
+        stale = _git(consumer, "show", "origin/main:" + REL)
+        self.assertEqual(
+            hashlib.sha256(stale.stdout).hexdigest()[:12], first)
+
+        # Minutes pass before C10 runs: expire the refresh window.
+        bpc._FIXTURE_REF_FETCHED_AT[str(consumer)] = 0
+
+        got = bpc.committed_fixture_sha(consumer / REL)
+        self.assertEqual(got, hashlib.sha256(NEWER).hexdigest()[:12])
+
+    def test_no_refetch_inside_window(self):
+        """Inside the refresh window no refetch happens (the fetch cost is
+        paid at most once per window, not per source). This pins the residual
+        trade-off: a rebuild landing inside the ~90s window is still missed,
+        which is why the window is short."""
+        NEWER = b'{"built_at": "2026-10-04T04:00:00", "sources": {}, "rebuilt": true}'
+        remote = self.tmp / "remote.git"
+        _git(self.tmp, "init", "--bare", "-q", "remote.git")
+        _git(remote, "symbolic-ref", "HEAD", "refs/heads/main")
+        seed = self.tmp / "seed"
+        _git(self.tmp, "clone", "-q", str(remote), "seed")
+        (seed / REL).parent.mkdir(parents=True, exist_ok=True)
+        (seed / REL).write_bytes(COMMITTED)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v1")
+        _git(seed, "push", "-q", "-u", "origin", "main")
+        consumer = self.tmp / "consumer"
+        _git(self.tmp, "clone", "-q", str(remote), "consumer")
+        bpc.REPO = consumer
+
+        first = bpc.committed_fixture_sha(consumer / REL)
+
+        (seed / REL).write_bytes(NEWER)
+        _git(seed, "add", REL)
+        _git(seed, "commit", "-qm", "v2")
+        _git(seed, "push", "-q", "origin", "main")
+
+        # Window not expired: no refetch, stale blob returned by design.
+        got = bpc.committed_fixture_sha(consumer / REL)
+        self.assertEqual(got, first)
+        self.assertNotEqual(got, hashlib.sha256(NEWER).hexdigest()[:12])
 
     def test_falls_back_to_working_tree_without_git(self):
         """Non-git environment: the working tree is the only baseline."""

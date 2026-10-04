@@ -32,6 +32,19 @@ const FIELD_COLUMNS = [{{key:'pos'}}, {{key:'disagreement'}}];
 const rows = () => [{{pos:'QB'}}];
 const activeReferenceWeek = () => 4;
 const window = {{}};
+// JEG-363: the dashboard reads combo existence through window.TradeValueProductData
+// (api.player_values). The mock provides the real contract surface backed by the
+// real fixture, using the real ValueModel.sourceComboKey mapping -- the same
+// mapping product-data.js implements via SCORING_PREFIX (verified identical by
+// tests/test_product_data_wiring.py).
+window.TradeValueProductData = {{
+  getPlayerValues: (q) => {{
+    const sourceKey = q.source === 'cbs_adjusted' ? 'cbs' : q.source;
+    const key = ValueModel.sourceComboKey(sourceKey, q.scoring, q.teams, 1);
+    const combo = key && data.sources[sourceKey] && data.sources[sourceKey].combos[key];
+    return combo ? {{values: new Map()}} : null;
+  }},
+}};
 const sourceAvailable = sourceComboExists;
 {helpers}
 {extract_function(curve, 'comboKey')}

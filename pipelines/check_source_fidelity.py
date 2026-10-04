@@ -232,6 +232,85 @@ class LivePullError(RuntimeError):
     """
 
 
+class WeekEvidenceError(LivePullError):
+    """Live page's week evidence (URL slug + page title/H1) does not match
+    the expected fixture week, or the two evidence sources conflict, or
+    no evidence can be extracted at all.
+
+    JEG-77: This is the exact incident class Jeremy caught -- a sitemap
+    lookup for week 5 returning a page that was actually still serving
+    week 4's values. Without comparing URL/title evidence against the
+    fixture's expected week, the live freshness check would happily
+    compare week 4 values against week 5 fixture natives and either
+    pass silently or report meaningless drift.
+
+    The live freshness path MUST fail closed on this error.
+    """
+
+
+# Regex used to extract the week number from the URL slug for the trade
+# value chart. Mirrors the LIVE_SECTION_SLUG pattern (`trade-value-chart-week-N-ros-rankings`)
+# so evidence matches the very pattern the sitemap discovered against.
+_WEEK_SLUG_RE = re.compile(
+    r"trade-value-chart-week-(\d{1,2})-ros-rankings", re.I)
+# Regex used to extract the week number from a page title / H1 / H2
+# heading text. USA Today uses variants like "fantasy trade value chart week 4",
+# "Week 4 fantasy trade charts", and "Week 4 running back trade value".
+# We require the explicit "week N" phrasing to avoid false positives from
+# references like "2024 season" or "top 10".
+_WEEK_TEXT_RE = re.compile(r"\bweek\s*(\d{1,2})\b", re.I)
+
+
+def page_week_evidence(url: str, title: str) -> int:
+    """Return the week int extracted from the live page, or raise WeekEvidenceError.
+
+    Compares two independent pieces of evidence:
+        1. URL slug (e.g. "...trade-value-chart-week-4-ros-rankings/777/").
+        2. Page <title> / H1 text (e.g. "Week 4 fantasy trade charts").
+
+    Fails closed on:
+        - missing URL evidence (no slug match, or url empty/None).
+        - missing title evidence (no "week N" match, or title empty/None).
+        - conflicting evidence (URL says week X, title says week Y, X != Y).
+        - mismatch with the expected fixture week (caller passes expected;
+          this function asserts URL and title agree AND both equal expected).
+
+    JEG-77: this is the fail-closed gate the live freshness path calls
+    BEFORE running check_live_freshness. Without it, a stale sitemap
+    entry or a typo'd URL can cause the comparison to silently run
+    against the wrong week's values.
+    """
+    if not url:
+        raise WeekEvidenceError(
+            "missing URL: cannot extract week evidence (url is empty)")
+
+    slug_match = _WEEK_SLUG_RE.search(url)
+    if not slug_match:
+        raise WeekEvidenceError(
+            "missing URL week evidence: %r does not contain "
+            "'trade-value-chart-week-N-ros-rankings'" % url)
+
+    if not title:
+        raise WeekEvidenceError(
+            "missing page title: cannot extract week evidence "
+            "(title is empty for %s)" % url)
+
+    title_match = _WEEK_TEXT_RE.search(title)
+    if not title_match:
+        raise WeekEvidenceError(
+            "missing title week evidence: no 'week N' phrasing found in %r"
+            % title)
+
+    url_week = int(slug_match.group(1))
+    title_week = int(title_match.group(1))
+    if url_week != title_week:
+        raise WeekEvidenceError(
+            "conflicting week evidence: URL slug says week %d, page title "
+            "%r says week %d" % (url_week, title, title_week))
+
+    return url_week
+
+
 def live_fetch(url, *, timeout=60.0, opener=None):
     """Fetch one URL with stdlib urllib (HTTPS, TLS-verified).
 
@@ -299,6 +378,44 @@ def live_discover_url(week, *, fetch_fn=None):
             return hits[-1]  # newest article wins (sitemap is chronological)
     raise LivePullError(
         "no USA Today trade-value-chart URL for week %d" % week)
+
+
+def extract_page_title(html: str) -> str:
+    """Extract a human-readable week-evidence string from a USA Today article.
+
+    Looks for, in order of preference:
+        1. <title>...</title>
+        2. <h1>...</h1> (USA Today wraps the article title in <h1>)
+        3. The first <h2>...</h2> (used as the first section heading)
+
+    Returns "" if none are present. Pure function (no I/O). The result
+    is passed to page_week_evidence(), which extracts the "week N" phrasing.
+
+    The function deliberately does NOT try to be exhaustive -- the goal
+    is to surface one strong piece of evidence per page, not to second-
+    guess the publisher's markup.
+    """
+    if not html:
+        return ""
+    # 1) <title>
+    m = re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I)
+    if m:
+        title = re.sub(r"<.*?>", "", m.group(1)).strip()
+        if title:
+            return title
+    # 2) <h1>
+    m = re.search(r"<h1[^>]*>(.*?)</h1>", html, re.S | re.I)
+    if m:
+        title = re.sub(r"<.*?>", "", m.group(1)).strip()
+        if title:
+            return title
+    # 3) First <h2>
+    m = re.search(r"<h2[^>]*>(.*?)</h2>", html, re.S | re.I)
+    if m:
+        title = re.sub(r"<.*?>", "", m.group(1)).strip()
+        if title:
+            return title
+    return ""
 
 
 def parse_usatoday_tables(html: str) -> list[dict]:
@@ -437,13 +554,16 @@ def live_pull_usatoday(*, week=None, fetch_fn=None, timeout=60.0):
     Returns a dict with:
         - source: "usatoday"
         - url: the article URL
+        - page_title: the extracted <title>/<h1>/<h2> (used by the
+          page_week_evidence() gate).
         - fetched_at: ISO8601 UTC timestamp
         - tables: parsed tables
         - native_by_combo: {combo: {slug: value}}
         - n_tables, n_rows: counts
 
     Raises LivePullError on any failure (fail closed; never returns a
-    partial result).
+    partial result). Week-evidence gating is performed by the caller
+    (run_live_usatoday_check) so the comparison logic remains untouched.
     """
     from nfl_week import current_nfl_week
 
@@ -455,6 +575,7 @@ def live_pull_usatoday(*, week=None, fetch_fn=None, timeout=60.0):
     if status != 200 or not html:
         raise LivePullError(
             "non-200 or empty body from %s: status=%r" % (url, status))
+    page_title = extract_page_title(html)
     tables = parse_usatoday_tables(html)
     if len(tables) < 4:
         raise LivePullError(
@@ -467,6 +588,7 @@ def live_pull_usatoday(*, week=None, fetch_fn=None, timeout=60.0):
     return {
         "source": "usatoday",
         "url": url,
+        "page_title": page_title,
         "fetched_at": datetime.now(timezone.utc).isoformat(),
         "tables": tables,
         "native_by_combo": native_by_combo,
@@ -555,6 +677,14 @@ def run_live_usatoday_check(
     see what was fetched and from where. On LivePullError, returns
     ({"error": str}, [failure]) so the failure is visible rather than a
     silent pass.
+
+    JEG-77 fail-closed gate: BEFORE running check_live_freshness (which
+    is unchanged), this function calls page_week_evidence() on the
+    live page's URL and page title and compares the extracted week
+    against the expected fixture week. A missing / conflicting /
+    mismatching evidence raises WeekEvidenceError, which surfaces as
+    a live_unavailable failure. This is the gate that catches
+    "stale sitemap returned last week's article as current".
     """
     try:
         live_pull = live_pull_usatoday(week=week, fetch_fn=fetch_fn)
@@ -565,6 +695,44 @@ def run_live_usatoday_check(
             "type": "live_unavailable",
             "message": "usatoday live pull failed: %s" % e,
         }])
+
+    # Week-evidence gate (JEG-77 fail-closed). Runs BEFORE the comparison
+    # so a stale/wrong-week page can never silently compare against the
+    # wrong fixture week.
+    expected_week = week
+    if expected_week is None:
+        # live_pull_usatoday already resolved None -> current_nfl_week();
+        # fall back to nfl_week only if the caller passed None and we
+        # want a second opinion. (Both paths converge on the same value.)
+        try:
+            from nfl_week import current_nfl_week
+            expected_week = current_nfl_week()
+        except Exception:
+            expected_week = None
+    try:
+        observed_week = page_week_evidence(
+            live_pull.get("url", "") or "",
+            live_pull.get("page_title", "") or "",
+        )
+    except WeekEvidenceError as e:
+        return (live_pull, [{
+            "source": "usatoday",
+            "combo": combo,
+            "type": "live_unavailable",
+            "message": "usatoday week evidence gate failed: %s" % e,
+        }])
+    if expected_week is not None and observed_week != expected_week:
+        return (live_pull, [{
+            "source": "usatoday",
+            "combo": combo,
+            "type": "live_unavailable",
+            "message": (
+                "usatoday week evidence gate failed: page is week %d but "
+                "expected week %d (URL %s, title %r)"
+                % (observed_week, expected_week,
+                   live_pull.get("url"), live_pull.get("page_title")))
+        }])
+
     failures = check_live_freshness(
         "usatoday", fixture, live_pull["native_by_combo"],
         combo=combo, tolerance=tolerance,

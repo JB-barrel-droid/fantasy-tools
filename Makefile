@@ -153,6 +153,7 @@ test-unit:
 	python3 -m unittest tests.test_vorp_views_preview
 	python3 -m unittest tests.test_jeg242_blend_reference
 	python3 -m unittest tests.test_jeg298_roster_shape_no_kdst
+	python3 -m unittest tests.test_chart_kdst_positions_and_view_wiring
 	python3 -m unittest tests.test_run_as_published_vorp
 	python3 -m unittest tests.test_transform_batch70_to_comparison
 	python3 -m unittest tests.test_backstop_hash_roundtrip
@@ -163,18 +164,21 @@ test-unit:
 	python3 -m unittest tests.test_methodology_consistency
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
+	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_publication_windows
 	python3 -m unittest tests.test_qb_slot_scoping
 	python3 -m unittest tests.test_source_combo_contract
 	python3 -m unittest tests.test_razzball_monitor_coverage
 	python3 -m unittest tests.test_lineage_merge
 	python3 -m unittest tests.test_espn_zeroed_staleness
+	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
 	python3 -m unittest tests.test_reference_freshness
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate
 	python3 -m unittest tests.test_source_reference_build
 	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_consolidation_reconciliation
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend

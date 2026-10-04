@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T12:21:58.317084+00:00",
+  "generated_at": "2026-10-04T12:25:51.967263+00:00",
   "sources": {
     "espn": {
       "label": "ESPN",
@@ -1502,10 +1502,71 @@
       "label": "FantasyCalc",
       "snapshot_vintage": "week-4",
       "reference_combo": "full_12_qb1",
-      "status": "ok",
+      "status": "bad",
       "total_compared": 44,
-      "exact_matches": 44,
-      "mismatches": [],
+      "exact_matches": 1,
+      "mismatches": [
+        {
+          "player": "jahmyr gibbs",
+          "fixture_native": 10745.0,
+          "source_native": 10740.0,
+          "diff": 5.0
+        },
+        {
+          "player": "bijan robinson",
+          "fixture_native": 10169.0,
+          "source_native": 10124.0,
+          "diff": 45.0
+        },
+        {
+          "player": "jonathan taylor",
+          "fixture_native": 8586.0,
+          "source_native": 8541.0,
+          "diff": 45.0
+        },
+        {
+          "player": "christian mccaffrey",
+          "fixture_native": 7969.0,
+          "source_native": 8011.0,
+          "diff": -42.0
+        },
+        {
+          "player": "ceedee lamb",
+          "fixture_native": 7895.0,
+          "source_native": 7980.0,
+          "diff": -85.0
+        },
+        {
+          "player": "puka nacua",
+          "fixture_native": 7773.0,
+          "source_native": 7865.0,
+          "diff": -92.0
+        },
+        {
+          "player": "derrick henry",
+          "fixture_native": 7285.0,
+          "source_native": 7278.0,
+          "diff": 7.0
+        },
+        {
+          "player": "james cook",
+          "fixture_native": 6938.0,
+          "source_native": 6966.0,
+          "diff": -28.0
+        },
+        {
+          "player": "josh allen",
+          "fixture_native": 6331.0,
+          "source_native": 6314.0,
+          "diff": 17.0
+        },
+        {
+          "player": "brock bowers",
+          "fixture_native": 6047.0,
+          "source_native": 6088.0,
+          "diff": -41.0
+        }
+      ],
       "sample_natives": [
         {
           "pos": "QB",
@@ -1866,7 +1927,7 @@
           }
         ]
       },
-      "reason": "All 44 compared values match exactly"
+      "reason": "43 mismatches out of 44 compared"
     },
     "fantasypros": {
       "label": "FantasyPros",

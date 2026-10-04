@@ -47,6 +47,13 @@ import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+# JEG-75: live-name matching uses the canonical normalizer -- never an ad-hoc
+# one. (An earlier _normalize_name helper was flagged by
+# tests.test_player_identity_guard; the canonical module is the only
+# legitimate normalizer.)
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from canonical_players import norm_player_name
+
 REPO = Path(__file__).resolve().parent.parent
 SCHEMA = "trade-value-comparison-review-v1"
 POSITIONS = ("QB", "RB", "WR", "TE")
@@ -94,11 +101,6 @@ def _sha256_canonical(obj):
         json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def _normalize_name(s):
-    """Normalize for slug<->name matching: lowercase, alphanumeric only."""
-    return "".join(c for c in s.lower() if c.isalnum())
-
-
 def verify_top25_live(source, candidate_natives):
     """Verify the top-25 candidate natives against the source's live site.
 
@@ -126,16 +128,16 @@ def verify_top25_live(source, candidate_natives):
     if not live:
         return False, "live API returned no players"
     # Top-25 by candidate native value (these matter most for the chart).
-    # Candidate natives are keyed by slug; match to live names via
-    # normalized (lowercase, alphanumeric-only) comparison.
-    live_norm = {_normalize_name(n): v for n, v in live.items()}
+    # Candidate natives are keyed by slug; match to live names via the
+    # canonical norm_player_name (JEG-75: never an ad-hoc normalizer).
+    live_norm = {norm_player_name(n): v for n, v in live.items()}
     top = sorted(candidate_natives.items(), key=lambda kv: float(kv[1]),
                  reverse=True)[:LIVE_VERIFY_N]
     matched = 0
     checked = 0
     mismatches = []
     for slug, cand_val in top:
-        live_val = live_norm.get(_normalize_name(slug))
+        live_val = live_norm.get(norm_player_name(slug))
         if live_val is None:
             continue
         checked += 1

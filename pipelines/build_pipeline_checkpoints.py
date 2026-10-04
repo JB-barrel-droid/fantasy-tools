@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -105,6 +106,40 @@ def days_old(iso_str):
     return delta.total_seconds() / 86400
 
 
+_FIXTURE_REF_FETCHED_AT = {}
+
+
+def _refresh_fixture_ref(max_age_seconds=90):
+    """Best-effort `git fetch origin main`, refreshed when the last fetch is
+    older than max_age_seconds (default 90s).
+
+    committed_fixture_sha() reads the origin/main blob, which is only as
+    fresh as the checkout's last fetch. Fetch-once-per-process closed the
+    stale-checkout hole (2026-10-03 ~21:07 CDT), but the checkpoint run takes
+    minutes: on 2026-10-03 ~23:07 CDT the runner fetched at process start,
+    the comparison chain committed a new fixture mid-run (752aa00), and C10
+    compared the served bytes against the superseded blob — seven
+    "Production output WRONG" false reds on healthy production. A time-based
+    refresh closes the mid-run race: the C10 baseline call, minutes into the
+    run, sees an expired timestamp, re-fetches, and reads the current blob.
+    Fetch is read-only: it touches refs only, never the working tree or
+    index, so it is safe in the shared checkout. A failed fetch (offline CI,
+    no origin) is ignored and the function falls back to the existing
+    ref -> HEAD -> working-tree chain.
+    """
+    repo_key = str(REPO)
+    now = time.time()
+    if now - _FIXTURE_REF_FETCHED_AT.get(repo_key, 0) < max_age_seconds:
+        return
+    _FIXTURE_REF_FETCHED_AT[repo_key] = now
+    try:
+        subprocess.run(
+            ["git", "-C", repo_key, "fetch", "--quiet", "origin", "main"],
+            capture_output=True, timeout=30)
+    except Exception:
+        pass
+
+
 def committed_fixture_sha(fixture_path):
     """SHA-12 of the fixture as committed on origin/main.
 
@@ -115,7 +150,14 @@ def committed_fixture_sha(fixture_path):
     byte-for-byte), so the working tree is not a trustworthy baseline.
     Prefer the committed blob; fall back to the working tree only when git
     cannot provide it (non-git environment, missing ref).
+
+    The origin/main ref is refreshed with a read-only fetch first: a stale
+    ref (checkout not fetched since before a chain rebuild) would baseline
+    against a superseded fixture and false-red C10 on healthy production
+    (2026-10-03 21:07 CDT: ref pointed at 54eb76a, live served 1ccf84e0's
+    bytes). See _refresh_fixture_ref.
     """
+    _refresh_fixture_ref()
     try:
         rel = fixture_path.relative_to(REPO).as_posix()
     except ValueError:
@@ -133,6 +175,37 @@ def committed_fixture_sha(fixture_path):
     if fixture_path.exists():
         return hashlib.sha256(fixture_path.read_bytes()).hexdigest()[:12]
     return None
+
+
+def committed_fixture_json(rel_path):
+    """Parsed JSON of a repo fixture as committed on origin/main.
+
+    Checks that must report on what Pages serves (vorp_translation, C10)
+    read the committed blob, not the working tree: the shared checkout is
+    routinely dirty with other lanes' uncommitted experiments, and on
+    2026-10-04 that dirt false-redded vorp_translation three times (a lane's
+    fixture edit unpinned the data-driven _qb_divergent_siblings guard, so
+    expected combos sat on reindex-fallback and the monitor cried bad while
+    production served warn). Reads the origin/main blob first (after the same
+    read-only fetch refresh committed_fixture_sha uses), then HEAD, then the
+    working tree. Returns (data, source_label) or (None, "unreadable").
+    """
+    _refresh_fixture_ref()
+    rel = Path(rel_path).as_posix()
+    for rev in ("origin/main", "HEAD"):
+        try:
+            out = subprocess.run(
+                ["git", "-C", str(REPO), "show", f"{rev}:{rel}"],
+                capture_output=True, timeout=15)
+            if out.returncode == 0 and out.stdout:
+                return json.loads(out.stdout.decode("utf-8")), rev
+        except Exception:
+            continue
+    wt = REPO / rel
+    try:
+        return json.loads(wt.read_text(encoding="utf-8")), "working-tree"
+    except (OSError, json.JSONDecodeError):
+        return None, "unreadable"
 
 
 def evaluate_pages_deploy(runs):
@@ -256,6 +329,50 @@ def newest_razzball_leg():
     candidates.sort(reverse=True)
     _, _, _, _, leg_path, leg = candidates[0]
     return str(leg_path.relative_to(REPO)), leg
+
+
+def c6_candidate_verdict(src, cand_mtime, review_mtime, chain_result, chain_run_at):
+    """Compute the C6 (candidate build/review) verdict for a source.
+
+    Razzball is a file-scraped source by project rule (JEG-306): it has no
+    candidate/review artifact by design, so reporting `unk` is a false gap.
+    The c6/c7 stages are N/A for Razzball, which is an honest "ok" rather
+    than a missing-artifact alarm. JEG-307 owns whether Razzball should join
+    the candidate/promotion chain; this branch only changes the verdict for
+    the by-design-empty case.
+
+    For other sources, the verdict falls back through (newest timestamp) ->
+    (chain status) -> (unk) tiers, same as the previous inline logic.
+    """
+    # Use the newer of candidate build and review
+    c6_ts = None
+    for ts in [cand_mtime, review_mtime]:
+        if ts and (not c6_ts or parse_iso(ts) > parse_iso(c6_ts)):
+            c6_ts = ts
+    c6_days = days_old(c6_ts)
+    if src == "razzball":
+        return {
+            "timestamp": None,
+            "status": "ok",
+            "reason": "File-scraped source; c6/c7 stages N/A by design.",
+        }
+    if c6_ts and c6_days is not None:
+        if c6_days > 14:
+            return {"timestamp": c6_ts, "status": "bad",
+                "reason": f"Last candidate/review {c6_days:.0f}d ago. Build pipeline may be broken."}
+        if c6_days > 7:
+            return {"timestamp": c6_ts, "status": "warn",
+                "reason": f"Last candidate/review {c6_days:.0f}d ago."}
+        return {"timestamp": c6_ts, "status": "ok",
+            "reason": f"Candidate built and reviewed {c6_days:.1f}d ago."}
+    if chain_result:
+        # Fall back to chain status timestamp
+        c6_days = days_old(chain_run_at)
+        return {"timestamp": chain_run_at,
+            "status": "warn" if (c6_days or 99) > 2 else "ok",
+            "reason": f"No candidate/review artifacts on disk. Chain reported '{chain_result}' at {chain_run_at}."}
+    return {"timestamp": None, "status": "unk",
+        "reason": "No candidate or review artifacts found."}
 
 
 def razzball_health_from_fixture(fixture):
@@ -489,23 +606,41 @@ def build_checkpoints():
                 "reason": f"Snapshot path {snap_path} not found on disk."}
 
         # C5: Health verification - from checked_at + status
-        c5_status = h.get("status", "unknown")
-        c5_checked_at = h.get("_checked_at") or health_checked_at
-        c5_days = days_old(c5_checked_at)
-        c5_reason = h.get("failure_reason", "")
-        if c5_status == "ok":
-            cps["c5_health"] = {"timestamp": c5_checked_at,
-                "status": "ok" if (c5_days or 99) < 2 else "warn",
-                "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
-        elif c5_status == "warning":
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
-                "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
-        elif c5_status in ("failed", "missing", "error"):
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
-                "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
+        # JEG-307: Razzball c5 is driven by the new vintage_date / age_days
+        # freshness entry (no CI puller refreshes Razzball -- GAP-024).
+        if src == "razzball":
+            vd = h.get("vintage_date")
+            age = h.get("age_days")
+            if vd is None or age is None:
+                cps["c5_health"] = {"timestamp": None, "status": "unk",
+                    "reason": "No Razzball freshness entry (no snapshot under data/raw/sources/razzball/)."}
+            elif age <= 2:
+                cps["c5_health"] = {"timestamp": vd, "status": "ok",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (within 2d fresh window)."}
+            elif age <= 6:
+                cps["c5_health"] = {"timestamp": vd, "status": "warn",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (3-6d warn window). No CI puller refreshes it (GAP-024)."}
+            else:
+                cps["c5_health"] = {"timestamp": vd, "status": "bad",
+                    "reason": f"Razzball snapshot {vd} is {age}d old (>6d -- snapshot is stale)."}
         else:
-            cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
-                "reason": "No health record for this source."}
+            c5_status = h.get("status", "unknown")
+            c5_checked_at = h.get("_checked_at") or health_checked_at
+            c5_days = days_old(c5_checked_at)
+            c5_reason = h.get("failure_reason", "")
+            if c5_status == "ok":
+                cps["c5_health"] = {"timestamp": c5_checked_at,
+                    "status": "ok" if (c5_days or 99) < 2 else "warn",
+                    "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
+            elif c5_status == "warning":
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
+                    "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
+            elif c5_status in ("failed", "missing", "error"):
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
+                    "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
+            else:
+                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
+                    "reason": "No health record for this source."}
 
         # C6: Candidate build/review - from candidate dir + review file
         cand_dir = REPO / "output" / "comparison-candidates" / src
@@ -516,27 +651,14 @@ def build_checkpoints():
         for ts in [cand_mtime, review_mtime]:
             if ts and (not c6_ts or parse_iso(ts) > parse_iso(c6_ts)):
                 c6_ts = ts
-        c6_days = days_old(c6_ts)
         chain_result = chain_sources.get(src, "")
-        if c6_ts and c6_days is not None:
-            if c6_days > 14:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "bad",
-                    "reason": f"Last candidate/review {c6_days:.0f}d ago. Build pipeline may be broken."}
-            elif c6_days > 7:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "warn",
-                    "reason": f"Last candidate/review {c6_days:.0f}d ago."}
-            else:
-                cps["c6_candidate"] = {"timestamp": c6_ts, "status": "ok",
-                    "reason": f"Candidate built and reviewed {c6_days:.1f}d ago."}
-        elif chain_result:
-            # Fall back to chain status timestamp
-            c6_days = days_old(chain_run_at)
-            cps["c6_candidate"] = {"timestamp": chain_run_at,
-                "status": "warn" if (c6_days or 99) > 2 else "ok",
-                "reason": f"No candidate/review artifacts on disk. Chain reported '{chain_result}' at {chain_run_at}."}
-        else:
-            cps["c6_candidate"] = {"timestamp": None, "status": "unk",
-                "reason": "No candidate or review artifacts found."}
+        cps["c6_candidate"] = c6_candidate_verdict(
+            src=src,
+            cand_mtime=cand_mtime,
+            review_mtime=review_mtime,
+            chain_result=chain_result,
+            chain_run_at=chain_run_at,
+        )
 
         # C7: Fixture promotion - from promotion file (real promoted_at + review_verdict)
         promo_path, promo_mtime = newest_file_mtime("output/comparison-promotions", rf"^{src}-.*-promotion\.json$")
@@ -716,9 +838,34 @@ def build_checkpoints():
             cps["c10_rendered"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}
 
+        # Per-source content_vintage (JEG-315, GAP-043): surfaced from the
+        # fixture's per-section `content_vintage` (or top-level `vintage` for
+        # espn/cbsros/razzball, which use a top-level `vintage` instead).
+        # The fleet summary below only cites the fixture's built_at, which
+        # conflates publisher release freshness across all 7 sources. The
+        # dashboard needs the per-source vintage to color-code each card's
+        # freshness line (green <=4d, amber 4-7d, red >7d).
+        fixture_section = fixture.get("sources", {}).get(src, {}) or {}
+        per_section_vintage = (
+            fixture_section.get("content_vintage")
+            or fixture_section.get("vintage")
+            or (
+                (fixture_section.get("lineage") or {}).get("raw_vintage")
+            )
+            or (
+                (fixture_section.get("source_provenance") or {}).get("content_vintage")
+            )
+        )
         result["sources"][src] = {
             "label": SRC_LABEL[src],
             "checkpoints": cps,
+            "content_vintage": per_section_vintage,
+            "content_vintage_source": (
+                "content_vintage" if fixture_section.get("content_vintage") else
+                "vintage" if fixture_section.get("vintage") else
+                "lineage.raw_vintage" if (fixture_section.get("lineage") or {}).get("raw_vintage") else
+                "source_provenance.content_vintage"
+            ),
         }
 
     # Chain runner info (for the automation section)
@@ -855,6 +1002,11 @@ def build_vorp_translation_summary():
     reindex-fallback by design) has translation.method == "vorp-supabase"
     with grain.week == the current NFL week.
 
+    The fixture is read as COMMITTED on origin/main (committed_fixture_json),
+    not from the working tree: the shared checkout is routinely dirty with
+    other lanes' experiments, and working-tree reads false-red this check
+    while production serves the committed bytes.
+
     Status:
       ok   - all expected grains at the current week via vorp-supabase
       warn - any expected grain week < current week (weekly refresh or chain
@@ -868,14 +1020,14 @@ def build_vorp_translation_summary():
     from translate_via_vorp import AS_PUBLISHED_SOURCES, _qb_divergent_siblings
 
     label = "VORP: legacy translation freshness (not Option C readiness)"
-    fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-    try:
-        fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as e:
+    fixture, fixture_source = committed_fixture_json(
+        "data/fixtures/current/comparison-sources-data.json")
+    if fixture is None:
         return {
             "label": label,
             "status": "unk",
-            "reason": f"comparison-sources-data.json unreadable: {e}",
+            "reason": "comparison-sources-data.json unreadable "
+                      "(tried origin/main, HEAD, working tree)",
             "timestamp": None,
         }
 

@@ -4,6 +4,61 @@ Draft SQL for each scheduling migration. All jobs run in `SHADOW` mode first
 (see `01-migration-tracker.md`). Nothing here is live until Jeremy approves
 the cutover per the tracker gates.
 
+## Three separate concerns — keep them separate
+
+This doc, Job 1's shadow spec, and the JEG-322 work each touch a
+distinct observation surface. Conflating them produces false-green
+checks like the one JEG-323 names. The three concerns are:
+
+1. **Source content freshness / health** — *what does the upstream
+   page or feed currently look like?* Owner: `pipelines/verify_import_health.py`
+   (import-health gate, `make import-health`). Lives in the seven
+   pipeline source tables (`source_trade_values`,
+   `espn_season_projections`, `cbs_trade_values`, `cbs_ros_projections`,
+   `razzball_projections`, etc.) plus
+   `data/fixtures/current/comparison-sources-data.json`. Cron: GHA
+   `import-health.yml`. This is the only one of the three with a
+   working repo definition today.
+
+2. **Source-vintage change detection** — *did the source content move
+   relative to the last time we dispatched a rebuild?* Owner: the
+   in-flight JEG-285 Job 1, replicating
+   `pipelines/check_source_vintage.py`. Backed by the planned
+   `public.pipeline_cron_state` table and the new
+   `public.check_source_vintages()` plpgsql function (see Job 1
+   spec). Reads only the same pipeline source tables plus the state
+   table. Cron: this migration's `vintage-check-shadow` (hourly),
+   cutover `vintage-check`.
+
+3. **Code-change detection (pipelines/ hash, JEG-205 path)** — *did
+   the pipeline scripts that produce the fixtures change since the
+   last dispatched hash?* Owner: `pipelines/check_source_vintage.py:check_code_change`
+   and `.github/source-vintage-state.json`. **This stays
+   GitHub-side.** It is NOT moved to pg_cron; the JEG-285 Job 1 SQL
+   always emits `code_changed=false` and `code_hash=null` because
+   pg_cron cannot observe the repo's filesystem. Treat the GHA
+   `source-vintage-check.yml` run as the only source of truth for the
+   code-hash decision.
+
+Any future doc, runbook, or alert that needs one of these MUST cite
+the matching concern above. Mixing them is the failure mode JEG-323
+was created to surface.
+
+> **JEG-323 — repo-side warning.** The function named
+> `public.check_source_vintages()` is currently a **console-only stub in
+> production Supabase** (returns the hard-coded `{"changed": false, "note":
+> "stub"}`) and has **no definition in this repo**. There is no
+> `CREATE FUNCTION check_source_vintages` body anywhere under
+> `sql/migrations/` or `sql/contract/` (verified by grep and by the
+> JEG-323 regression test
+> `tests/test_health_function_no_hardcoded_green.py`, which scans both
+> directories). It MUST NOT be cited as a working check in any docs,
+> runbooks, or shadow comparisons. The JEG-323 ticket tracks its
+> revoke; until that work lands, treat the function as a non-existent
+> health surface. When this spec's implementation phase adds the real
+> function body, the new body MUST read at least one table (FROM or
+> JOIN) so the same regression guard stays green.
+
 ## Prerequisites (run once, before any job)
 
 ```sql
@@ -86,6 +141,21 @@ Note: `check_source_vintages()` is a plpgsql function to be written in the
 implementation phase. It replicates `pipelines/check_source_vintage.py`:
 compare each source's latest Supabase vintage against the last-dispatched
 vintage stored in a `pipeline_cron_state` table.
+
+> **JEG-323 — repo-side warning.** The function named
+> `public.check_source_vintages()` is currently a **console-only stub in
+> production Supabase** (returns the hard-coded `{"changed": false, "note":
+> "stub"}`) and has **no definition in this repo**. There is no
+> `CREATE FUNCTION check_source_vintages` body anywhere under
+> `sql/migrations/` or `sql/contract/` (verified by grep and by the
+> JEG-323 regression test
+> `tests/test_health_function_no_hardcoded_green.py`, which scans both
+> directories). It MUST NOT be cited as a working check in any docs,
+> runbooks, or shadow comparisons. The JEG-323 ticket tracks its
+> revoke; until that work lands, treat the function as a non-existent
+> health surface. When this spec's implementation phase adds the real
+> function body, the new body MUST read at least one table (FROM or
+> JOIN) so the same regression guard stays green.
 
 ## Jobs 2–6: Action triggers (dispatch-only)
 

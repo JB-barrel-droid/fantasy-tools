@@ -158,8 +158,13 @@ lane, build the result via `make_result`, and write it via `write_result`
 unless `dry_run=True`. Dry-run is the default for every test/automation
 path: the adapter must not touch the inbox or any external system.
 
-Today the only shipped adapter is `MiniMaxAdapter` (see ROUTING.md for why
-no claude/chatgpt adapter is built). Shipping a new lane adapter means
+Today the shipped adapters are `MiniMaxAdapter` and the ChatGPT API adapter
+(`lanes/chatgpt_adapter.py`, shipped 2026-10-04). The chatgpt adapter dispatches
+outbox markdown briefs to the OpenAI API via the `custom.openai` credential and
+writes results to `lanes/inbox/chatgpt/` — it is the lane for review/analysis
+briefs and bounded text work. (`codex exec` remains broken on this host for
+agentic repo work; the API path does not need the codex tool host.) Shipping a
+new lane adapter means
 subclassing `LaneAdapter`, registering a CLI under `bin/<lane>`, and
 extending `KNOWN_LANES` — never extend `KNOWN_LANES` without an adapter.
 

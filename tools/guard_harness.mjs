@@ -272,8 +272,7 @@ function setupWidgetEnvironment(fixtureDir) {
     if (process.env.GUARD_HARNESS_VERBOSE) REAL_CONSOLE_WARN(...args);
   };
   globalThis.document = new FakeDocument(players);
-  globalThis.devicePixelRatio = 1;
-  globalThis.visualViewport = {width: 1200, height: 800, offsetLeft: 0, offsetTop: 0};
+  globalThis.devicePixelRatio = 1;  globalThis.visualViewport = {width: 1200, height: 800, offsetLeft: 0, offsetTop: 0};
   globalThis.matchMedia = () => ({matches: false, addEventListener() {}, removeEventListener() {}});
   globalThis.CustomEvent = class CustomEvent {
     constructor(type, options = {}) {
@@ -296,11 +295,126 @@ function setupWidgetEnvironment(fixtureDir) {
     }
     return {ok: true, status: 200, json: async () => readJson(file)};
   };
+
+  installProductDataStub(fixtureDir, comparisonPath, adjustmentPath);
+}
+
+// JEG-327 Phase D: the real product-data.js reads PostgREST (api.* views),
+// which does not exist in the harness. Install a fixture-backed stub that
+// implements the five semantic methods + transitional helpers the widget
+// calls, projecting the legacy fixtures through the contract shape.
+// Harness-only; production uses the real PostgREST reader.
+function installProductDataStub(fixtureDir, comparisonPath, adjustmentPath) {
+  const playersPayload = readJson(path.join(fixtureDir, "players.json"));
+  const comparison = readJson(comparisonPath);
+  let adjustmentInputs = null;
+  try {
+    if (fs.existsSync(adjustmentPath)) adjustmentInputs = readJson(adjustmentPath);
+  } catch { adjustmentInputs = null; }
+
+  const players = (playersPayload.players || []).map(p => Object.freeze({
+    player_key: Number(p.player_key),
+    canonical_name: String(p.canonical_name || p.name || ""),
+    pos: String(p.pos || ""),
+    team: String(p.team || "—"),
+    ir_zeroed: Boolean(p.ir_zeroed),
+    kdst_excluded_from_chart: false,
+    espn_ppg: p.espn_ppg || null,
+    rz_ppg: p.rz_ppg || null,
+    cbsros_ppg: p.cbsros_ppg || null,
+    ecr_ppg: p.ecr_ppg || null,
+    agent_ranking_ppg: p.agent_ranking_ppg || null,
+    blend_ppg: p.blend_ppg || null,
+    games_remaining: null,
+    full_name: String(p.canonical_name || p.name || ""),
+    name: String(p.canonical_name || p.name || ""),
+  }));
+  const playerByKey = new Map(players.map(p => [p.player_key, p]));
+  const nameToKey = comparison.player_keys || {};
+
+  function comboKeyFor(scoring, teams) {
+    // Must match ValueModel.sourceComboKey: ppr→full, half_ppr→half, standard→standard.
+    const s = String(scoring || "").toLowerCase();
+    const prefix = s === "ppr" || s === "full" || s.startsWith("full") ? "full"
+      : s === "half_ppr" || s === "half" || s.startsWith("half") ? "half"
+      : "standard";
+    return `${prefix}_${teams}`;
+  }
+
+  function getPlayerValues(query) {
+    const { source, scoring, teams, view } = query || {};
+    if (!source || !scoring || teams == null) return null;
+    const src = source === "cbs_adjusted" ? "cbs" : source;
+    const section = comparison.sources ? comparison.sources[src] : null;
+    if (!section) return null;
+    const combo = section.combos ? section.combos[comboKeyFor(scoring, teams)] : null;
+    if (!combo) return null;
+    // Match the legacy widget's precedence (combo.values || combo.reindexed):
+    // the fixture carries both identically, and the perturbation test
+    // mutates `values`.
+    const valueMap = combo.values || combo.reindexed;
+    if (!valueMap) return null;
+    const values = new Map();
+    for (const [displayName, raw] of Object.entries(valueMap)) {
+      const pk = nameToKey[displayName];
+      if (pk == null) continue;
+      const num = Number(raw);
+      if (!Number.isFinite(num)) continue;
+      values.set(Number(pk), num);
+    }
+    if (!values.size) return null;
+    return Object.freeze({
+      values,
+      tier_price_vector: null,
+      pie_vintage: null,
+      bake_id: null,
+      coverage_class: "full",
+      value_provenance: null,
+      model_vs_published: null,
+      detail_locator: null,
+      source_meta: null,
+      index_total: null,
+    });
+  }
+
+  const sourceKeys = comparison.sources ? Object.keys(comparison.sources) : [];
+  const stub = {
+    initProductData: async () => stub,
+    getPlayerValues,
+    getPlayers: () => players,
+    getPlayerContext: () => null,
+    getProductOptions: () => Object.freeze({
+      product_key: "default",
+      contract_version: "1.0.0",
+      source_keys: Object.freeze(sourceKeys.slice()),
+      adjusted_indexed_keys: Object.freeze(sourceKeys.filter(k => k.endsWith("_adjusted"))),
+      pure_vorp_keys: Object.freeze([]),
+      as_published_keys: Object.freeze(["usatoday", "fantasycalc", "fantasypros", "cbs"]),
+    }),
+    getSnapshot: () => Object.freeze({
+      snapshot_id: "harness-stub",
+      contract_version: "1.0.0",
+      sources: Object.freeze({}),
+      source_validation: Object.freeze(comparison.source_validation || {}),
+    }),
+    getAdjustmentInputs: () => adjustmentInputs,
+    getPlayerByKey: key => playerByKey.get(Number(key)) || null,
+    getPlayerKeysBySourceId: () => null,
+    getProviderInfo: () => ({ provider: "harness-stub" }),
+    SOURCE_KEYS: Object.freeze(sourceKeys.slice()),
+    CONTRACT_VERSION: "1.0.0",
+  };
+  globalThis.TradeValueProductData = stub;
 }
 
 async function loadWidget(fixtureDir) {
   setupWidgetEnvironment(fixtureDir);
   require(path.join(ROOT, "app", "trade-value-chart", "assets", "value-model.js"));
+  // NOTE (JEG-327 Phase D): the real product-data.js reads PostgREST, which
+  // the harness cannot reach. setupWidgetEnvironment() installs a
+  // fixture-backed window.TradeValueProductData stub instead — do NOT
+  // require the real product-data.js here (it would overwrite the stub and
+  // fail closed on the missing Supabase URL).
   require(path.join(ROOT, "app", "trade-value-chart", "assets", "curve-widget.js"));
   for (let i = 0; i < 100; i += 1) {
     if (globalThis.TradeValueCurveHarness) return globalThis.TradeValueCurveHarness;

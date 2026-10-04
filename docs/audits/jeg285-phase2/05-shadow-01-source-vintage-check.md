@@ -6,6 +6,30 @@
 **Spec basis:** `docs/audits/jeg285-phase2/02-pgcron-job-specs.md` Job 1 section, prerequisites block, dispatch helper
 **Target:** replace the hourly GHA cron `0 * * * *` at `.github/workflows/source-vintage-check.yml:5` with a `pg_cron` job of identical cadence, log the dispatch decision without firing it, and compare tick-by-tick against the live GHA run list for 72h.
 
+## Which concern this spec covers
+
+This shadow is concern **(2) source-vintage change detection** in the
+three-concern split from
+`docs/audits/jeg285-phase2/02-pgcron-job-specs.md` §"Three separate
+concerns". It is NOT concern (1) source content freshness/health
+(`make import-health`) and NOT concern (3) the JEG-205
+`pipelines/`-hash code-change path. The shadow deliberately emits
+`code_changed=false` because concern (3) stays GitHub-side and is not
+SQL-observable; see §5 below.
+
+## JEG-323 stub warning
+
+The name `public.check_source_vintages()` referenced throughout this
+spec is **not** defined in this repo today. Production Supabase exposes
+a console-only stub that returns the hard-coded
+`{"changed": false, "note": "stub"}`. That stub is tracked under
+JEG-323 for revoke/removal and MUST NOT be cited as a working check.
+The implementation phase that adds the real function body below MUST
+read at least one relation (FROM or JOIN) — that bar is enforced by
+`tests/test_health_function_no_hardcoded_green.py`, which scans every
+`CREATE [OR REPLACE] FUNCTION` body under `sql/migrations/` and
+`sql/contract/`.
+
 The shadow replicates the **decision** the GHA job would make, not the dispatch itself. The schedule body never calls `dispatch_gha_workflow()` and never calls `net.http_post()`; it only inserts into `pipeline_cron_log`.
 
 ## 1. What "dispatch" means today (the GHA observable)
