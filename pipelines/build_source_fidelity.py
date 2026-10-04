@@ -175,9 +175,12 @@ def load_snapshot_natives(src):
     # For "reindexed-as-given" sources, the published value IS the pre-indexed native.
     # Which snapshot field is the fixture native's source of truth differs per
     # source: fantasypros was rebuilt from native_value on 2026-09-30 (the
-    # flattening fix); fantasycalc/usatoday/cbs still build from value.
+    # flattening fix); usatoday's fixture natives were corrected to the genuine
+    # published native_value the same week ("were transformed value" per the
+    # fixture promotion notes; verified 227/227 exact on 2026-10-04).
+    # fantasycalc/cbs still build from value.
     # Comparing against the wrong field false-reds on a healthy pipeline.
-    NATIVE_FIELD = {"fantasypros": "native_value"}
+    NATIVE_FIELD = {"fantasypros": "native_value", "usatoday": "native_value"}
     field = NATIVE_FIELD.get(src, "value")
     fallback = "value" if field == "native_value" else "native_value"
     snap_path = find_latest_snapshot(src)
