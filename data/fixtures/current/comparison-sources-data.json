@@ -26,7 +26,7 @@
     "transformed_at": "2026-10-03T21:04:32.183609+00:00",
     "transformer": "pipelines/transform_batch70_to_comparison.py"
   },
-  "built_at": "2026-10-04T06:00:34.526057+00:00",
+  "built_at": "2026-10-04T06:17:24.758372+00:00",
   "display": {
     "aaron jones": "Aaron Jones",
     "aaron rodgers": "Aaron Rodgers",
@@ -2620,7 +2620,7 @@
       "name": "CBS",
       "native_unit": "CBS chart points (their ~5\u201347 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-04T06:00:34Z",
+      "promoted_at": "2026-10-04T06:17:24Z",
       "promoted_from_review": "cbs-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-01T12:07:17+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: CBS publishes 1QB-4 / 1QB-6 / 2QB, so the 1QB-4 column is reused for every scoring mode. QBs with '--' in the 1QB columns carry 2QB-only value and are not covered in 1QB.",
@@ -2633,7 +2633,7 @@
         "snapshot_fetched_at": "2026-10-01T12:07:17+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/cbs/week-4/snapshot-manifest.json",
         "source": "cbs",
-        "source_pulled_at": "2026-10-04T06:00:23Z",
+        "source_pulled_at": "2026-10-04T06:17:13Z",
         "vintage_kind": "week_designated",
         "week_designated": 4
       },
@@ -12091,7 +12091,7 @@
       },
       "kind": "model projections, valued by our model",
       "lineage": {
-        "raw_built_at": "2026-10-04T06:00:35Z",
+        "raw_built_at": "2026-10-04T06:17:25Z",
         "raw_content_sha256": "42de106ffe12e624ff9dcad2261ce8d0cc2b04f12136ce05b5a17678d4199352",
         "raw_vintage": "2026-10-02",
         "vintage_source": "legacy_fallback"
@@ -36746,10 +36746,10 @@
         "stale": false,
         "vintage": "2026-10-03"
       },
-      "fetched_at": "2026-10-04T06:00:32Z",
+      "fetched_at": "2026-10-04T06:17:23Z",
       "kind": "model projections, valued by our model",
       "lineage": {
-        "raw_built_at": "2026-10-04T06:00:32Z",
+        "raw_built_at": "2026-10-04T06:17:23Z",
         "raw_content_sha256": "2a5c1a308af790c9bb2d2ecff662209b6094eacb6aef63f1de040148094964ab",
         "raw_vintage": "2026-10-03",
         "vintage_source": "legacy_fallback"
@@ -49118,7 +49118,7 @@
       "name": "FantasyCalc",
       "native_unit": "FantasyCalc crowd value (their ~2\u201310,500 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-04T06:00:30Z",
+      "promoted_at": "2026-10-04T06:17:20Z",
       "promoted_from_review": "fantasycalc-standard-12-qb1-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-09-30T20:48:00+00:00; reindex mapping updated.",
       "provenance_note": "Weekly snapshot tied to the NFL week \u2014 pulled once per week, frozen for the week, never a live read. Refresh only with --refresh-fc --fc-week \"Week N\".",
@@ -49130,7 +49130,7 @@
         "snapshot_fetched_at": "2026-09-30T20:48:00+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasycalc/week-4/snapshot-manifest.json",
         "source": "fantasycalc",
-        "source_pulled_at": "2026-10-04T06:00:20Z",
+        "source_pulled_at": "2026-10-04T06:17:09Z",
         "vintage_kind": "week_designated",
         "week_designated": 4
       },
@@ -62388,7 +62388,7 @@
       "name": "FantasyPros",
       "native_unit": "FantasyPros analyst-consensus chart points (~1.0\u201375.1 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-04T06:00:31Z",
+      "promoted_at": "2026-10-04T06:17:22Z",
       "promoted_from_review": "fantasypros-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-01T20:13:44.070198+00:00; reindex mapping updated.",
       "provenance_note": "FantasyPros publishes one base Value column. It is treated as scoring-agnostic and reused across the three scoring combos; values are only isotonic-reindexed onto the 0\u201370 display scale.",
@@ -62401,7 +62401,7 @@
         "snapshot_fetched_at": "2026-10-01T20:13:44.070198+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasypros/2026-09-29/snapshot-manifest.json",
         "source": "fantasypros",
-        "source_pulled_at": "2026-10-04T06:00:22Z",
+        "source_pulled_at": "2026-10-04T06:17:11Z",
         "vintage_kind": "week_designated",
         "week_designated": 4
       },
@@ -79060,7 +79060,7 @@
       "name": "USA Today",
       "native_unit": "USA Today chart points (their ~0\u201370 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-04T06:00:28Z",
+      "promoted_at": "2026-10-04T06:17:18Z",
       "promoted_from_review": "usatoday-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-02T00:00:00+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: USA Today publishes one QB column set (1QB / 6-pt-TD / Superflex), so the 1QB column is reused for every scoring mode.",
@@ -79073,7 +79073,7 @@
         "snapshot_fetched_at": "2026-10-02T00:00:00+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/usatoday/2026-09-29/snapshot-manifest.json",
         "source": "usatoday",
-        "source_pulled_at": "2026-10-04T06:00:21Z",
+        "source_pulled_at": "2026-10-04T06:17:10Z",
         "vintage_kind": "week_designated",
         "week_designated": 4
       },
