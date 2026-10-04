@@ -1,16 +1,20 @@
 {
-  "run_at": "2026-10-04T11:00:38.535452+00:00",
+  "run_at": "2026-10-04T12:00:43.531747+00:00",
   "nfl_week": 4,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 185/187 values moved > 0.05; native_drift:full_12_qb2:fail -- 185/187 values moved > 0.05; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28; coverage:full_12_qb2/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb2/TE:fail -- candidate priced 27 < fixture 28. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
+  "failed": [
+    "adjusted_sections",
+    "fantasycalc",
+    "fit"
+  ],
+  "success": false,
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -23,10 +27,10 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
+      "status": "failed",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 185/187 values moved > 0.05; native_drift:full_12_qb2:fail -- 185/187 values moved > 0.05; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28; coverage:full_12_qb2/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb2/TE:fail -- candidate priced 27 < fixture 28. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 3
     },
     "fantasypros": {
@@ -63,11 +67,11 @@
     }
   },
   "fit": {
-    "status": "ok",
-    "detail": "fit complete"
+    "status": "skipped",
+    "detail": "skipped: sources failed: fantasycalc"
   },
   "adjusted_sections": {
-    "status": "ok",
-    "detail": "_adjusted sections built"
+    "status": "skipped",
+    "detail": "skipped: fit skipped"
   }
 }
