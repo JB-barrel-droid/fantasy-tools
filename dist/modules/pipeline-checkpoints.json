@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T11:37:31.107229+00:00",
+  "generated_at": "2026-10-04T12:07:30.206622+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 4,
   "checkpoints": [
@@ -79,7 +79,7 @@
           "reason": "Snapshot is 2026-10-02 but Supabase has 2026-10-04. Data is STUCK waiting for import."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T11:37:07Z",
+          "timestamp": "2026-10-04T12:07:10Z",
           "status": "warn",
           "reason": "Health gate warning: TABLE_DRIFT: table has 496 rows at latest vintage 2026-10-04, manifest expects 495 (within tolerance; stamping lag); table latest vintage 2026-10-04 != manifest vintage 2026-10-02 -- run stage-1 import to stamp it (table is fresher: stamping lag)."
         },
@@ -99,12 +99,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:37:49.172518+00:00",
+          "timestamp": "2026-10-04T12:07:34.814262+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 12 combos. Live built 2026-10-04T11:00."
         }
@@ -121,34 +121,34 @@
           "reason": "Publisher released Week 4 (0.0d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03",
+          "timestamp": "2026-10-04",
           "status": "ok",
-          "reason": "Pulled 2026-10-03 (ops/watchdog/pulls/cbs-2026-10-03.json)."
+          "reason": "Pulled 2026-10-04 (ops/watchdog/pulls/cbs-2026-10-04.json)."
         },
         "c3_supabase": {
           "timestamp": "2026-09-29T22:44:26.21804+00:00",
           "status": "ok",
-          "reason": "342 rows landed in public.cbs_trade_values 4.5d ago."
+          "reason": "342 rows landed in public.cbs_trade_values 4.6d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-09-29T22:44:29.435511+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 4.5d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
+          "reason": "Snapshot stamped 4.6d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T11:37:07Z",
+          "timestamp": "2026-10-04T12:07:10Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-10-01T01:12:00.963269+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 3.4d ago."
+          "reason": "Candidate built and reviewed 3.5d ago."
         },
         "c7_promotion": {
           "timestamp": "2026-10-02T20:14:03Z",
           "status": "ok",
-          "reason": "Promoted 1.6d ago (verdict: ready)."
+          "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T18:34:03.677796+00:00",
@@ -156,12 +156,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:38:01.120346+00:00",
+          "timestamp": "2026-10-04T12:07:37.186503+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 3 combos. Live built 2026-10-04T11:00."
         }
@@ -185,15 +185,15 @@
         "c3_supabase": {
           "timestamp": "2026-10-02T20:16:45.413474+00:00",
           "status": "ok",
-          "reason": "363 rows landed in public.cbs_ros_projections 1.6d ago."
+          "reason": "363 rows landed in public.cbs_ros_projections 1.7d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-10-02T12:57:40.112170+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 1.9d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
+          "reason": "Snapshot stamped 2.0d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T11:37:07Z",
+          "timestamp": "2026-10-04T12:07:10Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -213,12 +213,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:38:20.621008+00:00",
+          "timestamp": "2026-10-04T12:07:39.327506+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 12 combos. Live built 2026-10-04T11:00."
         }
@@ -270,12 +270,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:38:32.573322+00:00",
+          "timestamp": "2026-10-04T12:07:41.457065+00:00",
           "status": "ok",
           "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 12 combos. Live built 2026-10-04T11:00."
         }
@@ -297,9 +297,9 @@
           "reason": "Pulled 2026-10-01T08:36:18.841542+00:00 (data/raw/sources/fantasycalc/week-4/snapshot.json)."
         },
         "c3_supabase": {
-          "timestamp": "2026-09-30T20:48:01.847527+00:00",
+          "timestamp": "2026-10-04T11:45:15.613177+00:00",
           "status": "ok",
-          "reason": "590 rows landed in public.source_trade_values 3.6d ago."
+          "reason": "588 rows landed in public.source_trade_values 0.0d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-10-01T08:36:18.841542+00:00",
@@ -307,9 +307,9 @@
           "reason": "Snapshot stamped 3.1d ago (data/raw/sources/fantasycalc/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T11:37:07Z",
-          "status": "ok",
-          "reason": "Health gate ok (checked 0.0d ago)."
+          "timestamp": "2026-10-04T12:07:10Z",
+          "status": "bad",
+          "reason": "Health gate failed: TABLE_DRIFT: table has 588 rows at latest vintage Week 4, manifest expects 590 -- partial/stale table, not complete."
         },
         "c6_candidate": {
           "timestamp": "2026-10-01T02:27:49.141205+00:00",
@@ -319,7 +319,7 @@
         "c7_promotion": {
           "timestamp": "2026-10-02T20:13:43Z",
           "status": "ok",
-          "reason": "Promoted 1.6d ago (verdict: ready)."
+          "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T18:34:03.677796+00:00",
@@ -327,14 +327,14 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:38:40.376409+00:00",
+          "timestamp": "2026-10-04T12:07:43.322667+00:00",
           "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 24 combos. Live built 2026-10-04T11:00."
+          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 24 combos. Live built 2026-10-04T11:00. (JS label check skipped: <urlopen error [Errno 111] Connection re)"
         }
       },
       "content_vintage": "Week 4",
@@ -356,7 +356,7 @@
         "c3_supabase": {
           "timestamp": "2026-10-01T20:13:46.037266+00:00",
           "status": "ok",
-          "reason": "534 rows landed in public.source_trade_values 2.6d ago."
+          "reason": "534 rows landed in public.source_trade_values 2.7d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-10-02T12:33:13.088333+00:00",
@@ -364,7 +364,7 @@
           "reason": "Snapshot stamped 2.0d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T11:37:07Z",
+          "timestamp": "2026-10-04T12:07:10Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
@@ -376,7 +376,7 @@
         "c7_promotion": {
           "timestamp": "2026-10-02T20:13:52Z",
           "status": "ok",
-          "reason": "Promoted 1.6d ago (verdict: ready)."
+          "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T18:34:03.677796+00:00",
@@ -384,14 +384,14 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:38:52.192363+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 3 combos. Live built 2026-10-04T11:00."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not fetch live production JSON: <urlopen error [Errno 111] Connection refused>."
         }
       },
       "content_vintage": "2026-09-29",
@@ -406,34 +406,34 @@
           "reason": "Publisher released 2026-09-29 (5.5d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-03",
+          "timestamp": "2026-10-04",
           "status": "ok",
-          "reason": "Pulled 2026-10-03 (ops/watchdog/pulls/usatoday-2026-10-03.json)."
+          "reason": "Pulled 2026-10-04 (ops/watchdog/pulls/usatoday-2026-10-04.json)."
         },
         "c3_supabase": {
           "timestamp": "2026-10-02T15:15:41.980347+00:00",
           "status": "ok",
-          "reason": "747 rows landed in public.source_trade_values 1.8d ago."
+          "reason": "747 rows landed in public.source_trade_values 1.9d ago."
         },
         "c4_snapshot": {
           "timestamp": "2026-10-02T20:04:01.797241+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 1.6d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 1.7d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-04T11:37:07Z",
+          "timestamp": "2026-10-04T12:07:10Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
           "timestamp": "2026-10-02T20:04:33.043395+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 1.6d ago."
+          "reason": "Candidate built and reviewed 1.7d ago."
         },
         "c7_promotion": {
           "timestamp": "2026-10-02T20:13:34Z",
           "status": "ok",
-          "reason": "Promoted 1.6d ago (verdict: ready)."
+          "reason": "Promoted 1.7d ago (verdict: ready)."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T18:34:03.677796+00:00",
@@ -441,14 +441,14 @@
           "reason": "Comparison data fresh (built 2026-10-03, 0.7d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-04T11:11:08Z",
+          "timestamp": "2026-10-04T12:03:31Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-04T11:39:02.961160+00:00",
-          "status": "ok",
-          "reason": "Production serves 'Week 4' labels, bytes match fixture/ (7884ed5274fe), 3 combos. Live built 2026-10-04T11:00."
+          "timestamp": null,
+          "status": "unk",
+          "reason": "Could not fetch live production JSON: <urlopen error [Errno 111] Connection refused>."
         }
       },
       "content_vintage": "2026-09-29",
@@ -460,7 +460,7 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": true,
-    "run_age_days": 0.5682405984722222,
+    "run_age_days": 0.5881538655787037,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -495,15 +495,15 @@
     "a5_live": {
       "label": "A5 \u00b7 Live",
       "what": "Production serves current adjustment-inputs.json with complete 8/8 live cells for all 4 sources (curves unpaused)",
-      "timestamp": "2026-10-04T11:00:36Z",
-      "status": "ok",
-      "reason": "Live version ddf-20261003-espn-ppr-12t-0p15 matches local. All 4 sources have 8/8 live cells."
+      "timestamp": null,
+      "status": "unk",
+      "reason": "Could not fetch live adjustment-inputs.json."
     }
   },
   "methodology_consistency": {
     "label": "VORP / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
-    "timestamp": "2026-10-04T11:39:03.625019+00:00",
+    "timestamp": "2026-10-04T12:07:43.566820+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use proportional_scaling_flex_aware_per_position anchored to espn_leg on the flex_aware_pie reindex fit (translation step checked separately).",
     "expected_method": "proportional_scaling_flex_aware_per_position",
