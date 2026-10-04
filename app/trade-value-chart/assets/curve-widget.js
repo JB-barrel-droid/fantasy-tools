@@ -3396,7 +3396,9 @@
     // JEG-291: even on Indexed, the X/Y split is the anchor's MEASURED share
     // (lastDisplayShare, set at rebuild time), not the recommended 15% bench
     // share (DISPLAY_BENCH_SHARE) the subtitle slider shows.
-    const footnoteMiddle = viewMode === "vorp"
+    // JEG-225: compare via VIEW_MODE_ORDER — the "vorp" string literal may
+    // only appear in the VIEW_MODE_ORDER declaration, never in code or copy.
+    const footnoteMiddle = viewMode === VIEW_MODE_ORDER[1]
       ? "raw value-above-waivers curves from each source's own per-game projections — same shared total as Indexed, no fixed-pie re-tiering"
       : viewMode === "adj"
       ? "adjusted curves under the shared 0–70 weighting model, with our position weighting applied"
