@@ -40,13 +40,13 @@
   "disagree_baseline_note": "Empirical ESPN-vs-ECR direction, measured as mean(ecr_ppg - espn_filled_ppg) over espn_complete players (full-PPR /g: QB -0.012 (level), RB -0.018 (level), WR +0.386 (ESPN cooler), TE +0.528 (ESPN cooler)). Positive shade = ESPN cooler than ECR; negative = ESPN warmer. delta_espn_ecr_demeaned subtracts the player's positional baseline, and espn_adj_ppg translates ESPN points onto the experts' level, so the disagreement section's rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are per-position: 'experts_only' for QB/RB/WR/TE (primary value 100% ECR), 'espn_only' for K/DST (ESPN-purity directive). The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-04T13:07:00Z",
+   "built_at": "2026-09-23T13:23:30Z",
    "as_of": "2026-09-23",
    "summary": {
-    "live": 12,
+    "live": 6,
     "stale": 0,
-    "pending": 0,
-    "hidden_in_ui": 1
+    "pending": 6,
+    "hidden_in_ui": 7
    },
    "ui_hint": {
     "start_collapsed": true,
@@ -122,13 +122,13 @@
      "status": "live",
      "shown_in_ui": true,
      "completeness": {
-      "priced": 328,
+      "priced": 424,
       "universe": 610,
       "note": "Pure read over priced components only \u2014 never zero-filled. espn_filled_* fills the rest from ECR."
      },
      "freshness": {
-      "snapshot_date": "2026-09-29",
-      "content_date": "2026-09-29",
+      "snapshot_date": "2026-09-22",
+      "content_date": "2026-09-22",
       "note": "Daily morning pull. Content change vs the prior pull is not verifiable \u2014 only the current pull is retained."
      },
      "prior": {
@@ -177,26 +177,26 @@
      "method": "reindexed-as-given",
      "method_group": "As published (reindexed)",
      "method_description": "FantasyCalc's published crowd trade values, isotonic-reindexed onto the chart's 0-70 scale against our own values. No current value model methodology applied \u2014 shown as published, biases and all.",
-     "status": "live",
-     "shown_in_ui": true,
+     "status": "pending",
+     "shown_in_ui": false,
      "completeness": {
-      "priced": 2,
+      "priced": null,
       "universe": null,
-      "note": "QB/RB/WR/TE only \u2014 no K/DST coverage. Native unit is FantasyCalc's own ~2\u201310,500 crowd-value scale, not points."
+      "note": "Comparison-sources asset unavailable at bake time \u2014 no verified read."
      },
      "freshness": {
-      "snapshot_date": "2026-10-04",
-      "content_date": "Week 4",
-      "note": "Frozen weekly snapshot, pulled once per week."
+      "snapshot_date": null,
+      "content_date": null,
+      "note": "Comparison-sources asset unavailable at bake time."
      },
      "prior": {
       "available": false,
       "prior_date": null,
-      "delta_summary": "No verified prior FantasyCalc pull retained \u2014 no verified delta."
+      "delta_summary": "No verified prior."
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": null,
+     "caveat": "Source unavailable at bake time \u2014 treat as missing, not as zero.",
      "ui_note": "Chart Comparison tab: 'FantasyCalc' source column."
     },
     {
@@ -206,26 +206,26 @@
      "method": "reindexed-as-given",
      "method_group": "As published (reindexed)",
      "method_description": "USA Today's published chart values (QB values are implied from their single 1QB column), isotonic-reindexed onto the 0-70 scale against our own values. No current value model methodology applied \u2014 shown as published, biases and all.",
-     "status": "live",
-     "shown_in_ui": true,
+     "status": "pending",
+     "shown_in_ui": false,
      "completeness": {
-      "priced": 7,
+      "priced": null,
       "universe": null,
-      "note": "QB/RB/WR/TE only \u2014 no K/DST coverage. Editorial chart points on their own ~0\u201370 scale, per scoring column."
+      "note": "Comparison-sources asset unavailable at bake time \u2014 no verified read."
      },
      "freshness": {
-      "snapshot_date": "2026-10-02",
-      "content_date": "Week 4",
-      "note": "Frozen weekly snapshot, pulled once per week."
+      "snapshot_date": null,
+      "content_date": null,
+      "note": "Comparison-sources asset unavailable at bake time."
      },
      "prior": {
       "available": false,
       "prior_date": null,
-      "delta_summary": "A Week 1 file exists (233 players, Sep 12) but carries a single value per player with undocumented scoring basis \u2014 not like-for-like comparable to the Week 2 per-scoring columns, so no verified delta."
+      "delta_summary": "No verified prior."
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": null,
+     "caveat": "Source unavailable at bake time \u2014 treat as missing, not as zero.",
      "ui_note": "Chart Comparison tab: 'USA Today' source column."
     },
     {
@@ -235,26 +235,26 @@
      "method": "reindexed-as-given",
      "method_group": "As published (reindexed)",
      "method_description": "FantasyPros' published base Value column (scoring-agnostic, reused across the three scoring combos), isotonic-reindexed onto the 0-70 scale against our own values. No current value model methodology or positional reweighting applied \u2014 shown as published, biases and all.",
-     "status": "live",
-     "shown_in_ui": true,
+     "status": "pending",
+     "shown_in_ui": false,
      "completeness": {
-      "priced": 2,
+      "priced": null,
       "universe": null,
-      "note": "QB/RB/WR/TE only \u2014 no K/DST coverage. 2 of 610 chart players priced. Native unit is FantasyPros analyst-consensus chart points (~1.0\u201375.1 scale)."
+      "note": "Comparison-sources asset unavailable at bake time \u2014 no verified read."
      },
      "freshness": {
-      "snapshot_date": "2026-10-01",
-      "content_date": "Week 4",
-      "note": "Frozen weekly snapshot, pulled once per week."
+      "snapshot_date": null,
+      "content_date": null,
+      "note": "Comparison-sources asset unavailable at bake time."
      },
      "prior": {
       "available": false,
       "prior_date": null,
-      "delta_summary": "First FantasyPros snapshot \u2014 no prior."
+      "delta_summary": "No verified prior."
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": null,
+     "caveat": "Source unavailable at bake time \u2014 treat as missing, not as zero.",
      "ui_note": "Chart Comparison tab: 'FantasyPros' source column."
     },
     {
@@ -263,27 +263,27 @@
      "role": "Comparison source: FantasyCalc values corrected toward our methodology.",
      "method": "trade-value-methodology",
      "method_group": "Our methodology",
-     "method_description": "FantasyCalc's published values corrected by the source_value_adjustments fit (bake fit) \u2014 per-position x role linear correction against the Monday reassessed methodology leg. Already on the 0-70 scale.",
-     "status": "live",
-     "shown_in_ui": true,
+     "method_description": "FantasyCalc's published values corrected by the source_value_adjustments fit \u2014 per-position x role linear correction against the Monday reassessed methodology leg. Already on the 0-70 scale.",
+     "status": "pending",
+     "shown_in_ui": false,
      "completeness": {
-      "priced": 195,
+      "priced": null,
       "universe": null,
-      "note": "QB/RB/WR/TE only \u2014 no K/DST coverage."
+      "note": "Comparison-sources asset unavailable at bake time \u2014 no verified read."
      },
      "freshness": {
-      "snapshot_date": "2026-09-30",
-      "content_date": "Week 4 (fit fit)",
-      "note": "Frozen to the fit bake; re-fits on new source pulls."
+      "snapshot_date": null,
+      "content_date": null,
+      "note": "Comparison-sources asset unavailable at bake time."
      },
      "prior": {
       "available": false,
       "prior_date": null,
-      "delta_summary": "First bias-adjusted bake \u2014 no prior."
+      "delta_summary": "No verified prior."
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": null,
+     "caveat": "Source unavailable at bake time \u2014 treat as missing, not as zero.",
      "ui_note": "Chart Comparison tab: 'FC Adjusted' source column."
     },
     {
@@ -292,27 +292,27 @@
      "role": "Comparison source: USA Today values corrected toward our methodology.",
      "method": "trade-value-methodology",
      "method_group": "Our methodology",
-     "method_description": "USA Today's published values corrected by the source_value_adjustments fit (bake fit) \u2014 per-position x role linear correction against the Monday reassessed methodology leg. Already on the 0-70 scale.",
-     "status": "live",
-     "shown_in_ui": true,
+     "method_description": "USA Today's published values corrected by the source_value_adjustments fit \u2014 per-position x role linear correction against the Monday reassessed methodology leg. Already on the 0-70 scale.",
+     "status": "pending",
+     "shown_in_ui": false,
      "completeness": {
-      "priced": 249,
+      "priced": null,
       "universe": null,
-      "note": "QB/RB/WR/TE only \u2014 no K/DST coverage."
+      "note": "Comparison-sources asset unavailable at bake time \u2014 no verified read."
      },
      "freshness": {
-      "snapshot_date": "2026-10-02",
-      "content_date": "Week 4 (fit fit)",
-      "note": "Frozen to the fit bake; re-fits on new source pulls."
+      "snapshot_date": null,
+      "content_date": null,
+      "note": "Comparison-sources asset unavailable at bake time."
      },
      "prior": {
       "available": false,
       "prior_date": null,
-      "delta_summary": "First bias-adjusted bake \u2014 no prior."
+      "delta_summary": "No verified prior."
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": null,
+     "caveat": "Source unavailable at bake time \u2014 treat as missing, not as zero.",
      "ui_note": "Chart Comparison tab: 'USAT Adjusted' source column."
     },
     {
@@ -321,27 +321,27 @@
      "role": "Comparison source: FantasyPros values corrected toward our methodology.",
      "method": "trade-value-methodology",
      "method_group": "Our methodology",
-     "method_description": "FantasyPros's published values corrected by the source_value_adjustments fit (bake fit) \u2014 per-position x role linear correction against the Monday reassessed methodology leg. Already on the 0-70 scale.",
-     "status": "live",
-     "shown_in_ui": true,
+     "method_description": "FantasyPros's published values corrected by the source_value_adjustments fit \u2014 per-position x role linear correction against the Monday reassessed methodology leg. Already on the 0-70 scale.",
+     "status": "pending",
+     "shown_in_ui": false,
      "completeness": {
-      "priced": 178,
+      "priced": null,
       "universe": null,
-      "note": "QB/RB/WR/TE only \u2014 no K/DST coverage."
+      "note": "Comparison-sources asset unavailable at bake time \u2014 no verified read."
      },
      "freshness": {
-      "snapshot_date": "2026-10-01",
-      "content_date": "Week 4 (fit fit)",
-      "note": "Frozen to the fit bake; re-fits on new source pulls."
+      "snapshot_date": null,
+      "content_date": null,
+      "note": "Comparison-sources asset unavailable at bake time."
      },
      "prior": {
       "available": false,
       "prior_date": null,
-      "delta_summary": "First bias-adjusted bake \u2014 no prior."
+      "delta_summary": "No verified prior."
      },
      "stale": false,
      "stale_reason": null,
-     "caveat": null,
+     "caveat": "Source unavailable at bake time \u2014 treat as missing, not as zero.",
      "ui_note": "Chart Comparison tab: 'FP Adjusted' source column."
     },
     {
