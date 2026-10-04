@@ -301,6 +301,7 @@ function setupWidgetEnvironment(fixtureDir) {
 async function loadWidget(fixtureDir) {
   setupWidgetEnvironment(fixtureDir);
   require(path.join(ROOT, "app", "trade-value-chart", "assets", "value-model.js"));
+  require(path.join(ROOT, "app", "trade-value-chart", "assets", "product-data.js"));
   require(path.join(ROOT, "app", "trade-value-chart", "assets", "curve-widget.js"));
   for (let i = 0; i < 100; i += 1) {
     if (globalThis.TradeValueCurveHarness) return globalThis.TradeValueCurveHarness;
