@@ -86,9 +86,25 @@ COMMENT_LINE_RE = re.compile(r"(?im)^\s*--\s*(?P<text>.*)$")
 # it small. Every entry is a tuple (qualname, reason).
 #
 ALLOWLIST: Tuple[Tuple[str, str], ...] = (
-    # Example shape (no entries today; the stub the ticket names lives
-    # in production Supabase only and has no repo definition — see
-    # lanes/inbox/minimax/JEG-323-guard.md).
+    # 2026-10-04 (overnight QA loop): check_never_blend is a BEFORE
+    # INSERT/UPDATE *trigger* on weekly_source_snapshots (JEG-383), not a
+    # health/freshness query. It never returns a verdict payload — it
+    # returns NEW or RAISES EXCEPTION on a never-blend violation, so it
+    # cannot be a false-green health surface. The "check" in its name is
+    # the never-blend invariant check, caught by this guard's deliberate
+    # over-broad substring pattern. No relation read is possible or
+    # needed: the validated data IS the row being written (NEW.*), and
+    # the allowlists are compile-time constants sourced from
+    # engine/fds_fallback.py ALLOWED_PROVENANCE. Adding a fake FROM/JOIN
+    # would be security theater; the exemption is the honest fix.
+    (
+        "public.check_never_blend",
+        "BEFORE INSERT/UPDATE trigger (JEG-383): validates NEW-row "
+        "columns against compile-time provenance allowlists and raises "
+        "on violation — never returns a health payload, so it cannot "
+        "false-green; no table read is needed because the validated "
+        "data is the row being written.",
+    ),
 )
 
 
