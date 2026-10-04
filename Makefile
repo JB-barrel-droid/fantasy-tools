@@ -164,6 +164,7 @@ test-unit:
 	python3 -m unittest tests.test_methodology_consistency
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
+	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_publication_windows
 	python3 -m unittest tests.test_qb_slot_scoping
 	python3 -m unittest tests.test_source_combo_contract

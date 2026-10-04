@@ -245,11 +245,19 @@
   }
 
   // Build the per-cell composite key (matches consolidation-index.js exactly).
-  // Mirrors ValueModel.sourceComboKey for the suffix logic.
+  // Mirrors ValueModel.sourceComboKey: the widget's scoring names (ppr /
+  // half_ppr / standard) map to the fixture's combo prefixes (full / half /
+  // standard), and the FantasyCalc family carries the _qbN suffix.
+  // A scoring name with no fixture prefix returns null so the caller
+  // fail-closes (no cross-scoring borrowing) instead of reading a wrong combo.
+  const SCORING_PREFIX = {ppr: "full", full: "full", half_ppr: "half", half: "half",
+    standard: "standard"};
   function comboKeyFor(source, scoring, teams, qbVariant) {
+    const prefix = SCORING_PREFIX[scoring];
+    if (!prefix) return null;
     const needsQb = QB_AWARE_SOURCES.has(source);
     const qbSuffix = needsQb ? `_${qbVariant || "qb1"}` : "";
-    return `${scoring}_${teams}${qbSuffix}`;
+    return `${prefix}_${teams}${qbSuffix}`;
   }
 
   // ---------- Public surface (the five semantic methods) ----------

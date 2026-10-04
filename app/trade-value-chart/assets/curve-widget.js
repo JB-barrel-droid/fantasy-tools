@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"];
+  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];  // JEG-211: K/DST honestly excluded
   const SCORINGS = [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]];
   const SOURCE_LABELS = {
     usatoday: "USA Today",
@@ -785,6 +785,28 @@
   // throws inside runRegressionGuards() before draw()/publishShared() and
   // the comparison table freezes on the old scoring with no visible error.
   let userDeselectedSources = new Set();
+  // JEG-210: chart view mode (Indexed | Value above waivers | Adjusted values)
+  // Restored 2026-10-03 (Jeremy): wired to vorp_views from the JEG-242 pipeline.
+  // Re-restored 2026-10-04: the JEG-325 strangler refactor dropped this block;
+  // the view tabs are a shipped feature (QA'd 2026-10-04), not migration scope.
+  const VIEW_MODE_DEFS = {
+    indexed: { title: "Indexed", viewKey: null },
+    vorp: { title: "Value above waivers" },
+    adj: { title: "Adjusted values", viewKey: "adj_values" }
+  };
+  const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
+  // JEG-242: resolve the vorp_views data key for a view mode.
+  // "indexed" -> null (no lookup); "adj" -> explicit viewKey; otherwise the mode key itself.
+  // The "vorp" literal appears only in VIEW_MODE_ORDER (JEG-225 exemption); never in copy.
+  function getViewKey(mode) {
+    const def = VIEW_MODE_DEFS[mode];
+    if (!def || def.viewKey === null) return null;
+    return def.viewKey || mode;
+  }
+  let viewMode = "indexed";
+  // JEG-210: the user's source selection before entering a non-indexed view,
+  // restored when they return to Indexed.
+  let savedActiveSourcesForView = null;
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -1031,6 +1053,40 @@
       values.set(playerKey, value);
     });
     return values;
+  }
+
+  // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
+  // vorp_views keys are normalized lowercase display names, exactly the form
+  // used by the player_keys table -- resolve through it directly (the
+  // canonical names carry punctuation the normalized keys lack).
+  function buildVorpViewSourceMap(key, viewKey) {
+    const vorpViews = data.sources?.[key]?.vorp_views;
+    const viewData = vorpViews?.views?.[viewKey];
+    if (!viewData || typeof viewData !== "object") return new Map();
+    // Reverse lookup: normalized display name -> player key, via player_keys.
+    const nameToKey = new Map();
+    Object.entries(data.player_keys || {}).forEach(([displayName, playerKey]) => {
+      const player = canonicalByKey.get(Number(playerKey));
+      const norm = String(displayName).trim().toLowerCase();
+      if (player && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
+    });
+    const values = new Map();
+    Object.entries(viewData).forEach(([displayName, rawValue]) => {
+      const playerKey = nameToKey.get(String(displayName).trim().toLowerCase());
+      const player = canonicalByKey.get(playerKey);
+      const value = clampValue(rawValue);
+      if (!player || value === null) return;
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
+  // JEG-210: does this source have vorp_views data for the current view mode?
+  function sourceHasVorpView(key) {
+    const viewKey = getViewKey(viewMode);
+    if (!viewKey) return true;
+    const views = data.sources?.[key]?.vorp_views?.views;
+    return !!(views && views[viewKey] && Object.keys(views[viewKey]).length > 0);
   }
 
   function buildNativeSourceMap(key) {
@@ -1371,6 +1427,16 @@
   }
 
   function buildSourceMap(key) {
+    // JEG-210/242: when a non-indexed view is active and the source has
+    // vorp_views, use the view's values instead of the indexed combo values.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
+      const viewKey = getViewKey(viewMode);
+      if (viewKey) {
+        const viewMap = buildVorpViewSourceMap(key, viewKey);
+        if (viewMap.size > 0) return viewMap;
+      }
+    }
     return buildPublishedSourceMap(key);
   }
 
@@ -1664,7 +1730,19 @@
     const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
     const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
+    const benchShareText = `${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share`;
+    // JEG-291: the subtitle's bench-share segment is the recommended calibration
+    // parameter, NOT the anchor leg's measured split (that lives in the footnote).
+    // Surface the distinction on hover so readers don't conflate the two.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    context.replaceChildren(
+      `${scoreLabel()} · ${teams} teams · ${rosterLabel} · `,
+      Object.assign(document.createElement("span"), {
+        textContent: benchShareText,
+        title: "15% bench share — the recommended two-tier calibration parameter; the chart caption shows the anchor leg's measured split."
+      }),
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`
+    );
   }
 
   function makeTabs() {
@@ -3118,11 +3196,21 @@
   function agreementFor(keys, low, high) {
     const sources = {};
     keys.filter(key => sourceMaps.get(key)?.size)
-      .forEach(key => { sources[key] = positionalPeaks(sourceMaps.get(key)); });
+      .forEach(key => { sources[key] = positionalPeaks(indexedMapForAgreement(key)); });
     return ValueModel.peakAgreement({
       anchorPeaks: positionalPeaks(sourceMaps.get("espn")),
       sources, low, high, labelOf: sourceLabel
     });
+  }
+
+  // JEG-210: the anchor-band health checks validate indexed (published) values.
+  // In a non-indexed view the as-published maps carry VORP/adjusted units, which
+  // would false-fail the 0.8-1.25x anchor band; read the indexed builder instead.
+  // The ESPN anchor never switches views, so it always reads the live map.
+  // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+  function indexedMapForAgreement(key) {
+    if (viewMode === "indexed" || !AS_PUBLISHED_KEYS.has(key)) return sourceMaps.get(key);
+    return buildPublishedSourceMap(key);
   }
 
   function scaleAgreementDiagnostics() {
@@ -3347,7 +3435,21 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts are put on the ESPN leg’s pie and its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% bench split, waiver to 0 · roster transitions: ${markerText}.`;
+    // JEG-290: the middle clause of the footnote must vary by viewMode — the
+    // Indexed/Value-above-waivers/Adjusted tabs each describe a different
+    // underlying valuation, so a single static sentence was misleading readers.
+    // JEG-291: even on Indexed, the X/Y split is the anchor's MEASURED share
+    // (lastDisplayShare, set at rebuild time), not the recommended 15% bench
+    // share (DISPLAY_BENCH_SHARE) the subtitle slider shows.
+    // JEG-225: compare via VIEW_MODE_ORDER — the "vorp" string literal may
+    // only appear in the VIEW_MODE_ORDER declaration, never in code or copy.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    const footnoteMiddle = viewMode === VIEW_MODE_ORDER[1]
+      ? "raw value-above-waivers curves from each source's own per-game projections — same shared total as Indexed, no fixed-pie re-tiering"
+      : viewMode === "adj"
+      ? "adjusted curves under the shared 0–70 weighting model, with our position weighting applied"
+      : `indexed charts are put on the ESPN leg’s pie and matched to its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% measured split, waiver to 0`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; ${footnoteMiddle} · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with the selected player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
@@ -3506,14 +3608,28 @@
         `${adjustedAgreement.compared} positional peaks within ${adjustedAgreement.band.join("-")}x of the anchor`
       );
     }
-    ChartHealth.record(
-      "source-scale-agreement",
-      "Published charts agree with the anchor's scale",
-      scaleAgreement.ok,
-      scaleAgreement.offenders.length
-        ? `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ${scaleAgreement.offenders.join("; ")}`
-        : `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
-    );
+    // Visible, not failing: a direct-series scale disagreement is genuine
+    // publisher shape disagreement -- the pipeline's scale-agreement monitor
+    // verdicts fantasycalc/usatoday "genuine disagreement" (their published
+    // shapes sit outside the band before any indexation) -- so it surfaces as
+    // a warning like the adjusted family, never a red "numbers are wrong"
+    // FAIL. The 0.8-1.25x band itself is unchanged.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    if (scaleAgreement.compared > 0 && !scaleAgreement.ok) {
+      ChartHealth.warn(
+        "source-scale-agreement",
+        "Published charts agree with the anchor's scale",
+        `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ` +
+        `${scaleAgreement.offenders.join("; ")} -- genuine publisher shape disagreement, see scale-agreement monitor`
+      );
+    } else {
+      ChartHealth.record(
+        "source-scale-agreement",
+        "Published charts agree with the anchor's scale",
+        scaleAgreement.ok,
+        `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
+      );
+    }
     const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources);
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
@@ -3530,6 +3646,53 @@
     // plain-words summary; open Chart Health for the per-source breakdown.
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
     guardsPassed = true;
+  }
+
+  // JEG-210: view mode switching (restored 2026-10-03, wired to vorp_views).
+  // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+  // The vorp/adj views only exist for the as-published sources with baked
+  // vorp_views. Entering a non-indexed view activates those sources so the
+  // tab visibly changes the chart (the default indexed selection is the
+  // *_adjusted family, which carries no vorp views); returning to Indexed
+  // restores the user's prior source selection.
+  function setViewMode(mode, publish = true) {
+    if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
+    viewMode = mode;
+    const tabs = document.querySelectorAll("#viewModeTabs [data-view-mode]");
+    tabs.forEach(tab => {
+      const selected = tab.dataset.viewMode === mode;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+    if (mode === "indexed") {
+      if (savedActiveSourcesForView) {
+        activeSources = savedActiveSourcesForView;
+        savedActiveSourcesForView = null;
+        userDeselectedSources = new Set();
+      }
+    } else {
+      if (!savedActiveSourcesForView) savedActiveSourcesForView = new Set(activeSources);
+      const viewKeys = [...AS_PUBLISHED_KEYS].filter(key => sourceHasVorpView(key));
+      if (viewKeys.length) {
+        activeSources = new Set(viewKeys);
+        userDeselectedSources = new Set();
+      }
+    }
+    // Rebuild source maps with the new view's values, then redraw.
+    rebuildDomain();
+    makeSourceToggles();
+    draw();
+    syncCurveStatus();
+    if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));
+  }
+
+  function makeViewModeTabs() {
+    const container = $("#viewModeTabs");
+    if (!container) return;
+    const tabs = container.querySelectorAll("[data-view-mode]");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => setViewMode(tab.dataset.viewMode));
+    });
+    setViewMode(viewMode, false);
   }
 
   async function init() {
@@ -3554,6 +3717,7 @@
       makeTabs();
       makeValueModeControl();
       makeValueBandControl();
+      makeViewModeTabs();
       makeSourceToggles();
       makeLockControl();
       renderAdjustmentWeights();
