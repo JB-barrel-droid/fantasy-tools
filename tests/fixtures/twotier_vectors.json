@@ -1,0 +1,1207 @@
+{
+  "schema_version": 1,
+  "description": "Fixed input vectors for JEG-364 TwoTier parity. Expected outputs are computed by running the JS via node and recorded here; the Python reference must reproduce them to floating-point tolerance.",
+  "tolerance_abs": 1e-09,
+  "tolerance_rel": 1e-09,
+  "vectors": [
+    {
+      "id": "softplus_basic",
+      "fn": "softplus",
+      "inputs": {
+        "z": 2.5
+      },
+      "expected": 2.5788897342925496
+    },
+    {
+      "id": "softplus_zero",
+      "fn": "softplus",
+      "inputs": {
+        "z": 0.0
+      },
+      "expected": 0.6931471805599453
+    },
+    {
+      "id": "slice_exposures_above_rw",
+      "fn": "sliceExposures",
+      "inputs": {
+        "x": 15.0,
+        "rw": 8.0,
+        "rs": 10.0,
+        "tau": 0.5
+      },
+      "expected": [
+        2.009052264509296,
+        4.990947735490704
+      ]
+    },
+    {
+      "id": "slice_exposures_at_rw",
+      "fn": "sliceExposures",
+      "inputs": {
+        "x": 8.0,
+        "rw": 8.0,
+        "rs": 10.0,
+        "tau": 0.5
+      },
+      "expected": [
+        0,
+        0
+      ]
+    },
+    {
+      "id": "round_half_even_basic",
+      "fn": "roundHalfEven",
+      "inputs": {
+        "x": 2.5
+      },
+      "expected": 2
+    },
+    {
+      "id": "round_half_even_high",
+      "fn": "roundHalfEven",
+      "inputs": {
+        "x": 3.5
+      },
+      "expected": 4
+    },
+    {
+      "id": "round_half_even_down",
+      "fn": "roundHalfEven",
+      "inputs": {
+        "x": 2.4
+      },
+      "expected": 2
+    },
+    {
+      "id": "solve_tier_prices_default_share",
+      "fn": "solveTierPrices",
+      "inputs": {
+        "aBench": 32.5,
+        "bBench": 5.7,
+        "aStart": 18.2,
+        "bStart": 9.1,
+        "pie": 100.0,
+        "pos": "QB",
+        "benchShare": 0.15
+      },
+      "expected": null
+    },
+    {
+      "id": "feasible_at_default",
+      "fn": "feasibleAt",
+      "inputs": {
+        "aBench": 32.5,
+        "bBench": 5.7,
+        "aStart": 18.2,
+        "bStart": 9.1,
+        "pie": 100.0,
+        "share": 0.15,
+        "pos": "QB"
+      },
+      "expected": false
+    },
+    {
+      "id": "feasible_at_zero",
+      "fn": "feasibleAt",
+      "inputs": {
+        "aBench": 32.5,
+        "bBench": 5.7,
+        "aStart": 18.2,
+        "bStart": 9.1,
+        "pie": 100.0,
+        "share": 0.0,
+        "pos": "QB"
+      },
+      "expected": false
+    },
+    {
+      "id": "display_value_normal",
+      "fn": "displayValue",
+      "inputs": {
+        "rawValue": 12.7,
+        "scale": 5.0,
+        "aboveWaiver": true
+      },
+      "expected": 64
+    },
+    {
+      "id": "display_value_below_waiver",
+      "fn": "displayValue",
+      "inputs": {
+        "rawValue": 99.0,
+        "scale": 5.0,
+        "aboveWaiver": false
+      },
+      "expected": 0
+    },
+    {
+      "id": "tail_floor_clear_separation",
+      "fn": "tailFloor",
+      "inputs": {
+        "xs": [
+          100,
+          90,
+          80,
+          70,
+          60,
+          50,
+          40,
+          30,
+          20,
+          10,
+          5,
+          5,
+          5,
+          5,
+          5
+        ]
+      },
+      "expected": 15
+    },
+    {
+      "id": "tail_floor_flat",
+      "fn": "tailFloor",
+      "inputs": {
+        "xs": [
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10,
+          10
+        ]
+      },
+      "expected": 8
+    },
+    {
+      "id": "inward_bounds_basic",
+      "fn": "inwardBounds",
+      "inputs": {
+        "lo": 0.0123,
+        "hi": 0.2987,
+        "step": 0.001
+      },
+      "expected": [
+        0.013000000000000001,
+        0.298
+      ]
+    },
+    {
+      "id": "skill_bench_shares_default",
+      "fn": "skillBenchShares",
+      "inputs": {
+        "share": 0.2
+      },
+      "expected": {
+        "default": 0.2,
+        "QB": 0.2,
+        "RB": 0.2,
+        "WR": 0.2,
+        "TE": 0.2
+      }
+    },
+    {
+      "id": "legacy_bench_mix_12_teams",
+      "fn": "legacyBenchMixFor",
+      "inputs": {
+        "teams": 12
+      },
+      "expected": {
+        "QB": 10,
+        "RB": 27,
+        "WR": 33,
+        "TE": 10
+      }
+    },
+    {
+      "id": "legacy_bench_mix_8_teams",
+      "fn": "legacyBenchMixFor",
+      "inputs": {
+        "teams": 8
+      },
+      "expected": {
+        "QB": 7,
+        "RB": 18,
+        "WR": 22,
+        "TE": 7
+      }
+    },
+    {
+      "id": "build_position_tiers_12t_default",
+      "fn": "buildPositionTiers",
+      "inputs": {
+        "lists": {
+          "QB": [
+            {
+              "id": "qb1",
+              "x": 28.5
+            },
+            {
+              "id": "qb2",
+              "x": 24.1
+            },
+            {
+              "id": "qb3",
+              "x": 21.7
+            },
+            {
+              "id": "qb4",
+              "x": 19.4
+            },
+            {
+              "id": "qb5",
+              "x": 18.0
+            },
+            {
+              "id": "qb6",
+              "x": 17.2
+            },
+            {
+              "id": "qb7",
+              "x": 16.5
+            },
+            {
+              "id": "qb8",
+              "x": 15.9
+            },
+            {
+              "id": "qb9",
+              "x": 14.8
+            },
+            {
+              "id": "qb10",
+              "x": 14.0
+            },
+            {
+              "id": "qb11",
+              "x": 13.2
+            },
+            {
+              "id": "qb12",
+              "x": 12.6
+            },
+            {
+              "id": "qb13",
+              "x": 11.5
+            },
+            {
+              "id": "qb14",
+              "x": 10.8
+            },
+            {
+              "id": "qb15",
+              "x": 9.9
+            },
+            {
+              "id": "qb16",
+              "x": 8.5
+            },
+            {
+              "id": "qb17",
+              "x": 7.4
+            },
+            {
+              "id": "qb18",
+              "x": 6.2
+            }
+          ],
+          "RB": [
+            {
+              "id": "rb1",
+              "x": 22.0
+            },
+            {
+              "id": "rb2",
+              "x": 19.8
+            },
+            {
+              "id": "rb3",
+              "x": 18.1
+            },
+            {
+              "id": "rb4",
+              "x": 17.5
+            },
+            {
+              "id": "rb5",
+              "x": 16.7
+            },
+            {
+              "id": "rb6",
+              "x": 15.9
+            },
+            {
+              "id": "rb7",
+              "x": 15.0
+            },
+            {
+              "id": "rb8",
+              "x": 14.4
+            },
+            {
+              "id": "rb9",
+              "x": 13.8
+            },
+            {
+              "id": "rb10",
+              "x": 13.0
+            },
+            {
+              "id": "rb11",
+              "x": 12.5
+            },
+            {
+              "id": "rb12",
+              "x": 11.8
+            },
+            {
+              "id": "rb13",
+              "x": 11.0
+            },
+            {
+              "id": "rb14",
+              "x": 10.3
+            },
+            {
+              "id": "rb15",
+              "x": 9.5
+            },
+            {
+              "id": "rb16",
+              "x": 9.0
+            },
+            {
+              "id": "rb17",
+              "x": 8.6
+            },
+            {
+              "id": "rb18",
+              "x": 8.0
+            },
+            {
+              "id": "rb19",
+              "x": 7.4
+            },
+            {
+              "id": "rb20",
+              "x": 6.9
+            },
+            {
+              "id": "rb21",
+              "x": 6.5
+            },
+            {
+              "id": "rb22",
+              "x": 6.0
+            },
+            {
+              "id": "rb23",
+              "x": 5.5
+            },
+            {
+              "id": "rb24",
+              "x": 4.9
+            }
+          ],
+          "WR": [
+            {
+              "id": "wr1",
+              "x": 21.5
+            },
+            {
+              "id": "wr2",
+              "x": 19.2
+            },
+            {
+              "id": "wr3",
+              "x": 18.0
+            },
+            {
+              "id": "wr4",
+              "x": 17.2
+            },
+            {
+              "id": "wr5",
+              "x": 16.5
+            },
+            {
+              "id": "wr6",
+              "x": 15.7
+            },
+            {
+              "id": "wr7",
+              "x": 14.9
+            },
+            {
+              "id": "wr8",
+              "x": 14.2
+            },
+            {
+              "id": "wr9",
+              "x": 13.6
+            },
+            {
+              "id": "wr10",
+              "x": 12.8
+            },
+            {
+              "id": "wr11",
+              "x": 12.1
+            },
+            {
+              "id": "wr12",
+              "x": 11.5
+            },
+            {
+              "id": "wr13",
+              "x": 10.9
+            },
+            {
+              "id": "wr14",
+              "x": 10.2
+            },
+            {
+              "id": "wr15",
+              "x": 9.6
+            },
+            {
+              "id": "wr16",
+              "x": 9.0
+            },
+            {
+              "id": "wr17",
+              "x": 8.4
+            },
+            {
+              "id": "wr18",
+              "x": 7.8
+            },
+            {
+              "id": "wr19",
+              "x": 7.1
+            },
+            {
+              "id": "wr20",
+              "x": 6.5
+            },
+            {
+              "id": "wr21",
+              "x": 6.0
+            },
+            {
+              "id": "wr22",
+              "x": 5.5
+            },
+            {
+              "id": "wr23",
+              "x": 5.0
+            },
+            {
+              "id": "wr24",
+              "x": 4.5
+            }
+          ],
+          "TE": [
+            {
+              "id": "te1",
+              "x": 14.0
+            },
+            {
+              "id": "te2",
+              "x": 12.5
+            },
+            {
+              "id": "te3",
+              "x": 11.0
+            },
+            {
+              "id": "te4",
+              "x": 10.2
+            },
+            {
+              "id": "te5",
+              "x": 9.5
+            },
+            {
+              "id": "te6",
+              "x": 8.8
+            },
+            {
+              "id": "te7",
+              "x": 8.0
+            },
+            {
+              "id": "te8",
+              "x": 7.2
+            },
+            {
+              "id": "te9",
+              "x": 6.5
+            },
+            {
+              "id": "te10",
+              "x": 5.8
+            },
+            {
+              "id": "te11",
+              "x": 5.1
+            },
+            {
+              "id": "te12",
+              "x": 4.5
+            }
+          ]
+        },
+        "cfg": {
+          "teams": 12,
+          "slots": {
+            "QB": 1,
+            "RB": 2,
+            "WR": 3,
+            "TE": 1
+          },
+          "flexCount": 1,
+          "flexEligible": [
+            "RB",
+            "WR",
+            "TE"
+          ],
+          "benchMix": {
+            "QB": 10,
+            "RB": 27,
+            "WR": 33,
+            "TE": 10
+          }
+        }
+      },
+      "expected": {
+        "tiers": {
+          "QB": {
+            "rw": 0,
+            "rs": 12.05,
+            "tau": 3.0125,
+            "aBench": 48.2786473290278,
+            "bBench": 6.021352670972209,
+            "aStart": 136.88661974241887,
+            "bStart": 79.01338025758112,
+            "surplus": 270.2
+          },
+          "RB": {
+            "rw": 0,
+            "rs": 3.9000000000000004,
+            "tau": 0.9750000000000001,
+            "aBench": 0,
+            "bBench": 0,
+            "aStart": 93.27697718594601,
+            "bStart": 190.823022814054,
+            "surplus": 284.1
+          },
+          "WR": {
+            "rw": 0,
+            "rs": 3.5,
+            "tau": 0.875,
+            "aBench": 0,
+            "bBench": 0,
+            "aStart": 83.80547585751114,
+            "bStart": 193.89452414248888,
+            "surplus": 277.70000000000005
+          },
+          "TE": {
+            "rw": 0,
+            "rs": 3.5,
+            "tau": 0.875,
+            "aBench": 0,
+            "bBench": 0,
+            "aStart": 41.707771299331775,
+            "bStart": 61.39222870066822,
+            "surplus": 103.1
+          }
+        },
+        "starters": [
+          "qb1",
+          "qb10",
+          "qb11",
+          "qb12",
+          "qb2",
+          "qb3",
+          "qb4",
+          "qb5",
+          "qb6",
+          "qb7",
+          "qb8",
+          "qb9",
+          "rb1",
+          "rb10",
+          "rb11",
+          "rb12",
+          "rb13",
+          "rb14",
+          "rb15",
+          "rb16",
+          "rb17",
+          "rb18",
+          "rb19",
+          "rb2",
+          "rb20",
+          "rb21",
+          "rb22",
+          "rb23",
+          "rb24",
+          "rb3",
+          "rb4",
+          "rb5",
+          "rb6",
+          "rb7",
+          "rb8",
+          "rb9",
+          "te1",
+          "te10",
+          "te11",
+          "te12",
+          "te2",
+          "te3",
+          "te4",
+          "te5",
+          "te6",
+          "te7",
+          "te8",
+          "te9",
+          "wr1",
+          "wr10",
+          "wr11",
+          "wr12",
+          "wr13",
+          "wr14",
+          "wr15",
+          "wr16",
+          "wr17",
+          "wr18",
+          "wr19",
+          "wr2",
+          "wr20",
+          "wr21",
+          "wr22",
+          "wr23",
+          "wr24",
+          "wr3",
+          "wr4",
+          "wr5",
+          "wr6",
+          "wr7",
+          "wr8",
+          "wr9"
+        ],
+        "bench": [
+          "qb13",
+          "qb14",
+          "qb15",
+          "qb16",
+          "qb17",
+          "qb18"
+        ],
+        "rostered": [
+          "qb1",
+          "qb10",
+          "qb11",
+          "qb12",
+          "qb13",
+          "qb14",
+          "qb15",
+          "qb16",
+          "qb17",
+          "qb18",
+          "qb2",
+          "qb3",
+          "qb4",
+          "qb5",
+          "qb6",
+          "qb7",
+          "qb8",
+          "qb9",
+          "rb1",
+          "rb10",
+          "rb11",
+          "rb12",
+          "rb13",
+          "rb14",
+          "rb15",
+          "rb16",
+          "rb17",
+          "rb18",
+          "rb19",
+          "rb2",
+          "rb20",
+          "rb21",
+          "rb22",
+          "rb23",
+          "rb24",
+          "rb3",
+          "rb4",
+          "rb5",
+          "rb6",
+          "rb7",
+          "rb8",
+          "rb9",
+          "te1",
+          "te10",
+          "te11",
+          "te12",
+          "te2",
+          "te3",
+          "te4",
+          "te5",
+          "te6",
+          "te7",
+          "te8",
+          "te9",
+          "wr1",
+          "wr10",
+          "wr11",
+          "wr12",
+          "wr13",
+          "wr14",
+          "wr15",
+          "wr16",
+          "wr17",
+          "wr18",
+          "wr19",
+          "wr2",
+          "wr20",
+          "wr21",
+          "wr22",
+          "wr23",
+          "wr24",
+          "wr3",
+          "wr4",
+          "wr5",
+          "wr6",
+          "wr7",
+          "wr8",
+          "wr9"
+        ]
+      }
+    },
+    {
+      "id": "calibrate_position_feasible_default",
+      "fn": "calibratePositionFeasible",
+      "inputs": {
+        "tier": {
+          "rw": 0,
+          "rs": 12.05,
+          "tau": 3.0125,
+          "aBench": 48.2786473290278,
+          "bBench": 6.021352670972209,
+          "aStart": 136.88661974241887,
+          "bStart": 79.01338025758112,
+          "surplus": 270.2
+        },
+        "pie": 100.0,
+        "requestedShare": 0.15,
+        "pos": "QB"
+      },
+      "expected": {
+        "rw": 0,
+        "rs": 12.05,
+        "tau": 3.0125,
+        "aBench": 48.2786473290278,
+        "bBench": 6.021352670972209,
+        "aStart": 136.88661974241887,
+        "bStart": 79.01338025758112,
+        "surplus": 270.2,
+        "pb": 0.2251812499720651,
+        "ps": 0.6856522235264496,
+        "invalid": false,
+        "invalidReason": null,
+        "benchRaw": 15.000000000000004,
+        "starterRaw": 85.00000000000001,
+        "bench_share_used": 0.15
+      }
+    },
+    {
+      "id": "price_for_projection_above_waiver",
+      "fn": "priceForProjection",
+      "inputs": {
+        "x": 20.0,
+        "cal": {
+          "rw": 0,
+          "rs": 12.05,
+          "tau": 3.0125,
+          "aBench": 48.2786473290278,
+          "bBench": 6.021352670972209,
+          "aStart": 136.88661974241887,
+          "bStart": 79.01338025758112,
+          "surplus": 270.2,
+          "pb": 0.2251812499720651,
+          "ps": 0.6856522235264496,
+          "invalid": false,
+          "invalidReason": null,
+          "benchRaw": 15.000000000000004,
+          "starterRaw": 85.00000000000001,
+          "bench_share_used": 0.15
+        }
+      },
+      "expected": 8.23490190273601
+    }
+  ],
+  "shared_inputs": {
+    "build_position_tiers_12t_default": {
+      "lists": {
+        "QB": [
+          {
+            "id": "qb1",
+            "x": 28.5
+          },
+          {
+            "id": "qb2",
+            "x": 24.1
+          },
+          {
+            "id": "qb3",
+            "x": 21.7
+          },
+          {
+            "id": "qb4",
+            "x": 19.4
+          },
+          {
+            "id": "qb5",
+            "x": 18.0
+          },
+          {
+            "id": "qb6",
+            "x": 17.2
+          },
+          {
+            "id": "qb7",
+            "x": 16.5
+          },
+          {
+            "id": "qb8",
+            "x": 15.9
+          },
+          {
+            "id": "qb9",
+            "x": 14.8
+          },
+          {
+            "id": "qb10",
+            "x": 14.0
+          },
+          {
+            "id": "qb11",
+            "x": 13.2
+          },
+          {
+            "id": "qb12",
+            "x": 12.6
+          },
+          {
+            "id": "qb13",
+            "x": 11.5
+          },
+          {
+            "id": "qb14",
+            "x": 10.8
+          },
+          {
+            "id": "qb15",
+            "x": 9.9
+          },
+          {
+            "id": "qb16",
+            "x": 8.5
+          },
+          {
+            "id": "qb17",
+            "x": 7.4
+          },
+          {
+            "id": "qb18",
+            "x": 6.2
+          }
+        ],
+        "RB": [
+          {
+            "id": "rb1",
+            "x": 22.0
+          },
+          {
+            "id": "rb2",
+            "x": 19.8
+          },
+          {
+            "id": "rb3",
+            "x": 18.1
+          },
+          {
+            "id": "rb4",
+            "x": 17.5
+          },
+          {
+            "id": "rb5",
+            "x": 16.7
+          },
+          {
+            "id": "rb6",
+            "x": 15.9
+          },
+          {
+            "id": "rb7",
+            "x": 15.0
+          },
+          {
+            "id": "rb8",
+            "x": 14.4
+          },
+          {
+            "id": "rb9",
+            "x": 13.8
+          },
+          {
+            "id": "rb10",
+            "x": 13.0
+          },
+          {
+            "id": "rb11",
+            "x": 12.5
+          },
+          {
+            "id": "rb12",
+            "x": 11.8
+          },
+          {
+            "id": "rb13",
+            "x": 11.0
+          },
+          {
+            "id": "rb14",
+            "x": 10.3
+          },
+          {
+            "id": "rb15",
+            "x": 9.5
+          },
+          {
+            "id": "rb16",
+            "x": 9.0
+          },
+          {
+            "id": "rb17",
+            "x": 8.6
+          },
+          {
+            "id": "rb18",
+            "x": 8.0
+          },
+          {
+            "id": "rb19",
+            "x": 7.4
+          },
+          {
+            "id": "rb20",
+            "x": 6.9
+          },
+          {
+            "id": "rb21",
+            "x": 6.5
+          },
+          {
+            "id": "rb22",
+            "x": 6.0
+          },
+          {
+            "id": "rb23",
+            "x": 5.5
+          },
+          {
+            "id": "rb24",
+            "x": 4.9
+          }
+        ],
+        "WR": [
+          {
+            "id": "wr1",
+            "x": 21.5
+          },
+          {
+            "id": "wr2",
+            "x": 19.2
+          },
+          {
+            "id": "wr3",
+            "x": 18.0
+          },
+          {
+            "id": "wr4",
+            "x": 17.2
+          },
+          {
+            "id": "wr5",
+            "x": 16.5
+          },
+          {
+            "id": "wr6",
+            "x": 15.7
+          },
+          {
+            "id": "wr7",
+            "x": 14.9
+          },
+          {
+            "id": "wr8",
+            "x": 14.2
+          },
+          {
+            "id": "wr9",
+            "x": 13.6
+          },
+          {
+            "id": "wr10",
+            "x": 12.8
+          },
+          {
+            "id": "wr11",
+            "x": 12.1
+          },
+          {
+            "id": "wr12",
+            "x": 11.5
+          },
+          {
+            "id": "wr13",
+            "x": 10.9
+          },
+          {
+            "id": "wr14",
+            "x": 10.2
+          },
+          {
+            "id": "wr15",
+            "x": 9.6
+          },
+          {
+            "id": "wr16",
+            "x": 9.0
+          },
+          {
+            "id": "wr17",
+            "x": 8.4
+          },
+          {
+            "id": "wr18",
+            "x": 7.8
+          },
+          {
+            "id": "wr19",
+            "x": 7.1
+          },
+          {
+            "id": "wr20",
+            "x": 6.5
+          },
+          {
+            "id": "wr21",
+            "x": 6.0
+          },
+          {
+            "id": "wr22",
+            "x": 5.5
+          },
+          {
+            "id": "wr23",
+            "x": 5.0
+          },
+          {
+            "id": "wr24",
+            "x": 4.5
+          }
+        ],
+        "TE": [
+          {
+            "id": "te1",
+            "x": 14.0
+          },
+          {
+            "id": "te2",
+            "x": 12.5
+          },
+          {
+            "id": "te3",
+            "x": 11.0
+          },
+          {
+            "id": "te4",
+            "x": 10.2
+          },
+          {
+            "id": "te5",
+            "x": 9.5
+          },
+          {
+            "id": "te6",
+            "x": 8.8
+          },
+          {
+            "id": "te7",
+            "x": 8.0
+          },
+          {
+            "id": "te8",
+            "x": 7.2
+          },
+          {
+            "id": "te9",
+            "x": 6.5
+          },
+          {
+            "id": "te10",
+            "x": 5.8
+          },
+          {
+            "id": "te11",
+            "x": 5.1
+          },
+          {
+            "id": "te12",
+            "x": 4.5
+          }
+        ]
+      },
+      "cfg": {
+        "teams": 12,
+        "slots": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "flexCount": 1,
+        "flexEligible": [
+          "RB",
+          "WR",
+          "TE"
+        ],
+        "benchMix": {
+          "QB": 10,
+          "RB": 27,
+          "WR": 33,
+          "TE": 10
+        }
+      }
+    }
+  },
+  "derived_inputs": {
+    "calibrate_position_feasible_default": {
+      "_from": "build_position_tiers_12t_default",
+      "tier_pos": "QB",
+      "pie": 100.0,
+      "requestedShare": 0.15
+    },
+    "price_for_projection_above_waiver": {
+      "_from": "calibrate_position_feasible_default",
+      "x": 20.0
+    }
+  }
+}
