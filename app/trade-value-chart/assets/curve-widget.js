@@ -1026,23 +1026,23 @@
   }
 
   // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
-  // vorp_views keys are display names; resolve via the player_keys table.
+  // vorp_views keys are normalized lowercase display names, exactly the form
+  // used by the player_keys table -- resolve through it directly (the
+  // canonical names carry punctuation the normalized keys lack).
   function buildVorpViewSourceMap(key, viewKey) {
     const vorpViews = data.sources?.[key]?.vorp_views;
     const viewData = vorpViews?.views?.[viewKey];
     if (!viewData || typeof viewData !== "object") return new Map();
-    // Build reverse lookup: display name -> player key
+    // Reverse lookup: normalized display name -> player key, via player_keys.
     const nameToKey = new Map();
-    Object.entries(data.player_keys || {}).forEach(([sourceId, playerKey]) => {
+    Object.entries(data.player_keys || {}).forEach(([displayName, playerKey]) => {
       const player = canonicalByKey.get(Number(playerKey));
-      if (player) {
-        const name = String(player.full_name || player.name || "").trim();
-        if (name && !nameToKey.has(name)) nameToKey.set(name, Number(playerKey));
-      }
+      const norm = String(displayName).trim().toLowerCase();
+      if (player && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
     });
     const values = new Map();
     Object.entries(viewData).forEach(([displayName, rawValue]) => {
-      const playerKey = nameToKey.get(String(displayName).trim());
+      const playerKey = nameToKey.get(String(displayName).trim().toLowerCase());
       const player = canonicalByKey.get(playerKey);
       const value = clampValue(rawValue);
       if (!player || value === null) return;

@@ -139,6 +139,24 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
         self.assertIn("indexedMapForAgreement(key)", text,
                       "agreementFor must read indexed units for the anchor band")
 
+    def test_vorp_view_resolves_via_player_keys(self):
+        """buildVorpViewSourceMap must resolve the normalized player_keys form.
+
+        vorp_views keys are normalized lowercase display names ("aj brown"),
+        while canonical names carry punctuation ("A.J. Brown"). Resolving via
+        the canonical name silently matches nothing, the view map comes back
+        empty, and buildSourceMap falls back to indexed values -- so every tab
+        shows identical numbers. The lookup must go through data.player_keys.
+        """
+        text = WIDGET.read_text()
+        self.assertRegex(
+            text,
+            r'Object\.entries\(data\.player_keys \|\| \{\}\)\.forEach\(\(\[displayName, playerKey\]\)',
+            "buildVorpViewSourceMap must build its lookup from data.player_keys")
+        # The old broken form keyed the lookup by the canonical (punctuated) name.
+        self.assertNotIn("player.full_name || player.name", text.split("function buildVorpViewSourceMap")[1].split("function sourceHasVorpView")[0],
+                         "buildVorpViewSourceMap must not key by canonical full_name/name")
+
 
 if __name__ == "__main__":
     unittest.main()
