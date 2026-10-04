@@ -331,7 +331,11 @@ async function loadData() {
     // Try Supabase REST API (public read enabled via RLS policy)
     const resp = await fetch(
       `${SUPABASE_URL}/rest/v1/consolidated_values?select=*&limit=100000`,
-      { headers: { 'apikey': 'public', 'Accept': 'application/json' } }
+      { headers: {
+        'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2l5YnNpbXViaXVqd3VjaHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTkyMTEsImV4cCI6MjEwNDYzNTIxMX0.JL_E76TQDtM_xO22-NDcflVIE7rexiHkfrvYHKtQRsY',
+        'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2l5YnNpbXViaXVqd3VjaHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTkyMTEsImV4cCI6MjEwNDYzNTIxMX0.JL_E76TQDtM_xO22-NDcflVIE7rexiHkfrvYHKtQRsY',
+        'Accept': 'application/json'
+      } }
     );
     if (!resp.ok) throw new Error(`Supabase: HTTP ${resp.status}`);
     allRows = await resp.json();
