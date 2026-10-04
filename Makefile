@@ -153,6 +153,7 @@ test-unit:
 	python3 -m unittest tests.test_vorp_views_preview
 	python3 -m unittest tests.test_jeg242_blend_reference
 	python3 -m unittest tests.test_jeg298_roster_shape_no_kdst
+	python3 -m unittest tests.test_chart_kdst_positions_and_view_wiring
 	python3 -m unittest tests.test_run_as_published_vorp
 	python3 -m unittest tests.test_transform_batch70_to_comparison
 	python3 -m unittest tests.test_backstop_hash_roundtrip
