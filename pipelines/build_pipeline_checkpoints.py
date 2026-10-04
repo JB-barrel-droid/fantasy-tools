@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -105,27 +106,32 @@ def days_old(iso_str):
     return delta.total_seconds() / 86400
 
 
-_FIXTURE_REF_FETCHED = set()
+_FIXTURE_REF_FETCHED_AT = {}
 
 
-def _refresh_fixture_ref():
-    """Best-effort `git fetch origin main`, once per process per REPO.
+def _refresh_fixture_ref(max_age_seconds=90):
+    """Best-effort `git fetch origin main`, refreshed when the last fetch is
+    older than max_age_seconds (default 90s).
 
     committed_fixture_sha() reads the origin/main blob, which is only as
-    fresh as the checkout's last fetch. On 2026-10-03 ~21:07 CDT the health
-    runner's origin/main ref still pointed at 54eb76a's fixture (8ca0168fc660)
-    while main had already moved to the chain's 1ccf84e0 rebuild
-    (6daa1eccabc3) — the live site served the fresh fixture byte-for-byte, so
-    every source's C10 false-redded "Production output WRONG". Fetching first
-    closes that stale-ref hole. Fetch is read-only: it touches refs only,
-    never the working tree or index, so it is safe in the shared checkout.
-    A failed fetch (offline CI, no origin) is ignored and the function falls
-    back to the existing ref -> HEAD -> working-tree chain.
+    fresh as the checkout's last fetch. Fetch-once-per-process closed the
+    stale-checkout hole (2026-10-03 ~21:07 CDT), but the checkpoint run takes
+    minutes: on 2026-10-03 ~23:07 CDT the runner fetched at process start,
+    the comparison chain committed a new fixture mid-run (752aa00), and C10
+    compared the served bytes against the superseded blob — seven
+    "Production output WRONG" false reds on healthy production. A time-based
+    refresh closes the mid-run race: the C10 baseline call, minutes into the
+    run, sees an expired timestamp, re-fetches, and reads the current blob.
+    Fetch is read-only: it touches refs only, never the working tree or
+    index, so it is safe in the shared checkout. A failed fetch (offline CI,
+    no origin) is ignored and the function falls back to the existing
+    ref -> HEAD -> working-tree chain.
     """
     repo_key = str(REPO)
-    if repo_key in _FIXTURE_REF_FETCHED:
+    now = time.time()
+    if now - _FIXTURE_REF_FETCHED_AT.get(repo_key, 0) < max_age_seconds:
         return
-    _FIXTURE_REF_FETCHED.add(repo_key)
+    _FIXTURE_REF_FETCHED_AT[repo_key] = now
     try:
         subprocess.run(
             ["git", "-C", repo_key, "fetch", "--quiet", "origin", "main"],
