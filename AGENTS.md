@@ -25,10 +25,7 @@ Never route work to a lane ROUTING.md marks unavailable.
   management between lanes, and the owner:muse tickets. Standing rules: never
   publish on known flaws, never display unvalidated values, verify rendered
   production after every deploy — never ask Jeremy to re-check.
-- **ChatGPT/Codex lane: UNAVAILABLE** (account out of usage; Jeremy ruled out
-  ChatGPT Plus, 2026-10-02). **Claude Code MCP lane: UNAVAILABLE** (Claude CLI
-  was never verified working from Muse; Jeremy: "Stop trying to use the claude
-  CLI", 2026-10-02). Do not design dispatches around either lane.
+- **ChatGPT lane: AVAILABLE via outbox briefs** (re-enabled 2026-10-03 at Jeremy's direction). Dispatch = write `lanes/outbox/chatgpt/JEG-NNN-brief.md` in the standard brief format (see the JEG-107/JEG-77 briefs); results land in `lanes/inbox/chatgpt/JEG-NNN-result.md`. ChatGPT writes code/docs and commits to branches; it never merges, pushes, or deploys, and Roman reviews and integrates every result. **Claude Code MCP lane: UNAVAILABLE** (Claude CLI was never verified working from Muse; Jeremy: "Stop trying to use the claude CLI", 2026-10-02). Do not design dispatches around the Claude lane.
 - Avoid delegation for small edits, obvious fixes, simple command checks, or any
   handoff where writing the brief would take longer than doing the work.
 
