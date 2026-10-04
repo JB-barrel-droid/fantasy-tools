@@ -56,15 +56,16 @@ class TestRowBuilding(unittest.TestCase):
                            "expected ~20k rows from the real fixture")
 
     def test_qb_variant_invariant(self):
-        """qb_variant is non-null IFF the source is fantasycalc*."""
+        """qb_variant is a real variant (qb1/qb2) IFF the source is fantasycalc*;
+        rows without a variant carry the 'none' sentinel (PK can't be NULL)."""
         for row in self.rows:
-            if row["qb_variant"] is not None:
+            if row["qb_variant"] not in (None, "none"):
                 self.assertIn(row["source"], QB_VARIANT_SOURCES,
                               f"qb_variant on non-fantasycalc source: {row}")
             if row["source"] in QB_VARIANT_SOURCES and \
                     row["view"] == "combo_reindexed":
-                self.assertIsNotNone(row["qb_variant"],
-                                     f"fantasycalc row missing qb_variant: {row}")
+                self.assertNotIn(row["qb_variant"], (None, "none"),
+                                 f"fantasycalc row missing qb_variant: {row}")
 
     def test_values_exact_not_rounded(self):
         """Consolidation stores exact detail values (Codex rec #1)."""
