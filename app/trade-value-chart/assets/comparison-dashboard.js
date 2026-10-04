@@ -145,53 +145,67 @@
   const lockLabel = key => key === "disagreement" ? "Largest disagreement" : sourceLabel(key);
   const isLockKey = key => ["disagreement",...SOURCE_KEYS].includes(key);
 
+  // JEG-363 (2026-10-04): all legacy fixture reads delegated to product-data.js.
+  // product-data.js is the ONLY module that talks to the FE contract; this
+  // dashboard calls into its five semantic methods and transitional helpers
+  // instead of touching assets/* paths or the #players-data inline island.
   function loadComparisonData() {
-    if (window.TradeValueComparisonData) return Promise.resolve(window.TradeValueComparisonData);
-    if (!window.TradeValueComparisonDataPromise) {
-      window.TradeValueComparisonDataPromise = fetch("assets/comparison-sources-data.json")
-        .then(response => {
-          if (!response.ok) throw new Error(`Data request failed (${response.status})`);
-          return response.json();
-        })
-        .then(payload => {
-          window.TradeValueComparisonData = payload;
-          return payload;
-        });
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        const snap = window.TradeValueProductData.getSnapshot();
+        // Expose the snapshot under the legacy global name so any out-of-tree
+        // consumer keeps working.
+        window.TradeValueComparisonData = snap;
+        return snap;
+      });
     }
-    return window.TradeValueComparisonDataPromise;
+    return Promise.reject(new Error("product-data.js missing; render refused."));
   }
 
   function loadPlayerNews() {
-    if (window.TradeValuePlayerNews) return Promise.resolve(window.TradeValuePlayerNews);
-    if (!window.TradeValuePlayerNewsPromise) {
-      window.TradeValuePlayerNewsPromise = fetch("assets/player-news.json")
-        .then(response => response.ok ? response.json() : {meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}})
-        .catch(() => ({meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}}))
-        .then(payload => {
-          window.TradeValuePlayerNews = payload;
-          return payload;
+    // product-data.js owns the player-news fixture read; the dashboard reads
+    // per-player context via getPlayerContext() and meta via getSnapshot().
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        const meta = window.TradeValueProductData.getSnapshot().context_meta || {};
+        const projected = {
+          meta,
+          // The contract collapses to per-player reads; expose the legacy
+          // bulk shape as a view derived from getPlayerContext() calls.
+          news_by_player_key: {},
+          adjustments_by_player_key: {},
+        };
+        // Pre-warm the legacy shape so downstream code that walks it keeps
+        // working (this is an interim shim — Phase D replaces these readers
+        // with getPlayerContext() calls).
+        const players = window.TradeValueProductData.getPlayers();
+        players.forEach(player => {
+          const ctx = window.TradeValueProductData.getPlayerContext(player.player_key);
+          if (!ctx) return;
+          const key = String(player.player_key);
+          if (ctx.news && ctx.news.length) projected.news_by_player_key[key] = ctx.news;
+          if (ctx.adjustments && ctx.adjustments.length) projected.adjustments_by_player_key[key] = ctx.adjustments;
         });
+        window.TradeValuePlayerNews = projected;
+        return projected;
+      });
     }
-    return window.TradeValuePlayerNewsPromise;
+    return Promise.resolve({meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}});
   }
 
   // Same versioned adjustment-input asset the curve widget loads: stage-2
   // adjustment cells are gated by source status, never assumed.
   function loadAdjustmentInputs() {
-    if (window.TradeValueAdjustmentInputs) return Promise.resolve(window.TradeValueAdjustmentInputs);
-    if (!window.TradeValueAdjustmentInputsPromise) {
-      window.TradeValueAdjustmentInputsPromise = fetch("assets/adjustment-inputs.json")
-        .then(response => {
-          if (!response.ok) throw new Error(`Adjustment inputs request failed (${response.status})`);
-          return response.json();
-        })
-        .then(payload => {
-          window.TradeValueAdjustmentInputs = payload?.schema === "trade-value-adjustment-inputs-v1" ? payload : null;
-          return window.TradeValueAdjustmentInputs;
-        })
-        .catch(() => null);
+    // product-data.js owns the fixture read; the dashboard sees the projected
+    // payload via getAdjustmentInputs().
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        const inputs = window.TradeValueProductData.getAdjustmentInputs();
+        window.TradeValueAdjustmentInputs = inputs;
+        return inputs;
+      });
     }
-    return window.TradeValueAdjustmentInputsPromise;
+    return Promise.resolve(null);
   }
 
   let data = null;
@@ -298,8 +312,15 @@
       const field = VORP_SOURCE_DEFS[key].ppgField;
       return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p[field]?.[scoreField()])));
     }
-    if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKeyFor("cbs")]);
-    return Boolean(data?.sources?.[key]?.combos?.[comboKeyFor(key)]);
+    // JEG-363: sourceComboExists reads via product-data.js (api.player_values).
+    if (key === "cbs_adjusted") {
+      return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
+        ? window.TradeValueProductData.getPlayerValues({source: "cbs", scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
+        : null);
+    }
+    return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: key, scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null);
   }
 
   const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && !isWeekCurrent(key);
@@ -309,13 +330,17 @@
   }
 
   function canonicalPlayers() {
-    const payload = JSON.parse(document.getElementById("players-data")?.textContent || "{}");
-    const players = Array.isArray(payload.players) ? payload.players : [];
+    // JEG-363 (2026-10-04): canonical players come from product-data.js
+    // (api.players surface). The inline #players-data island is read only by
+    // product-data.js; this widget never touches it.
+    const players = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayers()
+      : [];
     const next = new Map();
     players.forEach(player => {
       const key = Number(player.player_key);
       if (!Number.isInteger(key) || key <= 0) return;
-      const name = String(player.full_name || player.name || "").trim();
+      const name = String(player.canonical_name || player.full_name || player.name || "").trim();
       if (!name || !POSITIONS.includes(player.pos)) return;
       next.set(key, {
         player_key:key,
@@ -434,15 +459,21 @@
   }
 
   function espnTargetTotal(pos, fallback) {
-    const combo = data.sources?.espn?.combos?.[comboKeyFor("espn")];
-    const target = Number(combo?.index_total?.[pos]?.target_total);
+    // JEG-363: read ESPN combo's index_total via product-data.js.
+    const row = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: "espn", scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
+    const target = Number(row?.index_total?.[pos]?.target_total);
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
   function sourceTargetTotal(key) {
     const sourceKey = key === "cbs_adjusted" ? "cbs" : key;
-    const combo = data.sources?.[sourceKey]?.combos?.[comboKeyFor(sourceKey)];
-    const totals = Object.values(combo?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
+    // JEG-363: read per-source combo's index_total via product-data.js.
+    const row = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: sourceKey, scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
+    const totals = Object.values(row?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
     return totals.reduce((sum, value) => sum + value, 0);
   }
 
@@ -461,55 +492,25 @@
   }
 
   function buildPublishedSourceMap(key) {
-    // JEG-325 (2026-10-04): strangler-fig migration onto ConsolidationIndex.
-    // The detail deep-path is preserved for audit; the chart-visible reads
-    // go through the index lookup and are shadow-compared against the detail
-    // value. The dashboard's state.combos bookkeeping stays — it tracks
-    // *which* combos exist, not the values, so it is unaffected by the
-    // consolidation rewrite (§5 step 3).
-    const combo = selectedCombo(key);
-    const raw = combo?.values || combo?.reindexed || {};
-    const native = combo?.native || {};
-    const ck = comboKeyFor(key);
-    const parsedCombo = ck ? (window.TradeValueConsolidation?.parseComboKey?.(ck) || null) : null;
-    const consolidationView = "reindexed";
-    const consolidation = (typeof window !== "undefined") ? window.TradeValueConsolidation : null;
+    // JEG-363 (2026-10-04): per-cell values come from product-data.js
+    // (api.player_values surface, view=combo_reindexed). The widget no
+    // longer walks the legacy detail deep-path `data.sources[key].combos[...]`;
+    // the contract adapter owns every fixture read.
+    if (typeof window === "undefined" || !window.TradeValueProductData) {
+      throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
+    }
+    const row = window.TradeValueProductData.getPlayerValues({
+      source: key,
+      scoring: state.scoring,
+      teams: state.teams,
+      qbVariant: "qb1",
+      view: "combo_reindexed",
+    });
     const values = new Map();
-    Object.entries(raw).forEach(([sourceId, rawValue]) => {
-      if (["fantasypros","fantasypros_adjusted"].includes(key) && !has(native,sourceId)) return;
-      const mapped = data.player_keys?.[sourceId];
-      const playerKey = Number(mapped);
-      if (!Number.isInteger(playerKey) || !canonicalByKey.has(playerKey)) return;
-      const detailNumber = Number(rawValue);
-      let consolidatedNumber = null;
-      if (consolidation && parsedCombo) {
-        const qbArg = consolidation.isQbAware?.(key) ? (parsedCombo.qb || "") : "";
-        const looked = consolidation.lookup({
-          player: String(playerKey),
-          source: key,
-          scoring: parsedCombo.scoring,
-          teams: parsedCombo.teams,
-          qb: qbArg,
-          view: consolidationView,
-        });
-        if (looked !== null && looked !== undefined && Number.isFinite(Number(looked))) {
-          consolidatedNumber = Number(looked);
-          if (Number.isFinite(detailNumber)) {
-            consolidation.recordDivergence({
-              source: key,
-              player: playerKey,
-              scoring: parsedCombo.scoring,
-              teams: parsedCombo.teams,
-              qb: qbArg,
-              view: consolidationView,
-              detailValue: detailNumber,
-              consolidatedValue: consolidatedNumber,
-            });
-          }
-        }
-      }
-      const chosenValue = (consolidatedNumber !== null) ? consolidatedNumber : detailNumber;
-      const value = clampValue(chosenValue);
+    if (!row || !row.values) return values;
+    row.values.forEach((rawValue, playerKey) => {
+      if (!canonicalByKey.has(playerKey)) return;
+      const value = clampValue(rawValue);
       if (value === null) return;
       if (values.has(playerKey) && values.get(playerKey) !== value) {
         throw new Error(`Conflicting values for canonical player ${playerKey} in ${sourceLabel(key)}.`);
@@ -673,8 +674,16 @@
   }
 
   function selectedCombo(key) {
-    const comboKey = comboKeyFor(key);
-    return data.sources?.[key]?.combos?.[comboKey] || null;
+    // JEG-363: returns the contract-shaped api.player_values row for the
+    // active (scoring, teams) cell; downstream code reads .values / .index_total.
+    if (typeof window === "undefined" || !window.TradeValueProductData) return null;
+    return window.TradeValueProductData.getPlayerValues({
+      source: key,
+      scoring: state.scoring,
+      teams: state.teams,
+      qbVariant: "qb1",
+      view: "combo_reindexed",
+    });
   }
 
   function buildSourceMap(key) {
@@ -704,11 +713,14 @@
       const ratio = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 1;
       adjusted.set(playerKey, Math.max(0, directValue * ratio));
     });
-    const targetCombo = data.sources?.cbs?.combos?.[comboKeyFor("cbs")];
+    // JEG-363: CBS index_total via product-data.js.
+    const cbsRow = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: "cbs", scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
     POSITION_ORDER.forEach(pos => {
       const rows = [...adjusted.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos);
       const total = rows.reduce((sum, [, value]) => sum + value, 0);
-      const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+      const target = Number(cbsRow?.index_total?.[pos]?.target_total);
       const scale = total > 0 && Number.isFinite(target) && target > 0 ? target / total : 1;
       rows.forEach(([playerKey, value]) => adjusted.set(playerKey, value * scale));
     });
@@ -759,7 +771,12 @@
 
   function sourceDate(key) {
     const vorpSource = PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : null;
-    const source = data.sources[key] || (key === "cbs_adjusted" ? data.sources.cbs : vorpSource ? data.sources[vorpSource] : {}) || {};
+    // JEG-363: per-source metadata via api.product_snapshot.sources.
+    const snap = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getSnapshot()
+      : null;
+    const sources = (snap && snap.sources) || {};
+    const source = sources[key] || (key === "cbs_adjusted" ? sources.cbs : vorpSource ? sources[vorpSource] : {}) || {};
     if (key.endsWith("_adjusted")) {
       const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
       return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
@@ -1200,7 +1217,7 @@
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `published-trade-charts-${String(data.built_at || "snapshot").slice(0,10)}.json`;
+      link.download = `published-trade-charts-${String((typeof window !== "undefined" && window.TradeValueProductData ? window.TradeValueProductData.getSnapshot().built_at : null) || "snapshot").slice(0,10)}.json`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -1324,13 +1341,19 @@
       newsMeta = window.TradeValuePlayerNews?.meta || {};
       newsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.news_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
       adjustmentsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.adjustments_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
-      universeSize = Object.keys(data.player_keys || {}).length;
+      universeSize = (typeof window !== "undefined" && window.TradeValueProductData)
+        ? window.TradeValueProductData.getPlayers().length
+        : 0;
       canonicalByKey = canonicalPlayers();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
       // Pure VORP columns validate against their own source's projections
       // (each VORP curve is computed from that source's per-game numbers).
       const validationKeyFor = key => PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : (key === "cbs_adjusted" ? "cbs" : key);
-      renderKeys = SOURCE_KEYS.filter(key => data.source_validation?.[validationKeyFor(key)] === "live");
+      // JEG-363: source_validation via api.product_snapshot.source_validation.
+      const srcValidation = (typeof window !== "undefined" && window.TradeValueProductData)
+        ? window.TradeValueProductData.getSnapshot().source_validation || {}
+        : {};
+      renderKeys = SOURCE_KEYS.filter(key => srcValidation[validationKeyFor(key)] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
       if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.TradeValueReferenceSource)) referenceSource = window.TradeValueReferenceSource;

@@ -701,20 +701,25 @@
   const canvas = $("#chart");
   const tip = $("#tip");
 
+  // JEG-363 (2026-10-04): all legacy fixture reads delegated to product-data.js.
+  // product-data.js is the ONLY module that talks to the FE contract; this
+  // widget calls into its five semantic methods and transitional helpers
+  // instead of touching assets/* paths or the #players-data inline island.
   function loadComparisonData() {
-    if (window.TradeValueComparisonData) return Promise.resolve(window.TradeValueComparisonData);
-    if (!window.TradeValueComparisonDataPromise) {
-      window.TradeValueComparisonDataPromise = fetch("assets/comparison-sources-data.json")
-        .then(response => {
-          if (!response.ok) throw new Error(`Data request failed (${response.status})`);
-          return response.json();
-        })
-        .then(payload => {
-          window.TradeValueComparisonData = payload;
-          return payload;
-        });
+    // Back-compat shim: legacy callers still get a payload via this promise,
+    // but the payload is the contract api.product_snapshot (frozen). All
+    // deep-path reads have been removed from this file; the snapshot is only
+    // used for per-source metadata (week_designated, fit_bake_id, etc.).
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        // Expose the snapshot under the legacy global name so any out-of-tree
+        // consumer (e.g. the inline health card) keeps working.
+        const snap = window.TradeValueProductData.getSnapshot();
+        window.TradeValueComparisonData = snap;
+        return snap;
+      });
     }
-    return window.TradeValueComparisonDataPromise;
+    return Promise.reject(new Error("product-data.js missing; render refused."));
   }
 
   // Versioned adjustment inputs (trade-value-adjustment-inputs-v1). Stage 1 ships
@@ -722,20 +727,16 @@
   // every *_adjusted curve falls back exactly to today's behavior. A missing or
   // unparsable asset also falls back (fail-open) rather than breaking the chart.
   function loadAdjustmentInputs() {
-    if (window.TradeValueAdjustmentInputs) return Promise.resolve(window.TradeValueAdjustmentInputs);
-    if (!window.TradeValueAdjustmentInputsPromise) {
-      window.TradeValueAdjustmentInputsPromise = fetch("assets/adjustment-inputs.json")
-        .then(response => {
-          if (!response.ok) throw new Error(`Adjustment inputs request failed (${response.status})`);
-          return response.json();
-        })
-        .then(payload => {
-          window.TradeValueAdjustmentInputs = payload?.schema === "trade-value-adjustment-inputs-v1" ? payload : null;
-          return window.TradeValueAdjustmentInputs;
-        })
-        .catch(() => null);
+    // product-data.js owns the fixture read; the widget only sees the projected
+    // payload via getAdjustmentInputs().
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        const inputs = window.TradeValueProductData.getAdjustmentInputs();
+        window.TradeValueAdjustmentInputs = inputs;
+        return inputs;
+      });
     }
-    return window.TradeValueAdjustmentInputsPromise;
+    return Promise.resolve(null);
   }
 
   let data = null;
@@ -862,7 +863,13 @@
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
   const isLockKey = key => ["disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
-  const sourceValidationStatus = key => key === "cbs_adjusted" ? data.source_validation?.cbs : data.source_validation?.[key];
+  const sourceValidationStatus = key => {
+    // JEG-363: source validation lives on api.product_snapshot.source_validation.
+    const sv = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getSnapshot().source_validation
+      : null;
+    return key === "cbs_adjusted" ? sv?.cbs : sv?.[key];
+  };
   const sourceComboExists = key => {
     // Pure VORP curves are browser-computed from each source's per-game
     // projections on the player records, not from fixture combos.
@@ -889,11 +896,16 @@
   }
 
   function buildCanonicalMap() {
-    const payload = JSON.parse(document.getElementById("players-data")?.textContent || "{}");
+    // JEG-363 (2026-10-04): canonical players come from product-data.js
+    // (api.players surface). The inline #players-data island is read only by
+    // product-data.js; the widget never touches it.
+    const players = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayers()
+      : [];
     const map = new Map();
-    (payload.players || []).forEach(player => {
+    players.forEach(player => {
       const playerKey = Number(player.player_key);
-      const name = String(player.full_name || player.name || "").trim();
+      const name = String(player.canonical_name || player.full_name || player.name || "").trim();
       if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;
       map.set(playerKey, {
         player_key: playerKey,
@@ -960,17 +972,23 @@
       const target = Number(pies[pos]);
       if (Number.isFinite(target) && target > 0) return target;
     } catch (e) {
-      // Config not ready; fall through to fixture.
+      // Config not ready; fall through to the api.player_values row.
     }
-    const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
-    const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+    // JEG-363: read the ESPN combo's index_total via product-data.js.
+    const espnRow = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: "espn", scoring, teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
+    const target = Number(espnRow?.index_total?.[pos]?.target_total);
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
   function sourceTargetTotal(key) {
     const sourceKey = key === "cbs_adjusted" ? "cbs" : key;
-    const combo = data.sources?.[sourceKey]?.combos?.[comboKey(sourceKey)];
-    const totals = Object.values(combo?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
+    // JEG-363: read the per-source combo's index_total via product-data.js.
+    const row = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: sourceKey, scoring, teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
+    const totals = Object.values(row?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
     return totals.reduce((sum, value) => sum + value, 0);
   }
 
@@ -989,58 +1007,25 @@
   }
 
   function buildPublishedSourceMap(key) {
-    // JEG-325 (2026-10-04): strangler-fig migration onto ConsolidationIndex.
-    // The detail deep-path `combo?.values || combo?.reindexed` still ships
-    // (audit + downstream data); the index now mediates the chart-visible
-    // reads. For every priced (player, source, scoring, teams, qb, view) cell
-    // we look the value up via the index and shadow-compare it against the
-    // detail value, recording divergences on the index (never silent).
-    // Per §5 the old path stays in place until coverage evidence supports
-    // retiring it.
-    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-    const raw = combo?.values || combo?.reindexed || {};
-    const native = combo?.native || {};
-    const ck = comboKey(key);
-    const parsedCombo = ck ? (window.TradeValueConsolidation?.parseComboKey?.(ck) || null) : null;
-    const consolidationView = "reindexed";
-    const consolidation = (typeof window !== "undefined") ? window.TradeValueConsolidation : null;
+    // JEG-363 (2026-10-04): per-cell values come from product-data.js
+    // (api.player_values surface, view=combo_reindexed). The widget no
+    // longer walks the legacy detail deep-path `data.sources[key].combos[...]`;
+    // the contract adapter owns every fixture read.
+    if (typeof window === "undefined" || !window.TradeValueProductData) {
+      throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
+    }
+    const row = window.TradeValueProductData.getPlayerValues({
+      source: key,
+      scoring,
+      teams,
+      qbVariant: "qb1",
+      view: "combo_reindexed",
+    });
     const values = new Map();
-    Object.entries(raw).forEach(([sourceId, rawValue]) => {
-      if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
-      const playerKey = Number(data.player_keys?.[sourceId]);
+    if (!row || !row.values) return values;
+    row.values.forEach((rawValue, playerKey) => {
       const player = canonicalByKey.get(playerKey);
-      const detailNumber = Number(rawValue);
-      // Consolidation lookup (preferred). Returns null when the cell is not
-      // indexed — the consumer must keep the detail value in that case.
-      let consolidatedNumber = null;
-      if (consolidation && parsedCombo && Number.isInteger(playerKey)) {
-        const qbArg = consolidation.isQbAware?.(key) ? (parsedCombo.qb || "") : "";
-        const looked = consolidation.lookup({
-          player: String(playerKey),
-          source: key,
-          scoring: parsedCombo.scoring,
-          teams: parsedCombo.teams,
-          qb: qbArg,
-          view: consolidationView,
-        });
-        if (looked !== null && looked !== undefined && Number.isFinite(Number(looked))) {
-          consolidatedNumber = Number(looked);
-          if (Number.isFinite(detailNumber)) {
-            consolidation.recordDivergence({
-              source: key,
-              player: playerKey,
-              scoring: parsedCombo.scoring,
-              teams: parsedCombo.teams,
-              qb: qbArg,
-              view: consolidationView,
-              detailValue: detailNumber,
-              consolidatedValue: consolidatedNumber,
-            });
-          }
-        }
-      }
-      const chosenValue = (consolidatedNumber !== null) ? consolidatedNumber : detailNumber;
-      const value = clampValue(chosenValue);
+      const value = clampValue(rawValue);
       if (!player || value === null) return;
       if (values.has(playerKey) && values.get(playerKey) !== value) throw new Error(`Conflicting canonical identity ${playerKey} in ${sourceLabel(key)}.`);
       values.set(playerKey, value);
@@ -1049,8 +1034,8 @@
   }
 
   function buildNativeSourceMap(key) {
-    // Razzball: native PPG lives on the fixture player objects (rz_ppg),
-    // not in data.sources. Build from canonical players.
+    // Razzball: native PPG lives on the canonical player objects (rz_ppg),
+    // not in api.player_values. Build from getPlayers() via product-data.
     if (key === "razzball") {
       const values = new Map();
       const field = scoringField();
@@ -1061,7 +1046,7 @@
       });
       return values;
     }
-    // CBS ROS: same pattern — native PPG baked onto fixture player objects
+    // CBS ROS: same pattern — native PPG baked onto canonical player objects
     // (cbsros_ppg) by pipelines/bake_players.py (JEG-33).
     if (key === "cbsros") {
       const values = new Map();
@@ -1073,11 +1058,20 @@
       });
       return values;
     }
-    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-    const native = combo?.native || {};
+    // JEG-363: native values come from product-data.js (view=native).
+    if (typeof window === "undefined" || !window.TradeValueProductData) {
+      throw new Error("product-data.js missing; buildNativeSourceMap refused.");
+    }
+    const row = window.TradeValueProductData.getPlayerValues({
+      source: key,
+      scoring,
+      teams,
+      qbVariant: "qb1",
+      view: "native",
+    });
     const values = new Map();
-    Object.entries(native).forEach(([sourceId, nativeValue]) => {
-      const playerKey = Number(data.player_keys?.[sourceId]);
+    if (!row || !row.values) return values;
+    row.values.forEach((nativeValue, playerKey) => {
       const player = canonicalByKey.get(playerKey);
       const value = Number(nativeValue);
       if (!player || !Number.isFinite(value)) return;
@@ -1440,11 +1434,14 @@
       const ratio = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 1;
       multipliers.set(playerKey, Math.max(0, directValue * ratio));
     });
-    const targetCombo = data.sources?.cbs?.combos?.[comboKey("cbs")];
+    // JEG-363: read CBS index_total via product-data.js (api.player_values).
+    const cbsRow = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: "cbs", scoring, teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
     POSITION_ORDER.forEach(pos => {
       const rows = [...multipliers.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos);
       const total = rows.reduce((sum, [, value]) => sum + value, 0);
-      const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+      const target = Number(cbsRow?.index_total?.[pos]?.target_total);
       const scale = total > 0 && Number.isFinite(target) && target > 0 ? target / total : 1;
       rows.forEach(([playerKey, value]) => multipliers.set(playerKey, value * scale));
     });
