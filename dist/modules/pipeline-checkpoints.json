@@ -526,10 +526,10 @@
   },
   "vorp_translation": {
     "label": "VORP: legacy translation freshness (not Option C readiness)",
-    "status": "bad",
-    "reason": "9 combo(s) on reindex-fallback: fantasycalc/full_10_qb2: reindex-fallback is the steady state; fantasycalc/full_14_qb2: reindex-fallback is the steady state; fantasycalc/full_8_qb2: reindex-fallback is the steady state; fantasycalc/half_10_qb2: reindex-fallback is the steady state; fantasycalc/half_14_qb2: reindex-fallback is the steady state",
-    "timestamp": "2026-10-03T22:00:42.323533+00:00",
+    "status": "warn",
+    "reason": "9 combo(s) stale or unrecorded: fantasycalc/full_10_qb1: grain week not recorded; fantasycalc/full_14_qb1: grain week not recorded; fantasycalc/full_8_qb1: grain week not recorded; fantasycalc/half_10_qb1: grain week not recorded; fantasycalc/half_14_qb1: grain week not recorded",
     "n_ok": 15,
-    "n_expected": 33
+    "n_expected": 24,
+    "timestamp": "2026-10-03T22:00:42.323533+00:00"
   }
 }
