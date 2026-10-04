@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-04T11:00:48.579152+00:00",
+  "generated_at": "2026-10-04T11:08:27.294568+00:00",
   "repo": "JB-barrel-droid/fantasy-tools",
   "workflows": [
     {
@@ -9,12 +9,11 @@
       "state": "active",
       "coverage": {
         "stages": [
-          "C2",
-          "C3"
+          "Unknown"
         ],
-        "description": "Weekly CBS ROS scrape to Supabase",
-        "schedule": "Weekly Wed 11:00 UTC (06:00 CT)",
-        "key_task": "CBS ROS scrape to Supabase"
+        "description": "No coverage mapping defined",
+        "schedule": "Unknown",
+        "key_task": "Unmapped"
       },
       "health": "ok",
       "last_run": {
@@ -58,8 +57,7 @@
       "recent_failures": 2,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-02T21:11:45Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     },
     {
       "id": 371745723,
@@ -125,8 +123,7 @@
       "recent_failures": 0,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-03T15:10:49Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     },
     {
       "id": 371574673,
@@ -201,8 +198,7 @@
       "recent_failures": 1,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-03T21:21:07Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     },
     {
       "id": 373523987,
@@ -211,11 +207,11 @@
       "state": "active",
       "coverage": {
         "stages": [
-          "C10"
+          "Unknown"
         ],
-        "description": "Daily CI check of the live production page render",
-        "schedule": "Daily 06:00 UTC (01:00 CT)",
-        "key_task": "Live production render check"
+        "description": "No coverage mapping defined",
+        "schedule": "Unknown",
+        "key_task": "Unmapped"
       },
       "health": "ok",
       "last_run": {
@@ -277,8 +273,7 @@
       "recent_failures": 4,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-03T14:33:04Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     },
     {
       "id": 363753372,
@@ -294,17 +289,35 @@
         "schedule": "On push to main",
         "key_task": "Production deployment"
       },
-      "health": "ok",
+      "health": "running",
       "last_run": {
-        "created_at": "2026-10-04T10:38:09Z",
-        "updated_at": "2026-10-04T10:40:38Z",
-        "status": "completed",
-        "conclusion": "success",
+        "created_at": "2026-10-04T11:08:01Z",
+        "updated_at": "2026-10-04T11:08:05Z",
+        "status": "in_progress",
+        "conclusion": null,
         "event": "push",
-        "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37196000219",
-        "duration_s": 149
+        "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37197687313",
+        "duration_s": 4
       },
       "recent_runs": [
+        {
+          "created_at": "2026-10-04T11:08:01Z",
+          "updated_at": "2026-10-04T11:08:05Z",
+          "status": "in_progress",
+          "conclusion": null,
+          "event": "push",
+          "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37197687313",
+          "duration_s": 4
+        },
+        {
+          "created_at": "2026-10-04T11:00:51Z",
+          "updated_at": "2026-10-04T11:03:12Z",
+          "status": "completed",
+          "conclusion": "success",
+          "event": "workflow_dispatch",
+          "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37197266093",
+          "duration_s": 141
+        },
         {
           "created_at": "2026-10-04T10:38:09Z",
           "updated_at": "2026-10-04T10:40:38Z",
@@ -331,31 +344,12 @@
           "event": "workflow_dispatch",
           "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37194001485",
           "duration_s": 138
-        },
-        {
-          "created_at": "2026-10-04T09:37:54Z",
-          "updated_at": "2026-10-04T09:40:26Z",
-          "status": "completed",
-          "conclusion": "success",
-          "event": "push",
-          "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37192774855",
-          "duration_s": 152
-        },
-        {
-          "created_at": "2026-10-04T09:08:21Z",
-          "updated_at": "2026-10-04T09:10:51Z",
-          "status": "completed",
-          "conclusion": "success",
-          "event": "push",
-          "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37191178052",
-          "duration_s": 150
         }
       ],
       "recent_failures": 0,
       "consecutive_failures": 0,
-      "last_success_at": "2026-10-04T10:38:09Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "last_success_at": "2026-10-04T11:00:51Z",
+      "failing_streak": false
     },
     {
       "id": 371745724,
@@ -430,8 +424,7 @@
       "recent_failures": 0,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-04T06:47:01Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     },
     {
       "id": 372362852,
@@ -440,11 +433,11 @@
       "state": "active",
       "coverage": {
         "stages": [
-          "C9"
+          "Unknown"
         ],
-        "description": "PR preview: builds exactly what pages.yml would publish; never deploys",
-        "schedule": "On pull_request",
-        "key_task": "PR deploy-pipeline validation"
+        "description": "No coverage mapping defined",
+        "schedule": "Unknown",
+        "key_task": "Unmapped"
       },
       "health": "ok",
       "last_run": {
@@ -506,8 +499,7 @@
       "recent_failures": 4,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-03T18:49:00Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     },
     {
       "id": 370643883,
@@ -529,25 +521,25 @@
         "schedule": "On vintage change (hourly source-vintage-check dispatches it; JEG-76)",
         "key_task": "Automated pipeline refresh"
       },
-      "health": "running",
+      "health": "ok",
       "last_run": {
         "created_at": "2026-10-04T11:00:13Z",
-        "updated_at": "2026-10-04T11:00:18Z",
-        "status": "in_progress",
-        "conclusion": null,
+        "updated_at": "2026-10-04T11:00:56Z",
+        "status": "completed",
+        "conclusion": "success",
         "event": "workflow_dispatch",
         "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37197223374",
-        "duration_s": 5
+        "duration_s": 43
       },
       "recent_runs": [
         {
           "created_at": "2026-10-04T11:00:13Z",
-          "updated_at": "2026-10-04T11:00:18Z",
-          "status": "in_progress",
-          "conclusion": null,
+          "updated_at": "2026-10-04T11:00:56Z",
+          "status": "completed",
+          "conclusion": "success",
           "event": "workflow_dispatch",
           "html_url": "https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/37197223374",
-          "duration_s": 5
+          "duration_s": 43
         },
         {
           "created_at": "2026-10-04T10:00:11Z",
@@ -588,9 +580,8 @@
       ],
       "recent_failures": 0,
       "consecutive_failures": 0,
-      "last_success_at": "2026-10-04T10:00:11Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "last_success_at": "2026-10-04T11:00:13Z",
+      "failing_streak": false
     },
     {
       "id": 373432055,
@@ -665,8 +656,7 @@
       "recent_failures": 0,
       "consecutive_failures": 0,
       "last_success_at": "2026-10-04T11:00:01Z",
-      "failing_streak": false,
-      "alert_needed": false
+      "failing_streak": false
     }
   ],
   "coverage_gaps": [],
@@ -678,7 +668,6 @@
     "failing": 0,
     "running": 1,
     "failing_streak_count": 0,
-    "alert_needed_count": 0,
     "max_consecutive_failures": 0,
     "gaps_count": 0
   }
