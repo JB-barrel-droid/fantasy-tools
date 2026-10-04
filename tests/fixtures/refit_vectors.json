@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "description": "Fixed input vectors for JEG-364b refitLiveCells OLS parity. Expected outputs are computed by tracing the OLS algorithm (curve-widget.js:2049-2074) — IEEE-754 double arithmetic, same operations in the same order the JS driver runs them. The Python reference (pipelines/refit_reference.py) must reproduce them to floating-point tolerance.",
+  "tolerance_abs": 1e-9,
+  "tolerance_rel": 1e-9,
+  "source_ref": "app/trade-value-chart/assets/curve-widget.js:2031-2081",
+  "vectors": [
+    {
+      "id": "refit_classic_linear_qb",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "fantasycalc": {
+            "pos_of": {"101": "QB", "102": "QB", "103": "QB", "104": "QB", "105": "QB", "201": "RB", "202": "RB"},
+            "starters": ["101", "102", "103", "104", "105"],
+            "bench":    ["201", "202"],
+            "values":   {"101": 11.0, "102": 21.0, "103": 31.0, "104": 41.0, "105": 51.0, "201": 5.0, "202": 7.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "fantasycalc": {"101": 5.0, "102": 10.0, "103": 15.0, "104": 20.0, "105": 25.0, "201": 2.0, "202": 3.0}
+        }
+      },
+      "expected": [
+        {"source": "fantasycalc", "position": "QB", "tier": "starter", "alpha": 1.0, "beta": 2.0, "n": 5},
+        {"source": "fantasycalc", "position": "RB", "tier": "bench", "alpha": 1.0, "beta": 2.0, "n": 2}
+      ]
+    },
+    {
+      "id": "refit_wr_bench_weak",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "espn": {
+            "pos_of": {"301": "WR", "302": "WR", "303": "WR", "304": "WR"},
+            "starters": [],
+            "bench":    ["301", "302", "303", "304"],
+            "values":   {"301": 9.5, "302": 19.4, "303": 29.6, "304": 39.5},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "espn": {"301": 20.0, "302": 40.0, "303": 60.0, "304": 80.0}
+        }
+      },
+      "expected": [
+        {"source": "espn", "position": "WR", "tier": "bench", "alpha": -0.55, "beta": 0.501, "n": 4}
+      ]
+    },
+    {
+      "id": "refit_filter_nan_y",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "cbs": {
+            "pos_of": {"401": "RB", "402": "RB", "403": "RB"},
+            "starters": ["401", "402", "403"],
+            "bench":    [],
+            "values":   {"401": 15.0, "402": NaN, "403": 35.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "cbs": {"401": 10.0, "402": 20.0, "403": 30.0}
+        }
+      },
+      "expected": [
+        {"source": "cbs", "position": "RB", "tier": "starter", "alpha": 5.0, "beta": 1.0, "n": 2}
+      ]
+    },
+    {
+      "id": "refit_filter_inf_pub",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "usatoday": {
+            "pos_of": {"501": "TE", "502": "TE", "503": "TE"},
+            "starters": ["501", "502", "503"],
+            "bench":    [],
+            "values":   {"501": 8.0, "502": 18.0, "503": 28.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "usatoday": {"501": 4.0, "502": Infinity, "503": 14.0}
+        }
+      },
+      "expected": [
+        {"source": "usatoday", "position": "TE", "tier": "starter", "alpha": 0.0, "beta": 2.0, "n": 2}
+      ]
+    },
+    {
+      "id": "refit_n_lt_2_skip",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "fantasypros": {
+            "pos_of": {"601": "QB"},
+            "starters": ["601"],
+            "bench":    [],
+            "values":   {"601": 25.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "fantasypros": {"601": 12.0}
+        }
+      },
+      "expected": []
+    },
+    {
+      "id": "refit_sxx_zero_skip",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "cbsros": {
+            "pos_of": {"701": "RB", "702": "RB", "703": "RB"},
+            "starters": ["701", "702", "703"],
+            "bench":    [],
+            "values":   {"701": 10.0, "702": 20.0, "703": 30.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "cbsros": {"701": 5.0, "702": 5.0, "703": 5.0}
+        }
+      },
+      "expected": []
+    },
+    {
+      "id": "refit_calibration_invalid_skip",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "razzball": {
+            "pos_of": {"801": "TE", "803": "QB"},
+            "starters": ["801", "803"],
+            "bench":    [],
+            "values":   {"801": 12.0, "803": 30.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": true}}
+          }
+        },
+        "published_by_source": {
+          "razzball": {"801": 6.0, "803": 15.0}
+        }
+      },
+      "expected": []
+    },
+    {
+      "id": "refit_multi_source_multi_pos",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "fantasycalc": {
+            "pos_of": {"901": "QB", "902": "QB", "903": "QB", "904": "RB", "905": "RB", "906": "WR", "907": "WR", "908": "WR"},
+            "starters": ["901", "902", "906", "907"],
+            "bench":    ["903", "904", "905", "908"],
+            "values":   {"901": 40.0, "902": 50.0, "903": 12.0, "904": 8.0, "905": 6.0, "906": 35.0, "907": 45.0, "908": 10.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          },
+          "cbsros": {
+            "pos_of": {"911": "QB", "912": "QB", "913": "WR"},
+            "starters": ["911", "913"],
+            "bench":    ["912"],
+            "values":   {"911": 38.0, "912": 11.0, "913": 42.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "fantasycalc": {"901": 20.0, "902": 25.0, "903": 6.0, "904": 4.0, "905": 3.0, "906": 18.0, "907": 22.0, "908": 5.0},
+          "cbsros":      {"911": 19.0, "912": 5.5, "913": 21.0}
+        }
+      },
+      "expected": [
+        {"source": "fantasycalc", "position": "QB", "tier": "starter", "alpha": 0.0, "beta": 2.0, "n": 2},
+        {"source": "fantasycalc", "position": "RB", "tier": "bench", "alpha": 0.0, "beta": 2.0, "n": 2},
+        {"source": "fantasycalc", "position": "WR", "tier": "starter", "alpha": -10.0, "beta": 2.5, "n": 2}
+      ]
+    },
+    {
+      "id": "refit_all_sources_null",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "fantasycalc": null, "usatoday": null, "fantasypros": null,
+          "cbs": null, "espn": null, "cbsros": null, "razzball": null
+        },
+        "published_by_source": {
+          "fantasycalc": {"1": 10.0, "2": 20.0},
+          "espn":        {"3": 15.0, "4": 25.0}
+        }
+      },
+      "expected": []
+    },
+    {
+      "id": "refit_empty_published_skip",
+      "fn": "refitLiveCells",
+      "inputs": {
+        "ddf_by_source": {
+          "fantasycalc": {
+            "pos_of": {"1001": "QB", "1002": "QB"},
+            "starters": ["1001", "1002"],
+            "bench":    [],
+            "values":   {"1001": 20.0, "1002": 30.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          },
+          "espn": {
+            "pos_of": {"1101": "RB", "1102": "RB"},
+            "starters": ["1101", "1102"],
+            "bench":    [],
+            "values":   {"1101": 18.0, "1102": 27.0},
+            "calibration": {"QB": {"invalid": false}, "RB": {"invalid": false}, "WR": {"invalid": false}, "TE": {"invalid": false}}
+          }
+        },
+        "published_by_source": {
+          "fantasycalc": {},
+          "espn":        {"1101": 9.0, "1102": 13.0}
+        }
+      },
+      "expected": [
+        {"source": "espn", "position": "RB", "tier": "starter", "alpha": -2.25, "beta": 2.25, "n": 2}
+      ]
+    }
+  ]
+}
