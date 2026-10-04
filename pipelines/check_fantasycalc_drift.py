@@ -213,7 +213,8 @@ def main() -> int:
     print(r.stdout.strip().split("\n")[-1])
 
     refs = sorted(glob.glob(str(
-        REPO / "output/source-references/fantasycalc/*/*.json")))
+        REPO / "output/source-references/fantasycalc" /
+        datetime.now(timezone.utc).strftime("%Y-%m-%d") / "*.json")))
     if not refs:
         print("no reference outputs found", file=sys.stderr)
         return 1

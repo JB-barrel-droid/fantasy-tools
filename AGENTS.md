@@ -25,10 +25,7 @@ Never route work to a lane ROUTING.md marks unavailable.
   management between lanes, and the owner:muse tickets. Standing rules: never
   publish on known flaws, never display unvalidated values, verify rendered
   production after every deploy — never ask Jeremy to re-check.
-- **ChatGPT/Codex lane: UNAVAILABLE** (account out of usage; Jeremy ruled out
-  ChatGPT Plus, 2026-10-02). **Claude Code MCP lane: UNAVAILABLE** (Claude CLI
-  was never verified working from Muse; Jeremy: "Stop trying to use the claude
-  CLI", 2026-10-02). Do not design dispatches around either lane.
+- **ChatGPT lane: AVAILABLE via outbox briefs** (re-enabled 2026-10-03 at Jeremy's direction). Dispatch = write `lanes/outbox/chatgpt/JEG-NNN-brief.md` in the standard brief format (see the JEG-107/JEG-77 briefs); results land in `lanes/inbox/chatgpt/JEG-NNN-result.md`. ChatGPT writes code/docs and commits to branches; it never merges, pushes, or deploys, and Roman reviews and integrates every result. **Claude Code MCP lane: UNAVAILABLE** (Claude CLI was never verified working from Muse; Jeremy: "Stop trying to use the claude CLI", 2026-10-02). Do not design dispatches around the Claude lane.
 - Avoid delegation for small edits, obvious fixes, simple command checks, or any
   handoff where writing the brief would take longer than doing the work.
 
@@ -123,6 +120,14 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
   through the day, so 1-3% intraday moves are normal noise — the 5%/20%
   bands prevent constant refresh churn while still catching real corruption
   like the JSN defect.)
+- Live-verification bypass (Jeremy 2026-10-04): when the review stage's
+  `native_drift` check fails for a source with a live API (currently only
+  FantasyCalc), it verifies the top-25 candidate natives against the live
+  site before failing. If 80%+ match within 5%, the drift is genuine (source
+  moved, not a pipeline bug) and the check passes as "live-verified". Network
+  failures fail closed (no pass on unverifiable). `--no-live-verify` skips
+  the check for CI/offline (drift fails hard). Sources without a live API
+  keep the hard fail. Regression: 4 new tests in test_review_candidate.py.
 - The 2026-09-30 JSN defect proved why: `match_source_snapshot.py` was
   dropping `native_value`, so the pipeline used the flattened `value` (50.7)
   instead of the raw FantasyCalc number (9914). The matcher and
