@@ -309,7 +309,7 @@
     </select>
   </div>
   <div class="filter-group">
-    <label for="filterTeams">Teams</label>
+    <label for="filterTeams">League Members</label>
     <select id="filterTeams">
       <option value="">All</option>
       <option value="8">8</option>
@@ -427,8 +427,8 @@
     <dd>NFL week number (1–18). All weeks are retained — no aging out.</dd>
     <dt>Scoring</dt>
     <dd>League scoring: <code>full</code> (Full PPR), <code>half</code> (Half PPR), <code>standard</code> (no PPR).</dd>
-    <dt>Teams</dt>
-    <dd>League size: 8, 10, 12, or 14 teams.</dd>
+    <dt>League Members</dt>
+    <dd>League size: 8, 10, 12, or 14 members.</dd>
     <dt>QB</dt>
     <dd>QB variant — only applies to FantasyCalc sources (<code>qb1</code>/<code>qb2</code>). All other sources show blank.</dd>
     <dt>View</dt>
@@ -446,7 +446,7 @@ const COLUMNS = [
   { key: 'season',   label: 'Season',  tip: 'NFL season year.' },
   { key: 'week',     label: 'Week',    tip: 'NFL week 1-18. All weeks retained.' },
   { key: 'scoring',  label: 'Scoring', tip: 'full = Full PPR, half = Half PPR, standard = no PPR.' },
-  { key: 'teams',    label: 'Teams',   tip: 'League size: 8, 10, 12, or 14.' },
+  { key: 'teams',    label: 'League Members',   tip: 'League size: 8, 10, 12, or 14 members.' },
   { key: 'qb_variant', label: 'QB',    tip: 'QB variant — FantasyCalc only (qb1/qb2). Blank for all other sources.' },
   { key: 'view',     label: 'View',    tip: 'combo_reindexed = chart values; vorp_indexed/vorp/adj_values = VORP outputs.' },
   { key: 'value',    label: 'Value',   tip: 'Exact final value (unrounded). Rounding is presentation-only.' },
@@ -471,7 +471,7 @@ const PIVOT_DIMENSIONS = [
   { key: 'season',     label: 'Season',  numeric: true  },
   { key: 'week',       label: 'Week',    numeric: true  },
   { key: 'scoring',    label: 'Scoring', numeric: false },
-  { key: 'teams',      label: 'Teams',   numeric: true  },
+  { key: 'teams',      label: 'League Members',   numeric: true  },
   { key: 'qb_variant', label: 'QB',      numeric: false },
   { key: 'view',       label: 'View',    numeric: false },
 ];
@@ -682,7 +682,7 @@ function showTrend() {
   const tt = document.getElementById('trendTable');
   tt.innerHTML = '';
   const trh = document.createElement('tr');
-  trh.innerHTML = '<th>Source | Scoring | Teams | View</th>' +
+  trh.innerHTML = '<th>Source | Scoring | League Members | View</th>' +
     allWeeks.map(w => `<th>Week ${w}</th>`).join('') + '<th>Δ (last−first)</th>';
   tt.appendChild(trh);
 
