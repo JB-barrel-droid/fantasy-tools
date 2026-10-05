@@ -457,9 +457,10 @@ def run(brief_path, model=DEFAULT_MODEL, max_iters=MAX_ITERS):
 def main():
     brief = sys.argv[1]
     model = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_MODEL
+    max_iters = int(sys.argv[3]) if len(sys.argv) > 3 else MAX_ITERS
     print(f"agentic dispatch: {os.path.basename(brief)} -> {model} ...",
           flush=True)
-    answer, rounds = run(brief, model)
+    answer, rounds = run(brief, model, max_iters)
     base = os.path.basename(brief)
     m = re.match(r"(.+)-brief\.md$", base)
     stem = m.group(1) if m else os.path.splitext(base)[0]
