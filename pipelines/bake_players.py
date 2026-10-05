@@ -6,17 +6,17 @@ of data/fixtures/current/players.json — never hand-edit that file.
 
 Inputs (all repo-local unless noted):
   - Supabase (via the supabase-football-signal skill):
-      fp_season_latest_norm  (ECR expert projections, latest snapshot)
-      fp_season_projections  (ECR content-vintage comparison)
-      season_actuals_ytd     (banked actuals, subtracted from the ECR leg)
-      teams, games           (games-remaining math)
-      players                (canonical names, via lib.canonical_players)
+      teams, games           (games-remaining math, team-id -> abbr)
+      players                (canonical names + position + team_id,
+                              via lib.canonical_players)
   - data/inputs/espn_projections.csv        (ESPN season projections, ROS)
+                                              -- PRIMARY PROJECTION LEG
   - data/inputs/prediction_markets_season.csv (PM season ladders, ROS)
   - data/inputs/razzball_projections.csv    (Razzball per-game projections)
   - data/inputs/espn_k_ppg_2026-09-21.json  (ESPN kicker per-game rates)
   - data/inputs/espn_dst_ros_2026-09-21.json (ESPN DST per-game rates)
-  - data/inputs/ecr_draft.json              (preseason draft ECR ranks)
+  - data/inputs/ecr_draft.json              (preseason draft ECR ranks,
+                                              preseason reference only)
 
 Outputs:
   - data/fixtures/current/players.json      (the chart fixture)
@@ -26,19 +26,25 @@ Outputs:
       the previous fixture, for genuine bake-over-bake deltas)
 
 Fail-closed gates (each aborts the build, never publishes partial data):
-  - ECR content vintage > 3 days (byte-identical re-pulls reset nothing)
-  - season_actuals_ytd stat_keys with no ACT_MAP mapping
+  - ESPN intake priced zero (no NPC projections to set the primary value)
   - canonical-name gate: every display name == players.full_name for its key
   - source-accounting audit: pricing labels, ESPN-purity, Razzball doubling guard
-  - ESPN purity (user directive 2026-09-21): every ESPN-labeled field is
-    sourced ONLY from ESPN projections. K/DST price from ESPN only
-    (pricing="espn_only"); skill players are 100% ECR (pricing="experts_only").
+  - ESPN purity (user directive 2026-09-21, extended 2026-10-05): every
+    ESPN-labeled field is sourced ONLY from ESPN projections. The PRIMARY
+    leg (blend_ros/blend_ppg) is 100% ESPN for skill players (pricing=
+    "espn_only"); ESPN-purity now applies to skill players as the
+    primary leg, not just K/DST. K/DST are also ESPN-priced.
 
 Ported from the retired trade-value/build_values.py (2026-09-22) with one
 deliberate fix: the retired bake appended K/DST rows with pricing="espn"
 but a later universal loop overwrote every row's pricing to "experts_only"
 while the comments claimed K/DST were ESPN-priced. This bake sets the
 pricing label per position and the audit rejects any other label.
+
+JEG-ECR-EXIT (2026-10-05): the prior blend (ECR-laden, 2026-09-16) is
+replaced by ESPN as the primary leg. ESPN is already rest-of-season
+(no actuals subtraction). Full-season ECR content / tables / loaders /
+checks have been retired.
 """
 
 from __future__ import annotations
@@ -292,131 +298,77 @@ def pts(stats, scoring):
 # Main bake
 # ---------------------------------------------------------------------------
 
-def fetch_ecr_intake(query_all):
-    """ECR skill-player intake from fp_season_latest_norm. JEG-46.
+def fetch_espn_intake(path, registry):
+    """ESPN skill-player intake from data/inputs/espn_projections.csv.
 
-    Returns (ecr_snapshot_date, ecr_rows). Fails closed when the projections
-    table is empty or the norm table has no rows at the current ECR snapshot
-    date (stale table / writer not run) — never bakes a chart with silently
-    missing expert intake.
+    Returns (espn_med, espn_snapshot_date). espn_med maps player_key ->
+    {"comps": {...}, "pos": ..., "team": ...}. Fails closed when the CSV
+    prices zero eligible skill players — never bakes a chart with
+    silently missing primary-leg intake.
+
+    JEG-ECR-EXIT (2026-10-05): replaces fetch_ecr_intake(). The prior
+    fetch_ecr_intake() lived on full-season ECR tables
+    (fp_season_latest_norm / fp_season_projections); ESPN is already
+    rest-of-season so no snapshot_date / content-vintage gate applies.
     """
-    snap_rows = query_all("fp_season_projections",
-                          "?select=snapshot_date&order=snapshot_date.desc&limit=1")
-    if not snap_rows:
-        raise SystemExit("FAIL-CLOSED: fp_season_projections is empty — "
-                         "no ECR snapshot to bake from.")
-    ecr_snapshot_date = str(snap_rows[0]["snapshot_date"])
-
-    # fp_season_latest_norm has no id column (grain: one row per
-    # snapshot_date x player_key — verified unique), so order explicitly on
-    # the unique key rather than letting get_all() default to order=id.
-    ecr_rows = query_all(
-        "fp_season_latest_norm",
-        "?select=player_key,player_norm,position,team,passing_yards,passing_tds,"
-        "rushing_yards,rushing_tds,receptions,receiving_yards,receiving_tds"
-        f"&player_key=not.is.null&snapshot_date=eq.{ecr_snapshot_date}"
-        "&order=player_key")
-    if not ecr_rows:
-        raise SystemExit(
-            f"FAIL-CLOSED: fp_season_latest_norm has no rows at ECR snapshot "
-            f"date {ecr_snapshot_date} — the norm table is stale or its writer "
-            "has not run. Refusing to bake a chart with no expert intake.")
-    return ecr_snapshot_date, ecr_rows
+    espn_med, snap = {}, None
+    n_rows = n_unres = n_unpriced = 0
+    with open(path, newline="") as f:
+        for r in csv.DictReader(f):
+            n_rows += 1
+            d = (r.get("espn_snapshot_date") or "").strip()
+            if d:
+                snap = d if snap is None else max(snap, d)
+            if not _elig_flag(r.get("eligible")):
+                continue
+            pos = (r.get("pos") or "").strip()
+            key = _resolve_csv_row(r.get("player", ""), pos, "espn", registry)
+            if key is None:
+                n_unres += 1
+                continue
+            comps = {}
+            for csv_col, comp in ESPN_COMPS.items():
+                raw = r.get(csv_col)
+                if raw is None or str(raw).strip() == "":
+                    continue
+                comps[comp] = float(raw)
+            if not comps:
+                n_unpriced += 1
+                continue
+            if key in espn_med:
+                print(f"espn intake WARNING: duplicate key: {key} "
+                      f"({r.get('player')})")
+            espn_med[key] = {
+                "comps": comps,
+                "pos": pos,
+                "team": (r.get("team") or "").strip(),
+            }
+    print(f"espn intake: {len(espn_med)} priced players "
+          f"({n_rows} rows, {n_unpriced} unpriced excluded, "
+          f"{n_unres} unresolved), snapshot {snap}")
+    if not espn_med:
+        raise SystemExit("FAIL-CLOSED: ESPN intake priced 0 skill players — "
+                         "refusing to bake a chart with no primary-leg input.")
+    return espn_med, snap
 
 
 def bake(args):
     registry = load_registry()
 
-    # ---- ECR intake -------------------------------------------------------
-    ecr_snapshot_date, ecr_rows = fetch_ecr_intake(query_all)
+    # ---- ESPN intake (PRIMARY LEG) -----------------------------------------
+    # JEG-ECR-EXIT (2026-10-05): ESPN replaces ECR as the primary blend
+    # leg. ESPN is already rest-of-season (no actuals subtraction). No
+    # content-vintage gate: ESPN is daily-morning pulled and overwritten
+    # in place; freshness is checked at the source pull, not here.
+    espn_med, espn_snapshot_date = fetch_espn_intake(args.espn_csv, registry)
 
-    # ---- ECR content vintage (fail-closed) ---------------------------------
-    # Content = the 7 stat components + proj_half_ppr per player. Players
-    # present in only one of two snapshots don't reset the vintage (board
-    # churn isn't a re-rank). Vintage = earliest snapshot_date whose content
-    # is identical to the current snapshot's.
-    CONTENT_COLS = ("passing_yards", "passing_tds", "rushing_yards",
-                    "rushing_tds", "receptions", "receiving_yards",
-                    "receiving_tds", "proj_half_ppr")
-
-    def _snapshot_content(snap):
-        rows = query_all(
-            "fp_season_projections",
-            "?select=player_key," + ",".join(CONTENT_COLS) +
-            f"&snapshot_date=eq.{snap}&player_key=not.is.null")
-        return {int(r["player_key"]): tuple(r[c] for c in CONTENT_COLS)
-                for r in rows}
-
-    def _content_identical(a, b):
-        shared = set(a) & set(b)
-        return bool(shared) and all(a[pid] == b[pid] for pid in shared)
-
-    date_rows = query_all("fp_season_projections",
-                          "?select=snapshot_date&order=snapshot_date.asc")
-    snap_dates = sorted({str(r["snapshot_date"]) for r in date_rows
-                         if str(r["snapshot_date"]) <= ecr_snapshot_date})
-    ecr_content_date = ecr_snapshot_date
-    if snap_dates:
-        cur_content = _snapshot_content(snap_dates[-1])
-        for d in reversed(snap_dates[:-1]):
-            if _content_identical(cur_content, _snapshot_content(d)):
-                ecr_content_date = d
-            else:
-                break
-    ecr_content_date = str(ecr_content_date)
-
-    # ECR content-staleness gate: a byte-identical re-pull resets nothing.
-    try:
-        age_days = (_date.today() - _date.fromisoformat(ecr_content_date)).days
-    except ValueError:
-        raise SystemExit(
-            f"FAIL-CLOSED: ECR content date undeterminable ({ecr_content_date!r}). "
-            "Refusing to build chart without verifiable expert vintage.")
-    if age_days > 3:
-        raise SystemExit(
-            f"FAIL-CLOSED: ECR content stale: expert projections unchanged since "
-            f"{ecr_content_date} ({age_days}d > 3d max). Refusing to build chart "
-            "on stale experts.")
-
-    # ---- Source intakes ----------------------------------------------------
-    espn_med, espn_snapshot_date = _intake_csv(
-        args.espn_csv, ESPN_COMPS, "eligible", "espn", registry)
+    # ---- Other comparison intakes (unchanged) --------------------------------
     pm_med, pm_snapshot_date = _intake_csv(
         args.pm_csv, PM_COMPS, "has_prediction_market_line", "pm", registry)
     rz_med, rz_snapshot_date = _intake_razzball(args.razzball_csv, registry)
     cbsros_snapshot = args.cbsros_snapshot or _latest_cbsros_snapshot()
     cbsros_med, cbsros_snapshot_date = _intake_cbsros(cbsros_snapshot,
                                                       registry)
-
-    # ---- Actuals ------------------------------------------------------------
-    # season_actuals_ytd has no id column (grain: season x player_key x
-    # stat_key), so order explicitly rather than letting get_all() default
-    # to order=id. Same bug class as JEG-46.
-    actual_rows = query_all(
-        "season_actuals_ytd",
-        "?select=player_key,stat_key,actual&player_key=not.is.null"
-        "&order=player_key,stat_key")
-    ACT_MAP = {
-        "season_pass_yds": "passing_yards",
-        "season_pass_tds": "passing_tds",
-        "season_rush_yds": "rushing_yards",
-        "season_rush_tds": "rushing_tds",
-        "season_rec_yds": "receiving_yards",
-        "season_receptions": "receptions",
-        "season_rec_tds": "receiving_tds",
-    }
-    unmapped = sorted({r["stat_key"] for r in actual_rows
-                       if r["stat_key"].startswith("season_")
-                       and r["stat_key"] not in ACT_MAP})
-    if unmapped:
-        raise SystemExit("FAIL-CLOSED: season_actuals_ytd stat_keys with no ACT_MAP "
-                         f"mapping: {unmapped} — refusing to build.")
-    actuals = {}  # player_key -> {component: value}
-    for r in actual_rows:
-        ak = int(r["player_key"])
-        comp = ACT_MAP.get(r["stat_key"])
-        if comp:
-            actuals.setdefault(ak, {})[comp] = float(r["actual"])
 
     # ---- Games remaining -----------------------------------------------------
     team_rows = query_all("teams", "?select=id,abbreviation&abbreviation=not.is.null")
@@ -433,32 +385,25 @@ def bake(args):
                 games_left[abbr] = games_left.get(abbr, 0) + 1
 
     # ---- Skill-player rows ----------------------------------------------------
+    # Iterate over ESPN intake keys (every charted skill player has an
+    # ESPN projection). pos / team come from the ESPN CSV row; fall back
+    # to the canonical registry when the CSV is silent on one (DST / K
+    # rows are appended separately below).
     players = []
-    for r in ecr_rows:
-        key = int(r["player_key"])
-        pos = r["position"]
-        team = r["team"]
-        a = actuals.get(key, {})
+    for key, espn_row in espn_med.items():
+        v = espn_row["comps"]
+        pos = espn_row["pos"]
+        team = espn_row["team"]
 
-        # ECR projections are full-season: banked actuals removed for ROS.
-        ecr_ros = {c: float(r[c] or 0) - a.get(c, 0.0) for c in COMPS}
-
-        v = espn_med.get(key, {})
+        # ESPN-PRIMARY (2026-10-05, JEG-ECR-EXIT): the board's primary
+        # number IS the ESPN leg. ESPN is already rest-of-season so
+        # espn_ros_comps is taken as-is (no actuals subtraction). Missing
+        # components default to 0.0 — fantasy_points() treats 0 identically
+        # to "missing" (stats.get(k, 0.0)) so no KeyError and no fill.
+        espn_ros_comps = {c: v.get(c, 0.0) for c in COMPS}
+        blend = dict(espn_ros_comps)  # primary = ESPN comps
         espn_complete = pos in NEED and all(c in v for c in NEED[pos])
-        # ECR-LADEN (2026-09-16): the board's primary number IS the ECR leg.
-        # ESPN does not enter the blend; it lives only in the comparison
-        # columns (espn_ros / espn_filled_ros), where ESPN takes precedence
-        # within the column, no averaging, like-for-like.
-        blend = {c: ecr_ros[c] for c in COMPS}
         espn_covered = sorted(c for c in COMPS if c in v)
-        espn_ros = espn_filled_ros = None
-        if espn_covered:
-            espn_ros = {s: pts({c: v[c] for c in espn_covered}, s)
-                        for s in SCORINGS}
-        if espn_complete:
-            espn_filled_ros = {
-                s: pts({c: v[c] if c in v else ecr_ros[c] for c in COMPS}, s)
-                for s in SCORINGS}
 
         pm = pm_med.get(key, {})
         pm_complete = pos in NEED and all(c in pm for c in NEED[pos])
@@ -468,8 +413,9 @@ def bake(args):
             pm_ros = {s: pts({c: pm[c] for c in pm_covered}, s)
                       for s in SCORINGS}
         if pm_complete:
+            # ESPN is now the fill source for PM (replaces ECR fill).
             pm_filled_ros = {
-                s: pts({c: pm[c] if c in pm else ecr_ros[c] for c in COMPS}, s)
+                s: pts({c: pm[c] if c in pm else espn_ros_comps[c] for c in COMPS}, s)
                 for s in SCORINGS}
 
         z = rz_med.get(key, {})
@@ -487,7 +433,8 @@ def bake(args):
             "name": require_canonical_name(key, registry=registry),
             "pos": pos,
             "team": team,
-            "ecr_ros": {s: pts(ecr_ros, s) for s in SCORINGS},
+            # Primary leg = ESPN (already ROS, no actuals subtraction).
+            "espn_ros": {s: pts(blend, s) for s in SCORINGS},
             "espn_complete": bool(espn_complete),
             "espn_comp_count": sum(1 for c in COMPS if c in v),
             "espn_covered": espn_covered,
@@ -501,42 +448,31 @@ def bake(args):
             "cbsros_comp_count": len(cbsros_covered),
             "cbsros_covered": cbsros_covered,
             "blend_ros": {s: pts(blend, s) for s in SCORINGS},
-            # pricing label: the board's primary number is 100% ECR.
-            "pricing": "experts_only",
+            # pricing label: the board's primary number is 100% ESPN.
+            # ESPN-purity (extended 2026-10-05) now covers skill players
+            # too — the primary blend is ESPN-sourced for every position.
+            "pricing": "espn_only",
         }
-        if espn_ros is not None:
-            row["espn_ros"] = espn_ros
-        if espn_complete:
-            row["espn_filled_ros"] = espn_filled_ros
-            row["delta_espn_ecr"] = round(espn_filled_ros["ppr"] - row["ecr_ros"]["ppr"], 2)
         if pm_ros is not None:
             row["pm_ros"] = pm_ros
         if pm_complete:
             row["pm_filled_ros"] = pm_filled_ros
-            row["delta_pm_ecr"] = round(pm_filled_ros["ppr"] - row["ecr_ros"]["ppr"], 2)
+            row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
 
         # per-game points: ROS fantasy points / team games remaining
         gr = games_left.get({"LAR": "LA", "JAC": "JAX"}.get(team, team))
         row["games_remaining"] = gr
         if gr:
             row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
-            row["ecr_ppg"] = {s: round(v / gr, 2) for s, v in row["ecr_ros"].items()}
-            if espn_ros is not None:
-                row["espn_ppg"] = {s: round(row["espn_ros"][s] / gr, 2)
-                                   for s in SCORINGS}
-            if espn_complete:
-                row["espn_filled_ppg"] = {s: round(espn_filled_ros[s] / gr, 2)
-                                          for s in SCORINGS}
-                row["delta_espn_ecr_ppg"] = round(
-                    row["espn_filled_ppg"]["ppr"] - row["ecr_ppg"]["ppr"], 2)
+            row["espn_ppg"] = {s: round(v / gr, 2) for s, v in row["espn_ros"].items()}
             if pm_ros is not None:
                 row["pm_ppg"] = {s: round(row["pm_ros"][s] / gr, 2)
                                  for s in SCORINGS}
             if pm_complete:
                 row["pm_filled_ppg"] = {s: round(pm_filled_ros[s] / gr, 2)
                                         for s in SCORINGS}
-                row["delta_pm_ecr_ppg"] = round(
-                    row["pm_filled_ppg"]["ppr"] - row["ecr_ppg"]["ppr"], 2)
+                row["delta_pm_espn_ppg"] = round(
+                    row["pm_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
@@ -546,10 +482,10 @@ def bake(args):
                 row["rz_ros"] = {s: round(z[s] * gr, 2) for s in SCORINGS}
                 row["rz_filled_ppg"] = dict(row["rz_ppg"])
                 row["rz_filled_ros"] = dict(row["rz_ros"])
-                row["delta_rz_ecr"] = round(
-                    row["rz_filled_ros"]["ppr"] - row["ecr_ros"]["ppr"], 2)
-                row["delta_rz_ecr_ppg"] = round(
-                    row["rz_filled_ppg"]["ppr"] - row["ecr_ppg"]["ppr"], 2)
+                row["delta_rz_espn"] = round(
+                    row["rz_filled_ros"]["ppr"] - row["espn_ros"]["ppr"], 2)
+                row["delta_rz_espn_ppg"] = round(
+                    row["rz_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # CBS ROS: per-game rates are pre-computed in the snapshot
             # (per_game_standard/half_ppr/ppr = ROS totals / gp). No ROS
             # fill here: the curve re-prices live from cbsros_ppg via the
@@ -585,9 +521,8 @@ def bake(args):
             "name": require_canonical_name(kk, registry=registry),
             "pos": "K",
             "team": None,
-            "ecr_ros": None, "blend_ros": dict(same3),
-            "ecr_ppg": None, "blend_ppg": dict(ppg3),
-            "espn_ppg": dict(ppg3), "espn_ros": dict(same3),
+            "espn_ros": dict(same3), "blend_ros": dict(same3),
+            "espn_ppg": dict(ppg3), "blend_ppg": dict(ppg3),
             "games_remaining": gr,
             # K/DST price from ESPN only — never experts_only.
             "pricing": "espn_only",
@@ -595,7 +530,7 @@ def bake(args):
             "pm_complete": False, "pm_comp_count": 0, "pm_covered": [],
             "rz_complete": False, "rz_comp_count": 0, "rz_covered": [],
             "cbsros_complete": False, "cbsros_comp_count": 0, "cbsros_covered": [],
-            "prior_ecr_ros": None, "prior_blend_ros": None,
+            "prior_espn_ros": None, "prior_blend_ros": None,
         })
     for abbr, ppg in sorted(dst_ppg.items(), key=lambda kv: -kv[1]):
         kk = resolve(abbr, position="DST", registry=registry)
@@ -611,102 +546,95 @@ def bake(args):
             "name": require_canonical_name(kk, registry=registry),
             "pos": "DST",
             "team": abbr,
-            "ecr_ros": None, "blend_ros": dict(same3),
-            "ecr_ppg": None, "blend_ppg": dict(ppg3),
-            "espn_ppg": dict(ppg3), "espn_ros": dict(same3),
+            "espn_ros": dict(same3), "blend_ros": dict(same3),
+            "espn_ppg": dict(ppg3), "blend_ppg": dict(ppg3),
             "games_remaining": gr,
             "pricing": "espn_only",
             "espn_complete": True, "espn_comp_count": 1, "espn_covered": ["dst"],
             "pm_complete": False, "pm_comp_count": 0, "pm_covered": [],
             "rz_complete": False, "rz_comp_count": 0, "rz_covered": [],
             "cbsros_complete": False, "cbsros_comp_count": 0, "cbsros_covered": [],
-            "prior_ecr_ros": None, "prior_blend_ros": None,
+            "prior_espn_ros": None, "prior_blend_ros": None,
         })
     if kdst_unresolved:
         print(f"K/DST ESPN unresolved (excluded): {kdst_unresolved}",
               file=sys.stderr)
 
-    # rank by primary (ECR-based) full-PPR value for convenience
+    # rank by primary (ESPN-based) full-PPR value for convenience
     players.sort(key=lambda p: p["blend_ros"]["ppr"], reverse=True)
 
-    # ---- prior ECR snapshot: ROS values for week-over-week movement ---------
-    date_list = sorted({str(r["snapshot_date"]) for r in date_rows})
-    prior_date = date_list[-2] if len(date_list) >= 2 else None
-    prior_ecr_ros, prior_blend_ros = {}, {}
-    if prior_date:
-        actuals_file = FIXTURE_DIR / f"actuals_{prior_date}.json"
-        prior_actuals = {}
-        if actuals_file.exists():
-            prior_json = json.load(open(actuals_file))
-            # Support legacy norm-keyed files and current key-keyed files.
-            for k, v in prior_json.items():
-                try:
-                    prior_actuals[int(k)] = v
-                    continue
-                except (ValueError, TypeError):
-                    pass
-                pk = None
-                try:
-                    pk = resolve_skill(k, registry=registry)
-                except Exception:
-                    pk = None
-                if pk is not None:
-                    prior_actuals[pk] = v
-        prior_rows = query_all(
-            "fp_season_projections",
-            "?select=player_key,passing_yards,passing_tds,rushing_yards,"
-            "rushing_tds,receptions,receiving_yards,receiving_tds"
-            f"&snapshot_date=eq.{prior_date}&player_key=not.is.null")
-        for r in prior_rows:
-            pk = int(r["player_key"])
-            pa = prior_actuals.get(pk, {})
-            ros = {c: float(r[c] or 0) - pa.get(c, 0.0) for c in COMPS}
-            full = {s: pts(ros, s) for s in SCORINGS}
-            prior_ecr_ros[pk] = full
-            prior_blend_ros[pk] = full  # primary was ECR-laden then too
+    # ---- prior bake snapshot: ROS values for week-over-week movement ---------
+    # JEG-ECR-EXIT (2026-10-05): the prior section previously read
+    # fp_season_projections at a prior snapshot_date and subtracted banked
+    # actuals. With ECR retired, the prior is sourced from the previous
+    # baked fixture (data/fixtures/snapshots/players_<date>.json), written
+    # by every bake just before the rebuild. blend_ros is now ESPN-primary
+    # so prior_blend_ros / prior_espn_ros carry the same value.
+    prior_date = None
+    prior_espn_ros, prior_blend_ros = {}, {}
+    snap_candidates = []
+    for sp in SNAPSHOT_DIR.glob("players_*.json"):
+        try:
+            d = json.loads(sp.read_text()).get("meta", {}).get("as_of", "")
+            if d and d < today:
+                snap_candidates.append((d, sp))
+        except Exception:
+            continue
+    if snap_candidates:
+        prior_date, prior_path = sorted(snap_candidates)[-1]
+        prior_payload = json.load(open(prior_path))
+        for pp in prior_payload.get("players", []):
+            pk = pp.get("player_key")
+            if pk is None:
+                continue
+            prior_espn_ros[pk] = pp.get("espn_ros")
+            prior_blend_ros[pk] = pp.get("blend_ros")
+        print(f"prior bake: {prior_path.name} "
+              f"({len(prior_espn_ros)} players with espn_ros/blend_ros)")
     for p in players:
         pk = p["player_key"]
-        if pk in prior_ecr_ros:
-            p["prior_ecr_ros"] = prior_ecr_ros[pk]
+        if pk in prior_espn_ros:
+            p["prior_espn_ros"] = prior_espn_ros[pk]
             p["prior_blend_ros"] = prior_blend_ros[pk]
-        elif "prior_ecr_ros" not in p:
-            p["prior_ecr_ros"] = None
+        elif "prior_espn_ros" not in p:
+            p["prior_espn_ros"] = None
             p["prior_blend_ros"] = None
 
     # ---- positional shade / demeaned deltas -----------------------------------
+    # JEG-ECR-EXIT (2026-10-05): the shade baseline was ESPN-vs-ECR
+    # (ESPN reads compared to the ECR primary). With ESPN now primary,
+    # the comparison shade stays meaningful (PM / Razzball vs ESPN) but
+    # the ECR-vs-ESPN shade disappears (it is now zero by construction).
     def _shade(leg_ppg, leg_complete, label):
         out = {}
         for pos in ("QB", "RB", "WR", "TE"):
             vals = [r[leg_ppg]["ppr"] - r[leg_complete]["ppr"] for r in players
                     if r["pos"] == pos and r.get(leg_ppg) and r.get(leg_complete)]
-            # leg_ppg is the ECR leg, leg_complete the comparison leg:
-            # shade = mean(ecr_ppg - comparison_ppg); positive = comparison cooler.
+            # leg_ppg is the comparison leg, leg_complete is ESPN (primary):
+            # shade = mean(comparison_ppg - espn_ppg); positive = ESPN cooler.
             out[pos] = {"ppr": round(sum(vals) / len(vals), 3)} if vals else {"ppr": 0.0}
         return out
 
-    shade_ppg = _shade("ecr_ppg", "espn_filled_ppg", "espn")
-    pm_shade_ppg = _shade("ecr_ppg", "pm_filled_ppg", "pm")
-    rz_shade_ppg = _shade("ecr_ppg", "rz_filled_ppg", "rz")
+    pm_shade_ppg = _shade("pm_filled_ppg", "espn_ppg", "pm")
+    rz_shade_ppg = _shade("rz_filled_ppg", "espn_ppg", "rz")
+    # ESPN-vs-ESPN shade is zero by construction (ESPN primary vs itself);
+    # keep an empty entry so the meta.disagree_baseline_note can still
+    # reference shade_ppg without a structural fork.
+    shade_ppg = {p: {"ppr": 0.0} for p in ("QB", "RB", "WR", "TE")}
     for p in players:
-        if p.get("delta_espn_ecr_ppg") is not None:
-            p["delta_espn_ecr_ppg_demeaned"] = round(
-                p["delta_espn_ecr_ppg"] - shade_ppg[p["pos"]]["ppr"], 2)
-            p["espn_adj_ppg"] = round(
-                (p.get("espn_filled_ppg") or {}).get("ppr", 0)
-                + shade_ppg[p["pos"]]["ppr"], 2)
-        if p.get("delta_pm_ecr_ppg") is not None:
-            p["delta_pm_ecr_ppg_demeaned"] = round(
-                p["delta_pm_ecr_ppg"] - pm_shade_ppg[p["pos"]]["ppr"], 2)
-        if p.get("delta_rz_ecr_ppg") is not None:
-            p["delta_rz_ecr_ppg_demeaned"] = round(
-                p["delta_rz_ecr_ppg"] - rz_shade_ppg[p["pos"]]["ppr"], 2)
+        if p.get("delta_pm_espn_ppg") is not None:
+            p["delta_pm_espn_ppg_demeaned"] = round(
+                p["delta_pm_espn_ppg"] - pm_shade_ppg[p["pos"]]["ppr"], 2)
+        if p.get("delta_rz_espn_ppg") is not None:
+            p["delta_rz_espn_ppg_demeaned"] = round(
+                p["delta_rz_espn_ppg"] - rz_shade_ppg[p["pos"]]["ppr"], 2)
 
     # ---- source-accounting audit (fail-closed) ---------------------------------
     # Every row must account for its sources. Pricing labels are set per
     # position above and are NEVER overwritten by a universal loop (the
-    # retired bake's defect). ESPN-purity: K/DST rows must be ESPN-only
-    # (espn_ros present, ecr_ros None); espn_* fields on skill rows are
-    # built from espn_med only.
+    # retired bake's defect). ESPN-purity (extended 2026-10-05): every
+    # ESPN-labeled value comes from ESPN projections only. The primary
+    # blend is 100% ESPN for skill players too — espn_ros IS the primary.
     violations = []
     for p in players:
         pid = f"{p['name']} (key={p['player_key']})"
@@ -715,32 +643,26 @@ def bake(args):
             if pricing != "espn_only":
                 violations.append(f"{pid}: K/DST pricing must be 'espn_only', "
                                   f"got '{pricing}'")
-            if p.get("ecr_ros") is not None:
-                violations.append(f"{pid}: K/DST ecr_ros must be None "
-                                  "(ESPN-purity: no expert data in K/DST)")
             if not p.get("espn_ros"):
                 violations.append(f"{pid}: K/DST espn_ros missing")
         else:
-            if pricing != "experts_only":
-                violations.append(f"{pid}: skill pricing must be 'experts_only', "
-                                  f"got '{pricing}'")
-            if p.get("blend_ros") is None or p.get("ecr_ros") is None:
-                violations.append(f"{pid}: skill row missing ecr/blend legs")
-        # ESPN-filled consistency: espn_filled_ros == ESPN comps + ECR fill.
-        if p.get("espn_filled_ros") and p["pos"] not in ("K", "DST"):
-            v = espn_med.get(p["player_key"], {})
-            a = actuals.get(p["player_key"], {})
-            check = {s: pts({c: v[c] if c in v else
-                             (float(next((r[c] for r in ecr_rows
-                                          if int(r["player_key"]) == p["player_key"]), 0))
-                              - a.get(c, 0.0))
-                             for c in COMPS}, s) for s in SCORINGS}
-            for s in SCORINGS:
-                if abs(check[s] - p["espn_filled_ros"][s]) > 0.01:
-                    violations.append(
-                        f"{pid}: espn_filled_ros[{s}] inconsistent with "
-                        "ESPN-med + ECR-fill recomputation")
-                    break
+            if pricing != "espn_only":
+                violations.append(f"{pid}: skill pricing must be 'espn_only' "
+                                  f"(ESPN-primary, JEG-ECR-EXIT), got '{pricing}'")
+            if p.get("blend_ros") is None or p.get("espn_ros") is None:
+                violations.append(f"{pid}: skill row missing espn/blend legs")
+            # ESPN comps consistency: espn_ros must equal pts(espn_ros_comps).
+            espn_entry = espn_med.get(p["player_key"])
+            if espn_entry:
+                v = espn_entry["comps"]
+                comps_full = {c: v.get(c, 0.0) for c in COMPS}
+                check = {s: pts(comps_full, s) for s in SCORINGS}
+                for s in SCORINGS:
+                    if abs(check[s] - p["espn_ros"][s]) > 0.01:
+                        violations.append(
+                            f"{pid}: espn_ros[{s}] inconsistent with "
+                            "ESPN-med recomputation")
+                        break
         # Razzball doubling guard: rz_filled_ros == rz_ppg x games_remaining.
         if p.get("rz_filled_ros"):
             gr = p.get("games_remaining")
@@ -759,24 +681,21 @@ def bake(args):
                          "\n  ".join(violations))
     print(f"source-accounting audit passed ({len(players)} players)")
 
-    # ---- preseason ECR ranks ----------------------------------------------------
+    # ---- preseason ECR ranks (preseason reference only, post-ECR-EXIT) ------
+    # ECR ranks are preseason-snapshot ranks (data/inputs/ecr_draft.json) —
+    # they describe draft rankings before the season started, not the
+    # full-season ECR leg that the bake used to consume. Kept for the
+    # preseason-rank comparison column; not a runtime input.
     ranks, pecr_report = load_preseason_ecr_ranks(registry=registry)
     annotate_rows(players, ranks)
     print(f"preseason ECR ranks: {pecr_report['resolved']} resolved, "
           f"{pecr_report['unmatched']} unmatched")
 
     # ---- meta ---------------------------------------------------------------------
-    def _shade_phrase(sh, pos, cooler, warmer):
-        s = sh[pos]["ppr"]
-        d = cooler if s > 0.05 else warmer if s < -0.05 else "level"
-        return f"{pos} {s:+} ({d})"
-
     today = str(_date.today())
     meta = {
         "as_of": today,
-        "ecr_snapshot": ecr_snapshot_date,
-        "ecr_content_date": ecr_content_date,
-        "prior_ecr_snapshot": str(prior_date) if prior_date else None,
+        "prior_blend_snapshot": str(prior_date) if prior_date else None,
         "espn_snapshot": str(espn_snapshot_date),
         "pm_snapshot": str(pm_snapshot_date),
         "rz_snapshot": str(rz_snapshot_date),
@@ -797,25 +716,21 @@ def bake(args):
                       "rates x 16 (weeks 3-18); DST ROS = ESPN per-game rates "
                       "x 15 (all byes in weeks 3-18). Scoring-invariant: one "
                       "number serves standard/half/full."),
-        "actuals_note": (f"YTD actuals subtracted from the ECR leg only "
-                         f"({len(actuals)} players with banked stats). "
-                         "The ESPN intake is already rest-of-season — no "
-                         "actuals subtraction on the ESPN leg. Actuals exclude "
-                         "INTs/fumbles by design (scoring_note)."),
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
         "ppg_note": ("Per-game points = ROS fantasy points / team games "
                      "remaining (final games excluded)."),
-        "espn_note": ("espn_ros/espn_ppg = pure ESPN read over priced components "
-                      "only (espn_covered lists them; never zero-filled). "
-                      "espn_filled_ros/espn_filled_ppg = ESPN where priced, ECR "
-                      "fills the rest (ESPN takes precedence, no averaging); "
-                      "delta_espn_ecr(_ppg) is filled minus full ECR. Every "
-                      "ESPN-labeled field is sourced ONLY from ESPN projections."),
+        "espn_note": ("espn_ros/espn_ppg = ESPN primary leg: pure ESPN read "
+                      "over priced components, with missing components "
+                      "defaulting to 0 (never zero-filled from another input). "
+                      "JEG-ECR-EXIT (2026-10-05): ESPN is now the primary leg "
+                      "for skill players — espn_ros IS blend_ros for skill "
+                      "rows. Every ESPN-labeled field is sourced ONLY from "
+                      "ESPN projections."),
         "pm_note": ("pm_ros/pm_ppg = pure prediction-markets read over priced "
                     "components only (pm_covered lists them; never zero-filled). "
                     "pm_filled_ros/pm_filled_ppg = prediction markets where "
-                    "priced, ECR fills the rest (PM takes precedence, no "
-                    "averaging); delta_pm_ecr(_ppg) is filled minus full ECR. "
+                    "priced, ESPN fills the rest (PM takes precedence, no "
+                    "averaging); delta_pm_espn(_ppg) is filled minus full ESPN. "
                     "Source: raw Kalshi/Polymarket season ladders (own isotonic "
                     "math, local liquidity gate) — crowd wisdom, NOT sportsbook "
                     "money. Season receptions ladders have no liquid two-sided "
@@ -830,13 +745,12 @@ def bake(args):
                     "and are never used as ROS totals — the source-accounting "
                     "audit fails the build if rz_filled_ros != rz_ppg x "
                     "games_remaining. rz_filled_ppg/rz_filled_ros = Razzball "
-                    "where priced (complete reads need no component fill); "
-                    "the ECR fallback for unpriced players happens at the "
-                    "rails layer like ESPN/PM. delta_rz_ecr(_ppg) is filled "
-                    "minus full ECR. Verified independent third projection "
-                    "source 2026-09-17 (rank corr vs ECR 0.78-0.91, never "
-                    "0.99+; deviations largely independent of ESPN). "
-                    "K/DST have no Razzball projections (ESPN-priced)."),
+                    "where priced (complete reads need no component fill). "
+                    "delta_rz_espn(_ppg) is filled minus full ESPN. Verified "
+                    "independent third projection source 2026-09-17 (rank corr "
+                    "vs ECR 0.78-0.91, never 0.99+; deviations largely "
+                    "independent of ESPN). K/DST have no Razzball projections "
+                    "(ESPN-priced)."),
         "cbsros_note": ("cbsros_ppg = pure CBS rest-of-season per-game "
                         "projection read (per_game_standard / per_game_half_ppr "
                         "/ per_game_ppr from the CBS ROS snapshot = ROS totals "
@@ -845,35 +759,39 @@ def bake(args):
                         "from cbsros_ppg through the shared two-tier "
                         "value-above-waivers math (source's own pool and pies, "
                         "never ESPN's). K/DST have no CBS ROS projections."),
-        "method_note": ("Primary trade value (blend_ros/blend_ppg): since 2026-09-16 "
-                        "the primary value IS the ECR leg — expert stat projections "
-                        "translated to fantasy points with banked actuals removed "
-                        "(rest-of-season). ESPN does not enter the primary value; "
-                        "it lives only in the comparison columns (espn_ros / "
-                        "espn_filled_ros: ESPN projections only). K/DST player "
-                        "pricing is ESPN (2026-09-21 vintage). The chart engine "
-                        "applies the DDF value-above-waivers methodology: raw value "
-                        "is projected points above the positional waiver line; each "
-                        "1-point slice is priced on a two-tier marginal curve "
-                        "(bench rate below the starter line, starter rate above, "
-                        "smooth S-curve glide of 25% of starter-minus-waiver); "
-                        "bench totals exactly 15% and starters 85% per position "
-                        "before rounding; 70-point display scale."),
+        "method_note": ("Primary trade value (blend_ros/blend_ppg): JEG-ECR-EXIT "
+                        "(2026-10-05) the primary value IS the ESPN leg — ESPN "
+                        "season projections (already rest-of-season, no actuals "
+                        "subtraction) translated to fantasy points with the DDF "
+                        "value-above-waivers methodology applied. PM / Razzball "
+                        "/ CBS ROS live in the comparison columns (no ESPn now "
+                        "primary). K/DST player pricing is ESPN (2026-09-21 "
+                        "vintage). The chart engine applies the DDF "
+                        "value-above-waivers methodology: raw value is projected "
+                        "points above the positional waiver line; each 1-point "
+                        "slice is priced on a two-tier marginal curve (bench "
+                        "rate below the starter line, starter rate above, smooth "
+                        "S-curve glide of 25% of starter-minus-waiver); bench "
+                        "totals exactly 15% and starters 85% per position before "
+                        "rounding; 70-point display scale."),
         "shade_baseline_ppg": shade_ppg,
         "disagree_baseline_note": (
-            "Empirical ESPN-vs-ECR direction, measured as mean(ecr_ppg - "
-            "espn_filled_ppg) over espn_complete players (full-PPR /g: " +
-            ", ".join(_shade_phrase(shade_ppg, pos, "ESPN cooler", "ESPN warmer")
-                       for pos in ("QB", "RB", "WR", "TE")) +
-            "). Positive shade = ESPN cooler than ECR; negative = ESPN warmer. "
-            "delta_espn_ecr_demeaned subtracts the player's positional baseline, "
-            "and espn_adj_ppg translates ESPN points onto the experts' level, so "
-            "the disagreement section's rank gaps are genuine ordering differences, "
-            "not shade."),
-        "pricing_note": ("pricing labels are per-position: 'experts_only' for "
-                         "QB/RB/WR/TE (primary value 100% ECR), 'espn_only' for "
-                         "K/DST (ESPN-purity directive). The source-accounting "
-                         "audit rejects any other label."),
+            "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline "
+            "is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by "
+            "construction). PM and Razzball comparison shades are still "
+            "measured against ESPN: pm_shade_ppg = mean(pm_filled_ppg - "
+            "espn_ppg); rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). "
+            "Positive shade = comparison cooler than ESPN; negative = "
+            "warmer. delta_pm_espn_ppg_demeaned / delta_rz_espn_ppg_demeaned "
+            "subtract the positional baseline so rank gaps are genuine "
+            "ordering differences, not shade."),
+        "pricing_note": ("pricing labels are uniform 'espn_only' across all "
+                         "positions (JEG-ECR-EXIT 2026-10-05): the primary "
+                         "value IS ESPN, with ESPN-purity (every ESPN-labeled "
+                         "field sourced ONLY from ESPN projections) extended "
+                         "from K/DST-only (2026-09-21) to all charted "
+                         "positions. The source-accounting audit rejects any "
+                         "other label."),
     }
 
     # Fail-closed name gate: every display name == players.full_name for its key.
@@ -899,16 +817,15 @@ def bake(args):
     out_path.write_text(json.dumps(payload, indent=1))
     print(f"wrote {out_path} ({len(players)} players)")
 
-    # Bank key-keyed actuals for future prior-week movement.
-    actuals_path = FIXTURE_DIR / f"actuals_{today}.json"
-    actuals_path.write_text(json.dumps(
-        {str(k): v for k, v in sorted(actuals.items())}, indent=1))
-    print(f"banked actuals -> {actuals_path.name} ({len(actuals)} players)")
+    # JEG-ECR-EXIT (2026-10-05): actuals were subtracted from the (now
+    # retired) ECR leg. ESPN is already rest-of-season — no actuals needed.
+    # The actuals_<date>.json banking is dropped; prior bake deltas now come
+    # from the snapshotted previous fixture (data/fixtures/snapshots/).
 
     # sanity: top 8 primary-value PPR
     for p in players[:8]:
         print(p["name"], p["pos"], p["team"], p["blend_ros"]["ppr"],
-              "espn" if p["espn_complete"] else "ecr-only",
+              "espn" if p["espn_complete"] else "espn-partial",
               "+pm" if p.get("pm_complete") else "")
 
     return {"meta": meta, "n_players": len(players)}
@@ -927,7 +844,7 @@ def main():
     args = ap.parse_args()
     result = bake(args)
     print(json.dumps({k: v for k, v in result["meta"].items()
-                      if k in ("as_of", "ecr_snapshot", "ecr_content_date",
+                      if k in ("as_of", "prior_blend_snapshot",
                                "n_players", "n_espn_complete", "n_pm_complete",
                                "n_rz_complete", "n_cbsros_complete",
                                "n_k", "n_dst")}, indent=1))

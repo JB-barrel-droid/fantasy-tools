@@ -95,20 +95,25 @@ class KdstNoPeerComparisonTest(unittest.TestCase):
     """Tests verifying K/DST have no peer sources for comparison."""
 
     def test_kdst_no_ecr_data(self):
-        """K/DST rows should have ecr_ros = None (no ECR data)."""
+        """K/DST rows must not carry an ecr_ros field (JEG-ECR-EXIT 2026-10-05).
+
+        Pre-JEG-ECR-EXIT K/DST rows had ecr_ros=None. After JEG-ECR-EXIT the
+        ecr_ros field is removed from the bake entirely (ESPN is the primary
+        leg for all positions); K/DST rows therefore have no ecr_ros key at
+        all and price from espn_ros only.
+        """
         # Simulate a K player row
         k_player = {
             "pos": "K",
             "player_key": 12345,
             "name": "Harrison Mevis",
-            "ecr_ros": None,  # K/DST have no ECR
             "blend_ros": {"standard": 142.4, "half_ppr": 142.4, "ppr": 142.4},
             "espn_ros": {"standard": 142.4, "half_ppr": 142.4, "ppr": 142.4},
             "pricing": "espn_only",
         }
 
-        self.assertIsNone(k_player["ecr_ros"],
-            "K/DST should have ecr_ros = None (no ECR data)")
+        self.assertNotIn("ecr_ros", k_player,
+            "K/DST must not carry an ecr_ros field after JEG-ECR-EXIT")
         self.assertEqual(k_player["pricing"], "espn_only",
             "K/DST pricing must be 'espn_only'")
 

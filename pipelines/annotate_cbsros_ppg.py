@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Surgically annotate the current players.json with CBS ROS native PPG.
 
-JEG-33: the full bake (bake_players.py) cannot run right now — its ECR
-intake is broken against the current Supabase schema (sbclient enforces
-order=id; the fp_season_latest_norm view has no id column, and the view
-holds no rows for the latest fp_season_projections snapshot). That is
-tracked as its own issue; this script does NOT touch the ECR path.
+JEG-ECR-EXIT (2026-10-05): the full bake (bake_players.py) no longer reads
+fp_season_latest_norm / fp_season_projections (ESPN is the primary leg,
+sourced from data/inputs/espn_projections.csv). This script still reuses
+bake_players._intake_cbsros (the CBS ROS read path is unaffected), so no
+existing baked value changes.
 
 This script ONLY ADDS cbsros_* fields, reusing bake_players._intake_cbsros
 (the same intake the full bake uses), so no existing baked value changes.

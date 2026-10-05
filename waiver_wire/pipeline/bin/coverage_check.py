@@ -6,20 +6,11 @@ covered. Run daily; exit 0 = all PASS (warnings allowed), exit 1 = any FAIL.
 Writes lottery/results/coverage_<date>.json.
 
 Checks
-  C1 norm-fresh   fp_season_latest_norm MAX(snapshot_date) ==
-                  fp_season_projections MAX(snapshot_date). Catches the
-                  stale-derived-table class (the chart builds from the norm
-                  table, not the raw snapshot table).
-  C2 key-dedup    Every skill-position row of v_fp_season_latest survives the
-                  builder's player_key dedup into fp_season_latest_norm
-                  (canonical identity 2026-09-18).
-                  Key collisions on the same human are OK (info).
-  C3 chart-build  Every fp_season_latest_norm row is in trade-value/players.json.
   C4 legs-seed    Every players.json player is in the Monday leg universe
                   (legs are chart-seeded; leg-only extras are info).
-                  K/DST missing from legs = WARN until first seeding (C8/C9
-                  own the chain); after the legs have contained any K/DST, a
-                  later absence = FAIL (seeding regression).
+                  K/DST missing from legs = WARN until first seeding; after
+                  the legs have contained any K/DST, a later absence = FAIL
+                  (seeding regression).
   C5 sources      Every FantasyCalc-cached + USA Today player is in the
                   sources dashboard display (source-driven; complete by
                   construction -- guards builder regressions).
@@ -27,11 +18,14 @@ Checks
                   the waiver pool (waiver_boundary.canonical_pool -- the real
                   pool logic, not a reimplementation).
   C7 waiver-espn  Every ESPN roster%>=15 skill player is in the waiver pool.
-  C8 kicker-chain Every kicker in v_fp_season_kdst_latest is in players.json
-                  and in the Monday leg universe (legs seed K at the next
-                  market step; missing legs = WARN until then).
-  C9 dst-chain    Every defense in v_fp_season_kdst_latest is in players.json
-                  and in the Monday leg universe (same WARN-then-PASS as C8).
+  C10 form-coverage Every chart player who logged a Week-1 stat row carries
+                  a form read (debug.form_pg) in the Monday legs.
+
+JEG-ECR-EXIT (2026-10-05) removed: C1 norm-fresh, C2 key-dedup, C3
+chart-build (they checked fp_season_latest_norm / fp_season_projections,
+the full-season ECR tables the chart no longer consumes); C8 kicker-chain,
+C9 dst-chain (they checked v_fp_season_kdst_latest, the FP K/DST table
+the bake no longer reads — K/DST price from ESPN projections only).
 
 Position filtering for C6/C7 uses the trends panel + pool + chart; names with
 no resolvable skill position are reported as UNRESOLVED (warning), never FAIL.
@@ -58,7 +52,6 @@ WTR = LOT.parent / "waiver-trends" / "results"
 sys.path.insert(0, os.path.join(os.path.expanduser("~"), "workspace", "skills", "supabase-mgmt", "bin"))
 sys.path.insert(0, str(LOT / "engine"))
 
-from mgmt import query  # noqa: E402  (Supabase management API)
 # Canonical identity (2026-09-18): coverage checks join on numeric
 # player_key, not normalized names.
 import waiver_boundary as WB  # noqa: E402  (real waiver pool logic)
@@ -196,105 +189,14 @@ def pos_map(pool, trends):
 def main():
     c = Check()
 
-    # ---- C1: norm table freshness ----
-    r = query("SELECT MAX(snapshot_date) AS d FROM fp_season_projections")[0]["d"]
-    r2 = query("SELECT MAX(snapshot_date) AS d FROM fp_season_latest_norm")[0]["d"]
-    if str(r2) == str(r):
-        c.ok("C1", "norm-fresh",
-             f"fp_season_latest_norm is current (snapshot {r2})")
-    else:
-        c.fail("C1", "norm-fresh",
-               f"STALE: norm table at {r2}, projections at {r}. "
-               "Run football-signal/bin/build_blended_vorp_inputs.py before "
-               "the chart build (wired as step 1b of the 08:00 chart cron).")
+    # JEG-ECR-EXIT (2026-10-05): C1 norm-fresh, C2 key-dedup, C3
+    # chart-build are removed -- they checked fp_season_latest_norm /
+    # fp_season_projections, the full-season ECR tables the chart no
+    # longer consumes (ESPN is now the primary leg, sourced from the
+    # CSV intake which carries its own freshness check at the source
+    # pull via ops/watchdog health.json).
 
-    # ---- C2: norm dedup keeps every real player ----
-    latest_proj = query("SELECT MAX(snapshot_date) AS d FROM fp_season_projections")[0]["d"]
-    rows = query(
-        "SELECT v.player_id, p.player_key AS player_key, v.position, v.proj_half_ppr, p.full_name "
-        "FROM v_fp_season_latest v JOIN players p ON p.id = v.player_id "
-        f"WHERE v.snapshot_date = '{latest_proj}'")
-    # Keyed by canonical player_key (2026-09-18): players.player_key (bigint)
-    # is the canonical numeric key; p.id is the row UUID.
-    expected, dupes = {}, []
-    for r_ in rows:
-        if not r_["full_name"] or r_["position"] not in SKILL_POS:
-            continue
-        kk = r_.get("player_key")
-        if kk is None:
-            continue
-        prev = expected.get(kk)
-        if prev is None:
-            expected[kk] = r_
-        else:
-            # same key twice: keep the builder's winner (max proj_half_ppr)
-            if float(r_["proj_half_ppr"] or 0) > float(prev["proj_half_ppr"] or 0):
-                dupes.append((kk, prev["full_name"], r_["full_name"]))
-                expected[kk] = r_
-            else:
-                dupes.append((kk, r_["full_name"], prev["full_name"]))
-    latest_snap = query("SELECT MAX(snapshot_date) AS d FROM fp_season_latest_norm")[0]["d"]
-    actual = {int(r_["player_key"]) for r_ in
-              query("SELECT player_key FROM fp_season_latest_norm"
-                    " WHERE player_key IS NOT NULL"
-                    f" AND snapshot_date = '{latest_snap}'")}
-    norm_humans = {canon(r_["full_name"]) for r_ in
-                   query("SELECT p.full_name FROM fp_season_latest_norm n"
-                         " JOIN players p ON p.player_key = n.player_key"
-                         " WHERE n.player_key IS NOT NULL"
-                         f" AND n.snapshot_date = '{latest_snap}'")}
-    # Same-human duplicate registry keys are not real drops: the builder
-    # keeps one key per human, so the loser's key is expected to be absent
-    # while the human survives under another key.
-    dropped = sorted(kk for kk in set(expected) - actual
-                     if canon(expected[kk]["full_name"]) not in norm_humans)
-    dupe_keys = sorted(kk for kk in set(expected) - actual
-                       if canon(expected[kk]["full_name"]) in norm_humans)
-    dupe_items = [f"{kk}: kept {w} over {l}" for kk, l, w in dupes[:10]]
-    dupe_items += [f"{kk} ({expected[kk]['full_name']}): same-human dupe, "
-                   f"survives under another key" for kk in dupe_keys[:10]]
-    if not dropped:
-        c.ok("C2", "key-dedup",
-             f"all {len(expected)} skill keys survive "
-             f"({len(dupes)} key collisions, {len(dupe_keys)} same-human dupes)",
-             items=dupe_items)
-    else:
-        c.fail("C2", "key-dedup",
-               f"{len(dropped)} players dropped by the key build",
-               items=[f"{kk} ({expected[kk]['full_name']})" for kk in dropped]
-               + dupe_items)
-
-    # ---- C3: chart build covers the norm table ----
-    chart = json.loads((TRADE_VALUE / "players.json").read_text())
-    chart_keys = {p.get("player_key") for p in chart["players"]
-                  if p.get("player_key") is not None}
-    chart_humans = {canon(p["name"]) for p in chart["players"]}
-    # Compare the norm table's keys directly (not the view-derived
-    # expected set); same-human key variants are informational, only
-    # humans entirely absent from the chart count as missing.
-    key_names = {int(r_["player_key"]): r_["full_name"] for r_ in
-                 query("SELECT p.player_key, p.full_name"
-                       " FROM fp_season_latest_norm n"
-                       " JOIN players p ON p.player_key = n.player_key"
-                       " WHERE n.player_key IS NOT NULL"
-                       f" AND n.snapshot_date = '{latest_snap}'")}
-    missing_chart = sorted(kk for kk in set(actual) - chart_keys)
-    missing_humans = sorted(kk for kk in missing_chart
-                            if canon(key_names.get(kk, "")) not in chart_humans)
-    dupe_chart = [kk for kk in missing_chart if kk not in missing_humans]
-    if not missing_humans:
-        c.ok("C3", "chart-build",
-             f"players.json covers all {len(actual)} norm players "
-             f"(n_players={chart['meta'].get('n_players')}"
-             f", {len(dupe_chart)} same-human key variants)",
-             items=[f"{kk} ({key_names.get(kk)}): in chart under another key"
-                    for kk in dupe_chart[:10]])
-    else:
-        c.fail("C3", "chart-build",
-               f"{len(missing_humans)} norm players missing from players.json",
-               items=[f"{kk} ({key_names.get(kk)})" for kk in missing_humans]
-               + [f"{kk} ({key_names.get(kk)}): in chart under another key"
-                  for kk in dupe_chart[:10]])
+    # ---- JEG-ECR-EXIT REMOVED: C2 + C3 ----
 
     # ---- C4: Monday legs cover every chart player ----
     # Canonical identity (2026-09-18): the join is on numeric player_key
@@ -559,45 +461,11 @@ def main():
                f"{len(miss_e)} ESPN rostered skill players missing from the waiver pool",
                items=miss_e)
 
-    # ---- C8/C9: K/DST chain (source -> chart -> legs) ----
-    # K/DST live in fp_season_kdst_projections (not the norm table), so C2/C3
-    # don't cover them. Legs seed K/DST at the next market step; until then a
-    # chart->legs gap is WARN, not FAIL.
-    kdst_rows = query(
-        "SELECT position, player_key, display_name FROM v_fp_season_kdst_latest"
-        " WHERE player_key IS NOT NULL")
-    for cid, pos, label in (("C8", "K", "kicker"), ("C9", "DST", "defense")):
-        src = {int(r["player_key"]): r["display_name"]
-               for r in kdst_rows if r["position"] == pos}
-        chart_pos = {p.get("player_key") for p in chart["players"]
-                     if p.get("pos") == pos and p.get("player_key") is not None}
-        missing_chart = sorted(set(src) - chart_pos)
-        # legs join on player_key, same as C4 (name-canon fallback for
-        # unresolvable leg keys)
-        legs_present = bool(leg_keys or leg_name_canons)
-        missing_legs = sorted(
-            k for k in (set(src) & chart_pos)
-            if k not in leg_keys
-            and canon(chart_info[k][0]) not in leg_name_canons
-        ) if legs_present else []
-        det = (f"{len(src)} {label}s in source, "
-               f"{len(chart_pos)} in players.json")
-        if missing_chart:
-            c.fail(cid, f"{label}-chain",
-                   f"{det}; {len(missing_chart)} missing from the chart",
-                   items=missing_chart)
-        elif not legs_present:
-            c.warn(cid, f"{label}-chain",
-                   det + "; no leg file to check against yet")
-        elif missing_legs:
-            c.warn(cid, f"{label}-chain",
-                   det + f"; {len(missing_legs)} not yet in "
-                   f"{leg_label or 'the Monday legs'} "
-                   "(seeds at the next market step)",
-                   items=missing_legs[:15])
-        else:
-            c.ok(cid, f"{label}-chain",
-                 det + f"; all in {leg_label or 'the Monday legs'}")
+    # JEG-ECR-EXIT (2026-10-05): C8 kicker-chain + C9 dst-chain are removed --
+    # they checked v_fp_season_kdst_latest (the FP K/DST full-season table).
+    # K/DST now price from ESPN projections only; the chart side of the chain
+    # is a fail-safe against missing ESPN coverage, see K/DST-only checks in
+    # tests/test_kdst_coverage_contract.py.
 
     # ---- C10: Monday-leg form coverage ----
     # Every chart player who logged a Week-1 stat row must carry a form
