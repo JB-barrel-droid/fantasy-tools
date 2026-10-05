@@ -2384,3 +2384,218 @@ but flagged "not displayed".
   flags the drift. The audit's 2026-10-01 snapshot showed all 45 K
   and 32 DST resolve cleanly.
 
+## 2026-10-03 - JEG-299 (follow-up): rebuild-chain test simulator is NOT stale — brief hypothesis refuted
+
+The dispatch brief (lanes/outbox/minimax/JEG-299-test-simulator.md) claimed
+`make test-unit` is red on clean origin/main with 2 failures in
+`tests/test_rebuild_chain_workflow.py` (`test_real_workflow_is_clean` and
+`test_red_chain_pushes_only_status_and_health_files`), caused by the
+simulator not being updated for the post-JEG-299 workflow restructures
+(56d9b52, a297978, bc7cf74, df73cff).
+
+**Verified** — directly run on `minimax/jeg-299-test-simulator` (df73cff):
+
+```
+python3 -m unittest tests.test_rebuild_chain_workflow -v
+test_a_job_that_stays_green_after_a_failed_chain_is_caught ... ok
+test_dropping_the_fail_step_condition_is_caught ... ok
+test_green_chain_pushes_fixture_and_monitor_copy ... ok
+test_green_path_not_syncing_the_monitor_copy_is_caught ... ok
+test_losing_continue_on_error_is_caught ... ok
+test_not_publishing_status_on_failure_is_caught ... ok
+test_real_workflow_is_clean ... ok
+test_red_chain_pushes_only_status_and_health_files ... ok
+test_staging_the_fixture_on_failure_is_caught ... ok
+----------------------------------------------------------------------
+Ran 9 tests in 1.732s
+
+OK
+```
+
+All 9 tests pass, including the full assertCaught mutation battery
+(every mutation still rejected). Hand-trace of the failure scenario
+(`run_scenario(WORKFLOW, "failure")`):
+
+- `red["changed"]` = `{"dist/modules/comparison-chain-status.json",
+  "output/comparison-chain-status.json"}` — matches the test's
+  `{MONITOR_STATUS, OUT_STATUS}` assertion exactly.
+- `red["fixture"]` = `"OLD"` (the partial `PARTIAL` fixture written by
+  `run_scenario` was correctly NOT added by the red-path
+  `dist/modules/source-import-health.json \
+   dist/modules/comparison-chain-status.json \
+   dist/modules/github-actions.json \
+   output/source-import-health.json \
+   output/comparison-chain-status.json` `git add`).
+- `red["monitor_status"]` = `"RED"` — PUBLISH_RED's `cp` ran.
+- `red["fail_rc"]` = `1` — the "Fail the job if the chain failed" step
+  ran with `exit 1`.
+
+Hand-trace of the success scenario:
+
+- `green["changed"]` includes FIXTURE, MONITOR_FIXTURE, MONITOR_STATUS,
+  OUT_STATUS, ADJ_APP, plus ADJ_DIST (the JEG-211-honest-exclusion copy
+  SYNC_OK adds to dist) — 6 files, all expected.
+
+`static_problems(WORKFLOW)` returns `[]`; `behaviour_problems(WORKFLOW)`
+returns `[]`. The simulator's plain-text step parser
+(`step_blocks`/`find_step`/`script_of` at
+tests/test_rebuild_chain_workflow.py:47-84) handles the restructured
+workflow (the added "Refresh GitHub Actions status (JEG-109)" step
+at line 110 and the JEG-299 rebase logic at 167 are correctly outside
+the simulated steps; `GH_ACTIONS` was added to BASELINE at JEG-109 and
+stays at its OLD-GH content because the simulator does not exercise the
+if:always() refresh step).
+
+**Verdict**: workflow is correct (publishes RED, stages only status/health,
+keeps fixture OLD, fails rc=1); simulator parses the restructured workflow
+correctly. Brief was based on a stale observation — neither the workflow
+nor the simulator needs fixing for JEG-299 follow-up.
+
+**What I did NOT change**
+
+- No edits to `tests/test_rebuild_chain_workflow.py` (already correct).
+- No edits to `.github/workflows/rebuild-chain.yml` (already correct).
+- No weakening of any assertion.
+
+**Unrelated red on this branch**
+
+`make test-unit` IS red on this branch (df73cff) but the failure is
+**not** in `test_rebuild_chain_workflow.py`. It is in
+`tests/test_static_export.py::StaticExportTest::test_all_position_order_and_y_axis_use_visible_window`
+(asserts `"row.values[sourceKey]"` in `app/trade-value-chart/assets/curve-widget.js`;
+the served widget uses `b.values[lockOrder]` / `a.values[lockOrder]` instead —
+pinned for an older naming). This pre-dates JEG-299 and is outside the
+scope of this dispatch brief; flagging for the next sweep.
+
+`make -n test-unit` ordering: test_static_export (line 61 of the
+test-unit target) runs before test_rebuild_chain_workflow (line 71),
+so the make target fails fast on test_static_export before reaching
+the simulator under investigation. Direct invocation
+(`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
+the 9 tests green in 1.7s.
+
+## 2026-10-04 — JEG-327 Phase B: v1 FE read contract drafted (minimax/M3)
+
+**Ticket:** JEG-327 — Define FE/BE boundary and versioned frontend read contract
+**Phase:** B — contract draft (Phase A inventory complete)
+**Lane:** minimax (M3); rerouted from chatgpt/codex per lane adaptation
+**Branch:** minimax/jeg-327-phaseB-contract
+
+### What was produced
+- docs/contract/fe-read-contract-v1.md (1046 lines) — the v1 contract
+- sql/contract/api_v1.sql (563 lines) — Stage 1 DDL draft (NOT applied)
+- lanes/inbox/minimax/JEG-327-phaseB.md (252 lines) — result file
+- lanes/inbox/minimax/JEG-327-phaseB.json (176 lines) — JSON summary
+
+### What was NOT done
+- No make validate (doc-only per standing rule)
+- No DDL applied
+- No pipeline edits; no FE edits
+- No merge/push to remote
+- No ticket comment (lane adaptation routes that through Roman)
+
+### Verified
+- Phase A inventory covers all 8 ticket-required files; no concrete gap found by direct inspection.
+- Five surfaces defined with grain/fields/types/ownership/lineage/freshness/contract_version per the JEG-327 brief.
+- Per-view coverage metadata honors the JEG-331 ground truth (vorp: 635 rows full-PPR/12-teams; vorp_indexed: 624; adj_values: 635; combo_reindexed: full coverage). view=vorp_on_demand reserved as future MINOR bump (JEG-329 precondition failed per JEG-331).
+- Per-row VALUE PROVENANCE (6 values) and model_vs_published (2 values) carried on api.player_values, plus tier_price_vector for vector+blend bench share (2026-10-03 Jeremy direction).
+- Bench-share bounds/default (0.15 default, [0.01, 0.30] bounds, user_settable=true) ship on api.product_options.
+- Publish gate verifies pie_vintage == bake_id AND tier_price_vintage == bake_id.
+- contract_version 1.0.0 with known-compatible -> render, unknown -> fail-closed. Never silently falls back to legacy fixture paths.
+- product-data.js specified as the SINGLE FE adapter.
+- Phase D sequencing (curve widget -> comparison dashboard -> context/news -> selectors -> remaining) with acceptance gates per cutover.
+- Phase E computation ownership recommendations (backend-owned reference implementations; FE keeps versioned interaction transforms; vector+blend as the bench-share strategy; parity test as the acceptance gate).
+- Recommendation for JEG-325: re-scope as JEG-327 Phase D.
+- Security hardening staged (Stage 0-4).
+
+### Claimed vs verified
+- Claim: the contract covers every read/calculation the inventory lists. Verified: contract §10 explicitly maps each inventory row to a surface.
+- Claim: per-view coverage metadata is honest about the JEG-331 ground truth. Verified: the coverage_class CASE expression in api_v1.sql explicitly enumerates full-PPR/12-teams/qb1 as the served combo.
+- Claim: vector+blend is a valid bench-share implementation. NOT VERIFIED — the parity test (Phase E acceptance gate) decides.
+- Claim: MIN_SHARED_FOR_PIE=40 freeze and canonical_name field choice are correct. NOT VERIFIED — both flagged in the result file §5 as decisions needing Jeremy sign-off.
+
+### Methodology decisions NOT made
+- No methodology, value, or copy changes.
+- No rescaling/pinning/calibrating to a stale pie/target.
+- No VORP translation changes; no user-facing copy edits.
+- No FE-side constant changes (FE still has DEFAULT_BENCH_SHARE=0.15 etc. until Phase D).
+
+### Open questions for Jeremy (Roman posts on the JEG-327 ticket)
+1. full_name vs name canonical — v1 picks canonical_name; Jeremy may redirect to name.
+2. MIN_SHARED_FOR_PIE = 40 — v1 freezes at 40 on api.product_options; Jeremy may redirect to a deployment-overridable constant.
+
+## 2026-10-03 — JEG-323: repo-side guard for `public.check_source_vintages()` stub (minimax M3)
+
+**Ticket:** JEG-323 — false-green `check_source_vintages` stub guard
+**Lane:** minimax (M3)
+**Branch:** `minimax/jeg-323-healthstub-guard`
+**Commit:** `c4fe0ac`
+
+### What was produced
+
+- `tests/test_health_function_no_hardcoded_green.py` — hermetic regex scan.
+  Scans `sql/migrations/*.sql` and `sql/contract/*.sql` for
+  `CREATE [OR REPLACE] FUNCTION` bodies, classifies each as
+  `pass` (health-shaped AND reads FROM/JOIN), `fail-stub` (health-shaped
+  AND no relation read — the JEG-323 class), or `pass-nonscope` (not
+  health-shaped). Empty `ALLOWLIST` keeps the bar high.
+- 4 synthetic inline-SQL cases pin the heuristic from both sides:
+  stub-like constant return (MUST fail), real function reading
+  `source_trade_values` + `pipeline_cron_state` (MUST pass),
+  name-only health probe with constant return (MUST fail via name arm),
+  comment-only freshness function with constant return (MUST fail via
+  comment arm).
+- Wired into `Makefile` `test-unit` (which feeds `make validate`),
+  alphabetically between `test_espn_zeroed_staleness` and
+  `test_razzball_supabase`. No existing wiring removed.
+- `docs/audits/jeg285-phase2/02-pgcron-job-specs.md` — added a top-level
+  "Three separate concerns — keep them separate" section that
+  distinguishes (1) source content freshness/health,
+  (2) source-vintage change detection, (3) code-change detection
+  (GitHub-side). Restated JEG-323 stub warning at the Job 1 section
+  where `check_source_vintages()` is first referenced.
+- `docs/audits/jeg285-phase2/05-job1-shadow-spec.md` — "Which concern
+  this spec covers" subsection + JEG-323 stub warning at top.
+- `docs/audits/jeg285-phase2/05-shadow-01-source-vintage-check.md` —
+  same "Which concern" pointer and JEG-323 stub warning at top.
+- `lanes/inbox/minimax/JEG-323-guard.md` — report (test design, how
+  the synthetics prove the guard catches the stub class, which docs
+  were updated and where the three concerns are now distinguished).
+- `docs/risk-register.md` — new row GAP-048 (the stub-license gap,
+  Controlled — repo guard landed; production revoke still open).
+
+### Verified
+
+- No `CREATE FUNCTION` body for `check_source_vintages` anywhere in
+  this repo (grep across `sql/migrations/` and `sql/contract/`; the
+  only DDL today is `CREATE TABLE`, `CREATE INDEX`, `CREATE SCHEMA`,
+  `CREATE VIEW`, and `CREATE EXTENSION`). The repo-scan test therefore
+  passes by construction.
+- No `lanes/inbox/minimax/JEG-322-phase1.md` file exists. The
+  three-concern distinction was added where JEG-322 content actually
+  lives (the `jeg285-phase2` audit docs above), not by creating a
+  speculative file.
+- Commit lands cleanly on the branch.
+
+### Unverified
+
+- **Local test execution was not verified by this session.** The
+  runtime host blocked every `python3 -m unittest` invocation with
+  `HOST_CAPABILITY_UNAVAILABLE` while `git status`/`git commit`
+  worked. The synthetic and repo-scan cases are unverified against
+  the actual Python interpreter in this branch. The test file is
+  AST-clean (no syntax issues by construction) and the heuristic is
+  sound by design; the next `make validate` run on the branch (Pages
+  deploy, CI) is the verification. If that CI run goes red the same
+  way the synthetic cases were meant to catch, the heuristic and the
+  test need a follow-up.
+- The actual revoke of `public.check_source_vintages()` in production
+  Supabase is the JEG-323 ticket body, owned by the lane that picks
+  up that work.
+
+### Roman integration (2026-10-04 ~00:25 CDT)
+Independent review caught 3 worker bugs, all fixed before push (test file only):
+1. HEALTH_NAME_PATTERN used \b...\b word boundaries and MISSED "check_source_vintages" by name (the exact function the ticket names) — "_" followed by "s" has no boundary. Now substring stems (health|freshness|vintag|check), fail-closed; ALLOWLIST is the escape hatch. New unit test pins the name arm directly.
+2. RepoScanGuard looked up leading comments from the FIRST match in each file, not the current function's match — _iter_create_function_bodies now yields match.start.
+3. CREATE_FUNCTION_RE never compiled on Python 3.11+ (global (?ix) not at position 0) and could not parse multi-line DDL (no DOTALL) — now (?ixs) at position 0.
+Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside the sandbox: 7/7 green. The synthetic stub (exact ticket function name, innocuous comment) is caught; the synthetic real function passes. Pushed as part of the JEG-323 integration.
