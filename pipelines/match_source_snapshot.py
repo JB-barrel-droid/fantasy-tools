@@ -16,6 +16,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
+# JEG-366: route identity through the layered resolver (manual -> Sleeper -> fail-closed).
+from lib.layered_identity import resolve_identity  # noqa: E402
+
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "source-matches"
 INPUT_SCHEMA = "trade-value-source-snapshot-v1"
@@ -112,12 +115,19 @@ def build_name_index(records: list[dict[str, Any]]) -> dict[str, list[dict[str, 
     return index
 
 
-def resolve_candidate(row: dict[str, Any], candidates: list[dict[str, Any]]) -> tuple[dict[str, Any] | None, str | None]:
+def resolve_candidate(row: dict[str, Any], candidates: list[dict[str, Any]]
+                      ) -> tuple[dict[str, Any] | None, str | None]:
     if not candidates:
         return None, "no_match"
     if len(candidates) == 1:
         return candidates[0], None
 
+    # Disambiguation keeps using the source row's pos/team. The canonical
+    # identity is only consulted for the canonical NAME upstream -- letting
+    # it drive disambiguation would silently upgrade "row had no team" into
+    # "we resolved to a single candidate via the canonical team", which
+    # changes existing fail-closed behavior (JEG-366 contract: ambiguous
+    # still goes to review when the row can't be narrowed).
     pos = str(row.get("pos") or "").strip().upper()
     team = str(row.get("team") or "").strip().upper()
     filtered = candidates
@@ -151,7 +161,16 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
     matched = []
     review = []
     for row in rows:
-        normalized = normalize_name(row.get("player_name"))
+        player_name = row.get("player_name")
+        # JEG-366: route identity through the layered resolver first
+        # (manual -> Sleeper -> fail-closed). The canonical name drives
+        # the fixture index so a manual alias like "kenny gainwell" finds
+        # "kenneth gainwell" and matches the right fixture record. Unknown
+        # identities fall back to the row's player_name for the deterministic
+        # fixture index lookup -- that path is exact-match, never guessed.
+        identity = resolve_identity(player_name)
+        lookup_name = (identity or {}).get("name") or player_name
+        normalized = normalize_name(lookup_name)
         candidates = index.get(normalized, [])
         player, reason = resolve_candidate(row, candidates)
         if player:
