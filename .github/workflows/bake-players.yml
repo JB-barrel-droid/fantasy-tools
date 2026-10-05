@@ -72,7 +72,9 @@ jobs:
       - name: Validate (report only; pages.yml is the blocking gate)
         id: validate
         continue-on-error: true
-        run: make validate 2>&1 | tee /tmp/validate.log
+        run: |
+          set -o pipefail
+          make validate 2>&1 | tee /tmp/validate.log
 
       - name: Summary
         if: always()

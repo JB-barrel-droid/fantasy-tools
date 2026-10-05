@@ -710,7 +710,10 @@ def bake(args):
         out = {}
         for pos in ("QB", "RB", "WR", "TE"):
             vals = [r[leg_ppg]["ppr"] - r[leg_complete]["ppr"] for r in players
-                    if r["pos"] == pos and r.get(leg_ppg) and r.get(leg_complete)]
+                    if r["pos"] == pos and r.get(leg_ppg) and r.get(leg_complete)
+                    # JEG-392: ESPN-zeroed rows measure ESPN's absence, not
+                    # its bias; they must not move the positional shade.
+                    and not r.get("espn_zeroed")]
             # leg_ppg is the comparison leg, leg_complete is ESPN (primary):
             # shade = mean(comparison_ppg - espn_ppg); positive = ESPN cooler.
             out[pos] = {"ppr": round(sum(vals) / len(vals), 3)} if vals else {"ppr": 0.0}
