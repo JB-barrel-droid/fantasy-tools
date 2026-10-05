@@ -178,7 +178,10 @@ class StaticExportTest(unittest.TestCase):
             )
             report = load_json(output)
             self.assertEqual("ok", report["status"])
-            self.assertEqual(610, report["players"]["player_count"])
+            # JEG-ECR-EXIT (2026-10-05): universe is ESPN's priced set
+            # (348 skill) + K/DST (77) = 425, down from the 610-player ECR
+            # universe. Verified genuine from the rebuilt fixture.
+            self.assertEqual(425, report["players"]["player_count"])
             # 11 sources: the 10 established plus razzball (Razzball
             # rest-of-season projections leg, added 2026-10-01).
             self.assertEqual(11, report["comparison"]["source_count"])
@@ -186,13 +189,17 @@ class StaticExportTest(unittest.TestCase):
 
     def test_expected_player_universe_and_identity(self):
         players = self.players["players"]
-        self.assertEqual(610, len(players))
+        # JEG-ECR-EXIT (2026-10-05): ESPN-primary universe = 425
+        # (348 ESPN-priced skill + 45 K + 32 DST). Verified genuine from
+        # the rebuilt fixture; replaces the 610-player ECR-era pin.
+        self.assertEqual(425, len(players))
         by_name = {player["name"]: player for player in players}
         self.assertEqual(869, by_name["Josh Allen"]["player_key"])
         self.assertEqual("QB", by_name["Josh Allen"]["pos"])
         self.assertEqual("BUF", by_name["Josh Allen"]["team"])
         self.assertEqual(1, by_name["Josh Allen"]["preseason_ecr_rank"])
-        self.assertEqual("experts_only", by_name["Josh Allen"]["pricing"])
+        # JEG-ECR-EXIT: pricing is uniform espn_only (was experts_only).
+        self.assertEqual("espn_only", by_name["Josh Allen"]["pricing"])
 
     def test_known_player_values_are_preserved(self):
         by_name = {player["name"]: player for player in self.players["players"]}
@@ -943,8 +950,11 @@ class StaticExportTest(unittest.TestCase):
         # newly prices Tyson Bagent (native 3.0 -> 0.0135; absent from the
         # pre-refresh fixture), moving the last-positive QB boundary to 48.
         # Verified against the pipeline-built fixture, not a hand edit.
-        self.assertEqual(48, last_positive)
-        self.assertEqual(49, last_positive + 1)
+        # 2026-10-05 (JEG-ECR-EXIT): ESPN-primary universe has 37 QBs
+        # (vs 76 in the ECR era); the last-positive boundary moves to 36.
+        # Verified against the rebuilt fixture.
+        self.assertEqual(36, last_positive)
+        self.assertEqual(37, last_positive + 1)
 
 
 class BrandingScanTest(unittest.TestCase):

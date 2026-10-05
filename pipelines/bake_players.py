@@ -128,6 +128,38 @@ RZ_LEGS = (("rz_std_ppg", "standard"),
            ("rz_half_ppr_ppg", "half_ppr"),
            ("rz_ppr_ppg", "ppr"))
 
+# Team-abbreviation variants for the games-remaining lookup.
+# The games table (via teams.abbreviation) is canonical; source CSVs use
+# variants. ESPN's CSV uses WSH for Washington (canonical WAS) — same class
+# as the long-standing LAR->LA / JAC->JAX variants. canonical_players
+# documents ESPN's LAR/WSH vs canonical LA/WAS for DST tokens.
+_TEAM_ABBR_FIX = {"LAR": "LA", "JAC": "JAX", "WSH": "WAS"}
+
+# Stale teams-table rows (STL/SD/OAK/LAR alongside LA/LAC/LV) that must map
+# to the current abbreviation before the games-remaining lookup. Mirrors
+# canonical_players._STALE_ABBR.
+_STALE_TEAM_FIX = {"LAR": "LA", "JAC": "JAX", "STL": "LA",
+                  "OAK": "LV", "SD": "LAC"}
+
+
+def _resolve_team_abbr(espn_team, key, registry, team_abbr):
+    """Resolve the display/games team abbreviation for one baked row.
+
+    Primary: the ESPN CSV team, normalized through _TEAM_ABBR_FIX.
+    Fallback: the canonical registry's team_id -> teams-table abbreviation
+    (normalized through _STALE_TEAM_FIX) when the CSV is silent — the
+    module docstring's long-standing contract. Returns "" only when neither
+    source knows the team; the caller treats "" as unknown (no per-game
+    fields), never as a guess.
+    """
+    team = (espn_team or "").strip().upper()
+    if team:
+        return _TEAM_ABBR_FIX.get(team, team)
+    entry = registry.by_key.get(key) if registry is not None else None
+    tid = entry.get("team_id") if entry else None
+    abbr = (team_abbr.get(tid) or "").strip().upper() if tid else ""
+    return _STALE_TEAM_FIX.get(abbr, abbr)
+
 # CBS ROS snapshot columns (pre-computed per-game rates: ROS totals / gp).
 CBSROS_LEGS = (("per_game_standard", "standard"),
                ("per_game_half_ppr", "half_ppr"),
@@ -393,7 +425,10 @@ def bake(args):
     for key, espn_row in espn_med.items():
         v = espn_row["comps"]
         pos = espn_row["pos"]
-        team = espn_row["team"]
+        # Team: ESPN CSV first (variant-normalized), canonical registry
+        # fallback when the CSV is silent.
+        team = _resolve_team_abbr(espn_row["team"], key, registry,
+                                  team_abbr)
 
         # ESPN-PRIMARY (2026-10-05, JEG-ECR-EXIT): the board's primary
         # number IS the ESPN leg. ESPN is already rest-of-season so
@@ -460,7 +495,8 @@ def bake(args):
             row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
 
         # per-game points: ROS fantasy points / team games remaining
-        gr = games_left.get({"LAR": "LA", "JAC": "JAX"}.get(team, team))
+        # (team already variant-normalized by _resolve_team_abbr).
+        gr = games_left.get(team)
         row["games_remaining"] = gr
         if gr:
             row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
@@ -545,7 +581,7 @@ def bake(args):
             "player_key": kk,
             "name": require_canonical_name(kk, registry=registry),
             "pos": "DST",
-            "team": abbr,
+            "team": _TEAM_ABBR_FIX.get(abbr, abbr),
             "espn_ros": dict(same3), "blend_ros": dict(same3),
             "espn_ppg": dict(ppg3), "blend_ppg": dict(ppg3),
             "games_remaining": gr,

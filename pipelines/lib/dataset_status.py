@@ -291,7 +291,12 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     """
     if not isinstance(meta, dict) or not meta.get("as_of"):
         raise ValueError("dataset_status: players.json meta missing as_of")
-    if not players or len(players) < 500:
+    # JEG-ECR-EXIT (2026-10-05): the chart universe is now ESPN's priced
+    # set (~348 skill) + K/DST (~77) ~= 425, down from the 610-player ECR
+    # universe. The floor guards against a broken/empty bake, not an exact
+    # size; 400 sits below the healthy ESPN-primary universe with headroom
+    # for normal input fluctuation.
+    if not players or len(players) < 400:
         raise ValueError(
             f"dataset_status: player universe too small ({len(players or [])})")
     as_of = str(meta["as_of"])
