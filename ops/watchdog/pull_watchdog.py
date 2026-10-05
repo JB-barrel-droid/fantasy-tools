@@ -107,25 +107,6 @@ def check_daily(cfg, day):
     return v
 
 
-def check_ecr_weekly(day):
-    """ECR weekly refresh (browser pull when stale). The pipeline's own
-    output is data/ecr_pos.json + the dated proj_*_wkN.csv files."""
-    v = {"label": "ECR weekly", "expected": "daily 06:35 CT"}
-    p = os.path.join(FS, "data", "ecr_pos.json")
-    age = age_days(p)
-    v["rows"] = None
-    csvs = sorted(glob.glob(os.path.join(FS, "data", "fantasypros", "proj_*_wk*.csv")))
-    v["content_vintage"] = os.path.basename(csvs[-1]) if csvs else None
-    if age is None:
-        v["status"], v["detail"] = "failed", "ecr_pos.json missing"
-    elif age < 1.5:
-        v["status"], v["detail"] = "ok", "refreshed today (age %.1f days)" % age
-    else:
-        v["status"], v["detail"] = "stale", "ecr_pos.json age %.1f days — 06:35 refresh did not run" % age
-    v["fail_closed"] = None
-    return v
-
-
 def check_fp_season(day):  # noqa: ARG001 - RETIRED
     """RETIRED (JEG-ECR-EXIT 2026-10-05): the FP season snapshot was the
     full-season ECR leg the chart's primary blend used to consume. ESPN
