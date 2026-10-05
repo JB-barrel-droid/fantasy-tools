@@ -54,7 +54,7 @@ jobs:
           test -s output/source-import-health.json || echo "source-import-health.json missing" >> /tmp/build.rc
           test -s output/pipeline-checkpoints.json || echo "pipeline-checkpoints.json missing" >> /tmp/build.rc
           tail -25 /tmp/build.log
-          if [ -s /tmp/build.rc ]; then cat /tmp/build.rc; exit 1; fi
+          if [ -s /tmp/build.rc ]; then sed "s/^/::error title=producer::/" /tmp/build.rc; tail -8 /tmp/build.log | sed "s/^/::warning title=producer-log::/"; exit 1; fi
 
       - name: Watch served artifacts + record observations
         env:
