@@ -17,7 +17,6 @@ class ReferenceFreshnessTest(unittest.TestCase):
                 {
                     "meta": {
                         "as_of": value_date,
-                        "ecr_content_date": value_date,
                         "espn_snapshot": value_date,
                         "pm_snapshot": value_date,
                         "kdst_snapshot": value_date,
@@ -72,7 +71,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Freshness gate failed", result.stdout)
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(8, payload["summary"]["expired_count"])
+            self.assertEqual(7, payload["summary"]["expired_count"])
             self.assertEqual(1, payload["summary"]["enforced_expired_count"])
 
     def test_freshness_gate_passes_for_current_reference_dates(self):
@@ -132,7 +131,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
             )
 
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(7, payload["summary"]["expired_count"])
+            self.assertEqual(6, payload["summary"]["expired_count"])
             self.assertEqual(0, payload["summary"]["enforced_expired_count"])
 
     def test_l1_import_health_is_reported_as_source_freshness(self):
@@ -184,6 +183,67 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertEqual("Week 2", item["value"])
             self.assertEqual("stale", item["l1_status"])
             self.assertFalse(item["freshness_ok"])
+
+    def test_jeg_407_no_ecr_content_date_in_players_meta(self):
+        """JEG-407: Ensure ecr_content_date is not read from players meta and content_vintage is used instead."""
+        with TemporaryDirectory() as tmp:
+            fixtures = Path(tmp) / "fixtures"
+            output = Path(tmp) / "freshness.json"
+            self.write_fixtures(fixtures, "2026-09-27")
+            
+            # Add a source-import-health entry with content_vintage
+            (fixtures / "source-import-health.json").write_text(
+                json.dumps(
+                    {
+                        "schema": "trade-value-import-health-v1",
+                        "checked_at": "2026-09-27T12:00:00Z",
+                        "nfl_week": 3,
+                        "sources": {
+                            "espn": {
+                                "status": "ok",
+                                "last_successful_import": "2026-09-27T12:00:00Z",
+                                "content_vintage": "2026-09-27",
+                            }
+                        },
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            subprocess.run(
+                [
+                    "python3",
+                    "pipelines/check_reference_freshness.py",
+                    "--fixtures",
+                    str(fixtures),
+                    "--output",
+                    str(output),
+                    "--today",
+                    "2026-09-27",
+                    "--max-age-days",
+                    "2",
+                ],
+                cwd=ROOT,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            
+            # Check that ecr_content_date is NOT in the items
+            ecr_content_date_items = [item for item in payload["items"] if item["key"] == "players.ecr_content_date"]
+            self.assertEqual(0, len(ecr_content_date_items), 
+                           "ecr_content_date should not be present in freshness items")
+            
+            # Check that content_vintage from source import IS used
+            espn_items = [item for item in payload["items"] if item["key"] == "source_import.espn"]
+            self.assertEqual(1, len(espn_items), "source_import.espn item should be present")
+            espn_item = espn_items[0]
+            self.assertEqual("2026-09-27", espn_item["value"], 
+                           "content_vintage from source import should be used")
+            self.assertTrue(espn_item["freshness_ok"], 
+                          "ESPN content_vintage should be fresh")
 
     def test_players_as_of_ten_days_old_paints_red_on_chart_input(self):
         """JEG-316 negative test: players.as_of = today - 10d must surface as
