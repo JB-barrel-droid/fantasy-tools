@@ -2719,3 +2719,35 @@ Commit-by-commit refactor; no network calls, no Supabase writes, no deploys.
 
 ### Claimed, unverified
 - Supabase advisor: RLS disabled on 85 tables (reported by advisor; not independently audited).
+
+## 2026-10-05 ~17:40 CDT — Claude (cloud session): validate green on integration branch
+
+Jeremy approved all recommendations (bench floor, JEG-5 re-point, merge the 8 worker PRs).
+
+### Verified (check named)
+- `make validate` exit 0 on branch `claude/integration` (main + PRs #229 #230 #232 #233 #235
+  #236 #237 #238 + JEG-392 work) with the fixture baked by GitHub Actions run 37379549045
+  (bake-players.yml, all integrated code; 613 players; prior_blend_snapshot 2026-09-23 now
+  populated thanks to #229; CBS ROS 2026-09-30).
+- Rendered gate (`tests/rendered_gate/gate.mjs dist`): 12/12 shapes, 0 page errors, 0 bad pies,
+  self-test caught injected errors. bench_share_readout + gate_flexibility exit 0.
+- 12-combo sweep (3 scorings × 4 sizes): fixedPieIndexed true on all 12; sourcePeaks identical
+  to origin/main build on all 12 (curve starts unchanged). sourceScaleAgreement false on all 12
+  on BOTH main and branch (pre-existing publisher-shape WARN, USA Today WR 1.36x) — not introduced.
+- Negative tests: FLOOR_SLOPE_FRAC 0.01 fails 3 bench tests; reverting the view-mode guard fix
+  makes test_lock_revert_notice_render error; perturbed CBS fixture trips "simulated JEG-5
+  numbers drifted".
+- Lock-revert rendered test had never run: it waited on #viewModePending (absent from app/).
+  With the selector fixed it exposed a real defect on main: any scoring/teams change while in
+  the VORP/Adj view threw `Curve regression guard failed: defaultGroupedSources` before draw().
+  Fixed in curve-widget.js (guard checks the parked Indexed selection in non-indexed views).
+
+### Changed pins (and why)
+- test_static_export: 425→613, +188 espn_zeroed rows without ESPN ppg, QB boundary 36→48
+  (back to pre-ECR value; 36 was an artifact of the 425 universe).
+- test_two_tier_frontend 14/8: WR=9/total=87 pin recorded the 0.01-constant data limitation;
+  replaced by invariant (WR>9, sum==112) under the approved 0.0075.
+- guard_harness EXPECTED_JEG5: re-recorded on cbs_adjusted (shared basis, delta +78.18).
+
+### Not done
+- Merge to main: blocked by session permission policy; PR opened for Jeremy to merge.
