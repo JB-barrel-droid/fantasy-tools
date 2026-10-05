@@ -80,15 +80,15 @@ def _reg():
 class TestEspnIntake(unittest.TestCase):
     def test_loads_components(self):
         path = _write_csv([_row(
-            "Test Player", "WR", "KC",
-            r_rec_yds=60, r_rec_tds=0.5, r_receptions=5)])
+            "Test Player", "QB", "KC",
+            r_pass_yds=250, r_pass_tds=2, r_rush_yds=20)])
         med, snap = bake_players.fetch_espn_intake(path, _reg())
         self.assertEqual(snap, "2026-10-03")
         self.assertIn(777, med)
-        self.assertEqual(med[777]["comps"]["receiving_yards"], 60.0)
-        self.assertEqual(med[777]["comps"]["receiving_tds"], 0.5)
-        self.assertEqual(med[777]["comps"]["receptions"], 5.0)
-        self.assertEqual(med[777]["pos"], "WR")
+        self.assertEqual(med[777]["comps"]["passing_yards"], 250.0)
+        self.assertEqual(med[777]["comps"]["passing_tds"], 2.0)
+        self.assertEqual(med[777]["comps"]["rushing_yards"], 20.0)
+        self.assertEqual(med[777]["pos"], "QB")
         self.assertEqual(med[777]["team"], "KC")
 
     def test_missing_components_default_to_zero(self):
