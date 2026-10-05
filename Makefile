@@ -115,6 +115,8 @@ monitor-lineage:
 test-unit:
 	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_bake_espn_zero_universe
+	python3 -m unittest tests.test_load_ddf_leg_contract
+	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_adjusted_curve_pause
 	python3 -m unittest tests.test_adjusted_fixture_sections
 	python3 -m unittest tests.test_adjustment_inputs
