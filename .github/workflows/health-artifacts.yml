@@ -1,0 +1,79 @@
+name: Health artifacts (non-Muse producer + watch)
+
+# JEG-414 (ARCH-013). Runs independently of Muse every 30 minutes:
+#   1. Builds source-import-health.json and pipeline-checkpoints.json in CI
+#      (shadow mode: uploaded as a run artifact, not published -- cut over
+#      from the Muse writer only after checkpoint parity is verified; C2/C4
+#      read Mac-local pull files and report `unk` here by design).
+#   2. Measures the age of the SERVED artifacts from their own timestamps
+#      and records each result in Supabase monitoring.check_observations.
+#   3. Fails (red) when a served artifact is older than 60 minutes.
+# A pg_cron evaluator (monitoring-evaluator-5min) marks these checks
+# 'missed' if this workflow itself stops reporting.
+
+on:
+  schedule:
+    - cron: "11,41 * * * *"
+  workflow_dispatch:
+  push:
+    branches: ["health/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: health-artifacts
+  cancel-in-progress: false
+
+jobs:
+  produce-and-watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Build health artifacts (shadow)
+        id: build
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          week=$(python3 pipelines/nfl_week.py)
+          python3 pipelines/verify_import_health.py --nfl-week "$week"
+          python3 pipelines/build_pipeline_checkpoints.py
+          test -s output/source-import-health.json
+          test -s output/pipeline-checkpoints.json
+
+      - name: Watch served artifacts + record observations
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
+          python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" 2>&1 | tee /tmp/watch.log
+
+      - name: Summary
+        if: always()
+        run: |
+          { echo "## Health artifacts"; echo "producer build: ${{ steps.build.outcome }}"; echo '```'; cat /tmp/watch.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: health-artifacts-shadow
+          path: |
+            output/source-import-health.json
+            output/pipeline-checkpoints.json
+          if-no-files-found: warn
+          retention-days: 7
