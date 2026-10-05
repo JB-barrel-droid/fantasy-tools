@@ -1,20 +1,16 @@
 {
-  "run_at": "2026-10-05T07:00:45.471827+00:00",
+  "run_at": "2026-10-03T22:00:46.973517+00:00",
   "nfl_week": 4,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28; coverage:full_12_qb2/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb2/TE:fail -- candidate priced 27 < fixture 28. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1"
   },
-  "failed": [
-    "adjusted_sections",
-    "fantasycalc",
-    "fit"
-  ],
-  "success": false,
+  "failed": [],
+  "success": true,
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -27,10 +23,10 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "failed",
-      "stage": "review",
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb1/TE:fail -- candidate priced 27 < fixture 28; coverage:full_12_qb2/WR:fail -- candidate priced 76 < fixture 78; coverage:full_12_qb2/TE:fail -- candidate priced 27 < fixture 28. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
       "sections": 3
     },
     "fantasypros": {
@@ -67,11 +63,11 @@
     }
   },
   "fit": {
-    "status": "skipped",
-    "detail": "skipped: sources failed: fantasycalc"
+    "status": "ok",
+    "detail": "fit complete"
   },
   "adjusted_sections": {
-    "status": "skipped",
-    "detail": "skipped: fit skipped"
+    "status": "ok",
+    "detail": "_adjusted sections built"
   }
 }

@@ -56,7 +56,6 @@
   .cp-reason{font-size:12px;color:#cfd8e3;line-height:1.5}
   .cp-reason.bad{color:var(--red)}
   .cp-reason.warn{color:var(--yellow)}
-  .cp-table{font-size:11.5px;color:var(--accent,#7fb3ff);font-family:ui-monospace,Menlo,monospace;margin-top:4px;letter-spacing:.2px}
   /* source sections */
   .src{border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden;background:var(--card)}
   .src-head{display:flex;align-items:center;gap:12px;padding:15px 18px;cursor:pointer;user-select:none}
@@ -68,11 +67,6 @@
   .src-dot.unk{background:var(--grey)}
   .src-name{font-size:15px;font-weight:700}
   .src-sub{font-size:12px;color:var(--dim);margin-top:2px}
-  .src-vintage{font-size:11.5px;color:var(--grey);margin-top:2px;font-family:ui-monospace,Menlo,monospace}
-  .src-vintage.green{color:var(--green)}
-  .src-vintage.amber{color:var(--yellow)}
-  .src-vintage.red{color:var(--red)}
-  .src-vintage.unk{color:var(--grey)}
   .pill{margin-left:auto;font-size:11px;font-weight:700;padding:4px 12px;border-radius:999px;text-transform:uppercase;letter-spacing:.5px;flex:none}
   .pill.ok{background:var(--green-bg);color:var(--green)}
   .pill.warn{background:var(--yellow-bg);color:var(--yellow)}
@@ -124,9 +118,7 @@
   <button id="refresh" onclick="location.reload()">↻ Refresh</button>
 </header>
 <p class="sub">Trade Value Chart · 10 explicit checkpoints per source · all timestamps from real artifacts, never inferred.<br>
-Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span><br>
-<span id="monitorFreshness" style="display:inline-block;margin-top:4px">Monitor last refreshed: <span id="monitorFreshnessText" style="color:var(--dim)">…</span></span></p>
-<script>fetch("pipeline-checkpoints.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(d){var T=document.getElementById("monitorFreshnessText");if(!T||!d)return;var g=d.generated_at;if(!g){T.textContent="never";T.style.color="var(--grey)";return;}var a=(Date.now()-new Date(g).getTime())/60000,m=Math.max(0,Math.floor(a));T.textContent=m<1?"just now":m<60?m+"m ago":Math.floor(m/60)+"h "+(m%60)+"m ago";T.style.color=a>120?"var(--red)":a>60?"var(--yellow)":"var(--dim)"}).catch(function(){var T=document.getElementById("monitorFreshnessText");if(T){T.textContent="unavailable";T.style.color="var(--grey)"}});</script>
+Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span></p>
 
 <div id="err"></div>
 
@@ -147,8 +139,6 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     <b>C8</b> Sync/validation → <b>C9</b> Deployment/live artifact.<br>
     Each checkpoint shows <b>what it is</b>, <b>when it last ran</b> (real timestamp from artifacts), and <b>why</b> it has its status.
     Green requires a fresh timestamp — stale data never shows green.
-    <b>C6/C7</b> are N/A by design for file-scraped sources (e.g. Razzball) — no candidate or promotion artifact is expected for them.
-    For <b>Razzball</b>, the <b>C5</b> health verdict is driven by a fresh <code>vintage_date</code>/<code>age_days</code> entry on the snapshot directory (JEG-307): green when the snapshot is &le;2 days old, yellow 3&ndash;6, red &gt;6. No CI puller refreshes Razzball (GAP-024), so this freshness signal is the only thing that catches a drifting snapshot before the dashboard reads it.
   </div>
   <div id="sources"></div>
 </section>
@@ -322,7 +312,6 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
     QA runs repeatedly until zero errors remain.
   </div>
   <div id="tradeQaSummary" style="margin-bottom:16px"></div>
-  <div id="tradeQaOpenFindings" style="margin-bottom:16px"></div>
   <div id="tradeQaErrors"></div>
   <div id="tradeQaCriteria" style="margin-top:24px"></div>
 </section>
@@ -337,21 +326,6 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   </div>
   <div id="espnZeroSummary" style="margin-bottom:16px"></div>
   <div id="espnZeroTable"></div>
-</section>
-
-<!-- JEG-314: chart inputs coverage (built by pipelines/build_chart_input_coverage.py) -->
-<section class="card" id="chartInputsCard">
-  <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Chart inputs — coverage of every file the chart reads</h2>
-  <div class="desc">
-    Every input file the trade-values chart consumes, with an honest flag for whether an
-    automated freshness monitor currently reports on it. Rows marked <b>monitored</b> are
-    covered by <code>reference-freshness.json</code>, <code>source-import-health.json</code>,
-    or another pipeline gate; <b>unmonitored</b> rows are a real coverage gap — visible
-    here on purpose so future tickets (JEG-317) can close them. Rebuild with
-    <code>python3 pipelines/build_chart_input_coverage.py</code>.
-  </div>
-  <div id="chartInputsSummary" style="margin-bottom:16px"></div>
-  <div id="chartInputsTable"></div>
 </section>
 
 <section class="card" id="crossSourceCard">
@@ -375,27 +349,6 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
   <div id="identitySummary" style="margin-bottom:16px"></div>
   <div id="identityIssues"></div>
 </section>
-
-<!-- JEG-316: Chart inputs at risk — reference-freshness panel region (start).
-     This is the only region of modules/dashboard.html touched by JEG-316.
-     Surfaces players.as_of / players.kdst_snapshot / news.generated_at
-     (the three inputs that feed the trade-value chart directly) with their
-     age-band color from pipelines/check_reference_freshness.py. -->
-<section class="card" id="chartInputsRiskCard" data-jeg-316="chart-inputs-risk">
-  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Chart inputs at risk — reference freshness</h2>
-  <div class="desc">
-    The trade-value chart is built from <b>players.json</b> (as_of + kdst_snapshot)
-    and <b>player-news.json</b> (generated_at). Each row below carries the age-band
-    color from the reference-freshness pipeline: <span style="color:var(--green)">green</span>
-    within the freshness window, <span style="color:var(--yellow)">yellow</span> in the warning band
-    (2× the window), <span style="color:var(--red)">red</span> past it,
-    <span style="color:var(--grey)">grey</span> when no date is recorded (e.g. K/DST <code>?</code>).
-    Surface only — data lane owns the underlying sources.
-  </div>
-  <div id="chartInputsRiskSummary" style="margin-bottom:12px"></div>
-  <div id="chartInputsRisk"></div>
-</section>
-<!-- JEG-316: Chart inputs at risk — reference-freshness panel region (end). -->
 
 <footer>
   Checkpoints generated by <code>pipelines/build_pipeline_checkpoints.py</code> from real artifacts.<br>
@@ -462,41 +415,6 @@ function shortTs(iso){
   const d = new Date(iso);
   if(isNaN(d)) return String(iso).slice(0, 16);
   return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
-}
-
-// JEG-315, GAP-043: render per-source content_vintage line under each
-// source's row count / per-source card. Color the line:
-//   green: vintage <= today - 4d (fresh)
-//   amber: vintage 4-7d old (aging)
-//   red:   vintage > 7d old (stale)
-// Vintage may be a date string ("2026-10-03") or a "Week N" label. "Week N"
-// is intentionally rendered as grey/unk -- it carries no age information
-// and the dashboard's freshness bands only make sense for dated vintages.
-//
-// Display nit (JEG-315 follow-up): anchor "today" at UTC midnight so a
-// vintage dated exactly 4 or 7 calendar days ago computes as 4.0 / 7.0
-// days old -- not 4.5 / 7.5 -- and the band stays stable within a
-// calendar day. Using Date.now() directly made a 4d vintage flip
-// green<->amber at noon UTC.
-function vintageLine(contentVintage){
-  if(!contentVintage) return `<div class="src-vintage unk">Content vintage: unknown</div>`;
-  const m = String(contentVintage).match(/^(\d{4}-\d{2}-\d{2})$/);
-  if(!m){
-    return `<div class="src-vintage unk">Content vintage: ${contentVintage}</div>`;
-  }
-  // UTC midnight today: floor Date.now() to the nearest day boundary.
-  const todayMs = Math.floor(Date.now() / 86400000) * 86400000;
-  const vt = Date.UTC(
-    parseInt(m[1].slice(0,4), 10),
-    parseInt(m[1].slice(5,7), 10) - 1,
-    parseInt(m[1].slice(8,10), 10)
-  );
-  const ageDays = (todayMs - vt) / 86400000;
-  let band = "red";
-  if(ageDays <= 4) band = "green";
-  else if(ageDays <= 7) band = "amber";
-  const ageStr = `${ageDays.toFixed(1)}d old`;
-  return `<div class="src-vintage ${band}" title="Per-source content vintage from data/fixtures/current/comparison-sources-data.json">Content vintage: ${contentVintage} · ${ageStr}</div>`;
 }
 
 const rank = {bad:0, warn:1, unk:2, ok:3};
@@ -574,28 +492,6 @@ async function main(){
       if(st && st.status) tally(st.status);
     }
   }
-  // JEG-319: VORP / Adj view statuses from the per-view artifacts. The view
-  // cards (vorpCard / adjCard) read these files for their own sections; the
-  // headline tally must include them too, otherwise it can claim "0 broken"
-  // while a view is bad.
-  const readViewStatus = async (file, expectedView) => {
-    try {
-      const r = await fetch(file, {cache:"no-store"});
-      if(!r.ok) return "bad";
-      const t = await r.text();
-      if(!t || !t.trim()) return "bad";
-      const j = JSON.parse(t);
-      if(j.view !== expectedView) return "bad";
-      const s = j.status;
-      return (s === "ok" || s === "warn" || s === "bad" || s === "unk") ? s : "unk";
-    } catch(e){ return "bad"; }
-  };
-  const [vorpViewStatus, adjViewStatus] = await Promise.all([
-    readViewStatus("vorp-view.json", "vorp"),
-    readViewStatus("adj-view.json", "adj"),
-  ]);
-  tally(vorpViewStatus);
-  tally(adjViewStatus);
   const total = counts.ok + counts.warn + counts.bad + counts.unk;
   document.getElementById("okCount").textContent = counts.ok;
   document.getElementById("totalCount").textContent = total;
@@ -621,55 +517,17 @@ async function main(){
       return `<span class="flow-step ${s}" title="${cpDef.label}: ${cp ? cp.reason : 'no data'}">${num}</span>`;
     }).join('<span class="flow-arrow">→</span>');
 
-    // Razzball: c6/c7 are by design empty (direct fixture updates). Replace the
-    // two missing cells with a single pill that documents the vintage date
-    // pulled from the razzball entry in pipeline-checkpoints.json (JEG-308).
-    // All other sources render unchanged.
-    const razzballPill = (src === "razzball") ? (() => {
-      const reason = (cps.c4_snapshot && cps.c4_snapshot.reason) || "";
-      const m = reason.match(/vintage (\d{4}-\d{2}-\d{2})/);
-      const vintage = m ? m[1] : ((cps.c1_publication && cps.c1_publication.timestamp) || "n/a");
-      return `<div class="cp razzball-pill"><div class="cp-reason">Direct fixture update · vintage ${vintage}</div></div>`;
-    })() : "";
-
-    // JEG-312: c3 cell renders the supabase_table name as a second line under
-    // the row count, so readers can see which Supabase table each verdict
-    // refers to. Parsed from the reason text the build pipeline embeds
-    // ("<n> rows landed in <table> <d>d ago.") -- when no table is present
-    // (e.g. "N/A by design: file-scraped source." or unknown landing), fall
-    // back to the existing single-line reason.
-    function c3tableFromReason(reason) {
-      const m = (reason || "").match(/rows landed in (\S+)\s+\d/);
-      return m ? m[1] : null;
-    }
-    function escHtml(s) {
-      return String(s).replace(/[&<>"']/g, c => ({
-        "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
-      }[c]));
-    }
-
-    // Checkpoint cards (skip c6/c7 for razzball -- documented in the pill above)
+    // Checkpoint cards
     const cpCards = data.checkpoints.map(cpDef => {
       const cp = cps[cpDef.key];
       if(!cp) return "";
-      if(src === "razzball" && (cpDef.key === "c6_candidate" || cpDef.key === "c7_promotion")) return "";
       const dotCls = cp.status === "ok" ? "ok" : cp.status === "warn" ? "warn" : cp.status === "bad" ? "bad" : "unk";
       const reasonCls = cp.status === "bad" ? "bad" : cp.status === "warn" ? "warn" : "";
-      // C3 second-line supabase_table (JEG-312). Direct field takes precedence;
-      // otherwise parse from the embedded "<n> rows landed in <table>" token.
-      let reasonHtml = `<div class="cp-reason ${reasonCls}">${escHtml(cp.reason)}</div>`;
-      if(cpDef.key === "c3_supabase") {
-        const tbl = cp.supabase_table != null ? cp.supabase_table : c3tableFromReason(cp.reason);
-        if(tbl) {
-          reasonHtml = `<div class="cp-reason ${reasonCls}">${escHtml(cp.reason)}</div>`
-                    + `<div class="cp-table">${escHtml(tbl)}</div>`;
-        }
-      }
       return `<div class="cp">
         <div class="cp-top"><span class="cp-dot ${dotCls}"></span><span class="cp-name">${cpDef.label}</span></div>
         <div class="cp-what">${cpDef.what}</div>
         <div class="cp-time">${shortTs(cp.timestamp)} (${timeAgo(cp.timestamp)})</div>
-        ${reasonHtml}
+        <div class="cp-reason ${reasonCls}">${cp.reason}</div>
       </div>`;
     }).join("");
 
@@ -680,13 +538,12 @@ async function main(){
       <div class="src-head" onclick="document.getElementById('src-${src}').classList.toggle('open')">
         <span class="src-dot ${st}"></span>
         <div><div class="src-name">${sdata.label}</div>
-        <div class="src-sub">${cpCounts.ok}✓ ${cpCounts.warn}! ${cpCounts.bad}✗ ${cpCounts.unk}? · 10 checkpoints</div>
-        ${vintageLine(sdata.content_vintage)}</div>
+        <div class="src-sub">${cpCounts.ok}✓ ${cpCounts.warn}! ${cpCounts.bad}✗ ${cpCounts.unk}? · 10 checkpoints</div></div>
         <span class="pill ${st}">${pillTxt[st]}</span><span class="chev">▸</span>
       </div>
       <div class="src-body">
         <div class="flow">${flowSteps}</div>
-        <div class="cp-grid">${razzballPill}${cpCards}</div>
+        <div class="cp-grid">${cpCards}</div>
       </div>
     </div>`;
   }).join("");
@@ -1576,18 +1433,8 @@ async function main(){
         }).join(" · ");
         const lastUrl = w.last_run && w.last_run.html_url
           ? ` <a href="${w.last_run.html_url}" style="color:var(--blue)">logs</a>` : "";
-        // GAP-035: neutral operational badge when alert_needed is true.
-        // No methodology claim — just the existence of a failing streak.
-        const alertBadge = w.alert_needed
-          ? ` <span style="display:inline-block;padding:1px 6px;margin-left:4px;` +
-              `border:1px solid var(--red);color:var(--red);` +
-              `border-radius:8px;font-size:10.5px;font-weight:600;` +
-              `letter-spacing:0.3px;vertical-align:1px"` +
-              ` title="Workflow has failed ${w.consecutive_failures} consecutive times">` +
-              `alert: failing streak</span>`
-          : "";
         return `<tr style="border-bottom:1px solid var(--line);font-size:12.5px">` +
-          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${alertBadge}${lastUrl}<br>` +
+          `<td style="padding:6px 8px">${dot(w.health)} <b>${w.name}</b>${lastUrl}<br>` +
           `<span style="color:var(--faint);font-size:11px">${(w.coverage&&w.coverage.key_task)||""}</span></td>` +
           `<td style="padding:6px 8px;font-family:monospace">${runs||"<span style='color:var(--faint)'>no runs</span>"}</td></tr>`;
       }).join("");
@@ -1605,11 +1452,10 @@ async function main(){
 
   // Trade Dashboard QA: rendered output health with root causes
   const qaSummary = document.getElementById("tradeQaSummary");
-  const qaOpenFindings = document.getElementById("tradeQaOpenFindings");
   const qaErrors = document.getElementById("tradeQaErrors");
   const qaCriteria = document.getElementById("tradeQaCriteria");
 
-  const qaDataLiteral = {
+  const qaData = {
     round: 1,
     date: "2026-09-30",
     target: "https://jb-barrel-droid.github.io/fantasy-tools/",
@@ -1795,99 +1641,57 @@ async function main(){
     ]
   };
 
-  // Resolve qaData: prefer the baked JSON at trade-qa-card.json so future
-  // rounds update the card without editing this HTML. On any fetch failure
-  // (network down, 404, malformed JSON) fall back to qaDataLiteral so the
-  // card still renders. Keys the JSON carries (round, date, errors,
-  // frameworks) override the literal; literal-only keys (target) survive.
-  (async () => {
-    let qaData = qaDataLiteral;
-    try {
-      const resp = await fetch("trade-qa-card.json", {cache: "no-store"});
-      if (resp.ok) {
-        const json = await resp.json();
-        qaData = Object.assign({}, qaDataLiteral, json);
-      }
-    } catch (e) {
-      // Network fail / 404 / parse error -- fall back to literal.
-    }
+  const fixedCount = qaData.errors.filter(e => e.status === "fixed").length;
+  const openCount = qaData.errors.filter(e => e.status === "open").length;
+  const critOpen = qaData.errors.filter(e => e.status === "open" && e.severity === "critical").length;
 
-    const fixedCount = qaData.errors.filter(e => e.status === "fixed").length;
-    const openCount = qaData.errors.filter(e => e.status === "open").length;
-    const critOpen = qaData.errors.filter(e => e.status === "open" && e.severity === "critical").length;
+  const qaColor = critOpen > 0 ? "var(--red)" : openCount > 0 ? "var(--yellow)" : "var(--green)";
+  qaSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
+    <div><span style="font-size:24px;font-weight:800;color:${qaColor}">${fixedCount}</span><span style="color:var(--dim);font-size:13px"> / ${qaData.errors.length} errors fixed</span></div>
+    <div style="font-size:12.5px;color:var(--dim)">QA Round ${qaData.round} · ${qaData.date}<br>${openCount} open (${critOpen} critical) · Target: <a href="${qaData.target}" style="color:var(--blue)">live trade dashboard</a></div>
+  </div>`;
 
-    const qaColor = critOpen > 0 ? "var(--red)" : openCount > 0 ? "var(--yellow)" : "var(--green)";
-    qaSummary.innerHTML = `<div style="display:flex;gap:24px;align-items:center;padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
-      <div><span style="font-size:24px;font-weight:800;color:${qaColor}">${fixedCount}</span><span style="color:var(--dim);font-size:13px"> / ${qaData.errors.length} errors fixed</span></div>
-      <div style="font-size:12.5px;color:var(--dim)">QA Round ${qaData.round} · ${qaData.date}<br>${openCount} open (${critOpen} critical) · Target: <a href="${qaData.target}" style="color:var(--blue)">live trade dashboard</a></div>
-    </div>`;
+  const sevColor = {critical: "var(--red)", major: "var(--yellow)", minor: "var(--grey)", data: "var(--blue)"};
+  const statusBadge = s => s === "fixed"
+    ? `<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">FIXED</span>`
+    : `<span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:11px">OPEN</span>`;
 
-    const sevColor = {critical: "var(--red)", major: "var(--yellow)", minor: "var(--grey)", data: "var(--blue)"};
-    const statusBadge = s => s === "fixed"
-      ? `<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:10px;font-size:11px">FIXED</span>`
-      : `<span style="background:var(--yellow);color:#000;padding:2px 8px;border-radius:10px;font-size:11px">OPEN</span>`;
+  qaErrors.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Errors with root cause analysis</h3>` +
+    qaData.errors.map(e => `
+    <details style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
+      <summary style="cursor:pointer;font-size:13px">
+        <span style="color:${sevColor[e.severity]};font-weight:700">[${e.severity.toUpperCase()}]</span>
+        <b>${e.id}: ${e.title}</b> ${statusBadge(e.status)}
+      </summary>
+      <div style="margin-top:8px;font-size:12.5px;color:var(--dim);line-height:1.5">
+        <div style="margin-bottom:6px"><b style="color:var(--fg)">Symptom:</b> ${e.symptom}</div>
+        <div style="margin-bottom:6px"><b style="color:var(--fg)">Root cause:</b> ${e.rootCause}</div>
+        <div style="margin-bottom:6px"><b style="color:var(--fg)">Line of reasoning:</b> <i>${e.reasoning}</i></div>
+        <div><b style="color:var(--fg)">Fix:</b> ${e.fix}</div>
+      </div>
+    </details>`).join("");
 
-    // Open QA findings sub-row: each open finding with its OWNER LANE named (JEG-318).
-    // Operational copy only — no methodology decisions, no resolution claims.
-    const qaOwnerLanes = {
-      "QA-004": "chart-build lane",
-      "QA-007": "data-pipeline lane"
-    };
-    const openFindings = qaData.errors.filter(e => e.status === "open");
-    if (openFindings.length > 0) {
-      qaOpenFindings.innerHTML = `<div style="padding:12px 16px;background:var(--card2);border-radius:10px;border:1px solid var(--line)">
-        <div style="font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">Open QA findings — owner lane</div>
-        <ul style="margin:0;padding:0;list-style:none;font-size:13px">
-          ${openFindings.map(f => `
-            <li style="margin-bottom:6px;line-height:1.5">
-              <span style="color:${sevColor[f.severity] || "var(--fg)"};font-weight:700">[${(f.severity || "open").toUpperCase()}]</span>
-              <a href="#qaFinding-${f.id}" style="color:var(--blue);font-weight:600">${f.id}: ${f.title}</a>
-              <span style="color:var(--dim)"> — owner: </span>
-              <span style="color:var(--fg);font-weight:600">${qaOwnerLanes[f.id] || "(unassigned)"}</span>
-            </li>`).join("")}
-        </ul>
-      </div>`;
-    } else {
-      qaOpenFindings.innerHTML = "";
-    }
-
-    qaErrors.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Errors with root cause analysis</h3>` +
-      qaData.errors.map(e => `
-      <details id="qaFinding-${e.id}" style="margin-bottom:8px;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--card)">
-        <summary style="cursor:pointer;font-size:13px">
-          <span style="color:${sevColor[e.severity]};font-weight:700">[${e.severity.toUpperCase()}]</span>
-          <b>${e.id}: ${e.title}</b> ${statusBadge(e.status)}
-        </summary>
-        <div style="margin-top:8px;font-size:12.5px;color:var(--dim);line-height:1.5">
-          <div style="margin-bottom:6px"><b style="color:var(--fg)">Symptom:</b> ${e.symptom}</div>
-          <div style="margin-bottom:6px"><b style="color:var(--fg)">Root cause:</b> ${e.rootCause}</div>
-          <div style="margin-bottom:6px"><b style="color:var(--fg)">Line of reasoning:</b> <i>${e.reasoning}</i></div>
-          <div><b style="color:var(--fg)">Fix:</b> ${e.fix}</div>
+  qaCriteria.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Monitoring frameworks (enduring lenses, not one-time checks)</h3>
+  <p style="font-size:12.5px;color:var(--dim);margin:0 0 12px;line-height:1.5">Each QA error revealed a <b style="color:var(--fg)">framework</b> — a class of failure that applies to every future feature, not just the bug that exposed it. New work should be evaluated against all four.</p>` +
+    qaData.frameworks.map(f => `
+    <details style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--card)" open>
+      <summary style="cursor:pointer;font-size:13.5px"><b>${f.id}: ${f.name}</b> <span style="color:var(--dim);font-weight:400">— ${f.principle}</span></summary>
+      <div style="margin-top:10px;font-size:12.5px;color:var(--dim);line-height:1.6">
+        <div style="margin-bottom:8px;padding:8px 10px;background:var(--card2);border-radius:6px;border-left:3px solid var(--blue)">
+          <b style="color:var(--fg)">The rule:</b> ${f.rule}
         </div>
-      </details>`).join("");
-
-    qaCriteria.innerHTML = `<h3 style="margin:16px 0 8px;font-size:14px">Monitoring frameworks (enduring lenses, not one-time checks)</h3>
-    <p style="font-size:12.5px;color:var(--dim);margin:0 0 12px;line-height:1.5">Each QA error revealed a <b style="color:var(--fg)">framework</b> — a class of failure that applies to every future feature, not just the bug that exposed it. New work should be evaluated against all four.</p>` +
-      qaData.frameworks.map(f => `
-      <details style="margin-bottom:10px;border:1px solid var(--line);border-radius:8px;padding:12px 14px;background:var(--card)" open>
-        <summary style="cursor:pointer;font-size:13.5px"><b>${f.id}: ${f.name}</b> <span style="color:var(--dim);font-weight:400">— ${f.principle}</span></summary>
-        <div style="margin-top:10px;font-size:12.5px;color:var(--dim);line-height:1.6">
-          <div style="margin-bottom:8px;padding:8px 10px;background:var(--card2);border-radius:6px;border-left:3px solid var(--blue)">
-            <b style="color:var(--fg)">The rule:</b> ${f.rule}
-          </div>
-          <div style="margin-bottom:8px"><b style="color:var(--fg)">Revealed by:</b> ${f.revealedBy}</div>
-          <div style="margin-bottom:8px"><b style="color:var(--fg)">Apply to future work:</b> ${f.futureApplication}</div>
-          <div style="margin-top:10px"><b style="color:var(--fg)">Active checks:</b></div>
-          ${f.checks.map(c => `
-            <div style="margin:6px 0 6px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card2)">
-              <div><b style="color:var(--fg)">${c.id}: ${c.name}</b></div>
-              <div style="margin-top:4px"><b>Check:</b> ${c.check}</div>
-              <div><b>Fail:</b> ${c.fail}</div>
-              <div style="margin-top:4px"><i>${c.reasoning}</i></div>
-            </div>`).join("")}
-        </div>
-      </details>`).join("");
-  })();
+        <div style="margin-bottom:8px"><b style="color:var(--fg)">Revealed by:</b> ${f.revealedBy}</div>
+        <div style="margin-bottom:8px"><b style="color:var(--fg)">Apply to future work:</b> ${f.futureApplication}</div>
+        <div style="margin-top:10px"><b style="color:var(--fg)">Active checks:</b></div>
+        ${f.checks.map(c => `
+          <div style="margin:6px 0 6px 12px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card2)">
+            <div><b style="color:var(--fg)">${c.id}: ${c.name}</b></div>
+            <div style="margin-top:4px"><b>Check:</b> ${c.check}</div>
+            <div><b>Fail:</b> ${c.fail}</div>
+            <div style="margin-top:4px"><i>${c.reasoning}</i></div>
+          </div>`).join("")}
+      </div>
+    </details>`).join("");
 
   document.getElementById("footNote").innerHTML =
     "checkpoints generated: <code>" + shortTs(data.generated_at) + "</code> · " +
@@ -2018,90 +1822,6 @@ async function loadEspnZeroSignal() {
 loadEspnZeroSignal();
 loadIdentityVerification();
 loadPlayerTrace();
-
-// JEG-314: chart inputs coverage — every file the chart reads, with monitor_check.
-// JEG-317: the actuals_*.json row also carries an `mtime` field; the dashboard
-// paints that row amber when the most recent actuals file is older than 7 days,
-// red when older than 14 days. Exposed as a window-scope helper so the
-// regression test in tests/test_chart_input_coverage.py can call it directly.
-function chartInputAgeBand(mtime) {
-  if (!mtime) return {band: "red", ageDays: null, label: "no file"};
-  const ms = Date.parse(mtime);
-  if (Number.isNaN(ms)) return {band: "red", ageDays: null, label: "bad mtime"};
-  const ageDays = (Date.now() - ms) / 86400000;
-  if (ageDays > 14) return {band: "red", ageDays: ageDays, label: `${Math.round(ageDays)}d old`};
-  if (ageDays > 7) return {band: "amber", ageDays: ageDays, label: `${Math.round(ageDays)}d old`};
-  return {band: "ok", ageDays: ageDays, label: `${Math.round(ageDays)}d old`};
-}
-
-async function loadChartInputs() {
-  const summaryEl = document.getElementById("chartInputsSummary");
-  const tableEl = document.getElementById("chartInputsTable");
-  const esc = v => String(v ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-  try {
-    // The coverage JSON is checked into dist/modules/ alongside other dist artifacts,
-    // and the served dashboard copies it to the same dir as the other modules.
-    const resp = await fetch("chart-input-coverage.json", {cache:"no-store"});
-    if (!resp.ok) throw new Error("chart-input-coverage.json not available");
-    const data = await resp.json();
-    const items = Array.isArray(data.items) ? data.items : [];
-    const monitored = items.filter(i => i.monitor_check).length;
-    const unmonitored = items.length - monitored;
-    const color = unmonitored === 0 ? "var(--green)" : "var(--yellow)";
-    summaryEl.innerHTML = `<div style="padding:12px 16px;border-radius:8px;border:1px solid ${color}">
-      <b style="color:${color}">${items.length} input${items.length === 1 ? "" : "s"}</b>
-      · <b style="color:var(--green)">${monitored} monitored</b>
-      · <b style="color:${unmonitored === 0 ? "var(--green)" : "var(--yellow)"}">${unmonitored} unmonitored</b>
-      · generated ${esc(data.generated_at || "n/a")}</div>`;
-
-    // Unmonitored rows are visually distinct: yellow background + a "(no monitor)" badge
-    // so the gap is unmistakable; monitored rows stay on the default card background.
-    // Rows carrying an `mtime` field (currently just the actuals_*.json aggregate) are
-    // rendered with age bands: amber when >7 days old, red when >14 days old.
-    let html = `<table style="border-collapse:collapse;width:100%;font-size:12px"><thead><tr>
-      <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd">Name</th>
-      <th style="text-align:left;padding:6px;border-bottom:2px solid #ddd">Freshness source</th>
-      <th style="padding:6px;border-bottom:2px solid #ddd">Monitor</th>
-      <th style="padding:6px;border-bottom:2px solid #ddd">Last checked</th>
-    </tr></thead><tbody>`;
-    items.forEach(it => {
-      const monitored = !!it.monitor_check;
-      let rowBg = monitored ? "var(--card)" : "var(--yellow-bg)";
-      let monitorCell = monitored
-        ? `<span style="color:var(--green);font-weight:bold">✓ monitored</span>`
-        : `<span style="color:var(--yellow);font-weight:bold">⚠ no monitor</span>`;
-
-      // JEG-317: age band for inputs that carry an `mtime` field. mtime is null
-      // when the file is missing — that's red, not silently ok. The thresholds
-      // (7 days, 14 days) are the documented contract in the builder.
-      if (Object.prototype.hasOwnProperty.call(it, "mtime")) {
-        const ab = chartInputAgeBand(it.mtime);
-        if (ab.band === "red") {
-          rowBg = "var(--red-bg)";
-          monitorCell = `<span style="color:var(--red);font-weight:bold">✗ ${esc(ab.label)}</span>`;
-        } else if (ab.band === "amber") {
-          rowBg = "var(--yellow-bg)";
-          monitorCell = `<span style="color:var(--yellow);font-weight:bold">⚠ ${esc(ab.label)}</span>`;
-        } else if (ab.band === "ok") {
-          monitorCell = `<span style="color:var(--green);font-weight:bold">✓ ${esc(ab.label)}</span>`;
-        }
-      }
-
-      html += `<tr style="background:${rowBg}">
-        <td style="padding:6px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px">${esc(it.name)}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee">${esc(it.freshness_source || "")}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee;text-align:center">${monitorCell}</td>
-        <td style="padding:6px;border-bottom:1px solid #eee;font-family:monospace;font-size:11px;text-align:right">${esc(it.last_checked || "—")}</td>
-      </tr>`;
-    });
-    html += `</tbody></table>`;
-    tableEl.innerHTML = html;
-  } catch (e) {
-    summaryEl.innerHTML = `<div style="color:var(--red)">Failed to load chart-input coverage: ${esc(e.message)}</div>`;
-    tableEl.innerHTML = `<div style="color:var(--grey)">Run <code>python3 pipelines/build_chart_input_coverage.py</code> to generate <code>dist/modules/chart-input-coverage.json</code>.</div>`;
-  }
-}
-loadChartInputs();
 loadDiagnostics();
 
 main().catch(e => {
@@ -2348,84 +2068,6 @@ async function loadDiagnostics() {
     anomalyEl.innerHTML = `<div style="color:var(--dim);font-size:13px">Diagnostics not available. Run <code>python3 pipelines/build_aggregate_diagnostics.py</code>.</div>`;
   }
 }
-
-// JEG-316: render the Chart inputs at risk panel. Reads the chart_inputs
-// section emitted by pipelines/check_reference_freshness.py and paints each
-// row with its age-band color (green/yellow/red/unknown). Lives next to the
-// panel it renders (the only region of modules/dashboard.html this ticket
-// touches) and is invoked once on load.
-async function renderChartInputsRisk() {
-  const host = document.getElementById("chartInputsRisk");
-  const summaryEl = document.getElementById("chartInputsRiskSummary");
-  if (!host || !summaryEl) return;
-  const card = document.getElementById("chartInputsRiskCard");
-  if (card) card.hidden = false;
-  const paths = [
-    "../output/reference-freshness.json",
-    "reference-freshness.json",
-    "output/reference-freshness.json",
-    "../app/trade-value-chart/assets/reference-freshness.json",
-  ];
-  let payload = null;
-  for (const p of paths) {
-    try {
-      const r = await fetch(p, {cache:"no-store"});
-      if (r.ok) { payload = await r.json(); break; }
-    } catch (_) { /* try next */ }
-  }
-  if (!payload) {
-    summaryEl.innerHTML = `<div style="color:var(--dim);font-size:13px">Reference-freshness artifact not available. Run <code>python3 pipelines/check_reference_freshness.py</code>.</div>`;
-    host.innerHTML = "";
-    return;
-  }
-  const rows = Array.isArray(payload.chart_inputs) ? payload.chart_inputs : [];
-  const summary = payload.summary || {};
-  const colorVar = { green:"var(--green)", yellow:"var(--yellow)", red:"var(--red)", unknown:"var(--grey)" };
-  const colorLabel = { green:"within window", yellow:"warning band", red:"past window", unknown:"no date recorded" };
-  const atRisk = summary.chart_input_at_risk_count ?? rows.filter(r => ["yellow","red"].includes(r.color)).length;
-  const summaryColor = atRisk > 0 ? "var(--red)" : "var(--green)";
-  summaryEl.innerHTML = `
-    <div style="display:flex;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--dim);align-items:center">
-      <span><b>${rows.length}</b> tracked</span>
-      <span style="color:${summaryColor};font-weight:700">${atRisk} at risk</span>
-      <span>max-age window: ${summary.max_age_days ?? "?"}d</span>
-      <span>audit: ${payload.today || "unknown"}</span>
-    </div>`;
-  if (rows.length === 0) {
-    host.innerHTML = `<div style="color:var(--dim);font-size:13px">No chart-input rows reported. Check <code>pipelines/check_reference_freshness.py</code> <code>DEFAULT_CHART_INPUT_KEYS</code>.</div>`;
-    return;
-  }
-  host.innerHTML = rows.map(item => {
-    const c = colorVar[item.color] || colorVar.unknown;
-    const age = typeof item.age_days === "number" ? `${item.age_days}d old` : "age unknown";
-    const value = item.value === null || item.value === undefined || item.value === ""
-      ? "<code>missing</code>"
-      : `<code>${String(item.value).replace(/</g, "&lt;")}</code>`;
-    const band = colorLabel[item.color] || item.color || "unknown";
-    return `
-      <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card2);margin-bottom:8px">
-        <span style="width:10px;height:10px;border-radius:50%;background:${c};flex:none"></span>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:700">${item.label || item.key}</div>
-          <div style="font-size:11.5px;color:var(--faint);margin-top:2px"><code>${item.key}</code> · ${band}</div>
-        </div>
-        <div style="font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--dim);text-align:right">
-          ${value}<br><span style="color:${c}">${age}</span>
-        </div>
-      </div>`;
-  }).join("");
-}
-
-if (typeof renderAll === "function") {
-  // existing renderAll framework hook (no-op if absent — renderChartInputsRisk
-  // is also called directly below).
-} else {
-  document.addEventListener("DOMContentLoaded", renderChartInputsRisk);
-}
-// JEG-316: call the chart-inputs renderer directly so the panel renders even
-// if the page never invokes a top-level renderAll (some callers skip it when
-// upstream sections fail to load).
-renderChartInputsRisk();
 </script>
 </body>
 </html>
