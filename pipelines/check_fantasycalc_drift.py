@@ -151,29 +151,46 @@ def main() -> int:
         return 1
 
     print("triggering FantasyCalc pipeline refresh...")
-    # Refresh the snapshot from the live API first
+    # Refresh the snapshot from the live API first. Fetch all team sizes the
+    # chart serves (Jeremy 2026-10-04: the old 12-team-only refresh left the
+    # 8/10/14 combos stale on every drift cycle).
     from datetime import datetime, timezone
     combos = []
+    combo_counts = {}
     for scoring, ppr in [("standard", 0), ("half_ppr", 0.5), ("ppr", 1.0)]:
-        url = (f"https://api.fantasycalc.com/values/current?isDynasty=false"
-               f"&numQbs=1&numTeams=12&ppr={ppr}")
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            data = json.load(resp)
-        for p in data:
-            pl = p.get("player", {})
-            if pl.get("name") and p.get("value") is not None:
-                combos.append({
-                    "player_name": pl["name"],
-                    "pos": pl.get("position"),
-                    "team": pl.get("team"),
-                    "source_player_id": pl.get("id"),
-                    "scoring": scoring,
-                    "teams": 12,
-                    "native_value": float(p["value"]),
-                    "value": float(p["value"]),
-                })
-    snap = json.load(open(SNAPSHOT_PATH))
+        for teams in (8, 10, 12, 14):
+            url = (f"https://api.fantasycalc.com/values/current?isDynasty=false"
+                   f"&numQbs=1&numTeams={teams}&ppr={ppr}")
+            req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                data = json.load(resp)
+            combo_counts[(scoring, teams)] = len(data)
+            for p in data:
+                pl = p.get("player", {})
+                if pl.get("name") and p.get("value") is not None:
+                    combos.append({
+                        "player_name": pl["name"],
+                        "pos": pl.get("position"),
+                        "team": pl.get("team"),
+                        "source_player_id": pl.get("id"),
+                        "scoring": scoring,
+                        "teams": teams,
+                        "native_value": float(p["value"]),
+                        "value": float(p["value"]),
+                    })
+            print(f"  fetched {scoring}/{teams}: {len(data)} players", flush=True)
+    # Fail-closed: never overwrite the snapshot with a partial pull.
+    # 2026-10-05: a transient API outage returned 594/2376 rows; the partial
+    # snapshot flowed into a 588-row table write two mornings running.
+    prior_snap = json.load(open(SNAPSHOT_PATH))
+    prior_rows = prior_snap.get("row_count") or len(prior_snap.get("rows", []))
+    bad_combos = [f"{s}/{t}" for (s, t), n in combo_counts.items() if n < 150]
+    if bad_combos or len(combos) < 0.9 * prior_rows:
+        print(f"FAIL-CLOSED: partial FantasyCalc pull: {len(combos)} rows "
+              f"(prior snapshot {prior_rows}), bad combos: {bad_combos}; "
+              f"snapshot untouched", file=sys.stderr)
+        return 2
+    snap = prior_snap
     snap["rows"] = combos
     snap["row_count"] = len(combos)
     snap["fetched_at"] = datetime.now(timezone.utc).strftime(
