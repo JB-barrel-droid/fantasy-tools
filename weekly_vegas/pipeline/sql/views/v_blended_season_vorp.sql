@@ -1,40 +1,45 @@
--- Blended season-VORP: Vegas first, FantasyPros season projections fill the holes.
+-- Blended season-VORP: Vegas first, Sleeper (rotowire) full-season projections fill the holes.
 -- v_vegas_season_vorp is UNTOUCHED; this is a separate view.
 --
 -- Per-stat hybrid: each of the 7 stat categories uses the Vegas-implied
--- remaining total where the books lined it, else the FP-implied remaining
--- total (FP full-season granulars minus actuals to date, NO prorating).
+-- remaining total where the books lined it, else the Sleeper-implied remaining
+-- total (Sleeper full-season granulars minus actuals to date, NO prorating).
 --   source = 'vegas'    : every category from Vegas lines
---   source = 'vegas+fp' : position's core volume stat from Vegas, >=1
---                         category filled from FP (e.g. receiving work for
+--   source = 'vegas+sleeper' : position's core volume stat from Vegas, >=1
+--                         category filled from Sleeper (e.g. receiving work for
 --                         RBs that books don't line)
---   source = 'fp'       : no Vegas line for the core volume stat -> FP only
+--   source = 'sleeper'  : no Vegas line for the core volume stat -> Sleeper only
 --
--- CALIBRATION (the honest part). Validation on 115 overlap players shows
--- Vegas and FP agree on rank order (Pearson r 0.84-0.92 by position) but
--- Vegas runs systematically LOWER in level (mean gap QB -57.8, RB -82.0,
--- WR -36.8, TE -38.8: books embed missed-game expectations and don't line
--- every category). Two consequences handled here:
---   1. FP fills on vegas+fp rows are scaled by k = vegas_ros / fp_ros_on_
---      vegas_lined_categories (per-player, from blended_calibration; median
---      k = 0.87). A player the books discount 40% vs FP gets FP fills at
---      40% off too -- Vegas-first coherence, no franken-numbers.
---   2. FP-only rows are shifted by the position mean gap (blended_source_
---      confidence.mean_diff) so the whole board sits on the Vegas level.
---      Their 7 displayed stat columns stay raw FP (informational); the
---      ros_half_ppr total is the calibrated number.
--- Rows where |vegas_ros - fp_ros| > 40 carry a 'vegas-fp-tension' flag:
--- that's where "Vegas first" is most contested (e.g. Aaron Jones).
+-- CALIBRATION (the honest part). Originally validated against FantasyPros;
+-- the calibration factor `k = vegas_ros / sleeper_ros_on_vegas_lined_categories`
+-- is source-agnostic and still applies (blended_calibration stores the ratio
+-- from the last validation run). median k = 0.87.
+-- Two consequences handled here:
+--   1. Sleeper fills on vegas+sleeper rows are scaled by k (per-player, from
+--      blended_calibration). A player the books discount 40% vs Sleeper gets
+--      Sleeper fills at 40% off too -- Vegas-first coherence, no franken-numbers.
+--   2. Sleeper-only rows are shifted by the position mean gap
+--      (blended_source_confidence.mean_diff) so the whole board sits on the
+--      Vegas level. Their 7 displayed stat columns stay raw Sleeper
+--      (informational); the ros_half_ppr total is the calibrated number.
+-- Rows where |vegas_ros - sleeper_ros| > 40 carry a 'vegas-sleeper-tension' flag:
+-- that's where "Vegas first" is most contested.
 --
--- Confidence: 'high' for Vegas-anchored rows; FP rows take medium/low from
--- blended_source_confidence, driven by the Vegas-vs-FP validation
--- (Pearson r per position; see bin/build_blended_vorp_inputs.py).
+-- Confidence: 'high' for Vegas-anchored rows; Sleeper-only rows take
+-- medium/low from blended_source_confidence.
 --
--- Inputs maintained by bin/build_blended_vorp_inputs.py (idempotent):
+-- Data-source transition (2026-10-05): FP season ECR is exiting the project.
+-- Inputs now sourced from Sleeper instead of FantasyPros:
+--   - sleeper_season_latest_norm (latest Sleeper snapshot per player_norm,
+--     7 granular stats; replaced fp_season_latest_norm)
+--   - player_canonical_map       (player_norm -> display/position/team,
+--     sourced from data/inputs/player_identity_map.json + the Sleeper pull;
+--     replaced blended_player_map)
+-- Maintained by bin/build_blended_vorp_inputs.py (idempotent).
+--
+-- Other inputs (untouched by this transition):
 --   yahoo_rostered_snapshot, season_actuals_ytd  (via build_vegas_vorp_inputs.py)
---   blended_player_map        (player_norm -> display/position/team, both sources)
---   fp_season_latest_norm     (latest FP snapshot per norm, 7 granular stats)
---   blended_source_confidence (validation-driven confidence tiers per position)
+--   blended_calibration, blended_source_confidence
 
 CREATE OR REPLACE FUNCTION f_american_prob(odds double precision)
 RETURNS double precision LANGUAGE sql IMMUTABLE AS $$
@@ -42,12 +47,16 @@ RETURNS double precision LANGUAGE sql IMMUTABLE AS $$
               WHEN odds <= -100 THEN -odds / (-odds + 100.0) END
 $$;
 
-CREATE OR REPLACE VIEW v_blended_season_vorp AS
+-- NOTE: DROP+CREATE (not OR REPLACE) because the fill-source snapshot column
+-- was renamed fp_snapshot_date -> sleeper_snapshot_date. Postgres does not allow
+-- column renames via CREATE OR REPLACE.
+DROP VIEW IF EXISTS v_blended_season_vorp;
+CREATE VIEW v_blended_season_vorp AS
 WITH latest_v AS (
   SELECT max(snapshot_date) AS d FROM vegas_season_totals
 ),
-latest_f AS (
-  SELECT max(snapshot_date) AS d FROM fp_season_latest_norm
+latest_s AS (
+  SELECT max(snapshot_date) AS d FROM sleeper_season_latest_norm
 ),
 rsnap AS (
   SELECT max(snapshot_date) AS d FROM yahoo_rostered_snapshot
@@ -111,7 +120,7 @@ vrem AS (  -- Vegas remaining = de-vigged season line - actuals (NO prorating)
     p.i_receptions - COALESCE(a.a_receptions, 0)   AS r_receptions
   FROM vpiv p LEFT JOIN act a USING (player_norm)
 ),
-frem AS (  -- FP remaining = FP full-season granulars - actuals (NO prorating)
+srem AS (  -- Sleeper remaining = Sleeper full-season granulars - actuals (NO prorating)
   SELECT n.player_norm,
     n.passing_yards   - COALESCE(a.a_pass_yds, 0)   AS r_pass_yds,
     n.passing_tds     - COALESCE(a.a_pass_tds, 0)   AS r_pass_tds,
@@ -120,17 +129,17 @@ frem AS (  -- FP remaining = FP full-season granulars - actuals (NO prorating)
     n.receiving_yards - COALESCE(a.a_rec_yds, 0)    AS r_rec_yds,
     n.receiving_tds   - COALESCE(a.a_rec_tds, 0)    AS r_rec_tds,
     n.receptions      - COALESCE(a.a_receptions, 0) AS r_receptions
-  FROM fp_season_latest_norm n LEFT JOIN act a USING (player_norm)
+  FROM sleeper_season_latest_norm n LEFT JOIN act a USING (player_norm)
 ),
-combo AS (  -- per-stat hybrid: Vegas where lined, else FP x k (calibrated)
+combo AS (  -- per-stat hybrid: Vegas where lined, else Sleeper x k (calibrated)
   SELECT m.player_norm, m.display_name AS player, m.position, m.team,
-    COALESCE(v.r_pass_yds, f.r_pass_yds * COALESCE(cal.k, 1.0))     AS r_pass_yds,
-    COALESCE(v.r_pass_tds, f.r_pass_tds * COALESCE(cal.k, 1.0))     AS r_pass_tds,
-    COALESCE(v.r_rush_yds, f.r_rush_yds * COALESCE(cal.k, 1.0))     AS r_rush_yds,
-    COALESCE(v.r_rush_tds, f.r_rush_tds * COALESCE(cal.k, 1.0))     AS r_rush_tds,
-    COALESCE(v.r_rec_yds, f.r_rec_yds * COALESCE(cal.k, 1.0))       AS r_rec_yds,
-    COALESCE(v.r_rec_tds, f.r_rec_tds * COALESCE(cal.k, 1.0))       AS r_rec_tds,
-    COALESCE(v.r_receptions, f.r_receptions * COALESCE(cal.k, 1.0)) AS r_receptions,
+    COALESCE(v.r_pass_yds, s.r_pass_yds * COALESCE(cal.k, 1.0))     AS r_pass_yds,
+    COALESCE(v.r_pass_tds, s.r_pass_tds * COALESCE(cal.k, 1.0))     AS r_pass_tds,
+    COALESCE(v.r_rush_yds, s.r_rush_yds * COALESCE(cal.k, 1.0))     AS r_rush_yds,
+    COALESCE(v.r_rush_tds, s.r_rush_tds * COALESCE(cal.k, 1.0))     AS r_rush_tds,
+    COALESCE(v.r_rec_yds, s.r_rec_yds * COALESCE(cal.k, 1.0))       AS r_rec_yds,
+    COALESCE(v.r_rec_tds, s.r_rec_tds * COALESCE(cal.k, 1.0))       AS r_rec_tds,
+    COALESCE(v.r_receptions, s.r_receptions * COALESCE(cal.k, 1.0)) AS r_receptions,
     (v.r_pass_yds IS NOT NULL)   AS v_pass_yds,
     (v.r_pass_tds IS NOT NULL)   AS v_pass_tds,
     (v.r_rush_yds IS NOT NULL)   AS v_rush_yds,
@@ -138,11 +147,18 @@ combo AS (  -- per-stat hybrid: Vegas where lined, else FP x k (calibrated)
     (v.r_rec_yds IS NOT NULL)    AS v_rec_yds,
     (v.r_rec_tds IS NOT NULL)    AS v_rec_tds,
     (v.r_receptions IS NOT NULL) AS v_receptions,
+    (s.r_pass_yds IS NOT NULL)   AS s_pass_yds,
+    (s.r_pass_tds IS NOT NULL)   AS s_pass_tds,
+    (s.r_rush_yds IS NOT NULL)   AS s_rush_yds,
+    (s.r_rush_tds IS NOT NULL)   AS s_rush_tds,
+    (s.r_rec_yds IS NOT NULL)    AS s_rec_yds,
+    (s.r_rec_tds IS NOT NULL)    AS s_rec_tds,
+    (s.r_receptions IS NOT NULL) AS s_receptions,
     cal.vegas_ros AS cal_vros,
-    cal.fp_ros    AS cal_fros
-  FROM blended_player_map m
+    cal.sleeper_ros AS cal_sros
+  FROM player_canonical_map m
   LEFT JOIN vrem v USING (player_norm)
-  LEFT JOIN frem f USING (player_norm)
+  LEFT JOIN srem s USING (player_norm)
   LEFT JOIN blended_calibration cal USING (player_norm)
   WHERE m.position IN ('QB', 'RB', 'WR', 'TE')
 ),
@@ -154,16 +170,21 @@ sourced AS (
          ELSE false END AS vegas_core,
     (v_pass_yds AND v_pass_tds AND v_rush_yds AND v_rush_tds
      AND v_rec_yds AND v_rec_tds AND v_receptions) AS vegas_full,
-    -- FP-only rows sit on the Vegas level via the position mean gap
+    -- Sleeper-only rows sit on the Vegas level via the position mean gap
     COALESCE((SELECT mean_diff FROM blended_source_confidence bsc
-              WHERE bsc.position = c.position), 0) AS fp_shift
+              WHERE bsc.position = c.position), 0) AS sleeper_shift
   FROM combo c
 ),
 scored AS (
   SELECT player, position, team, player_norm,
     CASE WHEN vegas_core
-         THEN (CASE WHEN vegas_full THEN 'vegas' ELSE 'vegas+fp' END)
-         ELSE 'fp' END AS source,
+         THEN (CASE WHEN vegas_full THEN 'vegas'
+                    WHEN ((NOT v_pass_yds AND s_pass_yds) OR (NOT v_pass_tds AND s_pass_tds)
+                          OR (NOT v_rush_yds AND s_rush_yds) OR (NOT v_rush_tds AND s_rush_tds)
+                          OR (NOT v_rec_yds AND s_rec_yds) OR (NOT v_rec_tds AND s_rec_tds)
+                          OR (NOT v_receptions AND s_receptions))
+                         THEN 'vegas+sleeper' ELSE 'vegas' END)
+         ELSE 'sleeper' END AS source,
     round(r_pass_yds::numeric, 1)   AS r_pass_yds,
     round(r_pass_tds::numeric, 1)   AS r_pass_tds,
     round(r_rush_yds::numeric, 1)   AS r_rush_yds,
@@ -172,13 +193,13 @@ scored AS (
     round(r_rec_tds::numeric, 1)    AS r_rec_tds,
     round(r_receptions::numeric, 1) AS r_receptions,
     -- identical weights for both sources (Vegas convention; INT/fumbles
-    -- excluded since books don't price them). FP-only rows add the position
-    -- mean gap so the board sits on one (Vegas) level.
+    -- excluded since books don't price them). Sleeper-only rows add the
+    -- position mean gap so the board sits on one (Vegas) level.
     round((0.04 * COALESCE(r_pass_yds, 0) + 4.0 * COALESCE(r_pass_tds, 0)
         + 0.10 * COALESCE(r_rush_yds, 0) + 6.0 * COALESCE(r_rush_tds, 0)
         + 0.5  * COALESCE(r_receptions, 0) + 0.10 * COALESCE(r_rec_yds, 0)
         + 6.0  * COALESCE(r_rec_tds, 0)
-        + CASE WHEN NOT vegas_core THEN fp_shift ELSE 0 END)::numeric, 2
+        + CASE WHEN NOT vegas_core THEN sleeper_shift ELSE 0 END)::numeric, 2
     ) AS ros_half_ppr,
     CASE WHEN position = 'QB' THEN r_pass_yds IS NOT NULL
          WHEN position = 'RB' THEN r_rush_yds IS NOT NULL
@@ -191,10 +212,10 @@ scored AS (
       CASE WHEN r_rush_yds   < 0 THEN 'rush_yds<0' END,
       CASE WHEN r_rush_tds   < 0 THEN 'rush_tds<0' END,
       CASE WHEN r_rec_yds    < 0 THEN 'rec_yds<0' END,
-      CASE WHEN r_rec_tds    < 0 THEN 'rec_tds<0' END,
+      CASE WHEN r_rec_tds    < 0 THEN 'rec_td<0' END,
       CASE WHEN r_receptions < 0 THEN 'receptions<0' END,
-      CASE WHEN cal_vros IS NOT NULL AND abs(cal_vros - cal_fros) > 90
-           THEN 'vegas-fp-tension' END), '') AS flags
+      CASE WHEN cal_vros IS NOT NULL AND abs(cal_vros - cal_sros) > 40
+           THEN 'vegas-sleeper-tension' END), '') AS flags
   FROM sourced
 ),
 rostered AS (  -- normalize to norm_loose: the live Yahoo loader keeps
@@ -245,12 +266,12 @@ repl AS (
 )
 SELECT s.player, s.position AS pos, s.team,
   s.source,
-  CASE WHEN s.source = 'fp'
+  CASE WHEN s.source = 'sleeper'
        THEN COALESCE(
          (SELECT confidence FROM blended_source_confidence c
           WHERE c.position = s.position), 'low')
        ELSE 'high' END AS confidence,
-  (s.source <> 'fp') AS has_vegas_line,
+  (s.source <> 'sleeper') AS has_vegas_line,
   s.r_pass_yds, s.r_pass_tds, s.r_rush_yds, s.r_rush_tds,
   s.r_receptions, s.r_rec_yds, s.r_rec_tds,
   s.ros_half_ppr,
@@ -265,7 +286,7 @@ SELECT s.player, s.position AS pos, s.team,
   EXISTS (SELECT 1 FROM rostered WHERE player_norm = s.player_norm)
     AS is_rostered,
   (SELECT max(snapshot_date) FROM vegas_season_totals) AS vegas_snapshot_date,
-  (SELECT max(snapshot_date) FROM fp_season_projections) AS fp_snapshot_date,
+  (SELECT max(snapshot_date) FROM sleeper_season_latest_norm) AS sleeper_snapshot_date,
   (SELECT max(snapshot_date) FROM yahoo_rostered_snapshot) AS roster_snapshot_date
 FROM scored s
 LEFT JOIN repl r ON r.position = s.position
