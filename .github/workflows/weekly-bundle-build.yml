@@ -1,0 +1,160 @@
+name: Weekly staged-bundle build
+
+# JEG-417 (ARCH-016): builds the canonical weekly staged_bundle_*.json that
+# .github/workflows/weekly-dashboard-load.yml consumes from data/weekly/.
+#
+# Chain (each input's provenance documented in result-JEG-417.md):
+#   1. pipelines/pull_espn_projections.py  -> data/inputs/espn_projections.csv
+#      (ESPN ROS projections, Mike Clay model; fail-closed identity)
+#   2. producers/build_staged_bundle_espn.py -> data/weekly/staged_bundle_wkN_<date>.json
+#      (expert leg = ESPN ROS; Vegas leg from signals_v4.json when present,
+#      otherwise rows are fail-closed no_market_read STUBs)
+#   3. producers/validate_bundle.py (fail-closed, mirrors the loader's checks)
+#   4. commit the bundle back to the repo on main
+#   5. weekly-dashboard-load.yml (daily 16:07 UTC) picks the newest bundle
+#      and loads it to Supabase
+#
+# Publish mechanism: COMMIT to the repo, not a workflow artifact. The loader
+# is a separate workflow that reads data/weekly/staged_bundle_*.json from its
+# own checkout; artifacts do not cross workflow boundaries. data/weekly/ is
+# already tracked (the wk4 bundle is committed), so this is the mechanism the
+# loader expects.
+#
+# Week source: pipelines/nfl_week.py::current_nfl_week (same helper the
+# deadline checker and save_*_references.py use). The bundle week and the
+# loader's EXPECTED_WEEK cross-check both derive from it.
+#
+# Schedule: Tuesday 14:30 UTC (09:30 CT) -- ahead of the daily 16:07 UTC
+# dashboard load, after Monday-night actuals and the ESPN pull's Tuesday
+# morning refresh, and consistent with the repo's content-week Tuesday grain
+# (see pipelines/check_deadlines.py). No Muse runtime dependency anywhere.
+
+on:
+  schedule:
+    - cron: '30 14 * * 2'
+  workflow_dispatch:
+    inputs:
+      week:
+        description: "NFL week (default: auto-detect from pipelines/nfl_week.py)"
+        type: string
+        default: ""
+      force_pull:
+        description: "Bypass the ESPN pull's hash no-op (--force)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Resolve NFL week
+        run: |
+          set -euo pipefail
+          INPUT_WEEK="${{ github.event.inputs.week }}"
+          if [ -n "${INPUT_WEEK}" ]; then
+            BUNDLE_WEEK="${INPUT_WEEK}"
+          else
+            BUNDLE_WEEK="$(python3 pipelines/nfl_week.py)"
+          fi
+          case "${BUNDLE_WEEK}" in
+            ''|*[!0-9]*) echo "::error::week not a valid integer: ${BUNDLE_WEEK}"; exit 2 ;;
+          esac
+          if [ "${BUNDLE_WEEK}" -lt 1 ] || [ "${BUNDLE_WEEK}" -gt 25 ]; then
+            echo "::error::week out of loader range 1..25: ${BUNDLE_WEEK}"; exit 2
+          fi
+          echo "BUNDLE_WEEK=${BUNDLE_WEEK}" >> $GITHUB_ENV
+          echo "Bundle week: ${BUNDLE_WEEK}"
+
+      - name: Pull ESPN ROS projections
+        # Snapshot model: this scheduled script is the only network touch for
+        # the ESPN leg. Hash-unchanged -> no-op exit 0 with the existing
+        # committed CSV; changed or --force -> rewrite. Identity resolves via
+        # data/inputs/player_identity_map.json (fail-closed on unknowns).
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          FLAG=""
+          if [ "${{ github.event.inputs.force_pull }}" = "true" ]; then FLAG="--force"; fi
+          mkdir -p output/espn_pull/hidden_files
+          python3 pipelines/pull_espn_projections.py \
+            --out data/inputs/espn_projections.csv \
+            --meta output/espn_pull/hidden_files/espn_projections_meta.json ${FLAG}
+          test -s data/inputs/espn_projections.csv || { echo "::error::ESPN pull produced no CSV"; exit 1; }
+          rows=$(( $(wc -l < data/inputs/espn_projections.csv) - 1 ))
+          if [ "${rows}" -lt 100 ]; then
+            echo "::error::ESPN CSV has only ${rows} rows (floor is 100)"; exit 1
+          fi
+          echo "ESPN CSV: ${rows} rows"
+
+      - name: Build staged bundle
+        run: |
+          set -euo pipefail
+          python3 producers/build_staged_bundle_espn.py \
+            --week "${BUNDLE_WEEK}" --season 2026
+          ls data/weekly/staged_bundle_wk"${BUNDLE_WEEK}"_*.json > /dev/null \
+            || { echo "::error::producer wrote no bundle for week ${BUNDLE_WEEK}"; exit 2; }
+          BUNDLE="$(ls -t data/weekly/staged_bundle_wk"${BUNDLE_WEEK}"_*.json | head -1)"
+          echo "BUNDLE=${BUNDLE}" >> $GITHUB_ENV
+
+      - name: Validate bundle (fail-closed)
+        # NOTE (JEG-417): producers/validate_bundle.py as committed on the
+        # JEG-421 branch hardcodes its bundle path. It MUST accept a --bundle
+        # PATH argument (one-arg addition, no methodology change) before this
+        # workflow merges; until then this step fails closed, blocking the
+        # publish -- the safe direction. Same for the loader-side week guard:
+        # the loader itself enforces --expected-week below.
+        run: |
+          set -euo pipefail
+          python3 producers/validate_bundle.py --bundle "${BUNDLE}"
+          python3 - "${BUNDLE}" "${BUNDLE_WEEK}" <<'PY'
+          import json, sys
+          b = json.load(open(sys.argv[1]))
+          m = b["meta"]
+          assert m["week"] == int(sys.argv[2]), f"week mismatch {m['week']}"
+          assert 1 <= m["week"] <= 25 and isinstance(m["built_at"], str)
+          rows = b["players"]
+          assert rows, "empty bundle"
+          for r in rows:
+              assert r.get("player_key"), f"missing player_key: {r}"
+              assert (r.get("vegas_leg") is not None) or r.get("category") == "no_market_read", \
+                  f"unrecognized shape: {r.get('player_key')}"
+          print(f"inline validation OK: week={m['week']} rows={len(rows)}")
+          PY
+
+      - name: Commit bundle to data/weekly/
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "data/weekly/$(basename "${BUNDLE}")" data/inputs/espn_projections.csv
+          if git diff --cached --quiet; then
+            echo "No bundle changes to commit (payload unchanged)."
+          else
+            git commit -m "Weekly staged bundle wk${BUNDLE_WEEK} (auto, JEG-417 chain)"
+            # Push-race guard: the 30-min health cron and other automated
+            # pushers can land commits between checkout and push. Rebase
+            # first so the push stays fast-forward.
+            git pull --rebase --autostash origin main
+            git push
+          fi
+          echo "BUNDLE_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      - name: Loader-contract dry check
+        # Prove the loader accepts the bundle path the daily load will pick,
+        # without writing to Supabase: the load itself happens in
+        # weekly-dashboard-load.yml with --expected-week enforced there.
+        run: |
+          set -euo pipefail
+          ls -t data/weekly/staged_bundle_*.json | head -1
+          echo "Newest bundle wins: $(ls -t data/weekly/staged_bundle_*.json | head -1) (week ${BUNDLE_WEEK})"
