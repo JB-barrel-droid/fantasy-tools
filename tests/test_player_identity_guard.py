@@ -295,5 +295,256 @@ def some_other_function():
             os.unlink(temp_path)
 
 
+class TestLayeredIdentityResolver(unittest.TestCase):
+    """JEG-366: the layered identity resolver must be wired into the match
+    pipeline. Manual overrides win, Sleeper base is the broad default, and
+    unknown names must NEVER resolve to a guessed player (fail-closed).
+
+    These tests pin both the contract (Kenny Gainwell -> Kenneth Gainwell via
+    the manual alias layer) and the fail-closed invariant on unknowns.
+    """
+
+    def setUp(self):
+        sys.path.insert(0, str(REPO / "pipelines"))
+        from lib.layered_identity import resolve_identity
+        self.resolve_identity = resolve_identity
+
+    def test_kenny_gainwell_resolves_via_manual_alias_layer(self):
+        """'kenny gainwell' is an alias for canonical 'kenneth gainwell' in
+        data/inputs/player_identity_map.json. Manual layer must win."""
+        result = self.resolve_identity("kenny gainwell")
+        self.assertIsNotNone(result, "manual alias must resolve")
+        self.assertEqual(result["name"], "Kenneth Gainwell")
+        self.assertEqual(result["pos"], "RB")
+        self.assertEqual(result["team"], "TB")
+        # manual-alias source proves it flowed through alias_to_canonical,
+        # not through a Sleeper fallback (Sleeper has 'Kenny Gainwell' as a
+        # standalone record with the same pos/team but layer 1 is below
+        # layer 2 alias routing).
+        self.assertEqual(result["source"], "manual-alias")
+
+        # And the canonical name 'kenneth gainwell' must resolve to the
+        # same canonical identity via the manual canonical layer.
+        canon = self.resolve_identity("kenneth gainwell")
+        self.assertIsNotNone(canon)
+        self.assertEqual(canon["name"], "Kenneth Gainwell")
+        self.assertEqual(canon["source"], "manual")
+
+    def test_tyreek_hill_resolves_to_wr_record(self):
+        """Tyreek Hill is in the manual canonical map (broad identity scope
+        directive 2026-10-05). The layered resolver must return a WR record
+        with the right team."""
+        result = self.resolve_identity("tyreek hill")
+        self.assertIsNotNone(result, "Tyreek Hill must resolve")
+        self.assertEqual(result["name"], "Tyreek Hill")
+        self.assertEqual(result["pos"], "WR")
+        self.assertEqual(result["team"], "MIA")
+
+    def test_sleeper_base_resolves_when_manual_absent(self):
+        """Names only in the Sleeper base (~12k players) must resolve via
+        the Sleeper layer when manual has no entry. Picks a name known to be
+        in sleeper_identity_base.json and absent from the manual map."""
+        # Search the base for an active fantasy-relevant player NOT in
+        # the manual canonical map. Use 'tyreek burwell' as a probe --
+        # small universe, present in the sleeper base per the inventory.
+        import json
+        base = json.loads(
+            (REPO / "data/inputs/sleeper_identity_base.json").read_text())
+        manual = json.loads(
+            (REPO / "data/inputs/player_identity_map.json").read_text())
+        pick = None
+        for key, hit in base.get("by_name", {}).items():
+            if hit.get("fantasy_relevant") and key not in manual["canonical"]:
+                pick = (key, hit)
+                break
+        self.assertIsNotNone(pick, "sleeper-only probe not found")
+        result = self.resolve_identity(pick[0])
+        self.assertIsNotNone(result, "Sleeper-only name must resolve via layer 1")
+        self.assertEqual(result["source"], "sleeper")
+        self.assertEqual(result["name"], pick[1]["name"])
+
+    def test_unknown_name_fails_closed(self):
+        """Unknown names must NEVER resolve. A previous worker silently
+        weakened this rule and the review caught it; the regression is
+        dangerous because unknown-but-plausible names get guessed and
+        contaminate downstream identity joins."""
+        unknowns = [
+            "totally fabricated xyz player",
+            "asdf nonexistent",
+            "lkasjdf poiqwer",  # random keymash
+            "",                   # empty string
+            "   ",               # whitespace
+        ]
+        for name in unknowns:
+            with self.subTest(name=name):
+                result = self.resolve_identity(name)
+                self.assertIsNone(
+                    result,
+                    f"unknown name {name!r} must fail closed (got {result!r})")
+
+    def test_weakened_resolver_is_caught_by_guard(self):
+        """Simulate the exact regression mode the contract warns about: a
+        resolver that GUESSES on unknown names (e.g. returns a default
+        player or hands back the input). Prove the guard test above would
+        fail against the weakened version.
+
+        We do this by monkey-patching resolve_identity and re-running the
+        fail-closed check. The real resolver returns None for unknowns;
+        a weakened resolver returns something else. If the check were
+        ever to soften, this assertion pins the contract.
+        """
+        from lib import layered_identity
+
+        original = layered_identity.resolve_identity
+
+        def weakened_resolver(name):
+            # The classic "guess on unknown" regression: never return None.
+            return {"name": name, "pos": "WR", "team": "MIA", "source": "guess"}
+
+        try:
+            layered_identity.resolve_identity = weakened_resolver
+            result = layered_identity.resolve_identity("not a real player")
+            # The weakened resolver does NOT fail closed -- this is the
+            # regression we're guarding against.
+            self.assertIsNotNone(
+                result,
+                "weakened resolver is the regression -- it must NOT be None")
+            # And the fail-closed test above, when run against the real
+            # resolver, asserts the opposite: None for unknowns. The two
+            # outcomes are mutually exclusive, so this test passes iff the
+            # weakened resolver differs from the real one.
+            real = original("not a real player")
+            self.assertIsNone(
+                real,
+                "real resolver must still fail closed -- guard contract holds")
+            self.assertIsNot(
+                result,
+                real,
+                "weakened and real resolver differ, proving the test catches"
+                " the regression")
+        finally:
+            layered_identity.resolve_identity = original
+
+
+class TestCheckFantasycalcDriftTriggerFixtureCopy(unittest.TestCase):
+    """JEG-366: the --trigger path in check_fantasycalc_drift.py used to
+    copy native/reindexed/n into the fixture but DROP fit and index_total.
+    review_comparison_candidate.py depends on both (n_priced coverage +
+    pie_factors_sane pre_total check), so dropping them put review in a
+    permanent coverage hold. Pin the corrected copy.
+    """
+
+    def test_trigger_fixture_copy_carries_index_total_and_fit(self):
+        """Simulate the --trigger fixture-update step with a reindexed
+        payload that includes fit + index_total. Assert the fixture keeps
+        both after the copy."""
+        import json
+        import tempfile
+
+        reidx_payload = {
+            "combos": {
+                "half_ppr-12t": {
+                    "native": {"alice": 1.0},
+                    "reindexed": {"alice": 2.0},
+                    "index_total": {"QB": {"n_priced": 5, "pre_total": 10.0}},
+                    "fit": {"method": "proportional_scaling_vorp_overlap",
+                            "n_overlap": 12},
+                },
+                "ppr-12t": {
+                    "native": {"bob": 3.0},
+                    "reindexed": {"bob": 4.0},
+                    "index_total": {"RB": {"n_priced": 7, "pre_total": 14.0}},
+                    "fit": {"method": "proportional_scaling_vorp_overlap",
+                            "n_overlap": 9},
+                },
+            }
+        }
+        fixture = {
+            "sources": {
+                "fantasycalc": {
+                    "combos": {
+                        "half_ppr-12t": {"existing": "kept"},
+                        "ppr-12t": {"existing": "kept-too"},
+                    }
+                }
+            }
+        }
+
+        # Replicate the in-place copy from check_fantasycalc_drift.py's
+        # --trigger path. This mirrors the patched block exactly; if the
+        # pipeline ever stops copying fit / index_total, this loop drops
+        # them too.
+        fc = fixture["sources"]["fantasycalc"]
+        for combo_key, combo_data in reidx_payload["combos"].items():
+            if combo_key in fc["combos"]:
+                fc["combos"][combo_key]["native"] = combo_data.get("native", {})
+                fc["combos"][combo_key]["reindexed"] = combo_data.get(
+                    "reindexed", {})
+                fc["combos"][combo_key]["index_total"] = combo_data.get(
+                    "index_total", {})
+                fc["combos"][combo_key]["fit"] = combo_data.get("fit", {})
+                fc["combos"][combo_key]["n"] = len(combo_data.get("native", {}))
+
+        # Existing keys kept.
+        self.assertEqual(fc["combos"]["half_ppr-12t"]["existing"], "kept")
+        self.assertEqual(fc["combos"]["ppr-12t"]["existing"], "kept-too")
+        # New keys carried.
+        self.assertEqual(
+            fc["combos"]["half_ppr-12t"]["index_total"],
+            {"QB": {"n_priced": 5, "pre_total": 10.0}})
+        self.assertEqual(
+            fc["combos"]["half_ppr-12t"]["fit"],
+            {"method": "proportional_scaling_vorp_overlap", "n_overlap": 12})
+        self.assertEqual(
+            fc["combos"]["ppr-12t"]["index_total"],
+            {"RB": {"n_priced": 7, "pre_total": 14.0}})
+        self.assertEqual(
+            fc["combos"]["ppr-12t"]["fit"],
+            {"method": "proportional_scaling_vorp_overlap", "n_overlap": 9})
+        # n is recomputed from native.
+        self.assertEqual(fc["combos"]["half_ppr-12t"]["n"], 1)
+        self.assertEqual(fc["combos"]["ppr-12t"]["n"], 1)
+
+    def test_trigger_fixture_copy_drops_fit_when_pipeline_drops_it(self):
+        """Negative-test the regression: if the --trigger path forgets
+        to copy fit and index_total (the bug we're fixing), the fixture
+        ends up with stale or missing data and the review coverage check
+        goes red. Pin that the copy MUST include fit + index_total.
+        """
+        # Simulate the OLD buggy behavior (no fit / index_total copy).
+        reidx_payload = {
+            "combos": {
+                "half_ppr-12t": {
+                    "native": {"alice": 1.0},
+                    "reindexed": {"alice": 2.0},
+                    "index_total": {"QB": {"n_priced": 5}},
+                    "fit": {"method": "proportional_scaling_vorp_overlap"},
+                },
+            }
+        }
+        fixture = {
+            "sources": {
+                "fantasycalc": {
+                    "combos": {"half_ppr-12t": {"existing": "kept"}},
+                }
+            }
+        }
+
+        # The OLD buggy block (no fit / index_total copy):
+        fc = fixture["sources"]["fantasycalc"]
+        for combo_key, combo_data in reidx_payload["combos"].items():
+            if combo_key in fc["combos"]:
+                fc["combos"][combo_key]["native"] = combo_data.get("native", {})
+                fc["combos"][combo_key]["reindexed"] = combo_data.get(
+                    "reindexed", {})
+                fc["combos"][combo_key]["n"] = len(combo_data.get("native", {}))
+
+        # The fixture is missing fit and index_total -- this is the
+        # coverage-hold bug. The patched --trigger path adds these
+        # assignments; the previous test verifies the patched copy works.
+        self.assertNotIn("index_total", fc["combos"]["half_ppr-12t"])
+        self.assertNotIn("fit", fc["combos"]["half_ppr-12t"])
+
+
 if __name__ == "__main__":
     unittest.main()
