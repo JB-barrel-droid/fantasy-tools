@@ -11,24 +11,22 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const REAL_CONSOLE_ERROR = console.error.bind(console);
 const REAL_CONSOLE_WARN = console.warn.bind(console);
 const POSITIONS = ["QB", "RB", "WR", "TE"];
+const SIM_DEFAULT_SOURCE = "cbs";
 const EXPECTED_JEG5 = {
-  // Re-recorded 2026-10-03: ESPN leg refreshed to 2026-10-03 input data
-  // (data/inputs/espn_projections.csv). The simulated JEG-5 bug numbers
-  // shift with the fixture; the simulation mechanism is unchanged
-  // (current fixture still passes fixedPieIndexed; pie targets unchanged).
-  total: 860.200245,
-  target: 862.62,
-  delta: -2.419755,
-  displayScale: 2.5701,
-  n: 168,
-  liveCells: 8,
-  bakedCells: 8,
-  perPos: {
-    QB: {total: 52.42, pie: 52.97},
-    RB: {total: 382.67, pie: 381.32},
-    WR: {total: 373.54, pie: 375.64},
-    TE: {total: 51.57, pie: 52.69},
-  },
+  // Re-pointed 2026-10-05 (JEG-392): after JEG-ECR-EXIT ESPN IS the primary
+  // leg, so its published tiers equal the DDF training tiers and the ESPN
+  // simulation moved the pie by only -1.35 (< tolerance 2) -- the guard could
+  // no longer fail. The JEG-5 bug class (live cells partitioned by published
+  // tiers instead of DDF training tiers) is now simulated on the CBS
+  // adjusted map, where the tiers genuinely differ (22 mismatches) and the
+  // broken state misses the fixed pie by ~78 (cf. the original JEG-5 -79.90).
+  // The CBS check uses the shared-player basis, so only these fields exist.
+  source: "cbs_adjusted",
+  basis: "shared",
+  shared: 114,
+  total: 2048.073808,
+  target: 1969.895514,
+  delta: 78.178294,
 };
 
 function parseArgs(argv) {
@@ -40,7 +38,7 @@ function parseArgs(argv) {
     simulate: null,
     scoring: "ppr",
     teams: 12,
-    source: "espn",
+    source: SIM_DEFAULT_SOURCE,
     fixtureDir: path.join(ROOT, "data", "fixtures", "current"),
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -77,7 +75,7 @@ Options:
   --fixture-dir PATH         read comparison-sources-data.json and players.json from PATH
   --scoring KEY              standard, half_ppr, or ppr (default ppr)
   --teams N                  8, 10, 12, or 14 (default 12)
-  --source KEY               raw source for simulation (default espn)
+  --source KEY               raw source for simulation (default cbs)
   --json                     print machine-readable JSON`);
 }
 
@@ -348,8 +346,11 @@ function fixedPieSummary(diagnostics) {
   };
 }
 
-function espnCheck(summary) {
-  return summary.checks.find(check => check.source === "espn");
+// The fixedPie check for the simulated source's map (was hard-wired to
+// ESPN; see EXPECTED_JEG5). Set from --source in main().
+let SIM_KEY = "cbs_adjusted";
+function simCheck(summary) {
+  return summary.checks.find(check => check && check.source === SIM_KEY);
 }
 
 function closeEnough(actual, expected, tolerance) {
@@ -363,7 +364,7 @@ function assertGood(summary) {
 }
 
 function assertBad(summary, tierComparison) {
-  const check = espnCheck(summary);
+  const check = simCheck(summary);
   if (!check || check.ok) {
     throw new Error(`expected simulated state to fail fixedPieIndexed: ${JSON.stringify(check)}`);
   }
@@ -373,23 +374,16 @@ function assertBad(summary, tierComparison) {
 }
 
 function assertJEG5Recorded(summary) {
-  const check = espnCheck(summary);
+  const check = simCheck(summary);
   if (!check || check.ok) {
     throw new Error(`expected simulated JEG-5 state to fail fixedPieIndexed: ${JSON.stringify(check)}`);
   }
   const failures = [];
-  if (!closeEnough(check.total, EXPECTED_JEG5.total, 0.01)) failures.push(`total ${check.total}`);
-  if (!closeEnough(check.target, EXPECTED_JEG5.target, 0.01)) failures.push(`target ${check.target}`);
-  if (!closeEnough(check.delta, EXPECTED_JEG5.delta, 0.01)) failures.push(`delta ${check.delta}`);
-  if (!closeEnough(check.displayScale, EXPECTED_JEG5.displayScale, 0.0001)) failures.push(`displayScale ${check.displayScale}`);
-  if (check.n !== EXPECTED_JEG5.n) failures.push(`n ${check.n}`);
-  if (check.liveCells !== EXPECTED_JEG5.liveCells) failures.push(`liveCells ${check.liveCells}`);
-  if (check.bakedCells !== EXPECTED_JEG5.bakedCells) failures.push(`bakedCells ${check.bakedCells}`);
-  for (const [pos, expected] of Object.entries(EXPECTED_JEG5.perPos)) {
-    const actual = check.perPos[pos];
-    if (!actual || !closeEnough(actual.total, expected.total, 0.01) || !closeEnough(actual.pie, expected.pie, 0.01)) {
-      failures.push(`${pos} ${JSON.stringify(actual)}`);
-    }
+  if (check.source !== EXPECTED_JEG5.source) failures.push(`source ${check.source}`);
+  if (check.basis !== EXPECTED_JEG5.basis) failures.push(`basis ${check.basis}`);
+  if (check.shared !== EXPECTED_JEG5.shared) failures.push(`shared ${check.shared}`);
+  for (const field of ["total", "target", "delta"]) {
+    if (!closeEnough(check[field], EXPECTED_JEG5[field], 0.01)) failures.push(`${field} ${check[field]}`);
   }
   if (failures.length) {
     throw new Error(`simulated JEG-5 numbers drifted: ${failures.join("; ")}`);
@@ -397,25 +391,25 @@ function assertJEG5Recorded(summary) {
 }
 
 function printText(report) {
-  const current = espnCheck(report.current.fixedPie);
+  const current = simCheck(report.current.fixedPie);
   console.log("Curve widget guard harness");
   console.log(`fixture: ${report.fixtureDir}`);
   console.log(`state: ${report.state.scoring}/${report.state.teams}, benchShare=${report.state.benchShare}`);
   console.log(`registry-derived source count: ${report.state.sourceCount}; active default count: ${report.state.activeCount}`);
   console.log(`current fixedPieIndexed: ${report.current.fixedPie.ok ? "PASS" : "FAIL"}`);
   if (current) {
-    console.log(`  espn total=${current.total.toFixed(6)} target=${current.target.toFixed(2)} delta=${current.delta.toFixed(6)} scale=${current.displayScale} n=${current.n} liveCells=${current.liveCells} bakedCells=${current.bakedCells}`);
+    console.log(`  ${SIM_KEY} total=${current.total.toFixed(6)} target=${current.target.toFixed(2)} delta=${current.delta.toFixed(6)} scale=${current.displayScale} n=${current.n} liveCells=${current.liveCells} bakedCells=${current.bakedCells}`);
     for (const pos of POSITIONS) {
       const row = current.perPos[pos];
       if (row) console.log(`    ${pos}: total=${row.total.toFixed(2)} pie=${row.pie.toFixed(2)} n=${row.n}`);
     }
   }
   if (report.simulated) {
-    const broken = espnCheck(report.simulated.fixedPie);
+    const broken = simCheck(report.simulated.fixedPie);
     console.log(`simulated ${report.simulated.name}: ${report.simulated.fixedPie.ok ? "PASS (unexpected)" : "FAIL (expected)"}`);
     console.log(`  tier mismatches: ${report.simulated.tierComparison.mismatches}/${report.simulated.tierComparison.compared}`);
     if (broken) {
-      console.log(`  espn total=${broken.total.toFixed(6)} target=${broken.target.toFixed(2)} delta=${broken.delta.toFixed(6)} scale=${broken.displayScale} n=${broken.n} liveCells=${broken.liveCells} bakedCells=${broken.bakedCells}`);
+      console.log(`  ${SIM_KEY} total=${broken.total.toFixed(6)} target=${broken.target.toFixed(2)} delta=${broken.delta.toFixed(6)} scale=${broken.displayScale} n=${broken.n} liveCells=${broken.liveCells} bakedCells=${broken.bakedCells}`);
       for (const pos of POSITIONS) {
         const row = broken.perPos[pos];
         if (row) console.log(`    ${pos}: total=${row.total.toFixed(2)} pie=${row.pie.toFixed(2)} n=${row.n}`);
@@ -445,6 +439,7 @@ async function main() {
     if (args.simulate !== "tier-mismatch") throw new Error(`unknown simulation: ${args.simulate}`);
     const source = args.source;
     const mapKey = source === "espn" ? "espn" : `${source}_adjusted`;
+    SIM_KEY = mapKey;
     const cells = H.refitLiveCells().filter(cell => cell.source === source);
     const brokenMap = H.buildLiveAdjustedMap(source, cells, {tierPartition: "published"});
     const brokenFixedPie = fixedPieSummary(H.fixedPieDiagnosticsForMap(mapKey, brokenMap));

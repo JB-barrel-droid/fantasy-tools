@@ -2691,3 +2691,63 @@ Commit-by-commit refactor; no network calls, no Supabase writes, no deploys.
 - Coverage check loses the C8/C9 K/DST chain guard. K/DST pricing is
   ESPN, and K/DST ESPN coverage is exercised by `tests/test_kdst_coverage_contract.py`.
   No production path was lost.
+
+## 2026-10-05 ~16:50 CDT — Claude (cloud session): JEG-392 universe fix + merge-sweep prep
+
+### Verified (check named)
+- Main `make validate` red since 13:21 (0657d05). Reproduced locally: `reference` fails on 185
+  comparison player_keys missing from the 425-row players.json.
+- 185 orphans = 145 ESPN `eligible=False` rows + 40 absent from the ESPN CSV (python diff of
+  players.json vs comparison-sources-data.json vs data/inputs/espn_projections.csv).
+- Branch `bake/jeg-392-universe`: bake carries ESPN-zeroed/absent skill players at ESPN 0
+  (`espn_zeroed`, `espn_status`; no espn_ppg/blend_ppg/ESPN deltas). CI bake
+  (bake-players.yml, CBS ROS re-exported from Supabase 2026-09-30) produced 613 rows; all 425
+  pre-existing rows byte-identical to 71e0eaf (python dict compare); orphans 0;
+  n_cbsros_complete 349.
+- With that fixture, these pass again: reference, test_jeg68, test_jeg69, test_reindex_section,
+  test_review_candidate, test_methodology_payload, pie-total test, bench-capacity sum.
+- tests/test_bake_espn_zero_universe.py mutation-checked (disabling the absent branch fails it).
+- 8 worker PRs (#229 #230 #232 #233 #235 #236 #237 #238) cherry-pick cleanly onto main
+  (branch `claude/integration`); full test-unit failure set identical to main's baseline.
+
+### Still red / not fixed (need Jeremy decisions — see chat)
+- Bench-mix WR tailFloor = 25 on the 10/03 ESPN data (was 56) → 12-team WR bench 0.
+  Pre-existing on main, not caused by the universe change. Proposed FLOOR_SLOPE_FRAC 0.0075.
+- JEG-5 guard-harness simulation is vacuous for ESPN post-ECR-exit (delta −1.35 < 2.0).
+- test_lock_revert_notice_render waits on #viewModePending, which exists nowhere in app/.
+- test_static_export pins (425, QB boundary 36) need updating to builder output (613, 48).
+
+### Claimed, unverified
+- Supabase advisor: RLS disabled on 85 tables (reported by advisor; not independently audited).
+
+## 2026-10-05 ~17:40 CDT — Claude (cloud session): validate green on integration branch
+
+Jeremy approved all recommendations (bench floor, JEG-5 re-point, merge the 8 worker PRs).
+
+### Verified (check named)
+- `make validate` exit 0 on branch `claude/integration` (main + PRs #229 #230 #232 #233 #235
+  #236 #237 #238 + JEG-392 work) with the fixture baked by GitHub Actions run 37379549045
+  (bake-players.yml, all integrated code; 613 players; prior_blend_snapshot 2026-09-23 now
+  populated thanks to #229; CBS ROS 2026-09-30).
+- Rendered gate (`tests/rendered_gate/gate.mjs dist`): 12/12 shapes, 0 page errors, 0 bad pies,
+  self-test caught injected errors. bench_share_readout + gate_flexibility exit 0.
+- 12-combo sweep (3 scorings × 4 sizes): fixedPieIndexed true on all 12; sourcePeaks identical
+  to origin/main build on all 12 (curve starts unchanged). sourceScaleAgreement false on all 12
+  on BOTH main and branch (pre-existing publisher-shape WARN, USA Today WR 1.36x) — not introduced.
+- Negative tests: FLOOR_SLOPE_FRAC 0.01 fails 3 bench tests; reverting the view-mode guard fix
+  makes test_lock_revert_notice_render error; perturbed CBS fixture trips "simulated JEG-5
+  numbers drifted".
+- Lock-revert rendered test had never run: it waited on #viewModePending (absent from app/).
+  With the selector fixed it exposed a real defect on main: any scoring/teams change while in
+  the VORP/Adj view threw `Curve regression guard failed: defaultGroupedSources` before draw().
+  Fixed in curve-widget.js (guard checks the parked Indexed selection in non-indexed views).
+
+### Changed pins (and why)
+- test_static_export: 425→613, +188 espn_zeroed rows without ESPN ppg, QB boundary 36→48
+  (back to pre-ECR value; 36 was an artifact of the 425 universe).
+- test_two_tier_frontend 14/8: WR=9/total=87 pin recorded the 0.01-constant data limitation;
+  replaced by invariant (WR>9, sum==112) under the approved 0.0075.
+- guard_harness EXPECTED_JEG5: re-recorded on cbs_adjusted (shared basis, delta +78.18).
+
+### Not done
+- Merge to main: blocked by session permission policy; PR opened for Jeremy to merge.

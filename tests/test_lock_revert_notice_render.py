@@ -87,13 +87,17 @@ def _chart_page():
 
 def _drive_forced_reset(page):
     """Lock to a 12-team-only source, then switch team size to force a reset."""
-    # Pending view tabs must be bound on initial load and
-    # changing settings there must still rebuild Indexed data.
+    # View tabs must be bound on initial load and changing settings in
+    # another view must still rebuild Indexed data. JEG-392: this used to
+    # wait on #viewModePending / #viewModeChartArea, placeholder panels from
+    # the pre-JEG-210 design that the shipped page never renders (the VORP
+    # and Adj views now draw in place), so the test timed out on every run.
+    # Wait on the tab's own selected state instead.
     page.locator('#viewModeTabs [data-view-mode="vorp"]').click()
-    page.locator('#viewModePending').wait_for(state="visible")
+    page.wait_for_selector('#viewModeVorpTab[aria-selected="true"]', timeout=5000)
     page.evaluate('() => window.TradeValueCurveControls.setScoring("standard")')
     page.locator('#viewModeTabs [data-view-mode="indexed"]').click()
-    page.locator('#viewModeChartArea').wait_for(state="visible")
+    page.wait_for_selector('#viewModeIndexedTab[aria-selected="true"]', timeout=5000)
     page.evaluate(
         """() => {
           const controls = window.TradeValueCurveControls;

@@ -236,30 +236,33 @@ class TestTwoTierPort(unittest.TestCase):
     def test_bench_mix_sums_to_league_bench_capacity(self):
         """The parts must partition teams * bench_slots exactly.
 
-        Exception: 14-team/8-bench (112 spots) exceeds the WR irrelevance
-        floor in current ESPN data (WR tailFloor=56, starters=42+flex, cap=9).
-        The algorithm fills maximally given caps; it cannot invent relevant
-        players. This documents a data limitation, not an algorithm bug.
+        JEG-392 (2026-10-05): the former 14-team/8-bench exception (WR cap 9
+        at tailFloor=56) is gone -- with FLOOR_SLOPE_FRAC=0.0075 the WR floor
+        sits ~#100, so every league shape partitions capacity exactly.
         """
         pools = self._pools()
         for teams in (8, 10, 12, 14):
             for bench in (4, 6, 8):
-                if teams == 14 and bench == 8:
-                    continue  # WR cap binds; see docstring
                 mix = run_harness("benchmix", {"teams": teams, "benchSlots": bench,
                                                "pools": pools})
                 self.assertEqual(sum(mix.values()), teams * bench,
                                  f"teams={teams} bench={bench} mix={mix}")
 
     def test_bench_mix_14_8_fills_maximally_given_caps(self):
-        """14-team/8-bench: verify the mix hits the WR cap (data-limited)."""
+        """14-team/8-bench: the largest shape still partitions capacity.
+
+        JEG-392 (2026-10-05): under FLOOR_SLOPE_FRAC=0.01 this pinned WR=9 /
+        total=87 (WR floor #56 on the pre-refresh data). On the 2026-10-03
+        ESPN data that constant collapsed the WR floor to #25 and gave WR
+        ZERO bench spots at 12 teams; the approved 0.0075 lands WR ~#100, so
+        the pin is replaced by the invariant: WR gets real bench depth and the
+        parts sum to 14 * 8.
+        """
         pools = self._pools()
         mix = run_harness("benchmix", {"teams": 14, "benchSlots": 8,
                                        "pools": pools})
-        # WR is capped at 9 by the irrelevance floor; others fill to their caps.
-        self.assertEqual(mix["WR"], 9)
-        # Total is maximal given the binding WR cap.
-        self.assertEqual(sum(mix.values()), 87)
+        self.assertGreater(mix["WR"], 9)
+        self.assertEqual(sum(mix.values()), 14 * 8)
 
     def test_legacy_constant_fails_the_capacity_invariant(self):
         """Negative test: the guard above must REJECT the constant it replaced."""

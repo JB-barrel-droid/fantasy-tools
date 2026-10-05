@@ -202,7 +202,11 @@
     const REF_BENCH_SLOTS = 6;
     // Kept only as the regression anchor for the pinned-constant test.
     const LEGACY_BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
-    const FLOOR_SLOPE_FRAC = 0.01;
+    // JEG-392 (2026-10-05): 0.01 -> 0.0075. On the 2026-10-03 ESPN data the
+    // 0.01 cutoff found no steep tail window below WR #25, giving 0 WR bench
+    // spots at 12 teams. 0.0075 lands WR ~#100 on both pre- and post-refresh
+    // data (QB 36-37, RB 67-70, TE 49-55); approved by Jeremy 2026-10-05.
+    const FLOOR_SLOPE_FRAC = 0.0075;
     const FLOOR_WINDOW = 5;
     // Reference league shape for the calibration pool (fixed; the slider
     // bounds are per scoring x teams, not per custom roster shape).
@@ -3636,7 +3640,15 @@
         `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
       );
     }
-    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, activeSources, userDeselectedSources);
+    // JEG-392: in the Value-above-waivers / Adjusted views setViewMode()
+    // deliberately swaps activeSources to the as-published view set and
+    // parks the Indexed selection in savedActiveSourcesForView. Checking the
+    // swapped set made every scoring/teams change in those views throw here
+    // (before draw()), freezing the chart. Guard the Indexed selection the
+    // user will return to instead -- same regression power, right set.
+    const indexedSelection = viewMode === "indexed"
+      ? activeSources : (savedActiveSourcesForView || activeSources);
+    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, indexedSelection, userDeselectedSources);
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));

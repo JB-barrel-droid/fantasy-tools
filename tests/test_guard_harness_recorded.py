@@ -40,8 +40,11 @@ class GuardHarnessRecordedTest(unittest.TestCase):
 
             comparison_path = tmp_dir / "comparison-sources-data.json"
             payload = json.loads(comparison_path.read_text())
-            values = payload["sources"]["espn"]["combos"]["full_12"]["values"]
-            values["jahmyr gibbs"] += 1.0
+            # JEG-392: the simulation runs on the CBS adjusted map (see
+            # EXPECTED_JEG5 in tools/guard_harness.mjs), so perturb CBS.
+            for field in ("native", "reindexed"):
+                values = payload["sources"]["cbs"]["combos"]["full_12"][field]
+                values["aj brown"] += 5.0
             comparison_path.write_text(json.dumps(payload, separators=(",", ":")))
 
             result = run_harness(
