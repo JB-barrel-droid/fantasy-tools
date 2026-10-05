@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-05T19:00:59.223007+00:00",
+  "run_at": "2026-10-05T22:00:45.363949+00:00",
   "nfl_week": 4,
   "sources": {
     "usatoday": "FAILED at stage 'review': usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: zero_preservation:full_12:warn -- zero sets differ: only-candidate=0, only-fixture=2; coverage:full_12/RB:fail -- candidate priced 68 < fixture 74; coverage:full_12/WR:fail -- candidate priced 96 < fixture 104. A hold means a human must review first; the chain will not override it.",
-    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-10-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_10_qb1/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb1/TE:fail -- candidate priced 27 < fixture 29; coverage:full_10_qb2/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb2/TE:fail -- candidate priced 27 < fixture 29. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-10-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_10_qb1:fail -- 177/177 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. jamarr chase, josh allen, justin jefferson); native_drift:full_10_qb2:fail -- 177/177 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. jamarr chase, josh allen, justin jefferson); coverage:full_10_qb1/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb1/TE:fail -- candidate priced 27 < fixture 29; coverage:full_10_qb2/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb2/TE:fail -- candidate priced 27 < fixture 29. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "FAILED at stage 'review': fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 50 < fixture 52; coverage:full_12/WR:fail -- candidate priced 72 < fixture 74. A hold means a human must review first; the chain will not override it.",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -31,7 +31,7 @@
       "source": "fantasycalc",
       "status": "failed",
       "stage": "review",
-      "detail": "fantasycalc-full-10-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_10_qb1/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb1/TE:fail -- candidate priced 27 < fixture 29; coverage:full_10_qb2/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb2/TE:fail -- candidate priced 27 < fixture 29. A hold means a human must review first; the chain will not override it.",
+      "detail": "fantasycalc-full-10-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_10_qb1:fail -- 177/177 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. jamarr chase, josh allen, justin jefferson); native_drift:full_10_qb2:fail -- 177/177 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. jamarr chase, josh allen, justin jefferson); coverage:full_10_qb1/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb1/TE:fail -- candidate priced 27 < fixture 29; coverage:full_10_qb2/WR:fail -- candidate priced 74 < fixture 78; coverage:full_10_qb2/TE:fail -- candidate priced 27 < fixture 29. A hold means a human must review first; the chain will not override it.",
       "promoted": 0,
       "sections": 12
     },
