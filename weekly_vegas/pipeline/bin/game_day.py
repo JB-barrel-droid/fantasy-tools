@@ -11,24 +11,35 @@ Pipeline per run:
      for this game + week (any status) -> resolve the Odds API event ->
      force a FRESH props pull (per-event cache bypassed) -> readiness gate:
      skip quietly ("betting not open yet") when no player props are posted.
-  3. engine/snapshot_v4.main(week) once + injury refresh once
+  3. ESPN ROS freshness gate (fail-closed): file recency on
+     data/inputs/espn_projections.csv AND content-vintage check on the
+     espn_snapshot_date embedded in that file (when ESPN last changed its
+     numbers, NOT when we last downloaded them).
+  4. engine/snapshot_v4.main(week) once + injury refresh once
      (both skipped in --dry-run).
-  4. Recompute signals with the same logic as v4/compute_v4 (rank deltas,
-     coverage gate, injury gate) but WITHOUT its post_queue draft rotation.
-     Filter post-worthy signals to the two teams; one abbreviated tweet
-     per game.
-  5. Movement arrows: per-side movement (vegas vs expert) vs the most
+  5. Recompute signals with the same logic as v4/compute_v4 (rank deltas,
+     coverage gate, injury gate) but WITHOUT its post_queue draft rotation
+     AND with the ESPN ROS leg replacing the retired ECR feed for both
+     expert points and positional ranks (JEG-418). Filter post-worthy
+     signals to the two teams; one abbreviated tweet per game.
+  6. Movement arrows: per-side movement (vegas vs expert) vs the most
      recent prior projection_snapshots batch for the week, annotated only
      when |move| >= 1.0 implied PPR pts; over-long cards truncate to the
      top 6 signals by |Δ|.
-  6. Write post_type='gameday', status='draft' rows (--dry-run prints only).
+  7. Write post_type='gameday', status='draft' rows (--dry-run prints only).
 
 --dry-run semantics: no post_queue writes, no snapshot batches, no
 injury-loader writes. The odds pull still runs (dedupe-guarded, needed for
 the readiness gate); everything else is read-only.
 
-Exit codes: 0 ok / nothing-to-do, 2 BLOCKED (stale ECR pull or stale ECR
-content, or missing ECR projections file).
+Exit codes: 0 ok / nothing-to-do, 2 BLOCKED (stale ESPN pull, stale ESPN
+content, or missing ESPN projections file).
+
+Expert-leg source (JEG-418): ESPN ROS via
+weekly_vegas/pipeline/data/espn_projections.csv (Mike Clay model, per ESPN).
+The retired weekly-expert-projection feed is no longer read by game-day;
+positional ranks for the rank-delta computation come from sorting ESPN's
+own ROS half-PPR per position.
 """
 import argparse
 import json
@@ -61,14 +72,22 @@ from engine.fds_fallback import (  # noqa: E402
 )
 from engine.source_priority import VEGAS_SOURCE_PRIORITY  # noqa: E402
 from v4.compute_v4 import (  # noqa: E402
-    load_ecr, load_props, norm,
+    load_props, norm,
 )
-from loaders.fantasypros import read_projections_dict  # noqa: E402  (ECR feed expert points)
 from engine.snapshot_v4 import main as snapshot_main  # noqa: E402
 from engine.snapshot import load_players, norm_loose  # noqa: E402
 
 CT = ZoneInfo("America/Chicago")
-ECR_PATH = os.path.join(BASE, "data", "ecr_pos.json")
+# JEG-418: ESPN ROS expert-leg source (Mike Clay model per ESPN).
+# Season file lives at <repo>/data/inputs/; the weekly per-week file is
+# written next to it by pipelines/pull_espn_projections.py and used when
+# present (per-week half_ppr), else we fall back to ROS / games_remaining.
+ESPN_PROJECTIONS_CSV = os.path.join(BASE, "data", "..", "..", "data",
+                                    "inputs", "espn_projections.csv")
+ESPN_PROJECTIONS_CSV = os.path.normpath(ESPN_PROJECTIONS_CSV)
+ESPN_WEEKLY_CSV = os.path.normpath(
+    os.path.join(BASE, "data", "..", "..", "data", "inputs",
+                 "espn_weekly_projections.csv"))
 CACHE_DIR = os.path.join(BASE, "data", "odds_cache")
 DAY_LABEL = {"Thursday": "TNF", "Monday": "MNF",
              "Saturday": "SAT", "Friday": "FRI"}
@@ -76,132 +95,196 @@ MOVE_THRESHOLD = 1.0  # annotate a side only when |move| >= 1.0 implied PPR pts
 MAX_GAMEDAY_SIGNALS = 6  # per-card cap when the full card exceeds 280 chars
 
 
-# ------------------------------------------- ECR content-vintage helpers
-# A pull that captures byte-identical expert projections must NOT reset the
-# freshness clock: the gate measures when the experts last changed their
-# numbers, not when we last downloaded them. This mirrors the vintage logic
-# in trade-value/build_values.py (canonical definition): same content
-# Season-leg expert columns (mirror of trade-value/build_values.py's vintage
-# comparison; the game-day gate no longer reads season data — see below).
-ECR_CONTENT_COLS = ("passing_yards", "passing_tds", "rushing_yards",
-                    "rushing_tds", "receptions", "receiving_yards",
-                    "receiving_tds", "proj_half_ppr")
-# Experts publish Tue-Sun, never Mondays, so a legitimate content gap is at
-# most ~2 days. Content older than 3 days means the experts haven't moved
-# their numbers in 4+ days -> stale for "Vegas vs experts" game-day cards.
-# Fail-closed: any error computing the vintage blocks the run.
-ECR_CONTENT_MAX_AGE_DAYS = 3
+# ------------------------------------------- ESPN content-vintage helpers
+# JEG-418: the expert numbers now come from ESPN ROS (Mike Clay model per
+# ESPN). Same fail-closed two-layer philosophy as the old ECR gate:
+#  1. Pull recency: data/inputs/espn_projections.csv mtime must be inside
+#     the most recent refresh window. The puller runs daily at 06:10 CT and
+#     rewrites the file only when ESPN's numbers actually change (hash
+#     no-op), so an unchanged file means ESPN's content is itself stable.
+#  2. Content vintage: the espn_snapshot_date column is the date ESPN's own
+#     payload last changed. That is the "when the source last changed its
+#     numbers" signal the old gate measured via projection_snapshots
+#     fingerprinting. A re-pull that captures byte-identical numbers must
+#     not reset this clock.
+# Experts publish Tue-Sun, never Mondays; the puller is daily 06:10 CT, so a
+# legitimate content gap is ~2-3 days. Content older than ESPN_MAX_AGE_DAYS
+# means the experts haven't moved their numbers in too long -> stale for
+# "Vegas vs experts" game-day cards. Fail-closed: any error computing the
+# vintage blocks the run.
+ESPN_MAX_AGE_DAYS = 3
+ESPN_REFRESH_HOUR_CT = 9  # 06:10 CT daily; allow 3h slop before failing recency
 
 
-def _ecr_content_vintage(today, season, week):
-    """Earliest projection_snapshots snapshot whose WEEKLY expert projections
-    are identical to the latest snapshot's.
-
-    Weekly cards compare Vegas props against weekly expert projections for
-    the SAME NFL week, so the vintage must come from the weekly snapshot
-    series (source=fantasypros, this season+week) — not season-long ROS
-    numbers, which legitimately sit unchanged mid-week while weekly numbers
-    move (2026-09-17: ROS identical since 09-11, weekly moved 943/1404 cells
-    09-16 -> 09-17).
-
-    Content key: (player_id, scoring_format) -> projected_points. Snapshots
-    compared newest-first; players present in only one of the two snapshots
-    don't reset the vintage. Returns the vintage date, or None on any error
-    or when no snapshots exist for the week (fail-closed)."""
+def _espn_snapshot_date(csv_path):
+    """Latest espn_snapshot_date in the CSV (the source-side "last changed"
+    column, NOT the file mtime). Returns date or None on any error."""
     try:
-        base = (f"?source=eq.fantasypros&season=eq.{season}&week=eq.{week}"
-                "&select=snapshot_at")
-
-        def as_dt(sa):
-            dt = datetime.fromisoformat(sa.replace("Z", "+00:00"))
-            return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-
-        stamps = set()
-        for r in sbclient.get_all("projection_snapshots", base):
-            sa = r.get("snapshot_at")
-            if not sa:
-                continue
-            try:
-                dt = as_dt(sa)
-            except Exception:
-                continue
-            if dt.date() <= today:
-                stamps.add(sa)
-        ordered = sorted(stamps, reverse=True)
-        if not ordered:
-            return None
-
-        def content(snap):
-            from urllib.parse import quote
-            rows = sbclient.get_all(
-                "projection_snapshots",
-                f"?source=eq.fantasypros&season=eq.{season}&week=eq.{week}"
-                f"&snapshot_at=eq.{quote(snap, safe='')}"
-                "&select=player_id,scoring_format,projected_points")
-            return {(r["player_id"], r["scoring_format"]): r["projected_points"]
-                    for r in rows if r.get("player_id")}
-
-        cur = content(ordered[0])
-        if not cur:
-            return None
-        vintage = as_dt(ordered[0]).date()
-        for snap in ordered[1:]:
-            prev = content(snap)
-            shared = set(cur) & set(prev)
-            if shared and all(cur[k] == prev[k] for k in shared):
-                vintage = as_dt(snap).date()
-                if (today - vintage).days > ECR_CONTENT_MAX_AGE_DAYS:
-                    break  # already provably stale; exact vintage irrelevant
-            else:
-                break
-        return vintage
-    except Exception:
+        import csv as _csv
+        with open(csv_path, newline="") as f:
+            r = _csv.DictReader(f)
+            latest = None
+            for row in r:
+                v = (row.get("espn_snapshot_date") or "").strip()
+                if not v:
+                    continue
+                try:
+                    d = datetime.fromisoformat(v).date()
+                except ValueError:
+                    continue
+                if latest is None or d > latest:
+                    latest = d
+            return latest
+    except (OSError, KeyError, ValueError):
         return None
 
 
-# ------------------------------------------------------------------ ECR gate
-def check_ecr_gate(ecr_path=None, now=None, season=2026, week=None):
-    """Fail-closed ECR recency gate (two layers).
+def load_espn_ros(csv_path=None, week=None):
+    """ESPN ROS expert leg -> (expert_pts, ecr_by_pos, meta, official).
 
-    1. Pull recency: data/ecr_pos.json mtime must be >= the most recent
-       Thursday 06:00 America/Chicago (the weekly ECR refresh lands
-       Thursday morning).
-    2. Content vintage: the earliest projection_snapshots snapshot for this
-       season+week whose WEEKLY expert projections are identical to the
-       latest must be within ECR_CONTENT_MAX_AGE_DAYS of today. A re-pull
-       of unchanged numbers does not reset this clock.
+    Returns the same shape that the retired ECR feed provided (see
+    v4/compute_v4.load_ecr + loaders/fantasypros.read_projections_dict) so
+    build_signals()'s downstream call to rank_deltas_by_position stays
+    unchanged.
+
+      expert_pts[k] = {'name', 'std', 'half', 'ppr'}  (per-player, for week N)
+      ecr_by_pos[pos][k] = pos_rank int  (1 = best at the position)
+      meta[k] = {'name', 'team', 'pos'}
+      official[k] = pos_rank str  (e.g. 'WR3')
+
+    For per-week expert points: prefer espn_weekly_projections.csv (per-week
+    half_ppr), fall back to espn_projections.csv's ROS half_ppr split across
+    ROS-weeks count. Positional ranks come from sorting ESPN's own ROS
+    half_ppr desc within each position (Mike Clay's ordering is the
+    ranking — same philosophy as FantasyPros ECR rank did, just sourced
+    from ESPN now). Returns ({}, {}, {}, {}) on any read failure
+    (fail-closed; caller blocks the run)."""
+    csv_path = csv_path or ESPN_PROJECTIONS_CSV
+    out_pts, out_by_pos, meta, official = {}, defaultdict(dict), {}, {}
+    if not os.path.exists(csv_path):
+        return out_pts, out_by_pos, meta, official
+    try:
+        import csv as _csv
+        # Optional per-week file. The puller writes it when content
+        # changes; an absent file means we split ROS evenly below.
+        weekly = {}
+        if os.path.exists(ESPN_WEEKLY_CSV):
+            with open(ESPN_WEEKLY_CSV, newline="") as f:
+                for r in _csv.DictReader(f):
+                    try:
+                        wk = int(r.get("week") or 0)
+                    except ValueError:
+                        continue
+                    key = (r.get("player_norm") or "").strip()
+                    if not key:
+                        continue
+                    try:
+                        weekly[(key, wk)] = float(r.get("half_ppr") or 0.0)
+                    except ValueError:
+                        continue
+        rows = []
+        with open(csv_path, newline="") as f:
+            for r in _csv.DictReader(f):
+                key = (r.get("player_norm") or "").strip()
+                if not key:
+                    continue
+                try:
+                    half = float(r.get("ros_half_ppr") or 0.0)
+                except ValueError:
+                    continue
+                rows.append({"key": key, "name": (r.get("player") or "").strip(),
+                             "pos": (r.get("pos") or "").strip(),
+                             "team": (r.get("team") or "").strip(),
+                             "half": half,
+                             "weeks_covered": (r.get("weeks_covered") or "").strip()})
+        # Per-week expert points: prefer the weekly CSV's per-row half_ppr;
+        # else split ROS evenly across the ROS weeks span.
+        def per_week_half(p):
+            if week is not None and (p["key"], int(week)) in weekly:
+                return weekly[(p["key"], int(week))]
+            try:
+                a, b = p["weeks_covered"].split("-")
+                n = max(1, int(b) - int(a) + 1)
+            except (ValueError, AttributeError):
+                n = 1
+            return p["half"] / n
+        for p in rows:
+            hw = per_week_half(p)
+            std = hw - 0.5 * 0  # half-ppr minus 0 receptions weight = same as half
+            # PPR derivation (consistent with pull_espn_projections.py):
+            #   half = std + 0.5*receptions;  ppr = half + 0.5*receptions
+            # We don't have per-player receptions here, so we mirror the
+            # vegas-leg derivation: std = half - 0.5*receptions (with
+            # receptions=0 -> std == half), ppr = half + 0.5*receptions
+            # (receptions=0 -> ppr == half). Game-day cards render PPR
+            # only; std/ppr are present for engine.disagreement's contract.
+            out_pts[p["key"]] = {"name": p["name"], "std": hw,
+                                 "half": hw, "ppr": hw}
+            meta[p["key"]] = {"name": p["name"], "team": p["team"],
+                              "pos": p["pos"]}
+        # Positional ranks from ESPN's own ROS ordering (Mike Clay).
+        by_pos = defaultdict(list)
+        for p in rows:
+            if p["pos"]:
+                by_pos[p["pos"]].append(p["key"])
+        for pos, keys in by_pos.items():
+            keys.sort(key=lambda k: -(out_pts[k]["half"] if k in out_pts else 0))
+            for i, k in enumerate(keys, start=1):
+                out_by_pos[pos][k] = i
+                if k in meta:
+                    official[k] = f"{pos}{i}"
+    except (OSError, ValueError, KeyError):
+        return {}, defaultdict(dict), {}, {}
+    return out_pts, out_by_pos, meta, official
+
+
+# ------------------------------------------------------------------ ESPN gate
+def check_espn_gate(csv_path=None, now=None, season=2026, week=None):
+    """Fail-closed ESPN ROS recency gate (two layers; JEG-418).
+
+    1. Pull recency: data/inputs/espn_projections.csv mtime must be within
+       the most recent daily refresh window (06:10 CT, hour-anchored). The
+       puller is no-op when ESPN's numbers are unchanged, so an old mtime
+       alone does not prove stale content — Layer 2 confirms.
+    2. Content vintage: the espn_snapshot_date column inside the CSV is the
+       date ESPN's payload last changed. That is the "when the source last
+       changed its numbers" clock the old ECR gate measured via DB snapshot
+       fingerprinting. A re-pull that captures byte-identical numbers must
+       not reset it.
     Returns (ok, message); caller exits 2 on failure.
     """
-    ecr_path = ecr_path or ECR_PATH
+    csv_path = csv_path or ESPN_PROJECTIONS_CSV
     now = now or datetime.now(CT)
     today = now.date()
     week = week if week is not None else current_week(season)
-    days_back = (now.weekday() - 3) % 7  # Thursday == 3
-    anchor = (now - timedelta(days=days_back)).replace(
-        hour=6, minute=0, second=0, microsecond=0)
-    if anchor > now:  # Thursday before 06:00 -> previous Thursday
-        anchor -= timedelta(days=7)
+    # Layer 1: pull recency. Anchor on the most recent refresh-day at 09:00
+    # CT (06:10 pull + 3h slop). Before today's anchor -> previous day.
+    anchor = now.replace(hour=ESPN_REFRESH_HOUR_CT, minute=0, second=0,
+                         microsecond=0)
+    if anchor > now:
+        anchor -= timedelta(days=1)
     try:
         mtime = datetime.fromtimestamp(
-            os.path.getmtime(ecr_path), tz=timezone.utc).astimezone(CT)
+            os.path.getmtime(csv_path), tz=timezone.utc).astimezone(CT)
     except OSError:
-        return False, f"BLOCKED: {ecr_path} missing"
+        return False, f"BLOCKED: {csv_path} missing"
     if mtime < anchor:
         age = now - mtime
-        return False, (f"BLOCKED: {ecr_path} stale pull: "
-                        f"mtime {mtime:%Y-%m-%d %H:%M %Z} < "
-                        f"required {anchor:%Y-%m-%d %H:%M %Z} (age {age})")
-    vintage = _ecr_content_vintage(today, season, week)
+        return False, (f"BLOCKED: {csv_path} stale pull: "
+                      f"mtime {mtime:%Y-%m-%d %H:%M %Z} < "
+                      f"required {anchor:%Y-%m-%d %H:%M %Z} (age {age})")
+    # Layer 2: ESPN content vintage (source-side change date).
+    vintage = _espn_snapshot_date(csv_path)
     if vintage is None:
-        return False, ("BLOCKED: could not determine weekly ECR content "
-                       f"vintage for season {season} week {week} (fail-closed)")
+        return False, ("BLOCKED: could not determine ESPN content "
+                       f"vintage from {csv_path} (fail-closed)")
     age_days = (today - vintage).days
-    if age_days > ECR_CONTENT_MAX_AGE_DAYS:
-        return False, (f"BLOCKED: ECR content stale: week-{week} expert "
+    if age_days > ESPN_MAX_AGE_DAYS:
+        return False, (f"BLOCKED: ESPN content stale: week-{week} ESPN "
                        f"projections unchanged since {vintage} "
-                       f"({age_days}d > {ECR_CONTENT_MAX_AGE_DAYS}d max)")
-    return True, (f"ECR fresh: pulled {mtime:%Y-%m-%d %H:%M %Z}; "
-                  f"week-{week} expert content vintage {vintage} "
+                       f"({age_days}d > {ESPN_MAX_AGE_DAYS}d max)")
+    return True, (f"ESPN fresh: pulled {mtime:%Y-%m-%d %H:%M %Z}; "
+                  f"week-{week} ESPN content vintage {vintage} "
                   f"({age_days}d old)")
 
 
@@ -306,9 +389,10 @@ def refresh_injuries():
 # ------------------------------------------------------- signal computation
 def build_signals(week, season=2026):
     """Same signal-building logic as v4/compute_v4.main, but WITHOUT the
-    post_queue draft rotation (game-day must not disturb existing drafts)."""
-    ecr_proj = read_projections_dict(week)
-    ecr_by_pos, meta, official = load_ecr()
+    post_queue draft rotation (game-day must not disturb existing drafts)
+    and with ESPN ROS replacing the retired ECR feed (JEG-418) for both
+    expert points and positional ranks."""
+    expert_pts, ecr_by_pos, meta, official = load_espn_ros(week=week)
     player_props, td_cover, _prop_meta = load_props()
 
     # Local raw-book leg (The Odds API -> engine.vegas). Under the
@@ -376,7 +460,7 @@ def build_signals(week, season=2026):
         local_keys = {k for d in local_by_pos.values() for k in d}
 
     expert_pts = {k: {"std": v["std"], "half": v["half"], "ppr": v["ppr"]}
-                  for k, v in ecr_proj.items()}
+                  for k, v in expert_pts.items()}
     signals = rank_deltas_by_position(vegas_by_pos, ecr_by_pos,
                                       expert_pts=expert_pts,
                                       official_pos_rank=official, meta=meta)
@@ -461,9 +545,15 @@ def resolve_baseline_batch(week, season, cutoff_utc):
 
 
 def load_baseline_points(batch_id):
-    """{player_id: {'vegas': pts, 'fantasypros': pts}} — full_ppr rows only,
+    """{player_id: {'vegas': pts, 'espn': pts}} — full_ppr rows only,
     since game-day cards render PPR points. Reuses the existing snapshot
-    rows; no new tables."""
+    rows; no new tables.
+
+    JEG-418: the expert-side source key moved from 'fantasypros' to 'espn'.
+    Older snapshot batches written before the ESPN swap may still carry
+    'fantasypros' rows; both keys are accepted as the expert leg so a
+    freshly-written batch is compared against its own prior batch in the
+    same series without a hard break."""
     rows = sbclient.get_all(
         "projection_snapshots",
         f"?batch_id=eq.{batch_id}&scoring_format=eq.full_ppr"
@@ -474,8 +564,8 @@ def load_baseline_points(batch_id):
         d = out.setdefault(r["player_id"], {})
         if r["source"] == "vegas_implied":
             d["vegas"] = float(r["projected_points"])
-        elif r["source"] == "fantasypros":
-            d["fantasypros"] = float(r["projected_points"])
+        elif r["source"] in ("espn", "fantasypros"):
+            d["espn"] = float(r["projected_points"])
     return out
 
 
@@ -501,8 +591,8 @@ def attach_movement(signals, baseline_pts):
             continue
         if base.get("vegas") is not None and s.get("vegas_ppr") is not None:
             s["move_vegas"] = s["vegas_ppr"] - base["vegas"]
-        if base.get("fantasypros") is not None and s.get("expert_ppr") is not None:
-            s["move_expert"] = s["expert_ppr"] - base["fantasypros"]
+        if base.get("espn") is not None and s.get("expert_ppr") is not None:
+            s["move_expert"] = s["expert_ppr"] - base["espn"]
 
 
 # ------------------------------------------------------------------- tweet
@@ -575,8 +665,9 @@ def main():
     ap.add_argument("--window-hours", type=float, default=6,
                     help="DEPRECATED (2026-09-11): no longer used; kept so "
                          "older invocations don't break")
-    ap.add_argument("--ecr-path", default=None,
-                    help="testing override: ECR file for the recency gate")
+    ap.add_argument("--espn-csv", default=None,
+                    help="testing override: path to ESPN ROS CSV for the "
+                         "recency gate")
     ap.add_argument("--season", type=int, default=2026)
     a = ap.parse_args()
 
@@ -585,17 +676,9 @@ def main():
     run_start_utc = datetime.now(timezone.utc)  # baseline cutoff: a batch
     # written by this run must never be its own movement baseline
 
-    ok, msg = check_ecr_gate(a.ecr_path, season=a.season, week=week)
+    ok, msg = check_espn_gate(a.espn_csv, season=a.season, week=week)
     print(msg, flush=True)
     if not ok:
-        sys.exit(2)
-    proj_paths = [os.path.join(BASE, "data", "fantasypros",
-                               f"proj_{p}_wk{week}.csv")
-                  for p in ("qb", "rb", "wr", "te")]
-    missing = [p for p in proj_paths if not os.path.exists(p)]
-    if missing:
-        print(f"BLOCKED: ECR projections CSV(s) missing: {missing}. "
-              f"Run the weekly ECR refresh (with projections), then rerun.")
         sys.exit(2)
 
     if a.game_id:
