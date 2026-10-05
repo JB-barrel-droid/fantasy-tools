@@ -135,10 +135,11 @@ def make_import_item(
     gate_status = entry.get("status") or "unknown"
     freshness_ok = gate_status == "ok" and observed is not None and 0 <= age_days <= max_age_days
     status = "same_day" if freshness_ok and age_days == 0 else ("stale" if not freshness_ok else "current")
+    content_vintage = entry.get("content_vintage") or entry.get("vintage")
     return {
         "key": key,
         "label": label,
-        "value": entry.get("content_vintage"),
+        "value": content_vintage,
         "status": status,
         "age_days": age_days,
         "max_age_days": max_age_days,
@@ -149,7 +150,7 @@ def make_import_item(
         "note": (
             f"L1 status={gate_status}; "
             f"last_successful_import={entry.get('last_successful_import') or 'unknown'}; "
-            "content_vintage is source provenance, not pull time"
+            f"content_vintage is {content_vintage} source provenance, not pull time"
         ),
         "l1_status": gate_status,
         "failure_reason": entry.get("failure_reason"),
@@ -186,7 +187,6 @@ def build_report(
     chart_input_set = set(chart_input_keys)
     items = [
         make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous, max_age_days, enforced_set),
-        make_item("players.ecr_content_date", "Expert/ECR content date", player_meta.get("ecr_content_date"), today, previous, max_age_days, enforced_set),
         make_item("players.espn_snapshot", "ESPN projection snapshot", player_meta.get("espn_snapshot"), today, previous, max_age_days, enforced_set),
         make_item("players.pm_snapshot", "Prediction-market snapshot", player_meta.get("pm_snapshot"), today, previous, max_age_days, enforced_set),
         make_item("players.kdst_snapshot", "K/DST snapshot", player_meta.get("kdst_snapshot"), today, previous, max_age_days, enforced_set),

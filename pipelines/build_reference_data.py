@@ -69,7 +69,6 @@ def validate_players(payload: dict[str, Any]) -> dict[str, Any]:
         "player_count": len(players),
         "as_of": meta.get("as_of"),
         "espn_snapshot": meta.get("espn_snapshot"),
-        "ecr_content_date": meta.get("ecr_content_date"),
     }
 
 
