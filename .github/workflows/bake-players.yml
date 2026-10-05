@@ -1,0 +1,97 @@
+name: Bake players.json (non-Mac producer)
+
+# JEG-392 / ARCH-013: rebuild data/fixtures/current/players.json without the
+# Mac. Every bake input is either committed (data/inputs/*) or read from
+# Supabase, the system of record: the CBS ROS snapshot is re-exported from
+# public.cbs_ros_projections (pipelines/export_cbsros_snapshot.py) instead of
+# the Mac-only data/raw copy.
+#
+# Trigger: push to a bake/** branch (the result is committed back to that
+# branch for review and merges through the normal gated path), or manual
+# dispatch from main (commits to a fresh bake/<run_id> branch). Never pushes
+# to main: main only changes through a reviewed merge, and pages.yml's
+# `make validate` gate still decides whether anything deploys.
+
+on:
+  push:
+    branches: ["bake/**"]
+    paths-ignore:
+      - "data/fixtures/current/players.json"
+      - "data/fixtures/current/players.naming-manifest.json"
+  workflow_dispatch:
+    inputs:
+      cbsros_date:
+        description: "cbs_snapshot_date to export (blank = latest saved)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+concurrency:
+  group: bake-players-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  bake:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Export CBS ROS snapshot from Supabase
+        id: cbs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          date_arg=""
+          if [ -n "${{ github.event.inputs.cbsros_date }}" ]; then date_arg="--date ${{ github.event.inputs.cbsros_date }}"; fi
+          if [ -f data/fixtures/current/.bake-cbsros-date ]; then date_arg="--date $(cat data/fixtures/current/.bake-cbsros-date)"; fi
+          python3 pipelines/export_cbsros_snapshot.py $date_arg | tee /tmp/cbs.log
+          snap=$(ls -d data/raw/sources/cbsros/*/snapshot.json | sort | tail -1)
+          echo "snapshot=$snap" >> $GITHUB_OUTPUT
+
+      - name: Bake players.json
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/bake_players.py --cbsros-snapshot "${{ steps.cbs.outputs.snapshot }}" | tee /tmp/bake.log
+          python3 pipelines/pin_naming_manifest.py --source-label "supabase:players"
+          make sync
+
+      - name: Validate (report only; pages.yml is the blocking gate)
+        id: validate
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          make validate 2>&1 | tee /tmp/validate.log
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "## Bake"; tail -15 /tmp/bake.log 2>/dev/null
+            echo "## Validate outcome: ${{ steps.validate.outcome }}"
+            grep -E "^(FAIL|ERROR):|make: \*\*\*|Error" /tmp/validate.log 2>/dev/null | head -40
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit bake to branch
+        run: |
+          git config user.name "bake-players[bot]"
+          git config user.email "bake-players@users.noreply.github.com"
+          branch="${GITHUB_REF_NAME}"
+          if [ "$branch" = "main" ]; then branch="bake/run-${GITHUB_RUN_ID}"; git checkout -b "$branch"; fi
+          git add data/fixtures/current/players.json data/fixtures/current/players.naming-manifest.json dist app output/reference-build-report.json 2>/dev/null || true
+          if git diff --cached --quiet; then echo "No bake changes."; exit 0; fi
+          git commit -m "Bake players.json via GitHub Actions (validate: ${{ steps.validate.outcome }})"
+          git push origin "HEAD:$branch"

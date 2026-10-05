@@ -398,6 +398,59 @@ def fetch_espn_intake(path, registry):
     return espn_med, snap
 
 
+SKILL_POS = ("QB", "RB", "WR", "TE")
+
+
+def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
+    """Skill players the board carries at an ESPN value of zero (JEG-392).
+
+    JEG-ECR-EXIT narrowed the board to ESPN's 348 *eligible* skill players,
+    which orphaned 185 identities the comparison artifact still prices and
+    made every downstream universe assumption (pie totals, bench mix, CBS
+    ROS coverage, the source-chain coverage review) fail. ESPN's own
+    projection for those players is zero, so carrying them at zero is the
+    ESPN-only value, not a fill:
+
+      - "ineligible": listed in the ESPN CSV with eligible=False (ESPN
+        projects 0; includes season-ending IR, which the chart badges via
+        the comparison artifact's espn_zeroed list per the IR rule).
+      - "absent": not in the ESPN CSV at all, but priced/keyed by the
+        comparison artifact (ESPN publishes no projection = 0).
+
+    Returns {player_key: {"pos", "team", "espn_status"}}. Never includes a
+    key already in espn_med; identity still resolves fail-closed through the
+    canonical registry (unresolvable names are skipped, never guessed).
+    """
+    out = {}
+    with open(espn_csv, newline="") as f:
+        for r in csv.DictReader(f):
+            if _elig_flag(r.get("eligible")):
+                continue
+            pos = (r.get("pos") or "").strip()
+            if pos not in SKILL_POS:
+                continue
+            key = _resolve_csv_row(r.get("player", ""), pos, "espn-zero",
+                                   registry)
+            if key is None or key in espn_med or key in out:
+                continue
+            out[key] = {"pos": pos, "team": (r.get("team") or "").strip(),
+                        "espn_status": "ineligible"}
+    if comparison_fixture and Path(comparison_fixture).exists():
+        payload = json.loads(Path(comparison_fixture).read_text(encoding="utf-8"))
+        for key in set((payload.get("player_keys") or {}).values()):
+            if not isinstance(key, int) or key in espn_med or key in out:
+                continue
+            entry = registry.by_key.get(key) if registry is not None else None
+            if not entry or entry.get("position") not in SKILL_POS:
+                continue
+            out[key] = {"pos": entry["position"], "team": "",
+                        "espn_status": "absent"}
+    n_inel = sum(1 for v in out.values() if v["espn_status"] == "ineligible")
+    print(f"espn zero universe: {len(out)} skill players at ESPN 0 "
+          f"({n_inel} ineligible, {len(out) - n_inel} absent from ESPN CSV)")
+    return out
+
+
 def bake(args):
     registry = load_registry()
 
@@ -440,8 +493,15 @@ def bake(args):
     # ESPN projection). pos / team come from the ESPN CSV row; fall back
     # to the canonical registry when the CSV is silent on one (DST / K
     # rows are appended separately below).
+    espn_zero = espn_zero_universe(
+        args.espn_csv, getattr(args, "comparison_fixture", None), espn_med,
+        registry)
+    skill_rows = [(k, r, None) for k, r in espn_med.items()]
+    skill_rows += [(k, {"comps": {}, "pos": z["pos"], "team": z["team"]},
+                    z["espn_status"]) for k, z in sorted(espn_zero.items())]
+
     players = []
-    for key, espn_row in espn_med.items():
+    for key, espn_row, espn_status in skill_rows:
         v = espn_row["comps"]
         pos = espn_row["pos"]
         # Team: ESPN CSV first (variant-normalized), canonical registry
@@ -507,27 +567,41 @@ def bake(args):
             # too — the primary blend is ESPN-sourced for every position.
             "pricing": "espn_only",
         }
+        if espn_status:
+            # JEG-392: ESPN projects this player at zero (ineligible or not
+            # published). The ESPN-only primary value is therefore 0.
+            row["espn_zeroed"] = True
+            row["espn_status"] = espn_status
         if pm_ros is not None:
             row["pm_ros"] = pm_ros
         if pm_complete:
             row["pm_filled_ros"] = pm_filled_ros
-            row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
+            if not espn_status:
+                row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
         gr = games_left.get(team)
         row["games_remaining"] = gr
+        # JEG-392: ESPN-zeroed rows publish no ESPN per-game projection and
+        # no ESPN-relative deltas (ESPN has none to compare against), the
+        # same contract the pre-JEG-ECR-EXIT fixture used for ESPN-unpriced
+        # players. The chart's ESPN pools (curves, waiver lines, bench mix)
+        # therefore see exactly the ESPN-priced players, as before.
+        has_espn = not espn_status
         if gr:
-            row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
-            row["espn_ppg"] = {s: round(v / gr, 2) for s, v in row["espn_ros"].items()}
+            if has_espn:
+                row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
+                row["espn_ppg"] = {s: round(v / gr, 2) for s, v in row["espn_ros"].items()}
             if pm_ros is not None:
                 row["pm_ppg"] = {s: round(row["pm_ros"][s] / gr, 2)
                                  for s in SCORINGS}
             if pm_complete:
                 row["pm_filled_ppg"] = {s: round(pm_filled_ros[s] / gr, 2)
                                         for s in SCORINGS}
-                row["delta_pm_espn_ppg"] = round(
-                    row["pm_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
+                if has_espn:
+                    row["delta_pm_espn_ppg"] = round(
+                        row["pm_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
@@ -537,10 +611,11 @@ def bake(args):
                 row["rz_ros"] = {s: round(z[s] * gr, 2) for s in SCORINGS}
                 row["rz_filled_ppg"] = dict(row["rz_ppg"])
                 row["rz_filled_ros"] = dict(row["rz_ros"])
-                row["delta_rz_espn"] = round(
-                    row["rz_filled_ros"]["ppr"] - row["espn_ros"]["ppr"], 2)
-                row["delta_rz_espn_ppg"] = round(
-                    row["rz_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
+                if has_espn:
+                    row["delta_rz_espn"] = round(
+                        row["rz_filled_ros"]["ppr"] - row["espn_ros"]["ppr"], 2)
+                    row["delta_rz_espn_ppg"] = round(
+                        row["rz_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # CBS ROS: per-game rates are pre-computed in the snapshot
             # (per_game_standard/half_ppr/ppr = ROS totals / gp). No ROS
             # fill here: the curve re-prices live from cbsros_ppg via the
@@ -664,7 +739,10 @@ def bake(args):
         out = {}
         for pos in ("QB", "RB", "WR", "TE"):
             vals = [r[leg_ppg]["ppr"] - r[leg_complete]["ppr"] for r in players
-                    if r["pos"] == pos and r.get(leg_ppg) and r.get(leg_complete)]
+                    if r["pos"] == pos and r.get(leg_ppg) and r.get(leg_complete)
+                    # JEG-392: ESPN-zeroed rows measure ESPN's absence, not
+                    # its bias; they must not move the positional shade.
+                    and not r.get("espn_zeroed")]
             # leg_ppg is the comparison leg, leg_complete is ESPN (primary):
             # shade = mean(comparison_ppg - espn_ppg); positive = ESPN cooler.
             out[pos] = {"ppr": round(sum(vals) / len(vals), 3)} if vals else {"ppr": 0.0}
@@ -894,6 +972,10 @@ def main():
     ap.add_argument("--cbsros-snapshot", default=None,
                     help="CBS ROS snapshot.json path; default: latest dated "
                          "snapshot under data/raw/sources/cbsros/")
+    ap.add_argument("--comparison-fixture",
+                    default=str(FIXTURE_DIR / "comparison-sources-data.json"),
+                    help="comparison artifact whose keyed identities the board "
+                         "must carry (JEG-392); ESPN-absent ones bake at 0")
     ap.add_argument("--k-json", default=str(INPUTS_DIR / "espn_k_ppg_2026-09-21.json"))
     ap.add_argument("--dst-json", default=str(INPUTS_DIR / "espn_dst_ros_2026-09-21.json"))
     args = ap.parse_args()
