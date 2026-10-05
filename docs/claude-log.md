@@ -4,7 +4,6 @@
 
 Both acceptance exercises ran against the merged gate (340f46c) via
 workflow_dispatch on scratch branches.
-
 ### Exercise A — red validate + dist/modules-only HEAD (run 37065928007)
 Branch `roman/jeg-133-scratch-red-build`: commit 1 adds a deliberately failing
 unit test (red `make validate`); HEAD commit touches only
@@ -13,7 +12,6 @@ Run conclusion: **failure** — `make validate` ran unconditionally and its red
 exit blocked the job before the deploy steps. No Pages build published.
 (Two earlier attempts were cancelled by the `pages` concurrency group during
 main's push activity; the third ran clean.)
-
 ### Exercise B — JS error in chart page (run 37065334467)
 Branch `roman/jeg-133-scratch-js-error`: top-level
 `throw new Error("jeg133-scratch-js-error")` in `app/trade-value-chart/index.html`.
@@ -21,15 +19,12 @@ Run conclusion: **failure** — `make validate` passed (Python tests unaffected 
 page JS); the rendered gate step caught the page error and its non-zero exit
 blocked the deploy. `verify_live.py` after the run: LIVE OK on build
 tv-20261002-1604-3528152 — the scratch branch never deployed.
-
 Scratch branches left on the remote for the record; they touch no production path.
 ## 2026-10-02 - JEG-134 (R7): first real CBS ROS production run — green and verified
-
 Workflow `.github/workflows/cbsros-supabase-sync.yml` dispatched on main.
 Run 37065360913 (2026-10-02 21:11 UTC): scrape succeeded, save succeeded,
 conclusion success. Two earlier runs the same day (37059509615, 37063023888)
 failed the saver's row-count check at the Save to Supabase step.
-
 ### Verified
 - `public.cbs_ros_projections` holds 363 rows for vintage 2026-10-02 (all
   distinct player_keys), matching the afternoon CBS scrape exactly.
@@ -38,7 +33,6 @@ failed the saver's row-count check at the Save to Supabase step.
   snapshot. Content hash 97973c9ddb76930f.
 - 4 review rows (Trubisky, Brooks, Knight, Okonkwo — no_match) correctly
   excluded, never written.
-
 ### Incident and remediation (same day)
 - Root cause of the two failed runs: a morning local save wrote 363 rows for
   vintage 2026-10-02; CBS updated its ROS pages intraday (dropped Calvin Ridley,
@@ -50,8 +44,24 @@ failed the saver's row-count check at the Save to Supabase step.
 - Remediation: deleted the 4 stale morning rows (keys 2282/3077/3561/4283);
   re-dispatched the workflow → green. Full analysis on the JEG-125 thread.
 - Durable fix is JEG-125 (saver replace-semantics per vintage: upsert then prune
-  keys absent from the fresh snapshot), dispatched to the minimax lane.
-
+  keys absent from the fresh snapshot), dispatched to the minimax lane.## 2026-10-02 - JEG-113: `Rebuild comparison chain` failing in CI (5 consecutive), succeeds locally
+Lane: minimax (M3). Branch `minimax/jeg-113-ci-chain-failure`. Diagnosis
+only — no code change proposed. Result written to
+`lanes/inbox/minimax/JEG-113.md`.
+### Verified (checks named)
+- `.github/workflows/rebuild-chain.yml` and `pipelines/rebuild_comparison_chain.py` were read end to end; the chain has 9 stages, of which snapshot / match / reference / section / reindex / review / promote / fit / adjusted_sections are fail-closed and `vorp-translate` + `vorp_refresh` are fail-safe.
+- `dist/modules/comparison-chain-status.json` records a successful local run at `2026-10-02T12:45:12.147510+00:00` (nfl_week=4, all 6 sources promoted, `runner: "local"`) — exactly two minutes after one of the listed CI failures at Oct 2 12:43 UTC, on the same branch with a clean working tree (`git status` confirmed before the commit).
+- `git log --oneline -30` shows no commits on the chain code in the window the 5 CI failures started (Oct 1 06:02 .. Oct 2 12:43 UTC); the most recent chain-affecting commits are JEG-70 (VORP translation) and JEG-104 (migration). The headline commit on top is `eb03a76 Resolve JEG-76/JEG-109 conflict…`.
+- `data/raw/sources/` on disk contains only `cbsros/2026-09-30/`, `espn/live_page_projections_2026-09-30.json` (a file, not a directory), and `fantasycalc/week-4/`. **No directories exist for `usatoday`, `fantasypros`, `cbs`, or `razzball`** — so the local "success" at 12:45 was reading a state from earlier than the current workspace (which was last touched at 20:01, per directory mtime). This means the real comparison is CI's freshly-imported snapshots vs. the chain stages.
+- `pipelines/gh_sbclient.py` (the CI shim) was read in full; it implements `get / get_all / post / patch / delete` and `SupabaseError`, and is installed on `PYTHONPATH=/tmp/gh_shim` by the workflow's install step.
+### Claimed, unverified
+- **The actual CI exception text** — required by the issue brief and not obtained. Every egress channel from this host (`bash curl`, `web_fetch`, `web_search`) returned `HOST_CAPABILITY_UNAVAILABLE` / `MATRIX_TOOL_REQUEST_FAILED`. The diagnosis in `lanes/inbox/minimax/JEG-113.md` is a structural shortlist (H1–H6), not a verdict. Resolves with a single `gh run view 37008420140 --repo JB-barrel-droid/fantasy-tools --log-failed`.
+- The local run at 12:45 succeeded *on the same code state* as the failing CI run at 12:43. Inferred from `dist/modules/comparison-chain-status.json` `run_at` and `git status` clean. Not independently re-run (the snapshot dirs needed for it no longer exist locally).
+- `_select_latest_bake` in `import_supabase_references.py` would `raise SystemExit("Fail closed: multiple bakes present but no created_at on any row; cannot determine the latest bake without guessing.")` if Supabase has rows for ≥2 bake_ids and none have `created_at`. Read from the code; not observed in CI.
+### Open
+- The 5-run streak on `Rebuild comparison chain` may be the import step (or health step) failing in CI, not the chain step itself — the Actions summary can mark the *first failing* step, and the brief's headline may be looser than the underlying cause. Worth checking the run summary, not just the chain step's log.
+- `lanes/inbox/minimax/JEG-113.md` is committed on `minimax/jeg-113-ci-chain-failure` but **not pushed** (the issue brief explicitly says "no fix yet" and "commit only the inbox file"; that overrides the standing "commit and push by default" rule).
+---
 ## 2026-10-02 - JEG-104 migration replay correction (Codex)
 
 ### Verified
@@ -2198,14 +2208,10 @@ accidentally dropped.
 ## 2026-10-02 - JEG-187: R4 verified-not-assumed fix for fantasypros and fantasycalc
 
 Branch `minimax/jeg187-brief`, based on `origin/main` `54b851c`.
-
 ### Changed
-
 - `pipelines/lib/publication_windows.py`: `fantasypros` and `fantasycalc` `publish_day` set to `None` per the R4 / decision-4 verified-not-assumed contract that JEG-179 already established for CBS. Notes updated to honestly reflect the unverified state; `fantasycalc` `n_observations` corrected from 3 (claimed in JEG-131) to 0 (matches disk reality: the repo's data/raw/sources/fantasycalc/ holds a single week-4 snapshot, and the gap-analysis section-4 audit lists FantasyCalc as an "undefined" freshness limit). `fantasypros` already had `n_observations=0`; the schedule was inferred (JEG-131 R4a) and the JEG-131 R4a header comment already noted "schedule inferred from industry patterns" for this source.
 - `tests/test_publication_windows.py`: two new test classes (`TestFantasyProsUnknown`, `TestFantasyCalcUnknown`) with 2 tests each. Each test fails on the pre-fix code (`status="red"`) and passes on the post-fix code (`status="stale"`), exercising both the gap-analysis scenario (Week 3 vintage at Week 4 on 2026-09-29 Tuesday) and the gate-test scenario mirrored exactly (Week 2 vintage at Week 3 on 2026-09-21 Monday). Four negative-control tests total.
-
 ### Verified (checks named)
-
 - Read `pipelines/lib/publication_windows.py` (pre-fix and post-fix). With `publish_day=None` for fantasypros and fantasycalc, `get_publication_status` takes the branch at line 185 and returns `("stale", "STALE_VINTAGE: content vintage Week X != current Week Y. No verified publication schedule for <source>; <notes>")` — matches both failing assertions' substring expectations verbatim.
 - Read `tests/test_import_health.py:228-241` (fantasycalc) and `tests/test_import_health.py:620-643` (fantasypros): both expect `status=="stale"`, `failure_reason` starts with `"STALE_VINTAGE"` and contains `"No verified publication schedule"`. Post-fix code satisfies all four assertions.
 - Read `tests/test_publication_windows.py`: the pre-existing `TestCbsUnknown.test_cbs_behind_is_stale` is the JEG-179 pattern reference. The two new test classes mirror its shape.
@@ -2214,25 +2220,18 @@ Branch `minimax/jeg187-brief`, based on `origin/main` `54b851c`.
 - Read `docs/health/gap-analysis-and-recommendations.md` line 32 (decision 4) and line 138 (R4 recommendation): "Freshness limits follow the NFL week and each source's publication timing, not a fixed number of days. ... Each source's expected publication timing is measured from its own history (this covers CBS, CBS ROS, FantasyCalc and FantasyPros, which had no rule)." FantasyCalc and FantasyPros explicitly named.
 - Read JEG-179 commit `903cfcd`: established the `publish_day=None` + `n_observations=0` pattern for unverified schedules; my fix is the same shape applied to the two remaining unverified sources.
 - Read JEG-131 commit `bdc66db`: set schedules for all 6 sources with measurement provenance; JEG-179 reconciled one source; JEG-187 reconciles the other two week-designated sources.
-
 ### Claimed, unverified
-
 - Test execution. Sandbox cannot run `python3 -m unittest`. Roman runs `python3 -m unittest tests.test_publication_windows tests.test_import_health -v` on a host with permission.
 - The local data/raw/sources/fantasycalc/ directory is gitignored; the repo holds only week-4 there. JEG-131's review claimed `n_observations=3` from local data Roman saw. I do not have access to that data. The post-fix value `n_observations=0` matches the gap-analysis audit and the test author's pre-JEG-131 comment; if Roman's observation count is correct and the team prefers FantasyCalc to be treated as verified, the targeted revert is to put `fantasycalc` back to `publish_day=1` with `n_observations=3` AND update `test_week2_vintage_stale_with_nfl_week_3` (line 236) and `test_fantasycalc_*` tests to expect `"red"`. I did not take that path because the gap-analysis audit, the test author's comment, and JEG-179's verified-not-assumed pattern all converge on unverified.
 - `make validate` exit code: not executed.
-
 ### Open
-
 - Whether the JEG-131 measurement-provenance ledger should keep a numeric `n_observations` for sources with no real history. `n_observations=0` is the honest value; an auditor reading `n_observations=0` may assume zero verification attempts, when JEG-131's review did examine local data. A clearer label might be `verification_status: "industry-pattern-only"` instead of a numeric count. Out of scope for JEG-187; flagging for the eventual schedule-verification sprint.
 - Whether `fantasycalc` should have an observed-cadence audit added (data/raw/sources/fantasycalc/ on the runner machine; commit provenance; observation count). The R4 contract treats this as required before the gate can return yellow/red on fantasycalc. Out of scope for JEG-187.
-
 ## 2026-10-02 - JEG-189 (R10 wiring): scheduler slip into deadline checker
-
 Wired `pipelines/measure_scheduler_slip.py` (built in JEG-137, never
 production-connected) into `pipelines/check_deadlines.py`. Per-source
 slip is now carried by `PUBLICATION_SCHEDULES[...]` and extends the
 grace window.
-
 ### What I changed (claimed)
 - `pipelines/lib/publication_windows.py`:
   - Added `slip_observed_max_minutes`, `slip_measured_at`,
@@ -2283,7 +2282,6 @@ grace window.
   "slip: <N>m measured"), `load_slip_overrides` semantics, the
   `check_deadlines()` wiring (calls compute_slip_measurement,
   applies slip to source states), and public-vocabulary hygiene.
-
 ### What I verified (not yet)
 - File syntax: read each modified file end-to-end; imports and
   function signatures cross-checked against the test file.
@@ -2299,7 +2297,6 @@ grace window.
     early).
 - Roman verifies by running `make validate` outside the sandbox; I
   did NOT run the test suite per the brief's constraints.
-
 ### What I deliberately did NOT change
 - `pipelines/measure_scheduler_slip.py` was already production-ready
   per JEG-137 (Roman direct follow-up wired tests into
@@ -2310,15 +2307,12 @@ grace window.
   local cron) is responsible for passing a real fetcher.
 - No push to `main`. Worktree is `minimax/jeg189-brief` on top of
   `2e1f354` (origin/main HEAD).
-
 ## 2026-10-03 - JEG-211: K/DST VORP computation under the group framework
-
 Build phase. New K/DST computation lives on branch
 `minimax/jeg-211-kdst`; main is untouched. Implements the contract in
 `docs/kdst-group-contract.md` exactly: K/DST are (K|DST) x (starter|bench)
 groups, SEPARATE and OPTIONAL from the 8 skill-position groups, computed
 but flagged "not displayed".
-
 ### What I changed
 - `pipelines/build_ddf_kdst_leg.py` (new): K/DST-specific DDF leg
   builder. Reuses the locked two-tier math from `build_ddf_two_tier_leg`
@@ -2352,8 +2346,6 @@ but flagged "not displayed".
   empty group, negative value, missing calibration), input loaders,
   identity resolution against the fixture, and a live-leg integration
   test that skips if no K/DST leg has been built locally.
-
-### What I deliberately did NOT change
 - `app/trade-value-chart/` -- verified by `grep` (kDst in POSSIBLE_POSITIONS
   but the 8-group logic never emits K/DST; the chart already excludes
   them). No UI changes per the assignment.
@@ -2368,7 +2360,6 @@ but flagged "not displayed".
   pie or its guards. K/DST roster config lives in the new module.
 - No push to `main`. Branch `minimax/jeg-211-kdst` only; commit pending
   in the next session step.
-
 ### Verified (this session)
 - K/DST inputs read: 45 kickers and 32 defenses parsed from the
   current `data/inputs/espn_k_ppg_2026-09-21.json` and
@@ -2381,7 +2372,6 @@ but flagged "not displayed".
   `compute_groups` never produces them. No code path in the chart
   reads `ddf-kdst-group-vorps.json`. Confirmed by `grep` on the
   `assets/` directory.
-
 ### Unverified
 - Tests not run in this sandbox; verification happens in the next
   harness step. `make validate` has not been run from this branch.
@@ -2394,218 +2384,3 @@ but flagged "not displayed".
   flags the drift. The audit's 2026-10-01 snapshot showed all 45 K
   and 32 DST resolve cleanly.
 
-## 2026-10-03 - JEG-299 (follow-up): rebuild-chain test simulator is NOT stale — brief hypothesis refuted
-
-The dispatch brief (lanes/outbox/minimax/JEG-299-test-simulator.md) claimed
-`make test-unit` is red on clean origin/main with 2 failures in
-`tests/test_rebuild_chain_workflow.py` (`test_real_workflow_is_clean` and
-`test_red_chain_pushes_only_status_and_health_files`), caused by the
-simulator not being updated for the post-JEG-299 workflow restructures
-(56d9b52, a297978, bc7cf74, df73cff).
-
-**Verified** — directly run on `minimax/jeg-299-test-simulator` (df73cff):
-
-```
-python3 -m unittest tests.test_rebuild_chain_workflow -v
-test_a_job_that_stays_green_after_a_failed_chain_is_caught ... ok
-test_dropping_the_fail_step_condition_is_caught ... ok
-test_green_chain_pushes_fixture_and_monitor_copy ... ok
-test_green_path_not_syncing_the_monitor_copy_is_caught ... ok
-test_losing_continue_on_error_is_caught ... ok
-test_not_publishing_status_on_failure_is_caught ... ok
-test_real_workflow_is_clean ... ok
-test_red_chain_pushes_only_status_and_health_files ... ok
-test_staging_the_fixture_on_failure_is_caught ... ok
-----------------------------------------------------------------------
-Ran 9 tests in 1.732s
-
-OK
-```
-
-All 9 tests pass, including the full assertCaught mutation battery
-(every mutation still rejected). Hand-trace of the failure scenario
-(`run_scenario(WORKFLOW, "failure")`):
-
-- `red["changed"]` = `{"dist/modules/comparison-chain-status.json",
-  "output/comparison-chain-status.json"}` — matches the test's
-  `{MONITOR_STATUS, OUT_STATUS}` assertion exactly.
-- `red["fixture"]` = `"OLD"` (the partial `PARTIAL` fixture written by
-  `run_scenario` was correctly NOT added by the red-path
-  `dist/modules/source-import-health.json \
-   dist/modules/comparison-chain-status.json \
-   dist/modules/github-actions.json \
-   output/source-import-health.json \
-   output/comparison-chain-status.json` `git add`).
-- `red["monitor_status"]` = `"RED"` — PUBLISH_RED's `cp` ran.
-- `red["fail_rc"]` = `1` — the "Fail the job if the chain failed" step
-  ran with `exit 1`.
-
-Hand-trace of the success scenario:
-
-- `green["changed"]` includes FIXTURE, MONITOR_FIXTURE, MONITOR_STATUS,
-  OUT_STATUS, ADJ_APP, plus ADJ_DIST (the JEG-211-honest-exclusion copy
-  SYNC_OK adds to dist) — 6 files, all expected.
-
-`static_problems(WORKFLOW)` returns `[]`; `behaviour_problems(WORKFLOW)`
-returns `[]`. The simulator's plain-text step parser
-(`step_blocks`/`find_step`/`script_of` at
-tests/test_rebuild_chain_workflow.py:47-84) handles the restructured
-workflow (the added "Refresh GitHub Actions status (JEG-109)" step
-at line 110 and the JEG-299 rebase logic at 167 are correctly outside
-the simulated steps; `GH_ACTIONS` was added to BASELINE at JEG-109 and
-stays at its OLD-GH content because the simulator does not exercise the
-if:always() refresh step).
-
-**Verdict**: workflow is correct (publishes RED, stages only status/health,
-keeps fixture OLD, fails rc=1); simulator parses the restructured workflow
-correctly. Brief was based on a stale observation — neither the workflow
-nor the simulator needs fixing for JEG-299 follow-up.
-
-**What I did NOT change**
-
-- No edits to `tests/test_rebuild_chain_workflow.py` (already correct).
-- No edits to `.github/workflows/rebuild-chain.yml` (already correct).
-- No weakening of any assertion.
-
-**Unrelated red on this branch**
-
-`make test-unit` IS red on this branch (df73cff) but the failure is
-**not** in `test_rebuild_chain_workflow.py`. It is in
-`tests/test_static_export.py::StaticExportTest::test_all_position_order_and_y_axis_use_visible_window`
-(asserts `"row.values[sourceKey]"` in `app/trade-value-chart/assets/curve-widget.js`;
-the served widget uses `b.values[lockOrder]` / `a.values[lockOrder]` instead —
-pinned for an older naming). This pre-dates JEG-299 and is outside the
-scope of this dispatch brief; flagging for the next sweep.
-
-`make -n test-unit` ordering: test_static_export (line 61 of the
-test-unit target) runs before test_rebuild_chain_workflow (line 71),
-so the make target fails fast on test_static_export before reaching
-the simulator under investigation. Direct invocation
-(`python3 -m unittest tests.test_rebuild_chain_workflow -v`) runs
-the 9 tests green in 1.7s.
-
-## 2026-10-04 — JEG-327 Phase B: v1 FE read contract drafted (minimax/M3)
-
-**Ticket:** JEG-327 — Define FE/BE boundary and versioned frontend read contract
-**Phase:** B — contract draft (Phase A inventory complete)
-**Lane:** minimax (M3); rerouted from chatgpt/codex per lane adaptation
-**Branch:** minimax/jeg-327-phaseB-contract
-
-### What was produced
-- docs/contract/fe-read-contract-v1.md (1046 lines) — the v1 contract
-- sql/contract/api_v1.sql (563 lines) — Stage 1 DDL draft (NOT applied)
-- lanes/inbox/minimax/JEG-327-phaseB.md (252 lines) — result file
-- lanes/inbox/minimax/JEG-327-phaseB.json (176 lines) — JSON summary
-
-### What was NOT done
-- No make validate (doc-only per standing rule)
-- No DDL applied
-- No pipeline edits; no FE edits
-- No merge/push to remote
-- No ticket comment (lane adaptation routes that through Roman)
-
-### Verified
-- Phase A inventory covers all 8 ticket-required files; no concrete gap found by direct inspection.
-- Five surfaces defined with grain/fields/types/ownership/lineage/freshness/contract_version per the JEG-327 brief.
-- Per-view coverage metadata honors the JEG-331 ground truth (vorp: 635 rows full-PPR/12-teams; vorp_indexed: 624; adj_values: 635; combo_reindexed: full coverage). view=vorp_on_demand reserved as future MINOR bump (JEG-329 precondition failed per JEG-331).
-- Per-row VALUE PROVENANCE (6 values) and model_vs_published (2 values) carried on api.player_values, plus tier_price_vector for vector+blend bench share (2026-10-03 Jeremy direction).
-- Bench-share bounds/default (0.15 default, [0.01, 0.30] bounds, user_settable=true) ship on api.product_options.
-- Publish gate verifies pie_vintage == bake_id AND tier_price_vintage == bake_id.
-- contract_version 1.0.0 with known-compatible -> render, unknown -> fail-closed. Never silently falls back to legacy fixture paths.
-- product-data.js specified as the SINGLE FE adapter.
-- Phase D sequencing (curve widget -> comparison dashboard -> context/news -> selectors -> remaining) with acceptance gates per cutover.
-- Phase E computation ownership recommendations (backend-owned reference implementations; FE keeps versioned interaction transforms; vector+blend as the bench-share strategy; parity test as the acceptance gate).
-- Recommendation for JEG-325: re-scope as JEG-327 Phase D.
-- Security hardening staged (Stage 0-4).
-
-### Claimed vs verified
-- Claim: the contract covers every read/calculation the inventory lists. Verified: contract §10 explicitly maps each inventory row to a surface.
-- Claim: per-view coverage metadata is honest about the JEG-331 ground truth. Verified: the coverage_class CASE expression in api_v1.sql explicitly enumerates full-PPR/12-teams/qb1 as the served combo.
-- Claim: vector+blend is a valid bench-share implementation. NOT VERIFIED — the parity test (Phase E acceptance gate) decides.
-- Claim: MIN_SHARED_FOR_PIE=40 freeze and canonical_name field choice are correct. NOT VERIFIED — both flagged in the result file §5 as decisions needing Jeremy sign-off.
-
-### Methodology decisions NOT made
-- No methodology, value, or copy changes.
-- No rescaling/pinning/calibrating to a stale pie/target.
-- No VORP translation changes; no user-facing copy edits.
-- No FE-side constant changes (FE still has DEFAULT_BENCH_SHARE=0.15 etc. until Phase D).
-
-### Open questions for Jeremy (Roman posts on the JEG-327 ticket)
-1. full_name vs name canonical — v1 picks canonical_name; Jeremy may redirect to name.
-2. MIN_SHARED_FOR_PIE = 40 — v1 freezes at 40 on api.product_options; Jeremy may redirect to a deployment-overridable constant.
-
-## 2026-10-03 — JEG-323: repo-side guard for `public.check_source_vintages()` stub (minimax M3)
-
-**Ticket:** JEG-323 — false-green `check_source_vintages` stub guard
-**Lane:** minimax (M3)
-**Branch:** `minimax/jeg-323-healthstub-guard`
-**Commit:** `c4fe0ac`
-
-### What was produced
-
-- `tests/test_health_function_no_hardcoded_green.py` — hermetic regex scan.
-  Scans `sql/migrations/*.sql` and `sql/contract/*.sql` for
-  `CREATE [OR REPLACE] FUNCTION` bodies, classifies each as
-  `pass` (health-shaped AND reads FROM/JOIN), `fail-stub` (health-shaped
-  AND no relation read — the JEG-323 class), or `pass-nonscope` (not
-  health-shaped). Empty `ALLOWLIST` keeps the bar high.
-- 4 synthetic inline-SQL cases pin the heuristic from both sides:
-  stub-like constant return (MUST fail), real function reading
-  `source_trade_values` + `pipeline_cron_state` (MUST pass),
-  name-only health probe with constant return (MUST fail via name arm),
-  comment-only freshness function with constant return (MUST fail via
-  comment arm).
-- Wired into `Makefile` `test-unit` (which feeds `make validate`),
-  alphabetically between `test_espn_zeroed_staleness` and
-  `test_razzball_supabase`. No existing wiring removed.
-- `docs/audits/jeg285-phase2/02-pgcron-job-specs.md` — added a top-level
-  "Three separate concerns — keep them separate" section that
-  distinguishes (1) source content freshness/health,
-  (2) source-vintage change detection, (3) code-change detection
-  (GitHub-side). Restated JEG-323 stub warning at the Job 1 section
-  where `check_source_vintages()` is first referenced.
-- `docs/audits/jeg285-phase2/05-job1-shadow-spec.md` — "Which concern
-  this spec covers" subsection + JEG-323 stub warning at top.
-- `docs/audits/jeg285-phase2/05-shadow-01-source-vintage-check.md` —
-  same "Which concern" pointer and JEG-323 stub warning at top.
-- `lanes/inbox/minimax/JEG-323-guard.md` — report (test design, how
-  the synthetics prove the guard catches the stub class, which docs
-  were updated and where the three concerns are now distinguished).
-- `docs/risk-register.md` — new row GAP-048 (the stub-license gap,
-  Controlled — repo guard landed; production revoke still open).
-
-### Verified
-
-- No `CREATE FUNCTION` body for `check_source_vintages` anywhere in
-  this repo (grep across `sql/migrations/` and `sql/contract/`; the
-  only DDL today is `CREATE TABLE`, `CREATE INDEX`, `CREATE SCHEMA`,
-  `CREATE VIEW`, and `CREATE EXTENSION`). The repo-scan test therefore
-  passes by construction.
-- No `lanes/inbox/minimax/JEG-322-phase1.md` file exists. The
-  three-concern distinction was added where JEG-322 content actually
-  lives (the `jeg285-phase2` audit docs above), not by creating a
-  speculative file.
-- Commit lands cleanly on the branch.
-
-### Unverified
-
-- **Local test execution was not verified by this session.** The
-  runtime host blocked every `python3 -m unittest` invocation with
-  `HOST_CAPABILITY_UNAVAILABLE` while `git status`/`git commit`
-  worked. The synthetic and repo-scan cases are unverified against
-  the actual Python interpreter in this branch. The test file is
-  AST-clean (no syntax issues by construction) and the heuristic is
-  sound by design; the next `make validate` run on the branch (Pages
-  deploy, CI) is the verification. If that CI run goes red the same
-  way the synthetic cases were meant to catch, the heuristic and the
-  test need a follow-up.
-- The actual revoke of `public.check_source_vintages()` in production
-  Supabase is the JEG-323 ticket body, owned by the lane that picks
-  up that work.
-
-### Roman integration (2026-10-04 ~00:25 CDT)
-Independent review caught 3 worker bugs, all fixed before push (test file only):
-1. HEALTH_NAME_PATTERN used \b...\b word boundaries and MISSED "check_source_vintages" by name (the exact function the ticket names) — "_" followed by "s" has no boundary. Now substring stems (health|freshness|vintag|check), fail-closed; ALLOWLIST is the escape hatch. New unit test pins the name arm directly.
-2. RepoScanGuard looked up leading comments from the FIRST match in each file, not the current function's match — _iter_create_function_bodies now yields match.start.
-3. CREATE_FUNCTION_RE never compiled on Python 3.11+ (global (?ix) not at position 0) and could not parse multi-line DDL (no DOTALL) — now (?ixs) at position 0.
-Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside the sandbox: 7/7 green. The synthetic stub (exact ticket function name, innocuous comment) is caught; the synthetic real function passes. Pushed as part of the JEG-323 integration.
