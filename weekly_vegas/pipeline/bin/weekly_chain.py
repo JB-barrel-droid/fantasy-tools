@@ -4,27 +4,81 @@ Usage: python3 bin/weekly_chain.py [--week N] [--season 2026] [--skip-pull]
 
 Steps:
   1. Odds pull (collectors/odds_api.snapshot) — quota-guarded, 12h cache.
-  2. engine/snapshot_v4.main(week) — freezes vegas_implied (+fantasypros
-     ECR-projection) rows into projection_snapshots.
+  2. engine/snapshot_v4.main(week) — freezes vegas_implied (+ ESPN ROS
+      expert-projection) rows into projection_snapshots.
   3. v4/compute_v4.main(week) — signals, single drafts, thread draft.
 
 Prereqs per week (fail closed with a clear message):
-  - data/fantasypros/proj_{qb,rb,wr,te}_wk{N}.csv (ECR feed expert
-    projections, via the Monday ECR refresh cron's browser pull)
-  - data/ecr_pos.json refreshed from the weekly ECR download
-    (Monday ECR refresh cron: download CSVs, run bin/refresh_ecr_weekly.py)
+  - output/espn_pull/files/espn_weekly_projections.csv (repo root) with
+    ESPN's expert-leg projections (Mike Clay model, rest-of-season).
+    Produced by pipelines/pull_espn_projections.py. The gate checks two
+    layers: the file exists, and its espn_snapshot_date content vintage
+    is within ESPN_MAX_AGE_DAYS (a byte-identical re-pull does not reset
+    the clock — freshness measures when ESPN moved its numbers, never
+    when we downloaded them). The prior ECR expert-leg input was retired
+    (JEG-399 / JEG-ECR-EXIT 2026-10-05).
 
-The ESPN iPhone projections pipeline was RETIRED 2026-09-12
-(scripts removed; ESPN remains only as an injuries/news/scores source).
 Only post_queue rows with status='draft' are rotated; approved/posted
 rows are never touched.
 """
 import argparse
+import csv
 import os
 import sys
+from datetime import date
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # weekly_vegas/pipeline root
+REPO = os.path.dirname(BASE)  # repo root: output/espn_pull lives here
 sys.path.insert(0, BASE)
+
+ESPN_WEEKLY_CSV = os.path.join(
+    REPO, "output", "espn_pull", "files", "espn_weekly_projections.csv")
+ESPN_MAX_AGE_DAYS = 3  # mirrors the game-day ESPN gate (JEG-418)
+
+
+def _espn_snapshot_date(csv_path):
+    """Latest espn_snapshot_date in the CSV, or None when unreadable."""
+    try:
+        with open(csv_path, newline="") as f:
+            dates = [r.get("espn_snapshot_date") for r in csv.DictReader(f)]
+        dates = [d for d in dates if d]
+        return max(dates) if dates else None
+    except Exception:
+        return None
+
+
+def check_espn_gate(csv_path=None, today=None):
+    """Fail-closed expert-leg gate. Returns (ok, message).
+
+    Layer 1: the ESPN weekly projections file exists.
+    Layer 2: its espn_snapshot_date content vintage is within
+    ESPN_MAX_AGE_DAYS. A re-pull of unchanged content does not reset
+    the vintage clock.
+    """
+    csv_path = csv_path or ESPN_WEEKLY_CSV
+    today = today or str(date.today())
+    if not os.path.exists(csv_path):
+        return (False,
+                f"BLOCKED: {csv_path} missing. Run "
+                "pipelines/pull_espn_projections.py to pull ESPN expert "
+                "projections, then rerun.")
+    snap = _espn_snapshot_date(csv_path)
+    if not snap:
+        return (False,
+                f"BLOCKED: {csv_path} has no espn_snapshot_date; "
+                "expert-leg vintage is unverifiable.")
+    try:
+        age = (date.fromisoformat(today) - date.fromisoformat(snap[:10])).days
+    except ValueError:
+        return (False,
+                f"BLOCKED: unparseable espn_snapshot_date {snap!r} in "
+                f"{csv_path}.")
+    if age > ESPN_MAX_AGE_DAYS:
+        return (False,
+                f"BLOCKED: ESPN expert projections are {age}d old "
+                f"(snapshot {snap[:10]}, max {ESPN_MAX_AGE_DAYS}d). Refresh "
+                "via pipelines/pull_espn_projections.py.")
+    return (True, f"ESPN expert leg OK (snapshot {snap[:10]}, {age}d old).")
 
 
 def main():
@@ -39,20 +93,12 @@ def main():
     week = a.week or current_week(a.season)
     print(f"=== weekly chain: season {a.season} week {week} ===", flush=True)
 
-    # ECR feed expert projections (fail-closed): the Monday ECR refresh
-    # cron keeps these CSVs current. ESPN's projections pipeline was
-    # retired 2026-09-12; ESPN remains only for injuries/news/scores.
-    proj_paths = [os.path.join(BASE, "data", "fantasypros",
-                               f"proj_{p}_wk{week}.csv")
-                  for p in ("qb", "rb", "wr", "te")]
-    missing = [p for p in proj_paths if not os.path.exists(p)]
-    if missing:
-        print(f"BLOCKED: ECR projections CSV(s) missing: {missing}. "
-              "Run the Monday ECR refresh (with projections), then rerun.")
-        sys.exit(2)
-    ecr_path = os.path.join(BASE, "data", "ecr_pos.json")
-    if not os.path.exists(ecr_path):
-        print(f"BLOCKED: {ecr_path} missing. Refresh ECR first.")
+    # ESPN expert-leg gate (fail-closed, JEG-419): the ECR feed was retired
+    # (JEG-399 / JEG-ECR-EXIT). Block loudly when the ESPN expert leg is
+    # missing or its content vintage is stale.
+    ok, msg = check_espn_gate()
+    print(msg, flush=True)
+    if not ok:
         sys.exit(2)
 
     if not a.skip_pull:
