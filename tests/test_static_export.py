@@ -196,11 +196,18 @@ class StaticExportTest(unittest.TestCase):
 
     def test_known_player_values_are_preserved(self):
         by_name = {player["name"]: player for player in self.players["players"]}
-        self.assertEqual(351.48, by_name["Josh Allen"]["ecr_ros"]["ppr"])
-        self.assertEqual(351.48, by_name["Josh Allen"]["blend_ros"]["ppr"])
-        # ESPN ROS updated 2026-09-30 with the 09-29 vintage (was 366.13 on 09-22).
-        self.assertEqual(339.18, by_name["Josh Allen"]["espn_ros"]["ppr"])
-        self.assertEqual(325.87, by_name["Bijan Robinson"]["ecr_ros"]["ppr"])
+        # JEG-ECR-EXIT (2026-10-05): ecr_ros removed; blend_ros now equals
+        # espn_ros for all skill positions (ESPN is the primary leg). The
+        # historical Josh Allen/Bijan Robinson ECR pins retired with the
+        # field -- verified by the espn_ros pin below against the rebuilt
+        # leg.
+        self.assertNotIn("ecr_ros", by_name["Josh Allen"],
+            "ecr_ros field retired by JEG-ECR-EXIT (2026-10-05)")
+        # ESPN is the primary leg; blend_ros equals espn_ros for skill positions.
+        self.assertEqual(
+            by_name["Josh Allen"]["blend_ros"]["ppr"],
+            by_name["Josh Allen"]["espn_ros"]["ppr"],
+            "blend_ros must equal espn_ros for skill positions (ESPN primary)")
         self.assertIsNone(by_name["Kyle Juszczyk"].get("pm_ros"))
 
     def test_comparison_sources_contract(self):

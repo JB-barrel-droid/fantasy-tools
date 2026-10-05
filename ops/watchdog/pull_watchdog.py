@@ -126,28 +126,19 @@ def check_ecr_weekly(day):
     return v
 
 
-def check_fp_season(day):
-    """FantasyPros full-season projections snapshot (browser task, Supabase)."""
-    v = {"label": "FP season snapshot", "expected": "daily 06:07 CT"}
-    dirs = sorted(glob.glob(os.path.join(FS, "data", "fantasypros", "season_snapshots", "20*")))
-    if not dirs:
-        v["status"], v["detail"] = "failed", "no season_snapshots dirs"
-        v["content_vintage"] = None
-        v["fail_closed"] = None
-        return v
-    latest = os.path.basename(dirs[-1])
-    v["content_vintage"] = latest
-    try:
-        vintage_day = datetime.strptime(latest, "%Y-%m-%d").date()
-        lag = (day - vintage_day).days
-    except ValueError:
-        lag = 99
-    if lag <= 1:
-        v["status"], v["detail"] = "ok", "snapshot %s current" % latest
-    else:
-        v["status"], v["detail"] = "stale", "latest snapshot %s is %d days old" % (latest, lag)
-    v["fail_closed"] = None
-    return v
+def check_fp_season(day):  # noqa: ARG001 - RETIRED
+    """RETIRED (JEG-ECR-EXIT 2026-10-05): the FP season snapshot was the
+    full-season ECR leg the chart's primary blend used to consume. ESPN
+    has replaced ECR as the primary leg; the fp_season_projections /
+    fp_season_latest_norm tables and the FP season puller (the
+    `football-fp-season-snapshot` cron job) are retired. This stub is
+    kept so historical health.json readers do not KeyError — the watchdog
+    registration below is removed."""
+    return {"label": "FP season snapshot (RETIRED)", "status": "retired",
+            "detail": "JEG-ECR-EXIT 2026-10-05: full-season ECR retired, "
+                      "FP season snapshot no longer consumed.",
+            "expected": None, "rows": None, "content_vintage": None,
+            "fail_closed": None}
 
 
 def _article_week(url):
@@ -344,8 +335,10 @@ def main():
     sources = {}
     for sid, cfg in cfgs.items():
         sources[sid] = check_daily(cfg, day)
+    # JEG-ECR-EXIT (2026-10-05): fp_season (FP full-season snapshot) and
+    # ecr_weekly (ECR weekly browser pull) are retired. ESPN itself is
+    # checked above via the espn daily cfg; it is the primary leg now.
     sources["fp_season"] = check_fp_season(day)
-    sources["ecr_weekly"] = check_ecr_weekly(day)
     sources["fantasypros_chart"] = check_fantasypros_chart(day, week)
     sources["fantasycalc"] = check_fantasycalc(day, week)
     sources["usatoday"] = check_weekly_article(

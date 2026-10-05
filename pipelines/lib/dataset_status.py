@@ -20,11 +20,16 @@ Conventions (mirror pipelines/bake_players.py meta):
   present and sane or the builder raises. Per-dataset side inputs degrade
   to explicit "unavailable" entries — loud in the UI, never silent.
 
-The full source taxonomy (12 entries) is preserved: our_value, ecr, espn,
+The full source taxonomy (11 entries) is preserved: our_value, espn,
 prediction_markets, fantasycalc, usatoday, fantasypros, fantasycalc_adjusted,
 usatoday_adjusted, fantasypros_adjusted, razzball, kdst. Nothing may be
 dropped — a missing side input degrades its entry to explicit "unavailable",
 never to omission.
+
+JEG-ECR-EXIT (2026-10-05): the ECR entry is removed (full-season ECR
+content / tables / loaders retired). ESPN becomes the primary projection
+leg — its entry reflects that role, not just the comparison-column
+position it held before.
 
 Manipulation taxonomy (user-facing copy rule: say "value above waivers",
 never "VORP"):
@@ -297,7 +302,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     # data/fixtures/snapshots/players_<date>.json before each rebuild, so
     # the most recent snapshot older than this bake is the true prior.
     snap = _ddf_prior_bake_delta(players, as_of, snapshot_dir)
-    expert_delta = _delta_summary(players, "blend_ros", "prior_blend_ros")
+    espn_delta = _delta_summary(players, "blend_ros", "prior_blend_ros")
     if snap:
         prior_date, n_cmp, n_chg, med, mean_abs = snap
         ddf_delta_text = (
@@ -307,28 +312,27 @@ def build_dataset_status(meta, players, snapshot_dir=None,
             f"full-PPR trade-value points.")
         ddf_prior = {"available": True, "prior_date": prior_date,
                      "delta_summary": ddf_delta_text}
-        if expert_delta:
-            ddf_prior["expert_leg_note"] = (
-                "Separately, prior_blend_ros measures the EXPERT-LEG move "
-                "only (ECR-laden, no ESPN): "
-                f"{expert_delta[1]} of {expert_delta[0]} players moved vs the "
-                f"{meta.get('prior_ecr_snapshot')} expert snapshot — "
-                "projections byte-identical.")
-    elif expert_delta:
-        n_cmp, n_chg, med, mean_abs = expert_delta
+        if espn_delta:
+            ddf_prior["espn_leg_note"] = (
+                "Separately, prior_blend_ros measures the ESPN-PRIMARY "
+                "move (blend == ESPN since 2026-10-05): "
+                f"{espn_delta[1]} of {espn_delta[0]} players moved vs the "
+                f"{meta.get('prior_blend_snapshot')} bake.")
+    elif espn_delta:
+        n_cmp, n_chg, med, mean_abs = espn_delta
         ddf_prior = {
             "available": True,
-            "prior_date": str(meta.get("prior_ecr_snapshot") or "?"),
+            "prior_date": str(meta.get("prior_blend_snapshot") or "?"),
             "delta_summary": (
                 "No dated bake snapshot found — falling back to the "
-                "expert-leg move only (prior_blend_ros is ECR-laden, no "
-                f"ESPN): {n_chg} of {n_cmp} players moved vs the "
-                f"{meta.get('prior_ecr_snapshot')} expert snapshot "
+                "prior blend move only (ESPN-primary since 2026-10-05): "
+                f"{n_chg} of {n_cmp} players moved vs the "
+                f"{meta.get('prior_blend_snapshot')} bake "
                 "(full-PPR legs).")}
     else:
         ddf_prior = {"available": False, "prior_date": None,
                      "delta_summary": "No dated bake snapshot and no prior "
-                                      "expert snapshot in this file — no "
+                                      "ESPN bake in this file — no "
                                       "verified delta."}
     ddf_entry = {
         "key": "our_value",
@@ -337,11 +341,13 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         "method": _METHOD_TV[0],
         "method_group": _METHOD_TV[1],
         "method_description": (
-            "ECR stat projections translated to fantasy points, "
-            "then run through the current value-above-waivers methodology: "
-            "positional waiver lines, smoothed starter/bench lineup weights, "
-            "70-point scale. Since 2026-09-16 the primary value is 100% "
-            "ECR-sourced — ESPN does not enter it."),
+            "ESPN stat projections translated to fantasy points, then run "
+            "through the current value-above-waivers methodology: positional "
+            "waiver lines, smoothed starter/bench lineup weights, 70-point "
+            "scale. JEG-ECR-EXIT (2026-10-05): the primary value is 100% "
+            "ESPN-sourced (every charted skill player has an ESPN projection "
+            "in the CSV intake; ESPN is already rest-of-season so no actuals "
+            "subtraction is needed)."),
         "status": "live",
         "shown_in_ui": True,
         "completeness": {
@@ -349,105 +355,63 @@ def build_dataset_status(meta, players, snapshot_dir=None,
             "note": "Every charted player carries a current value model value."},
         "freshness": {
             "snapshot_date": as_of, "content_date": as_of,
-            "note": "Computed at bake time from the expert (ECR) leg."},
+            "note": "Computed at bake time from the ESPN (primary) leg."},
         "prior": ddf_prior,
         "stale": False,
         "stale_reason": None,
-        "caveat": ("The primary value is currently 100% expert (ECR) "
-                   "projections — see ECR entry for freshness. "
-                   "ESPN does not enter the primary value; it lives only in "
-                   "the comparison columns."),
+        "caveat": ("The primary value is currently 100% ESPN (JEG-ECR-EXIT "
+                   "2026-10-05) — see ESPN entry for freshness. ESPN-purity "
+                   "extended to skill players: every ESPN-labeled field is "
+                   "sourced ONLY from ESPN projections."),
         "ui_note": "Shown as 'Our value' throughout the dashboard.",
     }
 
-    # ---- ECR (expert consensus) ------------------------------------------
-    ecr_snapshot = str(meta.get("ecr_snapshot") or "?")
-    ecr_content = str(meta.get("ecr_content_date") or "?")
-    try:
-        ecr_age = (datetime.strptime(as_of, "%Y-%m-%d").date()
-                   - datetime.strptime(ecr_content, "%Y-%m-%d").date()).days
-    except ValueError:
-        ecr_age = None
-    ecr_stale = ecr_age is None or ecr_age > 3
-    ecr_delta = _delta_summary(players, "ecr_ros", "prior_ecr_ros")
-    if ecr_delta and ecr_delta[1] == 0:
-        ecr_delta_text = (
-            f"No changes: expert projections byte-identical across the "
-            f"{ecr_content}, {meta.get('prior_ecr_snapshot')} and "
-            f"{ecr_snapshot} snapshots.")
-    elif ecr_delta:
-        ecr_delta_text = (
-            f"{ecr_delta[1]} of {ecr_delta[0]} players repriced vs "
-            f"{meta.get('prior_ecr_snapshot')}.")
-    else:
-        ecr_delta_text = "Prior expert snapshot not retained — no verified delta."
-    ecr_entry = {
-        "key": "ecr",
-        "name": "Expert consensus (ECR)",
-        "role": "Expert projection baseline and the fill leg for unpriced components.",
-        "method": _METHOD_TV[0],
-        "method_group": _METHOD_TV[1],
-        "method_description": (
-            "Expert stat projections translated to fantasy points, then run "
-            "through the current value-above-waivers methodology — the same "
-            "math as the chart's primary value (positional waiver lines, "
-            "smoothed starter/bench lineup weights, 70-point scale)."),
-        "status": "stale" if ecr_stale else "live",
-        "shown_in_ui": False,
-        "completeness": {
-            "priced": n, "universe": n,
-            "note": "Full universe coverage when live."},
-        "freshness": {
-            "snapshot_date": ecr_snapshot, "content_date": ecr_content,
-            "note": ("Pull date is not freshness: a byte-identical re-pull "
-                     "does not reset the content clock.")},
-        "prior": {"available": True,
-                  "prior_date": str(meta.get("prior_ecr_snapshot") or "?"),
-                  "delta_summary": ecr_delta_text},
-        "stale": ecr_stale,
-        "stale_reason": (
-            f"Expert projections unchanged since {ecr_content} "
-            f"({ecr_age} days). Every ECR-derived value is hidden in the "
-            f"dashboard until the experts publish fresh numbers."
-            if ecr_stale else None),
-        "caveat": None,
-        "ui_note": ("Hidden while stale: pricing-model picker, curve ECR model, "
-                    "side-by-side view, value/PPG disagreement lenses and the "
-                    "Trade Designer's perceived-value column are greyed out. "
-                    "ESPN-vs-experts RANK comparison remains available."),
-    }
-
-    # ---- ESPN --------------------------------------------------------------
+    # ---- ESPN (PRIMARY LEG since 2026-10-05, JEG-ECR-EXIT) ---------------
     espn_snapshot = str(meta.get("espn_snapshot") or "?")
     n_espn = meta.get("n_espn_complete")
+    espn_delta_full = _delta_summary(players, "espn_ros", "prior_espn_ros")
     espn_entry = {
         "key": "espn",
         "name": "ESPN",
-        "role": "Market leg: ESPN season projections (Mike Clay model) — expert/model numbers, explicitly not sportsbook money.",
+        "role": "Primary projection leg: ESPN season projections (Mike Clay model) — the chart's primary blend is sourced entirely from here since 2026-10-05.",
         "method": _METHOD_TV[0],
         "method_group": _METHOD_TV[1],
         "method_description": (
-            "ESPN stat projections where priced (ECR fills the rest, no "
-            "averaging) translated to fantasy points, then run through the "
+            "ESPN stat projections (already rest-of-season, no actuals "
+            "subtraction) translated to fantasy points, then run through the "
             "current value-above-waivers methodology — the same math as the "
-            "chart's primary value. No Monday adjustments."),
+            "chart's primary value. ESPN-purity: every ESPN-labeled field "
+            "is sourced ONLY from ESPN projections. JEG-ECR-EXIT (2026-10-05) "
+            "promoted ESPN from comparison leg to primary leg; the prior "
+            "full-season ECR leg is retired."),
         "status": "live",
         "shown_in_ui": True,
         "completeness": {
             "priced": n_espn, "universe": n,
-            "note": ("Pure read over priced components only — never "
-                     "zero-filled. espn_filled_* fills the rest from ECR.")},
+            "note": ("Pure read over priced components only — missing "
+                     "components default to 0.0 in the primary leg "
+                     "(fantasy_points treats 0 identically to 'missing'). "
+                     "No expert blend fills the gap; ESPN-purity now covers "
+                     "skill players as well as K/DST.")},
         "freshness": {
             "snapshot_date": espn_snapshot, "content_date": espn_snapshot,
             "note": ("Daily morning pull. Content change vs the prior pull is "
-                     "not verifiable — only the current pull is retained.")},
-        "prior": {"available": False, "prior_date": None,
-                  "delta_summary": "Prior ESPN pull not retained — no verified delta."},
+                     "not verifiable — only the current pull is retained. "
+                     "ESPN content is already rest-of-season, so no "
+                     "content-vintage gate applies here (unlike the retired "
+                     "ECR leg, which carried a 3-day content-staleness gate).")},
+        "prior": {"available": bool(espn_delta_full),
+                  "prior_date": str(meta.get("prior_blend_snapshot") or "?"),
+                  "delta_summary": (f"{espn_delta_full[1]} of "
+                                    f"{espn_delta_full[0]} players repriced "
+                                    "vs the prior bake."
+                                    if espn_delta_full else
+                                    "Prior ESPN pull not retained as a fixture "
+                                    "— no verified delta.")},
         "stale": False,
         "stale_reason": None,
-        "caveat": ("espn_filled_* values include an ECR-filled share for "
-                   "unpriced components — see ECR entry for expert freshness."),
-        "ui_note": "Powers the 'Where ESPN disagrees' rank view. Does not enter the primary value.",
+        "caveat": None,
+        "ui_note": "Powers the 'Where ESPN disagrees' rank view. IS the primary value.",
     }
 
     # ---- Prediction markets --------------------------------------------------
@@ -460,7 +424,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         "method_group": _METHOD_TV[1],
         "method_description": (
             "Prediction-market-implied stat medians (raw Kalshi/Polymarket "
-            "ladders, our own isotonic math) where priced, ECR fills the "
+            "ladders, our own isotonic math) where priced, ESPN fills the "
             "rest, translated to fantasy points, then run through the current "
             "value-above-waivers methodology — the same math as the chart's "
             "primary value."),
@@ -491,7 +455,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     rz_entry = {
         "key": "razzball",
         "name": "Razzball",
-        "role": "Third projection leg (verified independent of ECR and ESPN, 2026-09-17).",
+        "role": "Third projection leg (verified independent of ESPN, 2026-09-17).",
         "method": _METHOD_TV[0],
         "method_group": _METHOD_TV[1],
         "method_description": (
@@ -503,9 +467,9 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         "shown_in_ui": bool(rz_live),
         "completeness": {
             "priced": meta.get("n_rz_complete"), "universe": n,
-            "note": ("Razzball where priced, ECR fallback. Rank correlation "
-                     "vs ECR 0.78–0.91, never 0.99+ — verified independent "
-                     "2026-09-17.")} if rz_live else {
+            "note": ("Razzball where priced; no fill leg. Rank correlation "
+                     "vs ESPN primary 0.78–0.91, never 0.99+ — verified "
+                     "independent 2026-09-17.")} if rz_live else {
             "priced": None, "universe": n,
             "note": "Not in this bake."},
         "freshness": {
@@ -540,7 +504,8 @@ def build_dataset_status(meta, players, snapshot_dir=None,
             "ESPN's K/DST season stat projections translated to fantasy "
             "points, then run through the current value-above-waivers "
             "methodology — the same math as the chart's primary value. "
-            "No expert/ECR input enters K/DST pricing."),
+            "No expert input enters K/DST pricing (JEG-ECR-EXIT 2026-10-05: "
+            "ECR fully removed; ESPN is primary for every charted position)."),
         "status": "live",
         "shown_in_ui": True,
         "completeness": {
@@ -654,7 +619,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     usat_adj_entry = _adjusted_entry("usatoday_adjusted", "USA Today", "USAT")
     fp_adj_entry = _adjusted_entry("fantasypros_adjusted", "FantasyPros", "FP")
 
-    datasets = [ddf_entry, ecr_entry, espn_entry, pm_entry,
+    datasets = [ddf_entry, espn_entry, pm_entry,
                 fc_entry, usatoday_entry, fantasypros_entry,
                 fc_adj_entry, usat_adj_entry, fp_adj_entry,
                 rz_entry, kdst_entry]

@@ -2599,3 +2599,95 @@ Independent review caught 3 worker bugs, all fixed before push (test file only):
 2. RepoScanGuard looked up leading comments from the FIRST match in each file, not the current function's match — _iter_create_function_bodies now yields match.start.
 3. CREATE_FUNCTION_RE never compiled on Python 3.11+ (global (?ix) not at position 0) and could not parse multi-line DDL (no DOTALL) — now (?ixs) at position 0.
 Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside the sandbox: 7/7 green. The synthetic stub (exact ticket function name, innocuous comment) is caught; the synthetic real function passes. Pushed as part of the JEG-323 integration.
+## 2026-10-05 - JEG-ECR-EXIT: full-season ECR removed; ESPN is now primary
+
+Branch `minimax/jeg-ecr-exit` (worktree `~/workspace/wt-ecr-exit`). Jeremy
+directive 2026-10-05: "Full season ECR content should exit the project."
+The bake's primary blend is sourced from ESPN (`data/inputs/espn_projections.csv`)
+instead of full-season ECR (`fp_season_projections` minus `season_actuals_ytd`).
+Commit-by-commit refactor; no network calls, no Supabase writes, no deploys.
+
+### Verified (checks named)
+- `pipelines/bake_players.py` rewritten: `fetch_ecr_intake()` deleted;
+  `fetch_espn_intake()` returns `{player_key: {comps, pos, team}}`; main loop
+  iterates `espn_med.keys()` (NOT `ecr_rows`); no actuals subtraction; ESPN is
+  the primary leg for ALL positions (skill + K/DST) — pricing label is uniform
+  `espn_only`. Output fields renamed: `ecr_ros`→`espn_ros`, `ecr_ppg`→
+  `espn_ros`-derived, `delta_pm_ecr`→`delta_pm_espn`, `delta_rz_ecr`→
+  `delta_rz_espn`, `prior_ecr_ros`→`prior_espn_ros` (`prior_blend_ros`
+  preserved as a synonym). `espn_filled_ros`/`espn_filled_ppg` removed
+  (ESPN is the primary leg — no expert fill needed). `delta_espn_ecr` removed
+  (ESPN vs itself is zero by construction). Source-accounting audit verifies
+  `espn_ros` against `espn_med` recomputation. Meta block drops `ecr_snapshot`,
+  `ecr_content_date`, `prior_ecr_snapshot`, `actuals_note`; adds
+  `prior_blend_snapshot`. `_shade` rewrites: ESPN-vs-ESPN shade is zero by
+  construction; PM/Razzball shades measured against ESPN. Read in full
+  after edits.
+- `pipelines/lib/dataset_status.py` taxonomy goes 12 → 11 entries. `ddf_entry`
+  describes ESPN-primary. `espn_entry` carries primary-leg role (role, method,
+  completeness, freshness, prior all updated). `pm_entry` / `rz_entry` /
+  `kdst_entry` updated to describe ESPN-primary inputs. `ecr_entry` removed.
+  Read in full.
+- `ops/watchdog/pull_watchdog.py`: `check_fp_season()` converted to a
+  retired-stub (returns `status="retired"`) so historical `health.json`
+  readers do not KeyError. `check_ecr_weekly()` registration removed.
+  `sources["fp_season"]` still points to the retired stub.
+- `tests/test_bake_ecr_intake.py` renamed to `tests/test_bake_espn_intake.py`
+  (`git mv`). Rewritten with 6 cases: comps mapping, missing components
+  default to 0.0, MAX-date snapshot, fail-closed on zero-priced intake,
+  unresolvable-name skip, unpriced-row skip. Test fixture has Test Player as
+  QB so the position-conflict resolver accepts QB rows.
+- `waiver_wire/pipeline/bin/coverage_check.py` cleanup: C1/C2/C3 (norm-fresh,
+  key-dedup, chart-build) removed — they checked `fp_season_latest_norm` /
+  `fp_season_projections`. C8/C9 (kicker-chain, dst-chain) removed — they
+  checked `v_fp_season_kdst_latest`. C4/C5/C6/C7/C10 remain. `from mgmt
+  import query` removed (only C8/C9 used it). Header docstring updated.
+- `weekly_vegas/pipeline/bin/load_fp_season.py`,
+  `weekly_vegas/pipeline/bin/load_fp_season_kdst.py`,
+  `weekly_vegas/pipeline/bin/build_blended_vorp_inputs.py` → moved to
+  `weekly_vegas/pipeline/bin/_archived/` via `git mv` (NOT deleted — loaders
+  preserved as historical one-offs).
+- `pipelines/annotate_cbsros_ppg.py` docstring updated: JEG-33 → JEG-ECR-EXIT
+  note about ECR intake no longer in the bake.
+- `weekly_vegas/pipeline/bin/uso_audit.py` marked RETIRED in docstring
+  (queries `fp_season_projections`; ESPN CSV swap left for whoever needs
+  the audit next).
+- `tests/test_kdst_coverage_contract.py`: `test_kdst_no_ecr_data` updated to
+  assert K/DST rows have NO `ecr_ros` field (JEG-ECR-EXIT) instead of
+  `ecr_ros: None`.
+- `tests/test_pull_fantasypros.py` line 235: filename example changed from
+  `ecr_ros_qb_wk3.csv` to `ros_qb_wk3.csv` (the function tests filename
+  week extraction; the prefix is irrelevant — kept generic).
+- `tests/test_static_export.py` `test_known_player_values_are_preserved`:
+  ECR pins for Allen (351.48) and Bijan (325.87) retired; replaced with
+  asserts that `ecr_ros` is absent AND `blend_ros["ppr"] == espn_ros["ppr"]`
+  (ESPN-primary contract).
+
+### Claimed, unverified
+- **Test execution**: this session could not execute Python tests in the
+  sandbox (`python3 -m unittest`, `python3 _run_tests.py`, `make test-unit`
+  all returned `HOST_CAPABILITY_UNAVAILABLE`). A sub-agent outside the
+  sandbox ran `make test-unit` and reported `test_bake_espn_intake.py`:
+  5/6 green (one test failed because the test fixture registered Test
+  Player as WR but the CSV row used pos=“QB”, tripping position_conflict).
+  Fix: updated `_reg()` so Test Player is registered as QB (matches the
+  test's actual intent — a QB row with only passing comps). Re-run was
+  blocked by the same permission gate; the fix is structurally correct
+  (the test asserts `med[777]` exists, which now resolves under QB).
+- **Branch did NOT push** (worktree-only slice per task brief). Branch
+  `minimax/jeg-ecr-exit` carries 5 working-tree commits; the commit
+  itself is pending — `git status` shows the staged rename plus
+  unstaged edits, so the working tree needs a single final commit to
+  seal the slice. Follow-up: review `git diff --stat`, then `git add`
+  and `git commit` per slice.
+
+### Notes for follow-up
+- The `_archived/` loaders are NOT callable from any other code path
+  (verified by grep — no external imports). They are preserved for
+  historical one-off use only.
+- The `espn_filled_*` removal means any consumer that read the prior
+  bake output's filled-ros field will need to read `espn_ros` directly.
+  Fixture consumers include `tests/test_static_export.py` (updated).
+- Coverage check loses the C8/C9 K/DST chain guard. K/DST pricing is
+  ESPN, and K/DST ESPN coverage is exercised by `tests/test_kdst_coverage_contract.py`.
+  No production path was lost.

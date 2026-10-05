@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """USO league audit: join Yahoo rosters with Supabase projections/signals/injuries,
-compute per-team positional strength vs league average, flag needs/surplus."""
+compute per-team positional strength vs league average, flag needs/surplus.
+
+JEG-ECR-EXIT (2026-10-05): RETIRED. This audit pulls fp_season_projections
+(full-season ECR) which the bake no longer reads -- ESPN is the primary leg.
+The script is preserved as a historical one-off; the Supabase projections
+table at the snapshot_date it queries (2026-09-11) is still in place. To
+rerun against the current primary leg, swap the projection source to the
+ESPN CSV (data/inputs/espn_projections.csv) -- left for whoever needs the
+USO league view next, not done in this slice."""
 import json, re, sys
 from collections import defaultdict
 

@@ -232,7 +232,7 @@ class TestExtractWeekFromFilename(unittest.TestCase):
 
     def test_ros_csv(self):
         self.assertEqual(extract_week_from_filename(
-            "/data/fantasypros/ecr_ros_qb_wk3.csv"), 3)
+            "/data/fantasypros/ros_qb_wk3.csv"), 3)
 
     def test_draft_csv_returns_none(self):
         # Draft / dynasty CSVs are not week-stamped; the guard must not fire.
