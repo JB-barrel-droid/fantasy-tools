@@ -162,16 +162,19 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
     review = []
     for row in rows:
         player_name = row.get("player_name")
-        # JEG-366: route identity through the layered resolver first
-        # (manual -> Sleeper -> fail-closed). The canonical name drives
-        # the fixture index so a manual alias like "kenny gainwell" finds
-        # "kenneth gainwell" and matches the right fixture record. Unknown
-        # identities fall back to the row's player_name for the deterministic
-        # fixture index lookup -- that path is exact-match, never guessed.
+        # JEG-366: route identity through the layered resolver
+        # (manual -> Sleeper -> fail-closed). Try the raw source name first
+        # (it matches the roster when the source already uses the roster's
+        # spelling, e.g. "Cam Skattebo"); fall back to the resolved canonical
+        # name (so a manual alias like "kenny gainwell" finds "kenneth
+        # gainwell"). Both paths are exact-match against the fixture index,
+        # never guessed. Unknown identities stay on the raw name.
         identity = resolve_identity(player_name)
-        lookup_name = (identity or {}).get("name") or player_name
-        normalized = normalize_name(lookup_name)
+        canonical_name = (identity or {}).get("name")
+        normalized = normalize_name(player_name)
         candidates = index.get(normalized, [])
+        if not candidates and canonical_name:
+            candidates = index.get(normalize_name(canonical_name), [])
         player, reason = resolve_candidate(row, candidates)
         if player:
             matched.append(
