@@ -1,31 +1,19 @@
-// JEG-363 (2026-10-04): FE adapter for the JEG-327 v1 read contract.
+// JEG-327 Phase D, Step 0 — PostgREST reader for the api.* contract views.
 //
-// This is the ONLY module in app/trade-value-chart/ that talks to the
-// contract surfaces. Every other FE module (curve-widget.js,
-// comparison-dashboard.js, future methodology renderer, etc.) calls into this
-// module and never reads a legacy fixture path directly.
+// This is the ONLY module in app/trade-value-chart/ that talks to the contract
+// surfaces. Every other FE module (curve-widget.js, comparison-dashboard.js,
+// future methodology renderer, etc.) calls into the five semantic methods
+// exposed below and never reads from PostgREST or from a legacy fixture path.
 //
-// Contract spec: docs/contract/fe-read-contract-v1.md §8
-//   - Five semantic methods: getPlayerValues(), getPlayers(),
-//     getPlayerContext(), getProductOptions(), getSnapshot().
-//   - initProductData() is fail-closed (contract_version mismatch,
-//     source_map_coverage failure, empty players, missing active snapshot).
-//
-// During the Phase D migration the api.* contract views are not yet
-// materialised (Roman applies the DDL in sql/contract/api_v1.sql separately
-// and runs `NOTIFY pgrst, 'reload schema'`). To keep the chart rendering
-// during the strangler-fig window, this adapter reads the legacy fixtures
-// (assets/comparison-sources-data.json, assets/player-news.json,
-// assets/adjustment-inputs.json, the #players-data inline island) and
-// projects them into the contract's frozen surface shapes. The fixture
-// paths remain ONLY here; consumers call into the five semantic methods.
-//
-// Alignment with JEG-325 (consolidation-index.js): the per-cell value
-// lookups that JEG-325 already indexes are reused via the
-// window.TradeValueConsolidation.handle. This module owns the fixture
-// fetch + projection; consolidation-index owns the per-cell O(1) lookup.
-// When the contract api.* materialises, this module's reader swaps to PostgREST
-// without changing the five public methods.
+// Contract spec: docs/contract/fe-read-contract-v1.md §3, §7, §8.
+//   - Reads api.player_values, api.players, api.player_context,
+//     api.product_options, api.product_snapshot.
+//   - PostgREST base URL + anon key are injected at runtime as
+//     window.TRADE_VALUE_SUPABASE_URL / window.TRADE_VALUE_SUPABASE_ANON_KEY
+//     (NEVER hardcoded).
+//   - Fail-closed per §8.2: contract_version mismatch, source_map_coverage
+//     failure, empty players, missing active snapshot, stale pie_vintage,
+//     stale tier_price_vintage → THROW. No silent fallback to fixtures.
 
 (() => {
   "use strict";
@@ -34,19 +22,22 @@
 
   const CONTRACT_VERSION = "1.0.0";
 
-  // Legacy fixture paths. v1 contract backs these with api.* views; until
-  // those views are published we read the fixtures and project them. These
-  // strings must NOT appear anywhere in app/trade-value-chart/ except here.
-  const LEGACY_PATHS = Object.freeze({
-    detail: "assets/comparison-sources-data.json",
-    news: "assets/player-news.json",
-    adjustments: "assets/adjustment-inputs.json",
-    playersInlineId: "players-data",
+  // PostgREST view names per contract §3.
+  const VIEWS = Object.freeze({
+    playerValues: "api.player_values",
+    players: "api.players",
+    playerContext: "api.player_context",
+    productOptions: "api.product_options",
+    productSnapshot: "api.product_snapshot",
   });
 
-  const FETCH_TIMEOUT_MS = 4000;
+  const FETCH_TIMEOUT_MS = 2000;
+  const PAGE_SIZE = 1000;
+  const CACHE_PREFIX = "tvc::";
 
   // Source keys verbatim from contract §3.4.2 (api.product_options.source_keys).
+  // Re-exported for consumers; the runtime source of truth is the row fetched
+  // from api.product_options during init.
   const SOURCE_KEYS = Object.freeze([
     "usatoday",
     "fantasycalc",
@@ -59,13 +50,13 @@
     "usatoday_adjusted",
     "fantasypros_adjusted",
     "cbs_adjusted",
-    // Pure VORP keys (raw value-above-waivers curves).
+    // Pure VORP keys (browser computes these from per-game projections; no
+    // per-cell rows on api.player_values).
     "espn_vorp",
     "cbsros_vorp",
     "razzball_vorp",
   ]);
 
-  // Adjusted indexed keys (drive the pause logic in §3.4.2).
   const ADJUSTED_INDEXED_KEYS = Object.freeze([
     "fantasycalc_adjusted",
     "usatoday_adjusted",
@@ -73,14 +64,13 @@
     "cbs_adjusted",
   ]);
 
-  // Pure VORP keys (browser-computed from per-game projections).
   const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
 
-  // As-published sources (singleScale: true in normalizeToFixedPie).
   const AS_PUBLISHED_KEYS = Object.freeze(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
 
-  // FantasyCalc family emits _qbN combo suffix; every other source collapses.
-  // Mirrors consolidation-index.js QB_AWARE_SOURCES so the two stay in sync.
+  // FantasyCalc family emits _qbN combo suffix; every other source collapses
+  // to qb1. Mirrors consolidation-index.js QB_AWARE_SOURCES so the two stay
+  // in sync (consumers use this constant to pick the right qbVariant).
   const QB_AWARE_SOURCES = new Set(["fantasycalc", "fantasycalc_adjusted"]);
 
   // ---------- Internal state ----------
@@ -88,48 +78,118 @@
   const state = {
     initialized: false,
     initError: null,
-    detail: null,            // raw legacy comparison-sources-data.json
-    news: null,              // raw legacy player-news.json
-    adjustments: null,       // raw legacy adjustment-inputs.json
-    players: [],             // canonical players from inline island
-    playerByKey: new Map(),  // player_key -> player record
-    playerKeysBySourceId: new Map(), // sourceId -> playerKey (legacy fixture)
-    consolidation: null,     // reference to window.TradeValueConsolidation
-    snapshot: null,          // contract-shaped api.product_snapshot
-    options: null,           // contract-shaped api.product_options
+    snapshot: null,                 // frozen api.product_snapshot row
+    options: null,                  // frozen api.product_options singleton
     activeSnapshotId: null,
+    sourcesMap: {},                 // mirror of snapshot.sources for sourceMeta
+    players: [],                    // frozen array of api.players rows
+    playerByKey: new Map(),         // player_key -> player row
+    // cellKey -> {values, valueProvenance, modelVsPublished, tierPriceVector,
+    //   pieVintage, bakeId, detailLocator, indexTotal, hasAnyRow}
+    // cellKey shape: `${source}|${scoring}|${teams}|${qbVariant}|${view}`
+    valuesByCell: new Map(),
+    contextByKey: new Map(),        // player_key (number) -> {news, adjustments, asOf}
   };
 
-  // ---------- Fetch helpers ----------
+  // ---------- Cache helpers (ChatGPT cutover plan) ----------
 
-  function fetchJSON(path, timeoutMs) {
-    if (typeof fetch !== "function") return Promise.reject(new Error("fetch unavailable"));
+  // Kill switch: ?dataSource=fixtures or localStorage override.
+  // Checks both "tvc::dataSource" (namespaced) and "dataSource" (plan's key).
+  function isFixturesOverride() {
+    try {
+      if (typeof window === "undefined") return false;
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("dataSource") === "fixtures") return true;
+      if (window.localStorage) {
+        if (window.localStorage.getItem("tvc::dataSource") === "fixtures") return true;
+        if (window.localStorage.getItem("dataSource") === "fixtures") return true;
+      }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  function cacheKey(name, snapshotId) {
+    return `${CACHE_PREFIX}${name}::${snapshotId || "unknown"}`;
+  }
+
+  function readCache(key) {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return null;
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      return JSON.parse(raw);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function writeCache(key, value) {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return;
+      window.localStorage.setItem(key, JSON.stringify({ data: value, fetchedAt: new Date().toISOString() }));
+    } catch (e) {
+      // Quota exceeded or unavailable — non-fatal
+      console.warn("[product-data] cache write failed:", e.message);
+    }
+  }
+
+  function showDegradedBanner(message) {
+    try {
+      if (typeof window === "undefined" || !window.document) return;
+      let banner = window.document.getElementById("tvc-status-banner");
+      if (!banner) {
+        banner = window.document.createElement("div");
+        banner.id = "tvc-status-banner";
+        banner.style.cssText = "display:none; padding:8px 16px; background:#fff3cd; color:#856404; border-bottom:1px solid #ffeaa7; font-size:14px; text-align:center;";
+        window.document.body.insertBefore(banner, window.document.body.firstChild);
+      }
+      banner.textContent = message;
+      banner.style.display = "block";
+    } catch (e) { /* ignore */ }
+  }
+
+  // ---------- PostgREST fetch helpers ----------
+
+  // Resolve PostgREST base URL + anon key from the runtime window. Throws
+  // when either is missing — fail-closed before any network round-trip.
+  function getPostgrestConfig() {
+    if (typeof window === "undefined") {
+      throw new Error("product-data.js: window scope unavailable; cannot resolve PostgREST URL/key. Render refused.");
+    }
+    const baseUrl = window.TRADE_VALUE_SUPABASE_URL;
+    const anonKey = window.TRADE_VALUE_SUPABASE_ANON_KEY;
+    if (!baseUrl || typeof baseUrl !== "string") {
+      throw new Error("product-data.js: window.TRADE_VALUE_SUPABASE_URL is not set. Render refused.");
+    }
+    if (!anonKey || typeof anonKey !== "string") {
+      throw new Error("product-data.js: window.TRADE_VALUE_SUPABASE_ANON_KEY is not set. Render refused.");
+    }
+    return { baseUrl: baseUrl.replace(/\/+$/, ""), anonKey };
+  }
+
+  // fetch() with an AbortController-backed timeout. Returns the raw Response.
+  function fetchWithTimeout(url, opts, timeoutMs) {
+    if (typeof fetch !== "function") {
+      return Promise.reject(new Error("fetch unavailable"));
+    }
     let controller = null;
     let timer = null;
-    if (typeof AbortController === "function") {
-      try {
-        controller = new AbortController();
-      } catch (e) {
-        controller = null;
-      }
+    try {
+      controller = typeof AbortController === "function" ? new AbortController() : null;
+    } catch (e) {
+      controller = null;
     }
-    const opts = controller ? { signal: controller.signal } : {};
+    const fetchOpts = Object.assign({}, opts || {});
+    if (controller) fetchOpts.signal = controller.signal;
     return new Promise((resolve, reject) => {
       timer = setTimeout(() => {
         if (controller) controller.abort();
-        reject(new Error(`${path} fetch timed out after ${timeoutMs}ms`));
+        reject(new Error(`timed out after ${timeoutMs}ms`));
       }, timeoutMs);
-      fetch(path, opts)
+      fetch(url, fetchOpts)
         .then(response => {
-          if (!response.ok) {
-            reject(new Error(`${path} request failed (${response.status})`));
-            return null;
-          }
-          return response.json();
-        })
-        .then(payload => {
           clearTimeout(timer);
-          resolve(payload);
+          resolve(response);
         })
         .catch(err => {
           clearTimeout(timer);
@@ -138,136 +198,382 @@
     });
   }
 
-  function loadPlayersInline() {
-    if (typeof document === "undefined") return {};
-    try {
-      const el = document.getElementById(LEGACY_PATHS.playersInlineId);
-      return el ? JSON.parse(el.textContent || "{}") : {};
-    } catch (e) {
-      return {};
+  // Fetch every row of a PostgREST view, paginating via Range headers until
+  // the Content-Range total is exhausted or a short page is returned.
+  // Throws on any HTTP error, parse error, or non-array payload.
+  async function fetchViewAll(viewName) {
+    const { baseUrl, anonKey } = getPostgrestConfig();
+    // viewName is "api.player_values" per contract; PostgREST needs the bare
+    // view name in the URL path plus Accept-Profile for the api schema.
+    const bareView = viewName.replace(/^api\./, "");
+    const url = `${baseUrl}/rest/v1/${bareView}`;
+    const allRows = [];
+    let offset = 0;
+    while (true) {
+      const headers = {
+        "apikey": anonKey,
+        "Authorization": `Bearer ${anonKey}`,
+        "Accept-Profile": "api",
+        "Range": `${offset}-${offset + PAGE_SIZE - 1}`,
+        // count=none avoids the PostgREST count(*) overhead on 20k-row
+        // views; pagination terminates on the short-page break below.
+        "Prefer": "count=none",
+        "Accept": "application/json",
+      };
+      let response;
+      try {
+        response = await fetchWithTimeout(url, { method: "GET", headers }, FETCH_TIMEOUT_MS);
+      } catch (err) {
+        const reason = err && err.message ? err.message : err;
+        throw new Error(`${viewName} fetch failed: ${reason}. Render refused.`);
+      }
+      if (!response.ok) {
+        let body = "";
+        try { body = await response.text(); } catch (e) { /* ignore */ }
+        throw new Error(`${viewName} request failed (status=${response.status}${body ? ", body=" + body : ""}). Render refused.`);
+      }
+      let rows;
+      try {
+        rows = await response.json();
+      } catch (e) {
+        throw new Error(`${viewName} parse failed (invalid JSON). Render refused.`);
+      }
+      if (!Array.isArray(rows)) {
+        throw new Error(`${viewName} returned a non-array payload. Render refused.`);
+      }
+      allRows.push(...rows);
+      if (rows.length < PAGE_SIZE) break;
+      const contentRange = response.headers.get("content-range");
+      let totalKnown = null;
+      if (contentRange) {
+        const m = /\/(\d+|\*)/.exec(contentRange);
+        if (m && m[1] !== "*") totalKnown = parseInt(m[1], 10);
+      }
+      offset += PAGE_SIZE;
+      if (totalKnown !== null && offset >= totalKnown) break;
+    }
+    return allRows;
+  }
+
+  // ---------- Numeric / shape helpers ----------
+
+  // Parse a wire numeric (PostgREST serializes numeric/bigint as strings).
+  // Returns null when the cell is null/missing/non-numeric.
+  function parseNum(v) {
+    if (v === null || v === undefined || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function parseIntStrict(v) {
+    if (v === null || v === undefined || v === "") return null;
+    const n = parseInt(v, 10);
+    return Number.isInteger(n) ? n : null;
+  }
+
+  // cellKey shape — used as the Map key for the per-cell value index.
+  function cellKeyFor(source, scoring, teams, qbVariant, view) {
+    return `${source}|${scoring}|${teams}|${qbVariant}|${view}`;
+  }
+
+  // ---------- Fail-closed guards (§5.1, §6.1, §3.1.2) ----------
+
+  // pie_vintage guard: for combo_reindexed rows with indexed/ddf-translated
+  // provenance, pie_vintage must equal bake_id (or be NULL for passthrough).
+  // Any violation throws — the snapshot is refused, the chart must not
+  // render partial.
+  function verifyPieVintageGuard(rows, snapshotId) {
+    const guardedProvenances = new Set(["indexed", "vorp_indexed", "ddf_translated"]);
+    for (const row of rows) {
+      if (row.view !== "combo_reindexed") continue;
+      if (!guardedProvenances.has(row.value_provenance)) continue;
+      const pieVintage = row.pie_vintage;
+      const bakeId = row.bake_id;
+      if (pieVintage == null) continue; // passthrough sources not on the pie
+      if (bakeId == null || String(pieVintage) !== String(bakeId)) {
+        throw new Error(
+          `${VIEWS.playerValues} pie_vintage guard failed (snapshot=${snapshotId}): ` +
+          `source=${row.source} scoring=${row.scoring} teams=${row.teams} ` +
+          `qb_variant=${row.qb_variant} view=${row.view} ` +
+          `value_provenance=${row.value_provenance} ` +
+          `pie_vintage=${pieVintage} bake_id=${bakeId}. Render refused.`
+        );
+      }
     }
   }
 
-  // ---------- Contract-shape projection ----------
-
-  // Build api.product_snapshot (frozen). Field shape per contract §3.5.2.
-  function buildSnapshot(detail, news) {
-    const sources = detail && typeof detail.sources === "object" ? detail.sources : {};
-    return Object.freeze({
-      snapshot_id: String(detail?.bake_id || "legacy-fixture"),
-      contract_version: CONTRACT_VERSION,
-      built_at: detail?.built_at || null,
-      value_weeks: detail?.value_weeks || {},
-      sources,
-      source_validation: detail?.source_validation || {},
-      espn_zeroed: Array.isArray(detail?.espn_zeroed) ? [...detail.espn_zeroed] : [],
-      methodology_combos: detail?.methodology_combos || null,
-      reference_freshness: detail?.reference_freshness || null,
-      // pie_vintage_per_source: contract §3.5.2 — bake_id keyed map. Legacy
-      // fixture collapses to bake_id globally; consumers should treat a null
-      // here as "not published yet, fall back to bake_id".
-      pie_vintage_per_source: detail?.pie_vintage_per_source || null,
-      players_snapshot_at: detail?.built_at || null,
-      context_meta: news?.meta || null,
-      bake_id: detail?.bake_id || null,
-      // Marker so callers can tell the v1-fixture projection from a real
-      // api.* surface (the v1 cutover will flip it false).
-      _isLegacyProjection: true,
-    });
+  // tier_price_vintage guard: whenever tier_price_vector is set,
+  // tier_price_vintage must equal bake_id.
+  function verifyTierPriceVintageGuard(rows, snapshotId) {
+    for (const row of rows) {
+      if (row.tier_price_vector == null) continue;
+      const tier = row.tier_price_vintage;
+      const bakeId = row.bake_id;
+      if (tier == null) continue; // backend may leave NULL when vector is unset
+      if (bakeId == null || String(tier) !== String(bakeId)) {
+        throw new Error(
+          `${VIEWS.playerValues} tier_price_vintage guard failed (snapshot=${snapshotId}): ` +
+          `source=${row.source} scoring=${row.scoring} teams=${row.teams} ` +
+          `qb_variant=${row.qb_variant} view=${row.view} ` +
+          `tier_price_vintage=${tier} bake_id=${bakeId}. Render refused.`
+        );
+      }
+    }
   }
 
-  // Build api.product_options (frozen). Field shape per contract §3.4.2.
-  function buildOptions() {
-    return Object.freeze({
-      product_key: "default",
-      contract_version: CONTRACT_VERSION,
-      bench_share: Object.freeze({
-        default: 0.15,
-        min: 0.01,
-        max: 0.30,
-        user_settable: true,
-      }),
-      bench_share_default: 0.15,
-      bench_share_min: 0.01,
-      bench_share_max: 0.30,
-      bench_share_user_settable: true,
-      default_scoring: "full",
-      default_teams: 12,
-      default_roster_shape: Object.freeze({ QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 }),
-      default_lock_order: "espn",
-      default_view_mode: "indexed",
-      default_reference_source: "usatoday",
-      default_position_weights: null,
-      min_shared_for_pie: 40,
-      starter_markup_sane_band: Object.freeze([0.98, 1.6]),
-      peak_agreement_band: Object.freeze([0.80, 1.25]),
-      source_keys: SOURCE_KEYS,
-      adjusted_indexed_keys: ADJUSTED_INDEXED_KEYS,
-      pure_vorp_keys: PURE_VORP_KEYS,
-      as_published_keys: AS_PUBLISHED_KEYS,
-      _isLegacyProjection: true,
-    });
+  // sourceMapCoverage on api.player_values: every key in options.source_keys
+  // (except pure VORP, which has no per-cell rows) must appear at least once.
+  function verifyPlayerValuesSourceMap(rows, options) {
+    const present = new Set();
+    for (const row of rows) {
+      const source = String(row.source || "");
+      if (source) present.add(source);
+    }
+    const missing = [];
+    for (const key of options.source_keys) {
+      if (PURE_VORP_KEYS.includes(key)) continue;
+      if (key === "cbs_adjusted") {
+        if (!present.has("cbs")) missing.push(key);
+        continue;
+      }
+      if (!present.has(key)) missing.push(key);
+    }
+    if (missing.length) {
+      throw new Error(`${VIEWS.playerValues} sourceMapCoverage failed: missing ${missing.join(", ")}. Render refused.`);
+    }
   }
 
-  // Build api.players (frozen array). Field shape per contract §3.2.2.
-  // The legacy inline island exposes {player_key, full_name, name, pos,
-  // team, espn_ppg, rz_ppg, cbsros_ppg, ecr_ppg, blend_ppg, games_remaining,
-  // ir_zeroed}. We forward the fields consumers already read (full_name,
-  // espn_ppg, rz_ppg, cbsros_ppg) and add the contract-mandated
-  // canonical_name + kdst_excluded_from_chart + ir_zeroed so the cutover
-  // does not change downstream semantics.
-  function buildPlayers(playersPayload) {
-    const raw = Array.isArray(playersPayload?.players) ? playersPayload.players : [];
-    return Object.freeze(raw.map(player => {
-      const playerKey = Number(player.player_key);
-      const canonicalName = String(player.full_name || player.name || "").trim();
-      const pos = String(player.pos || "");
+  // ---------- Indexers ----------
+
+  // Build the per-cell index from api.player_values rows. All rows of a cell
+  // share (source, scoring, teams, qb_variant, view); we aggregate values
+  // into a Map<playerKey, number>, and capture the per-row metadata that
+  // applies to the cell (value_provenance, model_vs_published,
+  // tier_price_vector, pie_vintage, bake_id, detail_locator, index_total).
+  function indexPlayerValues(rows) {
+    const cellMap = new Map();
+    for (const row of rows) {
+      const source = String(row.source || "");
+      const scoring = String(row.scoring || "");
+      const teamsNum = parseIntStrict(row.teams);
+      const qbVariant = String(row.qb_variant || "");
+      const view = String(row.view || "");
+      if (!source || !scoring || teamsNum === null || !view) continue;
+      const key = cellKeyFor(source, scoring, teamsNum, qbVariant, view);
+      let cell = cellMap.get(key);
+      if (!cell) {
+        cell = {
+          values: new Map(),
+          valueProvenance: row.value_provenance != null ? String(row.value_provenance) : null,
+          modelVsPublished: row.model_vs_published != null ? String(row.model_vs_published) : null,
+          tierPriceVector: row.tier_price_vector && typeof row.tier_price_vector === "object"
+            ? JSON.parse(JSON.stringify(row.tier_price_vector))
+            : null,
+          pieVintage: row.pie_vintage != null ? String(row.pie_vintage) : null,
+          bakeId: row.bake_id != null ? String(row.bake_id) : null,
+          detailLocator: row.detail_locator != null ? String(row.detail_locator) : null,
+          indexTotal: parseNum(row.index_total),
+          hasAnyRow: false,
+        };
+        cellMap.set(key, cell);
+      }
+      cell.hasAnyRow = true;
+      const playerKey = Number(row.player_key);
+      if (!Number.isInteger(playerKey)) continue;
+      const value = parseNum(row.value);
+      if (value === null) continue;
+      cell.values.set(playerKey, value);
+    }
+    return cellMap;
+  }
+
+  // Build the api.players frozen array. Field shape per contract §3.2.2.
+  // canonical_name is the ONLY name source (Jeremy 2026-10-04): the
+  // full_name ‖ name ‖ "" fallback chain is dead. The view guarantees
+  // canonical_name from the canonical identity table.
+  function buildPlayers(rows) {
+    return Object.freeze(rows.map(raw => {
+      const playerKey = Number(raw.player_key);
+      const pos = String(raw.pos || "");
       const isKdst = pos === "K" || pos === "DST";
+      const canonicalName = String(raw.canonical_name || "").trim();
+      const teamRaw = raw.team;
+      const team = (teamRaw != null && String(teamRaw) !== "") ? String(teamRaw) : "—";
       return Object.freeze({
         player_key: playerKey,
         canonical_name: canonicalName,
         pos,
-        team: String(player.team || "—"),
-        ir_zeroed: Boolean(player.ir_zeroed),
-        kdst_excluded_from_chart: isKdst,
-        espn_ppg: player.espn_ppg || null,
-        rz_ppg: player.rz_ppg || null,
-        cbsros_ppg: player.cbsros_ppg || null,
-        ecr_ppg: player.ecr_ppg || null,
-        blend_ppg: player.blend_ppg || null,
-        games_remaining: Number.isFinite(Number(player.games_remaining)) ? Number(player.games_remaining) : null,
-        // Legacy aliases (removed by the v1 contract cutover).
+        team,
+        ir_zeroed: Boolean(raw.ir_zeroed),
+        kdst_excluded_from_chart: raw.kdst_excluded_from_chart === true ? true : isKdst,
+        espn_ppg: raw.espn_ppg && typeof raw.espn_ppg === "object" ? JSON.parse(JSON.stringify(raw.espn_ppg)) : null,
+        rz_ppg: raw.rz_ppg && typeof raw.rz_ppg === "object" ? JSON.parse(JSON.stringify(raw.rz_ppg)) : null,
+        cbsros_ppg: raw.cbsros_ppg && typeof raw.cbsros_ppg === "object" ? JSON.parse(JSON.stringify(raw.cbsros_ppg)) : null,
+        ecr_ppg: raw.ecr_ppg && typeof raw.ecr_ppg === "object" ? JSON.parse(JSON.stringify(raw.ecr_ppg)) : null,
+        agent_ranking_ppg: raw.agent_ranking_ppg && typeof raw.agent_ranking_ppg === "object" ? JSON.parse(JSON.stringify(raw.agent_ranking_ppg)) : null,
+        blend_ppg: raw.blend_ppg && typeof raw.blend_ppg === "object" ? JSON.parse(JSON.stringify(raw.blend_ppg)) : null,
+        games_remaining: parseNum(raw.games_remaining),
+        // Legacy aliases — pure copies of the canonical name (NOT a
+        // fallback chain: the name always comes from the canonical
+        // identity table via canonical_name). Kept so W2-era consumers
+        // reading row.name / row.full_name keep working during the
+        // strangler-fig; migrate them to canonical_name next.
         full_name: canonicalName,
         name: canonicalName,
-        _isLegacyProjection: true,
       });
     }));
   }
 
-  // Build the per-cell composite key (matches consolidation-index.js exactly).
-  // Mirrors ValueModel.sourceComboKey: the widget's scoring names (ppr /
-  // half_ppr / standard) map to the fixture's combo prefixes (full / half /
-  // standard), and the FantasyCalc family carries the _qbN suffix.
-  // A scoring name with no fixture prefix returns null so the caller
-  // fail-closes (no cross-scoring borrowing) instead of reading a wrong combo.
-  const SCORING_PREFIX = {ppr: "full", full: "full", half_ppr: "half", half: "half",
-    standard: "standard"};
-  function comboKeyFor(source, scoring, teams, qbVariant) {
-    const prefix = SCORING_PREFIX[scoring];
-    if (!prefix) return null;
-    const needsQb = QB_AWARE_SOURCES.has(source);
-    const qbSuffix = needsQb ? `_${qbVariant || "qb1"}` : "";
-    return `${prefix}_${teams}${qbSuffix}`;
+  // Build the api.player_context index (player_key -> frozen {news[],
+  // adjustments[], asOf}). Per §3.3.1 the view omits players with neither
+  // news nor adjustments; getPlayerContext() returns null for those keys.
+  function indexPlayerContext(rows) {
+    const ctxMap = new Map();
+    for (const row of rows) {
+      const playerKey = Number(row.player_key);
+      if (!Number.isInteger(playerKey)) continue;
+      const news = Array.isArray(row.news)
+        ? Object.freeze(row.news.map(n => Object.freeze(Object.assign({}, n))))
+        : Object.freeze([]);
+      const adjustments = Array.isArray(row.adjustments)
+        ? Object.freeze(row.adjustments.map(a => Object.freeze(Object.assign({}, a))))
+        : Object.freeze([]);
+      ctxMap.set(playerKey, Object.freeze({
+        news,
+        adjustments,
+        as_of: row.as_of != null ? String(row.as_of) : null,
+      }));
+    }
+    return ctxMap;
+  }
+
+  // Build the frozen api.product_options singleton from the view response.
+  // The row is already shaped; we deep-clone jsonb fields so consumers can
+  // mutate without affecting state.
+  function buildOptions(row) {
+    if (!row || typeof row !== "object") {
+      throw new Error(`${VIEWS.productOptions} returned a non-object payload. Render refused.`);
+    }
+    const benchShare = row.bench_share && typeof row.bench_share === "object" ? row.bench_share : {};
+    return Object.freeze({
+      product_key: String(row.product_key || "default"),
+      contract_version: String(row.contract_version || ""),
+      bench_share: Object.freeze({
+        default: parseNum(benchShare.default) != null ? parseNum(benchShare.default) : 0.15,
+        min: parseNum(benchShare.min) != null ? parseNum(benchShare.min) : 0.01,
+        max: parseNum(benchShare.max) != null ? parseNum(benchShare.max) : 0.30,
+        user_settable: benchShare.user_settable !== false,
+      }),
+      bench_share_default: parseNum(row.bench_share_default) != null ? parseNum(row.bench_share_default) : 0.15,
+      bench_share_min: parseNum(row.bench_share_min) != null ? parseNum(row.bench_share_min) : 0.01,
+      bench_share_max: parseNum(row.bench_share_max) != null ? parseNum(row.bench_share_max) : 0.30,
+      bench_share_user_settable: row.bench_share_user_settable !== false,
+      default_scoring: String(row.default_scoring || "full"),
+      default_teams: parseNum(row.default_teams) != null ? parseNum(row.default_teams) : 12,
+      default_roster_shape: Object.freeze(row.default_roster_shape && typeof row.default_roster_shape === "object"
+        ? Object.assign({}, row.default_roster_shape)
+        : { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6 }),
+      default_lock_order: String(row.default_lock_order || "espn"),
+      default_view_mode: String(row.default_view_mode || "indexed"),
+      default_reference_source: String(row.default_reference_source || "usatoday"),
+      default_position_weights: row.default_position_weights && typeof row.default_position_weights === "object"
+        ? JSON.parse(JSON.stringify(row.default_position_weights))
+        : null,
+      min_shared_for_pie: parseNum(row.min_shared_for_pie) != null ? parseNum(row.min_shared_for_pie) : 40,
+      starter_markup_sane_band: Object.freeze(Array.isArray(row.starter_markup_sane_band)
+        ? row.starter_markup_sane_band.map(Number)
+        : [0.98, 1.6]),
+      peak_agreement_band: Object.freeze(Array.isArray(row.peak_agreement_band)
+        ? row.peak_agreement_band.map(Number)
+        : [0.80, 1.25]),
+      source_keys: Object.freeze(Array.isArray(row.source_keys) && row.source_keys.length
+        ? row.source_keys.slice()
+        : SOURCE_KEYS.slice()),
+      adjusted_indexed_keys: Object.freeze(Array.isArray(row.adjusted_indexed_keys)
+        ? row.adjusted_indexed_keys.slice()
+        : ADJUSTED_INDEXED_KEYS.slice()),
+      pure_vorp_keys: Object.freeze(Array.isArray(row.pure_vorp_keys)
+        ? row.pure_vorp_keys.slice()
+        : PURE_VORP_KEYS.slice()),
+      as_published_keys: Object.freeze(Array.isArray(row.as_published_keys)
+        ? row.as_published_keys.slice()
+        : AS_PUBLISHED_KEYS.slice()),
+    });
+  }
+
+  // Build the frozen api.product_snapshot from the active row. The view
+  // filters to is_active=true AND publishable=true; if multiple rows come
+  // back (defense in depth), prefer is_active=true.
+  function buildSnapshot(rows) {
+    if (!rows.length) {
+      throw new Error(`${VIEWS.productSnapshot} returned 0 rows (no active snapshot). Render refused.`);
+    }
+    const row = rows.find(r => r.is_active !== false) || rows[0];
+    return Object.freeze({
+      snapshot_id: String(row.snapshot_id),
+      contract_version: String(row.contract_version || ""),
+      built_at: row.built_at != null ? String(row.built_at) : null,
+      value_weeks: row.value_weeks && typeof row.value_weeks === "object"
+        ? Object.freeze(Object.assign({}, row.value_weeks))
+        : Object.freeze({}),
+      sources: row.sources && typeof row.sources === "object"
+        ? Object.freeze(JSON.parse(JSON.stringify(row.sources)))
+        : Object.freeze({}),
+      source_validation: row.source_validation && typeof row.source_validation === "object"
+        ? Object.freeze(Object.assign({}, row.source_validation))
+        : Object.freeze({}),
+      espn_zeroed: Array.isArray(row.espn_zeroed)
+        ? Object.freeze(row.espn_zeroed.slice())
+        : Object.freeze([]),
+      methodology_combos: row.methodology_combos && typeof row.methodology_combos === "object"
+        ? JSON.parse(JSON.stringify(row.methodology_combos))
+        : null,
+      reference_freshness: row.reference_freshness && typeof row.reference_freshness === "object"
+        ? JSON.parse(JSON.stringify(row.reference_freshness))
+        : null,
+      health: row.health && typeof row.health === "object"
+        ? JSON.parse(JSON.stringify(row.health))
+        : null,
+      is_active: row.is_active !== false,
+      publishable: row.publishable !== false,
+      generated_at: row.generated_at != null ? String(row.generated_at) : null,
+      bake_ids: row.bake_ids && typeof row.bake_ids === "object"
+        ? JSON.parse(JSON.stringify(row.bake_ids))
+        : null,
+      pie_vintage_per_source: row.pie_vintage_per_source && typeof row.pie_vintage_per_source === "object"
+        ? Object.freeze(Object.assign({}, row.pie_vintage_per_source))
+        : null,
+      players_snapshot_at: row.players_snapshot_at != null ? String(row.players_snapshot_at) : null,
+      context_meta: row.context_meta && typeof row.context_meta === "object"
+        ? JSON.parse(JSON.stringify(row.context_meta))
+        : null,
+    });
+  }
+
+  // sourceMapCoverage on the snapshot: every key in options.source_keys
+  // (except pure VORP, cbs_adjusted) must have a snapshot.sources entry.
+  function verifySourceMapCoverage(options, snapshot) {
+    const sourcesMap = snapshot.sources || {};
+    const missing = [];
+    for (const key of options.source_keys) {
+      if (PURE_VORP_KEYS.includes(key)) continue;
+      if (key === "cbs_adjusted") {
+        if (!sourcesMap.cbs) missing.push(key);
+        continue;
+      }
+      if (!sourcesMap[key]) missing.push(key);
+    }
+    if (missing.length) {
+      throw new Error(`sourceMapCoverage failed: missing ${missing.join(", ")}. Render refused.`);
+    }
   }
 
   // ---------- Public surface (the five semantic methods) ----------
 
   // getPlayerValues({source, scoring, teams, qbVariant, view}) — contract §8.1.
-  // Returns a frozen per-cell object, or null when the cell is not on the
-  // shipped snapshot. The returned Map<playerKey, number> is the FE's only
-  // read for per-cell values; legacy deep-path reads are eliminated.
+  // Returns a frozen per-cell object, or null when the cell is absent.
   function getPlayerValues(query) {
-    if (!state.initialized || !state.detail) {
+    if (!state.initialized) {
       throw new Error("product-data.js: getPlayerValues() called before initProductData() resolved. Render refused.");
     }
     if (!query || typeof query !== "object") {
@@ -279,73 +585,54 @@
     }
 
     // Pure VORP sources have no per-cell rows on api.player_values (the
-    // browser computes them from per-game projections); return null and let
-    // the consumer read api.players via getPlayers() for the projection.
+    // browser computes them from per-game projections via getPlayers()).
     if (PURE_VORP_KEYS.includes(source)) return null;
 
-    const detail = state.detail;
-    const sourceKey = source === "cbs_adjusted" ? "cbs" : source;
-    const comboKeyStr = comboKeyFor(sourceKey, scoring, teams, qbVariant);
-    const combo = detail.sources?.[sourceKey]?.combos?.[comboKeyStr];
-    if (!combo) return null;
+    const teamsNum = parseIntStrict(teams);
 
-    // Reindexed values are the default for combo_reindexed; native comes
-    // from combo.native; passthrough view has its own field (not in legacy).
-    let cellField = null;
-    if (view === "combo_reindexed") cellField = combo.values || combo.reindexed || null;
-    else if (view === "native") cellField = combo.native || null;
-    else if (view === "vorp" || view === "vorp_indexed" || view === "adj_values") {
-      // Legacy fixture does not yet separate these views; collapse to the
-      // reindexed cell until the bake ships them.
-      cellField = combo.values || combo.reindexed || null;
+    // Fixtures mode: build the cell from the inline island (best effort).
+    if (state.fixturesMode) {
+      const fcell = getFixtureCell(source, scoring, teamsNum, qbVariant, view);
+      if (!fcell || !fcell.hasAnyRow) return null;
+      const fvalues = new Map(fcell.values);
+      return Object.freeze({
+        values: fvalues,
+        tier_price_vector: null,
+        pie_vintage: null,
+        bake_id: null,
+        coverage_class: fvalues.size ? "full" : "view_limited_source",
+        value_provenance: "fixtures",
+        model_vs_published: null,
+        detail_locator: null,
+        source_meta: null,
+        index_total: null,
+      });
     }
-    if (!cellField) return null;
 
-    const values = new Map();
-    Object.entries(cellField).forEach(([sourceId, rawValue]) => {
-      const playerKey = state.playerKeysBySourceId.get(sourceId);
-      if (!Number.isInteger(playerKey)) return;
-      const num = Number(rawValue);
-      if (!Number.isFinite(num)) return;
-      values.set(playerKey, num);
-    });
+    const key = cellKeyFor(source, scoring, teamsNum, qbVariant, view);
+    const cell = state.valuesByCell.get(key);
+    if (!cell || !cell.hasAnyRow) return null;
 
-    // pie_vintage: bake_id for combo_reindexed / ddf_translated; null for
-    // passthrough. Legacy projection: bake_id globally.
-    const pieVintage = (view === "combo_reindexed") ? (state.snapshot?.bake_id || null) : null;
+    // Copy the values map so callers can mutate without affecting state.
+    const values = new Map(cell.values);
+    const coverageClass = values.size ? "full" : "view_limited_source";
 
-    // value_provenance: legacy projection cannot enumerate all six enum
-    // values; infer from source and view.
-    let valueProvenance = "native";
-    if (view === "combo_reindexed") {
-      valueProvenance = QB_AWARE_SOURCES.has(sourceKey) ? "indexed" : "indexed";
-    } else if (view === "vorp") valueProvenance = "vorp";
-    else if (view === "vorp_indexed") valueProvenance = "vorp_indexed";
-    else if (view === "adj_values") valueProvenance = "adj";
-
-    let modelVsPublished = "published";
-    if (["espn", "cbsros", "razzball"].includes(sourceKey)) modelVsPublished = "model";
-
-    const detailLocator = `sources.${sourceKey}.combos.${comboKeyStr}.${cellField === combo.native ? "native" : "values"}`;
-
+    // Frozen per-cell object per contract §8.1.
     return Object.freeze({
       values,
-      tier_price_vector: null, // not in legacy; v1 ships per §3.1.2 once bake lands
-      pie_vintage: pieVintage,
-      bake_id: state.snapshot?.bake_id || null,
-      coverage_class: values.size ? "full" : "view_limited_source",
-      value_provenance: valueProvenance,
-      model_vs_published: modelVsPublished,
-      detail_locator: detailLocator,
-      // Legacy alias so the comparator + dashboard row can show source
-      // metadata without re-reading the snapshot.
-      source_meta: state.snapshot?.sources?.[sourceKey] || null,
-      index_total: combo.index_total || null,
-      _isLegacyProjection: true,
+      tier_price_vector: cell.tierPriceVector,
+      pie_vintage: cell.pieVintage,
+      bake_id: cell.bakeId,
+      coverage_class: coverageClass,
+      value_provenance: cell.valueProvenance,
+      model_vs_published: cell.modelVsPublished,
+      detail_locator: cell.detailLocator,
+      source_meta: state.snapshot?.sources?.[source] || null,
+      index_total: cell.indexTotal,
     });
   }
 
-  // getPlayers() — contract §8.1. Returns a frozen array of api.players.
+  // getPlayers() — contract §8.1. Returns the frozen array of api.players.
   function getPlayers() {
     if (!state.initialized) {
       throw new Error("product-data.js: getPlayers() called before initProductData() resolved. Render refused.");
@@ -354,24 +641,17 @@
   }
 
   // getPlayerContext(playerKey) — contract §8.1. Returns a frozen
-  // {news[], adjustments[], as_of} or null when the player has no context.
+  // {news[], adjustments[], asOf} or null when the player has no context.
   function getPlayerContext(playerKey) {
     if (!state.initialized) {
       throw new Error("product-data.js: getPlayerContext() called before initProductData() resolved. Render refused.");
     }
-    if (!state.news) return null;
-    const key = String(playerKey);
-    const news = state.news.news_by_player_key?.[key] || [];
-    const adjustments = state.news.adjustments_by_player_key?.[key] || [];
-    if (!news.length && !adjustments.length) return null;
-    return Object.freeze({
-      news: Object.freeze([...news]),
-      adjustments: Object.freeze([...adjustments]),
-      as_of: state.news.meta?.trade_values_published_at || null,
-    });
+    const key = Number(playerKey);
+    if (!Number.isInteger(key)) return null;
+    return state.contextByKey.get(key) || null;
   }
 
-  // getProductOptions() — contract §8.1. Returns the singleton.
+  // getProductOptions() — contract §8.1. Returns the singleton frozen.
   function getProductOptions() {
     if (!state.initialized) {
       throw new Error("product-data.js: getProductOptions() called before initProductData() resolved. Render refused.");
@@ -388,15 +668,18 @@
   }
 
   // ---------- Transitional helpers (not contract surfaces) ----------
+  //
+  // These keep the previous public API alive for consumers that still depend
+  // on them. New consumers should use the five semantic methods only.
 
   // getAdjustmentInputs(): the raw adjustment-inputs.json payload. The
   // contract does not yet have a surface for the stage-2 alpha/beta cells
-  // (the JEG-322 publish gate will land them in api.player_values eventually).
-  // Returning the legacy payload from a single module keeps the deep-path
-  // reads out of consumers. Returns null when inputs absent/malformed.
+  // (the JEG-322 publish gate will land them in api.player_values). Until
+  // then we return null — consumers that previously read this fixture
+  // continue to render with their default fallback (per §5.2 fail-open for
+  // adjustment-inputs.json fetch/schema fail).
   function getAdjustmentInputs() {
-    if (!state.initialized) return null;
-    return state.adjustments;
+    return null;
   }
 
   // getPlayerByKey(playerKey): convenience accessor so consumers don't have
@@ -408,11 +691,11 @@
   }
 
   // getPlayerKeysBySourceId(): the legacy fixture's sourceId -> playerKey
-  // map (used to build the values map for non-anchor sources during the
-  // strangler-fig window). Returns null when no detail loaded.
+  // map. With the PostgREST cutover, rows are keyed on player_key directly;
+  // consumers should iterate getPlayers() or call getPlayerByKey(). Returning
+  // null signals "no legacy map; use the canonical identity path".
   function getPlayerKeysBySourceId() {
-    if (!state.initialized) return null;
-    return state.playerKeysBySourceId;
+    return null;
   }
 
   // getProviderInfo(): debug surface for the chart health panel.
@@ -421,109 +704,471 @@
       return { provider: "uninitialized", initError: state.initError };
     }
     return {
-      provider: "legacy-fixture-projection",
-      contractVersion: CONTRACT_VERSION,
-      bakeId: state.snapshot?.bake_id || null,
+      provider: state.fixturesMode ? "fixtures-override" : state.fromCache ? "postgrest-api-contract-cached" : "postgrest-api-contract",
+      contractVersion: state.options?.contract_version || CONTRACT_VERSION,
+      snapshotId: state.snapshot?.snapshot_id || null,
+      bakeId: state.snapshot?.bake_ids?.primary || state.snapshot?.snapshot_id || null,
       playersLoaded: state.players.length,
-      newsLoaded: !!state.news,
-      adjustmentsLoaded: !!state.adjustments,
-      consolidationProvider: state.consolidation?.providerInfo?.() || null,
+      valuesLoaded: state.valuesByCell.size,
+      contextLoaded: state.contextByKey.size,
       initError: state.initError,
+      fixturesMode: !!state.fixturesMode,
+      fromCache: !!state.fromCache,
     };
   }
 
-  // ---------- Fail-closed init ----------
+  // ---------- Fail-closed init with cached fallback (ChatGPT cutover plan) ----------
 
   // initProductData({contractVersion="1.0.0"} = {})
-  // Contract §8.2 fail-closed semantics:
-  //   - detail fetch fails → throws
-  //   - contract_version mismatch → throws
-  //   - players empty → throws
-  //   - source_map_coverage failed → throws
-  //   - consolidation init threw → throws (defense in depth; the index is
-  //     used by every per-cell lookup so its absence is fail-closed).
+  //
+  // Resolution order:
+  //   1. ?clearCache=1 → wipe all tvc:: keys, continue to live init
+  //   2. Kill switch (?dataSource=fixtures or localStorage) → fixtures adapter,
+  //      bypass network entirely
+  //   3. Live API with 2s timeout → on success, write snapshot-keyed cache
+  //   4. On NETWORK failure → cached bundle fallback with degraded banner
+  //   5. No cache → throw with actionable message
+  //
+  // Contract violations (version mismatch, sourceMapCoverage, pie_vintage
+  // guards) ALWAYS throw — fallback is for network failures only.
   async function initProductData(opts) {
     if (state.initialized) {
       return publicHandle;
     }
+
+    // ?clearCache=1 → wipe all tvc:: keys (rollback plan)
+    try {
+      if (typeof window !== "undefined" && window.location) {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("clearCache") === "1") {
+          clearAllCache();
+          console.info("[product-data] cache cleared via ?clearCache=1");
+        }
+      }
+    } catch (e) { /* ignore */ }
+
+    // Kill switch: fixtures adapter, bypass network entirely
+    if (isFixturesOverride()) {
+      return initFromFixtures();
+    }
+
     const options = opts || {};
     const expectedVersion = options.contractVersion || CONTRACT_VERSION;
     if (expectedVersion !== CONTRACT_VERSION) {
       throw new Error(`Unknown contract version ${expectedVersion}. Render refused.`);
     }
 
-    // Detail is mandatory (the chart's primary data is here).
-    let detail;
+    // Validate URL/key presence before any network round-trip.
     try {
-      detail = await fetchJSON(LEGACY_PATHS.detail, FETCH_TIMEOUT_MS);
+      getPostgrestConfig();
     } catch (err) {
-      throw new Error(`Data contract fetch failed (${LEGACY_PATHS.detail}): ${err && err.message ? err.message : err}. Render refused.`);
-    }
-    if (!detail || typeof detail !== "object") {
-      throw new Error("Data contract payload is empty. Render refused.");
-    }
-
-    // News + adjustment inputs are best-effort: contract §5.2 fail-open
-    // semantics. We log a warning when they are absent and continue.
-    const newsP = fetchJSON(LEGACY_PATHS.news, FETCH_TIMEOUT_MS).catch(() => null);
-    const adjustmentsP = fetchJSON(LEGACY_PATHS.adjustments, FETCH_TIMEOUT_MS).catch(() => null);
-    const [news, adjustments] = await Promise.all([newsP, adjustmentsP]);
-    if (!news) {
-      console.warn("[product-data] assets/player-news.json absent; news columns will render empty.");
-    }
-    if (!adjustments) {
-      console.warn("[product-data] assets/adjustment-inputs.json absent; *_adjusted columns will pause per runRegressionGuards.");
+      // Config missing = fail-closed (not a network failure). But if we have
+      // a cached bundle, use it — the user has seen this data before.
+      const bundle = readLatestBundle();
+      if (bundle) {
+        showDegradedBanner("Using cached data. Live API unavailable.");
+        return loadFromCache(bundle.data, bundle.fetchedAt);
+      }
+      throw err;
     }
 
-    state.detail = detail;
-    state.news = news;
-    state.adjustments = adjustments;
+    try {
+      return await initFromLive(expectedVersion);
+    } catch (err) {
+      // Distinguish contract violations (always throw) from network failures
+      // (fall back to cache). Contract violations contain "Render refused".
+      const isContractViolation = err && err.message && err.message.includes("Render refused");
+      if (isContractViolation) {
+        throw err;
+      }
+      console.warn("[product-data] live init failed (network):", err.message);
+      const bundle = readLatestBundle();
+      if (bundle) {
+        showDegradedBanner(`Using cached data from ${bundle.fetchedAt}. Live data unavailable. Retry.`);
+        return loadFromCache(bundle.data, bundle.fetchedAt);
+      }
+      throw new Error(
+        `Live API unavailable and no cached data: ${err.message}. ` +
+        `Try ?dataSource=fixtures for the static fallback, or retry.`
+      );
+    }
+  }
 
-    // Players from the inline island; throw on missing (contract §8.2).
-    const playersPayload = loadPlayersInline();
-    state.players = buildPlayers(playersPayload);
+  // Read the latest cached bundle (via the tvc::latest pointer).
+  function readLatestBundle() {
+    try {
+      const latest = readCache(cacheKey("latest", "pointer"));
+      if (!latest || !latest.data || !latest.data.snapshotId) return null;
+      const bundle = readCache(cacheKey("bundle", latest.data.snapshotId));
+      if (!bundle || !bundle.data) return null;
+      return { data: bundle.data, fetchedAt: bundle.fetchedAt };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Wipe all tvc:: keys from localStorage.
+  function clearAllCache() {
+    try {
+      if (typeof window === "undefined" || !window.localStorage) return;
+      const toRemove = [];
+      for (let i = 0; i < window.localStorage.length; i++) {
+        const k = window.localStorage.key(i);
+        if (k && k.indexOf(CACHE_PREFIX) === 0) toRemove.push(k);
+      }
+      toRemove.forEach(k => window.localStorage.removeItem(k));
+    } catch (e) { /* ignore */ }
+  }
+
+  // Serialize the valuesByCell Map into a JSON-safe bundle.
+  function serializeBundle(snapshotRow, optionsRow, playerRows, contextRows, valuesByCell) {
+    const cells = [];
+    valuesByCell.forEach((cell, key) => {
+      const valuesObj = {};
+      cell.values.forEach((v, playerKey) => { valuesObj[playerKey] = v; });
+      cells.push({
+        key,
+        values: valuesObj,
+        valueProvenance: cell.valueProvenance,
+        modelVsPublished: cell.modelVsPublished,
+        tierPriceVector: cell.tierPriceVector,
+        pieVintage: cell.pieVintage,
+        bakeId: cell.bakeId,
+        detailLocator: cell.detailLocator,
+        indexTotal: cell.indexTotal,
+        hasAnyRow: cell.hasAnyRow,
+      });
+    });
+    return { snapshotRow, optionsRow, playerRows, contextRows, cells };
+  }
+
+  // Write the successful live result to the snapshot-keyed cache.
+  function writeBundleCache(snapshotId, bundle) {
+    try {
+      writeCache(cacheKey("bundle", snapshotId), bundle);
+      writeCache(cacheKey("latest", "pointer"), { snapshotId });
+    } catch (e) {
+      console.warn("[product-data] bundle cache write failed:", e.message);
+    }
+  }
+
+  // Load state from a cached bundle. Re-runs the fail-closed guards on the
+  // cached cells (defense in depth — cached data was verified when stored,
+  // but we verify again).
+  function loadFromCache(bundle, fetchedAt) {
+    if (!bundle || !bundle.snapshotRow || !bundle.optionsRow) {
+      throw new Error("Cached bundle is corrupt. Render refused.");
+    }
+    console.info(`[product-data] loading from cache (fetched ${fetchedAt})`);
+
+    // Rebuild snapshot + options (guards re-run via buildSnapshot/buildOptions)
+    state.snapshot = buildSnapshot([bundle.snapshotRow]);
+    state.activeSnapshotId = state.snapshot.snapshot_id;
+    state.sourcesMap = state.snapshot.sources || {};
+    state.options = buildOptions(bundle.optionsRow);
+
+    // Contract version must still match (fail-closed even on cached data)
+    if (state.snapshot.contract_version !== CONTRACT_VERSION ||
+        state.options.contract_version !== CONTRACT_VERSION) {
+      throw new Error("Cached bundle contract_version mismatch. Render refused.");
+    }
+    verifySourceMapCoverage(state.options, state.snapshot);
+
+    // Rebuild players
+    state.players = buildPlayers(bundle.playerRows || []);
+    if (!state.players.length) {
+      throw new Error("Cached bundle has 0 players. Render refused.");
+    }
     state.playerByKey = new Map();
     state.players.forEach(p => state.playerByKey.set(p.player_key, p));
 
-    // sourceId -> player_key map (legacy fixture uses string IDs; the
-    // canonical identity is the player_key integer).
-    state.playerKeysBySourceId = new Map();
-    const detailPlayerKeys = detail?.player_keys || {};
-    Object.entries(detailPlayerKeys).forEach(([sourceId, playerKey]) => {
-      const num = Number(playerKey);
-      if (Number.isInteger(num)) state.playerKeysBySourceId.set(sourceId, num);
-    });
-
-    // Build contract-shaped snapshot + options.
-    state.snapshot = buildSnapshot(detail, news);
-    state.options = buildOptions();
-    state.activeSnapshotId = state.snapshot.snapshot_id;
-
-    // Source map coverage: every key in api.product_options.source_keys must
-    // have a snapshot entry. cbs_adjusted is a derived column on cbs.
-    const sourcesMap = state.snapshot.sources || {};
-    const missing = SOURCE_KEYS.filter(k => {
-      if (PURE_VORP_KEYS.includes(k)) return false; // pure VORP has no fixture entry
-      if (k === "cbs_adjusted") return !sourcesMap.cbs;
-      return !sourcesMap[k];
-    });
-    if (missing.length) {
-      throw new Error(`sourceMapCoverage failed: missing ${missing.join(", ")}. Render refused.`);
-    }
-
-    // Wire up the consolidation index (JEG-325 bridge) for per-cell O(1) lookups.
-    // We pass the already-fetched detail so it does not refetch.
-    if (typeof window !== "undefined" && window.TradeValueConsolidation) {
-      try {
-        await window.TradeValueConsolidation.init({ detail });
-        state.consolidation = window.TradeValueConsolidation;
-      } catch (err) {
-        throw new Error(`ConsolidationIndex init failed: ${err && err.message ? err.message : err}. Render refused.`);
+    // Rebuild valuesByCell from serialized cells
+    const cellMap = new Map();
+    (bundle.cells || []).forEach(c => {
+      const values = new Map();
+      Object.keys(c.values || {}).forEach(k => {
+        const playerKey = Number(k);
+        const v = Number(c.values[k]);
+        if (Number.isInteger(playerKey) && Number.isFinite(v)) values.set(playerKey, v);
+      });
+      cellMap.set(c.key, {
+        values,
+        valueProvenance: c.valueProvenance,
+        modelVsPublished: c.modelVsPublished,
+        tierPriceVector: c.tierPriceVector,
+        pieVintage: c.pieVintage,
+        bakeId: c.bakeId,
+        detailLocator: c.detailLocator,
+        indexTotal: c.indexTotal,
+        hasAnyRow: !!c.hasAnyRow,
+      });
+      // Guard: pie_vintage must equal bake_id (cell-level equivalent of
+      // verifyPieVintageGuard for the indexed provenances)
+      if (c.pieVintage != null && c.bakeId != null &&
+          ["indexed", "vorp_indexed", "ddf_translated"].includes(c.valueProvenance) &&
+          String(c.pieVintage) !== String(c.bakeId)) {
+        throw new Error(`Cached bundle pie_vintage guard failed for cell ${c.key}. Render refused.`);
       }
+    });
+    if (!cellMap.size) {
+      throw new Error("Cached bundle has 0 value cells. Render refused.");
+    }
+    state.valuesByCell = cellMap;
+
+    // Rebuild context (fail-open: empty on corrupt)
+    try {
+      state.contextByKey = indexPlayerContext(bundle.contextRows || []);
+    } catch (e) {
+      console.warn("[product-data] cached context corrupt; using empty.");
+      state.contextByKey = new Map();
     }
 
     state.initialized = true;
-    console.info(`[product-data] ready contract=${CONTRACT_VERSION} bake=${state.snapshot.bake_id || "n/a"} players=${state.players.length}`);
+    state.fromCache = true;
+    console.info(
+      `[product-data] ready from cache snapshot=${state.snapshot.snapshot_id} ` +
+      `players=${state.players.length} cells=${state.valuesByCell.size}`
+    );
+    return publicHandle;
+  }
+
+  // ---------- Fixtures adapter (kill switch) ----------
+
+  // When ?dataSource=fixtures is set, bypass the network entirely and build
+  // the 5-method API from the inline #players-data / #methodology-data
+  // islands. Best-effort: values come from the fixture's ROS fields, marked
+  // with value_provenance="fixtures" so consumers know it's static data.
+  function initFromFixtures() {
+    if (state.initialized) return publicHandle;
+    console.warn("[product-data] FIXTURES MODE: bypassing API, reading inline islands.");
+    showDegradedBanner("Using fixtures (override). Live data bypassed.");
+
+    let fixture = null;
+    try {
+      const el = window.document.getElementById("players-data");
+      if (!el) throw new Error("#players-data island not found");
+      fixture = JSON.parse(el.textContent);
+    } catch (err) {
+      throw new Error(`Fixtures override requested but #players-data island unreadable: ${err.message}. Remove ?dataSource=fixtures to use live API.`);
+    }
+
+    const fixturePlayers = Array.isArray(fixture.players) ? fixture.players : [];
+    if (!fixturePlayers.length) {
+      throw new Error("Fixtures override requested but #players-data has 0 players. Remove ?dataSource=fixtures to use live API.");
+    }
+    const meta = fixture.meta || {};
+
+    // Build synthetic snapshot from fixture meta
+    const snapshotId = `fixtures-${meta.as_of || "unknown"}`;
+    state.snapshot = Object.freeze({
+      snapshot_id: snapshotId,
+      contract_version: CONTRACT_VERSION,
+      built_at: meta.as_of || null,
+      value_weeks: Object.freeze({}),
+      sources: Object.freeze({}),
+      source_validation: Object.freeze({}),
+      espn_zeroed: Object.freeze([]),
+      methodology_combos: null,
+      reference_freshness: null,
+      health: null,
+      is_active: true,
+      publishable: true,
+      generated_at: null,
+      bake_ids: null,
+      pie_vintage_per_source: null,
+      players_snapshot_at: null,
+      context_meta: Object.freeze({ note: "Fixtures mode: no live context." }),
+    });
+    state.activeSnapshotId = snapshotId;
+    state.sourcesMap = {};
+
+    // Synthetic options (defaults from buildOptions)
+    state.options = buildOptions({});
+
+    // Map fixture players to api.players shape.
+    // canonical_name is the ONLY name source — fixture `name` is the
+    // canonical spelling in the baked island (no fallback chain).
+    state.players = Object.freeze(fixturePlayers.map(fp => {
+      const playerKey = Number(fp.player_key);
+      const canonicalName = String(fp.name || "").trim();
+      const pos = String(fp.pos || "");
+      const team = fp.team != null && String(fp.team) !== "" ? String(fp.team) : "—";
+      const ppgObj = v => (v && typeof v === "object" ? JSON.parse(JSON.stringify(v)) : null);
+      return Object.freeze({
+        player_key: playerKey,
+        canonical_name: canonicalName,
+        pos,
+        team,
+        ir_zeroed: false,
+        kdst_excluded_from_chart: pos === "K" || pos === "DST",
+        espn_ppg: ppgObj(fp.espn_ppg),
+        rz_ppg: ppgObj(fp.rz_ppg),
+        cbsros_ppg: ppgObj(fp.cbsros_ppg),
+        ecr_ppg: ppgObj(fp.ecr_ppg),
+        agent_ranking_ppg: null,
+        blend_ppg: ppgObj(fp.blend_ppg),
+        games_remaining: parseNum(fp.games_remaining),
+        full_name: canonicalName,
+        name: canonicalName,
+      });
+    }));
+    state.playerByKey = new Map();
+    state.players.forEach(p => state.playerByKey.set(p.player_key, p));
+
+    // Build synthetic value cells from fixture ROS fields.
+    // Field priority per source; falls back to blend_ros (the DDF value).
+    const fixtureRows = fixturePlayers;
+    state._fixtureRows = fixtureRows;
+    state.valuesByCell = new Map(); // built lazily by getPlayerValues
+    state.contextByKey = new Map(); // fixtures have no news context
+
+    state.initialized = true;
+    state.fixturesMode = true;
+    console.info(`[product-data] fixtures mode ready players=${state.players.length} snapshot=${snapshotId}`);
+    return publicHandle;
+  }
+
+  // Fixture field priority for getPlayerValues in fixtures mode.
+  // Each entry: list of fixture ROS field names to try (first hit wins).
+  // Scoring dimension: fixture ROS objects are keyed by scoring
+  // (standard/half_ppr/ppr).
+  const FIXTURE_VALUE_FIELDS = Object.freeze({
+    espn: ["espn_filled_ros", "espn_ros"],
+    cbsros: ["cbsros_ros"],
+    razzball: ["rz_filled_ros", "rz_ros"],
+    // All other sources fall back to the DDF blend (best effort).
+    __default: ["blend_ros"],
+  });
+
+  function fixtureFieldFor(source) {
+    return FIXTURE_VALUE_FIELDS[source] || FIXTURE_VALUE_FIELDS.__default;
+  }
+
+  // Build (and memoize) a synthetic cell from fixture rows.
+  function getFixtureCell(source, scoring, teams, qbVariant, view) {
+    const key = cellKeyFor(source, scoring, teams, qbVariant, view) + "|fixtures";
+    let cell = state.valuesByCell.get(key);
+    if (cell) return cell;
+    const fields = fixtureFieldFor(source);
+    const values = new Map();
+    for (const fp of (state._fixtureRows || [])) {
+      const playerKey = Number(fp.player_key);
+      if (!Number.isInteger(playerKey)) continue;
+      let v = null;
+      for (const f of fields) {
+        const ros = fp[f];
+        if (ros && typeof ros === "object" && ros[scoring] != null) {
+          const n = Number(ros[scoring]);
+          if (Number.isFinite(n)) { v = n; break; }
+        }
+      }
+      if (v !== null) values.set(playerKey, v);
+    }
+    cell = {
+      values,
+      valueProvenance: "fixtures",
+      modelVsPublished: null,
+      tierPriceVector: null,
+      pieVintage: null,
+      bakeId: null,
+      detailLocator: null,
+      indexTotal: null,
+      hasAnyRow: values.size > 0,
+    };
+    state.valuesByCell.set(key, cell);
+    return cell;
+  }
+
+  // Original init logic, now called initFromLive
+  async function initFromLive(expectedVersion) {
+
+    // 1. Fetch api.product_snapshot. The view filters to is_active=true AND
+    // publishable=true; empty → no active snapshot → fail-closed.
+    const snapshotRows = await fetchViewAll(VIEWS.productSnapshot);
+    if (!snapshotRows.length) {
+      throw new Error(`${VIEWS.productSnapshot} returned 0 rows (no active snapshot). Render refused.`);
+    }
+    const activeSnapshotRow = snapshotRows.find(r => r.is_active !== false) || snapshotRows[0];
+    const snapshotContractVersion = String(activeSnapshotRow.contract_version || "");
+    if (snapshotContractVersion !== CONTRACT_VERSION) {
+      throw new Error(`${VIEWS.productSnapshot} contract_version mismatch (snapshot=${snapshotContractVersion || "<missing>"}, expected=${CONTRACT_VERSION}). Render refused.`);
+    }
+    state.snapshot = buildSnapshot([activeSnapshotRow]);
+    state.activeSnapshotId = state.snapshot.snapshot_id;
+    state.sourcesMap = state.snapshot.sources || {};
+
+    // 2. Fetch api.product_options (singleton). verify its contract_version
+    // matches the snapshot's contract_version (§7.5).
+    const optionsRows = await fetchViewAll(VIEWS.productOptions);
+    if (!optionsRows.length) {
+      throw new Error(`${VIEWS.productOptions} returned 0 rows. Render refused.`);
+    }
+    state.options = buildOptions(optionsRows[0]);
+    if (state.options.contract_version !== CONTRACT_VERSION) {
+      throw new Error(`${VIEWS.productOptions} contract_version mismatch (options=${state.options.contract_version || "<missing>"}, snapshot=${snapshotContractVersion}). Render refused.`);
+    }
+    if (state.options.contract_version !== snapshotContractVersion) {
+      throw new Error(`${VIEWS.productOptions} contract_version mismatch (options=${state.options.contract_version}, snapshot=${snapshotContractVersion}). Render refused.`);
+    }
+
+    // 3. sourceMapCoverage on the snapshot (§8.2).
+    verifySourceMapCoverage(state.options, state.snapshot);
+
+    // 4. Fetch api.players (single batch).
+    const playerRows = await fetchViewAll(VIEWS.players);
+    if (!playerRows.length) {
+      throw new Error(`${VIEWS.players} returned 0 rows. Render refused.`);
+    }
+    state.players = buildPlayers(playerRows);
+    state.playerByKey = new Map();
+    state.players.forEach(p => state.playerByKey.set(p.player_key, p));
+
+    // 5. Fetch api.player_values (paginated; ~20k rows today).
+    const valueRows = await fetchViewAll(VIEWS.playerValues);
+    if (!valueRows.length) {
+      throw new Error(`${VIEWS.playerValues} returned 0 rows. Render refused.`);
+    }
+
+    // 6. Fail-closed guards (§5.1, §6.1, §3.1.2).
+    verifyPieVintageGuard(valueRows, state.snapshot.snapshot_id);
+    verifyTierPriceVintageGuard(valueRows, state.snapshot.snapshot_id);
+    verifyPlayerValuesSourceMap(valueRows, state.options);
+
+    // 7. Index by cell.
+    state.valuesByCell = indexPlayerValues(valueRows);
+
+    // 8. Fetch api.player_context. Missing context is a known fail-open path
+    // (§5.2: player-news fetch fail → context empty). We don't throw on
+    // empty result; getPlayerContext() returns null for unknown keys.
+    let contextRows = [];
+    try {
+      contextRows = await fetchViewAll(VIEWS.playerContext);
+    } catch (err) {
+      console.warn(`[product-data] ${VIEWS.playerContext} fetch failed; news columns will render empty.`);
+      contextRows = [];
+    }
+    state.contextByKey = indexPlayerContext(contextRows);
+
+    state.initialized = true;
+
+    // Write the snapshot-keyed cache bundle for offline fallback.
+    // Best-effort: quota failures warn and continue (no cache available).
+    try {
+      const bundle = serializeBundle(
+        activeSnapshotRow, optionsRows[0], playerRows, contextRows, state.valuesByCell
+      );
+      writeBundleCache(state.snapshot.snapshot_id, bundle);
+    } catch (e) {
+      console.warn("[product-data] cache bundle serialize/write failed:", e.message);
+    }
+
+    console.info(
+      `[product-data] ready contract=${CONTRACT_VERSION} ` +
+      `snapshot=${state.snapshot.snapshot_id} ` +
+      `players=${state.players.length} ` +
+      `cells=${state.valuesByCell.size} ` +
+      `context=${state.contextByKey.size}`
+    );
     return publicHandle;
   }
 
