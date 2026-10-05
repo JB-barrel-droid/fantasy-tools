@@ -11,6 +11,12 @@ This script ONLY ADDS cbsros_* fields, reusing bake_players._intake_cbsros
 (the same intake the full bake uses), so no existing baked value changes.
 Vintage is recorded in meta.cbsros_snapshot. Idempotent: re-running
 replaces the cbsros_* fields with the latest snapshot's values.
+
+Writer-contract note (JEG-423): bake_players.py already writes the same
+cbsros_* fields itself on every full bake, so this is a surgical fallback,
+not the primary path — run it only when the full bake cannot (e.g. Supabase
+unreachable) but the CBS vintage must advance. No workflow or Makefile
+calls it; it is manual-only and touches no other field family.
 """
 
 import json

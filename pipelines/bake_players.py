@@ -1,8 +1,22 @@
 #!/usr/bin/env python3
 """Repo-owned players.json bake for the trade-value chart.
 
-Deterministic: same inputs -> byte-identical players.json. The ONLY writer
-of data/fixtures/current/players.json — never hand-edit that file.
+Deterministic: same inputs -> byte-identical players.json. The PRIMARY and
+scheduled writer of data/fixtures/current/players.json — never hand-edit
+that file.
+
+Writer contract (JEG-423, verified 2026-10-05): bake_players.py is the only
+scheduled writer; no workflow (rebuild-chain.yml etc.) or Makefile target
+writes the fixture through anything else. One surgical, manual-only tool
+also writes the fixture, in an emergency path when the full bake cannot
+run (e.g. Supabase unreachable); it is called by no automation and touches
+only its own field family, so baked values are untouched:
+  - pipelines/annotate_cbsros_ppg.py — refreshes cbsros_* fields + the
+    cbsros meta block from the latest CBS ROS snapshot (same intake the
+    full bake uses; the bake normally writes these itself).
+(Note: pipelines/refresh_players_espn_fields.py was retired by JEG-402 and
+is no longer a writer.)
+Anything else claiming to write players.json is a bug.
 
 Inputs (all repo-local unless noted):
   - Supabase (via the supabase-football-signal skill):
