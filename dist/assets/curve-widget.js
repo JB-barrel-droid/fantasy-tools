@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX", "K", "DST"];
+  const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];  // JEG-211: K/DST honestly excluded
   const SCORINGS = [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]];
   const SOURCE_LABELS = {
     usatoday: "USA Today",
@@ -72,8 +72,12 @@
   const DEFAULT_INDEXED_SOURCES = ["espn"];
   const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const EXPECTED_ADJUSTMENT_CELL_KEYS = POSITION_ORDER.flatMap(pos => ["starter", "bench"].map(tier => `${pos}|${tier}`));
-  const SPECIALIST_POSITIONS = ["K", "DST"];
-  const CHART_POSITIONS = [...POSITION_ORDER, ...SPECIALIST_POSITIONS];
+  // JEG-211 (Jeremy 2026-10-03): K/DST are honestly excluded from the chart.
+  // The computed artifact (dist/modules/ddf-kdst-group-vorps.json) remains as
+  // internal evidence, but no chart surface renders K/DST.
+  // (Re-restored 2026-10-03: the JEG-292 commit 49cd201 reintroduced
+  // SPECIALIST_POSITIONS/CHART_POSITIONS-with-specialists from a stale base.)
+  const CHART_POSITIONS = [...POSITION_ORDER];
   // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
   // TwoTier below and build_ddf_two_tier_leg.py). The previous WR:2/FLEX:2
   // default disagreed with the shape every published number was priced under.
@@ -198,7 +202,11 @@
     const REF_BENCH_SLOTS = 6;
     // Kept only as the regression anchor for the pinned-constant test.
     const LEGACY_BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
-    const FLOOR_SLOPE_FRAC = 0.01;
+    // JEG-392 (2026-10-05): 0.01 -> 0.0075. On the 2026-10-03 ESPN data the
+    // 0.01 cutoff found no steep tail window below WR #25, giving 0 WR bench
+    // spots at 12 teams. 0.0075 lands WR ~#100 on both pre- and post-refresh
+    // data (QB 36-37, RB 67-70, TE 49-55); approved by Jeremy 2026-10-05.
+    const FLOOR_SLOPE_FRAC = 0.0075;
     const FLOOR_WINDOW = 5;
     // Reference league shape for the calibration pool (fixed; the slider
     // bounds are per scoring x teams, not per custom roster shape).
@@ -637,15 +645,6 @@
       key => activeSet.has(key) || (userHiddenSet && userHiddenSet.has(key)));
   }
   globalThis.TradeValueCurvePause.defaultCurvesSatisfied = defaultCurvesSatisfied;
-  // JEG-221: Indexed selects at least one available publisher, not the legacy
-  // ESPN/adjusted defaults. An empty selection is valid only when the user
-  // explicitly hid every available publisher; unexplained disappearance fails.
-  function indexedCurvesSatisfied(availableKeys, activeSet, userHiddenSet) {
-    return availableKeys.length > 0 && (availableKeys.some(key => activeSet.has(key))
-      || availableKeys.every(key => userHiddenSet && userHiddenSet.has(key)));
-  }
-  globalThis.TradeValueCurvePause.indexedCurvesSatisfied = indexedCurvesSatisfied;
-
 
   // Collapse guard, pure in (peaks) so it is unit-testable without a DOM.
   // `peaks` maps an active source key to that curve's maximum indexed value.
@@ -706,20 +705,25 @@
   const canvas = $("#chart");
   const tip = $("#tip");
 
+  // JEG-363 (2026-10-04): all legacy fixture reads delegated to product-data.js.
+  // product-data.js is the ONLY module that talks to the FE contract; this
+  // widget calls into its five semantic methods and transitional helpers
+  // instead of touching assets/* paths or the #players-data inline island.
   function loadComparisonData() {
-    if (window.TradeValueComparisonData) return Promise.resolve(window.TradeValueComparisonData);
-    if (!window.TradeValueComparisonDataPromise) {
-      window.TradeValueComparisonDataPromise = fetch("assets/comparison-sources-data.json")
-        .then(response => {
-          if (!response.ok) throw new Error(`Data request failed (${response.status})`);
-          return response.json();
-        })
-        .then(payload => {
-          window.TradeValueComparisonData = payload;
-          return payload;
-        });
+    // Back-compat shim: legacy callers still get a payload via this promise,
+    // but the payload is the contract api.product_snapshot (frozen). All
+    // deep-path reads have been removed from this file; the snapshot is only
+    // used for per-source metadata (week_designated, fit_bake_id, etc.).
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        // Expose the snapshot under the legacy global name so any out-of-tree
+        // consumer (e.g. the inline health card) keeps working.
+        const snap = window.TradeValueProductData.getSnapshot();
+        window.TradeValueComparisonData = snap;
+        return snap;
+      });
     }
-    return window.TradeValueComparisonDataPromise;
+    return Promise.reject(new Error("product-data.js missing; render refused."));
   }
 
   // Versioned adjustment inputs (trade-value-adjustment-inputs-v1). Stage 1 ships
@@ -727,20 +731,16 @@
   // every *_adjusted curve falls back exactly to today's behavior. A missing or
   // unparsable asset also falls back (fail-open) rather than breaking the chart.
   function loadAdjustmentInputs() {
-    if (window.TradeValueAdjustmentInputs) return Promise.resolve(window.TradeValueAdjustmentInputs);
-    if (!window.TradeValueAdjustmentInputsPromise) {
-      window.TradeValueAdjustmentInputsPromise = fetch("assets/adjustment-inputs.json")
-        .then(response => {
-          if (!response.ok) throw new Error(`Adjustment inputs request failed (${response.status})`);
-          return response.json();
-        })
-        .then(payload => {
-          window.TradeValueAdjustmentInputs = payload?.schema === "trade-value-adjustment-inputs-v1" ? payload : null;
-          return window.TradeValueAdjustmentInputs;
-        })
-        .catch(() => null);
+    // product-data.js owns the fixture read; the widget only sees the projected
+    // payload via getAdjustmentInputs().
+    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
+      return window.TradeValueProductData.initProductData().then(() => {
+        const inputs = window.TradeValueProductData.getAdjustmentInputs();
+        window.TradeValueAdjustmentInputs = inputs;
+        return inputs;
+      });
     }
-    return window.TradeValueAdjustmentInputsPromise;
+    return Promise.resolve(null);
   }
 
   let data = null;
@@ -781,7 +781,6 @@
   let yAxisAuto = true;
   let yLow = 0;
   let yHigh = 100;
-  let includeSpecialists = false;
   let lockOrder = "espn";
   let activeSources = new Set(DEFAULT_INDEXED_SOURCES);
   // DEFECT 1 (2026-10-01): curves the user deliberately unchecked. The
@@ -790,32 +789,28 @@
   // throws inside runRegressionGuards() before draw()/publishShared() and
   // the comparison table freezes on the old scoring with no visible error.
   let userDeselectedSources = new Set();
-  // JEG-210: chart view toggle (Indexed | Value above waivers | Adjusted values).
-  // "indexed" is the only data-backed mode right now; the other two render a
-  // "Pending data" placeholder until the imputed value-above-waivers and shared
-  // reweight data lands via JEG-182. The Indexed view restricts the active
-  // source set to the four publishers with native trade-value charts, since
-  // the DDF-style sources (espn/cbsros/razzball) do not carry as-published
-  // trade values to reindex.
+  // JEG-210: chart view mode (Indexed | Value above waivers | Adjusted values)
+  // Restored 2026-10-03 (Jeremy): wired to vorp_views from the JEG-242 pipeline.
+  // Re-restored 2026-10-04: the JEG-325 strangler refactor dropped this block;
+  // the view tabs are a shipped feature (QA'd 2026-10-04), not migration scope.
   const VIEW_MODE_DEFS = {
-    indexed: {
-      title: "Indexed",
-      pendingTitle: "This view is coming soon",
-      pendingBody: 'Switch back to <strong>Indexed</strong> to see the chart with current data. The other views land with the next data pipeline update.'
-    },
-    vorp: {
-      title: "Value above waivers",
-      pendingTitle: "Value above waivers is coming soon",
-      pendingBody: "This view will show every source in <strong>value above waivers</strong> units. The data pipeline that produces these values is still in development."
-    },
-    adj: {
-      title: "Adjusted values",
-      pendingTitle: "Adjusted values are coming soon",
-      pendingBody: "This view will show every source through the shared weighting model. The data pipeline that produces these values is still in development."
-    }
+    indexed: { title: "Indexed", viewKey: null },
+    vorp: { title: "Value above waivers" },
+    adj: { title: "Adjusted values", viewKey: "adj_values" }
   };
   const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
+  // JEG-242: resolve the vorp_views data key for a view mode.
+  // "indexed" -> null (no lookup); "adj" -> explicit viewKey; otherwise the mode key itself.
+  // The "vorp" literal appears only in VIEW_MODE_ORDER (JEG-225 exemption); never in copy.
+  function getViewKey(mode) {
+    const def = VIEW_MODE_DEFS[mode];
+    if (!def || def.viewKey === null) return null;
+    return def.viewKey || mode;
+  }
   let viewMode = "indexed";
+  // JEG-210: the user's source selection before entering a non-indexed view,
+  // restored when they return to Indexed.
+  let savedActiveSourcesForView = null;
   let hideZeroTail = false;
   let zoomLow = 1;
   let zoomHigh = 1;
@@ -894,7 +889,13 @@
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
   const isLockKey = key => ["disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
-  const sourceValidationStatus = key => key === "cbs_adjusted" ? data.source_validation?.cbs : data.source_validation?.[key];
+  const sourceValidationStatus = key => {
+    // JEG-363: source validation lives on api.product_snapshot.source_validation.
+    const sv = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getSnapshot().source_validation
+      : null;
+    return key === "cbs_adjusted" ? sv?.cbs : sv?.[key];
+  };
   const sourceComboExists = key => {
     // Pure VORP curves are browser-computed from each source's per-game
     // projections on the player records, not from fixture combos.
@@ -921,25 +922,26 @@
   }
 
   function buildCanonicalMap() {
-    const payload = JSON.parse(document.getElementById("players-data")?.textContent || "{}");
+    // JEG-363 (2026-10-04): canonical players come from product-data.js
+    // (api.players surface). The inline #players-data island is read only by
+    // product-data.js; the widget never touches it.
+    const players = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayers()
+      : [];
     const map = new Map();
-    (payload.players || []).forEach(player => {
+    players.forEach(player => {
       const playerKey = Number(player.player_key);
-      const name = String(player.full_name || player.name || "").trim();
+      const name = String(player.canonical_name || player.full_name || player.name || "").trim();
       if (!Number.isInteger(playerKey) || !name || !CHART_POSITIONS.includes(player.pos)) return;
-      const specialistProjection = SPECIALIST_POSITIONS.includes(player.pos)
-        // ECR is out of the build: no ECR fallback may reach a curve labelled ESPN.
-        ? (player.espn_ppg || player.kdst_ppg || null)
-        : null;
       map.set(playerKey, {
         player_key: playerKey,
         name,
         team: String(player.team || "—"),
         pos: player.pos,
-        espn_ppg: player.espn_ppg || specialistProjection,
+        espn_ppg: player.espn_ppg || null,
         rz_ppg: player.rz_ppg || null,
         cbsros_ppg: player.cbsros_ppg || null,
-        projectionSource: player.espn_ppg ? "ESPN" : (specialistProjection ? "K/DST projection artifact" : null)
+        projectionSource: player.espn_ppg ? "ESPN" : null
       });
     });
     return map;
@@ -996,17 +998,23 @@
       const target = Number(pies[pos]);
       if (Number.isFinite(target) && target > 0) return target;
     } catch (e) {
-      // Config not ready; fall through to fixture.
+      // Config not ready; fall through to the api.player_values row.
     }
-    const targetCombo = data.sources?.espn?.combos?.[comboKey("espn")];
-    const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+    // JEG-363: read the ESPN combo's index_total via product-data.js.
+    const espnRow = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: "espn", scoring, teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
+    const target = Number(espnRow?.index_total?.[pos]?.target_total);
     return Number.isFinite(target) && target > 0 ? target : fallback;
   }
 
   function sourceTargetTotal(key) {
     const sourceKey = key === "cbs_adjusted" ? "cbs" : key;
-    const combo = data.sources?.[sourceKey]?.combos?.[comboKey(sourceKey)];
-    const totals = Object.values(combo?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
+    // JEG-363: read the per-source combo's index_total via product-data.js.
+    const row = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: sourceKey, scoring, teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
+    const totals = Object.values(row?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
     return totals.reduce((sum, value) => sum + value, 0);
   }
 
@@ -1025,13 +1033,23 @@
   }
 
   function buildPublishedSourceMap(key) {
-    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-    const raw = combo?.values || combo?.reindexed || {};
-    const native = combo?.native || {};
+    // JEG-363 (2026-10-04): per-cell values come from product-data.js
+    // (api.player_values surface, view=combo_reindexed). The widget no
+    // longer walks the legacy detail deep-path `data.sources[key].combos[...]`;
+    // the contract adapter owns every fixture read.
+    if (typeof window === "undefined" || !window.TradeValueProductData) {
+      throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
+    }
+    const row = window.TradeValueProductData.getPlayerValues({
+      source: key,
+      scoring,
+      teams,
+      qbVariant: "qb1",
+      view: "combo_reindexed",
+    });
     const values = new Map();
-    Object.entries(raw).forEach(([sourceId, rawValue]) => {
-      if (["fantasypros", "fantasypros_adjusted"].includes(key) && !Object.prototype.hasOwnProperty.call(native, sourceId)) return;
-      const playerKey = Number(data.player_keys?.[sourceId]);
+    if (!row || !row.values) return values;
+    row.values.forEach((rawValue, playerKey) => {
       const player = canonicalByKey.get(playerKey);
       const value = clampValue(rawValue);
       if (!player || value === null) return;
@@ -1041,9 +1059,43 @@
     return values;
   }
 
+  // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
+  // vorp_views keys are normalized lowercase display names, exactly the form
+  // used by the player_keys table -- resolve through it directly (the
+  // canonical names carry punctuation the normalized keys lack).
+  function buildVorpViewSourceMap(key, viewKey) {
+    const vorpViews = data.sources?.[key]?.vorp_views;
+    const viewData = vorpViews?.views?.[viewKey];
+    if (!viewData || typeof viewData !== "object") return new Map();
+    // Reverse lookup: normalized display name -> player key, via player_keys.
+    const nameToKey = new Map();
+    Object.entries(data.player_keys || {}).forEach(([displayName, playerKey]) => {
+      const player = canonicalByKey.get(Number(playerKey));
+      const norm = String(displayName).trim().toLowerCase();
+      if (player && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
+    });
+    const values = new Map();
+    Object.entries(viewData).forEach(([displayName, rawValue]) => {
+      const playerKey = nameToKey.get(String(displayName).trim().toLowerCase());
+      const player = canonicalByKey.get(playerKey);
+      const value = clampValue(rawValue);
+      if (!player || value === null) return;
+      values.set(playerKey, value);
+    });
+    return values;
+  }
+
+  // JEG-210: does this source have vorp_views data for the current view mode?
+  function sourceHasVorpView(key) {
+    const viewKey = getViewKey(viewMode);
+    if (!viewKey) return true;
+    const views = data.sources?.[key]?.vorp_views?.views;
+    return !!(views && views[viewKey] && Object.keys(views[viewKey]).length > 0);
+  }
+
   function buildNativeSourceMap(key) {
-    // Razzball: native PPG lives on the fixture player objects (rz_ppg),
-    // not in data.sources. Build from canonical players.
+    // Razzball: native PPG lives on the canonical player objects (rz_ppg),
+    // not in api.player_values. Build from getPlayers() via product-data.
     if (key === "razzball") {
       const values = new Map();
       const field = scoringField();
@@ -1054,7 +1106,7 @@
       });
       return values;
     }
-    // CBS ROS: same pattern — native PPG baked onto fixture player objects
+    // CBS ROS: same pattern — native PPG baked onto canonical player objects
     // (cbsros_ppg) by pipelines/bake_players.py (JEG-33).
     if (key === "cbsros") {
       const values = new Map();
@@ -1066,11 +1118,20 @@
       });
       return values;
     }
-    const combo = data.sources?.[key]?.combos?.[comboKey(key)];
-    const native = combo?.native || {};
+    // JEG-363: native values come from product-data.js (view=native).
+    if (typeof window === "undefined" || !window.TradeValueProductData) {
+      throw new Error("product-data.js missing; buildNativeSourceMap refused.");
+    }
+    const row = window.TradeValueProductData.getPlayerValues({
+      source: key,
+      scoring,
+      teams,
+      qbVariant: "qb1",
+      view: "native",
+    });
     const values = new Map();
-    Object.entries(native).forEach(([sourceId, nativeValue]) => {
-      const playerKey = Number(data.player_keys?.[sourceId]);
+    if (!row || !row.values) return values;
+    row.values.forEach((nativeValue, playerKey) => {
       const player = canonicalByKey.get(playerKey);
       const value = Number(nativeValue);
       if (!player || !Number.isFinite(value)) return;
@@ -1370,6 +1431,16 @@
   }
 
   function buildSourceMap(key) {
+    // JEG-210/242: when a non-indexed view is active and the source has
+    // vorp_views, use the view's values instead of the indexed combo values.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
+      const viewKey = getViewKey(viewMode);
+      if (viewKey) {
+        const viewMap = buildVorpViewSourceMap(key, viewKey);
+        if (viewMap.size > 0) return viewMap;
+      }
+    }
     return buildPublishedSourceMap(key);
   }
 
@@ -1433,11 +1504,14 @@
       const ratio = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 1;
       multipliers.set(playerKey, Math.max(0, directValue * ratio));
     });
-    const targetCombo = data.sources?.cbs?.combos?.[comboKey("cbs")];
+    // JEG-363: read CBS index_total via product-data.js (api.player_values).
+    const cbsRow = (typeof window !== "undefined" && window.TradeValueProductData)
+      ? window.TradeValueProductData.getPlayerValues({source: "cbs", scoring, teams, qbVariant: "qb1", view: "combo_reindexed"})
+      : null;
     POSITION_ORDER.forEach(pos => {
       const rows = [...multipliers.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos);
       const total = rows.reduce((sum, [, value]) => sum + value, 0);
-      const target = Number(targetCombo?.index_total?.[pos]?.target_total);
+      const target = Number(cbsRow?.index_total?.[pos]?.target_total);
       const scale = total > 0 && Number.isFinite(target) && target > 0 ? target / total : 1;
       rows.forEach(([playerKey, value]) => multipliers.set(playerKey, value * scale));
     });
@@ -1628,7 +1702,7 @@
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null]));
       return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values};
     }).filter(Boolean);
-    orderedRows = universe.filter(row => (includeSpecialists || !SPECIALIST_POSITIONS.includes(row.pos)) && isPosition(row)).sort(orderComparator);
+    orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
     syncPlayerOptions();
     syncContext();
   }
@@ -1660,7 +1734,19 @@
     const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
     const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
-    context.textContent = `${scoreLabel()} · ${teams} teams · ${rosterLabel} · ${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`;
+    const benchShareText = `${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share`;
+    // JEG-291: the subtitle's bench-share segment is the recommended calibration
+    // parameter, NOT the anchor leg's measured split (that lives in the footnote).
+    // Surface the distinction on hover so readers don't conflate the two.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    context.replaceChildren(
+      `${scoreLabel()} · ${teams} teams · ${rosterLabel} · `,
+      Object.assign(document.createElement("span"), {
+        textContent: benchShareText,
+        title: "15% bench share — the recommended two-tier calibration parameter; the chart caption shows the anchor leg's measured split."
+      }),
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`
+    );
   }
 
   function makeTabs() {
@@ -1672,10 +1758,6 @@
       button.className = "tab";
       button.dataset.value = key;
       button.textContent = key === "ALL" ? "All" : key === "FLEX" ? "Flex" : key;
-      if (SPECIALIST_POSITIONS.includes(key) && !includeSpecialists) {
-        button.disabled = true;
-        button.title = "K/DST need ESPN projection-derived values before they can be charted.";
-      }
       button.addEventListener("click", () => setPosition(key));
       posTabs.appendChild(button);
     });
@@ -2285,9 +2367,9 @@
       ["WR", "WR"],
       ["TE", "TE"],
       ["FLEX", "Flex"],
-      ["BENCH", "Bench"],
-      ["K", "K"],
-      ["DST", "DST"]
+      ["BENCH", "Bench"]
+      // JEG-298: K/DST inputs removed — JEG-211 excluded K/DST from the chart
+      // entirely, and these inputs were no-ops (POSITION_ORDER has no K/DST).
     ];
     grid.replaceChildren();
     controls.forEach(([key, label]) => {
@@ -2297,8 +2379,8 @@
       text.textContent = label;
       const input = document.createElement("input");
       input.type = "number";
-      input.min = ["BENCH", "K", "DST"].includes(key) ? "0" : "1";
-      input.max = key === "BENCH" ? "14" : key === "K" || key === "DST" ? "3" : "5";
+      input.min = key === "BENCH" ? "0" : "1";
+      input.max = key === "BENCH" ? "14" : "5";
       input.step = "1";
       input.value = rosterShape[key];
       input.dataset.rosterKey = key;
@@ -2343,8 +2425,8 @@
     shareInput.step = "0.001";
     shareInput.value = String(benchShare);
     shareInput.setAttribute("aria-label", "Bench share");
-    shareInput.addEventListener("input", () => { setBenchShareFraction(Number(shareInput.value), false); syncWeightsReadout(); });
-    shareInput.addEventListener("change", () => { setBenchShareFraction(Number(shareInput.value), false); syncWeightsReadout(); publishShared(); });
+    shareInput.addEventListener("input", () => setBenchShareFraction(Number(shareInput.value), false));
+    shareInput.addEventListener("change", () => { setBenchShareFraction(Number(shareInput.value), false); publishShared(); });
     shareInput.addEventListener("dblclick", () => setBenchShareFraction(TwoTier.DEFAULT_BENCH_SHARE));
     slider.append(track, tick, fill, shareInput);
     const readout = document.createElement("p");
@@ -2357,36 +2439,6 @@
       benchSlot.appendChild(shareBlock);
     } else {
       grid.appendChild(shareBlock);
-    }
-    const specialistToggle = $("#includeSpecialists");
-    const specialistNote = $("#specialistNote");
-    const specialistPlayers = [...canonicalByKey.values()].filter(player => SPECIALIST_POSITIONS.includes(player.pos));
-    const hasSpecialists = specialistPlayers.some(player => player.espn_ppg && Object.values(player.espn_ppg).some(Number.isFinite));
-    const hasTrueEspnSpecialists = specialistPlayers.some(player => player.projectionSource === "ESPN");
-    if (specialistToggle) {
-      specialistToggle.checked = includeSpecialists && hasSpecialists;
-      specialistToggle.disabled = !hasSpecialists;
-      specialistToggle.onchange = event => {
-        includeSpecialists = event.target.checked && hasSpecialists;
-        if (includeSpecialists) {
-          if (!rosterShape.K) rosterShape.K = 1;
-          if (!rosterShape.DST) rosterShape.DST = 1;
-        }
-        if (!includeSpecialists && SPECIALIST_POSITIONS.includes(position)) position = "ALL";
-        rebuildDomain();
-        makeTabs();
-        resetZoom();
-        draw();
-        publishShared();
-      };
-    }
-    if (specialistNote) {
-      specialistNote.textContent = hasSpecialists
-        ? (hasTrueEspnSpecialists
-          ? "K/DST use ESPN projection-derived values only."
-          : "K/DST use the dedicated specialist projection artifact until ESPN K/DST fields are present.")
-        : "K/DST are waiting for projection-derived values in the artifact.";
-      specialistNote.textContent += ` Indexed values label every player as starter, bench, or waiver; starters receive ${Math.round((1 - DISPLAY_BENCH_SHARE) * 100)}% of trade-value points and bench receives ${Math.round(DISPLAY_BENCH_SHARE * 100)}%.`;
     }
     syncBenchShareControl();
   }
@@ -2619,60 +2671,6 @@
     });
   }
 
-  // JEG-210: chart view mode toggle. Only "indexed" is data-backed; the
-  // other two modes show a "Pending data" placeholder until the imputed
-  // value-above-waivers and shared-model data lands via JEG-182. When the
-  // user picks Indexed, the active source set is restricted to the four
-  // publishers with native trade values, because the DDF sources do not
-  // carry trade values to reindex.
-  function setViewMode(mode, publish = true) {
-    if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
-    viewMode = mode;
-    const tabs = document.querySelectorAll("#viewModeTabs [data-view-mode]");
-    tabs.forEach(tab => {
-      const selected = tab.dataset.viewMode === mode;
-      tab.setAttribute("aria-selected", selected ? "true" : "false");
-    });
-    const pending = $("#viewModePending");
-    const chartArea = $("#viewModeChartArea");
-    const title = $("#viewModePendingTitle");
-    const body = $("#viewModePendingBody");
-    const def = VIEW_MODE_DEFS[mode];
-    if (title) title.textContent = def.pendingTitle;
-    if (body) body.innerHTML = def.pendingBody;
-    if (mode === "indexed") {
-      if (pending) pending.hidden = true;
-      if (chartArea) chartArea.hidden = false;
-      // Restrict active sources to the published charts only. If the user
-      // had a non-published source selected (e.g. espn from the default
-      // set), keep the existing picks but make sure at least one published
-      // source is on so the chart isn't empty.
-      const publishedAvailable = [...AS_PUBLISHED_KEYS].filter(key => sourceAvailable(key) && sourceMaps.get(key)?.size > 0);
-      const hasAnyPublished = publishedAvailable.some(key => activeSources.has(key));
-      const selectable = publishedAvailable.filter(key => !userDeselectedSources.has(key));
-      if (!hasAnyPublished && selectable.length) {
-        activeSources = new Set([selectable[0]]);
-      }
-      makeSourceToggles();
-      draw();
-      syncCurveStatus();
-    } else {
-      if (pending) pending.hidden = false;
-      if (chartArea) chartArea.hidden = true;
-    }
-    if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", {detail: {viewMode: mode}}));
-  }
-
-  function makeViewModeTabs() {
-    const container = $("#viewModeTabs");
-    if (!container) return;
-    const tabs = container.querySelectorAll("[data-view-mode]");
-    tabs.forEach(tab => {
-      tab.addEventListener("click", () => setViewMode(tab.dataset.viewMode));
-    });
-    setViewMode(viewMode, false);
-  }
-
   function makeLockControl() {
     const select = $("#curveLockOrder");
     if (!select) return;
@@ -2770,6 +2768,11 @@
     benchShare = next;
     crossRank = null;
     syncBenchShareControl();
+    // JEG-103: the slider's input/change/dblclick handlers used to call this
+    // function without syncWeightsReadout(), so the Weights panel kept the
+    // old "Bench 15.0% (default 15%)" label even after the slider moved.
+    // Syncing from the central setter covers every path (slider, dblclick
+    // reset, the "Reset to 15%" button, resetAllWeights, external callers).
     syncWeightsReadout();
     if (publish) publishShared();
   }
@@ -2782,8 +2785,8 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const min = ["BENCH", "K", "DST"].includes(key) ? 0 : 1;
-    const max = key === "BENCH" ? 14 : key === "K" || key === "DST" ? 3 : 5;
+    const min = key === "BENCH" ? 0 : 1;
+    const max = key === "BENCH" ? 14 : 5;
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();
@@ -2838,7 +2841,6 @@
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
-    makeViewModeTabs();
     renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
@@ -2872,7 +2874,6 @@
     makeValueBandControl();
     makeSourceToggles();
     makeLockControl();
-    makeViewModeTabs();
     renderAdjustmentWeights();
     resetZoom();
     runRegressionGuards();
@@ -3049,8 +3050,8 @@
   function rosterOrdinals() {
     const counts = allocationCounts();
     if (position === "ALL") return {
-      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0)),
-      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH + (includeSpecialists ? rosterShape.K + rosterShape.DST : 0))
+      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX),
+      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH)
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,
@@ -3065,22 +3066,24 @@
   function markerDefinitions() {
     const ordinals = rosterOrdinals();
     const sourceKey = selectedRankSourceKey();
-    const rows = orderedRows;
-    const lastPositive = rows.reduce((last, row, index) => {
-      const hasPositiveValue = Number.isFinite(row.values[sourceKey]) && row.values[sourceKey] > 0;
-      return hasPositiveValue ? index + 1 : last;
-    }, 1);
+    // 2026-10-03 (Jeremy, supersedes 2026-09-19): BOTH markers use roster
+    // ordinals so they shift with league parameters. Bench-to-Waiver sits
+    // after the last rostered player (ordinals.bench), not after the last
+    // positive value -- the waiver line is a roster concept, and the values
+    // are calibrated to it. Using lastPositive measured coverage depth, not
+    // the league's waiver line.
     return [
       {key:"starter_to_bench", ordinal:ordinals.starter, value:ordinals.starter + 0.5, label:"Starter → Bench", color:"#238a52", source:sourceKey},
-      {key:"bench_to_waiver", ordinal:lastPositive, value:lastPositive + 0.5, label:"Bench → Waiver", color:"#c43d32", dotted:true, source:sourceKey}
+      {key:"bench_to_waiver", ordinal:ordinals.bench, value:ordinals.bench + 0.5, label:"Bench → Waiver", color:"#c43d32", dotted:true, source:sourceKey}
     ];
   }
 
   // Vertical roster rank cutoffs under EVERY lock (2026-09-19, user
-  // directive): show the transitions between roster zones. Starter-to-
-  // Bench sits after the last startable player; Bench-to-Waiver sits after
-  // the last player with any positive indexed value, so waiver territory is
-  // the zero-value pool to the right of the second line. No horizontal value
+  // directive; marker yardstick updated 2026-10-03): show the transitions
+  // between roster zones. Starter-to-Bench sits after the last startable
+  // player; Bench-to-Waiver sits after the last rostered player, so waiver
+  // territory is the pool to the right of the second line. Both cutoffs
+  // shift with league parameters (teams, roster shape). No horizontal value
   // thresholds under any lock.
   function boundaryMarkers() {
     const maximum = fullRankMax();
@@ -3203,11 +3206,21 @@
   function agreementFor(keys, low, high) {
     const sources = {};
     keys.filter(key => sourceMaps.get(key)?.size)
-      .forEach(key => { sources[key] = positionalPeaks(sourceMaps.get(key)); });
+      .forEach(key => { sources[key] = positionalPeaks(indexedMapForAgreement(key)); });
     return ValueModel.peakAgreement({
       anchorPeaks: positionalPeaks(sourceMaps.get("espn")),
       sources, low, high, labelOf: sourceLabel
     });
+  }
+
+  // JEG-210: the anchor-band health checks validate indexed (published) values.
+  // In a non-indexed view the as-published maps carry VORP/adjusted units, which
+  // would false-fail the 0.8-1.25x anchor band; read the indexed builder instead.
+  // The ESPN anchor never switches views, so it always reads the live map.
+  // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+  function indexedMapForAgreement(key) {
+    if (viewMode === "indexed" || !AS_PUBLISHED_KEYS.has(key)) return sourceMaps.get(key);
+    return buildPublishedSourceMap(key);
   }
 
   function scaleAgreementDiagnostics() {
@@ -3432,7 +3445,21 @@
       return `<span><span class="sw" style="background:transparent;border-top:3px ${lineStyle} ${style.color}"></span>${sourceLabel(key)}</span>`;
     }).join("");
     const markerText = markers.map(marker => `${marker.label} after rank ${marker.ordinal}`).join(" · ");
-    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; indexed charts are put on the ESPN leg’s pie and its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% bench split, waiver to 0 · roster transitions: ${markerText}.`;
+    // JEG-290: the middle clause of the footnote must vary by viewMode — the
+    // Indexed/Value-above-waivers/Adjusted tabs each describe a different
+    // underlying valuation, so a single static sentence was misleading readers.
+    // JEG-291: even on Indexed, the X/Y split is the anchor's MEASURED share
+    // (lastDisplayShare, set at rebuild time), not the recommended 15% bench
+    // share (DISPLAY_BENCH_SHARE) the subtitle slider shows.
+    // JEG-225: compare via VIEW_MODE_ORDER — the "vorp" string literal may
+    // only appear in the VIEW_MODE_ORDER declaration, never in code or copy.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    const footnoteMiddle = viewMode === VIEW_MODE_ORDER[1]
+      ? "raw value-above-waivers curves from each source's own per-game projections — same shared total as Indexed, no fixed-pie re-tiering"
+      : viewMode === "adj"
+      ? "adjusted curves under the shared 0–70 weighting model, with our position weighting applied"
+      : `indexed charts are put on the ESPN leg’s pie and matched to its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% measured split, waiver to 0`;
+    $("#curveFootnote").textContent = `${activeSourceKeys().length} active league-compatible series shown · every curve shares the ${sourceLabel(selectedRankSourceKey())} player order; ${footnoteMiddle} · roster transitions: ${markerText}.`;
     renderVisiblePlayers();
     canvas.setAttribute("aria-label", "Trade value curves with the selected player rank on the horizontal axis, value on the vertical axis, and vertical roster transition lines from starter to bench and bench to waiver. Use Home or End, then the left and right arrow keys, to inspect each player.");
   }
@@ -3591,20 +3618,37 @@
         `${adjustedAgreement.compared} positional peaks within ${adjustedAgreement.band.join("-")}x of the anchor`
       );
     }
-    ChartHealth.record(
-      "source-scale-agreement",
-      "Published charts agree with the anchor's scale",
-      scaleAgreement.ok,
-      scaleAgreement.offenders.length
-        ? `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ${scaleAgreement.offenders.join("; ")}`
-        : `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
-    );
-    // VORP/Adj tabs are pending placeholders; settings still rebuild the
-    // Indexed data behind them, so selecting a placeholder cannot require
-    // legacy adjusted defaults or throw before the shared table update.
-    const defaultGroupedSources = indexedCurvesSatisfied(
-      [...AS_PUBLISHED_KEYS].filter(key => sourceAvailable(key) && sourceMaps.get(key)?.size > 0),
-      activeSources, userDeselectedSources);
+    // Visible, not failing: a direct-series scale disagreement is genuine
+    // publisher shape disagreement -- the pipeline's scale-agreement monitor
+    // verdicts fantasycalc/usatoday "genuine disagreement" (their published
+    // shapes sit outside the band before any indexation) -- so it surfaces as
+    // a warning like the adjusted family, never a red "numbers are wrong"
+    // FAIL. The 0.8-1.25x band itself is unchanged.
+    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+    if (scaleAgreement.compared > 0 && !scaleAgreement.ok) {
+      ChartHealth.warn(
+        "source-scale-agreement",
+        "Published charts agree with the anchor's scale",
+        `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ` +
+        `${scaleAgreement.offenders.join("; ")} -- genuine publisher shape disagreement, see scale-agreement monitor`
+      );
+    } else {
+      ChartHealth.record(
+        "source-scale-agreement",
+        "Published charts agree with the anchor's scale",
+        scaleAgreement.ok,
+        `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
+      );
+    }
+    // JEG-392: in the Value-above-waivers / Adjusted views setViewMode()
+    // deliberately swaps activeSources to the as-published view set and
+    // parks the Indexed selection in savedActiveSourcesForView. Checking the
+    // swapped set made every scoring/teams change in those views throw here
+    // (before draw()), freezing the chart. Guard the Indexed selection the
+    // user will return to instead -- same regression power, right set.
+    const indexedSelection = viewMode === "indexed"
+      ? activeSources : (savedActiveSourcesForView || activeSources);
+    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, indexedSelection, userDeselectedSources);
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
@@ -3620,6 +3664,53 @@
     // plain-words summary; open Chart Health for the per-source breakdown.
     if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
     guardsPassed = true;
+  }
+
+  // JEG-210: view mode switching (restored 2026-10-03, wired to vorp_views).
+  // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
+  // The vorp/adj views only exist for the as-published sources with baked
+  // vorp_views. Entering a non-indexed view activates those sources so the
+  // tab visibly changes the chart (the default indexed selection is the
+  // *_adjusted family, which carries no vorp views); returning to Indexed
+  // restores the user's prior source selection.
+  function setViewMode(mode, publish = true) {
+    if (!VIEW_MODE_DEFS[mode]) mode = "indexed";
+    viewMode = mode;
+    const tabs = document.querySelectorAll("#viewModeTabs [data-view-mode]");
+    tabs.forEach(tab => {
+      const selected = tab.dataset.viewMode === mode;
+      tab.setAttribute("aria-selected", selected ? "true" : "false");
+    });
+    if (mode === "indexed") {
+      if (savedActiveSourcesForView) {
+        activeSources = savedActiveSourcesForView;
+        savedActiveSourcesForView = null;
+        userDeselectedSources = new Set();
+      }
+    } else {
+      if (!savedActiveSourcesForView) savedActiveSourcesForView = new Set(activeSources);
+      const viewKeys = [...AS_PUBLISHED_KEYS].filter(key => sourceHasVorpView(key));
+      if (viewKeys.length) {
+        activeSources = new Set(viewKeys);
+        userDeselectedSources = new Set();
+      }
+    }
+    // Rebuild source maps with the new view's values, then redraw.
+    rebuildDomain();
+    makeSourceToggles();
+    draw();
+    syncCurveStatus();
+    if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));
+  }
+
+  function makeViewModeTabs() {
+    const container = $("#viewModeTabs");
+    if (!container) return;
+    const tabs = container.querySelectorAll("[data-view-mode]");
+    tabs.forEach(tab => {
+      tab.addEventListener("click", () => setViewMode(tab.dataset.viewMode));
+    });
+    setViewMode(viewMode, false);
   }
 
   async function init() {
@@ -3644,9 +3735,9 @@
       makeTabs();
       makeValueModeControl();
       makeValueBandControl();
+      makeViewModeTabs();
       makeSourceToggles();
       makeLockControl();
-      makeViewModeTabs();
       renderAdjustmentWeights();
       bindZoom();
       resetZoom();
