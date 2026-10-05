@@ -47,12 +47,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          set -o pipefail
           week=$(python3 pipelines/nfl_week.py)
-          python3 pipelines/verify_import_health.py --nfl-week "$week"
-          python3 pipelines/build_pipeline_checkpoints.py
-          test -s output/source-import-health.json
-          test -s output/pipeline-checkpoints.json
+          rc=0
+          python3 pipelines/verify_import_health.py --nfl-week "$week" > /tmp/build.log 2>&1 || { echo "verify_import_health exit $?" >> /tmp/build.rc; }
+          python3 pipelines/build_pipeline_checkpoints.py >> /tmp/build.log 2>&1 || { echo "build_pipeline_checkpoints exit $?" >> /tmp/build.rc; }
+          test -s output/source-import-health.json || echo "source-import-health.json missing" >> /tmp/build.rc
+          test -s output/pipeline-checkpoints.json || echo "pipeline-checkpoints.json missing" >> /tmp/build.rc
+          tail -25 /tmp/build.log
+          if [ -s /tmp/build.rc ]; then cat /tmp/build.rc; exit 1; fi
 
       - name: Watch served artifacts + record observations
         env:
@@ -66,7 +68,7 @@ jobs:
       - name: Summary
         if: always()
         run: |
-          { echo "## Health artifacts"; echo "producer build: ${{ steps.build.outcome }}"; echo '```'; cat /tmp/watch.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "## Health artifacts"; echo "producer build: ${{ steps.build.outcome }}"; echo '```'; cat /tmp/build.rc 2>/dev/null; tail -25 /tmp/build.log 2>/dev/null; echo; cat /tmp/watch.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()
