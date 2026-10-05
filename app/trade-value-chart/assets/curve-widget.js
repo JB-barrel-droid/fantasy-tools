@@ -2764,6 +2764,12 @@
     benchShare = next;
     crossRank = null;
     syncBenchShareControl();
+    // JEG-103: the slider's input/change/dblclick handlers used to call this
+    // function without syncWeightsReadout(), so the Weights panel kept the
+    // old "Bench 15.0% (default 15%)" label even after the slider moved.
+    // Syncing from the central setter covers every path (slider, dblclick
+    // reset, the "Reset to 15%" button, resetAllWeights, external callers).
+    syncWeightsReadout();
     if (publish) publishShared();
   }
 
