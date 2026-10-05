@@ -605,7 +605,7 @@ def _rotate_and_write_drafts(week, worthy, prop_meta, fds_keys=None,
     sourcing = {
         "books": prop_meta.get("books") or [],
         "vegas_at": prop_meta.get("latest_at"),
-        "ecr_at": ecr_mtime,
+        "espn_at": ecr_mtime,  # JEG-420 proposal: key renamed; value still ECR CSV mtime — needs ESPN vintage source (flagged)
         "fds_derived": len(fds_keys or ()),
         "fds_snapshot_at": (fds_payload or {}).get("snapshot_generated_at"),
     }

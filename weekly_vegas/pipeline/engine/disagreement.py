@@ -454,7 +454,7 @@ def draft_post(sig: dict, event: str, meta: dict | None = None,
     ECR feed's expert projection):
         MARKET vs EXPERTS — Wk 1
         ▼ J. Love, RB, ARI
-        vegas implied fantasy points 9.9 vs ECR 14.7 (Δ -4.8)
+        vegas implied fantasy points 9.9 vs ESPN 14.7 (Δ -4.8)
         ⚠️ Questionable (ankle)
     The injury line appears only when the signal carries an injury_flag.
     ECR supplies position ranks (informational since the 2026-09-11 rank-gate
@@ -499,7 +499,7 @@ def draft_post(sig: dict, event: str, meta: dict | None = None,
             signa = "+" if pa > 0 else ""
             pa_txt = f", {signa}{pa:.1f} net of house level"
         lines.append(
-            f"vegas implied fantasy points {vppr} vs ECR {eppr} "
+            f"vegas implied fantasy points {vppr} vs ESPN {eppr} "
             f"(\u0394 {sign}{pd:.1f}{pa_txt})"
         )
     else:
@@ -549,10 +549,10 @@ def build_thread(worthy: list, week: int, sourcing: dict | None = None) -> list:
     re-split. Every tweet is packed and asserted with _x_len() (X's real
     counting, where ▼/▲ count double) — never len().
 
-    sourcing (optional): {"books": [...], "vegas_at": iso/ts, "ecr_at": iso/ts}
+    sourcing (optional): {"books": [...], "vegas_at": iso/ts, "espn_at": iso/ts}
     appends a source line to the hook tweet, e.g.
     "Vegas: DraftKings + FanDuel lines (Odds API) as of Fri 2:46p CT ·
-     ECR projections as of Fri 12:11p CT".
+     ESPN projections as of Fri 12:11p CT".
     """
     n_up = sum(1 for s in worthy if (s.get("pts_delta_ppr") or 0) > 0)
     n_down = sum(1 for s in worthy if (s.get("pts_delta_ppr") or 0) < 0)
@@ -579,14 +579,14 @@ def build_thread(worthy: list, week: int, sourcing: dict | None = None) -> list:
         bits = []
         books = sourcing.get("books") or []
         vegas_at = _ct_stamp(sourcing.get("vegas_at")) if sourcing.get("vegas_at") else None
-        ecr_at = _ct_stamp(sourcing.get("ecr_at")) if sourcing.get("ecr_at") else None
+        espn_at = _ct_stamp(sourcing.get("espn_at")) if sourcing.get("espn_at") else None
         if books:
             bits.append(
                 f"Vegas: {' + '.join(books)} lines (Odds API)"
                 + (f" as of {vegas_at}" if vegas_at else "")
             )
-        if ecr_at:
-            bits.append(f"ECR projections as of {ecr_at}")
+        if espn_at:
+            bits.append(f"ESPN projections as of {espn_at}")
         n_fds = sourcing.get("fds_derived") or 0
         if n_fds:
             # Labeled fallback (2026-09-17): these players' Vegas numbers

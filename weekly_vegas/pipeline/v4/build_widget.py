@@ -78,7 +78,7 @@ h = f"""<div style="box-sizing:border-box;max-width:100%;font-family:-apple-syst
 <div style="display:flex;flex-direction:column;gap:0;">
   {card("Sources", "Odds API props: <b style='color:var(--hatch-widget-text);'>2,856</b> lines across <b style='color:var(--hatch-widget-text);'>6</b> markets (yardage, catches, anytime-TD, QB pass-TD; DraftKings + FanDuel) &middot; ECR: <b style='color:var(--hatch-widget-text);'>754</b> players, position-specific ranks + expert point projections")}
   {arrow}
-  {card("Engine", "<b style='color:var(--hatch-widget-text);'>465</b> prop players &rarr; Vegas-implied points (std / half / PPR) incl. TD value &mdash; anytime-TD odds de-vigged and converted to expected TDs via Poisson &mdash; vs ECR projected points, same scoring, same TD treatment")}
+  {card("Engine", "<b style='color:var(--hatch-widget-text);'>465</b> prop players &rarr; Vegas-implied points (std / half / PPR) incl. TD value &mdash; anytime-TD odds de-vigged and converted to expected TDs via Poisson &mdash; vs ESPN projected points, same scoring, same TD treatment")}
   {arrow}
   {card("Disagreement detector <span style='font-weight:400;font-size:11px;color:var(--hatch-widget-muted);'>cut by position, points first</span>", "<b style='color:var(--hatch-widget-text);'>172</b> rank-gap signals &rarr; post-worthy only if <b style='color:var(--hatch-widget-text);'>|pts &Delta;| &ge; 2.0</b> <i>and</i> one side clears the position floor <i>and</i> the player has yardage props posted (no TD-only ghosts) &rarr; <b style='color:var(--hatch-widget-text);'>12</b> post-worthy")}
   {arrow}
