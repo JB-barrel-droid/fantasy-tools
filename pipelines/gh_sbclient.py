@@ -33,13 +33,18 @@ def _api_key():
     return key
 
 
-def _request(method, path, body=None, params="", prefer="return=representation"):
+def _request(method, path, body=None, params="", prefer="return=representation",
+             schema=None):
     url = _base_url() + path + params
     data = json.dumps(body).encode() if body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("apikey", _api_key())
     req.add_header("Authorization", f"Bearer {_api_key()}")
     req.add_header("Content-Type", "application/json")
+    if schema:
+        # PostgREST schema selector for non-public schemas (e.g. api.*).
+        req.add_header("Accept-Profile", schema)
+        req.add_header("Content-Profile", schema)
     if prefer:
         req.add_header("Prefer", prefer)
     try:
@@ -55,8 +60,20 @@ def _request(method, path, body=None, params="", prefer="return=representation")
         raise SupabaseError(f"{method} {path}: HTTP {e.code} {e.read().decode()[:400]}")
 
 
-def get(table, params=""):
-    return _request("GET", f"/rest/v1/{table}", params=params, prefer="")
+def get(table, params="", schema=None):
+    return _request("GET", f"/rest/v1/{table}", params=params, prefer="",
+                    schema=schema)
+
+
+def rpc(function, payload, params=""):
+    """Call a Postgres function via PostgREST RPC.
+
+    POST /rest/v1/rpc/<function> with a JSON body; returns the decoded
+    response. Raises SupabaseError on HTTP errors (the loader treats any
+    promote failure as fail-closed).
+    """
+    return _request("POST", f"/rest/v1/rpc/{function}", body=payload,
+                    params=params, prefer="")
 
 
 def get_all(table, params="", batch=1000):

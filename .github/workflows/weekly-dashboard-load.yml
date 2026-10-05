@@ -49,3 +49,12 @@ jobs:
           test -n "${BUNDLE}" || { echo "::error::no staged bundle in data/weekly/"; exit 2; }
           echo "Loading ${BUNDLE}"
           python3 pipelines/load_weekly_dashboard.py --bundle "${BUNDLE}"
+
+      - name: Freshness SLA check
+        # Always runs — even when the load step fails or NOOPs — so a stale
+        # dashboard is announced rather than silently green. Read-only.
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/check_weekly_freshness.py
