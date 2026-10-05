@@ -25,6 +25,7 @@ import hashlib
 import json
 import os
 import sys
+from datetime import date
 
 # Supabase client: the vault-backed skill on the Muse VM; in GitHub Actions
 # the gh_sbclient shim is placed on PYTHONPATH as `sbclient` (same interface).
@@ -134,6 +135,46 @@ def manifest_built_at(m):
     return (m or {}).get("bundle_built_at") or (m or {}).get("built_at")
 
 
+# JEG-404: the dashboard publishes only ESPN-sourced expert numbers that are
+# fresh on CONTENT VINTAGE (espn_snapshot_date = when ESPN last changed the
+# numbers), never pull time. A byte-identical re-pull resets nothing.
+ESPN_EXPERT_SOURCE = "espn_ros"
+ESPN_VINTAGE_MAX_AGE_DAYS = 3
+
+
+def expert_vintage_block_reason(meta, rows, today=None):
+    """Source-content-vintage gate (JEG-404). Returns a BLOCKED reason string
+    if the bundle's expert leg must not be promoted, else None.
+
+    Fail-closed on: expert_source missing or != espn_ros, absent /
+    non-unanimous / unparseable espn_snapshot_date, or vintage older than
+    ESPN_VINTAGE_MAX_AGE_DAYS (consistent with the game-day ESPN 3-day gate).
+    """
+    source = (meta.get("expert_source") or "").strip()
+    if source != ESPN_EXPERT_SOURCE:
+        return (f"bundle expert_source is {source!r}, expected "
+                f"{ESPN_EXPERT_SOURCE!r}")
+    dates = set()
+    for key, row in rows.items():
+        d = (row.get("espn_snapshot_date") or "")
+        if not str(d).strip():
+            return f"player {key} has no espn_snapshot_date"
+        dates.add(str(d).strip())
+    if len(dates) > 1:
+        return f"espn_snapshot_date not unanimous across rows: {sorted(dates)}"
+    vintage = dates.pop()
+    try:
+        snap = date.fromisoformat(vintage)
+    except ValueError:
+        return f"espn_snapshot_date {vintage!r} is not an ISO date"
+    today = today or date.today()
+    age = (today - snap).days
+    if age > ESPN_VINTAGE_MAX_AGE_DAYS:
+        return (f"ESPN content vintage {vintage} is {age} days old "
+                f"(max {ESPN_VINTAGE_MAX_AGE_DAYS})")
+    return None
+
+
 def promote(run_id, expected_signals):
     """Atomic promotion via the JEG-393 RPC. Idempotent: safe to retry."""
     try:
@@ -234,8 +275,20 @@ def main(argv=None):
             cur_built = manifest_built_at(r.get("source_manifest"))
             if (r_season, r_week) == (season, week) and cur_built and cur_built > built_at:
                 fail(f"refusing rollback: current run {r['run_id']} for week {week} "
-                     f"has newer bundle_built_at {cur_built} > {built_at}; "
-                     f"pass --allow-rollback to override")
+                f"has newer bundle_built_at {cur_built} > {built_at}; "
+                f"pass --allow-rollback to override")
+
+    # Source-content-vintage gate (JEG-404). Deliberately placed AFTER the
+    # NOOP check: a bundle already current with identical bytes must stay a
+    # clean no-op (nothing new is published), while any bundle that would
+    # actually be promoted must carry fresh ESPN expert numbers.
+    block = expert_vintage_block_reason(meta, rows)
+    if block:
+        fail(f"vintage gate: {block} (bundle {bundle_path})")
+    manifest["expert_source"] = meta.get("expert_source")
+    manifest["espn_vintage"] = sorted({
+        str(r.get("espn_snapshot_date")).strip() for r in rows.values()
+    })[-1]
 
     run_rows = sbclient.post(
         "weekly_dashboard_runs",
