@@ -384,6 +384,59 @@ def fetch_espn_intake(path, registry):
     return espn_med, snap
 
 
+SKILL_POS = ("QB", "RB", "WR", "TE")
+
+
+def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
+    """Skill players the board carries at an ESPN value of zero (JEG-392).
+
+    JEG-ECR-EXIT narrowed the board to ESPN's 348 *eligible* skill players,
+    which orphaned 185 identities the comparison artifact still prices and
+    made every downstream universe assumption (pie totals, bench mix, CBS
+    ROS coverage, the source-chain coverage review) fail. ESPN's own
+    projection for those players is zero, so carrying them at zero is the
+    ESPN-only value, not a fill:
+
+      - "ineligible": listed in the ESPN CSV with eligible=False (ESPN
+        projects 0; includes season-ending IR, which the chart badges via
+        the comparison artifact's espn_zeroed list per the IR rule).
+      - "absent": not in the ESPN CSV at all, but priced/keyed by the
+        comparison artifact (ESPN publishes no projection = 0).
+
+    Returns {player_key: {"pos", "team", "espn_status"}}. Never includes a
+    key already in espn_med; identity still resolves fail-closed through the
+    canonical registry (unresolvable names are skipped, never guessed).
+    """
+    out = {}
+    with open(espn_csv, newline="") as f:
+        for r in csv.DictReader(f):
+            if _elig_flag(r.get("eligible")):
+                continue
+            pos = (r.get("pos") or "").strip()
+            if pos not in SKILL_POS:
+                continue
+            key = _resolve_csv_row(r.get("player", ""), pos, "espn-zero",
+                                   registry)
+            if key is None or key in espn_med or key in out:
+                continue
+            out[key] = {"pos": pos, "team": (r.get("team") or "").strip(),
+                        "espn_status": "ineligible"}
+    if comparison_fixture and Path(comparison_fixture).exists():
+        payload = json.loads(Path(comparison_fixture).read_text(encoding="utf-8"))
+        for key in set((payload.get("player_keys") or {}).values()):
+            if not isinstance(key, int) or key in espn_med or key in out:
+                continue
+            entry = registry.by_key.get(key) if registry is not None else None
+            if not entry or entry.get("position") not in SKILL_POS:
+                continue
+            out[key] = {"pos": entry["position"], "team": "",
+                        "espn_status": "absent"}
+    n_inel = sum(1 for v in out.values() if v["espn_status"] == "ineligible")
+    print(f"espn zero universe: {len(out)} skill players at ESPN 0 "
+          f"({n_inel} ineligible, {len(out) - n_inel} absent from ESPN CSV)")
+    return out
+
+
 def bake(args):
     registry = load_registry()
 
@@ -421,8 +474,15 @@ def bake(args):
     # ESPN projection). pos / team come from the ESPN CSV row; fall back
     # to the canonical registry when the CSV is silent on one (DST / K
     # rows are appended separately below).
+    espn_zero = espn_zero_universe(
+        args.espn_csv, getattr(args, "comparison_fixture", None), espn_med,
+        registry)
+    skill_rows = [(k, r, None) for k, r in espn_med.items()]
+    skill_rows += [(k, {"comps": {}, "pos": z["pos"], "team": z["team"]},
+                    z["espn_status"]) for k, z in sorted(espn_zero.items())]
+
     players = []
-    for key, espn_row in espn_med.items():
+    for key, espn_row, espn_status in skill_rows:
         v = espn_row["comps"]
         pos = espn_row["pos"]
         # Team: ESPN CSV first (variant-normalized), canonical registry
@@ -488,6 +548,11 @@ def bake(args):
             # too — the primary blend is ESPN-sourced for every position.
             "pricing": "espn_only",
         }
+        if espn_status:
+            # JEG-392: ESPN projects this player at zero (ineligible or not
+            # published). The ESPN-only primary value is therefore 0.
+            row["espn_zeroed"] = True
+            row["espn_status"] = espn_status
         if pm_ros is not None:
             row["pm_ros"] = pm_ros
         if pm_complete:
@@ -875,6 +940,10 @@ def main():
     ap.add_argument("--cbsros-snapshot", default=None,
                     help="CBS ROS snapshot.json path; default: latest dated "
                          "snapshot under data/raw/sources/cbsros/")
+    ap.add_argument("--comparison-fixture",
+                    default=str(FIXTURE_DIR / "comparison-sources-data.json"),
+                    help="comparison artifact whose keyed identities the board "
+                         "must carry (JEG-392); ESPN-absent ones bake at 0")
     ap.add_argument("--k-json", default=str(INPUTS_DIR / "espn_k_ppg_2026-09-21.json"))
     ap.add_argument("--dst-json", default=str(INPUTS_DIR / "espn_dst_ros_2026-09-21.json"))
     args = ap.parse_args()
