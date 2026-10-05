@@ -255,6 +255,15 @@ def main() -> int:
             fc["combos"][combo_key]["native"] = combo_data.get("native", {})
             fc["combos"][combo_key]["reindexed"] = combo_data.get(
                 "reindexed", {})
+            # JEG-366: carry fit + index_total through the fixture update.
+            # Dropping either left review_comparison_candidate.py in a
+            # permanent coverage hold (the n_priced counts and pre_total
+            # sanity check both depend on these). Index_total is the
+            # pos-level pie totals; fit is the VORP-overlap scaling
+            # metadata the fixture must keep in sync with the reindexer.
+            fc["combos"][combo_key]["index_total"] = combo_data.get(
+                "index_total", {})
+            fc["combos"][combo_key]["fit"] = combo_data.get("fit", {})
             fc["combos"][combo_key]["n"] = len(combo_data.get("native", {}))
     fc["fetched_at"] = snap["fetched_at"]
     with open(fix_path, "w") as f:
