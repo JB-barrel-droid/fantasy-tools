@@ -387,6 +387,11 @@ def fetch_espn_intake(path, registry):
 def bake(args):
     registry = load_registry()
 
+    # JEG-405 (2026-10-05): assign `today` once at the top of bake().
+    # The prior-snapshot scan below reads it before the meta block ran,
+    # which raised UnboundLocalError on any bake with an existing snapshot.
+    today = str(_date.today())
+
     # ---- ESPN intake (PRIMARY LEG) -----------------------------------------
     # JEG-ECR-EXIT (2026-10-05): ESPN replaces ECR as the primary blend
     # leg. ESPN is already rest-of-season (no actuals subtraction). No
@@ -728,7 +733,7 @@ def bake(args):
           f"{pecr_report['unmatched']} unmatched")
 
     # ---- meta ---------------------------------------------------------------------
-    today = str(_date.today())
+    # JEG-405: `today` is assigned once at the top of bake(); do not reassign.
     meta = {
         "as_of": today,
         "prior_blend_snapshot": str(prior_date) if prior_date else None,
