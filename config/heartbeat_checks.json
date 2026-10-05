@@ -1,0 +1,20 @@
+{
+  "checks": [
+    {
+      "check_id": "trade-value-chart",
+      "url": "https://jb-barrel-droid.github.io/fantasy-tools/",
+      "enabled": true,
+      "timeout_seconds": 10,
+      "latency_budget_ms": 3000,
+      "check_type": "http_status"
+    },
+    {
+      "check_id": "consolidation-watcher",
+      "url": "https://jb-barrel-droid.github.io/fantasy-tools/modules/consolidation.html",
+      "enabled": true,
+      "timeout_seconds": 10,
+      "latency_budget_ms": 3000,
+      "check_type": "http_status"
+    }
+  ]
+}
