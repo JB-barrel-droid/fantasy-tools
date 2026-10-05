@@ -49,7 +49,14 @@ jobs:
         run: |
           week=$(python3 pipelines/nfl_week.py)
           rc=0
-          python3 pipelines/verify_import_health.py --nfl-week "$week" > /tmp/build.log 2>&1 || { echo "verify_import_health exit $?" >> /tmp/build.rc; }
+          # Stamp Supabase -> data/raw first (same as rebuild-chain.yml).
+          for src in fantasycalc usatoday fantasypros espn cbs cbsros razzball; do
+            python3 pipelines/import_supabase_references.py --source "$src" >> /tmp/build.log 2>&1 || echo "import $src exit $?" >> /tmp/build.rc
+          done
+          # verify_import_health exits 1 when its gate is RED; that is a
+          # successfully produced (red) health artifact, not a producer
+          # failure. Producer success = the artifact was written.
+          python3 pipelines/verify_import_health.py --nfl-week "$week" >> /tmp/build.log 2>&1 || echo "verify_import_health gate exit $? (artifact still produced)" >> /tmp/build.log
           python3 pipelines/build_pipeline_checkpoints.py >> /tmp/build.log 2>&1 || { echo "build_pipeline_checkpoints exit $?" >> /tmp/build.rc; }
           test -s output/source-import-health.json || echo "source-import-health.json missing" >> /tmp/build.rc
           test -s output/pipeline-checkpoints.json || echo "pipeline-checkpoints.json missing" >> /tmp/build.rc
