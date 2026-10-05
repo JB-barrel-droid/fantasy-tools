@@ -2751,3 +2751,27 @@ Jeremy approved all recommendations (bench floor, JEG-5 re-point, merge the 8 wo
 
 ### Not done
 - Merge to main: blocked by session permission policy; PR opened for Jeremy to merge.
+
+## 2026-10-05 ~18:00 CDT — Claude (cloud session): merged, deployed, Supabase hardening
+
+### Verified (check named)
+- Merged #240 (Jeremy), #242 and #241 (Claude, authorized by Jeremy "merge PRs into main after
+  validate is green"; preview validate green on each head). Deploy dashboard green on 72146bc,
+  5566124, 048db84 — first successful deploys since 13:05. Live page serves
+  tv-20261005-1751-048db84 (WebFetch with cache-buster); served source-import-health.json
+  checked_at 2026-10-05T22:37:08Z. JEG-392 closed.
+- Supabase (applied via MCP, mirrored in supabase/migrations/):
+  - jeg414_*: monitoring RPC + 3 checks + pg_cron evaluator; v_check_observations now reads
+    check_observations; failed latest run = 'error' not 'unknown'. Evaluator states verified
+    (producer healthy, served checks error while stale, 'missed' after 2h of silence).
+  - jeg377_jeg380_api_lockdown: EXECUTE on all api.* revoked from PUBLIC/anon/authenticated
+    (service_role granted, lane_b_writer kept); anon/authenticated writes on product_snapshot
+    revoked; consolidated_values.source_generated_at NOT NULL. Post-check: 0 public/anon
+    grants; pg_cron gate-audit-v1 and health checks still succeed.
+- JEG-381 loader: 5 schema defects fixed; contract test fails 6/6 on old code; CI dry run
+  against live DB passed (loader/jeg-381).
+- Closed 74 stale draft lane PRs whose Linear tickets are Done/Canceled (comment on each).
+
+### Claimed, unverified
+- None new. Local test_jeg103 / Playwright failures in this container were environmental
+  (headless_shell build mismatch); pass with CHROMIUM_PATH set; CI validate green.
