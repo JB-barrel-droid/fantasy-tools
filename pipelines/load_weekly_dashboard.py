@@ -18,17 +18,22 @@ the run row is inserted first, signals are batched in, and the is_current
 flip happens only after every signal row is read back.
 
 Usage:
-    python3 pipelines/load_weekly_dashboard.py
+    python3 pipelines/load_weekly_dashboard.py [--bundle PATH]
+    WEEKLY_BUNDLE_PATH=/path/to/bundle.json python3 pipelines/load_weekly_dashboard.py
 Exit codes: 0 ok / no-op, 2 blocked (missing input or verification failure).
 """
 
+import argparse
 import glob
 import json
 import os
 import sys
 
+# Supabase client: the vault-backed skill on the Muse VM; in GitHub Actions
+# the gh_sbclient shim is placed on PYTHONPATH as `sbclient` (same interface).
 SKILL_BIN = os.path.expanduser("~/workspace/skills/supabase-football-signal/bin")
-sys.path.insert(0, SKILL_BIN)
+if os.path.isdir(SKILL_BIN):
+    sys.path.insert(0, SKILL_BIN)
 sys.path.insert(0, "/opt/hatch/skills/skill-creator/bin")
 import sbclient  # noqa: E402
 
@@ -44,7 +49,16 @@ def fail(msg, code=2):
     sys.exit(code)
 
 
-def newest_bundle():
+def newest_bundle(explicit=None):
+    if explicit:
+        if not os.path.isfile(explicit):
+            fail(f"bundle not found: {explicit}")
+        return explicit
+    env_path = os.environ.get("WEEKLY_BUNDLE_PATH")
+    if env_path:
+        if not os.path.isfile(env_path):
+            fail(f"WEEKLY_BUNDLE_PATH not found: {env_path}")
+        return env_path
     files = sorted(glob.glob(BUNDLE_GLOB), key=os.path.getmtime)
     if not files:
         fail("no staged weekly signals bundle found under weekly_dashboard_refresh_*/")
@@ -73,8 +87,12 @@ def dedupe(players):
     return best
 
 
-def main():
-    bundle_path = newest_bundle()
+def main(argv=None):
+    ap = argparse.ArgumentParser(description="Load the weekly signals bundle into Supabase.")
+    ap.add_argument("--bundle", default=None,
+                    help="Explicit bundle path (default: WEEKLY_BUNDLE_PATH env, else newest VM bundle).")
+    args = ap.parse_args(argv)
+    bundle_path = newest_bundle(args.bundle)
     bundle = json.load(open(bundle_path))
     meta = bundle.get("meta", {})
     players = bundle.get("players", [])
