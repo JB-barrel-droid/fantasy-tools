@@ -557,23 +557,32 @@ def bake(args):
             row["pm_ros"] = pm_ros
         if pm_complete:
             row["pm_filled_ros"] = pm_filled_ros
-            row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
+            if not espn_status:
+                row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
         gr = games_left.get(team)
         row["games_remaining"] = gr
+        # JEG-392: ESPN-zeroed rows publish no ESPN per-game projection and
+        # no ESPN-relative deltas (ESPN has none to compare against), the
+        # same contract the pre-JEG-ECR-EXIT fixture used for ESPN-unpriced
+        # players. The chart's ESPN pools (curves, waiver lines, bench mix)
+        # therefore see exactly the ESPN-priced players, as before.
+        has_espn = not espn_status
         if gr:
-            row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
-            row["espn_ppg"] = {s: round(v / gr, 2) for s, v in row["espn_ros"].items()}
+            if has_espn:
+                row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
+                row["espn_ppg"] = {s: round(v / gr, 2) for s, v in row["espn_ros"].items()}
             if pm_ros is not None:
                 row["pm_ppg"] = {s: round(row["pm_ros"][s] / gr, 2)
                                  for s in SCORINGS}
             if pm_complete:
                 row["pm_filled_ppg"] = {s: round(pm_filled_ros[s] / gr, 2)
                                         for s in SCORINGS}
-                row["delta_pm_espn_ppg"] = round(
-                    row["pm_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
+                if has_espn:
+                    row["delta_pm_espn_ppg"] = round(
+                        row["pm_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
@@ -583,10 +592,11 @@ def bake(args):
                 row["rz_ros"] = {s: round(z[s] * gr, 2) for s in SCORINGS}
                 row["rz_filled_ppg"] = dict(row["rz_ppg"])
                 row["rz_filled_ros"] = dict(row["rz_ros"])
-                row["delta_rz_espn"] = round(
-                    row["rz_filled_ros"]["ppr"] - row["espn_ros"]["ppr"], 2)
-                row["delta_rz_espn_ppg"] = round(
-                    row["rz_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
+                if has_espn:
+                    row["delta_rz_espn"] = round(
+                        row["rz_filled_ros"]["ppr"] - row["espn_ros"]["ppr"], 2)
+                    row["delta_rz_espn_ppg"] = round(
+                        row["rz_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # CBS ROS: per-game rates are pre-computed in the snapshot
             # (per_game_standard/half_ppr/ppr = ROS totals / gp). No ROS
             # fill here: the curve re-prices live from cbsros_ppg via the
