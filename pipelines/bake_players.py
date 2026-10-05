@@ -160,6 +160,33 @@ def _resolve_team_abbr(espn_team, key, registry, team_abbr):
     abbr = (team_abbr.get(tid) or "").strip().upper() if tid else ""
     return _STALE_TEAM_FIX.get(abbr, abbr)
 
+
+def _kdst_games_remaining(player_key, registry, team_abbr, games_left):
+    """Derive K/DST games_remaining through the canonical identity map.
+
+    Path: registry.by_key[player_key].team_id -> team_abbr[team_id]
+    -> games_left[abbr]. Returns the count of unplayed season games for
+    that team, or None when any link is missing. The caller treats None
+    as fail-closed (no per-game fields, never guessed) per JEG-403.
+
+    The game-status source is the same Supabase `games` table the skill
+    rows use (only `status != "final"` counted) — no new source. The
+    identity map is the same canonical `players` registry the skill rows
+    resolve through — no parallel identity path.
+    """
+    if registry is None or player_key is None:
+        return None
+    entry = registry.by_key.get(int(player_key))
+    if not entry:
+        return None
+    tid = entry.get("team_id")
+    if not tid:
+        return None
+    abbr = (team_abbr.get(tid) or "").strip().upper()
+    if not abbr:
+        return None
+    return games_left.get(abbr)
+
 # CBS ROS snapshot columns (pre-computed per-game rates: ROS totals / gp).
 CBSROS_LEGS = (("per_game_standard", "standard"),
                ("per_game_half_ppr", "half_ppr"),
@@ -546,9 +573,16 @@ def bake(args):
     for name, ppg in sorted(k_ppg.items(), key=lambda kv: -kv[1]):
         kk = resolve(name, position="K", registry=registry)
         if kk is None:
-            kdst_unresolved.append(("K", name))
+            kdst_unresolved.append(("K", name, "no_identity"))
             continue
-        gr = 16  # kickers: ROS weeks 3-18
+        # JEG-403 (2026-10-05): derive games_remaining from the canonical
+        # identity map (registry -> teams table -> Supabase `games` table)
+        # rather than the retired hardcoded 16. Fail closed when any link
+        # is missing — never guess a kicker's team.
+        gr = _kdst_games_remaining(kk, registry, team_abbr, games_left)
+        if not gr or gr <= 0:
+            kdst_unresolved.append(("K", name, "no_schedule"))
+            continue
         ros = round(ppg * gr, 2)
         same3 = {"standard": ros, "half_ppr": ros, "ppr": ros}
         ppg3 = {"standard": ppg, "half_ppr": ppg, "ppr": ppg}
@@ -571,17 +605,29 @@ def bake(args):
     for abbr, ppg in sorted(dst_ppg.items(), key=lambda kv: -kv[1]):
         kk = resolve(abbr, position="DST", registry=registry)
         if kk is None:
-            kdst_unresolved.append(("DST", abbr))
+            kdst_unresolved.append(("DST", abbr, "no_identity"))
             continue
-        gr = 15  # DST: 15 games remaining (all byes in weeks 3-18)
+        # JEG-403 (2026-10-05): same canonical path as K — registry
+        # team_id -> teams-table abbreviation -> games_remaining. The
+        # retired hardcoded 15 is gone; on an October 5 bake this can be
+        # as low as 12 and must decline as the season advances.
+        gr = _kdst_games_remaining(kk, registry, team_abbr, games_left)
+        if not gr or gr <= 0:
+            kdst_unresolved.append(("DST", abbr, "no_schedule"))
+            continue
         ros = round(ppg * gr, 2)
         same3 = {"standard": ros, "half_ppr": ros, "ppr": ros}
         ppg3 = {"standard": ppg, "half_ppr": ppg, "ppr": ppg}
+        # Team display comes from the canonical registry path, not the
+        # source CSV's abbr (which can be stale: LAR/WSH/JAC). The
+        # identity map is the source of truth.
+        entry = registry.by_key.get(int(kk)) if registry else None
+        team_disp = team_abbr.get(entry["team_id"]) if entry else None
         players.append({
             "player_key": kk,
             "name": require_canonical_name(kk, registry=registry),
             "pos": "DST",
-            "team": _TEAM_ABBR_FIX.get(abbr, abbr),
+            "team": team_disp,
             "espn_ros": dict(same3), "blend_ros": dict(same3),
             "espn_ppg": dict(ppg3), "blend_ppg": dict(ppg3),
             "games_remaining": gr,
@@ -748,10 +794,14 @@ def bake(args):
         "kdst_snapshot": kdst_snapshot,
         "kdst_note": ("Kickers and team defenses price from ESPN projections "
                       "only (ESPN-purity directive, 2026-09-21): no expert/ECR "
-                      "data anywhere in the K/DST leg. K ROS = ESPN per-game "
-                      "rates x 16 (weeks 3-18); DST ROS = ESPN per-game rates "
-                      "x 15 (all byes in weeks 3-18). Scoring-invariant: one "
-                      "number serves standard/half/full."),
+                      "data anywhere in the K/DST leg. K/DST ROS = ESPN per-game "
+                      "rates x the team's actual remaining games (JEG-403 "
+                      "2026-10-05), derived from the same Supabase `games` "
+                      "status source the skill rows use; team resolved through "
+                      "the canonical `players` registry. The hardcoded 16 (K) "
+                      "and 15 (DST) weeks 3-18 constants were retired — on an "
+                      "October 5 bake these overstate ROS for both positions. "
+                      "Scoring-invariant: one number serves standard/half/full."),
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
         "ppg_note": ("Per-game points = ROS fantasy points / team games "
                      "remaining (final games excluded)."),
