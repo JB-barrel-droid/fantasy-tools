@@ -68,9 +68,16 @@ REPO = Path(__file__).resolve().parent.parent
 CHUNK = 500  # PostgREST-friendly batch size (matches unified.py)
 
 # Unique key on consolidated_values -- the upsert conflict target.
+# JEG-381 fix (2026-10-05): must match consolidated_values_pkey
+# (player, source, season, week, scoring, teams, qb_variant, view); the old
+# player_key-based target matched no unique constraint, so every upsert 400'd.
 UNIQUE_KEY_COLS = (
-    "source,season,week,scoring,teams,qb_variant,view,player_key"
+    "player,source,season,week,scoring,teams,qb_variant,view"
 )
+
+# Leg/CLI scoring keys -> consolidated_values.scoring CHECK values.
+SCORING_DB = {"standard": "standard", "half_ppr": "half", "half": "half",
+              "ppr": "full", "full": "full"}
 
 # ---------------------------------------------------------------------------
 # Per-source 70-cap rescale configuration (JEG-77: 2026-10-04 CBS ROS incident).
@@ -125,7 +132,8 @@ class _EnvClient:
         if not self.base or not self.key:
             raise LoadError("SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
 
-    def _req(self, method, path, body=None, params="", prefer="return=representation"):
+    def _req(self, method, path, body=None, params="", prefer="return=representation",
+             schema=None):
         url = self.base + path + params
         data = json.dumps(body).encode() if body is not None else None
         req = urllib.request.Request(url, data=data, method=method)
@@ -134,6 +142,9 @@ class _EnvClient:
         req.add_header("Content-Type", "application/json")
         if prefer:
             req.add_header("Prefer", prefer)
+        if schema:
+            req.add_header("Content-Profile", schema)
+            req.add_header("Accept-Profile", schema)
         try:
             resp = urllib.request.urlopen(req, timeout=60)
             raw = resp.read()
@@ -162,8 +173,11 @@ class _EnvClient:
         return self._req("POST", f"/rest/v1/{table}", body=body, params=params, prefer=prefer)
 
     def rpc(self, function, payload, params="", schema=None):
+        # JEG-381 fix: PostgREST resolves non-public functions only with the
+        # Content-Profile header; without it api.* RPCs always 404'd.
         prefix = f"/rest/v1/rpc/{function}"
-        return self._req("POST", prefix, body=payload, params=params)
+        return self._req("POST", prefix, body=payload, params=params,
+                         prefer="", schema=schema)
 
 
 def get_client(mode):
@@ -232,7 +246,7 @@ def resolve_source_generated_at(leg, args, source):
     raise LoadError(f"cannot determine source_generated_at: no {snap_key} or generated_at in leg")
 
 
-def build_rows(leg, dims, views, source_generated_at, bake_uuid):
+def build_rows(leg, dims, views, source_generated_at, bake_uuid, leg_label="ddf_leg"):
     """Pure function: leg JSON -> DB rows. Unit-testable without a DB.
 
     Returns ``(rows, audit_data)``:
@@ -257,15 +271,32 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid):
        pass through untouched (factor = 1.0).
     """
     rows = []
+    scoring_db = SCORING_DB.get(str(dims["scoring"]))
+    if scoring_db is None:
+        raise LoadError(f"scoring {dims['scoring']!r} has no consolidated_values "
+                        f"value (allowed: {sorted(SCORING_DB)})")
     for i, v in enumerate(leg["values"]):
         pk = v.get("player_key")
         if not isinstance(pk, int):
             raise LoadError(f"row {i}: player_key missing/not int: {v.get('player')}")
+        # JEG-381 fix: player (PK column), detail_locator and bake_id are
+        # NOT NULL in consolidated_values and were never emitted.
+        player = (v.get("player_norm") or "").strip()
+        if not player and v.get("player"):
+            # Same normalizer the legs use for player_norm (canonical_players).
+            sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+            from canonical_players import norm_plain  # noqa: PLC0415
+            player = norm_plain(v["player"])
+        if not player:
+            raise LoadError(f"row {i}: player / player_norm missing")
+        locator = f"{leg_label}#values[{i}]"
         base = {
+            "player": player,
+            "bake_id": str(bake_uuid) if bake_uuid else None,
             "source": dims["source"],
             "season": dims["season"],
             "week": dims["week"],
-            "scoring": dims["scoring"],
+            "scoring": scoring_db,
             "teams": dims["teams"],
             "qb_variant": dims["qb_variant"],
             "player_key": pk,
@@ -284,14 +315,16 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid):
             val = v.get("value")
             if not isinstance(val, (int, float)):
                 raise LoadError(f"row {i} ({v.get('player')}): 'value' missing/not numeric")
-            rows.append({**base, "view": "combo_reindexed", "value": float(val)})
+            rows.append({**base, "view": "combo_reindexed", "value": float(val),
+                         "detail_locator": f"{locator}.value"})
         if "vorp_indexed" in views:
             raw = v.get("raw_value")
             if not isinstance(raw, (int, float)):
                 raise LoadError(f"row {i} ({v.get('player')}): 'raw_value' missing/not numeric")
             if raw < 0:
                 raise LoadError(f"row {i} ({v.get('player')}): vorp_indexed raw_value {raw} < 0")
-            rows.append({**base, "view": "vorp_indexed", "value": float(raw)})
+            rows.append({**base, "view": "vorp_indexed", "value": float(raw),
+                         "detail_locator": f"{locator}.raw_value"})
 
     # ------------------------------------------------------------------
     # Per-source 70-cap rescale (JEG-77: 2026-10-04 incident class)
@@ -356,10 +389,12 @@ def verify_player_keys(sb, rows):
 def resolve_bake_uuid(sb, sb_name, source, cli_uuid):
     if cli_uuid:
         return cli_uuid
+    # JEG-381 fix: public.bakes keys on bake_id (uuid) and stamps ingested_at;
+    # the old bake_uuid/created_at query 400'd on every run.
     rows = sb.get("bakes", params=f"?source=eq.{urllib.parse.quote(source)}"
-                                   f"&select=bake_uuid&order=created_at.desc&limit=1")
-    if isinstance(rows, list) and rows and rows[0].get("bake_uuid"):
-        return rows[0]["bake_uuid"]
+                                   f"&select=bake_id&order=ingested_at.desc&limit=1")
+    if isinstance(rows, list) and rows and rows[0].get("bake_id"):
+        return rows[0]["bake_id"]
     raise LoadError(f"no bake record for source '{source}' in public.bakes; "
                     f"create one first or pass --bake-uuid")
 
@@ -378,7 +413,8 @@ def write_rows(sb, sb_name, rows, use_rpc):
     """Prefer the transactional RPC (JEG-380); fall back to chunked upsert."""
     if use_rpc:
         try:
-            res = sb.rpc("ingest_consolidated_values", {"p_rows": rows}, schema="api")
+            # JEG-381 fix: the function signature is api.ingest_consolidated_values(p_payload jsonb).
+            res = sb.rpc("ingest_consolidated_values", {"p_payload": {"rows": rows}}, schema="api")
             print(f"wrote via api.ingest_consolidated_values RPC: {res}")
             return "rpc"
         except Exception as e:
@@ -434,7 +470,11 @@ def main():
     bake_uuid = resolve_bake_uuid(sb, sb_name, dims["source"], args.bake_uuid)
     print(f"bake_uuid: {bake_uuid}")
 
-    rows, audit_data = build_rows(leg, dims, views, sga, bake_uuid)
+    try:
+        leg_label = str(Path(args.leg).resolve().relative_to(REPO))
+    except ValueError:
+        leg_label = Path(args.leg).name
+    rows, audit_data = build_rows(leg, dims, views, sga, bake_uuid, leg_label=leg_label)
     print(f"built {len(rows)} DB rows "
           f"({sum(1 for r in rows if r['view']=='combo_reindexed')} combo_reindexed, "
           f"{sum(1 for r in rows if r['view']=='vorp_indexed')} vorp_indexed)")

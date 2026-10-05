@@ -1,0 +1,41 @@
+name: Loader dry run
+
+# JEG-381: run the versioned consolidated_values loader in --dry-run mode
+# (reads only: players, bakes, slice counts) for the legs listed in
+# data/ddf-two-tier/loader-dry-run.txt. Never writes.
+
+on:
+  push:
+    branches: ["loader/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Dry-run each listed leg
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          rc=0
+          while read -r leg; do
+            [ -z "$leg" ] && continue
+            case "$leg" in \#*) continue;; esac
+            echo "::group::$leg"
+            if ! python3 pipelines/load_ddf_leg_to_supabase.py "$leg" --season 2026 --week 5 \
+                 --views both --client env --dry-run 2>&1 | tee -a /tmp/dry.log; then
+              echo "::error title=loader-dry-run::$leg failed"; rc=1
+            fi
+            echo "::endgroup::"
+          done < data/ddf-two-tier/loader-dry-run.txt
+          tail -5 /tmp/dry.log | sed "s/^/::notice title=loader-tail::/"
+          exit $rc
