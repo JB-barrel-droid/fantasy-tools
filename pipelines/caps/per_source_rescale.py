@@ -464,6 +464,50 @@ def insert_rescale_audit(
 
 
 # ---------------------------------------------------------------------------
+# register_loader_run (DB write, gated behind PER_SOURCE_CAP_DB_AUDIT)
+# ---------------------------------------------------------------------------
+def register_loader_run(
+    sb: Any,
+    run_context: Mapping[str, Any],
+    table: str = "loader_runs",
+) -> str:
+    """Register this loader execution in ``public.loader_runs``.
+
+    JEG-389: ``loader_runs`` is the canonical owner of
+    ``per_source_cap_audit.run_id`` (NOT fidelity_runs — the JEG-375
+    fidelity suite's dimension is semantically unrelated). The FK
+    ``fk_per_source_cap_audit_run_id`` requires the run row to exist
+    before any audit row is inserted, so the loader must call this
+    BEFORE :func:`insert_rescale_audit`.
+
+    The insert is idempotent on ``run_id`` (merge-duplicates) so a
+    retried registration with an explicit run_id does not fail.
+
+    Returns the registered run_id. Raises :class:`RescaleError` on
+    failure — the caller must abort the load (fail closed).
+    """
+    run_id = run_context.get("run_id")
+    if not run_id:
+        raise RescaleError("register_loader_run: run_context has no run_id")
+    body = {
+        "run_id": run_id,
+        "ddf_leg_version": run_context.get("ddf_leg_version"),
+        "git_commit_sha": run_context.get("git_commit_sha"),
+        "loader_host": run_context.get("loader_host"),
+    }
+    try:
+        sb.post(
+            table,
+            body,
+            params="?on_conflict=run_id",
+            prefer="resolution=merge-duplicates",
+        )
+    except Exception as e:
+        raise RescaleError(f"loader_runs registration failed: {e}") from e
+    return run_id
+
+
+# ---------------------------------------------------------------------------
 # Convenience: build a run_context dict for the loader.
 # ---------------------------------------------------------------------------
 def build_run_context(

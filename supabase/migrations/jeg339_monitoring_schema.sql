@@ -132,17 +132,53 @@ create index if not exists check_heartbeats_state_idx
 -- v_check_observations: read-only mapping layer for live_page_checks.
 -- Production reads from public.live_page_checks (read-only).
 -- The monitoring.check_observations table is a staging fallback only.
+--
+-- LIVE SCHEMA (verified 2026-10-04 via PostgREST OpenAPI; table currently
+-- empty, so no sample rows / verdict domain to inspect):
+--   public.live_page_checks(checked_at timestamptz, url text,
+--                           status_code integer, response_ms integer,
+--                           verdict text)
+--
+-- MAPPING CONTRACT (JEG-339 repair 2026-10-04):
+--   check_id   = url. The monitored URL IS the check identity: seed
+--                monitoring.check_config.check_id with the exact URL strings
+--                so the evaluator join matches. Deterministic, no hashing.
+--   run_at     = checked_at
+--   latency_ms = response_ms
+--   http_status= status_code
+--   ok         = TRUE only when lower(verdict) is a recognized success token:
+--                ('ok','pass','passed','success','successful','healthy','up').
+--                FAIL-CLOSED: any other verdict (fail tokens, typos, NULL)
+--                maps to FALSE so an uninterpretable observation never reads
+--                as healthy. Writers should emit 'ok' / 'fail'-style verdicts.
+--   content_ok = NULL. live_page_checks carries no separate content signal;
+--                the verdict text is preserved in error_code instead.
+--   error_code = NULL when ok; otherwise 'verdict:<verdict>/http_status:<n>'
+--                for diagnosis.
 
 create or replace view monitoring.v_check_observations as
 select
-    check_id::text        as check_id,
-    run_at                as run_at,
-    ok::boolean           as ok,
-    latency_ms::integer   as latency_ms,
-    http_status::integer  as http_status,
-    content_ok::boolean   as content_ok,
-    error_code::text      as error_code
-from public.live_page_checks;
+    lpc.url::text                                  as check_id,
+    lpc.checked_at                                 as run_at,
+    coalesce(
+        lower(lpc.verdict) in
+            ('ok','pass','passed','success','successful','healthy','up'),
+        false
+    )                                              as ok,
+    lpc.response_ms::integer                       as latency_ms,
+    lpc.status_code::integer                       as http_status,
+    null::boolean                                  as content_ok,
+    case
+        when coalesce(
+                 lower(lpc.verdict) in
+                     ('ok','pass','passed','success','successful','healthy','up'),
+                 false)
+            then null
+        else ('verdict:' || coalesce(lpc.verdict, 'null')
+              || '/http_status:' || coalesce(lpc.status_code::text, 'null'))::text
+    end                                            as error_code
+from public.live_page_checks lpc
+where lpc.url is not null;
 
 -- Evaluator: called by pg_cron every 60s. Re-runnable; uses upsert so reruns
 -- are idempotent. Read-only against v_check_observations; writes to
@@ -328,6 +364,8 @@ language plpgsql
 as $$
 declare
     v_count integer := 0;
+    c_check_id text;  -- FOR-loop target below; declared explicitly so the
+                      -- per-iteration check identity is unambiguous
     v_state monitoring.heartbeat_state;
     v_reason text;
     v_expected_next timestamptz;

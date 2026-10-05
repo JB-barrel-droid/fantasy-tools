@@ -31,6 +31,7 @@ from caps.per_source_rescale import (  # noqa: E402
     compute_rescale_factors,
     emit_artifact_rescale_audit,
     preflight_validate_cap,
+    register_loader_run,
 )
 
 
@@ -656,6 +657,76 @@ class TestStandingRuleNegativeTests(unittest.TestCase):
             blocker.write_text("not a dir")
             with self.assertRaises(RescaleError):
                 emit_artifact_rescale_audit([], blocker / "x.json")
+
+
+# ---------------------------------------------------------------------------
+# JEG-389: loader_runs registration — per_source_cap_audit.run_id is owned
+# by the loader run (NOT fidelity_runs).
+# ---------------------------------------------------------------------------
+class _FakeSb:
+    """Minimal PostgREST stub: records post() calls."""
+
+    def __init__(self, fail=False):
+        self.posts = []
+        self.fail = fail
+
+    def post(self, table, body, params="", prefer="return=representation"):
+        self.posts.append(
+            {"table": table, "body": body, "params": params, "prefer": prefer}
+        )
+        if self.fail:
+            raise RuntimeError("boom")
+        return [{"run_id": body["run_id"]}]
+
+
+class TestRegisterLoaderRun(unittest.TestCase):
+    def _ctx(self):
+        return build_run_context(
+            run_id="11111111-1111-1111-1111-111111111111",
+            ddf_leg_version="ddf-20261004-espn",
+            git_commit_sha="abc123",
+            loader_host="testhost",
+        )
+
+    def test_registers_run_and_returns_run_id(self):
+        sb = _FakeSb()
+        run_id = register_loader_run(sb, self._ctx())
+        self.assertEqual(run_id, "11111111-1111-1111-1111-111111111111")
+        self.assertEqual(len(sb.posts), 1)
+        call = sb.posts[0]
+        self.assertEqual(call["table"], "loader_runs")
+        self.assertEqual(call["body"]["run_id"], run_id)
+        self.assertEqual(call["body"]["ddf_leg_version"], "ddf-20261004-espn")
+        self.assertEqual(call["body"]["git_commit_sha"], "abc123")
+        self.assertEqual(call["body"]["loader_host"], "testhost")
+        # Idempotent upsert on run_id so a retried registration cannot fail.
+        self.assertIn("on_conflict=run_id", call["params"])
+
+    def test_missing_run_id_fails_closed(self):
+        sb = _FakeSb()
+        with self.assertRaises(RescaleError):
+            register_loader_run(sb, {})
+        self.assertEqual(sb.posts, [])
+
+    def test_sb_failure_raises_rescale_error(self):
+        sb = _FakeSb(fail=True)
+        with self.assertRaises(RescaleError):
+            register_loader_run(sb, self._ctx())
+
+    def test_audit_entries_share_registered_run_id(self):
+        """The audit rows' run_id is the registered loader run's run_id —
+        the FK fk_per_source_cap_audit_run_id is satisfiable by construction."""
+        sb = _FakeSb()
+        ctx = self._ctx()
+        run_id = register_loader_run(sb, ctx)
+        rows = [_combo_row("cbsros", 97.3), _combo_row("cbsros", 50.0)]
+        rows_after = [dict(r, value=70.0 if r["value"] == 97.3 else r["value"])
+                      for r in rows]
+        entries = build_rescale_audit(
+            compute_rescale_factors(rows), rows, rows_after, ctx
+        )
+        for e in entries:
+            self.assertEqual(e["run_id"], run_id)
 
 
 if __name__ == "__main__":

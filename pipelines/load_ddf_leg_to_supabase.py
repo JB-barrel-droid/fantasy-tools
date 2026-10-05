@@ -22,6 +22,9 @@ Field mapping (EXPLICIT -- the 2026-10-04 bug was a silent field swap):
     --week               -> week                          (CLI)
     --qb-variant         -> qb_variant                    (default qb1)
     bake_uuid           -> bake_uuid                      (looked up / CLI)
+                          (canonical bake identity = public.bakes.bake_id;
+                           the TEXT consolidated_values.bake_id column is a
+                           legacy timestamp string, deprecated JEG-389)
     source_generated_at -> source_generated_at            (content vintage!)
 
 Standing rule: freshness measures when the SOURCE changed its numbers, never
@@ -62,6 +65,7 @@ from caps.per_source_rescale import (  # noqa: E402
     emit_artifact_rescale_audit,
     insert_rescale_audit,
     preflight_validate_cap,
+    register_loader_run,
 )
 
 REPO = Path(__file__).resolve().parent.parent
@@ -261,6 +265,9 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid):
         pk = v.get("player_key")
         if not isinstance(pk, int):
             raise LoadError(f"row {i}: player_key missing/not int: {v.get('player')}")
+        player_name = v.get("player")
+        if not player_name:
+            raise LoadError(f"row {i}: player name missing for player_key={pk}")
         base = {
             "source": dims["source"],
             "season": dims["season"],
@@ -268,6 +275,8 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid):
             "scoring": dims["scoring"],
             "teams": dims["teams"],
             "qb_variant": dims["qb_variant"],
+            "player": player_name,
+            "detail_locator": f"#{player_name.lower().replace(' ', '-')}",
             "player_key": pk,
             "bake_uuid": bake_uuid,
             "source_generated_at": source_generated_at,
@@ -354,12 +363,17 @@ def verify_player_keys(sb, rows):
 
 
 def resolve_bake_uuid(sb, sb_name, source, cli_uuid):
+    # Live public.bakes columns: bake_id (uuid PK), source, source_generated_at,
+    # ingested_at, contract_version, context. There is no bake_uuid/created_at
+    # column (JEG-389 bake-identity cleanup 2026-10-04): the canonical bake
+    # identity is bakes.bake_id, which the loader carries as "bake_uuid" for
+    # backward compatibility with consolidated_values.bake_uuid.
     if cli_uuid:
         return cli_uuid
     rows = sb.get("bakes", params=f"?source=eq.{urllib.parse.quote(source)}"
-                                   f"&select=bake_uuid&order=created_at.desc&limit=1")
-    if isinstance(rows, list) and rows and rows[0].get("bake_uuid"):
-        return rows[0]["bake_uuid"]
+                                   f"&select=bake_id&order=ingested_at.desc&limit=1")
+    if isinstance(rows, list) and rows and rows[0].get("bake_id"):
+        return rows[0]["bake_id"]
     raise LoadError(f"no bake record for source '{source}' in public.bakes; "
                     f"create one first or pass --bake-uuid")
 
@@ -378,7 +392,7 @@ def write_rows(sb, sb_name, rows, use_rpc):
     """Prefer the transactional RPC (JEG-380); fall back to chunked upsert."""
     if use_rpc:
         try:
-            res = sb.rpc("ingest_consolidated_values", {"p_rows": rows}, schema="api")
+            res = sb.rpc("ingest_consolidated_values", {"p_payload": rows}, schema="api")
             print(f"wrote via api.ingest_consolidated_values RPC: {res}")
             return "rpc"
         except Exception as e:
@@ -503,13 +517,20 @@ def main():
               f"{leg.get('scale_70_over_max')}; top player should be ~70.0)")
 
     # ------------------------------------------------------------------
-    # Per_source_cap_audit DB insert (gated). When the table exists in
-    # Supabase this rides with the data write so audit and data stay
-    # transactionally consistent. Until then the JSON artifact is the only
-    # persistent audit trail. Row count must equal len(entries); mismatch
+    # Per_source_cap_audit DB insert (gated). The loader first registers
+    # its run in public.loader_runs (JEG-389: the canonical owner of
+    # per_source_cap_audit.run_id — NOT fidelity_runs), because the FK
+    # fk_per_source_cap_audit_run_id requires the run row to exist
+    # before any audit row is inserted. Registration failure aborts the
+    # load fail-closed. Row count must equal len(entries); mismatch
     # aborts the load (anti-swap pattern from the design doc).
     # ------------------------------------------------------------------
     if PER_SOURCE_CAP_DB_AUDIT and audit_entries:
+        try:
+            registered = register_loader_run(sb, run_context)
+        except RescaleError as e:
+            raise LoadError(f"loader_runs registration failed: {e}") from e
+        print(f"loader_runs: registered run {registered}")
         try:
             inserted = insert_rescale_audit(sb, audit_entries)
         except RescaleError as e:
