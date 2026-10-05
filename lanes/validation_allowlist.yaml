@@ -1,0 +1,27 @@
+# Validation allowlist for the ChatGPT lane runner (JEG-391).
+# The model may only invoke checks named here, with argv fixed here.
+# - argv: fixed command vector. NEVER shell. NEVER model-supplied.
+# - append_files: when true, the validated file list is appended to argv.
+# - cwd is always the lane worktree. Env is scrubbed (no secrets).
+# - timeout: seconds per check run.
+checks:
+  py_compile:
+    desc: "Python syntax check on the given .py files"
+    argv: ["python3", "-m", "py_compile"]
+    append_files: true
+    timeout: 60
+  node_check:
+    desc: "JS syntax check (node --check) on the given .js/.mjs files"
+    argv: ["node", "--check"]
+    append_files: true
+    timeout: 60
+  json_lint:
+    desc: "JSON validity check on the given .json files"
+    argv: ["python3", "-m", "json.tool"]
+    append_files: true
+    timeout: 30
+  git_diff_check:
+    desc: "Whitespace errors in the worktree diff (git diff --check)"
+    argv: ["git", "diff", "--check"]
+    append_files: false
+    timeout: 30
