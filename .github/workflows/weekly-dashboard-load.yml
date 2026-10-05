@@ -5,17 +5,16 @@ name: Weekly dashboard load to Supabase
 # flipping is_current only after the loader verifies the view count.
 # Idempotent: exits 0 with NOOP when the current run already covers the bundle.
 #
-# SCHEDULE DISABLED while weekly production is paused (JEG-ECR-EXIT retired
-# the ECR feed the weekly engine reads; transition tracked in JEG-399).
-# Re-enable the cron below when the expert leg is re-pointed and weekly
-# production resumes.
-# Standing direction (Jeremy): weekly scheduling lives in GitHub/Supabase
-# infra, never on the Muse runtime.
+# Runs LIVE on schedule. While weekly production is paused (JEG-ECR-EXIT
+# retired the ECR feed; transition tracked in JEG-399), no new bundles are
+# published, so the job simply NOOPs each day until bundles flow again.
+# Standing direction (Jeremy): as many processes as possible live in
+# Supabase, with minor assistance from GitHub — never on the Muse runtime.
 
 on:
-#   schedule:
-#     # Daily at 16:07 UTC (11:07 CT)
-#     - cron: '7 16 * * *'
+  schedule:
+    # Daily at 16:07 UTC (11:07 CT)
+    - cron: '7 16 * * *'
   workflow_dispatch:
 
 permissions:
