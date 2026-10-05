@@ -181,7 +181,11 @@ class StaticExportTest(unittest.TestCase):
             # JEG-ECR-EXIT (2026-10-05): universe is ESPN's priced set
             # (348 skill) + K/DST (77) = 425, down from the 610-player ECR
             # universe. Verified genuine from the rebuilt fixture.
-            self.assertEqual(425, report["players"]["player_count"])
+            # JEG-392 (2026-10-05): the board again carries ESPN-zeroed
+            # (146) and comparison-keyed ESPN-absent (42) skill players at
+            # ESPN 0 -> 613. Verified from the GitHub Actions bake
+            # (bake-players.yml); the 425 priced rows are byte-identical.
+            self.assertEqual(613, report["players"]["player_count"])
             # 11 sources: the 10 established plus razzball (Razzball
             # rest-of-season projections leg, added 2026-10-01).
             self.assertEqual(11, report["comparison"]["source_count"])
@@ -192,7 +196,14 @@ class StaticExportTest(unittest.TestCase):
         # JEG-ECR-EXIT (2026-10-05): ESPN-primary universe = 425
         # (348 ESPN-priced skill + 45 K + 32 DST). Verified genuine from
         # the rebuilt fixture; replaces the 610-player ECR-era pin.
-        self.assertEqual(425, len(players))
+        # JEG-392 (2026-10-05): + 146 ESPN-ineligible + 42 ESPN-absent
+        # comparison-keyed skill players at ESPN 0 = 613. The 425 rows above
+        # are unchanged; dropping the rest orphaned 185 comparison keys.
+        self.assertEqual(613, len(players))
+        zeroed = [p for p in players if p.get("espn_zeroed")]
+        self.assertEqual(188, len(zeroed))
+        # ESPN-zeroed rows must never feed the chart's ESPN pools.
+        self.assertFalse([p["name"] for p in zeroed if "espn_ppg" in p or "blend_ppg" in p])
         by_name = {player["name"]: player for player in players}
         self.assertEqual(869, by_name["Josh Allen"]["player_key"])
         self.assertEqual("QB", by_name["Josh Allen"]["pos"])
@@ -953,8 +964,11 @@ class StaticExportTest(unittest.TestCase):
         # 2026-10-05 (JEG-ECR-EXIT): ESPN-primary universe has 37 QBs
         # (vs 76 in the ECR era); the last-positive boundary moves to 36.
         # Verified against the rebuilt fixture.
-        self.assertEqual(36, last_positive)
-        self.assertEqual(37, last_positive + 1)
+        # JEG-392 (2026-10-05): with the ESPN-zeroed / comparison-keyed QBs
+        # back on the board the boundary returns to 48 (the pre-ECR-exit
+        # value) -- the 36 pin was an artifact of the 425-row universe.
+        self.assertEqual(48, last_positive)
+        self.assertEqual(49, last_positive + 1)
 
 
 class BrandingScanTest(unittest.TestCase):
