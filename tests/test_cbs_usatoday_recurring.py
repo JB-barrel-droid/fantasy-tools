@@ -920,31 +920,42 @@ class UsatodaySameWeekGuardTest(unittest.TestCase):
         self.assertEqual(res["status"], "same_week_unchanged")
         self.assertEqual(h.saved, [])
 
-    def test_same_week_changed_values_fail_closed(self):
-        """Unresolved fork: same-week rows exist but the published numbers
-        changed under the existing bake. The wrapper must refuse to replace
-        them, not silently re-bake (bias_adjusted consistency unresolved)."""
+    def test_same_week_changed_values_writes_new_versioned_bake(self):
+        """Week versioning (Jeremy 2026-10-02): a week may hold multiple
+        immutable bakes. Same-week rows exist but the published numbers
+        changed under the existing bake -> the new pull becomes a NEW
+        versioned bake (bake_id in the upsert grain); prior bakes are
+        retained, never overwritten. Replaces the pre-versioning
+        fail-closed expectation (test_same_week_changed_values_fail_closed,
+        retired 2026-10-05: the fork it called "unresolved" was resolved by
+        the week-versioning directive)."""
         h = self._harness()
         native = self._fake_native()
         native[(1000, "std")] = 99.0  # article republished with new numbers
         h.fakedb.set_native("usatoday", "as_published", 2026, 2, native)
-        with self.assertRaises(ingest_common.IngestError) as ctx:
-            h.run(week=2, tmp=self.tmp)
-        self.assertIn("changed", str(ctx.exception))
-        self.assertEqual(h.saved, [])
+        res = h.run(week=2, tmp=self.tmp)
+        self.assertEqual(res["status"], "ok")
+        # A new versioned bake was written; the old bake's rows are untouched.
+        self.assertEqual(len(h.saved), 1)
+        _path, _week, bake_id = h.saved[0]
+        self.assertTrue(bake_id, "expected a new versioned bake_id")
 
     def test_same_week_key_set_difference_fails_closed(self):
-        """Named defect: the DB holds a different player/scoring key set than
-        the new pull (players added/dropped). Key-set drift is not an
-        unchanged re-pull; the wrapper must fail closed, never silently
-        merge."""
+        """Named defect: the new pull is missing >5% of the existing week's
+        keys -- a probable truncated pull (e.g. a missed table parse). The
+        wrapper must fail closed, never write the degenerate pull as a new
+        version. (Week versioning, Jeremy 2026-10-02: ADDED keys are
+        legitimate revisions and become a new versioned bake; only excessive
+        key attrition fails closed.)"""
         h = self._harness()
         native = self._fake_native()
-        del native[(1005, "full")]
+        # DB holds keys the new pull lacks: 2 of 8 keys missing = 25% attrition.
+        native[(2000, "std")] = 10.0
+        native[(2001, "std")] = 11.0
         h.fakedb.set_native("usatoday", "as_published", 2026, 2, native)
         with self.assertRaises(ingest_common.IngestError) as ctx:
             h.run(week=2, tmp=self.tmp)
-        self.assertIn("key set", str(ctx.exception))
+        self.assertIn("attrition", str(ctx.exception))
         self.assertEqual(h.saved, [])
 
     def test_no_existing_rows_writes(self):
