@@ -1,0 +1,74 @@
+{
+  "contract_version": "1.0.0",
+  "description": "JEG-327 parity manifest. Maps each api.* surface (contract) against the static JSON artifact the FE currently reads (via product-data.js).",
+  "surfaces": [
+    {
+      "name": "player_values",
+      "contract": "./dumps/api.player_values.json",
+      "static": "app/trade-value-chart/assets/comparison-sources-data.json",
+      "key_fields": [
+        "player_key",
+        "source",
+        "season",
+        "week",
+        "scoring",
+        "teams",
+        "qb_variant",
+        "view"
+      ],
+      "compare_fields": [
+        "value"
+      ]
+    },
+    {
+      "name": "players",
+      "contract": "./dumps/api.players.json",
+      "static": "data/fixtures/current/players.json",
+      "key_fields": [
+        "player_key"
+      ],
+      "compare_fields": [
+        "canonical_name",
+        "pos",
+        "team"
+      ],
+      "notes": "FIXED by Roman: was app/.../players.json (nonexistent). players.json is untracked lane work; committed source is the fixture."
+    },
+    {
+      "name": "player_context",
+      "contract": "./dumps/api.player_context.json",
+      "static": "app/trade-value-chart/assets/player-news.json",
+      "key_fields": [
+        "player_key"
+      ],
+      "compare_fields": [
+        "as_of"
+      ]
+    },
+    {
+      "name": "product_options",
+      "contract": "./dumps/api.product_options.json",
+      "static": "app/trade-value-chart/assets/adjustment-inputs.json",
+      "key_fields": [
+        "product_key"
+      ],
+      "compare_fields": [
+        "bench_share_default",
+        "default_scoring",
+        "default_teams",
+        "min_shared_for_pie"
+      ]
+    },
+    {
+      "name": "product_snapshot",
+      "contract": "./dumps/api.product_snapshot.json",
+      "static": "app/trade-value-chart/assets/reference-freshness.json",
+      "key_fields": [
+        "snapshot_id"
+      ],
+      "compare_fields": [
+        "contract_version"
+      ]
+    }
+  ]
+}
