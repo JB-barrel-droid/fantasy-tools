@@ -58,6 +58,109 @@ def expected_content_week(today=None):
 
     return current_nfl_week(today)
 
+
+def c10_rendered_verdict(src, live_data, fixture_data, fixture_sha, live_sha,
+                         expected_week, js_text=None):
+    """Pure verdict for C10 (rendered production output).
+
+    Compares the LIVE served comparison JSON against the COMMITTED fixture
+    (what the deploy pipeline publishes) -- never against the calendar week
+    directly.
+
+    2026-10-06: the check compared served week labels against the calendar
+    content week. At the week rollover (Tue 00:00 CT) the calendar says N
+    while the fixture is still week N-1 until the daily 08:00 CT refresh
+    bakes week N -- so healthy production honestly serving the week-(N-1)
+    fixture flagged `bad` "Production output WRONG" on every source. A
+    calendar-week lead of exactly one week over the fixture is now `warn`
+    (awaiting the scheduled rebuild); a fixture two or more weeks behind
+    stays `bad` (genuinely stale, preserving the original "Week 2 when
+    expecting Week 4" alarm). Served bytes/labels that differ from the
+    fixture are still `bad` (CDN drift, mislabel) regardless of the week.
+
+    Returns (status, reason). Never raises on dict-shaped inputs.
+    """
+    live_data = live_data or {}
+    fixture_data = fixture_data or {}
+    if not fixture_data:
+        return ("unk", "Committed fixture unreadable; cannot baseline the "
+                "rendered output (never a failure claim).")
+    live_sources = live_data.get("sources", {}) or {}
+    fixture_sources = fixture_data.get("sources", {}) or {}
+    live_src = live_sources.get(src, {}) or {}
+    fixture_src = fixture_sources.get(src, {}) or {}
+
+    issues = []
+    # 1. Served bytes match what the deploy pipeline publishes (no CDN drift)
+    if fixture_sha and live_sha != fixture_sha:
+        issues.append(f"served bytes differ from fixture/ "
+                      f"(live {live_sha} vs fixture {fixture_sha})")
+    # 2. Served per-source week designation matches the fixture's.
+    #    ("rest of season" sources -- espn/cbsros/razzball -- match their own
+    #    fixture designation, so the old per-source exemption is preserved.)
+    live_des = live_src.get("week_designated", "")
+    fixture_des = fixture_src.get("week_designated", "")
+    if live_des != fixture_des:
+        issues.append(f"week_designated='{live_des}' differs from fixture "
+                      f"'{fixture_des}'")
+    # 3. Served value_weeks.monday matches the fixture's
+    live_monday = (live_data.get("value_weeks", {}) or {}).get("monday")
+    fixture_monday = (fixture_data.get("value_weeks", {}) or {}).get("monday")
+    if live_monday != fixture_monday:
+        issues.append(f"value_weeks.monday={live_monday} differs from "
+                      f"fixture {fixture_monday}")
+    # 4. Source has combos (dashboard needs them to render)
+    combos = live_src.get("combos", {}) or {}
+    if not combos:
+        issues.append("source has no combos in served data "
+                      "(dashboard cannot render)")
+
+    live_built = (live_data.get("built_at", "") or "")[:16]
+    if issues:
+        return ("bad", f"Production output WRONG: {'; '.join(issues)}. "
+                       f"Live built {live_built}.")
+
+    # 5. Rollover assessment: calendar week vs the fixture's week.
+    if (isinstance(fixture_monday, int) and isinstance(expected_week, int)
+            and fixture_monday < expected_week):
+        lag = expected_week - fixture_monday
+        if lag >= 2:
+            return ("bad",
+                    f"Production output stale: fixture is week {fixture_monday}, "
+                    f"calendar content week is {expected_week} ({lag}-week lag). "
+                    f"Live built {live_built}.")
+        return ("warn",
+                f"Production serves week {fixture_monday} labels; the calendar "
+                f"content week rolled to {expected_week} -- awaiting the "
+                f"week-{expected_week} rebuild (production is honest, not "
+                f"wrong). Live built {live_built}.")
+
+    # 6. Dashboard JS hardcoded "(Week N)" labels, baselined to the FIXTURE
+    #    week (labels bake with the fixture; a calendar lead is handled in 5).
+    baseline_designation = (f"Week {fixture_monday}"
+                            if isinstance(fixture_monday, int)
+                            else f"Week {expected_week}")
+    if js_text is not None:
+        stale_labels = []
+        for m in re.finditer(r"\((Week \d+)\)", js_text):
+            if m.group(1) != baseline_designation:
+                start = max(0, m.start() - 40)
+                context = js_text[start:m.start()].split("\n")[-1][-30:]
+                stale_labels.append(f"{context.strip()}({m.group(1)})")
+        if stale_labels:
+            return ("bad",
+                    f"Production JS has stale hardcoded labels: "
+                    f"{'; '.join(stale_labels[:3])} "
+                    f"(fixture week '{baseline_designation}').")
+        js_note = ""
+    else:
+        js_note = " (JS label check skipped)"
+
+    return ("ok",
+            f"Production serves '{baseline_designation}' labels, bytes match "
+            f"fixture/ ({live_sha}), {len(combos)} combos. "
+            f"Live built {live_built}.{js_note}")
+
 CHECKPOINTS = [
     ("c1_publication", "C1 · Publication/discovery",
      "Publisher releases new trade-value data (article/chart update)"),
@@ -513,6 +616,24 @@ def build_checkpoints():
         pages_deploy = {"timestamp": None, "status": "unk",
             "reason": f"Could not check Pages API: {str(e)[:60]}. Browser checks live."}
 
+    # C10 shared inputs, fetched once (source-independent): the committed
+    # fixture (baseline for "what should be live") and the dashboard JS text
+    # (hardcoded week-label scan). See c10_rendered_verdict.
+    _c10_fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+    _c10_fixture_sha = committed_fixture_sha(_c10_fixture_path)
+    _c10_fixture_data, _ = committed_fixture_json(
+        "data/fixtures/current/comparison-sources-data.json")
+    _c10_js_text = None
+    try:
+        import urllib.request as _c10_urllib
+        _c10_js_req = _c10_urllib.Request(
+            "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-dashboard.js",
+            headers={"User-Agent": "fantasy-tools-monitor"})
+        with _c10_urllib.urlopen(_c10_js_req, timeout=15) as _c10_js_resp:
+            _c10_js_text = _c10_js_resp.read().decode()
+    except Exception:
+        _c10_js_text = None
+
     for src in SOURCES:
         h = health.get("sources", {}).get(src, {})
         if src == "razzball":
@@ -759,22 +880,15 @@ def build_checkpoints():
         cps["c9_deploy"] = dict(pages_deploy)
 
         # C10: Rendered production output - fetch the LIVE served JSON and validate
-        # what the production dashboard actually displays. Catches:
-        # - week_designated labels wrong (e.g. "Week 2" when expecting "Week 4")
-        # - value_weeks.monday stale
-        # - served bytes differ from what the deploy pipeline publishes (CDN drift or failed sync)
-        # - source combos missing (dashboard guard failures)
+        # what the production dashboard actually displays. Compares against the
+        # COMMITTED fixture (what the deploy pipeline publishes): served bytes
+        # or labels that differ from the fixture are `bad` (CDN drift, mislabel).
+        # A calendar-week lead over the fixture's week is `warn` (awaiting the
+        # scheduled rebuild after the Tuesday rollover), not `bad` -- see
+        # c10_rendered_verdict for the 2026-10-06 rollover false-red fix.
         cps["c10_rendered"] = {"timestamp": None, "status": "unk",
             "reason": "Rendered-output check not yet run."}
         try:
-            import hashlib
-            # Expected NFL content week from the pipeline's canonical week
-            # function (see expected_content_week above) -- never a naive
-            # days-since-kickoff count, which false-reds C10 near week
-            # boundaries (2026-09-30: naive said Week 5, canonical is Week 4).
-            expected_week = expected_content_week()
-            expected_designation = f"Week {expected_week}"
-
             # Fetch live production JSON (WITHOUT cache-buster - we want to see what real users see,
             # including CDN-cached versions. If the CDN is serving stale "Week 2" labels, the monitor must catch it.)
             live_url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json"
@@ -783,78 +897,12 @@ def build_checkpoints():
                 live_bytes = resp.read()
             live_data = json.loads(live_bytes.decode())
             live_sha = hashlib.sha256(live_bytes).hexdigest()[:12]
-
-            # Compare against the COMMITTED fixture bytes, not the working tree.
-            # The Pages workflow runs `make sync` before deploying, and sync
-            # copies data/fixtures/current/comparison-sources-data.json
-            # byte-identically into dist/assets/ — so the fixture is the true
-            # "what should be live". The committed dist/ file can lag the
-            # fixture by a commit (a fixture change that skipped the local sync
-            # step); comparing live against that stale copy produced false
-            # "Production output WRONG" alarms on 2026-09-30 (live correctly
-            # served the fresh fixture while committed dist lagged one commit).
-            # And the working-tree fixture can carry other lanes' uncommitted
-            # changes (2026-10-03: served bytes matched the committed fixture
-            # byte-for-byte while the working tree did not); committed_fixture_sha
-            # prefers the origin/main blob so a dirty checkout cannot false-red
-            # every source's C10.
-            fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-            fixture_sha = committed_fixture_sha(fixture_path)
-
-            issues = []
-            # Check 1: week_designated matches expected
-            src_data = live_data.get("sources", {}).get(src, {})
-            week_des = src_data.get("week_designated", "")
-            if week_des != expected_designation:
-                # Allow "rest of season" for ESPN, cbsros, and Razzball (rest-of-season
-                # projections, not week-designated trade charts)
-                if not (src in ("espn", "cbsros", "razzball") and week_des == "rest of season"):
-                    issues.append(f"week_designated='{week_des}' (expected '{expected_designation}')")
-
-            # Check 2: value_weeks.monday matches expected
-            vw_monday = live_data.get("value_weeks", {}).get("monday")
-            if vw_monday != expected_week:
-                issues.append(f"value_weeks.monday={vw_monday} (expected {expected_week})")
-
-            # Check 3: served bytes match what the deploy pipeline publishes (no CDN drift)
-            if fixture_sha and live_sha != fixture_sha:
-                issues.append(f"served bytes differ from fixture/ (live {live_sha} vs fixture {fixture_sha})")
-
-            # Check 4: source has combos (dashboard needs them to render)
-            combos = src_data.get("combos", {})
-            if not combos:
-                issues.append("source has no combos in served data (dashboard cannot render)")
-
-            live_built = live_data.get("built_at", "")[:16]
-            if issues:
-                cps["c10_rendered"] = {"timestamp": iso_now(), "status": "bad",
-                    "reason": f"Production output WRONG: {'; '.join(issues)}. Live built {live_built}."}
-            else:
-                # Also check the dashboard JS for stale hardcoded week labels
-                # (e.g. "USA Today (Week 2)" hardcoded when expecting Week 4)
-                try:
-                    js_url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-dashboard.js"
-                    js_req = urllib.request.Request(js_url, headers={"User-Agent": "fantasy-tools-monitor"})
-                    with urllib.request.urlopen(js_req, timeout=15) as js_resp:
-                        js_text = js_resp.read().decode()
-                    # Look for hardcoded "(Week N)" labels that don't match expected
-                    stale_labels = []
-                    for m in re.finditer(r'\((Week \d+)\)', js_text):
-                        if m.group(1) != expected_designation:
-                            # Find the label context (previous 30 chars)
-                            start = max(0, m.start() - 40)
-                            context = js_text[start:m.start()].split('\n')[-1][-30:]
-                            stale_labels.append(f"{context.strip()}({m.group(1)})")
-                    if stale_labels:
-                        cps["c10_rendered"] = {"timestamp": iso_now(), "status": "bad",
-                            "reason": f"Production JS has stale hardcoded labels: {'; '.join(stale_labels[:3])} (expected '{expected_designation}')."}
-                    else:
-                        cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
-                            "reason": f"Production serves '{expected_designation}' labels, bytes match fixture/ ({live_sha}), {len(combos)} combos. Live built {live_built}."}
-                except Exception as js_e:
-                    # JS check failed, but JSON was ok - report ok with note
-                    cps["c10_rendered"] = {"timestamp": iso_now(), "status": "ok",
-                        "reason": f"Production serves '{expected_designation}' labels, bytes match fixture/ ({live_sha}), {len(combos)} combos. Live built {live_built}. (JS label check skipped: {str(js_e)[:40]})"}
+            status, reason = c10_rendered_verdict(
+                src, live_data, _c10_fixture_data, _c10_fixture_sha, live_sha,
+                expected_content_week(), _c10_js_text)
+            cps["c10_rendered"] = {
+                "timestamp": iso_now() if status != "unk" else None,
+                "status": status, "reason": reason}
         except Exception as e:
             cps["c10_rendered"] = {"timestamp": None, "status": "unk",
                 "reason": f"Could not fetch live production JSON: {str(e)[:80]}."}

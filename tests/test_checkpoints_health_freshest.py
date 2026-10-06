@@ -161,5 +161,121 @@ class RazzballC5FreshnessTest(unittest.TestCase):
         self.assertEqual(v["status"], "unk")
 
 
+def _c10_csd(monday_week, designation, combos=True, src="usatoday",
+             built_at="2026-10-03T22:00:42.323533+00:00"):
+    """Minimal comparison-sources-data.json shape for C10 verdict tests."""
+    section = {"week_designated": designation}
+    if combos:
+        section["combos"] = {"full_12": {}}
+    return {
+        "built_at": built_at,
+        "value_weeks": {"monday": monday_week},
+        "sources": {src: section},
+    }
+
+
+class C10RenderedRolloverTest(unittest.TestCase):
+    """2026-10-06: c10_rendered compared served week labels against the
+    calendar content week. At the week rollover (Tue 00:00 CT) the calendar
+    says N while the fixture is still week N-1 until the daily 08:00 CT
+    refresh bakes week N -- healthy production honestly serving the
+    week-(N-1) fixture flagged `bad` "Production output WRONG" on every
+    source (observed 2026-10-06 00:07 CDT: 7 sources bad).
+
+    The verdict now compares the served output against the COMMITTED fixture
+    (what the deploy pipeline publishes). A one-week calendar lead over the
+    fixture is `warn` (awaiting the scheduled rebuild); served bytes/labels
+    that differ from the fixture are still `bad`. These tests pin that
+    contract; on the pre-fix builder they fail (no c10_rendered_verdict
+    exists -- the rollover logic was inline and always bad).
+    """
+
+    def _verdict(self, src, live, fixture, expected_week, js_text=None,
+                 same_bytes=True):
+        sha = "abc123def456"
+        return bpc.c10_rendered_verdict(
+            src, live, fixture, sha, sha if same_bytes else "deadbeef0000",
+            expected_week, js_text)
+
+    def test_rollover_one_week_is_warn_not_bad(self):
+        """live == fixture at week 4, calendar rolled to 5 -> warn, never
+        the pre-fix `bad` "WRONG"."""
+        live = fixture = _c10_csd(4, "Week 4")
+        status, reason = self._verdict("usatoday", live, fixture, 5)
+        self.assertEqual(status, "warn")
+        self.assertIn("awaiting", reason)
+        self.assertNotIn("WRONG", reason)
+
+    def test_rollover_rest_of_season_source_is_warn(self):
+        live = fixture = _c10_csd(4, "rest of season", src="espn")
+        status, _ = self._verdict("espn", live, fixture, 5)
+        self.assertEqual(status, "warn")
+
+    def test_served_label_differs_from_fixture_is_bad(self):
+        live = _c10_csd(4, "Week 4")
+        fixture = _c10_csd(5, "Week 5")
+        status, reason = self._verdict("usatoday", live, fixture, 5)
+        self.assertEqual(status, "bad")
+        self.assertIn("WRONG", reason)
+
+    def test_cdn_byte_drift_is_bad(self):
+        live = fixture = _c10_csd(5, "Week 5")
+        status, reason = self._verdict("usatoday", live, fixture, 5,
+                                       same_bytes=False)
+        self.assertEqual(status, "bad")
+        self.assertIn("WRONG", reason)
+
+    def test_missing_combos_is_bad(self):
+        live = _c10_csd(5, "Week 5", combos=False)
+        fixture = _c10_csd(5, "Week 5")
+        status, reason = self._verdict("usatoday", live, fixture, 5)
+        self.assertEqual(status, "bad")
+        self.assertIn("no combos", reason)
+
+    def test_two_week_lag_stays_bad(self):
+        """Fixture two weeks behind the calendar is genuinely stale (the
+        original "Week 2 when expecting Week 4" alarm), not rollover lag."""
+        live = fixture = _c10_csd(3, "Week 3")
+        status, reason = self._verdict("usatoday", live, fixture, 5)
+        self.assertEqual(status, "bad")
+        self.assertIn("stale", reason)
+        self.assertNotIn("WRONG", reason)
+
+    def test_current_week_is_ok(self):
+        live = fixture = _c10_csd(5, "Week 5")
+        status, reason = self._verdict("usatoday", live, fixture, 5)
+        self.assertEqual(status, "ok")
+        self.assertIn("Week 5", reason)
+
+    def test_js_labels_baselined_to_fixture_week(self):
+        """Hardcoded "(Week N)" labels are judged against the fixture week.
+        Stale labels (behind the fixture) are still bad."""
+        live = fixture = _c10_csd(5, "Week 5")
+        js_ok = 'USA Today (Week 5) label here'
+        status, reason = self._verdict("usatoday", live, fixture, 5,
+                                       js_text=js_ok)
+        self.assertEqual(status, "ok")
+        self.assertNotIn("skipped", reason)
+        js_stale = 'USA Today (Week 2) label here'
+        status, reason = self._verdict("usatoday", live, fixture, 5,
+                                       js_text=js_stale)
+        self.assertEqual(status, "bad")
+        self.assertIn("stale hardcoded labels", reason)
+
+    def test_js_labels_correct_during_rollover(self):
+        """Fixture-week labels are not flagged stale just because the
+        calendar rolled ahead of the fixture (rollover warn takes
+        precedence)."""
+        live = fixture = _c10_csd(4, "Week 4")
+        js_ok = 'USA Today (Week 4) label here'
+        status, _ = self._verdict("usatoday", live, fixture, 5, js_text=js_ok)
+        self.assertEqual(status, "warn")
+
+    def test_unreadable_fixture_is_unk(self):
+        live = _c10_csd(4, "Week 4")
+        status, _ = self._verdict("usatoday", live, {}, 5)
+        self.assertEqual(status, "unk")
+
+
 if __name__ == "__main__":
     unittest.main()
