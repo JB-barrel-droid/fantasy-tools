@@ -2919,3 +2919,27 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Claimed, unverified
 - Pipeline provenance strings baked into fixtures (`method` notes) still say "value-above-waivers";
   left as data provenance, not chart labels. Rewriting them needs a re-bake.
+
+## 2026-10-06 ~10:00 CDT — Claude (cloud session): FantasyCalc week-5 bake written; JEG-427 schedule on; chain red health now published
+
+### Verified (check named)
+- FantasyCalc write dispatched via `public.dispatch_gha_workflow('fantasycalc-weekly-save.yml', mode=write)`
+  (run 37478103839). Supabase: bake `fcwk5_2026-10-06_v1` = 585 rows, week 5, 12 teams / 1 QB, 195 per
+  scoring (std/half/full), every row valued, max 70.0. 21 rows went to review and were not written (as in the dry run).
+- That run's only red step was "Record the monitored check": `fantasycalc_weekly_save` did not exist
+  because the jeg427 migration was unapplied. Its precondition (non-12 FC blocks retired) is met by #361,
+  so the migration was applied: cron jobid 22 `trigger-fantasycalc-weekly-save` `7 13 * * 2,5` active,
+  plus the check row. This run's observation was recorded by hand (ok=true), matching the save's success.
+- Rebuild chain dispatched (run 37478365788): failed at "Run import health check" (the gate is RED).
+- Defect found: on a red gate the chain never published its own health. The `cp` to dist/modules ran after
+  the checker under bash -e, and output/ is gitignored, so `git add output/source-import-health.json`
+  added nothing. The monitor kept showing Muse's local 30-min push (14:09Z, before the new bake, still
+  the stale-manifest BYTE_MISMATCH for FantasyCalc). tests/test_rebuild_chain_workflow.py's
+  health-failure sim did not model gitignore, which is why it stayed green. Fixed: the step copies
+  the artifact whatever the gate result, then exits with the checker's code. New test
+  test_red_health_reaches_the_monitor_copy fails against the old step ('RED-HEALTH' != 'OLD-HEALTH').
+
+### Claimed, unverified
+- Whether FantasyCalc passes CI import health with the week-5 bake will be known on the next chain run
+  after this fix lands. Other sources (cbs, fantasypros stale; cbsros red MISSED_WINDOW) keep the gate red
+  regardless until their week-5 content lands.

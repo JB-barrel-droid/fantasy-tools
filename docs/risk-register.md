@@ -80,6 +80,7 @@ exists in chat or a session transcript.
 | GAP-UNGATED-RED | tests.test_no_failopen_workflows and tests.test_jeg137_card_script_order are red on main and not in make validate. | Medium | Open | Local runs 2026-10-05. | Fix or gate. |
 | GAP-CONSOL-PAGE | Consolidation watcher could not load data (anon has no read on consolidated_values; JSON fallback never published). | High | Fixed 2026-10-05 (JEG-424: export built by make sync) | tests/test_published_surfaces.py; modules/status.html. | None. |
 | GAP-E2E-FIDELITY | modules/e2e-fidelity.json (JEG-77 dashboard card) has no producer; the card never loads on the live site. | Medium | Open | modules/status.html shows it broken. | Wire build_e2e_fidelity.py into a scheduled producer or retire the card. |
+| GAP-CHAIN-RED-HEALTH | rebuild-chain.yml never published its own import health on a RED gate (cp after the checker under bash -e; output/ gitignored), so the monitor showed an older, often Muse-local, health file. | High | Fixed 2026-10-06 | Step copies the artifact before exiting with the checker's code; test_red_health_reaches_the_monitor_copy fails on the old step. | Confirm on the next red chain run that dist/modules/source-import-health.json carries the CI checked_at. |
 
 ## Fixed Or Controlled
 

@@ -320,6 +320,28 @@ def failed_refresh_preserves_artifact(text):
         return {"rc": r.returncode, "artifact": (work / GH_ACTIONS).read_text()}
 
 
+HEALTH_STEP = "Run import health check"
+
+
+def red_health_step(text):
+    """Run the real health step with a stub checker that writes a RED artifact
+    and exits 1 (what verify_import_health.py does on a red gate). output/ is
+    gitignored, so the step itself must copy the artifact into dist/modules/
+    for the commit step to publish it; the step must still fail."""
+    with tempfile.TemporaryDirectory() as td:
+        work = Path(td)
+        write(work, HEALTH, "OLD-HEALTH")
+        write(work, "pipelines/verify_import_health.py",
+              "import pathlib, sys\n"
+              "p = pathlib.Path('output/source-import-health.json')\n"
+              "p.parent.mkdir(parents=True, exist_ok=True)\n"
+              "p.write_text('RED-HEALTH')\n"
+              "sys.exit(1)\n")
+        script_text = text.replace("${{ steps.week.outputs.nfl_week }}", "5")
+        r = run_script(script_text, HEALTH_STEP, work)
+        return {"rc": r.returncode, "monitor": (work / HEALTH).read_text()}
+
+
 class RebuildChainWorkflowTest(unittest.TestCase):
     def assertCaught(self, mutated, fragment):
         self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
@@ -407,6 +429,32 @@ class RebuildChainWorkflowTest(unittest.TestCase):
             "        if: always()\n        env:\n          CHAIN_OUTCOME: ${{ steps.chain.outcome }}",
             "        env:\n          CHAIN_OUTCOME: ${{ steps.chain.outcome }}", 1)
         self.assertCaught(mutated, "must publish even when an earlier step failed")
+
+    def test_red_health_reaches_the_monitor_copy(self):
+        r = red_health_step(WORKFLOW)
+        self.assertNotEqual(0, r["rc"], "a red gate must still fail the step")
+        self.assertEqual("RED-HEALTH", r["monitor"],
+                         "red health must be copied to dist/modules (output/ is gitignored)")
+
+    def test_copy_only_on_green_is_caught(self):
+        # The pre-2026-10-06 step: `cp` after the checker, so bash -e skips it on RED.
+        mutated = WORKFLOW.replace(
+            "          set +e\n"
+            "          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}\n"
+            "          rc=$?\n"
+            "          set -e\n"
+            "          cp output/source-import-health.json dist/modules/source-import-health.json \\\n"
+            "            || echo \"::warning::verify_import_health wrote no artifact; nothing to publish\"\n"
+            "          exit $rc\n",
+            "          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}\n"
+            "          cp output/source-import-health.json dist/modules/source-import-health.json\n", 1)
+        self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
+        self.assertEqual("OLD-HEALTH", red_health_step(mutated)["monitor"])
+
+    def test_swallowing_the_red_exit_code_is_caught(self):
+        mutated = WORKFLOW.replace("          exit $rc\n", "          exit 0\n", 1)
+        self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
+        self.assertEqual(0, red_health_step(mutated)["rc"])
 
 
 if __name__ == "__main__":
