@@ -28,7 +28,7 @@ from canonical_players import load_registry  # noqa: E402
 
 OUT_DIR = ROOT / "data" / "raw" / "sources" / "cbsros"
 COLS = ("player_key", "player_norm", "per_game_standard", "per_game_half_ppr",
-        "per_game_ppr", "cbs_snapshot_date")
+        "per_game_ppr", "gp", "cbs_snapshot_date")
 
 
 def latest_date(sbclient) -> str:
@@ -55,6 +55,7 @@ def build_snapshot(rows, registry, vintage):
             "per_game_standard": r["per_game_standard"],
             "per_game_half_ppr": r["per_game_half_ppr"],
             "per_game_ppr": r["per_game_ppr"],
+            "gp": r.get("gp"),
         })
     if missing:
         raise SystemExit(f"FAIL-CLOSED: {len(missing)} saved player_keys are "

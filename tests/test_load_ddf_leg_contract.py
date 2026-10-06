@@ -104,6 +104,20 @@ class LoaderContractTest(unittest.TestCase):
         self.assertIn("order=ingested_at.desc", params)
         self.assertNotIn("created_at", params)
 
+    def test_loader_run_parent_row_is_written_before_audit(self):
+        # per_source_cap_audit.run_id REFERENCES loader_runs(run_id) (JEG-389).
+        sb = FakeClient()
+        ctx = {"run_id": "r-1", "ddf_leg_version": "ddf-x", "git_commit_sha": "abc",
+               "loader_host": "ci"}
+        L.ensure_loader_run(sb, ctx, _dims())
+        kind, args, kwargs = sb.calls[0]
+        self.assertEqual("post", kind)
+        self.assertEqual("loader_runs", args[0])
+        row = args[1][0]
+        self.assertEqual({"run_id", "ddf_leg_version", "git_commit_sha", "loader_host", "notes"},
+                         set(row))
+        self.assertEqual("r-1", row["run_id"])
+
 
 if __name__ == "__main__":
     unittest.main()
