@@ -1,0 +1,30 @@
+name: diag fantasycalc import (temporary, never merged)
+on:
+  push:
+    branches: ["diag/**"]
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          mkdir -p /tmp/gh_shim; cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+      - name: import + inspect
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          echo "::notice title=before::$(sha256sum data/raw/sources/fantasycalc/week-4/snapshot.json)"
+          python3 pipelines/import_supabase_references.py --source fantasycalc > /tmp/imp.log 2>&1; echo "::notice title=import-rc::$?"
+          tail -5 /tmp/imp.log | sed "s/^/::notice title=import-log::/"
+          find data/raw/sources/fantasycalc -type f | sed "s/^/::notice title=files::/"
+          for f in $(find data/raw/sources/fantasycalc -name snapshot.json); do echo "::notice title=sha::$f $(sha256sum $f | cut -c1-16)"; done
+          for m in $(find data/raw/sources/fantasycalc -name snapshot-manifest.json); do python3 -c "import json,sys;m=json.load(open('$m'));print('::notice title=manifest::$m', {k:m.get(k) for k in ('snapshot_path','snapshot_sha256','content_vintage','pulled_at','row_count','supersedes')})"; done
+          python3 pipelines/verify_import_health.py --nfl-week 5 > /dev/null 2>&1 || true
+          python3 -c "import json;d=json.load(open('output/source-import-health.json'));print('::notice title=fc-health::', d['sources']['fantasycalc'].get('status'), d['sources']['fantasycalc'].get('failure_reason'))"
