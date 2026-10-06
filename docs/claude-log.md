@@ -2961,3 +2961,21 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 - Publish cutover + pg_cron schedule are drafted but not shipped: dispatching a test run on a feature
   branch was refused by the session's permission classifier, so parity is checked from the scheduled
   runs on main after this merges.
+
+## 2026-10-06 ~16:00 CDT — Claude (cloud session): JEG-414 cutover — CI publishes the monitor's health; scheduled from Supabase
+
+### Verified (check named)
+- Parity (dispatched health-artifacts run on main @4480d6b vs Muse's served pipeline-checkpoints.json
+  generated 19:38Z): all 7 sources × C1–C10 identical except cbsros C5 — Muse `bad` (pre-#351 publication
+  window rule on its stale checkout), CI `warn` (current rule). CI is the correct one.
+- GitHub's own `schedule:` fired this workflow only twice on 2026-10-06 (10:06Z, 16:42Z), not every 30 min.
+  Moved to Supabase pg_cron `health-artifacts-live` (11,41 * * * *); the workflow has no `schedule:`.
+- health-artifacts.yml now publishes dist/modules/source-import-health.json + pipeline-checkpoints.json to
+  main (only after a successful build, only on main) and dispatches Pages (GITHUB_TOKEN pushes don't
+  trigger it, JEG-274). tests/test_health_artifacts_publish.py runs the real publish script against a bare
+  remote: pushes exactly the two files; mutations caught (publish on failed build, a GitHub schedule,
+  staging the fixture). The pre-change workflow fails its static check (schedule present, no publish step).
+
+### Claimed, unverified
+- Live verification (first pg_cron-dispatched run commits, Pages deploys, served checkpoints carry the CI
+  generated_at) is recorded in the next entry once observed.
