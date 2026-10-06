@@ -1,39 +1,45 @@
 name: FantasyCalc drift check and refresh
 
-# Checks the live FantasyCalc API for value drift against the stored snapshot.
-# If drift exceeds the threshold, refreshes the snapshot, re-runs the pipeline,
-# re-imports to Supabase, and pushes the updates.
+# JEG-426: drift DETECTION only. Compares live FantasyCalc values against the
+# FantasyCalc data currently in Supabase (the system of record, freshly
+# imported here) and records the result as the monitored check
+# `fantasycalc_native_drift`.
 #
-# Required secrets (set in repo Settings > Secrets and variables > Actions):
-#   SUPABASE_URL          e.g. https://iskiybsimubiujwuchsl.supabase.co
-#   SUPABASE_SERVICE_KEY  the Supabase service_role key
+# Scheduler owner: Supabase pg_cron job `trigger-fantasycalc-drift-live`
+# (daily 11:45 UTC, supabase/migrations/jeg426_fantasycalc_drift_monitor.sql).
+# There is deliberately no `schedule:` here, so there is exactly one owner.
 #
-# The GITHUB_TOKEN is automatic; no setup needed.
+# What this job no longer does (and why):
+#   - It no longer runs check_fantasycalc_drift.py --trigger. That path wrote
+#     the published fixture and served copies directly and pushed them to main,
+#     skipping the rebuild chain's review gate and `make validate`. It was only
+#     ever held back because the import-health step that followed it failed on
+#     every run (no source manifests in a fresh checkout).
+#   - It no longer runs refresh_fantasycalc_supabase.py, which writes Week 4
+#     rows (hardcoded) with the publisher's raw number in `value` and no
+#     bake_id -- the opposite of save_fantasycalc_references.py's contract.
+# Refreshing FantasyCalc data is the weekly producer's job; publishing is the
+# rebuild chain's. Drift is surfaced loudly so a human (or the producer) acts.
+#
+# Exit semantics: drift is a data state, not a job failure (JEG-412). The job
+# fails only when the check itself cannot run.
 
 on:
-  # JEG-285: cron disabled 2026-10-03, now triggered by Supabase pg_cron
-#   schedule:
-#     # Daily at 11:45 UTC (6:45 AM CDT) — catches overnight FantasyCalc updates
-#     # before the morning dashboard checks. The drift check itself is cheap;
-#     # the full refresh only runs when drift is detected.
-#     - cron: '45 11 * * *'
   workflow_dispatch:
-    # Manual trigger from the Actions tab.
+  # Exercise the job on a branch before merging (records a real observation).
+  push:
+    branches: ["drift/**"]
 
 permissions:
-  contents: write  # needed to commit and push refreshed data
+  contents: read
 
 jobs:
   drift-check:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      # JEG-137 R10: capture the run start time as early as possible so the
-      # scheduler-slip measurement (started_at - cron_at) reflects when the
-      # run began, not when the recording step runs at the end of the job.
+      # JEG-137 R10: capture the run start time as early as possible.
       - name: Record workflow start time (JEG-137 R10)
         run: echo "WORKFLOW_STARTED_AT=$(date -u +%FT%TZ)" >> $GITHUB_ENV
       - uses: actions/setup-python@v5
@@ -46,69 +52,67 @@ jobs:
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
-      - name: Determine NFL week
-        id: week
-        run: echo "nfl_week=$(python3 pipelines/nfl_week.py)" >> $GITHUB_OUTPUT
+      - name: Import current FantasyCalc data from Supabase
+        id: snap
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/import_supabase_references.py --source fantasycalc
+          path=$(python3 - <<'EOF'
+          import json, pathlib
+          best = None
+          for m in pathlib.Path("data/raw/sources/fantasycalc").glob("*/snapshot-manifest.json"):
+              d = json.loads(m.read_text())
+              key = str(d.get("pulled_at") or "")
+              if best is None or key > best[0]:
+                  best = (key, d.get("snapshot_path") or str(m.parent / "snapshot.json"), d.get("content_vintage"))
+          print(best[1] if best else "")
+          EOF
+          )
+          test -n "$path" && test -s "$path" || { echo "::error title=drift::no imported FantasyCalc snapshot"; exit 1; }
+          echo "path=$path" >> $GITHUB_OUTPUT
+          echo "::notice title=drift-baseline::$path"
 
-      - name: Check for drift and refresh if needed
+      - name: Compare live FantasyCalc against Supabase
         id: drift
+        run: |
+          set +e
+          python3 pipelines/check_fantasycalc_drift.py --snapshot "${{ steps.snap.outputs.path }}" | tee /tmp/drift.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> $GITHUB_OUTPUT
+          head -1 /tmp/drift.log | sed "s/^/::notice title=drift-summary::/"
+          case $rc in
+            0) echo "FantasyCalc: no drift vs Supabase" >> "$GITHUB_STEP_SUMMARY" ;;
+            1) grep -E "^  " /tmp/drift.log | head -10 | sed "s/^ */::warning title=drift-player::/"
+               echo "FantasyCalc: DRIFT vs Supabase (refresh the weekly FantasyCalc save)" >> "$GITHUB_STEP_SUMMARY" ;;
+            *) echo "FantasyCalc: drift check could not run (rc=$rc)" >> "$GITHUB_STEP_SUMMARY" ;;
+          esac
+
+      - name: Record the monitored check
+        if: always() && steps.drift.outputs.rc != ''
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          RC: ${{ steps.drift.outputs.rc }}
         run: |
-          # Exit 0 = no drift, exit 1 = drift detected and refreshed
-          if python3 pipelines/check_fantasycalc_drift.py --trigger; then
-            echo "drifted=false" >> $GITHUB_OUTPUT
-            echo "No drift detected."
-            echo "FantasyCalc drift check: unchanged since last refresh" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "drifted=true" >> $GITHUB_OUTPUT
-            echo "Drift detected and pipeline refreshed."
-            echo "FantasyCalc drift check: drift detected, pipeline refreshed" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          python3 - <<'EOF'
+          import os, sbclient
+          rc = int(os.environ["RC"])
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "fantasycalc_native_drift",
+              "p_ok": rc == 0,
+              "p_content_ok": rc in (0, 1),
+              "p_error_code": {0: None, 1: "DRIFT"}.get(rc, "CHECK_FAILED"),
+              "p_scheduler_owner_id": "fantasycalc-drift.yml",
+          })
+          print(f"recorded fantasycalc_native_drift rc={rc}")
+          EOF
 
-      - name: Re-import to Supabase
-        if: steps.drift.outputs.drifted == 'true'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: |
-          python3 pipelines/refresh_fantasycalc_supabase.py
-
-      - name: Verify import health
-        if: steps.drift.outputs.drifted == 'true'
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: |
-          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}
-          cp output/source-import-health.json dist/modules/source-import-health.json
-
-      - name: Commit and push if changed
-        if: steps.drift.outputs.drifted == 'true'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add data/raw/sources/fantasycalc/ \
-                  data/fixtures/current/comparison-sources-data.json \
-                  dist/modules/source-import-health.json \
-                  output/source-import-health.json \
-                  app/trade-value-chart/assets/comparison-sources-data.json \
-                  dist/assets/comparison-sources-data.json || true
-          if git diff --cached --quiet; then
-            echo "No changes to commit."
-          else
-            git commit -m "FantasyCalc drift refresh (GitHub Actions)"
-            # Push-race guard (2026-10-03): automated pushers (the 30-min health
-            # cron, other workflows) can land commits on main between this job's
-            # checkout and this push. Rebase onto the latest main first so the
-            # push stays fast-forward instead of failing non-fast-forward.
-            # --autostash: this step deliberately leaves unstaged changes behind
-            # (e.g. the held-back partial fixture on a red chain); stash them
-            # across the rebase instead of refusing.
-            git pull --rebase --autostash origin main
-            git push
-          fi
+      - name: Fail only if the check itself failed
+        if: steps.drift.outputs.rc != '0' && steps.drift.outputs.rc != '1'
+        run: exit 1
 
       # JEG-137 R10: record started_at and cron_at for the deadline checker.
       - name: Record workflow run (JEG-137 R10)
