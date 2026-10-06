@@ -1,0 +1,89 @@
+name: CBS ROS consolidation load (JEG-381)
+
+# Rebuilds the CBS ROS DDF legs from the Supabase-saved snapshot whose date
+# matches the published fixture, verifies every leg equals the published
+# chart values (fail-closed), then loads them into consolidated_values with
+# the versioned loader.
+#
+#   push to load/cbsros-dry-*    -> build + verify + loader --dry-run
+#   push to load/cbsros-write-*  -> build + verify + loader write
+#   manual dispatch              -> dry run unless mode=write
+
+on:
+  push:
+    branches: ["load/cbsros-dry-*", "load/cbsros-write-*"]
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cbsros-consolidation-load
+  cancel-in-progress: false
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode and snapshot date
+        id: cfg
+        run: |
+          mode=dry
+          case "${GITHUB_REF_NAME}" in load/cbsros-write-*) mode=write;; esac
+          if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          date=$(python3 -c "import json; print(json.load(open('data/fixtures/current/comparison-sources-data.json'))['sources']['cbsros']['vintage'])")
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "date=$date" >> $GITHUB_OUTPUT
+          echo "::notice title=cbsros-load::mode=$mode snapshot=$date"
+
+      - name: Export snapshot from Supabase
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/export_cbsros_snapshot.py --date "${{ steps.cfg.outputs.date }}"
+
+      - name: Build the 12 CBS ROS legs
+        run: |
+          snap="data/raw/sources/cbsros/${{ steps.cfg.outputs.date }}/snapshot.json"
+          for s in standard half_ppr ppr; do for t in 8 10 12 14; do
+            python3 pipelines/build_cbsros_ddf_leg.py --snapshot "$snap" --scoring "$s" --teams "$t" > /tmp/leg_${s}_${t}.log 2>&1 \
+              || { echo "::error title=leg-build::$s $t failed"; tail -5 /tmp/leg_${s}_${t}.log; exit 1; }
+          done; done
+
+      - name: Verify legs equal the published fixture (fail-closed)
+        run: |
+          set -o pipefail
+          python3 pipelines/verify_cbsros_legs_vs_fixture.py --date "${{ steps.cfg.outputs.date }}" \
+            --list-out /tmp/verified.txt 2>&1 | tee /tmp/verify.log
+          tail -3 /tmp/verify.log | sed "s/^/::notice title=verify::/"
+
+      - name: Load with the versioned loader
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          flag="--dry-run"; [ "${{ steps.cfg.outputs.mode }}" = "write" ] && flag=""
+          while read -r leg; do
+            [ -z "$leg" ] && continue
+            python3 pipelines/load_ddf_leg_to_supabase.py "$leg" --season 2026 --week 4 \
+              --qb-variant none --views both --client env $flag 2>&1 | tee -a /tmp/load.log \
+              || { echo "::error title=loader::$leg failed"; tail -5 /tmp/load.log | sed "s/^/::warning title=loader-log::/"; exit 1; }
+          done < /tmp/verified.txt
+          grep -E "wrote via|upserted|rows in slice|DRY RUN" /tmp/load.log | tail -30 | sed "s/^/::notice title=loader::/"
