@@ -2853,3 +2853,17 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 
 ### Claimed, unverified
 - Whether the `*_adjusted` bias fit applies unchanged at other team counts (listed as "to confirm").
+## 2026-10-06 ~08:30 CDT — Claude (cloud session): JEG-427 FantasyCalc producer (code only, schedule off)
+
+### Verified (check named)
+- pipelines/pull_fantasycalc_12team.py + fantasycalc-weekly-save.yml: CI dry runs fcsave/dry-1 and
+  fcsave/dry-2 pulled the three 12-team lists, resolved and reindexed through the existing saver:
+  585 rows would be written, 21 to review (Tyreek Hill and Joe Mixon have no ESPN anchor; "Kenny
+  Gainwell" does not resolve in the saver's players-table lookup), bake fcwk5_2026-10-06_v1.
+- Found: two week calendars. ops/watchdog/_common.nfl_week flips Thursday (said 4 today);
+  pipelines/nfl_week.py is the content week (flips Tuesday, said 5), which import health and the
+  chain use. dry-1 would have saved as week 4; the workflow now passes the content week explicitly.
+- Found: promote_comparison_section merges candidate setups into the fixture and stamps one
+  content_vintage per source, so a 12-team-only FantasyCalc bake would leave week-4 8/10/14 blocks
+  labelled with the new week. The cron migration is committed but NOT applied until FantasyCalc's
+  non-12 blocks are retired. tests/test_pull_fantasycalc_12team.py (negative: partial pull writes nothing).
