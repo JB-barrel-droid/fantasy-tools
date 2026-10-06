@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
+DEFAULT_IDENTITY_MAP = ROOT / "data" / "inputs" / "player_identity_map.json"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "source-matches"
 INPUT_SCHEMA = "trade-value-source-snapshot-v1"
 OUTPUT_SCHEMA = "trade-value-source-matches-v1"
@@ -82,6 +83,37 @@ def source_provenance(snapshot_path: Path, snapshot: dict[str, Any]) -> dict[str
     }
 
 
+def load_identity_map(path: Path) -> dict[str, Any]:
+    """Load the canonical player identity table.
+
+    Jeremy 2026-10-04 ("Always yes"): player identification MUST come from
+    the canonical identity table, never from ad-hoc name matching against
+    the chart roster. Returns the raw map with 'canonical' and
+    'alias_to_canonical' sections.
+    """
+    payload = load_json(path)
+    if "canonical" not in payload or "alias_to_canonical" not in payload:
+        raise SystemExit(f"{path} is not a player identity map")
+    return payload
+
+
+def resolve_identity(
+    name: str, identity_map: dict[str, Any]
+) -> dict[str, Any] | None:
+    """Resolve a source name through the canonical identity table.
+
+    Returns the canonical record (name, pos, team) or None if the table
+    does not know this name. Fail-closed: unknown names are NOT guessed.
+    """
+    normalized = normalize_name(name)
+    alias_to_canonical = identity_map["alias_to_canonical"]
+    canonical = identity_map["canonical"]
+    canonical_key = alias_to_canonical.get(normalized)
+    if canonical_key is None:
+        return None
+    return canonical.get(canonical_key)
+
+
 def player_records(players_path: Path) -> list[dict[str, Any]]:
     payload = load_json(players_path)
     rows = payload.get("players")
@@ -138,7 +170,11 @@ def default_output_path(snapshot: dict[str, Any], output_dir: Path) -> Path:
     return output_dir / source / fetched / f"{source}-{scoring}-{teams}-matched.json"
 
 
-def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
+def match_snapshot(
+    snapshot_path: Path,
+    players_path: Path,
+    identity_map_path: Path | None = None,
+) -> dict[str, Any]:
     snapshot = load_json(snapshot_path)
     if snapshot.get("schema") != INPUT_SCHEMA:
         raise SystemExit(f"{snapshot_path} is not a {INPUT_SCHEMA} file")
@@ -146,13 +182,41 @@ def match_snapshot(snapshot_path: Path, players_path: Path) -> dict[str, Any]:
     if not isinstance(rows, list):
         raise SystemExit(f"{snapshot_path} must contain rows[]")
 
+    # Jeremy 2026-10-04: identity resolves through the canonical table.
+    # players.json supplies chart player_keys only, joined via canonical name.
+    identity_map = load_identity_map(
+        identity_map_path or DEFAULT_IDENTITY_MAP
+    )
     records = player_records(players_path)
     index = build_name_index(records)
     matched = []
     review = []
     for row in rows:
         normalized = normalize_name(row.get("player_name"))
-        candidates = index.get(normalized, [])
+        # Step 1: canonical identity MUST come from the identity table.
+        identity = resolve_identity(row.get("player_name"), identity_map)
+        if identity is None:
+            review.append(
+                {
+                    "reason": "unknown_identity",
+                    "source_player_name": row.get("player_name"),
+                    "normalized_name": normalized,
+                    "source": snapshot.get("source"),
+                    "native_value": row.get("native_value", row.get("value")),
+                    "value": row.get("value"),
+                    "scoring": row.get("scoring")
+                    or snapshot.get("default_scoring"),
+                    "teams": row.get("teams") or snapshot.get("default_teams"),
+                    "pos": row.get("pos"),
+                    "team": row.get("team"),
+                    "source_player_id": row.get("source_player_id"),
+                }
+            )
+            continue
+        # Step 2: join canonical identity to the chart roster for player_key.
+        # Use the identity table's canonical name (not the source's spelling).
+        canonical_normalized = normalize_name(identity["name"])
+        candidates = index.get(canonical_normalized, [])
         player, reason = resolve_candidate(row, candidates)
         if player:
             matched.append(

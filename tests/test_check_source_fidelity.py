@@ -11,6 +11,11 @@ Coverage:
     - run_live_usatoday_check + main(): integration with mocked urllib
       (no network in tests -- the reviewer runs --live on real network).
     - ArgumentParser: --live, --live-combo, --live-tolerance wiring.
+    - extract_page_title: pure title/H1/H2 extractor for week evidence.
+    - page_week_evidence: fail-closed URL+title week-evidence gate
+      (match / missing / conflict / mismatch).
+    - run_live_usatoday_check integration with the week-evidence gate:
+      a wrong-week page must NOT reach check_live_freshness.
 
 All tests use synthetic HTML and a fake fetch_fn. No urllib, no browser,
 no selenium/playwright. Hermetic.
@@ -474,6 +479,350 @@ class TestRunLiveUsatodayCheck(unittest.TestCase):
         self.assertGreaterEqual(live_pull["live_extra"]["count"], 1)
         # No failures from live extras.
         self.assertEqual(failures, [])
+
+
+class TestExtractPageTitle(unittest.TestCase):
+    """extract_page_title: pure HTML title/H1/H2 extractor.
+
+    The week-evidence gate needs ONE strong title-shaped string to feed
+    to page_week_evidence(). These tests pin the cascade: <title> wins,
+    else <h1>, else first <h2>, else "".
+    """
+
+    def test_prefers_title_element(self):
+        html = (
+            "<html><head><title>Fantasy trade value chart week 4</title></head>"
+            "<body><h1>Different h1</h1></body></html>"
+        )
+        self.assertEqual(
+            csf.extract_page_title(html), "Fantasy trade value chart week 4")
+
+    def test_falls_back_to_h1_when_no_title(self):
+        html = (
+            "<html><body><h1>Week 4 fantasy trade charts</h1>"
+            "<h2>Week 4 wide receiver</h2></body></html>"
+        )
+        self.assertEqual(
+            csf.extract_page_title(html), "Week 4 fantasy trade charts")
+
+    def test_falls_back_to_first_h2(self):
+        html = (
+            "<html><body>"
+            "<h2>Week 4 running back trade value</h2>"
+            "<h2>Week 4 wide receiver trade value</h2>"
+            "</body></html>"
+        )
+        self.assertEqual(
+            csf.extract_page_title(html),
+            "Week 4 running back trade value")
+
+    def test_strips_inner_tags_in_title(self):
+        html = (
+            "<html><head><title>Week <b>4</b> fantasy trade charts</title>"
+            "</head><body></body></html>"
+        )
+        self.assertEqual(
+            csf.extract_page_title(html), "Week 4 fantasy trade charts")
+
+    def test_empty_html_returns_empty_string(self):
+        self.assertEqual(csf.extract_page_title(""), "")
+
+    def test_html_with_no_title_or_headings_returns_empty_string(self):
+        self.assertEqual(csf.extract_page_title("<html><body></body></html>"), "")
+
+
+class TestPageWeekEvidence(unittest.TestCase):
+    """page_week_evidence: fail-closed URL+title week-evidence gate.
+
+    Four acceptance cases per the JEG-77 brief:
+        1. match       -> returns int week
+        2. missing     -> WeekEvidenceError (URL or title empty / no match)
+        3. conflict    -> WeekEvidenceError (URL says week 4, title says 5)
+        (mismatch with expected week is checked by the caller -- the
+         function itself just compares URL and title.)
+    """
+
+    GOOD_URL = (
+        "https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+        "fantasy-trade-value-chart-week-4-ros-rankings/777/")
+    GOOD_TITLE = "Week 4 fantasy trade charts"
+
+    # --- case 1: match ---------------------------------------------------------
+    def test_match_returns_int_week(self):
+        self.assertEqual(
+            csf.page_week_evidence(self.GOOD_URL, self.GOOD_TITLE), 4)
+
+    def test_match_accepts_uppercase_url_slug(self):
+        url = ("https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+               "fantasy-trade-value-chart-WEEK-5-ros-rankings/777/")
+        title = "Week 5 wide receiver trade value"
+        self.assertEqual(csf.page_week_evidence(url, title), 5)
+
+    def test_match_accepts_alternate_title_phrasing(self):
+        # "fantasy trade value chart week N" phrasing.
+        title = "Fantasy trade value chart week 7 - ROS rankings"
+        url = ("https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+               "fantasy-trade-value-chart-week-7-ros-rankings/777/")
+        self.assertEqual(csf.page_week_evidence(url, title), 7)
+
+    def test_returns_int_not_str(self):
+        result = csf.page_week_evidence(self.GOOD_URL, self.GOOD_TITLE)
+        self.assertIsInstance(result, int)
+
+    def test_week_evidence_error_is_a_live_pull_error(self):
+        # WeekEvidenceError must subclass LivePullError so existing
+        # callers that catch LivePullError handle it the same way.
+        err = csf.WeekEvidenceError("boom")
+        self.assertIsInstance(err, csf.LivePullError)
+
+    # --- case 2: missing -------------------------------------------------------
+    def test_missing_url_raises(self):
+        with self.assertRaises(csf.WeekEvidenceError) as ctx:
+            csf.page_week_evidence("", self.GOOD_TITLE)
+        self.assertIn("missing URL", str(ctx.exception))
+
+    def test_none_url_raises(self):
+        with self.assertRaises(csf.WeekEvidenceError):
+            csf.page_week_evidence(None, self.GOOD_TITLE)
+
+    def test_url_without_slug_raises(self):
+        # URL is real-looking but lacks the trade-value-chart-week-N-ros-rankings slug.
+        bad_url = ("https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+                   "random-article/777/")
+        with self.assertRaises(csf.WeekEvidenceError) as ctx:
+            csf.page_week_evidence(bad_url, self.GOOD_TITLE)
+        self.assertIn("missing URL week evidence", str(ctx.exception))
+
+    def test_missing_title_raises(self):
+        with self.assertRaises(csf.WeekEvidenceError) as ctx:
+            csf.page_week_evidence(self.GOOD_URL, "")
+        self.assertIn("missing page title", str(ctx.exception))
+
+    def test_none_title_raises(self):
+        with self.assertRaises(csf.WeekEvidenceError):
+            csf.page_week_evidence(self.GOOD_URL, None)
+
+    def test_title_without_week_phrasing_raises(self):
+        # Title has no "week N" phrasing at all.
+        title = "Fantasy football trade value chart - ROS rankings"
+        with self.assertRaises(csf.WeekEvidenceError) as ctx:
+            csf.page_week_evidence(self.GOOD_URL, title)
+        self.assertIn("missing title week evidence", str(ctx.exception))
+
+    # --- case 3: conflict ------------------------------------------------------
+    def test_conflict_url_4_title_5_raises(self):
+        # URL says week 4 but title says week 5 -- the exact scenario from
+        # the JEG-77 brief.
+        with self.assertRaises(csf.WeekEvidenceError) as ctx:
+            csf.page_week_evidence(self.GOOD_URL, "Week 5 fantasy trade charts")
+        msg = str(ctx.exception)
+        self.assertIn("conflicting", msg)
+        self.assertIn("week 4", msg)
+        self.assertIn("week 5", msg)
+
+    def test_conflict_url_5_title_4_raises(self):
+        url_w5 = ("https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+                  "fantasy-trade-value-chart-week-5-ros-rankings/777/")
+        with self.assertRaises(csf.WeekEvidenceError):
+            csf.page_week_evidence(url_w5, self.GOOD_TITLE)
+
+
+class TestRunLiveUsatodayWeekGate(unittest.TestCase):
+    """Integration: the week-evidence gate in run_live_usatoday_check.
+
+    The gate runs BEFORE check_live_freshness. A wrong-week page must
+    fail closed (live_unavailable failure, no native comparison run),
+    so a stale sitemap or stale CDN cannot silently compare week-N
+    values against week-M fixture natives.
+    """
+
+    BASE_URL_W4 = (
+        "https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+        "fantasy-trade-value-chart-week-4-ros-rankings/777/")
+    BASE_URL_W5 = (
+        "https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+        "fantasy-trade-value-chart-week-5-ros-rankings/777/")
+
+    def _html_with_title(self, title_text, table_title_prefix="Week 4"):
+        """Synthetic USA Today article whose <title> is `title_text`."""
+        return (
+            "<html><head><title>%s</title></head><body>"
+            "<h2>%s wide receiver trade value</h2>"
+            "<table class=gnt_ar_b_tbl>"
+            "<tr><th>HALF</th></tr>"
+            "<tr><td>1</td><td>Player</td><td>50</td></tr>"
+            "</table>"
+            "</body></html>" % (title_text, table_title_prefix))
+
+    def _fetch_for_url(self, url, html):
+        return FakeFetch({
+            csf.LIVE_SITEMAP_MONTH
+                % (datetime.now(timezone.utc).year,
+                   datetime.now(timezone.utc).month):
+                (200, '<?xml version="1.0" encoding="UTF-8"?>'
+                      '<urlset>'
+                      '<url><loc>%s</loc></url>'
+                      '</urlset>' % url),
+            url: (200, html),
+        })
+
+    def test_matching_week_passes_gate_and_compares(self):
+        # URL and title both say week 4; expected week 4 -> gate passes,
+        # comparison runs. Puka live 60 vs fixture 60 -> no drift.
+        fixture = make_fixture({"puka nacua": 60.0})
+        html = self._html_with_title("Week 4 fantasy trade charts")
+        live_pull, failures = csf.run_live_usatoday_check(
+            fixture, week=4,
+            fetch_fn=self._fetch_for_url(self.BASE_URL_W4, html),
+            combo="half_12", tolerance=0.0,
+        )
+        week_gate_failures = [f for f in failures
+                              if "week evidence gate" in f.get("message", "")]
+        self.assertEqual(week_gate_failures, [])
+
+    def test_url_title_conflict_fails_closed(self):
+        # URL says week 4 but page title says week 5 -> WeekEvidenceError
+        # -> live_unavailable failure, no comparison done.
+        # We patch live_pull_usatoday so we can exercise the gate
+        # without needing a full 4-table article.
+        fixture = make_fixture({"puka nacua": 60.0})
+        fake_pull = {
+            "source": "usatoday",
+            "url": self.BASE_URL_W4,
+            "page_title": "Week 5 fantasy trade charts",
+            "fetched_at": "2026-10-04T00:00:00+00:00",
+            "tables": [],
+            "native_by_combo": {"half_12": {"puka nacua": 60.0}},
+            "n_tables": 0,
+            "n_rows": 0,
+        }
+        original = csf.live_pull_usatoday
+        csf.live_pull_usatoday = lambda **kw: fake_pull
+        try:
+            live_pull, failures = csf.run_live_usatoday_check(
+                fixture, week=4, fetch_fn=lambda *a, **k: (200, ""),
+                combo="half_12", tolerance=0.0,
+            )
+        finally:
+            csf.live_pull_usatoday = original
+        gate_failures = [f for f in failures if f["type"] == "live_unavailable"]
+        self.assertEqual(len(gate_failures), 1)
+        self.assertIn("week evidence gate", gate_failures[0]["message"])
+        # The comparison must NOT have run.
+        drift = [f for f in failures if f["type"] == "staleness_drift"]
+        self.assertEqual(drift, [],
+                         "comparison must not run when week evidence conflicts")
+
+    def test_mismatch_with_expected_week_fails_closed(self):
+        # URL and title both say week 5 but caller asked for week 4 ->
+        # fail closed with a live_unavailable message that names both
+        # observed and expected weeks.
+        #
+        # We patch live_pull_usatoday directly: live_discover_url(week=4)
+        # would otherwise search for a week-4 URL and miss our week-5
+        # URL. The gate, not the discovery layer, is what we're testing.
+        fixture = make_fixture({"puka nacua": 60.0})
+        html = self._html_with_title(
+            "Week 5 fantasy trade charts", table_title_prefix="Week 5")
+        fake_pull = {
+            "source": "usatoday",
+            "url": self.BASE_URL_W5,
+            "page_title": "Week 5 fantasy trade charts",
+            "fetched_at": "2026-10-04T00:00:00+00:00",
+            "tables": csf.parse_usatoday_tables(
+                self._html_with_title(
+                    "Week 5 fantasy trade charts",
+                    table_title_prefix="Week 5")),
+            "native_by_combo": {"half_12": {"puka nacua": 60.0}},
+            "n_tables": 1,
+            "n_rows": 1,
+        }
+        original = csf.live_pull_usatoday
+        csf.live_pull_usatoday = lambda **kw: fake_pull
+        try:
+            live_pull, failures = csf.run_live_usatoday_check(
+                fixture, week=4,
+                fetch_fn=lambda *a, **k: (200, html),
+                combo="half_12", tolerance=0.0,
+            )
+        finally:
+            csf.live_pull_usatoday = original
+        gate_failures = [f for f in failures if f["type"] == "live_unavailable"]
+        self.assertEqual(len(gate_failures), 1)
+        msg = gate_failures[0]["message"]
+        self.assertIn("page is week 5", msg)
+        self.assertIn("expected week 4", msg)
+        drift = [f for f in failures if f["type"] == "staleness_drift"]
+        self.assertEqual(drift, [])
+
+    def test_missing_url_evidence_fails_closed(self):
+        # URL has no slug -> WeekEvidenceError -> live_unavailable.
+        # We patch live_pull_usatoday directly because live_discover_url
+        # would otherwise reject the no-slug URL before we could test
+        # the gate. The gate is what we're testing, not discovery.
+        fixture = make_fixture({})
+        no_slug_url = ("https://www.usatoday.com/story/sports/fantasy/2026/10/01/"
+                       "random-article/777/")
+        fake_pull = {
+            "source": "usatoday",
+            "url": no_slug_url,
+            "page_title": "Week 4 fantasy trade charts",
+            "fetched_at": "2026-10-04T00:00:00+00:00",
+            "tables": [],
+            "native_by_combo": {"half_12": {}},
+            "n_tables": 0,
+            "n_rows": 0,
+        }
+        original = csf.live_pull_usatoday
+        csf.live_pull_usatoday = lambda **kw: fake_pull
+        try:
+            live_pull, failures = csf.run_live_usatoday_check(
+                fixture, week=4, fetch_fn=lambda *a, **k: (200, ""),
+                combo="half_12", tolerance=0.0,
+            )
+        finally:
+            csf.live_pull_usatoday = original
+        gate_failures = [f for f in failures if f["type"] == "live_unavailable"]
+        self.assertGreaterEqual(len(gate_failures), 1)
+        msg = " ".join(f["message"] for f in gate_failures)
+        self.assertIn("week evidence gate failed", msg)
+
+    def test_gate_blocks_comparison_under_negative_test(self):
+        # Standing-rule negative test: if the gate were removed, this
+        # fixture (page says week 5, expected week 4) would silently
+        # produce staleness_drift failures on whatever values the page
+        # has. With the gate wired, it produces ONE live_unavailable
+        # failure and zero drift. If someone removes the gate, the
+        # count of drift failures would jump from 0 to > 0.
+        fixture = make_fixture({"puka nacua": 60.0})
+        live = {
+            "jaxon smithnjigba": 99.0,
+            "puka nacua": 99.0,
+        }
+        fake_pull = {
+            "source": "usatoday",
+            "url": self.BASE_URL_W5,
+            "page_title": "Week 5 fantasy trade charts",
+            "fetched_at": "2026-10-04T00:00:00+00:00",
+            "tables": [],
+            "native_by_combo": {"half_12": live},
+            "n_tables": 0,
+            "n_rows": 0,
+        }
+        original = csf.live_pull_usatoday
+        csf.live_pull_usatoday = lambda **kw: fake_pull
+        try:
+            live_pull, failures = csf.run_live_usatoday_check(
+                fixture, week=4, fetch_fn=lambda *a, **k: (200, ""),
+                combo="half_12", tolerance=0.0,
+            )
+        finally:
+            csf.live_pull_usatoday = original
+        drift = [f for f in failures if f["type"] == "staleness_drift"]
+        self.assertEqual(drift, [],
+                         "gate MUST prevent check_live_freshness from running")
+        gate_failures = [f for f in failures if f["type"] == "live_unavailable"]
+        self.assertEqual(len(gate_failures), 1)
 
 
 class TestLiveFetchUsesUrllib(unittest.TestCase):
