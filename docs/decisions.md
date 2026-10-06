@@ -95,7 +95,7 @@ top to bottom; do not insert narrative between entries. -->
 ### Consequences
 
 - Supersedes the AGENTS.md rule that Roman owns review, integration and all deploys to `main`.
-- Muse's trade-value crons (dashboard push, overnight QA loop, PR merge sweep, CBS/USA Today ingests) are retired as Claude-owned, Supabase-scheduled replacements go live; handoff note sent to Muse 2026-10-06.
+- Muse's trade-value crons (dashboard push, overnight QA loop, PR merge sweep, CBS/USA Today ingests) are retired as Claude-owned, Supabase-scheduled replacements go live; handoff note drafted 2026-10-06 for Jeremy to send to Muse.
 - Existing GitHub workflows stay where Supabase cannot do the work (Pages build/deploy, `make validate`); their schedules come from pg_cron.
 
 ### Outcome Note

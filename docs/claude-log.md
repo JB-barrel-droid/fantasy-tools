@@ -2873,7 +2873,7 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Verified (check named)
 - Jeremy (in session, explicit): Muse owns nothing on this project except as a last resort; prefer
   Supabase tools over GitHub. Recorded as docs/decisions.md ops-ownership-001; AGENTS.md operating
-  model and CLAUDE.md standing constraints updated. Handoff note for Muse delivered to Jeremy
+  model and CLAUDE.md standing constraints updated. Handoff note for Muse drafted for Jeremy to send (not sent by Claude)
   (turn off dashboard push / QA loop / merge sweep as replacements land; stop direct pushes to main).
 
 ### Claimed, unverified
