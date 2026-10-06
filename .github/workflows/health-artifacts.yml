@@ -3,8 +3,9 @@ name: Health artifacts (non-Muse producer + watch)
 # JEG-414 (ARCH-013). Runs independently of Muse every 30 minutes:
 #   1. Builds source-import-health.json and pipeline-checkpoints.json in CI
 #      (shadow mode: uploaded as a run artifact, not published -- cut over
-#      from the Muse writer only after checkpoint parity is verified; C2/C4
-#      read Mac-local pull files and report `unk` here by design).
+#      from the Muse writer only after checkpoint parity is verified; the
+#      'Annotate checkpoint verdicts' step prints CI's per-source verdicts
+#      for that comparison). C2 no longer reads file mtimes (GAP-C2-MTIME).
 #   2. Measures the age of the SERVED artifacts from their own timestamps
 #      and records each result in Supabase monitoring.check_observations.
 #   3. Fails (red) when a served artifact is older than 60 minutes.
@@ -78,6 +79,24 @@ jobs:
               if st != "ok":
                   why = (e.get("failure_reason") or e.get("detail") or e.get("reason") or "")[:300]
                   print(f"::notice title=import-health {src}::{st} -- {why}")
+          PY
+
+      - name: Annotate checkpoint verdicts
+        if: always()
+        run: |
+          python3 - <<'PY' || true
+          import json
+          try:
+              d = json.load(open("output/pipeline-checkpoints.json"))
+          except Exception as e:
+              print(f"::warning title=checkpoints::no artifact ({e})")
+              raise SystemExit(0)
+          srcs = d.get("sources") or {}
+          items = srcs.items() if isinstance(srcs, dict) else [(x.get("source"), x) for x in srcs]
+          for src, e in sorted(items):
+              cps = e.get("checkpoints", e)
+              row = " ".join(f"{k.split('_')[0]}={v.get('status')}" for k, v in cps.items() if isinstance(v, dict))
+              print(f"::notice title=checkpoints {src}::{row}")
           PY
 
       - name: Watch served artifacts + record observations

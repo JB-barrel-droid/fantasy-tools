@@ -584,6 +584,43 @@ def c5_health_verdict(h, health_checked_at=None):
         "reason": f"Health status {status!r} is outside the recognized vocabulary; the checkpoint mapping needs an update."}
 
 
+def c2_collection_verdict(src, h, pull_path=None, pull_fetched_at=None, pull_mtime=None):
+    """C2 (raw collection) verdict.
+
+    Evidence, in order: a local pull file (ops/watchdog/pulls/, its fetched_at
+    or mtime); else the Supabase landing time of the latest vintage
+    (db_latest_arrived_at -- the writer collects and lands in one run); else,
+    for a committed-file source with no landing stage (razzball's DDF leg), the
+    leg's own generated_at.
+
+    Never the snapshot file's mtime (GAP-C2-MTIME): import_supabase_references
+    rewrites every snapshot on every run and a CI checkout stamps every
+    committed file with the checkout time, so that mtime is always "now" and
+    reported week-old data as freshly pulled.
+    """
+    if pull_path and (pull_fetched_at or pull_mtime):
+        ts, where = pull_fetched_at or pull_mtime, pull_path
+    elif h.get("db_latest_arrived_at"):
+        ts, where = h["db_latest_arrived_at"], f"Supabase landing in {h.get('supabase_table')}"
+    elif h.get("supabase_landing") is False and h.get("last_successful_import"):
+        ts, where = h["last_successful_import"], f"generated_at of {h.get('snapshot_path')}"
+    else:
+        return {"timestamp": None, "status": "unk",
+                "reason": f"No collection evidence for {src}: no pull file in ops/watchdog/pulls/, "
+                          "no Supabase landing time, no generated_at."}
+    d = days_old(ts)
+    if d is None:
+        return {"timestamp": ts, "status": "unk",
+                "reason": f"Unparseable collection time {ts!r} ({where})."}
+    if d > 14:
+        return {"timestamp": ts, "status": "bad",
+                "reason": f"Last pull {d:.0f}d ago ({where}). Pull pipeline may be broken."}
+    if d > 7:
+        return {"timestamp": ts, "status": "warn",
+                "reason": f"Last pull {d:.0f}d ago ({where}). Awaiting publisher release."}
+    return {"timestamp": ts, "status": "ok", "reason": f"Pulled {ts} ({where})."}
+
+
 def build_checkpoints():
     # Load health file: freshest valid input wins. The gitignored output/
     # runtime file only exists on the machine that ran the health gate; a
@@ -705,9 +742,8 @@ def build_checkpoints():
             cps["c1_publication"] = {"timestamp": c1_ts, "status": "unk",
                 "reason": "No publisher vintage recorded in health file."}
 
-        # C2: Raw collection - from pull file or health snapshot_path
+        # C2: Raw collection. See c2_collection_verdict.
         pull_path, pull_mtime = newest_file_mtime("ops/watchdog/pulls", rf"^{src}-.*\.json$")
-        # Also try to get fetched_at from the pull file content
         pull_fetched_at = None
         if pull_path:
             try:
@@ -716,31 +752,7 @@ def build_checkpoints():
                 pull_fetched_at = pull_data.get("fetched_at")
             except (json.JSONDecodeError, OSError):
                 pass
-        # Fallback: use health file's snapshot_path (data/raw/sources/<src>/...)
-        # Many sources collect directly to data/raw/sources/ instead of ops/watchdog/pulls/
-        snapshot_path = h.get("snapshot_path")
-        snapshot_mtime = None
-        if not pull_path and snapshot_path:
-            sp = REPO / snapshot_path
-            if sp.is_file():
-                pull_path = snapshot_path
-                snapshot_mtime = datetime.fromtimestamp(sp.stat().st_mtime, tz=timezone.utc).isoformat()
-        c2_ts = pull_fetched_at or pull_mtime or snapshot_mtime
-        c2_days = days_old(c2_ts)
-        if c2_ts and c2_days is not None:
-            if c2_days > 14:
-                cps["c2_collection"] = {"timestamp": c2_ts, "status": "bad",
-                    "reason": f"Last pull {c2_days:.0f}d ago ({pull_path}). Pull pipeline may be broken."}
-            elif c2_days > 7:
-                cps["c2_collection"] = {"timestamp": c2_ts, "status": "warn",
-                    "reason": f"Last pull {c2_days:.0f}d ago. Awaiting publisher release."}
-            else:
-                cps["c2_collection"] = {"timestamp": c2_ts, "status": "ok",
-                    "reason": f"Pulled {c2_ts} ({pull_path})."}
-        else:
-            # No pull file in ops/watchdog/pulls/ and no snapshot_path in health file
-            cps["c2_collection"] = {"timestamp": None, "status": "unk",
-                "reason": f"No pull file found for {src} in ops/watchdog/pulls/ and no snapshot_path in health file."}
+        cps["c2_collection"] = c2_collection_verdict(src, h, pull_path, pull_fetched_at, pull_mtime)
 
         # C3: Supabase landing - from db_latest_arrived_at
         # cbsros is file-scraped (no Supabase table by design): the stage is

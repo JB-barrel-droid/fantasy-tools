@@ -138,6 +138,7 @@ test-unit:
 	python3 -m unittest tests.test_checkpoint_pages_deploy
 	python3 -m unittest tests.test_c10_committed_fixture_baseline
 	python3 -m unittest tests.test_checkpoints_health_freshest
+	python3 -m unittest tests.test_checkpoint_c2_collection
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
 	python3 -m unittest tests.test_comparison_candidate_build
