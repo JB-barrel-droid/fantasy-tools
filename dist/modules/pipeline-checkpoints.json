@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-06T19:38:52.074630+00:00",
+  "generated_at": "2026-10-06T20:42:01.827768+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 5,
   "checkpoints": [
@@ -61,12 +61,12 @@
         "c1_publication": {
           "timestamp": "2026-10-06",
           "status": "ok",
-          "reason": "Publisher released 2026-10-06 (0.8d ago)."
+          "reason": "Publisher released 2026-10-06 (0.9d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-06T14:08:27.940971+00:00",
+          "timestamp": "2026-10-03T15:11:06.412217+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-06T14:08:27.940971+00:00 (data/raw/sources/espn/2026-10-06/snapshot.json)."
+          "reason": "Pulled 2026-10-03T15:11:06.412217+00:00 (Supabase landing in public.espn_season_projections)."
         },
         "c3_supabase": {
           "timestamp": "2026-10-03T15:11:06.412217+00:00",
@@ -74,19 +74,19 @@
           "reason": "496 rows landed in public.espn_season_projections 3.2d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-06T14:08:27.940971+00:00",
+          "timestamp": "2026-10-06T20:41:52.955377+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.2d ago (data/raw/sources/espn/2026-10-06/snapshot.json, vintage 2026-10-06)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/espn/2026-10-06/snapshot.json, vintage 2026-10-06)."
         },
         "c5_health": {
-          "timestamp": "2026-10-06T19:38:09Z",
+          "timestamp": "2026-10-06T20:41:57Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-09-30T04:28:49.106215+00:00",
+          "timestamp": "2026-10-05T23:00:42.205015+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 6.6d ago."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-10-05T23:00:42.205015+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -99,12 +99,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:38:59.124901+00:00",
+          "timestamp": "2026-10-06T20:42:02.551086+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -121,9 +121,9 @@
           "reason": "Publisher released Week 4 (7.0d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-06",
+          "timestamp": "2026-09-29T22:44:26.21804+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-06 (ops/watchdog/pulls/cbs-2026-10-06.json)."
+          "reason": "Pulled 2026-09-29T22:44:26.21804+00:00 (Supabase landing in public.cbs_trade_values)."
         },
         "c3_supabase": {
           "timestamp": "2026-09-29T22:44:26.21804+00:00",
@@ -131,24 +131,24 @@
           "reason": "342 rows landed in public.cbs_trade_values 6.9d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-09-29T22:44:29.435511+00:00",
+          "timestamp": "2026-10-06T20:41:54.234996+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 6.9d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbs/week-4/snapshot.json, vintage Week 4)."
         },
         "c5_health": {
-          "timestamp": "2026-10-06T19:38:09Z",
+          "timestamp": "2026-10-06T20:41:57Z",
           "status": "warn",
           "reason": "Health gate stale: STALE_VINTAGE: content vintage Week 4 != current Week 5. No verified publication schedule for cbs; Believed to publish mid-week (typically Wednesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.."
         },
         "c6_candidate": {
-          "timestamp": "2026-10-01T01:12:00.963269+00:00",
+          "timestamp": "2026-10-05T23:00:42.205015+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 5.8d ago."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3' at 2026-10-05T23:00:42.205015+00:00."
         },
         "c7_promotion": {
-          "timestamp": "2026-10-02T20:14:03Z",
+          "timestamp": null,
           "status": "ok",
-          "reason": "Promoted 4.0d ago (verdict: ready)."
+          "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T22:00:42.323533+00:00",
@@ -156,12 +156,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:39:00.528316+00:00",
+          "timestamp": "2026-10-06T20:42:02.665774+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -175,12 +175,12 @@
         "c1_publication": {
           "timestamp": "2026-10-02",
           "status": "ok",
-          "reason": "Publisher released 2026-10-02 (4.8d ago)."
+          "reason": "Publisher released 2026-10-02 (4.9d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-02T12:57:40.112170+00:00",
+          "timestamp": "2026-10-02T20:16:45.413474+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-02T12:57:40.112170+00:00 (data/raw/sources/cbsros/2026-10-02/snapshot.json)."
+          "reason": "Pulled 2026-10-02T20:16:45.413474+00:00 (Supabase landing in public.cbs_ros_projections)."
         },
         "c3_supabase": {
           "timestamp": "2026-10-02T20:16:45.413474+00:00",
@@ -188,19 +188,19 @@
           "reason": "363 rows landed in public.cbs_ros_projections 4.0d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-02T12:57:40.112170+00:00",
+          "timestamp": "2026-10-06T20:41:55.564460+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 4.3d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/cbsros/2026-10-02/snapshot.json, vintage 2026-10-02)."
         },
         "c5_health": {
-          "timestamp": "2026-10-06T19:38:09Z",
-          "status": "bad",
-          "reason": "Health gate red: MISSED_WINDOW: content vintage Week 4, current Week 5. cbsros publishes on Wed; grace period expired (6 days since publish day, limit 1).."
+          "timestamp": "2026-10-06T20:41:57Z",
+          "status": "warn",
+          "reason": "Health gate yellow: AWAITING_PUBLICATION: content vintage Week 4, current Week 5. cbsros publishes on Wed; not due yet (1 day(s) until publish day).."
         },
         "c6_candidate": {
-          "timestamp": "2026-10-05T19:00:59.223007+00:00",
+          "timestamp": "2026-10-05T23:00:42.205015+00:00",
           "status": "ok",
-          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-10-05T19:00:59.223007+00:00."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 1/1' at 2026-10-05T23:00:42.205015+00:00."
         },
         "c7_promotion": {
           "timestamp": null,
@@ -213,12 +213,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:39:01.928788+00:00",
+          "timestamp": "2026-10-06T20:42:02.779801+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -232,12 +232,12 @@
         "c1_publication": {
           "timestamp": "2026-10-01",
           "status": "ok",
-          "reason": "Publisher released 2026-10-01 (5.8d ago)."
+          "reason": "Publisher released 2026-10-01 (5.9d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-01T13:22:04.098015+00:00",
+          "timestamp": "2026-10-01T12:56:03Z",
           "status": "ok",
-          "reason": "Pulled 2026-10-01T13:22:04.098015+00:00 (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json)."
+          "reason": "Pulled 2026-10-01T12:56:03Z (generated_at of data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json)."
         },
         "c3_supabase": {
           "timestamp": null,
@@ -245,14 +245,14 @@
           "reason": "N/A by design: file-scraped source, no Supabase landing stage."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-01T13:22:04.098015+00:00",
+          "timestamp": "2026-10-06T20:41:44.228979+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 5.3d ago (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-01)."
+          "reason": "Snapshot stamped 0.0d ago (data/ddf-two-tier/ddf-20261001-razzball-ppr-12t-0p15/ddf_leg_razzball.json, vintage 2026-10-01)."
         },
         "c5_health": {
           "timestamp": "2026-10-01",
           "status": "warn",
-          "reason": "Razzball snapshot 2026-10-01 is 5.8d old (3-6d warn window). No CI puller refreshes it (GAP-024)."
+          "reason": "Razzball snapshot 2026-10-01 is 5.9d old (3-6d warn window). No CI puller refreshes it (GAP-024)."
         },
         "c6_candidate": {
           "timestamp": null,
@@ -270,12 +270,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:39:03.201519+00:00",
+          "timestamp": "2026-10-06T20:42:02.910008+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -292,34 +292,34 @@
           "reason": "Publisher released Week 5 (0.0d ago)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-06T14:38:06.691957+00:00",
+          "timestamp": "2026-10-06T14:20:28.341399+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-06T14:38:06.691957+00:00 (data/raw/sources/fantasycalc/week-5/snapshot.json)."
+          "reason": "Pulled 2026-10-06T14:20:28.341399+00:00 (Supabase landing in public.source_trade_values)."
         },
         "c3_supabase": {
           "timestamp": "2026-10-06T14:20:28.341399+00:00",
           "status": "ok",
-          "reason": "585 rows landed in public.source_trade_values 0.2d ago."
+          "reason": "585 rows landed in public.source_trade_values 0.3d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-06T14:38:06.691957+00:00",
+          "timestamp": "2026-10-06T20:41:47.811132+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 0.2d ago (data/raw/sources/fantasycalc/week-5/snapshot.json, vintage Week 5)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasycalc/week-5/snapshot.json, vintage Week 5)."
         },
         "c5_health": {
-          "timestamp": "2026-10-06T19:38:09Z",
+          "timestamp": "2026-10-06T20:41:57Z",
           "status": "ok",
           "reason": "Health gate ok (checked 0.0d ago)."
         },
         "c6_candidate": {
-          "timestamp": "2026-10-06T10:37:57.305803+00:00",
+          "timestamp": "2026-10-05T23:00:42.205015+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 0.4d ago."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'FAILED at stage 'review': fantasycalc-full-10-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_10_qb1:fail -- 181/181 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. jamarr chase, josh allen, justin jefferson); native_drift:full_10_qb2:fail -- 181/181 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. jamarr chase, josh allen, justin jefferson); coverage:full_10_qb1/WR:fail -- candidate priced 76 < fixture 78; coverage:full_10_qb1/TE:fail -- candidate priced 27 < fixture 29; coverage:full_10_qb2/WR:fail -- candidate priced 76 < fixture 78; coverage:full_10_qb2/TE:fail -- candidate priced 27 < fixture 29. A hold means a human must review first; the chain will not override it.' at 2026-10-05T23:00:42.205015+00:00."
         },
         "c7_promotion": {
-          "timestamp": "2026-10-02T20:13:43Z",
+          "timestamp": null,
           "status": "ok",
-          "reason": "Promoted 4.0d ago (verdict: ready)."
+          "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T22:00:42.323533+00:00",
@@ -327,12 +327,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:39:05.038627+00:00",
+          "timestamp": "2026-10-06T20:42:03.026548+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -349,9 +349,9 @@
           "reason": "Publisher data is 8 days old. Awaiting new release (normal for weekly cadence)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-02T12:33:13.088333+00:00",
+          "timestamp": "2026-10-01T20:13:46.037266+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-02T12:33:13.088333+00:00 (data/raw/sources/fantasypros/2026-09-29/snapshot.json)."
+          "reason": "Pulled 2026-10-01T20:13:46.037266+00:00 (Supabase landing in public.source_trade_values)."
         },
         "c3_supabase": {
           "timestamp": "2026-10-01T20:13:46.037266+00:00",
@@ -359,24 +359,24 @@
           "reason": "534 rows landed in public.source_trade_values 5.0d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-02T12:33:13.088333+00:00",
+          "timestamp": "2026-10-06T20:41:51.247048+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 4.3d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/fantasypros/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-06T19:38:09Z",
+          "timestamp": "2026-10-06T20:41:57Z",
           "status": "warn",
           "reason": "Health gate stale: STALE_VINTAGE: content vintage Week 4 != current Week 5. No verified publication schedule for fantasypros; Believed to publish early in the NFL week (typically Monday/Tuesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.."
         },
         "c6_candidate": {
-          "timestamp": "2026-10-02T12:34:11.498420+00:00",
+          "timestamp": "2026-10-05T23:00:42.205015+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 4.3d ago."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3' at 2026-10-05T23:00:42.205015+00:00."
         },
         "c7_promotion": {
-          "timestamp": "2026-10-02T20:13:52Z",
+          "timestamp": null,
           "status": "ok",
-          "reason": "Promoted 4.0d ago (verdict: ready)."
+          "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T22:00:42.323533+00:00",
@@ -384,12 +384,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:39:06.579097+00:00",
+          "timestamp": "2026-10-06T20:42:03.135906+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -406,9 +406,9 @@
           "reason": "Publisher data is 8 days old. Awaiting new release (normal for weekly cadence)."
         },
         "c2_collection": {
-          "timestamp": "2026-10-06",
+          "timestamp": "2026-10-02T15:15:41.980347+00:00",
           "status": "ok",
-          "reason": "Pulled 2026-10-06 (ops/watchdog/pulls/usatoday-2026-10-06.json)."
+          "reason": "Pulled 2026-10-02T15:15:41.980347+00:00 (Supabase landing in public.source_trade_values)."
         },
         "c3_supabase": {
           "timestamp": "2026-10-02T15:15:41.980347+00:00",
@@ -416,24 +416,24 @@
           "reason": "747 rows landed in public.source_trade_values 4.2d ago."
         },
         "c4_snapshot": {
-          "timestamp": "2026-10-02T20:04:01.797241+00:00",
+          "timestamp": "2026-10-06T20:41:49.822464+00:00",
           "status": "ok",
-          "reason": "Snapshot stamped 4.0d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
+          "reason": "Snapshot stamped 0.0d ago (data/raw/sources/usatoday/2026-09-29/snapshot.json, vintage 2026-09-29)."
         },
         "c5_health": {
-          "timestamp": "2026-10-06T19:38:09Z",
+          "timestamp": "2026-10-06T20:41:57Z",
           "status": "warn",
           "reason": "Health gate yellow: AWAITING_PUBLICATION: content vintage Week 4, current Week 5. usatoday publishes on Tue; within 1-day grace period (day 0).."
         },
         "c6_candidate": {
-          "timestamp": "2026-10-02T20:04:33.043395+00:00",
+          "timestamp": "2026-10-05T23:00:42.205015+00:00",
           "status": "ok",
-          "reason": "Candidate built and reviewed 4.0d ago."
+          "reason": "No candidate/review artifacts on disk. Chain reported 'promoted 3/3' at 2026-10-05T23:00:42.205015+00:00."
         },
         "c7_promotion": {
-          "timestamp": "2026-10-02T20:13:34Z",
+          "timestamp": null,
           "status": "ok",
-          "reason": "Promoted 4.0d ago (verdict: ready)."
+          "reason": "Direct fixture updates are the intended workflow; no formal promotion artifact required."
         },
         "c8_sync": {
           "timestamp": "2026-10-03T22:00:42.323533+00:00",
@@ -441,12 +441,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.9d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T19:13:44Z",
+          "timestamp": "2026-10-06T20:41:46Z",
           "status": "ok",
-          "reason": "Pages deployed successfully 0.0d ago."
+          "reason": "Deploy in progress; last completed deploy succeeded 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T19:39:08.954686+00:00",
+          "timestamp": "2026-10-06T20:42:03.255200+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -456,11 +456,11 @@
     }
   },
   "chain": {
-    "run_at": "2026-10-05T19:00:59.223007+00:00",
+    "run_at": "2026-10-05T23:00:42.205015+00:00",
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": false,
-    "run_age_days": 1.0265015247337963,
+    "run_age_days": 0.9037158589467592,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -488,7 +488,7 @@
     "a4_sync": {
       "label": "A4 \u00b7 Synced to dist",
       "what": "dist/assets/adjustment-inputs.json matches app/ version (ready for deploy)",
-      "timestamp": "2026-10-05T20:59:51.184357+00:00",
+      "timestamp": "2026-10-06T20:41:44.258725+00:00",
       "status": "ok",
       "reason": "dist/ version ddf-20261003-espn-ppr-12t-0p15 matches app/ version."
     },
@@ -503,7 +503,7 @@
   "methodology_consistency": {
     "label": "VORP / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
-    "timestamp": "2026-10-06T19:39:09.519478+00:00",
+    "timestamp": "2026-10-06T20:42:03.338982+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use proportional_scaling_flex_aware_per_position anchored to espn_leg on the flex_aware_pie reindex fit (translation step checked separately).",
     "expected_method": "proportional_scaling_flex_aware_per_position",
