@@ -324,6 +324,25 @@ def sync_monitor_fixture(fixtures_dir, modules_dir):
     return dst
 
 
+def write_consolidated_export(fixture_path: Path, out_path: Path) -> dict:
+    """Write the consolidation watcher's JSON (JEG-424). Fails closed."""
+    import hashlib
+    from build_consolidated_values import build_rows, reconcile
+    from export_consolidated_json import build_export_doc
+    raw = fixture_path.read_bytes()
+    detail = json.loads(raw)
+    rows, _ = build_rows(detail)
+    errors = reconcile(rows, detail)
+    if errors:
+        raise SystemExit(f"consolidated export: reconciliation failed ({len(errors)} errors), "
+                         f"e.g. {errors[:3]}; not publishing")
+    doc = build_export_doc(rows, hashlib.sha256(raw).hexdigest())
+    out_path.write_text(json.dumps(doc, separators=(",", ":")) + "\n", encoding="utf-8")
+    print(f"Wrote consolidation export -> {out_path} ({len(rows)} rows, "
+          f"{out_path.stat().st_size} bytes)")
+    return doc
+
+
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
@@ -373,6 +392,10 @@ def main() -> int:
     # (JEG-328, 2026-10-03: dist/modules/consolidation.html silently served a
     # stale copy because only dashboard.html was synced here).
     shutil.copy2(MODULES / "consolidation.html", dist_modules / "consolidation.html")
+    # JEG-424: live status page for every backend -> frontend surface, and the
+    # spec it (and tests/test_published_surfaces.py) reads.
+    shutil.copy2(MODULES / "status.html", dist_modules / "status.html")
+    shutil.copy2(MODULES / "surfaces.json", dist_modules / "surfaces.json")
     # import_health_source() may resolve to the checked-in dist copy itself
     # (CI picks the freshest valid candidate, which is usually the pushed dist
     # file) -- never copy a file onto itself.
@@ -381,6 +404,15 @@ def main() -> int:
     # The monitor's fixture copy: kept equal to the canonical fixture on every
     # sync (JEG-8), so it can never silently go stale behind the app copy.
     sync_monitor_fixture(FIXTURES, dist_modules)
+
+    # JEG-424: the consolidation watcher's data. Built here, from the same
+    # fixture `make validate` checks, so the page only ever shows validated
+    # values (public.consolidated_values holds every bake, including ones
+    # that never published, and anon cannot read it). Gitignored: Pages runs
+    # `make sync` before deploying, so it is regenerated on every deploy.
+    # Fail closed: a reconciliation error stops the sync, and so the deploy.
+    write_consolidated_export(FIXTURES / "comparison-sources-data.json",
+                              DIST / "consolidated-values.json")
 
     # JEG-206: 8-group VORP totals (position x starter/bench) rewritten on every
     # sync from the freshest DDF two-tier leg. Fails closed (SystemExit) if the
