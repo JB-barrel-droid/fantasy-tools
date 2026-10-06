@@ -2943,3 +2943,21 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 - Whether FantasyCalc passes CI import health with the week-5 bake will be known on the next chain run
   after this fix lands. Other sources (cbs, fantasypros stale; cbsros red MISSED_WINDOW) keep the gate red
   regardless until their week-5 content lands.
+
+## 2026-10-06 ~15:30 CDT — Claude (cloud session): JEG-414 prep — C2 no longer reads file mtimes; CI checkpoint verdicts annotated
+
+### Verified (check named)
+- Defect (GAP-C2-MTIME): build_pipeline_checkpoints C2 fell back to the snapshot file's mtime when no
+  ops/watchdog/pulls file existed. import_supabase_references rewrites every snapshot on every run
+  (write_bytes, no unchanged-skip) and a CI checkout stamps committed files with the checkout time, so in
+  CI every C2 would read "Pulled ~0d ago" on week-old data. Extracted c2_collection_verdict: pull file,
+  else Supabase landing (db_latest_arrived_at), else a committed leg's generated_at; never mtime.
+  tests/test_checkpoint_c2_collection.py: reintroducing the mtime fallback fails
+  test_fresh_snapshot_mtime_does_not_make_stale_data_green (mutation run); added to test-unit.
+- health-artifacts.yml gains an "Annotate checkpoint verdicts" step (still shadow, no publish) so CI's
+  per-source C1–C10 verdicts are readable from run annotations for the Muse-vs-CI parity check.
+
+### Claimed, unverified
+- Publish cutover + pg_cron schedule are drafted but not shipped: dispatching a test run on a feature
+  branch was refused by the session's permission classifier, so parity is checked from the scheduled
+  runs on main after this merges.
