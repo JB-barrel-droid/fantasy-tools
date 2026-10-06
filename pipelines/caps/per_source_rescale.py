@@ -357,6 +357,13 @@ def build_rescale_audit(
         "cap": float(cap),
         "sources_scaled": len(scaled),
         "sources_total": sources_total,
+        # JEG-381: per_source_cap_audit requires these on every row; for the
+        # SUMMARY they are the run-wide facts (max over sources, smallest
+        # factor applied, total combo rows).
+        "pre_max": float(max(pre_max_map.values())) if pre_max_map else 0.0,
+        "post_max": float(max(post_max_map.values())) if post_max_map else 0.0,
+        "scale_factor": float(min([info["scale_factor"] for _, info in scaled] or [1.0])),
+        "source_row_count": int(sum(row_counts.values())),
         "run_id": ctx.get("run_id"),
         "ddf_leg_version": ctx.get("ddf_leg_version"),
         "git_commit_sha": ctx.get("git_commit_sha"),
@@ -431,6 +438,28 @@ def emit_artifact_rescale_audit(
 # ---------------------------------------------------------------------------
 # insert_rescale_audit (DB write, gated behind PER_SOURCE_CAP_DB_AUDIT)
 # ---------------------------------------------------------------------------
+AUDIT_DB_COLUMNS = ("run_id", "ddf_leg_version", "git_commit_sha", "source",
+                    "value_column", "cap", "pre_max", "post_max", "scale_factor",
+                    "source_row_count", "applied_at", "loader_host", "notes")
+
+
+def audit_db_row(entry: Mapping[str, Any]) -> Dict[str, Any]:
+    """Project an audit entry onto public.per_source_cap_audit's columns.
+
+    JEG-381 fix (2026-10-05): entries carried ``kind``, ``built_at`` and
+    SUMMARY-only counters that are not table columns, so PostgREST rejected
+    every insert (PGRST204). ``built_at`` maps to ``applied_at``; the
+    non-column fields ride in ``notes``.
+    """
+    row = {k: entry[k] for k in AUDIT_DB_COLUMNS if k in entry and entry[k] is not None}
+    if entry.get("built_at"):
+        row["applied_at"] = entry["built_at"]
+    extra = {k: entry[k] for k in ("kind", "sources_scaled", "sources_total") if k in entry}
+    if extra:
+        row["notes"] = json.dumps(extra, sort_keys=True)
+    return row
+
+
 def insert_rescale_audit(
     sb: Any,
     entries: Sequence[Mapping[str, Any]],
@@ -448,7 +477,7 @@ def insert_rescale_audit(
 
     Raises ``RescaleError`` if the underlying PostgREST call fails.
     """
-    body = [dict(e) for e in entries]
+    body = [audit_db_row(e) for e in entries]
     try:
         result = sb.post(table, body, prefer="return=representation")
     except Exception as e:
