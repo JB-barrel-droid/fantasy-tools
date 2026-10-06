@@ -550,6 +550,40 @@ def razzball_c5_verdict(h):
         "reason": f"Razzball snapshot {vd} is {age:.1f}d old (>6d -- snapshot is stale)."}
 
 
+def c5_health_verdict(h, health_checked_at=None):
+    """C5 (health) verdict from a source-import-health record.
+
+    Covers the health file's full status vocabulary (verify_import_health.py
+    + lib.publication_windows.get_publication_status): ok; warning, yellow,
+    stale, warn (caution states); failed, missing, error, red (broken
+    states). A record carrying any recognized status must map to a verdict
+    carrying that status's meaning -- before this, "stale"/"yellow"/"red"
+    records fell through to unk with the dishonest reason "No health record
+    for this source" (caught 2026-10-06: cbs/fantasypros stale, usatoday
+    yellow, cbsros red all reported unk). A status outside the vocabulary is
+    genuinely unknown and says so, naming the status.
+    """
+    status = h.get("status", "unknown")
+    reason = h.get("failure_reason", "")
+    checked_at = h.get("_checked_at") or health_checked_at
+    days = days_old(checked_at)
+    if status == "ok":
+        return {"timestamp": checked_at,
+            "status": "ok" if (days or 99) < 2 else "warn",
+            "reason": f"Health gate {status} (checked {days:.1f}d ago)." if days else f"Health gate {status}."}
+    if status == "warning":
+        return {"timestamp": checked_at, "status": "warn",
+            "reason": f"Health gate warning: {reason or 'awaiting publisher'}."}
+    if status in ("yellow", "stale", "warn"):
+        return {"timestamp": checked_at, "status": "warn",
+            "reason": f"Health gate {status}: {reason or 'awaiting publisher'}."}
+    if status in ("failed", "missing", "error", "red"):
+        return {"timestamp": checked_at, "status": "bad",
+            "reason": f"Health gate {status}: {reason or 'no reason given'}."}
+    return {"timestamp": checked_at, "status": "unk",
+        "reason": f"Health status {status!r} is outside the recognized vocabulary; the checkpoint mapping needs an update."}
+
+
 def build_checkpoints():
     # Load health file: freshest valid input wins. The gitignored output/
     # runtime file only exists on the machine that ran the health gate; a
@@ -766,23 +800,7 @@ def build_checkpoints():
         if src == "razzball":
             cps["c5_health"] = razzball_c5_verdict(h)
         else:
-            c5_status = h.get("status", "unknown")
-            c5_checked_at = h.get("_checked_at") or health_checked_at
-            c5_days = days_old(c5_checked_at)
-            c5_reason = h.get("failure_reason", "")
-            if c5_status == "ok":
-                cps["c5_health"] = {"timestamp": c5_checked_at,
-                    "status": "ok" if (c5_days or 99) < 2 else "warn",
-                    "reason": f"Health gate {c5_status} (checked {c5_days:.1f}d ago)." if c5_days else f"Health gate {c5_status}."}
-            elif c5_status == "warning":
-                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "warn",
-                    "reason": f"Health gate warning: {c5_reason or 'awaiting publisher'}."}
-            elif c5_status in ("failed", "missing", "error"):
-                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "bad",
-                    "reason": f"Health gate {c5_status}: {c5_reason or 'no reason given'}."}
-            else:
-                cps["c5_health"] = {"timestamp": c5_checked_at, "status": "unk",
-                    "reason": "No health record for this source."}
+            cps["c5_health"] = c5_health_verdict(h, health_checked_at)
 
         # C6: Candidate build/review - from candidate dir + review file
         cand_dir = REPO / "output" / "comparison-candidates" / src

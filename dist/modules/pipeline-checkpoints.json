@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-06T06:37:21.645570+00:00",
+  "generated_at": "2026-10-06T06:43:47.827995+00:00",
   "schema": "pipeline-checkpoints-v1",
   "nfl_week": 5,
   "checkpoints": [
@@ -99,12 +99,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:25.910730+00:00",
+          "timestamp": "2026-10-06T06:43:52.711479+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -137,8 +137,8 @@
         },
         "c5_health": {
           "timestamp": "2026-10-06T06:37:06Z",
-          "status": "unk",
-          "reason": "No health record for this source."
+          "status": "warn",
+          "reason": "Health gate stale: STALE_VINTAGE: content vintage Week 4 != current Week 5. No verified publication schedule for cbs; Believed to publish mid-week (typically Wednesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.."
         },
         "c6_candidate": {
           "timestamp": "2026-10-01T01:12:00.963269+00:00",
@@ -156,12 +156,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:27.590152+00:00",
+          "timestamp": "2026-10-06T06:43:55.851726+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -194,8 +194,8 @@
         },
         "c5_health": {
           "timestamp": "2026-10-06T06:37:06Z",
-          "status": "unk",
-          "reason": "No health record for this source."
+          "status": "bad",
+          "reason": "Health gate red: MISSED_WINDOW: content vintage Week 4, current Week 5. cbsros publishes on Wed; grace period expired (6 days since publish day, limit 1).."
         },
         "c6_candidate": {
           "timestamp": "2026-10-05T19:00:59.223007+00:00",
@@ -213,12 +213,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:29.370889+00:00",
+          "timestamp": "2026-10-06T06:43:58.766979+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -270,12 +270,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:31.475698+00:00",
+          "timestamp": "2026-10-06T06:44:00.397780+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -327,12 +327,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:32.955621+00:00",
+          "timestamp": "2026-10-06T06:44:02.370167+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -365,8 +365,8 @@
         },
         "c5_health": {
           "timestamp": "2026-10-06T06:37:06Z",
-          "status": "unk",
-          "reason": "No health record for this source."
+          "status": "warn",
+          "reason": "Health gate stale: STALE_VINTAGE: content vintage Week 4 != current Week 5. No verified publication schedule for fantasypros; Believed to publish early in the NFL week (typically Monday/Tuesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.."
         },
         "c6_candidate": {
           "timestamp": "2026-10-02T12:34:11.498420+00:00",
@@ -384,12 +384,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:34.475758+00:00",
+          "timestamp": "2026-10-06T06:44:05.371562+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -422,8 +422,8 @@
         },
         "c5_health": {
           "timestamp": "2026-10-06T06:37:06Z",
-          "status": "unk",
-          "reason": "No health record for this source."
+          "status": "warn",
+          "reason": "Health gate yellow: AWAITING_PUBLICATION: content vintage Week 4, current Week 5. usatoday publishes on Tue; within 1-day grace period (day 0).."
         },
         "c6_candidate": {
           "timestamp": "2026-10-02T20:04:33.043395+00:00",
@@ -441,12 +441,12 @@
           "reason": "Comparison data fresh (built 2026-10-03, 2.4d ago)."
         },
         "c9_deploy": {
-          "timestamp": "2026-10-06T06:11:27Z",
+          "timestamp": "2026-10-06T06:41:02Z",
           "status": "ok",
           "reason": "Pages deployed successfully 0.0d ago."
         },
         "c10_rendered": {
-          "timestamp": "2026-10-06T06:37:35.981739+00:00",
+          "timestamp": "2026-10-06T06:44:08.120281+00:00",
           "status": "warn",
           "reason": "Production serves week 4 labels; the calendar content week rolled to 5 -- awaiting the week-5 rebuild (production is honest, not wrong). Live built 2026-10-03T22:00."
         }
@@ -460,7 +460,7 @@
     "runner": "github-actions",
     "runner_label": "github-actions",
     "success": false,
-    "run_age_days": 0.48375878234953706,
+    "run_age_days": 0.4882974228587963,
     "stale": false
   },
   "adj_curve_pipeline": {
@@ -503,7 +503,7 @@
   "methodology_consistency": {
     "label": "VORP / Adj: legacy methodology consistency",
     "what": "Legacy reindex method/anchor consistency; not eight-group VORP or shared reweight readiness",
-    "timestamp": "2026-10-06T06:37:36.598745+00:00",
+    "timestamp": "2026-10-06T06:44:08.764957+00:00",
     "status": "ok",
     "reason": "All 12 as-published combos use proportional_scaling_flex_aware_per_position anchored to espn_leg on the flex_aware_pie reindex fit (translation step checked separately).",
     "expected_method": "proportional_scaling_flex_aware_per_position",

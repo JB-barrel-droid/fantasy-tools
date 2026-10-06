@@ -277,5 +277,79 @@ class C10RenderedRolloverTest(unittest.TestCase):
         self.assertEqual(status, "unk")
 
 
+def _c5_record(status, failure_reason=None, hours_ago=1):
+    checked_at = (datetime.now(timezone.utc) - timedelta(hours=hours_ago)).isoformat()
+    return {"status": status, "failure_reason": failure_reason, "_checked_at": checked_at}
+
+
+class C5HealthVocabularyTest(unittest.TestCase):
+    """2026-10-06: cbs/fantasypros (status 'stale'), usatoday ('yellow') and
+    cbsros ('red') c5 checkpoints rendered unk with the dishonest reason
+    \"No health record for this source\" -- but their health records exist;
+    the c5 mapping only knew ok/warning/failed/missing/error, so the rest of
+    the health schema's vocabulary (verify_import_health.py +
+    lib.publication_windows.get_publication_status) fell through. c5_health_verdict
+    now covers the full vocabulary. The stale/yellow/red/warn tests fail on
+    the pre-fix mapping (unk); ok/warning/failed pin the preserved behavior.
+    """
+
+    def test_stale_maps_to_warn_not_unk(self):
+        v = bpc.c5_health_verdict(_c5_record(
+            "stale", "STALE_VINTAGE: content vintage Week 4 != current Week 5."))
+        self.assertEqual(v["status"], "warn")
+        self.assertIn("stale", v["reason"])
+        self.assertIn("STALE_VINTAGE", v["reason"])
+
+    def test_yellow_maps_to_warn_not_unk(self):
+        v = bpc.c5_health_verdict(_c5_record(
+            "yellow", "AWAITING_PUBLICATION: content vintage Week 4, current Week 5."))
+        self.assertEqual(v["status"], "warn")
+        self.assertIn("AWAITING_PUBLICATION", v["reason"])
+
+    def test_red_maps_to_bad_not_unk(self):
+        v = bpc.c5_health_verdict(_c5_record(
+            "red", "MISSED_WINDOW: content vintage Week 4, current Week 5."))
+        self.assertEqual(v["status"], "bad")
+        self.assertIn("MISSED_WINDOW", v["reason"])
+
+    def test_warn_maps_to_warn_not_unk(self):
+        v = bpc.c5_health_verdict(_c5_record("warn", "5d old"))
+        self.assertEqual(v["status"], "warn")
+
+    def test_ok_stays_ok_when_fresh(self):
+        v = bpc.c5_health_verdict(_c5_record("ok"))
+        self.assertEqual(v["status"], "ok")
+
+    def test_ok_ages_to_warn(self):
+        v = bpc.c5_health_verdict(_c5_record("ok", hours_ago=72))
+        self.assertEqual(v["status"], "warn")
+
+    def test_warning_stays_warn(self):
+        v = bpc.c5_health_verdict(_c5_record("warning", "TABLE_DRIFT"))
+        self.assertEqual(v["status"], "warn")
+        self.assertIn("TABLE_DRIFT", v["reason"])
+
+    def test_failed_stays_bad(self):
+        v = bpc.c5_health_verdict(_c5_record("failed", "BYTE_MISMATCH"))
+        self.assertEqual(v["status"], "bad")
+        self.assertIn("BYTE_MISMATCH", v["reason"])
+
+    def test_missing_and_error_stay_bad(self):
+        for s in ("missing", "error"):
+            v = bpc.c5_health_verdict(_c5_record(s))
+            self.assertEqual(v["status"], "bad", s)
+
+    def test_unrecognized_status_is_honest_unk(self):
+        v = bpc.c5_health_verdict(_c5_record("mystery-status"))
+        self.assertEqual(v["status"], "unk")
+        self.assertIn("mystery-status", v["reason"])
+        self.assertNotIn("No health record", v["reason"])
+
+    def test_no_status_key_is_honest_unk(self):
+        v = bpc.c5_health_verdict({"_checked_at": datetime.now(timezone.utc).isoformat()})
+        self.assertEqual(v["status"], "unk")
+        self.assertNotIn("No health record", v["reason"])
+
+
 if __name__ == "__main__":
     unittest.main()
