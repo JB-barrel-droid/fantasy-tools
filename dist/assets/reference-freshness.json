@@ -50,7 +50,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-05T21:59:55+00:00",
+  "generated_at": "2026-10-05T21:14:46-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -145,46 +145,46 @@
       "value": "2026-09-19T15:48:29Z"
     },
     {
-      "age_days": 0,
+      "age_days": -1,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.checked_at",
       "label": "L1 import health checked_at",
       "max_age_days": 2,
       "note": "changed",
-      "status": "same_day",
-      "value": "2026-10-05T21:43:32Z"
+      "status": "future_dated",
+      "value": "2026-10-06T02:07:10Z"
     },
     {
-      "age_days": 0,
+      "age_days": -1,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.cbs",
       "l1_status": "ok",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-05T21:43:32Z; content_vintage is Week 4 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-06T02:07:10Z; content_vintage is Week 4 source provenance, not pull time",
+      "status": "stale",
       "value": "Week 4"
     },
     {
-      "age_days": 0,
+      "age_days": -1,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.cbsros",
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-05T21:43:32Z; content_vintage is 2026-10-02 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-06T02:07:10Z; content_vintage is 2026-10-02 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-10-02"
     },
     {
@@ -218,18 +218,18 @@
       "value": null
     },
     {
-      "age_days": 0,
+      "age_days": -1,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.fantasypros",
       "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-05T21:43:32Z; content_vintage is 2026-09-29 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-06T02:07:10Z; content_vintage is 2026-09-29 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-09-29"
     },
     {
@@ -237,7 +237,7 @@
       "changed_since_prior_report": true,
       "color": "unknown",
       "enforced": false,
-      "failure_reason": "RAZZBALL_STALE: snapshot dated 2026-10-01 is 4d old (>2d fresh, <= 6d warn). No CI puller refreshes Razzball (GAP-024).",
+      "failure_reason": "RAZZBALL_STALE: snapshot dated 2026-10-01 is 5d old (>2d fresh, <= 6d warn). No CI puller refreshes Razzball (GAP-024).",
       "freshness_ok": false,
       "key": "source_import.razzball",
       "l1_status": "warn",
@@ -248,18 +248,18 @@
       "value": "2026-10-01"
     },
     {
-      "age_days": 0,
+      "age_days": -1,
       "changed_since_prior_report": true,
-      "color": "green",
+      "color": "unknown",
       "enforced": false,
       "failure_reason": null,
-      "freshness_ok": true,
+      "freshness_ok": false,
       "key": "source_import.usatoday",
       "l1_status": "ok",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-05T21:43:32Z; content_vintage is 2026-09-29 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=ok; last_successful_import=2026-10-06T02:07:10Z; content_vintage is 2026-09-29 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-09-29"
     }
   ],
@@ -291,10 +291,10 @@
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 7,
-    "l1_unhealthy_count": 3,
+    "expired_count": 12,
+    "l1_unhealthy_count": 7,
     "max_age_days": 2,
-    "stale_count": 8,
+    "stale_count": 12,
     "unchanged_count": 7,
     "unknown_count": 1
   },

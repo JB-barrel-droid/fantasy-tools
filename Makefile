@@ -115,6 +115,10 @@ monitor-lineage:
 test-unit:
 	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_bake_espn_zero_universe
+	python3 -m unittest tests.test_match_identity_keys
+	python3 -m unittest tests.test_source_snapshot_match
+	python3 -m unittest tests.test_rebuild_chain_failclosed
+	python3 -m unittest tests.test_refresh_fantasycalc_supabase
 	python3 -m unittest tests.test_health_artifacts_watch
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_per_source_rescale
@@ -226,10 +230,8 @@ test-integration:
 	python3 -m unittest tests.test_pipeline_cascade
 	python3 -m unittest tests.test_promote_section
 	python3 -m unittest tests.test_pull_watchdog
-	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_save_espn_cbs_references
 	python3 -m unittest tests.test_source_snapshot_import
-	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_supabase_import
 	python3 -m unittest tests.test_writer_audit_enforcement
 

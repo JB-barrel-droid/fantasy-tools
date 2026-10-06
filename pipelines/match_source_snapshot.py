@@ -16,6 +16,8 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
+from lib.canonical_players import norm_plain  # noqa: E402  -- identity-map key convention
+
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 DEFAULT_IDENTITY_MAP = ROOT / "data" / "inputs" / "player_identity_map.json"
 DEFAULT_OUTPUT_DIR = ROOT / "output" / "source-matches"
@@ -104,14 +106,30 @@ def resolve_identity(
 
     Returns the canonical record (name, pos, team) or None if the table
     does not know this name. Fail-closed: unknown names are NOT guessed.
+
+    The identity map is keyed by canonical_players.norm_plain (punctuation
+    DELETED: "Ja'Marr" -> "jamarr", "A.J." -> "aj") plus some raw lowercase
+    spellings. normalize_name() above REPLACES punctuation with a space
+    ("ja marr"), so looking up with it alone missed every punctuated name
+    (Chase, JSN, St. Brown, A.J. Brown, C.J. Stroud ...) and sent them to
+    review as unknown_identity. Try the map's own key convention first.
     """
-    normalized = normalize_name(name)
     alias_to_canonical = identity_map["alias_to_canonical"]
     canonical = identity_map["canonical"]
-    canonical_key = alias_to_canonical.get(normalized)
-    if canonical_key is None:
-        return None
-    return canonical.get(canonical_key)
+    raw = str(name or "")
+    for key in identity_keys(raw):
+        canonical_key = alias_to_canonical.get(key)
+        if canonical_key is None and key in canonical:
+            canonical_key = key
+        if canonical_key is not None:
+            return canonical.get(canonical_key)
+    return None
+
+
+def identity_keys(name: str) -> list[str]:
+    """Lookup keys for the identity map, most specific convention first."""
+    keys = [norm_plain(name), name.lower().strip(), normalize_name(name)]
+    return [k for k in dict.fromkeys(keys) if k]
 
 
 def player_records(players_path: Path) -> list[dict[str, Any]]:
@@ -141,6 +159,28 @@ def build_name_index(records: list[dict[str, Any]]) -> dict[str, list[dict[str, 
     index: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         index.setdefault(record["normalized_name"], []).append(record)
+    return index
+
+
+def build_canonical_index(
+    records: list[dict[str, Any]], identity_map: dict[str, Any]
+) -> dict[str, list[dict[str, Any]]]:
+    """Roster index keyed the same way source rows are: by canonical name.
+
+    Each roster record is filed under its own normalized name AND under the
+    normalized canonical name the identity table gives it, so a roster that
+    says "Cam Ward" joins a source row the table resolves to "Cameron Ward".
+    Both sides go through the identity table; nothing is fuzzy-matched.
+    """
+    index = build_name_index(records)
+    for record in records:
+        identity = resolve_identity(record["name"], identity_map)
+        if not identity:
+            continue
+        key = normalize_name(identity["name"])
+        bucket = index.setdefault(key, [])
+        if all(r["player_key"] != record["player_key"] for r in bucket):
+            bucket.append(record)
     return index
 
 
@@ -188,7 +228,7 @@ def match_snapshot(
         identity_map_path or DEFAULT_IDENTITY_MAP
     )
     records = player_records(players_path)
-    index = build_name_index(records)
+    index = build_canonical_index(records, identity_map)
     matched = []
     review = []
     for row in rows:

@@ -110,12 +110,14 @@ class TestMainEndToEnd(unittest.TestCase):
             "scoring": "half_ppr",
             "pos": "WR",
             "player_key": "jamarr-chase",
+            "teams": 12,  # 310b323: refresh keys on (name, scoring, teams)
         }])
         sdir = repo / "data" / "raw" / "sources" / "fantasycalc" / "week-4"
         sdir.mkdir(parents=True)
         (sdir / "snapshot.json").write_text(json.dumps({"rows": [{
             "player_name": "Ja'Marr Chase",
             "scoring": "half_ppr",
+            "teams": 12,
             "native_value": 8500.0,
         }]}))
 
