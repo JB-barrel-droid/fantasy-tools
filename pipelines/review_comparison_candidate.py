@@ -178,6 +178,53 @@ def verify_top25_live(source, candidate_natives, combo_name=None):
                    f"e.g. {', '.join(mismatches[:3])}")
 
 
+def fetch_live_values(source, combo_name=None):
+    """Live API values for ``source``/``combo_name`` as {norm_name: value}.
+
+    Returns (values, error). Fail closed: any fetch/parse problem returns
+    (None, reason), never an empty "verified" set.
+    """
+    url = live_api_url(source, combo_name)
+    if not url:
+        return None, f"no live API configured for source {source}"
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            data = json.load(resp)
+    except Exception as e:  # noqa: BLE001 - fail closed
+        return None, f"live fetch failed: {e}"
+    live = {}
+    for p in data:
+        name = (p.get("player") or {}).get("name")
+        val = p.get("value")
+        if name and val is not None:
+            live[norm_player_name(name)] = float(val)
+    if not live:
+        return None, "live API returned no players"
+    return live, None
+
+
+def verify_coverage_drop_live(source, combo_name, dropped_slugs):
+    """Jeremy 2026-10-05 (extends the 2026-10-04 drift rule to coverage):
+    a priced-count drop is a genuine source change -- not a pipeline loss --
+    only when EVERY player the fixture priced and the candidate lost is also
+    absent (or unpriced) in the live source for the same combo. One dropped
+    player still listed live means the pipeline lost them: stay on hold.
+    """
+    if not dropped_slugs:
+        return False, "no dropped players identified for the count drop"
+    live, err = fetch_live_values(source, combo_name)
+    if live is None:
+        return False, err
+    still_live = sorted(s for s in dropped_slugs
+                        if live.get(norm_player_name(s), 0.0) > 0)
+    if still_live:
+        return False, (f"{len(still_live)} dropped player(s) still priced live "
+                       f"(e.g. {', '.join(still_live[:3])}) -- pipeline loss")
+    return True, (f"live-verified: all {len(dropped_slugs)} dropped player(s) "
+                  f"absent from the live source ({', '.join(sorted(dropped_slugs)[:4])})")
+
+
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                      players_path=None, no_live_verify=False):
     cand = _load_json(reindexed_path)
@@ -371,8 +418,19 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                 if f_n is None:
                     continue  # fixture records no priced count; cannot compare
                 if c_n < f_n:
-                    checks.append(_check(f"coverage:{combo_name}/{pos}", "fail",
-                                         f"candidate priced {c_n} < fixture {f_n}"))
+                    verified, verify_detail = (False, "live verification skipped")
+                    if not no_live_verify and source in LIVE_API_URLS:
+                        fx_priced = {s for s, v in fx_reidx.items()
+                                     if v and pos_by_key.get(player_keys.get(s)) == pos}
+                        c_keys = combo.get("player_keys", {})
+                        c_priced = {s for s, v in combo["native"].items()
+                                    if v and pos_by_key.get(c_keys.get(s, player_keys.get(s))) == pos}
+                        dropped = sorted(fx_priced - c_priced)
+                        verified, verify_detail = verify_coverage_drop_live(
+                            source, combo_name, dropped)
+                    checks.append(_check(
+                        f"coverage:{combo_name}/{pos}", "pass" if verified else "fail",
+                        f"candidate priced {c_n} < fixture {f_n} -- {verify_detail}"))
         if not any(c["name"].startswith("coverage:") and c["status"] == "fail"
                    for c in checks):
             checks.append(_check("coverage", "pass", "no priced-count regressions"))
