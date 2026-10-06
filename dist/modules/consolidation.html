@@ -432,7 +432,7 @@
     <dt>QB</dt>
     <dd>QB variant. <code>qb1</code> / <code>qb2</code> appear only on FantasyCalc rows — the 1-QB vs 2-QB league variants of that source's value. Everything else stores <code>none</code>, shown as blank: no QB variant is applied, i.e. the value assumes 1-QB leagues. Verified 2026-10-03 against all 20,532 live rows: qb1/qb2 exist only on <code>fantasycalc</code> / <code>fantasycalc_adjusted</code> rows.</dd>
     <dt>View</dt>
-    <dd>Which value family each row carries — four numbers for the same player, answering different questions. <code>combo_reindexed</code>: the trade value the source itself published, put on the shared chart scale (what the source actually said, not a model guess). <code>vorp</code>: value above waivers — how much better the player is than a waiver-wire replacement, computed from the eight position-and-role groups. <code>vorp_indexed</code>: each source's own raw trade numbers on the shared 0–70 chart scale; sources that publish only projections have no value here. <code>adj_values</code>: the final chart-ready number — shared 0–70 axis where the best player across every source hits exactly 70 and every source's values add up to the same overall budget.</dd>
+    <dd>Which value family each row carries — four numbers for the same player, answering different questions. <code>combo_reindexed</code>: the trade value the source itself published, put on the shared chart scale (what the source actually said, not a model guess). <code>vorp</code>: VORP vs waivers — how much better the player is than a waiver-wire replacement, computed from the eight position-and-role groups. <code>vorp_indexed</code>: each source's own raw trade numbers on the shared 0–70 chart scale; sources that publish only projections have no value here. <code>adj_values</code>: the final chart-ready number — shared 0–70 axis where the best player across every source hits exactly 70 and every source's values add up to the same overall budget.</dd>
     <dt>Value</dt>
     <dd>The exact final value — stored unrounded in consolidation. Rounding happens in presentation only.</dd>
   </dl>
@@ -448,7 +448,7 @@ const COLUMNS = [
   { key: 'scoring',  label: 'Scoring', tip: 'full = Full PPR, half = Half PPR, standard = no PPR.' },
   { key: 'teams',    label: 'League Members',   tip: 'League size: 8, 10, 12, or 14 members.' },
   { key: 'qb_variant', label: 'QB',    tip: 'qb1/qb2 = FantasyCalc 1-QB/2-QB variants only. Blank (none) = 1-QB, no variant applied.' },
-  { key: 'view',     label: 'View',    tip: 'combo_reindexed = what the source published; vorp = value above waivers; vorp_indexed = source natives on 0-70; adj_values = final chart number.' },
+  { key: 'view',     label: 'View',    tip: 'combo_reindexed = what the source published; vorp = VORP vs waivers; vorp_indexed = source natives on 0-70; adj_values = final chart number.' },
   { key: 'value',    label: 'Value',   tip: 'Exact final value (unrounded). Rounding is presentation-only.' },
 ];
 

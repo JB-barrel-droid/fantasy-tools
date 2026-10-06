@@ -15,9 +15,9 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     cbs_adjusted: "CBS Adjusted",
-    espn_vorp: "ESPN raw value above waivers",
-    cbsros_vorp: "CBS ROS raw value above waivers",
-    razzball_vorp: "Razzball raw value above waivers"
+    espn_vorp: "ESPN raw VORP vs waivers",
+    cbsros_vorp: "CBS ROS raw VORP vs waivers",
+    razzball_vorp: "Razzball raw VORP vs waivers"
   };
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
   const SOURCE_KEYS = [
@@ -52,7 +52,7 @@
   const SOURCE_GROUPS = [
     {label:"Bottoms Up Value Curves", keys:["espn", "cbsros", "razzball"]},
     {label:"Adjusted source projections", keys:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]},
-    {label:"Raw value above waivers", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
+    {label:"Raw VORP vs waivers", keys:["espn_vorp", "cbsros_vorp", "razzball_vorp"]},
     {label:"Direct published charts", keys:["usatoday", "fantasycalc", "fantasypros", "cbs"]}
   ];
   // Pure raw value-above-waivers curves: projection-minus-waiver VORP from
@@ -795,7 +795,7 @@
   // the view tabs are a shipped feature (QA'd 2026-10-04), not migration scope.
   const VIEW_MODE_DEFS = {
     indexed: { title: "Indexed", viewKey: null },
-    vorp: { title: "Value above waivers" },
+    vorp: { title: "VORP vs waivers" },
     adj: { title: "Adjusted values", viewKey: "adj_values" }
   };
   const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"];
@@ -2718,7 +2718,7 @@
     } else {
       adjustedStatus = "ESPN live is shown by default. Adjusted source projections are live for supported league setups, but this setup has no matching source combo.";
     }
-    status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN value above waivers can be enabled on the same chart.`;
+    status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN VORP vs waivers can be enabled on the same chart.`;
     activeNotices.forEach(note => status.appendChild(note));
   }
 
@@ -3455,7 +3455,7 @@
     // only appear in the VIEW_MODE_ORDER declaration, never in code or copy.
     // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
     const footnoteMiddle = viewMode === VIEW_MODE_ORDER[1]
-      ? "raw value-above-waivers curves from each source's own per-game projections — same shared total as Indexed, no fixed-pie re-tiering"
+      ? "raw VORP vs waivers curves from each source's own per-game projections — same shared total as Indexed, no fixed-pie re-tiering"
       : viewMode === "adj"
       ? "adjusted curves under the shared 0–70 weighting model, with our position weighting applied"
       : `indexed charts are put on the ESPN leg’s pie and matched to its ${Math.round((1 - lastDisplayShare) * 100)}% starter / ${Math.round(lastDisplayShare * 100)}% measured split, waiver to 0`;

@@ -661,7 +661,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("Bottoms Up Value Curves", text)
         self.assertIn("Adjusted source projections", text)
         self.assertIn("Direct published charts", text)
-        self.assertIn("Raw value above waivers", text)
+        self.assertIn("Raw VORP vs waivers", text)
         self.assertIn('DEFAULT_INDEXED_SOURCES = ["espn"]', text)
         self.assertIn("buildCbsAdjustedMap", text)
         self.assertIn("buildEspnIndexedMap", text)
@@ -783,7 +783,7 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("buildEspnRows", text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn('key:"espn_role"', text)
-        self.assertIn("ESPN raw value above waivers", text)
+        self.assertIn("ESPN raw VORP vs waivers", text)
 
     def test_data_health_surfaces_player_news_pipeline(self):
         html = (APP / "index.html").read_text(encoding="utf-8")

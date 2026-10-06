@@ -33,25 +33,25 @@
     usatoday_adjusted: "USAT Adjusted",
     fantasypros_adjusted: "FP Adjusted",
     espn: "ESPN adjusted",
-    espn_vorp: "ESPN raw value above waivers",
-    cbsros_vorp: "CBS ROS raw value above waivers",
-    razzball_vorp: "Razzball raw value above waivers"
+    espn_vorp: "ESPN raw VORP vs waivers",
+    cbsros_vorp: "CBS ROS raw VORP vs waivers",
+    razzball_vorp: "Razzball raw VORP vs waivers"
   };
   const TIPS = {
     usatoday: "Editorial chart, as published and reindexed",
     fantasycalc: "Crowd-sourced values, as published and reindexed",
     fantasypros: "Analyst-consensus chart, as published and reindexed",
     cbs: "Editorial chart, as published and reindexed",
-    cbsros: "CBS rest-of-season projections, computed like ESPN's value-above-waivers leg",
-    razzball: "Razzball rest-of-season projections, computed like ESPN's value-above-waivers leg",
+    cbsros: "CBS rest-of-season projections, computed like ESPN's VORP vs waivers leg",
+    razzball: "Razzball rest-of-season projections, computed like ESPN's VORP vs waivers leg",
     cbs_adjusted: "Derived from CBS values and the current adjustment ratios, then rescaled to the common value pie",
     fantasycalc_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     usatoday_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
     fantasypros_adjusted: "Adjusted best estimate shifting the weighting to our view of value",
-    espn: "ESPN value above waivers split by starter, bench, and waiver tier from the shared league settings",
-    espn_vorp: "ESPN value above waivers before starter/bench utilization",
-    cbsros_vorp: "CBS ROS value above waivers before starter/bench utilization",
-    razzball_vorp: "Razzball value above waivers before starter/bench utilization"
+    espn: "ESPN VORP vs waivers split by starter, bench, and waiver tier from the shared league settings",
+    espn_vorp: "ESPN VORP vs waivers before starter/bench utilization",
+    cbsros_vorp: "CBS ROS VORP vs waivers before starter/bench utilization",
+    razzball_vorp: "Razzball VORP vs waivers before starter/bench utilization"
   };
   // Pure raw value-above-waivers columns (JEG-38): projection-minus-waiver
   // VORP from each source's own per-game projections. Mirrors the chart's
@@ -803,7 +803,7 @@
   function columnBadge(key) {
     if (SOURCE_KEYS.includes(key)) {
       if (key === "espn") return "utilization adjusted";
-      if (PURE_VORP_KEYS.includes(key)) return "raw value above waivers";
+      if (PURE_VORP_KEYS.includes(key)) return "raw VORP vs waivers";
       if (key.endsWith("_adjusted")) return "bias adjusted";
       // DDF-methodology legs (razzball, cbsros) are computed from the
       // publisher's projections with our value-above-waivers method — they

@@ -34,7 +34,7 @@
      "url": "modules/github-actions.json", "backend": "build_github_actions_status.py (rebuild chain)",
      "count_path": "workflows", "min_count": 1, "time_field": "generated_at", "max_age_hours": 7, "required": true,
      "meaning": "parses, workflows listed, generated within 7h"},
-    {"id": "vorp-view", "page": "Monitor", "label": "Value above waivers view",
+    {"id": "vorp-view", "page": "Monitor", "label": "VORP vs waivers view",
      "url": "modules/vorp-view.json", "backend": "make sync", "count_path": "sources", "min_count": 1,
      "time_field": "generated_at", "max_age_hours": 192, "required": true, "meaning": "parses, sources present"},
     {"id": "adj-view", "page": "Monitor", "label": "Adjusted values view",

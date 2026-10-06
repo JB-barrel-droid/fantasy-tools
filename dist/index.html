@@ -1655,7 +1655,7 @@
   <summary><span>Trade value curves</span></summary>
   <div class="curve-body">
   <h2 id="curve-title">Trade value curves</h2>
-  <div class="sub" id="curve-summary">Bottom-up, adjusted, direct, and raw value-above-waivers series can be compared on the same player order. League settings determine which source curves are available.</div>
+  <div class="sub" id="curve-summary">Bottom-up, adjusted, direct, and raw VORP vs waivers series can be compared on the same player order. League settings determine which source curves are available.</div>
   <p class="curve-status" id="curve-status"><strong>Loading:</strong> validating source value series…</p>
   <!-- JEG-325 (2026-10-04): strangler-fig provider surface. Exposes the active
        consolidation provider, the bake id it came from, and the live
@@ -1705,8 +1705,8 @@
         <small class="view-mode-sub">Trade values from each publisher</small>
       </button>
       <button type="button" role="tab" class="view-mode-tab" id="viewModeVorpTab" data-view-mode="vorp" aria-selected="false">
-        <strong class="view-mode-title">Value above waivers</strong>
-        <small class="view-mode-sub">Every source in value-above-waivers units</small>
+        <strong class="view-mode-title">VORP vs waivers</strong>
+        <small class="view-mode-sub">Every source in VORP vs waivers units</small>
       </button>
       <button type="button" role="tab" class="view-mode-tab" id="viewModeAdjTab" data-view-mode="adj" aria-selected="false">
         <strong class="view-mode-title">Adjusted values</strong>
@@ -1817,7 +1817,7 @@
             </div>
             <div class="method-step">
               <h3><span class="step-num">2</span> Our view starts from ESPN's projections</h3>
-              <p id="methodologyViewCopy">Our adjusted view isn't another opinion — it's built from ESPN's season projections. We turn ESPN's per-game projections into value above waivers: each position gets a fixed share of total value, split 85% to starters and 15% to the bench. Where the starter line falls depends on your league — with 12 teams and 2 starting running backs, the 24th RB is the last starter; with 10 teams, it's the 20th. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.</p>
+              <p id="methodologyViewCopy">Our adjusted view isn't another opinion — it's built from ESPN's season projections. We turn ESPN's per-game projections into VORP vs waivers: each position gets a fixed share of total value, split 85% to starters and 15% to the bench. Where the starter line falls depends on your league — with 12 teams and 2 starting running backs, the 24th RB is the last starter; with 10 teams, it's the 20th. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.</p>
             </div>
             <div class="method-step">
               <h3><span class="step-num">3</span> Each chart is recalibrated toward that view</h3>
@@ -1879,7 +1879,7 @@
       <details class="notes-details">
         <summary><h2>Notes &amp; source definitions</h2></summary>
         <ol class="notes-list">
-          <li><strong>Scale and missing values.</strong> Values measure value above waivers on a shared scale whose true top is 87 in Standard, 86 in Half PPR, and 84 in Full PPR. Missing or unpriced values remain blank and are never converted to zero.</li>
+          <li><strong>Scale and missing values.</strong> Values measure VORP vs waivers on a shared scale whose true top is 87 in Standard, 86 in Half PPR, and 84 in Full PPR. Missing or unpriced values remain blank and are never converted to zero.</li>
           <li><strong>Series taxonomy.</strong> As-published values are reindexed only onto the common scoring-specific scale. FC Adjusted, USAT Adjusted, FP Adjusted, and CBS Adjusted are adjusted best-estimate values that shift the weighting to our view of value; missing adjusted values stay blank.</li>
           <li><strong>Sources.</strong> <a href="https://www.usatoday.com/story/sports/fantasy/football/2026/09/15/fantasy-football-trade-value-chart-week-2-ros-rankings/91770884007/" target="_blank" rel="noopener noreferrer">USA Today</a> is an editorial chart; <a href="https://fantasycalc.com" target="_blank" rel="noopener noreferrer">FantasyCalc</a> reflects completed fantasy trades; <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-2-2026/" target="_blank" rel="noopener noreferrer">FantasyPros</a> is an analyst-consensus chart; <a href="https://sportsfly.cbsistatic.com/fantasy/football/news/dave-richards-week-2-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/" target="_blank" rel="noopener noreferrer">CBS</a> is an editorial chart; ESPN uses its season projections translated to the same scale.</li>
           <li><strong>Freshness.</strong> Content date is when a source's published numbers last changed; fit date identifies the bias-adjustment bake. Week-specific references disable after the weekend rollover until the next week's artifact is present. ESPN remains live.</li>
@@ -1964,7 +1964,7 @@
       const lastStarter = teams * 2;
       const benchPct = Math.round((data.bench_share || 0.15) * 100);
       const starterPct = 100 - benchPct;
-      viewCopy.textContent = `Our adjusted view isn\u2019t another opinion \u2014 it\u2019s built from ESPN\u2019s season projections. We turn ESPN\u2019s per-game projections into value above waivers: each position gets a fixed share of total value, split ${starterPct}% to starters and ${benchPct}% to the bench. Where the starter line falls depends on your league \u2014 with ${teams} teams and 2 starting running backs, the ${lastStarter}th RB is the last starter; add teams and that line moves down the rankings. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.`;
+      viewCopy.textContent = `Our adjusted view isn\u2019t another opinion \u2014 it\u2019s built from ESPN\u2019s season projections. We turn ESPN\u2019s per-game projections into VORP vs waivers: each position gets a fixed share of total value, split ${starterPct}% to starters and ${benchPct}% to the bench. Where the starter line falls depends on your league \u2014 with ${teams} teams and 2 starting running backs, the ${lastStarter}th RB is the last starter; add teams and that line moves down the rankings. Players projected below the waiver line are worth nothing; everyone above it earns value based on how far above that line they sit.`;
     }
 
     function render() {

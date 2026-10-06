@@ -2896,3 +2896,26 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   test_source_combo_contract now expects only 12-team setups for every published source and no 2-QB
   block (negative-tested: fails 3/3 against the old fixture); test_methodology_payload expects only
   ESPN at 10 teams and FantasyCalc present at 12. `make validate` green.
+
+## 2026-10-06 ~09:50 CDT — Claude (cloud session): "VORP vs waivers" copy; JEG-135 sweep settled
+
+### Verified (check named)
+- Jeremy (in session, explicit): "Do 'VORP vs waivers'". Recorded as docs/decisions.md copy-vorp-001;
+  CLAUDE.md copy rule and architecture-target Q5 updated. Chart labels, view-mode title, badges and
+  methodology copy (widgets, app index.html, monitor pages) renamed; internal keys unchanged.
+- tests/test_public_copy_no_vorp.py now strips only the exact case-sensitive phrase "VORP vs waivers"
+  before the VORP check. Negative-tested: setting the widget group label to "Raw VORP" fails the
+  test; new unit cases fail on "VORP", "Raw VORP", "vorp vs waivers", "VORP vs replacement",
+  "VORP vs waivers and VORP", "VORP vs waiversX".
+- Pin changes, justified (the pinned copy itself changed by Jeremy's decision, not to go green):
+  test_jeg38_raw_vorp_sources, test_razzball_production_followups (badge expectations; the pre-fix
+  OLD_BADGE_FN kept verbatim), test_static_export now expect "VORP vs waivers" labels.
+- GAP-FLAKY-JEG135 root cause: gate_flexibility.mjs took its baseline table hash after a fixed 1500 ms
+  wait, so under load it read a mid-render table and every later comparison "mismatched". Reproduced:
+  old harness under 4 CPU spinners on 2 cores failed 1/2; new harness (hash read only once stable for
+  3 reads, 15 s cap) passed 2/2 under the same load. Negative check: a build whose table changes on
+  every render still fails the sweep. Full `make validate` rc=0 after the fix.
+
+### Claimed, unverified
+- Pipeline provenance strings baked into fixtures (`method` notes) still say "value-above-waivers";
+  left as data provenance, not chart labels. Rewriting them needs a re-bake.

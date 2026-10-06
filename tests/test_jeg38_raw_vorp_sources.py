@@ -114,8 +114,8 @@ class WidgetRawGroupTest(unittest.TestCase):
             CONST_EVAL_SCRIPT,
             {"t": _extract_const(WIDGET.read_text(), "SOURCE_GROUPS")},
         )
-        raw = [g for g in groups if g["label"] == "Raw value above waivers"]
-        self.assertEqual(len(raw), 1, "expected exactly one Raw value above waivers group")
+        raw = [g for g in groups if g["label"] == "Raw VORP vs waivers"]
+        self.assertEqual(len(raw), 1, "expected exactly one Raw VORP vs waivers group")
         self.assertEqual(raw[0]["keys"], ["espn_vorp", "cbsros_vorp", "razzball_vorp"])
 
     def test_vorp_defs_map_to_source_pure_fields(self):
@@ -190,9 +190,9 @@ class DashboardRawColumnsTest(unittest.TestCase):
             CONST_EVAL_SCRIPT,
             {"t": _extract_const(DASH.read_text(), "LABELS")},
         )
-        self.assertIn("raw value above waivers", labels["espn_vorp"].lower())
-        self.assertIn("raw value above waivers", labels["cbsros_vorp"].lower())
-        self.assertIn("raw value above waivers", labels["razzball_vorp"].lower())
+        self.assertIn("raw vorp vs waivers", labels["espn_vorp"].lower())
+        self.assertIn("raw vorp vs waivers", labels["cbsros_vorp"].lower())
+        self.assertIn("raw vorp vs waivers", labels["razzball_vorp"].lower())
 
     def test_dashboard_vorp_defs_source_pure(self):
         defs = _node_eval(
