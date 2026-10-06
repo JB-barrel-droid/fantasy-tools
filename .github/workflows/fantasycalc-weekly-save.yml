@@ -1,0 +1,92 @@
+name: FantasyCalc weekly save (JEG-427)
+
+# Saves FantasyCalc for the one saved league setup (12 teams, 1 QB) for all
+# three scoring formats into public.source_trade_values as a new immutable
+# bake (fcwk<week>_<date>_v1). Decision league-settings-001: other team counts
+# and rosters are derived in the browser, so nothing else is pulled or saved.
+#
+# This job only writes the source table. Publishing stays with the rebuild
+# chain, which imports, reviews and validates before anything reaches the site.
+#
+# Scheduler owner: Supabase pg_cron `trigger-fantasycalc-weekly-save`
+# (Tue + Fri 13:07 UTC, supabase/migrations/jeg427_fantasycalc_weekly_save.sql),
+# dispatching with mode=write. No `schedule:` here, so there is one owner.
+#
+#   push to fcsave/dry-*    -> pull + resolve + reindex, --dry-run (no write)
+#   push to fcsave/write-*  -> write
+#   workflow_dispatch       -> dry unless mode=write
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+  push:
+    branches: ["fcsave/dry-*", "fcsave/write-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fantasycalc-weekly-save
+  cancel-in-progress: false
+
+jobs:
+  save:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode
+        id: cfg
+        run: |
+          mode=dry
+          case "${GITHUB_REF_NAME}" in fcsave/write-*) mode=write;; esac
+          if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "::notice title=fc-save::mode=$mode week=$(python3 pipelines/nfl_week.py)"
+
+      - name: Pull FantasyCalc 12-team lists (fail-closed)
+        run: python3 pipelines/pull_fantasycalc_12team.py --cache-dir /tmp/fc_cache
+
+      - name: Save to source_trade_values
+        id: save
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          flag="--dry-run"; [ "${{ steps.cfg.outputs.mode }}" = "write" ] && flag=""
+          python3 pipelines/save_fantasycalc_references.py --cache-dir /tmp/fc_cache $flag \
+            --review-out /tmp/fc_review.json 2>&1 | tee /tmp/fc_save.log
+          tail -3 /tmp/fc_save.log | sed "s/^/::notice title=fc-save::/"
+
+      - name: Record the monitored check
+        if: always() && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OK: ${{ steps.save.outcome == 'success' }}
+        run: |
+          python3 - <<'EOF'
+          import os, sbclient
+          ok = os.environ["OK"] == "true"
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "fantasycalc_weekly_save",
+              "p_ok": ok, "p_content_ok": ok,
+              "p_error_code": None if ok else "SAVE_FAILED",
+              "p_scheduler_owner_id": "fantasycalc-weekly-save.yml",
+          })
+          print(f"recorded fantasycalc_weekly_save ok={ok}")
+          EOF

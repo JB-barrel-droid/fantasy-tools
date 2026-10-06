@@ -265,12 +265,23 @@ def main() -> int:
         help="Skip the isotonic chart-scale reindex (debugging only: values stay raw).",
     )
     parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        default=None,
+        help="Read the three fantasycalc_<scoring>_12_qb1.json files from here "
+             "(JEG-427: CI writes them with pipelines/pull_fantasycalc_12team.py). "
+             "Default: the goal-workspace cache.",
+    )
+    parser.add_argument(
         "--review-out",
         type=Path,
         default=None,
         help="Write the review report JSON here.",
     )
     args = parser.parse_args()
+    if args.cache_dir is not None:
+        global CACHE_DIR
+        CACHE_DIR = args.cache_dir
 
     result = save_fantasycalc(
         dry_run=args.dry_run,
