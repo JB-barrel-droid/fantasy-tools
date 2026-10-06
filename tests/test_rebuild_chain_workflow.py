@@ -29,6 +29,7 @@ SYNC_OK = "Sync rebuilt fixture into dist (chain succeeded)"
 PUBLISH_RED = "Publish chain status only (chain failed)"
 COMMIT = "Commit and push if changed"
 FAIL = "Fail the job if the chain failed"
+REFRESH = "Refresh GitHub Actions status (JEG-109)"
 
 FIXTURE = "data/fixtures/current/comparison-sources-data.json"
 MONITOR_FIXTURE = "dist/modules/comparison-sources-data.json"
@@ -260,6 +261,65 @@ def health_failure_problems(text):
     return problems
 
 
+def refresh_fallback_problems(text):
+    """The Refresh step's `||` fallback must restore the last committed
+    workflow-health artifact, never write an empty one.
+
+    Regression (2026-10-06 overnight QA): the 11:00 UTC chain run hit the
+    GitHub API 403 rate limit, the old fallback wrote workflows: [] +
+    'refresh failed', and the Commit step (if: always()) pushed it to main.
+    From then on every Pages deploy failed `make validate` at
+    tests.test_published_surfaces ('github-actions: workflows=0 < 1'),
+    blocking all production updates until the artifact was repaired. A
+    failed refresh must leave the stale-but-valid artifact in place so the
+    deploy gate stays green.
+    """
+    problems = []
+    block = find_step(text, REFRESH)
+    if block is None:
+        return ["refresh step missing"]
+    # Check the executable script only: the explanatory comment above the
+    # run block legitimately names the old failure mode.
+    script = "\n".join(
+        ln for ln in script_of(block).splitlines()
+        if not ln.strip().startswith("#"))
+    # The broken fallback wrote an empty workflow-health artifact
+    # (workflows: [] + 'refresh failed'). Match the artifact payload, not
+    # the bare words, so a warning echo in the new fallback does not trip.
+    if "'workflows': []" in script or '"workflows": []' in script:
+        problems.append(
+            "the Refresh step fallback writes an empty workflow-health artifact "
+            "('refresh failed'): a failed refresh must restore the last committed "
+            "artifact so the deploy gate stays green")
+    if "git checkout --" not in script:
+        problems.append(
+            "the Refresh step does not restore the last committed workflow-health "
+            "artifact when the refresh fails")
+    return problems
+
+
+def failed_refresh_preserves_artifact(text):
+    """Simulate a 403 rate-limit refresh failure: the builder script exits
+    nonzero; after the Refresh step runs, the committed artifact must still
+    hold its old valid bytes (byte-identical), not an empty error-flagged
+    payload."""
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        remote, work = td / "remote.git", td / "work"
+        git(td, "init", "-q", "--bare", "-b", "main", str(remote))
+        git(td, "clone", "-q", str(remote), str(work))
+        git(work, "checkout", "-q", "-b", "main")
+        old = '{"generated_at": "X", "workflows": ["w1"], "summary": {"total_workflows": 1}}'
+        write(work, GH_ACTIONS, old)
+        # A rate-limited builder: fails before writing anything.
+        write(work, "pipelines/build_github_actions_status.py",
+              "#!/usr/bin/env python3\nimport sys\nsys.exit(1)\n")
+        git(work, "add", "-A")
+        git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "baseline")
+        r = run_script(text, REFRESH, work)
+        return {"rc": r.returncode, "artifact": (work / GH_ACTIONS).read_text()}
+
+
 class RebuildChainWorkflowTest(unittest.TestCase):
     def assertCaught(self, mutated, fragment):
         self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
@@ -272,6 +332,26 @@ class RebuildChainWorkflowTest(unittest.TestCase):
         self.assertEqual([], static_problems(WORKFLOW))
         self.assertEqual([], behaviour_problems(WORKFLOW))
         self.assertEqual([], health_failure_problems(WORKFLOW))
+        self.assertEqual([], refresh_fallback_problems(WORKFLOW))
+        sim = failed_refresh_preserves_artifact(WORKFLOW)
+        self.assertEqual(0, sim["rc"])
+        self.assertIn('"total_workflows": 1', sim["artifact"])
+
+    def test_empty_refresh_fallback_is_caught(self):
+        # Reintroduce the 2026-10-06 deploy blocker: on refresh failure the
+        # fallback writes the empty error-flagged artifact instead of
+        # restoring the committed one.
+        mutated = WORKFLOW.replace(
+            '|| { echo "WARNING: GitHub Actions status refresh failed (likely API rate limit); keeping the last committed artifact." >&2; git checkout -- dist/modules/github-actions.json; }',
+            '|| python3 -c "import json; json.dump({\'workflows\': [], \'error\': \'refresh failed\'}, '
+            'open(\'dist/modules/github-actions.json\',\'w\'))"', 1)
+        self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
+        problems = refresh_fallback_problems(mutated)
+        self.assertTrue(any("must restore the last committed" in p for p in problems),
+                        msg=f"expected a restore-the-artifact problem, got {problems}")
+        sim = failed_refresh_preserves_artifact(mutated)
+        self.assertNotIn('"total_workflows": 1', sim["artifact"],
+                         "sim should catch the empty artifact replacing the valid one")
 
     def test_red_chain_pushes_only_status_and_health_files(self):
         red = run_scenario(WORKFLOW, "failure")

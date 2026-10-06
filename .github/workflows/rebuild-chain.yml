@@ -121,22 +121,24 @@ jobs:
 
       - name: Refresh GitHub Actions status (JEG-109)
         # Runs on every chain execution (success or failure) so the dashboard's
-        # workflow-health section stays fresh. Unauthenticated API: 7 workflows
-        # x 6 calls each = ~42 calls, well under the 60/hr limit.
-        # MUST always write the file: the commit step's `git add` fails entirely
-        # if a pathspec matches nothing, which would unstage everything else.
+        # workflow-health section stays fresh. Unauthenticated API: 1 workflow
+        # list call + 1 recent-runs call per workflow ~= 17 calls per run,
+        # well under the 60/hr limit -- but combined with the other hourly
+        # jobs a 403 refresh failure is expected from time to time.
+        # On refresh failure the fallback MUST restore the last committed
+        # artifact, never write an empty one: tests.test_published_surfaces
+        # requires workflows >= 1, and the old empty fallback
+        # (workflows: [] + 'refresh failed') failed `make validate` on every
+        # subsequent Pages deploy (observed 2026-10-06: 11:00 UTC 403 pushed
+        # the empty artifact to main, blocking all production updates until
+        # repaired). The file is committed, so leaving it untouched keeps the
+        # last valid bytes and the Commit step's git add pathspec still
+        # matches.
         if: always()
         run: |
           python3 pipelines/build_github_actions_status.py \
             --out dist/modules/github-actions.json \
-            || python3 -c "
-          import json, datetime
-          json.dump({'generated_at': datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                     'repo': 'JB-barrel-droid/fantasy-tools', 'workflows': [],
-                     'coverage_gaps': [], 'error': 'refresh failed',
-                     'summary': {'total_workflows': 0}}, 
-                    open('dist/modules/github-actions.json','w'), indent=2)
-          "
+            || { echo "WARNING: GitHub Actions status refresh failed (likely API rate limit); keeping the last committed artifact." >&2; git checkout -- dist/modules/github-actions.json; }
 
       - name: Commit and push if changed
         id: push
