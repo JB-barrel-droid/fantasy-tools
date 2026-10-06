@@ -122,6 +122,7 @@ test-unit:
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_refresh_fantasycalc_supabase
+	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_per_source_rescale

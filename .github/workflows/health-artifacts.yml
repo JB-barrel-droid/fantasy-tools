@@ -91,8 +91,12 @@ jobs:
 
       - name: Summary
         if: always()
+        # Runs under `bash -e`: every file read is guarded with `|| true`
+        # because /tmp/build.rc only exists when the producer recorded an
+        # error. A bare `cat` on the missing file exits 1 and fails the whole
+        # workflow even though producer + watcher both succeeded (2026-10-06).
         run: |
-          { echo "## Health artifacts"; echo "producer build: ${{ steps.build.outcome }}"; echo '```'; cat /tmp/build.rc 2>/dev/null; tail -25 /tmp/build.log 2>/dev/null; echo; cat /tmp/watch.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "## Health artifacts"; echo "producer build: ${{ steps.build.outcome }}"; echo '```'; cat /tmp/build.rc 2>/dev/null || true; tail -25 /tmp/build.log 2>/dev/null || true; echo; cat /tmp/watch.log 2>/dev/null || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v4
         if: always()
