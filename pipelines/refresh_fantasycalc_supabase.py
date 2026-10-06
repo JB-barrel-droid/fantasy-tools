@@ -92,11 +92,13 @@ def main(argv=None) -> int:
     matched = json.load(open(match_path))["matched_rows"]
     print(f"Loaded {len(matched)} matched rows from {match_path}")
 
-    # Load the snapshot for native values
+    # Load the snapshot for native values (keyed by name+scoring+teams: the
+    # 12-combo world; a name+scoring-only key would collapse the 4 team
+    # sizes onto whichever row the dict kept last).
     snap = json.load(open(REPO / "data/raw/sources/fantasycalc/week-4/snapshot.json"))
     snap_by_key = {}
     for row in snap["rows"]:
-        key = (row.get("player_name"), row.get("scoring"))
+        key = (row.get("player_name"), row.get("scoring"), row.get("teams"))
         snap_by_key[key] = row
 
     # Check existing Week 4 rows
@@ -144,7 +146,13 @@ def main(argv=None) -> int:
     skipped = 0
     missing_team = 0
     for m in matched:
-        snap_key = (m.get("source_player_name"), m.get("scoring"))
+        teams = m.get("teams")
+        if teams not in (8, 10, 12, 14):
+            print(f"WARNING: skipping {m.get('source_player_name')}: "
+                  f"unexpected teams={teams}", file=sys.stderr)
+            skipped += 1
+            continue
+        snap_key = (m.get("source_player_name"), m.get("scoring"), teams)
         snap_row = snap_by_key.get(snap_key)
         if not snap_row:
             skipped += 1
@@ -163,7 +171,7 @@ def main(argv=None) -> int:
             "position": m.get("pos"),
             "team": team,
             "scoring": scoring,
-            "league_teams": 12,
+            "league_teams": teams,
             "qb_slots": 1,
             "season": SEASON,
             "week": WEEK,

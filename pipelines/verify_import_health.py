@@ -82,7 +82,10 @@ SOURCE_CONFIGS = {
         "api_table": "source_trade_values",
         "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasycalc&variant=eq.as_published",
         "vintage_date_col": "source_content_date",
-        "table_holds_review_rows": True,
+        # Review rows never touch the table (fail-closed: only matched rows
+        # are written by refresh_fantasycalc_supabase.py). The manifest's
+        # row_count is the matched count; review_count is informational.
+        "table_holds_review_rows": False,
     },
     "usatoday": {
         "api_table": "source_trade_values",
