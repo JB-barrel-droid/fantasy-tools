@@ -74,9 +74,18 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # Copy the health artifact to the monitor even when the gate is RED.
+        # output/ is gitignored, so dist/modules/ is the only copy the commit
+        # step can publish; before 2026-10-06 the cp ran only on GREEN, and a
+        # red gate left the monitor showing an older (often Muse-local) result.
         run: |
+          set +e
           python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}
-          cp output/source-import-health.json dist/modules/source-import-health.json
+          rc=$?
+          set -e
+          cp output/source-import-health.json dist/modules/source-import-health.json \
+            || echo "::warning::verify_import_health wrote no artifact; nothing to publish"
+          exit $rc
 
       - name: Rebuild comparison chain (if fixture stale)
         id: chain
