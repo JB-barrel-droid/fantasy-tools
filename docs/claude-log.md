@@ -2658,3 +2658,26 @@ Independent review caught 3 worker bugs, all fixed before push (test file only):
 2. RepoScanGuard looked up leading comments from the FIRST match in each file, not the current function's match — _iter_create_function_bodies now yields match.start.
 3. CREATE_FUNCTION_RE never compiled on Python 3.11+ (global (?ix) not at position 0) and could not parse multi-line DDL (no DOTALL) — now (?ixs) at position 0.
 Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside the sandbox: 7/7 green. The synthetic stub (exact ticket function name, innocuous comment) is caught; the synthetic real function passes. Pushed as part of the JEG-323 integration.
+
+## 2026-10-05 ~20:45 CDT — Claude (cloud session): CBS ROS remediation prep, FantasyCalc hold
+
+### Verified (check named)
+- The 333 cbsros consolidated_values rows (week 4, full, 12, qb none, combo_reindexed) equal the
+  09-30 **standard**-scoring 12-team DDF leg (Bowers 18.66, Bijan 54.83, Allen 23.95), not the
+  full-PPR slice their label says — the 2026-10-04 ad-hoc load mislabeled the slice.
+- Published fixture cbsros vintage is 2026-10-02. CI (load/cbsros-dry-1) rebuilt all 12 legs from
+  the Supabase 10-02 snapshot: "all 12 CBS ROS legs equal the published fixture" (333 players
+  each); loader dry run clean. Verifier rejects the 09-30 legs on real data.
+- First write attempt (load/cbsros-write-1) refused before writing: per_source_cap_audit.run_id
+  FK -> loader_runs and the loader never wrote the parent row. Fixed (#347). No rows changed
+  (cbsros still 333; RPC is all-or-nothing). Backup ops.cbsros_consolidated_backup_20261005
+  (333 rows); bake 9ddd2e34-a13e-407b-ac0a-39bee377a183 registered for the 10-02 content.
+- Chain after the 613-player universe: usatoday, fantasypros, espn, cbs, cbsros promote; only
+  fantasycalc holds. native_drift part was a bug: live verification always queried 12-team
+  half-PPR (fixed #346, test fails 3/3 on old code). Coverage part (full_10 WR 76<78, TE 27<29)
+  is a genuine FantasyCalc rotation (dropped e.g. Jeudy, Jayden Reed, Otton; added Jennings,
+  Higbee); triage cannot clear coverage checks — needs a gate decision.
+
+### Not done
+- The CBS ROS production write: retry blocked by the session permission policy; run from
+  Actions ("CBS ROS consolidation load (JEG-381)", mode=write) or authorize Claude.
