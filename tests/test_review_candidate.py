@@ -201,7 +201,7 @@ class TestReviewStage(unittest.TestCase):
             return nat
         cand, fx = build(self.tmp, source="fantasycalc", mutate=mutate)
         orig = rvw.verify_top25_live
-        rvw.verify_top25_live = lambda src, nat: (True, "live-verified 25/25 top-25 within 5%")
+        rvw.verify_top25_live = lambda src, nat, combo=None: (True, "live-verified 25/25 top-25 within 5%")
         try:
             report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         finally:
@@ -222,7 +222,7 @@ class TestReviewStage(unittest.TestCase):
             return nat
         cand, fx = build(self.tmp, source="fantasycalc", mutate=mutate)
         orig = rvw.verify_top25_live
-        rvw.verify_top25_live = lambda src, nat: (False, "live mismatch 3/25 top-25 match")
+        rvw.verify_top25_live = lambda src, nat, combo=None: (False, "live mismatch 3/25 top-25 match")
         try:
             report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         finally:
