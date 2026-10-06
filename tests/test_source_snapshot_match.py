@@ -79,7 +79,10 @@ class SourceSnapshotMatchTest(unittest.TestCase):
             self.assertEqual({"input_row_count": 5, "matched_count": 3, "review_count": 2}, payload["summary"])
             self.assertEqual([869, 101, 201], [row["player_key"] for row in payload["matched_rows"]])
             reasons = [row["reason"] for row in payload["review_rows"]]
-            self.assertEqual(["ambiguous", "no_match"], reasons)
+            # "Unknown Player" is not in the canonical identity table, so since
+            # 285ab24 it is reported as unknown_identity (it never reaches the
+            # roster join that emits no_match).
+            self.assertEqual(["ambiguous", "unknown_identity"], reasons)
             self.assertEqual([201, 202], payload["review_rows"][0]["candidate_player_keys"])
 
 

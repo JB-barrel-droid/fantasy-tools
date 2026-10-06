@@ -2705,3 +2705,35 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 - tests.test_import_health fails locally on clean origin/main (razzball entry gains vintage_date/
   age_days from ac2f173, pushed by another lane) yet main's deploy for ac2f173 passed in CI;
   not investigated further. Not caused by this session's changes (identical failure with/without).
+
+## 2026-10-05 ~22:30 CDT — Claude (cloud session): snapshot matcher identity-key regression (285ab24)
+
+### Verified (check named)
+- 285ab24 (another lane, "canonical-identity snapshot matching") looked names up in
+  player_identity_map.json with match_source_snapshot.normalize_name, which REPLACES punctuation
+  with a space ("ja marr chase"); the map is keyed by canonical_players.norm_plain ("jamarr chase").
+  Ran the matcher on data/raw/sources/fantasycalc/week-4/snapshot.json: 552/594 matched, 33 rows
+  unknown_identity = 11 players (Ja'Marr Chase, Jaxon Smith-Njigba, Amon-Ra St. Brown, D'Andre Swift,
+  A.J. Brown, Jacory Croskey-Merritt, J.K. Dobbins, Wan'Dale Robinson, C.J. Stroud, T.J. Hockenson,
+  De'Zhaun Stribling). Roster join also lost Cam Ward / Cam Skattebo (table canonical "Cameron ...").
+  The next chain run would have dropped them and held FantasyCalc on coverage.
+- Fix: identity lookup tries norm_plain, raw lowercase, then normalize_name; roster is indexed under
+  each record's identity-table canonical name too. After: 591/594 matched, only Tyreek Hill left
+  (not on the chart roster — correct no_match); no player_key matched twice per combo.
+- tests/test_match_identity_keys.py fails 5 assertions on the 285ab24 matcher (run against
+  `git show HEAD:` copy); also fixes test_fantasycalc_drift.test_matcher_carries_native_value,
+  which was red on main for the same reason.
+- Pin change, justified: test_source_snapshot_match expected reason "no_match" for an unknown name;
+  285ab24 deliberately routes unknown names to "unknown_identity" before the roster join, so the
+  old label no longer describes the design. Count/order assertions unchanged.
+- Harness/fixture updates (no assertions changed): test_rebuild_chain_failclosed fake now knows the
+  fail-safe translate_via_vorp.py stage (8 tests were red on main); test_refresh_fantasycalc_supabase
+  fixture carries teams=12 (310b323 keys the refresh on name/scoring/teams).
+- These four tests were red on main because none ran in `make validate`; moved/added to test-unit.
+  `make validate` green locally.
+
+### Claimed, unverified
+- The Sleeper base (data/inputs/sleeper_identity_base.json) resolves name collisions first-write-wins:
+  layered_identity.resolve_identity("josh allen") returns a free-agent G, "j allen" a DT. It is not
+  wired into any pipeline yet, so nothing is mis-keyed today. Must be collision-aware before JEG-366
+  wires it in (next PR).

@@ -106,6 +106,11 @@ class WireFake:
                 return False, "promotion refused: review verdict is not 'ready'"
             return True, ""
 
+        if script == "translate_via_vorp.py":
+            # JEG-64 stage is fail-safe by design (never halts the chain);
+            # the fake mirrors its success path without touching Supabase.
+            return True, "vorp-translate: fake no-op"
+
         if script == "build_cbsros_ddf_leg.py":
             return True, ""
 
