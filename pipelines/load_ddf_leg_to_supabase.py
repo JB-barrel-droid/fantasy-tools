@@ -409,6 +409,23 @@ def slice_count(sb, dims, view):
     return len(rows)
 
 
+def loader_run_row(run_context, dims):
+    """The public.loader_runs parent row for this execution's audit rows."""
+    return {
+        "run_id": run_context["run_id"],
+        "ddf_leg_version": run_context.get("ddf_leg_version"),
+        "git_commit_sha": run_context.get("git_commit_sha"),
+        "loader_host": run_context.get("loader_host"),
+        "notes": (f"load_ddf_leg_to_supabase {dims['source']} {dims['scoring']} "
+                  f"{dims['teams']}t season {dims['season']} week {dims['week']}"),
+    }
+
+
+def ensure_loader_run(sb, run_context, dims):
+    sb.post("loader_runs", [loader_run_row(run_context, dims)],
+            prefer="return=minimal")
+
+
 def write_rows(sb, sb_name, rows, use_rpc):
     """Prefer the transactional RPC (JEG-380); fall back to chunked upsert."""
     if use_rpc:
@@ -550,6 +567,9 @@ def main():
     # aborts the load (anti-swap pattern from the design doc).
     # ------------------------------------------------------------------
     if PER_SOURCE_CAP_DB_AUDIT and audit_entries:
+        # JEG-381 fix: per_source_cap_audit.run_id is an FK to loader_runs
+        # (JEG-389); without the parent row every audit insert was rejected.
+        ensure_loader_run(sb, run_context, dims)
         try:
             inserted = insert_rescale_audit(sb, audit_entries)
         except RescaleError as e:
