@@ -1,26 +1,27 @@
 name: Health artifacts (non-Muse producer + watch)
 
-# JEG-414 (ARCH-013). Runs independently of Muse every 30 minutes:
+# JEG-414 (ARCH-013). The monitor's health writer, every 30 minutes:
 #   1. Builds source-import-health.json and pipeline-checkpoints.json in CI
-#      (shadow mode: uploaded as a run artifact, not published -- cut over
-#      from the Muse writer only after checkpoint parity is verified; the
-#      'Annotate checkpoint verdicts' step prints CI's per-source verdicts
-#      for that comparison). C2 no longer reads file mtimes (GAP-C2-MTIME).
+#      and PUBLISHES them to dist/modules on main (cut over from Muse's
+#      30-min dashboard push, 2026-10-06). C2 uses the Supabase landing time
+#      when no Mac-local pull file exists (GAP-C2-MTIME), never a file mtime.
 #   2. Measures the age of the SERVED artifacts from their own timestamps
 #      and records each result in Supabase monitoring.check_observations.
 #   3. Fails (red) when a served artifact is older than 60 minutes.
 # A pg_cron evaluator (monitoring-evaluator-5min) marks these checks
 # 'missed' if this workflow itself stops reporting.
 
+# Scheduler owner: Supabase pg_cron `health-artifacts-live` (11,41 * * * *,
+# supabase/migrations/jeg414_health_artifacts_pg_cron.sql). No `schedule:`
+# here, so there is one owner (ops-ownership-001: Supabase first).
 on:
-  schedule:
-    - cron: "11,41 * * * *"
   workflow_dispatch:
   push:
     branches: ["health/**"]
 
 permissions:
-  contents: read
+  contents: write  # publish the health artifacts to main (JEG-414)
+  actions: write   # dispatch pages.yml; GITHUB_TOKEN pushes don't trigger it (JEG-274)
 
 concurrency:
   group: health-artifacts
@@ -41,7 +42,7 @@ jobs:
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
-      - name: Build health artifacts (shadow)
+      - name: Build health artifacts
         id: build
         continue-on-error: true
         env:
@@ -99,6 +100,40 @@ jobs:
               print(f"::notice title=checkpoints {src}::{row}")
           PY
 
+      # Publish only a successfully produced pair; a broken build never
+      # replaces the served artifacts (the watcher then reports them aging).
+      - name: Publish to the monitor (JEG-414)
+        id: publish
+        if: steps.build.outcome == 'success' && github.ref == 'refs/heads/main'
+        run: |
+          cp output/source-import-health.json dist/modules/source-import-health.json
+          cp output/pipeline-checkpoints.json dist/modules/pipeline-checkpoints.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/modules/source-import-health.json dist/modules/pipeline-checkpoints.json
+          if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
+          git commit -m "Health artifacts (CI, JEG-414)"
+          for attempt in 1 2 3; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep 10
+          done
+          echo "::error::could not push health artifacts after 3 attempts"; exit 1
+
+      - name: Trigger Pages deploy (JEG-274)
+        if: steps.publish.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/d.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}')
+          echo "pages dispatch HTTP $code"; cat /tmp/d.json || true
+          [ "$code" = "204" ]
+
       - name: Watch served artifacts + record observations
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -120,7 +155,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: health-artifacts-shadow
+          name: health-artifacts
           path: |
             output/source-import-health.json
             output/pipeline-checkpoints.json
