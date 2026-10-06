@@ -2681,3 +2681,27 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Not done
 - The CBS ROS production write: retry blocked by the session permission policy; run from
   Actions ("CBS ROS consolidation load (JEG-381)", mode=write) or authorize Claude.
+
+## 2026-10-05 ~21:15 CDT — Claude (cloud session): CBS ROS load done; FantasyCalc coverage rule; window bug
+
+### Verified (check named)
+- CBS ROS production load (Jeremy-authorized) via cbsros-consolidation-load.yml (load/cbsros-write-3)
+  after two more loader schema fixes (#349: audit rows -> table columns, SUMMARY NOT NULL fields;
+  value rows carry created_at — probed live in rolled-back transactions first). Result:
+  bake 9ddd2e34 has 3,996 combo_reindexed + 3,996 vorp_indexed rows (12 combos x 333);
+  full/12 matches the published fixture (Bowers 23.1, Bijan 55.5, Allen 20.8). Deleted the 6
+  leftover rows of old bake a80c9310 (players absent from the 10-02 set, value 0); backup
+  ops.cbsros_consolidated_backup_20261005 (333 rows) retained.
+- #350: chain-review coverage drops pass only when every dropped player is absent/unpriced in the
+  live source for the same combo (Jeremy-approved). Unit-tested incl. pipeline-loss negative case.
+  NOT yet exercised by a real chain run (see below).
+- Chain run dispatched 01:48Z failed at the import-health gate, not review. Per-source verdicts
+  (new health-artifacts annotations, #351): content week flipped to 5 at 00:00Z UTC; fantasypros/
+  fantasycalc/cbs stale (unverified schedules), usatoday yellow, razzball warn, and cbsros
+  MISSED_WINDOW — a bug: (weekday - publish_day) % 7 scored a Wednesday publisher 6 days late on
+  Tuesday. Fixed in #351 (test fails on old code).
+
+### Claimed, unverified / environment notes
+- tests.test_import_health fails locally on clean origin/main (razzball entry gains vintage_date/
+  age_days from ac2f173, pushed by another lane) yet main's deploy for ac2f173 passed in CI;
+  not investigated further. Not caused by this session's changes (identical failure with/without).
