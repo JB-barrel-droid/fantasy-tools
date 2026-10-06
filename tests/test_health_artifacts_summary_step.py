@@ -21,21 +21,44 @@ import re
 import shutil
 import subprocess
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
-
-import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW = ROOT / ".github" / "workflows" / "health-artifacts.yml"
 
 
 def _summary_run_script():
-    """Extract the Summary step's `run:` script from the workflow YAML."""
-    doc = yaml.safe_load(WORKFLOW.read_text())
-    for step in doc["jobs"]["produce-and-watch"]["steps"]:
-        if step.get("name") == "Summary":
-            return step["run"]
+    """Extract the Summary step's `run:` script from the workflow YAML.
+
+    No pyyaml: CI (Pages deploy) is stdlib-only, so the block is parsed
+    literally -- the script is the indented block following the `run: |`
+    line of the `- name: Summary` step.
+    """
+    lines = WORKFLOW.read_text().splitlines()
+    in_summary = False
+    for i, line in enumerate(lines):
+        if re.match(r"^\s*-\s+name:\s*Summary\s*$", line):
+            in_summary = True
+            continue
+        if not in_summary:
+            continue
+        m = re.match(r"^(\s*)run:\s*\|\s*$", line)
+        if not m:
+            continue
+        run_indent = len(m.group(1))
+        raw = []
+        for nxt in lines[i + 1:]:
+            if nxt.strip():
+                indent = len(nxt) - len(nxt.lstrip())
+                if indent <= run_indent:
+                    break
+            raw.append(nxt)
+        script = textwrap.dedent("\n".join(raw)).strip("\n")
+        if not script:
+            raise AssertionError("Summary step has an empty run script")
+        return script
     raise AssertionError("Summary step not found in health-artifacts.yml")
 
 
