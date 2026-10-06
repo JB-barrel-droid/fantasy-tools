@@ -64,7 +64,10 @@ for (const [tableScore, curveScore] of [['standard','standard'],['half','half_pp
         const key = comboKeyFor(source);
         assert.equal(key, comboKey(source));
         assert.ok(key.startsWith(tableScore + '_' + n));
-        const expected = raw === 'fantasycalc' || n === 12;
+        // league-settings-001 (2026-10-06): every published source, FantasyCalc
+        // included, saves only the 12-team setup; other sizes are derived in the
+        // browser, so no saved block exists for them.
+        const expected = n === 12;
         assert.equal(sourceComboExists(source), expected, source + ':' + key);
         assert.equal(selectedCombo(source) !== null, expected);
       }
@@ -92,8 +95,10 @@ for (const n of [8,10,12,14]) {
       const one = ValueModel.sourceComboKey(source, score, n, 1);
       const two = ValueModel.sourceComboKey(source, score, n, 2);
       assert.notEqual(one, two);
-      assert.ok(data.sources[source].combos[one]);
-      assert.ok(data.sources[source].combos[two]);
+      // Only the 12-team 1-QB setup is saved (league-settings-001); the lookup
+      // must never borrow it for another size or the 2-QB grain.
+      assert.equal(Boolean(data.sources[source].combos[one]), n === 12);
+      assert.equal(data.sources[source].combos[two], undefined);
       assert.equal(ValueModel.sourceComboKey(source, score, n, 3), null);
       const onlyTwo = {[two]: {native:{test:10}}};
       assert.equal(onlyTwo[one], undefined);
@@ -121,7 +126,8 @@ for (const n of [12,10,14,12]) {
   state.teams = n;
   runRegressionGuards();
   assert.equal(window.TradeValueComparisonDiagnostics.teams, n);
-  assert.equal(window.TradeValueComparisonDiagnostics.availableSourceCount, n === 12 ? 8 : 2);
+  // No published source has a saved non-12-team setup since league-settings-001.
+  assert.equal(window.TradeValueComparisonDiagnostics.availableSourceCount, n === 12 ? 8 : 0);
   assert.equal(window.TradeValueComparisonDiagnostics.rolloverAware, true);
 }
 """)

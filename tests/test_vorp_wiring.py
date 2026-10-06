@@ -23,18 +23,11 @@ FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json
 # qb2 combos are deliberately excluded: they fall back to reindex by design
 # (grain has no qb dimension; see _qb_divergent_siblings).
 ORDERING_CASES = [
+    # FantasyCalc saves only the 12-team, 1-QB setups (decision league-settings-001,
+    # 2026-10-06); the 8/10/14-team blocks were retired from the fixture.
     ("fantasycalc", "half_12_qb1", "jaxon smithnjigba", "puka nacua"),
     ("fantasycalc", "full_12_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "full_10_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "full_14_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "full_8_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "half_10_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "half_14_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "half_8_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "standard_10_qb1", "jaxon smithnjigba", "puka nacua"),
     ("fantasycalc", "standard_12_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "standard_14_qb1", "jaxon smithnjigba", "puka nacua"),
-    ("fantasycalc", "standard_8_qb1", "jaxon smithnjigba", "puka nacua"),
     ("usatoday", "full_12", "jaxon smithnjigba", "puka nacua"),
     ("usatoday", "half_12", "jaxon smithnjigba", "puka nacua"),
     ("usatoday", "standard_12", "jaxon smithnjigba", "puka nacua"),
