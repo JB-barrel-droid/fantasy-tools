@@ -17,7 +17,8 @@ import load_ddf_leg_to_supabase as L  # noqa: E402
 
 # consolidated_values NOT NULL columns + CHECK values (live schema 2026-10-05).
 NOT_NULL = {"player", "source", "season", "week", "scoring", "teams", "qb_variant",
-            "view", "value", "detail_locator", "bake_id", "player_key", "bake_uuid"}
+            "view", "value", "detail_locator", "bake_id", "player_key", "bake_uuid",
+            "created_at", "source_generated_at"}
 PK = ["player", "source", "season", "week", "scoring", "teams", "qb_variant", "view"]
 BAKE = "a80c9310-f47e-4d18-ac6f-c74f038bfdf4"
 

@@ -271,6 +271,7 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid, leg_label="ddf_
        pass through untouched (factor = 1.0).
     """
     rows = []
+    created_at = _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     scoring_db = SCORING_DB.get(str(dims["scoring"]))
     if scoring_db is None:
         raise LoadError(f"scoring {dims['scoring']!r} has no consolidated_values "
@@ -291,6 +292,9 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid, leg_label="ddf_
             raise LoadError(f"row {i}: player / player_norm missing")
         locator = f"{leg_label}#values[{i}]"
         base = {
+            # created_at is NOT NULL; the ingest RPC inserts full records via
+            # jsonb_populate_recordset, so column defaults do not apply.
+            "created_at": created_at,
             "player": player,
             "bake_id": str(bake_uuid) if bake_uuid else None,
             "source": dims["source"],

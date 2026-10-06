@@ -377,8 +377,15 @@ class TestAuditEntryShapes(unittest.TestCase):
             "sources_scaled", "sources_total",
             "run_id", "ddf_leg_version", "git_commit_sha", "loader_host",
             "built_at",
+            # JEG-381 (2026-10-05): per_source_cap_audit declares these NOT
+            # NULL on every row, so the SUMMARY carries run-wide values; the
+            # old pin predated the table and made every DB insert fail.
+            "pre_max", "post_max", "scale_factor", "source_row_count",
         }
         self.assertEqual(set(summary.keys()), expected_fields)
+        self.assertEqual(summary["pre_max"], 97.3)
+        self.assertEqual(summary["post_max"], 70.0)
+        self.assertEqual(summary["source_row_count"], 2)
         self.assertEqual(summary["kind"], "summary")
         self.assertEqual(summary["source"], "__SUMMARY__")
         self.assertEqual(summary["cap"], CAP)
@@ -656,6 +663,32 @@ class TestStandingRuleNegativeTests(unittest.TestCase):
             blocker.write_text("not a dir")
             with self.assertRaises(RescaleError):
                 emit_artifact_rescale_audit([], blocker / "x.json")
+
+
+
+class TestAuditDbRow(unittest.TestCase):
+    """JEG-381: rows sent to per_source_cap_audit must use only table columns
+    and fill every NOT NULL column (PGRST204 on 'built_at' before the fix)."""
+    NOT_NULL = {"run_id", "ddf_leg_version", "git_commit_sha", "source",
+                "value_column", "cap", "pre_max", "post_max", "scale_factor",
+                "source_row_count"}
+
+    def _entries(self, values):
+        rows = [_combo_row("cbsros", v) for v in values]
+        factors = compute_rescale_factors(rows)
+        out = apply_per_source_cap(rows, factors)
+        ctx = build_run_context(run_id="r", ddf_leg_version="v", git_commit_sha="s",
+                                loader_host="h", built_at="2026-10-04T00:00:00Z")
+        return build_rescale_audit(factors, rows, out, ctx)
+
+    def test_every_db_row_fits_the_table(self):
+        from caps.per_source_rescale import AUDIT_DB_COLUMNS, audit_db_row
+        for values in ((97.3, 60.0), (70.0, 50.0)):  # scaled and no-op runs
+            for entry in self._entries(values):
+                row = audit_db_row(entry)
+                self.assertFalse(set(row) - set(AUDIT_DB_COLUMNS), row)
+                self.assertFalse(self.NOT_NULL - set(row), row)
+                self.assertEqual("2026-10-04T00:00:00Z", row["applied_at"])
 
 
 if __name__ == "__main__":
