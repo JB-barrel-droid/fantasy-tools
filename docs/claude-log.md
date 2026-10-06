@@ -2878,3 +2878,21 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 
 ### Claimed, unverified
 - Replacements for Muse's dashboard push and CBS/USA Today ingests are not built yet (follow-up).
+
+## 2026-10-06 ~09:10 CDT — Claude (cloud session): FantasyCalc saves 12 teams only (option A, Jeremy)
+
+### Verified (check named)
+- Jeremy approved option A ("The chart front end will allow us to get to all those league permutations").
+  pipelines/retire_fixture_setups.py removed 21 setups from each of fantasycalc and fantasycalc_adjusted
+  (8/10/14 teams and every 2-QB block), keeping full|half|standard_12_qb1 byte-identical. Proof:
+  restoring the two sections reproduces the original fixture byte-for-byte; rollback record written to
+  output/comparison-promotions/ (local, gitignored).
+- 12-setup headless sweep (CLAUDE.md), built site before vs after: fixedPieIndexed true in all 12 both
+  times; at 12 teams curves 5->5 and scale-agreement offenders unchanged; at 8/10/14 teams curves 2->1
+  (FantasyCalc now unavailable there, like CBS/FantasyPros/USA Today); sourceScaleAgreement false
+  (non-blocking) in all 12 both before and after; 0 page errors.
+- Pin changes, justified (the data they pinned was deliberately retired; each guard still runs):
+  test_vorp_wiring drops 9 non-12 FantasyCalc ordering cases (12-team cases kept);
+  test_source_combo_contract now expects only 12-team setups for every published source and no 2-QB
+  block (negative-tested: fails 3/3 against the old fixture); test_methodology_payload expects only
+  ESPN at 10 teams and FantasyCalc present at 12. `make validate` green.

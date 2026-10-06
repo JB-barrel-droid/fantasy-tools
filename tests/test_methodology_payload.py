@@ -55,10 +55,14 @@ class TestMethodologyPayload(unittest.TestCase):
         )
 
     def test_partial_sources_omitted_not_fabricated(self):
-        # USA Today / FantasyPros / CBS only ship 12-team combos in the fixture.
+        # Published sources (USA Today / FantasyPros / CBS / FantasyCalc) ship only
+        # 12-team setups in the fixture (FantasyCalc since league-settings-001,
+        # 2026-10-06), so at 10 teams only the model leg (ESPN) appears.
         combo = self.payload["combos"]["half_10"]
-        self.assertEqual(set(combo["position_shares"].keys()), {"fantasycalc", "espn"})
-        self.assertEqual(set(combo["adjustments"].keys()), {"fantasycalc"})
+        self.assertEqual(set(combo["position_shares"].keys()), {"espn"})
+        self.assertEqual(set(combo["adjustments"].keys()), set())
+        twelve = self.payload["combos"]["half_12"]
+        self.assertIn("fantasycalc", twelve["position_shares"])
 
     def test_position_shares_sum_to_100(self):
         for key, combo in self.payload["combos"].items():
