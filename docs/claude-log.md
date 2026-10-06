@@ -2837,6 +2837,22 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   proven yet for the as-published sources' reindex/adjusted views; JEG-332 (as rewritten) starts with
   that inventory and the parity gate before any rows are removed.
 
+## 2026-10-06 ~08:00 CDT — Claude (cloud session): JEG-332 league-settings inventory
+
+### Verified (check named)
+- docs/league-settings-inventory.md. Fixture survey (python over comparison-sources-data.json at main):
+  CBS/FantasyPros/USA Today save full|half|standard_12 only; ESPN/CBS ROS/Razzball save 12 setups;
+  FantasyCalc 24. ESPN's 8/10/14 blocks are identical to 12 (native, values, reindexed; 493 players).
+  CBS ROS/Razzball native per-game points identical across team sizes; values differ (174-205 players).
+  FantasyCalc full_12_qb2 identical to qb1 (196 players).
+- Code read: model sources are already derived in the browser from per-game points (curve-widget.js
+  PURE_VORP_KEYS / TwoTier); published sources are lookups of saved blocks (getPlayerValues), unavailable
+  at teams != 12 by design (value-model.js sourceComboKey). The only server-only formula is the JEG-62
+  translation (pipelines/vorp_translation/unified.py), a pure function of native values, positions and
+  team/bench/flex counts.
+
+### Claimed, unverified
+- Whether the `*_adjusted` bias fit applies unchanged at other team counts (listed as "to confirm").
 ## 2026-10-06 ~08:30 CDT — Claude (cloud session): JEG-427 FantasyCalc producer (code only, schedule off)
 
 ### Verified (check named)
