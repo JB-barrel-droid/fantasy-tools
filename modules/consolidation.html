@@ -452,7 +452,6 @@ const COLUMNS = [
   { key: 'value',    label: 'Value',   tip: 'Exact final value (unrounded). Rounding is presentation-only.' },
 ];
 
-const SUPABASE_URL = 'https://iskiybsimubiujwuchsl.supabase.co';
 const PAGE_SIZE = 100;
 
 let allRows = [];
@@ -460,7 +459,6 @@ let filteredRows = [];
 let currentPage = 0;
 let sortKey = null;
 let sortDir = 1;
-let usingFallback = false;
 
 // Pivot state and metadata.
 // Rows/Cols pick from these dimensions; Values picks from the measures list
@@ -489,43 +487,25 @@ let pivotRowLimit = 250;
 let pivotSortDir = 1;
 
 async function loadData() {
+  // JEG-424: the page reads the consolidation export that `make sync` builds
+  // from the validated fixture on every deploy. It no longer reads
+  // public.consolidated_values directly: that table holds every bake
+  // (including unpublished ones) and is not readable by the anon role.
   const dsEl = document.getElementById('dataSource');
   try {
-    // Try Supabase REST API (public read enabled via RLS policy)
-    // Paginate: PostgREST caps at 1000 rows per request
-    allRows = [];
-    let _offset = 0;
-    while (true) {
-      const _resp = await fetch(
-        `${SUPABASE_URL}/rest/v1/consolidated_values?select=*&limit=1000&offset=${_offset}`,
-        { headers: {
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2l5YnNpbXViaXVqd3VjaHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTkyMTEsImV4cCI6MjEwNDYzNTIxMX0.JL_E76TQDtM_xO22-NDcflVIE7rexiHkfrvYHKtQRsY',
-          'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlza2l5YnNpbXViaXVqd3VjaHNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkwNTkyMTEsImV4cCI6MjEwNDYzNTIxMX0.JL_E76TQDtM_xO22-NDcflVIE7rexiHkfrvYHKtQRsY',
-          'Accept': 'application/json'
-        } }
-      );
-      if (!_resp.ok) throw new Error(`Supabase: HTTP ${_resp.status}`);
-      const _chunk = await _resp.json();
-      allRows.push(..._chunk);
-      if (_chunk.length < 1000) break;
-      _offset += 1000;
-    }
-    dsEl.textContent = `Live: Supabase (${allRows.length.toLocaleString()} rows)`;
+    const resp = await fetch('../consolidated-values.json', { cache: 'no-store' });
+    if (!resp.ok) throw new Error(`consolidated-values.json: HTTP ${resp.status}`);
+    const data = await resp.json();
+    allRows = Array.isArray(data.rows) ? data.rows : [];
+    if (!allRows.length) throw new Error('consolidated-values.json has no rows');
+    const generated = data.generated_at ? new Date(data.generated_at) : null;
+    const when = generated && !isNaN(generated) ? generated.toLocaleString() : 'unknown time';
+    dsEl.textContent = `Published export: ${allRows.length.toLocaleString()} rows, built ${when}` +
+      (data.detail_sha256 ? ` (fixture ${String(data.detail_sha256).slice(0, 8)})` : '');
     dsEl.classList.remove('fallback');
   } catch (e) {
-    // Fallback to JSON export
-    usingFallback = true;
-    try {
-      const resp = await fetch('../consolidated-values.json');
-      if (!resp.ok) throw new Error('JSON fallback unavailable');
-      const data = await resp.json();
-      allRows = data.rows || [];
-      dsEl.textContent = 'Fallback: JSON export';
-      dsEl.classList.add('fallback');
-    } catch (e2) {
-      showError(`Could not load data from Supabase or JSON fallback. ${e.message}`);
-      return;
-    }
+    showError(`Could not load the consolidation export. ${e.message}`);
+    return;
   }
   populateFilterOptions();
   populatePivotSelectors();

@@ -75,6 +75,8 @@ exists in chat or a session transcript.
 | GAP-FC-DRIFT | FantasyCalc drift job could publish unvalidated values (fixture write + push to main) and wrote Week-4 raw natives into Supabase `value`; it was held back only by an import-health step that failed every run. | High | Fixed 2026-10-05 (JEG-426: detect + record only) | tests/test_drift_snapshot_baseline.py; monitoring check fantasycalc_native_drift. | None for the job. |
 | GAP-FC-PRODUCER | No CI producer writes FantasyCalc week N to Supabase; the weekly save runs on Muse's machine, writes 12-team only, while the chart serves 8/10/12/14 and week-4 Supabase rows carry raw natives in `value`. | High | Open — needs a values/team-size decision (JEG-400) | Supabase source_trade_values query 2026-10-05. | Decide team sizes + value scale; then build the producer. |
 | GAP-UNGATED-RED | tests.test_no_failopen_workflows and tests.test_jeg137_card_script_order are red on main and not in make validate. | Medium | Open | Local runs 2026-10-05. | Fix or gate. |
+| GAP-CONSOL-PAGE | Consolidation watcher could not load data (anon has no read on consolidated_values; JSON fallback never published). | High | Fixed 2026-10-05 (JEG-424: export built by make sync) | tests/test_published_surfaces.py; modules/status.html. | None. |
+| GAP-E2E-FIDELITY | modules/e2e-fidelity.json (JEG-77 dashboard card) has no producer; the card never loads on the live site. | Medium | Open | modules/status.html shows it broken. | Wire build_e2e_fidelity.py into a scheduled producer or retire the card. |
 
 ## Fixed Or Controlled
 

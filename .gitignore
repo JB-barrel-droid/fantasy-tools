@@ -29,3 +29,6 @@ secrets/
 
 # CI-only browser gate dependency (JEG-47); installed with npm ci.
 tests/rendered_gate/node_modules/
+
+# JEG-424: built by make sync on every deploy (8MB, changes every bake)
+dist/consolidated-values.json

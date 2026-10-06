@@ -2803,3 +2803,20 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 - diag/fc-import branch could not be deleted from this session (proxy blocks ref deletes); safe to delete.
 - Pre-existing red, ungated: tests.test_no_failopen_workflows (source-vintage-check.yml) and two
   tests.test_jeg137_card_script_order tests. Not caused by this change (identical with/without).
+## 2026-10-05 ~22:40 CDT — Claude (cloud session): JEG-424 consolidation page + surface status page
+
+### Verified (check named)
+- Consolidation watcher fixed by publishing, not by opening the table: `make sync` now builds
+  dist/consolidated-values.json from the validated fixture with build_consolidated_values' reconciliation
+  (fail-closed: a reconciliation error stops the sync and so the deploy). 20,534 rows, 6.8MB compact,
+  gitignored (Pages runs make sync before deploying). The page reads only that export; the direct
+  Supabase read is removed. Did NOT grant anon SELECT on consolidated_values: it holds every bake,
+  including ones that never passed validation. Headless render: 20,534 rows loaded, 0 page errors.
+- modules/surfaces.json lists 19 backend -> frontend surfaces with an explicit "working" definition each;
+  modules/status.html checks them live in the browser (working / degraded = stale / broken).
+  tests/test_published_surfaces.py enforces the required ones at build time inside make validate;
+  negative test removes / empties consolidated-values.json and the guard fires.
+- Found while auditing: the monitor's reference-freshness card never loaded on the live site (none of
+  its candidate paths exist there); added the deployed ../assets/ path — card now renders locally.
+  e2e-fidelity.json (JEG-77 card) has no producer at all: listed as a known gap, shows broken.
+- Local status render: 18 working, 0 degraded, 1 broken (e2e-fidelity, 404). `make validate` green.

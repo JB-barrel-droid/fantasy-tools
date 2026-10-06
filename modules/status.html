@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Surface Status · Data Driven Football</title>
+<style>
+  :root { --ink:#12202c; --muted:#5c6a76; --paper:#f7f8f5; --line:#dbe0dc;
+          --green:#1f7a4d; --yellow:#a86b00; --red:#b42318; --grey:#7a8590; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--paper); }
+  main { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--muted); margin:0 0 18px; }
+  .summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+  .pill { border:1px solid var(--line); background:#fff; border-radius:999px; padding:4px 12px; font-weight:600; }
+  .pill.working { color:var(--green); } .pill.degraded { color:var(--yellow); } .pill.broken { color:var(--red); }
+  .wrap { overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:10px; }
+  table { border-collapse:collapse; width:100%; min-width:760px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#fbfcfa; }
+  tr:last-child td { border-bottom:0; }
+  .state { font-weight:700; white-space:nowrap; }
+  .state.working { color:var(--green); } .state.degraded { color:var(--yellow); }
+  .state.broken { color:var(--red); } .state.checking { color:var(--grey); }
+  code { font:12px ui-monospace,Menlo,monospace; color:var(--muted); }
+  .why { color:var(--muted); font-size:13px; }
+  .gap { color:var(--red); font-size:12px; }
+  footer { color:var(--muted); font-size:12px; margin-top:14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Surface status</h1>
+  <p class="sub">Every published data file a Data Driven Football page reads, checked live from this browser.
+    Working means the file loads, has the content its page needs, and is fresh enough.</p>
+  <div class="summary" id="summary"><span class="pill">Checking…</span></div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Status</th><th>Surface</th><th>Page</th><th>Backend</th><th>Last data</th><th>Working means</th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <footer id="foot"></footer>
+</main>
+<script>
+// JEG-424. Spec: modules/surfaces.json (also enforced at build time by
+// tests/test_published_surfaces.py). Paths there are relative to the site root.
+const ROOT = "../";
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+function countAt(doc, path) {
+  const v = path ? doc?.[path] : doc;
+  if (Array.isArray(v)) return v.length;
+  if (v && typeof v === "object") return Object.keys(v).length;
+  return null;
+}
+function ageHours(ts) {
+  const t = Date.parse(ts);
+  return Number.isNaN(t) ? null : (Date.now() - t) / 3.6e6;
+}
+function fmtAge(h) {
+  if (h == null) return "no timestamp";
+  if (h < 1) return `${Math.max(0, Math.round(h * 60))} min ago`;
+  if (h < 48) return `${h.toFixed(1)} h ago`;
+  return `${(h / 24).toFixed(1)} days ago`;
+}
+
+async function evaluate(s) {
+  let resp;
+  try {
+    resp = await fetch(ROOT + s.url, { cache: "no-store" });
+  } catch (e) {
+    return { state: "broken", why: `request failed: ${e.message}` };
+  }
+  if (!resp.ok) return { state: "broken", why: `HTTP ${resp.status}` };
+  let doc;
+  try { doc = await resp.json(); } catch (e) { return { state: "broken", why: "not valid JSON" }; }
+  const n = countAt(doc, s.count_path);
+  if (s.min_count != null && (n == null || n < s.min_count)) {
+    return { state: "broken", why: `${s.count_path || "content"}: ${n ?? "missing"} (needs ≥ ${s.min_count})` };
+  }
+  let last = "—";
+  if (s.time_field) {
+    const ts = doc?.[s.time_field];
+    const h = ts ? ageHours(ts) : null;
+    last = ts ? `${fmtAge(h)} <code>${esc(ts)}</code>` : "no timestamp";
+    if (h == null) return { state: "degraded", why: `no readable ${s.time_field}`, last };
+    if (s.max_age_hours != null && h > s.max_age_hours) {
+      return { state: "degraded", why: `stale: ${fmtAge(h)} (limit ${s.max_age_hours} h)`, last };
+    }
+  }
+  return { state: "working", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded", last };
+}
+
+async function main() {
+  const tbody = document.getElementById("rows");
+  let spec;
+  try {
+    const r = await fetch("surfaces.json", { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    spec = await r.json();
+  } catch (e) {
+    document.getElementById("summary").innerHTML = `<span class="pill broken">Status spec unavailable: ${esc(e.message)}</span>`;
+    return;
+  }
+  const surfaces = spec.surfaces || [];
+  tbody.innerHTML = surfaces.map(s => `
+    <tr data-surface="${esc(s.id)}">
+      <td class="state checking">Checking…</td>
+      <td><strong>${esc(s.label)}</strong><br><code>${esc(s.url)}</code>${s.known_gap ? `<div class="gap">Known gap: ${esc(s.known_gap)}</div>` : ""}</td>
+      <td>${esc(s.page)}</td>
+      <td class="why">${esc(s.backend)}</td>
+      <td class="last">—</td>
+      <td class="why">${esc(s.meaning)}</td>
+    </tr>`).join("");
+  const results = await Promise.all(surfaces.map(evaluate));
+  const counts = { working: 0, degraded: 0, broken: 0 };
+  results.forEach((res, i) => {
+    counts[res.state]++;
+    const row = tbody.children[i];
+    row.dataset.state = res.state;
+    const cell = row.querySelector(".state");
+    cell.className = `state ${res.state}`;
+    cell.innerHTML = `${res.state[0].toUpperCase()}${res.state.slice(1)}<div class="why">${esc(res.why)}</div>`;
+    if (res.last) row.querySelector(".last").innerHTML = res.last;
+  });
+  document.getElementById("summary").innerHTML =
+    ["working", "degraded", "broken"].map(k => `<span class="pill ${k}" data-count="${k}">${counts[k]} ${k}</span>`).join("");
+  document.body.dataset.ready = "1";
+  document.getElementById("foot").textContent = `Checked ${new Date().toLocaleString()} · ${surfaces.length} surfaces`;
+}
+main();
+</script>
+</body>
+</html>
