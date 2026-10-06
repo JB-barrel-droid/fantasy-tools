@@ -2979,3 +2979,18 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Claimed, unverified
 - Live verification (first pg_cron-dispatched run commits, Pages deploys, served checkpoints carry the CI
   generated_at) is recorded in the next entry once observed.
+
+## 2026-10-06 ~16:15 CDT — Claude (cloud session): JEG-414 cutover verified live
+
+### Verified (check named)
+- First publish (run on 4fb9c33, 20:41Z): committed 71c8bed `Health artifacts (CI, JEG-414)` and dispatched
+  Pages (run on 71c8bed: success). Live site (WebFetch of modules/pipeline-checkpoints.json) serves
+  generated_at 2026-10-06T20:42:01Z with cbsros C5 `warn` (AWAITING_PUBLICATION) — CI's verdict, not Muse's.
+  That run's watcher reported served_pipeline_checkpoints_fresh `stale_63m`: it measured the previous served
+  file (Muse's last push, 19:38Z) before the deploy landed. Expected one-off.
+- pg_cron `health-artifacts-live` (jobid 23) dispatched its first run at 21:11Z: success, published 81fcf05.
+- No Muse dashboard push has landed since 19:38Z (git log on main).
+
+### Claimed, unverified
+- None for this item. Muse still needs to disable `trade-value-dashboard-push` on its side (message drafted
+  for Jeremy to send).
