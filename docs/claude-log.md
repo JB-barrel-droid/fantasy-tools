@@ -2867,3 +2867,14 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   content_vintage per source, so a 12-team-only FantasyCalc bake would leave week-4 8/10/14 blocks
   labelled with the new week. The cron migration is committed but NOT applied until FantasyCalc's
   non-12 blocks are retired. tests/test_pull_fantasycalc_12team.py (negative: partial pull writes nothing).
+
+## 2026-10-06 ~08:45 CDT — Claude (cloud session): ownership moves from Muse; Supabase-first
+
+### Verified (check named)
+- Jeremy (in session, explicit): Muse owns nothing on this project except as a last resort; prefer
+  Supabase tools over GitHub. Recorded as docs/decisions.md ops-ownership-001; AGENTS.md operating
+  model and CLAUDE.md standing constraints updated. Handoff note for Muse delivered to Jeremy
+  (turn off dashboard push / QA loop / merge sweep as replacements land; stop direct pushes to main).
+
+### Claimed, unverified
+- Replacements for Muse's dashboard push and CBS/USA Today ingests are not built yet (follow-up).

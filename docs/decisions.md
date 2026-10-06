@@ -78,6 +78,30 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+## ops-ownership-001: Muse owns nothing except as a last resort; Supabase-first tooling
+- id: ops-ownership-001
+- created: 2026-10-06
+- deadline: 2026-10-06
+- category: publish
+- silence-default: explicit-tap
+- outcome: approved
+- outcome_date: 2026-10-06
+- recommendation: Move ownership of merges, deploys, production QA and scheduled jobs on the trade-value project from Roman (Muse) to Claude; use Muse only as a last resort. Prefer Supabase tools (pg_cron, Edge Functions, database-side checks) over GitHub Actions for new automation.
+
+### Decision (Jeremy, 2026-10-06, explicit)
+
+"I don't want muse owning things anymore, unless it's the last resort. And I think we should favor supabase tools over GitHub as a general guideline."
+
+### Consequences
+
+- Supersedes the AGENTS.md rule that Roman owns review, integration and all deploys to `main`.
+- Muse's trade-value crons (dashboard push, overnight QA loop, PR merge sweep, CBS/USA Today ingests) are retired as Claude-owned, Supabase-scheduled replacements go live; handoff note sent to Muse 2026-10-06.
+- Existing GitHub workflows stay where Supabase cannot do the work (Pages build/deploy, `make validate`); their schedules come from pg_cron.
+
+### Outcome Note
+
+Approved by Jeremy in session on 2026-10-06.
+
 ## league-settings-001: Save one league setup; derive other league settings in the browser
 - id: league-settings-001
 - created: 2026-10-06
