@@ -120,6 +120,7 @@ test-unit:
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo
+	python3 -m unittest tests.test_review_coverage_live_verify
 	python3 -m unittest tests.test_adjusted_curve_pause
 	python3 -m unittest tests.test_adjusted_fixture_sections
 	python3 -m unittest tests.test_adjustment_inputs
