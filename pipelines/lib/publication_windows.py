@@ -361,6 +361,9 @@ def load_slip_overrides(slip_measurement: dict[str, Any]) -> dict[str, str]:
     return statuses
 
 
+CONTENT_WEEK_START = 1  # Tuesday (weekday()); content week turns over after MNF
+
+
 def get_publication_status(
     source: str,
     vintage_week: int | None,
@@ -429,10 +432,21 @@ def get_publication_status(
 
     current_weekday = check_date.weekday()  # 0=Monday, 6=Sunday
 
-    # Calculate days since the expected publish day
-    # If publish_day is Tuesday (1) and today is Tuesday (1), days_since = 0
-    # If today is Wednesday (2), days_since = 1
-    days_since_publish = (current_weekday - publish_day) % 7
+    # Days are counted WITHIN the content week, which starts on Tuesday
+    # (nfl_week.current_nfl_week). The old (weekday - publish_day) % 7 made a
+    # Wednesday publisher "6 days since publish day" (red) on the Tuesday a
+    # new week opens -- the day BEFORE its publish day (2026-10-06: cbsros
+    # MISSED_WINDOW turned the import gate red overnight).
+    days_into_week = (current_weekday - CONTENT_WEEK_START) % 7
+    publish_offset = (publish_day - CONTENT_WEEK_START) % 7
+    if days_into_week < publish_offset:
+        return (
+            "yellow",
+            f"AWAITING_PUBLICATION: content vintage Week {vintage_week}, current Week {current_week}. "
+            f"{source} publishes on {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][publish_day]}; "
+            f"not due yet ({publish_offset - days_into_week} day(s) until publish day)."
+        )
+    days_since_publish = days_into_week - publish_offset
 
     if days_since_publish <= grace_days:
         return (

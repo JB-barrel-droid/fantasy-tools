@@ -63,6 +63,23 @@ jobs:
           tail -25 /tmp/build.log
           if [ -s /tmp/build.rc ]; then sed "s/^/::error title=producer::/" /tmp/build.rc; tail -8 /tmp/build.log | sed "s/^/::warning title=producer-log::/"; exit 1; fi
 
+      - name: Annotate non-ok import-health sources
+        if: always()
+        run: |
+          python3 - <<'PY' || true
+          import json
+          try:
+              d = json.load(open("output/source-import-health.json"))
+          except Exception as e:
+              print(f"::warning title=import-health::no artifact ({e})")
+              raise SystemExit(0)
+          for src, e in sorted((d.get("sources") or {}).items()):
+              st = e.get("status")
+              if st != "ok":
+                  why = (e.get("failure_reason") or e.get("detail") or e.get("reason") or "")[:300]
+                  print(f"::notice title=import-health {src}::{st} -- {why}")
+          PY
+
       - name: Watch served artifacts + record observations
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
