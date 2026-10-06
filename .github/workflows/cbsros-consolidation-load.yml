@@ -84,6 +84,6 @@ jobs:
             [ -z "$leg" ] && continue
             python3 pipelines/load_ddf_leg_to_supabase.py "$leg" --season 2026 --week 4 \
               --qb-variant none --views both --client env $flag 2>&1 | tee -a /tmp/load.log \
-              || { echo "::error title=loader::$leg failed"; tail -5 /tmp/load.log | sed "s/^/::warning title=loader-log::/"; exit 1; }
+              || { echo "::error title=loader::$leg failed"; grep -E "REFUSED|Error|error|HTTP" /tmp/load.log | tail -5 | sed "s/^/::warning title=loader-error::/"; exit 1; }
           done < /tmp/verified.txt
           grep -E "wrote via|upserted|rows in slice|DRY RUN" /tmp/load.log | tail -30 | sed "s/^/::notice title=loader::/"
