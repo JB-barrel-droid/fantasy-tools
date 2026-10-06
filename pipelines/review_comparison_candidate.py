@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import sys
 import urllib.request
 from datetime import date, datetime, timezone
@@ -73,6 +74,24 @@ LIVE_API_URLS = {
     "fantasycalc": ("https://api.fantasycalc.com/values/current"
                     "?isDynasty=false&numQbs=1&numTeams=12&ppr=0.5"),
 }
+# JEG-366 follow-up (2026-10-05): the live check used the fixed 12-team /
+# half-PPR URL above for EVERY combo, so a 10-team full-PPR candidate was
+# compared against 12-team half-PPR live values and could never verify
+# (19/25 on the 2026-10-05 chain). The URL now follows the combo. numQbs stays
+# 1: the pipeline only pulls 1-QB values and derives the qb2 combos from them
+# (source_trade_values.qb_slots is 1 for every fantasycalc row).
+FC_PPR = {"standard": 0, "half": 0.5, "full": 1.0}
+
+
+def live_api_url(source, combo_name=None):
+    """Live API URL for ``source`` matching ``combo_name`` (e.g. full_10_qb1)."""
+    if source != "fantasycalc" or not combo_name:
+        return LIVE_API_URLS.get(source)
+    m = re.match(r"^(standard|half|full)_(\d+)", combo_name)
+    if not m:
+        return LIVE_API_URLS.get(source)
+    return ("https://api.fantasycalc.com/values/current?isDynasty=false"
+            f"&numQbs=1&numTeams={int(m.group(2))}&ppr={FC_PPR[m.group(1)]}")
 # Factor bounds: as-published sources on the 10,000-scale (FantasyCalc) have
 # factors ~0.007 to reach the 0-70 indexed scale. Per-position DDF sources
 # have factors ~0.2-5.0. The lower bound accommodates both.
@@ -101,7 +120,7 @@ def _sha256_canonical(obj):
         json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def verify_top25_live(source, candidate_natives):
+def verify_top25_live(source, candidate_natives, combo_name=None):
     """Verify the top-25 candidate natives against the source's live site.
 
     Returns (verified: bool, detail: str). Only sources in LIVE_API_URLS are
@@ -109,7 +128,7 @@ def verify_top25_live(source, candidate_natives):
     A network failure returns (False, ...) -- fail closed, never pass on
     an unverifiable live check.
     """
-    url = LIVE_API_URLS.get(source)
+    url = live_api_url(source, combo_name)
     if not url:
         return False, f"no live API configured for source {source}"
     try:
@@ -273,7 +292,7 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
             # bug, and the check passes as live-verified.
             verified, verify_detail = (False, "live verification skipped")
             if not no_live_verify and source in LIVE_API_URLS:
-                verified, verify_detail = verify_top25_live(source, native)
+                verified, verify_detail = verify_top25_live(source, native, combo_name)
             if verified:
                 checks.append(_check(f"native_drift:{combo_name}", "pass",
                                      f"{len(drifted)}/{len(shared)} values moved > "
