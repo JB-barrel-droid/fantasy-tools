@@ -395,10 +395,19 @@ def razzball_health_from_fixture(fixture):
     generated_at = (leg or {}).get("generated_at") or fixture.get("built_at")
     rows = inputs.get("razzball_snapshot_rows")
     ok = bool(leg_path and combos and validation == "live")
+    # JEG-307 follow-up: the razzball c5 gate reads vintage_date/age_days
+    # from THIS record (razzball never joins source-import-health, so this
+    # synthesizer is its only health input). A date-like vintage
+    # ("2026-10-01") yields a real freshness verdict; a non-date vintage
+    # (e.g. "rest of season") leaves both None and c5 honestly reports unk.
+    vintage_date = vintage if re.match(r"^\d{4}-\d{2}-\d{2}", str(vintage or "")) else None
+    age_days = days_old(vintage_date) if vintage_date else None
     return {
         "status": "ok" if ok else "missing",
         "failure_reason": None if ok else "Missing live Razzball fixture section or DDF leg.",
         "content_vintage": vintage,
+        "vintage_date": vintage_date,
+        "age_days": age_days,
         "snapshot_path": leg_path,
         "db_latest_arrived_at": None,
         "db_latest_rows": None,
@@ -412,6 +421,30 @@ def razzball_health_from_fixture(fixture):
         "_raw_snapshot_path": inputs.get("razzball_snapshot"),
         "_raw_snapshot_sha256": inputs.get("razzball_snapshot_sha256"),
     }
+
+
+def razzball_c5_verdict(h):
+    """Razzball C5 (health) verdict from its synthesized health record.
+
+    JEG-307: driven by vintage_date/age_days emitted by
+    razzball_health_from_fixture -- razzball never joins source-import-health,
+    so the synthesizer is its only health input. A non-date vintage leaves
+    both None and c5 honestly reports unk with the unparseable vintage named,
+    never a claim that the snapshot is missing.
+    """
+    vd = h.get("vintage_date")
+    age = h.get("age_days")
+    if vd is None or age is None:
+        return {"timestamp": None, "status": "unk",
+            "reason": f"No parseable Razzball snapshot date in fixture/leg lineage (vintage={h.get('content_vintage')!r}); freshness cannot be judged."}
+    if age <= 2:
+        return {"timestamp": vd, "status": "ok",
+            "reason": f"Razzball snapshot {vd} is {age:.1f}d old (within 2d fresh window)."}
+    if age <= 6:
+        return {"timestamp": vd, "status": "warn",
+            "reason": f"Razzball snapshot {vd} is {age:.1f}d old (3-6d warn window). No CI puller refreshes it (GAP-024)."}
+    return {"timestamp": vd, "status": "bad",
+        "reason": f"Razzball snapshot {vd} is {age:.1f}d old (>6d -- snapshot is stale)."}
 
 
 def build_checkpoints():
@@ -608,21 +641,9 @@ def build_checkpoints():
         # C5: Health verification - from checked_at + status
         # JEG-307: Razzball c5 is driven by the new vintage_date / age_days
         # freshness entry (no CI puller refreshes Razzball -- GAP-024).
+        # Extracted to razzball_c5_verdict so the gate is unit-testable.
         if src == "razzball":
-            vd = h.get("vintage_date")
-            age = h.get("age_days")
-            if vd is None or age is None:
-                cps["c5_health"] = {"timestamp": None, "status": "unk",
-                    "reason": "No Razzball freshness entry (no snapshot under data/raw/sources/razzball/)."}
-            elif age <= 2:
-                cps["c5_health"] = {"timestamp": vd, "status": "ok",
-                    "reason": f"Razzball snapshot {vd} is {age}d old (within 2d fresh window)."}
-            elif age <= 6:
-                cps["c5_health"] = {"timestamp": vd, "status": "warn",
-                    "reason": f"Razzball snapshot {vd} is {age}d old (3-6d warn window). No CI puller refreshes it (GAP-024)."}
-            else:
-                cps["c5_health"] = {"timestamp": vd, "status": "bad",
-                    "reason": f"Razzball snapshot {vd} is {age}d old (>6d -- snapshot is stale)."}
+            cps["c5_health"] = razzball_c5_verdict(h)
         else:
             c5_status = h.get("status", "unknown")
             c5_checked_at = h.get("_checked_at") or health_checked_at

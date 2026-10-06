@@ -13,7 +13,9 @@ import json
 import sys
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from unittest.mock import patch
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
@@ -81,6 +83,82 @@ class CheckpointsHealthFreshestTest(unittest.TestCase):
         finally:
             bpc.REPO = old_repo
         self.assertEqual(chosen, good)
+
+
+def _rz_date_str(days_ago):
+    return (datetime.now(timezone.utc) - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+
+
+def _rz_leg(vintage_date):
+    return {
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "inputs": {
+            "razzball_snapshot_date": vintage_date,
+            "razzball_snapshot_rows": 701,
+        },
+    }
+
+
+def _rz_fixture(vintage):
+    return {
+        "built_at": datetime.now(timezone.utc).isoformat(),
+        "sources": {"razzball": {"combos": {"full_12_qb1": 1}, "vintage": vintage}},
+        "source_validation": {"razzball": "live"},
+    }
+
+
+class RazzballC5FreshnessTest(unittest.TestCase):
+    """JEG-307 added a Razzball c5 gate driven by the vintage_date /
+    age_days freshness entry, but razzball_health_from_fixture() -- the ONLY
+    health record razzball uses (it never joins source-import-health) -- was
+    never updated to emit those fields. Result: c5 was permanently `unk`
+    with a misleading "no snapshot under data/raw/sources/razzball/" reason
+    even when the snapshot existed.
+
+    These tests prove the synthesizer feeds the gate, the gate yields honest
+    age-based verdicts (not the permanent unk), and the unk branch names the
+    unparseable vintage instead of claiming a missing snapshot.
+    """
+
+    def _synth(self, vintage_date):
+        with patch.object(
+            bpc, "newest_razzball_leg",
+            return_value=("data/ddf-two-tier/x/ddf_leg_razzball.json", _rz_leg(vintage_date)),
+        ):
+            return bpc.razzball_health_from_fixture(_rz_fixture(vintage_date))
+
+    def test_synthesizer_emits_vintage_date_and_age_days(self):
+        vd = _rz_date_str(4)
+        h = self._synth(vd)
+        self.assertEqual(h["vintage_date"], vd)
+        self.assertIsNotNone(h["age_days"])
+        self.assertAlmostEqual(h["age_days"], 4.0, delta=1.0)
+
+    def test_c5_is_warn_not_unk_for_4d_snapshot(self):
+        h = self._synth(_rz_date_str(4))
+        v = bpc.razzball_c5_verdict(h)
+        self.assertEqual(v["status"], "warn")
+        self.assertIn("warn window", v["reason"])
+
+    def test_c5_ok_within_2d(self):
+        self.assertEqual(bpc.razzball_c5_verdict(self._synth(_rz_date_str(1)))["status"], "ok")
+
+    def test_c5_bad_after_6d(self):
+        self.assertEqual(bpc.razzball_c5_verdict(self._synth(_rz_date_str(8)))["status"], "bad")
+
+    def test_c5_unk_is_honest_about_unparseable_vintage(self):
+        h = self._synth("rest of season")
+        v = bpc.razzball_c5_verdict(h)
+        self.assertEqual(v["status"], "unk")
+        self.assertIn("rest of season", v["reason"])
+        self.assertNotIn("no snapshot", v["reason"].lower())
+
+    def test_broken_state_would_unk(self):
+        """Discrimination proof: a record WITHOUT the freshness fields (the
+        pre-fix synthesizer output) still hits the unk branch, so this suite
+        would have caught the dead gate."""
+        v = bpc.razzball_c5_verdict({"content_vintage": "2026-10-01"})
+        self.assertEqual(v["status"], "unk")
 
 
 if __name__ == "__main__":
