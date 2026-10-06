@@ -2770,3 +2770,36 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   stop on the rc. Rerun of that test alone: OK 3/3 (flaky rendered test; it does not read identity data).
   The same push swept make-sync build stamps (dist/, index.html, reference-freshness.json) into the
   commit; reverted in the follow-up. Final validate result is recorded by the PR's preview run.
+
+## 2026-10-05 ~22:15 CDT — Claude (cloud session): JEG-426 FantasyCalc drift job
+
+### Verified (check named)
+- The ticket's premise was half wrong: pg_cron job `trigger-fantasycalc-drift-live` (jobid 14, 11:45Z daily)
+  existed in production (never written to the repo) and dispatched fantasycalc-drift.yml on 10-04 and 10-05
+  (GitHub run history). Both runs FAILED at "Verify import health": the job ran verify_import_health.py in a
+  fresh checkout without importing any source, so no manifests existed and the gate always failed; the
+  commit step was skipped every time.
+- That failure was accidentally protective. `check_fantasycalc_drift.py --trigger` writes the published
+  fixture + served copies directly and the job pushed them to main, bypassing the chain review gate and
+  `make validate`; refresh_fantasycalc_supabase.py writes Week 4 (hardcoded) rows with the raw publisher
+  number in `value` and bake_id NULL. Supabase now shows both conventions: week 3 (saver) value max 93.8 /
+  native 10656; week 4 (drift refresh, pulled 2026-10-05 15:02Z) value = native = ~10,745.
+- Published import-health BYTE_MISMATCH for fantasycalc does NOT reproduce in CI: a temporary diag workflow
+  (branch diag/fc-import, run in CI) imported fantasycalc cleanly (archived the committed blob 414925b2,
+  stamped 6c71bd71, manifest matched). The mismatch comes from a stale local manifest on whichever machine
+  produced the served artifact.
+- Fix: drift job now imports FantasyCalc from Supabase, compares live vs that baseline (`--snapshot`), records
+  monitoring check `fantasycalc_native_drift` (registered, severity warn), fails only if the check cannot
+  run; no --trigger, no Supabase write, no commit. Migration jeg426_fantasycalc_drift_monitor.sql writes the
+  existing cron job into the repo (applied; still jobid 14, one owner) + the check_config row.
+- Real run on branch drift/jeg426 (run 37407844740): baseline = Supabase week 4, 5/25 moved (20.0%, not over
+  threshold), observation recorded ok=true at 03:12Z.
+- tests/test_drift_snapshot_baseline.py fails on the old checker (always read the committed week-4 file).
+  `make validate` green.
+
+### Not done / open
+- No CI producer for FantasyCalc week N exists (weekly save runs on Muse's machine; JEG-400). Building one
+  needs a decision on team sizes (saver writes 12-team only; chart serves 8/10/12/14) and the value scale.
+- diag/fc-import branch could not be deleted from this session (proxy blocks ref deletes); safe to delete.
+- Pre-existing red, ungated: tests.test_no_failopen_workflows (source-vintage-check.yml) and two
+  tests.test_jeg137_card_script_order tests. Not caused by this change (identical with/without).
