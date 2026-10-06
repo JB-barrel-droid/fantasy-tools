@@ -2830,7 +2830,7 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   architecture-target Q6; fe-read-contract §1.2 parking note updated.
 - PR #202 (minimax Postgres on-demand view for JEG-332) is closed unmerged (GitHub API, 2026-10-06).
 - Linear JEG-329/332/333/334 rewritten to the browser-derivation model; FantasyCalc producer ticket
-  filed to the 12-team / three-scoring spec.
+  filed as JEG-427 to the 12-team / three-scoring spec.
 
 ### Claimed, unverified
 - That every chart number can be derived in the browser from per-player base inputs has not been
