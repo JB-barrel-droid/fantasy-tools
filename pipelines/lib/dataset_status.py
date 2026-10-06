@@ -31,8 +31,8 @@ content / tables / loaders retired). ESPN becomes the primary projection
 leg — its entry reflects that role, not just the comparison-column
 position it held before.
 
-Manipulation taxonomy (user-facing copy rule: say "value above waivers",
-never "VORP"):
+Manipulation taxonomy (user-facing copy rule: the term is "VORP vs waivers",
+decision copy-vorp-001):
   trade-value-methodology = raw projections/stats -> value-above-waivers
                             methodology applied (positional waiver lines,
                             smoothed starter/bench lineup weights, 70-pt scale).
@@ -64,7 +64,7 @@ def _utcnow():    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ
 
 
 # Manipulation taxonomy for the definitions table (user-facing copy rule:
-# say "value above waivers", never "VORP").
+# the term is "VORP vs waivers", decision copy-vorp-001).
 #   trade-value-methodology = raw projections/stats -> value-above-waivers
 #                             methodology applied (positional waiver lines,
 #                             smoothed starter/bench lineup weights, 70-pt

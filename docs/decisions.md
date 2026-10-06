@@ -78,6 +78,26 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+## copy-vorp-001: User-facing term is "VORP vs waivers"
+- id: copy-vorp-001
+- created: 2026-10-06
+- deadline: 2026-10-06
+- category: copy
+- silence-default: explicit-tap
+- outcome: approved
+- outcome_date: 2026-10-06
+- recommendation: Replace the locked user-facing term "value above waivers" (and the "never say VORP" rule) with "VORP vs waivers".
+
+### Decision (Jeremy, 2026-10-06, explicit)
+
+"Do 'VORP vs waivers'."
+
+### What changed
+
+- The exact phrase "VORP vs waivers" is now the only allowed user-facing use of "VORP". Other wording ("Raw VORP", bare "VORP", "vorp vs waivers", "VORP vs replacement") is still blocked by `tests/test_public_copy_no_vorp.py`, which has negative cases for each.
+- Labels, titles, badges and methodology copy in the chart widgets, `app/trade-value-chart/index.html` and the monitor pages now say "VORP vs waivers". Internal data keys (`espn_vorp`, the `vorp` view ID) are unchanged.
+- Code comments and pipeline provenance strings baked into fixtures (`method` notes) were not rewritten; they are not chart labels, and rewriting baked text would need a re-bake.
+
 ## ops-ownership-001: Muse owns nothing except as a last resort; Supabase-first tooling
 - id: ops-ownership-001
 - created: 2026-10-06

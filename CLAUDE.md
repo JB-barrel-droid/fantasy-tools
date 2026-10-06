@@ -60,9 +60,11 @@ These are the user's, stated directly. They are not suggestions.
 - The market side is always **"Vegas"**, never "the market".
 - The brand is **Data Driven Football** only. No FantasyPros, Muse, or Meta
   branding anywhere user-facing.
-- Never say **VORP** in user-facing copy. The locked term is **"value above
-  waivers"**. (`espn_vorp` as an internal data key is exempt; there is a test
-  enforcing this.)
+- The locked user-facing term is **"VORP vs waivers"** (decision copy-vorp-001,
+  2026-10-06; it replaced "value above waivers"). That exact phrase is the only
+  allowed user-facing use of "VORP" — no "Raw VORP", bare "VORP", or other
+  wording. (`espn_vorp` as an internal data key is exempt;
+  `tests/test_public_copy_no_vorp.py` enforces this.)
 
 ## Before changing the trade-value chart
 

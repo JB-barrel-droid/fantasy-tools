@@ -1,7 +1,10 @@
-"""Regression: public copy says "value above waivers", never "VORP".
+"""Regression: public copy says "VORP vs waivers" and never any other VORP.
 
-Standing copy rule: user-visible strings in the trade-value-chart widgets must
-not contain the word VORP in any casing. Internal identifiers (rawVorp,
+Standing copy rule (decision copy-vorp-001, 2026-10-06; replaced the earlier
+"value above waivers, never VORP" rule): the only user-visible use of the word
+VORP is the exact locked phrase "VORP vs waivers" (capital VORP, lowercase
+"vs waivers"). Any other casing or wording ("Raw VORP", "VORP vs replacement",
+"vorp vs waivers", bare "VORP") still fails. Internal identifiers (rawVorp,
 buildEspnVorpMap, the "espn_vorp" data key) are exempt, so this test scans JS
 *string literals* only -- comments and identifiers never count.
 
@@ -23,6 +26,8 @@ WIDGETS = [
 INTERNAL_LITERALS = {"espn_vorp", "cbsros_vorp", "razzball_vorp"}
 
 VORP_RE = re.compile(r"vorp", re.IGNORECASE)
+# The single locked user-facing phrase. Case-sensitive on purpose.
+LOCKED_PHRASE_RE = re.compile(r"\bVORP vs waivers\b")
 INTERP_RE = re.compile(r"\$\{[^{}]*\}")
 
 
@@ -112,7 +117,7 @@ def visible_vorp_literals(source):
             continue
         if text == "vorp" and INTERNAL_VIEW_ORDER_RE.fullmatch(lines[lineno - 1]):
             continue
-        if VORP_RE.search(static_text(text, quote)):
+        if VORP_RE.search(LOCKED_PHRASE_RE.sub("", static_text(text, quote))):
             offenders.append((lineno, text))
     return offenders
 
@@ -127,7 +132,7 @@ class PublicCopyNoVorpTest(unittest.TestCase):
         self.assertEqual(
             offenders,
             [],
-            "user-visible strings must say 'value above waivers', never 'VORP':\n"
+            "user-visible strings may use VORP only as the exact phrase 'VORP vs waivers':\n"
             + "\n".join(offenders),
         )
 
@@ -146,6 +151,23 @@ class PublicCopyNoVorpTest(unittest.TestCase):
     def test_template_copy_and_data_keys_keep_their_existing_rules(self):
         self.assertTrue(visible_vorp_literals('const title = `Publisher VORP`;'))
         self.assertEqual(visible_vorp_literals('const key = "espn_vorp";'), [])
+
+
+class LockedPhraseTest(unittest.TestCase):
+    """copy-vorp-001: the exemption is one exact phrase, not the word VORP."""
+
+    def test_locked_phrase_is_allowed(self):
+        for ok in ('const t = "VORP vs waivers";', 'const t = "Raw VORP vs waivers";',
+                   'const t = "ESPN raw VORP vs waivers";', 'const t = `Every source in VORP vs waivers units`;'):
+            with self.subTest(ok=ok):
+                self.assertEqual(visible_vorp_literals(ok), [])
+
+    def test_other_vorp_wording_still_fails(self):
+        for bad in ('const t = "VORP";', 'const t = "Raw VORP";', 'const t = "vorp vs waivers";',
+                    'const t = "VORP vs replacement";', 'const t = "VORP vs waivers and VORP";',
+                    'const t = "VORP vs waiversX";', 'const t = `Publisher VORP`;'):
+            with self.subTest(bad=bad):
+                self.assertEqual(len(visible_vorp_literals(bad)), 1)
 
 
 if __name__ == "__main__":

@@ -152,9 +152,9 @@ class ColumnBadgeTest(unittest.TestCase):
     def test_other_badges_unchanged(self):
         fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
         self.assertEqual(self._run_badge(fn, "usatoday"), "as published · reindexed")
-        self.assertEqual(self._run_badge(fn, "espn_vorp"), "raw value above waivers")
-        self.assertEqual(self._run_badge(fn, "cbsros_vorp"), "raw value above waivers")
-        self.assertEqual(self._run_badge(fn, "razzball_vorp"), "raw value above waivers")
+        self.assertEqual(self._run_badge(fn, "espn_vorp"), "raw VORP vs waivers")
+        self.assertEqual(self._run_badge(fn, "cbsros_vorp"), "raw VORP vs waivers")
+        self.assertEqual(self._run_badge(fn, "razzball_vorp"), "raw VORP vs waivers")
         self.assertEqual(self._run_badge(fn, "fantasycalc_adjusted"), "bias adjusted")
 
     def test_old_badge_mislabels_razzball(self):

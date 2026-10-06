@@ -67,7 +67,7 @@ function serve(dir) {
 // We deliberately hash only .row-main rows (the player values) so the
 // "expanded" player detail rows don't perturb the hash when the user clicks
 // a name; expand state is owned by the dashboard, not by the widget.
-async function hashTable(page) {
+async function readTableHash(page) {
   return await page.evaluate(() => {
     const tbody = document.querySelector("#tableWrap table.all-table tbody");
     if (!tbody) return null;
@@ -79,6 +79,31 @@ async function hashTable(page) {
     }
     return parts.join("|");
   });
+}
+
+// GAP-FLAKY-JEG135: the dashboard re-renders asynchronously after load and
+// after each input, and fixed waits (1500 ms / 150 ms) were too short when the
+// machine was busy (inside `make validate`), so the baseline was sometimes
+// read mid-render and every later comparison "mismatched". Read until the
+// table hash is unchanged across consecutive reads, so each assertion compares
+// settled tables. A table that settles at a different value (the bug these
+// checks name) still fails; one that never settles is reported as null.
+async function hashTable(page, { interval = 250, stableReads = 3, timeoutMs = 15000 } = {}) {
+  const deadline = Date.now() + timeoutMs;
+  let last = await readTableHash(page);
+  let same = 1;
+  while (Date.now() < deadline) {
+    await page.waitForTimeout(interval);
+    const next = await readTableHash(page);
+    if (next !== null && next === last) {
+      same += 1;
+      if (same >= stableReads) return next;
+    } else {
+      same = 1;
+      last = next;
+    }
+  }
+  return null;
 }
 
 async function snapshotWeights(page) {
