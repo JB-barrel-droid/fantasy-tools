@@ -2820,3 +2820,19 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   its candidate paths exist there); added the deployed ../assets/ path — card now renders locally.
   e2e-fidelity.json (JEG-77 card) has no producer at all: listed as a known gap, shows broken.
 - Local status render: 18 working, 0 degraded, 1 broken (e2e-fidelity, 404). `make validate` green.
+
+## 2026-10-06 ~07:15 CDT — Claude (cloud session): league-settings architecture decision recorded
+
+### Verified (check named)
+- Jeremy decided (in session, explicit): save and validate one setup (12 teams, standard roster) end to
+  end, three scoring formats saved; team count, roster shape and bench share derived in the browser;
+  no rows per league-setting permutation. Recorded as docs/decisions.md league-settings-001; answers
+  architecture-target Q6; fe-read-contract §1.2 parking note updated.
+- PR #202 (minimax Postgres on-demand view for JEG-332) is closed unmerged (GitHub API, 2026-10-06).
+- Linear JEG-329/332/333/334 rewritten to the browser-derivation model; FantasyCalc producer ticket
+  filed to the 12-team / three-scoring spec.
+
+### Claimed, unverified
+- That every chart number can be derived in the browser from per-player base inputs has not been
+  proven yet for the as-published sources' reindex/adjusted views; JEG-332 (as rewritten) starts with
+  that inventory and the parity gate before any rows are removed.

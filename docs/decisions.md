@@ -78,6 +78,38 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+## league-settings-001: Save one league setup; derive other league settings in the browser
+- id: league-settings-001
+- created: 2026-10-06
+- deadline: 2026-10-06
+- category: methodology
+- silence-default: explicit-tap
+- outcome: approved
+- outcome_date: 2026-10-06
+- recommendation: Save and validate one canonical setup (12 teams, standard roster) end to end, per scoring format (standard / half / full PPR). Derive every other team count, roster shape and bench share in the browser from that saved base. Never save rows per league-setting permutation.
+
+### Context
+
+Saving finished values for every (teams x roster x scoring x view) permutation multiplies storage per source per week (12 combos x 2 views today in `consolidated_values`, more with roster shapes) and would exhaust the Supabase tier. The 2026-10-04 hybrid decision (JEG-364) already baked one team size through and kept roster and bench flexibility client-side; this extends it to team count. JEG-331 found the saved chart values already depend on team count, so the browser must start from a deeper, setting-independent layer.
+
+### Decision (Jeremy, 2026-10-06, explicit tap)
+
+1. Backend: 12-team, standard-roster values are computed all the way through and are the only league setup saved, reviewed and validated.
+2. Scoring stays saved: three formats at 12 teams. Scoring changes a source's own numbers, so it is not derived; every saved number stays one a source actually published (or our model computed at the canonical setup).
+3. Frontend: team count, roster shape and bench share are derived in the browser from saved per-player base inputs (source native value or per-game points, plus position). Nothing is saved per permutation.
+4. Validity: the backend validates the 12-team output; a parity gate proves the browser engine, set to 12 teams, reproduces the saved values exactly (JEG-364). Other settings inherit that guarantee because they run the same formula.
+5. Accepted trade-off: for sources that publish their own per-league-size numbers (FantasyCalc `numTeams`), only the 12-team publication is saved; our derived 8-team value will not match the source's own 8-team page.
+
+### Consequences
+
+- Answers architecture-target Q6: the Postgres on-demand view family (JEG-329/332/333/334 as written) is retired in favour of browser derivation; PR #202 was closed unmerged.
+- FantasyCalc weekly producer: pull and save 12-team only, three scorings (GAP-FC-PRODUCER).
+- `consolidated_values` stops growing per league setting; non-12-team rows become removable once the browser engine passes parity.
+
+### Outcome Note
+
+Approved by Jeremy in session on 2026-10-06 ("Good with your recommendation").
+
 ## jeg-209-001: Eight-group VORP reweight — approve the allocation policy
 - id: jeg-209-001
 - created: 2026-10-02
