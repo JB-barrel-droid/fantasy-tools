@@ -34,6 +34,9 @@ anything outside `product-data.js`.
   (`pipelines/`) is not edited by Phase B.
 - It is **not** a guarantee that the JEG-329 on-demand VORP view exists.
   JEG-329/332/333/334 are parked (JEG-331 verdict: the precondition failed).
+  Superseded 2026-10-06 by `docs/decisions.md` league-settings-001: the
+  backend saves one setup (12 teams, standard roster) per scoring format and
+  the browser derives team count, roster shape and bench share.
   The contract must represent the **present** view coverage honestly and
   reserve **versioned extension points** for the VORP-family rework.
 - It is **not** a deploy. No DDL is applied. The SQL in
