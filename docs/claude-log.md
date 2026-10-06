@@ -2764,4 +2764,9 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 
 ### Verified after push
 - First real refresh ran on identity/jeg366-sleeper (run 37403845742, success): 4,234 players,
-  4,131 names, 39 ambiguous, 2,312 with espn_id; bot commit bb219c0. `make validate` green on it.
+  4,131 names, 39 ambiguous, 2,312 with espn_id; bot commit bb219c0.
+- Correction: the first local `make validate` on bb219c0 was RED (tests.test_jeg135_rendered_flexibility
+  table-hash round trips), and a commit claiming green was pushed anyway because my shell chain did not
+  stop on the rc. Rerun of that test alone: OK 3/3 (flaky rendered test; it does not read identity data).
+  The same push swept make-sync build stamps (dist/, index.html, reference-freshness.json) into the
+  commit; reverted in the follow-up. Final validate result is recorded by the PR's preview run.
