@@ -55,10 +55,11 @@ def fetch_live() -> dict[str, float]:
     return out
 
 
-def load_snapshot_natives() -> dict[str, float]:
-    if not SNAPSHOT_PATH.exists():
-        raise FileNotFoundError(f"snapshot missing: {SNAPSHOT_PATH}")
-    snap = json.load(open(SNAPSHOT_PATH))
+def load_snapshot_natives(path: Path | None = None) -> dict[str, float]:
+    path = Path(path) if path else SNAPSHOT_PATH
+    if not path.exists():
+        raise FileNotFoundError(f"snapshot missing: {path}")
+    snap = json.load(open(path))
     out = {}
     for row in snap.get("rows", []):
         if row.get("scoring") == "half_ppr" and row.get("teams") == 12:
@@ -68,9 +69,9 @@ def load_snapshot_natives() -> dict[str, float]:
     return out
 
 
-def check_drift(threshold: float = DEFAULT_THRESHOLD) -> dict:
+def check_drift(threshold: float = DEFAULT_THRESHOLD, snapshot: Path | None = None) -> dict:
     live = fetch_live()
-    natives = load_snapshot_natives()
+    natives = load_snapshot_natives(snapshot)
     if not live:
         raise RuntimeError("live API returned no players")
     if not natives:
@@ -127,10 +128,15 @@ def main() -> int:
     ap.add_argument("--trigger", action="store_true",
                     help="run the refresh pipeline if drift is detected")
     ap.add_argument("--threshold", type=float, default=DEFAULT_THRESHOLD)
+    ap.add_argument("--snapshot", type=Path, default=None,
+                    help="compare live values against this snapshot.json (JEG-426: CI passes "
+                         "the snapshot freshly imported from Supabase) instead of the committed week-4 file")
     args = ap.parse_args()
+    if args.trigger and args.snapshot:
+        ap.error("--trigger rewrites the committed week-4 snapshot; it cannot be combined with --snapshot")
 
     try:
-        result = check_drift(args.threshold)
+        result = check_drift(args.threshold, args.snapshot)
     except Exception as e:
         print(f"DRIFT CHECK FAILED: {e}", file=sys.stderr)
         return 2
