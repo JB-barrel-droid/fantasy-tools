@@ -17,6 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 from lib.canonical_players import norm_plain  # noqa: E402  -- identity-map key convention
+from lib.layered_identity import resolve_sleeper  # noqa: E402  -- JEG-366 base layer
 
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 DEFAULT_IDENTITY_MAP = ROOT / "data" / "inputs" / "player_identity_map.json"
@@ -214,6 +215,7 @@ def match_snapshot(
     snapshot_path: Path,
     players_path: Path,
     identity_map_path: Path | None = None,
+    use_sleeper: bool = True,
 ) -> dict[str, Any]:
     snapshot = load_json(snapshot_path)
     if snapshot.get("schema") != INPUT_SCHEMA:
@@ -234,7 +236,14 @@ def match_snapshot(
     for row in rows:
         normalized = normalize_name(row.get("player_name"))
         # Step 1: canonical identity MUST come from the identity table.
+        # JEG-366: names the manual table does not know fall through to the
+        # Sleeper base layer, which returns None on any ambiguity (never a
+        # guess). identity_source records which layer resolved the row.
         identity = resolve_identity(row.get("player_name"), identity_map)
+        identity_source = "manual"
+        if identity is None and use_sleeper:
+            identity = resolve_sleeper(row.get("player_name"), row.get("pos") or None)
+            identity_source = identity["source"] if identity else None
         if identity is None:
             review.append(
                 {
@@ -263,6 +272,7 @@ def match_snapshot(
                 {
                     "player_key": player["player_key"],
                     "canonical_name": player["name"],
+                    "identity_source": identity_source,
                     "source_player_name": row.get("player_name"),
                     "source": snapshot.get("source"),
                     # Carry the source's raw published value. Downstream stages
@@ -310,6 +320,11 @@ def match_snapshot(
             "matched_count": len(matched),
             "review_count": len(review),
         },
+        # JEG-366: which identity layer resolved each matched row.
+        "identity_layers": {
+            layer: sum(1 for m in matched if m.get("identity_source") == layer)
+            for layer in ("manual", "sleeper", "sleeper-rostered")
+        },
         "matched_rows": matched,
         "review_rows": review,
     }
@@ -321,9 +336,11 @@ def main() -> int:
     parser.add_argument("--players", type=Path, default=DEFAULT_PLAYERS)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    parser.add_argument("--no-sleeper", action="store_true",
+                        help="manual identity table only (disable the JEG-366 Sleeper layer)")
     args = parser.parse_args()
 
-    payload = match_snapshot(args.input, args.players)
+    payload = match_snapshot(args.input, args.players, use_sleeper=not args.no_sleeper)
     output = args.output or default_output_path(payload, args.output_dir)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")

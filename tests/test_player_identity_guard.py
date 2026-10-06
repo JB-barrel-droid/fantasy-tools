@@ -341,21 +341,20 @@ class TestLayeredIdentityResolver(unittest.TestCase):
         self.assertEqual(result["team"], "MIA")
 
     def test_sleeper_base_resolves_when_manual_absent(self):
-        """Names only in the Sleeper base (~12k players) must resolve via
-        the Sleeper layer when manual has no entry. Picks a name known to be
-        in sleeper_identity_base.json and absent from the manual map."""
-        # Search the base for an active fantasy-relevant player NOT in
-        # the manual canonical map. Use 'tyreek burwell' as a probe --
-        # small universe, present in the sleeper base per the inventory.
+        """Names only in the Sleeper base must resolve via the Sleeper layer
+        when manual has no entry. Picks an unambiguous (single-id) name from
+        the v2 base that the manual map does not know."""
         import json
+        from lib.canonical_players import norm_plain
         base = json.loads(
             (REPO / "data/inputs/sleeper_identity_base.json").read_text())
         manual = json.loads(
             (REPO / "data/inputs/player_identity_map.json").read_text())
+        known = set(manual["canonical"]) | set(manual["alias_to_canonical"])
         pick = None
-        for key, hit in base.get("by_name", {}).items():
-            if hit.get("fantasy_relevant") and key not in manual["canonical"]:
-                pick = (key, hit)
+        for key, ids in base.get("by_name", {}).items():
+            if len(ids) == 1 and key not in known and norm_plain(key) == key:
+                pick = (key, base["by_sleeper_id"][ids[0]])
                 break
         self.assertIsNotNone(pick, "sleeper-only probe not found")
         result = self.resolve_identity(pick[0])

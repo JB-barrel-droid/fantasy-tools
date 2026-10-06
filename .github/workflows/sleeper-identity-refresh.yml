@@ -1,0 +1,74 @@
+name: Sleeper identity refresh (JEG-366)
+
+# Refreshes data/inputs/sleeper_identity_base.json (the identity base layer
+# under the manual table) from Sleeper /players/nfl. Fails closed on a
+# partial pull, runs the identity tests against the new file, and commits
+# only when player content changed (not just meta.pulled_at).
+#
+#   schedule (Tue + Thu, after waivers start moving)  -> commit to main
+#   push to identity/**                               -> commit back to that branch
+#   manual dispatch                                    -> commit to the dispatched ref
+
+on:
+  schedule:
+    - cron: "17 9 * * 2,4"
+  push:
+    branches: ["identity/**"]
+    paths-ignore: ["data/inputs/sleeper_identity_base.json"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sleeper-identity-refresh-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Keep the current base for comparison
+        run: cp data/inputs/sleeper_identity_base.json /tmp/previous_base.json || echo '{}' > /tmp/previous_base.json
+
+      - name: Pull Sleeper (fail-closed on partial pull)
+        run: python3 pipelines/pull_sleeper_identity.py
+
+      - name: Identity tests against the new base
+        run: |
+          python3 -m unittest tests.test_sleeper_identity_layer
+          python3 -m unittest tests.test_player_identity_guard
+          python3 -m unittest tests.test_match_identity_keys
+          python3 -m unittest tests.test_source_snapshot_match
+
+      - name: Did player content change?
+        id: diff
+        run: |
+          changed=$(python3 - <<'EOF'
+          import json
+          def body(p):
+              try:
+                  d = json.load(open(p))
+              except Exception:
+                  return None
+              d.pop("meta", None)
+              return d
+          print("yes" if body("/tmp/previous_base.json") != body("data/inputs/sleeper_identity_base.json") else "no")
+          EOF
+          )
+          echo "changed=$changed" >> $GITHUB_OUTPUT
+          python3 -c "import json; m=json.load(open('data/inputs/sleeper_identity_base.json'))['meta']; print('::notice title=sleeper-identity::' + json.dumps(m) + ' changed=$changed')"
+
+      - name: Commit
+        if: steps.diff.outputs.changed == 'yes'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/inputs/sleeper_identity_base.json
+          git commit -m "Sleeper identity base refresh (JEG-366)"
+          git push origin HEAD:${GITHUB_REF_NAME}
