@@ -174,6 +174,14 @@ def static_problems(text):
             problems.append(f"step {name!r} missing")
         elif f"if: {cond}" not in block:
             problems.append(f"step {name!r} must run only when {cond}")
+    commit = find_step(text, COMMIT)
+    if commit is None:
+        problems.append(f"step {COMMIT!r} missing")
+    elif "if: always()" not in commit:
+        problems.append(
+            f"step {COMMIT!r} must publish even when an earlier step failed "
+            "(if: always()) -- otherwise a failed import-health check strands "
+            "the refreshed workflow-health file in the runner")
     order = [text.find(f"name: {n}") for n in (CHAIN, SYNC_OK, PUBLISH_RED, COMMIT, FAIL)]
     if order != sorted(order) or -1 in order:
         problems.append("steps are not in the order chain, sync, publish, commit, fail")
@@ -200,6 +208,58 @@ def behaviour_problems(text):
     return problems
 
 
+def health_failure_problems(text):
+    """Simulate the job state when the import-health step fails the run.
+
+    Regression (2026-10-06 overnight QA): the "Run import health check" step
+    fails the job before the chain runs. The Refresh step carries
+    `if: always()` so it still rewrote dist/modules/github-actions.json, and
+    verify_import_health wrote its red artifact to output/ before exiting 1.
+    The chain step is skipped (outcome "skipped"). The commit step must still
+    run and publish the refreshed workflow-health file plus the red health
+    artifact -- without it the monitor's workflow-health card goes stale
+    while the gate is red (observed: false failing-streak badge on the
+    health-artifacts workflow, served bytes older than main). The fixture
+    must NOT be pushed.
+    """
+    problems = []
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        remote, work = td / "remote.git", td / "work"
+        git(td, "init", "-q", "--bare", "-b", "main", str(remote))
+        git(td, "clone", "-q", str(remote), str(work))
+        git(work, "checkout", "-q", "-b", "main")
+        for rel, content in BASELINE.items():
+            write(work, rel, content)
+        git(work, "add", "-A")
+        git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "baseline")
+        git(work, "push", "-q", "-u", "origin", "main")
+        base = git(work, "rev-parse", "HEAD")
+        # Post-health-failure on-disk state: refreshed workflow-health file,
+        # red health artifact in output/. The chain never ran.
+        write(work, GH_ACTIONS, "NEW-GH")
+        write(work, OUT_HEALTH, "RED-HEALTH")
+        # GitHub sets GITHUB_OUTPUT for every step; the commit script writes
+        # its pushed= flag there (an unset GITHUB_OUTPUT would fail the
+        # `>>` redirect under bash -e, a harness artifact, not a workflow bug).
+        r = run_script(text, COMMIT, work,
+                       {"CHAIN_OUTCOME": "skipped",
+                        "GITHUB_OUTPUT": str(work / "gh_out.txt")})
+        if r.returncode != 0:
+            problems.append("commit step failed after a failed health check")
+        verify = td / "verify"
+        git(td, "clone", "-q", str(remote), str(verify))
+        gh = verify / GH_ACTIONS
+        if not gh.exists() or gh.read_text() != "NEW-GH":
+            problems.append("a failed health check did not publish the refreshed workflow-health file")
+        oh = verify / OUT_HEALTH
+        if not oh.exists() or oh.read_text() != "RED-HEALTH":
+            problems.append("a failed health check did not publish the red health artifact")
+        if (verify / FIXTURE).read_text() != "OLD":
+            problems.append("a failed health check pushed the fixture")
+    return problems
+
+
 class RebuildChainWorkflowTest(unittest.TestCase):
     def assertCaught(self, mutated, fragment):
         self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
@@ -211,6 +271,7 @@ class RebuildChainWorkflowTest(unittest.TestCase):
     def test_real_workflow_is_clean(self):
         self.assertEqual([], static_problems(WORKFLOW))
         self.assertEqual([], behaviour_problems(WORKFLOW))
+        self.assertEqual([], health_failure_problems(WORKFLOW))
 
     def test_red_chain_pushes_only_status_and_health_files(self):
         red = run_scenario(WORKFLOW, "failure")
@@ -256,6 +317,16 @@ class RebuildChainWorkflowTest(unittest.TestCase):
             "          cp data/fixtures/current/comparison-sources-data.json dist/modules/comparison-sources-data.json\n",
             "", 1)
         self.assertCaught(mutated, "did not push the rebuilt fixture")
+
+    def test_dropping_commit_always_after_failed_health_check_is_caught(self):
+        # Without `if: always()` the Commit step is skipped when the
+        # import-health step fails the job: the refreshed workflow-health
+        # file never reaches the monitor. This is the exact 2026-10-06
+        # failure mode (stale card, false failing-streak badge).
+        mutated = WORKFLOW.replace(
+            "        if: always()\n        env:\n          CHAIN_OUTCOME: ${{ steps.chain.outcome }}",
+            "        env:\n          CHAIN_OUTCOME: ${{ steps.chain.outcome }}", 1)
+        self.assertCaught(mutated, "must publish even when an earlier step failed")
 
 
 if __name__ == "__main__":

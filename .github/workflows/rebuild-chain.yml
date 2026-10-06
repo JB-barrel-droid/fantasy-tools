@@ -140,6 +140,16 @@ jobs:
 
       - name: Commit and push if changed
         id: push
+        # A failed "Run import health check" step fails the job before the
+        # chain runs, but the refreshed github-actions.json (JEG-109; the Refresh
+        # step runs unconditionally) and the red health artifact must still
+        # reach the monitor -- without this, the dashboard's workflow-health
+        # card goes stale while the gate is red (2026-10-06: false
+        # failing-streak badge on the health-artifacts workflow). Publish even
+        # when an earlier step failed. The failure branch below stages ONLY
+        # status/health files, never the fixture, so a red gate can never
+        # promote data.
+        if: always()
         env:
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
         run: |
