@@ -54,11 +54,16 @@ jobs:
           mode=dry
           case "${GITHUB_REF_NAME}" in fcsave/write-*) mode=write;; esac
           if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          # Content week (flips Tuesday): the calendar the import-health gate and
+          # the rebuild chain use. The saver's own default (_common.nfl_week)
+          # flips Thursday, so the week is always passed explicitly.
+          week=$(python3 pipelines/nfl_week.py)
           echo "mode=$mode" >> $GITHUB_OUTPUT
-          echo "::notice title=fc-save::mode=$mode week=$(python3 pipelines/nfl_week.py)"
+          echo "week=$week" >> $GITHUB_OUTPUT
+          echo "::notice title=fc-save::mode=$mode week=$week"
 
       - name: Pull FantasyCalc 12-team lists (fail-closed)
-        run: python3 pipelines/pull_fantasycalc_12team.py --cache-dir /tmp/fc_cache
+        run: python3 pipelines/pull_fantasycalc_12team.py --cache-dir /tmp/fc_cache --week ${{ steps.cfg.outputs.week }}
 
       - name: Save to source_trade_values
         id: save
@@ -68,9 +73,12 @@ jobs:
         run: |
           set -o pipefail
           flag="--dry-run"; [ "${{ steps.cfg.outputs.mode }}" = "write" ] && flag=""
-          python3 pipelines/save_fantasycalc_references.py --cache-dir /tmp/fc_cache $flag \
+          python3 pipelines/save_fantasycalc_references.py --cache-dir /tmp/fc_cache --week ${{ steps.cfg.outputs.week }} $flag \
             --review-out /tmp/fc_review.json 2>&1 | tee /tmp/fc_save.log
           tail -3 /tmp/fc_save.log | sed "s/^/::notice title=fc-save::/"
+          if [ -s /tmp/fc_review.json ]; then
+            python3 -c "import json;r=json.load(open('/tmp/fc_review.json'))['review'];print('::notice title=fc-review::'+'; '.join(sorted({str(x.get('name') or x.get('player_key'))+' ('+str(x.get('detail') or x.get('reason'))[:40]+')' for x in r}))[:900])"
+          fi
 
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.mode == 'write'

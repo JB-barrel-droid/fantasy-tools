@@ -11,7 +11,10 @@ cache shape save_fantasycalc_references.py reads:
       {"fetched_at", "week", "week_evidence", "url", "rows": [{"name","pos","team","value","fantasycalc_id"}]}
 
 Week (JEG-87 rule): FantasyCalc's /values/current carries no week, so the week
-is asserted from nfl_week() and recorded as week_evidence with week_url=None,
+is asserted from the CONTENT week (pipelines/nfl_week.py, flips Tuesday -- the
+calendar the import-health gate and rebuild chain judge freshness by; the
+watchdog's _common.nfl_week flips Thursday and would label a Tuesday save one
+week stale) and recorded as week_evidence with week_url=None,
 week_titles=[] -- consumers can see the evidence is request-asserted.
 
 Fail closed: if any of the three lists has fewer than MIN_ROWS players, or the
@@ -28,8 +31,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
-from _common import nfl_week  # noqa: E402
+sys.path.insert(0, str(ROOT / "pipelines"))
+from nfl_week import current_nfl_week as nfl_week  # noqa: E402  -- content week
 
 API = "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs=1&numTeams=12&ppr={ppr}"
 SCORINGS = {"standard": 0, "half": 0.5, "full": 1}
@@ -70,7 +73,7 @@ def check_pull(lists: dict[str, list[dict]]) -> list[str]:
 def main(argv: list[str] | None = None, fetch_fn=fetch) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--cache-dir", type=Path, required=True)
-    ap.add_argument("--week", type=int, default=None, help="default: nfl_week()")
+    ap.add_argument("--week", type=int, default=None, help="default: content week (pipelines/nfl_week.py)")
     args = ap.parse_args(argv)
     week = args.week or nfl_week()
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -87,7 +90,7 @@ def main(argv: list[str] | None = None, fetch_fn=fetch) -> int:
         payload = {
             "fetched_at": fetched_at,
             "week": week,
-            "week_evidence": {"requested_week": week, "asserted_from": "nfl_week()",
+            "week_evidence": {"requested_week": week, "asserted_from": "pipelines/nfl_week.py (content week)",
                               "week_url": None, "week_titles": []},
             "url": fantasycalc_url(scoring),
             "rows": rows,
