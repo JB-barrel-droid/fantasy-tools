@@ -13,18 +13,25 @@ Never route work to a lane ROUTING.md marks unavailable.
 | --- | --- |
 | Implementation, validation, research sweeps, docs, routine fixes | minimax (M3) first — the default worker lane |
 | Architecture/design, debugging, code review | minimax (M3) first; escalate to Roman after 2 failed attempts |
-| Review, integration, merge/push/deploy, owner:muse tickets | Roman (per the merge charter) |
-| Anything minimax cannot do (live browser, credentials, vision/OCR, Mac-only files) | Roman |
+| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude (cloud session) — Jeremy 2026-10-06 (`docs/decisions.md` ops-ownership-001) |
+| Anything minimax cannot do (live browser, credentials, vision/OCR) | Claude; Roman (Muse) only as a last resort, e.g. a step that truly needs Muse's machine, when Jeremy asks |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
 
 - **minimax (M3)** is the default FIRST option for everything it can physically do
   (Jeremy directive 2026-10-02; M3 only, no M2.5). Workers write code/docs and
   commit to branches; they never merge, push, or deploy, and their "tests pass"
   claims are verified independently before integration.
-- **Roman (Muse)** owns review, integration, all deploys to `main`, conflict
-  management between lanes, and the owner:muse tickets. Standing rules: never
-  publish on known flaws, never display unvalidated values, verify rendered
-  production after every deploy — never ask Jeremy to re-check.
+- **Claude (cloud session)** owns review, integration, merges and deploys to `main`,
+  production QA and the scheduled jobs (Jeremy 2026-10-06, ops-ownership-001).
+  Standing rules: never publish on known flaws, never display unvalidated values,
+  verify rendered production after every deploy — never ask Jeremy to re-check.
+- **Roman (Muse)** no longer owns work here except as a last resort, when Jeremy
+  asks. Muse does not push to `main`, merge or close PRs, or close Linear issues
+  on this project.
+- **Supabase first.** New schedules, checks and orchestration go on Supabase
+  (pg_cron, Edge Functions, database-side checks, the `monitoring` schema).
+  GitHub Actions is the fallback for work Supabase cannot do (site build and
+  deploy, repo tests); when a job must run in Actions, pg_cron is its scheduler.
 - **ChatGPT lane: AVAILABLE via outbox briefs** (re-enabled 2026-10-03 at Jeremy's direction). Dispatch = write `lanes/outbox/chatgpt/JEG-NNN-brief.md` in the standard brief format (see the JEG-107/JEG-77 briefs); results land in `lanes/inbox/chatgpt/JEG-NNN-result.md`. ChatGPT writes code/docs and commits to branches; it never merges, pushes, or deploys, and Roman reviews and integrates every result. **Claude Code MCP lane: UNAVAILABLE** (Claude CLI was never verified working from Muse; Jeremy: "Stop trying to use the claude CLI", 2026-10-02). Do not design dispatches around the Claude lane.
 - Avoid delegation for small edits, obvious fixes, simple command checks, or any
   handoff where writing the brief would take longer than doing the work.

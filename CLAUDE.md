@@ -43,6 +43,12 @@ These are the user's, stated directly. They are not suggestions.
 - **Do not adjust tests to go green.** If a test fails, the default assumption is
   that the code is wrong. Changing a pinned assertion is legitimate only when the
   assertion itself was wrong, and the entry in the log must say why.
+- **Muse owns nothing here except as a last resort** (2026-10-06). Claude owns
+  merges, deploys, production QA and scheduled jobs; route to Muse only when a
+  step truly can't be done elsewhere and Jeremy asks.
+- **Prefer Supabase tools over GitHub** for schedules, checks and orchestration
+  (pg_cron, Edge Functions, `monitoring` schema). GitHub Actions only for what
+  Supabase can't do (site build/deploy, repo tests), scheduled from pg_cron.
 - **`make sync` is the single publish path** and stamps the build tag. Do not
   re-add `dist/static`, `dist/server`, `space.json` or `deploy.sh`.
 - **Do not touch `~/Projects/"fantasy tools"`** on the user's machine beyond the
