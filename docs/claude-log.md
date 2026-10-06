@@ -2760,6 +2760,8 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 - `make validate` green locally.
 
 ### Claimed, unverified
-- .github/workflows/sleeper-identity-refresh.yml (Tue/Thu 09:17Z, identity/** pushes, dispatch) has not
-  run yet; Sleeper is unreachable from the cloud session. First run is triggered by pushing an
-  identity/** branch; whether GITHUB_TOKEN may push to main on the schedule is untested.
+- Whether GITHUB_TOKEN may push to main on the Tue/Thu schedule is untested (branch push works).
+
+### Verified after push
+- First real refresh ran on identity/jeg366-sleeper (run 37403845742, success): 4,234 players,
+  4,131 names, 39 ambiguous, 2,312 with espn_id; bot commit bb219c0. `make validate` green on it.
