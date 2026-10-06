@@ -2737,3 +2737,29 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
   layered_identity.resolve_identity("josh allen") returns a free-agent G, "j allen" a DT. It is not
   wired into any pipeline yet, so nothing is mis-keyed today. Must be collision-aware before JEG-366
   wires it in (next PR).
+
+## 2026-10-05 ~23:30 CDT — Claude (cloud session): JEG-366 Sleeper identity layer wired (collision-safe)
+
+### Verified (check named)
+- v1 Sleeper base/resolver (a9b5b0a) guessed: on the committed base "josh allen" -> free-agent G,
+  "j allen" -> DT; on a fixture the v1 code resolves 4/4 ambiguous or non-fantasy probes to a player.
+- v2 (pipelines/pull_sleeper_identity.py, schema sleeper-identity-base-v2): QB/RB/WR/TE/K only, names
+  keyed by canonical_players.norm_plain -> list of every Sleeper id, no initial variants, Sleeper
+  cross-ids (espn/yahoo/gsis/sportradar) kept, partial pull (< 2,500 players) exits 1 and writes nothing.
+  Interim committed base rebuilt from the v1 rows (4,234 players, 39 ambiguous names, 5.9MB -> 549KB;
+  no cross-ids until the first real pull).
+- lib/layered_identity.resolve_identity(name, pos=None): manual table first (norm_plain keys), then
+  Sleeper; ambiguity resolves only by position or a single active+rostered namesake, else None.
+  A v1-format base file is ignored, not trusted.
+- match_source_snapshot falls back to the Sleeper layer when the manual table misses; matched rows carry
+  identity_source and the output has identity_layers counts (summary dict unchanged). --no-sleeper
+  disables it. FantasyCalc week-4: still 591/594, 0 via Sleeper (all known to the manual table).
+- tests/test_sleeper_identity_layer.py (7 tests) incl. negative test with the v1 first-write-wins map.
+- Pin change, justified: test_player_identity_guard.test_sleeper_base_resolves_when_manual_absent read
+  the v1 file shape (by_name -> dict); rewritten for v2 (by_name -> id list), same assertion intent.
+- `make validate` green locally.
+
+### Claimed, unverified
+- .github/workflows/sleeper-identity-refresh.yml (Tue/Thu 09:17Z, identity/** pushes, dispatch) has not
+  run yet; Sleeper is unreachable from the cloud session. First run is triggered by pushing an
+  identity/** branch; whether GITHUB_TOKEN may push to main on the schedule is untested.

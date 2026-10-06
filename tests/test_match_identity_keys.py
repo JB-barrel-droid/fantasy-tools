@@ -38,7 +38,7 @@ ROWS = [
 ]
 
 
-def run_match(rows):
+def run_match(rows, use_sleeper=False):
     with TemporaryDirectory() as tmp:
         players = Path(tmp) / "players.json"
         snapshot = Path(tmp) / "snapshot.json"
@@ -49,7 +49,7 @@ def run_match(rows):
             "default_teams": 12,
             "rows": [{"player_name": n, "value": 1.0, "pos": p} for n, p, _ in rows],
         }), encoding="utf-8")
-        return M.match_snapshot(snapshot, players)
+        return M.match_snapshot(snapshot, players, use_sleeper=use_sleeper)
 
 
 class MatchIdentityKeysTest(unittest.TestCase):
@@ -57,6 +57,8 @@ class MatchIdentityKeysTest(unittest.TestCase):
         out = run_match(ROWS + [("Totally Fabricated Player", "WR", None)])
         got = {r["source_player_name"]: r["player_key"] for r in out["matched_rows"]}
         self.assertEqual({n: k for n, _, k in ROWS}, got)
+        # Manual table alone (Sleeper layer off) must carry these names.
+        self.assertEqual({"manual"}, {r["identity_source"] for r in out["matched_rows"]})
         # Fail-closed is preserved: an unknown name is never guessed.
         self.assertEqual(["unknown_identity"], [r["reason"] for r in out["review_rows"]])
 

@@ -116,6 +116,7 @@ test-unit:
 	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_bake_espn_zero_universe
 	python3 -m unittest tests.test_match_identity_keys
+	python3 -m unittest tests.test_sleeper_identity_layer
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_refresh_fantasycalc_supabase

@@ -1,114 +1,138 @@
 #!/usr/bin/env python3
-"""JEG-366: Pull Sleeper NFL player database as the identity backbone.
+"""JEG-366: Pull the Sleeper NFL player database as the identity base layer.
 
-Sleeper /players/nfl is free, keyless, ~12k players covering active rosters,
-practice squads, IR, and free agents — well beyond fantasy relevance.
+Sleeper /players/nfl is free and keyless and covers active rosters, practice
+squads, IR and free agents. It sits UNDER the manual identity table
+(data/inputs/player_identity_map.json), which always wins.
 
-This builds the comprehensive base layer. The manual table
-(data/inputs/player_identity_map.json) remains as the override layer on top
-for edge cases and corrections.
-
-Output: data/inputs/sleeper_identity_base.json
+Output: data/inputs/sleeper_identity_base.json (schema sleeper-identity-base-v2)
   {
-    "meta": {"pulled_at": ..., "n_players": ...},
-    "by_name": {"josh allen": {"sleeper_id": ..., "pos": ..., "team": ...}},
-    "by_sleeper_id": {...}
+    "schema": "sleeper-identity-base-v2",
+    "meta": {"pulled_at", "source", "n_players", "n_name_keys", "n_ambiguous_names"},
+    "by_name": {"jamarr chase": ["7564"], "josh allen": ["4984", "..."]},
+    "by_sleeper_id": {"7564": {"name", "pos", "team", "active", "status",
+                               "espn_id", "yahoo_id", "gsis_id", "sportradar_id"}}
   }
 
-Name matching: lowercase full_name + common variants (first initial + last,
-suffixes stripped). Manual overrides always win.
+Rules (v1 got these wrong; see docs/claude-log.md 2026-10-05):
+  - Names are keyed with canonical_players.norm_plain, the same convention as
+    the manual identity map, and map to a LIST of Sleeper ids. v1 kept the
+    first player seen per name, so "josh allen" resolved to a free-agent guard.
+  - No first-initial variants ("j allen" collided 1,218 ways in v1).
+  - Fantasy positions only (QB/RB/WR/TE/K). Team defenses resolve through the
+    canonical registry, not by person name.
+  - Fail closed on a partial pull: fewer than MIN_FANTASY_PLAYERS rows exits
+    non-zero and writes nothing.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
-import re
 import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.canonical_players import norm_plain  # noqa: E402
+
+SCHEMA = "sleeper-identity-base-v2"
 SLEEPER_URL = "https://api.sleeper.app/v1/players/nfl"
 OUT_PATH = Path(__file__).resolve().parent.parent / "data" / "inputs" / "sleeper_identity_base.json"
-
-# Positions we care about for fantasy identity (still store all, but flag relevance)
-FANTASY_POSITIONS = {"QB", "RB", "WR", "TE", "K", "DEF"}
-
-
-def normalize_name(name: str) -> str:
-    """Lowercase, strip suffixes (Jr/Sr/II/III/IV/V), collapse whitespace."""
-    name = name.lower().strip()
-    name = re.sub(r"\s+(jr|sr|ii|iii|iv|v)\.?$", "", name)
-    name = re.sub(r"\s+", " ", name)
-    return name
-
-
-def name_variants(full_name: str) -> list[str]:
-    """Generate lookup variants for a name."""
-    variants = [normalize_name(full_name)]
-    parts = normalize_name(full_name).split()
-    if len(parts) >= 2:
-        # First initial + last name (e.g. "j allen")
-        variants.append(f"{parts[0][0]} {parts[-1]}")
-    return list(dict.fromkeys(variants))
+FANTASY_POSITIONS = ("QB", "RB", "WR", "TE", "K")
+# 2026-10-05 pull: 4,234 rows at these positions (3,201 active). A pull far
+# below that is truncated or an API change, never a real roster.
+MIN_FANTASY_PLAYERS = 2500
+CROSS_IDS = ("espn_id", "yahoo_id", "gsis_id", "sportradar_id")
 
 
 def pull_sleeper() -> dict:
-    req = urllib.request.Request(
-        SLEEPER_URL, headers={"User-Agent": "fantasy-tools/1.0"}
-    )
+    req = urllib.request.Request(SLEEPER_URL, headers={"User-Agent": "fantasy-tools/1.0"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         return json.load(resp)
 
 
-def build_base(sleeper_data: dict) -> dict:
-    by_name: dict[str, dict] = {}
-    by_id: dict[str, dict] = {}
-    n_skipped = 0
+def player_position(p: dict) -> str | None:
+    return p.get("position") or (p.get("fantasy_positions") or [None])[0]
 
+
+def build_base(sleeper_data: dict, pulled_at: str | None = None) -> dict:
+    by_id: dict[str, dict] = {}
+    by_name: dict[str, list[str]] = {}
     for pid, p in sleeper_data.items():
         full_name = (p.get("full_name") or "").strip()
         if not full_name:
-            n_skipped += 1
+            first, last = (p.get("first_name") or "").strip(), (p.get("last_name") or "").strip()
+            full_name = f"{first} {last}".strip()
+        pos = player_position(p)
+        if not full_name or pos not in FANTASY_POSITIONS:
             continue
-        pos = p.get("position") or (p.get("fantasy_positions") or [None])[0]
         entry = {
-            "sleeper_id": pid,
             "name": full_name,
             "pos": pos,
             "team": p.get("team"),
-            "active": p.get("active", False),
+            "active": bool(p.get("active", False)),
             "status": p.get("status"),
-            "fantasy_relevant": pos in FANTASY_POSITIONS,
         }
-        by_id[pid] = entry
-        for variant in name_variants(full_name):
-            # First write wins for collisions; manual overrides handle conflicts
-            if variant not in by_name:
-                by_name[variant] = entry
-
+        for key in CROSS_IDS:
+            if p.get(key) not in (None, ""):
+                entry[key] = str(p[key])
+        by_id[str(pid)] = entry
+        key = norm_plain(full_name)
+        if key:
+            by_name.setdefault(key, []).append(str(pid))
+    for ids in by_name.values():
+        ids.sort(key=lambda s: (len(s), s))
     return {
+        "schema": SCHEMA,
         "meta": {
-            "pulled_at": datetime.now(timezone.utc).isoformat(),
+            "pulled_at": pulled_at or datetime.now(timezone.utc).isoformat(timespec="seconds"),
             "source": "sleeper /players/nfl",
+            "positions": list(FANTASY_POSITIONS),
             "n_players": len(by_id),
             "n_name_keys": len(by_name),
-            "n_skipped_no_name": n_skipped,
+            "n_ambiguous_names": sum(1 for ids in by_name.values() if len(ids) > 1),
         },
-        "by_name": by_name,
-        "by_sleeper_id": by_id,
+        "by_name": dict(sorted(by_name.items())),
+        "by_sleeper_id": dict(sorted(by_id.items(), key=lambda kv: (len(kv[0]), kv[0]))),
     }
 
 
-def main() -> int:
-    print("Pulling Sleeper NFL players...", file=sys.stderr)
-    data = pull_sleeper()
-    print(f"Got {len(data)} raw players", file=sys.stderr)
-    base = build_base(data)
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    OUT_PATH.write_text(json.dumps(base, indent=1))
-    meta = base["meta"]
-    print(f"Wrote {OUT_PATH}: {meta['n_players']} players, {meta['n_name_keys']} name keys")
+def check_base(base: dict) -> list[str]:
+    """Fail-closed sanity checks. Returns problems; empty means OK."""
+    problems = []
+    n = base["meta"]["n_players"]
+    if n < MIN_FANTASY_PLAYERS:
+        problems.append(f"only {n} fantasy-position players (< {MIN_FANTASY_PLAYERS}); partial pull?")
+    by_id = base["by_sleeper_id"]
+    for key, ids in base["by_name"].items():
+        missing = [i for i in ids if i not in by_id]
+        if missing:
+            problems.append(f"by_name[{key!r}] references unknown ids {missing}")
+            break
+    return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--out", type=Path, default=OUT_PATH)
+    ap.add_argument("--from-file", type=Path,
+                    help="build from a saved /players/nfl response instead of the API")
+    args = ap.parse_args(argv)
+    raw = json.loads(args.from_file.read_text()) if args.from_file else pull_sleeper()
+    print(f"Got {len(raw)} raw Sleeper players", file=sys.stderr)
+    base = build_base(raw)
+    problems = check_base(base)
+    if problems:
+        for p in problems:
+            print(f"FAIL-CLOSED: {p}", file=sys.stderr)
+        return 1
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text(json.dumps(base, indent=0, sort_keys=False) + "\n", encoding="utf-8")
+    m = base["meta"]
+    print(f"Wrote {args.out}: {m['n_players']} players, {m['n_name_keys']} names, "
+          f"{m['n_ambiguous_names']} ambiguous")
     return 0
 
 
