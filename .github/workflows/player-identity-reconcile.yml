@@ -1,0 +1,126 @@
+name: Player identity reconcile (JEG-438)
+
+# Nightly: turns temporary (provisional / unmatched) player-name matches into
+# true matches or a review queue, then re-exports the registry snapshot the
+# resolver reads (data/inputs/player_registry.json). See docs/identity-model.md.
+#
+# Scheduler owner: Supabase pg_cron `player-identity-reconcile-nightly`
+# (daily 08:23 UTC, supabase/migrations/jeg438_identity_reconcile_cron.sql),
+# dispatching with mode=write. No `schedule:` here, so there is one owner.
+#
+#   workflow_dispatch mode=write   -> reconcile + write Supabase, export, commit to main
+#   workflow_dispatch (default)    -> dry: compute and report only, export, no commit
+#   push to identity-sync/**       -> dry reconcile, export the snapshot, commit it
+#                                     back to that branch (how a PR picks up a fresh
+#                                     snapshot)
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+  push:
+    branches: ["identity-sync/**"]
+    paths-ignore: ["data/inputs/player_registry.json"]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: player-identity-reconcile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode
+        id: cfg
+        run: |
+          mode=dry
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.mode }}" = "write" ] && [ "${GITHUB_REF_NAME}" = "main" ]; then mode=write; fi
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "::notice title=identity-reconcile::mode=$mode ref=${GITHUB_REF_NAME}"
+
+      - name: Reconcile provisional and unmatched names
+        id: reconcile
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          python3 pipelines/reconcile_player_identity.py --mode ${{ steps.cfg.outputs.mode }} \
+            --summary-out /tmp/identity_reconcile.json | tee /tmp/identity_reconcile.log
+          ok=$(python3 -c "import json;print('true' if json.load(open('/tmp/identity_reconcile.json'))['ok'] else 'false')")
+          echo "content_ok=$ok" >> $GITHUB_OUTPUT
+          python3 -c "import json;s=json.load(open('/tmp/identity_reconcile.json'));print('::notice title=identity-open::'+json.dumps({k:sum(v.get(x,0) for x in ('provisional','unmatched','review')) for k,v in s['open_counts'].items()}))"
+          python3 -c "import json;s=json.load(open('/tmp/identity_reconcile.json'));[print('::warning title=identity-alert::'+m) for m in s['alerts']]"
+
+      - name: Export registry snapshot
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/export_player_registry.py
+
+      - name: Resolver tests against the new snapshot
+        run: |
+          python3 -m unittest tests.test_player_resolver
+          python3 -m unittest tests.test_single_player_resolver
+
+      - name: Commit snapshot if it changed
+        if: steps.cfg.outputs.mode == 'write' || github.event_name == 'push'
+        run: |
+          if git diff --quiet -- data/inputs/player_registry.json && [ -z "$(git status --porcelain -- data/inputs/player_registry.json)" ]; then
+            echo "registry unchanged"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/inputs/player_registry.json
+          git commit -m "Player registry snapshot (JEG-438)"
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: identity-reconcile
+          path: |
+            /tmp/identity_reconcile.json
+            data/inputs/player_registry.json
+          if-no-files-found: ignore
+
+      # Monitoring: ok = the job ran green; content_ok = open (provisional /
+      # unmatched / review) names per source stayed under the alert limits.
+      # Declared in config/monitoring_coverage.json.
+      - name: Record the monitored check
+        if: always() && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OK: ${{ job.status == 'success' }}
+          CONTENT_OK: ${{ steps.reconcile.outputs.content_ok }}
+        run: |
+          python3 - <<'EOF'
+          import os, sbclient
+          ok = os.environ["OK"] == "true"
+          content_ok = ok and os.environ.get("CONTENT_OK") == "true"
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "player_identity_reconcile",
+              "p_ok": ok, "p_content_ok": content_ok,
+              "p_error_code": None if content_ok else ("RECONCILE_FAILED" if not ok else "IDENTITY_OPEN_NAMES"),
+              "p_scheduler_owner_id": "player-identity-reconcile.yml",
+          })
+          print(f"recorded player_identity_reconcile ok={ok} content_ok={content_ok}")
+          EOF
