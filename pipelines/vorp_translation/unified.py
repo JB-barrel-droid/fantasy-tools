@@ -129,20 +129,39 @@ def load_native_values(source: str, scoring: str, teams: int,
     players_path = REPO / "data" / "fixtures" / "current" / "players.json"
 
     fixture = json.loads(fixture_path.read_text())
-    players = json.loads(players_path.read_text())
     # Canonical registry built from the naming table (players.json). Identity
     # resolves through norm_player_name + player_key -- never raw strings, so
     # 'jaxon smithnjigba' (fixture slug) matches 'Jaxon Smith-Njigba'.
-    reg = Registry([
+    reg = naming_registry(players_path)
+
+    sdata = fixture["sources"].get(source, {})
+    combo_key = resolve_combo_key(sdata, scoring, teams)
+    native = sdata.get("combos", {}).get(combo_key, {}).get("native", {})
+    return rank_natives(native, reg)
+
+
+def naming_registry(players_path: Optional[Path] = None) -> Registry:
+    """Canonical registry from the naming table (players.json)."""
+    if players_path is None:
+        players_path = REPO / "data" / "fixtures" / "current" / "players.json"
+    players = json.loads(players_path.read_text())
+    return Registry([
         {"player_key": p["player_key"], "full_name": p["name"],
          "position": p.get("pos"), "active": True}
         for p in players["players"] if p.get("player_key") is not None
     ])
 
-    sdata = fixture["sources"].get(source, {})
-    combo_key = resolve_combo_key(sdata, scoring, teams)
-    native = sdata.get("combos", {}).get(combo_key, {}).get("native", {})
 
+def rank_natives(native: dict, reg: Optional[Registry] = None
+                 ) -> tuple[dict[str, list[tuple[str, float]]], dict[str, str]]:
+    """Rank one combo's native values per position (load_native_values core).
+
+    native: {fixture slug: publisher native value}. Returns (by_pos,
+    key_by_name) exactly as load_native_values does; names whose identity does
+    not resolve through the naming table are excluded.
+    """
+    if reg is None:
+        reg = naming_registry()
     by_pos: dict[str, list[tuple[str, float]]] = {p: [] for p in POSITIONS}
     key_by_name: dict[str, str] = {}
     for name, val in native.items():
@@ -159,6 +178,35 @@ def load_native_values(source: str, scoring: str, teams: int,
     for pos in by_pos:
         by_pos[pos].sort(key=lambda x: -x[1])
     return by_pos, key_by_name
+
+
+def translate_natives(native: dict, teams: int, reg: Optional[Registry] = None) -> dict:
+    """Translate ONE combo's own native values at the default roster.
+
+    JEG332-STORED-DRIFT (2026-10-07): the comparison chain's translate stage
+    used to read the Supabase grain written by the PREVIOUS run's natives, so
+    every native refresh promoted a stale translation. This is the same math
+    as translate_source (rank_natives + translate_ranked, default roster), run
+    on the values being promoted.
+
+    Returns {'slug_keys': {slug: player_key}, 'evaluated': {player_key},
+    'translated': {player_key: translated_value}, 'positions': {...}}.
+    'evaluated' holds every player the translation priced (above or at/below
+    the waiver line); a key in evaluated but not in translated is at or below
+    the waiver line.
+    """
+    by_pos, key_by_name = rank_natives(native, reg)
+    ranked_keyed = {pos: [(key_by_name[norm_player_name(n)], n, v) for n, v in rows]
+                    for pos, rows in by_pos.items() if rows}
+    core = translate_ranked(ranked_keyed, teams)
+    slug_keys = {n: key_by_name[norm_player_name(n)]
+                 for rows in by_pos.values() for n, _v in rows}
+    return {
+        "slug_keys": slug_keys,
+        "evaluated": set(slug_keys.values()),
+        "translated": {k: t["translated"] for k, t in core["translated"].items()},
+        "positions": core["positions"],
+    }
 
 
 def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,

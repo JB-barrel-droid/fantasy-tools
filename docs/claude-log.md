@@ -1,5 +1,69 @@
 # Claude session log
 
+## 2026-10-07 - Monitoring coverage audit ("working and monitored")
+
+Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a
+check_config row, records on success and failure, is flagged by the evaluator
+when it stops, and shows on the served monitor; fix gaps; one "is everything
+working" summary driven by monitoring.check_observations.
+
+### Verified (check named)
+- 14 cron jobs inventoried with `select ... from cron.job`; 8 check_config rows
+  existed (`select * from monitoring.check_config`). Before: no check for
+  rebuild-chain, player-trace, espn, cbsros, source-vintage, live-page-synthetic,
+  pages, weekly-dashboard-load, sleeper-identity-refresh, or the SQL-only cron
+  jobs. After the migrations: 22 rows; `public.monitoring_summary()` run
+  2026-10-07 11:36 UTC counted 21 (before the observer self-check row).
+- live-page synthetic: `select count(*) from live_page_checks` = 0. A manual POST
+  to the edge function with the job's own bearer returned HTTP 401
+  `{"error":"Unauthorized"}` (net._http_response id 306). So the pg_cron job has
+  never produced a result; cron's "succeeded" only means the request was queued.
+  The edge function's PRIMARY_URL is also a retired Muse page.
+- razzball-sync-live: net._http_response id 301 = HTTP 422 "Workflow does not
+  have 'workflow_dispatch' trigger" at 2026-10-07 11:20 UTC.
+- `has_function_privilege('anon','public.dispatch_gha_workflow(text,jsonb)','EXECUTE')`
+  was true; now revoked (migration 1). anon has no USAGE on schema monitoring.
+- Evaluator: read the old `compute_heartbeat_state` body: a never-observed check
+  set expected_next = now, so it stayed `unknown`. Probe after the fix:
+  `rebuild_chain` at now = unknown, at now+7h = missed.
+- GitHub run history (gh run list, main only): rebuild-chain failed 5 of the last
+  5 (07:00-11:00 UTC), failing step "Run import health check" (annotations on run
+  37611119708); cbsros sync failed at "Scrape CBS ROS projections" (run
+  37611096093); weekly-dashboard-load fails with exit 2, no staged bundle (run
+  37530061557). espn, player-trace, source-vintage, pages green.
+- `make validate` exit 0 with tests/test_monitoring_coverage.py in test-unit.
+  Negative tests in that file: unlisted workflow, record step that is not
+  always(), workflow that never records, double scheduler owner, check without a
+  migration row, recorder mapping failure to ok, banner painting stale data green
+  (the mutation produces the false green), audit missing/orphan rows.
+- Dashboard banner rendered in headless Chromium against a red fixture (shows the
+  failing check and the scheduler-problem list).
+
+### Claimed, not confirmed
+- The new workflow record steps have not run yet (PR unmerged; main's workflows
+  are the old ones). Until merge the new rows read unknown, then missed after one
+  cadence; `live_page_synthetic` goes missed about 2026-10-08 12:00 UTC if the PR
+  is not merged by then.
+- `monitoring.v_dispatch_outcomes` has no rows yet (dispatch_log starts at the next
+  dispatch); dispatch-failure red is untested against a live 422.
+- The browser read of monitoring-summary.json on the live site was not checked:
+  github.io is blocked from this sandbox (proxy 403).
+- JEG-428 item 1 (streak): the failing runs listed were branch pushes (by design)
+  plus scheduled runs 10-03 failure, 10-04 success, 10-05 failure, 10-06 success.
+  I did not diagnose the 10-05 scheduled failure beyond JEG-428's deploy-lag note.
+- Setting `weekly_dashboard_load` severity to warn was attempted and not
+  approved; it stays `page`.
+- Not done: JEG-428 item 6 (596 vs 613 denominator wording) and item 5 (parked
+  scale-agreement warn); JEG-340's live browser read of Supabase (this ships a
+  30-minute CI snapshot with a 60-minute fail-closed stale rule instead).
+- Alert delivery: no push/email channel exists; see GAP-ALERT-CHANNEL.
+
+Applied to project iskiybsimubiujwuchsl: monitoring_coverage_1_lockdown_dispatch_and_log,
+_2_checks_and_evaluator, _3_cron_observer_and_summary, _4_observer_self_check
+(SQL in supabase/migrations/monitoring_coverage_20261007.sql). Also one diagnostic
+POST to the live-page edge function and calls to `record_cron_observations()` /
+`run_evaluator_cycle(now())`; nothing deleted.
+
 ## 2026-10-05 - JEG-366 wiring fix on minimax/jeg-366-wiring-fix
 
 Contract: FantasyCalc Supabase import was red (588 rows vs 2376 expected);
@@ -3361,3 +3425,217 @@ you set up values to get the tool working" -- he reviews the math later. PR to m
   `SAVED_SETUP_SHAPE`, so `isSavedSetup` is true); not probed in a browser.
 - Not done: the saved views' blend-reference group budgets are not carried to derived settings; the
   server still saves the fail-safe for below-waiver players (JEG332-BELOW-WAIVER-SAVED, Agent B).
+## 2026-10-07 — Claude (cloud session): JEG332-STORED-DRIFT fixed (branch stored-drift-retranslate, PR, not merged)
+
+Saved 12-team published values are now the value-above-waivers translation of the saved natives for all
+four published charts, and the parity test fails on any drift. Jeremy: "Rerun any data you need"; he will
+review the math later.
+
+### Root cause (verified)
+- The chain's translate stage (`translate_via_vorp.py`) read the Supabase grain `publisher_translated_values`.
+  That grain is written by `refresh_vorp_translation.py` AFTER promotion, from the fixture's PREVIOUS natives,
+  and only when the week rolls. Any native refresh therefore promoted a stale translation (USA Today: natives
+  from bake usatwk4_2026-10-02, grain from the 09-29 natives), and a missing grain fell back to the pie
+  silently. FantasyCalc: 899f23b (2026-10-04) wrote pie values under the old `vorp-supabase` block; the
+  test_static_export pin 29.061 for Josh Allen (commented as "the vorp-supabase translation re-derived") was
+  the pie value, not a translation.
+
+### What changed
+- `unified.rank_natives` / `naming_registry` (refactor of `load_native_values`, output unchanged) and
+  `unified.translate_natives` (rank + `translate_ranked` on one combo's natives).
+- `translate_via_vorp.py --translation natives`: translates each combo from its own natives, never reads
+  Supabase; players the translation prices at/below the waiver line are saved as **0** (`n_below_waiver`)
+  instead of the flex-aware pie value (job 3; matches Agent D's browser change so 12 teams and derived agree);
+  only an unidentifiable player keeps the pie (`n_fallback_reindex`). Provenance gains
+  `translated_from: combo-natives`. The method string stays `vorp-supabase` because the checkpoint and five
+  test files key on it (legacy name, documented in the note). Default mode is still `supabase`.
+- `rebuild_comparison_chain.py` passes `--translation natives`.
+- Re-ran on the fixture: `translate_via_vorp.py --translation natives --week 4` (all four sources),
+  `build_adjustment_inputs.py` (fit), `build_adjusted_fixture_sections.py` (chain stages 7-8).
+  `build_adjusted_fixture_sections.py` now keeps a section's `retired_setups` record across rebuilds (it
+  silently dropped FantasyCalc_adjusted's league-settings-001 record on the first run).
+- Inputs: USA Today natives in the fixture == newest bake usatwk4_2026-10-02_v1 (per-scoring native sums
+  4184/4029/3915 match Supabase; 09-29 bake differs). content_vintage stays 2026-09-29. FantasyCalc stays on
+  its Week 4 natives (content_vintage "Week 4"): the week-5 bake fcwk5_2026-10-06_v1 was run through the real
+  chain offline (import_supabase_references with rows read through the Supabase MCP, served by a read-only
+  sbclient shim in the scratchpad; match -> reference -> section -> reindex -> translate -> review) and the
+  review HELD it: combos_match (section builder emits `full_12_qb2`), native_drift 189/189 and coverage
+  WR 78->76 / TE 28->26 wanting the live FantasyCalc API (proxy 403 here). Not promoted; risk register
+  JEG332-FC-WK5-HOLD. Nothing was written to Supabase.
+- `curve-widget.js` distinctSourcePeaks: every translated published chart now peaks at exactly RB 70, so the
+  peaks-only rule threw "Curve regression guard failed: distinctSourcePeaks" whenever only published charts
+  were active (tests.test_lock_revert_notice_render, 2 errors). New `sourceCurvesDistinct`: distinct when peaks
+  differ OR the curves differ; identical curves still fail.
+
+### Verified (check named)
+- Drift, `stored_drift_problems` (tests/test_vorp_translation_js_parity.py), before -> after:
+  USA Today std/half/full: 3/3/3 translated values off (max 1.6, Puka Nacua full 45.2 vs 46.7) and 85/84/82
+  at/below-waiver players non-zero, n_translated 167/179/180 vs 161/162/164 -> 0 problems.
+  FantasyCalc std/half/full: 168/168/168 values off (Brock Purdy full 10.14 vs 8.2) and 28 non-zero below
+  waiver each, n_translated 176/177/176 vs 168 -> 0. CBS 22/13/13 and FantasyPros 23/23/23 below-waiver pie
+  values -> 0 (their translated values were already exact). 60 problems on the pre-fix fixture, 0 after.
+- Negative tests: `test_stored_drift_guard_catches_stale_values` -- 6 simulated stale states (one value
+  +1.5, a below-waiver pie value, whole-combo pie values, a lying n_translated, natives refreshed but not
+  re-translated, Supabase-grain provenance) each fail. `TestNativesTranslation`: natives mode never calls
+  Supabase, zeroes below waiver, and follows a native refresh that the stale-grain path misses (asserted on
+  the same input). `tests/test_source_curves_distinct.py`: the old peaks-only rule gets the equal-peak case
+  wrong, an always-true rule misses identical curves; the real function gets all three right.
+- 12-combo headless sweep on built dist/ (3 scorings x 8/10/12/14, TradeValueCurveDiagnostics), before ->
+  after: fixedPieIndexed true in all 12 both times; sourceScaleAgreement false (non-blocking) in all 12 both
+  times; offenders std 12/12/10/12 -> 12/12/12/12, half 8/12/6/8 -> 8/12/8/8, full 4/8/7/8 -> 4/8/8/8; no page
+  errors. Curve starts (QB/RB/WR/TE) FantasyCalc 12 teams: std 39.9/82.4/45.7/24.6 -> 25/70/55/30, half
+  32.6/74.2/49.1/25.0 -> 25/70/55/30, full 29.1/66.9/50.6/27.8 -> 25/70/55/30, now the same as every other
+  published chart; 10 and 14 teams unchanged (full 10: 21.6/70/52.3/30.6). FantasyCalc full top-3 RB at
+  10/12/14 teams: before 70.0/66.2/55.6 | 66.9/63.3/53.5 | 70.0/66.2/55.9, after 70.0/66.2/55.6 |
+  70.0/66.2/55.8 | 70.0/66.2/55.9 (the 12-vs-10 jump is gone). At 12 teams every plotted published value ==
+  saved value (0 mismatches, 12 combos x 4 sources). At 8/10/14 the only moves are players at/below the
+  waiver line at 12 teams whose saved fallback is now 0 (e.g. USA Today full 8 teams: 82 players -> 0).
+- Changed assertions, with reasons: test_static_export FantasyCalc Allen 29.061 -> 25.0 (the pin froze the
+  drift; see root cause); the refit adjusted pins FC 25.4 -> 25.5, USAT 23.8 -> 24.6, FP 17.4 -> 21.1 (chain
+  stages 7-8 on the new raw values); last positive QB 48 -> 35 (rows 36-48 were positive only through
+  published-chart pie fallbacks for below-waiver QBs: Winston, Mariota, Bagent); guard_harness JEG-5 recorded
+  numbers total 2048.07 -> 1931.76, delta +78.18 -> -38.13 (the simulated broken state still fails by far
+  more than the tolerance of 2). The parity test's KNOWN_STALE_STORED allowlist removed (was the documented
+  temporary state for this row).
+- `make validate` exit 0 (CHROMIUM_PATH set).
+
+### Claimed, unverified
+- None for the fixture. Not checked: the GitHub Actions chain run with `--translation natives` end to end
+  (the stage is covered by the unit tests and the offline FantasyCalc run, which translated the section with
+  168 translated / 0 fallback). `refresh_vorp_translation.py` crashes on the retired FantasyCalc 8/10/14
+  grains (verified the SystemExit, not the full run): JEG332-VORP-REFRESH-RETIRED.
+## 2026-10-07 - Razzball ROS puller rebuilt in CI (JEG-433, branch razzball/dry-ci-v2)
+
+Contract: Muse's `razzball-projections-pull` was shut off 2026-10-06. Rebuild it as a CI job scheduled by Supabase
+pg_cron; PR to main passing `make validate`, not merged. Built on the WIP commit a7f5ab9 (cherry-picked onto
+current main; the `razzball-ci` branch also carries the unmerged ingest-ci work, which this PR does not).
+
+### What changed
+- `pipelines/pull_razzball_ros.py` reconciled with Muse's script (read in full from JEG-433): table chosen by a
+  Name + STD PPG header (the WIP took the first `neorazzstatstable`), Muse's component-vs-published PPG gate,
+  Muse's URLs (no trailing slash) and Accept header, named failure codes SOURCE_BLOCKED / SOURCE_LAYOUT /
+  SOURCE_TRUNCATED / PPG_GATE, Muse-schema CSV emitted next to snapshot.json.
+- Dating decision (mine, not Jeremy's): vintage = Razzball's own "Updated:" stamp date (oldest of the four pages), not the
+  run date; no stamp fails closed. Muse stamped the run date. Reason: a daily run on an unchanged page must not mint a
+  fresh-looking vintage. Same-date re-runs upsert the same grain.
+- `razzball-supabase-sync.yml`: no `--date`, error code parsed from the puller's line, snapshot artifact, pull summary
+  as a ::notice. `tests/test_razzball_sync_ci.py` gated in `make test-unit`.
+
+### Verified (check named)
+- CI dry run on pushed branch `razzball/dry-ci-v2`, run 37615285230 (job 112772022167), read via
+  check-run annotations: Razzball is NOT bot-walled from GitHub runners; "vintage 2026-10-06 (page stamps all
+  2026-10-06): 679 rows {QB 103, RB 165, WR 263, TE 148}, 0 review, 0 off the PPG gate"; saver dry run "672 clean rows,
+  7 review rows" (no_match: Chigoziem Okonkwo, Jalen Cropper, J. Sturdivant, Joshua Palmer, Kenny Gainwell, Mitch
+  Trubisky; ambiguous: Audric Estime); "[dry-run] would upsert 672 rows". Dry mode wrote nothing.
+- `public.razzball_projections` (SQL, read-only): vintages 2026-10-01 (692 rows), 2026-10-06 (672 rows). The CI dry run's 672 equals the stored
+  2026-10-06 count.
+- pg_cron job 25 `razzball-sync-live` `20 11 * * *` active and `monitoring.check_config` row `razzball_projections_sync`
+  exist; migration `razzball_sync_pg_cron` (20261007035105) is already applied and byte-identical to the file in this PR, so I did not re-apply it.
+- Tests: 21 pass in `tests.test_razzball_sync_ci`. Negative-tested: removing the row floors accepts a 12-row TE
+  page; removing the PPG gate accepts shifted columns; dropping the error-code extraction loses SOURCE_BLOCKED;
+  plus the WIP's schedule/dry-flag/write-default/record-in-dry mutations. `make validate` exit 0.
+- Live health artifact 2026-10-07 11:11Z: razzball ok, vintage 2026-10-06, age 1.
+
+### Claimed, unverified
+- The sandbox cannot reach football.razzball.com (proxy 403), so the only live HTML evidence is the CI annotations above.
+  A real bot wall was never observed; SOURCE_BLOCKED is unit-tested only.
+- A write-mode run (pg_cron or `razzball/write-*`) was not triggered by me. The WIP session's `razzball/write-1` push at 03:51Z
+  most likely wrote the 2026-10-06 vintage; I did not check its logs.
+- Chart data was NOT regenerated and no 12-combo sweep was run: nothing in the chart's data changed in this PR. The fixture
+  Razzball section is still vintage 2026-10-01; the 2026-10-06 vintage reaches the chart when rebuild-chain.yml next runs
+  green (it has been red since at least 08:00Z at "Run import health check", cbs/fantasypros stale; not a Razzball cause).
+- Another session pushed `razzball/dry-ci-rebuild` (95cdbca) with the same goal 10 minutes before mine; I did not touch it.
+  It differs on dating (pull date) and error-code names.
+## 2026-10-07 - Import-health gate tolerates a one-week lag (build-lag-001, branch build-lag-001)
+
+Contract: the rebuild chain never promoted because verify_import_health was RED. CBS and FantasyPros
+were STALE_VINTAGE (Week 4 against content week 5) while FantasyCalc was already Week 5. Jeremy
+authorized loosening or tightening gates so the build runs on each source's newest data, each source
+labelled by its own week.
+
+### Verified
+- Real state 2026-10-07 (Supabase MCP queries on source_trade_values, cbs_trade_values,
+  cbs_ros_projections, espn_season_projections and razzball_projections, latest vintage per source):
+  fantasycalc Week 5 (585 rows, fcwk5_2026-10-06_v1); usatoday 2026-09-29 (Week 4, 747);
+  fantasypros 2026-09-29 (Week 4, 534); cbs Week 4 (342); cbsros 2026-10-02 (Week 4, 363); espn
+  2026-10-06 (496); razzball 2026-10-06 (672). The CI artifact dist/modules/source-import-health.json
+  (checked 2026-10-07T11:11Z, nfl_week 5) agrees.
+- Gate before -> after on a fixture built from those vintages (tests/test_build_lag_gate.py; the
+  same fixture run against the HEAD code from `git archive`):
+  before: 3 ok / 2 stale, with usatoday and cbsros `yellow` not counted, GATE RED, exit 1 (matches
+  the CI artifact line for line);
+  after: fantasycalc/espn/razzball ok; usatoday, fantasypros, cbs and cbsros
+  `warning` "LAGGING_ONE_WEEK (non-blocking): ..."; GATE GREEN, exit 0. Each source keeps its own
+  content_vintage (cbs "Week 4", fantasypros "2026-09-29", fantasycalc "Week 5").
+- Red/yellow audit: the old green check (`stale==0 and missing==0 and failed==0`) let `red`
+  (MISSED_WINDOW), `yellow` and unknown statuses pass. Proven by
+  `test_usatoday_two_weeks_behind_red_blocks_the_gate`, where every other source is fresh and usatoday is
+  2 weeks behind: the HEAD code gives exit 0 ("6 ok", red uncounted). Now the check is a fail-closed
+  allow-list (`entry_is_blocking`): ok and warning pass, plus Razzball's warn/bad/unk (advisory,
+  not a chain source). Everything else blocks. At one week behind, red and yellow verdicts become
+  LAGGING warnings (the window verdict is kept in the reason). At two or more weeks behind they block.
+- Newer source: FantasyCalc Week 5 is `ok` at nfl_week 5, and also at 4 (a Thursday-flip caller).
+  The 4 case prints a NOTE line. `--nfl-week` now defaults to pipelines/nfl_week.current_nfl_week
+  (5 on 2026-10-06 and 2026-10-07, 4 on 2026-10-05).
+- Promotion: `check_l1_freshness` accepts ok or LAGGING_ONE_WEEK (`entry_is_promotable`). It refuses a
+  TABLE_DRIFT warning, a stale entry, and a candidate relabelled to a different week
+  (test_promote_section `test_l1_gate_promotes_one_week_lag_under_its_own_vintage`). The promoted
+  section keeps its own content_vintage, so per-source labels survive (GAP-PROMOTE-MIXED-VINTAGE's
+  per-setup issue is unchanged).
+- Chain: no other current-week gate in rebuild_comparison_chain.py. `--week` to translate_via_vorp and
+  refresh_vorp_translation is a refresh-cycle label: grains are computed from fixture natives
+  whatever the week (unified.translate_source never filters by week). I kept the chain week and
+  documented it (GAP-VORP-GRAIN-WEEK-LABEL). The chain status now records `source_vintages` (each
+  source's content vintage/week/health status/lagging flag).
+- Negative tests (mutation runs on copies of the tree; every mutation caught by at least one test):
+  LAG_TOLERANCE 1->2 (6 failures), 1->0 (6), old green formula (1: red test), allow-list += red/yellow
+  (3), promotable = any warning (2), promote ok-only (1), source-ahead treated as behind (1), chain
+  without source_vintages (1), default week hard-coded to 4 (1).
+- Changed assertions, with reasons: test_import_health `test_week2_vintage_stale_with_nfl_week_3` ->
+  `..._lagging_...`, and new `test_week1_vintage_stale_with_nfl_week_3` keeps the stale case at 2 weeks;
+  `test_iso_date_maps_to_nfl_week_for_freshness` (1 week behind is now LAGGING; added a 2-week red
+  case); `test_any_non_ok_source_fails_the_gate` uses a 2-week-old vintage. All three pinned the
+  exact-week policy that build-lag-001 replaces. SOURCE_KEYS gains `content_week` and `blocking`.
+  `test_all_green_exit_zero_and_shape` was ALREADY red on main before this change (razzball carries
+  `vintage_date`/`age_days`, documented as razzball-only). The assertion was wrong; it now allows
+  those two keys for razzball.
+- Gated: tests.test_build_lag_gate, test_import_health, test_verify_import_health and
+  test_promote_section are now in `make test-unit` (the last two were in test-integration, which
+  validate does not run, although they are offline).
+- `make validate` exit 0 (CHROMIUM_PATH set); stamp files restored before commit.
+
+### Claimed, unverified
+- That the next rebuild-chain run goes green and promotes. Not run here: no SUPABASE env, no
+  data/raw snapshots. Downstream chain stages (match/review/promote of Week-4 CBS/FP against a
+  fixture already at Week 4) were not exercised end to end.
+- tests.test_decisions_log was already red on main for three older entries (GAP-DECISIONS-LOG-RED).
+  build-lag-001 adds no errors to it.
+
+## 2026-10-07 ~09:00 CDT — Claude (cloud session, coordinator): merged main into #386; JEG-135 baseline window
+
+### Verified (check named)
+- #386 conflicted with #383 only in a comment block in rebuild_comparison_chain.py (both comments kept) and
+  the log. After the merge, tests.test_jeg135_rendered_flexibility failed inside `make validate` twice but
+  passed alone: every step "mismatched" the baseline, i.e. the baseline was read before a late async
+  re-render. gate_flexibility.mjs now waits for networkidle and an 8-read (2 s) quiet window for the
+  baseline only. Full `make validate` rc=0 afterwards; the render-counter broken build still fails the sweep.
+## 2026-10-07 ~09:30 CDT — Claude (cloud session, coordinator): main red after #384 + #385 — Razzball coverage entry
+
+### Verified (check named)
+- After #384 (Razzball workflow) and #385 (monitoring coverage) both merged, tests.test_monitoring_coverage
+  failed on main: the manifest still declared razzball-supabase-sync.yml as a gap
+  (`workflow_missing_on_main`) and `test_razzball_gap_is_declared_not_hidden` asserted the workflow was
+  absent. The coverage guard did its job ("now exists on main"). Manifest entry now points at the
+  workflow's `"p_check_id": "razzball_projections_sync"` record; the temporary-state test is replaced by one
+  requiring the entry be covered and the stale gap flag be rejected (assertion changed because its premise —
+  "not on main yet" — no longer holds). Negative check: renaming the workflow's check id fails the suite.
+
+## 2026-10-07 ~10:30 CDT — Claude (cloud session, coordinator): #386 + #387 combined
+
+### Verified (check named)
+- Merging #386 (saved values = current translation, below-waiver 0) under #387 (views + browser below-waiver 0)
+  made test_published_league_settings_render's "always-derive" broken build indistinguishable from the real
+  page: deriving at the saved setup now reproduces the saved values exactly, which is #386's goal. That
+  mutation is no longer a broken state, so it was replaced with "never-derive" (every setting treated as the
+  saved one), which the guard catches (40 problems); "unwired" still caught (40). Full `make validate` rc=0
+  on the combined tree. Risk-register conflict resolved by row ID (STORED-DRIFT from #386, VORP-VIEWS from #387).

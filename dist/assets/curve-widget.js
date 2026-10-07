@@ -1,6 +1,23 @@
 (() => {
   "use strict";
 
+  // distinctSourcePeaks guard core. The guard exists to catch every active
+  // curve being the SAME data (an aggregate, or one map served for all
+  // sources). Equal peaks alone are not that bug: the value-above-waivers
+  // translation scales every published chart's top player to the same
+  // positional max (RB 70), so translated sources legitimately share a peak
+  // (JEG332-STORED-DRIFT, 2026-10-07). Distinct = peaks differ OR the curves
+  // differ anywhere (values compared to 0.1).
+  function sourceCurvesDistinct(keys, maps) {
+    const peaks = new Set(keys.map(key => Math.max(...maps.get(key).values()).toFixed(1)));
+    if (peaks.size > 1) return true;
+    const signature = key => [...maps.get(key).entries()]
+      .map(([player, value]) => `${player}:${Number(value).toFixed(1)}`)
+      .sort()
+      .join(",");
+    return new Set(keys.map(signature)).size > 1;
+  }
+
   const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "FLEX"];  // JEG-211: K/DST honestly excluded
   const SCORINGS = [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]];
   const SOURCE_LABELS = {
@@ -3739,7 +3756,7 @@
     });
     const sourcePeaks = Object.fromEntries(activeKeysForGuard.map(key => [key, Math.max(...sourceMaps.get(key).values())]));
     const distinctSourcePeaks = activeKeysForGuard.length <= 1
-      || new Set(Object.values(sourcePeaks).map(value => value.toFixed(1))).size > 1;
+      || sourceCurvesDistinct(activeKeysForGuard, sourceMaps);
     // Collapse guard. What this is actually for: catching a curve that has
     // lost its scale -- all-equal values, a bad reindex, a divide-by-total
     // error -- which puts the peak down near the per-player mean. The pie is

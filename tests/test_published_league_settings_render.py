@@ -160,13 +160,18 @@ class PublishedLeagueSettingsRender(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         model = (APP / "assets" / "value-model.js").read_text()
         widget = (APP / "assets" / "curve-widget.js").read_text()
-        always_derive = model.replace("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
-                                      "return false;")
+        # "never-derive": every setting treated as the saved one, so 8/10/14 teams
+        # and custom rosters plot the saved 12-team values. (Until #386 this was
+        # "always-derive" -- deriving at the saved setup too -- which no longer
+        # differs from the saved values once those ARE the current translation,
+        # so it stopped being a broken state.)
+        never_derive = model.replace("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
+                                     "return true;")
         unwired = widget.replace(
             "if (AS_PUBLISHED_KEYS.has(key) && !onSavedSetup()) return derivedPublishedSourceMap(key);", "")
-        self.assertNotEqual(always_derive, model)
+        self.assertNotEqual(never_derive, model)
         self.assertNotEqual(unwired, widget)
-        for name, overrides in (("always-derive", {"**/assets/value-model.js*": always_derive}),
+        for name, overrides in (("never-derive", {"**/assets/value-model.js*": never_derive}),
                                 ("unwired", {"**/assets/curve-widget.js*": unwired})):
             problems = verify(collect(overrides))
             print(f"\n[JEG-334 negative test] {name}: {len(problems)} problems, e.g. {problems[:1]}")

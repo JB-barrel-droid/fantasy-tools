@@ -13,8 +13,10 @@ coordinating with the watchdog builder.
   active dashboard trade-value sources and writes this file.
 - **Update cadence / trigger:** the pull watchdog runs `make import-health`
   after each source pull's expected time and reads this file. `NFL_WEEK` is
-  passed by the watchdog/cron (the current NFL week); the verifier does not
-  infer it.
+  optional: when omitted, the verifier uses the content week from
+  `pipelines/nfl_week.py` (flips Tuesday). Never pass the Thursday-flip
+  `ops/watchdog/_common.nfl_week`. A `--nfl-week` that differs from the
+  content week for the check date prints a `NOTE:` line (it does not block).
 - **Sources covered (exactly these seven, never others):**
   `fantasycalc`, `usatoday`, `fantasypros`, `espn`, `cbs`, `cbsros`, `razzball`.
   ECR, Vegas, and prediction markets are hard exclusions — an unknown source name is a
@@ -56,7 +58,9 @@ Top-level object (key order as written; parsers must read by name):
 
 | Field | Type | Meaning |
 |---|---|---|
-| `status` | string enum | `ok` \| `stale` \| `missing` \| `failed`. See below. |
+| `status` | string enum | `ok` \| `warning` \| `stale` \| `red` \| `missing` \| `failed`, plus Razzball's `warn` \| `bad` \| `unk`. See below. |
+| `blocking` | bool | build-lag-001: true when this entry holds the gate RED (`entry_is_blocking`). Read this, not the status, to decide whether the gate can pass. |
+| `content_week` | int \| null | build-lag-001: the NFL content week the vintage maps to (`"Week 4"` → 4, `2026-09-29` → 4). null until the vintage is derivable. |
 | `last_successful_import` | string \| null | UTC timestamp of the last check in which this source's snapshot verified (bytes + table drift + vintage derivable). Carried forward from the previous health file when the current check fails; null if the source never verified. Note: a `stale` source still verified its bytes, so its import time is current — staleness is about the source's vintage, not the import. |
 | `content_vintage` | string \| null | The manifest's content vintage verbatim (e.g. `"Week 3"`, `"2026-09-15"`). Never pull time. |
 | `vintage_kind` | string enum | `week_designated` \| `source_content_date` \| `file_meta` \| `unknown`. How the vintage was derived: `week_designated` = the manifest's `week_designated` field or a `"Week N"` vintage; `source_content_date` = a dated Supabase vintage mapped to an NFL week; `file_meta` = a dated content vintage from the source's own metadata (ESPN's `espn_snapshot_date` column — DB-backed since 2026-09-22); `unknown` = not derivable (always paired with a failed status). |
@@ -128,11 +132,26 @@ stale, independent of the pipeline checkpoints' pass/fail status.
 ### Status enum
 
 - `ok` — snapshot exists, bytes match the manifest sha256, table (if any)
-  matches, vintage is fresh. The only status that permits fixture updates.
+  matches, vintage is fresh. Week-designated charts are fresh when their
+  content week is `>= nfl_week` (a source ahead of the others is fresh).
+- `warning` — non-blocking. Two producers:
+  - `LAGGING_ONE_WEEK (non-blocking): ...` (build-lag-001): a week-designated
+    chart (fantasycalc, usatoday, fantasypros, cbs, cbsros) exactly one
+    content week behind `nfl_week`. The build uses it, labelled with its own
+    week, and promotion accepts it under its own `content_vintage`. The
+    reason keeps the publication-window verdict (`yellow` awaiting, `red`
+    missed window, or `stale` unverified schedule).
+  - `TABLE_DRIFT` stamping lag: the table is fresher than the manifest. Not
+    promotable.
 - `stale` — the snapshot verified (bytes + table) but its content vintage is
-  not current: week-designated charts (fantasycalc, usatoday, fantasypros,
-  cbs) are fresh iff their NFL week == `nfl_week`; ESPN is fresh iff its
-  content date is within 2 days of the check date.
+  too old: a week-designated chart two or more weeks behind with no
+  verified publication schedule, or ESPN more than 2 days from the check
+  date.
+- `red` — `MISSED_WINDOW`: a week-designated chart with a verified schedule
+  (usatoday, cbsros) two or more weeks behind. Blocks.
+- `warn` / `bad` / `unk` — Razzball snapshot age (JEG-307). Advisory: Razzball
+  is not a rebuild-chain source, so these do not block. Its byte or table
+  failures (`failed`) still do.
 - `missing` — no snapshot/manifest exists under `data/raw/sources/<source>/`.
 - `failed` — a check itself failed: byte mismatch, table drift, undeterminable
   vintage, or a failed Supabase re-query.
@@ -143,6 +162,8 @@ stale, independent of the pipeline checkpoints' pass/fail status.
 |---|---|
 | `MISSING_SNAPSHOT` | No snapshot-manifest.json under `data/raw/sources/<source>/`. |
 | `STALE_VINTAGE` | Verified bytes, but content vintage is not current (detail names the vintage and the expected week / age). |
+| `LAGGING_ONE_WEEK` | build-lag-001, status `warning`, non-blocking: a week-designated chart exactly one content week behind. Always written as `LAGGING_ONE_WEEK (non-blocking): ...`, with the publication-window verdict appended. |
+| `MISSED_WINDOW` / `AWAITING_PUBLICATION` | Publication-window verdicts (`pipelines/lib/publication_windows.py`). Standalone only at two or more weeks behind (`red`, blocking); at one week behind they appear inside a `LAGGING_ONE_WEEK` reason. |
 | `BYTE_MISMATCH` | `snapshot.json` bytes differ from the manifest's sha256 — unverified bytes are never promoted. |
 | `TABLE_DRIFT` | The Supabase table's row count or unanimous vintage no longer matches the manifest — a partial or stale table is not treated as complete. |
 | `NO_VINTAGE` | No content vintage is derivable from the manifest — a vintage-less snapshot may never back fixture updates. |
@@ -170,14 +191,20 @@ are written once per scoring (standard/half_ppr/ppr) from the single published
 
 ## Gate semantics (for the watchdog)
 
-- The verifier exits **0 only if every source is `ok`**. Any
-  `missing`/`stale`/`failed` → non-zero exit plus a loud human-readable
-  summary on stderr ending in `GATE: RED`.
+- The verifier exits **0 only if no entry is `blocking`** (build-lag-001).
+  The check is fail-closed: only `ok`, `warning`, and Razzball's advisory
+  `warn`/`bad`/`unk` are non-blocking. Every other status blocks, including
+  `stale`, `red`, `yellow`, `missing`, `failed`, and any status outside this
+  list. A blocking entry gives a non-zero exit and a loud stderr summary
+  ending in `GATE: RED ... (blocking: <sources>)`. Before build-lag-001 the
+  check counted only stale/missing/failed, so `red` and `yellow` passed.
 - **No fixture update (`match`/`reference`/`section`/`promote`) may run on a
   red health check.** Promotion is wired to this contract for the seven active
   raw sources: `promote_comparison_section.py` refuses when the source entry is
-  not `ok`, when the candidate lacks immutable `content_vintage` provenance,
-  or when the candidate vintage differs from the fresh L1 vintage. Earlier
+  neither `ok` nor a `LAGGING_ONE_WEEK` warning (`entry_is_promotable`), when
+  the candidate lacks immutable `content_vintage` provenance, or when the
+  candidate vintage differs from the fresh L1 vintage. A lagging source is
+  therefore promoted under its own week, never relabelled. Earlier
   stages also carry `source_provenance` forward so processing time cannot
   relabel stale source data.
 - Gaps (`supabase_landing: false`) are reported loudly but do **not** fail
