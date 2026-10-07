@@ -79,12 +79,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          set -o pipefail
           args=""
           [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"
           [ -n "${{ github.event.inputs.week }}" ] && args="$args --week ${{ github.event.inputs.week }}"
-          python3 ops/watchdog/ingest_${{ matrix.source }}.py $args 2>&1 | tee /tmp/ingest.log
-          tail -4 /tmp/ingest.log | sed "s/^/::notice title=ingest ${{ matrix.source }}::/"
+          # Actions logs can't be downloaded through every proxy, so the
+          # outcome is surfaced as check-run annotations (readable via
+          # GET /check-runs/<job_id>/annotations): the tail as ::notice on
+          # success, as ::error on failure.
+          rc=0
+          python3 ops/watchdog/ingest_${{ matrix.source }}.py $args > /tmp/ingest.log 2>&1 || rc=$?
+          cat /tmp/ingest.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tail -8 /tmp/ingest.log | cut -c1-900 | sed "s/^/::$level title=ingest ${{ matrix.source }} rc=$rc::/"
+          exit $rc
 
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.run == 'true' && steps.cfg.outputs.mode == 'write'
