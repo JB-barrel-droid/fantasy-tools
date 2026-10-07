@@ -357,7 +357,13 @@ class StaticExportTest(unittest.TestCase):
             # every chart's at/below-waiver players 0 instead of the pie value.
             # 25.4 -> 25.5; USA Today 23.8 -> 24.6; FantasyPros 17.4 -> 21.1.
             # Verified against the rebuilt fixture.
-            ("fantasycalc_adjusted", "full_12_qb1"): 25.5,
+            # 2026-10-07 15:02 UTC automated rebuild (0b0ddee, NFL week 5):
+            # FantasyCalc refetched 2026-10-06 (Allen native 6331 -> 5949;
+            # still his chart's 25.0 top-QB value), refit moves Allen's
+            # adjusted value 25.5 -> 25.3. Genuine data move, verified against
+            # the rebuilt fixture at 0b0ddee and its parent; origin/main fails
+            # this pin identically.
+            ("fantasycalc_adjusted", "full_12_qb1"): 25.3,
             # 2026-10-03 17:00 CDT rebuild refit: 26.0 -> 23.8.
             ("usatoday_adjusted", "full_12"): 24.6,
             # 2026-10-03 17:00 CDT rebuild refit: 19.1 -> 17.4.

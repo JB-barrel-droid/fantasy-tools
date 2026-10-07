@@ -99,6 +99,80 @@ def expected_views(inputs, teams, shape, pos_of):
             for src in vorp_out}
 
 
+INDEXED_PRECISION = 0.1  # translate_ranked rounds `translated` to 1 decimal
+
+
+def rounding_band_violations(native, keys, teams, shape, pos_of, our_max):
+    """Players in `keys` (Indexed 0, views non-zero) that are NOT explained by
+    the Indexed engine's 0.1 rounding. A key is explained only if the server's
+    own translation, at this setting and on the Indexed engine's own positional
+    maxes, prices it strictly above the waiver line with an UNROUNDED Indexed
+    value below half the precision (so it displays as 0.0). How many such
+    players exist depends on each week's data (a publisher on a large native
+    scale has more of them); which players qualify does not.
+    native: [(key, value)]; our_max: the Indexed engine's maxes (driver's
+    ourMax). Unrounded values come from translate_ranked with every max scaled
+    by 1e6: its 0.1 rounding then lands at 1e-7 of our scale."""
+    if not keys:
+        return []
+    boost = 1e6
+    ranked = {p: [] for p in POSITIONS}
+    for key, value in native:
+        ranked[pos_of[key]].append((str(key), str(key), float(value)))
+    for p in POSITIONS:
+        ranked[p].sort(key=lambda r: -r[2])
+    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
+    at = unified.translate_ranked(ranked, teams, shape["BENCH"], shape["FLEX"],
+                                  slots={p: shape[p] for p in POSITIONS}, flex_eligible=elig,
+                                  our_max={p: float(our_max[p]) * boost for p in POSITIONS})
+    out = []
+    for key in sorted(keys, key=str):
+        t = at["translated"].get(str(key))
+        if t is None:
+            out.append(f"{key}: at/below the waiver line but priced in the views")
+            continue
+        unrounded = t["translated"] / boost
+        if not 0 < unrounded < INDEXED_PRECISION / 2:
+            out.append(f"{key}: Indexed 0 but unrounded Indexed value is {unrounded:.6f}")
+    return out
+
+
+READER_SETTINGS = [("ppr", 8, "std", SHAPES[0][1]), ("standard", 14, "qb2-te2", SHAPES[3][1]),
+                   ("half_ppr", 10, "bench8-flex2-rb3", SHAPES[1][1])]
+
+
+def zero_set_failures(model_path=VALUE_MODEL, settings=READER_SETTINGS):
+    """A player is 0 in the views exactly where the Indexed engine is 0 (same
+    waiver line), except a player above the line whose Indexed value displays
+    as 0.0 only because of the 0.1 rounding (rounding_band_violations)."""
+    fixture = json.loads(FIXTURE.read_text())
+    pos_of = browser_players()
+    cases, refs = view_cases(fixture, pos_of, settings)
+    results = run_views(cases, model_path)
+    failures = []
+    for res, (scoring, teams, label, shape, inputs) in zip(results, refs):
+        if "error" in res:
+            failures.append(f"{scoring}/{teams}/{label}: JS raised {res['error']}")
+            continue
+        indexed = run_js(_cases(fixture, pos_of, [(s, scoring, teams, label, shape) for s in SOURCES]),
+                         model_path)
+        for src, idx in zip(SOURCES, indexed):
+            tag = f"{src} {scoring}/{teams}/{label}"
+            vorp, adj = res["sources"][src]["vorp"], res["sources"][src]["adj"]
+            zero_views = {k for k, v in vorp.items() if v == 0}
+            zero_indexed = {k for k, v in idx["values"].items() if v == 0}
+            if zero_views != {k for k, v in adj.items() if v == 0}:
+                failures.append(f"{tag}: VORP and Adjusted views disagree on who is 0")
+            if not zero_views:
+                failures.append(f"{tag}: nobody is 0 in the views")
+            extra = zero_views - zero_indexed
+            if extra:
+                failures.append(f"{tag}: {len(extra)} players 0 in the views but priced in Indexed")
+            failures += [f"{tag} {msg}" for msg in rounding_band_violations(
+                inputs[src][0], zero_indexed - zero_views, teams, shape, pos_of, idx["ourMax"])]
+    return failures
+
+
 def view_cases(fixture, pos_of, settings):
     """One batch case per (scoring, teams, shape): all four published charts."""
     cases, refs = [], []
@@ -171,31 +245,20 @@ class PublishedViewsEngine(unittest.TestCase):
         """VORP-vs-waivers totals are the anchor's and keep the publisher's own
         order; the adjusted top is exactly 70; a player is 0 in the views
         where the Indexed engine prices 0."""
-        settings = [("ppr", 8, "std", SHAPES[0][1]), ("standard", 14, "qb2-te2", SHAPES[3][1]),
-                    ("half_ppr", 10, "bench8-flex2-rb3", SHAPES[1][1])]
+        self.assertEqual(zero_set_failures(), [])
         fixture = json.loads(FIXTURE.read_text())
         pos_of = browser_players()
-        cases, refs = view_cases(fixture, pos_of, settings)
+        cases, refs = view_cases(fixture, pos_of, READER_SETTINGS)
         results = run_views(cases)
         for res, (scoring, teams, label, shape, inputs) in zip(results, refs):
             tops = [max(res["sources"][s]["adj"].values()) for s in SOURCES]
             self.assertAlmostEqual(max(tops), 70.0, places=9)
-            indexed = run_js(_cases(fixture, pos_of, [(s, scoring, teams, label, shape) for s in SOURCES]))
-            for src, idx in zip(SOURCES, indexed):
+            for src in SOURCES:
                 tag = f"{src} {scoring}/{teams}/{label}"
                 budgets = inputs[src][2]
                 groups = res["sources"][src]["groups"]
                 vorp = res["sources"][src]["vorp"]
                 adj = res["sources"][src]["adj"]
-                # Zero where the Indexed engine is zero (same waiver line). The
-                # only allowed difference: a player just above the line whose
-                # Indexed value rounds to 0.0 at the translation's 0.1 precision.
-                zero_views = {k for k, v in vorp.items() if v == 0}
-                self.assertEqual(zero_views, {k for k, v in adj.items() if v == 0}, tag)
-                zero_indexed = {k for k, v in idx["values"].items() if v == 0}
-                self.assertLessEqual(zero_views, zero_indexed, tag)
-                self.assertLess(len(zero_indexed - zero_views), 5, tag)
-                self.assertGreater(len(zero_views), 0, tag)
                 # VORP vs waivers: the chart's total is the anchor's total, and
                 # one factor per chart keeps the publisher's own cross-position
                 # order (no re-tiering): order by native == order by view value.
@@ -248,6 +311,41 @@ class PublishedViewsEngine(unittest.TestCase):
                 broken.write_text(source.replace(old, new))
                 failures = check(settings, broken)[0]
                 print(f"\n[JEG332-VORP-VIEWS negative test] {name}: {len(failures)} failures")
+                self.assertGreater(len(failures), 0, f"mutation {name} was NOT caught")
+
+    def test_zero_set_guard_catches_waiver_leaks(self):
+        """The zero-set invariant (zero_set_failures) catches views that price
+        players the Indexed engine prices 0 for any reason other than its 0.1
+        rounding. Replaced a count (`< 5` such players), which was empirical
+        against Week 4 FantasyCalc and went red on Week 5 data (6 players, all
+        legitimately above the waiver line); the count also could not see a
+        leak of fewer than 5 sub-waiver players."""
+        source = VALUE_MODEL.read_text()
+        mutations = {
+            # one sub-waiver player per position (the first one off the
+            # roster) leaks a sliver into the views: 4 players per chart, under
+            # the old count of 5.
+            "leak-first-below-waiver": (
+                "          if (!t) return;",
+                "          if (!t) { if (i !== p.n_rostered) return; t = {vorp: 0.1}; }"),
+            # the views use a waiver line one bench slot deeper than Indexed
+            "views-waiver-deeper": (
+                "var at = translatePublishedVorp(Object.assign({ranked: ranked}, setting));",
+                "var at = translatePublishedVorp(Object.assign({ranked: ranked}, setting, "
+                "{benchPerTeam: setting.benchPerTeam + 1}));"),
+            # Indexed zeroes above-waiver players worth a real (visible) amount
+            "indexed-drops-small": (
+                "if (t) { values.set(key, t.translated); counts.translated += 1; return; }",
+                "if (t) { values.set(key, t.translated < 1 ? 0 : t.translated); counts.translated += 1; return; }"),
+        }
+        self.assertEqual(zero_set_failures(), [], "guard must be green on the real engine")
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, (old, new) in mutations.items():
+                self.assertEqual(source.count(old), 1, f"mutation anchor for {name} moved")
+                broken = Path(tmp) / f"value-model-{name}.js"
+                broken.write_text(source.replace(old, new))
+                failures = zero_set_failures(broken)
+                print(f"\n[JEG332-VORP-VIEWS zero-set negative test] {name}: {len(failures)} failures")
                 self.assertGreater(len(failures), 0, f"mutation {name} was NOT caught")
 
 
