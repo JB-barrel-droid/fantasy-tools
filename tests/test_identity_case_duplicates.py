@@ -69,7 +69,7 @@ class TestIdentitySnapshotClean(unittest.TestCase):
             self.fail(
                 f"committed identity snapshot has a case-variant "
                 f"duplicate: norm={e.norm!r}, raw={e.raw!r} -- see "
-                f"docs/claude-log.md JEG-112 entry for the audit and "
+                f"docs/claude-log/ (JEG-112 entry) for the audit and "
                 f"dedup steps"
             )
 
