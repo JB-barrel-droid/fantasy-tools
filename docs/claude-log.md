@@ -3639,3 +3639,11 @@ labelled by its own week.
   mutation is no longer a broken state, so it was replaced with "never-derive" (every setting treated as the
   saved one), which the guard catches (40 problems); "unwired" still caught (40). Full `make validate` rc=0
   on the combined tree. Risk-register conflict resolved by row ID (STORED-DRIFT from #386, VORP-VIEWS from #387).
+## 2026-10-07 ~11:00 CDT — Claude (cloud session, coordinator): PR discrimination check diffs the whole PR
+
+### Verified (check named)
+- #386's preview failed "Check PR discrimination proof" after a docs-only merge of main into the branch:
+  the step diffed HEAD~1 only, so the checker saw no guard change and demanded a non-guard checkbox. The
+  step now diffs origin/<base>...HEAD (base ref passed via env, not interpolated). Local check: #386's body
+  against its full diff -> PASS; against the HEAD~1 diff -> FAIL (the CI failure). preview/pages parity
+  test and the event-interpolation guard still pass.
