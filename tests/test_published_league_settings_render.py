@@ -11,6 +11,10 @@ count, plus one non-default roster:
     tests/test_published_league_settings_engine.expected_derived;
   * the fixed-pie guard stays green in every combination.
 
+The other two chart views ("VORP vs waivers", "Adjusted values") are checked
+live in tests/test_published_views_render.py (JEG332-VORP-VIEWS); until
+2026-10-07 this file pinned their old sit-out-at-non-saved-settings gating.
+
 Discrimination: the same checks run against two broken builds served in
 place of the real assets -- one that derives even at the saved setup (USA
 Today / FantasyCalc 12-team values move) and one with the derivation unwired
@@ -113,13 +117,6 @@ def collect(overrides=None):
             for key, value in SAVED_SHAPE.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
-            # vorp_views are saved at the 12-team standard setup only and are not
-            # derived: at 8 teams the published sources must sit out that view.
-            page.locator('#viewModeTabs [data-view-mode="vorp"]').click()
-            for teams in (8, 12):
-                page.evaluate(f"() => {{ try {{ window.TradeValueCurveControls.setTeams({teams}); }} catch (e) {{}} }}")
-                out[f"_vorp_view_{teams}"] = page.evaluate(READ_MAPS, list(PUBLISHED))
-            page.locator('#viewModeTabs [data-view-mode="indexed"]').click()
             out["_errors"] = errors
         finally:
             browser.close()
@@ -133,15 +130,6 @@ def verify(collected):
     for setting, got in collected.items():
         if setting == "_errors":
             problems.extend(f"page error: {e[:200]}" for e in got)
-            continue
-        if setting == "_vorp_view_8":
-            shown = [s for s in PUBLISHED if got["maps"][s]]
-            if shown:
-                problems.append(f"VORP view at 8 teams shows saved 12-team views for {shown}")
-            continue
-        if setting == "_vorp_view_12":
-            if not any(got["maps"][s] for s in PUBLISHED):
-                problems.append("VORP view at the saved setup shows no published source")
             continue
         scoring, teams, label = setting
         shape = SAVED_SHAPE if label == "std" else {**SAVED_SHAPE, **CUSTOM_ROSTER}
@@ -172,17 +160,19 @@ class PublishedLeagueSettingsRender(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         model = (APP / "assets" / "value-model.js").read_text()
         widget = (APP / "assets" / "curve-widget.js").read_text()
-        always_derive = model.replace("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
-                                      "return false;")
+        # "never-derive": every setting treated as the saved one, so 8/10/14 teams
+        # and custom rosters plot the saved 12-team values. (Until #386 this was
+        # "always-derive" -- deriving at the saved setup too -- which no longer
+        # differs from the saved values once those ARE the current translation,
+        # so it stopped being a broken state.)
+        never_derive = model.replace("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
+                                     "return true;")
         unwired = widget.replace(
             "if (AS_PUBLISHED_KEYS.has(key) && !onSavedSetup()) return derivedPublishedSourceMap(key);", "")
-        ungated_views = widget.replace("if (viewKey && !onSavedSetup()) return new Map();", "")
-        self.assertNotEqual(always_derive, model)
+        self.assertNotEqual(never_derive, model)
         self.assertNotEqual(unwired, widget)
-        self.assertNotEqual(ungated_views, widget)
-        for name, overrides in (("always-derive", {"**/assets/value-model.js*": always_derive}),
-                                ("unwired", {"**/assets/curve-widget.js*": unwired}),
-                                ("ungated-vorp-views", {"**/assets/curve-widget.js*": ungated_views})):
+        for name, overrides in (("never-derive", {"**/assets/value-model.js*": never_derive}),
+                                ("unwired", {"**/assets/curve-widget.js*": unwired})):
             problems = verify(collect(overrides))
             print(f"\n[JEG-334 negative test] {name}: {len(problems)} problems, e.g. {problems[:1]}")
             self.assertGreater(len(problems), 0, f"broken build {name} was NOT caught")

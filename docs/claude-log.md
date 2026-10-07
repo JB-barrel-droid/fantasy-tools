@@ -3487,6 +3487,92 @@ optional `our_max` / `ourMax`; their defaults are unchanged (OUR_MAX), so server
   control, and the `SUPERFLEX` shape key moves nothing because the VORP-weighted flex never gives the QB
   the flex slot.
 
+## 2026-10-07 - All three chart views at every league setting (JEG332-VORP-VIEWS, branch published-views-every-setting)
+
+Contract: make the chart's three views (Indexed, "VORP vs waivers", "Adjusted values") work at every
+scoring x team count x roster, consistent with the browser engine; price below-waiver published players
+at 0 (Jeremy agreed); align the table's default roster with the chart's. Jeremy: "I'm ok with however
+you set up values to get the tool working" -- he reviews the math later. PR to main, not merged.
+
+### What changed
+- `value-model.js` `derivePublishedSetup` -> `league-settings-001/3`: every saved player not above the
+  setting's waiver line is 0 (was: the server fail-safe, saved value or 12-team pie value).
+  `quantileReindexValues` removed (no caller left). Result fields `fallbackSaved/fallbackPie/unpriced`
+  replaced by `belowWaiver`.
+- New `ValueModel.derivePublishedViews` (`published-views-001/1`) + `anchorGroupTotals`. DECISION FOR
+  JEREMY (recipe, also in docs/methodology.md):
+  - VORP vs waivers = the translation's value above the setting's waiver line (publisher units) x ONE
+    factor per chart so its total equals the live ESPN anchor's total over that chart's players. No
+    re-tiering, so the publisher's own cross-position valuation is kept (matches the footnote copy
+    "same shared total as Indexed, no fixed-pie re-tiering").
+  - Adjusted values = eight groups (position x starter/bench, starter = the setting's dedicated + flex
+    count) each sharing the anchor's group total (over the chart's players) in proportion to value above
+    waivers; one factor across all published charts puts the top player at 70.
+  - Saved `vorp_views` are still shown at their own setup only (full PPR, 12 teams, standard roster;
+    FC/FP/USA Today). CBS (no saved view) is derived everywhere; all four charts now enter the views.
+  - Rejected first try (measured in the sweep, not shipped): group recipe for VORP vs waivers with
+    budgets over the whole anchor -- CBS RB started at 114 and FC RB at 111 (Standard/14) because a thin
+    chart received the full anchor group budget.
+- `curve-widget.js`: `publishedViewMap` (saved view at its setup, else derived batch), `savedViewApplies`
+  (now compares `vorp_views.scoring` and `teams` plus the standard roster), `derivedViewBatch` (per-rebuild
+  cache), `sourceHasVorpView` true wherever a view can be derived; setViewMode re-runs the guards so the
+  diagnostics describe the view on screen; diagnostics gain `viewMode` and `publishedView`.
+- Pre-existing defect found and fixed (risk register JEG363-VIEWS-LOOKUP): since JEG-363 the saved views
+  never rendered -- `buildVorpViewSourceMap` read `data.player_keys`, which the product-data snapshot does
+  not carry, so the map was empty and the views silently showed the Indexed values (sweep of HEAD:
+  vorp/adj FC at ppr/12 = indexed QB 29.1 / RB 66.9 / WR 50.6 / TE 27.8). Lookup now uses product-data
+  `getPlayerKeysBySourceId()`.
+- `comparison-dashboard.js`: default roster WR3/FLEX1 (`DEFAULT_ROSTER_SHAPE`), was WR2/FLEX2, which made
+  the table derive every published column on first load while the chart showed saved values.
+
+### Verified (check named)
+- `tests/test_published_views_engine.py` (new, in test-unit): JS vs an independent Python reference built
+  on `unified.translate_ranked`, 4 sources x 3 scorings x 8/10/12/14 x 4 roster shapes = 48 batches,
+  70,752 values, max abs diff 2.8e-14. Invariants: adjusted top = 70.0; VORP-view total = budget total
+  and the view/publisher ratio identical at every position (no re-tiering); zeros in the views are a
+  subset of the Indexed engine's zeros (difference = players whose Indexed value rounds to 0.0).
+  Negative: 7 value-model mutations caught (weight-native 128, flex-as-bench 64, budget-ignored 64,
+  vorp-retiered 64, vorp-unscaled 64, adj-unanchored 64, views-saved-setup-only 103 failures).
+- `tests/test_published_views_render.py` (new, in test-unit): live page, both views at ppr/standard/half
+  12, ppr 8, standard 14, half 10 and a custom roster (RB3/FLEX2/BENCH8): 14 settings, 10,346 values,
+  0 problems; saved views exact at ppr/12; derived maps exact vs the reference with budgets from the live
+  anchor via an independent roleMap port. Negative: 4 broken widgets caught -- saved-views-unresolved
+  (the JEG-363 lookup) 6, scoring-unchecked 12, not-derived 50, indexed-in-disguise 61 problems.
+- `tests/test_published_league_settings_engine.py`: 192 settings, 34,041 values, max abs diff 0.0;
+  mutations below-waiver-keeps-saved 16, translation-dropped 16, bench-ignored 8,
+  saved-setup-teams-only 1, maxes-fixed 15 failing settings.
+- Changed assertions, with reasons: (1) engine version pin `/2` -> `/3` and the reference prices
+  below-waiver players at 0 -- both pinned the fail-safe Jeremy reversed; (2)
+  `test_below_waiver_players_keep_the_servers_fallback` replaced by `test_below_waiver_players_are_zero`
+  (same reason); (3) the engine-at-saved-setup comparison now covers only the players the server
+  translated -- the saved fixture still carries the fail-safe for the rest (JEG332-BELOW-WAIVER-SAVED);
+  (4) mutations `fallback-always-saved` / `pie-role-order` removed (code gone), replaced by
+  `below-waiver-keeps-saved` / `translation-dropped`; (5) `test_published_league_settings_render.py`
+  no longer pins "VORP view at 8 teams shows no published source" (the old sit-out behaviour this task
+  replaces; its mutation anchor no longer exists) -- the views are covered by the new render test;
+  (6) `test_chart_kdst_positions_and_view_wiring.test_vorp_view_resolves_via_player_keys` required the
+  exact `data.player_keys` form that broke the views; it now requires the product-data lookup and
+  forbids `data.player_keys`.
+- 12-combo x 3-view headless sweep (3 scorings x 8/10/12/14, Indexed / VORP vs waivers / Adjusted) on
+  HEAD and on the rebuilt dist/ (identical to the app/ run): page errors 0 and fixedPieIndexed true in
+  all 36 both times. sourceScaleAgreement false everywhere both times (non-blocking); Indexed offenders
+  identical before/after in all 12. Indexed: published curve starts identical before/after at every
+  setting; saved setup (12 teams) sums byte-identical; derived settings lose only the below-waiver tail
+  (e.g. CBS full 8 teams total 1775.9 -> 1685.3). Views before: 0 published players at every non-12
+  setting, Indexed values at 12. Views after, curve starts QB/RB/WR/TE:
+  - VORP vs waivers full PPR 8 teams: FC 37.9/68.5/64.2/37.4, FP 30.1/63.1/45.5/22.2, USAT 24/47.3/50.3/30,
+    CBS 22.8/64.3/63/36.2; full 12 (saved FC/FP/USAT): FC 31.4/67.5/59.3/29.1, CBS (derived)
+    25/70.5/69/41.1; Standard 14: FC 51.9/91.2/83/49.4, CBS 36.2/95.9/91.7/51.2 (steep charts start
+    above the anchor's 70 -- the publisher's own shape on the anchor's total).
+  - Adjusted full 8: FC 31.8/70/44.8/40, FP 16.7/67.8/36.9/32.1; Standard 14: CBS 36.7/70/40.4/26.6,
+    FC 31.4/68.8/35.9/19.9; full 12 (saved): FC 32.3/70/50.5/22.7.
+- `make validate` exit 0 with CHROMIUM_PATH set (run before this log entry and re-run after the docs).
+
+### Claimed, unverified
+- The table now shows saved published values at first load (code read: default roster equals
+  `SAVED_SETUP_SHAPE`, so `isSavedSetup` is true); not probed in a browser.
+- Not done: the saved views' blend-reference group budgets are not carried to derived settings; the
+  server still saves the fail-safe for below-waiver players (JEG332-BELOW-WAIVER-SAVED, Agent B).
 ## 2026-10-07 — Claude (cloud session): JEG332-STORED-DRIFT fixed (branch stored-drift-retranslate, PR, not merged)
 
 Saved 12-team published values are now the value-above-waivers translation of the saved natives for all
@@ -3692,6 +3778,15 @@ labelled by its own week.
   requiring the entry be covered and the stale gap flag be rejected (assertion changed because its premise —
   "not on main yet" — no longer holds). Negative check: renaming the workflow's check id fails the suite.
 
+## 2026-10-07 ~10:30 CDT — Claude (cloud session, coordinator): #386 + #387 combined
+
+### Verified (check named)
+- Merging #386 (saved values = current translation, below-waiver 0) under #387 (views + browser below-waiver 0)
+  made test_published_league_settings_render's "always-derive" broken build indistinguishable from the real
+  page: deriving at the saved setup now reproduces the saved values exactly, which is #386's goal. That
+  mutation is no longer a broken state, so it was replaced with "never-derive" (every setting treated as the
+  saved one), which the guard catches (40 problems); "unwired" still caught (40). Full `make validate` rc=0
+  on the combined tree. Risk-register conflict resolved by row ID (STORED-DRIFT from #386, VORP-VIEWS from #387).
 ## 2026-10-07 ~11:00 CDT — Claude (cloud session, coordinator): PR discrimination check diffs the whole PR
 
 ### Verified (check named)
