@@ -50,11 +50,14 @@ published-chart transformation: publisher values plus league roster settings
 determine the waiver line, publisher-native surplus determines implied
 positional weights, and our valuation assumptions determine derived values.
 The saved 12-team published values are this translation for players above the
-waiver line (JEG-64, `translate_via_vorp.py`), with the flex-aware pie value as
-the fail-safe for everyone else; the browser runs the same translation at every
-other league setting (see "League-settings engine" below). Exception, risk
-register JEG332-STORED-DRIFT: FantasyCalc's saved values are currently the pie
-values for every player, and some USA Today values are stale.
+waiver line (JEG-64, `translate_via_vorp.py`) and 0 for players the translation
+prices at or below it; only a player the translation cannot identify keeps the
+flex-aware pie value as a fail-safe. The comparison chain computes the
+translation from the natives it is promoting (`--translation natives`), so the
+saved values are always the translation of the saved natives
+(`tests/test_vorp_translation_js_parity.py` `stored_drift_problems`, risk
+register JEG332-STORED-DRIFT). The browser runs the same translation at every
+other league setting (see "League-settings engine" below).
 
 Every derived output inherits the input's immutable source vintage. Acquisition,
 processing, fitting, and promotion times are separate operational timestamps;

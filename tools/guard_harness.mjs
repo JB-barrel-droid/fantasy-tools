@@ -21,12 +21,17 @@ const EXPECTED_JEG5 = {
   // adjusted map, where the tiers genuinely differ (22 mismatches) and the
   // broken state misses the fixed pie by ~78 (cf. the original JEG-5 -79.90).
   // The CBS check uses the shared-player basis, so only these fields exist.
+  // Re-recorded 2026-10-07 (JEG332-STORED-DRIFT): CBS's 13-22 players at or
+  // below the waiver line are now saved as 0 instead of the pie fallback and
+  // the adjustment fit was rerun, so the simulated broken state now misses
+  // the (unchanged) fixed pie by -38.1 (12/101 tier mismatches) instead of
+  // +78.2. Still far outside the tolerance of 2: the guard still fails it.
   source: "cbs_adjusted",
   basis: "shared",
   shared: 114,
-  total: 2048.073808,
+  total: 1931.76243,
   target: 1969.895514,
-  delta: 78.178294,
+  delta: -38.133085,
 };
 
 function parseArgs(argv) {

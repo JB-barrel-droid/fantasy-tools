@@ -179,6 +179,63 @@ class UsatSitemapOutageTest(unittest.TestCase):
         self.assertIn("SOURCE_BLOCKED", str(ctx.exception))
 
 
+class UsatSlugPluralTest(unittest.TestCase):
+    """Tests for USA Today slug regex accepting both singular and plural forms.
+
+    Week 5+ USA Today articles use "trade-value-charts" (plural) while earlier
+    weeks use "trade-value-chart" (singular). Discovery and week extraction
+    must accept both forms to avoid silently falling back to stale articles.
+    """
+
+    def test_singular_url_extracts_week(self):
+        """Test that singular 'trade-value-chart' URLs extract week correctly."""
+        url = "https://example.com/fantasy-trade-value-chart-week-4-ros-rankings/article"
+        self.assertEqual(pull_usatoday.extract_week_from_url(url), 4)
+
+    def test_plural_url_extracts_week(self):
+        """Test that plural 'trade-value-charts' URLs extract week correctly."""
+        url = "https://example.com/fantasy-trade-value-charts-week-5-ros-rankings/article"
+        self.assertEqual(pull_usatoday.extract_week_from_url(url), 5)
+
+    def test_plural_week_5_discovered_in_sitemap(self):
+        """Test that week 5 plural URL is discovered in sitemap."""
+        sitemap = """<?xml version="1.0"?>
+<urlset>
+<url><loc>https://x.com/fantasy-trade-value-charts-week-5-ros-rankings/777/</loc></url>
+<url><loc>https://x.com/other-article/</loc></url>
+</urlset>"""
+        def fake_fetch(url):
+            return (200, sitemap)
+
+        url = pull_usatoday.discover_url(week=5, fetch_fn=fake_fetch)
+        self.assertIn("week-5", url)
+        self.assertIn("charts", url)
+
+    def test_singular_week_4_still_discovered(self):
+        """Test that older singular URLs still work for discovery."""
+        sitemap = """<?xml version="1.0"?>
+<urlset>
+<url><loc>https://x.com/fantasy-trade-value-chart-week-4-ros-rankings/666/</loc></url>
+</urlset>"""
+        def fake_fetch(url):
+            return (200, sitemap)
+
+        url = pull_usatoday.discover_url(week=4, fetch_fn=fake_fetch)
+        self.assertIn("week-4", url)
+        self.assertIn("chart", url)
+
+    def test_broken_singular_only_regex_misses_plural(self):
+        """Negative test: singular-only regex fails to discover plural URLs.
+
+        This proves that the fix is necessary: a singular-only regex would
+        silently miss week 5+ articles and fall back to stale week-4 data.
+        """
+        singular_only_re = re.compile(r"trade-value-chart-week-5-ros-rankings")
+        plural_url = "https://x.com/fantasy-trade-value-charts-week-5-ros-rankings/777/"
+        self.assertIsNone(singular_only_re.search(plural_url),
+                         "Singular-only regex must NOT match plural URL (proves the bug)")
+
+
 class CbsStatelessRerunTest(unittest.TestCase):
     SCORINGS = ("standard", "half_ppr", "ppr")
 

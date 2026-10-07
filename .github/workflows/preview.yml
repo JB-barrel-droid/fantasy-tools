@@ -43,12 +43,18 @@ jobs:
         # 2026-10-07 a body with `code spans` failed this step with exit 2).
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
           # Write PR body to temp file
           printf '%s\n' "$PR_BODY" > /tmp/pr_body.md
 
-          # Generate diff from changed files
-          git diff HEAD~1 --no-color > /tmp/pr.diff
+          # The whole PR's diff (base...head), not just the last commit: a merge
+          # of main into the PR branch made HEAD~1 a docs-only diff, so the
+          # checker misjudged whether the PR adds a guard (2026-10-07, #386).
+          git fetch --no-tags --depth=500 origin "$BASE_REF" "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
+          git fetch --no-tags --deepen=500 origin || true
+          git diff "origin/$BASE_REF...HEAD" --no-color > /tmp/pr.diff \
+            || git diff HEAD~1 --no-color > /tmp/pr.diff
 
           # Run the checklist checker
           python3 pipelines/check_pr_discrimination.py \

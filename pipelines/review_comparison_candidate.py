@@ -225,6 +225,70 @@ def verify_coverage_drop_live(source, combo_name, dropped_slugs):
                   f"absent from the live source ({', '.join(sorted(dropped_slugs)[:4])})")
 
 
+# JEG-436 (Jeremy 2026-10-07: "Tighten or loosen whichever gates you need").
+# A weekly list churns its tail: FantasyCalc's week-5 list dropped Pat
+# Freiermuth and Terrance Ferguson and added Mike Gesicki (TE 27 -> 26). When
+# the live check cannot confirm the drop (no live API, fetch failure), a SMALL,
+# NAMED drop of tail players the publisher no longer lists is a warn, not a
+# hold. A live check that finds a dropped player still priced stays a fail.
+COVERAGE_CHURN_ABS = 3        # players, per (combo, position)
+COVERAGE_CHURN_FRAC = 0.05    # ...or this share of the fixture's priced set
+COVERAGE_CHURN_TAIL_FRAC = 0.10  # dropped player's fixture native must be
+                                 # below this share of the position's top native
+
+
+def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
+                                cand_native, review_ids=frozenset(),
+                                key_of=None):
+    """Is a priced-count drop small, named, tail-of-list publisher churn?
+
+    Returns (ok, detail). Fails closed unless every condition holds:
+      - the dropped players are named (a count drop with no named player
+        means the counts disagree with the sets);
+      - net drop and players dropped are each <= the cap
+        max(COVERAGE_CHURN_ABS, ceil(COVERAGE_CHURN_FRAC * fixture count));
+      - every dropped player was in the tail of the fixture's list (fixture
+        native < COVERAGE_CHURN_TAIL_FRAC x the position's top fixture native);
+      - no dropped player is still in the candidate's natives (listed by the
+        source but unpriced = anchor or pipeline loss, not churn);
+      - no dropped player (slug or player_key) is in the candidate's review
+        rows (an identity / matching loss, not churn).
+    """
+    import math
+    net = f_n - c_n
+    if not dropped:
+        return False, (f"count fell by {net} but no player left the priced set "
+                       "-- counts disagree with the priced sets")
+    names = ", ".join(dropped[:8]) + (" ..." if len(dropped) > 8 else "")
+    cap = max(COVERAGE_CHURN_ABS, math.ceil(COVERAGE_CHURN_FRAC * f_n))
+    if net > cap:
+        return False, f"net drop {net} > tolerance {cap} (dropped: {names})"
+    if len(dropped) > cap:
+        return False, (f"{len(dropped)} players left the priced set > "
+                       f"tolerance {cap} (dropped: {names})")
+    top = max((float(fx_native.get(s) or 0) for s in pos_slugs), default=0.0)
+    not_tail = [s for s in dropped
+                if top <= 0 or float(fx_native.get(s) or 0) >= COVERAGE_CHURN_TAIL_FRAC * top]
+    if not_tail:
+        return False, (f"{len(not_tail)} dropped player(s) were not tail-of-list "
+                       f"({', '.join(not_tail[:4])}; native >= "
+                       f"{COVERAGE_CHURN_TAIL_FRAC:.0%} of the position top {top:g})")
+    still_listed = [s for s in dropped if s in cand_native]
+    if still_listed:
+        return False, (f"{len(still_listed)} dropped player(s) still listed by the "
+                       f"source but unpriced ({', '.join(still_listed[:4])}) -- "
+                       "anchor/pipeline loss, not churn")
+    key_of = key_of or {}
+    in_review = [s for s in dropped
+                 if s.lower() in review_ids
+                 or (key_of.get(s) is not None and str(key_of.get(s)) in review_ids)]
+    if in_review:
+        return False, (f"{len(in_review)} dropped player(s) in the candidate's "
+                       f"review rows ({', '.join(in_review[:4])}) -- identity loss")
+    return True, (f"tail churn tolerated: net -{net}, {len(dropped)} left "
+                  f"(tolerance {cap}); no longer listed by the source: {names}")
+
+
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                      players_path=None, no_live_verify=False):
     cand = _load_json(reindexed_path)
@@ -401,36 +465,86 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                        + "; ".join(qb_mappings) + ".")
     checks.append(_check("anchor_disclosure", "info", disclosure))
 
-    # coverage check (needs fixture positions; approximate from fixture combo keys)
+    # coverage check: priced players per position, candidate vs fixture.
+    #
+    # JEG-436 (2026-10-07). Two defects made the FantasyCalc week-5 hold
+    # undiagnosable ("no dropped players identified for the count drop"):
+    #   1. The baseline was the fixture's recorded index_total.n_priced, which
+    #      was stale against the fixture's own priced set (full_12_qb1:
+    #      recorded WR 78 / TE 28, priced set WR 76 / TE 27).
+    #   2. The dropped list kept only fixture players whose REINDEXED value was
+    #      truthy. Since the JEG332-STORED-DRIFT re-translation, players at or
+    #      below the waiver line are stored at exactly 0.0, so every tail
+    #      player -- exactly the players a weekly list churns -- vanished from
+    #      the list.
+    # The comparison is now set-based: a player is priced when the combo has a
+    # reindexed entry for them (0.0 included). A recorded count that disagrees
+    # with the priced set is a visible warn, and the set is the baseline.
     if fx_section is not None:
+        review_ids = set()
+        for row in cand.get("review_rows", []):
+            for k in ("slug", "player_key", "canonical_name", "player_name"):
+                if row.get(k) is not None:
+                    review_ids.add(str(row.get(k)).lower())
+            inner = row.get("row") if isinstance(row.get("row"), dict) else {}
+            for k in ("player_key", "player_name"):
+                if inner.get(k) is not None:
+                    review_ids.add(str(inner.get(k)).lower())
         for combo_name, combo in cand["combos"].items():
             fx = fx_combos.get(combo_name)
             if not fx:
                 continue
             fx_reidx = fx.get("reindexed", fx.get("values", {}))
+            fx_native = fx.get("native", {})
+            c_keys = combo.get("player_keys", {})
             for pos in POSITIONS:
                 # As-published sources use global scaling; per-position counts
                 # may not be available. Skip if candidate has no per-pos data.
                 if pos not in combo["n"]:
                     continue
                 c_n = combo["n"].get(pos, 0)
-                f_n = fx.get("index_total", {}).get(pos, {}).get("n_priced")
+                f_recorded = fx.get("index_total", {}).get(pos, {}).get("n_priced")
+                fx_priced = {s for s in fx_reidx
+                             if pos_by_key.get(player_keys.get(s)) == pos}
+                c_priced = {s for s in combo.get("reindexed", {})
+                            if pos_by_key.get(c_keys.get(s, player_keys.get(s))) == pos}
+                f_n = len(fx_priced) if fx_priced else f_recorded
                 if f_n is None:
                     continue  # fixture records no priced count; cannot compare
-                if c_n < f_n:
-                    verified, verify_detail = (False, "live verification skipped")
-                    if not no_live_verify and source in LIVE_API_URLS:
-                        fx_priced = {s for s, v in fx_reidx.items()
-                                     if v and pos_by_key.get(player_keys.get(s)) == pos}
-                        c_keys = combo.get("player_keys", {})
-                        c_priced = {s for s, v in combo["native"].items()
-                                    if v and pos_by_key.get(c_keys.get(s, player_keys.get(s))) == pos}
-                        dropped = sorted(fx_priced - c_priced)
-                        verified, verify_detail = verify_coverage_drop_live(
-                            source, combo_name, dropped)
+                dropped = sorted(fx_priced - c_priced)
+                added = sorted(c_priced - fx_priced)
+                cov = combos_detail.setdefault(combo_name, {}).setdefault(
+                    "coverage", {}).setdefault(pos, {})
+                cov.update({"candidate": c_n, "fixture": f_n,
+                            "fixture_recorded_n_priced": f_recorded,
+                            "dropped": dropped, "added": added})
+                if fx_priced and f_recorded is not None and f_recorded != len(fx_priced):
                     checks.append(_check(
-                        f"coverage:{combo_name}/{pos}", "pass" if verified else "fail",
-                        f"candidate priced {c_n} < fixture {f_n} -- {verify_detail}"))
+                        f"coverage_baseline:{combo_name}/{pos}", "warn",
+                        f"fixture index_total.n_priced {f_recorded} disagrees with its "
+                        f"own priced set ({len(fx_priced)}); compared against the set"))
+                if c_n >= f_n:
+                    continue
+                named = (f"dropped: {', '.join(dropped[:8]) or 'none named'}"
+                         f"; added: {', '.join(added[:8]) or 'none'}")
+                status, verify_detail = "fail", "live verification skipped"
+                live_contradicts = False
+                if not no_live_verify and source in LIVE_API_URLS and dropped:
+                    verified, verify_detail = verify_coverage_drop_live(
+                        source, combo_name, dropped)
+                    if verified:
+                        status = "pass"
+                    live_contradicts = "still priced live" in verify_detail
+                if status != "pass" and not live_contradicts:
+                    churn_ok, churn_detail = coverage_drop_is_tail_churn(
+                        f_n, c_n, dropped, fx_native, fx_priced, combo["native"],
+                        review_ids, {s: c_keys.get(s, player_keys.get(s)) for s in dropped})
+                    verify_detail = f"{verify_detail}; {churn_detail}"
+                    if churn_ok:
+                        status = "warn"
+                checks.append(_check(
+                    f"coverage:{combo_name}/{pos}", status,
+                    f"candidate priced {c_n} < fixture {f_n} ({named}) -- {verify_detail}"))
         if not any(c["name"].startswith("coverage:") and c["status"] == "fail"
                    for c in checks):
             checks.append(_check("coverage", "pass", "no priced-count regressions"))

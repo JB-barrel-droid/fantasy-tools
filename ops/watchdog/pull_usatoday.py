@@ -117,7 +117,7 @@ def discover_url(week=None, fetch_fn=fetch):
 def extract_week_from_url(url: str) -> int | None:
     """Extract week number from the USA Today article URL slug.
 
-    URL pattern: .../fantasy-football-trade-value-chart-week-N-ros-rankings/...
+    URL pattern: .../fantasy-football-trade-value-chart(s)-week-N-ros-rankings/...
     Returns None if no week found.
     """
     m = re.search(r"trade-value-charts?-week-(\d+)-", url)

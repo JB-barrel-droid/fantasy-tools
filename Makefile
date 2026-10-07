@@ -15,7 +15,7 @@ help:
 	@echo "Modular dashboard commands:"
 	@echo "  make source-import     Import SOURCE_FILE into standard raw source format"
 	@echo "  make supabase-import   Import SOURCE from its Supabase table into a vintage-stamped snapshot"
-	@echo "  make import-health   Verify all seven import sources are fresh (needs NFL_WEEK=<current NFL week>, passed by the watchdog/cron)"
+	@echo "  make import-health   Verify all seven import sources (NFL_WEEK optional; default = content week from pipelines/nfl_week.py)"
 	@echo "  make source-match      Match SNAPSHOT_FILE rows to canonical player_key values"
 	@echo "  make source-reference  Build source reference artifact(s) from MATCH_FILE (one per scoring/teams/qb group)"
 	@echo "  make comparison-section Build a candidate comparison section from REFERENCE_FILE (or REFERENCE_FILES=\"a.json b.json\" for multi-group sources)"
@@ -41,8 +41,8 @@ supabase-import:
 	python3 pipelines/import_supabase_references.py --source "$(SOURCE)"
 
 import-health:
-	@test -n "$(NFL_WEEK)" || (echo "Set NFL_WEEK=<current NFL week>; the pull watchdog/cron passes it" && exit 1)
-	python3 pipelines/verify_import_health.py --nfl-week "$(NFL_WEEK)"
+	# NFL_WEEK optional: defaults to pipelines/nfl_week.py (content week, flips Tuesday; build-lag-001).
+	python3 pipelines/verify_import_health.py $(if $(NFL_WEEK),--nfl-week "$(NFL_WEEK)")
 
 source-import:
 	@test -n "$(SOURCE_FILE)" || (echo "Set SOURCE_FILE=/path/to/scrape.csv or .json" && exit 1)
@@ -120,6 +120,7 @@ test-unit:
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_published_surfaces
+	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_refresh_fantasycalc_supabase
@@ -130,7 +131,12 @@ test-unit:
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo
 	python3 -m unittest tests.test_review_coverage_live_verify
+	python3 -m unittest tests.test_review_coverage_churn
 	python3 -m unittest tests.test_publication_window_content_week
+	python3 -m unittest tests.test_build_lag_gate
+	python3 -m unittest tests.test_import_health
+	python3 -m unittest tests.test_verify_import_health
+	python3 -m unittest tests.test_promote_section
 	python3 -m unittest tests.test_adjusted_curve_pause
 	python3 -m unittest tests.test_adjusted_fixture_sections
 	python3 -m unittest tests.test_adjustment_inputs
@@ -142,6 +148,7 @@ test-unit:
 	python3 -m unittest tests.test_health_artifacts_publish
 	python3 -m unittest tests.test_workflow_no_event_interpolation
 	python3 -m unittest tests.test_trade_chart_ingest_ci
+	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
 	python3 -m unittest tests.test_comparison_candidate_build
@@ -186,6 +193,7 @@ test-unit:
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
+	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
@@ -238,10 +246,8 @@ test-unit:
 # Run in the rebuild-chain workflow or locally where data is present.
 test-integration:
 	python3 -m unittest tests.test_cbs_usatoday_recurring
-	python3 -m unittest tests.test_import_health
 	python3 -m unittest tests.test_naming_drift
 	python3 -m unittest tests.test_pipeline_cascade
-	python3 -m unittest tests.test_promote_section
 	python3 -m unittest tests.test_pull_watchdog
 	python3 -m unittest tests.test_save_espn_cbs_references
 	python3 -m unittest tests.test_source_snapshot_import

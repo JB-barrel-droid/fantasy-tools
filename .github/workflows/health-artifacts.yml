@@ -143,6 +143,57 @@ jobs:
           producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
           python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" 2>&1 | tee /tmp/watch.log
 
+      # "Is everything working?" banner source: snapshot of
+      # public.monitoring_summary() (evaluator output over
+      # monitoring.check_observations). Runs after the watch step so this run's
+      # own observations are in it. Written even when the read fails (red,
+      # fail-closed) so the page never shows a stale green. Separate commit from
+      # the health artifacts above so that step's publish rules stay unchanged.
+      - name: Build monitoring summary
+        id: msummary
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/build_monitoring_summary.py --out output/monitoring-summary.json
+
+      - name: Publish monitoring summary
+        id: publish_summary
+        if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
+        run: |
+          cp output/monitoring-summary.json dist/modules/monitoring-summary.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/modules/monitoring-summary.json
+          if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
+          git commit -m "Monitoring summary (CI)"
+          for attempt in 1 2 3; do
+            if git pull --rebase --autostash origin main && git push; then
+              echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep 10
+          done
+          echo "::error::could not push monitoring summary after 3 attempts"; exit 1
+
+      - name: Trigger Pages deploy for the monitoring summary
+        if: steps.publish_summary.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/d2.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}')
+          echo "pages dispatch HTTP $code"; cat /tmp/d2.json || true
+          [ "$code" = "204" ]
+
+      # Drift between config/monitoring_coverage.json and what is live in
+      # Supabase (a pg_cron job no check covers, a check with no manifest row).
+      - name: Audit monitoring coverage
+        if: always() && hashFiles('output/monitoring-summary.json') != ''
+        run: python3 pipelines/audit_monitoring_coverage.py output/monitoring-summary.json
+
       - name: Summary
         if: always()
         # Runs under `bash -e`: every file read is guarded with `|| true`

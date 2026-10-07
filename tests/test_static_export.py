@@ -300,7 +300,14 @@ class StaticExportTest(unittest.TestCase):
             # 29.061033662019717. Verified: the pin is the pipeline-built
             # fixture value for the fantasycalc/ppr/12/wk4 grain, not a
             # hand edit; the 25.0 pin was the pre-refresh translation.
-            ("fantasycalc", "full_12_qb1"): 29.061033662019717,
+            # 2026-10-07 (JEG332-STORED-DRIFT): the comment above was wrong.
+            # 29.061... was the quantile PIE value (899f23b rewrote reindexed
+            # with the pie but kept the vorp-supabase block); this pin froze
+            # the drift. Re-translated from the saved natives
+            # (translate_via_vorp --translation natives), Allen is FantasyCalc's
+            # top QB, so he takes the QB max exactly: 25.0, like every other
+            # published chart. Checked by stored_drift_problems.
+            ("fantasycalc", "full_12_qb1"): 25.0,
             # 2026-10-02 (JEG-64): FantasyPros migrated to VORP-translated
             # values. Allen's value is the Supabase translated value (25.0,
             # the QB anchor max) for the fantasypros/ppr/12/wk4 grain -- the
@@ -344,11 +351,17 @@ class StaticExportTest(unittest.TestCase):
             # 2026-10-03 17:00 CDT automated rebuild refit against the 2026-10-03
             # ESPN anchor; Allen 28.0 -> 25.4 is the fresh refit, verified
             # against the rebuilt fixture.
-            ("fantasycalc_adjusted", "full_12_qb1"): 25.4,
+            # 2026-10-07 (JEG332-STORED-DRIFT): refit (build_adjustment_inputs
+            # + build_adjusted_fixture_sections, the chain's stages 7-8) on the
+            # re-translated raw values -- FantasyCalc translated instead of pie,
+            # every chart's at/below-waiver players 0 instead of the pie value.
+            # 25.4 -> 25.5; USA Today 23.8 -> 24.6; FantasyPros 17.4 -> 21.1.
+            # Verified against the rebuilt fixture.
+            ("fantasycalc_adjusted", "full_12_qb1"): 25.5,
             # 2026-10-03 17:00 CDT rebuild refit: 26.0 -> 23.8.
-            ("usatoday_adjusted", "full_12"): 23.8,
+            ("usatoday_adjusted", "full_12"): 24.6,
             # 2026-10-03 17:00 CDT rebuild refit: 19.1 -> 17.4.
-            ("fantasypros_adjusted", "full_12"): 17.4,
+            ("fantasypros_adjusted", "full_12"): 21.1,
         }
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key))
@@ -967,8 +980,15 @@ class StaticExportTest(unittest.TestCase):
         # JEG-392 (2026-10-05): with the ESPN-zeroed / comparison-keyed QBs
         # back on the board the boundary returns to 48 (the pre-ECR-exit
         # value) -- the 36 pin was an artifact of the 425-row universe.
-        self.assertEqual(48, last_positive)
-        self.assertEqual(49, last_positive + 1)
+        # 2026-10-07 (JEG332-STORED-DRIFT): published charts now save 0 for
+        # players at/below the waiver line instead of the pie fallback. Rows
+        # 36-48 were positive only through those fallbacks (Jameis Winston
+        # USA Today 0.7 / FantasyCalc 0.13, Marcus Mariota FantasyPros 1.22 /
+        # FantasyCalc 0.23, Tyson Bagent FantasyCalc 0.014), so the last
+        # positive QB is #35 Deshaun Watson (ESPN 0.6). Verified against the
+        # rebuilt fixture and the pre-fix fixture.
+        self.assertEqual(35, last_positive)
+        self.assertEqual(36, last_positive + 1)
 
 
 class BrandingScanTest(unittest.TestCase):
