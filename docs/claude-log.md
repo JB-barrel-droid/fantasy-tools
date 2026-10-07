@@ -3339,6 +3339,48 @@ optional `our_max` / `ourMax`; their defaults are unchanged (OUR_MAX), so server
   control, and the `SUPERFLEX` shape key moves nothing because the VORP-weighted flex never gives the QB
   the flex slot.
 
+## 2026-10-07 - Razzball ROS puller rebuilt in CI (JEG-433, branch razzball/dry-ci-v2)
+
+Contract: Muse's `razzball-projections-pull` was shut off 2026-10-06. Rebuild it as a CI job scheduled by Supabase
+pg_cron; PR to main passing `make validate`, not merged. Built on the WIP commit a7f5ab9 (cherry-picked onto
+current main; the `razzball-ci` branch also carries the unmerged ingest-ci work, which this PR does not).
+
+### What changed
+- `pipelines/pull_razzball_ros.py` reconciled with Muse's script (read in full from JEG-433): table chosen by a
+  Name + STD PPG header (the WIP took the first `neorazzstatstable`), Muse's component-vs-published PPG gate,
+  Muse's URLs (no trailing slash) and Accept header, named failure codes SOURCE_BLOCKED / SOURCE_LAYOUT /
+  SOURCE_TRUNCATED / PPG_GATE, Muse-schema CSV emitted next to snapshot.json.
+- Dating decision (mine, not Jeremy's): vintage = Razzball's own "Updated:" stamp date (oldest of the four pages), not the
+  run date; no stamp fails closed. Muse stamped the run date. Reason: a daily run on an unchanged page must not mint a
+  fresh-looking vintage. Same-date re-runs upsert the same grain.
+- `razzball-supabase-sync.yml`: no `--date`, error code parsed from the puller's line, snapshot artifact, pull summary
+  as a ::notice. `tests/test_razzball_sync_ci.py` gated in `make test-unit`.
+
+### Verified (check named)
+- CI dry run on pushed branch `razzball/dry-ci-v2`, run 37615285230 (job 112772022167), read via
+  check-run annotations: Razzball is NOT bot-walled from GitHub runners; "vintage 2026-10-06 (page stamps all
+  2026-10-06): 679 rows {QB 103, RB 165, WR 263, TE 148}, 0 review, 0 off the PPG gate"; saver dry run "672 clean rows,
+  7 review rows" (no_match: Chigoziem Okonkwo, Jalen Cropper, J. Sturdivant, Joshua Palmer, Kenny Gainwell, Mitch
+  Trubisky; ambiguous: Audric Estime); "[dry-run] would upsert 672 rows". Dry mode wrote nothing.
+- `public.razzball_projections` (SQL, read-only): vintages 2026-10-01 (692 rows), 2026-10-06 (672 rows). The CI dry run's 672 equals the stored
+  2026-10-06 count.
+- pg_cron job 25 `razzball-sync-live` `20 11 * * *` active and `monitoring.check_config` row `razzball_projections_sync`
+  exist; migration `razzball_sync_pg_cron` (20261007035105) is already applied and byte-identical to the file in this PR, so I did not re-apply it.
+- Tests: 21 pass in `tests.test_razzball_sync_ci`. Negative-tested: removing the row floors accepts a 12-row TE
+  page; removing the PPG gate accepts shifted columns; dropping the error-code extraction loses SOURCE_BLOCKED;
+  plus the WIP's schedule/dry-flag/write-default/record-in-dry mutations. `make validate` exit 0.
+- Live health artifact 2026-10-07 11:11Z: razzball ok, vintage 2026-10-06, age 1.
+
+### Claimed, unverified
+- The sandbox cannot reach football.razzball.com (proxy 403), so the only live HTML evidence is the CI annotations above.
+  A real bot wall was never observed; SOURCE_BLOCKED is unit-tested only.
+- A write-mode run (pg_cron or `razzball/write-*`) was not triggered by me. The WIP session's `razzball/write-1` push at 03:51Z
+  most likely wrote the 2026-10-06 vintage; I did not check its logs.
+- Chart data was NOT regenerated and no 12-combo sweep was run: nothing in the chart's data changed in this PR. The fixture
+  Razzball section is still vintage 2026-10-01; the 2026-10-06 vintage reaches the chart when rebuild-chain.yml next runs
+  green (it has been red since at least 08:00Z at "Run import health check", cbs/fantasypros stale; not a Razzball cause).
+- Another session pushed `razzball/dry-ci-rebuild` (95cdbca) with the same goal 10 minutes before mine; I did not touch it.
+  It differs on dating (pull date) and error-code names.
 ## 2026-10-07 - Import-health gate tolerates a one-week lag (build-lag-001, branch build-lag-001)
 
 Contract: the rebuild chain never promoted because verify_import_health was RED. CBS and FantasyPros
