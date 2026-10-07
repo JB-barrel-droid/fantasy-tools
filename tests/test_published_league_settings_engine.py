@@ -1,0 +1,273 @@
+"""League-settings engine for published charts (JEG-332 step 3, league-settings-001).
+
+The chart shows a published source's SAVED values at the saved setup (12
+teams, standard roster) and derives every other team count / roster from the
+saved 12-team inputs with ValueModel.derivePublishedSetup. This test pins
+that derivation to an independent Python reference:
+
+  * value above waivers translated at the chosen setting comes from the
+    server's own code (unified.translate_ranked);
+  * players below that setting's waiver line keep the server's fail-safe
+    value: the saved value if the server left them on the fallback at 12
+    teams, else the 12-team flex-aware pie value (native x saved bucket scale);
+  * the player set is the saved set at every setting.
+
+Inputs are assembled the way the browser assembles them (fixture
+player_keys + the players island in index.html), so an identity mismatch
+between the browser and the server's naming-table resolution also fails.
+
+At the saved setup the engine must reproduce the saved values EXACTLY for
+every source whose stored translation is current (CBS, FantasyPros); see
+risk register JEG332-STORED-DRIFT for USA Today / FantasyCalc.
+
+Discrimination: test_guard_catches_broken_engines mutates value-model.js.
+"""
+from __future__ import annotations
+
+import json
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+sys.path.insert(0, str(REPO))
+
+from pipelines.vorp_translation import unified  # noqa: E402
+
+VALUE_MODEL = REPO / "app" / "trade-value-chart" / "assets" / "value-model.js"
+DRIVER = REPO / "tests" / "published_engine_driver.js"
+FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+INDEX = REPO / "app" / "trade-value-chart" / "index.html"
+SOURCES = ("cbs", "fantasypros", "usatoday", "fantasycalc")
+SCORINGS = ("standard", "half_ppr", "ppr")
+POSITIONS = ("QB", "RB", "WR", "TE")
+SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
+EXACT_AT_SAVED_SETUP = ("cbs", "fantasypros")  # JEG332-STORED-DRIFT for the others
+TOL = 1e-9
+
+SHAPES = [
+    ("std", SAVED_SHAPE),
+    ("bench8-flex2-rb3", {**SAVED_SHAPE, "RB": 3, "FLEX": 2, "BENCH": 8}),
+    ("bench0", {**SAVED_SHAPE, "BENCH": 0}),
+    ("qb2-te2", {**SAVED_SHAPE, "QB": 2, "TE": 2}),
+]
+
+
+def browser_players():
+    """canonicalByKey as the widget builds it: island players, QB/RB/WR/TE."""
+    html = INDEX.read_text(encoding="utf-8")
+    m = re.search(r'<script id="players-data" type="application/json">(.*?)</script>', html, re.S)
+    players = json.loads(m.group(1))["players"]
+    out = {}
+    for p in players:
+        key = p.get("player_key")
+        name = str(p.get("name") or "").strip()
+        if isinstance(key, int) and name and p.get("pos") in POSITIONS:
+            out[key] = p["pos"]
+    return out
+
+
+def browser_inputs(fixture, pos_of, source, scoring):
+    """(native, saved, index_total) for the saved 12-team setup, browser-mapped."""
+    pk = fixture["player_keys"]
+    combo_key = unified.resolve_combo_key(fixture["sources"][source], scoring, 12)
+    combo = fixture["sources"][source]["combos"][combo_key]
+    native, saved = [], []
+    for slug, value in combo["native"].items():
+        key = pk.get(slug)
+        if isinstance(key, int) and key in pos_of and value is not None:
+            native.append((key, float(value)))
+    for slug, value in combo["reindexed"].items():
+        key = pk.get(slug)
+        if isinstance(key, int) and key in pos_of and value is not None:
+            saved.append((key, max(0.0, float(value))))
+    return native, saved, combo.get("index_total") or {}
+
+
+def _pie_values(native, pos_of, index_total):
+    by_pos = {p: [] for p in POSITIONS}
+    for key, value in native:
+        by_pos[pos_of[key]].append((key, value))
+    out = {}
+    for pos, rows in by_pos.items():
+        rows.sort(key=lambda r: -r[1])
+        buckets = (index_total.get(pos) or {}).get("buckets") or {}
+        i = 0
+        for role in ("dedicated", "flex", "bench"):
+            b = buckets.get(role)
+            if not b:
+                continue
+            for key, value in rows[i:i + int(b["n"])]:
+                out[key] = value * float(b["scale"])
+            i += int(b["n"])
+    return out
+
+
+def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
+    """Independent reference for the derived published chart (key -> value)."""
+    fixture = fixture or json.loads(FIXTURE.read_text())
+    pos_of = pos_of or browser_players()
+    ranked, key_by_name = unified.load_native_values(source, scoring, 12)
+    ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
+                    for pos, rows in ranked.items()}
+    native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring)
+    if teams == 12 and shape == SAVED_SHAPE:
+        return dict(saved)
+    slots = {p: shape[p] for p in POSITIONS}
+    at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots)
+    base = unified.translate_ranked(ranked_keyed, 12)
+    pie = _pie_values(native, pos_of, index_total)
+    out = {}
+    for key, value in saved:
+        t = at["translated"].get(str(key))
+        if t is not None:
+            out[key] = t["translated"]
+        elif str(key) not in base["translated"]:
+            out[key] = value
+        elif key in pie:
+            out[key] = pie[key]
+        else:
+            out[key] = 0.0
+    return out
+
+
+def _cases(fixture, pos_of, settings):
+    cases = []
+    for source, scoring, teams, label, shape in settings:
+        native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring)
+        cases.append({"source": source, "scoring": scoring, "teams": teams, "label": label,
+                      "shape": shape, "native": native, "saved": saved,
+                      "index_total": index_total,
+                      "pos": {str(k): pos_of[k] for k, _ in native + saved}})
+    return cases
+
+
+def run_js(cases, model_path=VALUE_MODEL):
+    proc = subprocess.run(["node", str(DRIVER), str(model_path)],
+                          input=json.dumps({"cases": cases}),
+                          capture_output=True, text=True, timeout=300)
+    if proc.returncode != 0:
+        raise AssertionError(f"node driver failed: {proc.stderr[:2000]}")
+    return json.loads(proc.stdout)["results"]
+
+
+def compare_maps(expected, got):
+    """Return (problems, max_abs_diff) comparing key->value maps."""
+    problems, max_diff = [], 0.0
+    if set(expected) != set(got):
+        problems.append(f"player sets differ: missing={sorted(set(expected) - set(got))[:5]} "
+                        f"extra={sorted(set(got) - set(expected))[:5]}")
+    for key in set(expected) & set(got):
+        d = abs(float(expected[key]) - float(got[key]))
+        max_diff = max(max_diff, d)
+        if d > TOL:
+            problems.append(f"{key}: expected {expected[key]} got {got[key]}")
+    return problems, max_diff
+
+
+def all_settings():
+    out = []
+    for source in SOURCES:
+        for scoring in SCORINGS:
+            for teams in (8, 10, 12, 14):
+                for label, shape in SHAPES:
+                    out.append((source, scoring, teams, label, shape))
+    return out
+
+
+def run_engine(settings, model_path=VALUE_MODEL):
+    fixture = json.loads(FIXTURE.read_text())
+    pos_of = browser_players()
+    cases = _cases(fixture, pos_of, settings)
+    results = run_js(cases, model_path)
+    failures, max_diff, n = [], 0.0, 0
+    for case, res, setting in zip(cases, results, settings):
+        source, scoring, teams, label, shape = setting
+        if "error" in res:
+            failures.append(f"{source}/{scoring}/{teams}/{label}: JS raised {res['error']}")
+            continue
+        got = {int(k): v for k, v in res["values"].items()}
+        if teams == 12 and shape == SAVED_SHAPE:
+            # The engine at the saved setup vs what is SAVED.
+            if source not in EXACT_AT_SAVED_SETUP:
+                continue
+            expected = dict(case["saved"])
+        else:
+            expected = expected_derived(source, scoring, teams, shape, fixture, pos_of)
+        problems, d = compare_maps(expected, got)
+        max_diff, n = max(max_diff, d), n + len(expected)
+        if problems:
+            failures.append(f"{source}/{scoring}/{teams}/{label}: {problems[:3]}")
+    return failures, max_diff, n, results
+
+
+class PublishedLeagueSettingsEngine(unittest.TestCase):
+    def test_engine_matches_reference_at_every_setting(self):
+        failures, max_diff, n, results = run_engine(all_settings())
+        print(f"\n[JEG-332 engine] settings={len(all_settings())} values_compared={n} "
+              f"max_abs_diff={max_diff} failures={len(failures)}")
+        self.assertEqual(failures, [], "\n".join(failures[:20]))
+        self.assertLessEqual(max_diff, TOL)
+        self.assertGreater(n, 20000)
+        self.assertEqual({r["version"] for r in results}, {"league-settings-001/1"})
+        # Every value the chart would plot is finite and non-negative.
+        for r in results:
+            self.assertTrue(all(v >= 0 for v in r["values"].values()))
+
+    def test_saved_setup_is_exactly_the_standard_12_team_roster(self):
+        fixture = json.loads(FIXTURE.read_text())
+        pos_of = browser_players()
+        probe = [("cbs", "ppr", t, label, shape) for t in (8, 12, 14)
+                 for label, shape in SHAPES + [("superflex", {**SAVED_SHAPE, "SUPERFLEX": 1})]]
+        res = run_js(_cases(fixture, pos_of, probe))
+        flags = {(t, label): r["savedSetup"] for (_, _, t, label, _), r in zip(probe, res)}
+        self.assertEqual([k for k, v in flags.items() if v], [(12, "std")])
+
+    def test_below_waiver_players_keep_the_servers_fallback(self):
+        """At 8 teams fewer players clear the waiver line than at 12; the ones
+        that drop below it must take the 12-team pie value, not their old
+        translated value and not zero."""
+        fixture = json.loads(FIXTURE.read_text())
+        pos_of = browser_players()
+        res = run_js(_cases(fixture, pos_of, [("cbs", "ppr", 8, "std", SAVED_SHAPE)]))[0]
+        self.assertGreater(res["fallbackPie"], 0)
+        self.assertGreater(res["fallbackSaved"], 0)
+        self.assertEqual(res["unpriced"], 0)
+
+    def test_guard_catches_broken_engines(self):
+        source = VALUE_MODEL.read_text()
+        mutations = {
+            # every below-waiver player keeps its saved value (stale 12-team translation)
+            "fallback-always-saved": ("if (!base.translated[String(key)]) {", "if (true) {"),
+            # pie buckets filled in the wrong order
+            "pie-role-order": ('["dedicated", "flex", "bench"].forEach(function (role) {\n        var bucket',
+                               '["flex", "dedicated", "bench"].forEach(function (role) {\n        var bucket'),
+            # bench stepper ignored by the translation
+            "bench-ignored": ("benchPerTeam: Number(shape.BENCH),", "benchPerTeam: 6,"),
+            # saved-setup test ignores the roster
+            "saved-setup-teams-only": ("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
+                                       "if (Number(teams) === SAVED_SETUP_TEAMS) return true;"),
+        }
+        settings = [s for s in all_settings() if s[0] == "cbs" and s[1] == "ppr"]
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, (old, new) in mutations.items():
+                self.assertEqual(source.count(old), 1, f"mutation anchor for {name} moved")
+                broken = Path(tmp) / f"value-model-{name}.js"
+                broken.write_text(source.replace(old, new))
+                failures = run_engine(settings, broken)[0]
+                if name == "saved-setup-teams-only":
+                    res = run_js(_cases(json.loads(FIXTURE.read_text()), browser_players(),
+                                        [("cbs", "ppr", 12, "bench0", {**SAVED_SHAPE, "BENCH": 0})]),
+                                 broken)
+                    failures = failures + ([] if not res[0].get("savedSetup") else ["savedSetup at bench0"])
+                print(f"\n[JEG-332 engine negative test] {name}: {len(failures)} failing settings")
+                self.assertGreater(len(failures), 0, f"mutation {name} was NOT caught")
+
+
+if __name__ == "__main__":
+    unittest.main()

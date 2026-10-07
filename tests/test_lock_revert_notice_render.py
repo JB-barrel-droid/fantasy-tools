@@ -14,6 +14,7 @@ caption must name the new lock order.
 
 import contextlib
 import functools
+import json
 import http.server
 import shutil
 import socketserver
@@ -38,6 +39,21 @@ def _chromium_executable(playwright):
         if candidate.exists():
             return str(candidate)
     return None
+
+
+def _without_usatoday_standard(route):
+    """Serve the fixture with USA Today's saved standard-scoring setup removed.
+
+    JEG-332 (league-settings-001): published charts are now derived in the
+    browser at 8/10/14 teams, so switching team size no longer makes USA
+    Today unavailable -- the old trigger for this test. The one remaining way
+    a published source becomes unavailable is a scoring with no saved 12-team
+    setup, so the test simulates exactly that.
+    """
+    path = APP / "assets" / "comparison-sources-data.json"
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    doc["sources"]["usatoday"]["combos"].pop("standard_12", None)
+    route.fulfill(status=200, content_type="application/json", body=json.dumps(doc))
 
 
 @contextlib.contextmanager
@@ -72,6 +88,7 @@ def _chart_page():
                     raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
                 try:
                     page = browser.new_page()
+                    page.route("**/assets/comparison-sources-data.json*", _without_usatoday_standard)
                     page.goto(url, wait_until="networkidle")
                     page.wait_for_function(
                         """() => window.TradeValueCurveControls
@@ -86,7 +103,12 @@ def _chart_page():
 
 
 def _drive_forced_reset(page):
-    """Lock to a 12-team-only source, then switch team size to force a reset."""
+    """Lock to USA Today, then switch to a scoring it has no saved setup for.
+
+    Before JEG-332 the trigger was a team-size change (USA Today was saved at
+    12 teams only); team sizes are now derived in the browser, so the forced
+    reset is driven by the scoring _without_usatoday_standard removes.
+    """
     # View tabs must be bound on initial load and changing settings in
     # another view must still rebuild Indexed data. JEG-392: this used to
     # wait on #viewModePending / #viewModeChartArea, placeholder panels from
@@ -105,7 +127,6 @@ def _drive_forced_reset(page):
           controls.setTeams(12);
           controls.setLockOrder("usatoday");
           controls.setScoring("standard");
-          controls.setTeams(8);
         }"""
     )
 
