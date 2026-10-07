@@ -658,5 +658,31 @@ class TestVersionedUpsertGrain(unittest.TestCase):
         self.assertIn("USAT_UPSERT_CONFLICT_VERSIONED", tree)
 
 
+class TestImportHealthWeek(unittest.TestCase):
+    """GAP-WATCHDOG-THU-WEEK: the watchdog's nfl_week() flips Thursday, the
+    content week flips Tuesday. On a Tuesday/Wednesday passing the former to
+    `make import-health` checks one week behind and hides a one-week lag."""
+
+    def _argv(self):
+        from unittest import mock
+        with mock.patch("subprocess.run") as run:
+            wd.refresh_import_health()
+        return run.call_args[0][0]
+
+    def test_no_nfl_week_override_passed(self):
+        argv = self._argv()
+        self.assertEqual(argv, ["make", "import-health"])
+        self.assertFalse(any(a.startswith("NFL_WEEK") for a in argv), argv)
+
+    def test_thursday_flip_week_differs_from_content_week(self):
+        # Premise of the fix: on Tue 2026-10-06 the two calendars disagree.
+        sys.path.insert(0, os.path.join(REPO, "pipelines"))
+        from nfl_week import current_nfl_week
+        from _common import nfl_week
+        d = date(2026, 10, 6)
+        self.assertEqual(current_nfl_week(d), 5)
+        self.assertEqual(nfl_week(d), 4)
+
+
 if __name__ == "__main__":
     unittest.main()

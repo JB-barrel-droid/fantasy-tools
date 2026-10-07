@@ -243,22 +243,22 @@ def check_fantasycalc(day, week):
     return v
 
 
-def refresh_import_health(week):
-    """Run the import-stage verifier (make import-health NFL_WEEK=<n>).
+def refresh_import_health():
+    """Run the import-stage verifier (make import-health).
 
     Best-effort: on any failure the watchdog falls back to reading the
     existing output/source-import-health.json, then to 'pending'.
-    NFL_WEEK follows the pull scripts' Thursday-flip nfl_week() — passing a
-    week whose articles don't exist yet would false-alarm STALE_VINTAGE on
-    every source (verified: week-3 CBS slug 404s, no week-3 in the USA Today
-    sitemap as of 2026-09-22)."""
+    NFL_WEEK is deliberately NOT passed: the verifier defaults to
+    pipelines/nfl_week.py (the content week, which flips Tuesday). This
+    module's nfl_week() flips Thursday, so passing it made the verifier
+    check one week behind on Tuesday and Wednesday and hid a one-week lag
+    (GAP-WATCHDOG-THU-WEEK)."""
     import subprocess as _sp
     try:
-        _sp.run(["make", "import-health", "NFL_WEEK=%d" % week], cwd=REPO,
+        _sp.run(["make", "import-health"], cwd=REPO,
                 capture_output=True, timeout=240)
     except Exception:
         pass
-
 
 IMPORT_HEALTH = os.path.join(REPO, "output", "source-import-health.json")
 IMPORT_SCHEMA = "trade-value-import-health-v1"
@@ -335,7 +335,7 @@ def main():
     # FantasyPros trade chart "fantasypros"; the watchdog check is
     # "fantasypros_chart" (ECR is a separate, excluded product).
     REPO_TO_CHECK = {"fantasypros": "fantasypros_chart"}
-    refresh_import_health(week)
+    refresh_import_health()
     for sid in REPO_SOURCES:
         landed, sb_status, vintage, imported_at, failure = supabase_landed(sid)
         key = REPO_TO_CHECK.get(sid, sid)

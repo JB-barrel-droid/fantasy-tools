@@ -1,5 +1,25 @@
 # Claude session log
 
+## 2026-10-07 - JEG-437 item 5: watchdog no longer passes the Thursday-flip week
+
+### Verified (check named)
+- Read: pull_watchdog.refresh_import_health ran `make import-health NFL_WEEK=<_common.nfl_week>`.
+  `_common.nfl_week(date(2026,10,6))` = 4 while `pipelines/nfl_week.current_nfl_week` = 5
+  (asserted in the new test), so Tuesday/Wednesday checks ran a week behind.
+- Fix: the call is now `make import-health` (the Makefile target and
+  verify_import_health default to the content week). The watchdog is not retired:
+  `make watchdog` (validate-adjacent target), tests/test_pull_watchdog.py and the
+  ingest CI (ops/watchdog/ingest_*.py via _common.nfl_week) still use it.
+- Negative test: restoring `NFL_WEEK=4` in the argv fails
+  `TestImportHealthWeek.test_no_nfl_week_override_passed` (1 failure of 54); the fixed
+  code passes 54/54. `make validate` exit 0.
+
+### Claimed, not confirmed
+- _common.nfl_week is still the Thursday-flip week for the pull scripts' own
+  week labels (pull_cbs/pull_usatoday/ingest_*); this PR does not judge whether that is
+  right for them.
+- Did not run the watchdog end to end (needs ~/workspace data this sandbox lacks).
+
 ## 2026-10-07 - Monitoring coverage audit ("working and monitored")
 
 Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a
