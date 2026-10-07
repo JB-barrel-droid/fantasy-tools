@@ -27,6 +27,25 @@ The stable rules are:
 - Adjusted source projects are derived estimates from raw source values plus
   versioned adjustment cells.
 
+## The Three Views (Jeremy, 2026-10-07)
+
+1. **Value above waivers.** Every source, projections and published trade
+   charts alike, is translated to implied value above waivers. The ranker's
+   assumed roster, bench shape included, is the standard default league
+   settings unless the publisher's own materials state otherwise. From that
+   roster and the source's values come the ranker's implied weights by
+   position and by starter/bench (flex counted). The waiver line then gives
+   each player's implied value above waivers. Position counts always account
+   for flex.
+2. **Adjusted values.** All value above waivers is re-weighted to DDF weights
+   by position x starter/bench group.
+3. **Indexed.** The original published trade charts are indexed to match the
+   value range of the other charts.
+
+Value above waivers and DDF values follow the user's league-settings inputs
+(teams, scoring, roster). There is no cap at the anchor's top value: a
+publisher whose implied weighting puts its top player above ours shows that.
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:
