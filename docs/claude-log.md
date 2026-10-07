@@ -3222,3 +3222,55 @@ failure, the CBS re-write behaviour, and added the pg_cron schedule and a test.
 
 ### Claimed, unverified
 - Live-site read of the engine files was not done this session (fetch permission prompt went unanswered).
+
+## 2026-10-07 - Derived published maxes follow league settings (JEG332-DERIVED-PEAKS, branch derived-peaks-follow-league)
+
+Contract: Jeremy decided "derived curves should shift with position settings". Until now every derived
+published chart was translated onto fixed maxes QB 25 / RB 70 / WR 55 / TE 30 at every team count and
+roster. PR to main, not merged.
+
+### Rule implemented
+`ValueModel.positionalMaxForSetup` (value-model.js) = `unified.positional_max_for_setup` (unified.py),
+version `espn-vaw-ratio/1`: for each position, M = our top ESPN per-game projection minus the waiver line,
+with the translation's own roster math (`rostered_for_teams`, waiver = first unrostered). Max = OUR_MAX x
+M(setting) / M(saved setup); then all four are multiplied by 70 / (largest of the four), so the top
+position sits at 70 as the ESPN anchor's top does at every setting. `derivePublishedSetup` (now
+`league-settings-001/2`) uses it when given `projection` (Map key -> espn_ppg); both callers
+(curve-widget.js, comparison-dashboard.js) pass it. `translate_ranked` / `translatePublishedVorp` take
+optional `our_max` / `ourMax`; their defaults are unchanged (OUR_MAX), so server output is unchanged.
+
+### Verified (check named)
+- Origin of 25/70/55/30: a hand-set constant in unified.py ("embody our starter/bench/positional
+  economics"). No pipeline computes it. The older prototype translate.py used QB 29.5 / RB 70 / WR 40.8 /
+  TE 21.3 "from ESPN DDF (half_12)". So the rule keeps OUR_MAX as the saved-setup calibration and moves it
+  only by our scarcity ratio.
+- Maxes (JS == Python), full PPR: 8 teams 23.6 / 70 / 51.2 / 33.6; 10 teams 21.6 / 70 / 52.3 / 30.6;
+  12 teams 25 / 70 / 55 / 30 (exact); 14 teams 24.6 / 70 / 53.9 / 29.6; 12 QB2 69.9 / 70 / 55 / 30; 10 QB2
+  30.3 / 70 / 52.3 / 30.6; 12 WR4+FLEX2 24.2 / 70 / 60.4 / 29.0; 12 FLEX2 23.7 / 70 / 53.9 / 28.4;
+  12 BENCH10 24.5 / 70 / 53.1 / 28.9.
+- `tests/test_vorp_translation_js_parity.py` new `PositionalMaxParity`: 411 max vectors (3 scorings x
+  8/10/12/14 x bench 0-14 x flex 0-5, 7 slot/superflex shapes x flex 1/2, 3 synthetic) exactly equal;
+  240 translation vectors on the derived maxes, 144,756 numbers, max abs diff 0.0; saved setup gives
+  OUR_MAX exactly on both sides for all 3 scorings. Negative: 4 mutations of positionalMaxForSetup
+  (no top rescale, reference at reader's setting, waiver off by one, slots ignored) fail 131/102/134/48
+  vectors; translation ignoring `ourMax` fails 19; the direction guard fails with fixed maxes (15
+  problems) and with the unscaled ratio.
+- `tests/test_published_league_settings_engine.py`: reference now translates onto
+  `unified.positional_max_for_setup` from the browser's own players island; 192 settings, 34,041 values,
+  max abs diff 0.0. New mutation `maxes-fixed` (projection ignored) fails 15 of 16 settings.
+- Changed assertion, with reason: the engine version pin `league-settings-001/1` -> `/2` and the reference
+  now uses the derived maxes. Both pinned the old fixed-max behaviour that Jeremy's decision replaces.
+- Headless sweep on rebuilt dist/ (3 scorings x 8/10/12/14, plus full-PPR 12-team QB2, FLEX2, WR4+FLEX2,
+  BENCH10), before vs after: fixedPieIndexed true in all 16 both times, no page errors. 12-team standard:
+  every source map byte-identical in all 3 scorings. The ESPN anchor is identical everywhere. Published
+  curve starts now equal the maxes above (e.g. CBS full 8 teams QB 23.6 / RB 70 / WR 51.2 / TE 33.6, was
+  25 / 70 / 55 / 30). sourceScaleAgreement stays false (non-blocking) everywhere, both before and after.
+  Offenders before -> after: std 12/8/10/12 -> 12/12/10/12; half 8/8/6/8 -> 8/12/6/8;
+  full 8/8/7/8 -> 4/8/7/8; QB2 4 -> 8 (the anchor's QB barely moves, see JEG332-SUPERFLEX-FLEX);
+  FLEX2, WR4+FLEX2 and BENCH10 stay at 4.
+- `make validate` exit 0 (CHROMIUM_PATH set), including the rendered league-settings test.
+
+### Claimed, unverified
+- None. Not checked: the superflex semantics question (JEG332-SUPERFLEX-FLEX). The UI has no SUPERFLEX
+  control, and the `SUPERFLEX` shape key moves nothing because the VORP-weighted flex never gives the QB
+  the flex slot.

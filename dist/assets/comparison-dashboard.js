@@ -528,11 +528,19 @@
       const value = Number(rawValue);
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
+    // JEG332-DERIVED-PEAKS: the same ESPN projections the curve widget passes,
+    // so the positional maxes (and the table) match the chart.
+    const field = scoreField();
+    const projection = new Map();
+    canonicalByKey.forEach((player, playerKey) => {
+      const ppg = player.espn_ppg?.[field];
+      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
+    });
     const values = saved.size && native.size
       ? ValueModel.derivePublishedSetup({
           native, saved, indexTotal: savedRow.index_total,
           posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-          teams: state.teams, shape
+          teams: state.teams, shape, projection
         }).values
       : new Map();
     derivedPublishedCache.set(cacheKey, values);
