@@ -277,5 +277,72 @@ class CbsStatelessRerunTest(unittest.TestCase):
         self.assertEqual(len(h.saved), 1)  # what the guard above prevents
 
 
+class UsatSourceBlockedFallbackTests(unittest.TestCase):
+    """GAP-USAT-CI-BLOCKED (2026-10-07): usatoday.com 402s CI runners; the
+    Supabase relay Edge Function `usatoday-fetch` is tried on a bot-wall
+    status, and the week-5 slug ("trade-value-CHARTS-week-5") must be found."""
+
+    BASE = "https://www.usatoday.com/story/sports/fantasy/football/2026/10/06/"
+    W5 = BASE + "fantasy-trade-value-charts-week-5-ros-rankings/92125556007/"
+
+    def test_discovery_matches_plural_charts_slug(self):
+        body = ("<urlset><url><loc>%s</loc></url></urlset>" % self.W5)
+        with_fetch = lambda u: (200, body)  # noqa: E731
+        got = pull_usatoday.discover_url(week=5, fetch_fn=with_fetch)
+        self.assertEqual(got, self.W5)  # old singular-only match: stale wk4/Failed
+
+    def test_week_from_plural_url(self):
+        self.assertEqual(pull_usatoday.extract_week_from_url(self.W5), 5)
+
+    def _patched(self, relay, firecrawl=lambda u: None):
+        o = (pull_usatoday.fetch_via_relay, pull_usatoday.fetch_via_firecrawl)
+        pull_usatoday.fetch_via_relay, pull_usatoday.fetch_via_firecrawl = relay, firecrawl
+        return o
+
+    def _restore(self, o):
+        pull_usatoday.fetch_via_relay, pull_usatoday.fetch_via_firecrawl = o
+
+    def test_blocked_direct_falls_back_to_relay(self):
+        o = self._patched(lambda u: (200, "<html>ok</html>"))
+        try:
+            got = pull_usatoday.fetch_article(self.W5, fetch_fn=lambda u: (402, "wall"))
+        finally:
+            self._restore(o)
+        self.assertEqual(got, (200, "<html>ok</html>"))
+
+    def test_direct_200_never_uses_relay(self):
+        def boom(u):
+            raise AssertionError("relay must not be used on a 200")
+        o = self._patched(boom)
+        try:
+            got = pull_usatoday.fetch_article(self.W5, fetch_fn=lambda u: (200, "direct"))
+        finally:
+            self._restore(o)
+        self.assertEqual(got, (200, "direct"))
+
+    def test_relay_failure_keeps_source_blocked(self):
+        # relay unreachable / upstream also blocked -> original 402 surfaces
+        for relay in (lambda u: None, lambda u: (402, "wall")):
+            o = self._patched(relay)
+            try:
+                with self.assertRaises(RuntimeError) as cm:
+                    pull_usatoday.pull(self.W5, fetch_fn=lambda u, _f=pull_usatoday.fetch_article:
+                                       _f(u, fetch_fn=lambda x: (402, "wall")))
+            finally:
+                self._restore(o)
+            self.assertIn("SOURCE_BLOCKED", str(cm.exception))
+
+    def test_relay_and_firecrawl_inert_without_secrets(self):
+        env = {k: os.environ.pop(k, None) for k in
+               ("SUPABASE_URL", "SUPABASE_SERVICE_KEY", "FIRECRAWL_API_KEY")}
+        try:
+            self.assertIsNone(pull_usatoday.fetch_via_relay("https://www.usatoday.com/x"))
+            self.assertIsNone(pull_usatoday.fetch_via_firecrawl("https://www.usatoday.com/x"))
+        finally:
+            for k, v in env.items():
+                if v is not None:
+                    os.environ[k] = v
+
+
 if __name__ == "__main__":
     unittest.main()
