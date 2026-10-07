@@ -3339,6 +3339,85 @@ optional `our_max` / `ourMax`; their defaults are unchanged (OUR_MAX), so server
   control, and the `SUPERFLEX` shape key moves nothing because the VORP-weighted flex never gives the QB
   the flex slot.
 
+## 2026-10-07 — Claude (cloud session): JEG332-STORED-DRIFT fixed (branch stored-drift-retranslate, PR, not merged)
+
+Saved 12-team published values are now the value-above-waivers translation of the saved natives for all
+four published charts, and the parity test fails on any drift. Jeremy: "Rerun any data you need"; he will
+review the math later.
+
+### Root cause (verified)
+- The chain's translate stage (`translate_via_vorp.py`) read the Supabase grain `publisher_translated_values`.
+  That grain is written by `refresh_vorp_translation.py` AFTER promotion, from the fixture's PREVIOUS natives,
+  and only when the week rolls. Any native refresh therefore promoted a stale translation (USA Today: natives
+  from bake usatwk4_2026-10-02, grain from the 09-29 natives), and a missing grain fell back to the pie
+  silently. FantasyCalc: 899f23b (2026-10-04) wrote pie values under the old `vorp-supabase` block; the
+  test_static_export pin 29.061 for Josh Allen (commented as "the vorp-supabase translation re-derived") was
+  the pie value, not a translation.
+
+### What changed
+- `unified.rank_natives` / `naming_registry` (refactor of `load_native_values`, output unchanged) and
+  `unified.translate_natives` (rank + `translate_ranked` on one combo's natives).
+- `translate_via_vorp.py --translation natives`: translates each combo from its own natives, never reads
+  Supabase; players the translation prices at/below the waiver line are saved as **0** (`n_below_waiver`)
+  instead of the flex-aware pie value (job 3; matches Agent D's browser change so 12 teams and derived agree);
+  only an unidentifiable player keeps the pie (`n_fallback_reindex`). Provenance gains
+  `translated_from: combo-natives`. The method string stays `vorp-supabase` because the checkpoint and five
+  test files key on it (legacy name, documented in the note). Default mode is still `supabase`.
+- `rebuild_comparison_chain.py` passes `--translation natives`.
+- Re-ran on the fixture: `translate_via_vorp.py --translation natives --week 4` (all four sources),
+  `build_adjustment_inputs.py` (fit), `build_adjusted_fixture_sections.py` (chain stages 7-8).
+  `build_adjusted_fixture_sections.py` now keeps a section's `retired_setups` record across rebuilds (it
+  silently dropped FantasyCalc_adjusted's league-settings-001 record on the first run).
+- Inputs: USA Today natives in the fixture == newest bake usatwk4_2026-10-02_v1 (per-scoring native sums
+  4184/4029/3915 match Supabase; 09-29 bake differs). content_vintage stays 2026-09-29. FantasyCalc stays on
+  its Week 4 natives (content_vintage "Week 4"): the week-5 bake fcwk5_2026-10-06_v1 was run through the real
+  chain offline (import_supabase_references with rows read through the Supabase MCP, served by a read-only
+  sbclient shim in the scratchpad; match -> reference -> section -> reindex -> translate -> review) and the
+  review HELD it: combos_match (section builder emits `full_12_qb2`), native_drift 189/189 and coverage
+  WR 78->76 / TE 28->26 wanting the live FantasyCalc API (proxy 403 here). Not promoted; risk register
+  JEG332-FC-WK5-HOLD. Nothing was written to Supabase.
+- `curve-widget.js` distinctSourcePeaks: every translated published chart now peaks at exactly RB 70, so the
+  peaks-only rule threw "Curve regression guard failed: distinctSourcePeaks" whenever only published charts
+  were active (tests.test_lock_revert_notice_render, 2 errors). New `sourceCurvesDistinct`: distinct when peaks
+  differ OR the curves differ; identical curves still fail.
+
+### Verified (check named)
+- Drift, `stored_drift_problems` (tests/test_vorp_translation_js_parity.py), before -> after:
+  USA Today std/half/full: 3/3/3 translated values off (max 1.6, Puka Nacua full 45.2 vs 46.7) and 85/84/82
+  at/below-waiver players non-zero, n_translated 167/179/180 vs 161/162/164 -> 0 problems.
+  FantasyCalc std/half/full: 168/168/168 values off (Brock Purdy full 10.14 vs 8.2) and 28 non-zero below
+  waiver each, n_translated 176/177/176 vs 168 -> 0. CBS 22/13/13 and FantasyPros 23/23/23 below-waiver pie
+  values -> 0 (their translated values were already exact). 60 problems on the pre-fix fixture, 0 after.
+- Negative tests: `test_stored_drift_guard_catches_stale_values` -- 6 simulated stale states (one value
+  +1.5, a below-waiver pie value, whole-combo pie values, a lying n_translated, natives refreshed but not
+  re-translated, Supabase-grain provenance) each fail. `TestNativesTranslation`: natives mode never calls
+  Supabase, zeroes below waiver, and follows a native refresh that the stale-grain path misses (asserted on
+  the same input). `tests/test_source_curves_distinct.py`: the old peaks-only rule gets the equal-peak case
+  wrong, an always-true rule misses identical curves; the real function gets all three right.
+- 12-combo headless sweep on built dist/ (3 scorings x 8/10/12/14, TradeValueCurveDiagnostics), before ->
+  after: fixedPieIndexed true in all 12 both times; sourceScaleAgreement false (non-blocking) in all 12 both
+  times; offenders std 12/12/10/12 -> 12/12/12/12, half 8/12/6/8 -> 8/12/8/8, full 4/8/7/8 -> 4/8/8/8; no page
+  errors. Curve starts (QB/RB/WR/TE) FantasyCalc 12 teams: std 39.9/82.4/45.7/24.6 -> 25/70/55/30, half
+  32.6/74.2/49.1/25.0 -> 25/70/55/30, full 29.1/66.9/50.6/27.8 -> 25/70/55/30, now the same as every other
+  published chart; 10 and 14 teams unchanged (full 10: 21.6/70/52.3/30.6). FantasyCalc full top-3 RB at
+  10/12/14 teams: before 70.0/66.2/55.6 | 66.9/63.3/53.5 | 70.0/66.2/55.9, after 70.0/66.2/55.6 |
+  70.0/66.2/55.8 | 70.0/66.2/55.9 (the 12-vs-10 jump is gone). At 12 teams every plotted published value ==
+  saved value (0 mismatches, 12 combos x 4 sources). At 8/10/14 the only moves are players at/below the
+  waiver line at 12 teams whose saved fallback is now 0 (e.g. USA Today full 8 teams: 82 players -> 0).
+- Changed assertions, with reasons: test_static_export FantasyCalc Allen 29.061 -> 25.0 (the pin froze the
+  drift; see root cause); the refit adjusted pins FC 25.4 -> 25.5, USAT 23.8 -> 24.6, FP 17.4 -> 21.1 (chain
+  stages 7-8 on the new raw values); last positive QB 48 -> 35 (rows 36-48 were positive only through
+  published-chart pie fallbacks for below-waiver QBs: Winston, Mariota, Bagent); guard_harness JEG-5 recorded
+  numbers total 2048.07 -> 1931.76, delta +78.18 -> -38.13 (the simulated broken state still fails by far
+  more than the tolerance of 2). The parity test's KNOWN_STALE_STORED allowlist removed (was the documented
+  temporary state for this row).
+- `make validate` exit 0 (CHROMIUM_PATH set).
+
+### Claimed, unverified
+- None for the fixture. Not checked: the GitHub Actions chain run with `--translation natives` end to end
+  (the stage is covered by the unit tests and the offline FantasyCalc run, which translated the section with
+  168 translated / 0 fallback). `refresh_vorp_translation.py` crashes on the retired FantasyCalc 8/10/14
+  grains (verified the SystemExit, not the full run): JEG332-VORP-REFRESH-RETIRED.
 ## 2026-10-07 - Razzball ROS puller rebuilt in CI (JEG-433, branch razzball/dry-ci-v2)
 
 Contract: Muse's `razzball-projections-pull` was shut off 2026-10-06. Rebuild it as a CI job scheduled by Supabase
@@ -3446,6 +3525,14 @@ labelled by its own week.
 - tests.test_decisions_log was already red on main for three older entries (GAP-DECISIONS-LOG-RED).
   build-lag-001 adds no errors to it.
 
+## 2026-10-07 ~09:00 CDT — Claude (cloud session, coordinator): merged main into #386; JEG-135 baseline window
+
+### Verified (check named)
+- #386 conflicted with #383 only in a comment block in rebuild_comparison_chain.py (both comments kept) and
+  the log. After the merge, tests.test_jeg135_rendered_flexibility failed inside `make validate` twice but
+  passed alone: every step "mismatched" the baseline, i.e. the baseline was read before a late async
+  re-render. gate_flexibility.mjs now waits for networkidle and an 8-read (2 s) quiet window for the
+  baseline only. Full `make validate` rc=0 afterwards; the render-counter broken build still fails the sweep.
 ## 2026-10-07 ~09:30 CDT — Claude (cloud session, coordinator): main red after #384 + #385 — Razzball coverage entry
 
 ### Verified (check named)
@@ -3456,3 +3543,12 @@ labelled by its own week.
   workflow's `"p_check_id": "razzball_projections_sync"` record; the temporary-state test is replaced by one
   requiring the entry be covered and the stale gap flag be rejected (assertion changed because its premise —
   "not on main yet" — no longer holds). Negative check: renaming the workflow's check id fails the suite.
+
+## 2026-10-07 ~11:00 CDT — Claude (cloud session, coordinator): PR discrimination check diffs the whole PR
+
+### Verified (check named)
+- #386's preview failed "Check PR discrimination proof" after a docs-only merge of main into the branch:
+  the step diffed HEAD~1 only, so the checker saw no guard change and demanded a non-guard checkbox. The
+  step now diffs origin/<base>...HEAD (base ref passed via env, not interpolated). Local check: #386's body
+  against its full diff -> PASS; against the HEAD~1 diff -> FAIL (the CI failure). preview/pages parity
+  test and the event-interpolation guard still pass.
