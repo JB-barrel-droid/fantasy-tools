@@ -80,7 +80,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           args=""
-          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"
+          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run --week 5"
           [ -n "${{ github.event.inputs.week }}" ] && args="$args --week ${{ github.event.inputs.week }}"
           # Actions logs can't be downloaded through every proxy, so the
           # outcome is surfaced as check-run annotations (readable via
