@@ -35,6 +35,9 @@ vintage, JEG-380 "truthful freshness"). This builder sets them:
   * bake_uuid: one public.bakes row per source per fixture (reused when the
     same fixture sha256 is re-run), created only after every pre-flight check
     passes.
+Bias-adjusted sources (*_adjusted) are not written to the table (decision
+consol-adjusted-001): they stay on the chart, served from the fixture, and the
+write logs each skipped source with its row count.
 Pre-flight (all before any write, fail closed with the list): every row has a
 key, a bake and a vintage; every source is in public.source_config (FK); no
 combo_reindexed value exceeds the table's cap (ck_combo_reindexed_cap, <= 70);
@@ -88,6 +91,10 @@ SGA_FIELDS = (
     ("lineage", "raw_vintage"),                # adjusted sections inherit the raw vintage
     ("fetched_at",),                           # week-labelled snapshots: acquisition time
 )
+# Bias-adjusted sections stay on the chart (served from the fixture) but are NOT
+# written to public.consolidated_values (decision consol-adjusted-001, Jeremy
+# 2026-10-07): they can exceed the table's 70 cap by construction.
+TABLE_EXCLUDED_SUFFIX = "_adjusted"
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 WRITE_REQUIRED = ("player_key", "bake_uuid", "source_generated_at", "created_at")
 VALID_TEAMS = {8, 10, 12, 14}
@@ -356,6 +363,21 @@ def source_vintages(detail, sources):
     return out
 
 
+def split_for_table(rows):
+    """(rows for public.consolidated_values, {excluded source: row count}).
+
+    *_adjusted sources are left out of the table on purpose; the caller logs
+    the counts so the exclusion is never silent.
+    """
+    kept, skipped = [], {}
+    for r in rows:
+        if r["source"].endswith(TABLE_EXCLUDED_SUFFIX):
+            skipped[r["source"]] = skipped.get(r["source"], 0) + 1
+        else:
+            kept.append(r)
+    return kept, skipped
+
+
 def preflight(rows, known_sources):
     """Errors that the live table would reject, found before any write."""
     errors = []
@@ -429,6 +451,12 @@ def write_supabase(rows, detail, detail_sha256, sb=None):
     (the same PostgREST path as before the NOT NULL columns existed).
     """
     sb = sb or _sbclient()
+    rows, skipped = split_for_table(rows)
+    for src, n in sorted(skipped.items()):
+        print(f"  skipped {src}: {n} rows not written to consolidated_values "
+              "(bias-adjusted; served from the fixture only, decision consol-adjusted-001)")
+    if not rows:
+        raise SystemExit("FAIL-CLOSED: no core-source rows to write")
     sources = sorted({r["source"] for r in rows})
     sga_by_source = source_vintages(detail, sources)
     known = [r.get("source") for r in sb.get("source_config", params="?select=source")]

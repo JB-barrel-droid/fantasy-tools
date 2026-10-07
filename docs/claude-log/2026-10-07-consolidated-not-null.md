@@ -57,3 +57,44 @@ writes, and say whether the step should block Pages.
   fantasypros will read 8 days old to `gate_source_freshness`, which is the
   truthful value JEG-380 asked for. That may turn freshness gates red where the
   built_at backfill had hidden it.
+
+## 2026-10-07 - PR #400 update: Jeremy's decisions on the cap and on blocking
+
+Contract: Jeremy (explicit, relayed by the coordinator). (1) Keep `*_adjusted`
+out of public.consolidated_values, with an explicit, logged skip, and keep the
+cap and pre-check for core values. (2) Make the write non-blocking with its own
+red-on-failure monitored check, so Pages never depends on it. Both are recorded
+in docs/decisions.md (consol-adjusted-001, consol-nonblocking-001). origin/main
+was merged first.
+
+### Verified (check named)
+- `split_for_table` skips the 4 adjusted sources and logs
+  "skipped <src>: N rows not written".
+  `AdjustedExcludedTest.test_current_fixture_writes_core_sources_only_and_logs_the_skip`:
+  the 2026-10-07 fixture now writes its core sources into the constraint-enforcing
+  fake table. Negative: with the skip suffix changed, 4 tests fail (cap refusal).
+  The cap still refuses an over-cap core value
+  (`test_over_cap_core_value_is_refused_whole_before_any_write`).
+- rebuild-chain.yml changes:
+  - The write step is `id: consolidate` with `continue-on-error: true`.
+  - "Record consolidated_values check" runs `always()` and records
+    `steps.consolidate.outcome`.
+  - The Pages dispatch runs on `!cancelled() && steps.push.outputs.pushed == 'true'`.
+  - Manifest entry added to config/monitoring_coverage.json.
+  - Check row in `supabase/migrations/jeg324_consolidated_values_write_check.sql`,
+    NOT applied.
+  - `tests.test_monitoring_coverage` passes.
+- Guard `tests/test_rebuild_chain_consolidation_nonblocking.py` (8 tests)
+  simulates GitHub's step semantics (implicit success(), continue-on-error,
+  steps.*.outcome).
+  - On origin/main's workflow it reproduces run 37641559947: Pages dispatch
+    skipped, job failed.
+  - Mutations it catches: the run's own shape, recording `job.status`, a record
+    step without `always()`, and a dispatch gated on the write.
+- `tests.test_no_failopen_workflows` fails on merged origin/main as well
+  (source-vintage-check.yml `|| true`). It is pre-existing and not caused by
+  this branch.
+
+### Claimed, not confirmed
+- The new check row and the live write have not run; both wait for merge and
+  the migration apply.

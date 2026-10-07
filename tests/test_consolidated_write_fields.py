@@ -89,18 +89,9 @@ def load_detail():
 
 
 def writable_detail():
-    """The real fixture minus what the live table cannot take today
-    (razzball is not in source_config; adjusted combos above the cap), so the
-    happy path can be exercised end to end."""
-    d = load_detail()
-    d["sources"].pop("razzball", None)
-    for sdata in d["sources"].values():
-        for cdata in (sdata.get("combos") or {}).values():
-            r = cdata.get("reindexed") or {}
-            for p, v in list(r.items()):
-                if v is not None and v > 70:
-                    r.pop(p)
-    return d
+    """The real fixture. (Its adjusted sections exceed the cap; they are not
+    table rows, decision consol-adjusted-001.)"""
+    return load_detail()
 
 
 def run_write(detail, sources=None, keys=None):
@@ -115,9 +106,10 @@ def run_write(detail, sources=None, keys=None):
 class WriteFieldsTest(unittest.TestCase):
     def test_every_written_row_satisfies_the_live_constraints(self):
         sb, rows, n = run_write(writable_detail())
-        self.assertEqual(n, len(rows))
-        self.assertEqual(len(sb.values), len(rows))
-        self.assertEqual(len(sb.bakes), len({r["source"] for r in rows}))
+        core, _ = bcv.split_for_table(rows)
+        self.assertEqual(n, len(core))
+        self.assertEqual(len(sb.values), len(core))
+        self.assertEqual(len(sb.bakes), len({r["source"] for r in core}))
         # one bake per source, and every row's bake belongs to its own source
         bake_src = {b["bake_id"]: b["source"] for b in sb.bakes}
         self.assertTrue(all(bake_src[r["bake_uuid"]] == r["source"] for r in sb.values))
@@ -137,7 +129,8 @@ class WriteFieldsTest(unittest.TestCase):
         sb = FakeSb(sorted(detail["sources"]), sorted(set(detail["player_keys"].values())))
         bcv.write_supabase(rows, detail, "sha-test", sb=sb)
         bcv.write_supabase(rows, detail, "sha-test", sb=sb)
-        self.assertEqual(len(sb.bakes), len({r["source"] for r in rows}))
+        core, _ = bcv.split_for_table(rows)
+        self.assertEqual(len(sb.bakes), len({r["source"] for r in core}))
 
     def test_player_key_is_the_fixtures_own_key(self):
         detail = load_detail()
@@ -183,19 +176,56 @@ class SourceGeneratedAtTest(unittest.TestCase):
 
 
 class PreflightTest(unittest.TestCase):
-    def test_current_fixture_is_refused_whole_before_any_write(self):
-        # 2026-10-07 fixture: 15 adjusted combo values exceed the 70 cap; the
-        # table would reject them mid-write (23514), after other sources landed.
+    def test_over_cap_core_value_is_refused_whole_before_any_write(self):
+        # The 70 cap still holds for core sources: one over-cap cbs value
+        # refuses the whole write before anything lands (no partial 23514).
         detail = load_detail()
+        combo = detail["sources"]["cbs"]["combos"]["full_12"]["reindexed"]
+        combo["aaron jones"] = 75.0
         rows, _ = bcv.build_rows(detail)
         sb = FakeSb(sorted(detail["sources"]), sorted(set(detail["player_keys"].values())))
         with self.assertRaises(SystemExit) as cm:
             bcv.write_supabase(rows, detail, "sha-test", sb=sb)
-        msg = str(cm.exception)
-        self.assertIn("15 combo_reindexed value(s) > 70", msg)
-        self.assertIn("ck_combo_reindexed_cap", msg)
+        self.assertIn("1 combo_reindexed value(s) > 70", str(cm.exception))
+        self.assertIn("ck_combo_reindexed_cap", str(cm.exception))
         self.assertEqual([c for c in sb.calls if c[0] == "post"], [], "wrote before failing")
 
+
+class AdjustedExcludedTest(unittest.TestCase):
+    """Decision consol-adjusted-001 (Jeremy 2026-10-07): *_adjusted sections are
+    not written to public.consolidated_values, explicitly and with a log line."""
+
+    def test_current_fixture_writes_core_sources_only_and_logs_the_skip(self):
+        # 2026-10-07: 15 adjusted combo values exceed 70; the write must go
+        # through anyway because adjusted sources are not table rows.
+        import contextlib
+        import io
+        detail = load_detail()
+        rows, _ = bcv.build_rows(detail)
+        sb = FakeSb(sorted(detail["sources"]), sorted(set(detail["player_keys"].values())))
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            n = bcv.write_supabase(rows, detail, "sha-test", sb=sb)
+        written = {r["source"] for r in sb.values}
+        self.assertFalse([s for s in written if s.endswith("_adjusted")], written)
+        adjusted = {}
+        for r in rows:
+            if r["source"].endswith("_adjusted"):
+                adjusted[r["source"]] = adjusted.get(r["source"], 0) + 1
+        self.assertEqual(n, len(rows) - sum(adjusted.values()))
+        self.assertEqual(set(adjusted), {"cbs_adjusted", "fantasycalc_adjusted",
+                                         "fantasypros_adjusted", "usatoday_adjusted"})
+        for src, cnt in adjusted.items():
+            self.assertIn(f"skipped {src}: {cnt} rows not written to consolidated_values", out.getvalue())
+        self.assertFalse([b for b in sb.bakes if b["source"].endswith("_adjusted")])
+
+    def test_adjusted_rows_stay_in_the_served_export(self):
+        # The chart/export side is unchanged: build_rows still emits them.
+        rows, _ = bcv.build_rows(load_detail())
+        self.assertTrue(any(r["source"] == "usatoday_adjusted" for r in rows))
+
+
+class SourceConfigTest(unittest.TestCase):
     def test_source_missing_from_source_config_is_refused(self):
         detail = writable_detail()
         with self.assertRaisesRegex(SystemExit, r"source_config.*\['cbs'\]"):

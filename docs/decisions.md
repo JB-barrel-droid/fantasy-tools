@@ -294,3 +294,73 @@ Option 2. Relay is live and verified (CI dry run 37614204115). Firecrawl code is
 ### Outcome Note
 
 Jeremy authorized on 2026-10-07 (JEG-434): "merge PR #382, Supabase edge-function relay first, Firecrawl as second fallback only when FIRECRAWL_API_KEY is set." Implemented in the PR branch; merge commit 9e44e3e. `make validate` exit 0.
+
+## consol-adjusted-001: Bias-adjusted sources stay out of public.consolidated_values
+- id: consol-adjusted-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Do not write the *_adjusted sources to public.consolidated_values. They stay on the chart, served from the fixture. Keep the 70 cap (ck_combo_reindexed_cap) and the writer's pre-check unchanged for the core sources. No Supabase constraint change.
+
+### Context
+
+Once the consolidation writer set the NOT NULL columns (PR #400), the 2026-10-07 fixture still could not be written. Fifteen bias-adjusted combo_reindexed values exceed 70 (for example usatoday_adjusted Bijan Robinson 76.4 and cbs_adjusted Jahmyr Gibbs 82.4), and the live CHECK rejects them (GAP-CONSOL-CAP).
+
+### Problem
+
+How should adjusted values above the table's 70 cap be handled?
+
+### Options
+
+1. Cap the adjusted sections at 70 in the builder.
+2. Relax or drop the cap for the *_adjusted sources.
+3. Keep the adjusted sources out of public.consolidated_values.
+
+### Recommendation
+
+Option 3, chosen by Jeremy (2026-10-07, explicit). `build_consolidated_values.write_supabase` skips every `*_adjusted` source explicitly (`split_for_table`) and logs each skipped source with its row count. The served JSON export still carries them. The skip is pinned by `tests/test_consolidated_write_fields.py::AdjustedExcludedTest`.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 and implemented in PR #400.
+
+## consol-nonblocking-001: The consolidated_values write does not block the Pages deploy and is monitored on its own
+- id: consol-nonblocking-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: publish
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: In rebuild-chain.yml the consolidation write is its own `continue-on-error` step. Its outcome is recorded as the monitored check `consolidated_values_write` (red on failure). The Pages dispatch does not depend on it.
+
+### Context
+
+Rebuild run 37641559947 pushed the fixture (0b0ddee), then failed at "Build consolidation layer". The Pages dispatch's implicit `success()` skipped, so main and the live site diverged. The site serves the fixture, not public.consolidated_values.
+
+### Problem
+
+Should a failed Supabase consolidation write block the Pages deploy?
+
+### Options
+
+1. Non-blocking, with its own monitored check.
+2. Blocking but consistent: write before the fixture push.
+3. Leave as is: the fixture is pushed but not deployed.
+
+### Recommendation
+
+Option 1, chosen by Jeremy (2026-10-07, explicit).
+
+- The step has `continue-on-error: true` and `id: consolidate`.
+- `Record consolidated_values check` runs with `always()` and records `steps.consolidate.outcome` through `record_monitor_check.py`.
+- The Pages dispatch runs on `!cancelled() && steps.push.outputs.pushed == 'true'`.
+- The check row is in `supabase/migrations/jeg324_consolidated_values_write_check.sql` (applied after merge).
+- Guard: `tests/test_rebuild_chain_consolidation_nonblocking.py`.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 and implemented in PR #400.
