@@ -14,7 +14,7 @@ Output: data/inputs/sleeper_identity_base.json (schema sleeper-identity-base-v2)
                                "espn_id", "yahoo_id", "gsis_id", "sportradar_id"}}
   }
 
-Rules (v1 got these wrong; see docs/claude-log.md 2026-10-05):
+Rules (v1 got these wrong; see docs/claude-log/ 2026-10-05 entry):
   - Names are keyed with canonical_players.norm_plain, the same convention as
     the manual identity map, and map to a LIST of Sleeper ids. v1 kept the
     first player seen per name, so "josh allen" resolved to a free-agent guard.

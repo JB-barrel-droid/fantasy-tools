@@ -12,7 +12,9 @@ not a second architecture document.
   contracts.
 - `docs/risk-register.md` owns durable gaps, risks, unresolved questions, and
   follow-up actions.
-- `docs/claude-log.md` owns session-by-session evidence and verification notes.
+- `docs/claude-log/` owns session-by-session evidence and verification notes
+  (one file per PR/session; `docs/claude-log/README.md` has the format and
+  rules; `docs/claude-log.md` is the frozen pre-2026-10-07 archive).
 
 When these files conflict, prefer implementation plus the most specific
 authority above, then update the stale document instead of carrying the conflict

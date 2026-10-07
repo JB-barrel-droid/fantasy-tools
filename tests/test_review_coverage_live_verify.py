@@ -47,6 +47,38 @@ class CoverageLiveVerifyTest(unittest.TestCase):
     def test_source_without_live_api_never_verifies(self):
         self.assertFalse(r.verify_coverage_drop_live("usatoday", "full_12", ["x"])[0])
 
+    # -- JEG-436 follow-up: live position rank vs the candidate's depth --------
+    def test_live_rank_below_depth_is_not_a_contradiction(self):
+        # Higbee is the live list's 2nd (last) TE; the candidate prices 1 TE.
+        live = [{"player": {"name": "Brock Bowers", "position": "TE"}, "value": 5900},
+                {"player": {"name": "Tyler Higbee", "position": "TE"}, "value": 20}]
+        with mock.patch.object(r.urllib.request, "urlopen",
+                               lambda req, timeout=60: io.BytesIO(json.dumps(live).encode())):
+            ok, detail = r.verify_coverage_drop_live(
+                "fantasycalc", "full_12_qb1", ["tyler higbee"], pos="TE", depth=1)
+        self.assertFalse(ok)                      # never a live-verified PASS
+        self.assertNotIn("still priced live", detail)
+        self.assertIn("live tail", detail)
+
+    def test_live_rank_within_depth_or_unknown_stays_a_contradiction(self):
+        live = [{"player": {"name": "Brock Bowers", "position": "TE"}, "value": 5900},
+                {"player": {"name": "Tyler Higbee", "position": "TE"}, "value": 20},
+                {"player": {"name": "Jauan Jennings"}, "value": 900}]  # no position
+        fake = lambda req, timeout=60: io.BytesIO(json.dumps(live).encode())  # noqa: E731
+        with mock.patch.object(r.urllib.request, "urlopen", fake):
+            # rank 2 <= depth 2: the bake should have held him.
+            ok, detail = r.verify_coverage_drop_live(
+                "fantasycalc", "full_12_qb1", ["tyler higbee"], pos="TE", depth=2)
+            self.assertIn("still priced live", detail)
+            # live position unknown: cannot rank him -> fail closed.
+            ok, detail = r.verify_coverage_drop_live(
+                "fantasycalc", "full_12_qb1", ["jauan jennings"], pos="WR", depth=0)
+            self.assertIn("still priced live", detail)
+            # no pos/depth supplied: original rule, fail closed.
+            ok, detail = r.verify_coverage_drop_live(
+                "fantasycalc", "full_12_qb1", ["tyler higbee"])
+            self.assertIn("still priced live", detail)
+
 
 if __name__ == "__main__":
     unittest.main()
