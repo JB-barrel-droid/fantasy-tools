@@ -224,10 +224,19 @@ def run_ingest(cfg: dict[str, Any], *,
     # 1. Discover. DiscoveryFailed (not published yet) is a quiet cron skip
     # for sources whose discovery defines one (USA Today). CBS discovery
     # has no quiet path: a discovery failure there is a genuine failure.
+    # A DiscoveryFailed whose `quiet` attribute is False (USA Today's
+    # SitemapUnavailable: the sitemap itself 404'd / was truncated) means
+    # discovery could not LOOK, not that the article is absent -- that is a
+    # loud failure, never a "not published yet" exit 0 (2026-10-06: the CI
+    # run reported "not published yet" on a sitemap 404).
     disc_exc = cfg.get("discovery_failed_cls")
     try:
         url = url or discover_fn(week)
     except Exception as e:
+        if disc_exc is not None and isinstance(e, disc_exc) \
+                and not getattr(e, "quiet", True):
+            raise IngestError(
+                f"[{name}] discovery source unavailable for week {week}: {e}") from e
         if disc_exc is not None and isinstance(e, disc_exc):
             print(f"[{name}] week {week} article not published yet; skipping ({e})",
                   flush=True)

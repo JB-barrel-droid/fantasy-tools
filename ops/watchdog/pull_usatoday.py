@@ -42,7 +42,18 @@ TABLE_MARK = "gnt_ar_b_tbl"
 
 
 class DiscoveryFailed(RuntimeError):
-    pass
+    """No article for the week (quiet "not published yet" skip in the
+    ingest wrapper)."""
+    quiet = True
+
+
+class SitemapUnavailable(DiscoveryFailed):
+    """The sitemap itself could not be read (non-200 or truncated body).
+
+    Still a DiscoveryFailed (discovery fails closed, never returns a partial
+    list), but NOT quiet: discovery could not look, so the ingest wrapper
+    must fail loudly instead of reporting "not published yet"."""
+    quiet = False
 
 
 def sitemap_urls_for_month(year, month, fetch_fn=fetch):
@@ -64,7 +75,7 @@ def sitemap_urls_for_month(year, month, fetch_fn=fetch):
         last_err = "status=%r len=%d truncated=%s" % (
             st, len(body or ""),
             bool(body) and "</urlset>" not in body)
-    raise DiscoveryFailed(
+    raise SitemapUnavailable(
         "USA Today sitemap fetch failed/truncated for %04d-%02d (%s); "
         "refusing to discover from a partial sitemap" % (year, month, last_err))
 
@@ -174,6 +185,11 @@ def pull(url, fetch_fn=fetch):
     goal-workspace pull_usatoday(): [{title, headers, rows}]. Raises on
     fetch failure or markup mismatch (fail closed)."""
     st, html = fetch_fn(url)
+    if st in (401, 402, 403, 429):
+        # 2026-10-06: usatoday.com answers GitHub-hosted runners with 402
+        # "Access Restricted" (bot wall); the gannett-cdn sitemaps still 200.
+        raise RuntimeError("SOURCE_BLOCKED: fetch refused: status=%r url=%s"
+                           % (st, url))
     if st != 200 or not html:
         raise RuntimeError("fetch failed: status=%r url=%s" % (st, url))
     if TABLE_MARK not in html:

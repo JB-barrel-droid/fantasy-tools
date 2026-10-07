@@ -55,6 +55,33 @@ def _save_fn(json_path: str, dry_run: bool, week: int, _bake_id: str | None):
                        cbs_json=Path(json_path), week=week)
 
 
+def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
+                    clean: list[dict[str, Any]]) -> str | None:
+    """Quiet skip when the DB already holds this exact week's content.
+
+    Muse kept a local fingerprint state file between runs, so a daily cron
+    saw "unchanged since last ingest" and never re-wrote. A CI runner starts
+    with no state, so without this guard every daily run would re-upsert the
+    same week and bump `pulled_at` on unchanged rows (making stale content
+    look freshly pulled). Identical (player_key, scoring) -> native_value
+    sets mean nothing to write. Any difference proceeds to the saver's
+    normal week-grain upsert (CBS has no bake_id; unchanged behaviour).
+    """
+    existing = db.grain_native_values(CFG["table"], CFG["source"],
+                                      CFG["variant"], CFG["season"], week)
+    if not existing:
+        return None
+    new: dict[tuple[int, str], float] = {}
+    for r in clean:
+        new[(int(r["player_key"]), str(r["scoring"]))] = float(r["native_value"])
+    if set(new) == set(existing) and all(
+            abs(existing[k] - new[k]) <= 1e-9 for k in new):
+        print(f"[cbs] same-week content unchanged in DB ({len(new)} keys); "
+              "skipping write", flush=True)
+        return "unchanged"
+    return None
+
+
 CFG: dict[str, Any] = {
     "name": "cbs",
     "source": "cbs",
@@ -69,6 +96,7 @@ CFG: dict[str, Any] = {
     "pull_fn": _pull_fn,
     "build_fn": _build_fn,
     "save_fn": _save_fn,
+    "pre_write_guard": pre_write_guard,
 }
 
 
