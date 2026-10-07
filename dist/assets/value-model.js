@@ -692,7 +692,120 @@
     return result;
   }
 
+  // ---------------------------------------------------------------------
+  // League-settings engine for published charts (league-settings-001).
+  //
+  // The backend saves ONE setup per scoring: 12 teams, standard roster. At
+  // that setup the chart shows the saved values untouched. At any other team
+  // count or roster the browser derives the published chart from the saved
+  // 12-team inputs, running the same recipe the server ran at 12 teams:
+  //
+  //   1. value above waivers, translated onto our positional maxes
+  //      (translatePublishedVorp) at the chosen teams/roster/bench, for every
+  //      player above that setting's waiver line;
+  //   2. every other player keeps the server's fail-safe value: the 12-team
+  //      flex-aware pie value (native x the 12-team bucket scale saved in
+  //      index_total) -- which is exactly the saved value for the players the
+  //      server itself left on the fallback at 12 teams.
+  //
+  // DECISION FOR JEREMY (see docs/claude-log.md 2026-10-06): step 2 mirrors
+  // the server's fail-safe rather than pricing below-waiver players at zero.
+  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/1";
+  var SAVED_SETUP_TEAMS = 12;
+  var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
+
+  function isSavedSetup(teams, shape) {
+    if (Number(teams) !== SAVED_SETUP_TEAMS) return false;
+    shape = shape || {};
+    if (shape.SUPERFLEX) return false;
+    return Object.keys(SAVED_SETUP_SHAPE).every(function (key) {
+      return Number(shape[key]) === SAVED_SETUP_SHAPE[key];
+    });
+  }
+
+  // The 12-team flex-aware pie value for every bucketed player: natives
+  // ranked within position, dedicated / flex / bench buckets filled in that
+  // order at the saved bucket sizes, each scaled by its saved bucket scale.
+  function quantileReindexValues(opts) {
+    var native = opts.native;
+    var indexTotal = opts.indexTotal || {};
+    var posOf = opts.posOf;
+    var byPos = {};
+    POSITION_ORDER.forEach(function (pos) { byPos[pos] = []; });
+    native.forEach(function (value, key) {
+      var pos = posOf(key);
+      var v = Number(value);
+      if (byPos[pos] && isFinite(v)) byPos[pos].push({key: key, value: v});
+    });
+    var out = new Map();
+    POSITION_ORDER.forEach(function (pos) {
+      var buckets = (indexTotal[pos] || {}).buckets || {};
+      var rows = byPos[pos].sort(function (a, b) { return b.value - a.value; });
+      var i = 0;
+      ["dedicated", "flex", "bench"].forEach(function (role) {
+        var bucket = buckets[role];
+        if (!bucket) return;
+        var n = Number(bucket.n) || 0;
+        var scale = Number(bucket.scale);
+        rows.slice(i, i + n).forEach(function (row) {
+          if (isFinite(scale)) out.set(row.key, row.value * scale);
+        });
+        i += n;
+      });
+    });
+    return out;
+  }
+
+  // opts: native (Map key -> saved 12-team native value), saved (Map key ->
+  // saved 12-team chart value), indexTotal (saved 12-team index_total),
+  // posOf(key), teams, shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}).
+  // Returns {version, values: Map, translated, fallbackSaved, fallbackPie,
+  // unpriced}. The player set is the saved set, at every setting.
+  function derivePublishedSetup(opts) {
+    var native = opts.native;
+    var saved = opts.saved;
+    var posOf = opts.posOf;
+    var shape = opts.shape || SAVED_SETUP_SHAPE;
+    var ranked = {};
+    POSITION_ORDER.forEach(function (pos) { ranked[pos] = []; });
+    native.forEach(function (value, key) {
+      var pos = posOf(key);
+      var v = Number(value);
+      if (ranked[pos] && isFinite(v)) ranked[pos].push({key: key, value: v});
+    });
+    var base = translatePublishedVorp({ranked: ranked, teams: SAVED_SETUP_TEAMS});
+    var at = translatePublishedVorp({
+      ranked: ranked,
+      teams: Number(opts.teams),
+      benchPerTeam: Number(shape.BENCH),
+      flexCount: Number(shape.FLEX),
+      slots: {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)},
+      flexEligible: flexEligible(shape)
+    });
+    var pie = quantileReindexValues({native: native, indexTotal: opts.indexTotal, posOf: posOf});
+    var values = new Map();
+    var counts = {translated: 0, fallbackSaved: 0, fallbackPie: 0, unpriced: 0};
+    saved.forEach(function (savedValue, key) {
+      var t = at.translated[String(key)];
+      if (t) { values.set(key, t.translated); counts.translated += 1; return; }
+      if (!base.translated[String(key)]) {
+        values.set(key, Number(savedValue)); counts.fallbackSaved += 1; return;
+      }
+      if (pie.has(key)) { values.set(key, pie.get(key)); counts.fallbackPie += 1; return; }
+      values.set(key, 0); counts.unpriced += 1;
+    });
+    return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
+            values: values, translated: counts.translated, fallbackSaved: counts.fallbackSaved,
+            fallbackPie: counts.fallbackPie, unpriced: counts.unpriced};
+  }
+
   root.ValueModel = {
+    PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,
+    SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,
+    SAVED_SETUP_SHAPE: SAVED_SETUP_SHAPE,
+    isSavedSetup: isSavedSetup,
+    quantileReindexValues: quantileReindexValues,
+    derivePublishedSetup: derivePublishedSetup,
     VORP_TRANSLATION_VERSION: VORP_TRANSLATION_VERSION,
     TRANSLATION_OUR_MAX: TRANSLATION_OUR_MAX,
     pyRound: pyRound,

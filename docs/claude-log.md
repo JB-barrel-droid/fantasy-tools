@@ -3020,3 +3020,55 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 
 ### Claimed, unverified
 - None.
+
+## 2026-10-06 ~23:30 CDT — Claude (cloud session, JEG-332 worker): published charts derived at every league setting (PR 2 of 2)
+
+### Verified (check named)
+- `ValueModel.derivePublishedSetup` (version `league-settings-001/1`) wired into `curve-widget.js` and
+  `comparison-dashboard.js`: saved setup (12 teams, QB1 RB2 WR3 TE1 FLEX1 BENCH6) reads saved values;
+  everything else derives from the saved 12-team natives/values/index_total.
+- 12-combo headless sweep (3 scorings × 8/10/12/14, built dist/, window.TradeValueCurveDiagnostics):
+  fixedPieIndexed true in all 12 before and after; no page errors. At 12 teams EVERY source map (all 15,
+  incl. ESPN and the adjusted family) is byte-identical before/after (sha256 of sorted entries).
+  At 8/10/14 the four published sources and their adjusted series go from unavailable (0 players) to
+  available (113-249 players). Curve starts: derived published peaks are QB 25 / RB 70 / WR 55 / TE 30 at
+  every setting (translation scales to OUR_MAX), the same as CBS/FantasyPros/USA Today already show at 12.
+  sourceScaleAgreement stays false (non-blocking warning) at every setting, before and after: before,
+  8/10/14 compared 0 peaks; after, 16 compared with 8-12 offenders, the same pattern as 12 teams
+  (6-10 offenders, translated QB/WR/TE peaks vs the ESPN anchor). Custom roster (RB3 FLEX2 BENCH8) sweep:
+  fixedPieIndexed true in all 12, no errors.
+- `tests/test_published_league_settings_engine.py`: 192 settings (4 sources × 3 scorings × 4 team counts ×
+  4 rosters), 34,041 values vs an independent Python reference (unified.translate_ranked + fallback rule),
+  max abs diff 0.0; at the saved setup CBS/FantasyPros reproduce the saved values exactly, fallbacks
+  included. Negative: 4 mutations caught (fallback-always-saved, pie bucket order, bench ignored,
+  saved-setup ignoring roster).
+- `tests/test_published_league_settings_render.py` (JEG-334 live parity, real page): 13 settings, 9,583
+  plotted values equal saved (12 std) or the reference (others) exactly; fixed pie green; VORP view at
+  8 teams shows no published source. Negative: three broken builds served in place of the assets
+  (derive-at-saved-setup, derivation unwired, vorp views ungated) each fail.
+- Changed existing tests, with reasons (assertions whose premise league-settings-001 step 3 removes):
+  `tests/test_source_combo_contract.py` pinned "published source available only at 12 teams" and
+  "availableSourceCount 0 at 10/14" -- exactly the pre-engine state; now available at every size while
+  `selectedCombo` still never borrows a non-12 block, and the no-leak test now uses the genuinely missing
+  case (a scoring with no saved 12-team setup). The updated file fails 3/5 against main's dashboard.
+  `tests/test_lock_revert_notice_render.py` forced its lock reset by switching USA Today to 8 teams (no
+  longer unavailable); it now removes USA Today's saved standard setup and switches scoring. Verified it
+  still catches DEFECT 2: dropping `syncContext()` from `setScoring` fails the caption test.
+- Dashboard regression guard `rolloverAware` required a per-team-count cell for every available source;
+  published sources now need their saved 12-team cell instead (the guard threw on every non-12 load
+  before this fix -- caught by the render test's page-error check).
+- `make validate` exit 0 (CHROMIUM_PATH set).
+
+### Decisions for Jeremy (implemented as described; each changes numbers only at non-saved settings)
+1. Below-waiver players at a derived setting keep the server's fail-safe value (saved fallback / 12-team
+   pie value), not zero. Mirrors what 12 teams shows; alternative: price them at 0 (cleaner tail, curve
+   ends at the waiver line). `derivePublishedSetup` step 2.
+2. FantasyCalc: derived settings use the translation (its provenance says vorp-supabase), but its saved
+   12-team values are pie values (JEG332-STORED-DRIFT), so FantasyCalc jumps between 12 and 10 teams.
+   Recommendation: re-run the 12-team translation for FantasyCalc (and USA Today) rather than special-case it.
+3. OUR_MAX (QB 25 / RB 70 / WR 55 / TE 30) is constant at every team count and roster, so curve starts
+   never move (JEG332-DERIVED-PEAKS).
+4. Caption copy at derived settings: "published charts derived from their 12-team, standard-roster values".
+
+### Claimed, unverified
+- None.

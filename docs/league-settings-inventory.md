@@ -60,10 +60,15 @@ charts (JEG-62/64).
    plus edge vectors) and requires exact equality. At 12 teams it reproduces
    the saved values for CBS and FantasyPros; USA Today and FantasyCalc saved
    values are stale (risk register JEG332-STORED-DRIFT).
-2. Make published sources derive in the browser: `native` at 12 teams for the
-   chosen scoring → translation/rescale at the chosen teams, roster and bench.
-   Replace the `getPlayerValues` lookup for `teams != 12` first, keeping 12 as
-   the parity anchor.
-3. Confirm the adjusted-fit question above before switching `*_adjusted`.
+2. **Done (2026-10-06):** published sources derive in the browser at every
+   non-saved setting (`ValueModel.derivePublishedSetup`, wired in
+   `curve-widget.js` and `comparison-dashboard.js`); the saved setup still reads
+   the saved values (12-team maps byte-identical in the 12-combo sweep).
+   `tests/test_published_league_settings_engine.py` (pure) and
+   `tests/test_published_league_settings_render.py` (live page, JEG-334) gate it.
+3. **Answered:** `*_adjusted` needs no saved fit at other settings: the browser
+   already refits its cells live (`refitLiveCells`, OLS of the ESPN two-tier
+   leg on the published raw values) at the active team count, so it refits on
+   the derived raw values. The cache key now includes the roster.
 4. Then (JEG-329) stop saving non-12-team blocks and rows, back up and remove the
    existing ones, and drop the duplicated ESPN blocks.

@@ -903,7 +903,14 @@
       const field = VORP_SOURCE_DEFS[key].ppgField;
       return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p[field]?.[scoringField()])));
     }
-    if (key === "cbs_adjusted") return Boolean(data?.sources?.cbs?.combos?.[comboKey("cbs")]);
+    // league-settings-001: published charts (and their adjusted series) exist
+    // at every league setting when their saved 12-team setup exists; other
+    // settings are derived from it in the browser (derivedPublishedSourceMap).
+    const publishedBase = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    if (AS_PUBLISHED_KEYS.has(publishedBase)) {
+      return Boolean(data?.sources?.[key === "cbs_adjusted" ? "cbs" : key]?.combos?.[
+        ValueModel.sourceComboKey(publishedBase, scoring, ValueModel.SAVED_SETUP_TEAMS, 1)]);
+    }
     // DDF-native sources (cbsros, razzball): check fixture has native PPG data.
     // Razzball uses rz_ppg on player objects; CBS ROS uses cbsros_ppg,
     // baked by pipelines/bake_players.py from the CBS ROS snapshot (JEG-33).
@@ -1032,6 +1039,59 @@
     return commonFixedPieTotal(fallback);
   }
 
+  // league-settings-001 (JEG-332): the backend saves one setup per scoring
+  // (12 teams, standard roster). Published charts read their saved values at
+  // that setup and are DERIVED in the browser from the saved 12-team inputs
+  // everywhere else. Memoised: the derivation is a pure function of
+  // (source, scoring, teams, roster) and the loaded data.
+  const onSavedSetup = () => ValueModel.isSavedSetup(teams, rosterShape);
+  const rosterSignature = () => Object.keys(DEFAULT_ROSTER).map(key => `${key}${rosterShape[key]}`).join("");
+  let derivedPublishedCache = new Map();
+  let lastPublishedDerivation = {};
+
+  function savedPublishedRow(key, view) {
+    return window.TradeValueProductData.getPlayerValues({
+      source: key, scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view,
+    });
+  }
+
+  function derivedPublishedSourceMap(key) {
+    const cacheKey = `${key}|${scoring}|${teams}|${rosterSignature()}`;
+    if (derivedPublishedCache.has(cacheKey)) {
+      const hit = derivedPublishedCache.get(cacheKey);
+      lastPublishedDerivation[key] = hit.info;
+      return new Map(hit.values);
+    }
+    const savedRow = savedPublishedRow(key, "combo_reindexed");
+    const nativeRow = savedPublishedRow(key, "native");
+    const saved = new Map();
+    const native = new Map();
+    savedRow?.values?.forEach((rawValue, playerKey) => {
+      const value = clampValue(rawValue);
+      if (canonicalByKey.has(playerKey) && value !== null) saved.set(playerKey, value);
+    });
+    nativeRow?.values?.forEach((rawValue, playerKey) => {
+      const value = Number(rawValue);
+      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
+    });
+    let values = new Map();
+    let info = {mode: "unavailable", reason: "no saved 12-team setup for this scoring"};
+    if (saved.size && native.size) {
+      const derived = ValueModel.derivePublishedSetup({
+        native, saved, indexTotal: savedRow.index_total,
+        posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+        teams, shape: rosterShape
+      });
+      values = derived.values;
+      info = {mode: "derived", version: derived.version,
+        translationVersion: derived.translationVersion, translated: derived.translated,
+        fallbackSaved: derived.fallbackSaved, fallbackPie: derived.fallbackPie, unpriced: derived.unpriced};
+    }
+    derivedPublishedCache.set(cacheKey, {values, info});
+    lastPublishedDerivation[key] = info;
+    return new Map(values);
+  }
+
   function buildPublishedSourceMap(key) {
     // JEG-363 (2026-10-04): per-cell values come from product-data.js
     // (api.player_values surface, view=combo_reindexed). The widget no
@@ -1040,6 +1100,8 @@
     if (typeof window === "undefined" || !window.TradeValueProductData) {
       throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
     }
+    if (AS_PUBLISHED_KEYS.has(key) && !onSavedSetup()) return derivedPublishedSourceMap(key);
+    if (AS_PUBLISHED_KEYS.has(key)) lastPublishedDerivation[key] = {mode: "saved"};
     const row = window.TradeValueProductData.getPlayerValues({
       source: key,
       scoring,
@@ -1122,10 +1184,12 @@
     if (typeof window === "undefined" || !window.TradeValueProductData) {
       throw new Error("product-data.js missing; buildNativeSourceMap refused.");
     }
+    // league-settings-001: a source's native values are the same at every
+    // league setting; only the saved 12-team setup carries them.
     const row = window.TradeValueProductData.getPlayerValues({
       source: key,
       scoring,
-      teams,
+      teams: AS_PUBLISHED_KEYS.has(key) ? ValueModel.SAVED_SETUP_TEAMS : teams,
       qbVariant: "qb1",
       view: "native",
     });
@@ -1436,6 +1500,12 @@
     // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
     if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
       const viewKey = getViewKey(viewMode);
+      // JEG-332: vorp_views are saved at 12 teams / standard roster only and
+      // are not derived in the browser yet. At any other league setting the
+      // source sits out of these views (empty map = unavailable) rather than
+      // showing 12-team numbers -- the same as before published charts were
+      // derived at 8/10/14 teams.
+      if (viewKey && !onSavedSetup()) return new Map();
       if (viewKey) {
         const viewMap = buildVorpViewSourceMap(key, viewKey);
         if (viewMap.size > 0) return viewMap;
@@ -1745,7 +1815,10 @@
         textContent: benchShareText,
         title: "15% bench share — the recommended two-tier calibration parameter; the chart caption shows the anchor leg's measured split."
       }),
-      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`,
+      // league-settings-001 / methodology.md: values derived for a league
+      // setting the source did not publish must be labelled derived.
+      onSavedSetup() ? "" : " · published charts derived from their 12-team, standard-roster values"
     );
   }
 
@@ -2111,7 +2184,10 @@
   // withheld at the active share fit no cells. Recomputed whenever the
   // bench share or league config changes (cache key).
   function refitLiveCells() {
-    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}#${pieSignature(activePies())}`;
+    // The roster signature is part of the key: published raw values are
+    // derived per roster (league-settings-001), so cells fitted on one
+    // roster's values must not be reused for another's.
+    const key = `${twoTierConfigKey()}@${Number(benchShare).toFixed(6)}#${pieSignature(activePies())}|${rosterSignature()}`;
     if (liveCellsCache && liveCellsCache.key === key) return liveCellsCache.cells;
     const cells = [];
     const ddfBySource = {};
@@ -3652,7 +3728,7 @@
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     // sourceScaleAgreement is NOT blocking: genuine inter-source disagreements
     // (e.g., USA Today QB 0.51x of ESPN anchor) are surfaced via ChartHealth
