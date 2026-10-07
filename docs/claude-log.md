@@ -1,5 +1,69 @@
 # Claude session log
 
+## 2026-10-07 - Monitoring coverage audit ("working and monitored")
+
+Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a
+check_config row, records on success and failure, is flagged by the evaluator
+when it stops, and shows on the served monitor; fix gaps; one "is everything
+working" summary driven by monitoring.check_observations.
+
+### Verified (check named)
+- 14 cron jobs inventoried with `select ... from cron.job`; 8 check_config rows
+  existed (`select * from monitoring.check_config`). Before: no check for
+  rebuild-chain, player-trace, espn, cbsros, source-vintage, live-page-synthetic,
+  pages, weekly-dashboard-load, sleeper-identity-refresh, or the SQL-only cron
+  jobs. After the migrations: 22 rows; `public.monitoring_summary()` run
+  2026-10-07 11:36 UTC counted 21 (before the observer self-check row).
+- live-page synthetic: `select count(*) from live_page_checks` = 0. A manual POST
+  to the edge function with the job's own bearer returned HTTP 401
+  `{"error":"Unauthorized"}` (net._http_response id 306). So the pg_cron job has
+  never produced a result; cron's "succeeded" only means the request was queued.
+  The edge function's PRIMARY_URL is also a retired Muse page.
+- razzball-sync-live: net._http_response id 301 = HTTP 422 "Workflow does not
+  have 'workflow_dispatch' trigger" at 2026-10-07 11:20 UTC.
+- `has_function_privilege('anon','public.dispatch_gha_workflow(text,jsonb)','EXECUTE')`
+  was true; now revoked (migration 1). anon has no USAGE on schema monitoring.
+- Evaluator: read the old `compute_heartbeat_state` body: a never-observed check
+  set expected_next = now, so it stayed `unknown`. Probe after the fix:
+  `rebuild_chain` at now = unknown, at now+7h = missed.
+- GitHub run history (gh run list, main only): rebuild-chain failed 5 of the last
+  5 (07:00-11:00 UTC), failing step "Run import health check" (annotations on run
+  37611119708); cbsros sync failed at "Scrape CBS ROS projections" (run
+  37611096093); weekly-dashboard-load fails with exit 2, no staged bundle (run
+  37530061557). espn, player-trace, source-vintage, pages green.
+- `make validate` exit 0 with tests/test_monitoring_coverage.py in test-unit.
+  Negative tests in that file: unlisted workflow, record step that is not
+  always(), workflow that never records, double scheduler owner, check without a
+  migration row, recorder mapping failure to ok, banner painting stale data green
+  (the mutation produces the false green), audit missing/orphan rows.
+- Dashboard banner rendered in headless Chromium against a red fixture (shows the
+  failing check and the scheduler-problem list).
+
+### Claimed, not confirmed
+- The new workflow record steps have not run yet (PR unmerged; main's workflows
+  are the old ones). Until merge the new rows read unknown, then missed after one
+  cadence; `live_page_synthetic` goes missed about 2026-10-08 12:00 UTC if the PR
+  is not merged by then.
+- `monitoring.v_dispatch_outcomes` has no rows yet (dispatch_log starts at the next
+  dispatch); dispatch-failure red is untested against a live 422.
+- The browser read of monitoring-summary.json on the live site was not checked:
+  github.io is blocked from this sandbox (proxy 403).
+- JEG-428 item 1 (streak): the failing runs listed were branch pushes (by design)
+  plus scheduled runs 10-03 failure, 10-04 success, 10-05 failure, 10-06 success.
+  I did not diagnose the 10-05 scheduled failure beyond JEG-428's deploy-lag note.
+- Setting `weekly_dashboard_load` severity to warn was attempted and not
+  approved; it stays `page`.
+- Not done: JEG-428 item 6 (596 vs 613 denominator wording) and item 5 (parked
+  scale-agreement warn); JEG-340's live browser read of Supabase (this ships a
+  30-minute CI snapshot with a 60-minute fail-closed stale rule instead).
+- Alert delivery: no push/email channel exists; see GAP-ALERT-CHANNEL.
+
+Applied to project iskiybsimubiujwuchsl: monitoring_coverage_1_lockdown_dispatch_and_log,
+_2_checks_and_evaluator, _3_cron_observer_and_summary, _4_observer_self_check
+(SQL in supabase/migrations/monitoring_coverage_20261007.sql). Also one diagnostic
+POST to the live-page edge function and calls to `record_cron_observations()` /
+`run_evaluator_cycle(now())`; nothing deleted.
+
 ## 2026-10-05 - JEG-366 wiring fix on minimax/jeg-366-wiring-fix
 
 Contract: FantasyCalc Supabase import was red (588 rows vs 2376 expected);
@@ -3354,3 +3418,76 @@ review the math later.
   (the stage is covered by the unit tests and the offline FantasyCalc run, which translated the section with
   168 translated / 0 fallback). `refresh_vorp_translation.py` crashes on the retired FantasyCalc 8/10/14
   grains (verified the SystemExit, not the full run): JEG332-VORP-REFRESH-RETIRED.
+## 2026-10-07 - Import-health gate tolerates a one-week lag (build-lag-001, branch build-lag-001)
+
+Contract: the rebuild chain never promoted because verify_import_health was RED. CBS and FantasyPros
+were STALE_VINTAGE (Week 4 against content week 5) while FantasyCalc was already Week 5. Jeremy
+authorized loosening or tightening gates so the build runs on each source's newest data, each source
+labelled by its own week.
+
+### Verified
+- Real state 2026-10-07 (Supabase MCP queries on source_trade_values, cbs_trade_values,
+  cbs_ros_projections, espn_season_projections and razzball_projections, latest vintage per source):
+  fantasycalc Week 5 (585 rows, fcwk5_2026-10-06_v1); usatoday 2026-09-29 (Week 4, 747);
+  fantasypros 2026-09-29 (Week 4, 534); cbs Week 4 (342); cbsros 2026-10-02 (Week 4, 363); espn
+  2026-10-06 (496); razzball 2026-10-06 (672). The CI artifact dist/modules/source-import-health.json
+  (checked 2026-10-07T11:11Z, nfl_week 5) agrees.
+- Gate before -> after on a fixture built from those vintages (tests/test_build_lag_gate.py; the
+  same fixture run against the HEAD code from `git archive`):
+  before: 3 ok / 2 stale, with usatoday and cbsros `yellow` not counted, GATE RED, exit 1 (matches
+  the CI artifact line for line);
+  after: fantasycalc/espn/razzball ok; usatoday, fantasypros, cbs and cbsros
+  `warning` "LAGGING_ONE_WEEK (non-blocking): ..."; GATE GREEN, exit 0. Each source keeps its own
+  content_vintage (cbs "Week 4", fantasypros "2026-09-29", fantasycalc "Week 5").
+- Red/yellow audit: the old green check (`stale==0 and missing==0 and failed==0`) let `red`
+  (MISSED_WINDOW), `yellow` and unknown statuses pass. Proven by
+  `test_usatoday_two_weeks_behind_red_blocks_the_gate`, where every other source is fresh and usatoday is
+  2 weeks behind: the HEAD code gives exit 0 ("6 ok", red uncounted). Now the check is a fail-closed
+  allow-list (`entry_is_blocking`): ok and warning pass, plus Razzball's warn/bad/unk (advisory,
+  not a chain source). Everything else blocks. At one week behind, red and yellow verdicts become
+  LAGGING warnings (the window verdict is kept in the reason). At two or more weeks behind they block.
+- Newer source: FantasyCalc Week 5 is `ok` at nfl_week 5, and also at 4 (a Thursday-flip caller).
+  The 4 case prints a NOTE line. `--nfl-week` now defaults to pipelines/nfl_week.current_nfl_week
+  (5 on 2026-10-06 and 2026-10-07, 4 on 2026-10-05).
+- Promotion: `check_l1_freshness` accepts ok or LAGGING_ONE_WEEK (`entry_is_promotable`). It refuses a
+  TABLE_DRIFT warning, a stale entry, and a candidate relabelled to a different week
+  (test_promote_section `test_l1_gate_promotes_one_week_lag_under_its_own_vintage`). The promoted
+  section keeps its own content_vintage, so per-source labels survive (GAP-PROMOTE-MIXED-VINTAGE's
+  per-setup issue is unchanged).
+- Chain: no other current-week gate in rebuild_comparison_chain.py. `--week` to translate_via_vorp and
+  refresh_vorp_translation is a refresh-cycle label: grains are computed from fixture natives
+  whatever the week (unified.translate_source never filters by week). I kept the chain week and
+  documented it (GAP-VORP-GRAIN-WEEK-LABEL). The chain status now records `source_vintages` (each
+  source's content vintage/week/health status/lagging flag).
+- Negative tests (mutation runs on copies of the tree; every mutation caught by at least one test):
+  LAG_TOLERANCE 1->2 (6 failures), 1->0 (6), old green formula (1: red test), allow-list += red/yellow
+  (3), promotable = any warning (2), promote ok-only (1), source-ahead treated as behind (1), chain
+  without source_vintages (1), default week hard-coded to 4 (1).
+- Changed assertions, with reasons: test_import_health `test_week2_vintage_stale_with_nfl_week_3` ->
+  `..._lagging_...`, and new `test_week1_vintage_stale_with_nfl_week_3` keeps the stale case at 2 weeks;
+  `test_iso_date_maps_to_nfl_week_for_freshness` (1 week behind is now LAGGING; added a 2-week red
+  case); `test_any_non_ok_source_fails_the_gate` uses a 2-week-old vintage. All three pinned the
+  exact-week policy that build-lag-001 replaces. SOURCE_KEYS gains `content_week` and `blocking`.
+  `test_all_green_exit_zero_and_shape` was ALREADY red on main before this change (razzball carries
+  `vintage_date`/`age_days`, documented as razzball-only). The assertion was wrong; it now allows
+  those two keys for razzball.
+- Gated: tests.test_build_lag_gate, test_import_health, test_verify_import_health and
+  test_promote_section are now in `make test-unit` (the last two were in test-integration, which
+  validate does not run, although they are offline).
+- `make validate` exit 0 (CHROMIUM_PATH set); stamp files restored before commit.
+
+### Claimed, unverified
+- That the next rebuild-chain run goes green and promotes. Not run here: no SUPABASE env, no
+  data/raw snapshots. Downstream chain stages (match/review/promote of Week-4 CBS/FP against a
+  fixture already at Week 4) were not exercised end to end.
+- tests.test_decisions_log was already red on main for three older entries (GAP-DECISIONS-LOG-RED).
+  build-lag-001 adds no errors to it.
+
+## 2026-10-07 ~09:00 CDT — Claude (cloud session, coordinator): merged main into #386; JEG-135 baseline window
+
+### Verified (check named)
+- #386 conflicted with #383 only in a comment block in rebuild_comparison_chain.py (both comments kept) and
+  the log. After the merge, tests.test_jeg135_rendered_flexibility failed inside `make validate` twice but
+  passed alone: every step "mismatched" the baseline, i.e. the baseline was read before a late async
+  re-render. gate_flexibility.mjs now waits for networkidle and an 8-read (2 s) quiet window for the
+  baseline only. Full `make validate` rc=0 afterwards; the render-counter broken build still fails the sweep.

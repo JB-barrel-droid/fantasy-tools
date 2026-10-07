@@ -58,3 +58,13 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/check_weekly_freshness.py
+
+      # Monitoring: record this run in Supabase monitoring.check_observations,
+      # red or green. A run that never happens is flagged `missed` by the
+      # evaluator. Never fails the job. Declared in config/monitoring_coverage.json.
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id weekly_dashboard_load --owner weekly-dashboard-load.yml --outcome "${{ job.status }}"

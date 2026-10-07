@@ -285,7 +285,12 @@ async function main() {
     await page.waitForTimeout(1500);
 
     // ---- Baseline table hash + readout (JEG-103 default is 15.0%) ----
-    const baselineHash = await hashTable(page);
+    // Baseline needs a longer quiet window than the per-step reads: late async
+    // loads after first paint (registry, adjustment inputs) re-render the table
+    // once more, and a baseline taken before that made every later step
+    // "mismatch" (GAP-FLAKY-JEG135 recurrence, 2026-10-07).
+    await page.waitForLoadState("networkidle");
+    const baselineHash = await hashTable(page, { stableReads: 8, timeoutMs: 30000 });
     const baselineWeights = await snapshotWeights(page);
     const baselineState = await sharedState(page);
     report.baseline = {
