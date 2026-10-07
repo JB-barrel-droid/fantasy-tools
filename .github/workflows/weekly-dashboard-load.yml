@@ -11,10 +11,10 @@ name: Weekly dashboard load to Supabase
 # Standing direction (Jeremy): as many processes as possible live in
 # Supabase, with minor assistance from GitHub — never on the Muse runtime.
 
+# Scheduler owner: Supabase pg_cron `weekly-dashboard-load-live` (daily 16:07
+# UTC, supabase/migrations/gha_schedules_pg_cron.sql). No `schedule:` here
+# (GAP-GHA-SCHEDULES).
 on:
-  schedule:
-    # Daily at 16:07 UTC (11:07 CT)
-    - cron: '7 16 * * *'
   workflow_dispatch:
 
 permissions:

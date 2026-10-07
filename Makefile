@@ -120,6 +120,7 @@ test-unit:
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_published_surfaces
+	python3 -m unittest tests.test_gha_schedules_pg_cron
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
