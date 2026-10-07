@@ -18,6 +18,8 @@ Usage:
 provisional — NOT wired into any live path). Default is a dry run that
 prints the discovered URL, headline week, and table counts.
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os
