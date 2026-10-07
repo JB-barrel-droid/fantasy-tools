@@ -79,6 +79,14 @@ def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
         print(f"[cbs] same-week content unchanged in DB ({len(new)} keys); "
               "skipping write", flush=True)
         return "unchanged"
+    only_old, only_new = set(existing) - set(new), set(new) - set(existing)
+    changed = sorted(k for k in set(new) & set(existing)
+                     if abs(existing[k] - new[k]) > 1e-9)
+    print(f"[cbs] same-week content changed vs DB: existing={len(existing)} "
+          f"new={len(new)} removed={len(only_old)} added={len(only_new)} "
+          f"changed={len(changed)} e.g. "
+          f"{[(k, existing[k], new[k]) for k in changed[:3]]} "
+          f"{sorted(only_old)[:3]} {sorted(only_new)[:3]}; writing", flush=True)
     return None
 
 
