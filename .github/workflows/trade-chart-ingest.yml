@@ -91,6 +91,10 @@ jobs:
           cat /tmp/ingest.log
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/ingest.log | cut -c1-900 | sed "s/^/::$level title=ingest ${{ matrix.source }} rc=$rc::/"
+          code=INGEST_FAILED
+          grep -q "SOURCE_BLOCKED" /tmp/ingest.log && code=SOURCE_BLOCKED
+          grep -q "discovery source unavailable" /tmp/ingest.log && code=DISCOVERY_UNAVAILABLE
+          echo "error_code=$code" >> $GITHUB_OUTPUT
           exit $rc
 
       - name: Record the monitored check
@@ -99,6 +103,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OK: ${{ steps.ingest.outcome == 'success' }}
+          ERROR_CODE: ${{ steps.ingest.outputs.error_code }}
         run: |
           python3 - <<'PY'
           import os, sbclient
@@ -106,7 +111,7 @@ jobs:
           sbclient.rpc("monitoring_record_observation", {
               "p_check_id": "${{ matrix.source }}_trade_chart_ingest",
               "p_ok": ok, "p_content_ok": ok,
-              "p_error_code": None if ok else "INGEST_FAILED",
+              "p_error_code": None if ok else (os.environ.get("ERROR_CODE") or "INGEST_FAILED"),
               "p_scheduler_owner_id": "trade-chart-ingest.yml",
           })
           print("recorded ok=%s" % ok)
