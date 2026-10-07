@@ -128,6 +128,7 @@ test-unit:
 	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
 	python3 -m unittest tests.test_load_ddf_leg_contract
+	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo

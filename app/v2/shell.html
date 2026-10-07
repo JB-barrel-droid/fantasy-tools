@@ -1,0 +1,132 @@
+<div id="v2App" class="v2-app">
+  <header class="v2-nav">
+    <div class="v2-nav-inner">
+      <a class="v2-brand" href="v2/">Trade Value</a>
+      <nav class="v2-tabs" aria-label="Views">
+        <a class="v2-tab is-active" href="v2/" aria-current="page">Player values</a>
+        <span class="v2-tab is-soon" aria-disabled="true" title="In build">Market disagreement</span>
+        <span class="v2-tab is-soon" aria-disabled="true" title="In build">Risers &amp; fallers</span>
+        <span class="v2-tab is-soon" aria-disabled="true" title="In build">Compare a trade</span>
+        <span class="v2-tab is-soon" aria-disabled="true" title="In build">How values work</span>
+      </nav>
+      <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
+        <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
+      </button>
+    </div>
+  </header>
+
+  <section class="v2-league" aria-label="League settings">
+    <div class="v2-wrap v2-league-inner">
+      <strong id="v2LeagueName">—</strong>
+      <span class="v2-meta" id="v2RosterLine">—</span>
+      <button type="button" class="v2-link" id="v2EditLeague" aria-haspopup="dialog">Edit league ↗</button>
+      <button type="button" class="v2-btn v2-btn-primary" id="v2Weights" aria-haspopup="dialog">Weights &amp; bench</button>
+    </div>
+  </section>
+
+  <section class="v2-methods" aria-label="Value methods and sources">
+    <div class="v2-wrap">
+      <div class="v2-methods-row">
+        <span class="v2-eyebrow">Methods</span>
+        <div class="v2-chip-row" id="v2MethodChips"></div>
+        <div class="v2-chip-row v2-source-chips" id="v2SourceChips"></div>
+        <button type="button" class="v2-select" id="v2EditSources" aria-haspopup="dialog">Edit sources</button>
+      </div>
+      <p class="v2-hint">Our Data Driven Adjustments · Published charts and projection inputs · Selection applies across tabs</p>
+    </div>
+  </section>
+
+  <main class="v2-wrap v2-main" id="v2Main">
+    <div class="v2-title">
+      <h1>Every value. Your league.</h1>
+      <p>Compare the sources. Keep the context.</p>
+    </div>
+
+    <div class="v2-filters" role="search">
+      <label class="v2-search"><span class="v2-sr">Search players</span>
+        <input type="search" id="v2Search" placeholder="Search players…" autocomplete="off">
+      </label>
+      <label class="v2-field"><span class="v2-sr">Position</span>
+        <select id="v2Position">
+          <option value="ALL">All positions</option>
+          <option value="QB">QB</option><option value="RB">RB</option>
+          <option value="WR">WR</option><option value="TE">TE</option>
+          <option value="FLEX">FLEX (RB/WR/TE)</option>
+        </select>
+      </label>
+      <button type="button" class="v2-select" id="v2RangeBtn" aria-haspopup="dialog">Value range</button>
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank / range by:</span>
+        <select id="v2RankBy"></select>
+      </label>
+      <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Δ Prior week · Off</button>
+      <button type="button" class="v2-link" id="v2ClearFilters">Clear filters</button>
+    </div>
+    <p class="v2-filter-note" id="v2FilterNote" hidden></p>
+
+    <section class="v2-card v2-chart-card" aria-labelledby="v2ChartTitle">
+      <div class="v2-card-head">
+        <div>
+          <h2 id="v2ChartTitle">Trade value by player rank</h2>
+          <div class="v2-legend" id="v2Legend"></div>
+        </div>
+        <div class="v2-card-tools">
+          <div class="v2-seg" role="group" aria-label="Rank window">
+            <button type="button" data-window="all">All</button>
+            <button type="button" data-window="100" class="is-on">Top 100</button>
+            <button type="button" data-window="50">Top 50</button>
+            <button type="button" data-window="25">Top 25</button>
+          </div>
+          <span class="v2-meta">Solid = DDA · Dashed = Indexed</span>
+        </div>
+      </div>
+      <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
+      <div class="v2-brush">
+        <div class="v2-brush-labels"><span id="v2RangeLabel">Ranks —</span>
+          <span><button type="button" class="v2-link" id="v2ZoomOut" aria-label="Zoom out">−</button>
+          <button type="button" class="v2-link" id="v2ZoomIn" aria-label="Zoom in">+</button>
+          <button type="button" class="v2-link" id="v2ZoomReset">Reset zoom ↺</button></span>
+        </div>
+        <div class="v2-brush-track" id="v2Brush">
+          <div class="v2-brush-fill" id="v2BrushFill"></div>
+          <input type="range" id="v2BrushLo" aria-label="First rank shown" min="1" max="100" value="1">
+          <input type="range" id="v2BrushHi" aria-label="Last rank shown" min="1" max="100" value="100">
+        </div>
+      </div>
+    </section>
+
+    <section class="v2-card v2-vorp-card" id="v2VorpCard" hidden aria-labelledby="v2VorpTitle">
+      <div class="v2-card-head">
+        <div>
+          <h2 id="v2VorpTitle">VORP vs waivers</h2>
+          <p class="v2-meta">Raw value above a waiver-level player, on its own scale. Not comparable to the trade-value points above.</p>
+        </div>
+      </div>
+      <div class="v2-chart v2-chart-small" id="v2VorpChart"></div>
+    </section>
+
+    <section class="v2-card v2-table-card" aria-labelledby="v2TableTitle">
+      <div class="v2-card-head">
+        <div>
+          <h2 id="v2TableTitle">All selected values</h2>
+          <p class="v2-meta" id="v2TableMeta">—</p>
+        </div>
+      </div>
+      <div class="v2-table-wrap">
+        <table class="v2-table" id="v2Table"></table>
+      </div>
+      <div class="v2-table-foot">
+        <button type="button" class="v2-btn" id="v2ShowMore" hidden>Show more players</button>
+      </div>
+    </section>
+
+    <p class="v2-footnote">Values keep each source's identity. No blended or consensus score is shown. A missing value shows —, never zero.</p>
+    <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
+  <div class="v2-status" id="v2Status" role="status">Loading values…</div>
+
+  <div class="v2-tip" id="v2Tip" role="tooltip" hidden></div>
+  <div class="v2-scrim" id="v2Scrim" hidden></div>
+  <aside class="v2-drawer" id="v2Drawer" role="dialog" aria-modal="true" aria-labelledby="v2DrawerTitle" hidden></aside>
+  <div class="v2-popover" id="v2Popover" role="dialog" aria-modal="false" hidden></div>
+</div>
