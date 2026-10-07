@@ -230,6 +230,7 @@ def run_ingest(cfg: dict[str, Any], *,
     # loud failure, never a "not published yet" exit 0 (2026-10-06: the CI
     # run reported "not published yet" on a sitemap 404).
     disc_exc = cfg.get("discovery_failed_cls")
+    explicit_url = url is not None
     try:
         url = url or discover_fn(week)
     except Exception as e:
@@ -244,7 +245,15 @@ def run_ingest(cfg: dict[str, Any], *,
         raise
     print(f"[{name}] url: {url}", flush=True)
 
-    # 2. Exact-week gate: never ingest a stale fallback article.
+    # 2. Exact-week gate: never ingest a stale fallback article. When
+    # discovery itself fell back to an older week, the new chart is simply
+    # not out yet: a quiet skip, like DiscoveryFailed. An explicit --url
+    # that disagrees with the week still fails loudly.
+    found_week = url_week(url)
+    if not explicit_url and found_week is not None and found_week < week:
+        print(f"[{name}] week {week} article not published yet; newest is "
+              f"week {found_week}; skipping", flush=True)
+        return {"status": "not_published", "week": week, "newest_week": found_week}
     assert_url_week(url, week)
 
     # 3. Pull + persist pull JSON.

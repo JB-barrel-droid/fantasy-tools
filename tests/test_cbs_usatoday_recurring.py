@@ -678,24 +678,53 @@ class WrapperWeekGateTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(__import__("tempfile").mkdtemp())
 
-    def test_stale_fallback_rejected(self):
-        """Defect: discovery tries requested and preceding weeks; the
-        wrapper must reject a stale week-2 fallback when week 3 is
-        requested. Requested week deterministically beats stale fallback."""
+    def test_stale_fallback_skipped_not_ingested(self):
+        """Defect: discovery tries requested and preceding weeks; a stale
+        week-2 fallback when week 3 is requested must never be pulled or
+        saved. Since 2026-10-07 the ingest asks for the publisher week, so a
+        fallback means the new chart is not out yet: a quiet skip."""
+        h = WrapperHarness(self, ingest_cbs, CBS_URL_W2,
+                           ("standard", "half_ppr", "ppr"), "cbs",
+                           "as_published")
+        res = h.run(week=3, tmp=self.tmp)
+        self.assertEqual(res["status"], "not_published")
+        self.assertEqual(res["newest_week"], 2)
+        self.assertEqual(h.pulled, [])
+        self.assertEqual(h.saved, [])
+
+    def test_partial_sitemap_old_week_cannot_select(self):
+        """A sitemap containing only an older week cannot feed the ingest:
+        even if discovery returns the old-week URL, nothing is pulled."""
+        h = WrapperHarness(self, ingest_usat, USAT_URL_W2,
+                           ("std", "half", "full"), "usatoday", "as_published")
+        res = h.run(week=3, tmp=self.tmp)
+        self.assertEqual(res["status"], "not_published")
+        self.assertEqual(h.pulled, [])
+        self.assertEqual(h.saved, [])
+
+    def test_explicit_stale_url_rejected(self):
+        """An operator-supplied --url for the wrong week still fails loudly."""
         h = WrapperHarness(self, ingest_cbs, CBS_URL_W2,
                            ("standard", "half_ppr", "ppr"), "cbs",
                            "as_published")
         with self.assertRaises(ingest_common.IngestError) as ctx:
-            h.run(week=3, tmp=self.tmp)
+            h.run(week=3, tmp=self.tmp, url=CBS_URL_W2)
         self.assertIn("stale", str(ctx.exception))
+        self.assertEqual(h.pulled, [])
 
-    def test_partial_sitemap_old_week_cannot_select(self):
-        """A sitemap containing only an older week cannot feed the ingest:
-        even if discovery returns the old-week URL, the wrapper fails."""
-        h = WrapperHarness(self, ingest_usat, USAT_URL_W2,
-                           ("std", "half", "full"), "usatoday", "as_published")
-        with self.assertRaises(ingest_common.IngestError):
-            h.run(week=3, tmp=self.tmp)
+    def test_ingest_asks_for_publisher_week(self):
+        """Defect 2026-10-07: the ingests used the Thursday-flip nfl_week(),
+        so on Tue/Wed they asked for Week 4 while USA Today and FantasyPros
+        had already posted Week 5, and the new chart was never picked up
+        until Thursday."""
+        from datetime import date
+        import _common
+        self.assertEqual(_common.content_week(date(2026, 10, 5)), 4)  # Mon
+        self.assertEqual(_common.content_week(date(2026, 10, 6)), 5)  # Tue
+        self.assertEqual(_common.content_week(date(2026, 10, 7)), 5)  # Wed
+        self.assertEqual(_common.content_week(date(2026, 10, 8)), 5)  # Thu
+        for mod in (ingest_cbs, ingest_usat):
+            self.assertIs(mod.CFG["week_fn"], _common.content_week)
 
     def test_url_without_week_slug_rejected(self):
         h = WrapperHarness(self, ingest_cbs,

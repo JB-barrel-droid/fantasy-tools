@@ -7,9 +7,10 @@ that derivation to an independent Python reference:
 
   * value above waivers translated at the chosen setting comes from the
     server's own code (unified.translate_ranked);
-  * players below that setting's waiver line keep the server's fail-safe
-    value: the saved value if the server left them on the fallback at 12
-    teams, else the 12-team flex-aware pie value (native x saved bucket scale);
+  * players at or below that setting's waiver line are worth 0 (value above
+    waivers is zero by definition; league-settings-001/3, Jeremy 2026-10-07 --
+    it replaced the server's fail-safe value: the saved value or the 12-team
+    flex-aware pie value);
   * the player set is the saved set at every setting.
 
 Inputs are assembled the way the browser assembles them (fixture
@@ -122,25 +123,6 @@ def browser_inputs(fixture, pos_of, source, scoring):
     return native, saved, combo.get("index_total") or {}
 
 
-def _pie_values(native, pos_of, index_total):
-    by_pos = {p: [] for p in POSITIONS}
-    for key, value in native:
-        by_pos[pos_of[key]].append((key, value))
-    out = {}
-    for pos, rows in by_pos.items():
-        rows.sort(key=lambda r: -r[1])
-        buckets = (index_total.get(pos) or {}).get("buckets") or {}
-        i = 0
-        for role in ("dedicated", "flex", "bench"):
-            b = buckets.get(role)
-            if not b:
-                continue
-            for key, value in rows[i:i + int(b["n"])]:
-                out[key] = value * float(b["scale"])
-            i += int(b["n"])
-    return out
-
-
 def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     """Independent reference for the derived published chart (key -> value)."""
     fixture = fixture or json.loads(FIXTURE.read_text())
@@ -156,20 +138,21 @@ def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots,
                                   flex_eligible=elig,
                                   our_max=expected_max(scoring, teams, shape, pos_of))
-    base = unified.translate_ranked(ranked_keyed, 12)
-    pie = _pie_values(native, pos_of, index_total)
     out = {}
-    for key, value in saved:
+    for key, _value in saved:
         t = at["translated"].get(str(key))
-        if t is not None:
-            out[key] = t["translated"]
-        elif str(key) not in base["translated"]:
-            out[key] = value
-        elif key in pie:
-            out[key] = pie[key]
-        else:
-            out[key] = 0.0
+        out[key] = t["translated"] if t is not None else 0.0
     return out
+
+
+@functools.lru_cache(maxsize=None)
+def saved_setup_translated_keys(source, scoring):
+    """Player keys (str) the server's own translation prices above the
+    waiver line at the saved setup (12 teams, standard roster)."""
+    ranked, key_by_name = unified.load_native_values(source, scoring, 12)
+    ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
+                    for pos, rows in ranked.items()}
+    return frozenset(unified.translate_ranked(ranked_keyed, 12)["translated"])
 
 
 def _cases(fixture, pos_of, settings):
@@ -230,10 +213,16 @@ def run_engine(settings, model_path=VALUE_MODEL):
             continue
         got = {int(k): v for k, v in res["values"].items()}
         if teams == 12 and shape == SAVED_SHAPE:
-            # The engine at the saved setup vs what is SAVED.
+            # The engine at the saved setup vs what is SAVED, for every player
+            # the server translated (above the 12-team waiver line). Since
+            # league-settings-001/3 the engine prices the rest at 0 while the
+            # saved fixture still carries the server's fail-safe for them; the
+            # chart never runs the engine at the saved setup (it reads the
+            # saved values), so only the translated players must match.
             if source not in EXACT_AT_SAVED_SETUP:
                 continue
-            expected = dict(case["saved"])
+            base = saved_setup_translated_keys(source, scoring)
+            expected = {k: (v if str(k) in base else 0.0) for k, v in case["saved"]}
         else:
             expected = expected_derived(source, scoring, teams, shape, fixture, pos_of)
         problems, d = compare_maps(expected, got)
@@ -251,7 +240,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertLessEqual(max_diff, TOL)
         self.assertGreater(n, 20000)
-        self.assertEqual({r["version"] for r in results}, {"league-settings-001/2"})
+        self.assertEqual({r["version"] for r in results}, {"league-settings-001/3"})
         self.assertEqual({r["positionalMax"] for r in results}, {unified.POSITIONAL_MAX_VERSION})
         # Every value the chart would plot is finite and non-negative.
         for r in results:
@@ -266,25 +255,31 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         flags = {(t, label): r["savedSetup"] for (_, _, t, label, _), r in zip(probe, res)}
         self.assertEqual([k for k, v in flags.items() if v], [(12, "std")])
 
-    def test_below_waiver_players_keep_the_servers_fallback(self):
-        """At 8 teams fewer players clear the waiver line than at 12; the ones
-        that drop below it must take the 12-team pie value, not their old
-        translated value and not zero."""
+    def test_below_waiver_players_are_zero(self):
+        """At 8 teams fewer players clear the waiver line than at 12; every
+        player at or below it is worth exactly 0 -- not the saved 12-team value
+        and not the 12-team pie value (league-settings-001/3). Replaces the
+        pre-2026-10-07 pin of the server's fail-safe, which Jeremy reversed."""
         fixture = json.loads(FIXTURE.read_text())
         pos_of = browser_players()
-        res = run_js(_cases(fixture, pos_of, [("cbs", "ppr", 8, "std", SAVED_SHAPE)]))[0]
-        self.assertGreater(res["fallbackPie"], 0)
-        self.assertGreater(res["fallbackSaved"], 0)
-        self.assertEqual(res["unpriced"], 0)
+        for source in SOURCES:
+            case = _cases(fixture, pos_of, [(source, "ppr", 8, "std", SAVED_SHAPE)])
+            res = run_js(case)[0]
+            saved = dict(case[0]["saved"])
+            zeros = [int(k) for k, v in res["values"].items() if v == 0]
+            self.assertGreater(res["belowWaiver"], 0, source)
+            self.assertEqual(res["belowWaiver"], len(zeros), source)
+            # Those players had a positive saved value: the rule moved them.
+            self.assertTrue(any(saved[k] > 0 for k in zeros), source)
 
     def test_guard_catches_broken_engines(self):
         source = VALUE_MODEL.read_text()
         mutations = {
-            # every below-waiver player keeps its saved value (stale 12-team translation)
-            "fallback-always-saved": ("if (!base.translated[String(key)]) {", "if (true) {"),
-            # pie buckets filled in the wrong order
-            "pie-role-order": ('["dedicated", "flex", "bench"].forEach(function (role) {\n        var bucket',
-                               '["flex", "dedicated", "bench"].forEach(function (role) {\n        var bucket'),
+            # below-waiver players keep their saved 12-team value (pre-/3 fail-safe)
+            "below-waiver-keeps-saved": ("values.set(key, 0); counts.belowWaiver += 1;",
+                                         "values.set(key, Number(savedValue)); counts.belowWaiver += 1;"),
+            # translation ignored: every player zero
+            "translation-dropped": ("if (t) { values.set(key, t.translated);", "if (false) { values.set(key, t.translated);"),
             # bench stepper ignored by the translation
             "bench-ignored": ("benchPerTeam: Number(shape.BENCH),", "benchPerTeam: 6,"),
             # saved-setup test ignores the roster

@@ -8,7 +8,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 try:
     from zoneinfo import ZoneInfo
@@ -47,6 +47,15 @@ def nfl_week(asof=None):
     kickoff = date(2026, 9, 10)
     wk = (asof - kickoff).days // 7 + 1
     return max(1, min(22, wk))
+
+
+def content_week(asof=None):
+    """Week the trade-chart publishers are on. They post "Week N" charts on
+    Mon/Tue before Thursday's games, so the content week turns over on
+    Tuesday, two days ahead of nfl_week() (same rule as
+    pipelines/nfl_week.current_nfl_week)."""
+    asof = asof or today_ct()
+    return nfl_week(asof + timedelta(days=2))
 
 
 def fetch(url, timeout=60):

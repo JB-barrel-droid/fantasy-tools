@@ -19,7 +19,7 @@ POS = ("QB", "RB", "WR", "TE")
 
 def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
           review_rows=(), reindex_status="complete", combos=("full_12",),
-          fixture_combos=("full_12",)):
+          fixture_combos=("full_12",), cand_meta=None, fx_meta=None):
     """Build a matching (reindexed candidate, fixture) pair.
 
     mutate: fn(native_dict) applied to the candidate's natives (drift).
@@ -52,7 +52,7 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
                                 "factor": 0.952381, "n_priced": per_pos}
                             for p in POS},
         }
-    fx = {"sources": {source: {"combos": fx_combos}},
+    fx = {"sources": {source: {"combos": fx_combos, **(fx_meta or {})}},
           "player_keys": {f"player {p.lower()}{j}": 5000 + i * 100 + j
                           for i, p in enumerate(POS) for j in range(per_pos)}}
     fx_path = tmp / "fixture.json"
@@ -84,7 +84,7 @@ def build(tmp, source="syn", per_pos=12, mutate=None, drop_pos=None,
             "source_key": source, "stage": "reference_compute",
             "reindex_status": reindex_status, "asof": "2026-09-21",
             "combos": cand_combos,
-            "review_rows": list(review_rows)}
+            "review_rows": list(review_rows), **(cand_meta or {})}
     cand_path = tmp / "cand.json"
     cand_path.write_text(json.dumps(cand))
     return cand_path, fx_path
@@ -253,6 +253,59 @@ class TestReviewStage(unittest.TestCase):
         cand, fx = build(self.tmp, source="syn", mutate=mutate)
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(report["verdict"], "hold")
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
+    def _drift(self, nat):
+        for i, s in enumerate(list(nat)):
+            if i % 2 == 0:  # half the chart re-ranked, like a new week
+                nat[s] += 5.0
+        return nat
+
+    def test_newer_week_drift_is_source_movement(self):
+        """Defect 2026-10-07: USA Today and FantasyPros Week 5 held on
+        native_drift (138/239, 102/171 moved) against the Week 4 fixture,
+        because only FantasyCalc has a live API to verify against. A newer
+        publication re-ranks the chart; that is not corruption."""
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta={"week_designated": 5, "content_vintage": "2026-10-06"},
+                         fx_meta={"week_designated": "Week 4", "content_vintage": "2026-09-29"})
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "warn")
+        self.assertEqual(report["verdict"], "ready")
+
+    def test_newer_content_date_same_week_is_source_movement(self):
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta={"week_designated": "Week 4", "content_vintage": "2026-10-02T00:00:00Z"},
+                         fx_meta={"week_designated": "Week 4", "content_vintage": "2026-09-29"})
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "warn")
+
+    def test_combo_vintage_beats_relabelled_section(self):
+        """The section label already moved to Week 5 (an earlier section of
+        this run promoted), but this combo still holds Week 4 natives."""
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta={"week_designated": 5, "content_vintage": "2026-10-06"},
+                         fx_meta={"week_designated": "Week 5", "content_vintage": "2026-10-06"})
+        doc = json.loads(fx.read_text())
+        doc["sources"]["syn"]["combos"]["full_12"]["vintage"] = {
+            "week_designated": "Week 4", "content_vintage": "2026-09-29"}
+        fx.write_text(json.dumps(doc))
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "warn")
+
+    def test_same_vintage_drift_still_fails(self):
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta={"week_designated": 4, "content_vintage": "2026-09-29"},
+                         fx_meta={"week_designated": "Week 4", "content_vintage": "2026-09-29"})
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+        self.assertEqual(report["verdict"], "hold")
+
+    def test_older_candidate_drift_still_fails(self):
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta={"week_designated": 3, "content_vintage": "2026-09-22"},
+                         fx_meta={"week_designated": "Week 4", "content_vintage": "2026-09-29"})
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
 
 

@@ -21,7 +21,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "pipelines"))
 
 import ingest_common as ic  # noqa: E402
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 
 
 def _discover_fn(week: int) -> str:
@@ -98,7 +98,7 @@ CFG: dict[str, Any] = {
     "scorings": ("standard", "half_ppr", "ppr"),
     "season": 2026,
     "pull_prefix": "cbs",
-    "week_fn": nfl_week,
+    "week_fn": content_week,
     "discovery_failed_cls": None,  # CBS discovery raises RuntimeError; not-published is not a quiet path
     "discover_fn": _discover_fn,
     "pull_fn": _pull_fn,

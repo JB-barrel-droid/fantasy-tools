@@ -146,13 +146,23 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
         while canonical names carry punctuation ("A.J. Brown"). Resolving via
         the canonical name silently matches nothing, the view map comes back
         empty, and buildSourceMap falls back to indexed values -- so every tab
-        shows identical numbers. The lookup must go through data.player_keys.
+        shows identical numbers. The lookup must go through the fixture's
+        player_keys table.
+
+        2026-10-07 (JEG332-VORP-VIEWS): this test used to require the lookup to
+        read `data.player_keys`. Since JEG-363 `data` is product-data's
+        snapshot, which carries no player_keys, so that exact form produced the
+        empty map described above and the views showed the Indexed values. The
+        pin was wrong; the table is read through product-data
+        (getPlayerKeysBySourceId). tests/test_published_views_render.py proves
+        it live (mutation "saved-views-unresolved").
         """
         text = WIDGET.read_text()
-        self.assertRegex(
-            text,
-            r'Object\.entries\(data\.player_keys \|\| \{\}\)\.forEach\(\(\[displayName, playerKey\]\)',
-            "buildVorpViewSourceMap must build its lookup from data.player_keys")
+        body = text.split("function buildVorpViewSourceMap")[1].split("function savedViewApplies")[0]
+        self.assertIn("window.TradeValueProductData?.getPlayerKeysBySourceId?.()", body,
+                      "buildVorpViewSourceMap must build its lookup from product-data's player_keys table")
+        self.assertNotIn("data.player_keys", body,
+                         "the snapshot `data` has no player_keys (JEG-363); reading it empties the views")
         # The old broken form keyed the lookup by the canonical (punctuated) name.
         self.assertNotIn("player.full_name || player.name", text.split("function buildVorpViewSourceMap")[1].split("function sourceHasVorpView")[0],
                          "buildVorpViewSourceMap must not key by canonical full_name/name")

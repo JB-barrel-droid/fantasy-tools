@@ -31,7 +31,7 @@ sys.path.insert(0, os.path.join(REPO, "pipelines"))
 
 import ingest_common as ic  # noqa: E402
 import pull_usatoday  # noqa: E402
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 
 
 def _build_fn(json_path: str, week: int, bake_id: str | None):
@@ -134,7 +134,7 @@ CFG: dict[str, Any] = {
     "scorings": ("std", "half", "full"),
     "season": 2026,
     "pull_prefix": "usatoday",
-    "week_fn": nfl_week,
+    "week_fn": content_week,
     "discovery_failed_cls": pull_usatoday.DiscoveryFailed,
     "discover_fn": pull_usatoday.discover_url,
     "pull_fn": pull_usatoday.pull,

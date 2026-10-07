@@ -150,6 +150,7 @@ test-unit:
 	python3 -m unittest tests.test_health_artifacts_publish
 	python3 -m unittest tests.test_workflow_no_event_interpolation
 	python3 -m unittest tests.test_trade_chart_ingest_ci
+	python3 -m unittest tests.test_pull_fantasypros_parse
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
@@ -181,6 +182,8 @@ test-unit:
 	python3 -m unittest tests.test_vorp_translation_js_parity
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
+	python3 -m unittest tests.test_published_views_engine
+	python3 -m unittest tests.test_published_views_render
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
 	python3 -m unittest tests.test_review_batch70_views

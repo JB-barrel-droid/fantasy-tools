@@ -27,6 +27,25 @@ The stable rules are:
 - Adjusted source projects are derived estimates from raw source values plus
   versioned adjustment cells.
 
+## The Three Views (Jeremy, 2026-10-07)
+
+1. **Value above waivers.** Every source, projections and published trade
+   charts alike, is translated to implied value above waivers. The ranker's
+   assumed roster, bench shape included, is the standard default league
+   settings unless the publisher's own materials state otherwise. From that
+   roster and the source's values come the ranker's implied weights by
+   position and by starter/bench (flex counted). The waiver line then gives
+   each player's implied value above waivers. Position counts always account
+   for flex.
+2. **Adjusted values.** All value above waivers is re-weighted to DDF weights
+   by position x starter/bench group.
+3. **Indexed.** The original published trade charts are indexed to match the
+   value range of the other charts.
+
+Value above waivers and DDF values follow the user's league-settings inputs
+(teams, scoring, roster). There is no cap at the anchor's top value: a
+publisher whose implied weighting puts its top player above ours shows that.
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:
@@ -89,14 +108,35 @@ inputs with `ValueModel.derivePublishedSetup` (value-model.js): the
 value-above-waivers translation (`translatePublishedVorp`, an exact port of
 `unified.translate_ranked`, held to it by `tests/test_vorp_translation_js_parity.py`)
 runs at the chosen setting for every player above that setting's waiver line;
-every other player keeps the server's fail-safe value (the saved value where the
-server left the player on the fallback at 12 teams, else the 12-team flex-aware
-pie value, native × the saved bucket scale). The caption labels these values
-derived. The adjusted series refit live against the ESPN two-tier leg at the
-chosen setting, as they already did at 12 teams. The saved `vorp_views` (other
-chart views) are not derived yet: at other settings those sources sit out of
-those views. A scoring with no saved 12-team setup is still unavailable and
-borrows nothing.
+every other player is worth 0 (value above waivers is zero by definition;
+`league-settings-001/3`, 2026-10-07 -- it replaced the server's fail-safe value,
+which the saved 12-team values still carry, risk register
+JEG332-BELOW-WAIVER-SAVED). The caption labels these values derived. The
+adjusted series refit live against the ESPN two-tier leg at the chosen setting,
+as they already did at 12 teams. A scoring with no saved 12-team setup is still
+unavailable and borrows nothing.
+
+**Other chart views (JEG332-VORP-VIEWS, `published-views-001/1`, 2026-10-07).**
+The "VORP vs waivers" and "Adjusted values" views show the saved `vorp_views`
+only at the setup they were built for (full PPR, 12 teams, standard roster;
+FantasyCalc, FantasyPros, USA Today). At every other scoring, team count and
+roster -- and for CBS everywhere -- `ValueModel.derivePublishedViews` derives
+them from the saved 12-team natives on the same translation and waiver line as
+Indexed, so a player at or below the waiver line is 0 in all three views:
+
+- *VORP vs waivers*: each player's value above the setting's waiver line in the
+  publisher's units, times one factor per chart so the chart's total equals the
+  ESPN anchor's total over the players that chart ranks (no re-tiering: the
+  publisher's own cross-position valuation is kept).
+- *Adjusted values*: players grouped position × starter/bench (starter = the
+  setting's dedicated + flex count at the position); each group shares the
+  anchor's total for that group in proportion to value above waivers; one
+  factor across all published charts at the setting puts the top player at 70.
+  The saved run's blend-reference group budgets are not carried to other
+  settings.
+
+Jeremy accepted any working setup ("I'm ok with however you set up values to
+get the tool working"); the recipe awaits his review.
 
 The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
 native inputs. Their ingestion adapters currently assign `league_teams=12`

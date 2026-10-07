@@ -62,10 +62,15 @@
     razzball_vorp: {ppgField: "rz_ppg", short: "Razzball", validationKey: "razzball"},
   };
   const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
+  // The chart's default roster (curve-widget.js DEFAULT_ROSTER) and the saved
+  // published setup (ValueModel.SAVED_SETUP_SHAPE). The table used to default
+  // to WR2/FLEX2, so on first load it derived every published column instead
+  // of showing the saved values the chart above it showed (JEG332-VORP-VIEWS).
+  const DEFAULT_ROSTER_SHAPE = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6});
   const state = {
     scoring: "full",
     teams: 12,
-    rosterShape: {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6},
+    rosterShape: {...DEFAULT_ROSTER_SHAPE},
     benchShare: DEFAULT_BENCH_SHARE,
     compareSource: "espn",
     combos: {},
@@ -388,14 +393,13 @@
   }
 
   function rosterIsDefault() {
-    const base = {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6};
-    return Object.keys(base).every(key => Number(state.rosterShape[key]) === base[key]);
+    return Object.keys(DEFAULT_ROSTER_SHAPE).every(key => Number(state.rosterShape[key]) === DEFAULT_ROSTER_SHAPE[key]);
   }
 
   function applyRosterShape(values, key) {
     if (rosterIsDefault() || PURE_VORP_KEYS.includes(key)) return values;
     const shaped = new Map(values);
-    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], {QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6});
+    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], DEFAULT_ROSTER_SHAPE);
     const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
     // Totals are taken over QB/RB/WR/TE only, and the correction is applied
     // to the same set. Kickers and defenses sit outside the skill pie: rolling

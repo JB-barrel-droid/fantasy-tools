@@ -288,6 +288,37 @@ class TestPromote(unittest.TestCase):
         self.assertEqual("Week 3", after["content_vintage"])
         self.assertEqual("Week 3", after["week_designated"])
 
+    def test_unpromoted_combos_keep_their_own_week(self):
+        """2026-10-07: promoting full_12 relabelled the whole section Week 5,
+        so the reviewer saw the still-Week-4 half_12 combo as Week 5 and held
+        its Week 5 candidate on same-vintage drift. Each combo now records
+        its own vintage; combos not promoted keep the section's old one."""
+        fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
+        fx = json.loads(fx_path.read_text())
+        sec = fx["sources"]["fantasycalc"]
+        sec["week_designated"] = "Week 2"
+        sec["content_vintage"] = "Week 2"
+        sec["combos"]["half_12"] = json.loads(json.dumps(sec["combos"]["full_12"]))
+        fx_path.write_text(json.dumps(fx))
+        doc = json.loads(rp.read_text())
+        doc["content_vintage"] = "Week 3"
+        doc["source_provenance"] = {"source": "fantasycalc", "content_vintage": "Week 3",
+                                    "vintage_kind": "week_designated", "week_designated": 3}
+        rp.write_text(json.dumps(doc))
+        rev = json.loads(revp.read_text())
+        rev["reindexed_sha256"] = promo.sha256_file(rp)
+        rev["fixture_native_sha256"] = rev["fixture_native_before_sha256"] = promo.sha256_canonical(
+            {c: sec["combos"][c]["native"] for c in sec["combos"]})
+        revp.write_text(json.dumps(rev))
+        health = self.tmp / "source-import-health.json"
+        write_import_health(health, vintage="Week 3", status="ok")
+        promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                      record_dir=str(self.records), import_health_path=str(health))
+        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        self.assertEqual("Week 3", after["week_designated"])
+        self.assertEqual("Week 3", after["combos"]["full_12"]["vintage"]["week_designated"])
+        self.assertEqual("Week 2", after["combos"]["half_12"]["vintage"]["week_designated"])
+
     def _active_review(self, vintage="Week 3"):
         """Ready review for an active source; candidate vintage None = absent."""
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
