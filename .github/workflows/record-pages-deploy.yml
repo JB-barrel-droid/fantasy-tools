@@ -1,0 +1,28 @@
+name: Record site deploy (monitoring)
+
+# Records every finished run of "Deploy dashboard" (pages.yml) as monitoring
+# check `site_deploy` in Supabase monitoring.check_observations, red or green.
+# It lives in its own event-driven workflow so pages.yml's build steps stay
+# identical to preview.yml (tests/test_preview_workflow_matches_pages.py). A
+# cancelled deploy (a newer push superseded it) records nothing. Declared in
+# config/monitoring_coverage.json.
+on:
+  workflow_run:
+    workflows: ["Deploy dashboard"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Record monitored check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          DEPLOY_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: python3 pipelines/record_monitor_check.py --check-id site_deploy --owner pages.yml --outcome "$DEPLOY_CONCLUSION"

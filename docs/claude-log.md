@@ -1,5 +1,69 @@
 # Claude session log
 
+## 2026-10-07 - Monitoring coverage audit ("working and monitored")
+
+Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a
+check_config row, records on success and failure, is flagged by the evaluator
+when it stops, and shows on the served monitor; fix gaps; one "is everything
+working" summary driven by monitoring.check_observations.
+
+### Verified (check named)
+- 14 cron jobs inventoried with `select ... from cron.job`; 8 check_config rows
+  existed (`select * from monitoring.check_config`). Before: no check for
+  rebuild-chain, player-trace, espn, cbsros, source-vintage, live-page-synthetic,
+  pages, weekly-dashboard-load, sleeper-identity-refresh, or the SQL-only cron
+  jobs. After the migrations: 22 rows; `public.monitoring_summary()` run
+  2026-10-07 11:36 UTC counted 21 (before the observer self-check row).
+- live-page synthetic: `select count(*) from live_page_checks` = 0. A manual POST
+  to the edge function with the job's own bearer returned HTTP 401
+  `{"error":"Unauthorized"}` (net._http_response id 306). So the pg_cron job has
+  never produced a result; cron's "succeeded" only means the request was queued.
+  The edge function's PRIMARY_URL is also a retired Muse page.
+- razzball-sync-live: net._http_response id 301 = HTTP 422 "Workflow does not
+  have 'workflow_dispatch' trigger" at 2026-10-07 11:20 UTC.
+- `has_function_privilege('anon','public.dispatch_gha_workflow(text,jsonb)','EXECUTE')`
+  was true; now revoked (migration 1). anon has no USAGE on schema monitoring.
+- Evaluator: read the old `compute_heartbeat_state` body: a never-observed check
+  set expected_next = now, so it stayed `unknown`. Probe after the fix:
+  `rebuild_chain` at now = unknown, at now+7h = missed.
+- GitHub run history (gh run list, main only): rebuild-chain failed 5 of the last
+  5 (07:00-11:00 UTC), failing step "Run import health check" (annotations on run
+  37611119708); cbsros sync failed at "Scrape CBS ROS projections" (run
+  37611096093); weekly-dashboard-load fails with exit 2, no staged bundle (run
+  37530061557). espn, player-trace, source-vintage, pages green.
+- `make validate` exit 0 with tests/test_monitoring_coverage.py in test-unit.
+  Negative tests in that file: unlisted workflow, record step that is not
+  always(), workflow that never records, double scheduler owner, check without a
+  migration row, recorder mapping failure to ok, banner painting stale data green
+  (the mutation produces the false green), audit missing/orphan rows.
+- Dashboard banner rendered in headless Chromium against a red fixture (shows the
+  failing check and the scheduler-problem list).
+
+### Claimed, not confirmed
+- The new workflow record steps have not run yet (PR unmerged; main's workflows
+  are the old ones). Until merge the new rows read unknown, then missed after one
+  cadence; `live_page_synthetic` goes missed about 2026-10-08 12:00 UTC if the PR
+  is not merged by then.
+- `monitoring.v_dispatch_outcomes` has no rows yet (dispatch_log starts at the next
+  dispatch); dispatch-failure red is untested against a live 422.
+- The browser read of monitoring-summary.json on the live site was not checked:
+  github.io is blocked from this sandbox (proxy 403).
+- JEG-428 item 1 (streak): the failing runs listed were branch pushes (by design)
+  plus scheduled runs 10-03 failure, 10-04 success, 10-05 failure, 10-06 success.
+  I did not diagnose the 10-05 scheduled failure beyond JEG-428's deploy-lag note.
+- Setting `weekly_dashboard_load` severity to warn was attempted and not
+  approved; it stays `page`.
+- Not done: JEG-428 item 6 (596 vs 613 denominator wording) and item 5 (parked
+  scale-agreement warn); JEG-340's live browser read of Supabase (this ships a
+  30-minute CI snapshot with a 60-minute fail-closed stale rule instead).
+- Alert delivery: no push/email channel exists; see GAP-ALERT-CHANNEL.
+
+Applied to project iskiybsimubiujwuchsl: monitoring_coverage_1_lockdown_dispatch_and_log,
+_2_checks_and_evaluator, _3_cron_observer_and_summary, _4_observer_self_check
+(SQL in supabase/migrations/monitoring_coverage_20261007.sql). Also one diagnostic
+POST to the live-page edge function and calls to `record_cron_observations()` /
+`run_evaluator_cycle(now())`; nothing deleted.
+
 ## 2026-10-05 - JEG-366 wiring fix on minimax/jeg-366-wiring-fix
 
 Contract: FantasyCalc Supabase import was red (588 rows vs 2376 expected);
