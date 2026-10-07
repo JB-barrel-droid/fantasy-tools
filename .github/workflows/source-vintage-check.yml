@@ -8,7 +8,7 @@ on:
 
 permissions:
   actions: write
-  contents: write # JEG-205: record the dispatched pipelines code hash
+  contents: read  # JEG-205 follow-up: code hash now stored in Supabase, not main
 
 jobs:
   check:
@@ -71,26 +71,27 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Record pipelines code hash
+      - name: Record pipelines code hash in Supabase (JEG-205 follow-up)
         # JEG-205: persist the dispatched hash as the loop guard -- exactly one
         # dispatch per code change. Records ONLY after the dispatch step ran
         # successfully: a failed or skipped dispatch skips this step, so the
         # next hourly run retries the same code change instead of silently
         # consuming the trigger.
+        # JEG-414 follow-up: hash stored in Supabase public.ops_artifacts
+        # (name='code-hash') instead of committing .github/source-vintage-state.json
+        # to main. No git add, no git commit, no git push.
         if: steps.check.outputs.code_changed == 'True' && steps.dispatch.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 - <<'EOF'
           import sys
           sys.path.insert(0, 'pipelines')
-          from check_source_vintage import record_code_hash, CODE_STATE_PATH
-          record_code_hash(CODE_STATE_PATH, "${{ steps.check.outputs.code_hash }}")
+          from check_source_vintage import record_code_hash_supabase
+          record_code_hash_supabase("${{ steps.check.outputs.code_hash }}")
+          print("code hash recorded in Supabase")
           EOF
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .github/source-vintage-state.json
-          git diff --cached --quiet || git commit -m "JEG-205: record dispatched pipelines code hash"
-          git pull --rebase origin main || true
-          git push
 
       - name: Report no changes
         if: steps.check.outputs.changed == 'False' && steps.check.outputs.code_changed == 'False'

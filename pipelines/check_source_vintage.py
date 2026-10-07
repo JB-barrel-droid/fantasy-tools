@@ -206,6 +206,9 @@ def compute_pipelines_code_hash(repo_root=ROOT):
 def check_code_change(state_path=CODE_STATE_PATH, repo_root=ROOT):
     """Compare the current pipelines/ hash vs the persisted stamp (JEG-205).
 
+    Reads from Supabase when SUPABASE_URL + SUPABASE_SERVICE_KEY are set (CI);
+    falls back to the local state file otherwise (local dev / tests).
+
     Never raises: any failure to compute the hash or read the state is
     fail-safe (code_changed=True -- a code change earns its chain run,
     and uncertainty triggers rather than skips).
@@ -215,12 +218,24 @@ def check_code_change(state_path=CODE_STATE_PATH, repo_root=ROOT):
     except BaseException as e:
         return {"code_changed": True, "code_hash": None,
                 "reason": f"fail-safe: cannot hash pipelines/: {e}"}
-    try:
-        state = json.loads(Path(state_path).read_text(encoding="utf-8"))
-        recorded = state.get(STATE_FIELD_LAST_CODE_HASH) if isinstance(state, dict) else None
-    except BaseException as e:
-        return {"code_changed": True, "code_hash": current,
-                "reason": f"fail-safe: cannot read state file: {e}"}
+
+    # Try Supabase first when credentials are available (CI path).
+    recorded = None
+    if os.environ.get("SUPABASE_URL") and os.environ.get("SUPABASE_SERVICE_KEY"):
+        try:
+            recorded = _read_code_hash_supabase()
+        except Exception as e:
+            return {"code_changed": True, "code_hash": current,
+                    "reason": f"fail-safe: cannot read code hash from Supabase: {e}"}
+    else:
+        # Local dev: fall back to the file.
+        try:
+            state = json.loads(Path(state_path).read_text(encoding="utf-8"))
+            recorded = state.get(STATE_FIELD_LAST_CODE_HASH) if isinstance(state, dict) else None
+        except BaseException as e:
+            return {"code_changed": True, "code_hash": current,
+                    "reason": f"fail-safe: cannot read state file: {e}"}
+
     if not recorded:
         return {"code_changed": True, "code_hash": current,
                 "reason": "fail-safe: no recorded hash (first run)"}
@@ -232,7 +247,11 @@ def check_code_change(state_path=CODE_STATE_PATH, repo_root=ROOT):
 
 
 def record_code_hash(state_path, code_hash):
-    """Persist the dispatched code hash (JEG-205). Preserves other state fields."""
+    """Persist the dispatched code hash (JEG-205). Preserves other state fields.
+
+    Legacy file-based path used for local dev and fallback. In CI, use
+    record_code_hash_supabase() instead (JEG-414 follow-up).
+    """
     path = Path(state_path)
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -243,6 +262,31 @@ def record_code_hash(state_path, code_hash):
     state[STATE_FIELD_LAST_CODE_HASH] = code_hash
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+
+
+def record_code_hash_supabase(code_hash: str) -> None:
+    """Store the dispatched code hash in Supabase public.ops_artifacts (JEG-414 follow-up).
+
+    Replaces the git-commit path (record_code_hash + git push to main).
+    Raises OpsArtifactError on Supabase failure so the caller can surface it.
+    """
+    import ops_artifact_store as store  # noqa: PLC0415
+    store.upsert(store.CODE_HASH, {"last_code_hash": code_hash})
+
+
+def _read_code_hash_supabase() -> str | None:
+    """Read the last recorded code hash from Supabase (JEG-414 follow-up).
+
+    Returns None on any failure (fail-safe: treats missing as code_changed=True).
+    """
+    try:
+        import ops_artifact_store as store  # noqa: PLC0415
+        payload = store.fetch(store.CODE_HASH, use_service_key=True)
+        if payload and isinstance(payload.get("last_code_hash"), str):
+            return payload["last_code_hash"]
+    except Exception:
+        pass
+    return None
 
 
 def check_all_sources():

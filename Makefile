@@ -148,6 +148,7 @@ test-unit:
 	python3 -m unittest tests.test_checkpoints_health_freshest
 	python3 -m unittest tests.test_checkpoint_c2_collection
 	python3 -m unittest tests.test_health_artifacts_publish
+	python3 -m unittest tests.test_no_bot_commits_to_main
 	python3 -m unittest tests.test_workflow_no_event_interpolation
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_razzball_sync_ci

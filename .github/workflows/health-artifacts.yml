@@ -2,12 +2,13 @@ name: Health artifacts (non-Muse producer + watch)
 
 # JEG-414 (ARCH-013). The monitor's health writer, every 30 minutes:
 #   1. Builds source-import-health.json and pipeline-checkpoints.json in CI
-#      and PUBLISHES them to dist/modules on main (cut over from Muse's
-#      30-min dashboard push, 2026-10-06). C2 uses the Supabase landing time
-#      when no Mac-local pull file exists (GAP-C2-MTIME), never a file mtime.
-#   2. Measures the age of the SERVED artifacts from their own timestamps
+#      and STORES them in Supabase public.ops_artifacts (JEG-414 follow-up:
+#      replaced git commits to main that caused 48+ bot commits/day and
+#      Pages-deploy cancellations). C2 uses the Supabase landing time when no
+#      Mac-local pull file exists (GAP-C2-MTIME), never a file mtime.
+#   2. Measures the age of the stored artifacts from their own timestamps
 #      and records each result in Supabase monitoring.check_observations.
-#   3. Fails (red) when a served artifact is older than 60 minutes.
+#   3. Fails (red) when a stored artifact is older than 60 minutes.
 # A pg_cron evaluator (monitoring-evaluator-5min) marks these checks
 # 'missed' if this workflow itself stops reporting.
 
@@ -20,8 +21,8 @@ on:
     branches: ["health/**"]
 
 permissions:
-  contents: write  # publish the health artifacts to main (JEG-414)
-  actions: write   # dispatch pages.yml; GITHUB_TOKEN pushes don't trigger it (JEG-274)
+  contents: read   # no writes to main (JEG-414 follow-up: artifacts go to Supabase)
+  actions: read
 
 concurrency:
   group: health-artifacts
@@ -100,41 +101,31 @@ jobs:
               print(f"::notice title=checkpoints {src}::{row}")
           PY
 
-      # Publish only a successfully produced pair; a broken build never
-      # replaces the served artifacts (the watcher then reports them aging).
-      - name: Publish to the monitor (JEG-414)
-        id: publish
-        if: steps.build.outcome == 'success' && github.ref == 'refs/heads/main'
-        run: |
-          cp output/source-import-health.json dist/modules/source-import-health.json
-          cp output/pipeline-checkpoints.json dist/modules/pipeline-checkpoints.json
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dist/modules/source-import-health.json dist/modules/pipeline-checkpoints.json
-          if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
-          git commit -m "Health artifacts (CI, JEG-414)"
-          for attempt in 1 2 3; do
-            if git pull --rebase --autostash origin main && git push; then
-              echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            sleep 10
-          done
-          echo "::error::could not push health artifacts after 3 attempts"; exit 1
-
-      - name: Trigger Pages deploy (JEG-274)
-        if: steps.publish.outputs.pushed == 'true'
+      # Store artifacts in Supabase instead of committing to main.
+      # A broken build never replaces the stored artifacts (the watcher then
+      # reports them aging and the check goes red). No git commit, no push,
+      # no Pages dispatch.
+      - name: Store health artifacts in Supabase (JEG-414 follow-up)
+        id: store
+        if: steps.build.outcome == 'success'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          code=$(curl -s -o /tmp/d.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "pages dispatch HTTP $code"; cat /tmp/d.json || true
-          [ "$code" = "204" ]
+          python3 - <<'PY'
+          import json, sys
+          sys.path.insert(0, "pipelines")
+          import ops_artifact_store as store
+          for name, path in [
+              ("pipeline-checkpoints", "output/pipeline-checkpoints.json"),
+              ("source-import-health", "output/source-import-health.json"),
+          ]:
+              payload = json.load(open(path))
+              store.upsert(name, payload)
+              print(f"stored {name}")
+          PY
 
-      - name: Watch served artifacts + record observations
+      - name: Watch stored artifacts + record observations
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -143,56 +134,16 @@ jobs:
           producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
           python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" 2>&1 | tee /tmp/watch.log
 
-      # "Is everything working?" banner source: snapshot of
-      # public.monitoring_summary() (evaluator output over
-      # monitoring.check_observations). Runs after the watch step so this run's
-      # own observations are in it. Written even when the read fails (red,
-      # fail-closed) so the page never shows a stale green. Separate commit from
-      # the health artifacts above so that step's publish rules stay unchanged.
-      - name: Build monitoring summary
-        id: msummary
+      # Audit coverage drift between config/monitoring_coverage.json and what
+      # is live in Supabase. Reads public.monitoring_summary() via service key.
+      - name: Audit monitoring coverage
         if: always()
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 pipelines/build_monitoring_summary.py --out output/monitoring-summary.json
-
-      - name: Publish monitoring summary
-        id: publish_summary
-        if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
         run: |
-          cp output/monitoring-summary.json dist/modules/monitoring-summary.json
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add dist/modules/monitoring-summary.json
-          if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
-          git commit -m "Monitoring summary (CI)"
-          for attempt in 1 2 3; do
-            if git pull --rebase --autostash origin main && git push; then
-              echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
-            fi
-            git rebase --abort 2>/dev/null || true
-            sleep 10
-          done
-          echo "::error::could not push monitoring summary after 3 attempts"; exit 1
-
-      - name: Trigger Pages deploy for the monitoring summary
-        if: steps.publish_summary.outputs.pushed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          code=$(curl -s -o /tmp/d2.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "pages dispatch HTTP $code"; cat /tmp/d2.json || true
-          [ "$code" = "204" ]
-
-      # Drift between config/monitoring_coverage.json and what is live in
-      # Supabase (a pg_cron job no check covers, a check with no manifest row).
-      - name: Audit monitoring coverage
-        if: always() && hashFiles('output/monitoring-summary.json') != ''
-        run: python3 pipelines/audit_monitoring_coverage.py output/monitoring-summary.json
+          python3 pipelines/build_monitoring_summary.py --out output/monitoring-summary.json
+          python3 pipelines/audit_monitoring_coverage.py output/monitoring-summary.json
 
       - name: Summary
         if: always()

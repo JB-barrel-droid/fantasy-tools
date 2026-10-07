@@ -1,21 +1,19 @@
 #!/usr/bin/env python3
-"""JEG-414 (ARCH-013): independent freshness watch for the served health artifacts.
+"""JEG-414 (ARCH-013): independent freshness watch for the health artifacts.
 
-The served monitor JSON (modules/pipeline-checkpoints.json and
-modules/source-import-health.json) has been produced only by the Muse
-30-minute cron. If that cron stops, the files keep their last contents and
-look live. This watch runs from GitHub Actions (health-artifacts.yml),
-independent of Muse:
+JEG-414 follow-up: artifacts are now stored in Supabase public.ops_artifacts
+(was: committed to main as dist/modules/*.json). The watch reads them from
+Supabase via service_role (CI) or anon key (browser). The staleness check
+and Supabase observation recording are unchanged.
 
-  * fetches each served artifact and measures the age of its own timestamp
-    (generated_at / checked_at) -- never HTTP Last-Modified or fetch time;
+  * fetches each artifact from Supabase and measures the age of its own
+    timestamp (generated_at / checked_at) -- never HTTP Last-Modified or
+    fetch time;
   * records one observation per artifact into Supabase
     monitoring.check_observations via public.monitoring_record_observation
     (the pg_cron evaluator marks the check 'missed' if this workflow itself
     stops reporting);
-  * compares the CI-built shadow artifacts against the served copies and
-    prints a parity table for the cutover decision;
-  * exits 1 when any served artifact is older than MAX_AGE_MINUTES (red).
+  * exits 1 when any artifact is older than MAX_AGE_MINUTES (red).
 
 Fail-closed: an unreachable artifact, unparseable JSON or a missing
 timestamp is stale, never fresh.
@@ -24,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.request
@@ -31,14 +30,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/modules/"
 MAX_AGE_MINUTES = 60  # twice the 30-minute heartbeat (BH-8)
 OWNER = "health-artifacts.yml"
 
 ARTIFACTS = {
-    # check_id: (served file, timestamp fields in priority order)
-    "served_pipeline_checkpoints_fresh": ("pipeline-checkpoints.json", ("generated_at",)),
-    "served_import_health_fresh": ("source-import-health.json", ("checked_at", "generated_at")),
+    # check_id: (ops_artifacts name, timestamp fields in priority order)
+    "served_pipeline_checkpoints_fresh": ("pipeline-checkpoints", ("generated_at",)),
+    "served_import_health_fresh": ("source-import-health", ("checked_at", "generated_at")),
 }
 
 
@@ -77,18 +75,33 @@ def evaluate(payload, fields, now, max_age=MAX_AGE_MINUTES):
     return True, age, None
 
 
-def fetch_json(url, timeout=30):
+def fetch_from_supabase(name: str, supabase_url: str, api_key: str, timeout: int = 30):
+    """Fetch an artifact payload from public.ops_artifacts.
+
+    Returns (payload_dict_or_None, latency_ms).
+    """
     started = time.monotonic()
+    url = f"{supabase_url.rstrip('/')}/rest/v1/ops_artifacts?name=eq.{name}&select=payload,produced_at"
+    req = urllib.request.Request(url, method="GET")
+    req.add_header("apikey", api_key)
+    req.add_header("Authorization", f"Bearer {api_key}")
+    req.add_header("Accept", "application/json")
     try:
-        req = urllib.request.Request(f"{url}?cb={int(time.time())}",
-                                     headers={"Cache-Control": "no-cache"})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
-            status = resp.status
-            body = resp.read().decode("utf-8")
-        payload = json.loads(body)
-    except Exception:  # noqa: BLE001 - fail-closed, reported as stale
-        return None, None, int((time.monotonic() - started) * 1000)
-    return payload, status, int((time.monotonic() - started) * 1000)
+            rows = json.loads(resp.read().decode("utf-8"))
+        latency = int((time.monotonic() - started) * 1000)
+        if not rows:
+            return None, latency
+        row = rows[0]
+        payload = row.get("payload")
+        if not isinstance(payload, dict):
+            return None, latency
+        # Attach produced_at so the watch can use it as a fallback timestamp.
+        if "produced_at" not in payload and row.get("produced_at"):
+            payload = dict(payload, produced_at=row["produced_at"])
+        return payload, latency
+    except Exception:  # noqa: BLE001 - fail-closed
+        return None, int((time.monotonic() - started) * 1000)
 
 
 def record(check_id, ok, content_ok, http_status, latency_ms, error_code, dry_run):
@@ -102,34 +115,20 @@ def record(check_id, ok, content_ok, http_status, latency_ms, error_code, dry_ru
     })
 
 
-def parity_rows(shadow_dir):
-    """Checkpoint-status parity between CI shadow and served copies."""
-    rows = []
-    shadow = shadow_dir / "pipeline-checkpoints.json"
-    if not shadow.exists():
-        return rows
-    ci = json.loads(shadow.read_text(encoding="utf-8"))
-    served, _, _ = fetch_json(BASE_URL + "pipeline-checkpoints.json")
-    for src, entry in sorted((ci.get("sources") or {}).items()):
-        cps = (entry or {}).get("checkpoints") or {}
-        served_cps = (((served or {}).get("sources") or {}).get(src) or {}).get("checkpoints") or {}
-        for key, cp in sorted(cps.items()):
-            a = (served_cps.get(key) or {}).get("status")
-            b = (cp or {}).get("status")
-            if a != b:
-                rows.append((src, key, a, b))
-    return rows
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--base-url", default=BASE_URL)
     ap.add_argument("--max-age-minutes", type=float, default=MAX_AGE_MINUTES)
-    ap.add_argument("--shadow-dir", type=Path, default=ROOT / "output")
     ap.add_argument("--producer-ok", choices=("true", "false"), default=None,
                     help="also record the CI producer observation")
     ap.add_argument("--dry-run", action="store_true", help="do not write to Supabase")
     args = ap.parse_args()
+
+    supabase_url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    api_key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not supabase_url or not api_key:
+        print("SUPABASE_URL / SUPABASE_SERVICE_KEY not set; cannot watch artifacts",
+              file=sys.stderr)
+        return 1
 
     now = datetime.now(timezone.utc)
     stale = []
@@ -138,22 +137,22 @@ def main() -> int:
         record("health_artifacts_producer", ok, ok, None, None,
                None if ok else "producer_build_failed", args.dry_run)
         print(f"health_artifacts_producer: {'ok' if ok else 'FAILED'}")
+
     for check_id, (name, fields) in ARTIFACTS.items():
-        payload, status, latency = fetch_json(args.base_url + name)
+        payload, latency = fetch_from_supabase(name, supabase_url, api_key)
         ok, age, err = evaluate(payload, fields, now, args.max_age_minutes)
-        record(check_id, ok, ok, status, latency, err, args.dry_run)
+        # Record as an HTTP-200 equivalent when Supabase responds (no HTTP status
+        # concept for the REST GET; use 200 on success, None on failure).
+        http_status = 200 if payload is not None else None
+        record(check_id, ok, ok, http_status, latency, err, args.dry_run)
         age_txt = "n/a" if age is None else f"{age:.0f} min"
         print(f"{check_id}: {'ok' if ok else 'STALE'} ({name}, age {age_txt}"
               f"{', ' + err if err else ''})")
         if not ok:
             stale.append(check_id)
 
-    rows = parity_rows(args.shadow_dir)
-    print(f"\nCI-shadow vs served checkpoint parity: {len(rows)} status differences")
-    for src, key, served, ci in rows:
-        print(f"  {src}/{key}: served={served} ci={ci}")
     if stale:
-        print(f"\nRED: stale served health artifacts: {', '.join(stale)}", file=sys.stderr)
+        print(f"\nRED: stale health artifacts in Supabase: {', '.join(stale)}", file=sys.stderr)
         return 1
     return 0
 

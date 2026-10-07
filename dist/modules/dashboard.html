@@ -133,7 +133,50 @@
 <p class="sub">Trade Value Chart · 10 explicit checkpoints per source · all timestamps from real artifacts, never inferred.<br>
 Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data sources…</span><br>
 <span id="monitorFreshness" style="display:inline-block;margin-top:4px">Monitor last refreshed: <span id="monitorFreshnessText" style="color:var(--dim)">…</span></span></p>
-<script>fetch("pipeline-checkpoints.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(d){var T=document.getElementById("monitorFreshnessText");if(!T||!d)return;var g=d.generated_at;if(!g){T.textContent="never";T.style.color="var(--grey)";return;}var a=(Date.now()-new Date(g).getTime())/60000,m=Math.max(0,Math.floor(a));T.textContent=m<1?"just now":m<60?m+"m ago":Math.floor(m/60)+"h "+(m%60)+"m ago";T.style.color=a>120?"var(--red)":a>60?"var(--yellow)":"var(--dim)"}).catch(function(){var T=document.getElementById("monitorFreshnessText");if(T){T.textContent="unavailable";T.style.color="var(--grey)"}});</script>
+<!-- JEG-414 follow-up: ops artifacts now live in Supabase public.ops_artifacts.
+     Load supabase-config.json (written by pages.yml from the SUPABASE_ANON_KEY secret).
+     If absent (local dev / secret not yet set), fall back to the static file paths. -->
+<script>
+"use strict";
+window._SUPA_CFG = fetch("supabase-config.json",{cache:"no-store"})
+  .then(function(r){return r.ok?r.json():null})
+  .catch(function(){return null;});
+
+// Fetch an ops artifact: Supabase first (if config available), static file fallback.
+window._fetchOpsArtifact = function(supaName, staticPath){
+  return window._SUPA_CFG.then(function(cfg){
+    if(!cfg || !cfg.url || !cfg.anonKey){
+      return fetch(staticPath,{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).catch(function(){return null;});
+    }
+    var url = cfg.url.replace(/\/$/,"") + "/rest/v1/ops_artifacts?name=eq." + encodeURIComponent(supaName) + "&select=payload,produced_at";
+    return fetch(url,{cache:"no-store",headers:{"apikey":cfg.anonKey,"Authorization":"Bearer "+cfg.anonKey}})
+      .then(function(r){return r.ok?r.json():null})
+      .then(function(rows){
+        if(!rows||!rows.length)return null;
+        var p=rows[0].payload;
+        if(p&&!p.produced_at&&rows[0].produced_at)p=Object.assign({},p,{produced_at:rows[0].produced_at});
+        return p||null;
+      }).catch(function(){return null;});
+  });
+};
+
+// Fetch monitoring summary: Supabase RPC first (always live), static file fallback.
+window._fetchMonitoringSummary = function(){
+  return window._SUPA_CFG.then(function(cfg){
+    if(!cfg || !cfg.url || !cfg.anonKey){
+      return fetch("monitoring-summary.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).catch(function(){return null;});
+    }
+    var url = cfg.url.replace(/\/$/,"") + "/rest/v1/rpc/monitoring_summary";
+    return fetch(url,{method:"POST",cache:"no-store",headers:{"apikey":cfg.anonKey,"Authorization":"Bearer "+cfg.anonKey,"Content-Type":"application/json"},body:"{}"})
+      .then(function(r){return r.ok?r.json():null})
+      .catch(function(){
+        // RPC failed; fall back to static file.
+        return fetch("monitoring-summary.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).catch(function(){return null;});
+      });
+  });
+};
+</script>
+<script>window._fetchOpsArtifact("pipeline-checkpoints","pipeline-checkpoints.json").then(function(d){var T=document.getElementById("monitorFreshnessText");if(!T||!d)return;var g=d.generated_at||d.produced_at;if(!g){T.textContent="never";T.style.color="var(--grey)";return;}var a=(Date.now()-new Date(g).getTime())/60000,m=Math.max(0,Math.floor(a));T.textContent=m<1?"just now":m<60?m+"m ago":Math.floor(m/60)+"h "+(m%60)+"m ago";T.style.color=a>120?"var(--red)":a>60?"var(--yellow)":"var(--dim)"}).catch(function(){var T=document.getElementById("monitorFreshnessText");if(T){T.textContent="unavailable";T.style.color="var(--grey)"}});</script>
 
 <div id="err"></div>
 
@@ -200,10 +243,8 @@ function sysEvaluate(p, nowMs){
     body.innerHTML = '<table class="scale-table" style="width:100%"><thead><tr><th>Status</th><th>Pipeline</th><th>Scheduler</th><th>Last observation</th><th>Why</th></tr></thead><tbody>' + rows + '</tbody></table>' +
       (jobs ? '<p class="sub" style="margin-top:12px"><b>Scheduler problems</b></p><ul style="margin-left:18px;font-size:13px">' + jobs + '</ul>' : "");
   }
-  fetch("monitoring-summary.json", {cache:"no-store"}).then(function(r){
-    if(!r.ok) throw new Error("HTTP " + r.status);
-    return r.json();
-  }).then(function(p){
+  window._fetchMonitoringSummary().then(function(p){
+    if(!p) throw new Error("no data");
     var ev = sysEvaluate(p, Date.now()); setBanner(ev); render(p, ev);
   }).catch(function(e){
     var ev = sysEvaluate({read_error: String((e && e.message) || e)}, Date.now()); setBanner(ev); render(null, ev);
@@ -599,7 +640,22 @@ async function main(){
     errEl.innerHTML = "<b>Live checks unavailable:</b> this page was opened as a file. Serve it over HTTP (or open the deployed GitHub Pages URL) so it can fetch the data files.";
   }
 
-  const [cp, ch] = await Promise.all([firstOk(CP_PATHS), firstOk(CHAIN_PATHS)]);
+  // JEG-414 follow-up: load pipeline-checkpoints from Supabase when
+  // supabase-config.json is present; fall back to static file paths for
+  // local dev (../output/..., output/... variants).
+  const [cpSupa, ch] = await Promise.all([
+    window._fetchOpsArtifact("pipeline-checkpoints", "pipeline-checkpoints.json"),
+    firstOk(CHAIN_PATHS),
+  ]);
+  let cp;
+  if(cpSupa){
+    cp = {path: "Supabase:ops_artifacts/pipeline-checkpoints", json: cpSupa};
+  } else {
+    // Local dev: try all path variants (firstOk skips "pipeline-checkpoints.json"
+    // which _fetchOpsArtifact already tried).
+    const devPaths = CP_PATHS.filter(function(p){return p !== "pipeline-checkpoints.json";});
+    cp = await firstOk(devPaths);
+  }
   const data = cp ? cp.json : null;
   const chain = ch ? ch.json : null;
 
