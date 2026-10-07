@@ -7,6 +7,27 @@
 
 ---
 
+## 2026-10-07 - Project manifesto recorded
+
+### Verified
+
+- Added `docs/manifesto.md` with Jeremy's statement of the project's reasoning
+  (pasted in chat), plus a terminology note: "Market Value" there means the
+  trade market, not the sportsbook side (still "Vegas" in copy). Linked from
+  `docs/methodology.md`. Docs only; no code or published output changed.
+- Checked `tests/test_public_copy_no_vorp.py` scans only the two widget JS
+  files, so the manifesto's "Value Over Replacement" wording cannot trip it.
+
+### Open
+
+- The live product covers market value (source trade-value comparison) and a
+  slice of fundamental value (ESPN value above waivers). Portfolio value,
+  option value, usable/starter-week production, time discounting and team-state
+  objectives from the manifesto are not built. Not a defect; noted so future
+  scoping starts from the gap.
+
+---
+
 ## 2026-10-07 - JEG-437 item 6: decisions log entries reformatted, test gated
 
 ### Verified (check named)
