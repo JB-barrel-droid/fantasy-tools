@@ -14,10 +14,11 @@ Current status: the Muse export has been imported into `app/trade-value-chart/` 
 ## Working with AI sessions
 
 `CLAUDE.md` holds the working agreements — most importantly, that every session
-appends to `docs/claude-log.md` before it finishes, separating what it verified
-from what it only claimed. Read the log before starting: it carries forward what
-the last session measured, what it asserted without checking, and what is still
-open.
+writes its own log entry in `docs/claude-log/YYYY-MM-DD-<slug>.md` before it
+finishes, separating what it verified from what it only claimed. The format and
+rules are in `docs/claude-log/README.md`. Browse the directory to see what the
+last session measured, what it asserted without checking, and what is still open.
+(`docs/claude-log.md` is the frozen archive of entries before 2026-10-07.)
 
 ## Structure
 

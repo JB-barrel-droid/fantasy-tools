@@ -178,11 +178,12 @@ def verify_top25_live(source, candidate_natives, combo_name=None):
                    f"e.g. {', '.join(mismatches[:3])}")
 
 
-def fetch_live_values(source, combo_name=None):
-    """Live API values for ``source``/``combo_name`` as {norm_name: value}.
+def fetch_live_rows(source, combo_name=None):
+    """Live API rows for ``source``/``combo_name`` as {norm_name: (value, pos)}.
 
-    Returns (values, error). Fail closed: any fetch/parse problem returns
-    (None, reason), never an empty "verified" set.
+    ``pos`` is the publisher's position label upper-cased, or None when the
+    row carries none. Returns (rows, error). Fail closed: any fetch/parse
+    problem returns (None, reason), never an empty "verified" set.
     """
     url = live_api_url(source, combo_name)
     if not url:
@@ -195,34 +196,81 @@ def fetch_live_values(source, combo_name=None):
         return None, f"live fetch failed: {e}"
     live = {}
     for p in data:
-        name = (p.get("player") or {}).get("name")
+        player = p.get("player") or {}
+        name = player.get("name")
         val = p.get("value")
         if name and val is not None:
-            live[norm_player_name(name)] = float(val)
+            pos = player.get("position")
+            live[norm_player_name(name)] = (float(val),
+                                            str(pos).upper() if pos else None)
     if not live:
         return None, "live API returned no players"
     return live, None
 
 
-def verify_coverage_drop_live(source, combo_name, dropped_slugs):
+def fetch_live_values(source, combo_name=None):
+    """Live API values for ``source``/``combo_name`` as {norm_name: value}."""
+    rows, err = fetch_live_rows(source, combo_name)
+    if rows is None:
+        return None, err
+    return {k: v for k, (v, _pos) in rows.items()}, None
+
+
+def verify_coverage_drop_live(source, combo_name, dropped_slugs, pos=None,
+                              depth=None):
     """Jeremy 2026-10-05 (extends the 2026-10-04 drift rule to coverage):
     a priced-count drop is a genuine source change -- not a pipeline loss --
     only when EVERY player the fixture priced and the candidate lost is also
     absent (or unpriced) in the live source for the same combo. One dropped
     player still listed live means the pipeline lost them: stay on hold.
+
+    JEG-436 follow-up (2026-10-07): the live list is read at REVIEW time, a
+    day or more after the bake was pulled, and FantasyCalc's list churns its
+    tail daily (fcwk5 pulled 2026-10-06 14:20Z without Pat Freiermuth; the
+    2026-10-07 live list had him back as its 27th and last TE at 20, and had
+    dropped Oronde Gadsden, who IS in the bake). A dropped player the live
+    list ranks BELOW the candidate's depth at the position (live position
+    rank > ``depth``, the candidate's priced count there) cannot be told
+    apart from that churn, so he is not called a pipeline loss here; the
+    caller then applies the tail-churn rule, which still holds on identity
+    loss, non-tail players and players listed-but-unpriced. A dropped player
+    the live list ranks WITHIN the candidate's depth -- or whose live
+    position is unknown, or when ``pos``/``depth`` are not given -- is still
+    a contradiction: fail closed.
+
+    Returns (verified, detail). ``detail`` contains "still priced live" only
+    for a genuine contradiction (the caller keys on it).
     """
     if not dropped_slugs:
         return False, "no dropped players identified for the count drop"
-    live, err = fetch_live_values(source, combo_name)
+    live, err = fetch_live_rows(source, combo_name)
     if live is None:
         return False, err
     still_live = sorted(s for s in dropped_slugs
-                        if live.get(norm_player_name(s), 0.0) > 0)
-    if still_live:
-        return False, (f"{len(still_live)} dropped player(s) still priced live "
-                       f"(e.g. {', '.join(still_live[:3])}) -- pipeline loss")
-    return True, (f"live-verified: all {len(dropped_slugs)} dropped player(s) "
-                  f"absent from the live source ({', '.join(sorted(dropped_slugs)[:4])})")
+                        if live.get(norm_player_name(s), (0.0, None))[0] > 0)
+    if not still_live:
+        return True, (f"live-verified: all {len(dropped_slugs)} dropped player(s) "
+                      f"absent from the live source ({', '.join(sorted(dropped_slugs)[:4])})")
+    contradicting, below_depth = [], []
+    if pos is not None and depth is not None:
+        ranked = sorted(((v, n) for n, (v, p) in live.items()
+                         if p == pos and v > 0), reverse=True)
+        rank_of = {n: i + 1 for i, (_v, n) in enumerate(ranked)}
+        for s in still_live:
+            rank = rank_of.get(norm_player_name(s))
+            if rank is not None and rank > depth:
+                below_depth.append(f"{s} (live {pos}{rank}/{len(ranked)})")
+            else:
+                contradicting.append(s)
+    else:
+        contradicting = still_live
+    if contradicting:
+        return False, (f"{len(contradicting)} dropped player(s) still priced live "
+                       f"(e.g. {', '.join(contradicting[:3])}) -- pipeline loss")
+    return False, (f"live tail: {len(below_depth)} dropped player(s) listed live only "
+                   f"below the candidate's {pos} depth {depth} "
+                   f"({', '.join(below_depth[:4])}) -- indistinguishable from "
+                   "publisher tail churn between bake and review; tail rule applies")
 
 
 # JEG-436 (Jeremy 2026-10-07: "Tighten or loosen whichever gates you need").
@@ -502,13 +550,25 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                 # may not be available. Skip if candidate has no per-pos data.
                 if pos not in combo["n"]:
                     continue
-                c_n = combo["n"].get(pos, 0)
+                c_recorded = combo["n"].get(pos, 0)
                 f_recorded = fx.get("index_total", {}).get(pos, {}).get("n_priced")
                 fx_priced = {s for s in fx_reidx
                              if pos_by_key.get(player_keys.get(s)) == pos}
                 c_priced = {s for s in combo.get("reindexed", {})
                             if pos_by_key.get(c_keys.get(s, player_keys.get(s))) == pos}
-                f_n = len(fx_priced) if fx_priced else f_recorded
+                # JEG-436 follow-up (2026-10-07): both sides on ONE basis.
+                # #392 compared the candidate's RECORDED n (the flex-aware pie
+                # bucket count, which by design excludes zero-native players --
+                # reindex_comparison_section.py `zero_native`) with the
+                # fixture's priced SET (which includes them at 0.0). USA Today
+                # full_12/QB: recorded 32, set 35 (Mendoza, Sanders, Tagovailoa
+                # at native 0.0) on BOTH sides -> held on "32 < 35" with no
+                # player dropped. Sets on both sides when the fixture has one;
+                # recorded counts on both sides only when it does not.
+                if fx_priced:
+                    c_n, f_n = len(c_priced), len(fx_priced)
+                else:
+                    c_n, f_n = c_recorded, f_recorded
                 if f_n is None:
                     continue  # fixture records no priced count; cannot compare
                 dropped = sorted(fx_priced - c_priced)
@@ -516,8 +576,24 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                 cov = combos_detail.setdefault(combo_name, {}).setdefault(
                     "coverage", {}).setdefault(pos, {})
                 cov.update({"candidate": c_n, "fixture": f_n,
+                            "candidate_recorded_n": c_recorded,
                             "fixture_recorded_n_priced": f_recorded,
                             "dropped": dropped, "added": added})
+                # The candidate's own recorded count vs its own priced set: a
+                # visible warn (like coverage_baseline), never silent. The
+                # flex-aware pie's zero-native exclusion is named so a reader
+                # can tell the by-design gap from an unexplained one.
+                if c_priced and c_recorded != len(c_priced):
+                    c_zero = sum(1 for s in c_priced
+                                 if float(combo["native"].get(s) or 0) <= 0)
+                    explained = c_recorded == len(c_priced) - c_zero
+                    checks.append(_check(
+                        f"coverage_count:{combo_name}/{pos}", "warn",
+                        f"candidate recorded n {c_recorded} disagrees with its own "
+                        f"priced set ({len(c_priced)}; {c_zero} at native 0) -- "
+                        + ("explained by the flex-aware pie's zero-native exclusion"
+                           if explained else "UNEXPLAINED by zero-native exclusion")
+                        + "; compared on the priced set"))
                 if fx_priced and f_recorded is not None and f_recorded != len(fx_priced):
                     checks.append(_check(
                         f"coverage_baseline:{combo_name}/{pos}", "warn",
@@ -531,7 +607,7 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                 live_contradicts = False
                 if not no_live_verify and source in LIVE_API_URLS and dropped:
                     verified, verify_detail = verify_coverage_drop_live(
-                        source, combo_name, dropped)
+                        source, combo_name, dropped, pos=pos, depth=c_n)
                     if verified:
                         status = "pass"
                     live_contradicts = "still priced live" in verify_detail
