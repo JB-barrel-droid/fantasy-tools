@@ -204,6 +204,7 @@ test-unit:
 	python3 -m unittest tests.test_public_copy_no_vorp
 	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_source_freshness
+	python3 -m unittest tests.test_freshness_display_render
 	python3 -m unittest tests.test_publication_windows
 	python3 -m unittest tests.test_qb_slot_scoping
 	python3 -m unittest tests.test_source_combo_contract

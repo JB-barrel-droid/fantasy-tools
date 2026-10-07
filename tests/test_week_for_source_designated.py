@@ -10,10 +10,18 @@ The data already carries the honest per-source signal
 (`sources.<key>.week_designated`, e.g. "Week 4" / "rest of season"); the fix
 reads it between the fitwk match and the global fallback.
 
-These tests extract the REAL weekForSource (plus its WEEKED_SOURCE_KEYS set)
-from comparison-dashboard.js and execute it in node against stubbed data, so
-they discriminate on behavior, not on code shape. They fail against the
-pre-fix file (designated "Week 3" resolves to the global 4) and pass after.
+These tests extract the REAL weekForSource (plus its WEEKED_SOURCE_KEYS set
+and freshness helpers) from comparison-dashboard.js and execute it in node
+against stubbed data and the real product-data.js freshness record, so they
+discriminate on behavior, not on code shape. They fail against the pre-fix
+file (designated "Week 3" resolves to the global 4) and pass after.
+
+GAP-043 (2026-10-07) changed the rule these pin: every week label now comes
+from product-data.js getSourceFreshness() (week_designated, then
+content_vintage, then the source's own dates on the Tuesday-flip content
+calendar). So a stale `fitwk` bake id no longer outranks the source's own
+designation, and rest-of-season sources are dated by their own vintage
+instead of inheriting the global `value_weeks.monday`.
 """
 import json
 import re
@@ -30,12 +38,14 @@ JS = (
     / "comparison-dashboard.js"
 )
 
+PRODUCT_DATA = JS.parent / "product-data.js"
+
 _STUB_DATA = {
     "value_weeks": {"monday": 4},
     "sources": {
         "usatoday": {"week_designated": "Week 3"},
         "cbs": {"week_designated": "Week 3", "fit_bake_id": "ddf-fitwk5-x"},
-        "cbsros": {"week_designated": "rest of season"},
+        "cbsros": {"week_designated": "rest of season", "vintage": "2026-09-24"},
         "razzball": {},
     },
 }
@@ -61,12 +71,21 @@ def _run_week_for_source(keys):
     text = JS.read_text()
     m = re.search(r"const WEEKED_SOURCE_KEYS = new Set\(\[.*?\]\);", text, re.DOTALL)
     assert m, "WEEKED_SOURCE_KEYS not found -- test wiring is stale"
-    fn = _extract_function(text, "weekForSource")
+    fn = "\n".join(_extract_function(text, name) for name in ("sourceFreshness", "weekForSource"))
+    row = re.search(r"const freshnessRow = .*?;\n", text)
+    assert row, "freshnessRow not found -- test wiring is stale"
     script = (
-        m.group(0)
+        "const module = {exports: {}};\nconst window = {};\n"
+        + PRODUCT_DATA.read_text()
+        + "\nconst pd = module.exports;\n"
+        + "window.TradeValueProductData = {getSourceFreshness: () => pd.buildSourceFreshness("
+        + json.dumps(_STUB_DATA["sources"])
+        + ", {today: '2026-10-07'})};\n"
+        + m.group(0)
         + "\nlet data = "
         + json.dumps(_STUB_DATA)
         + ";\n"
+        + row.group(0)
         + fn
         + "\nconsole.log(JSON.stringify({"
         + ",".join(f'"{k}": weekForSource("{k}")' for k in keys)
@@ -88,16 +107,17 @@ class WeekForSourceDesignatedTest(unittest.TestCase):
         got = _run_week_for_source(["usatoday"])
         self.assertEqual(got["usatoday"], 3)
 
-    def test_fitwk_bake_id_still_wins(self):
-        """Precedence unchanged: fitwk bake id beats week_designated."""
+    def test_designation_beats_fitwk_bake_id(self):
+        """GAP-043: the source's own week wins; a fit bake id is not content."""
         got = _run_week_for_source(["cbs"])
-        self.assertEqual(got["cbs"], 5)
+        self.assertEqual(got["cbs"], 3)
 
-    def test_rest_of_season_keeps_global_fallback(self):
-        """ROS sources carry no week; they keep the old global behavior."""
+    def test_rest_of_season_dated_by_own_vintage(self):
+        """GAP-043: ROS sources take their vintage's content week, never the
+        global value_weeks.monday; an undated source gets no week at all."""
         got = _run_week_for_source(["cbsros", "razzball"])
-        self.assertEqual(got["cbsros"], 4)
-        self.assertEqual(got["razzball"], 4)
+        self.assertEqual(got["cbsros"], 3)  # 2026-09-24 is content Week 3
+        self.assertIsNone(got["razzball"])
 
     def test_non_weeked_key_returns_null(self):
         got = _run_week_for_source(["espn"])

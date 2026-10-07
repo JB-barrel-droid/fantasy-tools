@@ -852,53 +852,36 @@
   const rawKeyForAdjusted = key => key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
   const formatOne = value => Number.isFinite(Number(value)) ? Number(value).toFixed(1) : "—";
   const formatTwo = value => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "—";
-  function parseDesignatedWeek(value) {
-    const match = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
-    return match ? Number(match[1] || match[2]) : null;
+  // GAP-043 / GAP-CHART-STALE-LABEL-CALENDAR: every week label and stale flag
+  // reads the one freshness record (product-data getSourceFreshness():
+  // week_designated, then content_vintage, on the Tuesday-flip content
+  // calendar of pipelines/nfl_week.py). No local week rule, no fallback to a
+  // global week: a series nothing dates gets no week label.
+  function sourceFreshness() {
+    try {
+      return window.TradeValueProductData?.getSourceFreshness?.() || null;
+    } catch (error) {
+      return null;
+    }
+  }
+  const freshnessRow = key => sourceFreshness()?.series?.[key] || null;
+  function freshnessText(key) {
+    const label = window.TradeValueProductData?.freshnessLabel;
+    return label ? label(freshnessRow(key)).text : "";
   }
 
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
-    const rawKey = rawKeyForAdjusted(key);
-    const liveAdjusted = key.endsWith("_adjusted") && adjustmentCellsFor(rawKey);
-    const source = liveAdjusted ? (data?.sources?.[rawKey] || {}) :
-      (data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {});
-    const designated = parseDesignatedWeek(source.week_designated);
-    if (designated) return designated;
-    const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
-    if (fitWeek) return Number(fitWeek[1]);
-    return Number(data?.value_weeks?.monday) || null;
+    const week = freshnessRow(key)?.vintage_week;
+    return Number.isFinite(week) ? week : null;
   }
 
-  function rolloverDate() {
-    const built = new Date(data?.built_at || "");
-    if (Number.isNaN(built.getTime())) return null;
-    const next = new Date(Date.UTC(built.getUTCFullYear(), built.getUTCMonth(), built.getUTCDate()));
-    const daysUntilMonday = (8 - next.getUTCDay()) % 7 || 7;
-    next.setUTCDate(next.getUTCDate() + daysUntilMonday);
-    return next;
-  }
-
-  function todayDate() {
-    const override = window.TRADE_VALUE_TODAY;
-    const raw = override ? new Date(`${String(override).slice(0, 10)}T00:00:00Z`) : new Date();
-    return Number.isNaN(raw.getTime()) ? new Date() : raw;
-  }
-
+  // The content week the reader is in (Tuesday flip), not a build-time rule.
   function activeReferenceWeek() {
-    const base = Number(data?.value_weeks?.monday);
-    if (!Number.isFinite(base)) return null;
-    const rollover = rolloverDate();
-    if (!rollover) return base;
-    return todayDate() >= rollover ? base + 1 : base;
+    return sourceFreshness()?.current_content_week || null;
   }
 
-  function isWeekCurrent(key) {
-    const week = weekForSource(key);
-    const activeWeek = activeReferenceWeek();
-    return !week || !activeWeek || week >= activeWeek;
-  }
-  const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && !isWeekCurrent(key);
+  const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && freshnessRow(key)?.status === "older";
 
   function sourceLabel(key) {
     const base = SOURCE_LABELS[key] || key;
@@ -1906,11 +1889,13 @@
     const context = $("#curveContext");
     if (!context) return;
     const positionLabel = position === "ALL" ? "All positions" : position === "FLEX" ? "RB / WR / TE" : position;
-    const week = activeReferenceWeek();
-    const weekLabel = week ? `Week ${week} references` : "current references";
+    const freshness = sourceFreshness();
+    const referenceWeek = freshness?.first_load_reference_week;
+    const weekLabel = referenceWeek ? `Week ${referenceWeek} references` : "references of unknown week";
+    const espnText = freshnessText("espn");
     const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/${rosterShape.BENCH}BN`;
-    const staleWeeks = [...new Set(activeSourceKeys().filter(sourceIsStale).map(weekForSource).filter(Boolean))];
-    const staleLabel = staleWeeks.length ? ` · stale Week ${staleWeeks.join("/")} values still shown` : "";
+    const staleLabel = activeSourceKeys().filter(sourceIsStale)
+      .map(key => ` · ${SOURCE_LABELS[key] || key}: ${freshnessText(key)}`).join("");
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
     const benchShareText = `${Math.round(DISPLAY_BENCH_SHARE * 100)}% bench share`;
     // JEG-291: the subtitle's bench-share segment is the recommended calibration
@@ -1923,7 +1908,7 @@
         textContent: benchShareText,
         title: "15% bench share — the recommended two-tier calibration parameter; the chart caption shows the anchor leg's measured split."
       }),
-      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN live${staleLabel} · locked to ${lockLabel(lockOrder)}`,
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN projections${espnText ? ` (${espnText})` : ""}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
       // league-settings-001 / methodology.md: values derived for a league
       // setting the source did not publish must be labelled derived.
       onSavedSetup() ? "" : " · published charts derived from their 12-team, standard-roster values"
@@ -2816,7 +2801,7 @@
         label.classList.add("is-disabled");
         label.title = `${sourceLabel(key)} is not available for ${scoreLabel()} / ${teams} teams in the current artifact.`;
       } else if (staleWeek) {
-        label.title = `${sourceLabel(key)} is stale. It remains available until Week ${activeReferenceWeek()} values are present.`;
+        label.title = `${sourceLabel(key)}: ${freshnessText(key)}. The current content week is Week ${activeReferenceWeek()}.`;
       }
       input.addEventListener("change", () => {
         if (input.checked) { activeSources.add(key); userDeselectedSources.delete(key); }
@@ -2845,7 +2830,7 @@
       } else if (staleWeek && hasData) {
         const meta = document.createElement("span");
         meta.className = "src-meta";
-        meta.textContent = `stale · waiting Wk ${activeReferenceWeek()}`;
+        meta.textContent = "newer week not yet published";
         text.appendChild(meta);
       }
       label.append(input, swatch, text);
