@@ -4,10 +4,14 @@ Read this first. It is short on purpose.
 
 ## Log what you did before you finish
 
-**Any session that changes anything in this repo appends an entry to
-`docs/claude-log.md` before it ends.** Not just code changes — an investigation
-that concluded something, a claim about what is broken, a number you measured.
-The format and the reasoning behind it are at the top of that file.
+**Any session that changes anything in this repo writes its own log entry
+before it ends.** Create `docs/claude-log/YYYY-MM-DD-<short-slug>.md` (e.g.
+`docs/claude-log/2026-10-08-fix-coverage-gate.md`). Not just code changes — an
+investigation that concluded something, a claim about what is broken, a number
+you measured. The format and the rules are in `docs/claude-log/README.md`.
+
+`docs/claude-log.md` is the frozen archive of entries from before 2026-10-07;
+do not append to it. New entries go only in the `docs/claude-log/` directory.
 
 The rule that matters: separate what you **verified** (and name the check) from
 what you **claimed** without confirming. A previous session's unverified
@@ -18,7 +22,7 @@ editing the old one.
 Durable issues go in `docs/risk-register.md` as well; that is the standing issue
 list, while the log is the record of who checked what.
 
-Do not leave durable gaps only in chat or only in `docs/claude-log.md`. If a
+Do not leave durable gaps only in chat or only in `docs/claude-log/`. If a
 session discovers a real open issue, stale document, missing validation path, or
 fixed correctness defect that future sessions would otherwise rediscover, add or
 update its row in `docs/risk-register.md` before finishing.

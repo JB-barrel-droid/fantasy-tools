@@ -13,6 +13,8 @@ overrides for manual re-runs.
 Fail-closed: no match file -> exit 1 before touching Supabase; verifies the
 delete count and insert count before committing.
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re

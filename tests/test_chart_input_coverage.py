@@ -11,6 +11,7 @@ here:
     rows are visually distinct — yellow background + "⚠ no monitor" badge —
     so the gap is visible on purpose, not hidden.
 """
+from __future__ import annotations
 
 import importlib.util
 import json

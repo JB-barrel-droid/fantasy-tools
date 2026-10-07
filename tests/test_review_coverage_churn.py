@@ -14,7 +14,7 @@ Boutte for Keon Coleman (76 -> 76).
 
 Every case below runs against a hermetic fixture + players file. The
 tolerated case and the stale-baseline case FAIL on the pre-JEG-436 reviewer
-(negative proof recorded in docs/claude-log.md); the hold cases prove the
+(negative proof recorded in docs/claude-log/); the hold cases prove the
 rule stays fail-closed for large, non-tail, still-listed, identity-loss,
 live-contradicted and unnamed drops.
 """

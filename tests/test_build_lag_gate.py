@@ -2,7 +2,7 @@
 """Decision build-lag-001: the import-health gate tolerates a ONE-week lag.
 
 Guards (each negative-tested against the pre-build-lag-001 gate, see
-docs/claude-log.md 2026-10-07):
+docs/claude-log/ 2026-10-07 entry):
 
   LAG-001  A week-designated source exactly one content week behind is a
            non-blocking `warning` with reason "LAGGING_ONE_WEEK
