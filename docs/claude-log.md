@@ -1,5 +1,26 @@
 # Claude session log
 
+## 2026-10-07 - JEG-437 item 6: decisions log entries reformatted, test gated
+
+### Verified (check named)
+- Before: `python3 -m unittest tests.test_decisions_log` failed `test_committed_file_parses`
+  with 18 errors, all from copy-vorp-001, ops-ownership-001, league-settings-001
+  (outcome `approved` is not in the allowed set; required sections missing or out
+  of order). build-lag-001 had no errors.
+- After: the same command passes (15 tests). Only docs/decisions.md changed: outcome
+  `approved` -> `proceeded` with the approval recorded in the Outcome Note,
+  Context/Problem/Options/Recommendation added from the existing text, extra
+  `### Decision/Consequences` sections folded into Recommendation (the validator
+  requires the five sections contiguous). The test was not edited.
+- Gated: tests.test_decisions_log added to Makefile `test-unit`; `make validate` exit 0.
+- Negative evidence: the pre-fix file is the broken state (18 errors); the test's own
+  fixtures cover bad outcome, missing and out-of-order sections.
+
+### Claimed, not confirmed
+- Option lists for the three older entries are reconstructed from the entries' own
+  text (the original entries recorded only the decision), not from the original
+  discussion. Jeremy's quoted words are unchanged.
+
 ## 2026-10-07 - Monitoring coverage audit ("working and monitored")
 
 Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a
