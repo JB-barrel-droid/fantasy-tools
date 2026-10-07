@@ -38,3 +38,20 @@ already Week 5; the other three were Week 4.
 ### Claimed, not confirmed
 - The FantasyPros CI save and the chain picking up USA Today/FantasyPros Week 5:
   see the follow-up entry below once observed.
+
+### Follow-up: chain held the Week 5 candidates on native_drift
+- Observed: chain run 37689274819 (21:25Z) imported USA Today 756 rows and
+  FantasyPros 531 rows (vintage 2026-10-06) and held both:
+  `native_drift:full_12:fail -- 138/239 values moved` (USA Today), `102/171`
+  (FantasyPros), "live verification skipped". Drift was the only failing
+  check; the rest were coverage warns.
+- Cause: the drift rule could only be cleared by FantasyCalc's live-API check.
+  The vintage-aware rule (FIX-008 in the risk register) exists only on the
+  archived `fantasy-tools-clean` branch, not on main.
+- Fix: `review_comparison_candidate.newer_vintage()`: when the candidate is a
+  newer publication (higher designated week, or a later content date at the same
+  week), drift above 5% is a `warn` naming both vintages. Same-vintage and
+  older-candidate drift still fails. Tests in `tests/test_review_candidate.py`;
+  the two newer-vintage tests fail on the old reviewer, and the same-vintage
+  and older-candidate tests pass on both.
+- `make validate` exit 0.

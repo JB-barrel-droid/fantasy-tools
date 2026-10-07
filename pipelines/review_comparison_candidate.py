@@ -337,6 +337,32 @@ def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
                   f"(tolerance {cap}); no longer listed by the source: {names}")
 
 
+def _week_num(value):
+    m = re.search(r"(\d+)", str(value)) if value not in (None, "") else None
+    return int(m.group(1)) if m else None
+
+
+def newer_vintage(cand, fx_section):
+    """Return a description when the candidate is a newer publication than the
+    fixture section (higher designated week, or same/unknown week with a later
+    content date), else None.
+
+    Week-over-week the publishers re-rank most of their chart, so native drift
+    against an older week is measured source movement, not corruption. Drift
+    at the same (or an unknown) vintage keeps the hard fail.
+    """
+    if not fx_section:
+        return None
+    cw, fw = _week_num(cand.get("week_designated")), _week_num(fx_section.get("week_designated"))
+    if cw is not None and fw is not None and cw != fw:
+        return f"Week {cw} vs fixture Week {fw}" if cw > fw else None
+    cd = str(cand.get("content_vintage") or "")[:10]
+    fd = str(fx_section.get("content_vintage") or "")[:10]
+    if re.match(r"\d{4}-\d{2}-\d{2}$", cd) and re.match(r"\d{4}-\d{2}-\d{2}$", fd) and cd > fd:
+        return f"content {cd} vs fixture {fd}"
+    return None
+
+
 def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
                      players_path=None, no_live_verify=False):
     cand = _load_json(reindexed_path)
@@ -444,7 +470,13 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         detail["native_shared"] = len(shared)
         detail["native_drifted"] = len(drifted)
         detail["native_drift_frac"] = round(frac, 4)
-        if frac > DRIFT_FAIL_FRAC:
+        newer = newer_vintage(cand, fx_section)
+        if frac > DRIFT_FAIL_FRAC and newer:
+            checks.append(_check(f"native_drift:{combo_name}", "warn",
+                                 f"{len(drifted)}/{len(shared)} values moved > "
+                                 f"{DRIFT_TOL} -- newer publication ({newer}); "
+                                 "measured source movement"))
+        elif frac > DRIFT_FAIL_FRAC:
             # Jeremy 2026-10-04: before failing on drift, verify the top-25
             # candidate natives against the live site. If the live site
             # matches, the drift is genuine (source moved) not a pipeline
