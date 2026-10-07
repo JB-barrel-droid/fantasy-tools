@@ -67,3 +67,36 @@ already Week 5; the other three were Week 4.
   Tests `test_unpromoted_combos_keep_their_own_week` and
   `test_combo_vintage_beats_relabelled_section` fail without the pipelines change.
 - `make validate` exit 0.
+
+### Follow-up 3: #387, v2, docs (same session)
+- Verified: chain run 37690151253 green, and USA Today and FantasyPros promoted as Week 5.
+  On the live page the default view has ESPN, FantasyCalc, USA Today and FantasyPros
+  (CBS stays off the first load until its Week 5 posts, JEG-432 R5), and
+  `fixedPieIndexed` true.
+- #387: merged current main (one conflict, `tests/test_static_export.py`, took
+  main's recompute guard). `make validate` exit 0. The published views and
+  league-settings render tests passed 4/4 after `make sync`. Ran a 12-combo x
+  3-view headless sweep against a freshly built main: `fixedPieIndexed` true in
+  36/36 cells, `sourceScaleAgreement` false in 36/36 on both (GAP-026), Indexed
+  curve starts within 0.03 of main. In the value-above-waivers view the curves
+  start between about 43 and 96 against an ESPN anchor of about 70. Jeremy
+  restated the method instead of choosing a cap (recorded in
+  `docs/methodology.md`, "The Three Views"). Squash-merged as 6897314. Live check
+  at Half PPR, 10 teams: both views draw and `fixedPieIndexed` is true.
+- v2: merged main into `v2-frontend` cleanly, `make validate` exit 0. Headless: the
+  top-40 `getRows()` are identical on `/` and `/v2/`, no page errors, no horizontal
+  overflow at 390px. Merged to main as 3ec8d97; live `/v2/` renders 515 rows.
+- Copy: the stale `fantasy-tools-clean` CLAUDE.md says "never say VORP", but
+  decision copy-vorp-001 (2026-10-06) made "VORP vs waivers" the allowed phrase.
+  v2 complies.
+- Docs: `execution/current-plan.md` rewritten. Risk register: 11 rows closed
+  or fixed with evidence, 1 partly fixed, 28 deferred as pre-launch
+  gates/monitoring/process, 12 kept open (numbers or page), 2 new rows
+  (GAP-FP-NAME-RESOLVE, GAP-APP-ASSETS-LAG).
+- Closed PRs #396, #397, #398 (branches kept). Archived the local
+  `~/Projects/fantasy-tools-clean` checkout: its 10 local commits are on
+  `origin/backup/fantasy-tools-clean-2026-09-30`.
+
+### Claimed, not confirmed
+- The deferred classification is my judgement from each row's text, not a re-check
+  of each issue against main.
