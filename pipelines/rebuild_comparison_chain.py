@@ -141,9 +141,13 @@ def process_section(section, repo, run_fn, nfl_week=None):
     # Supabase grain (fetch_translated filters week=eq) and stamps it in the
     # provenance. Without this the stage silently reuses the default week
     # after rollover.
+    # JEG332-STORED-DRIFT: translate from the section's OWN natives. The
+    # Supabase grain is written after promotion (run_vorp_refresh) from the
+    # previous natives, so reading it here promoted a stale translation on
+    # every native refresh (USA Today, 2026-10-02).
     vorp_cmd = [
         "python3", "pipelines/translate_via_vorp.py",
-        "--section", str(reindexed),
+        "--section", str(reindexed), "--translation", "natives",
     ]
     if nfl_week is not None:
         vorp_cmd += ["--week", str(nfl_week)]

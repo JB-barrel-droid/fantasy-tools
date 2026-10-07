@@ -222,6 +222,8 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
         cells_by_source[source] = cell_map
 
     sources = fixture.get("sources") or {}
+    prior_sections = {k: dict(v) for k, v in sources.items()
+                      if k.endswith("_adjusted") and isinstance(v, dict)}
     source_validation = fixture.get("source_validation") or {}
     stats = {}
 
@@ -389,6 +391,11 @@ def build_adjusted_sections(fixture_path: Path, inputs_path: Path, players_path:
             "combos": adjusted_combos,
             "lineage": lineage,
         }
+        # Keep the league-settings-001 retirement record (retire_fixture_setups.py)
+        # across rebuilds; it documents setups that are no longer saved.
+        prior_retired = (prior_sections.get(adjusted_key) or {}).get("retired_setups")
+        if prior_retired:
+            sources[adjusted_key]["retired_setups"] = prior_retired
         source_validation[adjusted_key] = "live"
         stats[source] = {
             "status": "built",

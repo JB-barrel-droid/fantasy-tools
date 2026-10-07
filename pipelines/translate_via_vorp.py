@@ -121,16 +121,26 @@ def resolve_key(slug, combo_keys, fixture_keys, name_keys):
 
 
 def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys,
-                week=None, season=None):
+                week=None, season=None, natives_run=None):
     """Substitute translated values into one combo. Returns a report dict.
 
     week/season stamp the provenance grain (JEG-70): without them the
     recorded grain cannot be checked for freshness downstream.
+
+    natives_run (JEG332-STORED-DRIFT): the unified.translate_natives result
+    for THIS combo's natives. When given, identity comes from its slug_keys
+    and a player the translation priced at or below the waiver line is set to
+    0 (n_below_waiver) instead of keeping the flex-aware pie value, so the
+    saved 12-team values and the browser derivation agree (a player at or
+    below waivers is worth nothing above waivers). Only players the
+    translation could not price at all (no identity) keep the pie fallback.
     """
     grain = parse_combo(combo_name)
     report = {"source": source, "combo": combo_name, "method": None,
               "n_translated": 0, "n_fallback_reindex": 0, "n_total": 0,
               "week": week, "season": season}
+    if natives_run is not None:
+        report["n_below_waiver"] = 0
     reindexed = combo.get("reindexed")
     if not isinstance(reindexed, dict) or not reindexed:
         report["method"] = "reindex-fallback"
@@ -138,17 +148,35 @@ def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys,
         combo["translation"] = _provenance(report, grain)
         return report
     combo_keys = combo.get("player_keys", {}) or {}
+    slug_keys = (natives_run or {}).get("slug_keys") or {}
+    evaluated = (natives_run or {}).get("evaluated") or set()
     for slug, val in list(reindexed.items()):
         report["n_total"] += 1
-        key = resolve_key(slug, combo_keys, fixture_keys, name_keys)
+        key = slug_keys.get(slug) or resolve_key(slug, combo_keys, fixture_keys, name_keys)
         tval = translated.get(key) if key is not None else None
         if tval is None:
+            if natives_run is not None and key in evaluated:
+                reindexed[slug] = 0.0
+                report["n_below_waiver"] += 1
+                continue
             report["n_fallback_reindex"] += 1
             continue
         reindexed[slug] = tval
         report["n_translated"] += 1
     report["method"] = "vorp-supabase" if report["n_translated"] else "reindex-fallback"
     combo["translation"] = _provenance(report, grain)
+    if natives_run is not None and report["method"] == "vorp-supabase":
+        combo["translation"]["translated_from"] = "combo-natives"
+        combo["translation"]["n_below_waiver"] = report["n_below_waiver"]
+        combo["translation"]["note"] = (
+            "JEG-62 value-above-waivers translation computed in-process "
+            "(unified.translate_natives) from this combo's own native values "
+            "at the default roster; publisher_translated_values is a record "
+            "written later by refresh_vorp_translation and is not read for "
+            "these values. Players at or below the "
+            "waiver line are 0 (n_below_waiver); only players the translation "
+            "could not identify keep the flex-aware pie value "
+            "(n_fallback_reindex). JEG332-STORED-DRIFT.")
     if report["method"] == "vorp-supabase":
         # Keep the superseded quantile fit record (history) and document the
         # substitution alongside it, so downstream readers don't mistake the
@@ -161,6 +189,9 @@ def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys,
             "n_translated": report["n_translated"],
             "n_fallback_reindex": report["n_fallback_reindex"],
         }
+        if natives_run is not None:
+            fit["vorp_translation"]["translated_from"] = "combo-natives"
+            fit["vorp_translation"]["n_below_waiver"] = report["n_below_waiver"]
     return report
 
 
@@ -203,6 +234,21 @@ def _qb_divergent_siblings(source, sdata):
     return must_fallback
 
 
+_REGISTRY = None
+
+
+def _natives_run(combo, teams):
+    """unified.translate_natives on one combo's natives (marked for apply_combo)."""
+    global _REGISTRY
+    sys.path.insert(0, str(REPO))
+    from pipelines.vorp_translation import unified
+    if _REGISTRY is None:
+        _REGISTRY = unified.naming_registry()
+    run = unified.translate_natives(combo.get("native") or {}, teams, reg=_REGISTRY)
+    run["__natives_run__"] = True
+    return run
+
+
 def _provenance(report, grain):
     scoring, teams = grain if grain else (None, None)
     return {
@@ -218,8 +264,16 @@ def _provenance(report, grain):
     }
 
 
-def translate_document(doc, week=4, season=2026, sb=None, strict=False):
+def translate_document(doc, week=4, season=2026, sb=None, strict=False,
+                       translation="supabase"):
     """Substitute translated values across every eligible combo in doc.
+
+    translation: "supabase" reads the stored grain (publisher_translated_values);
+    "natives" computes the same translation from each combo's own natives
+    (unified.translate_natives) and zeroes players at or below the waiver line.
+    The comparison chain uses "natives" (JEG332-STORED-DRIFT): the stored grain
+    is written from the previous run's natives, so it is stale whenever the
+    natives being promoted are new.
 
     doc is the parsed fixture or section artifact (mutated in place).
     Never raises in fail-safe mode (strict=False): any Supabase error keeps
@@ -267,6 +321,10 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False):
                 reports.append(report)
                 continue
             scoring, teams = grain
+            if translation == "natives":
+                run = _natives_run(combo, teams)
+                jobs.append((source, combo_name, combo, run))
+                continue
             try:
                 translated = fetch_translated(source, scoring, teams, week, season, sb=sb)
             except Exception as e:  # fail-safe: fall back, never halt
@@ -287,9 +345,13 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False):
                                               parse_combo(combo_name))
             reports.append(report)
             continue
+        natives_run = None
+        if isinstance(translated, dict) and translated.get("__natives_run__"):
+            natives_run = translated
+            translated = natives_run["translated"]
         report = apply_combo(source, combo_name, combo, translated,
                              fixture_keys, name_keys,
-                             week=week, season=season)
+                             week=week, season=season, natives_run=natives_run)
         # Empty grain = same fail-safe path: keep reindexed, mark fallback.
         if not translated:
             combo["translation"] = _provenance({**report, "week": week,
@@ -317,6 +379,10 @@ def main(argv=None):
     ap.add_argument("--week", type=int, default=4)
     ap.add_argument("--season", type=int, default=2026)
     ap.add_argument("--out", default=None, help="Output path (default: in place).")
+    ap.add_argument("--translation", choices=("supabase", "natives"), default="supabase",
+                    help="supabase: read the stored grain; natives: compute the "
+                         "translation from each combo's own natives (the chain's "
+                         "mode, JEG332-STORED-DRIFT).")
     ap.add_argument("--strict", action="store_true",
                     help="Raise on Supabase errors instead of falling back.")
     ap.add_argument("--rebuild-adjusted", action="store_true",
@@ -329,7 +395,8 @@ def main(argv=None):
     path = Path(args.section or args.fixture or
                 REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json")
     doc = json.loads(path.read_text(encoding="utf-8"))
-    summary = translate_document(doc, week=args.week, season=args.season, strict=args.strict)
+    summary = translate_document(doc, week=args.week, season=args.season, strict=args.strict,
+                                 translation=args.translation)
     out_path = Path(args.out) if args.out else path
     out_path.write_text(json.dumps(doc, indent=1) + "\n", encoding="utf-8")
     print(json.dumps({k: v for k, v in summary.items() if k != "reports"}))

@@ -186,6 +186,7 @@ test-unit:
 	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
+	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp

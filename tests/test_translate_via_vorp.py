@@ -160,6 +160,81 @@ class TestQbDivergenceGuard(unittest.TestCase):
         self.assertEqual(by_combo["half_8_qb2"]["method"], "vorp-supabase")
 
 
+class TestNativesTranslation(unittest.TestCase):
+    """JEG332-STORED-DRIFT: the chain translates each combo from its OWN natives.
+
+    The stored Supabase grain is written after promotion from the previous
+    natives, so reading it during a refresh promotes a stale translation.
+    Natives mode must (a) never read Supabase, (b) reproduce
+    unified.translate_natives exactly, (c) set at/below-waiver players to 0,
+    and (d) follow a native refresh that the stale grain does not.
+    """
+
+    def setUp(self):
+        sys.path.insert(0, str(ROOT))
+        from pipelines.vorp_translation import unified
+        self.unified = unified
+        self.fixture = json.loads(FIXTURE.read_text())
+
+    def _section(self, source="usatoday", combo="full_12"):
+        return {"source_key": source,
+                "combos": {combo: deepcopy(self.fixture["sources"][source]["combos"][combo])}}
+
+    def test_natives_mode_never_reads_supabase_and_zeroes_below_waiver(self):
+        doc = self._section()
+        boom = Exception("must not be called")
+        with patch.object(tv, "fetch_translated", side_effect=boom) as fetch:
+            summary = tv.translate_document(doc, week=4, season=2026, strict=True,
+                                            translation="natives")
+        fetch.assert_not_called()
+        combo = doc["combos"]["full_12"]
+        run = self.unified.translate_natives(combo["native"], 12)
+        tr = combo["translation"]
+        self.assertEqual(tr["translated_from"], "combo-natives")
+        n_above = n_below = 0
+        for slug, value in combo["reindexed"].items():
+            key = run["slug_keys"].get(slug)
+            if key in run["translated"]:
+                n_above += 1
+                self.assertEqual(value, run["translated"][key], slug)
+            elif key in run["evaluated"]:
+                n_below += 1
+                self.assertEqual(value, 0.0, slug)
+        self.assertGreater(n_below, 0)
+        self.assertEqual((tr["n_translated"], tr["n_below_waiver"]), (n_above, n_below))
+        self.assertEqual(summary["combos_vorp_supabase"], 1)
+
+    def test_natives_mode_follows_a_native_refresh_the_stale_grain_misses(self):
+        """Negative/discrimination: after a native refresh, the Supabase-grain path
+        keeps the old translation (the bug) while natives mode moves with it."""
+        base = self._section()
+        combo = base["combos"]["full_12"]
+        stale_grain = {k: v for k, v in
+                       self.unified.translate_natives(combo["native"], 12)["translated"].items()}
+        # A refresh: one mid-tier WR's native jumps.
+        run = self.unified.translate_natives(combo["native"], 12)
+        wr = sorted((s for s, k in run["slug_keys"].items() if k in run["translated"]
+                     and self.unified.naming_registry().by_key[int(k)]["position"] == "WR"),
+                    key=lambda s: -combo["native"][s])[10]
+        combo["native"][wr] = float(combo["native"][wr]) + 12.0
+        key = run["slug_keys"][wr]
+
+        via_grain = deepcopy(base)
+        with patch.object(tv, "fetch_translated", return_value=stale_grain):
+            tv.translate_document(via_grain, week=4, season=2026)
+        via_natives = deepcopy(base)
+        tv.translate_document(via_natives, week=4, season=2026, translation="natives")
+
+        fresh = self.unified.translate_natives(combo["native"], 12)["translated"][key]
+        self.assertNotEqual(fresh, stale_grain[key])
+        self.assertEqual(via_grain["combos"]["full_12"]["reindexed"][wr], stale_grain[key])
+        self.assertEqual(via_natives["combos"]["full_12"]["reindexed"][wr], fresh)
+
+    def test_chain_uses_natives_mode(self):
+        src = (ROOT / "pipelines" / "rebuild_comparison_chain.py").read_text()
+        self.assertIn('"--translation", "natives"', src)
+
+
 class TestJeg64RegressionGuard(unittest.TestCase):
     """Acceptance #4: USA Today RB shows ~70 (not the compressed 48-64
     reindexed band). The guard is state-aware: it must PASS on the translated
