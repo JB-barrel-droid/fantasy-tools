@@ -3114,6 +3114,31 @@
         values: Object.fromEntries(visibleSourceKeys().map(key => [key, row.values[key] ?? null]))
       }));
     },
+    // v2 front end (read-only): the ranked rows and source metadata the new
+    // layout renders, straight from the same maps this chart draws.
+    getRows: () => displayRows().map(row => ({...row, values: {...row.values}})),
+    getRankSource: () => selectedRankSourceKey(),
+    getActiveSources: () => activeSourceKeys(),
+    getReferenceWeek: () => activeReferenceWeek(),
+    getRosterShape: () => ({...rosterShape}),
+    setRosterSpot,
+    setBenchShareFraction,
+    getBenchShare: () => benchShare,
+    getBenchBounds: () => {
+      const bounds = twoTierConfig().bounds;
+      return bounds ? TwoTier.inwardBounds(bounds[0], bounds[1]) : null;
+    },
+    getPositionWeights: () => activePositionWeights(),
+    getSourceInfo: () => visibleSourceKeys().map(key => ({
+      key,
+      label: sourceLabel(key),
+      week: weekForSource(key),
+      stale: sourceIsStale(key),
+      available: sourceAvailable(key) && !isAdjustedCurvePaused(key),
+      paused: isAdjustedCurvePaused(key),
+      active: activeSources.has(key),
+      color: SOURCE_STYLES[key]?.color || null
+    })),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
     getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value]))
   };

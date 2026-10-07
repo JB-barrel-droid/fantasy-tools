@@ -494,6 +494,10 @@ def main() -> int:
         target.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source, target / "index.html")
 
+    # v2 front end: the new layout over the same engine and data (app/v2/).
+    from build_v2_page import build as build_v2_page
+    build_v2_page(DIST)
+
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0
 
