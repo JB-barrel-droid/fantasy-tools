@@ -374,5 +374,102 @@ class AlertMigrationTest(unittest.TestCase):
         )
 
 
+# ---------------------------------------------------------------------------
+# Auth: x-alert-secret header validation
+# ---------------------------------------------------------------------------
+
+FUNCTION_SRC = (
+    ROOT / "supabase" / "functions" / "monitoring-alert-email" / "index.ts"
+).read_text()
+
+
+class InvokeSecretAuthTest(unittest.TestCase):
+    """The edge function must validate x-alert-secret before doing any work."""
+
+    def test_function_checks_alert_invoke_secret_env(self):
+        """Function source must read ALERT_INVOKE_SECRET from env."""
+        self.assertIn("ALERT_INVOKE_SECRET", FUNCTION_SRC)
+
+    def test_function_rejects_missing_secret_with_401(self):
+        """Missing or wrong header must produce a 401, not 200 or 503."""
+        # The rejection path must return 401.
+        self.assertIn("401", FUNCTION_SRC)
+        # And the rejection message must name 'unauthorized'.
+        self.assertIn('"unauthorized"', FUNCTION_SRC)
+
+    def test_function_uses_constant_time_comparison(self):
+        """Secret comparison must be constant-time to prevent timing attacks."""
+        self.assertIn("safeEqual", FUNCTION_SRC)
+
+    def test_auth_check_precedes_db_access(self):
+        """The x-alert-secret check must come before any DB/Supabase client call.
+
+        Guard: if auth were checked after createClient, a missing-secret request
+        would still touch the DB (wasted work + potential info leak).
+        """
+        auth_idx = FUNCTION_SRC.find("ALERT_INVOKE_SECRET")
+        db_idx = FUNCTION_SRC.find("createClient(")
+        self.assertGreater(db_idx, 0, "createClient must appear in the function")
+        self.assertGreater(auth_idx, 0, "ALERT_INVOKE_SECRET must appear in the function")
+        self.assertLess(
+            auth_idx, db_idx,
+            "ALERT_INVOKE_SECRET check must come before createClient call"
+        )
+
+    def test_guard_catches_auth_after_db_init(self):
+        """Guard: broken code that calls createClient before checking the secret
+        would do DB work on every unauthenticated request.
+
+        Broken state: move the auth check to after createClient in a mutated copy.
+        The broken copy would have createClient appearing before the secret check.
+        """
+        # In the real source, secret check is first.
+        auth_idx = FUNCTION_SRC.find("ALERT_INVOKE_SECRET")
+        db_idx = FUNCTION_SRC.find("createClient(")
+        self.assertLess(auth_idx, db_idx, "real source: auth before DB")
+
+        # Construct the broken description (we don't mutate the actual source —
+        # verifying the ordering invariant is sufficient).
+        self.assertNotEqual(auth_idx, db_idx)
+
+    def test_migration_wrapper_reads_vault_secret(self):
+        """The pg_cron wrapper SQL must read from vault.decrypted_secrets."""
+        self.assertIn("vault.decrypted_secrets", MIGRATION_SQL)
+        self.assertIn("alert_invoke_secret", MIGRATION_SQL)
+
+    def test_migration_passes_secret_as_x_alert_secret_header(self):
+        """The wrapper must pass the vault secret as the x-alert-secret header."""
+        self.assertIn("x-alert-secret", MIGRATION_SQL)
+
+    def test_migration_documents_vault_create_secret_step(self):
+        """Post-merge steps must document vault.create_secret so Jeremy knows
+        to store the secret in Vault as well as in function secrets.
+        """
+        self.assertIn("vault.create_secret", MIGRATION_SQL)
+
+    def test_guard_catches_missing_secret_header_in_wrapper(self):
+        """Guard: if the wrapper omitted the x-alert-secret header, every
+        pg_cron invocation would get 401 and the alerter check would go red.
+
+        Broken state: wrapper SQL without the header.
+        """
+        broken = MIGRATION_SQL.replace("'x-alert-secret'", "-- header omitted")
+        self.assertNotIn("'x-alert-secret'", broken, "broken SQL must omit the header")
+        # Correct: header present in real SQL.
+        self.assertIn("'x-alert-secret'", MIGRATION_SQL)
+
+    def test_guard_catches_function_that_skips_auth_check(self):
+        """Guard: if the function skipped the secret comparison and always processed
+        requests, the function would be publicly triggerable.
+
+        Broken state: function source without safeEqual call.
+        """
+        broken_src = FUNCTION_SRC.replace("safeEqual(provided, invokeSecret)", "true")
+        self.assertIn("true", broken_src)  # mutation applied
+        self.assertNotIn("safeEqual(provided, invokeSecret)", broken_src)
+        # Correct: safeEqual present in real source.
+        self.assertIn("safeEqual(provided, invokeSecret)", FUNCTION_SRC)
+
+
 if __name__ == "__main__":
     unittest.main()

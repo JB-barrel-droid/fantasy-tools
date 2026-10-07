@@ -5,22 +5,49 @@
  * compares with monitoring.alert_state to find transitions (newly bad or
  * recovered), and sends ONE digest email via Resend on each batch.
  *
- * Fail-closed: if RESEND_API_KEY is absent, records a failed observation
- * and returns 503 so the evaluator marks this check red.
+ * Auth: deployed with --no-verify-jwt (avoids the JWT bearer issue that
+ * broke live-page-synthetic).  Instead, every request must carry an
+ * x-alert-secret header whose value matches the ALERT_INVOKE_SECRET env var.
+ * Requests without the header, or with the wrong value, receive 401 and no
+ * observation is recorded.  The pg_cron wrapper reads the secret from Vault
+ * (vault.decrypted_secrets name='alert_invoke_secret') and injects it.
+ *
+ * Fail-closed: if RESEND_API_KEY or ALERT_INVOKE_SECRET is absent, records a
+ * failed observation and returns 503 so the evaluator marks this check red.
  *
  * Deploy: supabase functions deploy monitoring-alert-email --no-verify-jwt \
  *           --project-ref iskiybsimubiujwuchsl
  *
- * Required secret:
- *   supabase secrets set RESEND_API_KEY=re_... --project-ref iskiybsimubiujwuchsl
- *
- * Note: deployed with --no-verify-jwt so pg_cron can POST with no bearer token.
- * The function reads no user data and sends only to the hard-coded owner address,
- * so exposure risk is low: an unauthenticated caller can trigger a state check
- * but cannot read secrets or exfiltrate data.
+ * Required secrets (both must be set):
+ *   supabase secrets set ALERT_INVOKE_SECRET=<random-uuid> \
+ *     --project-ref iskiybsimubiujwuchsl
+ *   supabase secrets set RESEND_API_KEY=re_... \
+ *     --project-ref iskiybsimubiujwuchsl
+ *   -- also store the invoke secret in Vault so pg_cron can read it:
+ *   select vault.create_secret('<same-random-uuid>','alert_invoke_secret');
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+// Constant-time string comparison to prevent timing attacks on the secret.
+function safeEqual(a: string, b: string): boolean {
+  const enc = new TextEncoder();
+  const ab = enc.encode(a);
+  const bb = enc.encode(b);
+  if (ab.length !== bb.length) {
+    // Still iterate to prevent length-based timing leak.
+    let diff = 0;
+    for (let i = 0; i < Math.max(ab.length, bb.length); i++) {
+      diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0);
+    }
+    return false;
+  }
+  let diff = 0;
+  for (let i = 0; i < ab.length; i++) {
+    diff |= ab[i] ^ bb[i];
+  }
+  return diff === 0;
+}
 
 const RESEND_API_URL = "https://api.resend.com/emails";
 const RECIPIENT = "jeremy.burstyn@gmail.com";
@@ -46,8 +73,20 @@ interface AlertStateRow {
   last_alerted_at: string;
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
   const startMs = Date.now();
+
+  // --- Auth check (before touching any DB or sending anything) ---
+  const invokeSecret = Deno.env.get("ALERT_INVOKE_SECRET");
+  if (!invokeSecret) {
+    // Secret not configured: fail closed, no observation recorded here
+    // (we have no DB client yet; the evaluator will mark this check missed).
+    return jsonResponse({ error: "ALERT_INVOKE_SECRET not configured" }, 503);
+  }
+  const provided = req.headers.get("x-alert-secret") ?? "";
+  if (!safeEqual(provided, invokeSecret)) {
+    return jsonResponse({ error: "unauthorized" }, 401);
+  }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");

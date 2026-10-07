@@ -5,27 +5,40 @@
 --
 -- POST-MERGE STEPS (Jeremy must do these after the PR merges):
 --
---   1. Deploy the edge function:
---      supabase functions deploy monitoring-alert-email --no-verify-jwt \
---        --project-ref iskiybsimubiujwuchsl
+--   1. Generate a random secret (e.g. uuidgen or openssl rand -hex 32) and
+--      store it in TWO places — they must match exactly:
 --
---   2. Set the one required secret:
+--      a. As a Supabase function secret (read by the edge function at runtime):
+--         supabase secrets set ALERT_INVOKE_SECRET=<random> \
+--           --project-ref iskiybsimubiujwuchsl
+--
+--      b. In Supabase Vault so the pg_cron wrapper can read it back:
+--         Run once in the Supabase SQL editor (or via supabase db execute):
+--         SELECT vault.create_secret('<same-random>', 'alert_invoke_secret');
+--
+--   2. Set the Resend API key:
 --      supabase secrets set RESEND_API_KEY=re_... \
 --        --project-ref iskiybsimubiujwuchsl
 --      (Create a free Resend account at resend.com, generate an API key.
 --      Resend's onboarding@resend.dev sender works for owner-address sends
 --      without a verified domain — no domain setup required for a first test.)
 --
--- FUNCTION AUTH (why --no-verify-jwt):
+--   3. Deploy the edge function:
+--      supabase functions deploy monitoring-alert-email --no-verify-jwt \
+--        --project-ref iskiybsimubiujwuchsl
+--
+-- FUNCTION AUTH (why --no-verify-jwt + x-alert-secret):
 --   The previous live-page edge function used verify_jwt=true and was called
 --   from pg_cron with a vault bearer token (supabase_service_key) that did
 --   not match the function's JWT secret — every call returned 401 while
 --   cron.job_run_details showed "succeeded".  This function is deployed with
---   --no-verify-jwt to avoid that pattern.  The function reads no user data
---   and sends only to the hard-coded owner email, so the exposure risk of
---   unauthenticated callers is low (they can trigger a state check but cannot
---   read secrets or exfiltrate data).  The invoker wrapper is still
---   REVOKE'd from anon so it cannot be called via the Postgres REST API.
+--   --no-verify-jwt to avoid that JWT confusion.  Instead, it validates a
+--   shared secret in the x-alert-secret header (constant-time comparison).
+--   The pg_cron wrapper reads the secret from Vault and injects it as the
+--   header.  If the vault secret is missing the wrapper sends an empty
+--   header, which the function rejects with 401.
+--   The invoker wrapper is REVOKE'd from anon so it cannot be called via
+--   the Postgres REST API.
 
 -- ===========================================================================
 -- 1. alert_state: one row per check; tracks the last state we emailed about.
@@ -66,28 +79,41 @@ INSERT INTO monitoring.check_config (
     900,  -- 15-minute cadence matches the cron schedule
     'pg_cron',
     'monitoring-alert-email-15min',
-    '{"severity":"page","label":"Monitoring alert emailer","pg_cron_job":"monitoring-alert-email-15min","what":"monitoring-alert-email edge function ran without error every 15 minutes (self-reporting via check_observations; verify_jwt=false)"}',
+    '{"severity":"page","label":"Monitoring alert emailer","pg_cron_job":"monitoring-alert-email-15min","what":"monitoring-alert-email edge function ran without error every 15 minutes (self-reporting via check_observations; x-alert-secret auth; verify_jwt=false)"}',
     1
 )
 ON CONFLICT (check_id) DO NOTHING;
 
 -- ===========================================================================
--- 3. Invoker wrapper: SECURITY DEFINER so cron.job runs it as the owner,
---    not as a low-privileged role.
+-- 3. Invoker wrapper: SECURITY DEFINER so cron.job runs it as the owner.
+--    Reads the invoke secret from Vault and passes it as x-alert-secret.
+--    If the vault secret is absent the header is empty; the function rejects
+--    the request with 401 and the monitoring check goes missed → red.
 -- ===========================================================================
 
 CREATE OR REPLACE FUNCTION public.invoke_monitoring_alert_email()
  RETURNS bigint
  LANGUAGE plpgsql
  SECURITY DEFINER
- SET search_path TO 'public', 'pg_temp'
+ SET search_path TO 'public', 'vault', 'pg_temp'
 AS $function$
 DECLARE
-  req_id bigint;
+  req_id       bigint;
+  invoke_secret text;
 BEGIN
+  -- Read the shared secret from Vault.  Absent = empty string; the function
+  -- will reject the call with 401 so the monitoring check goes red.
+  SELECT decrypted_secret INTO invoke_secret
+    FROM vault.decrypted_secrets
+   WHERE name = 'alert_invoke_secret'
+   LIMIT 1;
+
   SELECT net.http_post(
     url     := 'https://iskiybsimubiujwuchsl.supabase.co/functions/v1/monitoring-alert-email',
-    headers := jsonb_build_object('Content-Type', 'application/json'),
+    headers := jsonb_build_object(
+                 'Content-Type',    'application/json',
+                 'x-alert-secret',  coalesce(invoke_secret, '')
+               ),
     body    := '{}'::jsonb
   ) INTO req_id;
   RETURN req_id;
