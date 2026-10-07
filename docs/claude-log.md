@@ -1,5 +1,42 @@
 # Claude session log
 
+## 2026-10-07 — Claude (cloud session, coordinator): merge origin/main into published-views-every-setting (PR #387)
+
+Merged origin/main into branch published-views-every-setting (PR #387, JEG332-VORP-VIEWS). Two
+conflict files; push to origin; preview check passed.
+
+### Verified (check named)
+- Conflicts: docs/claude-log.md (HEAD had VORP-VIEWS + ~10:30 CDT entries; main's side was empty at
+  both conflict positions; STORED-DRIFT and ~11:00 CDT entries were non-conflicted shared content
+  already present after the markers). docs/risk-register.md: kept HEAD rows (JEG332-VORP-VIEWS fixed,
+  JEG363-VIEWS-LOOKUP, JEG332-BELOW-WAIVER-SAVED, JEG332-STORED-DRIFT, JEG332-VORP-REFRESH-RETIRED)
+  plus main-only rows (GAP-PROMOTE-WEEK-LABEL, GAP-CHAIN-PARTIAL-PUBLISH) and main's updated
+  JEG332-FC-WK5-HOLD (Fixed by JEG-436/#392); discarded main's stale JEG332-VORP-VIEWS "Open" row.
+- tests/test_published_league_settings_render.py: "never-derive" mutation is intact (the "always-derive"
+  mutation was replaced in b39ad59 because after #386 saving = deriving at the saved setup; unchanged).
+- make validate exit 0 (Python 3.12, export PATH=~/code/py312:$PATH; CHROMIUM_PATH=/opt/homebrew/bin/chromium).
+- 12-combo headless sweep (3 scorings x 4 league sizes, built dist/ from the merge commit):
+  fixedPieIndexed true 12/12; sourceScaleAgreement false 12/12 (non-blocking); 0 page errors.
+  | scoring   | teams | fixedPieIndexed | sourceScaleAgreement |
+  |-----------|-------|-----------------|----------------------|
+  | ppr       | 8     | true            | false                |
+  | ppr       | 10    | true            | false                |
+  | ppr       | 12    | true            | false                |
+  | ppr       | 14    | true            | false                |
+  | standard  | 8     | true            | false                |
+  | standard  | 10    | true            | false                |
+  | standard  | 12    | true            | false                |
+  | standard  | 14    | true            | false                |
+  | half_ppr  | 8     | true            | false                |
+  | half_ppr  | 10    | true            | false                |
+  | half_ppr  | 12    | true            | false                |
+  | half_ppr  | 14    | true            | false                |
+- git push origin published-views-every-setting successful (ee98cb9..0f5846c).
+- gh pr view 387 --json mergeable,mergeStateStatus -> MERGEABLE / CLEAN after preview pass (4m22s).
+
+### Claimed, unverified
+- None.
+
 ## 2026-10-07 - JEG-436: unblock the rebuild chain (FantasyCalc week-5 hold)
 
 Contract: the 13:33Z chain held FantasyCalc (combos_match: unknown
