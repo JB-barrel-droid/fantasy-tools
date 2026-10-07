@@ -192,6 +192,56 @@ def run_parity(vectors, model_path=VALUE_MODEL):
     return failures, results
 
 
+_SWEEP_SCRIPT = r"""
+const path = require("path");
+globalThis.window = globalThis;
+const VM = require(path.resolve(process.argv[2]));
+globalThis.ValueModel = VM;
+require(path.join(process.argv[1], "app/trade-value-chart/assets/curve-widget.js"));
+const T = globalThis.TradeValueTwoTier;
+const input = JSON.parse(require("fs").readFileSync(0, "utf8"));
+const out = {};
+for (const c of input.combos) {
+  const lists = {}, pool = {};
+  Object.entries(c.pool).forEach(([p, rows]) => {
+    lists[p] = rows.map(([k, v]) => ({id: String(k), x: v}));
+    pool[p] = rows.map(([k, v]) => ({key: k, value: v}));
+  });
+  const built = T.buildPositionTiers(lists, {teams: c.teams, slots: {...T.REF_SLOTS},
+    flexCount: T.REF_FLEX_COUNT, flexEligible: [...T.REF_FLEX_ELIGIBLE], benchMix: T.legacyBenchMixFor(c.teams)});
+  const bs = VM.feasibleBenchBounds({teams: c.teams, scoring: c.scoring, pool, tiers: built.tiers}).benchShare;
+  const bad = [];
+  if (!bs) { bad.push("no bounds"); }
+  else {
+    for (let m = Math.round(bs.min * 1000); m <= Math.round(bs.max * 1000); m += 1) {
+      const s = m / 1000;
+      T.POSITIONS.forEach(p => {
+        const cal = T.calibratePositionFeasible(built.tiers[p], built.tiers[p].surplus, s, p);
+        if (!cal || cal.invalid) bad.push(`${s}:${p}`);
+      });
+    }
+  }
+  out[`${c.scoring}/${c.teams}`] = bad;
+}
+process.stdout.write(JSON.stringify(out));
+"""
+
+
+def _sweep_withheld(model_path):
+    """{combo: ["share:POS", ...]} withheld steps across the rule's slider range."""
+    combos = []
+    for scoring in SCORINGS:
+        pool = fbb.projection_pool(scoring)
+        rows = {p: [[k, v] for k, v in r] for p, r in pool.items()}
+        combos.extend({"scoring": scoring, "teams": t, "pool": rows} for t in TEAMS)
+    proc = subprocess.run(["node", "-e", _SWEEP_SCRIPT, str(REPO), str(model_path)],
+                          input=json.dumps({"combos": combos}), capture_output=True, text=True,
+                          timeout=300)
+    if proc.returncode != 0:
+        raise AssertionError(f"sweep driver failed: {proc.stderr[:2000]}")
+    return json.loads(proc.stdout)
+
+
 class FeasibleBenchBoundsParity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -294,6 +344,32 @@ process.stdout.write(JSON.stringify(out));
         self.assertTrue(withheld["0.01"], "old 1% floor no longer withholds -- re-check the rule")
         for share in (lo, 0.15, hi):
             self.assertEqual(withheld[str(share)], [], f"share {share} withholds {withheld[str(share)]}")
+
+    def test_no_slider_step_withholds_a_position(self):
+        """Every 0.001 slider step in [min, max] prices all four positions.
+
+        test_old_fixed_range_withholds checks three shares in one combo. The
+        rule's claim is stronger: anywhere in [min, max], in every combo, the
+        live calibratePositionFeasible either solves at the request or falls
+        back to a feasible share. The fallback bisects on [0.01, requested]
+        and only succeeds if a midpoint lands inside the position's interval,
+        so this is data-dependent and checked on the committed projections.
+        Discrimination: the same sweep on a value-model.js copy with the
+        lower edge dropped (the pre-R2 0.01 floor) must find withheld steps.
+        """
+        withheld = _sweep_withheld(VALUE_MODEL)
+        self.assertEqual(len(withheld), len(SCORINGS) * len(TEAMS))
+        bad = {combo: steps[:4] for combo, steps in withheld.items() if steps}
+        self.assertEqual(bad, {}, f"slider steps withhold a position: {bad}")
+        src = VALUE_MODEL.read_text()
+        old = "var lo = Math.max(BENCH_SHARE_PRODUCT_MIN, shareCeil(loMax));"
+        self.assertIn(old, src, "mutation anchor missing")
+        with tempfile.TemporaryDirectory() as tmp:
+            broken = Path(tmp) / "value-model-floor.js"
+            broken.write_text(src.replace(old, "var lo = BENCH_SHARE_PRODUCT_MIN;", 1))
+            broken_withheld = _sweep_withheld(broken)
+        self.assertTrue(all(broken_withheld.values()),
+                        "sweep did not catch the 0.01 floor in every combo")
 
     def test_guard_catches_broken_ports(self):
         """Each realistic port bug must make the parity comparison fail."""
