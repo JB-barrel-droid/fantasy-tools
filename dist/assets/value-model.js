@@ -767,16 +767,16 @@
   //      (translatePublishedVorp) at the chosen teams/roster/bench, for every
   //      player above that setting's waiver line. The maxes themselves follow
   //      the setting (positionalMaxForSetup) when `projection` is passed;
-  //   2. every other player keeps the server's fail-safe value: the 12-team
-  //      flex-aware pie value (native x the 12-team bucket scale saved in
-  //      index_total) -- which is exactly the saved value for the players the
-  //      server itself left on the fallback at 12 teams.
+  //   2. every other player -- at or below that setting's waiver line, or
+  //      with no native value to rank -- is worth 0: value above waivers is
+  //      zero by definition.
   //
-  // DECISION FOR JEREMY (see docs/claude-log.md 2026-10-06): step 2 mirrors
-  // the server's fail-safe rather than pricing below-waiver players at zero.
+  // /3 (2026-10-07, Jeremy agreed): step 2 used to mirror the server's
+  // fail-safe (the saved value, or the 12-team flex-aware pie value) for
+  // below-waiver players. It now prices them at 0.
   // /2 (2026-10-07): optional `projection` makes the positional maxes follow
   // the setting (JEG332-DERIVED-PEAKS); both chart callers pass it.
-  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/2";
+  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/3";
   var SAVED_SETUP_TEAMS = 12;
   var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
 
@@ -789,50 +789,18 @@
     });
   }
 
-  // The 12-team flex-aware pie value for every bucketed player: natives
-  // ranked within position, dedicated / flex / bench buckets filled in that
-  // order at the saved bucket sizes, each scaled by its saved bucket scale.
-  function quantileReindexValues(opts) {
-    var native = opts.native;
-    var indexTotal = opts.indexTotal || {};
-    var posOf = opts.posOf;
-    var byPos = {};
-    POSITION_ORDER.forEach(function (pos) { byPos[pos] = []; });
-    native.forEach(function (value, key) {
-      var pos = posOf(key);
-      var v = Number(value);
-      if (byPos[pos] && isFinite(v)) byPos[pos].push({key: key, value: v});
-    });
-    var out = new Map();
-    POSITION_ORDER.forEach(function (pos) {
-      var buckets = (indexTotal[pos] || {}).buckets || {};
-      var rows = byPos[pos].sort(function (a, b) { return b.value - a.value; });
-      var i = 0;
-      ["dedicated", "flex", "bench"].forEach(function (role) {
-        var bucket = buckets[role];
-        if (!bucket) return;
-        var n = Number(bucket.n) || 0;
-        var scale = Number(bucket.scale);
-        rows.slice(i, i + n).forEach(function (row) {
-          if (isFinite(scale)) out.set(row.key, row.value * scale);
-        });
-        i += n;
-      });
-    });
-    return out;
+  // The translation's league arguments for a chart roster shape.
+  function settingForShape(teams, shape) {
+    return {
+      teams: Number(teams),
+      benchPerTeam: Number(shape.BENCH),
+      flexCount: Number(shape.FLEX),
+      slots: {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)},
+      flexEligible: flexEligible(shape)
+    };
   }
 
-  // opts: native (Map key -> saved 12-team native value), saved (Map key ->
-  // saved 12-team chart value), indexTotal (saved 12-team index_total),
-  // posOf(key), teams, shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}),
-  // projection (optional Map key -> ESPN per-game points for this scoring).
-  // Returns {version, values: Map, ourMax, positionalMax, translated,
-  // fallbackSaved, fallbackPie, unpriced}. The player set is the saved set, at every setting.
-  function derivePublishedSetup(opts) {
-    var native = opts.native;
-    var saved = opts.saved;
-    var posOf = opts.posOf;
-    var shape = opts.shape || SAVED_SETUP_SHAPE;
+  function rankedByPosition(native, posOf) {
     var ranked = {};
     POSITION_ORDER.forEach(function (pos) { ranked[pos] = []; });
     native.forEach(function (value, key) {
@@ -840,14 +808,23 @@
       var v = Number(value);
       if (ranked[pos] && isFinite(v)) ranked[pos].push({key: key, value: v});
     });
-    var base = translatePublishedVorp({ranked: ranked, teams: SAVED_SETUP_TEAMS});
-    var setting = {
-      teams: Number(opts.teams),
-      benchPerTeam: Number(shape.BENCH),
-      flexCount: Number(shape.FLEX),
-      slots: {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)},
-      flexEligible: flexEligible(shape)
-    };
+    return ranked;
+  }
+
+  // opts: native (Map key -> saved 12-team native value), saved (Map key ->
+  // saved 12-team chart value; only its KEY SET is used off the saved setup),
+  // indexTotal (unused since /3, accepted for callers), posOf(key), teams,
+  // shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}), projection (optional Map
+  // key -> ESPN per-game points for this scoring).
+  // Returns {version, values: Map, ourMax, positionalMax, translated,
+  // belowWaiver}. The player set is the saved set, at every setting.
+  function derivePublishedSetup(opts) {
+    var native = opts.native;
+    var saved = opts.saved;
+    var posOf = opts.posOf;
+    var shape = opts.shape || SAVED_SETUP_SHAPE;
+    var ranked = rankedByPosition(native, posOf);
+    var setting = settingForShape(opts.teams, shape);
     // JEG332-DERIVED-PEAKS: with our projections supplied, the positional
     // maxes follow the setting (positionalMaxForSetup); without them they stay
     // at OUR_MAX (the pre-2026-10-07 behaviour).
@@ -866,24 +843,146 @@
       ? positionalMaxForSetup(Object.assign({projection: projection}, setting))
       : TRANSLATION_OUR_MAX;
     var at = translatePublishedVorp(Object.assign({ranked: ranked, ourMax: ourMax}, setting));
-    var pie = quantileReindexValues({native: native, indexTotal: opts.indexTotal, posOf: posOf});
     var values = new Map();
-    var counts = {translated: 0, fallbackSaved: 0, fallbackPie: 0, unpriced: 0};
+    var counts = {translated: 0, belowWaiver: 0};
     saved.forEach(function (savedValue, key) {
       var t = at.translated[String(key)];
       if (t) { values.set(key, t.translated); counts.translated += 1; return; }
-      if (!base.translated[String(key)]) {
-        values.set(key, Number(savedValue)); counts.fallbackSaved += 1; return;
-      }
-      if (pie.has(key)) { values.set(key, pie.get(key)); counts.fallbackPie += 1; return; }
-      values.set(key, 0); counts.unpriced += 1;
+      values.set(key, 0); counts.belowWaiver += 1;
     });
     var maxes = {};
     POSITION_ORDER.forEach(function (pos) { maxes[pos] = ourMax[pos]; });
     return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
             positionalMax: projection ? POSITIONAL_MAX_VERSION : "fixed", ourMax: maxes,
-            values: values, translated: counts.translated, fallbackSaved: counts.fallbackSaved,
-            fallbackPie: counts.fallbackPie, unpriced: counts.unpriced};
+            values: values, translated: counts.translated, belowWaiver: counts.belowWaiver};
+  }
+
+  // ---------------------------------------------------------------------
+  // The chart's other two views for published charts at any league setting
+  // (JEG332-VORP-VIEWS, 2026-10-07; Jeremy: "I'm ok with however you set up
+  // values to get the tool working" -- math to be reviewed).
+  //
+  // The saved `vorp_views` (pipelines/build_imputed_vorps.py +
+  // build_reweighted_values.py) exist for one scoring at 12 teams. Everywhere
+  // else the browser derives both views from the same league arithmetic as
+  // derivePublishedSetup, so all three views agree on who is above waivers
+  // (everyone at or below the setting's waiver line is 0 in every view):
+  //
+  //   VORP vs waivers: each player's value above that setting's waiver line
+  //     in the publisher's own units (translatePublishedVorp `vorp`), times
+  //     ONE factor per chart so the chart's total equals our anchor's total
+  //     at this setting over the players the chart ranks (the sum of its
+  //     eight group budgets; measured on the shared set like sharedPieBasis,
+  //     so a thin chart is not forced taller). One factor, no re-tiering: the
+  //     publisher's own cross-position valuation is kept, and every curve has
+  //     the "same shared total as Indexed" (footnote copy).
+  //   Adjusted values: our position weighting applied. Players are grouped
+  //     position x role (starter = the translation's dedicated + flex count at
+  //     that position, bench = the rest of the rostered players); each group
+  //     shares OUR anchor's total for the same group in proportion to value
+  //     above waivers (build_imputed_vorps' eight-group recipe, weighted by
+  //     value above waivers instead of the raw published value so the waiver
+  //     line is a 0, not a cliff). Then ONE common factor puts the top player
+  //     across the batch (every published chart derived at this setting) at
+  //     70 -- build_reweighted_values' 70 anchor. Its blend-reference group
+  //     budgets exist for the saved setup only; here the budgets are the
+  //     anchor's own group totals at the setting.
+  //
+  // opts: sources {key: {native: Map key -> saved 12-team native value,
+  //       keys: Map|Set|Array of player keys to return (the plotted set),
+  //       budgets: {QB|RB|WR|TE: {starter, bench}} -- the anchor's group
+  //       totals over this chart's players (anchorGroupTotals with keys)}},
+  //       posOf(key), teams, shape.
+  // Returns {version, batchMax, adjScale, sources: {key: {vorp: Map, adj: Map,
+  // total, vorpScale, groups: {pos: {starter, bench}} (sum of value above
+  // waivers, publisher units)}}}.
+  var PUBLISHED_VIEWS_VERSION = "published-views-001/1";
+  var VIEW_TOP_OF_SCALE = 70.0;
+
+  function derivePublishedViews(opts) {
+    var shape = opts.shape || SAVED_SETUP_SHAPE;
+    var setting = settingForShape(opts.teams, shape);
+    var posOf = opts.posOf;
+    var out = {version: PUBLISHED_VIEWS_VERSION, batchMax: 0, adjScale: 0, sources: {}};
+    var grouped = {};
+    Object.keys(opts.sources || {}).forEach(function (src) {
+      var input = opts.sources[src];
+      var budgets = input.budgets || {};
+      var total = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        ["starter", "bench"].forEach(function (role) {
+          var b = Number((budgets[pos] || {})[role]);
+          if (isFinite(b) && b > 0) total += b;
+        });
+      });
+      var ranked = rankedByPosition(input.native, posOf);
+      var at = translatePublishedVorp(Object.assign({ranked: ranked}, setting));
+      var sorted = sortRanked(ranked);
+      var info = new Map();
+      var groups = {};
+      var vorpSum = 0;
+      POSITION_ORDER.forEach(function (pos) {
+        var p = at.positions[pos];
+        groups[pos] = {starter: 0, bench: 0};
+        if (!p) return;
+        var nStart = p.n_dedicated + p.n_flex;
+        sorted[pos].forEach(function (row, i) {
+          var t = at.translated[String(row.key)];
+          if (!t) return;
+          var role = i < nStart ? "starter" : "bench";
+          info.set(String(row.key), {pos: pos, role: role, vorp: t.vorp});
+          groups[pos][role] += t.vorp;
+          vorpSum += t.vorp;
+        });
+      });
+      var vorpScale = vorpSum > 0 ? total / vorpSum : 0;
+      var vorp = new Map();
+      var weighted = new Map();
+      var keys = input.keys instanceof Map ? Array.from(input.keys.keys()) : Array.from(input.keys);
+      keys.forEach(function (key) {
+        var row = info.get(String(key));
+        var v = 0, w = 0;
+        if (row) {
+          v = row.vorp * vorpScale;
+          var groupTotal = groups[row.pos][row.role];
+          var budget = Number((budgets[row.pos] || {})[row.role]);
+          w = groupTotal > 0 && isFinite(budget) && budget > 0 ? budget * row.vorp / groupTotal : 0;
+        }
+        vorp.set(key, v);
+        weighted.set(key, w);
+        if (w > out.batchMax) out.batchMax = w;
+      });
+      grouped[src] = weighted;
+      out.sources[src] = {vorp: vorp, total: total, vorpScale: vorpScale, groups: groups};
+    });
+    out.adjScale = out.batchMax > 0 ? VIEW_TOP_OF_SCALE / out.batchMax : 0;
+    Object.keys(out.sources).forEach(function (src) {
+      var adj = new Map();
+      grouped[src].forEach(function (w, key) { adj.set(key, w * out.adjScale); });
+      out.sources[src].adj = adj;
+    });
+    return out;
+  }
+
+  // Our anchor's eight group totals at a setting: the anchor's values summed
+  // per position x role, roles from roleMap (dedicated, then flex, then bench,
+  // by value) at that teams/roster over the WHOLE anchor. Waiver players are
+  // in no group. opts: values (Map key -> anchor value), playerOf(key), teams,
+  // shape, keys (optional Set: sum only these players -- one chart's set).
+  function anchorGroupTotals(opts) {
+    var roles = opts.roles || roleMap(opts);
+    var only = opts.keys || null;
+    var totals = {};
+    POSITION_ORDER.forEach(function (pos) { totals[pos] = {starter: 0, bench: 0}; });
+    opts.values.forEach(function (value, key) {
+      var role = roles.get(key);
+      var player = opts.playerOf(key);
+      var v = Number(value);
+      if (only && !only.has(key)) return;
+      if (!player || !totals[player.pos] || !(role === "starter" || role === "bench") || !isFinite(v)) return;
+      totals[player.pos][role] += Math.max(0, v);
+    });
+    return totals;
   }
 
   root.ValueModel = {
@@ -891,8 +990,10 @@
     SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,
     SAVED_SETUP_SHAPE: SAVED_SETUP_SHAPE,
     isSavedSetup: isSavedSetup,
-    quantileReindexValues: quantileReindexValues,
     derivePublishedSetup: derivePublishedSetup,
+    PUBLISHED_VIEWS_VERSION: PUBLISHED_VIEWS_VERSION,
+    derivePublishedViews: derivePublishedViews,
+    anchorGroupTotals: anchorGroupTotals,
     VORP_TRANSLATION_VERSION: VORP_TRANSLATION_VERSION,
     TRANSLATION_OUR_MAX: TRANSLATION_OUR_MAX,
     POSITIONAL_MAX_VERSION: POSITIONAL_MAX_VERSION,

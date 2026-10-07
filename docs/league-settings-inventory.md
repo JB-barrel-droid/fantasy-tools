@@ -23,7 +23,7 @@ charts (JEG-62/64).
 | CBS, FantasyPros, USA Today | **Lookup** of a saved per-setup block through `product-data.js` `getPlayerValues({source, scoring, teams, qbVariant:"qb1", view:"combo_reindexed"})`. Only `*_12` blocks exist, so at 8/10/14 teams these sources show as unavailable; `sourceComboKey` deliberately never borrows another size. | `curve-widget.js` `buildPublishedSourceMap` (l.1036), `value-model.js` `sourceComboKey` (l.27) |
 | FantasyCalc | **Lookup**, as above. 24 saved blocks (3 scorings × 4 sizes × 1-QB/superflex). | same |
 | `*_adjusted` (bias-corrected) | **Lookup** of the saved block. The browser refits live adjustment cells from `adjustment-inputs.json`. | `curve-widget.js` `refitLiveCells` (l.1646) |
-| `vorp_views` (indexed / value above waivers / adjusted values) for FantasyCalc, FantasyPros, USA Today | Saved for full PPR, 12 teams only (JEG-331). | `curve-widget.js` `buildVorpViewSourceMap` |
+| `vorp_views` (indexed / value above waivers / adjusted values) for FantasyCalc, FantasyPros, USA Today | Saved for full PPR, 12 teams only (JEG-331); shown only at that exact setup. **Derived in the browser everywhere else** (and for CBS everywhere) since 2026-10-07 (JEG332-VORP-VIEWS). | `curve-widget.js` `publishedViewMap`, `buildVorpViewSourceMap`; `value-model.js` `derivePublishedViews` |
 
 ## How each saved value is made at 12 teams, and whether the browser can redo it at any setting
 
@@ -33,7 +33,7 @@ charts (JEG-62/64).
 | Published charts: rescaled (`reindexed`) | Flex-aware fixed pie: position × role buckets (dedicated / flex / bench, sized by teams × starters) scaled onto the ESPN leg's bucket totals (`fit.flex_aware_pie`, `index_total`) | source's published values (`native`), positions; ESPN totals come from the browser's own ESPN series at that setting | **Yes**: `ValueModel.roleMap`, `allocationCounts`, `normalizeToFixedPie` already exist in JS |
 | Published charts: value-above-waivers translation (`translation.method = vorp-supabase`; replaces the rescaled value for most players, e.g. CBS full/12: 103 of 116) | Count rostered players per position for the team count; waiver line = first unrostered player's published value; subtract it; scale by our position maximum (QB 25 / RB 70 / WR 55 / TE 30 at the saved setup; since 2026-10-07 the browser moves these with the setting: OUR_MAX x ESPN top-player value-above-waivers ratio, top position rescaled to 70 -- `positionalMaxForSetup`, JEG332-DERIVED-PEAKS) | `native`, positions, team count, bench and flex counts | **Yes, after porting** `pipelines/vorp_translation/unified.py` + `vorp_via_roster.py` (about 80 lines of pure arithmetic) to JS |
 | `*_adjusted` | Bias correction fitted against the ESPN 12-team leg (`fit.method = bias_adjusted`, bake `ddf-…-espn-ppr-12t-0p15`) | saved fit + the same published values | **To confirm**: check whether the fit's parameters are scale-free (apply at any team count) or tied to the 12-team ESPN pie |
-| `vorp_views` | Same translation + rescale family | as above | **Yes, after the port** |
+| `vorp_views` | Same translation + rescale family | as above | **Yes, done 2026-10-07** (`derivePublishedViews`, `published-views-001/1`; recipe in methodology.md) |
 
 ## Findings along the way
 
@@ -66,9 +66,15 @@ charts (JEG-62/64).
    the saved values (12-team maps byte-identical in the 12-combo sweep).
    `tests/test_published_league_settings_engine.py` (pure) and
    `tests/test_published_league_settings_render.py` (live page, JEG-334) gate it.
-3. **Answered:** `*_adjusted` needs no saved fit at other settings: the browser
+3. **Done (2026-10-07, JEG332-VORP-VIEWS):** the "VORP vs waivers" and
+   "Adjusted values" views derive at every setting
+   (`ValueModel.derivePublishedViews`); below-waiver players are 0 in all three
+   views (`league-settings-001/3`). `tests/test_published_views_engine.py`
+   (pure, vs a Python reference on `unified.translate_ranked`) and
+   `tests/test_published_views_render.py` (live page) gate it.
+4. **Answered:** `*_adjusted` needs no saved fit at other settings: the browser
    already refits its cells live (`refitLiveCells`, OLS of the ESPN two-tier
    leg on the published raw values) at the active team count, so it refits on
    the derived raw values. The cache key now includes the roster.
-4. Then (JEG-329) stop saving non-12-team blocks and rows, back up and remove the
+5. Then (JEG-329) stop saving non-12-team blocks and rows, back up and remove the
    existing ones, and drop the duplicated ESPN blocks.

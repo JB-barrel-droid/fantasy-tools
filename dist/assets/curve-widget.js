@@ -1056,6 +1056,10 @@
   const rosterSignature = () => Object.keys(DEFAULT_ROSTER).map(key => `${key}${rosterShape[key]}`).join("");
   let derivedPublishedCache = new Map();
   let lastPublishedDerivation = {};
+  // JEG332-VORP-VIEWS: per-rebuild cache of the derived VORP-vs-waivers /
+  // Adjusted views (they depend on the live anchor, so rebuildDomain clears it).
+  let derivedViewBatchCache = null;
+  let lastPublishedView = {};
 
   function savedPublishedRow(key, view) {
     return window.TradeValueProductData.getPlayerValues({
@@ -1102,7 +1106,7 @@
       info = {mode: "derived", version: derived.version,
         positionalMax: derived.positionalMax, ourMax: derived.ourMax,
         translationVersion: derived.translationVersion, translated: derived.translated,
-        fallbackSaved: derived.fallbackSaved, fallbackPie: derived.fallbackPie, unpriced: derived.unpriced};
+        belowWaiver: derived.belowWaiver};
     }
     derivedPublishedCache.set(cacheKey, {values, info});
     lastPublishedDerivation[key] = info;
@@ -1140,18 +1144,19 @@
 
   // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
   // vorp_views keys are normalized lowercase display names, exactly the form
-  // used by the player_keys table -- resolve through it directly (the
-  // canonical names carry punctuation the normalized keys lack).
+  // used by the fixture's player_keys table. JEG332-VORP-VIEWS (2026-10-07):
+  // resolve through product-data's copy of that table -- since JEG-363 the
+  // snapshot `data` carries no player_keys, so this lookup came back empty and
+  // the views silently showed the Indexed values instead.
   function buildVorpViewSourceMap(key, viewKey) {
     const vorpViews = data.sources?.[key]?.vorp_views;
     const viewData = vorpViews?.views?.[viewKey];
     if (!viewData || typeof viewData !== "object") return new Map();
-    // Reverse lookup: normalized display name -> player key, via player_keys.
+    const keysById = window.TradeValueProductData?.getPlayerKeysBySourceId?.() || new Map();
     const nameToKey = new Map();
-    Object.entries(data.player_keys || {}).forEach(([displayName, playerKey]) => {
-      const player = canonicalByKey.get(Number(playerKey));
+    keysById.forEach((playerKey, displayName) => {
       const norm = String(displayName).trim().toLowerCase();
-      if (player && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
+      if (canonicalByKey.has(Number(playerKey)) && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
     });
     const values = new Map();
     Object.entries(viewData).forEach(([displayName, rawValue]) => {
@@ -1164,12 +1169,86 @@
     return values;
   }
 
-  // JEG-210: does this source have vorp_views data for the current view mode?
+  // JEG332-VORP-VIEWS: the saved vorp_views apply only at the exact setup
+  // they were built for -- their own scoring and team count, standard roster.
+  // (Before 2026-10-07 the scoring was never compared, so Standard / Half PPR
+  // at 12 teams showed the full-PPR views.)
+  const VIEW_SCORING = {ppr: "ppr", full: "ppr", half_ppr: "half_ppr", half: "half_ppr", standard: "standard"};
+  function savedViewApplies(key) {
+    const vorpViews = data.sources?.[key]?.vorp_views;
+    if (!vorpViews || !onSavedSetup()) return false;
+    return VIEW_SCORING[String(vorpViews.scoring || "").toLowerCase()] === scoring
+      && Number(vorpViews.teams) === teams;
+  }
+
+  // JEG332-VORP-VIEWS: every published chart derived into the VORP-vs-waivers
+  // and Adjusted views at the active setting (ValueModel.derivePublishedViews),
+  // as one batch so the Adjusted 70 anchor is shared. Inputs: each chart's
+  // saved 12-team native values, its saved player set, and the live anchor's
+  // eight group totals at this setting over that player set.
+  function derivedViewBatch() {
+    if (derivedViewBatchCache) return derivedViewBatchCache;
+    const anchor = sourceMaps.get("espn");
+    const inputs = {};
+    [...AS_PUBLISHED_KEYS].forEach(key => {
+      const savedRow = savedPublishedRow(key, "combo_reindexed");
+      const nativeRow = savedPublishedRow(key, "native");
+      const native = new Map();
+      const keys = [];
+      nativeRow?.values?.forEach((rawValue, playerKey) => {
+        const value = Number(rawValue);
+        if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
+      });
+      savedRow?.values?.forEach((rawValue, playerKey) => {
+        if (canonicalByKey.has(playerKey) && clampValue(rawValue) !== null) keys.push(playerKey);
+      });
+      if (native.size && keys.length) inputs[key] = {native, keys};
+    });
+    // The anchor's eight group totals at this setting, measured over each
+    // chart's own players (roles from the whole anchor).
+    if (anchor?.size) {
+      const playerOf = playerKey => canonicalByKey.get(playerKey);
+      const roles = ValueModel.roleMap({values: anchor, playerOf, teams, shape: rosterShape});
+      Object.values(inputs).forEach(input => {
+        input.budgets = ValueModel.anchorGroupTotals({values: anchor, playerOf, roles, keys: new Set(input.keys)});
+      });
+    }
+    derivedViewBatchCache = anchor?.size && Object.keys(inputs).length
+      ? ValueModel.derivePublishedViews({
+          sources: inputs, posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+          teams, shape: rosterShape
+        })
+      : {version: ValueModel.PUBLISHED_VIEWS_VERSION, sources: {}, batchMax: 0, adjScale: 0};
+    return derivedViewBatchCache;
+  }
+
+  // The VORP-vs-waivers / Adjusted map for a published chart at the active
+  // setting: the saved view at its own setup, derived everywhere else.
+  function publishedViewMap(key, viewKey) {
+    if (savedViewApplies(key)) {
+      const saved = buildVorpViewSourceMap(key, viewKey);
+      if (saved.size) {
+        lastPublishedView[key] = {mode: "saved", view: viewKey};
+        return saved;
+      }
+    }
+    const batch = derivedViewBatch();
+    const derived = viewKey === "adj_values" ? batch.sources[key]?.adj : batch.sources[key]?.vorp;
+    lastPublishedView[key] = derived?.size
+      ? {mode: "derived", view: viewKey, version: batch.version, batchMax: batch.batchMax, adjScale: batch.adjScale}
+      : {mode: "unavailable", view: viewKey};
+    return derived ? new Map(derived) : new Map();
+  }
+
+  // JEG-210: does this source have a view for the current view mode? Since
+  // JEG332-VORP-VIEWS every published chart with saved 12-team inputs for this
+  // scoring has one at every setting (saved at its own setup, else derived).
   function sourceHasVorpView(key) {
     const viewKey = getViewKey(viewMode);
     if (!viewKey) return true;
-    const views = data.sources?.[key]?.vorp_views?.views;
-    return !!(views && views[viewKey] && Object.keys(views[viewKey]).length > 0);
+    if (savedViewApplies(key) && buildVorpViewSourceMap(key, viewKey).size) return true;
+    const nativeRow = savedPublishedRow(key, "native");
+    return !!(nativeRow?.values && nativeRow.values.size);
   }
 
   function buildNativeSourceMap(key) {
@@ -1517,16 +1596,9 @@
     // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
     if (viewMode !== "indexed" && AS_PUBLISHED_KEYS.has(key)) {
       const viewKey = getViewKey(viewMode);
-      // JEG-332: vorp_views are saved at 12 teams / standard roster only and
-      // are not derived in the browser yet. At any other league setting the
-      // source sits out of these views (empty map = unavailable) rather than
-      // showing 12-team numbers -- the same as before published charts were
-      // derived at 8/10/14 teams.
-      if (viewKey && !onSavedSetup()) return new Map();
-      if (viewKey) {
-        const viewMap = buildVorpViewSourceMap(key, viewKey);
-        if (viewMap.size > 0) return viewMap;
-      }
+      // JEG332-VORP-VIEWS: saved view at its own setup, derived at every other
+      // scoring / team count / roster (never the Indexed values in disguise).
+      if (viewKey) return publishedViewMap(key, viewKey);
     }
     return buildPublishedSourceMap(key);
   }
@@ -1733,6 +1805,8 @@
     refitLiveCells();
     vorpRowsCache.clear();
     espnFixtureLegCache = null;
+    derivedViewBatchCache = null;
+    lastPublishedView = {};
     espnRoleByKey = new Map();
     sourceMaps = new Map();
     nativeSourceMaps = new Map();
@@ -3753,7 +3827,7 @@
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     // sourceScaleAgreement is NOT blocking: genuine inter-source disagreements
     // (e.g., USA Today QB 0.51x of ESPN anchor) are surfaced via ChartHealth
@@ -3799,6 +3873,10 @@
     // Rebuild source maps with the new view's values, then redraw.
     rebuildDomain();
     makeSourceToggles();
+    // JEG332-VORP-VIEWS: re-run the guards (and refresh the diagnostics) for
+    // the view just entered, as every other control does. Skipped during
+    // init, before the first guard run, when the toggles do not exist yet.
+    if (guardsPassed) runRegressionGuards();
     draw();
     syncCurveStatus();
     if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));
