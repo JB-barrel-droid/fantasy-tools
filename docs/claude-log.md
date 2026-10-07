@@ -2995,6 +2995,63 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 - None for this item. Muse still needs to disable `trade-value-dashboard-push` on its side (message drafted
   for Jeremy to send).
 
+## 2026-10-06 ~21:45 CDT — Claude (cloud subagent): JEG-432 R5 freshness flag + R1 pair registry
+
+### Verified (check named)
+- Content calendar: product-data.js `contentWeekForDay` equals pipelines/nfl_week.py on all 200 days
+  2026-08-25..2027-03-12 (tests/test_source_freshness.py FRESH-CAL). Negative: a Thursday-flip start
+  date (the watchdog calendar) mismatches on 34 days and fails the test. Tue 2026-10-06 = week 5,
+  Mon 2026-10-05 = week 4.
+- SQL copy `public.nfl_content_week(date)` (migration jeg432_source_freshness, applied via MCP):
+  200-day output compared to nfl_week.py, identical. `api.source_freshness` queried under
+  `set local role anon`: fantasycalc 5/current, espn 5/current (dated by espn_snapshot_date),
+  cbs/cbsros/fantasypros/razzball/usatoday 4/older, current_content_week 5.
+- Shipped fixture (all weekly charts Week 4, ROS sources dated 2026-10-01..03): every series is
+  flagged `older` against content week 5, `first_load_excluded` is empty (reference week 4), so the
+  first load is unchanged. Negative: excluding by calendar week alone empties the first load (8
+  series) and fails FRESH-HONEST.
+- Mixed fixture (FantasyCalc raw+adjusted on Week 5, rest Week 4): USA Today, FantasyPros, CBS (raw and
+  adjusted) are excluded on first load; ESPN/CBS ROS/Razzball and the VORP vs waivers series never are.
+  Negatives: never-exclude and exclude-ROS-too mutations each fail FRESH-MIXED.
+- curve-widget default set + defaultGroupedSources guard take the exclusion; negative: a guard that
+  ignores it reports a throw on the mixed first load (FRESH-DEFAULTS).
+- Pair registry: 21 rows (7 sources x 3 methods), allowed pairs per the design, availability derived
+  from combos/players (dropping CBS's 12-team combos makes CBS `league_setting_unsupported`; a
+  mutation that skips that check fails REG-DERIVED). At 10 teams the four published charts are
+  `league_setting_unsupported` (saved for 12 only). Reason text passes the copy rules.
+- 12-combo headless sweep (3 scorings x 8/10/12/14, built dist/, TRADE_VALUE_TODAY=2026-10-06):
+  before (HEAD dist) and after identical: fixedPieIndexed true 12/12, sourceScaleAgreement false
+  12/12 (non-blocking, unchanged), curves 5 at 12 teams / 1 elsewhere, 0 page errors. Mixed-week
+  fixture: first load 2 curves (ESPN + FC Adjusted), banner names the three older-week curves,
+  fixedPieIndexed true 12/12; turning USAT Adjusted back on works and survives a teams change.
+- Pin change, justified: tests/test_adjusted_curve_pause.py pinned the literal signatures
+  `defaultIndexedSourceKeys(inputs)` / `defaultCurvesSatisfied(inputs, activeSet, userHiddenSet)`.
+  The signatures gained the exclusion argument on purpose; the behaviour pinned (init recomputes the
+  default set from the loaded inputs; the guard checks that same set) is unchanged.
+- `make validate` rc=0.
+
+### Claimed, unverified
+- No UI reads `getPairRegistry()` reason text yet; the v2 method picker is not built.
+- The toggle labels' own stale rule (GAP-CHART-STALE-LABEL-CALENDAR) was left as is.
+
+## 2026-10-06 ~22:10 CDT — Claude (cloud subagent): JEG-432 R4 prior-week inputs (Supabase views)
+
+### Verified (check named)
+- Migration `jeg432_r4_source_inputs_weekly` applied via MCP: `api.source_inputs_weekly` and
+  `api.source_input_weeks`. They depend on `public.nfl_content_week` from `jeg432_source_freshness`.
+  Dry-run before applying, over all weeks/scorings: 0 duplicate players per (source, week, scoring);
+  the latest pull is chosen (USA Today week 4 = usatwk4_2026-10-02_v1, not the 09-29 re-pull).
+- Read as anon (`set local role anon`): weeks 3 and 4 exist for cbs, fantasycalc, fantasypros,
+  usatoday; FantasyCalc also has 2 and 5.
+- Week 4 parity with the published fixture's native values (count / sum / max per scoring):
+  FantasyPros, USA Today, CBS identical on all three scorings (e.g. USA Today full 249 / 4184.0 / 77).
+  FantasyCalc: view 197 rows vs fixture 196 (sum differs by 175 on each scoring, max identical).
+  The view reads the 2026-10-05 re-pull; the fixture came from 2026-10-04.
+
+### Claimed, unverified
+- No FE code reads these views yet. The movers recompute needs R3, the browser translation that
+  another session is porting.
+
 ## 2026-10-06 ~21:45 CDT — Claude (cloud session, JEG-332 worker): browser port of the value-above-waivers translation (PR 1 of 2)
 
 ### Verified (check named)
@@ -3072,3 +3129,16 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 
 ### Claimed, unverified
 - None.
+
+## 2026-10-06 ~22:30 CDT — Claude (cloud session): merged the engine (#375+#378) and the JEG-432 stack (#376+#377)
+
+### Verified (check named)
+- #378 (stacked on #375) squash-merged; #375 closed as included. Then main merged into the #377 branch
+  (stacked on #376): conflict in curve-widget.js diagnostics resolved keeping both `firstLoadExcluded`
+  (JEG-432) and `savedSetup`/`publishedDerivation` (JEG-332); claude-log kept both sides.
+- Semantic follow-up: the pair registry (#376) reported published sources as `league_setting_unsupported`
+  at 8/10/14 teams — written before the browser engine existed. With #378 those pairs derive from the
+  12-team base, so seriesCoverage now falls back to the 12-team combo (`derived_from_teams: 12`); only a
+  missing 12-team base is league_setting_unsupported. Pin changed in tests/test_source_freshness.py
+  because its premise ("until the browser engine ships") no longer holds; negative-tested (disabling the
+  fallback fails test_unsaved_team_count_is_derived_from_the_12_team_base). `make validate` rc=0.

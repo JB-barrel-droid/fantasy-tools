@@ -219,10 +219,13 @@ class TestPauseWiring(unittest.TestCase):
         # the banner promises the four adjusted projects are shown by
         # default. init() must recompute the default active set from the
         # loaded inputs on fresh load.
+        # JEG-432 R5 (2026-10-06): the default set also takes the first-load
+        # exclusion (older-week charts). Still recomputed from the loaded
+        # inputs on fresh load, which is what this pin protects.
         self.assertIn(
-            "activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs))",
+            "activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs, firstLoadExcluded))",
             self.text)
-        self.assertIn("function defaultIndexedSourceKeys(inputs)", self.text)
+        self.assertIn("function defaultIndexedSourceKeys(inputs, excluded)", self.text)
         self.assertIn("defaultIndexedSourceKeys", self.text)
 
     def test_regression_guard_checks_computed_default_set(self):
@@ -232,9 +235,11 @@ class TestPauseWiring(unittest.TestCase):
         self.assertIn(
             "const defaultGroupedSources = defaultCurvesSatisfied(",
             self.text)
-        self.assertIn("function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet)",
+        # JEG-432 R5: the guard checks the same computed default set init()
+        # applied, including the first-load exclusion.
+        self.assertIn("function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet, excluded)",
                       self.text)
-        self.assertIn("defaultIndexedSourceKeys(inputs).every(", self.text)
+        self.assertIn("defaultIndexedSourceKeys(inputs, excluded).every(", self.text)
 
     def test_peak_distinctness_allows_single_active_source(self):
         self.assertIn("const distinctSourcePeaks = activeKeysForGuard.length <= 1",

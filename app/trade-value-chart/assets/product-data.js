@@ -98,6 +98,7 @@
     snapshot: null,          // contract-shaped api.product_snapshot
     options: null,           // contract-shaped api.product_options
     activeSnapshotId: null,
+    freshness: null,         // JEG-432 R5 buildSourceFreshness() at load
   };
 
   // ---------- Fetch helpers ----------
@@ -260,6 +261,319 @@
     return `${prefix}_${teams}${qbSuffix}`;
   }
 
+  // ---------- Source freshness (JEG-432 R5) ----------
+  //
+  // Content calendar: a port of pipelines/nfl_week.py current_nfl_week(),
+  // which flips on TUESDAY (after Monday night), when publishers release the
+  // new week. NOT ops/watchdog/_common.nfl_week (flips Thursday) — see
+  // GAP-WEEK-CALENDARS. tests/test_source_freshness.py pins this port to the
+  // Python function date by date, so the two calendars cannot drift apart.
+  const CONTENT_WEEK_1_START_UTC = Date.UTC(2026, 8, 8); // Tue 2026-09-08
+  const CONTENT_WEEK_MAX = 18;
+  const DAY_MS = 86400000;
+
+  // Series key -> the snapshot source whose metadata dates it. The browser-
+  // computed VORP vs waivers series share their projection source's vintage.
+  const VINTAGE_SOURCE_FOR_SERIES = Object.freeze({
+    espn_vorp: "espn",
+    cbsros_vorp: "cbsros",
+    razzball_vorp: "razzball",
+  });
+
+  function isoDay(value) {
+    const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return match ? `${match[1]}-${match[2]}-${match[3]}` : null;
+  }
+
+  // The reader's calendar day. The content week is an Eastern-time concept
+  // (it turns over after Monday Night Football), so use America/New_York when
+  // Intl is available. window.TRADE_VALUE_TODAY (YYYY-MM-DD) overrides, as it
+  // already does for curve-widget.js.
+  function todayIsoDay(override) {
+    const forced = isoDay(override !== undefined ? override
+      : (typeof window !== "undefined" ? window.TRADE_VALUE_TODAY : null));
+    if (forced) return forced;
+    const now = new Date();
+    try {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(now);
+    } catch (e) {
+      return now.toISOString().slice(0, 10);
+    }
+  }
+
+  function contentWeekForDay(day) {
+    const iso = isoDay(day);
+    if (!iso) return null;
+    const [y, m, d] = iso.split("-").map(Number);
+    const days = Math.round((Date.UTC(y, m - 1, d) - CONTENT_WEEK_1_START_UTC) / DAY_MS);
+    if (days < 0) return 1; // preseason, as nfl_week.py
+    return Math.min(Math.max(Math.floor(days / 7) + 1, 1), CONTENT_WEEK_MAX);
+  }
+
+  function parseWeekLabel(value) {
+    const match = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
+    return match ? Number(match[1] || match[2]) : null;
+  }
+
+  // The content week a source's values belong to, and which field said so.
+  // A publisher's own "Week N" label wins; otherwise the content date (the
+  // publisher's date, then our pull date) is placed on the content calendar.
+  // Returns {week:null} when nothing dates the source — never a guess.
+  function sourceVintage(meta) {
+    const m = meta && typeof meta === "object" ? meta : {};
+    const designated = parseWeekLabel(m.week_designated);
+    if (designated) return {week: designated, basis: "week_designated", date: isoDay(m.content_vintage)};
+    const vintageWeek = parseWeekLabel(m.content_vintage);
+    if (vintageWeek) return {week: vintageWeek, basis: "content_vintage", date: null};
+    const dated = [
+      ["content_vintage", m.content_vintage],
+      ["vintage", m.vintage],
+      ["espn_snapshot", m.espn_snapshot],
+      ["lineage.raw_vintage", m.lineage && m.lineage.raw_vintage],
+      ["fetched_at", m.fetched_at],
+    ].find(([, value]) => isoDay(value));
+    if (dated) return {week: contentWeekForDay(dated[1]), basis: dated[0], date: isoDay(dated[1])};
+    return {week: null, basis: null, date: null};
+  }
+
+  // Per-series freshness against the current content week.
+  //   status: "current" | "older" | "unknown" — the honest flag (R5).
+  //   first_load_reference_week: the newest week any weekly published chart
+  //     has reached, capped at the content week. Weekly charts older than it
+  //     are left off the first load (still selectable). When no weekly chart
+  //     has reached the content week yet (e.g. Tuesday, before publishers
+  //     post), the reference is the newest week that exists, so the first
+  //     load is never emptied by the calendar alone.
+  //   Rest-of-season projection series (ESPN, CBS ROS, Razzball) carry the
+  //   flag but are never excluded: they are the bottom-up curves (ESPN is the
+  //   anchor every indexed curve is pinned to).
+  function buildSourceFreshness(sources, opts) {
+    const options = opts || {};
+    const today = todayIsoDay(options.today);
+    const currentWeek = contentWeekForDay(today);
+    const src = sources && typeof sources === "object" ? sources : {};
+    const seriesKeys = Array.isArray(options.seriesKeys) ? options.seriesKeys : SOURCE_KEYS;
+    // An *_adjusted series is our adjustment applied to the raw published
+    // chart (curve-widget buildLiveAdjustedMap), so it is as old as that
+    // chart: date it by the raw source, as curve-widget weekForSource does.
+    const metaFor = key => {
+      const base = VINTAGE_SOURCE_FOR_SERIES[key] || key;
+      if (base.endsWith("_adjusted")) {
+        const raw = base === "cbs_adjusted" ? "cbs" : base.replace(/_adjusted$/, "");
+        if (src[raw]) return src[raw];
+      }
+      return src[base] || null;
+    };
+    const rows = {};
+    seriesKeys.forEach(key => {
+      const meta = metaFor(key);
+      if (!meta) return;
+      const vintage = sourceVintage(meta);
+      const weekly = vintage.basis === "week_designated" || vintage.basis === "content_vintage";
+      const status = vintage.week === null ? "unknown" : (vintage.week >= currentWeek ? "current" : "older");
+      rows[key] = {
+        series_key: key,
+        vintage_week: vintage.week,
+        vintage_basis: vintage.basis,
+        vintage_date: vintage.date,
+        week_designated: meta.week_designated || null,
+        content_vintage: meta.content_vintage || null,
+        cadence: weekly ? "weekly" : "rest_of_season",
+        current_content_week: currentWeek,
+        status,
+        is_older_week: status === "older",
+        weeks_behind: vintage.week === null ? null : Math.max(0, currentWeek - vintage.week),
+      };
+    });
+    const weeklyWeeks = Object.values(rows)
+      .filter(row => row.cadence === "weekly" && row.vintage_week !== null)
+      .map(row => row.vintage_week);
+    const referenceWeek = weeklyWeeks.length ? Math.min(Math.max(...weeklyWeeks), currentWeek) : null;
+    const excluded = [];
+    Object.values(rows).forEach(row => {
+      row.excluded_on_first_load = row.cadence === "weekly" && referenceWeek !== null &&
+        row.vintage_week !== null && row.vintage_week < referenceWeek;
+      if (row.excluded_on_first_load) excluded.push(row.series_key);
+    });
+    return {
+      calendar: "content_week_tuesday_flip",
+      calendar_source: "pipelines/nfl_week.py",
+      today,
+      current_content_week: currentWeek,
+      first_load_reference_week: referenceWeek,
+      first_load_excluded: excluded,
+      series: rows,
+    };
+  }
+
+  // ---------- Source x method pair registry (JEG-432 R1) ----------
+  //
+  // One row per (source, method). The allowed pairs come from the Trade
+  // Dashboard v2 design; everything else (availability, reason, vintage) is
+  // derived from the shipped data for the reader's league — no counts are
+  // hardcoded. Copy rule copy-vorp-001: the design's "Pure VORP" ships as
+  // "VORP vs waivers".
+  const PAIR_METHODS = Object.freeze([
+    Object.freeze({id: "adjusted", label: "Our Data Driven Adjustments"}),
+    Object.freeze({id: "indexed", label: "Indexed"}),
+    Object.freeze({id: "vorp_vs_waivers", label: "VORP vs waivers"}),
+  ]);
+  // source -> {label, kind, series: {method -> series key}}. A method missing
+  // from `series` is not offered for that source.
+  const PAIR_SOURCES = Object.freeze([
+    {source: "fantasycalc", label: "FantasyCalc", kind: "chart", series: {adjusted: "fantasycalc_adjusted", indexed: "fantasycalc"}},
+    {source: "fantasypros", label: "FantasyPros", kind: "chart", series: {adjusted: "fantasypros_adjusted", indexed: "fantasypros"}},
+    {source: "cbs", label: "CBS", kind: "chart", series: {adjusted: "cbs_adjusted", indexed: "cbs"}},
+    {source: "usatoday", label: "USA Today", kind: "chart", series: {adjusted: "usatoday_adjusted", indexed: "usatoday"}},
+    {source: "espn", label: "ESPN", kind: "projections", series: {adjusted: "espn", vorp_vs_waivers: "espn_vorp"}},
+    {source: "cbsros", label: "CBS ROS", kind: "projections", series: {adjusted: "cbsros", vorp_vs_waivers: "cbsros_vorp"}},
+    {source: "razzball", label: "Razzball", kind: "projections", series: {adjusted: "razzball", vorp_vs_waivers: "razzball_vorp"}},
+  ].map(entry => Object.freeze({...entry, series: Object.freeze({...entry.series})})));
+  const DEFAULT_PAIR_METHOD = "adjusted";
+  // Series priced from per-game projections on the player records, not from
+  // fixture combos. Field names match the players island.
+  const PPG_FIELD_FOR_SERIES = Object.freeze({
+    cbsros: "cbsros_ppg", razzball: "rz_ppg",
+    espn_vorp: "espn_ppg", cbsros_vorp: "cbsros_ppg", razzball_vorp: "rz_ppg",
+  });
+  const CHART_POSITIONS = new Set(["QB", "RB", "WR", "TE"]);
+  const PPG_SCORING_FIELD = {ppr: "ppr", full: "ppr", half_ppr: "half_ppr", half: "half_ppr", standard: "standard"};
+
+  function notOfferedText(entry, method) {
+    if (method.id === "indexed") {
+      return `${entry.label} publishes projections, not a trade chart, so there is nothing to index.`;
+    }
+    if (method.id === "vorp_vs_waivers") {
+      return `VORP vs waivers needs per-game projections; ${entry.label} publishes trade values only.`;
+    }
+    return `${method.label} is not offered for ${entry.label}.`;
+  }
+
+  // Players a series can price for this league, counted on chart positions.
+  // Combo-backed series count combo rows that resolve to a chart player;
+  // projection-backed series count players with a per-game projection.
+  // The one saved league setup every other setting derives from (league-settings-001).
+  const DERIVATION_BASE_TEAMS = 12;
+
+  function seriesCoverage(seriesKey, ctx) {
+    const ppgField = PPG_FIELD_FOR_SERIES[seriesKey];
+    if (ppgField) {
+      const field = PPG_SCORING_FIELD[ctx.scoring];
+      if (!field) return {kind: "ppg", count: 0, savedTeams: []};
+      const count = ctx.players.filter(p => CHART_POSITIONS.has(p.pos) &&
+        Number.isFinite(Number(p[ppgField] && p[ppgField][field]))).length;
+      return {kind: "ppg", count, savedTeams: null};
+    }
+    const sourceKey = ctx.sources[seriesKey] ? seriesKey : (seriesKey === "cbs_adjusted" ? "cbs" : seriesKey);
+    const combos = (ctx.sources[sourceKey] && ctx.sources[sourceKey].combos) || {};
+    const prefix = SCORING_PREFIX[ctx.scoring];
+    const savedTeams = [...new Set(Object.keys(combos)
+      .map(key => key.match(/^([a-z]+)_(\d+)/))
+      .filter(match => match && match[1] === prefix)
+      .map(match => Number(match[2])))].sort((a, b) => a - b);
+    // JEG-332 (#378): published charts at an unsaved team count are derived in
+    // the browser from the saved 12-team setup (ValueModel.derivePublishedSetup),
+    // so the 12-team base is what makes the pair available there. Only a
+    // missing base for this scoring is league_setting_unsupported.
+    let combo = combos[comboKeyFor(sourceKey, ctx.scoring, ctx.teams, "qb1")];
+    let kind = "combo";
+    if (!combo && Number(ctx.teams) !== DERIVATION_BASE_TEAMS) {
+      combo = combos[comboKeyFor(sourceKey, ctx.scoring, DERIVATION_BASE_TEAMS, "qb1")];
+      kind = "derived";
+    }
+    if (!combo) return {kind: "combo", count: null, savedTeams};
+    const cell = combo.values || combo.reindexed || {};
+    let count = 0;
+    Object.entries(cell).forEach(([sourceId, value]) => {
+      const playerKey = ctx.playerKeysBySourceId.get(sourceId);
+      const player = Number.isInteger(playerKey) ? ctx.playerByKey.get(playerKey) : null;
+      if (player && CHART_POSITIONS.has(player.pos) && Number.isFinite(Number(value))) count += 1;
+    });
+    return {kind, count, savedTeams, derivedFrom: kind === "derived" ? DERIVATION_BASE_TEAMS : null};
+  }
+
+  // buildPairRegistry({sources, players, playerKeysBySourceId, scoring,
+  //   teams, minShared, freshness, isAdjustedPaused}) -> {rows, ...}
+  // Pure: every input is passed in, so tests drive it without a DOM.
+  function buildPairRegistry(input) {
+    const ctx = {
+      sources: (input && input.sources) || {},
+      players: Array.isArray(input && input.players) ? input.players : [],
+      playerKeysBySourceId: (input && input.playerKeysBySourceId) || new Map(),
+      scoring: (input && input.scoring) || "full",
+      teams: Number((input && input.teams) || 12),
+    };
+    ctx.playerByKey = new Map(ctx.players.map(p => [Number(p.player_key), p]));
+    const minShared = Number(input && input.minShared) || 40;
+    const freshness = (input && input.freshness) || buildSourceFreshness(ctx.sources, {});
+    const isPaused = typeof (input && input.isAdjustedPaused) === "function" ? input.isAdjustedPaused : () => false;
+    const rows = [];
+    PAIR_SOURCES.forEach(entry => {
+      PAIR_METHODS.forEach(method => {
+        const seriesKey = entry.series[method.id] || null;
+        const fresh = seriesKey ? freshness.series[seriesKey] || null : null;
+        const row = {
+          source: entry.source,
+          source_label: entry.label,
+          method: method.id,
+          method_label: method.label,
+          series_key: seriesKey,
+          is_default_method: method.id === DEFAULT_PAIR_METHOD,
+          scoring: ctx.scoring,
+          teams: ctx.teams,
+          available: false,
+          excluded_on_first_load: false,
+          reason_code: null,
+          reason_text: null,
+          vintage_week: fresh ? fresh.vintage_week : null,
+          vintage_basis: fresh ? fresh.vintage_basis : null,
+          vintage_status: fresh ? fresh.status : null,
+          shared_players: null,
+        };
+        if (!seriesKey) {
+          row.reason_code = "not_offered";
+          row.reason_text = notOfferedText(entry, method);
+          rows.push(row);
+          return;
+        }
+        const coverage = seriesCoverage(seriesKey, ctx);
+        row.shared_players = coverage.count;
+        row.derived_from_teams = coverage.derivedFrom || null;
+        if (coverage.count === null) {
+          row.reason_code = "league_setting_unsupported";
+          row.reason_text = coverage.savedTeams && coverage.savedTeams.length
+            ? `${entry.label} is saved for ${coverage.savedTeams.join("/")}-team leagues so far; ${ctx.teams}-team values are not available yet.`
+            : `${entry.label} has no saved values for this scoring yet.`;
+        } else if (coverage.count < minShared) {
+          row.reason_code = "insufficient_overlap";
+          row.reason_text = `${entry.label} prices ${coverage.count} chart players for this league; at least ${minShared} are needed to put it on the same scale.`;
+        } else if (method.id === "adjusted" && isPaused(seriesKey)) {
+          row.reason_code = "adjustment_pending";
+          row.reason_text = `Our adjustments for ${entry.label} are not validated for this league yet.`;
+        } else {
+          row.available = true;
+          if (fresh && fresh.excluded_on_first_load) {
+            row.excluded_on_first_load = true;
+            row.reason_code = "stale_vintage";
+            row.reason_text = `${entry.label} is still on Week ${fresh.vintage_week}; other sources have Week ${freshness.first_load_reference_week}. It starts switched off, and you can turn it on.`;
+          }
+        }
+        rows.push(row);
+      });
+    });
+    return {
+      scoring: ctx.scoring,
+      teams: ctx.teams,
+      min_shared_for_pie: minShared,
+      current_content_week: freshness.current_content_week,
+      first_load_reference_week: freshness.first_load_reference_week,
+      methods: PAIR_METHODS,
+      rows,
+    };
+  }
+
   // ---------- Public surface (the five semantic methods) ----------
 
   // getPlayerValues({source, scoring, teams, qbVariant, view}) — contract §8.1.
@@ -387,6 +701,36 @@
     return state.snapshot;
   }
 
+  // getSourceFreshness() — JEG-432 R5 (contract v1.1 additive). Per-series
+  // vintage against the current content week, computed at load time.
+  function getSourceFreshness() {
+    if (!state.initialized) {
+      throw new Error("product-data.js: getSourceFreshness() called before initProductData() resolved. Render refused.");
+    }
+    return state.freshness;
+  }
+
+  // getPairRegistry({scoring, teams, isAdjustedPaused}) — JEG-432 R1
+  // (contract v1.1 additive). One row per (source, method) for the reader's
+  // league. `scoring` accepts the contract spelling (full/half/standard) or
+  // the widget's (ppr/half_ppr/standard).
+  function getPairRegistry(query) {
+    if (!state.initialized) {
+      throw new Error("product-data.js: getPairRegistry() called before initProductData() resolved. Render refused.");
+    }
+    const q = query || {};
+    return buildPairRegistry({
+      sources: state.snapshot.sources,
+      players: state.players,
+      playerKeysBySourceId: state.playerKeysBySourceId,
+      scoring: q.scoring || state.options.default_scoring,
+      teams: q.teams || state.options.default_teams,
+      minShared: state.options.min_shared_for_pie,
+      freshness: state.freshness,
+      isAdjustedPaused: q.isAdjustedPaused,
+    });
+  }
+
   // ---------- Transitional helpers (not contract surfaces) ----------
 
   // getAdjustmentInputs(): the raw adjustment-inputs.json payload. The
@@ -497,6 +841,7 @@
     // Build contract-shaped snapshot + options.
     state.snapshot = buildSnapshot(detail, news);
     state.options = buildOptions();
+    state.freshness = Object.freeze(buildSourceFreshness(state.snapshot.sources, {}));
     state.activeSnapshotId = state.snapshot.snapshot_id;
 
     // Source map coverage: every key in api.product_options.source_keys must
@@ -538,6 +883,9 @@
     getPlayerContext,
     getProductOptions,
     getSnapshot,
+    // Contract v1.1 additive (JEG-432 R5/R1).
+    getSourceFreshness,
+    getPairRegistry,
     // Transitional helpers (not contract surfaces).
     getAdjustmentInputs,
     getPlayerByKey,
@@ -563,6 +911,15 @@
     getPlayerContext,
     getProductOptions,
     getSnapshot,
+    getSourceFreshness,
+    getPairRegistry,
+    // Pure builders, exported for tests (no DOM, no fetch).
+    contentWeekForDay,
+    sourceVintage,
+    buildSourceFreshness,
+    buildPairRegistry,
+    PAIR_METHODS,
+    PAIR_SOURCES,
     // Transitional + meta.
     getAdjustmentInputs,
     getPlayerByKey,

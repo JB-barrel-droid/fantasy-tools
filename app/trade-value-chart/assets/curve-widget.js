@@ -628,9 +628,14 @@
   // stage-2 cells. Pure in (inputs) so it is unit-testable; init() applies it
   // on fresh load, which is what makes the "shown by default" banner copy
   // true once cells land.
-  function defaultIndexedSourceKeys(inputs) {
+  // JEG-432 R5: `excluded` is the first-load exclusion set from
+  // TradeValueProductData.getSourceFreshness() -- weekly charts older than the
+  // newest week on the board. They stay selectable; they just start off.
+  function defaultIndexedSourceKeys(inputs, excluded) {
+    const skip = excluded instanceof Set ? excluded : new Set(excluded || []);
     return [...DEFAULT_INDEXED_SOURCES,
-            ...ADJUSTED_INDEXED_KEYS.filter(key => !adjustedCurvePaused(key, inputs))];
+            ...ADJUSTED_INDEXED_KEYS.filter(key => !adjustedCurvePaused(key, inputs))]
+      .filter(key => !skip.has(key));
   }
   globalThis.TradeValueCurvePause.defaultIndexedSourceKeys = defaultIndexedSourceKeys;
   // DEFECT 1 (2026-10-01): pure in (inputs, activeSet, userHiddenSet) so it
@@ -640,8 +645,8 @@
   // power; a user-hidden default no longer throws inside
   // runRegressionGuards() on the next scoring/teams change (which used to
   // die before draw()/publishShared() and freeze the comparison table).
-  function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet) {
-    return defaultIndexedSourceKeys(inputs).every(
+  function defaultCurvesSatisfied(inputs, activeSet, userHiddenSet, excluded) {
+    return defaultIndexedSourceKeys(inputs, excluded).every(
       key => activeSet.has(key) || (userHiddenSet && userHiddenSet.has(key)));
   }
   globalThis.TradeValueCurvePause.defaultCurvesSatisfied = defaultCurvesSatisfied;
@@ -789,6 +794,9 @@
   // throws inside runRegressionGuards() before draw()/publishShared() and
   // the comparison table freezes on the old scoring with no visible error.
   let userDeselectedSources = new Set();
+  // JEG-432 R5: weekly charts left off the first load because a newer week is
+  // on the board (product-data getSourceFreshness().first_load_excluded).
+  let firstLoadExcluded = new Set();
   // JEG-210: chart view mode (Indexed | Value above waivers | Adjusted values)
   // Restored 2026-10-03 (Jeremy): wired to vorp_views from the JEG-242 pipeline.
   // Re-restored 2026-10-04: the JEG-325 strangler refactor dropped this block;
@@ -2780,17 +2788,25 @@
     const activeNotices = [...status.querySelectorAll(".lock-revert-notice")];
     status.classList.add("validated");
     const pausedKeys = ADJUSTED_INDEXED_KEYS.filter(isAdjustedCurvePaused);
-    const defaultKeys = new Set(defaultIndexedSourceKeys(adjustmentInputs));
+    const defaultKeys = new Set(defaultIndexedSourceKeys(adjustmentInputs, firstLoadExcluded));
     const defaultAvailableAdjustedKeys = ADJUSTED_INDEXED_KEYS.filter(key => (
       defaultKeys.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key)
     ));
+    // JEG-432 R5: adjusted curves left off because their chart is a week
+    // behind the newest one on the board.
+    const olderWeekKeys = ADJUSTED_INDEXED_KEYS.filter(key => firstLoadExcluded.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
+    const olderWeekNote = olderWeekKeys.length
+      ? ` ${olderWeekKeys.map(sourceLabel).join(", ")} ${olderWeekKeys.length === 1 ? "is" : "are"} from an older week and start${olderWeekKeys.length === 1 ? "s" : ""} off; turn ${olderWeekKeys.length === 1 ? "it" : "them"} on below.`
+      : "";
     let adjustedStatus;
     if (pausedKeys.length) {
       adjustedStatus = `ESPN adjusted is shown by default. ${pausedKeys.length} adjusted source projections are paused while they wait on fresh adjustment inputs.`;
     } else if (defaultAvailableAdjustedKeys.length) {
       const liveCount = defaultAvailableAdjustedKeys.length === ADJUSTED_INDEXED_KEYS.length ? "four" : String(defaultAvailableAdjustedKeys.length);
       const projectionNoun = defaultAvailableAdjustedKeys.length === 1 ? "projection is" : "projections are";
-      adjustedStatus = `ESPN live plus ${liveCount} adjusted source ${projectionNoun} shown by default.`;
+      adjustedStatus = `ESPN live plus ${liveCount} adjusted source ${projectionNoun} shown by default.${olderWeekNote}`;
+    } else if (olderWeekKeys.length) {
+      adjustedStatus = `ESPN live is shown by default.${olderWeekNote}`;
     } else {
       adjustedStatus = "ESPN live is shown by default. Adjusted source projections are live for supported league setups, but this setup has no matching source combo.";
     }
@@ -3724,11 +3740,11 @@
     // user will return to instead -- same regression power, right set.
     const indexedSelection = viewMode === "indexed"
       ? activeSources : (savedActiveSourcesForView || activeSources);
-    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, indexedSelection, userDeselectedSources);
+    const defaultGroupedSources = defaultCurvesSatisfied(adjustmentInputs, indexedSelection, userDeselectedSources, firstLoadExcluded);
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     // sourceScaleAgreement is NOT blocking: genuine inter-source disagreements
     // (e.g., USA Today QB 0.51x of ESPN anchor) are surfaced via ChartHealth
@@ -3796,7 +3812,11 @@
       // Fresh-load default: ESPN adjusted plus every *_adjusted curve with
       // live stage-2 cells (fixture-transition Option B auto-return). The
       // banner's "shown by default" copy is only true when this matches it.
-      activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs));
+      // JEG-432 R5: weekly charts older than the newest week on the board
+      // start switched off (the reader can still turn them on).
+      const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
+      firstLoadExcluded = new Set(freshness?.first_load_excluded || []);
+      activeSources = new Set(defaultIndexedSourceKeys(adjustmentInputs, firstLoadExcluded));
       userDeselectedSources = new Set();
       canonicalByKey = buildCanonicalMap();
       if (!canonicalByKey.size) throw new Error("Canonical player records are unavailable.");
