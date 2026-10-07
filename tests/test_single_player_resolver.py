@@ -60,7 +60,6 @@ LEGACY: dict[str, set[str]] = {
     "pipelines/rebuild_fp_natives_from_snapshot.py": {'def:normalize'},
     "pipelines/refresh_players_espn_fields.py": {'def:norm'},
     "pipelines/review_comparison_candidate.py": {'import:norm_player_name'},
-    "pipelines/save_razzball_references.py": {'def:compact', 'def:resolve_name', 'import:ALIASES', 'import:normalize_name'},
     "pipelines/scrape_live_source_pages.py": {'import:norm_player_name'},
     "pipelines/translate_via_vorp.py": {'def:resolve_key'},
     "pipelines/vorp_translation/unified.py": {'import:norm_player_name'},

@@ -71,10 +71,24 @@ class ResolveTest(unittest.TestCase):
         self.assertEqual(self.r.key("Jaxon SmithNjigba", source="t"), 8)
         self.assertEqual(self.r.key("Kenneth Walker", source="t"), 9)
 
-    def test_nickname_tier(self):
+    def test_nickname_variant_matches_only_through_a_verified_alias(self):
+        # Decision identity-name-variants-001 (Jeremy, 2026-10-07): suffixes match
+        # automatically, nicknames only through a verified alias. Before it, this
+        # test pinned "Kenny Gainwell" -> 785 as a canonical:nickname exact match.
         res = self.r.resolve("Kenny Gainwell", source="t", pos="RB")
-        self.assertEqual((res.player_key, res.status, res.method), (785, "exact", "canonical:nickname"))
-        self.assertEqual(self.r.key("Joshua Palmer", source="t", pos="WR"), 822)
+        self.assertEqual((res.player_key, res.status, res.method), (785, "provisional", "fuzzy"))
+        self.assertIsNone(self.r.key("Kenny Gainwell", source="t", pos="RB", allow_provisional=False))
+        self.assertEqual(self.r.resolve("Joshua Palmer", source="t", pos="WR").status, "provisional")
+        r = resolver()
+        r.add_alias({"source": "*", "source_player_name": "Kenny Gainwell", "position": "RB",
+                     "player_key": 785, "status": "verified"})
+        res = r.resolve("Kenny Gainwell", source="t", pos="RB", allow_provisional=False)
+        self.assertEqual((res.player_key, res.status), (785, "verified"))
+
+    def test_suffix_variant_matches_automatically(self):
+        for name in ("Kenneth Walker", "Kenneth Walker III", "Kenneth Walker V", "Kenneth Walker Jr."):
+            res = self.r.resolve(name, source="t", pos="RB", allow_provisional=False)
+            self.assertEqual((res.player_key, res.status), (9, "exact"), name)
 
     def test_exact_spelling_beats_nickname_collision(self):
         # "Mike Williams" and "Michael Williams" collide after nickname expansion;
@@ -164,7 +178,7 @@ class FuzzyTest(unittest.TestCase):
     def test_exact_matches_are_never_recorded_as_pending(self):
         r = resolver()
         r.resolve("Ja'Marr Chase", source="t")
-        r.resolve("Kenny Gainwell", source="t", pos="RB")
+        r.resolve("Kenneth Walker III", source="t", pos="RB")
         self.assertEqual(r.pending_rows(), [])
 
 

@@ -78,7 +78,7 @@ jobs:
           rc=0
           {
             python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball &&
-            python3 pipelines/save_razzball_references.py --snapshot /tmp/razzball/snapshot.json $flag
+            python3 pipelines/save_razzball_references.py --snapshot /tmp/razzball/snapshot.json $flag --record-pending
           } > /tmp/razzball.log 2>&1 || rc=$?
           cat /tmp/razzball.log
           level=notice; [ "$rc" = 0 ] || level=error

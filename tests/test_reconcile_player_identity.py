@@ -40,12 +40,12 @@ class AliasReconcileTest(unittest.TestCase):
         return {a["id"]: a for a in rec.plan_alias_reconcile(self.r, aliases, list(sl), NOW)}
 
     def test_provisional_confirmed_by_exact_name_is_promoted(self):
-        acts = self.plan([alias(1, "Kenny Gainwell", "RB", "provisional", 785)])
+        acts = self.plan([alias(1, "Kenneth Gainwell Jr.", "RB", "provisional", 785)])
         self.assertEqual((acts[1]["action"], acts[1]["player_key"]), ("promote", 785))
         self.assertIsNone(acts[1]["note"])
 
     def test_provisional_with_wrong_key_is_replaced_and_noted(self):
-        acts = self.plan([alias(1, "Kenny Gainwell", "RB", "provisional", 1268)])
+        acts = self.plan([alias(1, "Kenneth Gainwell", "RB", "provisional", 1268)])
         self.assertEqual(acts[1]["player_key"], 785)
         self.assertIn("1268", acts[1]["note"])
 
@@ -58,8 +58,32 @@ class AliasReconcileTest(unittest.TestCase):
     def test_unique_sleeper_player_with_xref_promotes(self):
         acts = self.plan([alias(1, "Ken Gainwell", "RB", "unmatched")],
                          [sleeper("7567", "Ken Gainwell", "RB")])
-        # nickname tier already finds 785; with or without Sleeper the answer is 785
+        # Sleeper spells it the same way and its id 7567 is already ours (785)
         self.assertEqual((acts[1]["action"], acts[1]["player_key"]), ("promote", 785))
+
+    def test_nickname_variant_is_proposed_never_promoted(self):
+        # Decision identity-name-variants-001: "Kenny" for "Kenneth" is a proposal.
+        acts = self.plan([alias(1, "Kenny Gainwell", "RB", "provisional", 785, first=FRESH)],
+                         [sleeper("7567", "Kenneth Gainwell", "RB")])
+        self.assertEqual(acts[1]["action"], "queue")
+        self.assertEqual(acts[1]["proposed_key"], 785)
+        self.assertNotIn("player_key", acts[1])
+        sb = FakeSb()
+        rec.apply_actions(sb, LIVE, [], list(acts.values()), NOW.isoformat())
+        self.assertEqual([(b["status"], b["player_key"]) for t, b, _ in sb.patches], [("review", 785)])
+
+    def test_new_player_needs_an_nfl_team(self):
+        # Decision identity-new-players-001: a free agent is queued, not inserted.
+        acts = self.plan([alias(1, "Matt Hibner", "TE", "unmatched")],
+                         [sleeper("13324", "Matt Hibner", "TE", team=None)])
+        self.assertEqual(acts[1]["action"], "queue")
+        self.assertIn("not insertable", acts[1]["note"])
+
+    def test_insert_gate(self):
+        self.assertTrue(rec.may_insert(sleeper("1", "A B", "WR", team="BAL")))
+        self.assertFalse(rec.may_insert(sleeper("1", "A B", "WR", team=None)))
+        self.assertFalse(rec.may_insert(sleeper("1", "A B", "WR", team="BAL", active=False)))
+        self.assertFalse(rec.may_insert(sleeper("1", "A B", "OL", team="BAL")))
 
     def test_unique_sleeper_player_not_held_is_inserted(self):
         acts = self.plan([alias(1, "Matt Hibner", "TE", "unmatched")],

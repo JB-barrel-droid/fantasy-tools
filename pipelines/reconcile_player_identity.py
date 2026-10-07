@@ -16,12 +16,18 @@ into true ones:
      verified aliases, cross-ids; fuzzy is switched off):
         found              -> verified (a provisional that disagrees is replaced
                               and its old key noted)
-        Sleeper has exactly one active player of that name at that position
-                           -> verified to that player's key; a player the
-                              table does not hold yet is inserted (the only way
-                              the universe grows, and only for names a source
-                              actually uses)
+        Sleeper has exactly one active player of that exact name at that
+        position       -> verified to that player's key; a player the table
+                          does not hold yet is inserted only if it is at a
+                          fantasy position with an NFL team, else queued
+                          (the only way the universe grows, and only for
+                          names a source actually uses)
+        a nickname variant of exactly one player ("Kenny" for "Kenneth")
+                       -> review, with that player proposed (nickname
+                          variants match only through a verified alias)
         nothing, older than QUEUE_AFTER_DAYS -> review (the human queue)
+
+Decisions: docs/decisions.md identity-name-variants-001, identity-new-players-001.
   3. Record per-source counts in public.player_identity_reconcile_runs and
      return non-zero content status when open names exceed the alert limits.
 
@@ -52,6 +58,10 @@ from lib.player_resolver import (  # noqa: E402
 
 SLEEPER_URL = "https://api.sleeper.app/v1/players/nfl"
 FANTASY_POSITIONS = ("QB", "RB", "WR", "TE", "K")
+# Positions a nightly insert may create (decision identity-new-players-001).
+# Team defenses (DEF/DST) are listed by the decision but already exist as
+# players rows; Sleeper DEF records are not pulled (FANTASY_POSITIONS).
+INSERT_POSITIONS = ("QB", "RB", "WR", "TE", "K", "DEF", "DST")
 MIN_SLEEPER_PLAYERS = 2500
 QUEUE_AFTER_DAYS = 3
 OPEN_WINDOW_DAYS = 14
@@ -161,10 +171,27 @@ def sleeper_name_index(sleeper: list[dict]) -> dict[tuple[str, str], list[dict]]
     for s in sleeper:
         if not s["active"]:
             continue
-        k = norm_key(s["name"])
-        for key in dict.fromkeys((k, nickname_key(k))):
-            idx.setdefault((key, s["pos"]), []).append(s)
+        # Exact spelling only: a nickname variant is never evidence
+        # (decision identity-name-variants-001); it is only proposed.
+        idx.setdefault((norm_key(s["name"]), s["pos"]), []).append(s)
     return idx
+
+
+def nickname_proposal(resolver: PlayerResolver, name: str, pos: str | None) -> int | None:
+    """The one player whose name is a nickname variant of ``name`` at ``pos``
+    ("Kenny Gainwell" -> Kenneth Gainwell), or None. A PROPOSAL for a human:
+    nickname variants match only through a verified alias row."""
+    nk = nickname_key(norm_key(name))
+    cands = {p.player_key for p in resolver._tiers[1].get(nk, [])
+             if not pos or p.position == pos}
+    return cands.pop() if len(cands) == 1 else None
+
+
+def may_insert(s: dict) -> bool:
+    """A Sleeper player may become a new players row only when it is the one
+    active match, at a fantasy position, with an NFL team
+    (decision identity-new-players-001)."""
+    return bool(s.get("active")) and s.get("pos") in INSERT_POSITIONS and bool(s.get("team"))
 
 
 def plan_alias_reconcile(resolver: PlayerResolver, aliases: list[dict], sleeper: list[dict],
@@ -190,10 +217,7 @@ def plan_alias_reconcile(resolver: PlayerResolver, aliases: list[dict], sleeper:
             actions.append(act)
             continue
         k = norm_key(name)
-        cands = []
-        if pos:
-            for key in dict.fromkeys((k, nickname_key(k))):
-                cands.extend(sidx.get((key, pos), []))
+        cands = list(sidx.get((k, pos), [])) if pos else []
         uniq = list({c["sleeper_id"]: c for c in cands}.values())
         if len(uniq) == 1:
             s = uniq[0]
@@ -209,8 +233,19 @@ def plan_alias_reconcile(resolver: PlayerResolver, aliases: list[dict], sleeper:
                 # Never insert a second row for them; a human decides.
                 act.update(action="queue" if a["status"] != "review" else "keep",
                            note=f"Sleeper {s['sleeper_id']} {s['pos']} vs players {held}: position disagreement")
-            else:
+            elif may_insert(s):
                 act.update(action="insert_player", sleeper=s, method="nightly:sleeper-new-player")
+            else:
+                act.update(action="queue" if a["status"] != "review" else "keep",
+                           note=f"Sleeper {s['sleeper_id']} {s['pos']} team={s.get('team')}: "
+                                "not insertable (needs an active fantasy-position player with an NFL team)")
+            actions.append(act)
+            continue
+        proposed = nickname_proposal(resolver, name, pos)
+        if proposed is not None:
+            act.update(action="queue" if a["status"] != "review" else "keep", proposed_key=proposed,
+                       note=f"proposed nickname alias -> {resolver.canonical_name(proposed)} ({proposed}); "
+                            "verify by hand (nickname variants need a verified alias)")
             actions.append(act)
             continue
         first = _parse_ts(a.get("first_seen_at")) or now
@@ -316,8 +351,10 @@ def apply_actions(sb, live: dict, universe_adds: list[dict], actions: list[dict]
             sb.patch("player_name_aliases", body, params=f"?id=eq.{act['id']}")
             stats["promoted"] += 1
         elif act["action"] == "queue":
-            sb.patch("player_name_aliases", {"status": "review", "notes": act.get("note")},
-                     params=f"?id=eq.{act['id']}")
+            body = {"status": "review", "notes": act.get("note")}
+            if act.get("proposed_key") is not None:
+                body["player_key"] = act["proposed_key"]  # a proposal: review rows are never resolved
+            sb.patch("player_name_aliases", body, params=f"?id=eq.{act['id']}")
             stats["queued"] += 1
     return dict(stats)
 

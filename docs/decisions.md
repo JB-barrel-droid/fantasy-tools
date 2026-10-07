@@ -262,3 +262,135 @@ Which allocation policy governs the Adj values view: (a) the proposed reference-
 Put the choice to Jeremy with the worked-example numbers in front of him: the squared premium is a real economic judgment (bench players are worth nearly nothing) dressed as algebra, and it retires the user-settable bench-share control for the Adj view. The honest comparison is Option 1 vs Option 2 on the same sample table (Gibbs 70.0 both; Josh Allen 11.89 vs 27.80; Mark Andrews 0.56 vs 6.09). Jeremy's call; nothing proceeds without his explicit tap.
 
 ### Outcome Note
+
+## identity-name-variants-001: Suffix variants match automatically; nickname variants only through a verified alias
+- id: identity-name-variants-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Generational suffixes (Jr/Sr/II/III/IV/V) match automatically. Nickname variants (Josh/Joshua and similar) match only through a verified row in public.player_name_aliases. The nightly reconcile may propose such aliases for review but never verifies them on its own.
+
+### Context
+
+JEG-438 moves every player-name match onto one resolver (`pipelines/lib/player_resolver.py`). The resolver's canonical step had a nickname tier ("Kenny Gainwell" matched Kenneth Gainwell exactly). `tests/test_razzball_supabase.py` pinned the opposite for the Razzball saver: "Joshua Palmer" vs "Josh Palmer" needs a verified alias, and "David Sills V" without a hint was `no_match`.
+
+### Problem
+
+Should a name that differs only by suffix or by nickname count as an automatic match?
+
+### Options
+
+1. Both automatic.
+2. Both only through a verified alias.
+3. Suffix automatic; nickname only through a verified alias, which the nightly job may propose.
+
+### Recommendation
+
+Option 3, chosen by Jeremy (2026-10-07, explicit, answer C). Consequences:
+
+- The resolver's canonical step uses the exact and space-free spellings only. A nickname variant with no alias becomes a fuzzy (provisional) proposal, which savers never write.
+- The nightly reconcile matches Sleeper names by exact spelling only. A nickname variant of exactly one player is queued for review with that player proposed.
+- The Razzball saver moved to the resolver. Its "David Sills V" assertion was corrected (suffixes now match), and its nickname assertion stands.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 and implemented in PR #396. Recorded as `proceeded` because the format has no `approved` outcome.
+
+## identity-fuzzy-001: Fuzzy player matches are never written
+- id: identity-fuzzy-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: A fuzzy (provisional) name match is never written to a reference table. The row goes to review, and the name goes to public.player_name_aliases for the nightly reconcile to verify or queue.
+
+### Context
+
+The resolver can propose a fuzzy match (same last name, compatible first name, score >= 0.90 with a 0.05 lead). The reference tables feed the published chart.
+
+### Problem
+
+May a saver write a value keyed by a fuzzy match before the match is verified?
+
+### Options
+
+1. Never; review until verified.
+2. Write it, flagged in a new identity_status column.
+3. Write it only above a 0.95 confidence.
+
+### Recommendation
+
+Option 1, chosen by Jeremy (2026-10-07, explicit, answer A). This is consistent with "never display unvalidated values". It is implemented in `player_resolver.lookup_for_saver` (`allow_provisional=False`) and guarded by `tests/test_identity_saver_migration.py::ProvisionalNeverWrittenTest`.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07. It was already the behaviour in PR #396.
+
+## identity-name-keys-001: Move name joins to player_key before unifying stored labels
+- id: identity-name-keys-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Keep the three stored `player_norm` label conventions for now. First move every join that reads them onto player_key. Then unify the labels on `norm_key` in a separate PR checked against chart values. Do not re-key source_trade_values now.
+
+### Context
+
+Stored `player_norm` labels use three conventions (`source`, `plain` and `lower`; see docs/identity-model.md, "Stored labels"). `player_norm` is part of the `source_trade_values` upsert grain, and the DDF legs, build_source_fidelity and build_index_math join on it.
+
+### Problem
+
+When and how should the stored name labels be unified?
+
+### Options
+
+1. Keep the three conventions (centralized in `legacy_label`).
+2. Move joins to player_key, then unify in a value-checked PR.
+3. Unify now and accept a re-key of source_trade_values.
+
+### Recommendation
+
+Option 2, chosen by Jeremy (2026-10-07, explicit, answer B). It is tracked as GAP-IDENTITY-LABELS in docs/risk-register.md.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07. The follow-up is not started; PR #396 keeps every label byte-identical.
+
+## identity-new-players-001: The nightly job inserts a player only for one active, fantasy-position, NFL-team Sleeper match
+- id: identity-new-players-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: The nightly reconcile inserts a new public.players row only when Sleeper has exactly one active match for the name a source used, the player is at a fantasy position (QB/RB/WR/TE/K/DEF) and the player has an NFL team. Anything else is queued for review.
+
+### Context
+
+The nightly reconcile (`pipelines/reconcile_player_identity.py`) grows the canonical player table only for names a source actually uses, when Sleeper confirms the player.
+
+### Problem
+
+When may the nightly job add a player to public.players on its own?
+
+### Options
+
+1. One active Sleeper match is enough.
+2. Never; always queue for a human.
+3. One active Sleeper match, at a fantasy position, with an NFL team; otherwise queue.
+
+### Recommendation
+
+Option 3, chosen by Jeremy (2026-10-07, explicit, answer C). It is implemented as `reconcile_player_identity.may_insert` and guarded by `tests/test_reconcile_player_identity.py::test_new_player_needs_an_nfl_team` and `test_insert_gate`. Sleeper DEF records are not pulled, because team defenses already exist as players rows.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 and implemented in PR #396.

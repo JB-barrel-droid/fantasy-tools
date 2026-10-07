@@ -137,15 +137,20 @@ class IdentityResolutionTest(unittest.TestCase):
     ]
 
     def resolve(self, name, pos, hint=None):
-        index = saver.build_name_index(self.PLAYERS)
-        return saver.resolve_name(name, pos, index, hint)
+        # JEG-438: build_name_index/resolve_name became player_index/resolve_player
+        # (the one resolver); same inputs, same (key, reason) contract.
+        index = saver.player_index(self.PLAYERS)
+        return saver.resolve_player(name, pos, index, hint)
 
     def test_typographic_apostrophe_matches_the_straight_apostrophe_name(self):
         self.assertEqual((1, None), self.resolve("Ja\u2019Marr Chase", "WR"))
         self.assertEqual((1, None), self.resolve("Ja'Marr Chase", "WR"))
 
     def test_the_snapshots_own_player_norm_resolves_a_suffix_spelling(self):
-        self.assertEqual((None, "no_match"), self.resolve("David Sills V", "WR"))
+        # Corrected 2026-10-07 (decision identity-name-variants-001, Jeremy:
+        # suffix differences Jr/Sr/II-V match automatically). This used to pin
+        # (None, "no_match") without the hint -- the old matcher's limit, not a rule.
+        self.assertEqual((2, None), self.resolve("David Sills V", "WR"))
         self.assertEqual((2, None), self.resolve("David Sills V", "WR", "david sills"))
 
     def test_the_hint_never_overrides_a_name_that_already_resolves(self):

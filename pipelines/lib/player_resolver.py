@@ -19,8 +19,11 @@ Resolution order, stopping at the first step that yields exactly one player:
                     (sleeper/espn/yahoo/gsis) in external_id_map.       -> verified
   2. alias       -- a verified alias for this source, then for '*'.      -> verified
                     (a provisional alias row resolves as provisional)
-  3. canonical   -- the players table's own names, three spellings in
-                    order: exact key, nickname-expanded, space-free.
+  3. canonical   -- the players table's own names, two spellings in
+                    order: exact key (generational suffixes Jr/Sr/II-V
+                    dropped), space-free. Nickname variants ("Josh" vs
+                    "Joshua") are NOT canonical: they match only through a
+                    verified alias (Jeremy, 2026-10-07).
                     Position filter, then active-over-inactive, then team.
                     Two players left at any spelling -> ambiguous, stop. -> exact
   4. fuzzy       -- ONLY when nothing above found any candidate. Same last
@@ -352,10 +355,14 @@ class PlayerResolver:
                     self._remember(source, raw, pos, team, res, source_id)
                 return res
 
-        # 3. canonical exact (three spellings)
-        probe = (k1, nickname_key(k1), compact_key(k1))
+        # 3. canonical exact (two spellings). The nickname tier is NOT used here:
+        # a nickname variant ("Josh" for "Joshua") matches only through a
+        # verified alias row (decision identity-name-variants-001, 2026-10-07).
+        # Fuzzy may still PROPOSE it as provisional; the nightly job queues it.
+        probe = {"exact": k1, "compact": compact_key(k1)}
         saw_name = False
-        for tier_name, tier, k in zip(("exact", "nickname", "compact"), self._tiers, probe):
+        for tier_name, tier in (("exact", self._tiers[0]), ("compact", self._tiers[2])):
+            k = probe[tier_name]
             cands = tier.get(k, [])
             if not cands:
                 continue
@@ -604,8 +611,8 @@ _SAVER_REASON = {"unmatched": "no_match", "ambiguous": "ambiguous",
 
 def lookup_for_saver(resolver: PlayerResolver, name: Any, *, source: str,
                      pos: str | None = None, team: str | None = None,
-                     source_id: Any = None, id_type: str | None = None
-                     ) -> tuple[int | None, str | None]:
+                     source_id: Any = None, id_type: str | None = None,
+                     record: bool = True) -> tuple[int | None, str | None]:
     """(player_key, None) or (None, reason) for a row a saver will WRITE.
 
     Fuzzy (provisional) matches are not written: the name is recorded in
@@ -614,7 +621,7 @@ def lookup_for_saver(resolver: PlayerResolver, name: Any, *, source: str,
     values"). Reasons: no_match | ambiguous | position_conflict.
     """
     res = resolver.resolve(name, source=source, pos=pos, team=team, source_id=source_id,
-                           id_type=id_type, allow_provisional=False)
+                           id_type=id_type, allow_provisional=False, record=record)
     if res.player_key is not None:
         return res.player_key, None
     return None, _SAVER_REASON.get(res.status, "no_match")

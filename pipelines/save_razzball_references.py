@@ -16,10 +16,14 @@ and counting totals are doubled), so they are stored as per_game_standard /
 per_game_half_ppr / per_game_ppr. Every other row field is kept verbatim in
 raw_stats so the importer can rebuild the snapshot row exactly.
 
-Identity (fail closed, same rule as the other savers): numeric player_key only,
-resolved via public.players (full_name is the naming authority) after the
-verified spelling ALIASES. Unmatched or ambiguous names go to the review report,
-never guessed, never zero-filled.
+Identity (fail closed, JEG-438): numeric player_key only, resolved by the one
+player resolver (pipelines/lib/player_resolver.py) over the live public.players
+rows plus the committed alias map; the snapshot's own player_norm is a second
+spelling to try. Suffixes (Jr/Sr/II-V) match automatically; nickname variants
+only through a verified alias (decision identity-name-variants-001). Unmatched,
+ambiguous or position-conflicting names go to the review report, never guessed,
+never zero-filled. A fuzzy (provisional) match is never written; with
+--record-pending it goes to player_name_aliases for the nightly reconcile.
 """
 
 from __future__ import annotations
@@ -35,8 +39,9 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from match_source_snapshot import normalize_name  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+from lib.player_resolver import (  # noqa: E402  -- JEG-438: the one resolver
+    PlayerResolver, lookup_for_saver, resolver_for_players,
+)
 from nfl_week import current_nfl_week  # noqa: E402
 
 TABLE = "razzball_projections"  # bare name: PostgREST path is /rest/v1/<table>
@@ -85,7 +90,7 @@ def _sb():
 
 
 def _default_fetch_players() -> list[dict[str, Any]]:
-    rows = _sb().get_all("players", params="?select=player_key,full_name,position")
+    rows = _sb().get_all("players", params="?select=player_key,full_name,position,active")
     if not isinstance(rows, list):
         raise SystemExit("Unexpected Supabase response for players")
     return [r for r in rows if isinstance(r, dict)]
@@ -112,67 +117,42 @@ upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = _default_upsert
 count_rows: Callable[[str, str], int] = _default_count
 
 
-def compact(norm: str) -> str:
-    """A normalized name with its spaces removed.
-
-    public.players spells "Ja'Marr Chase" with a straight apostrophe, which
-    normalize_name turns into a space ("ja marr chase"); the Razzball snapshot spells
-    it with a typographic one, which normalize_name drops ("jamarr chase"). Comparing
-    the space-free form makes the two meet without guessing any spelling.
-    """
-    return norm.replace(" ", "")
+# Every resolver built by this run (main --record-pending flushes them).
+RESOLVERS: list[PlayerResolver] = []
 
 
-def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    for record in players:
-        key = record.get("player_key")
-        name = str(record.get("full_name") or "").strip()
-        if not isinstance(key, int) or not name:
-            continue
-        entry = {
-            "player_key": key,
-            "full_name": name,
-            "position": str(record.get("position") or "").strip().upper() or None,
-        }
-        norm = normalize_name(name)
-        index.setdefault(norm, []).append(entry)
-        index.setdefault("\0" + compact(norm), []).append(entry)  # space-free fallback
-    return index
+def player_index(players: list[dict[str, Any]]) -> PlayerResolver:
+    """The resolver over these canonical rows (+ the committed alias map)."""
+    rows = [p for p in players if isinstance(p.get("player_key"), int)
+            and str(p.get("full_name") or "").strip()]
+    resolver = resolver_for_players(rows)
+    RESOLVERS.append(resolver)
+    return resolver
 
 
-def resolve_name(
+def resolve_player(
     name: str,
     pos: str | None,
-    index: dict[str, list[dict[str, Any]]],
+    index: PlayerResolver,
     norm_hint: str | None = None,
 ) -> tuple[int | None, str | None]:
-    """Return (player_key, reason). Unresolved -> (None, reason).
+    """Return (player_key, None) or (None, reason).
 
-    Order: exact normalized name, the verified ALIASES, the space-free form, then the
-    snapshot's own `player_norm` (the join key the DDF leg uses; it catches "David
-    Sills V" -> "david sills"). Several players under one form are narrowed by
-    position; still more than one is "ambiguous" and goes to review. Nothing is guessed.
+    The name first; when it has no match, the snapshot's own ``player_norm``
+    (the spelling the DDF leg joins on). The hint never overrides a name that
+    resolves, and a hint that also fails leaves the name's own reason.
     """
-    forms = [normalize_name(name)]
+    pos = (pos or "").strip().upper() or None
+    key, reason = lookup_for_saver(index, name, source="razzball", pos=pos, record=False)
+    if key is not None or reason != "no_match":
+        if key is None:
+            lookup_for_saver(index, name, source="razzball", pos=pos)  # record the review name
+        return key, reason
     if norm_hint:
-        forms.append(normalize_name(norm_hint))
-    candidates: list[dict[str, Any]] = []
-    for norm in forms:
-        norm = ALIASES.get(norm, norm)
-        candidates = index.get(norm) or index.get("\0" + compact(norm), [])
-        if candidates:
-            break
-    if not candidates:
-        return None, "no_match"
-    if len(candidates) == 1:
-        return candidates[0]["player_key"], None
-    wanted = (pos or "").strip().upper()
-    if wanted:
-        filtered = [c for c in candidates if c.get("position") == wanted]
-        if len(filtered) == 1:
-            return filtered[0]["player_key"], None
-    return None, "ambiguous"
+        key, _ = lookup_for_saver(index, norm_hint, source="razzball", pos=pos, record=False)
+        if key is not None:
+            return key, None
+    return lookup_for_saver(index, name, source="razzball", pos=pos)
 
 
 def parse_float(raw: Any) -> float | None:
@@ -205,7 +185,7 @@ def build_razzball_rows(
     if not rows:
         raise SystemExit("Fail closed: Razzball snapshot has no rows.")
 
-    index = build_name_index(fetch_players())
+    index = player_index(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -216,7 +196,7 @@ def build_razzball_rows(
         if not name:
             review.append({"reason": "missing_player_name", "pos": pos, "team": row.get("team")})
             continue
-        key, reason = resolve_name(name, pos, index, row.get("player_norm"))
+        key, reason = resolve_player(name, pos, index, row.get("player_norm"))
         if key is None:
             review.append(
                 {
@@ -266,6 +246,9 @@ def main() -> None:
         help="Path to the razzball snapshot.json (default: latest under data/raw/sources/razzball/)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Build rows but do not write.")
+    parser.add_argument("--record-pending", action="store_true",
+                        help="After a live save, send provisional/unmatched names to "
+                             "public.player_name_aliases for the nightly reconcile (JEG-438).")
     args = parser.parse_args()
 
     snapshot_path = args.snapshot or latest_razzball_snapshot()
@@ -291,6 +274,9 @@ def main() -> None:
             f"Fail closed: {TABLE} holds {live} rows for vintage {vintage} "
             f"after upsert, expected {len(clean)}."
         )
+    if args.record_pending:
+        sent = sum(r.flush_pending(_sb()) for r in RESOLVERS)
+        print(f"identity: recorded {sent} pending names")
     print("Razzball save complete.")
 
 

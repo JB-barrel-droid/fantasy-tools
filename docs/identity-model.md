@@ -39,7 +39,7 @@ res = r.resolve("Kenny Gainwell", source="fantasycalc", pos="RB", team="PIT",
                 source_id=None, id_type=None, allow_provisional=True)
 res.player_key   # 785
 res.status       # verified | exact | provisional | unmatched | ambiguous | position_conflict
-res.method       # source_id | xref:sleeper | alias:fantasycalc | alias:* | canonical:exact|nickname|compact | fuzzy | dst
+res.method       # source_id | xref:sleeper | alias:fantasycalc | alias:* | canonical:exact|compact | fuzzy | dst
 r.resolve_dst("Seahawks D/ST")           # team defenses
 r.canonical_name(785)                    # display name: always players.full_name
 r.write_pending("output/identity/pending-<source>.json")
@@ -50,7 +50,7 @@ Order (first step with exactly one player wins):
 
 1. **Source id**: an alias row for `(source, source_player_id)`, else a cross-id (`sleeper`, `espn`, `yahoo`, `gsis`).
 2. **Alias**: a verified alias for this source, then for `*`. A provisional alias resolves as provisional.
-3. **Canonical**: `players.full_name` at three spellings, in order: exact key, nickname-expanded first name (`kenny` to `kenneth`), and space-free (`smith njigba` = `smithnjigba`). Within a spelling: position filter, then active over inactive, then team. Two players left means ambiguous: stop, never guess.
+3. **Canonical**: `players.full_name` at two spellings, in order: the exact key (generational suffixes Jr/Sr/II-V dropped, so "David Sills V" = "David Sills") and the space-free key (`smith njigba` = `smithnjigba`). Within a spelling: position filter, then active over inactive, then team. Two players left means ambiguous: stop, never guess. Nickname variants (`kenny` for `kenneth`) are **not** canonical. They match only through a verified alias row (decision identity-name-variants-001, Jeremy 2026-10-07). Without one, fuzzy proposes them as provisional.
 4. **Fuzzy**: only when step 3 found no candidate at any spelling. It needs the same last name, a compatible first name (equal, nickname, prefix of 3 or more letters, or the same initial plus similarity), the position the caller gave, a score of at least 0.90, and a 0.05 lead over the next candidate. The result is `provisional`. It is recorded in `pending`, and savers send it to `player_name_aliases`.
 
 Normalization (`norm_key`) is the single rule: ASCII-fold, lowercase, drop apostrophes and periods, other punctuation to spaces, drop a trailing generational suffix. `name_label()` (= `norm_key`) is the stored `player_norm` label written next to a key. It is a label only and must never be used as a join key.
@@ -62,7 +62,8 @@ Normalization (`norm_key`) is the single rule: ASCII-fold, lowercase, drop apost
 1. **Universe sync** (Sleeper `/players/nfl`): every rostered, Active, fantasy-position Sleeper player that `players` already holds gets its missing sleeper/espn/gsis/yahoo ids. A held player is one matched by an existing cross-id or by an exact name at the same position, never by fuzzy. Nothing is inserted by this step, so Sleeper's stale "active" ghosts (retired players still listed with a team) stay out.
 2. **Re-resolve** every provisional, unmatched and review alias, using independent evidence only (fuzzy off):
    - Found: the alias becomes `verified`. A provisional that disagrees is replaced, and the old key is noted.
-   - Sleeper has exactly one active player of that name at that position: the alias becomes `verified` to that player. If `players` does not hold the player yet, the player is inserted with the next `player_key` plus cross-ids. This is how the universe grows, and only for names a source actually uses.
+   - Sleeper has exactly one active player of that exact name at that position: the alias becomes `verified` to that player. If `players` does not hold the player yet, it is inserted with the next `player_key` plus cross-ids, but only for a fantasy position (QB/RB/WR/TE/K/DEF) with an NFL team (decision identity-new-players-001). Otherwise the alias is queued. This is how the universe grows, and only for names a source actually uses.
+   - A nickname variant of exactly one player at that position: the alias is queued for review with that player proposed (`player_key` set on the review row, which the resolver never uses). A human verifies it.
    - Otherwise, after 3 days, the alias moves to `review`.
 3. **Monitoring**: one row per source in `player_identity_reconcile_runs`, and check `player_identity_reconcile` via `monitoring_record_observation`. `ok` means the job ran green. `content_ok` means open names (provisional + unmatched + review, seen in the last 14 days) are at or below 5 per source and 15 in total. A breach is recorded as `IDENTITY_OPEN_NAMES`.
 
@@ -82,7 +83,7 @@ Identity resolution (source name to key):
 | `pipelines/match_source_snapshot.py` | `normalize_name`, `identity_keys`, `resolve_identity`, Sleeper layer, roster name join | 3 |
 | `pipelines/save_{espn_cbs,cbsros,fantasycalc,usatoday}_references.py` | per-saver `resolve_name` / name index / `ALIASES` | **Done (3a, 2026-10-07)**: `player_index` + `lookup_for_saver` |
 | `pipelines/save_fantasypros_references.py` | `normalize_name` label | **Done (3a)**: `legacy_label(..., "source")` |
-| `pipelines/save_razzball_references.py` | `resolve_name` / `compact` / `norm_hint` / `ALIASES` | 3, blocked: two pinned tests in `tests/test_razzball_supabase.py` assert the old matcher's limits ("David Sills V" without hint is `no_match`; "Joshua Palmer" vs "Josh Palmer" is `no_match`, "needs a verified alias, not a heuristic"). The resolver resolves both (suffix `V`, nickname tier). Needs Jeremy's call on the nickname-tier policy. |
+| `pipelines/save_razzball_references.py` | `resolve_name` / `compact` / `norm_hint` / `ALIASES` | **Done (3a)**: `player_index` + `resolve_player` (snapshot `player_norm` kept as a second spelling). Unblocked by identity-name-variants-001; the "David Sills V" assertion was corrected (suffixes match). |
 | `pipelines/pull_espn_projections.py` | `resolve_identity` over the identity map | 3 |
 | `pipelines/refresh_fantasycalc_supabase.py` | `normalize_name` = `lower().strip()` label | **Done (3a)**: `legacy_label(..., "lower")` |
 | `pipelines/bake_players.py` | `canonical_players.resolve` (+ an unused `norm_plain` import) | import removed (3a); resolution still via canonical_players |
