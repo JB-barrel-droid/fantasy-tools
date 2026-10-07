@@ -217,6 +217,8 @@ test-unit:
 	python3 -m unittest tests.test_scheduler_slip
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_consolidation_reconciliation
+	python3 -m unittest tests.test_consolidated_write_fields
+	python3 -m unittest tests.test_rebuild_chain_consolidation_nonblocking
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
