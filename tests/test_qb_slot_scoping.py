@@ -158,6 +158,30 @@ class QbSlotScopingTest(unittest.TestCase):
             self.assertEqual({"josh allen": 24.0}, combos["full_12_qb1"]["native"])
             self.assertEqual({"josh allen": 24.0}, combos["full_12_qb2"]["native"])
 
+    def test_qb1_only_fixture_emits_no_qb2(self):
+        """JEG-436: league-settings-001 / #361 retired FantasyCalc's qb2 blocks.
+        A 12-team 1-QB snapshot against a qb1-only fixture must emit qb1 only;
+        the old split minted `full_12_qb2` and the review held it as an
+        unknown combo (2026-10-07 13:33Z chain)."""
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            rows = [ref_row(869, "Josh Allen", 24.0, scoring=s, qb=None)
+                    for s in ("ppr", "half_ppr", "standard")]
+            section = self.build_section(
+                tmp, rows, "fantasycalc",
+                ["full_12_qb1", "half_12_qb1", "standard_12_qb1"])
+            self.assertEqual({"full_12_qb1", "half_12_qb1", "standard_12_qb1"},
+                             set(section["combos"]))
+
+    def test_base_absent_from_fixture_falls_back_to_qb1(self):
+        """A (scoring, teams) the fixture has no QB-split combo for gets qb1
+        only (the importer pulls 1-QB values), never a minted qb2."""
+        with TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            rows = [ref_row(869, "Josh Allen", 24.0, teams=10, qb=None)]
+            section = self.build_section(tmp, rows, "fantasycalc", ["full_12_qb1"])
+            self.assertEqual({"full_10_qb1"}, set(section["combos"]))
+
     def test_no_split_when_fixture_section_missing(self):
         """Unknown source (no fixture section): qb=None rows stay base."""
         with TemporaryDirectory() as tmp:

@@ -42,6 +42,7 @@ import argparse
 import copy
 import hashlib
 import json
+import re
 import sys
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -416,6 +417,22 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         new_section["content_vintage"] = section_with_gate["content_vintage"]
     if section_with_gate.get("source_provenance"):
         new_section["source_provenance"] = copy.deepcopy(section_with_gate["source_provenance"])
+    # JEG-436: the chart labels a source's week from `week_designated` FIRST
+    # (product-data.js sourceVintage, curve-widget.js weekForSource), and the
+    # promoter used to keep the fixture's old label. Promoting FantasyCalc's
+    # Week-5 natives left `week_designated: "Week 4"` beside
+    # `content_vintage: "Week 5"`, so the chart would have shown week-5 values
+    # as Week 4. The label now travels with the values: the candidate's
+    # provenance week (int, from the importer's week column), else a "Week N"
+    # content_vintage.
+    prov = section_with_gate.get("source_provenance") or {}
+    prov_week = prov.get("week_designated") if isinstance(prov, dict) else None
+    vintage_week = re.match(r"^\s*week\s*(\d+)\s*$",
+                            str(section_with_gate.get("content_vintage") or ""), re.I)
+    if isinstance(prov_week, int) and not isinstance(prov_week, bool):
+        new_section["week_designated"] = f"Week {prov_week}"
+    elif vintage_week:
+        new_section["week_designated"] = f"Week {int(vintage_week.group(1))}"
     # D2 Exclusion Gate: Record hidden invalid rows count. Clear any stale
     # count carried over from a previous promotion: a 0 this run means the
     # section is clean now (JEG-275).
