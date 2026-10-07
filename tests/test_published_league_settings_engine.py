@@ -24,6 +24,7 @@ Discrimination: test_guard_catches_broken_engines mutates value-model.js.
 """
 from __future__ import annotations
 
+import functools
 import json
 import re
 import subprocess
@@ -70,6 +71,38 @@ def browser_players():
         if isinstance(key, int) and name and p.get("pos") in POSITIONS:
             out[key] = p["pos"]
     return out
+
+
+@functools.lru_cache(maxsize=None)
+def browser_projection(scoring):
+    """ESPN per-game points as the widget passes them (player.espn_ppg[field]),
+    from the same players island: {player_key: ppg} for QB/RB/WR/TE."""
+    html = INDEX.read_text(encoding="utf-8")
+    m = re.search(r'<script id="players-data" type="application/json">(.*?)</script>', html, re.S)
+    out = {}
+    for p in json.loads(m.group(1))["players"]:
+        key = p.get("player_key")
+        val = (p.get("espn_ppg") or {}).get(scoring)
+        name = str(p.get("name") or "").strip()
+        if (isinstance(key, int) and name and p.get("pos") in POSITIONS
+                and isinstance(val, (int, float)) and not isinstance(val, bool)):
+            out[key] = float(val)
+    return out
+
+
+def expected_max(scoring, teams, shape, pos_of=None):
+    """League-following positional maxes (JEG332-DERIVED-PEAKS) from the
+    server's own code, on the projections the browser passes."""
+    pos_of = pos_of or browser_players()
+    proj = {p: [] for p in POSITIONS}
+    for key, val in browser_projection(scoring).items():
+        proj[pos_of[key]].append((str(key), str(key), val))
+    for rows in proj.values():
+        rows.sort(key=lambda r: -r[2])
+    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
+    return unified.positional_max_for_setup(proj, teams, shape["BENCH"], shape["FLEX"],
+                                            slots={p: shape[p] for p in POSITIONS},
+                                            flex_eligible=elig)
 
 
 def browser_inputs(fixture, pos_of, source, scoring):
@@ -119,7 +152,10 @@ def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     if teams == 12 and shape == SAVED_SHAPE:
         return dict(saved)
     slots = {p: shape[p] for p in POSITIONS}
-    at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots)
+    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
+    at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots,
+                                  flex_eligible=elig,
+                                  our_max=expected_max(scoring, teams, shape, pos_of))
     base = unified.translate_ranked(ranked_keyed, 12)
     pie = _pie_values(native, pos_of, index_total)
     out = {}
@@ -140,10 +176,11 @@ def _cases(fixture, pos_of, settings):
     cases = []
     for source, scoring, teams, label, shape in settings:
         native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring)
+        projection = sorted(browser_projection(scoring).items())
         cases.append({"source": source, "scoring": scoring, "teams": teams, "label": label,
                       "shape": shape, "native": native, "saved": saved,
-                      "index_total": index_total,
-                      "pos": {str(k): pos_of[k] for k, _ in native + saved}})
+                      "index_total": index_total, "projection": projection,
+                      "pos": {str(k): pos_of[k] for k, _ in native + saved + projection}})
     return cases
 
 
@@ -214,7 +251,8 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertLessEqual(max_diff, TOL)
         self.assertGreater(n, 20000)
-        self.assertEqual({r["version"] for r in results}, {"league-settings-001/1"})
+        self.assertEqual({r["version"] for r in results}, {"league-settings-001/2"})
+        self.assertEqual({r["positionalMax"] for r in results}, {unified.POSITIONAL_MAX_VERSION})
         # Every value the chart would plot is finite and non-negative.
         for r in results:
             self.assertTrue(all(v >= 0 for v in r["values"].values()))
@@ -252,6 +290,8 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
             # saved-setup test ignores the roster
             "saved-setup-teams-only": ("if (Number(teams) !== SAVED_SETUP_TEAMS) return false;",
                                        "if (Number(teams) === SAVED_SETUP_TEAMS) return true;"),
+            # JEG332-DERIVED-PEAKS: projection ignored -> maxes back to fixed OUR_MAX
+            "maxes-fixed": ("if (opts.projection && opts.projection.size) {", "if (false) {"),
         }
         settings = [s for s in all_settings() if s[0] == "cbs" and s[1] == "ppr"]
         with tempfile.TemporaryDirectory() as tmp:

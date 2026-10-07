@@ -19,11 +19,13 @@ const results = payload.cases.map(c => {
     const out = ValueModel.derivePublishedSetup({
       native, saved, indexTotal: c.index_total, posOf: k => pos.get(k),
       teams: c.teams, shape: c.shape,
+      projection: c.projection ? new Map(c.projection.map(([k, v]) => [k, v])) : undefined,
     });
     return {
       values: Object.fromEntries([...out.values.entries()]),
       translated: out.translated, fallbackSaved: out.fallbackSaved,
       fallbackPie: out.fallbackPie, unpriced: out.unpriced, version: out.version,
+      positionalMax: out.positionalMax, ourMax: out.ourMax,
       savedSetup: ValueModel.isSavedSetup(c.teams, c.shape),
     };
   } catch (error) {

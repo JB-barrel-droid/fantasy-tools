@@ -495,6 +495,10 @@
   var VORP_TRANSLATION_VERSION = "unified-py-jeg62/1";
   // Our positional maxes (unified.py OUR_MAX): the 0-70 anchors per position.
   var TRANSLATION_OUR_MAX = {QB: 25.0, RB: 70.0, WR: 55.0, TE: 30.0};
+  // unified.py POSITIONAL_MAX_VERSION / TOP_OF_SCALE (JEG332-DERIVED-PEAKS):
+  // league-following maxes, see positionalMaxForSetup.
+  var POSITIONAL_MAX_VERSION = "espn-vaw-ratio/1";
+  var TRANSLATION_TOP_OF_SCALE = 70.0;
   // build_ddf_two_tier_leg.py REF_SLOTS / REF_FLEX_COUNT / BENCH_MIX_12.
   var TRANSLATION_REF_SLOTS = {QB: 1, RB: 2, WR: 3, TE: 1};
   var TRANSLATION_REF_FLEX_COUNT = 1;
@@ -619,6 +623,69 @@
     return out;
   }
 
+  function sortRanked(input) {
+    var ranked = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var rows = (input && input[pos]) || [];
+      ranked[pos] = rows.map(function (row) { return {key: row.key, value: Number(row.value)}; })
+        .sort(function (a, b) { return b.value - a.value; });
+    });
+    return ranked;
+  }
+
+  // unified.projection_max_vorp: the top player's value above waivers per
+  // position (unrounded), with the translation's own roster/waiver rules.
+  function projectionMaxVorp(ranked, teams, benchPerTeam, flexCount, slots, flexElig) {
+    var roster = translationRostered(teams, benchPerTeam, flexCount, ranked, slots, flexElig);
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var rows = ranked[pos];
+      if (!rows.length) return;
+      out[pos] = Math.max(0.0, rows[0].value - waiverAt(rows, roster[pos].rostered));
+    });
+    return out;
+  }
+
+  // unified.positional_max_for_setup (JEG332-DERIVED-PEAKS, decision for
+  // Jeremy 2026-10-07: "derived curves should shift with position settings").
+  // OUR_MAX is the calibration at the saved setup. At any other setting each
+  // position's max is OUR_MAX scaled by how far OUR model's top player at that
+  // position (ESPN per-game projections, the anchor's input) sits above the
+  // waiver line there, relative to the saved setup; then all four are scaled
+  // so the top position is 70 (the chart's top-player convention). A 2-QB
+  // roster pulls the QB waiver line down and raises the QB max; a deeper WR
+  // or flex requirement raises WR; shallow leagues lift the positions whose
+  // replacement level barely moves. Saved setup: exactly OUR_MAX.
+  // opts: projection ({pos: [{key, value}]}), teams, benchPerTeam, flexCount,
+  // slots, flexEligible (defaults as translatePublishedVorp).
+  function positionalMaxForSetup(opts) {
+    opts = opts || {};
+    var ranked = sortRanked(opts.projection);
+    var benchPerTeam = opts.benchPerTeam === undefined ? 6.0 : Number(opts.benchPerTeam);
+    var flexCount = opts.flexCount === undefined || opts.flexCount === null
+      ? TRANSLATION_REF_FLEX_COUNT : Number(opts.flexCount);
+    var ref = projectionMaxVorp(ranked, SAVED_SETUP_TEAMS, 6.0, TRANSLATION_REF_FLEX_COUNT,
+      TRANSLATION_REF_SLOTS, DEFAULT_FLEX_ELIGIBLE);
+    var at = projectionMaxVorp(ranked, Number(opts.teams), benchPerTeam, flexCount,
+      opts.slots || TRANSLATION_REF_SLOTS, opts.flexEligible || DEFAULT_FLEX_ELIGIBLE);
+    var raw = {};
+    var top = -Infinity;
+    POSITION_ORDER.forEach(function (pos) {
+      var r = ref[pos] === undefined ? 0.0 : ref[pos];
+      var a = at[pos] === undefined ? 0.0 : at[pos];
+      raw[pos] = r > 0 ? TRANSLATION_OUR_MAX[pos] * (a / r) : TRANSLATION_OUR_MAX[pos];
+      if (raw[pos] > top) top = raw[pos];
+    });
+    var out = {};
+    if (!(top > 0)) {
+      POSITION_ORDER.forEach(function (pos) { out[pos] = TRANSLATION_OUR_MAX[pos]; });
+      return out;
+    }
+    var k = TRANSLATION_TOP_OF_SCALE / top;
+    POSITION_ORDER.forEach(function (pos) { out[pos] = raw[pos] * k; });
+    return out;
+  }
+
   // unified.translate_ranked. opts:
   //   ranked: {pos: [{key, value}]} -- the source's native values per position.
   //           Sorted here (stable, value descending), so input order only
@@ -636,12 +703,8 @@
       ? TRANSLATION_REF_FLEX_COUNT : Number(opts.flexCount);
     var slots = opts.slots || TRANSLATION_REF_SLOTS;
     var flexElig = opts.flexEligible || DEFAULT_FLEX_ELIGIBLE;
-    var ranked = {};
-    POSITION_ORDER.forEach(function (pos) {
-      var rows = (opts.ranked && opts.ranked[pos]) || [];
-      ranked[pos] = rows.map(function (row) { return {key: row.key, value: Number(row.value)}; })
-        .sort(function (a, b) { return b.value - a.value; });
-    });
+    var ourMax = opts.ourMax || TRANSLATION_OUR_MAX;
+    var ranked = sortRanked(opts.ranked);
     var roster = translationRostered(teams, benchPerTeam, flexCount, ranked, slots, flexElig);
     var result = {version: VORP_TRANSLATION_VERSION, positions: {}, translated: {}};
     POSITION_ORDER.forEach(function (pos) {
@@ -659,7 +722,7 @@
         totalVorp += v;
         return v;
       });
-      var scale = maxVorp > 0 ? TRANSLATION_OUR_MAX[pos] / maxVorp : 0.0;
+      var scale = maxVorp > 0 ? ourMax[pos] / maxVorp : 0.0;
       players.forEach(function (p, i) {
         var v = vorps[i];
         if (v > 0) {
@@ -702,7 +765,8 @@
   //
   //   1. value above waivers, translated onto our positional maxes
   //      (translatePublishedVorp) at the chosen teams/roster/bench, for every
-  //      player above that setting's waiver line;
+  //      player above that setting's waiver line. The maxes themselves follow
+  //      the setting (positionalMaxForSetup) when `projection` is passed;
   //   2. every other player keeps the server's fail-safe value: the 12-team
   //      flex-aware pie value (native x the 12-team bucket scale saved in
   //      index_total) -- which is exactly the saved value for the players the
@@ -710,7 +774,9 @@
   //
   // DECISION FOR JEREMY (see docs/claude-log.md 2026-10-06): step 2 mirrors
   // the server's fail-safe rather than pricing below-waiver players at zero.
-  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/1";
+  // /2 (2026-10-07): optional `projection` makes the positional maxes follow
+  // the setting (JEG332-DERIVED-PEAKS); both chart callers pass it.
+  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/2";
   var SAVED_SETUP_TEAMS = 12;
   var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
 
@@ -758,9 +824,10 @@
 
   // opts: native (Map key -> saved 12-team native value), saved (Map key ->
   // saved 12-team chart value), indexTotal (saved 12-team index_total),
-  // posOf(key), teams, shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}).
-  // Returns {version, values: Map, translated, fallbackSaved, fallbackPie,
-  // unpriced}. The player set is the saved set, at every setting.
+  // posOf(key), teams, shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}),
+  // projection (optional Map key -> ESPN per-game points for this scoring).
+  // Returns {version, values: Map, ourMax, positionalMax, translated,
+  // fallbackSaved, fallbackPie, unpriced}. The player set is the saved set, at every setting.
   function derivePublishedSetup(opts) {
     var native = opts.native;
     var saved = opts.saved;
@@ -774,14 +841,31 @@
       if (ranked[pos] && isFinite(v)) ranked[pos].push({key: key, value: v});
     });
     var base = translatePublishedVorp({ranked: ranked, teams: SAVED_SETUP_TEAMS});
-    var at = translatePublishedVorp({
-      ranked: ranked,
+    var setting = {
       teams: Number(opts.teams),
       benchPerTeam: Number(shape.BENCH),
       flexCount: Number(shape.FLEX),
       slots: {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)},
       flexEligible: flexEligible(shape)
-    });
+    };
+    // JEG332-DERIVED-PEAKS: with our projections supplied, the positional
+    // maxes follow the setting (positionalMaxForSetup); without them they stay
+    // at OUR_MAX (the pre-2026-10-07 behaviour).
+    var projection = null;
+    if (opts.projection && opts.projection.size) {
+      projection = {};
+      POSITION_ORDER.forEach(function (pos) { projection[pos] = []; });
+      opts.projection.forEach(function (value, key) {
+        var pos = posOf(key);
+        if (projection[pos] && typeof value === "number" && isFinite(value)) {
+          projection[pos].push({key: key, value: value});
+        }
+      });
+    }
+    var ourMax = projection
+      ? positionalMaxForSetup(Object.assign({projection: projection}, setting))
+      : TRANSLATION_OUR_MAX;
+    var at = translatePublishedVorp(Object.assign({ranked: ranked, ourMax: ourMax}, setting));
     var pie = quantileReindexValues({native: native, indexTotal: opts.indexTotal, posOf: posOf});
     var values = new Map();
     var counts = {translated: 0, fallbackSaved: 0, fallbackPie: 0, unpriced: 0};
@@ -794,7 +878,10 @@
       if (pie.has(key)) { values.set(key, pie.get(key)); counts.fallbackPie += 1; return; }
       values.set(key, 0); counts.unpriced += 1;
     });
+    var maxes = {};
+    POSITION_ORDER.forEach(function (pos) { maxes[pos] = ourMax[pos]; });
     return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
+            positionalMax: projection ? POSITIONAL_MAX_VERSION : "fixed", ourMax: maxes,
             values: values, translated: counts.translated, fallbackSaved: counts.fallbackSaved,
             fallbackPie: counts.fallbackPie, unpriced: counts.unpriced};
   }
@@ -808,6 +895,8 @@
     derivePublishedSetup: derivePublishedSetup,
     VORP_TRANSLATION_VERSION: VORP_TRANSLATION_VERSION,
     TRANSLATION_OUR_MAX: TRANSLATION_OUR_MAX,
+    POSITIONAL_MAX_VERSION: POSITIONAL_MAX_VERSION,
+    positionalMaxForSetup: positionalMaxForSetup,
     pyRound: pyRound,
     apportionSlots: apportionSlots,
     translationRostered: translationRostered,

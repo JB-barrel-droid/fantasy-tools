@@ -1085,13 +1085,22 @@
     let values = new Map();
     let info = {mode: "unavailable", reason: "no saved 12-team setup for this scoring"};
     if (saved.size && native.size) {
+      // JEG332-DERIVED-PEAKS: our ESPN projections let the positional maxes
+      // follow the league (ValueModel.positionalMaxForSetup).
+      const field = scoringField();
+      const projection = new Map();
+      canonicalByKey.forEach((player, playerKey) => {
+        const ppg = player.espn_ppg?.[field];
+        if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
+      });
       const derived = ValueModel.derivePublishedSetup({
         native, saved, indexTotal: savedRow.index_total,
         posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-        teams, shape: rosterShape
+        teams, shape: rosterShape, projection
       });
       values = derived.values;
       info = {mode: "derived", version: derived.version,
+        positionalMax: derived.positionalMax, ourMax: derived.ourMax,
         translationVersion: derived.translationVersion, translated: derived.translated,
         fallbackSaved: derived.fallbackSaved, fallbackPie: derived.fallbackPie, unpriced: derived.unpriced};
     }

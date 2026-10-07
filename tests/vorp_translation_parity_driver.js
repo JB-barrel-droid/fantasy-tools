@@ -14,6 +14,22 @@ const ValueModel = require(modelPath);
 const payload = JSON.parse(fs.readFileSync(0, "utf8"));
 const results = payload.vectors.map(vector => {
   try {
+    if (vector.kind === "max") {
+      // JEG332-DERIVED-PEAKS: ValueModel.positionalMaxForSetup vs
+      // unified.positional_max_for_setup.
+      const projection = {};
+      Object.entries(vector.projection).forEach(([pos, rows]) => {
+        projection[pos] = rows.map(([key, value]) => ({key, value}));
+      });
+      return {maxes: ValueModel.positionalMaxForSetup({
+        projection,
+        teams: vector.teams,
+        benchPerTeam: vector.bench_per_team,
+        flexCount: vector.flex_count,
+        slots: vector.slots || undefined,
+        flexEligible: vector.flex_eligible || undefined,
+      })};
+    }
     const ranked = {};
     Object.entries(vector.ranked).forEach(([pos, rows]) => {
       ranked[pos] = rows.map(([key, value]) => ({key, value}));
@@ -25,6 +41,7 @@ const results = payload.vectors.map(vector => {
       flexCount: vector.flex_count,
       slots: vector.slots || undefined,
       flexEligible: vector.flex_eligible || undefined,
+      ourMax: vector.our_max || undefined,
     });
     return {version: out.version, positions: out.positions, translated: out.translated};
   } catch (error) {
