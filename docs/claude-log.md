@@ -1,4 +1,11 @@
-# Claude session log
+# Claude session log — FROZEN ARCHIVE
+
+> **New entries do not go here.** As of 2026-10-07 each session writes its own
+> file in `docs/claude-log/YYYY-MM-DD-<slug>.md`. The format and rules are in
+> `docs/claude-log/README.md`. The directory listing is the index (files sort by
+> date). This file is the read-only archive of entries from before that date.
+
+---
 
 ## 2026-10-07 - JEG-436: unblock the rebuild chain (FantasyCalc week-5 hold)
 

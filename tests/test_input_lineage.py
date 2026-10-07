@@ -21,6 +21,7 @@ CLI surface contract:
      "checked": int}
   - exit 0 = pass, exit 1 = at least one named mismatch (never silent)
 """
+from __future__ import annotations
 
 import copy
 import json
