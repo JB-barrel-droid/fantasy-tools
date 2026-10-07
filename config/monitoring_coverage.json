@@ -44,7 +44,9 @@
     {"jobname": "gate-audit-v1", "check_id": "pgcron_gate_audit"},
     {"jobname": "monitoring-evaluator-5min", "check_id": "pgcron_monitoring_evaluator"},
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"},
-    {"jobname": "monitoring-cron-observer-5min", "check_id": "pgcron_cron_observer"}
+    {"jobname": "monitoring-cron-observer-5min", "check_id": "pgcron_cron_observer"},
+    {"jobname": "monitoring-alert-email-15min", "check_id": "monitoring_alert_email",
+     "note": "pg_cron calls net.http_post to the monitoring-alert-email edge function; the edge function self-reports to check_observations (NOT via cron_check_map — cron.job_run_details only shows that the HTTP request was queued, not whether the function succeeded)"}
   ],
   "unmonitored_workflows": {
     "preview.yml": "pull-request preview build; no schedule, nothing to miss",

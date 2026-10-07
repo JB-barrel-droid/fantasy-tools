@@ -262,3 +262,47 @@ Which allocation policy governs the Adj values view: (a) the proposed reference-
 Put the choice to Jeremy with the worked-example numbers in front of him: the squared premium is a real economic judgment (bench players are worth nearly nothing) dressed as algebra, and it retires the user-settable bench-share control for the Adj view. The honest comparison is Option 1 vs Option 2 on the same sample table (Gibbs 70.0 both; Josh Allen 11.89 vs 27.80; Mark Andrews 0.56 vs 6.09). Jeremy's call; nothing proceeds without his explicit tap.
 
 ### Outcome Note
+
+## jeg-435-001: Alert delivery channel for monitoring — email via Resend
+
+- id: jeg-435-001
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: infrastructure
+- silence-default: proceed
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Deliver monitoring alerts by email to jeremy.burstyn@gmail.com via Resend's HTTP API, using an edge function called every 15 min by pg_cron.
+
+### Context
+
+Monitoring is complete (PR #385): every pipeline records red or green to
+`monitoring.check_observations`, the evaluator flags missed runs, and the
+monitor page shows an "Is everything working?" banner. GAP-ALERT-CHANNEL
+documented that nothing pushes an alert — Jeremy must open the page to see
+a failure. Two checks were red before anyone looked (2026-10-06).
+
+### Problem
+
+Which delivery channel to use for outbound alerts? Options were email
+(via Resend), Slack webhook, or Discord webhook. Each requires one secret.
+
+### Options
+
+1. **Email via Resend** — `onboarding@resend.dev` sender works for the owner's
+   own address without a verified domain; no workspace required; free tier.
+2. **Slack webhook** — requires a Slack workspace and a custom app.
+3. **Discord webhook** — requires a Discord server.
+
+### Recommendation
+
+Email to jeremy.burstyn@gmail.com via Resend. Free tier, no domain setup
+required for owner-address sends; Jeremy only needs to create a Resend
+account at resend.com and set one secret.
+
+### Outcome Note
+
+Jeremy decided explicitly on 2026-10-07: alert delivery channel = EMAIL to
+jeremy.burstyn@gmail.com. Implementation in PR jeg435-email-alerts.
+Post-merge steps: apply `jeg435_monitoring_alert.sql`, deploy the edge
+function with `--no-verify-jwt`, set `RESEND_API_KEY` secret.
