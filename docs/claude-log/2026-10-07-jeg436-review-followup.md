@@ -81,7 +81,7 @@ Branch `jeg436-review-followup`; no Supabase writes (read-only SQL only).
   2026-10-03T01:07Z; last commit bdf43bd; no workflow runs
   `scrape_live_source_pages.py`) -- not in the register before; added
   GAP-LIVE-SCRAPE-STALE.
-- `make validate` result: see the PR body (run before push).
+- `make validate` under Python 3.12.12 with CHROMIUM_PATH=/opt/homebrew/bin/chromium: exit 0 (stamp files reverted afterwards). The default python3 here is 3.9 and fails on unrelated `str | None` syntax.
 
 ### Claimed, not confirmed
 - That the candidate USA Today section built in CI had the same 35-player QB
