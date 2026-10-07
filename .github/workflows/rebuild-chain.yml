@@ -85,7 +85,10 @@ jobs:
           set -e
           cp output/source-import-health.json dist/modules/source-import-health.json \
             || echo "::warning::verify_import_health wrote no artifact; nothing to publish"
-          exit $rc
+          # Go-live (2026-10-07): import health is a warning, not a stop. The
+          # chain's own per-source review decides what publishes; a stale or
+          # mismatched import shows as an older week on the page.
+          if [ "$rc" -ne 0 ]; then echo "::warning title=import-health::gate exit $rc (non-blocking)"; fi
 
       - name: Rebuild comparison chain (if fixture stale)
         id: chain

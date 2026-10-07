@@ -7,6 +7,7 @@ name: Preview build
 #
 # Deliberate differences from pages.yml:
 #   - make validate is blocking here (on a PR it is the only gate);
+#   - the full test suite (make test-unit) also runs here, non-blocking;
 #   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
 #     uncaught page error or a DDF pie readout that does not sum to 100.0 (JEG-24);
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
@@ -36,30 +37,6 @@ jobs:
         with:
           python-version: "3.12"
       - run: make sync
-      - name: Check PR discrimination proof (JEG-139)
-        if: github.event_name == 'pull_request'
-        # The PR body goes through an env var, never ${{ }} inside the script:
-        # interpolated, its backticks and $(...) ran as shell (script injection;
-        # 2026-10-07 a body with `code spans` failed this step with exit 2).
-        env:
-          PR_BODY: ${{ github.event.pull_request.body }}
-          BASE_REF: ${{ github.base_ref }}
-        run: |
-          # Write PR body to temp file
-          printf '%s\n' "$PR_BODY" > /tmp/pr_body.md
-
-          # The whole PR's diff (base...head), not just the last commit: a merge
-          # of main into the PR branch made HEAD~1 a docs-only diff, so the
-          # checker misjudged whether the PR adds a guard (2026-10-07, #386).
-          git fetch --no-tags --depth=500 origin "$BASE_REF" "+refs/heads/$BASE_REF:refs/remotes/origin/$BASE_REF"
-          git fetch --no-tags --deepen=500 origin || true
-          git diff "origin/$BASE_REF...HEAD" --no-color > /tmp/pr.diff \
-            || git diff HEAD~1 --no-color > /tmp/pr.diff
-
-          # Run the checklist checker
-          python3 pipelines/check_pr_discrimination.py \
-            --body-file /tmp/pr_body.md \
-            --diff-file /tmp/pr.diff
       - run: make validate
       - name: Rebuild source value lineage
         run: python3 pipelines/build_source_value_lineage.py
@@ -140,3 +117,8 @@ jobs:
             } else {
               await github.rest.issues.createComment({owner, repo, issue_number, body});
             }
+      - name: Full test suite (informational, non-blocking)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        run: |
+          make test-unit

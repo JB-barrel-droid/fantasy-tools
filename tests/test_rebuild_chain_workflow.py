@@ -514,7 +514,9 @@ class RebuildChainWorkflowTest(unittest.TestCase):
 
     def test_red_health_reaches_the_monitor_copy(self):
         r = red_health_step(WORKFLOW)
-        self.assertNotEqual(0, r["rc"], "a red gate must still fail the step")
+        # Go-live (2026-10-07): a red import-health gate warns; it no longer
+        # stops the rebuild.
+        self.assertEqual(0, r["rc"], "a red import-health gate must not stop the rebuild")
         self.assertEqual("RED-HEALTH", r["monitor"],
                          "red health must be copied to dist/modules (output/ is gitignored)")
 
@@ -526,17 +528,11 @@ class RebuildChainWorkflowTest(unittest.TestCase):
             "          rc=$?\n"
             "          set -e\n"
             "          cp output/source-import-health.json dist/modules/source-import-health.json \\\n"
-            "            || echo \"::warning::verify_import_health wrote no artifact; nothing to publish\"\n"
-            "          exit $rc\n",
+            "            || echo \"::warning::verify_import_health wrote no artifact; nothing to publish\"\n",
             "          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}\n"
             "          cp output/source-import-health.json dist/modules/source-import-health.json\n", 1)
         self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
         self.assertEqual("OLD-HEALTH", red_health_step(mutated)["monitor"])
-
-    def test_swallowing_the_red_exit_code_is_caught(self):
-        mutated = WORKFLOW.replace("          exit $rc\n", "          exit 0\n", 1)
-        self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
-        self.assertEqual(0, red_health_step(mutated)["rc"])
 
     def test_post_rebuild_validation_blocks_the_push(self):
         self.assertEqual([], post_rebuild_validation_problems(WORKFLOW))
