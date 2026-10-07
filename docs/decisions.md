@@ -78,6 +78,44 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+
+## per-source-promotion-001: A held source keeps its last section; the others publish
+- id: per-source-promotion-001
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: publish
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: A review hold in one published-chart source keeps that source's last promoted section (labelled with its own week) and lets every other source publish; the hold is never overridden, it is recorded amber (red after two weeks behind), and anything else still fails the chain closed.
+
+### Context
+
+rebuild-chain.yml failed 107 of its last 126 runs (last success 2026-10-04). A recurring cause: one source's review returned `hold` (for example FantasyCalc `coverage:full_10_qb1/WR` "candidate priced 76 < fixture 78") and the whole chain failed, so none of the other five sources' fresh data published. Every week some source drops a few players, so every week needed a hand-written unblock ticket. GAP-CHAIN-PARTIAL-PUBLISH (JEG-436) recorded why this was not a small change: half-promoted sections, skipped fit/_adjusted, the ESPN anchor, and JEG-8's no-push rule.
+
+### Problem
+
+Should one source's review hold block every source from publishing?
+
+### Options
+
+1. Keep all-or-nothing. Every hold blocks the whole site until a human clears it.
+2. Per-source isolation. A held source keeps its last promoted section; the others publish; the hold stays loud.
+3. Auto-resolve holds. Rejected: a hold means a human must look first (Jeremy 2026-09-29).
+
+### Recommendation
+
+Option 2, as built in `pipelines/rebuild_comparison_chain.py`:
+
+- Only a genuine reviewer verdict of `hold` in usatoday, fantasycalc, fantasypros or cbs is isolated. The held source's fixture section and `built_at` are restored to exactly their pre-run state (sections promoted earlier in the run are rolled back; verified by canonical sha) and rolled-back promotion records are renamed `*.rolled-back.json`. The held candidate is never promoted and the review artifact is never edited.
+- Still fails closed: any other failure (snapshot, match, section, reindex, promote refusal, malformed review, error), any ESPN or cbsros failure (their builders write the fixture before their gate, and ESPN's legs are the reindex anchor and fit target), a restore that cannot be verified, and a run in which every review-gated source held.
+- The fit and `_adjusted` sections run on the resulting fixture, so a held source's adjusted series is rebuilt from its kept raw section.
+- The site already labels each source by its own week (`week_designated` / `content_vintage`; product-data.js marks it `older`, curve labels show "Wk N"); a held section keeps its old label, so it reads as older, never current.
+- Loud: chain status `held` / `held_detail` / `hold_severity` / `outcome: published_with_holds`, run-summary table and warning (amber) or error (red) annotations, and two monitored checks: `rebuild_chain_source_held` (warn, any hold) and `rebuild_chain_source_held_stale` (page, kept section two or more content weeks behind; the build-lag-001 one-week tolerance).
+
+### Outcome Note
+
+2026-10-07: approved by Jeremy (relayed to the implementing session by the coordinating session the same day). Implemented in PR per-source-promotion. The monitoring migration `supabase/migrations/chain_source_holds_20261007.sql` must be applied when the PR merges.
 ## build-lag-001: Build on each source's newest week; a one-week lag does not block
 - id: build-lag-001
 - created: 2026-10-07
