@@ -3,7 +3,10 @@
   "about": "Every scheduled pipeline, who schedules it, and which monitoring.check_config check proves it ran. Enforced offline by tests/test_monitoring_coverage.py (inside make validate) and against live Supabase by pipelines/audit_monitoring_coverage.py (health-artifacts.yml). Add a workflow or pg_cron job without an entry here and the build fails. Check rows live in supabase/migrations/monitoring_coverage_20261007.sql and earlier jeg4xx migrations.",
   "pipelines": [
     {"workflow": "rebuild-chain.yml", "scheduler": "pg_cron", "pg_cron_job": "rebuild-chain-live",
-     "records": [{"check_id": "rebuild_chain", "file": ".github/workflows/rebuild-chain.yml", "contains": "--check-id rebuild_chain --owner rebuild-chain.yml"}]},
+     "records": [{"check_id": "rebuild_chain", "file": ".github/workflows/rebuild-chain.yml", "contains": "--check-id rebuild_chain --owner rebuild-chain.yml"},
+                 {"check_id": "rebuild_chain_source_held", "file": ".github/workflows/rebuild-chain.yml", "contains": "pipelines/record_chain_holds.py --owner rebuild-chain.yml"},
+                 {"check_id": "rebuild_chain_source_held_stale", "file": ".github/workflows/rebuild-chain.yml", "contains": "pipelines/record_chain_holds.py --owner rebuild-chain.yml"},
+                 {"check_id": "consolidated_values_write", "file": ".github/workflows/rebuild-chain.yml", "contains": "--check-id consolidated_values_write --owner rebuild-chain.yml --outcome \"${{ steps.consolidate.outcome }}\""}]},
     {"workflow": "player-trace-rebuild.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-player-trace-live",
      "records": [{"check_id": "player_trace_rebuild", "file": ".github/workflows/player-trace-rebuild.yml", "contains": "--check-id player_trace_rebuild --owner player-trace-rebuild.yml"}]},
     {"workflow": "espn-supabase-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-espn-sync-live",

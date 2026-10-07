@@ -125,6 +125,7 @@ test-unit:
 	python3 -m unittest tests.test_decisions_log
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
+	python3 -m unittest tests.test_rebuild_chain_per_source_hold
 	python3 -m unittest tests.test_refresh_fantasycalc_supabase
 	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
@@ -217,6 +218,8 @@ test-unit:
 	python3 -m unittest tests.test_scheduler_slip
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_consolidation_reconciliation
+	python3 -m unittest tests.test_consolidated_write_fields
+	python3 -m unittest tests.test_rebuild_chain_consolidation_nonblocking
 	python3 -m unittest tests.test_methodology_payload
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
