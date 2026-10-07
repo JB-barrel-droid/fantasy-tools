@@ -141,6 +141,13 @@ def process_section(section, repo, run_fn, nfl_week=None):
     # Supabase grain (fetch_translated filters week=eq) and stamps it in the
     # provenance. Without this the stage silently reuses the default week
     # after rollover.
+    # build-lag-001: this stays the CHAIN week even for a source lagging one
+    # week. The grain's `week` is a refresh-cycle label: Stage 9
+    # (refresh_vorp_translation --week <chain week>) computes every grain
+    # from the promoted fixture's natives, whatever week each source's
+    # content is, and labels it with the chain week. Fetching a lagging
+    # source at its own content week would read LAST cycle's grain (older
+    # natives). The source's real week is carried by its content_vintage.
     vorp_cmd = [
         "python3", "pipelines/translate_via_vorp.py",
         "--section", str(reindexed),
@@ -755,6 +762,39 @@ def describe_result(result):
     return f"FAILED at stage '{stage}': {result.get('detail', '')}"
 
 
+def source_vintages(repo):
+    """Per-source content week as the import-health gate judged it.
+
+    build-lag-001: the chain builds every source on its newest data, so a
+    run can mix weeks (FantasyCalc Week 5, CBS Week 4). The chain's own
+    `nfl_week` is the current content week, NOT the week of every section;
+    each source is labelled by its own content_vintage (stamped per section
+    at promotion). This block records what each source was built from so
+    the monitor never has to infer it from `nfl_week`. Read-only; a missing
+    or unreadable health file yields {} (the workflow's gate step runs
+    first and writes it).
+    """
+    path = Path(repo) / "output" / "source-import-health.json"
+    try:
+        health = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    entries = health.get("sources") or {}
+    out = {}
+    for source in SOURCES:
+        entry = entries.get(source)
+        if not isinstance(entry, dict):
+            continue
+        reason = str(entry.get("failure_reason") or "")
+        out[source] = {
+            "content_vintage": entry.get("content_vintage"),
+            "content_week": entry.get("content_week"),
+            "health_status": entry.get("status"),
+            "lagging_one_week": reason.startswith("LAGGING_ONE_WEEK"),
+        }
+    return out
+
+
 def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner):
     """Write the chain status JSON for the monitoring dashboard."""
     failed = [s for s, r in results.items() if r["status"] != "ok"]
@@ -774,6 +814,7 @@ def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, run
         "detail": results,
         "fit": fit_result,
         "adjusted_sections": adjusted_result,
+        "source_vintages": source_vintages(repo),
     }
     for rel in ("output/comparison-chain-status.json",
                 "dist/modules/comparison-chain-status.json"):
