@@ -11,6 +11,7 @@ Pins, each negative-tested against a simulated broken state:
   - it fails closed on a non-200 page, a changed header layout, and a
     truncated table (row floor); it reads the stats table, not the sidebar.
 """
+import csv
 import re
 import stat
 import subprocess
@@ -69,7 +70,10 @@ FIRST = {
 N_ROWS = {"QB": 70, "RB": 110, "WR": 160, "TE": 90}
 
 
-def page(pos, n=None, headers=None, first=None):
+STAMP = "Updated: 2026-10-05 09:07:08 PM EST"
+
+
+def page(pos, n=None, headers=None, first=None, stamp=STAMP, overall_rows=0):
     headers = headers or LAYOUTS[pos]
     first = first or FIRST[pos]
     n = N_ROWS[pos] if n is None else n
@@ -80,9 +84,19 @@ def page(pos, n=None, headers=None, first=None):
     sidebar = ('<table id="neorazzstatstable" class="tablesorter"><tr><th>#</th><th>Name</th><th>Team</th>'
                '<th>Pos</th><th>PTS/G</th></tr><tr><td></td><td>Sidebar Guy</td><td>KC</td><td>WR</td>'
                '<td>2.7</td></tr></table>')
-    return (f'<html><table><tr><td>nav</td></tr></table>'
+    # Razzball (2026-09-21) appended an overall #/Name/Team/Pos/PTS/G table that
+    # is larger than the position table and has no PPG legs; it must never win.
+    overall = ""
+    if overall_rows:
+        overall = ('<table id="overall"><tr><th>#</th><th>Name</th><th>Team</th><th>Pos</th>'
+                   '<th>PTS</th><th>PTS/G</th></tr>'
+                   + "".join(f"<tr><td>{k}</td><td>Overall Guy {k}</td><td>KC</td><td>WR</td>"
+                             f"<td>1</td><td>1.0</td></tr>" for k in range(overall_rows))
+                   + "</table>")
+    pad = "<!-- " + "x" * 20000 + " -->"
+    return (f'<html><div>{stamp}</div><table><tr><td>nav</td></tr></table>'
             f'<table id="neorazzstatstable" class="tablesorter" style="font-size:8pt;">'
-            f'<thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>{sidebar}</html>')
+            f'<thead><tr>{th}</tr></thead><tbody>{trs}</tbody></table>{overall}{sidebar}{pad}</html>')
 
 
 def fetcher(pages):
@@ -117,9 +131,69 @@ class PullerTest(unittest.TestCase):
                    and k not in saver.IDENTITY_FIELDS and k not in saver.COLUMN_FIELDS}
             self.assertEqual(STORED_RAW_STATS_KEYS, raw)
 
-    def test_non_200_fails_closed(self):
-        with self.assertRaises(rz.PullError):
-            rz.pull("2026-10-06", fetch_fn=fetcher({"WR": (403, "blocked")}))
+    def test_non_200_fails_closed_as_source_blocked(self):
+        for status in (402, 403, 429, None):
+            with self.assertRaises(rz.PullError) as cm:
+                rz.pull("2026-10-06", fetch_fn=fetcher({"WR": (status, "blocked")}))
+            self.assertEqual("SOURCE_BLOCKED", cm.exception.code, status)
+
+    def test_empty_200_is_source_blocked(self):
+        # Razzball answers a request without browser headers with an empty 200.
+        with self.assertRaises(rz.PullError) as cm:
+            rz.pull("2026-10-06", fetch_fn=fetcher({"QB": (200, "")}))
+        self.assertEqual("SOURCE_BLOCKED", cm.exception.code)
+
+    def test_vintage_is_the_page_stamp_not_the_run_date(self):
+        snap = rz.pull(None, fetch_fn=fetcher({}))
+        self.assertEqual("2026-10-05", snap["vintage_date"])
+        self.assertEqual({"2026-10-05"}, {r["razzball_snapshot_date"] for r in snap["rows"]})
+        # the OLDEST page bounds the freshness
+        old = page("TE", stamp="Updated: 2026-10-02 08:00:00 AM EDT")
+        snap = rz.pull(None, fetch_fn=fetcher({"TE": (200, old)}))
+        self.assertEqual("2026-10-02", snap["vintage_date"])
+
+    def test_missing_stamp_fails_closed(self):
+        with self.assertRaises(rz.PullError) as cm:
+            rz.pull(None, fetch_fn=fetcher({"RB": (200, page("RB", stamp=""))}))
+        self.assertEqual("SOURCE_LAYOUT", cm.exception.code)
+
+    def test_overall_table_never_beats_the_ppg_table(self):
+        snap = rz.pull("2026-10-06", fetch_fn=fetcher({"QB": (200, page("QB", overall_rows=300))}))
+        self.assertEqual(N_ROWS["QB"], snap["summary"]["by_pos"]["QB"])
+        self.assertNotIn("Overall Guy 1", {r["player_name"] for r in snap["rows"]})
+
+    def test_ppg_gate_catches_shifted_columns(self):
+        shifted = list(FIRST["RB"])
+        shifted[9], shifted[10] = shifted[10], shifted[9]  # Rush Yds <-> Yds/Rush
+        pages = {"RB": (200, page("RB", first=shifted))}
+        with self.assertRaises(rz.PullError) as cm:
+            rz.pull("2026-10-06", fetch_fn=fetcher(pages))
+        self.assertEqual("PPG_GATE", cm.exception.code)
+
+    def test_broken_state_without_ppg_gate_accepts_shifted_columns(self):
+        shifted = list(FIRST["RB"])
+        shifted[9], shifted[10] = shifted[10], shifted[9]
+        orig = rz.PPG_MAX_BAD
+        rz.PPG_MAX_BAD = (10**6, 1.0)
+        try:
+            snap = rz.pull("2026-10-06", fetch_fn=fetcher({"RB": (200, page("RB", first=shifted))}))
+        finally:
+            rz.PPG_MAX_BAD = orig
+        self.assertEqual(N_ROWS["RB"], snap["summary"]["by_pos"]["RB"])  # what the gate rejects
+
+    def test_csv_is_muse_schema(self):
+        muse_header = (ROOT / "data/inputs/razzball_projections.csv").open().readline().strip()
+        self.assertEqual(muse_header, ",".join(rz.CSV_COLUMNS))
+        snap = rz.pull("2026-10-06", fetch_fn=fetcher({}))
+        with tempfile.TemporaryDirectory() as td:
+            out = Path(td) / "r.csv"
+            rz.write_csv(snap, out)
+            rows = list(csv.DictReader(out.open()))
+        self.assertEqual(snap["row_count"], len(rows))
+        allen = next(r for r in rows if r["player"] == "Josh Allen")
+        self.assertEqual(("josh allen", "QB", "BUF", "21.5", "21.5", "21.5", "2026-10-06"),
+                         (allen["player_norm"], allen["pos"], allen["team"], allen["rz_std_ppg"],
+                          allen["rz_half_ppr_ppg"], allen["rz_ppr_ppg"], allen["razzball_snapshot_date"]))
 
     def test_layout_change_fails_closed(self):
         hdr = [h if h != "PPR PPG" else "PPR FPG" for h in LAYOUTS["RB"]]
@@ -176,6 +250,25 @@ def python_calls(text, ref_name, inputs=None):
         return [line.split() for line in (td / "calls").read_text().splitlines()]
 
 
+def error_code_for(text, pull_stderr):
+    """Run the real 'Scrape and save' script with a puller that fails with
+    `pull_stderr`; return the error_code it publishes (and its exit code)."""
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        out = td / "out.txt"
+        out.write_text("")
+        (td / "bin").mkdir()
+        fake = td / "bin" / "python3"
+        fake.write_text(f"#!/bin/bash\necho '{pull_stderr}' >&2\nexit 1\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+        env = {"PATH": f"{td / 'bin'}:/usr/bin:/bin", "HOME": str(td), "GITHUB_OUTPUT": str(out)}
+        ctx = {"steps.cfg.outputs.mode": "dry"}
+        r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Scrape and save")), ctx)],
+                           cwd=td, env=env, capture_output=True, text=True)
+        outs = dict(line.split("=", 1) for line in out.read_text().split() if "=" in line)
+        return outs.get("error_code"), r.returncode, r.stdout
+
+
 def saver_call(calls):
     return next(c for c in calls if c[0] == "pipelines/save_razzball_references.py")
 
@@ -221,6 +314,20 @@ class WorkflowTest(unittest.TestCase):
         mutated = WORKFLOW.replace(" && " + RECORD_IF, "", 1)
         self.assertNotEqual(WORKFLOW, mutated)
         self.assertIn("monitored check must be recorded only in write mode", static_problems(mutated))
+
+    def test_named_error_codes_reach_the_monitored_check(self):
+        for code in ("SOURCE_BLOCKED", "SOURCE_LAYOUT", "SOURCE_TRUNCATED", "PPG_GATE"):
+            got, rc, out = error_code_for(WORKFLOW, f"RAZZBALL PULL FAILED [{code}]: boom")
+            self.assertEqual((code, 1), (got, rc))
+            self.assertIn("::error title=razzball rc=1::", out)  # annotation the CI proof reads
+        got, _, _ = error_code_for(WORKFLOW, "some saver crash")
+        self.assertEqual("SYNC_FAILED", got)
+
+    def test_dropping_the_code_extraction_is_caught(self):
+        mutated = WORKFLOW.replace('[ -n "$pulled" ] && code=$pulled', ":", 1)
+        self.assertNotEqual(WORKFLOW, mutated)
+        got, _, _ = error_code_for(mutated, "RAZZBALL PULL FAILED [SOURCE_BLOCKED]: boom")
+        self.assertNotEqual("SOURCE_BLOCKED", got)
 
     def test_migration(self):
         self.assertIn("'razzball-sync-live'", MIGRATION)

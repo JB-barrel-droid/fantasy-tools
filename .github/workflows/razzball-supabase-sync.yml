@@ -5,10 +5,16 @@ name: Razzball ROS scrape to Supabase
 # refreshed Razzball, so public.razzball_projections (a dashboard source the
 # import-health gate grades fresh <= 2d, bad > 6d) aged silently.
 #
-#   pipelines/pull_razzball_ros.py   -> /tmp/razzball/snapshot.json (fail closed)
+#   pipelines/pull_razzball_ros.py   -> /tmp/razzball/snapshot.json (+ Muse-schema
+#     razzball_projections.csv), fail closed with named codes (SOURCE_BLOCKED...);
+#     vintage = Razzball's own page-stamp date, not the run date
 #   pipelines/save_razzball_references.py -> public.razzball_projections
 #     (grain player_key + razzball_snapshot_date: each day is a new vintage,
 #      earlier vintages are never touched)
+#
+# Downstream: rebuild-chain.yml imports the new vintage from Supabase and
+# source-vintage-check.yml dispatches it when the DB vintage moves, so the
+# Razzball DDF leg/section refresh through the normal publish path.
 #
 # Scheduler owner: Supabase pg_cron `razzball-sync-live` (daily 11:20 UTC),
 # supabase/migrations/razzball_sync_pg_cron.sql, dispatching mode=write.
@@ -67,21 +73,34 @@ jobs:
         run: |
           # Outcome surfaced as check-run annotations (Actions logs are not
           # downloadable through every proxy).
-          vintage=$(TZ=America/Chicago date +%F)
           flag=""
           [ "${{ steps.cfg.outputs.mode }}" = "write" ] || flag="--dry-run"
           rc=0
           {
-            python3 pipelines/pull_razzball_ros.py --date "$vintage" --out-dir /tmp/razzball &&
+            python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball &&
             python3 pipelines/save_razzball_references.py --snapshot /tmp/razzball/snapshot.json $flag
           } > /tmp/razzball.log 2>&1 || rc=$?
           cat /tmp/razzball.log
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/razzball.log | cut -c1-900 | sed "s/^/::$level title=razzball rc=$rc::/"
+          # Named codes from the puller: SOURCE_BLOCKED (bot wall / non-200),
+          # SOURCE_LAYOUT, SOURCE_TRUNCATED, PPG_GATE; SYNC_FAILED = the saver.
           code=SYNC_FAILED
-          grep -q "RAZZBALL PULL FAILED" /tmp/razzball.log && code=PULL_FAILED
+          pulled=$(grep -o "RAZZBALL PULL FAILED \[[A-Z_]*\]" /tmp/razzball.log | sed 's/.*\[\(.*\)\]/\1/' | head -1 || true)
+          [ -n "$pulled" ] && code=$pulled
           echo "error_code=$code" >> $GITHUB_OUTPUT
           exit $rc
+
+      - name: Keep the snapshot and Muse-schema CSV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: razzball-snapshot
+          path: |
+            /tmp/razzball/snapshot.json
+            /tmp/razzball/razzball_projections.csv
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.mode == 'write'
