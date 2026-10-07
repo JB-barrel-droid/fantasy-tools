@@ -396,6 +396,15 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
 
     # --- build the promoted section: fixture shape, candidate math ---
     new_section = copy.deepcopy(fx_section)
+    # Per-combo vintage: a chain run promotes a source's sections one at a
+    # time, and the section-level week below moves with the first one, so
+    # combos not yet promoted keep the section's OLD vintage here (the
+    # reviewer compares each candidate against its combo's own vintage).
+    old_vintage = {k: fx_section.get(k) for k in ("week_designated", "content_vintage")
+                   if fx_section.get(k) is not None}
+    for combo in new_section["combos"].values():
+        if "vintage" not in combo and old_vintage:
+            combo["vintage"] = dict(old_vintage)
     for combo_name, cand_combo in section_with_gate["combos"].items():
         if combo_name not in new_section["combos"]:
             raise SystemExit(f"promotion refused: combo {combo_name!r} not in "
@@ -433,6 +442,10 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         new_section["week_designated"] = f"Week {prov_week}"
     elif vintage_week:
         new_section["week_designated"] = f"Week {int(vintage_week.group(1))}"
+    promoted_vintage = {k: new_section.get(k) for k in ("week_designated", "content_vintage")
+                        if new_section.get(k) is not None}
+    for combo_name in section_with_gate["combos"]:
+        new_section["combos"][combo_name]["vintage"] = dict(promoted_vintage)
     # D2 Exclusion Gate: Record hidden invalid rows count. Clear any stale
     # count carried over from a previous promotion: a 0 this run means the
     # section is clean now (JEG-275).
