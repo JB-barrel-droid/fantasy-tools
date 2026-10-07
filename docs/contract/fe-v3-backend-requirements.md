@@ -104,7 +104,7 @@ The design excludes older-week sources from the first load.
   for trades.
 - **Contract v1:** compatible.
 
-## Status (2026-10-06, JEG-432)
+## Status (2026-10-07, JEG-432)
 
 - **R5:** shipped in the FE adapter (`getSourceFreshness()`, contract
   §17.2) and Supabase (`api.source_freshness`, §17.4). The chart's first
@@ -114,6 +114,23 @@ The design excludes older-week sources from the first load.
   from the shipped snapshot. Extra reason code `adjustment_pending` for a
   paused adjusted curve. No UI reads the reasons yet (the v2 method picker
   is not built).
+- **R2:** shipped 2026-10-07 as a browser rule, rule version
+  `feasible-bench/1` (`ValueModel.feasibleBenchBounds`; Python reference
+  `pipelines/feasible_bench_bounds.py`, exact parity in
+  `tests/test_feasible_bench_bounds_parity.py`). Inputs: our ESPN per-game
+  projections for the scoring (already shipped) and the two-tier reference
+  pool for the team count. Returns `benchSlots {min, max}` and
+  `benchShare {min, max, default}` with reasons, plus the per-position
+  `feasible_interval` (`shareIntervals`). Bench slots: the largest bench at
+  which every position still has an unrostered projected player (the waiver
+  line is a real player). Bench share: per position the solve is linear in
+  the share, so the interval is exact; min = the highest lower edge (below
+  it a position is withheld), max = the highest upper edge (above it the
+  slider changes nothing), inside the product range [0.01, 0.30]. The chart's
+  bench stepper and bench-share slider clamp to it. Default roster, today's
+  data: bench 0–14 at 8/10 teams, 0–13 at 12, 0–10 at 14; share e.g.
+  0.053–0.205 (half-PPR 12), default 0.15 everywhere. Math review pending
+  (Jeremy: "working tool now, math review later").
 - **R4 (inputs only):** Supabase `api.source_inputs_weekly` +
   `api.source_input_weeks` (§17.5) expose every saved week of 12-team
   inputs for the four published charts (weeks 2–5 today). The browser

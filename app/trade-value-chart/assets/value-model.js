@@ -886,7 +886,195 @@
             fallbackPie: counts.fallbackPie, unpriced: counts.unpriced};
   }
 
+  // ---------------------------------------------------------------------
+  // Feasible bench bounds (JEG-432 R2; fe-read-contract-v1 §3.4 bench_share
+  // and its per-position feasible_interval).
+  //
+  // The design's bench stepper and bench-share slider need bounds for ANY
+  // league setting, so under league-settings-001 they are a RULE run in the
+  // browser on saved inputs, not stored rows. Python reference (parity
+  // tested exactly): pipelines/feasible_bench_bounds.py.
+  //
+  // Bench slots (per team). A bench size is feasible when, at every position
+  // that has a projection pool, the translation's rostered count (dedicated +
+  // flex + bench, translationRostered -- the same allocation that prices the
+  // derived curves) leaves at least one projected player unrostered, so the
+  // waiver line is a real player ("roster_determined") rather than the
+  // bottom of the list ("insufficient_coverage"). The pool is OUR model's
+  // ESPN per-game projections for the scoring (the input the positional
+  // maxes and the anchor read). Published sources' own lists are thinner and
+  // already fall back per player in derivePublishedSetup, so they do not
+  // bound the stepper. Range: the contiguous feasible run starting at the
+  // smallest feasible size inside [0, 14] (the UI's stepper range).
+  //
+  // Bench share. Per position the two-tier solve is LINEAR in the share s:
+  //   p_b * det = pie * (s * (bB + bS) - bB)
+  //   (p_s - p_b) * det = pie * ((aB + bB) - s * T),  T = aB + bB + aS + bS
+  // so "bench rate positive and starter rate above it" is an exact open
+  // interval: (bB / (bB + bS), (aB + bB) / T) when det > 0 (reversed when
+  // det < 0; empty when det == 0). The pie cancels, so custom position
+  // weights never move it. The slider bounds are then:
+  //   min = max(0.01, max over positions of lo) -- below a position's lo its
+  //         bench rate is not positive and calibratePositionFeasible does NOT
+  //         fall back (it only searches downward from the request), so that
+  //         position would be withheld;
+  //   max = min(0.30, max over positions of hi) -- above a position's hi the
+  //         feasible-share fallback prices it at the highest feasible share
+  //         (the accepted 2026 behaviour); above EVERY position's hi the
+  //         slider would change nothing at all.
+  // Position edges rounded inward to 0.001 (strictly inside the open
+  // interval; the product limits are inclusive). The
+  // default is 0.15 clamped into [min, max]. Empty -> null (fail closed).
+  // Tier exposures come from the caller (TwoTier.buildPositionTiers at the
+  // reference shape for this team count -- the same pool the live slider
+  // calibrates), so this file stays free of the two-tier pool builder.
+  var FEASIBLE_BENCH_VERSION = "feasible-bench/1";
+  var BENCH_SLOTS_UI_MIN = 0;
+  var BENCH_SLOTS_UI_MAX = 14;
+  var BENCH_SHARE_PRODUCT_MIN = 0.01;
+  var BENCH_SHARE_PRODUCT_MAX = 0.30;
+  var BENCH_SHARE_DEFAULT = 0.15;
+  var BENCH_SHARE_STEP_INV = 1000;
+
+  // Exact open feasible interval for one position's tier exposures, or null.
+  function tierShareInterval(tier) {
+    if (!tier) return null;
+    var aB = Number(tier.aBench), bB = Number(tier.bBench);
+    var aS = Number(tier.aStart), bS = Number(tier.bStart);
+    if (![aB, bB, aS, bS].every(isFinite)) return null;
+    var det = aB * bS - aS * bB;
+    var T = aB + bB + aS + bS;
+    if (det === 0 || !(bB + bS !== 0) || !(T !== 0)) return null;
+    var tB = bB / (bB + bS);      // p_b > 0 boundary
+    var tE = (aB + bB) / T;       // p_s > p_b boundary
+    // det > 0: p_b > 0 <=> s*(bB+bS) > bB; p_s > p_b <=> s*T < aB+bB.
+    // (bB+bS > 0 and T > 0 for any real tier; signs flip with det.)
+    var lo = 0, hi = 1;
+    var gtB = (det > 0) === (bB + bS > 0);  // s > tB required?
+    var ltE = (det > 0) === (T > 0);        // s < tE required?
+    if (gtB) lo = Math.max(lo, tB); else hi = Math.min(hi, tB);
+    if (ltE) hi = Math.min(hi, tE); else lo = Math.max(lo, tE);
+    if (!(hi > lo)) return null;
+    return {lo: lo, hi: hi};
+  }
+
+  function shareCeil(x) { return Math.ceil(x * BENCH_SHARE_STEP_INV + 1e-7) / BENCH_SHARE_STEP_INV; }
+  function shareFloor(x) { return Math.floor(x * BENCH_SHARE_STEP_INV - 1e-7) / BENCH_SHARE_STEP_INV; }
+
+  // opts: teams, shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}), scoring (echoed),
+  //   pool ({pos: [{key, value}]} ESPN per-game projections for the scoring),
+  //   tiers (optional {pos: {aBench,bBench,aStart,bStart} | null}).
+  // Returns {version, teams, scoring, benchSlots: {min, max, uiMin, uiMax,
+  //   binding, reason} | null, benchShare: {min, max, default, perPosition,
+  //   fallbackAbove, reason} | null, shareIntervals ({pos: {lo, hi} | null},
+  //   the exact per-position open intervals -- the contract's per-position
+  //   feasible_interval -- reported even when the slider fails closed, or
+  //   null without tiers), reasons: [...]}.
+  function feasibleBenchBounds(opts) {
+    opts = opts || {};
+    var teams = Number(opts.teams);
+    var shape = opts.shape || SAVED_SETUP_SHAPE;
+    var slots = {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)};
+    var flexCount = Number(shape.FLEX);
+    var flexElig = flexEligible(shape);
+    var ranked = sortRanked(opts.pool);
+    var reasons = [];
+
+    // ---- bench slots ----
+    var benchSlots = null;
+    var minB = null, maxB = null, binding = null;
+    for (var b = BENCH_SLOTS_UI_MIN; b <= BENCH_SLOTS_UI_MAX; b += 1) {
+      var roster = translationRostered(teams, b, flexCount, ranked, slots, flexElig);
+      var short = null;
+      for (var i = 0; i < POSITION_ORDER.length; i += 1) {
+        var pos = POSITION_ORDER[i];
+        var n = ranked[pos].length;
+        if (n && roster[pos].rostered >= n) { short = {pos: pos, rostered: roster[pos].rostered, pool: n, bench: b}; break; }
+      }
+      if (!short) {
+        if (minB === null) { minB = b; binding = null; }
+        maxB = b;
+      } else if (minB !== null) {
+        binding = short;
+        break;
+      } else if (!binding) {
+        binding = short;
+      }
+    }
+    if (minB === null) {
+      reasons.push("bench slots: no bench size in " + BENCH_SLOTS_UI_MIN + "-" + BENCH_SLOTS_UI_MAX +
+        " leaves a waiver player at " + binding.pos + " (" + binding.rostered + " rostered of " +
+        binding.pool + " projected at bench " + binding.bench + ")");
+    } else {
+      var why = binding
+        ? "max " + maxB + ": at bench " + binding.bench + " " + binding.pos + " would roster " +
+          binding.rostered + " of " + binding.pool + " projected players (no waiver player left)"
+        : "every bench size in " + BENCH_SLOTS_UI_MIN + "-" + BENCH_SLOTS_UI_MAX + " leaves a waiver player at every position";
+      benchSlots = {min: minB, max: maxB, uiMin: BENCH_SLOTS_UI_MIN, uiMax: BENCH_SLOTS_UI_MAX,
+        binding: binding, reason: why};
+      reasons.push("bench slots: " + why);
+    }
+
+    // ---- bench share ----
+    var benchShare = null;
+    var shareIntervals = null;
+    var tiers = opts.tiers;
+    if (!tiers) {
+      benchShare = {min: BENCH_SHARE_PRODUCT_MIN, max: BENCH_SHARE_PRODUCT_MAX,
+        default: BENCH_SHARE_DEFAULT, perPosition: null, fallbackAbove: {},
+        reason: "no tier exposures supplied: product range only"};
+      reasons.push("bench share: " + benchShare.reason);
+    } else {
+      var perPosition = {};
+      var loMax = -Infinity, hiMax = -Infinity, loPos = null, hiPos = null, empty = [];
+      POSITION_ORDER.forEach(function (pos) {
+        var iv = tierShareInterval(tiers[pos]);
+        perPosition[pos] = iv;
+        if (!iv) { if (tiers[pos]) empty.push(pos); return; }
+        if (iv.lo > loMax) { loMax = iv.lo; loPos = pos; }
+        if (iv.hi > hiMax) { hiMax = iv.hi; hiPos = pos; }
+      });
+      shareIntervals = perPosition;
+      if (empty.length || loPos === null) {
+        reasons.push("bench share: no feasible share at " + (empty.length ? empty.join("/") : "any position") +
+          " (starter rate never exceeds a positive bench rate)");
+      } else {
+        // Position edges are OPEN (rounded strictly inside); the product
+        // limits are inclusive.
+        var lo = Math.max(BENCH_SHARE_PRODUCT_MIN, shareCeil(loMax));
+        var hi = Math.min(BENCH_SHARE_PRODUCT_MAX, shareFloor(hiMax));
+        if (!(hi > lo)) {
+          reasons.push("bench share: interval empty after rounding (" + lo + " to " + hi + ")");
+        } else {
+          var fallbackAbove = {};
+          POSITION_ORDER.forEach(function (pos) {
+            var iv = perPosition[pos];
+            if (iv && iv.hi < hi) fallbackAbove[pos] = shareFloor(iv.hi);
+          });
+          var dflt = Math.min(hi, Math.max(lo, BENCH_SHARE_DEFAULT));
+          var whyS = "min " + lo + (loMax > BENCH_SHARE_PRODUCT_MIN
+            ? " (below it " + loPos + "'s bench rate is not positive)" : " (product floor)") +
+            "; max " + hi + (hiMax < BENCH_SHARE_PRODUCT_MAX
+            ? " (above it no position's starter rate exceeds its bench rate)" : " (product ceiling)");
+          benchShare = {min: lo, max: hi, default: dflt, perPosition: perPosition,
+            fallbackAbove: fallbackAbove, minPosition: loPos, maxPosition: hiPos, reason: whyS};
+          reasons.push("bench share: " + whyS);
+        }
+      }
+    }
+    return {version: FEASIBLE_BENCH_VERSION, teams: teams, scoring: opts.scoring || null,
+      benchSlots: benchSlots, benchShare: benchShare, shareIntervals: shareIntervals, reasons: reasons};
+  }
+
   root.ValueModel = {
+    FEASIBLE_BENCH_VERSION: FEASIBLE_BENCH_VERSION,
+    BENCH_SLOTS_UI_MIN: BENCH_SLOTS_UI_MIN,
+    BENCH_SLOTS_UI_MAX: BENCH_SLOTS_UI_MAX,
+    BENCH_SHARE_PRODUCT_MIN: BENCH_SHARE_PRODUCT_MIN,
+    BENCH_SHARE_PRODUCT_MAX: BENCH_SHARE_PRODUCT_MAX,
+    BENCH_SHARE_DEFAULT: BENCH_SHARE_DEFAULT,
+    tierShareInterval: tierShareInterval,
+    feasibleBenchBounds: feasibleBenchBounds,
     PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,
     SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,
     SAVED_SETUP_SHAPE: SAVED_SETUP_SHAPE,

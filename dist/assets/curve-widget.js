@@ -2032,15 +2032,14 @@
         TwoTier.POSITIONS.forEach(pos => {
           pies[pos] = Number(pool.tiers[pos]?.surplus);
         });
-        // Slider bounds: with per-position feasible-share fallback (the
-        // pipeline rule: highest feasible share <= requested), every share
-        // in (0, 1) calibrates without breaking the economics, so the
-        // slider offers a fixed sensible range. The old intersection logic
-        // disabled the slider entirely whenever a thin position could not
-        // support the 0.15 default (e.g. TE) -- that fail-closed was wrong;
-        // the fallback is the correct graceful behavior, and truly
-        // infeasible positions still withhold via the solver backstop.
-        // The readout shows the actual per-position share used.
+        // Per-position bisected intervals (kept for the harness). The
+        // feasible-share fallback (highest feasible share <= requested)
+        // rescues a position whose UPPER edge is below the request (e.g. TE
+        // under 0.15), so the slider is not the full intersection -- the old
+        // intersection logic disabled it whenever TE could not reach 0.15.
+        // It does NOT rescue a request below a position's LOWER edge; the
+        // feasible-bench rule below bounds that side (JEG-432 R2). The
+        // readout shows the actual per-position share used.
         const intervals = {};
         TwoTier.POSITIONS.forEach(pos => {
           const tier = pool.tiers[pos];
@@ -2053,16 +2052,75 @@
         entry.pool = pool;
         entry.pies = pies;
         entry.intervals = intervals;
-        // Fixed sensible range (see comment above): 1% avoids the
-        // degenerate near-zero share; 30% is already an extreme bench
-        // allocation. The 0.15 default sits comfortably inside.
-        entry.bounds = [0.01, 0.30];
+        // JEG-432 R2: slider bounds come from the feasible-bench rule
+        // (ValueModel.feasibleBenchBounds; Python reference
+        // pipelines/feasible_bench_bounds.py). It replaces the fixed
+        // [0.01, 0.30]: below a position's exact lower edge its bench rate
+        // is not positive and the feasible-share fallback (downward only)
+        // cannot rescue it, so the old 1% floor withheld QB/RB/WR/TE; above
+        // every position's upper edge the slider changed nothing. Bounds
+        // arrive already rounded inward to 0.001 -- do NOT re-round them
+        // with TwoTier.inwardBounds (its float noise can step past them).
+        // Null when no share is feasible: the slider fails closed.
+        const feasible = ValueModel.feasibleBenchBounds({
+          teams, scoring, shape: ValueModel.SAVED_SETUP_SHAPE,
+          pool: projectionPoolFrom(lists), tiers: pool.tiers
+        });
+        entry.feasible = feasible;
+        entry.bounds = feasible.benchShare ? [feasible.benchShare.min, feasible.benchShare.max] : null;
       } catch (e) {
         entry.error = String((e && e.message) || e);
       }
       twoTierConfigCache.set(key, entry);
     }
     return entry;
+  }
+
+  // {pos: [{id, x}]} two-tier lists -> {pos: [{key, value}]} for ValueModel.
+  function projectionPoolFrom(lists) {
+    const out = {};
+    TwoTier.POSITIONS.forEach(pos => {
+      out[pos] = (lists[pos] || []).map(d => ({key: d.id, value: d.x}));
+    });
+    return out;
+  }
+
+  // JEG-432 R2: feasible bench-slot range for the active scoring, teams and
+  // roster (the BENCH value itself does not move it). Memoised per setting.
+  // Null when the projection pool is unavailable -- the stepper then keeps
+  // its UI range rather than inventing a bound.
+  const benchSlotBoundsCache = new Map();
+  function benchSlotBounds() {
+    const shape = {...rosterShape, BENCH: 0};
+    const key = `${scoring}|${teams}|${Object.keys(shape).map(k => `${k}${shape[k]}`).join("")}`;
+    if (benchSlotBoundsCache.has(key)) return benchSlotBoundsCache.get(key);
+    let out = null;
+    try {
+      if (data && canonicalByKey.size) {
+        out = ValueModel.feasibleBenchBounds({
+          teams, scoring, shape, pool: projectionPoolFrom(espnProjectionsByPos())
+        }).benchSlots;
+      }
+    } catch (e) {
+      out = null;
+    }
+    benchSlotBoundsCache.set(key, out);
+    return out;
+  }
+
+  function benchSlotRange() {
+    const b = benchSlotBounds();
+    return b ? [b.min, b.max] : [ValueModel.BENCH_SLOTS_UI_MIN, ValueModel.BENCH_SLOTS_UI_MAX];
+  }
+
+  // Pull the bench stepper back inside the feasible range after a league
+  // change (teams, scoring, a starter slot) shrank it. Returns true if moved.
+  function clampBenchSlotsToFeasible() {
+    const [lo, hi] = benchSlotRange();
+    const next = Math.max(lo, Math.min(hi, Number(rosterShape.BENCH)));
+    if (next === rosterShape.BENCH) return false;
+    rosterShape.BENCH = next;
+    return true;
   }
 
   function twoTierCalibration(share = benchShare) {
@@ -2327,8 +2385,8 @@
         : "The bench-share slider has no valid setting for this league setup: no bench share keeps every position's starter rate above its bench rate. No values are shown rather than wrong ones.");
       return;
     }
-    let [lo, hi] = cfg.bounds;
-    [lo, hi] = TwoTier.inwardBounds(lo, hi);
+    // Already rounded inward by ValueModel.feasibleBenchBounds (JEG-432 R2).
+    const [lo, hi] = cfg.bounds;
     if (!(hi > lo)) {
       failClosed("The bench-share slider has no valid setting for this league setup: the feasible interval is empty after rounding. No values are shown rather than wrong ones.");
       return;
@@ -2489,8 +2547,15 @@
       text.textContent = label;
       const input = document.createElement("input");
       input.type = "number";
-      input.min = key === "BENCH" ? "0" : "1";
-      input.max = key === "BENCH" ? "14" : "5";
+      // JEG-432 R2: the bench stepper is bounded by the feasible-bench rule
+      // for this scoring/teams/roster, not a fixed 0-14.
+      const benchRange = key === "BENCH" ? benchSlotRange() : null;
+      input.min = key === "BENCH" ? String(benchRange[0]) : "1";
+      input.max = key === "BENCH" ? String(benchRange[1]) : "5";
+      if (key === "BENCH") {
+        const sb = benchSlotBounds();
+        if (sb) input.title = `Feasible ${sb.min}-${sb.max} bench spots: ${sb.reason}`;
+      }
       input.step = "1";
       input.value = rosterShape[key];
       input.dataset.rosterKey = key;
@@ -2877,7 +2942,8 @@
       syncBenchShareControl();
       return;
     }
-    const [lo, hi] = TwoTier.inwardBounds(bounds[0], bounds[1]);
+    // Already rounded inward by ValueModel.feasibleBenchBounds (JEG-432 R2).
+    const [lo, hi] = bounds;
     next = Math.min(hi, Math.max(lo, next));
     if (Math.abs(next - benchShare) < 1e-9) {
       syncBenchShareControl();
@@ -2903,14 +2969,17 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const min = key === "BENCH" ? 0 : 1;
-    const max = key === "BENCH" ? 14 : 5;
+    const [benchMin, benchMax] = key === "BENCH" ? benchSlotRange() : [0, 14];
+    const min = key === "BENCH" ? benchMin : 1;
+    const max = key === "BENCH" ? benchMax : 5;
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();
       return;
     }
     rosterShape[key] = next;
+    // A deeper starter requirement can shrink the feasible bench range.
+    if (key !== "BENCH") clampBenchSlotsToFeasible();
     crossRank = null;
     rebuildDomain();
     makeRosterControls();
@@ -2945,6 +3014,7 @@
     crossRank = null;
     // League change: custom position weights reset to the new combo's baked defaults.
     positionWeights = null;
+    clampBenchSlotsToFeasible();
     rebuildDomain();
     // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
     if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
@@ -2978,6 +3048,7 @@
     crossRank = null;
     // League change: custom position weights reset to the new combo's baked defaults.
     positionWeights = null;
+    clampBenchSlotsToFeasible();
     rebuildDomain();
     // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
     if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
@@ -3870,6 +3941,10 @@
       window.TradeValueTwoTierLive = {
         configKey: twoTierConfigKey,
         bounds: () => twoTierConfig().bounds,
+        feasibleBench: () => twoTierConfig().feasible,
+        benchSlotBounds,
+        setRosterSpot,
+        rosterShape: () => ({...rosterShape}),
         intervals: () => twoTierConfig().intervals,
         calibration: share => twoTierCalibration(share),
         benchShares: () => TwoTier.skillBenchShares(benchShare),

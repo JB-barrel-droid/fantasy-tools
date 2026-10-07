@@ -1,5 +1,68 @@
 # Claude session log
 
+## 2026-10-07 - JEG-432 R2: feasible bench bounds (rule `feasible-bench/1`)
+
+Contract: the design's bench stepper and bench-share slider need bounds for any
+league setting, computable in the browser from saved inputs
+(league-settings-001). Jeremy: "working tool now, math review later" -- the
+choices below are mine and are listed for that review (GAP-JEG432-R2-MATH-REVIEW).
+
+What makes a setting infeasible today, and the rule:
+- Bench slots: the translation (`translationRostered`) rosters dedicated + flex +
+  bench per position; when that reaches the pool size the waiver line falls to
+  the last player (`insufficient_coverage`). Rule: a bench size is feasible when
+  every position keeps at least one unrostered player in OUR ESPN per-game
+  projection pool; range = contiguous run from the smallest feasible size in 0-14.
+- Bench share: the two-tier solve is linear in the share, so "bench rate > 0 and
+  starter rate > bench rate" is an exact open interval per position:
+  (bB/(bB+bS), (aB+bB)/T). min = highest lower edge (the feasible-share fallback
+  only searches downward, so below it a position is withheld); max = highest
+  upper edge (above it nothing moves); clipped to [0.01, 0.30], rounded inward to
+  0.001; default 0.15 clamped.
+- Shipped as `ValueModel.feasibleBenchBounds` (value-model.js) + Python reference
+  `pipelines/feasible_bench_bounds.py`. The chart's slider takes its bounds from
+  it (was fixed [0.01, 0.30]); the Bench stepper's min/max and `setRosterSpot`
+  clamp to it; a teams/scoring/starter-slot change pulls BENCH back into range.
+
+### Verified (check named)
+- Defect the rule fixes: at the old 1% floor every position's share is below its
+  lower edge in all 12 combos (Python, `shareIntervals`); the browser's own
+  `calibratePositionFeasible` withholds positions at 0.01 and none at the new
+  min / 0.15 / max (`test_old_fixed_range_withholds`, half-PPR 12).
+- Parity: `tests/test_feasible_bench_bounds_parity.py`, 92 vectors (3 scorings x
+  8/10/12/14 x 7 roster shapes incl. superflex/2QB/deep/all-5s, + 8 synthetic:
+  thin pool, TE cap, det<0, det=0, missing position, no tiers, product limits,
+  disjoint intervals). Exact on all counts, bounds and reason strings; per-position
+  intervals within 1e-9. Also end-to-end with tiers built by the browser's
+  `TwoTier.buildPositionTiers` (12 combos), and the closed form agrees with
+  TwoTier's bisection within 2e-4 (>20 position intervals).
+- Negative tests: three mutated value-model.js copies (coverage `>=` -> `>`, drop
+  the lower edge = old behaviour, wrong upper-edge formula) each fail parity.
+  `tests/test_feasible_bench_bounds_rendered.py` runs
+  `tests/rendered_gate/feasible_bench_bounds_harness.mjs` on built dist/ (passes)
+  and on a dist copy patched back to fixed ranges (fails on share-bounds,
+  share-clamp, slots-bounds, slots-clamp).
+- Example bounds, default roster (pinned `EXPECTED_DEFAULT`): bench 0-14 at 8/10
+  teams, 0-13 at 12 (RB would roster 86 of 84 at 14), 0-10 at 14; share
+  std/half 8: 0.06-0.212, 10: 0.045-0.192, 12: 0.053-0.205, 14: 0.058-0.203;
+  ppr 10: 0.049-0.205, 12: 0.053-0.21, 14: 0.058-0.208; default 0.15 in all 12.
+  Custom: half-PPR 12 2QB bench 0-8 (QB binds); 14-team QB2/RB3/WR4/TE2/FLEX2
+  bench 0-4.
+- 12-combo headless sweep (3 scorings x 8/10/12/14) on committed dist/ before vs
+  rebuilt dist/ after: fixedPieIndexed true in all 12 both times;
+  sourceScaleAgreement false (non-blocking, unchanged) in all 12 both times;
+  SHA of every source map's values and of `sourcePeaks` identical in all 12
+  (curve starts unchanged, e.g. half-PPR 12 espn 69.98); no page errors. Only the
+  slider bounds changed.
+- `make validate` exit 0 with both new tests in test-unit.
+
+### Claimed, not confirmed
+- The rule is not math-reviewed (Jeremy's call). Bench-slot max ignores published
+  sources' thinner lists (CBS has 12 QBs) because they already fall back per
+  player; share bounds stay per scoring x teams because the two-tier pool is the
+  fixed reference shape and does not follow a custom roster or bench.
+- No Figma design was opened; the stepper/slider wiring is the existing controls.
+
 ## 2026-10-07 - Monitoring coverage audit ("working and monitored")
 
 Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a

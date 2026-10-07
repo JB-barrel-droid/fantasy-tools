@@ -176,6 +176,8 @@ test-unit:
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_vorp_translation_js_parity
+	python3 -m unittest tests.test_feasible_bench_bounds_parity
+	python3 -m unittest tests.test_feasible_bench_bounds_rendered
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
 	python3 -m unittest tests.test_vorp_wiring
