@@ -55,3 +55,15 @@ already Week 5; the other three were Week 4.
   the two newer-vintage tests fail on the old reviewer, and the same-vintage
   and older-candidate tests pass on both.
 - `make validate` exit 0.
+
+### Follow-up 2: per-combo vintage
+- Observed: chain run 37690151253 passed full_12 and then held half_12 on
+  drift for both sources. Promoting full_12 relabels the whole section as
+  Week 5, so half_12 (still Week 4 natives) looked same-vintage
+  (GAP-PROMOTE-MIXED-VINTAGE).
+- Fix: promote now gives each combo a `vintage` {week_designated,
+  content_vintage}. Combos that weren't promoted get the section's previous
+  vintage before it is relabelled. The reviewer prefers the combo's vintage.
+  Tests `test_unpromoted_combos_keep_their_own_week` and
+  `test_combo_vintage_beats_relabelled_section` fail without the pipelines change.
+- `make validate` exit 0.

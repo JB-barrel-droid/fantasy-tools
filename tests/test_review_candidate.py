@@ -280,6 +280,19 @@ class TestReviewStage(unittest.TestCase):
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(statuses(report)["native_drift:full_12"], "warn")
 
+    def test_combo_vintage_beats_relabelled_section(self):
+        """The section label already moved to Week 5 (an earlier section of
+        this run promoted), but this combo still holds Week 4 natives."""
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta={"week_designated": 5, "content_vintage": "2026-10-06"},
+                         fx_meta={"week_designated": "Week 5", "content_vintage": "2026-10-06"})
+        doc = json.loads(fx.read_text())
+        doc["sources"]["syn"]["combos"]["full_12"]["vintage"] = {
+            "week_designated": "Week 4", "content_vintage": "2026-09-29"}
+        fx.write_text(json.dumps(doc))
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "warn")
+
     def test_same_vintage_drift_still_fails(self):
         cand, fx = build(self.tmp, source="syn", mutate=self._drift,
                          cand_meta={"week_designated": 4, "content_vintage": "2026-09-29"},

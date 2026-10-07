@@ -342,7 +342,7 @@ def _week_num(value):
     return int(m.group(1)) if m else None
 
 
-def newer_vintage(cand, fx_section):
+def newer_vintage(cand, fx_section, fx_combo=None):
     """Return a description when the candidate is a newer publication than the
     fixture section (higher designated week, or same/unknown week with a later
     content date), else None.
@@ -353,6 +353,10 @@ def newer_vintage(cand, fx_section):
     """
     if not fx_section:
         return None
+    # A combo's own vintage wins: promotion moves the section label with the
+    # first promoted combo while the rest still hold the older week.
+    if isinstance((fx_combo or {}).get("vintage"), dict):
+        fx_section = fx_combo["vintage"]
     cw, fw = _week_num(cand.get("week_designated")), _week_num(fx_section.get("week_designated"))
     if cw is not None and fw is not None and cw != fw:
         return f"Week {cw} vs fixture Week {fw}" if cw > fw else None
@@ -470,7 +474,7 @@ def review_candidate(reindexed_path, triage_path=None, fixture_path=None,
         detail["native_shared"] = len(shared)
         detail["native_drifted"] = len(drifted)
         detail["native_drift_frac"] = round(frac, 4)
-        newer = newer_vintage(cand, fx_section)
+        newer = newer_vintage(cand, fx_section, fx)
         if frac > DRIFT_FAIL_FRAC and newer:
             checks.append(_check(f"native_drift:{combo_name}", "warn",
                                  f"{len(drifted)}/{len(shared)} values moved > "
