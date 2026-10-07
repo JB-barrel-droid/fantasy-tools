@@ -1,0 +1,106 @@
+name: Trade-chart ingest (CBS + USA Today)
+
+# Replaces Muse's cbs-trade-chart-ingest / usatoday-trade-chart-ingest
+# (decision ops-ownership-001; Jeremy 2026-10-06: Muse runs nothing football).
+# Runs ops/watchdog/ingest_<source>.py unchanged: discover -> pull -> save ->
+# verify, fail-closed (exact-week gate, table/row checks, post-write grain and
+# prior-week preservation). Same-week content already in the DB is a quiet
+# "unchanged" skip, so daily runs are idempotent without Muse's local state.
+#
+# Scheduler owner: Supabase pg_cron `trade-chart-ingest-live` (daily 12:07 UTC,
+# = Muse's 07:07 CT), supabase/migrations/ingest_ci_pg_cron.sql, dispatching
+# mode=write. No `schedule:` here.
+#
+#   push to ingest/dry-*   -> both sources, --dry-run
+#   push to ingest/write-* -> both sources, write
+#   workflow_dispatch      -> dry unless mode=write; optional source, week
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+      source:
+        description: "cbs, usatoday, or both"
+        required: false
+        default: "both"
+      week:
+        description: "NFL week (blank = the ingest's own week rule)"
+        required: false
+        default: ""
+  push:
+    branches: ["ingest/dry-*", "ingest/write-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: trade-chart-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        source: [cbs, usatoday]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode
+        id: cfg
+        run: |
+          mode=dry
+          case "${GITHUB_REF_NAME}" in ingest/write-*) mode=write;; esac
+          [ "${{ github.event.inputs.mode }}" = "write" ] && mode=write
+          want="${{ github.event.inputs.source }}"
+          run=true
+          if [ -n "$want" ] && [ "$want" != "both" ] && [ "$want" != "${{ matrix.source }}" ]; then run=false; fi
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "run=$run" >> $GITHUB_OUTPUT
+          echo "::notice title=ingest ${{ matrix.source }}::mode=$mode run=$run week=${{ github.event.inputs.week }}"
+
+      - name: Ingest
+        id: ingest
+        if: steps.cfg.outputs.run == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          args=""
+          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"
+          [ -n "${{ github.event.inputs.week }}" ] && args="$args --week ${{ github.event.inputs.week }}"
+          python3 ops/watchdog/ingest_${{ matrix.source }}.py $args 2>&1 | tee /tmp/ingest.log
+          tail -4 /tmp/ingest.log | sed "s/^/::notice title=ingest ${{ matrix.source }}::/"
+
+      - name: Record the monitored check
+        if: always() && steps.cfg.outputs.run == 'true' && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OK: ${{ steps.ingest.outcome == 'success' }}
+        run: |
+          python3 - <<'PY'
+          import os, sbclient
+          ok = os.environ["OK"] == "true"
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "${{ matrix.source }}_trade_chart_ingest",
+              "p_ok": ok, "p_content_ok": ok,
+              "p_error_code": None if ok else "INGEST_FAILED",
+              "p_scheduler_owner_id": "trade-chart-ingest.yml",
+          })
+          print("recorded ok=%s" % ok)
+          PY
