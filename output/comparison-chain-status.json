@@ -1,29 +1,68 @@
 {
-  "run_at": "2026-10-07T21:00:49.690940+00:00",
+  "run_at": "2026-10-07T21:25:50.993067+00:00",
   "nfl_week": 5,
   "sources": {
-    "usatoday": "promoted 3/3",
+    "usatoday": "HELD at stage 'review' (amber): kept last promoted section (Week 4); held candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 138/239 values moved > 0.05 (live verification skipped); coverage_count:full_12/QB:warn -- candidate recorded n 32 disagrees with its own priced set (35; 3 at native 0) -- explained by the flex-aware pie's zero-native exclusion; compared on the priced set; coverage_baseline:full_12/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (35); compared against the set. A hold means a human must review first; the chain will not override it.",
     "fantasycalc": "promoted 3/3",
-    "fantasypros": "promoted 3/3",
+    "fantasypros": "HELD at stage 'review' (amber): kept last promoted section (Week 4); held candidate not promoted: fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 102/171 values moved > 0.05 (live verification skipped); coverage:full_12/RB:warn -- candidate priced 51 < fixture 52 (dropped: jaylen wright, jonathon brooks, kenneth gainwell; added: brian robinson, keaton mitchell) -- live verification skipped; tail churn tolerated: net -1, 3 left (tolerance 3); no longer listed by the source: jaylen wright, jonathon brooks, kenneth gainwell. A hold means a human must review first; the chain will not override it.",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1"
   },
   "failed": [],
   "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
-  "held_detail": {},
+  "outcome": "published_with_holds",
+  "held": [
+    "fantasypros",
+    "usatoday"
+  ],
+  "hold_severity": "amber",
+  "held_detail": {
+    "fantasypros": {
+      "detail": "fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 102/171 values moved > 0.05 (live verification skipped); coverage:full_12/RB:warn -- candidate priced 51 < fixture 52 (dropped: jaylen wright, jonathon brooks, kenneth gainwell; added: brian robinson, keaton mitchell) -- live verification skipped; tail churn tolerated: net -1, 3 left (tolerance 3); no longer listed by the source: jaylen wright, jonathon brooks, kenneth gainwell. A hold means a human must review first; the chain will not override it.",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 4",
+        "content_vintage": "2026-09-29",
+        "content_week": 4
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    },
+    "usatoday": {
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 138/239 values moved > 0.05 (live verification skipped); coverage_count:full_12/QB:warn -- candidate recorded n 32 disagrees with its own priced set (35; 3 at native 0) -- explained by the flex-aware pie's zero-native exclusion; compared on the priced set; coverage_baseline:full_12/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (35); compared against the set. A hold means a human must review first; the chain will not override it.",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 4",
+        "content_vintage": "2026-09-29",
+        "content_week": 4
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 138/239 values moved > 0.05 (live verification skipped); coverage_count:full_12/QB:warn -- candidate recorded n 32 disagrees with its own priced set (35; 3 at native 0) -- explained by the flex-aware pie's zero-native exclusion; compared on the priced set; coverage_baseline:full_12/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (35); compared against the set. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 4",
+        "content_vintage": "2026-09-29",
+        "content_week": 4
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "fantasycalc": {
       "source": "fantasycalc",
@@ -35,11 +74,22 @@
     },
     "fantasypros": {
       "source": "fantasypros",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasypros-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 102/171 values moved > 0.05 (live verification skipped); coverage:full_12/RB:warn -- candidate priced 51 < fixture 52 (dropped: jaylen wright, jonathon brooks, kenneth gainwell; added: brian robinson, keaton mitchell) -- live verification skipped; tail churn tolerated: net -1, 3 left (tolerance 3); no longer listed by the source: jaylen wright, jonathon brooks, kenneth gainwell. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 4",
+        "content_vintage": "2026-09-29",
+        "content_week": 4
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "espn": {
       "source": "espn",
@@ -76,10 +126,10 @@
   },
   "source_vintages": {
     "usatoday": {
-      "content_vintage": "2026-09-29",
-      "content_week": 4,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "2026-10-06",
+      "content_week": 5,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "fantasycalc": {
       "content_vintage": "Week 5",
@@ -88,10 +138,10 @@
       "lagging_one_week": false
     },
     "fantasypros": {
-      "content_vintage": "2026-09-29",
-      "content_week": 4,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "2026-10-06",
+      "content_week": 5,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "espn": {
       "content_vintage": "2026-10-07",
