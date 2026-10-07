@@ -36,6 +36,8 @@ PLAYERS = [
     # spells these "Cameron Ward" / "Cameron Skattebo".
     {"player_key": 697, "full_name": "Cam Ward", "position": "QB"},
     {"player_key": 3664, "full_name": "Cam Skattebo", "position": "RB"},
+    # players.full_name verified 2026-10-07 (single row): FantasyPros writes "Kenny".
+    {"player_key": 785, "full_name": "Kenneth Gainwell", "position": "RB"},
 ]
 
 
@@ -177,6 +179,18 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         _, rows, _ = self.writes[0]
         by_key = {r["player_key"] for r in rows}
         self.assertEqual(by_key, {697, 3664})
+
+    # -- guard: FantasyPros "Kenny Gainwell" resolves (GAP-FP-NAME-RESOLVE) ------
+    # defect: the Week 5 FantasyPros chart row "Kenny Gainwell" (RB, value 1.7)
+    # went unresolved because players.full_name is "Kenneth Gainwell".
+    # pull_fantasypros.py calls resolve_name directly, so pin it there.
+    def test_fantasypros_kenny_gainwell_resolves(self):
+        index = mod.build_name_index(PLAYERS)
+        key, rec, _ = mod.resolve_name("Kenny Gainwell", "RB", index)
+        self.assertEqual(key, 785)
+        self.assertEqual(rec["full_name"], "Kenneth Gainwell")
+        # exact-match only: a near spelling still fails closed
+        self.assertIsNone(mod.resolve_name("Kenny Gainwel", "RB", index)[0])
 
     # -- guard: the alias map is exact-match only, never fuzzy -------------------
     # defect: the alias map silently becoming a fuzzy matcher and guessing

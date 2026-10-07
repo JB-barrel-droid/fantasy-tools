@@ -88,6 +88,9 @@ ALIASES = {
     "cameron skattebo": "cam skattebo",
     "travis etienne jr": "travis etienne",
     "michael pittman jr": "michael pittman",
+    # FantasyPros Week 5 chart spells him "Kenny Gainwell"; players table has a
+    # single "Kenneth Gainwell" (player_key 785, RB), verified 2026-10-07.
+    "kenny gainwell": "kenneth gainwell",
 }
 
 
