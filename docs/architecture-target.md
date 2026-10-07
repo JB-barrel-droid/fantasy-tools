@@ -282,7 +282,7 @@ Ops/monitoring is **read-everywhere, write-only-here**. No ops artifact is allow
 | Pipeline rules | `docs/pipeline-rules.md` | Authoritative methodology for ops. |
 | Watchdog spec | `docs/watchdog.md` | Pull watchdog (read-only). |
 | Risk register | `docs/risk-register.md` | Durable ops issues. |
-| Claude log | `docs/claude-log.md` | Session-level claims / verified / open. |
+| Claude log | `docs/claude-log/` | Session-level claims / verified / open (one file per PR/session; `docs/claude-log.md` is the frozen archive). |
 | Pipeline input coverage | `dist/modules/chart-input-coverage.json` | (touches derived but is consumed by ops) |
 
 **AMBIGUOUS:** `dist/assets/reference-freshness.json` lives in the dist tree next to the frontend-shipped assets, so it *appears* to be a serving-layer artifact. By intent it is an **ops/monitoring** artifact consumed by the freshness gate; it just happens to be shipped via the dist tree for the frontend monitor's convenience. Mark it AMBIGUOUS: location is dist/assets, layer is ops/monitoring.

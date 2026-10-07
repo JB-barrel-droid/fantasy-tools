@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-07T13:33:42.955319+00:00",
+  "run_at": "2026-10-07T15:00:46.135634+00:00",
   "nfl_week": 5,
   "sources": {
-    "usatoday": "promoted 3/3",
-    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: combos_match:fail -- unknown combos not in fixture: ['full_12_qb2']; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 78 -- no dropped players identified for the count drop; coverage:full_12_qb1/TE:fail -- candidate priced 26 < fixture 28 -- no dropped players identified for the count drop. A hold means a human must review first; the chain will not override it.",
+    "usatoday": "FAILED at stage 'review': usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage_baseline:full_12/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (35); compared against the set; coverage:full_12/QB:fail -- candidate priced 32 < fixture 35 (dropped: none named; added: none) -- live verification skipped; count fell by 3 but no player left the priced set -- counts disagree with the priced sets. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "FAILED at stage 'review': fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage_baseline:full_12_qb1/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (33); compared against the set; coverage_baseline:full_12_qb1/RB:warn -- fixture index_total.n_priced 59 disagrees with its own priced set (60); compared against the set; coverage_baseline:full_12_qb1/WR:warn -- fixture index_total.n_priced 78 disagrees with its own priced set (76); compared against the set; coverage_baseline:full_12_qb1/TE:warn -- fixture index_total.n_priced 28 disagrees with its own priced set (27); compared against the set; coverage:full_12_qb1/TE:fail -- candidate priced 26 < fixture 27 (dropped: pat freiermuth, terrance ferguson; added: mike gesicki) -- 1 dropped player(s) still priced live (e.g. pat freiermuth) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -12,24 +12,25 @@
   "failed": [
     "adjusted_sections",
     "fantasycalc",
-    "fit"
+    "fit",
+    "usatoday"
   ],
   "success": false,
   "runner": "github-actions",
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
+      "status": "failed",
+      "stage": "review",
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage_baseline:full_12/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (35); compared against the set; coverage:full_12/QB:fail -- candidate priced 32 < fixture 35 (dropped: none named; added: none) -- live verification skipped; count fell by 3 but no player left the priced set -- counts disagree with the priced sets. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 3
     },
     "fantasycalc": {
       "source": "fantasycalc",
       "status": "failed",
       "stage": "review",
-      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: combos_match:fail -- unknown combos not in fixture: ['full_12_qb2']; coverage:full_12_qb1/WR:fail -- candidate priced 76 < fixture 78 -- no dropped players identified for the count drop; coverage:full_12_qb1/TE:fail -- candidate priced 26 < fixture 28 -- no dropped players identified for the count drop. A hold means a human must review first; the chain will not override it.",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage_baseline:full_12_qb1/QB:warn -- fixture index_total.n_priced 32 disagrees with its own priced set (33); compared against the set; coverage_baseline:full_12_qb1/RB:warn -- fixture index_total.n_priced 59 disagrees with its own priced set (60); compared against the set; coverage_baseline:full_12_qb1/WR:warn -- fixture index_total.n_priced 78 disagrees with its own priced set (76); compared against the set; coverage_baseline:full_12_qb1/TE:warn -- fixture index_total.n_priced 28 disagrees with its own priced set (27); compared against the set; coverage:full_12_qb1/TE:fail -- candidate priced 26 < fixture 27 (dropped: pat freiermuth, terrance ferguson; added: mike gesicki) -- 1 dropped player(s) still priced live (e.g. pat freiermuth) -- pipeline loss. A hold means a human must review first; the chain will not override it.",
       "promoted": 0,
       "sections": 3
     },
@@ -68,7 +69,7 @@
   },
   "fit": {
     "status": "skipped",
-    "detail": "skipped: sources failed: fantasycalc"
+    "detail": "skipped: sources failed: usatoday, fantasycalc"
   },
   "adjusted_sections": {
     "status": "skipped",
