@@ -12,6 +12,8 @@ TableBuilder markup on each (the same markup the parser requires).
 Usage:
   pull_cbs.py [--week N] [--write] [--url URL]
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os

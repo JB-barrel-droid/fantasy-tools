@@ -122,6 +122,7 @@ test-unit:
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
+	python3 -m unittest tests.test_decisions_log
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_refresh_fantasycalc_supabase
@@ -132,6 +133,7 @@ test-unit:
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo
 	python3 -m unittest tests.test_review_coverage_live_verify
+	python3 -m unittest tests.test_review_coverage_churn
 	python3 -m unittest tests.test_publication_window_content_week
 	python3 -m unittest tests.test_build_lag_gate
 	python3 -m unittest tests.test_import_health
