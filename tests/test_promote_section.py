@@ -87,7 +87,8 @@ def ready_review(tmp, source="syn"):
     return fx_path, rp, revp
 
 
-def write_import_health(path, source="fantasycalc", status="ok", vintage="Week 3"):
+def write_import_health(path, source="fantasycalc", status="ok", vintage="Week 3",
+                        failure_reason="__default__"):
     payload = {
         "schema": "trade-value-import-health-v1",
         "checked_at": "2026-09-21T12:30:00Z",
@@ -102,7 +103,9 @@ def write_import_health(path, source="fantasycalc", status="ok", vintage="Week 3
                 "supabase_table": "public.source_trade_values",
                 "supabase_landing": True,
                 "snapshot_path": "data/raw/sources/fantasycalc/week-3/snapshot.json",
-                "failure_reason": None if status == "ok" else "STALE_VINTAGE: old",
+                "failure_reason": (
+                    (None if status == "ok" else "STALE_VINTAGE: old")
+                    if failure_reason == "__default__" else failure_reason),
             }
         },
     }
@@ -279,6 +282,44 @@ class TestPromote(unittest.TestCase):
         return promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                              record_dir=str(self.records),
                              import_health_path=str(health))
+
+    def test_l1_gate_promotes_one_week_lag_under_its_own_vintage(self):
+        """build-lag-001 (LAG-005): a LAGGING_ONE_WEEK warning promotes, and
+        the promoted section keeps the source's own week label; a TABLE_DRIFT
+        warning, a stale entry, or a candidate relabelled to another week is
+        refused."""
+        lag_reason = ("LAGGING_ONE_WEEK (non-blocking): fantasycalc content Week 3 "
+                      "is one week behind current content Week 4")
+        health = self.tmp / "health.json"
+
+        fx_path, revp = self._active_review(vintage="Week 3")
+        write_import_health(health, vintage="Week 3", status="warning",
+                            failure_reason="TABLE_DRIFT: table latest vintage Week 4 "
+                                           "!= manifest vintage Week 3")
+        with self.assertRaises(SystemExit) as ctx:
+            self._promote_active(fx_path, revp, health)
+        self.assertIn("not 'ok' or a one-week lag", str(ctx.exception))
+
+        write_import_health(health, vintage="Week 3", status="stale")
+        with self.assertRaises(SystemExit):
+            self._promote_active(fx_path, revp, health)
+
+        # Candidate claims Week 4 while L1 holds Week 3: refused (no relabel).
+        fx4, revp4 = self._active_review(vintage="Week 4")
+        write_import_health(health, vintage="Week 3", status="warning",
+                            failure_reason=lag_reason)
+        with self.assertRaises(SystemExit) as ctx:
+            self._promote_active(fx4, revp4, health)
+        self.assertIn("does not match fresh L1 vintage", str(ctx.exception))
+
+        fx_path, revp = self._active_review(vintage="Week 3")
+        result = self._promote_active(fx_path, revp, health)
+        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        self.assertEqual("Week 3", after["content_vintage"])
+        rec = json.loads(Path(result["promotion_record"]).read_text())
+        gate = rec["l1_import_health_gate"]
+        self.assertEqual("warning", gate["status"])
+        self.assertTrue(gate["failure_reason"].startswith("LAGGING_ONE_WEEK"))
 
     def test_l1_gate_refuses_when_import_health_file_missing(self):
         fx_path, revp = self._active_review()

@@ -78,6 +78,44 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+## build-lag-001: Build on each source's newest week; a one-week lag does not block
+- id: build-lag-001
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: publish
+- silence-default: explicit-tap
+- outcome: pending
+- outcome_date:
+- recommendation: A week-designated source exactly one content week behind is a non-blocking LAGGING_ONE_WEEK warning and is built under its own week label; two or more weeks behind blocks; the green check blocks on everything outside an explicit allow-list (so red blocks).
+
+### Context
+
+The rebuild chain had not promoted since the week-5 rollover (Tuesday 2026-10-06). `pipelines/verify_import_health.py` held the gate RED because CBS and FantasyPros were `STALE_VINTAGE` (Week 4 against content week 5), and `rebuild-chain.yml` stops before the chain on a red gate. FantasyCalc already had Week 5 and ESPN was current, so nothing was promoted, even the sources that were fresh. Jeremy (2026-10-07): "Tighten or loosen whichever gates you need"; the build should run on the newest data each source has (weeks 4/3 fine), each source labelled by its own week; he will review the math later.
+
+The audit also found that the green check was `stale == 0 and missing == 0 and failed == 0`. A publication-window `red` (MISSED_WINDOW), a `yellow`, and any status outside that list passed without notice. USA Today's 2026-10-07 entry was `yellow`; on Thursday it would have turned `red` and still passed.
+
+### Problem
+
+How far behind can a source be and still be built, and which statuses should hold the gate?
+
+### Options
+
+1. Keep exact-week freshness. The chart stays frozen until every publisher posts the new week, and fresh sources are held back by the slowest one.
+2. Tolerate a one-week lag. One week behind is a non-blocking warning, two or more weeks behind blocks, and the green check fails closed on any status outside an allow-list.
+3. Ignore freshness and build whatever exists. A source months stale would then publish silently.
+
+### Recommendation
+
+Option 2, implemented 2026-10-07 under Jeremy's authorization (pending his review):
+
+- `verify_import_health.py`: a week-designated source (fantasycalc, usatoday, fantasypros, cbs, cbsros) whose content week is exactly one behind `--nfl-week` gets `status: "warning"` and reason `LAGGING_ONE_WEEK (non-blocking): <source> content Week N is one week behind current content Week N+1; built and labelled as Week N. Window verdict <yellow|red|stale>: <publication-window reason>`. Two or more weeks behind keeps the window status (`red` for a verified schedule, `stale` for an unverified one). Both block.
+- Green = no entry is blocking. Non-blocking: `ok` and `warning` (TABLE_DRIFT stamping lag or LAGGING_ONE_WEEK), plus Razzball's snapshot-age verdicts (`warn`/`bad`/`unk`). Razzball is not a chain source and has no CI puller (GAP-024); its byte or table failures still block. Everything else blocks, including `red`, `yellow` and unknown statuses. Each entry now carries `blocking` and `content_week`.
+- A source ahead of the check week (FantasyCalc Week 5 when a caller passes 4) is `ok`. `--nfl-week` defaults to `pipelines/nfl_week.py`, which flips Tuesday. A caller passing a different week gets a loud NOTE line, not a block.
+- Promotion (`promote_comparison_section.check_l1_freshness`) accepts `ok` or a LAGGING_ONE_WEEK warning. The candidate's `content_vintage` must still equal the health entry's vintage, so a Week-4 source is promoted as Week 4 and never relabelled. A TABLE_DRIFT warning is still refused.
+- The chain status (`comparison-chain-status.json`) records `source_vintages`: each source's content vintage, week, health status, and whether it is lagging. The chain's `nfl_week` is the current content week, not every section's week. The VORP-translation grain week stays the chain week: it is a refresh-cycle label computed from the promoted fixture's natives, not a content week.
+
+### Outcome Note
+
 ## copy-vorp-001: User-facing term is "VORP vs waivers"
 - id: copy-vorp-001
 - created: 2026-10-06
