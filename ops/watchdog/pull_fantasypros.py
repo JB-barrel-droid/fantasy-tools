@@ -21,14 +21,16 @@ prints the discovered URL, headline week, and table counts.
 from __future__ import annotations
 
 import argparse
+import csv
+import html as htmllib
 import json
 import os
 import re
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import fetch, nfl_week, REPO
+from _common import content_week, fetch, nfl_week, REPO
 
 # Auto-discovery: FantasyPros trade-value-chart article slug embeds the week.
 # Candidate template (newest week first); discovery walks week N, N-1, N-2
@@ -44,7 +46,7 @@ class DiscoveryFailed(RuntimeError):
 
 
 def candidate_urls(week=None):
-    week = week or nfl_week()
+    week = week or content_week()
     return [SECTION_SLUG % w for w in (week, week - 1, week - 2) if w >= 1]
 
 
@@ -56,7 +58,7 @@ def discover_url(week=None, fetch_fn=fetch):
     We require URL week == title week here too (not just on the parsed
     payload) so a slug mismatch is caught at discovery, not after parsing.
     """
-    week = week or nfl_week()
+    week = week or content_week()
     tried = []
     for w in (week, week - 1, week - 2):
         if w < 1:
@@ -187,16 +189,117 @@ def pull(url, fetch_fn=fetch):
     return title
 
 
+POSITION_HEADINGS = (("quarterback", "QB"), ("running back", "RB"),
+                     ("wide receiver", "WR"), ("tight end", "TE"))
+
+
+def _cell_text(raw):
+    return htmllib.unescape(re.sub(r"<[^>]+>", "", raw)).strip()
+
+
+def published_date(html):
+    """Article publication date (YYYY-MM-DD) from article:published_time."""
+    m = re.search(r'article:published_time"\s+content="(\d{4}-\d{2}-\d{2})', html)
+    return m.group(1) if m else None
+
+
+def parse_tables(html):
+    """-> [(position, name, team, value)] from the four position tables.
+
+    Each table follows a "<Position> ... Trade Value Chart" heading; the
+    position comes from that heading, never guessed from the player. Uses
+    the 1QB "Value" column (the saver writes 1QB rows). Fails closed unless
+    exactly QB, RB, WR and TE are each found once with rows.
+    """
+    rows, seen = [], []
+    pos = None
+    for m in re.finditer(r"<h[23][^>]*>(.*?)</h[23]>|<table.*?</table>", html, re.S | re.I):
+        if m.group(1) is not None:
+            head = _cell_text(m.group(1)).lower()
+            pos = next((p for k, p in POSITION_HEADINGS if k in head), None)
+            continue
+        if pos is None:
+            continue
+        trs = re.findall(r"<tr.*?</tr>", m.group(0), re.S | re.I)
+        cells = [[_cell_text(c) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S | re.I)]
+                 for tr in trs]
+        header = cells[0] if cells else []
+        if "Name" not in header or "Value" not in header:
+            raise RuntimeError("FantasyPros %s table has no Name/Value header: %r" % (pos, header))
+        i_name, i_team, i_val = header.index("Name"), header.index("Team"), header.index("Value")
+        n = 0
+        for c in cells[1:]:
+            if len(c) <= i_val or not c[i_name]:
+                continue
+            rows.append((pos, c[i_name], c[i_team], float(c[i_val])))
+            n += 1
+        if n == 0:
+            raise RuntimeError("FantasyPros %s table is empty" % pos)
+        seen.append(pos)
+        pos = None
+    if sorted(seen) != ["QB", "RB", "TE", "WR"]:
+        raise RuntimeError("FantasyPros position tables found: %s (need QB, RB, WR, TE once each)" % seen)
+    return rows
+
+
+def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
+    """Resolve names to player_key and write the CSV + fetch-log entry that
+    pipelines/save_fantasypros_references.py reads. Unresolved or ambiguous
+    names are left out and reported, never guessed."""
+    sys.path.insert(0, os.path.join(REPO, "pipelines"))
+    from save_espn_cbs_references import build_name_index, fetch_players, resolve_name
+    published = published_date(html)
+    if not published:
+        raise RuntimeError("FantasyPros page has no article:published_time at %s" % url)
+    index = build_name_index(players if players is not None else fetch_players())
+    clean, review = [], []
+    for pos, name, team, value in parse_tables(html):
+        # FantasyPros prints curly apostrophes (D’Andre); the players table uses straight ones.
+        key, rec, _ = resolve_name(name.replace("’", "'").replace("‘", "'"), pos, index)
+        if key is None:
+            review.append((pos, name, team, value))
+            continue
+        clean.append({"player_key": key, "name": rec["full_name"], "team": team,
+                      "value_1": value, "source_name": name, "position": pos})
+    if not clean:
+        raise RuntimeError("FantasyPros resolved zero players; not writing")
+    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    with open(csv_path, "w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=["player_key", "name", "team", "value_1",
+                                           "source_name", "position"])
+        w.writeheader()
+        w.writerows(clean)
+    os.makedirs(os.path.dirname(log_path), exist_ok=True)
+    with open(log_path, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps({"fetched_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                             "ok": True, "published": published, "review_count": len(review),
+                             "rows": len(clean), "url": url, "week": week}) + "\n")
+    return clean, review
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--week", type=int, default=None)
     ap.add_argument("--url", default=None,
                     help="explicit article URL (manual override; skips discovery)")
     ap.add_argument("--write", action="store_true")
+    ap.add_argument("--save", action="store_true",
+                    help="--saver-inputs, then write the week to Supabase via "
+                         "save_fantasypros_references (skips a week already saved)")
+    ap.add_argument("--dry-run", action="store_true", help="with --save: no DB write")
+    ap.add_argument("--force", action="store_true", help="with --save: save even if the week is in the DB")
+    ap.add_argument("--saver-inputs", action="store_true",
+                    help="parse the chart, resolve players, and write the CSV + "
+                         "fetch log that save_fantasypros_references.py reads")
     args = ap.parse_args()
 
-    url = args.url or discover_url(args.week)
+    want = args.week or content_week()
+    url = args.url or discover_url(want)
     print("url:", url, flush=True)
+    if args.save and not args.url and (extract_week_from_url(url) or 0) < want:
+        print("week %d chart not published yet; newest is %s; skipping" % (
+            want, extract_week_from_url(url)), flush=True)
+        return 0
     title = pull(url)
     print("title:", title, flush=True)
 
@@ -219,6 +322,37 @@ def main():
                        "title": title}, f)
         print("wrote", outp)
 
+    if args.save:
+        sys.path.insert(0, os.path.join(REPO, "pipelines"))
+        import save_fantasypros_references as saver
+        wk = week_info["week"]
+        have = saver.count_rows(
+            "source_trade_values",
+            "?select=player_key&source=eq.fantasypros&variant=eq.as_published"
+            "&season=eq.2026&week=eq.%d" % wk)
+        if have > 0 and not args.force:
+            print("week %d already saved (%d rows); skipping" % (wk, have), flush=True)
+            return 0
+        args.saver_inputs = True
+
+    if args.saver_inputs:
+        sys.path.insert(0, os.path.join(REPO, "pipelines"))
+        import save_fantasypros_references as saver
+        st, html = fetch(url)
+        if st != 200 or not html:
+            raise RuntimeError("fetch failed: status=%r url=%s" % (st, url))
+        clean, review = write_saver_inputs(url, html, week_info["week"],
+                                           str(saver.FP_CSV), str(saver.FP_FETCH_LOG))
+        print("saver inputs: %d players -> %s, %d unresolved: %s" % (
+            len(clean), saver.FP_CSV, len(review),
+            ["%s %s" % (r[0], r[1]) for r in review]))
+
+    if args.save:
+        res = saver.save_fantasypros(saver.FP_CSV, dry_run=args.dry_run, week=week_info["week"])
+        print("INGEST OK fantasypros week=%d written=%d review=%d bake_id=%s" % (
+            week_info["week"], res["written"], res["review_count"], res["bake_id"]), flush=True)
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

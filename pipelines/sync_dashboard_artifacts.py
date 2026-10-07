@@ -331,8 +331,10 @@ def write_consolidated_export(fixture_path: Path, out_path: Path) -> dict:
     from export_consolidated_json import build_export_doc
     raw = fixture_path.read_bytes()
     detail = json.loads(raw)
-    rows, _ = build_rows(detail)
-    errors = reconcile(rows, detail)
+    rows, diagnostics = build_rows(detail)
+    # Cells whose player has no fixture player_key are left out (review), the
+    # same rule as the Supabase write (JEG-324 / JEG-380).
+    errors = reconcile(rows, detail, diagnostics.get("review_no_player_key", ()))
     if errors:
         raise SystemExit(f"consolidated export: reconciliation failed ({len(errors)} errors), "
                          f"e.g. {errors[:3]}; not publishing")

@@ -15,8 +15,11 @@ execute them against throwaway git repos with a local bare remote, then inspect
 what was actually pushed. Every rule is negative-tested against a mutated copy of
 the real workflow. Parsing is plain text (PyYAML is not on the CI unit-test step).
 """
+import json
+import os
 import re
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -342,6 +345,85 @@ def red_health_step(text):
         return {"rc": r.returncode, "monitor": (work / HEALTH).read_text()}
 
 
+PIN_FAILURE_LOG = (
+    "FAIL: test_known_full_ppr_12_team_source_values "
+    "(tests.test_static_export.StaticExportTest.test_known_full_ppr_12_team_source_values)\n"
+    "AssertionError: 25.5 != 25.3 : pinned value for "
+    "('fantasycalc_adjusted', 'full_12_qb1') (josh allen)\n"
+    "make: *** [test-unit] Error 1\n")
+
+
+def run_post_rebuild_scenario(text, validate_ok):
+    """GAP-MAIN-STATIC-PIN: run the REAL chain step with a stub chain that
+    rebuilds the fixture (NEW) and a stub `make validate` that fails the way
+    main did on 2026-10-07 (or passes), then the real downstream steps the
+    workflow would run for that outcome. Returns what reached the remote.
+    """
+    with tempfile.TemporaryDirectory() as td:
+        td = Path(td)
+        remote, work = td / "remote.git", td / "work"
+        git(td, "init", "-q", "--bare", "-b", "main", str(remote))
+        git(td, "clone", "-q", str(remote), str(work))
+        git(work, "checkout", "-q", "-b", "main")
+        for rel, content in BASELINE.items():
+            write(work, rel, content)
+        git(work, "add", "-A")
+        git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "baseline")
+        git(work, "push", "-q", "-u", "origin", "main")
+        base = git(work, "rev-parse", "HEAD")
+        # Stubs: the chain promotes a NEW fixture and writes a green status;
+        # validate replays the 0b0ddee failure (or passes). The recorder is
+        # the real script.
+        write(work, "pipelines/rebuild_comparison_chain.py",
+              "import json, pathlib\n"
+              f"pathlib.Path({FIXTURE!r}).write_text('NEW')\n"
+              f"pathlib.Path({OUT_STATUS!r}).write_text(json.dumps({{'success': True, 'failed': []}}))\n")
+        write(work, "validate.out", PIN_FAILURE_LOG if not validate_ok else "OK\n")
+        write(work, "Makefile", "validate:\n\t@cat validate.out; exit %d\n" % (0 if validate_ok else 1))
+        recorder = ROOT / "pipelines/record_post_rebuild_validation.py"
+        write(work, "pipelines/record_post_rebuild_validation.py", recorder.read_text())
+        env = {"PATH": f"{os.path.dirname(sys.executable)}:/usr/bin:/bin:/usr/local/bin",
+               "GITHUB_OUTPUT": str(td / "gh_out.txt")}
+        chain_text = text.replace("${{ steps.week.outputs.nfl_week }}", "5")
+        chain = run_script(chain_text, CHAIN, work, env)
+        outcome = "success" if chain.returncode == 0 else "failure"
+        steps = [SYNC_OK, COMMIT] if outcome == "success" else [PUBLISH_RED, COMMIT, FAIL]
+        rcs = {}
+        for step in steps:
+            rcs[step] = run_script(text, step, work, {**env, "CHAIN_OUTCOME": outcome}).returncode
+        verify = td / "verify"
+        git(td, "clone", "-q", str(remote), str(verify))
+        changed = set(git(verify, "diff", "--name-only", base, "HEAD").splitlines())
+        status_path = verify / MONITOR_STATUS
+        return {"outcome": outcome, "changed": changed,
+                "fixture": (verify / FIXTURE).read_text(),
+                "monitor_status": status_path.read_text() if status_path.exists() else None,
+                "fail_rc": rcs.get(FAIL), "chain_log": chain.stdout + chain.stderr}
+
+
+def post_rebuild_validation_problems(text):
+    problems = []
+    red = run_post_rebuild_scenario(text, validate_ok=False)
+    if red["outcome"] != "failure":
+        problems.append("a red post-rebuild validate did not fail the chain step")
+    if FIXTURE in red["changed"] or red["fixture"] != "OLD" or MONITOR_FIXTURE in red["changed"]:
+        problems.append("a fixture that fails make validate was pushed")
+    try:
+        status = json.loads(red["monitor_status"] or "")
+    except json.JSONDecodeError:
+        status = {}
+    if status.get("success") is not False or "post_rebuild_validation" not in (status.get("failed") or []):
+        problems.append("the chain status was not published as failed after a red validate")
+    elif "fantasycalc_adjusted" not in json.dumps(status.get("post_rebuild_validation")):
+        problems.append("the published failure does not name the failing pin")
+    if red["fail_rc"] in (None, 0):
+        problems.append("the job does not fail after a red post-rebuild validate")
+    green = run_post_rebuild_scenario(text, validate_ok=True)
+    if green["outcome"] != "success" or green["fixture"] != "NEW":
+        problems.append("a fixture that passes make validate was not pushed")
+    return problems
+
+
 class RebuildChainWorkflowTest(unittest.TestCase):
     def assertCaught(self, mutated, fragment):
         self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
@@ -432,7 +514,9 @@ class RebuildChainWorkflowTest(unittest.TestCase):
 
     def test_red_health_reaches_the_monitor_copy(self):
         r = red_health_step(WORKFLOW)
-        self.assertNotEqual(0, r["rc"], "a red gate must still fail the step")
+        # Go-live (2026-10-07): a red import-health gate warns; it no longer
+        # stops the rebuild.
+        self.assertEqual(0, r["rc"], "a red import-health gate must not stop the rebuild")
         self.assertEqual("RED-HEALTH", r["monitor"],
                          "red health must be copied to dist/modules (output/ is gitignored)")
 
@@ -444,17 +528,46 @@ class RebuildChainWorkflowTest(unittest.TestCase):
             "          rc=$?\n"
             "          set -e\n"
             "          cp output/source-import-health.json dist/modules/source-import-health.json \\\n"
-            "            || echo \"::warning::verify_import_health wrote no artifact; nothing to publish\"\n"
-            "          exit $rc\n",
+            "            || echo \"::warning::verify_import_health wrote no artifact; nothing to publish\"\n",
             "          python3 pipelines/verify_import_health.py --nfl-week ${{ steps.week.outputs.nfl_week }}\n"
             "          cp output/source-import-health.json dist/modules/source-import-health.json\n", 1)
         self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
         self.assertEqual("OLD-HEALTH", red_health_step(mutated)["monitor"])
 
-    def test_swallowing_the_red_exit_code_is_caught(self):
-        mutated = WORKFLOW.replace("          exit $rc\n", "          exit 0\n", 1)
-        self.assertNotEqual(WORKFLOW, mutated, "mutation did not change the workflow")
-        self.assertEqual(0, red_health_step(mutated)["rc"])
+    def test_post_rebuild_validation_blocks_the_push(self):
+        self.assertEqual([], post_rebuild_validation_problems(WORKFLOW))
+        red = run_post_rebuild_scenario(WORKFLOW, validate_ok=False)
+        self.assertEqual({MONITOR_STATUS, OUT_STATUS}, red["changed"])
+        self.assertIn("('fantasycalc_adjusted', 'full_12_qb1')", red["monitor_status"])
+
+    def test_dropping_post_rebuild_validation_is_caught(self):
+        # The pre-fix chain step (0b0ddee, 2026-10-07): rebuild then publish,
+        # with no validate in between.
+        start = WORKFLOW.index("          mkdir -p output\n")
+        end = WORKFLOW.index("            exit 1\n          fi\n", start) + len("            exit 1\n          fi\n")
+        mutated = WORKFLOW[:start] + WORKFLOW[end:]
+        self.assertNotEqual(WORKFLOW, mutated)
+        problems = post_rebuild_validation_problems(mutated)
+        self.assertIn("a fixture that fails make validate was pushed", problems)
+
+    def test_swallowing_the_validate_exit_code_is_caught(self):
+        mutated = WORKFLOW.replace(
+            '          if [ "$rc" -ne 0 ]; then\n'
+            "            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log\n"
+            "            exit 1\n",
+            '          if [ "$rc" -ne 0 ]; then\n'
+            "            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log\n", 1)
+        self.assertNotEqual(WORKFLOW, mutated)
+        self.assertIn("a fixture that fails make validate was pushed",
+                      post_rebuild_validation_problems(mutated))
+
+    def test_unrecorded_validation_failure_is_caught(self):
+        mutated = WORKFLOW.replace(
+            "            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log\n",
+            "", 1)
+        self.assertNotEqual(WORKFLOW, mutated)
+        self.assertIn("the chain status was not published as failed after a red validate",
+                      post_rebuild_validation_problems(mutated))
 
 
 if __name__ == "__main__":

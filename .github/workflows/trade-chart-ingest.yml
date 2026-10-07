@@ -1,4 +1,4 @@
-name: Trade-chart ingest (CBS + USA Today)
+name: Trade-chart ingest (CBS + USA Today + FantasyPros)
 
 # Replaces Muse's cbs-trade-chart-ingest / usatoday-trade-chart-ingest
 # (decision ops-ownership-001; Jeremy 2026-10-06: Muse runs nothing football).
@@ -23,7 +23,7 @@ on:
         required: false
         default: "dry"
       source:
-        description: "cbs, usatoday, or both"
+        description: "cbs, usatoday, fantasypros, or both (= all)"
         required: false
         default: "both"
       week:
@@ -46,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        source: [cbs, usatoday]
+        source: [cbs, usatoday, fantasypros]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -87,7 +87,13 @@ jobs:
           # GET /check-runs/<job_id>/annotations): the tail as ::notice on
           # success, as ::error on failure.
           rc=0
-          python3 ops/watchdog/ingest_${{ matrix.source }}.py $args > /tmp/ingest.log 2>&1 || rc=$?
+          if [ "${{ matrix.source }}" = fantasypros ]; then
+            # Saver inputs (CSV + fetch log) go to a scratch goal dir.
+            export FANTASY_GOAL_DIR="$RUNNER_TEMP/fpgoal"
+            python3 ops/watchdog/pull_fantasypros.py --save $args > /tmp/ingest.log 2>&1 || rc=$?
+          else
+            python3 ops/watchdog/ingest_${{ matrix.source }}.py $args > /tmp/ingest.log 2>&1 || rc=$?
+          fi
           cat /tmp/ingest.log
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/ingest.log | cut -c1-900 | sed "s/^/::$level title=ingest ${{ matrix.source }} rc=$rc::/"
@@ -98,7 +104,7 @@ jobs:
           exit $rc
 
       - name: Record the monitored check
-        if: always() && steps.cfg.outputs.run == 'true' && steps.cfg.outputs.mode == 'write'
+        if: always() && steps.cfg.outputs.run == 'true' && steps.cfg.outputs.mode == 'write' && matrix.source != 'fantasypros'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

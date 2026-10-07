@@ -6,8 +6,16 @@ session is allowed to be the only holder of process memory.
 
 ## Operating Model
 
-`lanes/ROUTING.md` is the authoritative lane table; this section summarizes it.
-Never route work to a lane ROUTING.md marks unavailable.
+**Note (2026-10-07):** `lanes/` operational infrastructure (outbox/inbox briefs,
+runner, chatgpt_tools, openrouter_adapter, LANES.md, ROUTING.md, PLAN.md) has
+been archived to `archive/2026-10-07/lanes/`. The protocol.py module and
+plan_status.py are kept in `lanes/` for backwards-compatibility with existing
+tests. New work does not use the multi-LLM lane dispatch protocol; work goes
+directly to Claude Code. The routing table below is the current standing
+directive; the archived ROUTING.md was the per-lane capability matrix.
+
+`lanes/ROUTING.md` has been archived. The routing table below is authoritative.
+Never route work outside this table.
 
 | Work type | Default route |
 | --- | --- |
@@ -32,7 +40,9 @@ Never route work to a lane ROUTING.md marks unavailable.
   (pg_cron, Edge Functions, database-side checks, the `monitoring` schema).
   GitHub Actions is the fallback for work Supabase cannot do (site build and
   deploy, repo tests); when a job must run in Actions, pg_cron is its scheduler.
-- **ChatGPT lane: AVAILABLE via outbox briefs** (re-enabled 2026-10-03 at Jeremy's direction). Dispatch = write `lanes/outbox/chatgpt/JEG-NNN-brief.md` in the standard brief format (see the JEG-107/JEG-77 briefs); results land in `lanes/inbox/chatgpt/JEG-NNN-result.md`. ChatGPT writes code/docs and commits to branches; it never merges, pushes, or deploys, and Roman reviews and integrates every result. **Claude Code MCP lane: UNAVAILABLE** (Claude CLI was never verified working from Muse; Jeremy: "Stop trying to use the claude CLI", 2026-10-02). Do not design dispatches around the Claude lane.
+- **ChatGPT / minimax lanes: RETIRED.** The lanes/ outbox/inbox dispatch protocol
+  was archived 2026-10-07. Work goes to Claude Code directly. Do not create briefs
+  in `lanes/outbox/`; the directory is gone.
 - Avoid delegation for small edits, obvious fixes, simple command checks, or any
   handoff where writing the brief would take longer than doing the work.
 

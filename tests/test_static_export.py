@@ -1,4 +1,6 @@
+import copy
 import json
+import math
 import re
 import subprocess
 import unittest
@@ -16,6 +18,119 @@ FIXTURES = ROOT / "data" / "fixtures" / "current"
 
 def load_json(path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+# --- Independent recompute of the _adjusted sections (GAP-MAIN-STATIC-PIN) ---
+# The _adjusted values are refit on every rebuild, so hand pins on them broke
+# main on each legitimate refresh (2026-10-07: 0b0ddee moved Allen 25.5 ->
+# 25.3). Instead, re-derive every _adjusted combo from the raw section, the
+# adjustment-inputs.json cells and the raw combo's pie targets, with no code
+# shared with pipelines/build_adjusted_fixture_sections.py, and require the
+# fixture to match exactly. A builder bug (wrong cell, missing pie rescale,
+# hand edit) fails; a refit does not need a re-pin.
+ADJ_POSITIONS = ("QB", "RB", "WR", "TE")
+ADJUSTED_RAW_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs")
+
+def recompute_adjusted_combo(fixture, inputs, players, source, combo_name):
+    roster = json.loads((ROOT / "config" / "roster.json").read_text())
+    shape, flex_ok = roster["roster_shape"], roster["flex_eligible"]
+    canon = {}
+    for p in players["players"]:
+        try:
+            key = int(p.get("player_key"))
+        except (TypeError, ValueError):
+            continue
+        if p.get("pos") in ADJ_POSITIONS:
+            r = p.get("preseasonRank") or p.get("preseason_ecr_rank")
+            try:
+                r = float(r) if r is not None else None
+            except (TypeError, ValueError):
+                r = None
+            canon[key] = (p["pos"], r, str(p.get("full_name") or p.get("name") or "").lower())
+    cells = {}
+    for c in inputs["sources"][source]["cells"]:
+        a, b = c.get("alpha"), c.get("beta")
+        if (isinstance(a, (int, float)) and isinstance(b, (int, float))
+                and math.isfinite(a) and math.isfinite(b) and b > 0):
+            cells[(str(c["position"]).upper(), str(c["tier"]).lower())] = (a, b)
+    keys = fixture["player_keys"]
+    combo = fixture["sources"][source]["combos"][combo_name]
+    raw = combo.get("values") or combo.get("reindexed")
+    rows, seen = [], set()
+    for slug, v in raw.items():
+        try:
+            k = int(keys.get(slug))
+        except (TypeError, ValueError):
+            continue
+        if k not in canon or k in seen:
+            continue
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            continue
+        if not math.isfinite(v):
+            continue
+        seen.add(k)
+        rows.append((slug, k, max(0.0, v)))
+    rows.sort(key=lambda r: (-r[2], 0 if canon[r[1]][1] is not None else 1, canon[r[1]][1] or 0,
+                             ADJ_POSITIONS.index(canon[r[1]][0]), canon[r[1]][2], r[1]))
+    teams = int(re.search(r"_(\d+)(?:_|$)", combo_name).group(1))
+    role = {}
+    for pos in ADJ_POSITIONS:
+        for r in [r for r in rows if canon[r[1]][0] == pos][: teams * shape[pos]]:
+            role[r[0]] = "starter"
+    for r in [r for r in rows if canon[r[1]][0] in flex_ok and r[0] not in role][: teams * shape["FLEX"]]:
+        role[r[0]] = "starter"
+    for r in [r for r in rows if r[0] not in role][: teams * shape["BENCH"]]:
+        role[r[0]] = "bench"
+    out = {}
+    for slug, k, v in rows:
+        cell = cells.get((canon[k][0], role.get(slug)))
+        out[slug] = round(max(0.0, cell[0] + cell[1] * v) if cell else v, 1)
+    def rescale(slugs, target):
+        total = sum(out[s] for s in slugs)
+        if not (target and total > 0):
+            return
+        for s in slugs:
+            out[s] = round(out[s] * target / total, 1)
+        residual = round(target - sum(out[s] for s in slugs), 1)
+        step = 0.1 if residual > 0 else -0.1
+        order = sorted(slugs, key=lambda s: (-out[s], s))
+        i = 0
+        while abs(residual) >= 0.05 and i < len(order) * 20:
+            s = order[i % len(order)]
+            if out[s] + step >= 0:
+                out[s] = round(out[s] + step, 1)
+                residual = round(residual - step, 1)
+            i += 1
+    totals = combo.get("index_total") or {}
+    for pos in ADJ_POSITIONS:
+        slugs = [s for s, k, _ in rows if canon[k][0] == pos]
+        if slugs:
+            rescale(slugs, (totals.get(pos) or {}).get("target_total") or 0.0)
+    g = (totals.get("global") or {}).get("target_total")
+    if g:
+        rescale(list(out), g)
+    return out
+
+
+def adjusted_recompute_problems(fixture, inputs, players):
+    problems = []
+    for source in ADJUSTED_RAW_SOURCES:
+        section = fixture["sources"].get(f"{source}_adjusted")
+        if section is None:
+            problems.append(f"{source}_adjusted section missing")
+            continue
+        for combo_name, combo in section["combos"].items():
+            expected = recompute_adjusted_combo(fixture, inputs, players, source, combo_name)
+            stored = combo.get("reindexed") or {}
+            diffs = sorted(s for s in set(expected) | set(stored)
+                           if expected.get(s) != stored.get(s))
+            if diffs:
+                sample = ", ".join(f"{s}: stored {stored.get(s)} != recomputed {expected.get(s)}"
+                                   for s in diffs[:3])
+                problems.append(f"{source}_adjusted/{combo_name}: {len(diffs)} values differ ({sample})")
+    return problems
 
 
 # --- User-visible copy scanning (JEG-25) -------------------------------------
@@ -357,20 +472,88 @@ class StaticExportTest(unittest.TestCase):
             # every chart's at/below-waiver players 0 instead of the pie value.
             # 25.4 -> 25.5; USA Today 23.8 -> 24.6; FantasyPros 17.4 -> 21.1.
             # Verified against the rebuilt fixture.
-            # 2026-10-07 15:02 UTC automated rebuild (0b0ddee, NFL week 5):
-            # FantasyCalc refetched 2026-10-06 (Allen native 6331 -> 5949;
-            # still his chart's 25.0 top-QB value), refit moves Allen's
-            # adjusted value 25.5 -> 25.3. Genuine data move, verified against
-            # the rebuilt fixture at 0b0ddee and its parent; origin/main fails
-            # this pin identically.
-            ("fantasycalc_adjusted", "full_12_qb1"): 25.3,
-            # 2026-10-03 17:00 CDT rebuild refit: 26.0 -> 23.8.
-            ("usatoday_adjusted", "full_12"): 24.6,
-            # 2026-10-03 17:00 CDT rebuild refit: 19.1 -> 17.4.
-            ("fantasypros_adjusted", "full_12"): 21.1,
+            # 2026-10-07 (GAP-MAIN-STATIC-PIN): the automated rebuild 0b0ddee
+            # (run 37641559947, FantasyCalc Week 5) refit the cells and moved
+            # Allen 25.5 -> 25.3, turning main red. Verified independently:
+            # QB/starter cell alpha 1.5494364535 + beta 0.9790246071 x raw
+            # 25.0 = 26.025 -> 26.0; the 33 priced QBs sum to 153.8 against
+            # the pie target 149.1 (factor 0.969441), so Allen rescales to
+            # 25.205 -> 25.2; the +0.3 rounding residual is apportioned in
+            # 0.1 steps from the largest value down, giving Allen +0.1 =
+            # 25.3. All 33 QB values match the fixture. The last hand pins
+            # were usatoday_adjusted full_12 24.6 and fantasypros_adjusted
+            # full_12 21.1; both still match this fixture.
+            # The _adjusted values are refit on every legitimate rebuild, so
+            # they are no longer hand-pinned here: every _adjusted combo is
+            # recomputed from the raw section + adjustment-inputs.json cells
+            # in test_adjusted_sections_recompute_from_fit_cells, which fails
+            # on a builder (export) bug and needs no re-pin on a refresh.
         }
         for key, expected_value in expected.items():
-            self.assertEqual(expected_value, value(*key))
+            self.assertEqual(expected_value, value(*key),
+                             msg=f"pinned value for {key} (josh allen)")
+
+    def _adjustment_inputs(self):
+        return load_json(APP / "assets" / "adjustment-inputs.json")
+
+    def test_adjusted_sections_recompute_from_fit_cells(self):
+        problems = adjusted_recompute_problems(
+            self.comparison, self._adjustment_inputs(), self.players)
+        self.assertEqual([], problems)
+
+    def test_adjusted_recompute_catches_a_hand_edit(self):
+        # Simulated export bug: one stored value nudged by 0.1 (the size of
+        # the 2026-10-07 drift, 25.5 vs 25.3).
+        broken = copy.deepcopy(self.comparison)
+        combo = broken["sources"]["fantasycalc_adjusted"]["combos"]["full_12_qb1"]
+        combo["reindexed"]["josh allen"] = round(combo["reindexed"]["josh allen"] + 0.1, 1)
+        problems = adjusted_recompute_problems(broken, self._adjustment_inputs(), self.players)
+        self.assertTrue(any("fantasycalc_adjusted/full_12_qb1" in p and "josh allen" in p
+                            for p in problems), problems)
+
+    def test_adjusted_recompute_catches_builder_bugs(self):
+        # Run the REAL builder with two simulated bugs and require the guard
+        # to flag each: (a) the per-position pie rescale skipped, (b) the
+        # starter and bench cells swapped.
+        from pipelines import build_adjusted_fixture_sections as builder
+
+        inputs = self._adjustment_inputs()
+        swapped = copy.deepcopy(inputs)
+        for entry in swapped["sources"].values():
+            for cell in entry.get("cells") or []:
+                cell["tier"] = {"starter": "bench", "bench": "starter"}.get(cell.get("tier"), cell.get("tier"))
+        cases = {"no_rescale": inputs, "swapped_cells": swapped}
+        for label, case_inputs in cases.items():
+            with self.subTest(bug=label), TemporaryDirectory() as td:
+                fixture_path = Path(td) / "fixture.json"
+                inputs_path = Path(td) / "inputs.json"
+                fixture_path.write_text(json.dumps(self.comparison), encoding="utf-8")
+                inputs_path.write_text(json.dumps(case_inputs), encoding="utf-8")
+                original = builder._rescale_exact
+                if label == "no_rescale":
+                    builder._rescale_exact = lambda *a, **k: None
+                try:
+                    builder.build_adjusted_sections(
+                        fixture_path, inputs_path, FIXTURES / "players.json")
+                finally:
+                    builder._rescale_exact = original
+                problems = adjusted_recompute_problems(
+                    load_json(fixture_path), inputs, self.players)
+                self.assertTrue(problems, f"{label}: guard missed the builder bug")
+
+    def test_real_builder_reproduces_the_fixture(self):
+        # Correct-state control for the test above: the unmodified builder on
+        # the committed inputs passes the guard.
+        from pipelines import build_adjusted_fixture_sections as builder
+
+        with TemporaryDirectory() as td:
+            fixture_path = Path(td) / "fixture.json"
+            fixture_path.write_text(json.dumps(self.comparison), encoding="utf-8")
+            builder.build_adjusted_sections(
+                fixture_path, APP / "assets" / "adjustment-inputs.json",
+                FIXTURES / "players.json")
+            self.assertEqual([], adjusted_recompute_problems(
+                load_json(fixture_path), self._adjustment_inputs(), self.players))
 
     def test_flex_aware_bucket_totals_match_anchor(self):
         # Flex-aware per-bucket pie allocation (2026-10-01, Jeremy directive):

@@ -78,6 +78,44 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+
+## per-source-promotion-001: A held source keeps its last section; the others publish
+- id: per-source-promotion-001
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: publish
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: A review hold in one published-chart source keeps that source's last promoted section (labelled with its own week) and lets every other source publish; the hold is never overridden, it is recorded amber (red after two weeks behind), and anything else still fails the chain closed.
+
+### Context
+
+rebuild-chain.yml failed 107 of its last 126 runs (last success 2026-10-04). A recurring cause: one source's review returned `hold` (for example FantasyCalc `coverage:full_10_qb1/WR` "candidate priced 76 < fixture 78") and the whole chain failed, so none of the other five sources' fresh data published. Every week some source drops a few players, so every week needed a hand-written unblock ticket. GAP-CHAIN-PARTIAL-PUBLISH (JEG-436) recorded why this was not a small change: half-promoted sections, skipped fit/_adjusted, the ESPN anchor, and JEG-8's no-push rule.
+
+### Problem
+
+Should one source's review hold block every source from publishing?
+
+### Options
+
+1. Keep all-or-nothing. Every hold blocks the whole site until a human clears it.
+2. Per-source isolation. A held source keeps its last promoted section; the others publish; the hold stays loud.
+3. Auto-resolve holds. Rejected: a hold means a human must look first (Jeremy 2026-09-29).
+
+### Recommendation
+
+Option 2, as built in `pipelines/rebuild_comparison_chain.py`:
+
+- Only a genuine reviewer verdict of `hold` in usatoday, fantasycalc, fantasypros or cbs is isolated. The held source's fixture section and `built_at` are restored to exactly their pre-run state (sections promoted earlier in the run are rolled back; verified by canonical sha) and rolled-back promotion records are renamed `*.rolled-back.json`. The held candidate is never promoted and the review artifact is never edited.
+- Still fails closed: any other failure (snapshot, match, section, reindex, promote refusal, malformed review, error), any ESPN or cbsros failure (their builders write the fixture before their gate, and ESPN's legs are the reindex anchor and fit target), a restore that cannot be verified, and a run in which every review-gated source held.
+- The fit and `_adjusted` sections run on the resulting fixture, so a held source's adjusted series is rebuilt from its kept raw section.
+- The site already labels each source by its own week (`week_designated` / `content_vintage`; product-data.js marks it `older`, curve labels show "Wk N"); a held section keeps its old label, so it reads as older, never current.
+- Loud: chain status `held` / `held_detail` / `hold_severity` / `outcome: published_with_holds`, run-summary table and warning (amber) or error (red) annotations, and two monitored checks: `rebuild_chain_source_held` (warn, any hold) and `rebuild_chain_source_held_stale` (page, kept section two or more content weeks behind; the build-lag-001 one-week tolerance).
+
+### Outcome Note
+
+2026-10-07: approved by Jeremy (relayed to the implementing session by the coordinating session the same day). Implemented in PR per-source-promotion. The monitoring migration `supabase/migrations/chain_source_holds_20261007.sql` must be applied when the PR merges.
 ## build-lag-001: Build on each source's newest week; a one-week lag does not block
 - id: build-lag-001
 - created: 2026-10-07
@@ -262,3 +300,105 @@ Which allocation policy governs the Adj values view: (a) the proposed reference-
 Put the choice to Jeremy with the worked-example numbers in front of him: the squared premium is a real economic judgment (bench players are worth nearly nothing) dressed as algebra, and it retires the user-settable bench-share control for the Adj view. The honest comparison is Option 1 vs Option 2 on the same sample table (Gibbs 70.0 both; Josh Allen 11.89 vs 27.80; Mark Andrews 0.56 vs 6.09). Jeremy's call; nothing proceeds without his explicit tap.
 
 ### Outcome Note
+
+## jeg-434-001: USA Today CI ingest — relay strategy (Supabase relay primary, Firecrawl secondary)
+- id: jeg-434-001
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: ops
+- silence-default: proceed
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Use the Supabase Edge Function relay as primary fallback (SUPABASE_URL + SUPABASE_SERVICE_KEY already CI secrets); Firecrawl only when FIRECRAWL_API_KEY is set.
+
+### Context
+
+PR #382 adds `fetch_via_relay` (calls `usatoday-fetch` Edge Function on project iskiybsimubiujwuchsl) and `fetch_via_firecrawl` (paid API, inert without FIRECRAWL_API_KEY) to `ops/watchdog/pull_usatoday.py`. Both are fallbacks on BLOCK_STATUSES (401/402/403/429). Jeremy stated on 2026-10-07: "merge PR #382, Supabase edge-function relay first, Firecrawl as second fallback only when FIRECRAWL_API_KEY is set" (JEG-434 decision entry).
+
+### Problem
+
+usatoday.com returns HTTP 402 to GitHub-hosted runner IPs (bot wall). The ingest records SOURCE_BLOCKED every CI run; no USA Today week-5+ data will land without a workaround. Two workarounds were proposed: (a) Supabase relay using existing CI secrets, verified to work via pg_net; (b) Firecrawl paid scrape API.
+
+### Options
+
+1. **Relay only.** Add relay; no Firecrawl code. Simpler; fails if Supabase starts walling usatoday.com too.
+2. **Relay primary, Firecrawl secondary (if key set).** Add both; Firecrawl remains inert until FIRECRAWL_API_KEY is added as a secret. Defense in depth; code path is untested in CI.
+3. **Firecrawl only.** Requires paid key; no redundancy with existing infrastructure.
+
+### Recommendation
+
+Option 2. Relay is live and verified (CI dry run 37614204115). Firecrawl code is inert without the secret so it adds no risk; it can be activated by adding a secret later without a code change.
+
+### Outcome Note
+
+Jeremy authorized on 2026-10-07 (JEG-434): "merge PR #382, Supabase edge-function relay first, Firecrawl as second fallback only when FIRECRAWL_API_KEY is set." Implemented in the PR branch; merge commit 9e44e3e. `make validate` exit 0.
+
+## consol-adjusted-001: Bias-adjusted sources stay out of public.consolidated_values
+- id: consol-adjusted-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Do not write the *_adjusted sources to public.consolidated_values. They stay on the chart, served from the fixture. Keep the 70 cap (ck_combo_reindexed_cap) and the writer's pre-check unchanged for the core sources. No Supabase constraint change.
+
+### Context
+
+Once the consolidation writer set the NOT NULL columns (PR #400), the 2026-10-07 fixture still could not be written. Fifteen bias-adjusted combo_reindexed values exceed 70 (for example usatoday_adjusted Bijan Robinson 76.4 and cbs_adjusted Jahmyr Gibbs 82.4), and the live CHECK rejects them (GAP-CONSOL-CAP).
+
+### Problem
+
+How should adjusted values above the table's 70 cap be handled?
+
+### Options
+
+1. Cap the adjusted sections at 70 in the builder.
+2. Relax or drop the cap for the *_adjusted sources.
+3. Keep the adjusted sources out of public.consolidated_values.
+
+### Recommendation
+
+Option 3, chosen by Jeremy (2026-10-07, explicit). `build_consolidated_values.write_supabase` skips every `*_adjusted` source explicitly (`split_for_table`) and logs each skipped source with its row count. The served JSON export still carries them. The skip is pinned by `tests/test_consolidated_write_fields.py::AdjustedExcludedTest`.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 and implemented in PR #400.
+
+## consol-nonblocking-001: The consolidated_values write does not block the Pages deploy and is monitored on its own
+- id: consol-nonblocking-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: publish
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: In rebuild-chain.yml the consolidation write is its own `continue-on-error` step. Its outcome is recorded as the monitored check `consolidated_values_write` (red on failure). The Pages dispatch does not depend on it.
+
+### Context
+
+Rebuild run 37641559947 pushed the fixture (0b0ddee), then failed at "Build consolidation layer". The Pages dispatch's implicit `success()` skipped, so main and the live site diverged. The site serves the fixture, not public.consolidated_values.
+
+### Problem
+
+Should a failed Supabase consolidation write block the Pages deploy?
+
+### Options
+
+1. Non-blocking, with its own monitored check.
+2. Blocking but consistent: write before the fixture push.
+3. Leave as is: the fixture is pushed but not deployed.
+
+### Recommendation
+
+Option 1, chosen by Jeremy (2026-10-07, explicit).
+
+- The step has `continue-on-error: true` and `id: consolidate`.
+- `Record consolidated_values check` runs with `always()` and records `steps.consolidate.outcome` through `record_monitor_check.py`.
+- The Pages dispatch runs on `!cancelled() && steps.push.outputs.pushed == 'true'`.
+- The check row is in `supabase/migrations/jeg324_consolidated_values_write_check.sql` (applied after merge).
+- Guard: `tests/test_rebuild_chain_consolidation_nonblocking.py`.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 and implemented in PR #400.
