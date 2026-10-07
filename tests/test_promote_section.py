@@ -262,6 +262,32 @@ class TestPromote(unittest.TestCase):
         rec = json.loads(Path(result["promotion_record"]).read_text())
         self.assertEqual("Week 3", rec["l1_import_health_gate"]["content_vintage"])
 
+    def test_week_label_travels_with_promoted_values(self):
+        """JEG-436: the chart reads `week_designated` before content_vintage.
+        Promoting Week-3 natives over a section labelled "Week 2" must
+        relabel it "Week 3" (the pre-fix promoter kept "Week 2": week-3
+        values shown as Week 2)."""
+        fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
+        fx = json.loads(fx_path.read_text())
+        fx["sources"]["fantasycalc"]["week_designated"] = "Week 2"
+        fx["sources"]["fantasycalc"]["content_vintage"] = "Week 2"
+        fx_path.write_text(json.dumps(fx))
+        doc = json.loads(rp.read_text())
+        doc["content_vintage"] = "Week 3"
+        doc["source_provenance"] = {"source": "fantasycalc", "content_vintage": "Week 3",
+                                    "vintage_kind": "week_designated", "week_designated": 3}
+        rp.write_text(json.dumps(doc))
+        rev = json.loads(revp.read_text())
+        rev["reindexed_sha256"] = promo.sha256_file(rp)
+        revp.write_text(json.dumps(rev))
+        health = self.tmp / "source-import-health.json"
+        write_import_health(health, vintage="Week 3", status="ok")
+        promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                      record_dir=str(self.records), import_health_path=str(health))
+        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        self.assertEqual("Week 3", after["content_vintage"])
+        self.assertEqual("Week 3", after["week_designated"])
+
     def _active_review(self, vintage="Week 3"):
         """Ready review for an active source; candidate vintage None = absent."""
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")

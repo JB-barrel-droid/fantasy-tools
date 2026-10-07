@@ -210,10 +210,22 @@ def build_section(
         str(combo).endswith("_qb1") or str(combo).endswith("_qb2")
         for combo in fixture_combos
     )
+    # JEG-436: expand a qb=None row only into the QB variants the fixture
+    # holds for that row's (scoring, teams). league-settings-001 / #361
+    # retired the qb2 blocks, so a 12-team 1-QB FantasyCalc snapshot used to
+    # emit `full_12_qb2` here and the review held it as an unknown combo. A
+    # base with no QB-split combo in the fixture falls back to qb1 only: the
+    # importer pulls 1-QB values (source_trade_values.qb_slots = 1), so a qb2
+    # combo is never minted from them.
+    def qb_variants_for(row: dict[str, Any]) -> tuple[int, ...]:
+        base = combo_key_for(row.get("scoring"), row.get("teams"))
+        held = tuple(q for q in (1, 2) if f"{base}_qb{q}" in fixture_combos)
+        return held or (1,)
+
     expanded_rows: list[dict[str, Any]] = []
     for row in rows:
         if row.get("qb") is None and expects_qb_split:
-            for qb_val in (1, 2):
+            for qb_val in qb_variants_for(row):
                 new_row = dict(row)
                 new_row["qb"] = qb_val
                 expanded_rows.append(new_row)
