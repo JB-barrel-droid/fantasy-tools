@@ -21,6 +21,25 @@ Fail-closed semantics (scope Goals 5, 1):
     tuples.
   * On any failure nothing is written to Supabase and no JSON is emitted.
 
+Write-time columns (live schema, JEG-377/380 hardening 2026-10-04/05; mirrored
+in supabase/migrations/jeg377_jeg380_api_mirror.sql): public.consolidated_values
+requires player_key (bigint NOT NULL, FK players), bake_uuid (uuid NOT NULL, FK
+bakes) and source_generated_at (timestamptz NOT NULL, the source's CONTENT
+vintage, JEG-380 "truthful freshness"). This builder sets them:
+  * player_key: the fixture's own `player_keys` map (the keys the chart was
+    baked with; no name matching here, so nothing fuzzy). A cell whose player
+    has no key goes to review and is not written.
+  * source_generated_at: per source, from the section's provenance
+    (SGA_FIELDS order). Week-only vintages ("Week 5") fall back to the
+    acquisition time `fetched_at`. No usable value -> fail closed.
+  * bake_uuid: one public.bakes row per source per fixture (reused when the
+    same fixture sha256 is re-run), created only after every pre-flight check
+    passes.
+Pre-flight (all before any write, fail closed with the list): every row has a
+key, a bake and a vintage; every source is in public.source_config (FK); no
+combo_reindexed value exceeds the table's cap (ck_combo_reindexed_cap, <= 70);
+every player_key exists in public.players (FK).
+
 Output modes:
   * --write-supabase : upsert rows into public.consolidated_values via the
     Supabase REST API (service-role credential). Requires the table to
@@ -59,6 +78,18 @@ VORP_VIEW_MAP = {
 QB_VARIANT_SOURCES = {"fantasycalc", "fantasycalc_adjusted"}
 
 VALID_SCORING = {"full", "half", "standard"}
+COMBO_VALUE_CAP = 70  # live CHECK ck_combo_reindexed_cap (view <> combo_reindexed OR value <= 70)
+CONTRACT_VERSION = "1.0.0"  # public.bakes.contract_version (pipelines/publish_gate.py)
+# Content-vintage fields, most specific first (JEG-380: truthful source_generated_at).
+SGA_FIELDS = (
+    ("vintage",),                              # cbsros / razzball snapshot date
+    ("espn_snapshot",),                        # ESPN projections snapshot date
+    ("source_provenance", "content_vintage"),  # dated publications (FantasyPros, USA Today)
+    ("lineage", "raw_vintage"),                # adjusted sections inherit the raw vintage
+    ("fetched_at",),                           # week-labelled snapshots: acquisition time
+)
+UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+WRITE_REQUIRED = ("player_key", "bake_uuid", "source_generated_at", "created_at")
 VALID_TEAMS = {8, 10, 12, 14}
 
 
@@ -92,13 +123,27 @@ def build_rows(detail):
     """Derive consolidation rows from the detail fixture.
 
     Returns (rows, diagnostics). Each row is a dict matching the
-    public.consolidated_values columns (minus created_at).
+    public.consolidated_values columns except the write-time ones
+    (bake_uuid, source_generated_at, created_at; see attach_write_fields).
+    player_key comes from the fixture's own `player_keys`; a cell whose
+    player has none is listed in diagnostics["review_no_player_key"] and
+    not emitted (never guessed).
     """
     rows = []
-    diagnostics = {"skipped_unparseable_combo": [], "skipped_qb_violation": []}
+    diagnostics = {"skipped_unparseable_combo": [], "skipped_qb_violation": [],
+                   "review_no_player_key": []}
     season, week = current_season_week(detail)
     bake_id = detail.get("built_at", "unknown")
     sources = detail.get("sources", {})
+    player_keys = detail.get("player_keys") or {}
+
+    def keyed(row):
+        key = player_keys.get(row["player"])
+        if isinstance(key, bool) or not isinstance(key, int):
+            diagnostics["review_no_player_key"].append(row["detail_locator"])
+            return
+        row["player_key"] = key
+        rows.append(row)
 
     for source, sdata in sources.items():
         # --- combos -> combo_reindexed ---
@@ -118,7 +163,7 @@ def build_rows(detail):
             for player, value in reindexed.items():
                 if value is None:
                     continue  # missing stays missing (no row)
-                rows.append({
+                keyed({
                     "player": player,
                     "source": source,
                     "season": season,
@@ -149,7 +194,7 @@ def build_rows(detail):
             for player, value in (vdata or {}).items():
                 if value is None:
                     continue
-                rows.append({
+                keyed({
                     "player": player,
                     "source": source,
                     "season": season,
@@ -173,12 +218,15 @@ def composite_key(row):
             row["scoring"], row["teams"], row["qb_variant"], row["view"])
 
 
-def reconcile(rows, detail):
+def reconcile(rows, detail, review_locators=()):
     """Bidirectional key-set reconciliation against the detail fixture.
 
-    Returns a list of error strings (empty = green).
+    review_locators: detail cells deliberately routed to review (no
+    player_key); they are not "missing". Returns a list of error strings
+    (empty = green).
     """
     errors = []
+    reviewed = set(review_locators)
 
     # 1. Duplicate composite keys.
     seen = {}
@@ -229,6 +277,8 @@ def reconcile(rows, detail):
                     continue
                 # week/season are bake-level; recompute cheaply per row is
                 # wasteful, so compare on the week-independent projection.
+                if f"sources.{source}.combos.{combo_key}.reindexed[{player!r}]" in reviewed:
+                    continue
                 expected_keys.add((player, source, scoring, teams,
                                    qb_variant or "none", "combo_reindexed"))
     have_keys = {(r["player"], r["source"], r["scoring"], r["teams"],
@@ -258,31 +308,159 @@ def reconcile(rows, detail):
     return errors
 
 
-def write_supabase(rows):
-    """Upsert rows into public.consolidated_values via the REST API.
+# ---------------------------------------------------------------------------
+# Write-time fields (NOT NULL in the live table)
+# ---------------------------------------------------------------------------
 
-    Uses the supabase-football-signal skill's sbclient (service-role
-    credential via the surrogate flow). Batched in chunks of 500.
-    """
-    # The skill lives under ~/workspace/skills; resolve from home.
-    from pathlib import Path as _P
-    skill_bin = _P.home() / "workspace" / "skills" / "supabase-football-signal" / "bin"
+def _parse_instant(value):
+    """ISO date or datetime -> aware ISO string, else None ("Week 5" -> None)."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        if len(text) == 10:
+            dt = datetime.strptime(text, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        else:
+            dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    return dt.isoformat()
+
+
+def source_generated_at_for(source, sdata):
+    """(iso, field) for a source section's content vintage, or (None, None)."""
+    for path in SGA_FIELDS:
+        node = sdata
+        for part in path:
+            node = node.get(part) if isinstance(node, dict) else None
+        iso = _parse_instant(node)
+        if iso:
+            return iso, ".".join(path)
+    return None, None
+
+
+def source_vintages(detail, sources):
+    """{source: iso} for every source; SystemExit listing any without one."""
+    out, missing = {}, []
+    for src in sorted(sources):
+        iso, _field = source_generated_at_for(src, detail["sources"].get(src) or {})
+        if iso is None:
+            missing.append(src)
+        else:
+            out[src] = iso
+    if missing:
+        raise SystemExit("FAIL-CLOSED: no content vintage (source_generated_at) in the fixture "
+                         f"provenance for {missing}; looked at {['.'.join(p) for p in SGA_FIELDS]}")
+    return out
+
+
+def preflight(rows, known_sources):
+    """Errors that the live table would reject, found before any write."""
+    errors = []
+    unknown = sorted({r["source"] for r in rows} - set(known_sources))
+    if unknown:
+        errors.append(f"sources not in public.source_config (FK fk_consolidated_values_source): {unknown}")
+    over = [r for r in rows if r["view"] == "combo_reindexed" and r["value"] > COMBO_VALUE_CAP]
+    if over:
+        sample = ", ".join(f"{r['detail_locator']}={r['value']}" for r in over[:8])
+        errors.append(f"{len(over)} combo_reindexed value(s) > {COMBO_VALUE_CAP} "
+                      f"(CHECK ck_combo_reindexed_cap): {sample}")
+    nokey = [r["detail_locator"] for r in rows if not isinstance(r.get("player_key"), int)]
+    if nokey:
+        errors.append(f"{len(nokey)} row(s) without player_key: {nokey[:5]}")
+    return errors
+
+
+def attach_write_fields(rows, bake_uuid_by_source, sga_by_source, created_at):
+    """Rows ready for public.consolidated_values; SystemExit if any NOT NULL
+    write field is missing or malformed (nothing is sent)."""
+    out, bad = [], []
+    for r in rows:
+        w = dict(r, bake_uuid=bake_uuid_by_source.get(r["source"]),
+                 source_generated_at=sga_by_source.get(r["source"]), created_at=created_at)
+        problems = [f for f in WRITE_REQUIRED if w.get(f) in (None, "")]
+        if w.get("player_key") is not None and (isinstance(w["player_key"], bool)
+                                                or not isinstance(w["player_key"], int)):
+            problems.append("player_key:not-int")
+        if w.get("bake_uuid") and not UUID_RE.match(str(w["bake_uuid"])):
+            problems.append("bake_uuid:not-uuid")
+        if problems:
+            bad.append((r["detail_locator"], problems))
+        out.append(w)
+    if bad:
+        raise SystemExit(f"FAIL-CLOSED: {len(bad)} consolidated_values row(s) missing NOT NULL "
+                         f"fields; nothing written. First: {bad[:5]}")
+    return out
+
+
+def _sbclient():
+    # The skill lives under ~/workspace/skills (CI puts a shim on PYTHONPATH).
+    skill_bin = Path.home() / "workspace" / "skills" / "supabase-football-signal" / "bin"
     sys.path.insert(0, str(skill_bin))
     import sbclient
+    return sbclient
 
+
+def bake_for_source(sb, source, sga, detail, detail_sha256):
+    """public.bakes row for (source, this fixture): reused on a re-run of the
+    same fixture, else created. Returns its uuid."""
+    found = sb.get("bakes", params=(f"?select=bake_id&source=eq.{source}"
+                                        f"&context->>fixture_sha256=eq.{detail_sha256}"
+                                        "&order=ingested_at.desc&limit=1"))
+    if isinstance(found, list) and found and found[0].get("bake_id"):
+        return found[0]["bake_id"]
+    created = sb.post("bakes", [{
+        "source": source, "source_generated_at": sga, "contract_version": CONTRACT_VERSION,
+        "context": {"writer": "build_consolidated_values.py", "original_bake_id": detail.get("built_at"),
+                    "fixture_sha256": detail_sha256},
+    }], prefer="return=representation")
+    if not (isinstance(created, list) and created and created[0].get("bake_id")):
+        raise SystemExit(f"FAIL-CLOSED: could not create a public.bakes row for {source}")
+    return created[0]["bake_id"]
+
+
+def write_supabase(rows, detail, detail_sha256, sb=None):
+    """Write rows to public.consolidated_values, one bake per source.
+
+    Every pre-flight check runs before the first write (bakes included).
+    Rows are upserted on the primary key, source by source, in chunks of 500
+    (the same PostgREST path as before the NOT NULL columns existed).
+    """
+    sb = sb or _sbclient()
+    sources = sorted({r["source"] for r in rows})
+    sga_by_source = source_vintages(detail, sources)
+    known = [r.get("source") for r in sb.get("source_config", params="?select=source")]
+    errors = preflight(rows, known)
+    keys = sorted({r["player_key"] for r in rows if isinstance(r.get("player_key"), int)})
+    have = {p.get("player_key") for p in sb.get_all("players", params="?select=player_key")}
+    orphans = [k for k in keys if k not in have]
+    if orphans:
+        errors.append(f"{len(orphans)} player_key(s) not in public.players: {orphans[:10]}")
+    if errors:
+        raise SystemExit("FAIL-CLOSED: consolidated_values pre-flight failed; nothing written:\n  - "
+                         + "\n  - ".join(errors))
+    created_at = datetime.now(timezone.utc).isoformat()
+    # Assemble once with a placeholder bake so a missing field fails before
+    # any bake row is created.
+    attach_write_fields(rows, {src: "00000000-0000-0000-0000-000000000000" for src in sources},
+                        sga_by_source, created_at)
+    bake_uuid_by_source = {}
+    for src in sources:
+        bake_uuid_by_source[src] = bake_for_source(sb, src, sga_by_source[src], detail, detail_sha256)
+    ready = attach_write_fields(rows, bake_uuid_by_source, sga_by_source, created_at)
     total = 0
-    for start in range(0, len(rows), 500):
-        chunk = rows[start:start + 500]
-        # PostgREST upsert: on_conflict targets the composite primary key.
-        sbclient.post(
-            "consolidated_values",
-            chunk,
-            params=("?on_conflict=player,source,season,week,scoring,teams,"
-                    "qb_variant,view"),
-            prefer="resolution=merge-duplicates",
-        )
-        total += len(chunk)
-        print(f"  upserted {total}/{len(rows)} rows", flush=True)
+    for src in sources:
+        batch = [r for r in ready if r["source"] == src]
+        for start in range(0, len(batch), 500):
+            sb.post("consolidated_values", batch[start:start + 500],
+                    params=("?on_conflict=player,source,season,week,scoring,teams,"
+                            "qb_variant,view"),
+                    prefer="resolution=merge-duplicates,return=minimal")
+        total += len(batch)
+        print(f"  {src}: {len(batch)} rows (bake {bake_uuid_by_source[src]}, "
+              f"source_generated_at {sga_by_source[src]})", flush=True)
     return total
 
 
@@ -308,7 +486,9 @@ def main():
         if vals:
             print(f"  {key}: {len(vals)} (e.g. {vals[:3]})")
 
-    errors = reconcile(rows, detail)
+    for locator in diagnostics.get("review_no_player_key", [])[:10]:
+        print(f"  review (no player_key, not written): {locator}")
+    errors = reconcile(rows, detail, diagnostics.get("review_no_player_key", ()))
     if errors:
         print(f"RECONCILIATION FAILED ({len(errors)} errors):", file=sys.stderr)
         for e in errors[:25]:
@@ -318,7 +498,7 @@ def main():
           "no duplicates, tuples valid.")
 
     if args.write_supabase:
-        n = write_supabase(rows)
+        n = write_supabase(rows, detail, detail_sha256)
         print(f"Wrote {n} rows to public.consolidated_values")
 
     if args.json_out:
