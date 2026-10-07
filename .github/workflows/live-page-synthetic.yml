@@ -6,10 +6,12 @@ name: Live page synthetic gate
 # grepped the tag from the repo's committed dist/index.html, but the deploy
 # pipeline rebuilds dist/ in CI and never commits it back -- the committed
 # copy's tag is stale by construction, so the gate failed on every run.
+# Scheduler owner: Supabase pg_cron `live-page-synthetic-live` (daily 06:00 UTC),
+# dispatching this workflow. No `schedule:` here, so there is one owner. (The
+# job used to call the live-page-synthetic edge function, which answered 401 on
+# every run while cron still showed "succeeded"; public.live_page_checks never
+# got a row.) Each main run is recorded as check `live_page_synthetic`.
 on:
-  schedule:
-    # Daily at 06:00 UTC (1:00 AM CDT) - runs after the chart build
-    - cron: "0 6 * * *"
   workflow_dispatch:
     inputs:
       url:
@@ -130,6 +132,15 @@ jobs:
             exit 1
           fi
           echo "Live page gate PASSED"
+
+      # Monitoring: record this run in Supabase monitoring.check_observations,
+      # red or green. Declared in config/monitoring_coverage.json.
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id live_page_synthetic --owner live-page-synthetic.yml --outcome "${{ job.status }}"
 
   # This job runs after the main gate to create the monitor bridge artifact
   monitor-bridge:

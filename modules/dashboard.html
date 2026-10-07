@@ -114,6 +114,13 @@
   .view-indicator.warn{background:var(--yellow-bg);color:var(--yellow);border:1px solid rgba(240,180,41,.4)}
   .view-indicator.bad{background:var(--red-bg);color:var(--red);border:1px solid rgba(244,88,92,.4)}
   .view-indicator.unk{background:var(--grey-bg);color:var(--grey);border:1px solid rgba(125,140,163,.4)}
+  /* Is-everything-working banner (fail-closed: only an evaluated green is green) */
+  .sysbanner{font-size:18px;padding:14px 16px;border-radius:10px;border:1px solid var(--line)}
+  .sysbanner b{letter-spacing:.5px}
+  .sys-green{background:var(--green-bg);color:var(--green);border-color:rgba(52,209,123,.4)}
+  .sys-yellow{background:var(--yellow-bg);color:var(--yellow);border-color:rgba(240,180,41,.4)}
+  .sys-red{background:var(--red-bg);color:var(--red);border-color:rgba(244,88,92,.4)}
+  .sys-checking{background:var(--grey-bg);color:var(--grey)}
 </style>
 </head>
 <body>
@@ -129,6 +136,80 @@ Last check: <code id="checkedAt">…</code> · <span id="dataSrc">resolving data
 <script>fetch("pipeline-checkpoints.json",{cache:"no-store"}).then(function(r){return r.ok?r.json():null}).then(function(d){var T=document.getElementById("monitorFreshnessText");if(!T||!d)return;var g=d.generated_at;if(!g){T.textContent="never";T.style.color="var(--grey)";return;}var a=(Date.now()-new Date(g).getTime())/60000,m=Math.max(0,Math.floor(a));T.textContent=m<1?"just now":m<60?m+"m ago":Math.floor(m/60)+"h "+(m%60)+"m ago";T.style.color=a>120?"var(--red)":a>60?"var(--yellow)":"var(--dim)"}).catch(function(){var T=document.getElementById("monitorFreshnessText");if(T){T.textContent="unavailable";T.style.color="var(--grey)"}});</script>
 
 <div id="err"></div>
+
+<!-- Is everything working? Driven by Supabase monitoring.check_observations via the
+     evaluator (public.monitoring_summary(), snapshotted by health-artifacts.yml into
+     monitoring-summary.json). Fail-closed: unreadable, malformed or stale is RED,
+     never green. -->
+<section class="summary" id="systemStatus" data-overall="checking">
+  <h2>Is everything working?</h2>
+  <div id="sysBanner" class="sysbanner sys-checking">Checking…</div>
+  <div class="sub" id="sysMeta" style="margin:8px 0 12px"></div>
+  <div id="sysBody" style="overflow-x:auto"></div>
+</section>
+<script>
+// SYS-STATUS-BEGIN
+var SYS_STALE_MIN = 60; // twice the 30-minute producer cadence
+function sysEvaluate(p, nowMs){
+  var bad = function(why){ return {overall:"red", headline:why, readable:false}; };
+  if(!p || typeof p !== "object") return bad("Monitor unreadable: no data. Treat everything as unknown.");
+  if(p.read_error) return bad("Monitor read failed: " + p.read_error + ". Treat everything as unknown.");
+  if(p.schema !== "ddf-monitoring-summary-v1" || !Array.isArray(p.checks) || !p.checks.length ||
+     ["green","yellow","red"].indexOf(p.overall) < 0) return bad("Monitor summary is malformed. Treat everything as unknown.");
+  var t = Date.parse(p.generated_at);
+  if(isNaN(t)) return bad("Monitor summary has no readable timestamp. Treat everything as unknown.");
+  var age = (nowMs - t) / 60000;
+  if(age < -5) return bad("Monitor summary timestamp is in the future. Treat everything as unknown.");
+  if(age > SYS_STALE_MIN) return bad("Monitor snapshot is " + Math.round(age) + " min old (limit " + SYS_STALE_MIN + "). Treat everything as unknown.");
+  return {overall:p.overall, headline:p.headline, readable:true, ageMin:age};
+}
+// SYS-STATUS-END
+(function(){
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function rel(ts){
+    var t = Date.parse(ts); if(isNaN(t)) return "never";
+    var m = Math.max(0, Math.round((Date.now()-t)/60000));
+    return m < 60 ? m + " min ago" : m < 2880 ? (m/60).toFixed(1) + " h ago" : (m/1440).toFixed(1) + " days ago";
+  }
+  function setBanner(ev){
+    var host = document.getElementById("systemStatus");
+    host.setAttribute("data-overall", ev.overall);
+    var b = document.getElementById("sysBanner");
+    b.className = "sysbanner sys-" + ev.overall;
+    var word = ev.overall === "green" ? "ALL WORKING" : ev.overall === "yellow" ? "WORKING WITH CAVEATS" : "NOT WORKING";
+    b.innerHTML = "<b>" + word + "</b> — " + esc(ev.headline);
+  }
+  function render(p, ev){
+    var meta = document.getElementById("sysMeta"), body = document.getElementById("sysBody");
+    if(!ev.readable){ meta.textContent = "Source: monitoring-summary.json (Supabase monitoring.check_observations)."; body.innerHTML = ""; return; }
+    meta.innerHTML = "Source: Supabase <code>monitoring.check_observations</code> via the 5-minute evaluator · snapshot " +
+      esc(rel(p.generated_at)) + " (<code>" + esc(p.generated_at) + "</code>) · red = a page-severity check failed or missed its run.";
+    var rows = p.checks.map(function(c){
+      var owner = c.pg_cron_job ? "pg_cron <code>" + esc(c.pg_cron_job) + "</code>" + (c.workflow ? " → <code>" + esc(c.workflow) + "</code>" : "")
+                : c.owner_type === "github_actions" ? "GitHub schedule <code>" + esc(c.workflow || c.owner_id) + "</code>" : esc(c.owner_type) + " <code>" + esc(c.owner_id) + "</code>";
+      var last = c.obs_run_at ? (c.obs_ok ? "ok" : "FAILED" + (c.obs_error_code ? " (" + esc(c.obs_error_code) + ")" : "")) + " · " + esc(rel(c.obs_run_at)) : "no run recorded";
+      var colour = c.status === "green" ? "var(--green)" : c.status === "red" ? "var(--red)" : c.status === "off" ? "var(--grey)" : "var(--yellow)";
+      return '<tr data-check="' + esc(c.check_id) + '" data-status="' + esc(c.status) + '"><td style="color:' + colour + ';font-weight:700;white-space:nowrap">' +
+        esc(String(c.status).toUpperCase()) + '</td><td><b>' + esc(c.label) + '</b><br><code>' + esc(c.check_id) + '</code> · ' + esc(c.severity) +
+        '</td><td>' + owner + '</td><td>' + last + '</td><td>' + esc(c.reason) + '</td></tr>';
+    }).join("");
+    var jobs = (p.cron_jobs || []).filter(function(j){ return j.status !== "green"; }).map(function(j){
+      return '<li><b>' + esc(j.jobname) + '</b>: ' + (j.last_status === "failed" ? "last cron run failed" :
+        j.dispatch_outcome === "failed" ? "GitHub rejected the dispatch of " + esc(j.dispatches) + " (HTTP " + esc(j.dispatch_http_status) + (j.dispatch_detail ? ": " + esc(j.dispatch_detail) : "") + ")" : "inactive") + '</li>';
+    }).join("");
+    body.innerHTML = '<table class="scale-table" style="width:100%"><thead><tr><th>Status</th><th>Pipeline</th><th>Scheduler</th><th>Last observation</th><th>Why</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      (jobs ? '<p class="sub" style="margin-top:12px"><b>Scheduler problems</b></p><ul style="margin-left:18px;font-size:13px">' + jobs + '</ul>' : "");
+  }
+  fetch("monitoring-summary.json", {cache:"no-store"}).then(function(r){
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }).then(function(p){
+    var ev = sysEvaluate(p, Date.now()); setBanner(ev); render(p, ev);
+  }).catch(function(e){
+    var ev = sysEvaluate({read_error: String((e && e.message) || e)}, Date.now()); setBanner(ev); render(null, ev);
+  });
+})();
+</script>
 
 <section class="summary">
   <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Fleet health — 10 checkpoints × monitored sources</h2>
