@@ -19,15 +19,23 @@ never ecr/vegas; unknown names are a hard error), the gate checks:
     (defect guarded: partial/stale table treated as complete);
   - FRESHNESS on content vintage, never pull time. Week-designated trade
     charts (fantasycalc, usatoday, fantasypros, cbs, cbsros) are fresh iff
-    their NFL week == --nfl-week. ESPN projections are a daily live
-    iff the content vintage is within 2 days of the check date.
+    their NFL week >= --nfl-week (a source AHEAD of the others is fresh).
+    ESPN projections are a daily live iff the content vintage is within 2
+    days of the check date.
     (defect guarded: a vintage-less import backing fixture updates.)
+  - LAG TOLERANCE (decision build-lag-001, 2026-10-07): a week-designated
+    source exactly ONE content week behind --nfl-week is a non-blocking
+    `warning` ("LAGGING_ONE_WEEK (non-blocking): ..."); the build uses its
+    newest data labelled with its own week. Two or more weeks behind still
+    blocks. --nfl-week defaults to pipelines/nfl_week.py (content week,
+    flips Tuesday), never ops/watchdog/_common.nfl_week (flips Thursday).
 
 Writes output/source-import-health.json in the consumer-contract shape
 ("trade-value-import-health-v1", see docs/import-health-schema.md) consumed
-by the pull watchdog. Exit 0 only if every source is ok; any missing/stale/
-failed source -> non-zero exit with a loud human-readable summary on
-stderr.
+by the pull watchdog. Exit 0 only if no source is BLOCKING (see
+entry_is_blocking: fail-closed, only an explicit allow-list of statuses is
+non-blocking); any blocking source -> non-zero exit with a loud
+human-readable summary on stderr.
 """
 
 from __future__ import annotations
@@ -45,6 +53,9 @@ from typing import Any, Callable
 # Source-specific publication windows for yellow/red status
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.publication_windows import get_publication_status  # noqa: E402
+# Content-week calendar (flips Tuesday). GAP-WEEK-CALENDARS: never the
+# Thursday-flip ops/watchdog/_common.nfl_week.
+from nfl_week import current_nfl_week  # noqa: E402
 
 # Canonical bake-aware selection pattern (JEG-90): a week may hold multiple
 # immutable bakes; never blend them. Imported, not reimplemented -- single
@@ -124,6 +135,61 @@ SOURCE_CONFIGS = {
         "table_holds_review_rows": False,
     },
 }
+
+# ---------------------------------------------------------------------------
+# Gate blocking policy (decision build-lag-001, 2026-10-07).
+#
+# Fail-closed: a source entry blocks the gate unless its status is on an
+# explicit non-blocking allow-list. Before build-lag-001 the gate counted
+# only stale/missing/failed, so a publication-window "red" (MISSED_WINDOW)
+# -- and any status outside the vocabulary -- silently passed.
+#
+#   ok       -> fresh; promotable.
+#   warning  -> non-blocking. Two producers: TABLE_DRIFT stamping lag (table
+#               fresher than the manifest; NOT promotable) and
+#               LAGGING_ONE_WEEK (exactly one content week behind; promotable
+#               under its own week label).
+#   razzball warn/bad/unk -> advisory: Razzball is not a rebuild-chain source
+#               (rebuild_comparison_chain.SOURCES) and has no CI puller
+#               (GAP-024), so its snapshot-age verdict feeds the monitor (c5)
+#               but does not hold the chain. Its byte/table failures still
+#               block.
+#   anything else (stale, missing, failed, red, yellow, unknown) -> blocks.
+# ---------------------------------------------------------------------------
+LAG_TOLERANCE_WEEKS = 1
+LAGGING_CODE = "LAGGING_ONE_WEEK"
+LAGGING_PREFIX = f"{LAGGING_CODE} (non-blocking): "
+NON_BLOCKING_STATUSES = frozenset({"ok", "warning"})
+ADVISORY_FRESHNESS = {"razzball": frozenset({"warn", "bad", "unk"})}
+
+
+def entry_is_blocking(source: str, entry: dict[str, Any]) -> bool:
+    """True when this source entry must hold the gate RED (fail-closed)."""
+    status = entry.get("status")
+    if status in NON_BLOCKING_STATUSES:
+        return False
+    if status in ADVISORY_FRESHNESS.get(source, frozenset()):
+        return False
+    return True
+
+
+def entry_is_lagging(entry: dict[str, Any]) -> bool:
+    """True for a LAGGING_ONE_WEEK warning (one week behind, non-blocking)."""
+    return (
+        entry.get("status") == "warning"
+        and str(entry.get("failure_reason") or "").startswith(LAGGING_PREFIX)
+    )
+
+
+def entry_is_promotable(entry: dict[str, Any]) -> bool:
+    """Promotion contract (promote_comparison_section.check_l1_freshness).
+
+    ok, or a one-week lag promoted under its own content_vintage. A
+    TABLE_DRIFT warning is NOT promotable: the table and the snapshot
+    disagree, so the snapshot is not what Supabase holds.
+    """
+    return entry.get("status") == "ok" or entry_is_lagging(entry)
+
 
 # Sources that must never be health-checked here, even if someone names them.
 HARD_EXCLUSIONS = ("ecr", "vegas", "prediction_markets", "prediction-markets")
@@ -473,6 +539,11 @@ def verify_source(
         "db_latest_vintage": None,
         "db_latest_rows": None,
         "db_latest_arrived_at": None,
+        # build-lag-001: the NFL content week the vintage maps to (null until
+        # derivable) and whether this entry holds the gate RED. `blocking`
+        # is set by run_health from entry_is_blocking.
+        "content_week": None,
+        "blocking": True,
     }
     loud: list[str] = []
 
@@ -536,6 +607,7 @@ def verify_source(
         return fail("NO_VINTAGE", str(exc))
     entry["content_vintage"] = vintage_display
     entry["vintage_kind"] = vintage_kind
+    entry["content_week"] = vintage_week
 
     # 4. DB sources: table row count / vintage still matches the manifest -----
     # (All six dashboard sources are DB-backed as of 2026-10-01; cbsros was
@@ -669,6 +741,23 @@ def verify_source(
         )
         if pub_status != "ok":
             entry["last_successful_import"] = verified_at
+            lag = (nfl_week - vintage_week) if vintage_week is not None else None
+            if lag is not None and 0 < lag <= LAG_TOLERANCE_WEEKS:
+                # build-lag-001: exactly one week behind is non-blocking. The
+                # build uses this source's newest data, labelled with its own
+                # week; the publication-window verdict (yellow awaiting / red
+                # missed / stale unverified schedule) is kept in the reason.
+                entry["status"] = "warning"
+                entry["failure_reason"] = (
+                    f"{LAGGING_PREFIX}{source} content Week {vintage_week} is one "
+                    f"week behind current content Week {nfl_week}; built and "
+                    f"labelled as Week {vintage_week}. Window verdict "
+                    f"{pub_status}: {pub_reason}"
+                )
+                return entry, loud
+            # Two or more weeks behind (or vintage unknown): blocks. The
+            # window status (red/stale) is reported as-is; the gate's
+            # fail-closed allow-list treats both as blocking.
             entry["failure_reason"] = pub_reason
             entry["status"] = pub_status
             return entry, loud
@@ -722,6 +811,16 @@ def run_health(
     """Verify all six sources, write the health JSON, return the exit code."""
     checked_at = utc_now_iso()
     today = check_date or utc_today()
+    calendar_week = nfl_week_for_date(today)
+    calendar_note = None
+    if calendar_week is not None and calendar_week != nfl_week:
+        # Not blocking (tests and back-fills pass explicit weeks), but loud:
+        # the usual cause is a caller on the Thursday-flip game-week calendar
+        # (GAP-WEEK-CALENDARS), which hides a one-week lag on Tue/Wed.
+        calendar_note = (
+            f"NOTE: --nfl-week {nfl_week} differs from content week "
+            f"{calendar_week} for {today} (pipelines/nfl_week.py, flips Tuesday)"
+        )
     prev = load_previous_health(output_path)
     prev_sources = prev.get("sources", {}) if isinstance(prev, dict) else {}
 
@@ -736,6 +835,7 @@ def run_health(
             prev_entry=prev_sources.get(source),
             checked_at=checked_at,
         )
+        entry["blocking"] = entry_is_blocking(source, entry)
         sources[source] = entry
         loud.extend(lines)
 
@@ -751,29 +851,43 @@ def run_health(
     counts = {"ok": 0, "warning": 0, "stale": 0, "missing": 0, "failed": 0}
     for entry in sources.values():
         counts[entry["status"]] = counts.get(entry["status"], 0) + 1
+    blocking = [s for s in DASHBOARD_SOURCES if sources[s]["blocking"]]
+    lagging = [s for s in DASHBOARD_SOURCES if entry_is_lagging(sources[s])]
+    other = {k: v for k, v in counts.items()
+             if k not in ("ok", "warning", "stale", "missing", "failed")}
 
     err: list[str] = []
     err.append(
         f"IMPORT HEALTH [{checked_at} | NFL week {nfl_week}]: "
         f"{counts['ok']} ok / {counts['warning']} warn / {counts['stale']} stale / "
         f"{counts['missing']} missing / {counts['failed']} failed"
+        + "".join(f" / {v} {k}" for k, v in sorted(other.items()))
     )
+    if calendar_note:
+        err.append(calendar_note)
     for source in DASHBOARD_SOURCES:
         entry = sources[source]
         if entry["status"] != "ok":
+            tag = "BLOCKING" if entry["blocking"] else "non-blocking"
             err.append(
-                f"  {entry['status'].upper():7} {source:12} "
+                f"  {entry['status'].upper():7} {source:12} [{tag}] "
                 f"vintage={entry['content_vintage']} kind={entry['vintage_kind']} "
                 f"rows={entry['row_count']} :: {entry['failure_reason']}"
             )
     err.extend(loud)
-    green = counts["stale"] == 0 and counts["missing"] == 0 and counts["failed"] == 0
+    green = not blocking
     if green:
-        err.append("GATE: GREEN -- all six import sources verified fresh")
+        if lagging:
+            err.append(
+                "GATE: GREEN -- no blocking source; lagging one week (built under "
+                f"their own week labels): {', '.join(lagging)}"
+            )
+        else:
+            err.append("GATE: GREEN -- all import sources verified fresh")
     else:
         err.append(
             "GATE: RED -- no fixture update (match/reference/section/promote) may run "
-            "on this health check"
+            f"on this health check (blocking: {', '.join(blocking)})"
         )
     print("\n".join(err), file=sys.stderr)
 
@@ -785,8 +899,9 @@ def main() -> int:
     parser.add_argument(
         "--nfl-week",
         type=int,
-        required=True,
-        help="Current NFL week (passed by the watchdog/cron; e.g. --nfl-week 3).",
+        default=None,
+        help="Current NFL content week (default: pipelines/nfl_week.py, which "
+             "flips Tuesday; never the Thursday-flip _common.nfl_week).",
     )
     parser.add_argument(
         "--sources-root",
@@ -804,7 +919,7 @@ def main() -> int:
     for source in DASHBOARD_SOURCES:
         check_source(source)  # hard error on unknown/excluded names
     return run_health(
-        nfl_week=args.nfl_week,
+        nfl_week=args.nfl_week if args.nfl_week is not None else current_nfl_week(),
         sources_root=args.sources_root,
         output_path=args.output,
     )

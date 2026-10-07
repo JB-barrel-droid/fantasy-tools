@@ -3317,3 +3317,67 @@ current main; the `razzball-ci` branch also carries the unmerged ingest-ci work,
   green (it has been red since at least 08:00Z at "Run import health check", cbs/fantasypros stale; not a Razzball cause).
 - Another session pushed `razzball/dry-ci-rebuild` (95cdbca) with the same goal 10 minutes before mine; I did not touch it.
   It differs on dating (pull date) and error-code names.
+## 2026-10-07 - Import-health gate tolerates a one-week lag (build-lag-001, branch build-lag-001)
+
+Contract: the rebuild chain never promoted because verify_import_health was RED. CBS and FantasyPros
+were STALE_VINTAGE (Week 4 against content week 5) while FantasyCalc was already Week 5. Jeremy
+authorized loosening or tightening gates so the build runs on each source's newest data, each source
+labelled by its own week.
+
+### Verified
+- Real state 2026-10-07 (Supabase MCP queries on source_trade_values, cbs_trade_values,
+  cbs_ros_projections, espn_season_projections and razzball_projections, latest vintage per source):
+  fantasycalc Week 5 (585 rows, fcwk5_2026-10-06_v1); usatoday 2026-09-29 (Week 4, 747);
+  fantasypros 2026-09-29 (Week 4, 534); cbs Week 4 (342); cbsros 2026-10-02 (Week 4, 363); espn
+  2026-10-06 (496); razzball 2026-10-06 (672). The CI artifact dist/modules/source-import-health.json
+  (checked 2026-10-07T11:11Z, nfl_week 5) agrees.
+- Gate before -> after on a fixture built from those vintages (tests/test_build_lag_gate.py; the
+  same fixture run against the HEAD code from `git archive`):
+  before: 3 ok / 2 stale, with usatoday and cbsros `yellow` not counted, GATE RED, exit 1 (matches
+  the CI artifact line for line);
+  after: fantasycalc/espn/razzball ok; usatoday, fantasypros, cbs and cbsros
+  `warning` "LAGGING_ONE_WEEK (non-blocking): ..."; GATE GREEN, exit 0. Each source keeps its own
+  content_vintage (cbs "Week 4", fantasypros "2026-09-29", fantasycalc "Week 5").
+- Red/yellow audit: the old green check (`stale==0 and missing==0 and failed==0`) let `red`
+  (MISSED_WINDOW), `yellow` and unknown statuses pass. Proven by
+  `test_usatoday_two_weeks_behind_red_blocks_the_gate`, where every other source is fresh and usatoday is
+  2 weeks behind: the HEAD code gives exit 0 ("6 ok", red uncounted). Now the check is a fail-closed
+  allow-list (`entry_is_blocking`): ok and warning pass, plus Razzball's warn/bad/unk (advisory,
+  not a chain source). Everything else blocks. At one week behind, red and yellow verdicts become
+  LAGGING warnings (the window verdict is kept in the reason). At two or more weeks behind they block.
+- Newer source: FantasyCalc Week 5 is `ok` at nfl_week 5, and also at 4 (a Thursday-flip caller).
+  The 4 case prints a NOTE line. `--nfl-week` now defaults to pipelines/nfl_week.current_nfl_week
+  (5 on 2026-10-06 and 2026-10-07, 4 on 2026-10-05).
+- Promotion: `check_l1_freshness` accepts ok or LAGGING_ONE_WEEK (`entry_is_promotable`). It refuses a
+  TABLE_DRIFT warning, a stale entry, and a candidate relabelled to a different week
+  (test_promote_section `test_l1_gate_promotes_one_week_lag_under_its_own_vintage`). The promoted
+  section keeps its own content_vintage, so per-source labels survive (GAP-PROMOTE-MIXED-VINTAGE's
+  per-setup issue is unchanged).
+- Chain: no other current-week gate in rebuild_comparison_chain.py. `--week` to translate_via_vorp and
+  refresh_vorp_translation is a refresh-cycle label: grains are computed from fixture natives
+  whatever the week (unified.translate_source never filters by week). I kept the chain week and
+  documented it (GAP-VORP-GRAIN-WEEK-LABEL). The chain status now records `source_vintages` (each
+  source's content vintage/week/health status/lagging flag).
+- Negative tests (mutation runs on copies of the tree; every mutation caught by at least one test):
+  LAG_TOLERANCE 1->2 (6 failures), 1->0 (6), old green formula (1: red test), allow-list += red/yellow
+  (3), promotable = any warning (2), promote ok-only (1), source-ahead treated as behind (1), chain
+  without source_vintages (1), default week hard-coded to 4 (1).
+- Changed assertions, with reasons: test_import_health `test_week2_vintage_stale_with_nfl_week_3` ->
+  `..._lagging_...`, and new `test_week1_vintage_stale_with_nfl_week_3` keeps the stale case at 2 weeks;
+  `test_iso_date_maps_to_nfl_week_for_freshness` (1 week behind is now LAGGING; added a 2-week red
+  case); `test_any_non_ok_source_fails_the_gate` uses a 2-week-old vintage. All three pinned the
+  exact-week policy that build-lag-001 replaces. SOURCE_KEYS gains `content_week` and `blocking`.
+  `test_all_green_exit_zero_and_shape` was ALREADY red on main before this change (razzball carries
+  `vintage_date`/`age_days`, documented as razzball-only). The assertion was wrong; it now allows
+  those two keys for razzball.
+- Gated: tests.test_build_lag_gate, test_import_health, test_verify_import_health and
+  test_promote_section are now in `make test-unit` (the last two were in test-integration, which
+  validate does not run, although they are offline).
+- `make validate` exit 0 (CHROMIUM_PATH set); stamp files restored before commit.
+
+### Claimed, unverified
+- That the next rebuild-chain run goes green and promotes. Not run here: no SUPABASE env, no
+  data/raw snapshots. Downstream chain stages (match/review/promote of Week-4 CBS/FP against a
+  fixture already at Week 4) were not exercised end to end.
+- tests.test_decisions_log was already red on main for three older entries (GAP-DECISIONS-LOG-RED).
+  build-lag-001 adds no errors to it.

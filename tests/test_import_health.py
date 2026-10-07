@@ -54,6 +54,10 @@ SOURCE_KEYS = {
     "db_latest_vintage",
     "db_latest_arrived_at",
     "db_latest_rows",
+    # build-lag-001 (2026-10-07): content week the vintage maps to, and
+    # whether the entry holds the gate RED.
+    "content_week",
+    "blocking",
 }
 TOP_KEYS = {"schema", "checked_at", "nfl_week", "sources"}
 
@@ -224,8 +228,11 @@ class VerifyImportHealthTest(unittest.TestCase):
             self.assertIsNone(entry["snapshot_path"], source)
         self.assertIn("GATE: RED", err)
 
-    # -- defect 2: week-2 chart vintage with NFL_WEEK=3 -> stale + non-zero -----
-    def test_week2_vintage_stale_with_nfl_week_3(self):
+    # -- defect 2: stale week-designated vintage ---------------------------------
+    # build-lag-001 (2026-10-07, Jeremy: "weeks 4/3 fine"): ONE week behind is a
+    # non-blocking LAGGING_ONE_WEEK warning; two or more weeks behind is stale.
+    # (Before build-lag-001 this test pinned week-2-vs-3 as stale.)
+    def test_week2_vintage_lagging_with_nfl_week_3(self):
         mod.fetch_table_summary = lambda table, params: db_rows(10, week=2)
         make_snapshot(self.root, "fantasycalc", "week-2",
                       content_vintage="Week 2", week_designated=2)
@@ -233,9 +240,23 @@ class VerifyImportHealthTest(unittest.TestCase):
             "fantasycalc", sources_root=self.root, nfl_week=3,
             check_date=self.check_date, prev_entry=None, checked_at="2026-09-21T00:00:00Z",
         )
+        self.assertEqual(entry["status"], "warning")
+        self.assertTrue(entry["failure_reason"].startswith("LAGGING_ONE_WEEK (non-blocking)"))
+        self.assertIn("STALE_VINTAGE", entry["failure_reason"])
+        self.assertIn("No verified publication schedule", entry["failure_reason"])
+        self.assertEqual(entry["content_week"], 2)
+        self.assertEqual(entry["last_successful_import"], "2026-09-21T00:00:00Z")
+
+    def test_week1_vintage_stale_with_nfl_week_3(self):
+        mod.fetch_table_summary = lambda table, params: db_rows(10, week=1)
+        make_snapshot(self.root, "fantasycalc", "week-1",
+                      content_vintage="Week 1", week_designated=1)
+        entry, _ = mod.verify_source(
+            "fantasycalc", sources_root=self.root, nfl_week=3,
+            check_date=self.check_date, prev_entry=None, checked_at="2026-09-21T00:00:00Z",
+        )
         self.assertEqual(entry["status"], "stale")
         self.assertTrue(entry["failure_reason"].startswith("STALE_VINTAGE"))
-        # fantasycalc has no verified publication schedule; message notes this
         self.assertIn("No verified publication schedule", entry["failure_reason"])
         # bytes still verified: the import landed, the vintage is old
         self.assertEqual(entry["last_successful_import"], "2026-09-21T00:00:00Z")
@@ -256,9 +277,20 @@ class VerifyImportHealthTest(unittest.TestCase):
             check_date=self.check_date, prev_entry=None, checked_at="t",
         )
         # 2026-09-21 is Monday; USA Today publishes Tuesdays.
-        # Week 2 vintage with Week 3 current on Monday = 6 days past Tuesday publish = red (missed)
-        self.assertEqual(stale_entry["status"], "red")
-        self.assertTrue(stale_entry["failure_reason"].startswith("MISSED_WINDOW"))
+        # Week 2 vintage with Week 3 current on Monday = 6 days past Tuesday
+        # publish = MISSED_WINDOW, but only one week behind: non-blocking
+        # LAGGING_ONE_WEEK since build-lag-001 (was status "red").
+        self.assertEqual(stale_entry["status"], "warning")
+        self.assertTrue(stale_entry["failure_reason"].startswith("LAGGING_ONE_WEEK"))
+        self.assertIn("MISSED_WINDOW", stale_entry["failure_reason"])
+        red_entry, _ = mod.verify_source(
+            "usatoday", sources_root=self.root, nfl_week=4,
+            check_date=self.check_date, prev_entry=None, checked_at="t",
+        )
+        # Two weeks behind: red MISSED_WINDOW, and red blocks the gate.
+        self.assertEqual(red_entry["status"], "red")
+        self.assertTrue(red_entry["failure_reason"].startswith("MISSED_WINDOW"))
+        self.assertTrue(mod.entry_is_blocking("usatoday", red_entry))
 
     # -- defect 3: manifest sha mismatch -> failed + non-zero --------------------
     def test_byte_mismatch(self):
@@ -640,8 +672,13 @@ class VerifyImportHealthTest(unittest.TestCase):
                          {"espn", "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball"})
         for source, entry in health["sources"].items():
             with self.subTest(source=source):
-                # exact shape: no missing keys, no extra keys
-                self.assertEqual(set(entry.keys()), SOURCE_KEYS, source)
+                # exact shape: no missing keys, no extra keys. Razzball also
+                # carries vintage_date/age_days (JEG-307; documented as
+                # razzball-only in docs/import-health-schema.md) -- this
+                # assertion predated them and failed on main until 2026-10-07.
+                expected = SOURCE_KEYS | (
+                    {"vintage_date", "age_days"} if source == "razzball" else set())
+                self.assertEqual(set(entry.keys()), expected, source)
                 # the four watchdog fields are present and populated
                 self.assertEqual(entry["status"], "ok", source)
                 self.assertIsNotNone(entry["last_successful_import"], source)
@@ -652,19 +689,20 @@ class VerifyImportHealthTest(unittest.TestCase):
     # -- non-zero exit whenever anything is not ok ---------------------------------
     def test_any_non_ok_source_fails_the_gate(self):
         self.stamp_all_ok(nfl_week=3)
-        # re-stamp fantasypros with a Week-2-dated manifest whose table rows
-        # agree (so bytes+vintage verify) -- freshness alone makes it stale
+        # re-stamp fantasypros with a Week-1-dated manifest whose table rows
+        # agree (so bytes+vintage verify) -- freshness alone makes it stale.
+        # Two weeks behind (build-lag-001: one week behind is non-blocking).
         import shutil
         shutil.rmtree(self.root / "fantasypros")
-        make_snapshot(self.root, "fantasypros", "2026-09-15",
-                      content_vintage="2026-09-15", week_designated=None)
+        make_snapshot(self.root, "fantasypros", "2026-09-08",
+                      content_vintage="2026-09-08", week_designated=None)
         def mixed(table, params):
             if table == "espn_season_projections":
                 return table_rows_for(table, params, n=10, week=3, date="2026-09-21")
             if table == "cbs_trade_values":
                 return table_rows_for(table, params, n=10, week=3, date=None)
             if "fantasypros" in params:
-                return db_rows(10, source_content_date="2026-09-15")
+                return db_rows(10, source_content_date="2026-09-08")
             if "fantasycalc" in params:
                 return db_rows(10, week=3)
             return db_rows(10, source_content_date="2026-09-22")

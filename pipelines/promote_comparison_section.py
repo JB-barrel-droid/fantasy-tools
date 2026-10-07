@@ -52,6 +52,7 @@ from verify_import_health import (  # noqa: E402
     DASHBOARD_SOURCES as ACTIVE_RAW_SOURCES,
     DEFAULT_OUTPUT as DEFAULT_IMPORT_HEALTH,
     HEALTH_SCHEMA,
+    entry_is_promotable,
 )
 
 FIXTURE = REPO / "data/fixtures/current/comparison-sources-data.json"
@@ -201,7 +202,8 @@ def check_l1_freshness(source, section, import_health_path=None):
     """Refuse promotion of an active raw source unless L1 is fresh and matching.
 
     Fail-closed: a missing, unreadable or wrong-schema health file, a missing
-    source entry, a non-'ok' status, a candidate without content_vintage, or a
+    source entry, a non-promotable status (anything but 'ok' or a
+    LAGGING_ONE_WEEK warning, decision build-lag-001), a candidate without content_vintage, or a
     candidate vintage that differs from the fresh L1 vintage all refuse. Sources
     outside the active raw set are not covered by the health contract.
 
@@ -223,9 +225,13 @@ def check_l1_freshness(source, section, import_health_path=None):
     if not isinstance(entry, dict):
         raise SystemExit(f"promotion refused: import health has no entry for "
                          f"{source!r}")
-    if entry.get("status") != "ok":
+    # build-lag-001: 'ok', or a LAGGING_ONE_WEEK warning (one content week
+    # behind) promoted under its OWN content_vintage -- the vintage match
+    # below still binds the candidate to exactly that week. Every other
+    # non-ok status (stale, red, TABLE_DRIFT warning, ...) refuses.
+    if not entry_is_promotable(entry):
         raise SystemExit(f"promotion refused: import health for {source!r} is "
-                         f"{entry.get('status')!r}, not 'ok' "
+                         f"{entry.get('status')!r}, not 'ok' or a one-week lag "
                          f"({entry.get('failure_reason')})")
     candidate_vintage = section.get("content_vintage")
     if not candidate_vintage:
@@ -243,6 +249,7 @@ def check_l1_freshness(source, section, import_health_path=None):
         "applied": True,
         "source": source,
         "status": entry["status"],
+        "failure_reason": entry.get("failure_reason"),
         "content_vintage": fresh_vintage,
         "candidate_content_vintage": candidate_vintage,
         "checked_at": health.get("checked_at"),
