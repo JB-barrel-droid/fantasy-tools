@@ -56,7 +56,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python3 pipelines/save_cbsros_references.py --snapshot /tmp/cbsros_snapshot/snapshot.json
+          python3 pipelines/save_cbsros_references.py --snapshot /tmp/cbsros_snapshot/snapshot.json --record-pending
 
       # JEG-137 R10: record started_at and cron_at for the deadline checker.
       - name: Record workflow run (JEG-137 R10)

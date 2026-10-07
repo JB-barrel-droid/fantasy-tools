@@ -142,5 +142,51 @@ class AlertTest(unittest.TestCase):
         self.assertEqual(counts["cbs"], {"verified": 1, "provisional": 0, "unmatched": 1, "review": 0})
 
 
+class FakeSb:
+    """Records writes; returns a uuid for each inserted player."""
+    def __init__(self):
+        self.posts, self.patches = [], []
+
+    def post(self, table, rows, params="", prefer=""):
+        self.posts.append((table, rows))
+        if table == "players":
+            return [{"id": f"uuid-{rows[0]['player_key']}"}]
+        return None
+
+    def patch(self, table, body, params=""):
+        self.patches.append((table, body, params))
+
+
+LIVE = {
+    "sources": [{"name": "sleeper", "id": "src-sleeper"}],
+    "players": [{"player_key": p["player_key"], "id": f"uuid-{p['player_key']}", "league_id": "nfl"}
+                for p in PLAYERS],
+    "teams": [{"abbreviation": "BAL", "id": "team-bal"}],
+}
+
+
+class ApplyActionsTest(unittest.TestCase):
+    """Two sources naming the same new player must produce ONE players row."""
+
+    def actions(self):
+        r = PlayerResolver(PLAYERS, [], XREFS)
+        aliases = [alias(1, "Matt Hibner", "TE", "unmatched", source="cbs"),
+                   alias(2, "Matt Hibner", "TE", "unmatched", source="fantasycalc")]
+        return rec.plan_alias_reconcile(r, aliases, [sleeper("13324", "Matt Hibner", "TE", team="BAL")], NOW)
+
+    def test_one_insert_for_one_new_player_named_twice(self):
+        acts = self.actions()
+        self.assertEqual([a["action"] for a in acts], ["insert_player", "insert_player"])
+        sb = FakeSb()
+        stats = rec.apply_actions(sb, LIVE, [], acts, NOW.isoformat())
+        inserts = [rows for t, rows in sb.posts if t == "players"]
+        self.assertEqual(len(inserts), 1, "the same Sleeper player was inserted twice")
+        self.assertEqual(stats["players_added"], 1)
+        keys = {a["player_key"] for a in acts}
+        self.assertEqual(keys, {max(p["player_key"] for p in PLAYERS) + 1})
+        promoted = [b for t, b, _ in sb.patches if t == "player_name_aliases"]
+        self.assertEqual([b["player_key"] for b in promoted], [keys.pop()] * 2)
+
+
 if __name__ == "__main__":
     unittest.main()

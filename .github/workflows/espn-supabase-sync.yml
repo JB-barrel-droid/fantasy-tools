@@ -71,7 +71,7 @@ jobs:
           set -euo pipefail
           flag=""
           if [ "${DRY_RUN:-}" = "true" ]; then flag="--dry-run"; fi
-          python3 pipelines/save_espn_cbs_references.py --source espn $flag \
+          python3 pipelines/save_espn_cbs_references.py --source espn $flag --record-pending \
             --espn-csv /tmp/espn_projections.csv \
             --espn-meta /tmp/espn_meta.json
 

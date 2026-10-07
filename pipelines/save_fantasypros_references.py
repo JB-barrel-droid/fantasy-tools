@@ -34,7 +34,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
-from match_source_snapshot import normalize_name  # noqa: E402
+from lib.player_resolver import legacy_label  # noqa: E402  -- JEG-438 stored-label rule
 from _common import nfl_week  # noqa: E402
 from save_espn_cbs_references import (  # noqa: E402
     fetch_players,
@@ -127,7 +127,7 @@ def build_fp_rows(
                         "source": "fantasypros",
                         "variant": "as_published",
                         "player_key": key,
-                        "player_norm": normalize_name(rec["full_name"]),
+                        "player_norm": legacy_label(rec["full_name"], "source"),
                         "scoring": scoring,
                         "league_teams": 12,
                         "qb_slots": 1,

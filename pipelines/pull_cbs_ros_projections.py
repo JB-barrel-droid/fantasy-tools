@@ -38,8 +38,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
-from canonical_players import norm_plain as norm_player_name  # noqa: E402
-# NOTE: norm_plain (NO nickname expansion) is the fixture join convention:
+from player_resolver import legacy_label  # noqa: E402  -- JEG-438 stored-label rule
+# NOTE: the "plain" label (NO nickname expansion) is the fixture join convention:
 # fixture player_keys and the ESPN leg's csv player_norm both use it
 # ("josh allen", not "joshua allen"). norm_player_name() would falsely
 # reject ~70 real players on identity join. Verified 2026-09-30.
@@ -146,7 +146,7 @@ def parse_position(pos: str, html: str) -> tuple[list[dict], list[dict]]:
             continue
         rows.append({
             "player_name": name,
-            "player_norm": norm_player_name(name),
+            "player_norm": legacy_label(name, "plain"),
             "pos": ppos,
             "team": team,
             "gp": gp,

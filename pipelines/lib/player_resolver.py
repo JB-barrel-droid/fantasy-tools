@@ -116,6 +116,48 @@ def name_label(name: Any) -> str:
     return norm_key(name)
 
 
+# Stored-label conventions. Before JEG-438 each writer of a ``player_norm``
+# column had its own normalizer, and the stored strings differ by writer
+# ("Ja'Marr Chase" is "ja marr chase" in the source-reference tables and
+# "jamarr chase" in the DDF legs). Several downstream steps still join on those
+# stored strings, so a migrated writer must keep writing byte-identical labels.
+# The rules live here, once; they are LABELS, never identity (identity is
+# PlayerResolver.resolve -> player_key). Unifying them is a separate, value-
+# checked change (docs/identity-model.md, "Stored labels").
+_LABEL_SUFFIX_ANYWHERE_RE = re.compile(r"\b(jr|sr|ii|iii|iv)\.?\b")
+_PLAIN_SUFFIX_RE = re.compile(r"\s+(jr|sr|ii|iii|iv|v)$")
+LABEL_CONVENTIONS = ("key", "source", "plain", "lower")
+
+
+def legacy_label(name: Any, convention: str) -> str:
+    """The stored ``player_norm`` label for a row, in the given convention.
+
+    key    -- norm_key (the resolver's own lookup key)
+    source -- source-reference tables (save_*_references, match files):
+              ASCII-fold, lowercase, drop jr/sr/ii/iii/iv anywhere, every
+              non-alphanumeric run to one space.
+    plain  -- DDF legs and projection pulls: lowercase, delete apostrophes,
+              periods and hyphens, drop a trailing generational suffix.
+    lower  -- refresh_fantasycalc_supabase: lowercase and strip only.
+    """
+    if convention == "key":
+        return norm_key(name)
+    if convention == "source":
+        text = unicodedata.normalize("NFKD", str(name or "")).encode("ascii", "ignore").decode("ascii")
+        text = _LABEL_SUFFIX_ANYWHERE_RE.sub(" ", text.lower())
+        text = re.sub(r"[^a-z0-9]+", " ", text)
+        return re.sub(r"\s+", " ", text).strip()
+    if convention == "plain":
+        s = (name or "").lower()
+        for ch in ("’", "'", ".", "-"):
+            s = s.replace(ch, "")
+        s = _PLAIN_SUFFIX_RE.sub("", s)
+        return " ".join(s.split())
+    if convention == "lower":
+        return str(name or "").lower().strip()
+    raise ValueError(f"unknown label convention {convention!r}; one of {LABEL_CONVENTIONS}")
+
+
 def team_abbr(value: Any) -> str | None:
     t = str(value or "").strip().upper()
     return TEAM_ABBR_FIX.get(t, t) or None
@@ -515,19 +557,69 @@ def registry_from_snapshot(payload: dict) -> PlayerResolver:
 
 
 _CACHE: dict[str, PlayerResolver] = {}
+_PAYLOADS: dict[str, dict] = {}
+
+
+def _registry_path(path: Path | str | None) -> Path:
+    return Path(path or os.environ.get("PLAYER_REGISTRY_PATH") or REGISTRY_PATH)
+
+
+def load_registry_payload(path: Path | str | None = None) -> dict:
+    """The committed registry snapshot as parsed JSON (cached, schema-checked)."""
+    p = _registry_path(path)
+    k = str(p.resolve())
+    if k not in _PAYLOADS:
+        if not p.exists():
+            raise SystemExit(f"FAIL-CLOSED: player registry {p} missing; run "
+                             "pipelines/export_player_registry.py")
+        payload = json.loads(p.read_text(encoding="utf-8"))
+        if payload.get("schema") != REGISTRY_SCHEMA:
+            raise SystemExit(f"FAIL-CLOSED: player registry schema {payload.get('schema')!r} "
+                             f"!= {REGISTRY_SCHEMA!r}")
+        _PAYLOADS[k] = payload
+    return _PAYLOADS[k]
 
 
 def get_resolver(path: Path | str | None = None) -> PlayerResolver:
     """The cached resolver for the committed registry snapshot (or PLAYER_REGISTRY_PATH)."""
-    p = Path(path or os.environ.get("PLAYER_REGISTRY_PATH") or REGISTRY_PATH)
-    k = str(p.resolve())
+    k = str(_registry_path(path).resolve())
     if k not in _CACHE:
-        if not p.exists():
-            raise SystemExit(f"FAIL-CLOSED: player registry {p} missing; run "
-                             "pipelines/export_player_registry.py")
-        _CACHE[k] = registry_from_snapshot(json.loads(p.read_text(encoding="utf-8")))
+        _CACHE[k] = registry_from_snapshot(load_registry_payload(path))
     return _CACHE[k]
+
+
+def resolver_for_players(players: Iterable[dict], path: Path | str | None = None) -> PlayerResolver:
+    """A resolver over caller-supplied canonical rows (e.g. a saver's live
+    ``public.players`` read) plus the committed snapshot's alias map and
+    cross-ids. Aliases pointing at keys absent from ``players`` are ignored."""
+    payload = load_registry_payload(path)
+    return PlayerResolver(players, payload.get("aliases", []), payload.get("xrefs", {}),
+                          meta={**payload.get("meta", {}), "players": "caller-supplied"})
+
+
+# Saver reason vocabulary (review rows): unmatched -> no_match.
+_SAVER_REASON = {"unmatched": "no_match", "ambiguous": "ambiguous",
+                 "position_conflict": "position_conflict"}
+
+
+def lookup_for_saver(resolver: PlayerResolver, name: Any, *, source: str,
+                     pos: str | None = None, team: str | None = None,
+                     source_id: Any = None, id_type: str | None = None
+                     ) -> tuple[int | None, str | None]:
+    """(player_key, None) or (None, reason) for a row a saver will WRITE.
+
+    Fuzzy (provisional) matches are not written: the name is recorded in
+    ``resolver.pending`` as provisional for the nightly reconcile, and the row
+    goes to review until the match is verified ("never display unvalidated
+    values"). Reasons: no_match | ambiguous | position_conflict.
+    """
+    res = resolver.resolve(name, source=source, pos=pos, team=team, source_id=source_id,
+                           id_type=id_type, allow_provisional=False)
+    if res.player_key is not None:
+        return res.player_key, None
+    return None, _SAVER_REASON.get(res.status, "no_match")
 
 
 def clear_cache() -> None:
     _CACHE.clear()
+    _PAYLOADS.clear()

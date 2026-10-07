@@ -78,7 +78,7 @@ sys.path.insert(0, str(LIB))
 
 from canonical_players import (  # noqa: E402
     load_registry, resolve, resolve_skill, require_canonical_name,
-    assert_canonical_names, norm_plain,
+    assert_canonical_names,
 )
 from scoring import fantasy_points  # noqa: E402
 from dataset_status import build_dataset_status  # noqa: E402

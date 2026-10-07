@@ -283,8 +283,12 @@ def apply_actions(sb, live: dict, universe_adds: list[dict], actions: list[dict]
         add_xref(a["id_type"], a["external_id"], a["player_key"])
 
     next_key = max(uuid_by_key) + 1
+    inserted: dict[str, int] = {}  # sleeper_id -> player_key inserted by this run
     for act in actions:
-        if act["action"] == "insert_player":
+        if act["action"] == "insert_player" and act["sleeper"]["sleeper_id"] in inserted:
+            # Two sources (or spellings) named the same new player: one row only.
+            act["player_key"] = inserted[act["sleeper"]["sleeper_id"]]
+        elif act["action"] == "insert_player":
             s = act["sleeper"]
             row = {"player_key": next_key, "full_name": s["name"], "position": s["pos"],
                    "active": True, "team_id": team_id_by_abbr.get(s.get("team")),
@@ -299,6 +303,7 @@ def apply_actions(sb, live: dict, universe_adds: list[dict], actions: list[dict]
                     if ext:
                         add_xref(t, ext, next_key)
                 act["player_key"] = next_key
+                inserted[s["sleeper_id"]] = next_key
                 stats["players_added"] += 1
                 next_key += 1
             else:

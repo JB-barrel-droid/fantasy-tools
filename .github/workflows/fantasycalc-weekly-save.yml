@@ -73,7 +73,7 @@ jobs:
         run: |
           set -o pipefail
           flag="--dry-run"; [ "${{ steps.cfg.outputs.mode }}" = "write" ] && flag=""
-          python3 pipelines/save_fantasycalc_references.py --cache-dir /tmp/fc_cache --week ${{ steps.cfg.outputs.week }} $flag \
+          python3 pipelines/save_fantasycalc_references.py --cache-dir /tmp/fc_cache --week ${{ steps.cfg.outputs.week }} $flag --record-pending \
             --review-out /tmp/fc_review.json 2>&1 | tee /tmp/fc_save.log
           tail -3 /tmp/fc_save.log | sed "s/^/::notice title=fc-save::/"
           if [ -s /tmp/fc_review.json ]; then

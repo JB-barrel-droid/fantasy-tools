@@ -22,6 +22,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+from player_resolver import legacy_label  # noqa: E402  -- JEG-438 stored-label rule
 sys.path.insert(0, "/home/hatch/workspace/skills/supabase-football-signal/bin")
 
 from sbclient import delete, get_all, post
@@ -42,8 +44,6 @@ SCORING_MAP = {
 }
 
 
-def normalize_name(name: str) -> str:
-    return name.lower().strip()
 
 
 def resolve_match_path(repo_root: Path, override: str | None = None) -> Path:
@@ -165,7 +165,7 @@ def main(argv=None) -> int:
             continue  # check constraint requires team
         new_rows.append({
             "source": SOURCE,
-            "player_norm": normalize_name(m.get("source_player_name", "")),
+            "player_norm": legacy_label(m.get("source_player_name", ""), "lower"),
             # FantasyCalc API ids are numeric, not UUIDs; player_id is nullable
             "player_id": None,
             "position": m.get("pos"),

@@ -120,6 +120,7 @@ test-unit:
 	python3 -m unittest tests.test_player_resolver
 	python3 -m unittest tests.test_single_player_resolver
 	python3 -m unittest tests.test_reconcile_player_identity
+	python3 -m unittest tests.test_identity_saver_migration
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_published_surfaces

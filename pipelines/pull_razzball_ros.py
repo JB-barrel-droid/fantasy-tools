@@ -61,7 +61,7 @@ from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
-from canonical_players import norm_plain  # noqa: E402  (the stored player_norm convention)
+from player_resolver import legacy_label  # noqa: E402  (JEG-438: the stored player_norm convention)
 
 URL = "https://football.razzball.com/projections-{pos}-restofseason"
 POSITIONS = ("QB", "RB", "WR", "TE")
@@ -227,7 +227,7 @@ def build_rows(pos: str, headers: list[str], rows: list[list[str]], vintage: str
             continue
         row: dict[str, Any] = {
             "player_name": name,
-            "player_norm": norm_plain(name),
+            "player_norm": legacy_label(name, "plain"),
             "pos": pos,
             "team": cells[i_team],
             "health": cells[i_health] if i_health is not None else "",

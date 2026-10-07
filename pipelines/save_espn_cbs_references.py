@@ -20,16 +20,15 @@ Tables (grain = upsert key; writes are idempotent on the grain):
     source_content_date=NULL (article date unknown; vintage carried by week),
     pulled_at=now, player_norm as join label.
 
-Identity (fail closed, same rule as the chart bake): numeric player_key only,
-resolved via public.players (full_name is the naming authority). Four
-verified spelling aliases are applied to the normalized name before lookup
-(the ALIASES map shared with pipelines/build_ddf_two_tier_leg.py, verified
-against players.full_name 2026-09-22): 'cameron ward' -> 'cam ward' (697),
-'cameron skattebo' -> 'cam skattebo' (3664), 'travis etienne jr' ->
-'travis etienne' (810), 'michael pittman jr' -> 'michael pittman' (561).
-The map is exact-match only: any other spelling is looked up verbatim and
-still fails closed. Unmatched or ambiguous names go to the review report --
-never guessed, never zero-filled.
+Identity (fail closed, JEG-438): numeric player_key only, resolved by the one
+player resolver (pipelines/lib/player_resolver.py) over the live
+public.players rows plus the committed alias map and cross-ids
+(data/inputs/player_registry.json; docs/identity-model.md). The verified
+spellings this file used to carry by hand ('cameron ward' -> Cam Ward, ...)
+are rows in public.player_name_aliases. Unmatched, ambiguous and
+position-conflicting names go to the review report -- never guessed, never
+zero-filled. A fuzzy (provisional) match is never written; with
+--record-pending it is sent to player_name_aliases for the nightly reconcile.
 
 CBS QB SCORING DECISION (the known wrinkle):
   CBS publishes ONE QB column ("1QB-4") with no per-scoring split, but the
@@ -71,12 +70,10 @@ DEFAULT_ESPN_META = GOAL_DIR / "hidden_files" / "espn_projections_meta.json"
 DEFAULT_CBS_JSON = GOAL_DIR / "lottery" / "data" / "sources_cache" / "cbs.json"
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from match_source_snapshot import normalize_name  # noqa: E402
 from import_source_snapshot import parse_float  # noqa: E402
-# Single source of truth for the verified spelling aliases (shared with the
-# DDF two-tier leg). Verified against players.full_name 2026-09-22; the map
-# here and in build_ddf_two_tier_leg.py must never diverge.
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+from lib.player_resolver import (  # noqa: E402  -- JEG-438: the one resolver
+    PlayerResolver, legacy_label, lookup_for_saver, resolver_for_players,
+)
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import nfl_week  # noqa: E402 -- current week for the CBS save grain
 # Writer audit for Supabase write provenance
@@ -101,7 +98,7 @@ def _sb():
 
 def _default_fetch_players() -> list[dict[str, Any]]:
     sbclient = _sb()
-    rows = sbclient.get_all("players", params="?select=player_key,full_name,position")
+    rows = sbclient.get_all("players", params="?select=player_key,full_name,position,active")
     if not isinstance(rows, list):
         raise SystemExit("Unexpected Supabase response for players")
     return [r for r in rows if isinstance(r, dict)]
@@ -143,48 +140,39 @@ fetch_rows: Callable[[str, str], list[dict[str, Any]]] = _default_fetch
 # Identity: names -> player_key, fail closed
 # ---------------------------------------------------------------------------
 
-def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    for record in players:
-        key = record.get("player_key")
-        name = str(record.get("full_name") or "").strip()
-        if not isinstance(key, int) or not name:
-            continue
-        index.setdefault(normalize_name(name), []).append(
-            {"player_key": key, "full_name": name, "position": str(record.get("position") or "").strip().upper() or None}
-        )
-    return index
+# Every resolver built by this run; main() --record-pending flushes their
+# provisional / unmatched names to public.player_name_aliases.
+RESOLVERS: list[PlayerResolver] = []
 
 
-def resolve_name(
-    name: str, pos: str | None, index: dict[str, list[dict[str, Any]]]
+def player_index(players: list[dict[str, Any]]) -> PlayerResolver:
+    """The resolver over these canonical rows (+ the committed alias map)."""
+    rows = [p for p in players if isinstance(p.get("player_key"), int)
+            and str(p.get("full_name") or "").strip()]
+    resolver = resolver_for_players(rows)
+    RESOLVERS.append(resolver)
+    return resolver
+
+
+def resolve_player(
+    name: str, pos: str | None, index: PlayerResolver, source: str
 ) -> tuple[int | None, dict[str, Any] | None, str | None]:
     """Return (player_key, player_record, pos). Unresolved -> (None, None, reason).
 
     pos comes back as the canonical players-table position (the DB write's
     position source; the file's own spelling is never trusted for pos).
-
-    Verified spelling aliases (ALIASES, shared with the DDF two-tier leg) are
-    applied to the normalized name BEFORE lookup, so the import and the leg
-    resolve the same identities. The map is exact-match only: any spelling not
-    in ALIASES is looked up verbatim and still fails closed (no fuzzy
-    matching, no guessing).
+    Reasons: no_match | ambiguous | position_conflict (player_resolver).
     """
-    norm = normalize_name(name)
-    norm = ALIASES.get(norm, norm)
-    candidates = index.get(norm, [])
-    if not candidates:
-        return None, None, "no_match"
-    if len(candidates) == 1:
-        rec = candidates[0]
-        return rec["player_key"], rec, rec["position"]
-    wanted = (pos or "").strip().upper()
-    if wanted:
-        filtered = [c for c in candidates if c.get("position") == wanted]
-        if len(filtered) == 1:
-            rec = filtered[0]
-            return rec["player_key"], rec, rec["position"]
-    return None, None, "ambiguous"
+    key, reason = lookup_for_saver(index, name, source=source, pos=(pos or "").strip().upper() or None)
+    if key is None:
+        return None, None, reason
+    rec = index.player(key)
+    return key, rec, (rec or {}).get("position") or None
+
+
+def record_pending(sbclient) -> int:
+    """Send this run's provisional / unmatched names to player_name_aliases."""
+    return sum(r.flush_pending(sbclient) for r in RESOLVERS)
 
 
 # ---------------------------------------------------------------------------
@@ -223,7 +211,7 @@ def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any
     with csv_path.open(newline="", encoding="utf-8") as handle:
         raw = list(csv.DictReader(handle))
 
-    index = build_name_index(fetch_players())
+    index = player_index(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -247,7 +235,7 @@ def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any
         if value is None:
             review.append({"reason": "missing_or_non_numeric_value", "player": name})
             continue
-        key, _rec, pos = resolve_name(name, str(row.get("pos") or ""), index)
+        key, _rec, pos = resolve_player(name, str(row.get("pos") or ""), index, "espn")
         if key is None:
             review.append(
                 {
@@ -262,7 +250,7 @@ def build_espn_rows(csv_path: Path, meta_path: Path) -> tuple[list[dict[str, Any
         clean.append(
             {
                 "player_key": key,
-                "player_norm": str(row.get("player_norm") or normalize_name(name)),
+                "player_norm": str(row.get("player_norm") or legacy_label(name, "source")),
                 "season": 2026,
                 "week": 2,
                 "scoring": "half_ppr",
@@ -297,7 +285,7 @@ CBS_QB_SPLIT_NOTE = (
 
 def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
     payload = json.loads(json_path.read_text(encoding="utf-8"))
-    index = build_name_index(fetch_players())
+    index = player_index(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -321,7 +309,7 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
             if not name:
                 review.append({"reason": "missing_player_name", "row": cells})
                 continue
-            key, _rec, canonical_pos = resolve_name(name, pos, index)
+            key, _rec, canonical_pos = resolve_player(name, pos, index, "cbs")
             if key is None:
                 review.append(
                     {
@@ -350,7 +338,7 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
                         "source": "cbs",
                         "variant": "as_published",
                         "player_key": key,
-                        "player_norm": normalize_name(name),
+                        "player_norm": legacy_label(name, "source"),
                         "scoring": scoring,
                         "league_teams": 12,
                         "qb_slots": 1,
@@ -472,6 +460,12 @@ def main() -> int:
         help="NFL week for the CBS save grain (default: current week from ops/watchdog/_common.nfl_week). ESPN path ignores this.",
     )
     parser.add_argument(
+        "--record-pending",
+        action="store_true",
+        help="After a live save, send provisional/unmatched names to public.player_name_aliases "
+             "for the nightly identity reconcile (JEG-438).",
+    )
+    parser.add_argument(
         "--review-out",
         type=Path,
         default=None,
@@ -495,6 +489,9 @@ def main() -> int:
         review_path.parent.mkdir(parents=True, exist_ok=True)
         review_path.write_text(json.dumps(result["review"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"review report ({len(result['review'])} rows): {review_path}")
+
+    if args.record_pending and not result["dry_run"]:
+        print(f"identity: recorded {record_pending(_sb())} pending names")
 
     status = "dry-run" if result["dry_run"] else "saved"
     print(

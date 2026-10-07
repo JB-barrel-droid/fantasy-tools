@@ -58,16 +58,17 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from match_source_snapshot import normalize_name  # noqa: E402
 from import_source_snapshot import parse_float  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+from lib.player_resolver import legacy_label  # noqa: E402  -- JEG-438
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import nfl_week  # noqa: E402
 # Reuse the Supabase plumbing, the fail-closed identity resolution, and the
 # shared isotonic reindex (same chart-scale contract as USA Today).
 from save_espn_cbs_references import (  # noqa: E402
-    build_name_index,
-    resolve_name,
+    player_index,
+    record_pending,
+    resolve_player,
+    _sb,
     fetch_players,
     upsert_rows,
     count_rows,
@@ -113,7 +114,7 @@ def build_fantasycalc_rows(
     week: int, bake_id: str
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     """-> (clean_rows, review_rows, pulled_at). Values raw (pre-reindex)."""
-    index = build_name_index(fetch_players())
+    index = player_index(fetch_players())
 
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
@@ -136,7 +137,7 @@ def build_fantasycalc_rows(
                     }
                 )
                 continue
-            key, _rec, canonical_pos = resolve_name(name, pos, index)
+            key, _rec, canonical_pos = resolve_player(name, pos, index, "fantasycalc")
             if key is None:
                 review.append(
                     {
@@ -153,7 +154,7 @@ def build_fantasycalc_rows(
                     "source": "fantasycalc",
                     "variant": "as_published",
                     "player_key": key,
-                    "player_norm": normalize_name(name),
+                    "player_norm": legacy_label(name, "source"),
                     "scoring": scoring,
                     "league_teams": 12,
                     "qb_slots": 1,
@@ -273,6 +274,12 @@ def main() -> int:
              "Default: the goal-workspace cache.",
     )
     parser.add_argument(
+        "--record-pending",
+        action="store_true",
+        help="After a live save, send provisional/unmatched names to public.player_name_aliases "
+             "for the nightly identity reconcile (JEG-438).",
+    )
+    parser.add_argument(
         "--review-out",
         type=Path,
         default=None,
@@ -289,6 +296,9 @@ def main() -> int:
         bake_id=args.bake_id,
         reindex=not args.no_reindex,
     )
+
+    if args.record_pending and not result["dry_run"]:
+        print(f"identity: recorded {record_pending(_sb())} pending names")
 
     print(
         f"fantasycalc -> source_trade_values: {result['written']} rows "

@@ -10,11 +10,13 @@ editor; PostgREST cannot DDL).
 
 Grain (upsert key): (player_key, cbs_snapshot_date). Writes are idempotent.
 
-Identity (fail closed, same rule as save_espn_cbs_references.py): numeric
-player_key only, resolved via public.players (full_name is the naming
-authority). The verified spelling ALIASES (shared with
-build_ddf_two_tier_leg.py) are applied before lookup. Unmatched or ambiguous
-names go to the review report -- never guessed, never zero-filled.
+Identity (fail closed, JEG-438): numeric player_key only, resolved by the one
+player resolver (pipelines/lib/player_resolver.py) over the live
+public.players rows plus the committed alias map (docs/identity-model.md).
+Unmatched, ambiguous or position-conflicting names go to the review report --
+never guessed, never zero-filled. A fuzzy (provisional) match is never
+written; with --record-pending it goes to player_name_aliases for the
+nightly reconcile.
 """
 
 from __future__ import annotations
@@ -30,8 +32,9 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from match_source_snapshot import normalize_name  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+from lib.player_resolver import (  # noqa: E402  -- JEG-438: the one resolver
+    PlayerResolver, lookup_for_saver, resolver_for_players,
+)
 from nfl_week import current_nfl_week  # noqa: E402
 
 
@@ -77,7 +80,7 @@ def _sb():
 
 def _default_fetch_players() -> list[dict[str, Any]]:
     sbclient = _sb()
-    rows = sbclient.get_all("players", params="?select=player_key,full_name,position")
+    rows = sbclient.get_all("players", params="?select=player_key,full_name,position,active")
     if not isinstance(rows, list):
         raise SystemExit("Unexpected Supabase response for players")
     return [r for r in rows if isinstance(r, dict)]
@@ -127,40 +130,17 @@ count_rows: Callable[[str, str], int] = _default_count
 delete_rows: Callable[[str, str, set[int]], None] = _default_delete
 
 
-def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
-    index: dict[str, list[dict[str, Any]]] = {}
-    for record in players:
-        key = record.get("player_key")
-        name = str(record.get("full_name") or "").strip()
-        if not isinstance(key, int) or not name:
-            continue
-        index.setdefault(normalize_name(name), []).append(
-            {
-                "player_key": key,
-                "full_name": name,
-                "position": str(record.get("position") or "").strip().upper() or None,
-            }
-        )
-    return index
+# Every resolver built by this run (main --record-pending flushes them).
+RESOLVERS: list[PlayerResolver] = []
 
 
-def resolve_name(
-    name: str, pos: str | None, index: dict[str, list[dict[str, Any]]]
-) -> tuple[int | None, str | None]:
-    """Return (player_key, reason). Unresolved -> (None, reason)."""
-    norm = normalize_name(name)
-    norm = ALIASES.get(norm, norm)
-    candidates = index.get(norm, [])
-    if not candidates:
-        return None, "no_match"
-    if len(candidates) == 1:
-        return candidates[0]["player_key"], None
-    wanted = (pos or "").strip().upper()
-    if wanted:
-        filtered = [c for c in candidates if c.get("position") == wanted]
-        if len(filtered) == 1:
-            return filtered[0]["player_key"], None
-    return None, "ambiguous"
+def player_index(players: list[dict[str, Any]]) -> PlayerResolver:
+    """The resolver over these canonical rows (+ the committed alias map)."""
+    rows = [p for p in players if isinstance(p.get("player_key"), int)
+            and str(p.get("full_name") or "").strip()]
+    resolver = resolver_for_players(rows)
+    RESOLVERS.append(resolver)
+    return resolver
 
 
 def parse_float(raw: Any) -> float | None:
@@ -191,7 +171,7 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
     if not rows:
         raise SystemExit("Fail closed: CBS ROS snapshot has no rows.")
 
-    index = build_name_index(fetch_players())
+    index = player_index(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = utc_now()
@@ -202,7 +182,7 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
         if not name:
             review.append({"reason": "missing_player_name", "row": row})
             continue
-        key, reason = resolve_name(name, pos, index)
+        key, reason = lookup_for_saver(index, name, source="cbsros", pos=pos)
         if key is None:
             review.append(
                 {
@@ -249,6 +229,9 @@ def main() -> None:
         help="Path to the cbsros snapshot.json (default: latest under data/raw/sources/cbsros/)",
     )
     parser.add_argument("--dry-run", action="store_true", help="Build rows but do not write.")
+    parser.add_argument("--record-pending", action="store_true",
+                        help="After a live save, send provisional/unmatched names to "
+                             "public.player_name_aliases for the nightly reconcile (JEG-438).")
     args = parser.parse_args()
 
     snapshot_path = args.snapshot or latest_cbsros_snapshot()
@@ -282,6 +265,9 @@ def main() -> None:
             f"Fail closed: {table} holds {live} rows for vintage {vintage} "
             f"after prune, expected {len(clean)}."
         )
+    if args.record_pending:
+        sent = sum(r.flush_pending(_sb()) for r in RESOLVERS)
+        print(f"identity: recorded {sent} pending names")
     print("CBS ROS save complete.")
 
 

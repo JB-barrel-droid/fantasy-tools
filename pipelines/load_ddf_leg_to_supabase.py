@@ -284,10 +284,10 @@ def build_rows(leg, dims, views, source_generated_at, bake_uuid, leg_label="ddf_
         # NOT NULL in consolidated_values and were never emitted.
         player = (v.get("player_norm") or "").strip()
         if not player and v.get("player"):
-            # Same normalizer the legs use for player_norm (canonical_players).
+            # Same stored-label rule the legs use for player_norm (JEG-438).
             sys.path.insert(0, str(REPO / "pipelines" / "lib"))
-            from canonical_players import norm_plain  # noqa: PLC0415
-            player = norm_plain(v["player"])
+            from player_resolver import legacy_label  # noqa: PLC0415
+            player = legacy_label(v["player"], "plain")
         if not player:
             raise LoadError(f"row {i}: player / player_norm missing")
         locator = f"{leg_label}#values[{i}]"
