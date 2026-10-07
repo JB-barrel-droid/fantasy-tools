@@ -2994,3 +2994,29 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Claimed, unverified
 - None for this item. Muse still needs to disable `trade-value-dashboard-push` on its side (message drafted
   for Jeremy to send).
+
+## 2026-10-06 ~21:45 CDT — Claude (cloud session, JEG-332 worker): browser port of the value-above-waivers translation (PR 1 of 2)
+
+### Verified (check named)
+- JEG-332 steps 2–3 had NOT been done before this session although Linear shows Done: grep of
+  `app/trade-value-chart/assets/*.js` found no translation, OUR_MAX or apportion code; the only commits are
+  #358 (step 1 inventory) and JEG-364a/b/c (TwoTier, refit, existing value-model functions).
+- `ValueModel.translatePublishedVorp` (value-model.js, version `unified-py-jeg62/1`) ports
+  `unified.translate_ranked` + `vorp_via_roster` (apportion, bench, VORP-weighted flex, rostered).
+  `tests/test_vorp_translation_js_parity.py`: 1,299 vectors (4 sources × 3 scorings × 8/10/12/14 teams ×
+  bench 0/3/6/9/14 × flex 0/1/2/5, 7 slot/superflex shapes, 3 synthetic edge vectors), 747,862 numbers
+  compared, max abs diff 0.0. Added to `make test-unit`.
+- Negative tests (in the test itself): four mutated copies of value-model.js (apportion ties to last,
+  slots ignored, flex weighted without the waiver, toFixed instead of half-even rounding) each fail
+  13/24/74/102 vectors. Manual: OUR_MAX RB 70→69.9 in the real file → 1,298 of 1,299 vectors fail.
+  Real data hits exact rounding ties (102 vectors), so the half-even `pyRound` is load-bearing.
+- Server output unchanged by the refactor: `translate_source` for 4 sources × 3 scorings × bench 0/6/9 ×
+  flex 0/1/2 at 12 teams dumped before and after; files byte-identical (cmp). tests.test_vorp_translation_unified 27/27.
+  Existing JEG-364c check (`pipelines/check_valuemodel_parity.py`) still 51/51.
+- 12-team saved-value check: CBS and FantasyPros (6 combos) reproduce every stored translated value exactly
+  and the stored n_translated. USA Today and FantasyCalc do not — stored values are stale relative to their
+  stored natives (risk register JEG332-STORED-DRIFT; FantasyCalc's `translation: vorp-supabase` provenance is
+  wrong since 899f23b rewrote its values with the quantile pie). The test reports those two instead of failing.
+
+### Claimed, unverified
+- None.

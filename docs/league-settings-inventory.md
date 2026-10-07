@@ -53,9 +53,13 @@ charts (JEG-62/64).
 
 ## Work this implies (JEG-332 steps 2–3)
 
-1. Port the value-above-waivers translation to `value-model.js` as a pure,
-   versioned function. Test it against `unified.py` on the same inputs (JEG-364
-   test vectors).
+1. **Done (2026-10-06):** `ValueModel.translatePublishedVorp` (version
+   `unified-py-jeg62/1`) ports `unified.translate_ranked` + `vorp_via_roster`.
+   `tests/test_vorp_translation_js_parity.py` runs both on 1,299 identical
+   inputs (4 sources × 3 scorings × 8/10/12/14 teams × bench/flex/slot shapes,
+   plus edge vectors) and requires exact equality. At 12 teams it reproduces
+   the saved values for CBS and FantasyPros; USA Today and FantasyCalc saved
+   values are stale (risk register JEG332-STORED-DRIFT).
 2. Make published sources derive in the browser: `native` at 12 teams for the
    chosen scoring → translation/rescale at the chosen teams, roster and bench.
    Replace the `getPlayerValues` lookup for `teams != 12` first, keeping 12 as

@@ -97,7 +97,9 @@ def apportion(weights: dict[str, float], total: int) -> dict[str, int]:
 
 def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
                                teams: int, flex_count: int = None,
-                               waiver_estimates: dict[str, float] = None) -> dict[str, int]:
+                               waiver_estimates: dict[str, float] = None,
+                               slots: dict[str, int] = None,
+                               flex_eligible: list[str] = None) -> dict[str, int]:
     """Allocate flex slots weighted by VORP at the margin.
     
     VORP-extended logic: positions with higher VORP at the flex margin
@@ -116,12 +118,21 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
         flex_count: flex slots per team
         waiver_estimates: {pos: estimated_waiver_value} for VORP calc
                          (if None, uses 0 — pure value weighting)
-    
+        slots: dedicated starters per team by position (default REF_SLOTS).
+               JEG-332: the browser port (value-model.js
+               translatePublishedVorp) passes the chart's roster steppers;
+               the default keeps server output unchanged.
+        flex_eligible: flex-eligible positions (default REF_FLEX_ELIGIBLE)
+
     Returns:
         {pos: flex_slots}
     """
     if flex_count is None:
         flex_count = REF_FLEX_COUNT
+    if slots is None:
+        slots = REF_SLOTS
+    if flex_eligible is None:
+        flex_eligible = REF_FLEX_ELIGIBLE
     if teams <= 0 or int(teams) != teams or flex_count < 0 or int(flex_count) != flex_count:
         raise ValueError("teams must be positive and flex count nonnegative integers")
     if waiver_estimates is None:
@@ -133,8 +144,8 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
     # Marginal = players ranked around the expected flex range
     # (dedicated starters + 1) to (dedicated + expected flex + bench buffer)
     weights = {}
-    for pos in REF_FLEX_ELIGIBLE:
-        n_ded = teams * REF_SLOTS.get(pos, 0)
+    for pos in flex_eligible:
+        n_ded = teams * slots.get(pos, 0)
         players = ranked.get(pos, [])
         waiver = waiver_estimates.get(pos, 0.0)
         if not math.isfinite(waiver) or any(not math.isfinite(val) for _, val in players):
@@ -156,10 +167,10 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
         avg_vorp = sum(vorps) / total_flex if total_flex else 0.0
         
         # Weight = slots × avg_vorp (economic weight)
-        weights[pos] = REF_SLOTS.get(pos, 0) * avg_vorp
-    
+        weights[pos] = slots.get(pos, 0) * avg_vorp
+
     if sum(weights.values()) <= 0:
-        weights = {pos: REF_SLOTS[pos] for pos in REF_FLEX_ELIGIBLE}
+        weights = {pos: slots.get(pos, 0) for pos in flex_eligible}
     return apportion(weights, total_flex)
 
 
@@ -189,7 +200,9 @@ def bench_for_teams(teams: int, bench_per_team: float = 6.0) -> dict[str, int]:
 def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
                        flex_count: int = None,
                        ranked: dict[str, list[tuple[str, float]]] = None,
-                       use_vorp_weighting: bool = True) -> dict[str, dict[str, int]]:
+                       use_vorp_weighting: bool = True,
+                       slots: dict[str, int] = None,
+                       flex_eligible: list[str] = None) -> dict[str, dict[str, int]]:
     """Compute rostered players per position with flexible math.
     
     VORP-extended logic: if ranked values are provided, flex is allocated
@@ -206,12 +219,18 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
         flex_count: flex slots per team
         ranked: {pos: [(pid, value), ...]} for VORP-weighted flex
         use_vorp_weighting: if False, use pure slot-proportional
-    
+        slots: dedicated starters per team by position (default REF_SLOTS)
+        flex_eligible: flex-eligible positions (default REF_FLEX_ELIGIBLE)
+
     Returns:
         {pos: {'dedicated': int, 'flex': int, 'bench': int, 'rostered': int}}
     """
     if flex_count is None:
         flex_count = REF_FLEX_COUNT
+    if slots is None:
+        slots = REF_SLOTS
+    if flex_eligible is None:
+        flex_eligible = REF_FLEX_ELIGIBLE
     if teams <= 0 or int(teams) != teams or flex_count < 0 or int(flex_count) != flex_count:
         raise ValueError("teams must be positive and flex count nonnegative integers")
     
@@ -219,7 +238,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
     if ranked is not None and use_vorp_weighting:
         # First, estimate waiver lines via slot-proportional baseline
         baseline = rostered_for_teams(teams, bench_per_team, flex_count,
-                                      ranked=None, use_vorp_weighting=False)
+                                      ranked=None, use_vorp_weighting=False,
+                                      slots=slots, flex_eligible=flex_eligible)
         waiver_est = {}
         for pos in POSITIONS:
             players = ranked.get(pos, [])
@@ -231,17 +251,18 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
             else:
                 waiver_est[pos] = 0.0
         
-        flex_alloc = allocate_flex_vorp_weighted(ranked, teams, flex_count, waiver_est)
+        flex_alloc = allocate_flex_vorp_weighted(ranked, teams, flex_count, waiver_est,
+                                                 slots=slots, flex_eligible=flex_eligible)
     else:
         # Slot-proportional fallback
-        flex_alloc = apportion({pos: REF_SLOTS[pos] for pos in REF_FLEX_ELIGIBLE},
+        flex_alloc = apportion({pos: slots.get(pos, 0) for pos in flex_eligible},
                               teams * flex_count)
     
     bench_alloc = bench_for_teams(teams, bench_per_team)
     
     result = {}
     for pos in POSITIONS:
-        dedicated = teams * REF_SLOTS.get(pos, 0)
+        dedicated = teams * slots.get(pos, 0)
         flex = flex_alloc.get(pos, 0)
         bench = bench_alloc.get(pos, 0)
         result[pos] = {
