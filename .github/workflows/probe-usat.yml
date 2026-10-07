@@ -9,11 +9,16 @@ jobs:
       - name: probe
         run: |
           UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-          for u in https://www.usatoday.com/robots.txt https://www.usatoday.com/web-sitemap-index.xml \
-                   https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-2026-10.xml \
-                   https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-2026-09.xml; do
-            code=$(curl -sS -L -A "$UA" -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" -H "Accept-Language: en-US,en;q=0.9" -o /tmp/b -w "%{http_code}" "$u" || true)
-            echo "::notice title=probe $u::code=$code bytes=$(wc -c </tmp/b) head=$(head -c 300 /tmp/b | tr '\n' ' ')"
-            grep -o '<loc>[^<]*</loc>' /tmp/b | grep -i -E 'sitemap.*2026-(09|10)|trade-value-chart-week' | tail -8 | sed "s|^|::notice title=locs $u::|" || true
-            grep -i sitemap /tmp/b | head -10 | sed "s|^|::notice title=sm $u::|" || true
+          H1="Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+          H2="Accept-Language: en-US,en;q=0.9"
+          out=""
+          for m in 10 09; do
+            code=$(curl -sS -L -A "$UA" -H "$H1" -H "$H2" -o /tmp/s$m -w "%{http_code}" "https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-2026-$m.xml" || true)
+            n=$(grep -o '<loc>[^<]*trade-value-chart-week[^<]*</loc>' /tmp/s$m | wc -l)
+            out="$out sitemap-$m=$code/$n"
           done
+          echo "::notice title=sitemaps::$out"
+          u=$(cat /tmp/s09 /tmp/s10 | grep -o '<loc>[^<]*trade-value-chart-week[^<]*</loc>' | sed 's/<[^>]*>//g' | tail -1)
+          echo "::notice title=latest article::$u"
+          code=$(curl -sS -L -A "$UA" -H "$H1" -H "$H2" -H "Upgrade-Insecure-Requests: 1" -o /tmp/a -w "%{http_code}" "$u" || true)
+          echo "::notice title=article fetch::code=$code bytes=$(wc -c </tmp/a) tables=$(grep -o gnt_ar_b_tbl /tmp/a | wc -l) head=$(head -c 200 /tmp/a | tr '\n' ' ')"
