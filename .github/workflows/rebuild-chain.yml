@@ -101,8 +101,25 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # GAP-MAIN-STATIC-PIN (2026-10-07): the rebuilt fixture must pass
+        # `make validate` (the Pages deploy's own gate) BEFORE it can be
+        # committed. 0b0ddee pushed a fixture that failed
+        # tests.test_static_export and turned main red. Validation runs inside
+        # this step so a red validate makes steps.chain.outcome 'failure' and
+        # the existing failure path publishes only the status, never the
+        # fixture. Supabase secrets are stripped: validation is offline.
         run: |
           python3 pipelines/rebuild_comparison_chain.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          mkdir -p output
+          set +e
+          env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
+          rc=$?
+          set -e
+          cat output/post-rebuild-validate.log
+          if [ "$rc" -ne 0 ]; then
+            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
+            exit 1
+          fi
 
       - name: Sync rebuilt fixture into dist (chain succeeded)
         if: steps.chain.outcome == 'success'
@@ -112,16 +129,30 @@ jobs:
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null || true
           cp app/trade-value-chart/assets/adjustment-inputs.json dist/assets/adjustment-inputs.json 2>/dev/null || true
 
+      # Non-blocking (decision consol-nonblocking-001, Jeremy 2026-10-07): the
+      # site serves the fixture, not public.consolidated_values, so a failed
+      # Supabase write must not hold the Pages deploy. The writer still fails
+      # closed internally (nothing partial lands); its outcome is recorded as
+      # the monitored check consolidated_values_write below, red on failure.
+      # Guard: tests/test_rebuild_chain_consolidation_nonblocking.py.
       - name: Build consolidation layer (JEG-324)
+        id: consolidate
         if: steps.chain.outcome == 'success'
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           # Build consolidation rows from the just-baked fixture and upsert to Supabase.
-          # Fail-closed: if reconciliation fails, the whole chain run fails.
           python3 pipelines/build_consolidated_values.py --write-supabase
           echo "Consolidation layer updated in Supabase"
+
+      - name: Record consolidated_values check
+        if: always() && steps.consolidate.outcome != 'skipped' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id consolidated_values_write --owner rebuild-chain.yml --outcome "${{ steps.consolidate.outcome }}"
 
       - name: Publish chain status only (chain failed)
         if: steps.chain.outcome == 'failure'
@@ -219,7 +250,9 @@ jobs:
       # This only fires for chain commits (always GITHUB_TOKEN-originated), so
       # it cannot double-fire on PAT pushes — those never run this workflow.
       - name: Trigger Pages deploy after chain push (JEG-274)
-        if: steps.push.outputs.pushed == 'true'
+        # !cancelled(): once the fixture is on main it is deployed, whatever
+        # an earlier non-publishing step (e.g. the consolidation write) did.
+        if: ${{ !cancelled() && steps.push.outputs.pushed == 'true' }}
         run: |
           # Dispatch via API directly (not gh CLI) for better error visibility.
           # JEG-274: gh workflow run exits 1 with GITHUB_TOKEN; curl gives us
