@@ -3445,3 +3445,14 @@ labelled by its own week.
   fixture already at Week 4) were not exercised end to end.
 - tests.test_decisions_log was already red on main for three older entries (GAP-DECISIONS-LOG-RED).
   build-lag-001 adds no errors to it.
+
+## 2026-10-07 ~09:30 CDT — Claude (cloud session, coordinator): main red after #384 + #385 — Razzball coverage entry
+
+### Verified (check named)
+- After #384 (Razzball workflow) and #385 (monitoring coverage) both merged, tests.test_monitoring_coverage
+  failed on main: the manifest still declared razzball-supabase-sync.yml as a gap
+  (`workflow_missing_on_main`) and `test_razzball_gap_is_declared_not_hidden` asserted the workflow was
+  absent. The coverage guard did its job ("now exists on main"). Manifest entry now points at the
+  workflow's `"p_check_id": "razzball_projections_sync"` record; the temporary-state test is replaced by one
+  requiring the entry be covered and the stale gap flag be rejected (assertion changed because its premise —
+  "not on main yet" — no longer holds). Negative check: renaming the workflow's check id fails the suite.

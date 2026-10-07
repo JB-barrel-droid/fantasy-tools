@@ -140,10 +140,18 @@ class CoverageManifestTest(unittest.TestCase):
         sql = all_migrations_sql().replace("'rebuild_chain'", "'renamed'")
         self.assertTrue(any("rebuild_chain" in p for p in coverage_problems(MANIFEST, load_workflows(), migrations_sql=sql)))
 
-    def test_razzball_gap_is_declared_not_hidden(self):
+    def test_razzball_is_covered_now_that_it_is_on_main(self):
+        # Until #384 landed the Razzball workflow was a declared gap
+        # (workflow_missing_on_main). It is on main now, so it must be a normal,
+        # fully recorded pipeline -- and the stale gap flag must be rejected.
         raz = [p for p in MANIFEST["pipelines"] if p["workflow"] == "razzball-supabase-sync.yml"][0]
-        self.assertTrue(raz["workflow_missing_on_main"] and raz.get("gap"))
-        self.assertNotIn("razzball-supabase-sync.yml", load_workflows())
+        self.assertFalse(raz.get("workflow_missing_on_main"))
+        self.assertIn("razzball-supabase-sync.yml", load_workflows())
+        stale = json.loads(json.dumps(MANIFEST))
+        for p in stale["pipelines"]:
+            if p["workflow"] == "razzball-supabase-sync.yml":
+                p["workflow_missing_on_main"] = True
+        self.assertTrue(any("now exists on main" in x for x in coverage_problems(stale, load_workflows())))
 
 
 class MigrationTest(unittest.TestCase):
