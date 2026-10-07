@@ -121,15 +121,15 @@ Approved by Jeremy on 2026-10-07 (explicit decisions on PR #397, relayed by the 
 - deadline: 2026-10-14
 - category: methodology
 - silence-default: explicit-tap
-- outcome: pending
-- outcome_date:
-- recommendation: Make the browser's two-tier pool follow the user's roster shape (one calibration for values and bounds) as its own change with a custom-roster sweep; until then keep reference-shape bounds.
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Build the browser's two-tier pool from the user's roster (one pool for values and bounds) in a separate later PR with its own custom-roster sweep; PR #397 ships reference-roster bounds.
 
 ### Context
 
 Jeremy (2026-10-07, PR #397): "We should only be building fixed values for one roster shape and league count shape, the rest is supposed to be computable on the client side." Direction relayed: the browser computes the bench-share bounds from the user's actual roster shape (superflex, 2 quarterbacks and so on) with the client-side pool and waiver logic, and nothing is saved per roster. No bounds are saved per roster on the backend today: `public.product_options` holds one product-wide `bench_share_min/max/default` row, and nothing else stores bounds.
 
-Implementing it found a conflict. The bench-share slider calibrates the two-tier pool, and that pool is always built at the reference roster (1 QB, 2 RB, 3 WR, 1 TE, 1 flex, legacy bench mix). Custom rosters reach the chart later, through `applyRosterShape`. Bounds computed from a pool built at the user's roster describe a different calibration from the one the slider drives. Measured in the browser with the same rule (half-PPR, user-roster pool vs reference pool):
+Implementing it found a conflict. The bench-share slider calibrates the two-tier pool, and that pool is always built at the reference roster (1 QB, 2 RB, 3 WR, 1 TE, 1 flex, legacy bench mix). Custom rosters reach the chart later, through `applyRosterShape`. Bounds computed from a pool built at the user's roster would describe a different calibration from the one the slider drives. Measured in the browser with the same rule (half-PPR, user-roster pool vs reference pool):
 
 - 12 teams superflex: 0.117–0.25 vs 0.053–0.205.
 - 12 teams bench 3: 0.016–0.088 vs 0.053–0.205. The 15% default falls outside.
@@ -149,9 +149,48 @@ How should custom rosters bound, and calibrate, the bench share?
 
 ### Recommendation
 
-Option 1 is the architecture in Jeremy's words: everything beyond the one saved setup is computed in the browser, and the slider's meaning follows the reader's league. It is a valuation change for custom rosters, so it should ship as its own change, with a custom-roster sweep and Jeremy's sign-off. Option 3 stays in place until then. Option 2 is not recommended, because it blanks or pins the slider in ordinary leagues.
+Option 1, chosen by Jeremy (2026-10-07, explicit). Scope: it ships as a SEPARATE later PR with its own custom-roster sweep. PR #397 keeps the reference-roster bounds (option 3) until then. The follow-up is tracked as GAP-JEG432-ROSTER-SHARE-BOUNDS in `docs/risk-register.md`.
 
 ### Outcome Note
+
+Approved by Jeremy on 2026-10-07 (relayed by the coordinator): option 1, one pool per roster, in a separate later PR. Recorded as `proceeded`. The implementation is the follow-up, not part of #397.
+
+## feasible-bench-003: CBS ROS and Razzball step to their nearest feasible bench share
+- id: feasible-bench-003
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: When CBS ROS or Razzball cannot price a position at the chosen bench share, price it at that position's nearest feasible share and say so on the chart; keep the slider range unchanged.
+
+### Context
+
+The bench-share slider range (rule `feasible-bench/1`) is bounded on the ESPN two-tier pool. The same slider also calibrates CBS ROS and Razzball, each on its own projection pool. Inside the range, those sources withheld positions near the floor in all 12 setups: 6–87 withheld steps per setup. Examples: half-PPR 12, Razzball WR/TE at 0.053–0.077; 8 teams, CBS ROS QB at 0.060–0.126. Before this decision, the only fallback searched downward from the request, so a request below a position's interval could not be rescued (GAP-BENCH-SHARE-OTHER-POOLS).
+
+### Problem
+
+What happens to CBS ROS and Razzball at a bench share their own pools cannot support?
+
+### Options
+
+1. Raise the slider floor to the highest lower edge across all three pools (the 8-team slider would start near 12.7%).
+2. Keep ESPN-only bounds and accept withheld CBS ROS and Razzball positions at low shares.
+3. Each source steps to its own nearest feasible share and the chart says so.
+
+### Recommendation
+
+Option 3, chosen by Jeremy (2026-10-07, explicit).
+
+- `TwoTier.calibratePositionNearest` calibrates at the request. If that fails, it uses the existing downward fallback. If the request is still below the position's exact interval (`ValueModel.tierShareInterval`, rounded inward to 0.001), it steps up to the lowest feasible share.
+- Only CBS ROS and Razzball use it. The slider range is unchanged.
+- When either source is shown and any position is priced at a share other than the chosen one, the chart status adds one line, e.g. "Razzball is priced at its nearest workable bench share for running backs (6.6%) and tight ends (7.4%)." Positions are spelled out; there are no codes.
+- Guarded by `tests/test_bench_share_all_sources.py` (every 0.001 step, 12 setups, all three sources). Negative-tested against the downward-only fallback and against a note written with position codes.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 (relayed by the coordinator). Recorded as `proceeded`.
 
 ## build-lag-001: Build on each source's newest week; a one-week lag does not block
 - id: build-lag-001

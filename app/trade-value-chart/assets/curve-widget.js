@@ -552,6 +552,34 @@
       return best;
     }
 
+    // Calibrate at the requested share or, when that share cannot price the
+    // position, at its NEAREST feasible share (decision feasible-bench-003,
+    // Jeremy 2026-10-07): below the position's exact feasible interval it
+    // steps UP to the lowest feasible share, above it DOWN to the highest.
+    // Used for the sources that calibrate their own pools (CBS ROS,
+    // Razzball): the slider range is bounded on the ESPN pool, so these can
+    // fall outside their own interval. The edges are the closed form from
+    // ValueModel.tierShareInterval (open interval), rounded inward to 0.001.
+    // Records bench_share_used and stepped ("up" / "down"). Degenerate
+    // exposures or an empty interval stay invalid (fail closed).
+    function calibratePositionNearest(tier, pie, requestedShare, pos = "?") {
+      const first = calibratePositionFeasible(tier, pie, requestedShare, pos);
+      if (!first || !first.invalid) return first;
+      const VM = typeof ValueModel !== "undefined" ? ValueModel : (typeof window !== "undefined" ? window.ValueModel : null);
+      const iv = VM && VM.tierShareInterval ? VM.tierShareInterval(tier) : null;
+      if (!iv) return first;
+      const lo = Math.ceil(iv.lo * 1000 + 1e-7) / 1000;
+      const hi = Math.floor(iv.hi * 1000 - 1e-7) / 1000;
+      const req = Number(requestedShare);
+      const target = lo <= hi ? Math.min(hi, Math.max(lo, req)) : (iv.lo + iv.hi) / 2;
+      if (!(target > 0 && target < 1)) return first;
+      const cal = calibratePosition(tier, pie, target);
+      if (!cal || cal.invalid) return first;
+      cal.bench_share_used = target;
+      cal.stepped = target > req ? "up" : "down";
+      return cal;
+    }
+
     // Two-tier value of a hypothetical per-game projection x against a
     // frozen calibrated position. Invalid positions price at zero -- never
     // a guessed value.
@@ -599,7 +627,7 @@
       feasibleBenchShareInterval, sliderBounds, roundHalfEven,
       displayValue, normalizeThenRound, benchMixFor, tailFloor,
       REF_BENCH_SLOTS, LEGACY_BENCH_MIX_12, legacyBenchMixFor, inwardBounds,
-      buildPositionTiers, calibratePosition, calibratePositionFeasible, priceForProjection,
+      buildPositionTiers, calibratePosition, calibratePositionFeasible, calibratePositionNearest, priceForProjection,
       skillBenchShares, skillBenchShare
     };
   })();
@@ -2211,7 +2239,7 @@
   // Bench mix: the LEGACY fixed mix (same as the pipeline legs), NOT the
   // dynamic benchMixFor. The legs were baked with BENCH_MIX_12 scaled by
   // teams/12; the live path must use the same mix to reproduce them at 0.15.
-  function ddfTwoTierValuesForSource(sourceKey) {
+  function ddfTwoTierValuesForSource(sourceKey, share = benchShare) {
     if (!["cbsros", "razzball"].includes(sourceKey)) return null;
     const native = buildNativeSourceMap(sourceKey);
     if (!native.size) return null;
@@ -2246,14 +2274,14 @@
     TwoTier.POSITIONS.forEach(pos => {
       pies[pos] = Number(pool.tiers[pos]?.surplus);
     });
-    const shares = TwoTier.skillBenchShares(benchShare);
+    const shares = TwoTier.skillBenchShares(share);
     const cal = {}, invalidPositions = new Set();
     TwoTier.POSITIONS.forEach(pos => {
       try {
         // Feasible-share fallback (pipeline rule): a thin position uses
         // the highest feasible share <= requested instead of being
         // withheld. Only positions infeasible even at 0.01 withhold.
-        const c = TwoTier.calibratePositionFeasible(pool.tiers[pos], pies[pos],
+        const c = TwoTier.calibratePositionNearest(pool.tiers[pos], pies[pos],
           TwoTier.skillBenchShare(shares, pos), pos);
         if (!c || c.invalid) {
           invalidPositions.add(pos);
@@ -2916,6 +2944,37 @@
           : `Every curve shares one player axis; cutoff lines use ${sourceLabel(selectedRankSourceKey())} as the roster-rank reference.`;
   }
 
+  // Decision feasible-bench-003: when CBS ROS or Razzball cannot price a
+  // position at the chosen bench share, it is priced at that position's
+  // nearest feasible share. One plain-language sentence per shown source
+  // says so (position names spelled out, no codes). Null when nothing moved.
+  function nearestShareSources() {
+    const out = [];
+    ["cbsros", "razzball"].forEach(key => {
+      if (!activeSourceKeys().includes(key)) return;
+      let live = null;
+      try { live = ddfTwoTierValuesForSource(key); } catch (e) { live = null; }
+      if (!live) return;
+      const moved = TwoTier.POSITIONS.filter(pos => {
+        const c = live.calibration[pos];
+        return c && Number.isFinite(c.bench_share_used) && Math.abs(c.bench_share_used - benchShare) > 1e-9;
+      }).map(pos => ({pos, share: live.calibration[pos].bench_share_used}));
+      if (moved.length) out.push({key, moved});
+    });
+    return out;
+  }
+
+  function nearestShareNote() {
+    const sources = nearestShareSources();
+    if (!sources.length) return null;
+    const names = {QB: "quarterbacks", RB: "running backs", WR: "wide receivers", TE: "tight ends"};
+    return sources.map(({key, moved}) => {
+      const parts = moved.map(m => `${names[m.pos]} (${benchSharePct(m.share)})`);
+      const list = parts.length > 1 ? `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}` : parts[0];
+      return `${sourceLabel(key)} is priced at its nearest workable bench share for ${list}.`;
+    }).join(" ");
+  }
+
   function syncCurveStatus() {
     const status = $("#curve-status");
     if (!status) return;
@@ -2945,6 +3004,14 @@
       adjustedStatus = "ESPN live is shown by default. Adjusted source projections are live for supported league setups, but this setup has no matching source combo.";
     }
     status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN VORP vs waivers can be enabled on the same chart.`;
+    const shareNote = nearestShareNote();
+    if (shareNote) {
+      const note = document.createElement("span");
+      note.className = "bench-share-source-note";
+      note.id = "benchShareSourceNote";
+      note.textContent = ` ${shareNote}`;
+      status.appendChild(note);
+    }
     activeNotices.forEach(note => status.appendChild(note));
   }
 
@@ -3001,6 +3068,8 @@
     // Syncing from the central setter covers every path (slider, dblclick
     // reset, the "Reset to 15%" button, resetAllWeights, external callers).
     syncWeightsReadout();
+    // feasible-bench-003: the nearest-share note depends on the share.
+    syncCurveStatus();
     if (publish) publishShared();
   }
 
@@ -4013,6 +4082,8 @@
           return fixedPieDiagnostics(maps);
         },
         buildLiveAdjustedMap,
+        ddfTwoTierValuesForSource,
+        nearestShareSources,
         refitLiveCells,
         espnTargetTotal,
         ddfTwoTierValues,

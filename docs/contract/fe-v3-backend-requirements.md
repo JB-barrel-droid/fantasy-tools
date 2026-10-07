@@ -132,7 +132,9 @@ The design excludes older-week sources from the first load.
   0.053–0.205 (half-PPR 12), default 0.15 everywhere. When no bench size
   is feasible the rule returns `benchSlotsBlocked` and the chart disables the
   Bench stepper with a one-line reason (decision feasible-bench-001).
-  Custom-roster share bounds are open (decision feasible-bench-002).
+  CBS ROS and Razzball step to their nearest feasible share and the chart
+  says so (feasible-bench-003). Custom-roster share bounds come in a
+  separate PR: one pool per roster, built in the browser (feasible-bench-002).
 - **R4 (inputs only):** Supabase `api.source_inputs_weekly` +
   `api.source_input_weeks` (§17.5) expose every saved week of 12-team
   inputs for the four published charts (weeks 2–5 today). The browser

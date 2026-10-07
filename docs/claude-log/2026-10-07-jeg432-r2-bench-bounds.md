@@ -140,3 +140,64 @@ the negative tests.
   state was asserted.
 - Option 1 in feasible-bench-002 (pool follows the roster) was not prototyped
   for values, only for bounds.
+
+## 2026-10-07 - JEG-432 R2: decisions feasible-bench-002 and -003 on PR #397
+
+Contract: Jeremy chose (a) for custom-roster bounds, as a separate later PR,
+and (c) for CBS ROS / Razzball: each source steps to its nearest feasible
+share, with a plain note on the chart. Add a guard that nothing is withheld
+for any source at any step, negative-test it, re-run the sweep. Merge
+origin/main first.
+
+### Verified (check named)
+- Merged origin/main (a5e2d8e: #382, #390, #393) cleanly.
+- `TwoTier.calibratePositionNearest`: the request first, then the existing
+  downward fallback, then the nearest edge of the exact interval
+  (`ValueModel.tierShareInterval`, rounded inward to 0.001). Used only by
+  `ddfTwoTierValuesForSource` (CBS ROS, Razzball). The slider range is
+  unchanged.
+- Chart status note, observed at half-PPR 8 teams at the floor (6%) with both
+  sources shown: "CBS ROS is priced at its nearest workable bench share for
+  quarterbacks (12.7%). Razzball is priced at its nearest workable bench share
+  for running backs (6.6%) and tight ends (7.4%)."
+  At 15% with CBS ROS shown it reads "... for wide receivers (14.0%)". That is
+  the pre-existing downward fallback, now disclosed. Both sources are off by
+  default.
+- Guard `tests/test_bench_share_all_sources.py`
+  (`tests/rendered_gate/bench_share_all_sources_harness.mjs`, wired into
+  test-unit):
+  - Coverage: 1,819 steps x (ESPN, CBS ROS, Razzball) x 12 setups. 0
+    withheld; 6-81 stepped-up steps per setup. rc=0.
+  - Negative, downward-only fallback restored in a dist copy: rc=1, "sources:"
+    in 12/12 setups (e.g. "standard/8: 70 withheld, e.g. 0.06:cbsros:QB,
+    0.06:razzball:RB").
+  - Negative, note written with codes: rc=1, "note uses codes: CBS ROS is
+    priced ... for QB (12.7%) ...".
+- `make validate`: the only failure is `tests.test_static_export`
+  `test_known_full_ppr_12_team_source_values` (25.5 != 25.3). That is the
+  known main failure the coordinator named; this branch does not touch
+  `data/` or that test. Because make stops at the first failure, every one of
+  the 134 test-unit commands was also run individually: exactly 1 failed
+  (test_static_export). A first run also failed
+  `test_jeg103_bench_slider_readout` (a structural pin that
+  `syncWeightsReadout()` follows `syncBenchShareControl()`). Fixed by moving
+  my new `syncCurveStatus()` call after it; the test was not changed.
+- 12-combo sweep. Built branch dist vs a fresh `make sync` of origin/main in
+  a separate worktree:
+  - fixedPieIndexed true 12/12 on both;
+  - sourceScaleAgreement false 12/12 on both;
+  - curve starts and value digests identical in all 12;
+  - 0 page errors;
+  - only the slider/stepper ranges differ;
+  - at the slider min and max, fixedPieIndexed is true and ESPN withholds
+    nothing.
+- Against origin/main's COMMITTED dist, the branch differs: 5 -> 2 default
+  curves and FantasyCalc values. A fresh `make sync` of origin/main gives
+  exactly the branch's numbers. Main's committed
+  `dist/assets/comparison-sources-data.json` is stale (built_at 2026-10-03,
+  CBS grain week 4) relative to the fixture (week 5), so this is not from
+  this PR. The regenerated data file was not committed here.
+
+### Claimed, not confirmed
+- The deploy runs `make sync`, so the live site should already show the
+  fresh-main numbers (2 default curves). Not checked on the live site.
