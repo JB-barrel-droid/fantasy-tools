@@ -92,9 +92,14 @@ jobs:
 
       - name: Rebuild comparison chain (if fixture stale)
         id: chain
-        # The chain fails closed: a review hold exits non-zero. Do not stop the
-        # job here, because the chain status must still reach the monitor when it
-        # is red (JEG-8). The job is failed explicitly by the last step.
+        # The chain fails closed: any failure, an unisolated hold, or a run in
+        # which every review-gated source held exits non-zero. A review 'hold'
+        # in one source is isolated (per-source-promotion-001): that source
+        # keeps its last promoted section, the others publish, and the chain
+        # exits 0 with the hold in comparison-chain-status.json `held` (and the
+        # rebuild_chain_source_held* checks below). Do not stop the job here,
+        # because the chain status must still reach the monitor when it is red
+        # (JEG-8). The job is failed explicitly by the last step.
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -318,7 +323,13 @@ jobs:
       # evaluator. Never fails the job. Declared in config/monitoring_coverage.json.
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
+        # Held sources (per-source-promotion-001) are recorded as their own
+        # checks: rebuild_chain_source_held (amber) and
+        # rebuild_chain_source_held_stale (red, held two or more weeks).
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 pipelines/record_monitor_check.py --check-id rebuild_chain --owner rebuild-chain.yml --outcome "${{ job.status }}"
+          CHAIN_OUTCOME: ${{ steps.chain.outcome }}
+        run: |
+          python3 pipelines/record_monitor_check.py --check-id rebuild_chain --owner rebuild-chain.yml --outcome "${{ job.status }}"
+          python3 pipelines/record_chain_holds.py --owner rebuild-chain.yml --chain-outcome "$CHAIN_OUTCOME"
