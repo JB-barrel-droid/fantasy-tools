@@ -1,0 +1,32 @@
+name: probe razzball (temporary)
+on:
+  push:
+    branches: ["probe/razz-*"]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe
+        run: |
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+          H1="Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          for p in qb rb; do
+            u="https://football.razzball.com/projections-$p-restofseason/"
+            code=$(curl -sS -L -A "$UA" -H "$H1" -H "Accept-Language: en-US,en;q=0.9" -o /tmp/$p -w "%{http_code}" "$u" || true)
+            python3 - "$p" "$code" <<'PY'
+          import re, sys
+          p, code = sys.argv[1], sys.argv[2]
+          h = open("/tmp/" + p, errors="replace").read()
+          ths = [re.sub(r"<[^>]+>", "", t).strip() for t in re.findall(r"<th[^>]*>(.*?)</th>", h, re.S)]
+          trs = re.findall(r"<tr[^>]*>(.*?)</tr>", h, re.S)
+          first = [re.sub(r"<[^>]+>", "", c).strip() for c in re.findall(r"<td[^>]*>(.*?)</td>", trs[1], re.S)] if len(trs) > 1 else []
+          title = re.search(r"<title>(.*?)</title>", h, re.S)
+          print("::notice title=%s status::code=%s bytes=%d title=%s tables=%d trs=%d login=%s" % (
+              p, code, len(h), title.group(1).strip()[:120] if title else None, h.count("<table"), len(trs),
+              bool(re.search(r"subscribe|log ?in to view|members only", h, re.I))))
+          print("::notice title=%s headers::%s" % (p, "|".join(ths[:60])))
+          print("::notice title=%s row1::%s" % (p, "|".join(first[:60])))
+          m = re.search(r"(updated|as of)[^<]{0,80}", h, re.I)
+          print("::notice title=%s updated::%s" % (p, m.group(0) if m else None))
+          PY
+          done
