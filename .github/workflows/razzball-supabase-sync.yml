@@ -5,7 +5,9 @@ name: Razzball ROS scrape to Supabase
 # refreshed Razzball, so public.razzball_projections (a dashboard source the
 # import-health gate grades fresh <= 2d, bad > 6d) aged silently.
 #
-#   pipelines/pull_razzball_ros.py   -> /tmp/razzball/snapshot.json (fail closed)
+#   pipelines/pull_razzball_ros.py   -> /tmp/razzball/snapshot.json (fail closed,
+#     named codes: SOURCE_BLOCKED / SOURCE_HTTP_ERROR / SCHEMA_CHANGED /
+#     TRUNCATED / PPG_INCONSISTENT, recorded as the monitored check's error_code)
 #   pipelines/save_razzball_references.py -> public.razzball_projections
 #     (grain player_key + razzball_snapshot_date: each day is a new vintage,
 #      earlier vintages are never touched)
@@ -78,8 +80,12 @@ jobs:
           cat /tmp/razzball.log
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/razzball.log | cut -c1-900 | sed "s/^/::$level title=razzball rc=$rc::/"
+          # Named code from the puller ("RAZZBALL PULL FAILED [SOURCE_BLOCKED]: ..."),
+          # else the saver failed after a good pull.
           code=SYNC_FAILED
-          grep -q "RAZZBALL PULL FAILED" /tmp/razzball.log && code=PULL_FAILED
+          pc=$(sed -n 's/^RAZZBALL PULL FAILED \[\([A-Z_]*\)\].*/\1/p' /tmp/razzball.log | head -1)
+          [ -z "$pc" ] || code=$pc
+          [ "$rc" = 0 ] || echo "::error title=razzball error_code::$code"
           echo "error_code=$code" >> $GITHUB_OUTPUT
           exit $rc
 

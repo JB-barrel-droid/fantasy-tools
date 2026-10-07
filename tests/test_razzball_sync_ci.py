@@ -9,7 +9,12 @@ Pins, each negative-tested against a simulated broken state:
     (raw_stats keys of the 2026-10-01 vintage), computes per-game stats as
     total / games, and copies the QB STD PPG to all three scorings;
   - it fails closed on a non-200 page, a changed header layout, and a
-    truncated table (row floor); it reads the stats table, not the sidebar.
+    truncated table (row floor); it reads the stats table, not the sidebar;
+  - every failure carries a named code (SOURCE_BLOCKED, SOURCE_HTTP_ERROR,
+    SCHEMA_CHANGED, TRUNCATED, PPG_INCONSISTENT) that the workflow records as
+    the monitored check's error_code;
+  - the table is the one with Name + STD PPG, never the largest by rows (Muse's
+    2026-09-21 overall PTS/G table); the PPG gate rejects a misaligned parse.
 """
 import re
 import stat
@@ -146,6 +151,98 @@ class PullerTest(unittest.TestCase):
         clean, review = rz.build_rows("RB", LAYOUTS["RB"], [FIRST["RB"][:-1] + ["-"]], "2026-10-06")
         self.assertEqual(clean, [])
         self.assertEqual(review[0]["reason"], "missing_or_non_numeric_ppg")
+
+
+def overall_table(n):
+    """Razzball's 2026-09-21 addition: a larger #/Name/Team/Pos/PTS/G table."""
+    rows = "".join(f"<tr><td>{i}</td><td>Overall {i}</td><td>KC</td><td>WR</td><td>1.0</td></tr>"
+                   for i in range(n))
+    return ('<table><thead><tr><th>#</th><th>Name</th><th>Team</th><th>Pos</th><th>PTS/G</th></tr>'
+            f'</thead><tbody>{rows}</tbody></table>')
+
+
+def swapped_qb_row():
+    row = list(FIRST["QB"])
+    i, j = LAYOUTS["QB"].index("Pass Yds"), LAYOUTS["QB"].index("Pass TD")
+    row[i], row[j] = row[j], row[i]
+    return row
+
+
+class ErrorCodeTest(unittest.TestCase):
+    def code(self, pages):
+        with self.assertRaises(rz.PullError) as cm:
+            rz.pull("2026-10-06", fetch_fn=fetcher(pages))
+        return cm.exception.code
+
+    def test_bot_wall_statuses_are_named_source_blocked(self):
+        for status in (402, 403, 429):
+            self.assertEqual("SOURCE_BLOCKED", self.code({"QB": (status, "denied")}), status)
+        self.assertEqual("SOURCE_BLOCKED", self.code({"QB": (None, "curl exception")}))
+
+    def test_empty_200_and_short_wall_page_are_source_blocked(self):
+        self.assertEqual("SOURCE_BLOCKED", self.code({"RB": (200, "")}))
+        self.assertEqual("SOURCE_BLOCKED", self.code({"RB": (200, "<html>Just a moment...</html>")}))
+
+    def test_other_status_and_layout_and_floor_codes(self):
+        self.assertEqual("SOURCE_HTTP_ERROR", self.code({"WR": (503, "down")}))
+        hdr = [h if h != "PPR PPG" else "PPR FPG" for h in LAYOUTS["RB"]]
+        self.assertEqual("SCHEMA_CHANGED", self.code({"RB": (200, page("RB", headers=hdr))}))
+        self.assertEqual("TRUNCATED", self.code({"TE": (200, page("TE", n=12))}))
+
+    def test_large_page_without_stats_table_is_schema_changed_not_blocked(self):
+        big = "<html>" + "x" * 60000 + "</html>"
+        self.assertEqual("SCHEMA_CHANGED", self.code({"QB": (200, big)}))
+
+    def test_workflow_records_the_puller_code(self):
+        step = script_of(find_step(WORKFLOW, "Scrape and save"))
+        with tempfile.TemporaryDirectory() as td:
+            log = Path(td) / "razzball.log"
+            log.write_text("RAZZBALL PULL FAILED [SOURCE_BLOCKED]: QB: status=403\n")
+            lines = step.splitlines()
+            a = next(i for i, ln in enumerate(lines) if ln.strip() == "code=SYNC_FAILED")
+            b = next(i for i, ln in enumerate(lines) if ln.lstrip().startswith("[ -z"))
+            snippet = "\n".join(lines[a:b + 1]).replace("/tmp/razzball.log", str(log))
+            r = subprocess.run(["bash", "-c", snippet + '\necho "$code"'], capture_output=True, text=True)
+            self.assertEqual("SOURCE_BLOCKED", r.stdout.strip(), r.stderr)
+        self.assertIn("p_error_code", WORKFLOW)
+        self.assertIn('ERROR_CODE: ${{ steps.sync.outputs.error_code }}', WORKFLOW)
+
+
+class TableAndGateTest(unittest.TestCase):
+    def test_overall_table_never_wins_on_row_count(self):
+        qb = page("QB").replace("</html>", overall_table(500) + "</html>")
+        snap = rz.pull("2026-10-06", fetch_fn=fetcher({"QB": (200, qb)}))
+        self.assertEqual(snap["summary"]["by_pos"]["QB"], N_ROWS["QB"])
+        self.assertNotIn("Overall 1", {r["player_name"] for r in snap["rows"]})
+
+    def test_broken_picker_largest_by_rows_would_take_the_wrong_table(self):
+        # Simulated regression: pick by Name + row count only (no STD PPG rule).
+        qb = page("QB").replace("</html>", overall_table(500) + "</html>")
+        wrong = max((t for t in rz.parse_tables(qb) if "Name" in t[0]), key=lambda t: len(t[1]))
+        self.assertNotIn("STD PPG", wrong[0])  # the table the real rule refuses
+        self.assertIn("STD PPG", rz.parse_table(qb)[0])
+
+    def test_misaligned_columns_fail_the_ppg_gate(self):
+        with self.assertRaises(rz.PullError) as cm:
+            rz.pull("2026-10-06", fetch_fn=fetcher({"QB": (200, page("QB", first=swapped_qb_row()))}))
+        self.assertEqual("PPG_INCONSISTENT", cm.exception.code)
+
+    def test_broken_state_without_ppg_gate_accepts_misaligned_columns(self):
+        orig = rz.ppg_gate
+        rz.ppg_gate = lambda rows: []
+        try:
+            snap = rz.pull("2026-10-06", fetch_fn=fetcher({"QB": (200, page("QB", first=swapped_qb_row()))}))
+        finally:
+            rz.ppg_gate = orig
+        self.assertEqual(snap["summary"]["by_pos"]["QB"], N_ROWS["QB"])  # what the gate rejects
+
+    def test_real_layouts_pass_the_gate_and_stamp_is_recorded(self):
+        stamped = page("QB").replace("<html>", "<html>Updated 2026-10-06 08:15:00 AM EDT ", 1)
+        snap = rz.pull("2026-10-07", fetch_fn=fetcher({"QB": (200, stamped)}))
+        self.assertEqual([], snap["summary"]["ppg_outliers"])
+        self.assertEqual("2026-10-06 08:15:00 AM EDT", snap["page_stamps"]["QB"])
+        self.assertEqual("unknown", snap["page_stamps"]["RB"])
+        self.assertEqual("2026-10-07", snap["vintage_date"])
 
 
 def render(script, ctx):

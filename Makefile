@@ -200,6 +200,7 @@ test-unit:
 	python3 -m unittest tests.test_espn_zeroed_staleness
 	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
+	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_reference_freshness
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate

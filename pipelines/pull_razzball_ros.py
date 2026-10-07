@@ -18,11 +18,32 @@ Output: <out-dir>/snapshot.json, the shape save_razzball_references.py reads:
              rz_ppr_ppg, razzball_snapshot_date}],
    "review_rows": [...], "row_count", "review_count", "summary"}
 
-Fail closed (non-zero exit, no snapshot written) on: a non-200 page, a missing
-stats table, a header layout that lacks a required column, a position below
-its row floor, or a total below 400 rows (Muse's own floor). Unparseable rows
-go to review_rows, never zero-filled. Identity (player_key) is resolved later
-by the saver against public.players, never here.
+Reconciled with Muse's real script (JEG-433, 2026-10-07; the script itself was
+VM-local and never in a repo). Carried over from it: the browser-like Accept
+header (a bare request returns an empty HTTP 200), the stats-table rule (the
+table that carries BOTH a Name column and the published "STD PPG" column; on
+2026-09-21 Razzball added a larger overall PTS/G table that must never win on
+row count), per-game = published total / Games (Razzball published Games and
+counting totals doubled in September, the ratio cancels it, and the published
+PPG columns are the canonical legs), and the PPG-consistency gate (component
+implied standard PPG must match the published STD PPG). Row floors are ours
+(Muse's only floor was 50 rows per position); they sit below the 2026-10-06
+vintage (QB 102, RB 163, WR 260, TE 147).
+
+Fail closed (exit 1, no snapshot written) with a NAMED error code on stderr,
+`RAZZBALL PULL FAILED [<CODE>]: ...`:
+  SOURCE_BLOCKED       HTTP 401/402/403/429/451, a transport failure, an empty
+                       body, or a short page with no stats table (bot wall)
+  SOURCE_HTTP_ERROR    any other non-200
+  SCHEMA_CHANGED       no Name + STD PPG table, or a required column missing
+  TRUNCATED            a position below its row floor, or total below floor
+  PPG_INCONSISTENT     component-implied PPG disagrees with published PPG
+Unparseable rows go to review_rows, never zero-filled. Identity (player_key)
+is resolved later by the saver against public.players, never here.
+
+Dating: vintage_date is the pull date (Central), i.e. the day this page was
+read; the page's own "updated" stamp, when present, is recorded verbatim in
+page_stamps and printed, never rewritten into the vintage.
 """
 from __future__ import annotations
 
@@ -83,8 +104,18 @@ REQUIRED = {
 }
 
 
+BLOCK_STATUSES = {401, 402, 403, 429, 451}
+SHORT_PAGE_BYTES = 50000  # Muse's bot-wall heuristic: a real page is far larger
+PPG_TOLERANCE = 0.5
+STAMP_RE = re.compile(r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2} [AP]M \w+)")
+ACCEPT = ("text/html,application/xhtml+xml,application/xml;q=0.9,"
+          "image/avif,image/webp,*/*;q=0.8")
+
+
 class PullError(RuntimeError):
-    pass
+    def __init__(self, code: str, msg: str):
+        super().__init__(msg)
+        self.code = code
 
 
 def fetch(url: str, timeout: int = 60) -> tuple[int | None, str]:
@@ -93,7 +124,7 @@ def fetch(url: str, timeout: int = 60) -> tuple[int | None, str]:
         p = subprocess.run(
             ["curl", "-sS", "-L", "-o", "-", "-w", "\n%{http_code}", "-A", UA,
              "--max-time", str(timeout),
-             "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+             "-H", f"Accept: {ACCEPT}",
              "-H", "Accept-Language: en-US,en;q=0.9", url],
             capture_output=True, text=True, timeout=timeout + 15)
     except Exception as e:  # pragma: no cover - transport failure
@@ -109,20 +140,38 @@ def _cell_text(raw: str) -> str:
     return htmllib.unescape(re.sub(r"<[^>]+>", "", raw)).strip()
 
 
-def parse_table(page: str) -> tuple[list[str], list[list[str]]]:
-    """Headers and data rows of the FIRST neorazzstatstable on the page (the
-    second is an unrelated sidebar list)."""
-    m = re.search(r'<table[^>]*id="neorazzstatstable"[^>]*>(.*?)</table>', page, re.S)
-    if not m:
-        raise PullError("Razzball stats table (id=neorazzstatstable) not found")
-    body = m.group(1)
-    headers = [_cell_text(h) for h in re.findall(r"<th[^>]*>(.*?)</th>", body, re.S)]
-    rows = []
-    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", body, re.S):
-        cells = [_cell_text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
-        if cells:
-            rows.append(cells)
-    return headers, rows
+def parse_tables(page: str) -> list[tuple[list[str], list[list[str]]]]:
+    """Every <table> on the page as (headers, data rows)."""
+    out = []
+    for body in re.findall(r"<table[^>]*>(.*?)</table>", page, re.S):
+        headers = [_cell_text(h) for h in re.findall(r"<th[^>]*>(.*?)</th>", body, re.S)]
+        rows = []
+        for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", body, re.S):
+            cells = [_cell_text(c) for c in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+            if cells:
+                rows.append(cells)
+        out.append((headers, rows))
+    return out
+
+
+def parse_table(page: str, required_col: str = "STD PPG") -> tuple[list[str], list[list[str]]]:
+    """The projections table: the largest table with a Name column AND the
+    published PPG column (Muse's pick_table rule). Never the largest by row
+    count alone: the overall PTS/G table and the sidebar have Name but no PPG
+    legs."""
+    best = None
+    for headers, rows in parse_tables(page):
+        if "Name" in headers and required_col in headers and (
+                best is None or len(rows) > len(best[1])):
+            best = (headers, rows)
+    if best is None:
+        if len(page) < SHORT_PAGE_BYTES:
+            raise PullError("SOURCE_BLOCKED",
+                            f"no stats table and the page is only {len(page)} bytes "
+                            "(bot wall or empty body)")
+        raise PullError("SCHEMA_CHANGED",
+                        f"no table with a Name column and {required_col} found")
+    return best
 
 
 def _num(raw: str | None) -> float | None:
@@ -146,7 +195,7 @@ def build_rows(pos: str, headers: list[str], rows: list[list[str]], vintage: str
                ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     missing = [h for h in REQUIRED[pos] if h not in headers]
     if missing:
-        raise PullError(f"{pos}: page layout changed, missing columns {missing} (have {headers})")
+        raise PullError("SCHEMA_CHANGED", f"{pos}: page layout changed, missing columns {missing} (have {headers})")
     i_name, i_team = headers.index("Name"), headers.index("Team")
     i_games, i_health = _col(headers, GAMES_HEADERS), _col(headers, HEALTH_HEADERS)
     clean: list[dict[str, Any]] = []
@@ -205,28 +254,56 @@ def build_rows(pos: str, headers: list[str], rows: list[list[str]], vintage: str
     return clean, review
 
 
+def implied_std_pg(row: dict[str, Any]) -> float:
+    """Component-implied standard PPG under Razzball's scoring (1/25 pass yds,
+    4 pass TD, -2 INT, 1/10 rush and rec yds, 6 per rush/rec TD, -2 fum lost).
+    Validates the parse: a wrong column mapping shows up as a large gap."""
+    return (row["pg_pass_yds"] / 25.0 + 4 * row["pg_pass_td"] - 2 * row["pg_int"]
+            + row["pg_rush_yds"] / 10.0 + 6 * row["pg_rush_td"]
+            + row["pg_rec_yds"] / 10.0 + 6 * row["pg_rec_td"] - 2 * row["pg_fum"])
+
+
+def ppg_gate(rows: list[dict[str, Any]]) -> list[str]:
+    """Raise PPG_INCONSISTENT when too many rows disagree; else return the
+    names of the few tolerated outliers (Muse: more than max(5, 5%) fails)."""
+    bad = [r for r in rows if abs(implied_std_pg(r) - r["rz_std_ppg"]) > PPG_TOLERANCE]
+    if len(bad) > max(5, int(0.05 * len(rows))):
+        raise PullError("PPG_INCONSISTENT",
+                        f"{len(bad)}/{len(rows)} rows differ from published STD PPG by more "
+                        f"than {PPG_TOLERANCE} (e.g. {bad[0]['player_name']})")
+    return [b["player_name"] for b in bad]
+
+
 def pull(vintage: str, fetch_fn: Callable[[str], tuple[int | None, str]] = fetch
          ) -> dict[str, Any]:
     all_rows: list[dict[str, Any]] = []
     all_review: list[dict[str, Any]] = []
     by_pos: dict[str, int] = {}
     urls = {}
+    stamps: dict[str, str] = {}
     for pos in POSITIONS:
         url = URL.format(pos=pos.lower())
         urls[pos] = url
         status, page = fetch_fn(url)
+        if status in BLOCK_STATUSES or status is None:
+            raise PullError("SOURCE_BLOCKED", f"{pos}: status={status!r} url={url} ({page[:120]!r})")
         if status != 200:
-            raise PullError(f"{pos}: fetch failed status={status!r} url={url}")
+            raise PullError("SOURCE_HTTP_ERROR", f"{pos}: status={status!r} url={url}")
+        if not page.strip():
+            raise PullError("SOURCE_BLOCKED", f"{pos}: HTTP 200 with an empty body url={url}")
+        m = STAMP_RE.search(page)
+        stamps[pos] = m.group(1) if m else "unknown"
         headers, rows = parse_table(page)
         clean, review = build_rows(pos, headers, rows, vintage)
         if len(clean) < ROW_FLOORS[pos]:
-            raise PullError(f"{pos}: only {len(clean)} clean rows (floor {ROW_FLOORS[pos]}); "
+            raise PullError("TRUNCATED", f"{pos}: only {len(clean)} clean rows (floor {ROW_FLOORS[pos]}); "
                             "refusing a truncated pull")
         by_pos[pos] = len(clean)
         all_rows += clean
         all_review += review
     if len(all_rows) < TOTAL_FLOOR:
-        raise PullError(f"only {len(all_rows)} rows in total (floor {TOTAL_FLOOR})")
+        raise PullError("TRUNCATED", f"only {len(all_rows)} rows in total (floor {TOTAL_FLOOR})")
+    ppg_outliers = ppg_gate(all_rows)
     return {
         "schema": "trade-value-razzball-snapshot-v1",
         "source": "razzball",
@@ -237,7 +314,9 @@ def pull(vintage: str, fetch_fn: Callable[[str], tuple[int | None, str]] = fetch
         "review_rows": all_review,
         "row_count": len(all_rows),
         "review_count": len(all_review),
-        "summary": {"n_rows": len(all_rows), "n_review": len(all_review), "by_pos": by_pos},
+        "summary": {"n_rows": len(all_rows), "n_review": len(all_review), "by_pos": by_pos,
+                    "ppg_outliers": ppg_outliers},
+        "page_stamps": stamps,
         "scoring_note": ("rz_*_ppg are Razzball's published per-game columns (canonical); "
                          "pg_* are season totals divided by Razzball's Games column."),
     }
@@ -251,13 +330,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         snap = pull(args.date)
     except PullError as e:
-        print(f"RAZZBALL PULL FAILED: {e}", file=sys.stderr, flush=True)
+        print(f"RAZZBALL PULL FAILED [{e.code}]: {e}", file=sys.stderr, flush=True)
         return 1
     args.out_dir.mkdir(parents=True, exist_ok=True)
     out = args.out_dir / "snapshot.json"
     out.write_text(json.dumps(snap, indent=1, sort_keys=True))
     print(f"razzball {args.date}: {snap['row_count']} rows {snap['summary']['by_pos']}, "
-          f"{snap['review_count']} review -> {out}", flush=True)
+          f"{snap['review_count']} review, page stamps {snap['page_stamps']} -> {out}", flush=True)
     return 0
 
 
