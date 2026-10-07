@@ -7,6 +7,48 @@
 
 ---
 
+## 2026-10-07 - JEG-437 item 6: decisions log entries reformatted, test gated
+
+### Verified (check named)
+- Before: `python3 -m unittest tests.test_decisions_log` failed `test_committed_file_parses`
+  with 18 errors, all from copy-vorp-001, ops-ownership-001, league-settings-001
+  (outcome `approved` is not in the allowed set; required sections missing or out
+  of order). build-lag-001 had no errors.
+- After: the same command passes (15 tests). Only docs/decisions.md changed: outcome
+  `approved` -> `proceeded` with the approval recorded in the Outcome Note,
+  Context/Problem/Options/Recommendation added from the existing text, extra
+  `### Decision/Consequences` sections folded into Recommendation (the validator
+  requires the five sections contiguous). The test was not edited.
+- Gated: tests.test_decisions_log added to Makefile `test-unit`; `make validate` exit 0.
+- Negative evidence: the pre-fix file is the broken state (18 errors); the test's own
+  fixtures cover bad outcome, missing and out-of-order sections.
+
+### Claimed, not confirmed
+- Option lists for the three older entries are reconstructed from the entries' own
+  text (the original entries recorded only the decision), not from the original
+  discussion. Jeremy's quoted words are unchanged.
+## 2026-10-07 - USA Today slug plural form fix
+
+Contract: Fix USA Today trade-value-chart discovery to accept plural "charts" form (week 5+), which was silently missing those articles and falling back to stale week-4 data. Only the slug regex fix, no relay code from PR #382.
+
+### Verified (check named)
+- Plural URL extraction: `extract_week_from_url("...trade-value-charts-week-5-ros-rankings...")` returns 5 ✓
+- Singular URL still works: `extract_week_from_url("...trade-value-chart-week-4-ros-rankings...")` returns 4 ✓
+- Discovery with plural URL in sitemap: `discover_url(week=5)` finds "fantasy-trade-value-charts-week-5-ros-rankings/777/" ✓
+- Backward compat: singular week 4 still discovered ✓
+- Negative test: singular-only regex `r"trade-value-chart-week-5-ros-rankings"` does NOT match plural URL (proves the bug fix is necessary) ✓
+- Unit tests: 5/5 pass in `tests/test_trade_chart_ingest_ci.py::UsatSlugPluralTest`
+- Workflow tests: 6/6 pass in `WorkflowTest` (existing tests unbroken)
+- Sitemap outage tests: 4/4 pass in `UsatSitemapOutageTest` (existing behavior preserved)
+- Discrimination check: PASS (body.md describes guard GAP-USAT-SLUG-CHARTS, concrete broken scenario, negative test proving singular-only fails, correct-state test proving plural works)
+
+Changes (slug fix only):
+- ops/watchdog/pull_usatoday.py: Added `SLUG_RE = r"trade-value-charts?-week-%d-ros-rankings"`; discovery now uses `re.compile(SLUG_RE % wk)` instead of string substring; `extract_week_from_url()` accepts `charts?`
+- pipelines/check_source_fidelity.py: `_WEEK_SLUG_RE` accepts `charts?`
+- tests/test_trade_chart_ingest_ci.py: Added `UsatSlugPluralTest` class with 5 tests
+
+### Claimed, not confirmed
+- The fix will prevent future week 5+ article misses as long as USA Today maintains the plural slug form.
 ## 2026-10-07 - JEG-436: unblock the rebuild chain (FantasyCalc week-5 hold)
 
 Contract: the 13:33Z chain held FantasyCalc (combos_match: unknown

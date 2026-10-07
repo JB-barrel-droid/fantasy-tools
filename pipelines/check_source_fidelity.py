@@ -249,10 +249,10 @@ class WeekEvidenceError(LivePullError):
 
 
 # Regex used to extract the week number from the URL slug for the trade
-# value chart. Mirrors the LIVE_SECTION_SLUG pattern (`trade-value-chart-week-N-ros-rankings`)
+# value chart. Mirrors the SLUG_RE pattern (`trade-value-charts?-week-N-ros-rankings`)
 # so evidence matches the very pattern the sitemap discovered against.
 _WEEK_SLUG_RE = re.compile(
-    r"trade-value-chart-week-(\d{1,2})-ros-rankings", re.I)
+    r"trade-value-charts?-week-(\d{1,2})-ros-rankings", re.I)
 # Regex used to extract the week number from a page title / H1 / H2
 # heading text. USA Today uses variants like "fantasy trade value chart week 4",
 # "Week 4 fantasy trade charts", and "Week 4 running back trade value".
