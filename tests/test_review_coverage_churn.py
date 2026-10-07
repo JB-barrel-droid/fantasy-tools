@@ -39,7 +39,7 @@ def _te_slugs(n):
 
 def build(tmp, *, fx_te=27, recorded_te=None, cand_drop=(), cand_add=(),
           cand_n_te=None, keep_listed=(), review_rows=(), source="fantasycalc",
-          fx_wr=10, recorded_wr=None, cand_n_wr=None):
+          fx_wr=10, recorded_wr=None, cand_n_wr=None, zero_te=0):
     """Fixture with fx_te TE + fx_wr WR priced; candidate drops/adds TE slugs.
 
     TE natives descend from 5800 (te player 0) to a tail near 20; every
@@ -58,6 +58,8 @@ def build(tmp, *, fx_te=27, recorded_te=None, cand_drop=(), cand_add=(),
         players.append({"name": s.title(), "pos": "WR", "player_key": keys[s]})
     te_native = {s: (5800.0 if i == 0 else max(20.0, 3000.0 / (i + 1) - 60 * i))
                  for i, s in enumerate(tes)}
+    for s in tes[len(tes) - zero_te:] if zero_te else ():
+        te_native[s] = 0.0       # listed at native 0 (USA Today QB shape)
     wr_native = {s: 9000.0 - 500 * i for i, s in enumerate(wrs)}
     fx_native = {**te_native, **wr_native}
     fx_reidx = {s: (0.0 if v < 300 else round(v / 200, 2)) for s, v in fx_native.items()}
@@ -166,13 +168,23 @@ class CoverageChurnTest(unittest.TestCase):
         self.assertEqual(cov["status"], "fail")
         self.assertIn("4 players left the priced set", cov["detail"])
 
-    def test_count_below_named_set_holds(self):
-        # One named tail drop, but the candidate's count fell by 5.
+    def test_count_below_named_set_is_judged_on_the_set(self):
+        # One named tail drop, and the candidate's RECORDED count says 22
+        # while its priced set holds 26. Pre-follow-up this asserted a hold on
+        # "net drop 5" -- the mixed recorded-vs-set basis that held USA Today
+        # full_12/QB on 2026-10-07 (recorded 32 vs set 35, nothing dropped).
+        # The coverage drop is judged on the sets (net 1, tail churn -> warn);
+        # the candidate's own count/set disagreement is surfaced as an
+        # UNEXPLAINED coverage_count warn, never silently.
         tes = _te_slugs(27)
         paths = build(self.tmp, cand_drop=(tes[26],), cand_n_te=22)
-        cov = check(review(paths), f"coverage:{COMBO}/TE")
-        self.assertEqual(cov["status"], "fail")
-        self.assertIn("net drop 5", cov["detail"])
+        rep = review(paths)
+        cov = check(rep, f"coverage:{COMBO}/TE")
+        self.assertEqual(cov["status"], "warn", cov)
+        self.assertIn("net -1", cov["detail"])
+        cnt = check(rep, f"coverage_count:{COMBO}/TE")
+        self.assertEqual(cnt["status"], "warn")
+        self.assertIn("UNEXPLAINED", cnt["detail"])
 
     def test_non_tail_drop_holds(self):
         tes = _te_slugs(27)
@@ -201,12 +213,89 @@ class CoverageChurnTest(unittest.TestCase):
         self.assertEqual(cov["status"], "fail")
         self.assertIn("identity loss", cov["detail"])
 
-    def test_unnamed_count_drop_holds(self):
-        # Candidate count says 25 but its priced set is unchanged.
+    def test_recorded_count_below_unchanged_set_is_not_a_drop(self):
+        # Candidate count says 25 but its priced set is unchanged. Pre-follow-up
+        # this asserted a hold ("none named") -- that assertion pinned the
+        # mixed-basis defect: no player left the priced set, so there is no
+        # coverage loss. The disagreement is a visible warn instead.
         paths = build(self.tmp, cand_n_te=25)
+        rep = review(paths)
+        self.assertIsNone(check(rep, f"coverage:{COMBO}/TE"), rep["checks"])
+        self.assertEqual(check(rep, f"coverage_count:{COMBO}/TE")["status"], "warn")
+        self.assertEqual(rep["verdict"], "ready")
+
+    def test_usatoday_zero_native_shape_is_not_a_drop(self):
+        # The real 2026-10-07 USA Today full_12/QB hold: fixture and candidate
+        # both price 35 players, 3 of them at native 0.0 (excluded from the
+        # flex-aware pie's bucket count by design), so both RECORD 32. The
+        # pre-fix reviewer compared candidate recorded 32 with fixture set 35
+        # and held. Fails on 87b6203^..origin/main (#392) -- see the log.
+        paths = build(self.tmp, fx_te=27, zero_te=3, recorded_te=24,
+                      cand_n_te=24)
+        rep = review(paths)
+        self.assertIsNone(check(rep, f"coverage:{COMBO}/TE"), rep["checks"])
+        cnt = check(rep, f"coverage_count:{COMBO}/TE")
+        self.assertEqual(cnt["status"], "warn")
+        self.assertIn("explained by the flex-aware pie", cnt["detail"])
+        self.assertEqual(rep["verdict"], "ready",
+                         [c for c in rep["checks"] if c["status"] == "fail"])
+
+    def test_genuine_set_drop_still_counted_on_the_set(self):
+        # Guard against over-correction: zero-native players in the set do
+        # not hide a real loss. 3 zero-natives + 4 tail players dropped holds.
+        tes = _te_slugs(30)
+        paths = build(self.tmp, fx_te=30, zero_te=3, cand_drop=tuple(tes[22:26]),
+                      cand_n_te=23)
         cov = check(review(paths), f"coverage:{COMBO}/TE")
         self.assertEqual(cov["status"], "fail")
-        self.assertIn("none named", cov["detail"])
+        self.assertIn("net drop 4", cov["detail"])
+
+    # -- live list read a day after the bake (fcwk5, 2026-10-07) -------------
+    def _live(self, tes_live):
+        live = [{"player": {"name": n.title(), "position": "TE"}, "value": v}
+                for n, v in tes_live]
+
+        def fake(req, timeout=60):
+            return io.BytesIO(json.dumps(live).encode())
+        return fake
+
+    def test_dropped_player_live_only_below_depth_falls_to_tail_rule(self):
+        # Real shape: the bake (pulled 10-06) lost 2 tail TEs and gained 1
+        # (27 -> 26); the 10-07 live list has one of them back as its LAST TE
+        # (rank 27 > candidate depth 26). Not provably a pipeline loss: the
+        # tail rule decides (warn), and the detail names the live rank.
+        tes = _te_slugs(27)
+        paths = build(self.tmp, fx_te=27, cand_drop=(tes[25], tes[26]),
+                      cand_add=("mike gesicki",))
+        live = [(s, 6000.0 - 200 * i) for i, s in enumerate(tes[:25])]
+        live += [("mike gesicki", 54.0), (tes[26], 20.0)]
+        with mock.patch.object(r.urllib.request, "urlopen", self._live(live)), \
+                mock.patch.object(r, "verify_top25_live",
+                                  lambda *a, **k: (True, "stub")):
+            rep = review(paths, no_live_verify=False)
+        cov = check(rep, f"coverage:{COMBO}/TE")
+        self.assertEqual(cov["status"], "warn", cov)
+        self.assertIn("live tail", cov["detail"])
+        self.assertIn("TE27/27", cov["detail"])
+        self.assertNotIn("still priced live", cov["detail"])
+
+    def test_dropped_player_live_within_depth_still_holds(self):
+        # Same drop, but the live list ranks the missing player 20th of 27 --
+        # inside the candidate's depth 26. The bake should have had him:
+        # pipeline loss, hold. This is the live contradiction rule intact.
+        tes = _te_slugs(27)
+        paths = build(self.tmp, fx_te=27, cand_drop=(tes[25], tes[26]),
+                      cand_add=("mike gesicki",))
+        live = [(s, 6000.0 - 200 * i) for i, s in enumerate(tes[:19])]  # 6000..2400
+        live += [(tes[26], 2100.0), ("mike gesicki", 54.0)]           # rank 20
+        live += [(f"other te {i}", 40.0 - i) for i in range(6)]       # 27 TEs
+        with mock.patch.object(r.urllib.request, "urlopen", self._live(live)), \
+                mock.patch.object(r, "verify_top25_live",
+                                  lambda *a, **k: (True, "stub")):
+            rep = review(paths, no_live_verify=False)
+        cov = check(rep, f"coverage:{COMBO}/TE")
+        self.assertEqual(cov["status"], "fail", cov)
+        self.assertIn("still priced live", cov["detail"])
 
     def test_live_contradiction_overrides_tail_rule(self):
         tes = _te_slugs(27)
