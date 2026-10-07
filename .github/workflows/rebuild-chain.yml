@@ -96,8 +96,25 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # GAP-MAIN-STATIC-PIN (2026-10-07): the rebuilt fixture must pass
+        # `make validate` (the Pages deploy's own gate) BEFORE it can be
+        # committed. 0b0ddee pushed a fixture that failed
+        # tests.test_static_export and turned main red. Validation runs inside
+        # this step so a red validate makes steps.chain.outcome 'failure' and
+        # the existing failure path publishes only the status, never the
+        # fixture. Supabase secrets are stripped: validation is offline.
         run: |
           python3 pipelines/rebuild_comparison_chain.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          mkdir -p output
+          set +e
+          env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
+          rc=$?
+          set -e
+          cat output/post-rebuild-validate.log
+          if [ "$rc" -ne 0 ]; then
+            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
+            exit 1
+          fi
 
       - name: Sync rebuilt fixture into dist (chain succeeded)
         if: steps.chain.outcome == 'success'
