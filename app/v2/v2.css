@@ -208,6 +208,41 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-status[hidden] { display: none; }
 .v2-status.is-error { background: var(--v2-negative); }
 
+/* Trade targets (frames 03 / 04) */
+.v2-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; color: var(--v2-muted); cursor: pointer; }
+.v2-check input { width: 18px; height: 18px; accent-color: var(--v2-action); }
+.v2-seg button[aria-pressed] { min-height: 44px; }
+.v2-table .th-sub { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); margin-top: 2px; }
+.v2-ttable th { vertical-align: bottom; }
+.v2-table .missing .why, .v2-tcards .missing .why { display: block; font-size: 11px; font-weight: 400; }
+.v2-table td.best { font-size: 16px; }
+.v2-tcards { display: none; list-style: none; margin: 12px 0 0; padding: 0; }
+.v2-tcards li { border-top: 1px solid var(--v2-border); padding: 12px 0; cursor: pointer; }
+.v2-tcards .top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.v2-tcards .top b { display: block; font-size: 15px; }
+.v2-tcards .big { text-align: right; font-weight: 800; font-size: 18px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v2-tcards .big.up { color: var(--v2-action); }
+.v2-tcards .big.down { color: var(--v2-negative); }
+.v2-tcards .big .v2-meta { display: block; font-weight: 500; }
+.v2-tcards .vals { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
+.v2-tcards .vals > span { display: inline-flex; gap: 4px; align-items: baseline; }
+.v2-tcards .vals .ours { font-weight: 700; color: var(--v2-action); }
+.v2-tcards .gap { font-weight: 600; color: var(--v2-muted); }
+.v2-tcards .gap.up { color: var(--v2-action); }
+.v2-tcards .gap.down { color: var(--v2-negative); }
+.v2-tcards .missing { color: var(--v2-muted); display: inline-flex; gap: 4px; }
+.v2-tcards .missing .why { display: inline; }
+.v2-t-empty { margin-top: 12px !important; }
+@media (max-width: 767px) {
+  .v2-t-desktop { display: none; }
+  .v2-tcards { display: block; }
+  #v2Targets .v2-filters .v2-seg, #v2Targets .v2-filters .v2-field-rank, #v2Targets .v2-check { flex-basis: 100%; }
+  #v2Targets .v2-seg button { flex: 1; }
+  #v2Targets .v2-field-rank { min-width: 0; max-width: 100%; }
+  #v2Targets .v2-field-rank select { flex: 1 1 0; width: 0; min-width: 0; }
+  #v2Targets .v2-field select { width: 100%; min-width: 0; }
+}
+
 /* Mobile 390 (frame 02): 16px margins, stacked controls, full-screen settings. */
 @media (max-width: 767px) {
   .v2-wrap, .v2-nav-inner { padding: 0 16px; }
