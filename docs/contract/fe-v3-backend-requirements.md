@@ -104,6 +104,17 @@ The design excludes older-week sources from the first load.
   for trades.
 - **Contract v1:** compatible.
 
+## Status (2026-10-06, JEG-432)
+
+- **R5:** shipped in the FE adapter (`getSourceFreshness()`, contract
+  §17.2) and Supabase (`api.source_freshness`, §17.4). The chart's first
+  load leaves weekly charts older than the newest week on the board
+  switched off; they stay selectable.
+- **R1:** shipped in the FE adapter (`getPairRegistry()`, §17.3), derived
+  from the shipped snapshot. Extra reason code `adjustment_pending` for a
+  paused adjusted curve. No UI reads the reasons yet (the v2 method picker
+  is not built).
+
 ## Order of work
 
 1. R5, then R1, since the registry uses R5's stale flag and can ship

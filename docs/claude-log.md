@@ -2994,3 +2994,42 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Claimed, unverified
 - None for this item. Muse still needs to disable `trade-value-dashboard-push` on its side (message drafted
   for Jeremy to send).
+
+## 2026-10-06 ~21:45 CDT — Claude (cloud subagent): JEG-432 R5 freshness flag + R1 pair registry
+
+### Verified (check named)
+- Content calendar: product-data.js `contentWeekForDay` equals pipelines/nfl_week.py on all 200 days
+  2026-08-25..2027-03-12 (tests/test_source_freshness.py FRESH-CAL). Negative: a Thursday-flip start
+  date (the watchdog calendar) mismatches on 34 days and fails the test. Tue 2026-10-06 = week 5,
+  Mon 2026-10-05 = week 4.
+- SQL copy `public.nfl_content_week(date)` (migration jeg432_source_freshness, applied via MCP):
+  200-day output compared to nfl_week.py, identical. `api.source_freshness` queried under
+  `set local role anon`: fantasycalc 5/current, espn 5/current (dated by espn_snapshot_date),
+  cbs/cbsros/fantasypros/razzball/usatoday 4/older, current_content_week 5.
+- Shipped fixture (all weekly charts Week 4, ROS sources dated 2026-10-01..03): every series is
+  flagged `older` against content week 5, `first_load_excluded` is empty (reference week 4), so the
+  first load is unchanged. Negative: excluding by calendar week alone empties the first load (8
+  series) and fails FRESH-HONEST.
+- Mixed fixture (FantasyCalc raw+adjusted on Week 5, rest Week 4): USA Today, FantasyPros, CBS (raw and
+  adjusted) are excluded on first load; ESPN/CBS ROS/Razzball and the VORP vs waivers series never are.
+  Negatives: never-exclude and exclude-ROS-too mutations each fail FRESH-MIXED.
+- curve-widget default set + defaultGroupedSources guard take the exclusion; negative: a guard that
+  ignores it reports a throw on the mixed first load (FRESH-DEFAULTS).
+- Pair registry: 21 rows (7 sources x 3 methods), allowed pairs per the design, availability derived
+  from combos/players (dropping CBS's 12-team combos makes CBS `league_setting_unsupported`; a
+  mutation that skips that check fails REG-DERIVED). At 10 teams the four published charts are
+  `league_setting_unsupported` (saved for 12 only). Reason text passes the copy rules.
+- 12-combo headless sweep (3 scorings x 8/10/12/14, built dist/, TRADE_VALUE_TODAY=2026-10-06):
+  before (HEAD dist) and after identical: fixedPieIndexed true 12/12, sourceScaleAgreement false
+  12/12 (non-blocking, unchanged), curves 5 at 12 teams / 1 elsewhere, 0 page errors. Mixed-week
+  fixture: first load 2 curves (ESPN + FC Adjusted), banner names the three older-week curves,
+  fixedPieIndexed true 12/12; turning USAT Adjusted back on works and survives a teams change.
+- Pin change, justified: tests/test_adjusted_curve_pause.py pinned the literal signatures
+  `defaultIndexedSourceKeys(inputs)` / `defaultCurvesSatisfied(inputs, activeSet, userHiddenSet)`.
+  The signatures gained the exclusion argument on purpose; the behaviour pinned (init recomputes the
+  default set from the loaded inputs; the guard checks that same set) is unchanged.
+- `make validate` rc=0.
+
+### Claimed, unverified
+- No UI reads `getPairRegistry()` reason text yet; the v2 method picker is not built.
+- The toggle labels' own stale rule (GAP-CHART-STALE-LABEL-CALENDAR) was left as is.
