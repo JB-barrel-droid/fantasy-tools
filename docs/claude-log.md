@@ -3033,3 +3033,21 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 ### Claimed, unverified
 - No UI reads `getPairRegistry()` reason text yet; the v2 method picker is not built.
 - The toggle labels' own stale rule (GAP-CHART-STALE-LABEL-CALENDAR) was left as is.
+
+## 2026-10-06 ~22:10 CDT — Claude (cloud subagent): JEG-432 R4 prior-week inputs (Supabase views)
+
+### Verified (check named)
+- Migration `jeg432_r4_source_inputs_weekly` applied via MCP: `api.source_inputs_weekly` and
+  `api.source_input_weeks`. They depend on `public.nfl_content_week` from `jeg432_source_freshness`.
+  Dry-run before applying, over all weeks/scorings: 0 duplicate players per (source, week, scoring);
+  the latest pull is chosen (USA Today week 4 = usatwk4_2026-10-02_v1, not the 09-29 re-pull).
+- Read as anon (`set local role anon`): weeks 3 and 4 exist for cbs, fantasycalc, fantasypros,
+  usatoday; FantasyCalc also has 2 and 5.
+- Week 4 parity with the published fixture's native values (count / sum / max per scoring):
+  FantasyPros, USA Today, CBS identical on all three scorings (e.g. USA Today full 249 / 4184.0 / 77).
+  FantasyCalc: view 197 rows vs fixture 196 (sum differs by 175 on each scoring, max identical).
+  The view reads the 2026-10-05 re-pull; the fixture came from 2026-10-04.
+
+### Claimed, unverified
+- No FE code reads these views yet. The movers recompute needs R3, the browser translation that
+  another session is porting.

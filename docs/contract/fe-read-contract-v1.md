@@ -1112,3 +1112,20 @@ week (`latest_week`, `latest_content_date`, `latest_pulled_at`,
 `weeks_behind`). This describes saved inputs; the published chart's
 vintage is §17.2 and can lag it until the next bake. ESPN is dated by
 `espn_snapshot_date` (its `week` column is not a content week).
+
+### 17.5 `api.source_inputs_weekly` / `api.source_input_weeks` (R4, Supabase views)
+
+Migration `supabase/migrations/jeg432_r4_source_inputs_weekly.sql`. The
+saved 12-team / 1-QB published inputs per source × week × scoring
+(FantasyCalc, FantasyPros, USA Today, CBS), so the browser can run the
+same league derivation on the current week and the week before (movers).
+Grain: one row per (source, season, week, scoring, player_key), from the
+LATEST pull of that week. Fields: `week`, `weeks_back_from_latest`
+(0 = newest saved week for that source), `weeks_back_from_content_week`,
+`scoring` (full/half/standard), `teams` (12), `qb_slots` (1),
+`player_key`, `player_norm`, `position`, `team`, `native_value`,
+`value`, `source_content_date`, `pulled_at`, `bake_id`.
+`api.source_input_weeks` is the per-week metadata (player counts, pull,
+bake). The FE picks `week = <chart vintage week> - 1` for the prior week.
+Projection sources (ESPN, CBS ROS, Razzball) have no prior-week saves in
+this shape yet (GAP-R4-PROJECTION-HISTORY).

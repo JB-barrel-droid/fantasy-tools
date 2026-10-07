@@ -114,6 +114,11 @@ The design excludes older-week sources from the first load.
   from the shipped snapshot. Extra reason code `adjustment_pending` for a
   paused adjusted curve. No UI reads the reasons yet (the v2 method picker
   is not built).
+- **R4 (inputs only):** Supabase `api.source_inputs_weekly` +
+  `api.source_input_weeks` (§17.5) expose every saved week of 12-team
+  inputs for the four published charts (weeks 2–5 today). The browser
+  recompute of movers waits on R3. Projection sources have no prior-week
+  history yet.
 
 ## Order of work
 
