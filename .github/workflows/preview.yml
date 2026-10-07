@@ -38,9 +38,14 @@ jobs:
       - run: make sync
       - name: Check PR discrimination proof (JEG-139)
         if: github.event_name == 'pull_request'
+        # The PR body goes through an env var, never ${{ }} inside the script:
+        # interpolated, its backticks and $(...) ran as shell (script injection;
+        # 2026-10-07 a body with `code spans` failed this step with exit 2).
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
         run: |
           # Write PR body to temp file
-          echo "${{ github.event.pull_request.body }}" > /tmp/pr_body.md
+          printf '%s\n' "$PR_BODY" > /tmp/pr_body.md
 
           # Generate diff from changed files
           git diff HEAD~1 --no-color > /tmp/pr.diff
