@@ -262,3 +262,35 @@ Which allocation policy governs the Adj values view: (a) the proposed reference-
 Put the choice to Jeremy with the worked-example numbers in front of him: the squared premium is a real economic judgment (bench players are worth nearly nothing) dressed as algebra, and it retires the user-settable bench-share control for the Adj view. The honest comparison is Option 1 vs Option 2 on the same sample table (Gibbs 70.0 both; Josh Allen 11.89 vs 27.80; Mark Andrews 0.56 vs 6.09). Jeremy's call; nothing proceeds without his explicit tap.
 
 ### Outcome Note
+
+## jeg-434-001: USA Today CI ingest — relay strategy (Supabase relay primary, Firecrawl secondary)
+- id: jeg-434-001
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: ops
+- silence-default: proceed
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Use the Supabase Edge Function relay as primary fallback (SUPABASE_URL + SUPABASE_SERVICE_KEY already CI secrets); Firecrawl only when FIRECRAWL_API_KEY is set.
+
+### Context
+
+PR #382 adds `fetch_via_relay` (calls `usatoday-fetch` Edge Function on project iskiybsimubiujwuchsl) and `fetch_via_firecrawl` (paid API, inert without FIRECRAWL_API_KEY) to `ops/watchdog/pull_usatoday.py`. Both are fallbacks on BLOCK_STATUSES (401/402/403/429). Jeremy stated on 2026-10-07: "merge PR #382, Supabase edge-function relay first, Firecrawl as second fallback only when FIRECRAWL_API_KEY is set" (JEG-434 decision entry).
+
+### Problem
+
+usatoday.com returns HTTP 402 to GitHub-hosted runner IPs (bot wall). The ingest records SOURCE_BLOCKED every CI run; no USA Today week-5+ data will land without a workaround. Two workarounds were proposed: (a) Supabase relay using existing CI secrets, verified to work via pg_net; (b) Firecrawl paid scrape API.
+
+### Options
+
+1. **Relay only.** Add relay; no Firecrawl code. Simpler; fails if Supabase starts walling usatoday.com too.
+2. **Relay primary, Firecrawl secondary (if key set).** Add both; Firecrawl remains inert until FIRECRAWL_API_KEY is added as a secret. Defense in depth; code path is untested in CI.
+3. **Firecrawl only.** Requires paid key; no redundancy with existing infrastructure.
+
+### Recommendation
+
+Option 2. Relay is live and verified (CI dry run 37614204115). Firecrawl code is inert without the secret so it adds no risk; it can be activated by adding a secret later without a code change.
+
+### Outcome Note
+
+Jeremy authorized on 2026-10-07 (JEG-434): "merge PR #382, Supabase edge-function relay first, Firecrawl as second fallback only when FIRECRAWL_API_KEY is set." Implemented in the PR branch; merge commit 9e44e3e. `make validate` exit 0.

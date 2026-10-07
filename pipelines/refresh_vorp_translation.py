@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Weekly refresh of the VORP translation tables (JEG-70).
 
-Runs the unified VORP translation module (JEG-62) for all 21 as-published
+Runs the unified VORP translation module (JEG-62) for all 12-team as-published
 grains and writes the results to Supabase, then runs a freshness checkpoint.
 
-Grains (21):
-  usatoday, fantasypros, cbs : 12-team x {standard, half_ppr, ppr}      (9)
-  fantasycalc                : {8,10,12,14}-team x {standard, half_ppr, ppr} (12)
+Grains (12):
+  usatoday, fantasypros, cbs, fantasycalc : 12-team x {standard, half_ppr, ppr}
 
-FantasyCalc qb2 8/10/14 combos are intentionally NOT written: the JEG-62 grain
+FantasyCalc 8/10/14-team grains were retired from the fixture by
+league-settings-001; translate_source raises SystemExit for them (not caught
+by the per-grain `except Exception`), so they must not be listed here.
+FantasyCalc qb2 combos are intentionally NOT written: the JEG-62 grain
 has no qb dimension and qb2 natives diverge materially, so those combos stay
 pinned to reindex-fallback by the data-driven guard in translate_via_vorp.py.
 Do not serve the qb1 grain to qb2 combos.
@@ -35,8 +37,7 @@ from nfl_week import current_nfl_week
 from unified import translate_source, TBL_TRANSLATED
 
 GRAINS: list[tuple[str, int]] = (
-    [("usatoday", 12), ("fantasypros", 12), ("cbs", 12)]
-    + [("fantasycalc", t) for t in (8, 10, 12, 14)]
+    [("usatoday", 12), ("fantasypros", 12), ("cbs", 12), ("fantasycalc", 12)]
 )
 SCORINGS = ("standard", "half_ppr", "ppr")
 SEASON = 2026
@@ -88,7 +89,7 @@ def freshness_checkpoint(week: int) -> None:
             "VORP translation freshness checkpoint FAILED:\n  "
             + "\n  ".join(problems)
         )
-    print(f"Freshness checkpoint OK: all 21 grains at week {week}.")
+    print(f"Freshness checkpoint OK: all {len(GRAINS) * len(SCORINGS)} grains at week {week}.")
 
 
 def main() -> int:
