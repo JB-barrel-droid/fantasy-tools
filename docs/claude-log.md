@@ -1,5 +1,82 @@
 # Claude session log
 
+## 2026-10-07 - JEG-436: unblock the rebuild chain (FantasyCalc week-5 hold)
+
+Contract: the 13:33Z chain held FantasyCalc (combos_match: unknown
+`full_12_qb2`; coverage WR 76 < 78 and TE 26 < 28 "no dropped players
+identified"), so nothing was published. Jeremy: "Rerun any data you need.
+Tighten or loosen whichever gates you need."
+
+### Verified (check named)
+- qb2 origin: `build_comparison_source_section.py` split every `qb=None`
+  reference row into qb1 AND qb2 whenever the fixture section had any `_qbN`
+  combo. The importer's `normalize_db_row` never carries `qb_slots`, so every
+  FantasyCalc row is `qb=None`, and #361 left only `*_12_qb1` in the fixture.
+  Fix: split only into the variants the fixture holds for that (scoring, teams),
+  qb1 alone when it holds none. tests/test_qb_slot_scoping.py
+  `test_qb1_only_fixture_emits_no_qb2` and `test_base_absent_from_fixture_falls_back_to_qb1`
+  FAIL on origin/main's builder and pass now.
+- Who dropped: compared the bake (Supabase MCP, `bake_id='fcwk5_2026-10-06_v1'`,
+  195 rows per scoring; aggregates sum(native_value) 353822 / 351937 / 350973
+  matched the local copy) with fixture `fantasycalc/full_12_qb1` by player_key.
+  Left the list: Pat Freiermuth (TE, native 26), Terrance Ferguson (TE, 57),
+  Kayshon Boutte (WR, 20), Jonathon Brooks (RB, 32), Kaleb Johnson (RB, 19),
+  Marcus Mariota (QB, 51), Tyson Bagent (QB, 3). Joined: Mike Gesicki (TE),
+  Keon Coleman (WR), Raheim Sanders, Isaiah Davis (RB), Aaron Rodgers, Jalon
+  Daniels (QB). Every one is absent from / present in the bake by player_key,
+  and the bake's positions equal players.json for all 195: genuine publisher
+  churn, not identity matching. All seven were tail players (reindexed 0.0).
+- Why the reviewer said "no dropped players": (1) its baseline was the
+  fixture's recorded `index_total.n_priced` (WR 78 / TE 28 / QB 32 / RB 59),
+  which disagrees with the fixture's own priced set (76 / 27 / 33 / 60);
+  (2) its dropped list kept only fixture players with a truthy REINDEXED value,
+  and since JEG332-STORED-DRIFT tail players are stored at 0.0. So WR was a
+  phantom drop (76 -> 76) and TE was 27 -> 26 with both names filtered out.
+- Review rule (review_comparison_candidate.py): set-based coverage (a player is
+  priced when the combo has a reindexed entry, 0.0 included); every coverage
+  check names dropped and added players; a stale recorded count is a
+  `coverage_baseline` warn. A drop that the live check cannot confirm is a
+  `warn` (verdict stays ready) only when it is named, <= max(3, 5%) players and
+  net, every dropped player was tail-of-list (fixture native < 10% of the
+  position top), none is still in the candidate's natives, and none is in the
+  candidate's review rows. A live check that finds a dropped player still
+  priced stays a fail. tests/test_review_coverage_churn.py (12 tests, in
+  test-unit): the tolerated and stale-baseline cases fail on origin/main's
+  reviewer; a mutation script removing each condition in turn (net cap, gross
+  cap, tail, still-listed, review rows, unnamed, live contradiction, truthy
+  baseline, recorded baseline) is caught 9/9.
+- Week label: `promote_comparison_section.py` kept the fixture's old
+  `week_designated`, which the chart reads before content_vintage
+  (product-data.js `sourceVintage`, curve-widget.js `weekForSource`). In the
+  scratch run FantasyCalc promoted as `content_vintage: "Week 5"` beside
+  `week_designated: "Week 4"`. Promote now sets the label from the candidate's
+  provenance week. tests/test_promote_section.py
+  `test_week_label_travels_with_promoted_values` fails on origin/main.
+- End to end (scratch copy of the repo, not the worktree): importer on the
+  bake -> match -> reference -> section -> reindex -> translate -> review ->
+  promote. 3 sections, combos `full/half/standard_12_qb1` only, all three
+  reviews `ready`, 3/3 promoted, `week_designated` and `content_vintage`
+  "Week 5"; then fit + adjusted sections ran (fantasycalc_adjusted "Week 5").
+  The only stub: the top-25 native-drift live check (proxy blocks
+  api.fantasycalc.com; the 13:33Z CI run did not list native_drift as failing).
+  The coverage live check was NOT stubbed: it failed on the proxy 403 and the
+  tail-churn rule decided (TE warn naming Freiermuth and Ferguson).
+- `make validate` exit 0 (CHROMIUM_PATH set), new test in the log.
+
+### Claimed, not confirmed
+- In CI the coverage live check should now receive the two names and pass
+  outright; not observed (no CI run of this branch's chain yet).
+- Partial publish (publish passing sources while one is held) was NOT built.
+  Reasons: the workflow guard tests/test_rebuild_chain_workflow.py pins JEG-8's
+  "a failed chain never pushes the fixture"; a held source can be half-promoted
+  (earlier sections merged, whole-section vintage restamped:
+  GAP-PROMOTE-MIXED-VINTAGE) and would need restoring; the fit and _adjusted
+  sections are skipped on any failure; and FantasyCalc/FantasyPros reindex
+  against the fixture's ESPN leg before ESPN is rebuilt in the same run, so
+  which sections are coherent with which anchor depends on order. See
+  GAP-CHAIN-PARTIAL-PUBLISH.
+- Not done: other sources' recorded `n_priced` may also be stale; the reviewer
+  no longer depends on them.
 ## 2026-10-07 - JEG-432 R2: feasible bench bounds (rule `feasible-bench/1`)
 
 Contract: the design's bench stepper and bench-share slider need bounds for any
