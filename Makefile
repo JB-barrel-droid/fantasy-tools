@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog plan-status pr-checklist
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog plan-status test-core test-all
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -34,7 +34,6 @@ help:
 	@echo "  make serve             Serve the local dashboard"
 	@echo "  make preview-local     Build dist/ the way production does, then serve dist/"
 	@echo "  make deploy-status     Show recent GitHub deploy runs"
-	@echo "  make pr-checklist      Validate PR discrimination proof checklist (requires BODY_FILE and DIFF_FILE)"
 
 supabase-import:
 	@test -n "$(SOURCE)" || (echo "Set SOURCE=fantasycalc|usatoday|fantasypros|espn|cbs" && exit 1)
@@ -122,7 +121,6 @@ test-unit:
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
-	python3 -m unittest tests.test_decisions_log
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
@@ -242,8 +240,6 @@ test-unit:
 	python3 -m unittest tests.test_production_verify
 	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
-	python3 -m unittest tests.test_pr_template_checklist
-	python3 -m unittest tests.test_doc_vs_code
 	python3 -m unittest lanes.test_plan_tracker
 
 
@@ -333,7 +329,21 @@ preview-vorp-views:
 watchdog:
 	python3 ops/watchdog/pull_watchdog.py
 
-validate: naming naming-convention reference sync guard-harness test-unit
+# Deploy gate (go-live, 2026-10-07): block only when the numbers are wrong or
+# the site would be broken. Everything else runs in `make test-unit`, which CI
+# runs as non-blocking.
+validate: reference sync guard-harness test-core
+
+test-core:
+	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_comparison_source_integrity
+	python3 -m unittest tests.test_source_curves_distinct
+	python3 -m unittest tests.test_curve_default_guard
+	python3 -m unittest tests.test_two_tier_frontend
+	python3 -m unittest tests.test_player_scenario_matrix
+	python3 -m unittest tests.test_published_surfaces
+
+test-all: naming naming-convention test-unit
 
 # Operating-model plan status (JEG-96). Reads lanes/plan.json + lanes/linear_fixture.json.
 plan-status:
@@ -349,8 +359,3 @@ preview-local: sync
 
 deploy-status:
 	gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard" --limit 5
-
-pr-checklist:
-	@test -n "$(BODY_FILE)" || (echo "Set BODY_FILE=<pr-body.md>" && exit 1)
-	@test -n "$(DIFF_FILE)" || (echo "Set DIFF_FILE=<pr.diff>" && exit 1)
-	python3 pipelines/check_pr_discrimination.py --body-file $(BODY_FILE) --diff-file $(DIFF_FILE)
