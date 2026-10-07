@@ -1,0 +1,104 @@
+name: Razzball ROS scrape to Supabase
+
+# Replaces Muse's razzball-projections-pull (daily 06:20 CT; disabled
+# 2026-10-06, ops-ownership-001). Closes GAP-024 / GAP-030: no CI puller
+# refreshed Razzball, so public.razzball_projections (a dashboard source the
+# import-health gate grades fresh <= 2d, bad > 6d) aged silently.
+#
+#   pipelines/pull_razzball_ros.py   -> /tmp/razzball/snapshot.json (fail closed)
+#   pipelines/save_razzball_references.py -> public.razzball_projections
+#     (grain player_key + razzball_snapshot_date: each day is a new vintage,
+#      earlier vintages are never touched)
+#
+# Scheduler owner: Supabase pg_cron `razzball-sync-live` (daily 11:20 UTC),
+# supabase/migrations/razzball_sync_pg_cron.sql, dispatching mode=write.
+# No `schedule:` here.
+#
+#   push to razzball/dry-*   -> --dry-run
+#   push to razzball/write-* -> write
+#   workflow_dispatch        -> dry unless mode=write
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+  push:
+    branches: ["razzball/dry-*", "razzball/write-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: razzball-supabase-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode
+        id: cfg
+        run: |
+          mode=dry
+          case "${GITHUB_REF_NAME}" in razzball/write-*) mode=write;; esac
+          [ "${{ github.event.inputs.mode }}" = "write" ] && mode=write
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "::notice title=razzball::mode=$mode"
+
+      - name: Scrape and save
+        id: sync
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          # Outcome surfaced as check-run annotations (Actions logs are not
+          # downloadable through every proxy).
+          vintage=$(TZ=America/Chicago date +%F)
+          flag=""
+          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || flag="--dry-run"
+          rc=0
+          {
+            python3 pipelines/pull_razzball_ros.py --date "$vintage" --out-dir /tmp/razzball &&
+            python3 pipelines/save_razzball_references.py --snapshot /tmp/razzball/snapshot.json $flag
+          } > /tmp/razzball.log 2>&1 || rc=$?
+          cat /tmp/razzball.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tail -8 /tmp/razzball.log | cut -c1-900 | sed "s/^/::$level title=razzball rc=$rc::/"
+          code=SYNC_FAILED
+          grep -q "RAZZBALL PULL FAILED" /tmp/razzball.log && code=PULL_FAILED
+          echo "error_code=$code" >> $GITHUB_OUTPUT
+          exit $rc
+
+      - name: Record the monitored check
+        if: always() && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OK: ${{ steps.sync.outcome == 'success' }}
+          ERROR_CODE: ${{ steps.sync.outputs.error_code }}
+        run: |
+          python3 - <<'PY'
+          import os, sbclient
+          ok = os.environ["OK"] == "true"
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "razzball_projections_sync",
+              "p_ok": ok, "p_content_ok": ok,
+              "p_error_code": None if ok else (os.environ.get("ERROR_CODE") or "SYNC_FAILED"),
+              "p_scheduler_owner_id": "razzball-supabase-sync.yml",
+          })
+          print("recorded ok=%s" % ok)
+          PY
