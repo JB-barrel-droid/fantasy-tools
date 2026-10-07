@@ -65,11 +65,12 @@ for (const [tableScore, curveScore] of [['standard','standard'],['half','half_pp
         assert.equal(key, comboKey(source));
         assert.ok(key.startsWith(tableScore + '_' + n));
         // league-settings-001 (2026-10-06): every published source, FantasyCalc
-        // included, saves only the 12-team setup; other sizes are derived in the
-        // browser, so no saved block exists for them.
-        const expected = n === 12;
-        assert.equal(sourceComboExists(source), expected, source + ':' + key);
-        assert.equal(selectedCombo(source) !== null, expected);
+        // included, saves only the 12-team setup, so no saved block exists for
+        // other sizes (selectedCombo never borrows one) ...
+        assert.equal(selectedCombo(source) !== null, n === 12);
+        // ... and since JEG-332 step 3 the browser derives every other size from
+        // that saved setup, so the source is available at every size.
+        assert.equal(sourceComboExists(source), true, source + ':' + key);
       }
     }
   }
@@ -77,13 +78,28 @@ for (const [tableScore, curveScore] of [['standard','standard'],['half','half_pp
 """)
 
     def test_no_stale_combo_or_value_can_leak_into_missing_league(self):
+        # JEG-332 step 3: a 10-team league is no longer "missing" -- it is
+        # derived from the saved 12-team setup. The league that IS missing is a
+        # scoring with no saved 12-team setup to derive from; nothing may leak
+        # into it, and no other size's block may be borrowed.
         self.run_node("""
 state.teams = 10;
 for (const source of ['usatoday','fantasypros','cbs','usatoday_adjusted','fantasypros_adjusted','cbs_adjusted']) {
   state.combos[source] = 'full_12';
   sourceMaps.set(source, new Map([[869, 123]]));
   assert.equal(selectedCombo(source), null);
-  assert.equal(sourceValue(source, 869), null);
+  assert.equal(sourceComboExists(source), true);
+}
+for (const source of ['usatoday','fantasypros','cbs','usatoday_adjusted','fantasypros_adjusted']) {
+  delete data.sources[source].combos.full_12;
+}
+for (const n of [10, 12]) {
+  state.teams = n;
+  for (const source of ['usatoday','fantasypros','cbs','usatoday_adjusted','fantasypros_adjusted','cbs_adjusted']) {
+    assert.equal(selectedCombo(source), null);
+    assert.equal(sourceComboExists(source), false, source + ' at ' + n);
+    assert.equal(sourceValue(source, 869), null);
+  }
 }
 """)
 
@@ -126,8 +142,9 @@ for (const n of [12,10,14,12]) {
   state.teams = n;
   runRegressionGuards();
   assert.equal(window.TradeValueComparisonDiagnostics.teams, n);
-  // No published source has a saved non-12-team setup since league-settings-001.
-  assert.equal(window.TradeValueComparisonDiagnostics.availableSourceCount, n === 12 ? 8 : 0);
+  // No published source has a saved non-12-team setup since league-settings-001,
+  // but since JEG-332 step 3 every size is derived from the saved 12-team one.
+  assert.equal(window.TradeValueComparisonDiagnostics.availableSourceCount, 8);
   assert.equal(window.TradeValueComparisonDiagnostics.rolloverAware, true);
 }
 """)

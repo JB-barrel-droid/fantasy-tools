@@ -181,7 +181,6 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
                            flex_count not in (None, REF_FLEX_COUNT)):
         raise SystemExit("custom roster settings cannot overwrite default-grain VORP rows")
     ranked, key_by_name = load_native_values(source, scoring, teams)
-    roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked)
 
     result = {
         'source': source,
@@ -210,6 +209,43 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
             ranked_keyed.append((pkey, name, val))
         result['ranked'][pos] = ranked_keyed
 
+    core = translate_ranked(result['ranked'], teams, bench_per_team, flex_count)
+    result['positions'] = core['positions']
+    result['translated'] = core['translated']
+
+    if write_supabase:
+        _write_to_supabase(result)
+
+    return result
+
+
+def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0,
+                     flex_count: Optional[int] = None,
+                     slots: Optional[dict] = None,
+                     flex_eligible: Optional[list] = None) -> dict:
+    """Pure core of translate_source: no fixture, no naming table, no I/O.
+
+    ranked_keyed: {pos: [(player_key, name, native), ...]} sorted descending.
+    Returns {'positions': {...}, 'translated': {...}} exactly as
+    translate_source reports them.
+
+    JEG-332: this is the reference the browser port
+    (app/trade-value-chart/assets/value-model.js translatePublishedVorp) is
+    held to by tests/test_vorp_translation_js_parity.py. slots/flex_eligible
+    default to the server's standard roster, so translate_source output is
+    unchanged; the browser passes the chart's roster steppers.
+    """
+    ranked = {pos: [(pkey, val) for pkey, _name, val in rows]
+              for pos, rows in ranked_keyed.items()}
+    roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked,
+                                slots=slots, flex_eligible=flex_eligible)
+    result = {'positions': {}, 'translated': {}}
+
+    for pos in POSITIONS:
+        ranked_rows = ranked_keyed.get(pos, [])
+        if not ranked_rows:
+            continue
+        players = [(name, val) for _pkey, name, val in ranked_rows]
         r = roster[pos]
         n_rostered = r['rostered']
 
@@ -226,7 +262,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
 
         # VORP per player
         vorp_list = [(pkey, name, val, max(0.0, val - waiver_val))
-                     for pkey, name, val in ranked_keyed]
+                     for pkey, name, val in ranked_rows]
         max_vorp = max((v for _, _, _, v in vorp_list), default=0.0)
         total_vorp = sum(v for _, _, _, v in vorp_list)
 
@@ -259,10 +295,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
     for pos in result['positions']:
         w = result['positions'][pos]['total_vorp'] / total if total > 0 else 0
         result['positions'][pos]['implied_weight'] = round(w, 4)
-    
-    if write_supabase:
-        _write_to_supabase(result)
-    
+
     return result
 
 
