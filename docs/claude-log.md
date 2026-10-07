@@ -3198,3 +3198,15 @@ failure, the CBS re-write behaviour, and added the pg_cron schedule and a test.
   missing 12-team base is league_setting_unsupported. Pin changed in tests/test_source_freshness.py
   because its premise ("until the browser engine ships") no longer holds; negative-tested (disabling the
   fallback fails test_unsaved_team_count_is_derived_from_the_12_team_base). `make validate` rc=0.
+
+## 2026-10-07 ~04:45 CDT — Claude (cloud session): preview.yml script injection fixed
+
+### Verified (check named)
+- PR #379's preview failed at "Check PR discrimination proof": the step ran
+  `echo "${{ github.event.pull_request.body }}"`, so the shell evaluated backticks/$(...) in the PR body
+  (exit 2 on a body with code spans). That is also a script-injection path from any PR description.
+  Now passed via `env: PR_BODY` + printf. tests/test_workflow_no_event_interpolation.py scans every
+  workflow's run blocks for interpolated event text (body/title/head ref/comments/commit messages); it
+  flags the pre-fix preview.yml (line 43) and passes on the env form. Added to test-unit.
+- The #379 body's checklist used "1. **Guard ID:**" which the checker regex doesn't accept; reformatted to
+  "### 1. Guard ID" headings (local checker: PASS).

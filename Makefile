@@ -140,6 +140,7 @@ test-unit:
 	python3 -m unittest tests.test_checkpoints_health_freshest
 	python3 -m unittest tests.test_checkpoint_c2_collection
 	python3 -m unittest tests.test_health_artifacts_publish
+	python3 -m unittest tests.test_workflow_no_event_interpolation
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
