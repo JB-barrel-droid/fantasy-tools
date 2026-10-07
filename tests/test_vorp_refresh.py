@@ -1,8 +1,9 @@
-"""JEG-70: the weekly VORP translation refresh covers all 21 grains and the
+"""JEG-70: the weekly VORP translation refresh covers all 12 grains and the
 freshness checkpoint fails closed on missing/stale grains.
 
-The 21 grains are: usatoday/fantasypros/cbs x 12-team x {standard, half_ppr,
-ppr} (9) + fantasycalc x {8,10,12,14}-team x {standard, half_ppr, ppr} (12).
+The 12 grains are: usatoday/fantasypros/cbs/fantasycalc x 12-team x
+{standard, half_ppr, ppr}. FantasyCalc 8/10/14-team grains are retired
+(league-settings-001; translate_source raises SystemExit for them).
 FantasyCalc qb2 combos are intentionally excluded (no qb grain dimension;
 qb2 natives diverge -- they stay on reindex-fallback per the JEG-64 guard).
 """
@@ -18,19 +19,26 @@ import refresh_vorp_translation as refresh
 
 
 class RefreshGrainsTest(unittest.TestCase):
-    def test_grain_enumeration_is_21(self):
+    def test_grain_enumeration_is_12(self):
         grains = refresh.GRAINS
-        self.assertEqual(len(grains), 7)  # (source, teams) pairs
+        self.assertEqual(len(grains), 4)  # (source, teams) pairs
         combos = [(s, t, sc) for s, t in grains for sc in refresh.SCORINGS]
-        self.assertEqual(len(combos), 21)
-        # 12-team only for the three 12t sources; 8/10/12/14 for fantasycalc
+        self.assertEqual(len(combos), 12)
         for source, teams in grains:
-            if source in ("usatoday", "fantasypros", "cbs"):
-                self.assertEqual(teams, 12, source)
-            elif source == "fantasycalc":
-                self.assertIn(teams, (8, 10, 12, 14))
-            else:
-                self.fail(f"unexpected source {source}")
+            self.assertIn(source, ("usatoday", "fantasypros", "cbs", "fantasycalc"))
+            self.assertEqual(teams, 12, source)
+
+    def test_every_grain_is_translatable(self):
+        """The retired 8/10/14-team FantasyCalc grains made translate_source
+        raise SystemExit (not an Exception), aborting the whole refresh. Every
+        listed grain must resolve to a fixture combo."""
+        import json
+        sys.path.insert(0, str(ROOT / "pipelines" / "vorp_translation"))
+        from unified import resolve_combo_key
+        fx = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text())
+        for source, teams in refresh.GRAINS:
+            for scoring in refresh.SCORINGS:
+                resolve_combo_key(fx["sources"][source], scoring, teams)  # SystemExit if retired
 
     def test_no_qb2_grains(self):
         # The refresh must never write a qb2 grain (no qb dimension in the
