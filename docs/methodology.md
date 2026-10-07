@@ -3,6 +3,12 @@
 This file is the required methodology entrypoint. It summarizes the stable
 contract and points to the detailed rules that own each section.
 
+## Why
+
+`docs/manifesto.md` states the project's reasoning: player value splits into
+market, fundamental (value above waivers, usable production) and portfolio
+value, and decisions come from the gaps between them. Judge features against it.
+
 ## Trade-Value Contract
 
 The dashboard compares source values on a common, ESPN-anchored fixed-pie scale.
