@@ -83,6 +83,7 @@ jobs:
           cat /tmp/razzball.log
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/razzball.log | cut -c1-900 | sed "s/^/::$level title=razzball rc=$rc::/"
+          grep -h -m2 -E "^razzball vintage|^razzball [0-9]{4}-" /tmp/razzball.log | cut -c1-600 | sed "s/^/::notice title=razzball pull::/" || true
           # Named codes from the puller: SOURCE_BLOCKED (bot wall / non-200),
           # SOURCE_LAYOUT, SOURCE_TRUNCATED, PPG_GATE; SYNC_FAILED = the saver.
           code=SYNC_FAILED
