@@ -38,6 +38,9 @@
      "records": [{"check_id": "sleeper_identity_refresh", "file": ".github/workflows/sleeper-identity-refresh.yml", "contains": "--check-id sleeper_identity_refresh --owner sleeper-identity-refresh.yml"}]},
     {"workflow": "razzball-supabase-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "razzball-sync-live",
      "records": [{"check_id": "razzball_projections_sync", "file": ".github/workflows/razzball-supabase-sync.yml", "contains": "\"p_check_id\": \"razzball_projections_sync\""}]}
+,
+    {"workflow": "player-identity-reconcile.yml", "scheduler": "pg_cron", "pg_cron_job": "player-identity-reconcile-nightly",
+     "records": [{"check_id": "player_identity_reconcile", "file": ".github/workflows/player-identity-reconcile.yml", "contains": "\"p_check_id\": \"player_identity_reconcile\""}]}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "jeg379-health-checks-15min", "check_id": "pgcron_ops_health_checks"},

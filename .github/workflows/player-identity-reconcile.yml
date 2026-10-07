@@ -68,6 +68,8 @@ jobs:
           echo "content_ok=$ok" >> $GITHUB_OUTPUT
           python3 -c "import json;s=json.load(open('/tmp/identity_reconcile.json'));print('::notice title=identity-open::'+json.dumps({k:sum(v.get(x,0) for x in ('provisional','unmatched','review')) for k,v in s['open_counts'].items()}))"
           python3 -c "import json;s=json.load(open('/tmp/identity_reconcile.json'));[print('::warning title=identity-alert::'+m) for m in s['alerts']]"
+          python3 -c "import json;s=json.load(open('/tmp/identity_reconcile.json'));print('::notice title=identity-actions::'+json.dumps({'actions':s['actions'],'universe_xref_adds':s['universe_xref_adds'],'applied':s['applied']}))"
+          python3 -c "import json;s=json.load(open('/tmp/identity_reconcile.json'));print('::notice title=identity-rows::'+'; '.join(r['source']+':'+r['name']+'->'+r['action']+':'+str(r.get('player_key')) for r in s['action_rows'])[:900])"
 
       - name: Export registry snapshot
         env:
