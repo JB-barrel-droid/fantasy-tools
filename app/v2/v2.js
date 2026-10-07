@@ -133,6 +133,14 @@
     }
   }
 
+  // GAP-043: the same per-source freshness wording the main page uses.
+  function freshnessText(item) {
+    const pd = window.TradeValueProductData;
+    const row = pd?.getSourceFreshness?.()?.series?.[item.key];
+    if (row && pd.freshnessLabel) return pd.freshnessLabel(row).text;
+    return item.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "content week unknown";
+  }
+
   function sourceLabelFor(key) {
     const meta = sourceMeta(key);
     const item = view.infoByKey[key];
@@ -701,7 +709,7 @@
           reason.className = `reason${item.stale ? " is-older" : ""}`;
           reason.textContent = !item.available
             ? (item.paused ? "— waiting on fresh inputs" : "— not available for this league")
-            : item.week ? `Week ${item.week}${item.stale ? " · older" : ""}` : "current";
+            : freshnessText(item);
           label.append(box, name, reason);
           group.appendChild(label);
         });
@@ -819,7 +827,7 @@
         line.append(document.createTextNode(` ${PUBLISHER_NAMES[m.publisher] || m.label} · ${METHOD_LABEL[m.method]}`));
         const reason = document.createElement("span");
         reason.className = `reason${item.stale ? " is-older" : ""}`;
-        reason.textContent = item.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "rest of season · daily";
+        reason.textContent = freshnessText(item);
         line.appendChild(reason);
         group.appendChild(line);
       });

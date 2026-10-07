@@ -100,46 +100,36 @@
   };
   const formatValue = value => value === null ? "—" : Number(value).toFixed(1);
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
+  // GAP-043 / GAP-CHART-STALE-LABEL-CALENDAR: week labels and stale flags
+  // read the one freshness record (product-data getSourceFreshness():
+  // week_designated, then content_vintage, on the Tuesday-flip content
+  // calendar). No global-week fallback: a series nothing dates gets no week.
+  function sourceFreshness() {
+    try {
+      return window.TradeValueProductData?.getSourceFreshness?.() || null;
+    } catch (error) {
+      return null;
+    }
+  }
+  const freshnessRow = key => sourceFreshness()?.series?.[key] || null;
+  function freshnessText(key) {
+    const label = window.TradeValueProductData?.freshnessLabel;
+    return label ? label(freshnessRow(key)).text : "content week unknown";
+  }
+
   function weekForSource(key) {
     if (!WEEKED_SOURCE_KEYS.has(key)) return null;
-    const source = data?.sources?.[key] || (key === "cbs_adjusted" ? data?.sources?.cbs : null) || {};
-    const fitWeek = String(source.fit_bake_id || "").match(/fitwk(\d+)/i);
-    if (fitWeek) return Number(fitWeek[1]);
-    // JEG-293: the pipeline no longer emits fitwk bake ids, so read the source's
-    // own week designation ("Week 4") before falling back to the global active
-    // week. "rest of season" sources carry no week and keep the old behavior.
-    const designated = String(source.week_designated || "").match(/week\s*(\d+)/i);
-    if (designated) return Number(designated[1]);
-    return Number(data?.value_weeks?.monday) || null;
-  }
-
-  function rolloverDate() {
-    const built = new Date(data?.built_at || "");
-    if (Number.isNaN(built.getTime())) return null;
-    const next = new Date(Date.UTC(built.getUTCFullYear(), built.getUTCMonth(), built.getUTCDate()));
-    const daysUntilMonday = (8 - next.getUTCDay()) % 7 || 7;
-    next.setUTCDate(next.getUTCDate() + daysUntilMonday);
-    return next;
-  }
-
-  function todayDate() {
-    const override = window.TRADE_VALUE_TODAY;
-    const raw = override ? new Date(`${String(override).slice(0, 10)}T00:00:00Z`) : new Date();
-    return Number.isNaN(raw.getTime()) ? new Date() : raw;
+    const week = freshnessRow(key)?.vintage_week;
+    return Number.isFinite(week) ? week : null;
   }
 
   function activeReferenceWeek() {
-    const base = Number(data?.value_weeks?.monday);
-    if (!Number.isFinite(base)) return null;
-    const rollover = rolloverDate();
-    if (!rollover) return base;
-    return todayDate() >= rollover ? base + 1 : base;
+    return sourceFreshness()?.current_content_week || null;
   }
 
+  // Current unless the freshness record says the source is an older week.
   function isWeekCurrent(key) {
-    const week = weekForSource(key);
-    const activeWeek = activeReferenceWeek();
-    return !week || !activeWeek || week >= activeWeek;
+    return freshnessRow(key)?.status !== "older";
   }
 
   function sourceLabel(key) {
@@ -832,30 +822,22 @@
     return sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null;
   }
 
+  // Content week from the freshness record; adjusted series add their fit date.
   function sourceDate(key) {
-    const vorpSource = PURE_VORP_KEYS.includes(key) ? VORP_SOURCE_DEFS[key].validationKey : null;
-    // JEG-363: per-source metadata via api.product_snapshot.sources.
-    const snap = (typeof window !== "undefined" && window.TradeValueProductData)
-      ? window.TradeValueProductData.getSnapshot()
-      : null;
+    const text = freshnessText(key);
+    if (!key.endsWith("_adjusted")) return text;
+    const snap = window.TradeValueProductData?.getSnapshot?.() || null;
     const sources = (snap && snap.sources) || {};
-    const source = sources[key] || (key === "cbs_adjusted" ? sources.cbs : vorpSource ? sources[vorpSource] : {}) || {};
-    if (key.endsWith("_adjusted")) {
-      const match = String(source.fit_bake_id || "").match(/(\d{4}-\d{2}-\d{2})/);
-      return match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}T00:00:00Z`))}` : "fit date unavailable";
-    }
-    const raw = source.published || source.espn_snapshot || source.fetched_at || source.vintage;
-    if (!raw) return "date unavailable";
-    const date = new Date(String(raw).slice(0, 10) + "T00:00:00Z");
-    return Number.isNaN(date.getTime()) ? "date unavailable" : `content ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(date)}`;
+    const source = sources[key] || (key === "cbs_adjusted" ? sources.cbs : null) || {};
+    const match = String(source.fit_bake_id || "").match(/(\d{4})-?(\d{2})-?(\d{2})/);
+    const fit = match ? `fit ${new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(new Date(`${match[1]}-${match[2]}-${match[3]}T00:00:00Z`))}` : "fit date unavailable";
+    return `${text} · ${fit}`;
   }
 
   function sourceMeta(key) {
     const coverage = sourceMaps.get(key)?.size || 0;
     if (!sourceComboExists(key)) return `Not available for ${scoreLabel(state.scoring)} · ${state.teams} teams`;
-    const stale = sourceIsStale(key) ? ` · stale, waiting Week ${activeReferenceWeek()}` : "";
     const basis = key.startsWith("fantasycalc") ? " · 1 QB" : "";
-    if (sourceIsStale(key)) return `${coverage}/${universeSize} · ${sourceDate(key)}${basis}${stale}`;
     return `${coverage}/${universeSize} · ${sourceDate(key)}${basis}`;
   }
 
@@ -1196,14 +1178,13 @@
 
   function renderDataNotes() {
     if ($("#freshness")) {
+      // GAP-043: name each source on an older content week, with its own
+      // week, against the reader's current content week.
       const staleKeys = renderKeys.filter(sourceIsStale);
-      const staleWeeks = [...new Set(staleKeys.map(weekForSource).filter(Boolean))].sort((a, b) => a - b);
-      // QA-005: Be specific about what "current" means. This checks source WEEK currency,
-      // not the pipeline's reference freshness ("9 stale refs" in dataset health).
-      // Saying just "sources current" contradicts the visible stale ref count.
+      const currentWeek = activeReferenceWeek();
       const staleLabel = staleKeys.length
-        ? `${staleKeys.length} stale ${staleWeeks.map(week => `Week ${week}`).join("/")} source${staleKeys.length === 1 ? "" : "s"} shown until Week ${activeReferenceWeek()} arrives`
-        : "source weeks current";
+        ? `${staleKeys.length} source${staleKeys.length === 1 ? "" : "s"} older than Week ${currentWeek}: ${staleKeys.map(key => `${LABELS[key] || key} ${weekForSource(key) ? `Week ${weekForSource(key)}` : "undated"}`).join(", ")}`
+        : (currentWeek ? `all sources on Week ${currentWeek}` : "content week unknown");
       $("#freshness").textContent = `${scoreLabel(state.scoring)} · ${state.teams} teams · ${staleLabel}`;
     }
   }

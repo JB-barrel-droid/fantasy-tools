@@ -408,6 +408,26 @@
     };
   }
 
+  // One reader-facing freshness label per series (GAP-043). Every surface
+  // (health cards, header, chart toggles, table notes, v2) words a series'
+  // content week through this, from the buildSourceFreshness() row, so no
+  // surface can show a constant badge, a build time, or a stale `published`.
+  //   current: "Week 5"
+  //   older weekly chart: "Week 4 · newer week not yet published"
+  //   older projections: "Week 4 · projections dated Oct 3"
+  function freshnessLabel(row) {
+    if (!row || row.vintage_week === null || row.vintage_week === undefined) {
+      return {status: "unknown", text: "content week unknown"};
+    }
+    const week = `Week ${row.vintage_week}`;
+    if (row.status !== "older") return {status: "current", text: week};
+    if (row.cadence === "weekly") return {status: "older", text: `${week} · newer week not yet published`};
+    const iso = isoDay(row.vintage_date);
+    const dated = iso ? new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"})
+      .format(new Date(`${iso}T00:00:00Z`)) : null;
+    return {status: "older", text: dated ? `${week} · projections dated ${dated}` : `${week} · projections not refreshed this week`};
+  }
+
   // ---------- Source x method pair registry (JEG-432 R1) ----------
   //
   // One row per (source, method). The allowed pairs come from the Trade
@@ -917,6 +937,7 @@
     contentWeekForDay,
     sourceVintage,
     buildSourceFreshness,
+    freshnessLabel,
     buildPairRegistry,
     PAIR_METHODS,
     PAIR_SOURCES,

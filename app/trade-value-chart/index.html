@@ -2235,7 +2235,7 @@
   <script>
   (() => {
     "use strict";
-    const labels={usatoday:"USA Today",fantasycalc:"FantasyCalc",fantasypros:"FantasyPros",cbs:"CBS",cbs_adjusted:"CBS Adjusted",fantasycalc_adjusted:"FC Adjusted",usatoday_adjusted:"USAT Adjusted",fantasypros_adjusted:"FP Adjusted",espn:"ESPN live",razzball:"Razzball"};
+    const labels={usatoday:"USA Today",fantasycalc:"FantasyCalc",fantasypros:"FantasyPros",cbs:"CBS",cbs_adjusted:"CBS Adjusted",fantasycalc_adjusted:"FC Adjusted",usatoday_adjusted:"USAT Adjusted",fantasypros_adjusted:"FP Adjusted",espn:"ESPN",razzball:"Razzball"};
     const order=["usatoday","fantasycalc","fantasypros","cbs","cbs_adjusted","fantasycalc_adjusted","usatoday_adjusted","fantasypros_adjusted","espn","razzball"];
     const esc=value=>String(value??"").replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
     const monthDay=raw=>{
@@ -2278,19 +2278,29 @@
         const staleRefs=Number(freshness?.summary?.stale_count||0);
         document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${freshness?`<span class="health-count ${staleRefs?"pending":""}">${staleRefs} stale refs</span>`:""}${news?`<span class="health-count">${Number(newsMeta.matched_item_count||0)} news matches</span><span class="health-count ${reviewCount?"pending":""}">${reviewCount} review</span>`:""}`;
         document.getElementById("dataHealthIntro").textContent=`Coverage is measured against the ${universe}-player canonical snapshot. Content, fit, and news dates identify the data actually powering the dashboard.`;
+        // GAP-043: one freshness rule for every card and the header box. Each
+        // source's content week comes from its own section (week_designated,
+        // then content_vintage) on the Tuesday-flip content calendar, through
+        // product-data.js; no constant badge, build time or `published` date.
+        await new Promise(resolve=>document.readyState==="loading"?document.addEventListener("DOMContentLoaded",resolve,{once:true}):resolve());
+        const productData=window.TradeValueProductData;
+        if(!productData?.buildSourceFreshness||!productData?.freshnessLabel)throw new Error("Source freshness is unavailable.");
+        const sourceFreshness=productData.buildSourceFreshness(data.sources,{seriesKeys:live});
+        const freshnessFor=key=>productData.freshnessLabel(sourceFreshness.series[key]);
+        const badgeText={current:"Current week",older:"Older week",unknown:"Undated"};
         const cards=live.map(key=>{
           const source=data.sources[key]||data.sources.cbs||{};
           const combo=source.combos?.[comboKey(key)]||{};
           const coverage=Number.isFinite(Number(combo.n))?Number(combo.n):Object.keys(combo.values||combo.reindexed||{}).length;
-          const match=String(source.fit_bake_id||"").match(/(\d{4}-\d{2}-\d{2})/);
-          const contentDate=String(source.published||source.espn_snapshot||source.fetched_at||source.vintage||"").slice(0,10)||"unavailable";
-          const freshness=key.endsWith("_adjusted")?`fit ${monthDay(match?.[1])}`:`content ${contentDate}`;
+          const match=String(source.fit_bake_id||"").match(/(\d{4})-?(\d{2})-?(\d{2})/);
+          const fresh=freshnessFor(key);
+          const fit=key.endsWith("_adjusted")?`<div><dt>Fit</dt><dd>${esc(match?monthDay(`${match[1]}-${match[2]}-${match[3]}`):"unavailable")}</dd></div>`:"";
           // JEG-64: as-published sources served from VORP-translated values are
           // labeled "VORP-translated"; combos still on the quantile reindex
           // (fallback provenance) keep the "reindexed" label.
           const translated=combo.translation&&combo.translation.method==="vorp-supabase";
           const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "DDF methodology · common scale" : (translated ? "As published · VORP-translated" : "As published · reindexed"));
-          return `<article class="dataset-card status-live"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">Live</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Freshness</dt><dd>${esc(freshness)}</dd></div></dl></article>`;
+          return `<article class="dataset-card ${fresh.status==="current"?"status-live":"status-caution"}" data-source-key="${esc(key)}" data-freshness="${esc(fresh.status)}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badgeText[fresh.status])}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Content week</dt><dd class="source-freshness">${esc(fresh.text)}</dd></div>${fit}</dl></article>`;
         });
         if(news){
           const adjustments=Object.values(news.adjustments_by_player_key||{}).flat();
@@ -2305,9 +2315,12 @@
         }
         document.getElementById("datasetHealthRows").innerHTML=cards.join("");
         document.getElementById("asOfDate").textContent=monthDayTime(data.built_at);
-        document.getElementById("expertVintageLabel").textContent="Source snapshot";
-        document.getElementById("ecrContentDate").textContent=monthDayTime(data.built_at);
-        document.getElementById("ecrFreshnessBadge").textContent="9 shown";
+        document.getElementById("expertVintageLabel").textContent="Source content";
+        const currentWeek=sourceFreshness.current_content_week;
+        const olderKeys=live.filter(key=>freshnessFor(key).status!=="current");
+        document.getElementById("ecrContentDate").textContent=currentWeek?`Week ${currentWeek}`:"Week unknown";
+        document.getElementById("ecrFreshnessBadge").textContent=olderKeys.length?`${olderKeys.length} of ${live.length} on an older week`:`All ${live.length} on Week ${currentWeek}`;
+        document.getElementById("ecrFreshnessBadge").title=olderKeys.map(key=>`${labels[key]}: ${freshnessFor(key).text}`).join("\n");
       }catch(error){
         document.getElementById("dataHealthTitle").textContent="Dataset health unavailable";
         document.getElementById("dataHealthCounts").innerHTML='<span class="health-count stale">Unavailable</span>';
@@ -2337,7 +2350,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span id="buildStamp">Build tv-20261007-1341-78f7f13</span></footer>
+<footer style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span id="buildStamp">Build tv-20261007-2301-ae29f55</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug
