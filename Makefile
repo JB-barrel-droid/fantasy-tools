@@ -117,6 +117,7 @@ test-unit:
 	python3 -m unittest tests.test_bake_espn_zero_universe
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
+	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_published_surfaces
