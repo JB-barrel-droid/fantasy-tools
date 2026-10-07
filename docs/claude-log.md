@@ -1,42 +1,54 @@
-# Claude session log
+# Claude session log — FROZEN ARCHIVE
 
-## 2026-10-07 — Claude (cloud session, coordinator): merge origin/main into published-views-every-setting (PR #387)
+> **New entries do not go here.** As of 2026-10-07 each session writes its own
+> file in `docs/claude-log/YYYY-MM-DD-<slug>.md`. The format and rules are in
+> `docs/claude-log/README.md`. The directory listing is the index (files sort by
+> date). This file is the read-only archive of entries from before that date.
 
-Merged origin/main into branch published-views-every-setting (PR #387, JEG332-VORP-VIEWS). Two
-conflict files; push to origin; preview check passed.
+---
+
+## 2026-10-07 - JEG-437 item 6: decisions log entries reformatted, test gated
 
 ### Verified (check named)
-- Conflicts: docs/claude-log.md (HEAD had VORP-VIEWS + ~10:30 CDT entries; main's side was empty at
-  both conflict positions; STORED-DRIFT and ~11:00 CDT entries were non-conflicted shared content
-  already present after the markers). docs/risk-register.md: kept HEAD rows (JEG332-VORP-VIEWS fixed,
-  JEG363-VIEWS-LOOKUP, JEG332-BELOW-WAIVER-SAVED, JEG332-STORED-DRIFT, JEG332-VORP-REFRESH-RETIRED)
-  plus main-only rows (GAP-PROMOTE-WEEK-LABEL, GAP-CHAIN-PARTIAL-PUBLISH) and main's updated
-  JEG332-FC-WK5-HOLD (Fixed by JEG-436/#392); discarded main's stale JEG332-VORP-VIEWS "Open" row.
-- tests/test_published_league_settings_render.py: "never-derive" mutation is intact (the "always-derive"
-  mutation was replaced in b39ad59 because after #386 saving = deriving at the saved setup; unchanged).
-- make validate exit 0 (Python 3.12, export PATH=~/code/py312:$PATH; CHROMIUM_PATH=/opt/homebrew/bin/chromium).
-- 12-combo headless sweep (3 scorings x 4 league sizes, built dist/ from the merge commit):
-  fixedPieIndexed true 12/12; sourceScaleAgreement false 12/12 (non-blocking); 0 page errors.
-  | scoring   | teams | fixedPieIndexed | sourceScaleAgreement |
-  |-----------|-------|-----------------|----------------------|
-  | ppr       | 8     | true            | false                |
-  | ppr       | 10    | true            | false                |
-  | ppr       | 12    | true            | false                |
-  | ppr       | 14    | true            | false                |
-  | standard  | 8     | true            | false                |
-  | standard  | 10    | true            | false                |
-  | standard  | 12    | true            | false                |
-  | standard  | 14    | true            | false                |
-  | half_ppr  | 8     | true            | false                |
-  | half_ppr  | 10    | true            | false                |
-  | half_ppr  | 12    | true            | false                |
-  | half_ppr  | 14    | true            | false                |
-- git push origin published-views-every-setting successful (ee98cb9..0f5846c).
-- gh pr view 387 --json mergeable,mergeStateStatus -> MERGEABLE / CLEAN after preview pass (4m22s).
+- Before: `python3 -m unittest tests.test_decisions_log` failed `test_committed_file_parses`
+  with 18 errors, all from copy-vorp-001, ops-ownership-001, league-settings-001
+  (outcome `approved` is not in the allowed set; required sections missing or out
+  of order). build-lag-001 had no errors.
+- After: the same command passes (15 tests). Only docs/decisions.md changed: outcome
+  `approved` -> `proceeded` with the approval recorded in the Outcome Note,
+  Context/Problem/Options/Recommendation added from the existing text, extra
+  `### Decision/Consequences` sections folded into Recommendation (the validator
+  requires the five sections contiguous). The test was not edited.
+- Gated: tests.test_decisions_log added to Makefile `test-unit`; `make validate` exit 0.
+- Negative evidence: the pre-fix file is the broken state (18 errors); the test's own
+  fixtures cover bad outcome, missing and out-of-order sections.
 
-### Claimed, unverified
-- None.
+### Claimed, not confirmed
+- Option lists for the three older entries are reconstructed from the entries' own
+  text (the original entries recorded only the decision), not from the original
+  discussion. Jeremy's quoted words are unchanged.
+## 2026-10-07 - USA Today slug plural form fix
 
+Contract: Fix USA Today trade-value-chart discovery to accept plural "charts" form (week 5+), which was silently missing those articles and falling back to stale week-4 data. Only the slug regex fix, no relay code from PR #382.
+
+### Verified (check named)
+- Plural URL extraction: `extract_week_from_url("...trade-value-charts-week-5-ros-rankings...")` returns 5 ✓
+- Singular URL still works: `extract_week_from_url("...trade-value-chart-week-4-ros-rankings...")` returns 4 ✓
+- Discovery with plural URL in sitemap: `discover_url(week=5)` finds "fantasy-trade-value-charts-week-5-ros-rankings/777/" ✓
+- Backward compat: singular week 4 still discovered ✓
+- Negative test: singular-only regex `r"trade-value-chart-week-5-ros-rankings"` does NOT match plural URL (proves the bug fix is necessary) ✓
+- Unit tests: 5/5 pass in `tests/test_trade_chart_ingest_ci.py::UsatSlugPluralTest`
+- Workflow tests: 6/6 pass in `WorkflowTest` (existing tests unbroken)
+- Sitemap outage tests: 4/4 pass in `UsatSitemapOutageTest` (existing behavior preserved)
+- Discrimination check: PASS (body.md describes guard GAP-USAT-SLUG-CHARTS, concrete broken scenario, negative test proving singular-only fails, correct-state test proving plural works)
+
+Changes (slug fix only):
+- ops/watchdog/pull_usatoday.py: Added `SLUG_RE = r"trade-value-charts?-week-%d-ros-rankings"`; discovery now uses `re.compile(SLUG_RE % wk)` instead of string substring; `extract_week_from_url()` accepts `charts?`
+- pipelines/check_source_fidelity.py: `_WEEK_SLUG_RE` accepts `charts?`
+- tests/test_trade_chart_ingest_ci.py: Added `UsatSlugPluralTest` class with 5 tests
+
+### Claimed, not confirmed
+- The fix will prevent future week 5+ article misses as long as USA Today maintains the plural slug form.
 ## 2026-10-07 - JEG-436: unblock the rebuild chain (FantasyCalc week-5 hold)
 
 Contract: the 13:33Z chain held FantasyCalc (combos_match: unknown

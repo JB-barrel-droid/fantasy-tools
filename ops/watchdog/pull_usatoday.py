@@ -18,6 +18,8 @@ Usage:
 provisional — NOT wired into any live path). Default is a dry run that
 prints the discovered URL and table counts.
 """
+from __future__ import annotations
+
 import argparse
 import json
 import os
@@ -36,6 +38,11 @@ SECTION_SLUG = "trade-value-chart-week-%d-ros-rankings"
 # rename can never again make discovery silently miss the current article
 # while the sitemap still lists last week's (which then fails closed as a
 # "stale article"). extract_week_from_url already matches both patterns.
+# NOTE (2026-10-07): the week-5 article slug is
+# "fantasy-trade-value-charts-week-5-ros-rankings" -- "chart" became "charts".
+# The singular-only match silently missed it (and fell back to the stale
+# week-4 article), so the slug match accepts both forms.
+SLUG_RE = r"trade-value-charts?-week-%d-ros-rankings"
 SITEMAP_INDEX = "https://www.usatoday.com/web-sitemap-index.xml"
 SITEMAP_MONTH = "https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-%04d-%02d.xml"
 TABLE_MARK = "gnt_ar_b_tbl"
@@ -93,13 +100,13 @@ def discover_url(week=None, fetch_fn=fetch):
     for wk in (week, week - 1):
         if wk < 1:
             continue
-        slug = SECTION_SLUG % wk
+        slug_re = re.compile(SLUG_RE % wk)
         for dy, dm in ((today.year, today.month),
                        *([ (today.year, today.month - 1) ] if today.month > 1
                          else [(today.year - 1, 12)])):
             urls = sitemap_urls_for_month(dy, dm, fetch_fn)
             tried.append((dy, dm, len(urls)))
-            hits = [u for u in urls if slug in u]
+            hits = [u for u in urls if slug_re.search(u)]
             if hits:
                 # Newest article wins (sitemap order is chronological).
                 return hits[-1]
@@ -111,10 +118,10 @@ def discover_url(week=None, fetch_fn=fetch):
 def extract_week_from_url(url: str) -> int | None:
     """Extract week number from the USA Today article URL slug.
 
-    URL pattern: .../fantasy-football-trade-value-chart-week-N-ros-rankings/...
+    URL pattern: .../fantasy-football-trade-value-chart(s)-week-N-ros-rankings/...
     Returns None if no week found.
     """
-    m = re.search(r"trade-value-chart-week-(\d+)-", url)
+    m = re.search(r"trade-value-charts?-week-(\d+)-", url)
     return int(m.group(1)) if m else None
 
 

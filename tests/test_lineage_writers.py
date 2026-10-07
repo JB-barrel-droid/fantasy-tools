@@ -22,6 +22,8 @@ fixture or real DDF legs.
 The sandbox does not allow running the test runner; py_compile-checked only.
 The reviewer runs `python3 -m unittest tests.test_lineage_writers -v`.
 """
+from __future__ import annotations
+
 import copy
 import hashlib
 import json
