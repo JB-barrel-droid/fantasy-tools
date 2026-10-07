@@ -947,6 +947,7 @@
   }
 
   async function start() {
+    document.body.classList.add("v2");
     try {
       C = await waitForEngine();
     } catch (error) {
