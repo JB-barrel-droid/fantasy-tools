@@ -84,11 +84,23 @@
   }
 
   // ---------- derived view ----------
+  // Week labels come from the data's own freshness record (content week and
+  // which series are an older week), the same record that picks first-load sources.
+  function sourceInfoWithFreshness() {
+    const info = C.getSourceInfo();
+    const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
+    info.forEach(item => {
+      const series = freshness?.series?.[item.key];
+      if (series && typeof series.is_older_week === "boolean") item.stale = series.is_older_week;
+      if (series && !item.week && Number.isFinite(series.vintage_week)) item.week = series.vintage_week;
+    });
+    return info;
+  }
   const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";
   const tierLabel = role => ({starter: "Starter", bench: "Bench", waiver: "Waiver"}[role] || "—");
 
   function collect() {
-    const info = C.getSourceInfo();
+    const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
     const active = C.getActiveSources();
     const rankKey = C.getRankSource();
@@ -113,14 +125,7 @@
       return true;
     });
     rows.forEach((row, index) => { row.rank = index + 1; });
-    // Week labels come from the data's own freshness record (content week and
-    // which series are an older week), the same record that picks first-load sources.
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
-    info.forEach(item => {
-      const series = freshness?.series?.[item.key];
-      if (series && typeof series.is_older_week === "boolean") item.stale = series.is_older_week;
-      if (series && !item.week && Number.isFinite(series.vintage_week)) item.week = series.vintage_week;
-    });
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
     view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, totalRows: allRows.length, omittedMissing,
       refWeek, state: C.getState(), roster: C.getRosterShape()};
@@ -878,12 +883,312 @@
     });
   }
 
+  // ---------- trade targets (frames 03 / 04) ----------
+  // Every number here is read from the engine's rows; the one piece of
+  // arithmetic (chart value − our value) lives in targets.js.
+  const TARGETS_PAGE = 25;
+  const T = {side: "sell", search: "", chart: "all", includeOlder: false, shown: TARGETS_PAGE};
+  let targetsView = null;
+
+  const fmtGap = gap => {
+    if (!Number.isFinite(gap)) return "—";
+    const text = Math.abs(gap).toFixed(1);
+    if (text === "0.0") return "0.0";
+    return `${gap > 0 ? "+" : "−"}${text}`;
+  };
+
+  function chartHeading(key) {
+    const item = targetsView.infoByKey[key];
+    const week = item && item.week ? `Week ${item.week}${item.stale ? " · older" : ""}` : "";
+    return {name: PUBLISHER_NAMES[key] || key, week};
+  }
+
+  function collectTargets() {
+    const TT = window.TradeValueTargets;
+    const info = sourceInfoWithFreshness();
+    const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
+    const ours = infoByKey[TT.OUR_KEY];
+    // The published series are on the trade-value point scale only in the
+    // engine's Indexed view; any other view would pair unlike units.
+    const engineView = window.TradeValueCurveDiagnostics?.viewMode;
+    const {used, skipped} = TT.chartsToCompare(info, {only: T.chart === "all" ? null : T.chart, includeOlder: T.includeOlder});
+    const needle = T.search.trim().toLowerCase();
+    const rows = C.getRows();
+    rows.forEach((row, index) => { row.rank = index + 1; });
+    const searched = rows.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
+    const blocked = !ours || !ours.available ? "Our value (ESPN projections) is not available for this league right now."
+      : engineView && engineView !== "indexed" ? "Published charts are not on the trade-value point scale in this view, so no gaps are shown."
+      : null;
+    const result = blocked ? {sell: [], buy: [], compared: 0, omittedNoOurs: 0} : TT.buildTargets(searched, used);
+    targetsView = {...result, used, skipped, info, infoByKey, blocked, position: C.getState().position};
+  }
+
+  function renderTargetControls() {
+    const TT = window.TradeValueTargets;
+    const select = $("v2TChart");
+    select.replaceChildren();
+    const all = document.createElement("option");
+    all.value = "all";
+    all.textContent = "All published charts";
+    select.appendChild(all);
+    TT.CHART_KEYS.forEach(key => {
+      const item = targetsView.infoByKey[key];
+      const option = document.createElement("option");
+      option.value = key;
+      option.disabled = !item || !item.available;
+      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : item.stale ? ` · Week ${item.week} (older)` : ""}`;
+      select.appendChild(option);
+    });
+    select.value = T.chart;
+    $("v2TOlder").checked = T.includeOlder;
+    $("v2TPosition").value = targetsView.position;
+    document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
+      const on = button.dataset.side === T.side;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-pressed", String(on));
+    });
+    $("v2TCardTitle").textContent = T.side === "sell"
+      ? "Sell: the charts pay more than we would"
+      : "Buy: the charts pay less than we would";
+  }
+
+  function gapNode(cell, tag) {
+    const node = document.createElement(tag || "span");
+    node.className = `delta gap ${cell.gap > 0 ? "up" : cell.gap < 0 ? "down" : ""}`;
+    node.textContent = fmtGap(cell.gap);
+    return node;
+  }
+
+  function missingNode(reason, short) {
+    const span = document.createElement("span");
+    span.className = "missing";
+    span.title = reason;
+    span.textContent = "—";
+    const why = document.createElement("span");
+    why.className = "why";
+    why.textContent = short || reason;
+    span.appendChild(why);
+    return span;
+  }
+
+  function renderTargetTable(list) {
+    const table = $("v2TTable");
+    table.replaceChildren();
+    const best = p => (T.side === "sell" ? p.bestSell : p.bestBuy);
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    const head = (text, cls, sub, key) => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      if (cls) th.className = cls;
+      if (key) {
+        const sym = document.createElement("span");
+        sym.className = "v2-sym";
+        sym.style.color = PUBLISHERS[key].color;
+        sym.setAttribute("aria-hidden", "true");
+        sym.textContent = `${PUBLISHERS[key].symbol} `;
+        th.appendChild(sym);
+      }
+      th.append(document.createTextNode(text));
+      if (sub) {
+        const s = document.createElement("span");
+        s.className = "th-sub";
+        s.textContent = sub;
+        th.appendChild(s);
+      }
+      if (key) th.dataset.chart = key;
+      hr.appendChild(th);
+    };
+    head("Player", "player");
+    head("Pos", "col-meta");
+    head("Team", "col-meta");
+    head("Tier", "col-meta");
+    head("Our value", "num is-rank", "ESPN · DDA");
+    targetsView.used.forEach(key => {
+      const h = chartHeading(key);
+      head(h.name, "num", h.week ? `${h.week} · gap vs ours` : "gap vs ours", key);
+    });
+    head("Largest gap", "num", T.side === "sell" ? "chart pays more" : "chart pays less");
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    list.slice(0, T.shown).forEach(p => {
+      const tr = document.createElement("tr");
+      tr.tabIndex = 0;
+      tr.dataset.playerKey = String(p.row.player_key);
+      tr.addEventListener("click", () => openDrawer(p.row));
+      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row); });
+      const td = (cls, text) => {
+        const cell = document.createElement("td");
+        if (cls) cell.className = cls;
+        if (text !== undefined) cell.textContent = text;
+        tr.appendChild(cell);
+        return cell;
+      };
+      const name = td("player", p.row.name);
+      const sub = document.createElement("span");
+      sub.className = "player-sub";
+      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
+      name.appendChild(sub);
+      td("col-meta", p.row.pos);
+      td("col-meta", p.row.team || "FA");
+      td("col-meta", tierLabel(p.row.espnRole));
+      const ours = td("num is-rank", fmt(p.ours));
+      ours.dataset.ours = "";
+      targetsView.used.forEach(key => {
+        const cell = p.cells[key];
+        const c = td("num");
+        c.dataset.chart = key;
+        if (cell.value === null) {
+          c.appendChild(missingNode(cell.reason, "not on chart"));
+        } else {
+          c.append(document.createTextNode(fmt(cell.value)));
+          c.appendChild(gapNode(cell));
+        }
+      });
+      const b = best(p);
+      const bc = td("num best");
+      bc.dataset.best = b.chart;
+      bc.append(document.createTextNode(fmtGap(b.gap)));
+      const who = document.createElement("span");
+      who.className = "th-sub";
+      who.textContent = PUBLISHER_NAMES[b.chart];
+      bc.appendChild(who);
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+  }
+
+  function renderTargetCards(list) {
+    const ol = $("v2TCards");
+    ol.replaceChildren();
+    const best = p => (T.side === "sell" ? p.bestSell : p.bestBuy);
+    list.slice(0, T.shown).forEach(p => {
+      const li = document.createElement("li");
+      li.tabIndex = 0;
+      li.dataset.playerKey = String(p.row.player_key);
+      li.addEventListener("click", () => openDrawer(p.row));
+      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row); });
+      const top = document.createElement("div");
+      top.className = "top";
+      const who = document.createElement("div");
+      const name = document.createElement("b");
+      name.textContent = p.row.name;
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
+      who.append(name, sub);
+      const b = best(p);
+      const big = document.createElement("div");
+      big.className = `big ${b.gap > 0 ? "up" : "down"}`;
+      big.textContent = fmtGap(b.gap);
+      const by = document.createElement("span");
+      by.className = "v2-meta";
+      by.textContent = `${PUBLISHER_NAMES[b.chart]} pays ${b.gap > 0 ? "more" : "less"}`;
+      big.appendChild(by);
+      top.append(who, big);
+      const line = document.createElement("div");
+      line.className = "vals";
+      const ours = document.createElement("span");
+      ours.className = "ours";
+      ours.textContent = `Ours ${fmt(p.ours)}`;
+      line.appendChild(ours);
+      targetsView.used.forEach(key => {
+        const cell = p.cells[key];
+        const span = document.createElement("span");
+        span.dataset.chart = key;
+        span.append(document.createTextNode(`${PUBLISHERS[key].label} `));
+        if (cell.value === null) span.appendChild(missingNode(cell.reason, "not on chart"));
+        else {
+          span.append(document.createTextNode(fmt(cell.value)));
+          span.appendChild(gapNode(cell));
+        }
+        line.appendChild(span);
+      });
+      li.append(top, line);
+      ol.appendChild(li);
+    });
+  }
+
+  function renderTargets() {
+    collect();
+    collectTargets();
+    renderHeader();
+    renderTargetControls();
+    const list = T.side === "sell" ? targetsView.sell : targetsView.buy;
+    renderTargetTable(list);
+    renderTargetCards(list);
+    const empty = $("v2TEmpty");
+    const blocked = targetsView.blocked;
+    const noCharts = !targetsView.used.length;
+    empty.hidden = !(blocked || noCharts || !list.length);
+    empty.textContent = blocked || (noCharts
+      ? "No published chart is available to compare for this selection."
+      : `No player has a ${T.side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
+    $("v2TTable").hidden = !list.length;
+    const notes = [];
+    if (targetsView.skipped.length) {
+      notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
+    }
+    if (targetsView.omittedNoOurs) {
+      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ESPN · DDA value for them.`);
+    }
+    const note = $("v2TNote");
+    note.hidden = !notes.length;
+    note.textContent = notes.join(" ");
+    const more = $("v2TShowMore");
+    more.hidden = list.length <= T.shown;
+    more.textContent = `Show more players (${Math.min(T.shown, list.length)} of ${list.length})`;
+    $("v2TMeta").textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · `
+      + `gap = chart value − our value · largest gap first. `
+      + (T.side === "sell" ? "Offer these players to managers who trade off that chart." : "Ask for these players from managers who trade off that chart.");
+  }
+
+  function bindTargets() {
+    let timer = null;
+    $("v2TSearch").addEventListener("input", event => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { T.search = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); }, 120);
+    });
+    $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); T.shown = TARGETS_PAGE; renderTargets(); });
+    $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
+    $("v2TOlder").addEventListener("change", event => { T.includeOlder = event.target.checked; renderTargets(); });
+    document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
+      button.addEventListener("click", () => { T.side = button.dataset.side; T.shown = TARGETS_PAGE; renderTargets(); });
+    });
+    $("v2TShowMore").addEventListener("click", () => { T.shown += TARGETS_PAGE; renderTargets(); });
+  }
+
+  // ---------- routing ----------
+  const currentView = () => (location.hash === "#trade-targets" ? "targets" : "values");
+
+  function applyRoute() {
+    const v = currentView();
+    $("v2Main").hidden = v !== "values";
+    $("v2Targets").hidden = v !== "targets";
+    $("v2Methods").hidden = v !== "values";
+    document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
+      const on = tab.dataset.view === v;
+      tab.classList.toggle("is-active", on);
+      if (on) tab.setAttribute("aria-current", "page");
+      else tab.removeAttribute("aria-current");
+    });
+    closePopover();
+    $("v2Tip").hidden = true;
+    refresh();
+  }
+
   // ---------- wiring ----------
-  function refresh() {
+  function refreshValues() {
     collect();
     renderHeader();
     renderCharts();
     renderTable();
+  }
+
+  // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
+  function refresh() {
+    if (currentView() === "targets") renderTargets();
+    else refreshValues();
   }
 
   function bind() {
@@ -950,7 +1255,12 @@
       closePopover();
     });
     let resizeTimer = null;
-    window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(renderCharts, 100); });
+    window.addEventListener("resize", () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
+    });
+    window.addEventListener("hashchange", applyRoute);
+    bindTargets();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
   }
 
@@ -964,9 +1274,9 @@
       return;
     }
     bind();
-    refresh();
+    applyRoute();
     setStatus("");
-    window.TradeValueV2 = {state, view: () => view};
+    window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

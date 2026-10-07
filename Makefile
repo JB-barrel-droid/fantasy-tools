@@ -129,6 +129,7 @@ test-unit:
 	python3 -m unittest tests.test_health_artifacts_watch
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
+	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo
@@ -347,6 +348,7 @@ test-core:
 	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_published_surfaces
+	python3 -m unittest tests.test_v2_targets
 
 test-all: naming naming-convention test-unit
 

@@ -12,6 +12,8 @@ canvas on 2026-10-07.
 | 00 Start here | 59-2938 |
 | 01 Player values, desktop 1440 | 59-2077 |
 | 02 Player values, mobile 390 | 59-2443 |
+| 03 Market disagreement, desktop 1440 | 59-1817 |
+| 04 Market disagreement, mobile 390 | 59-2567 |
 | 09 Source selection overlay | 54-957 |
 | 10 Freshness overlay | 54-1028 |
 | 11 Weights & bench overlay | 54-1128 |
@@ -24,7 +26,7 @@ canvas on 2026-10-07.
 | 22 Review amendments: interactions & source logic | 61-1593 |
 | 24 Navigator, filters & trade detail states | 68-147 |
 
-Not yet mapped: 03/04 Market disagreement, 05/06 Risers & fallers, 07/08 Compare a trade,
+Not yet mapped: 05/06 Risers & fallers, 07/08 Compare a trade,
 14 Player detail mobile, 16 How values work mobile, 20 Source selection mobile, 21 Chart options,
 23 Benchmark decisions.
 
@@ -63,3 +65,31 @@ Not yet mapped: 03/04 Market disagreement, 05/06 Risers & fallers, 07/08 Compare
 `#legacyEngine`, and `app/v2/v2.js` renders the new layout from
 `TradeValueCurveControls.getRows()` and related read-only accessors. v2 does no value math, so
 its numbers are the current page's numbers. Settings changes call the engine's own setters.
+
+## Trade targets tab (frames 03 / 04)
+
+Frame 03 is titled "Where the sources split" and has a "Largest disagreements" table: ranking series
+tinted, one column per series, a "DDA spread" column (highest − lowest, DDA only, current week
+only), and "FC Index remains a separate value column". Frame 04 stacks that table as cards: name
+and tier, the spread on the right, a one-line run of values underneath.
+
+Built as **Trade targets** (`v2/#trade-targets`), per Jeremy's product purpose: find trades other
+managers will accept. Sell where a public chart pays more than we would, buy where it pays less.
+It keeps the frame's layout (table on desktop, cards below 768 px), but the comparison is one exact
+pair per column, not a spread across sources:
+
+- Our value = the engine's `espn` series (ESPN projections, Data Driven Adjustments).
+- Each published chart = the engine's Indexed series (`usatoday`, `fantasycalc`, `fantasypros`,
+  `cbs`), which the engine puts on the same trade-value point scale. VORP vs waivers is never
+  paired with anything.
+- Gap = chart value − our value (`app/v2/targets.js`, the tab's only arithmetic). Sell list =
+  players with a positive gap, largest first; buy list = negative, most negative first. The
+  "Largest gap" column names the chart it came from.
+- Missing chart value: "—" plus "not on chart", no gap. Players without our value are left out
+  and counted. A chart value of 0.0 is real: the indexing puts a low published value at that
+  chart's waiver line.
+- Default charts: available, current-week ones. Older-week charts are listed as not compared until
+  "Include older-week charts" is ticked. Position is the engine's shared setting, so it carries
+  across tabs.
+- Fails closed if our series is unavailable, or if the engine is not in its Indexed view (where the
+  published series would be in a different unit).
