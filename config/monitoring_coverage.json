@@ -37,9 +37,7 @@
      "gap": "GAP-GHA-SCHEDULES: GitHub cron only (Tue + Thu 09:17 UTC)",
      "records": [{"check_id": "sleeper_identity_refresh", "file": ".github/workflows/sleeper-identity-refresh.yml", "contains": "--check-id sleeper_identity_refresh --owner sleeper-identity-refresh.yml"}]},
     {"workflow": "razzball-supabase-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "razzball-sync-live",
-     "workflow_missing_on_main": true,
-     "gap": "pg_cron razzball-sync-live dispatches this workflow, which is not on main with a workflow_dispatch trigger: GitHub answered HTTP 422 on 2026-10-07 11:20 UTC. Owner: Razzball puller (C). The check will read missed until it lands.",
-     "records": [{"check_id": "razzball_projections_sync", "file": null, "contains": null}]}
+     "records": [{"check_id": "razzball_projections_sync", "file": ".github/workflows/razzball-supabase-sync.yml", "contains": "\"p_check_id\": \"razzball_projections_sync\""}]}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "jeg379-health-checks-15min", "check_id": "pgcron_ops_health_checks"},
