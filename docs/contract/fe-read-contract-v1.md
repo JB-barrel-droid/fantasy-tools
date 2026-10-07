@@ -1048,3 +1048,84 @@ keeps versioned interaction transforms; vector+blend bench share;
 parity test as the acceptance gate) are recommendations for Jeremy's
 call. Security hardening is staged (Stage 0–4). The recommendation for
 JEG-325 is re-scope as JEG-327 Phase D.
+---
+
+## 17. v1.1 additive surfaces (JEG-432 R5 freshness, R1 pair registry)
+
+Added 2026-10-06 as MINOR extensions (§7.1). The runtime `CONTRACT_VERSION`
+constant stays `1.0.0` until the api.* cutover publishes them server-side;
+an old FE ignores them and renders the rest correctly.
+
+### 17.1 Calendar
+
+Freshness uses the **content calendar** of `pipelines/nfl_week.py` (week
+turns over on Tuesday, after Monday night; content week 1 starts Tue
+2026-09-08). Not the watchdog calendar (`ops/watchdog/_common.nfl_week`,
+Thursday flip; GAP-WEEK-CALENDARS). Copies: `product-data.js`
+`contentWeekForDay` (reader's day in America/New_York) and SQL
+`public.nfl_content_week(date)`; both pinned to `nfl_week.py`
+(`tests/test_source_freshness.py`, and a 200-day SQL check in the log).
+
+### 17.2 `getSourceFreshness()` (FE adapter, over the shipped snapshot)
+
+Per chart series (`source_keys` plus the three VORP vs waivers series):
+`vintage_week`, `vintage_basis` (`week_designated` | `content_vintage` |
+a dated field such as `vintage`/`espn_snapshot`/`fetched_at`), `cadence`
+(`weekly` | `rest_of_season`), `current_content_week`, `status`
+(`current` | `older` | `unknown`), `is_older_week`, `weeks_behind`,
+`excluded_on_first_load`. `*_adjusted` series are dated by their raw chart.
+
+First load: `first_load_reference_week` = the newest week any weekly
+chart has reached, capped at the content week. Weekly charts older than
+it are in `first_load_excluded` and start switched off; the reader can
+turn them on. Rest-of-season projections (ESPN, CBS ROS, Razzball) are
+flagged but never excluded (ESPN is the anchor). When every weekly chart
+is behind the content week (e.g. Tuesday before publishers post), nothing
+is excluded and every chart still shows `status: "older"`.
+
+### 17.3 `getPairRegistry({scoring, teams})` (FE adapter)
+
+One row per (source, method): 7 sources × 3 methods (`adjusted` = "Our
+Data Driven Adjustments", `indexed` = "Indexed", `vorp_vs_waivers` =
+"VORP vs waivers"; copy-vorp-001 replaces the design's "Pure VORP").
+Fields: `source`, `source_label`, `method`, `method_label`, `series_key`
+(null when not offered), `is_default_method`, `available`,
+`excluded_on_first_load`, `reason_code`, `reason_text`, `vintage_week`,
+`vintage_basis`, `vintage_status`, `shared_players`.
+
+`reason_code` (null when the pair is available and on by default):
+
+| code | available | derived from |
+|---|---|---|
+| `not_offered` | false | the design's allowed-pair matrix |
+| `league_setting_unsupported` | false | no saved combo for the reader's scoring × teams (until R3 derivation ships) |
+| `insufficient_overlap` | false | priced chart players < `min_shared_for_pie` |
+| `adjustment_pending` | false | the adjusted curve is paused (no complete live adjustment cells) |
+| `stale_vintage` | **true** | `excluded_on_first_load` from §17.2 — selectable, just off at first load |
+
+### 17.4 `api.source_freshness` (Supabase view)
+
+Migration `supabase/migrations/jeg432_source_freshness.sql`. One row per
+source: the newest week SAVED in its Supabase source table vs the content
+week (`latest_week`, `latest_content_date`, `latest_pulled_at`,
+`latest_week_rows`, `current_content_week`, `status`, `is_older_week`,
+`weeks_behind`). This describes saved inputs; the published chart's
+vintage is §17.2 and can lag it until the next bake. ESPN is dated by
+`espn_snapshot_date` (its `week` column is not a content week).
+
+### 17.5 `api.source_inputs_weekly` / `api.source_input_weeks` (R4, Supabase views)
+
+Migration `supabase/migrations/jeg432_r4_source_inputs_weekly.sql`. The
+saved 12-team / 1-QB published inputs per source × week × scoring
+(FantasyCalc, FantasyPros, USA Today, CBS), so the browser can run the
+same league derivation on the current week and the week before (movers).
+Grain: one row per (source, season, week, scoring, player_key), from the
+LATEST pull of that week. Fields: `week`, `weeks_back_from_latest`
+(0 = newest saved week for that source), `weeks_back_from_content_week`,
+`scoring` (full/half/standard), `teams` (12), `qb_slots` (1),
+`player_key`, `player_norm`, `position`, `team`, `native_value`,
+`value`, `source_content_date`, `pulled_at`, `bake_id`.
+`api.source_input_weeks` is the per-week metadata (player counts, pull,
+bake). The FE picks `week = <chart vintage week> - 1` for the prior week.
+Projection sources (ESPN, CBS ROS, Razzball) have no prior-week saves in
+this shape yet (GAP-R4-PROJECTION-HISTORY).
