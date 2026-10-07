@@ -23,20 +23,40 @@ Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
   independently refuses non-'ready' verdicts; this chain does not retry
   around, re-review around, or edit its way around that refusal.
 - The first hold/failure HALTS the chain for that source: no further
-  sections are processed for it, and the fit stage does not run at all.
-- Partial or zero promotion is FAILURE, never a partial success.
+  sections are processed for it.
+- Partial or zero promotion is FAILURE for that source, never a partial
+  success.
+- Per-source isolation (Jeremy 2026-10-07, decision per-source-promotion-001):
+  a genuine review verdict of 'hold' in one of HOLD_ISOLATED_SOURCES does not
+  fail the run. The held source's fixture section is restored to exactly what
+  it was before its run (any sections it promoted earlier in the run are
+  rolled back), so the site keeps showing its last promoted section under its
+  own week label. The held candidate is never promoted. Everything else still
+  fails the whole chain closed: any non-hold failure (snapshot, match,
+  section, reindex, promote refusal, error, a malformed review), any ESPN or
+  cbsros failure (ESPN is the reindex anchor and the fit target; both write
+  the fixture before their review gate), a restore that cannot be verified,
+  and a run in which EVERY review-gated source held (nothing new to publish).
+- The fit and _adjusted sections run on the resulting fixture whenever the
+  run is publishable, so a held source's _adjusted section is rebuilt from
+  its kept (older) raw section, never left half-updated.
 - Chain status is written through a finally block so partial/interrupted
-  runs are always recorded for the monitoring dashboard.
+  runs are always recorded for the monitoring dashboard. Held sources are
+  listed in `held` / `held_detail` with an amber (one week behind) or red
+  (two or more weeks behind, or week unknown) severity.
 
 Usage:
     python3 pipelines/rebuild_comparison_chain.py [--nfl-week WEEK]
 
-Exit code: 0 only if every source completed fully and the fit ran cleanly.
-Any hold, failure, or partial promotion exits non-zero so the GitHub
-Actions workflow stops before committing.
+Exit code: 0 only if every source either completed fully or was held and
+restored (isolated hold), at least one review-gated source promoted, and the
+fit and _adjusted stages ran cleanly. Anything else exits non-zero so the
+GitHub Actions workflow stops before committing the fixture.
 """
 
 import argparse
+import copy
+import hashlib
 import json
 import os
 import shutil
@@ -47,6 +67,20 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs", "cbsros"]
+
+# Per-source isolation (per-source-promotion-001): only these sources' review
+# holds are isolated. They are the generic published-chart sources whose
+# review is a real candidate-vs-fixture verdict and whose fixture section is
+# written only by promote_comparison_section.py (so it can be restored
+# exactly). ESPN and cbsros are deliberately absent: their section builders
+# write the fixture BEFORE their review gate, ESPN's DDF legs are the reindex
+# anchor and the fit target, and their "review" is a structural check whose
+# failure means a malformed section, not a judgement call. Any failure there
+# fails the whole chain closed, as before.
+HOLD_ISOLATED_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs")
+
+FIXTURE_REL = Path("data") / "fixtures" / "current" / "comparison-sources-data.json"
+PROMOTIONS_REL = Path("output") / "comparison-promotions"
 
 # cbsros DDF-leg build matrix: the section builder expects one leg per
 # (scoring, teams) pair, 3 scorings x 4 team counts = 12 legs.
@@ -66,6 +100,15 @@ class ChainHalt(Exception):
         super().__init__(f"{stage}: {detail}")
         self.stage = stage
         self.detail = detail
+
+
+class ReviewHold(ChainHalt):
+    """The reviewer ran, wrote its artifact, and returned verdict 'hold'.
+
+    Only this exact case is eligible for per-source isolation. A missing or
+    unreadable artifact, or any other non-'ready' verdict, stays a plain
+    ChainHalt and fails the chain closed.
+    """
 
 
 def run(cmd, **kwargs):
@@ -193,7 +236,8 @@ def process_section(section, repo, run_fn, nfl_week=None):
         check_str = ("; ".join(
             f"{c.get('name')}:{c.get('status')} -- {c.get('detail', '')}"
             for c in bad) or "no failing checks recorded")
-        raise ChainHalt(
+        halt_cls = ReviewHold if verdict == "hold" else ChainHalt
+        raise halt_cls(
             "review",
             f"{base}: verdict is {verdict!r}, not 'ready' — refusing to promote. "
             f"Failing checks: {check_str}. "
@@ -313,12 +357,146 @@ def run_source(source, nfl_week=None, repo=REPO, run_fn=run):
     except ChainHalt as h:
         result["stage"] = h.stage
         result["detail"] = h.detail
+        # Still "failed" here; execute_chain decides whether the hold can be
+        # isolated (restore verified) or must fail the chain.
+        result["held"] = isinstance(h, ReviewHold)
         print(f"  ✗ HALT at stage '{h.stage}': {h.detail}")
     except Exception as e:  # fail closed on unexpected errors too
         result["stage"] = "error"
         result["detail"] = f"unexpected error: {e}"
         print(f"  ✗ ERROR: {e}")
 
+    return result
+
+
+def _read_fixture(repo):
+    return json.loads((Path(repo) / FIXTURE_REL).read_text(encoding="utf-8"))
+
+
+def _canonical_sha(obj):
+    return hashlib.sha256(
+        json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def snapshot_source_state(repo, source):
+    """Record a source's fixture section (and built_at) before its run.
+
+    Returns None when the fixture cannot be read; a hold for that source
+    then cannot be isolated and fails the chain closed.
+    """
+    try:
+        fixture = _read_fixture(repo)
+    except (OSError, ValueError):
+        return None
+    sources = fixture.get("sources")
+    if not isinstance(sources, dict):
+        return None
+    promo_dir = Path(repo) / PROMOTIONS_REL
+    records = ({p.name for p in promo_dir.glob(f"{source}-*-promotion.json")}
+               if promo_dir.is_dir() else set())
+    return {
+        "present": source in sources,
+        "section": copy.deepcopy(sources.get(source)),
+        "sha": _canonical_sha(sources.get(source)),
+        "built_at": fixture.get("built_at"),
+        "promotion_records": records,
+    }
+
+
+def section_week(section):
+    """Content week of a fixture section, or None when nothing dates it.
+
+    Mirrors product-data.js sourceVintage(): a "Week N" designation wins, then
+    a "Week N" content_vintage, then a dated field placed on the content
+    calendar.
+    """
+    import re
+    from datetime import date as _date
+    from nfl_week import current_nfl_week
+
+    if not isinstance(section, dict):
+        return None
+    for field in ("week_designated", "content_vintage"):
+        m = re.search(r"week\s*(\d+)|wk\s*(\d+)", str(section.get(field) or ""), re.I)
+        if m:
+            return int(m.group(1) or m.group(2))
+    for field in ("content_vintage", "vintage", "published", "fetched_at"):
+        m = re.match(r"(\d{4})-(\d{2})-(\d{2})", str(section.get(field) or ""))
+        if m:
+            return current_nfl_week(_date(int(m.group(1)), int(m.group(2)), int(m.group(3))))
+    return None
+
+
+def isolate_hold(repo, source, before, result, nfl_week=None):
+    """Restore a held source's pre-run fixture section; mark it held.
+
+    Fail-closed: when the pre-run state is unknown, or the restore cannot be
+    verified byte-for-byte (canonical sha of the section), the result stays
+    'failed' and the chain fails. Promotion records written for sections
+    that were rolled back are renamed so no monitor reads them as promoted.
+    """
+    if before is None:
+        result["detail"] += " | hold NOT isolated: pre-run fixture state unknown"
+        return result
+    fixture_path = Path(repo) / FIXTURE_REL
+    try:
+        fixture = _read_fixture(repo)
+        sources = fixture["sources"]
+        if _canonical_sha(sources.get(source)) != before["sha"] or (source in sources) != before["present"]:
+            if before["present"]:
+                sources[source] = copy.deepcopy(before["section"])
+            else:
+                sources.pop(source, None)
+            # This source's promotions bumped built_at; earlier sources' bumps
+            # are already in `before` (snapshot taken just before this source).
+            if before["built_at"] is None:
+                fixture.pop("built_at", None)
+            else:
+                fixture["built_at"] = before["built_at"]
+            # Same serialisation as promote_comparison_section.py.
+            fixture_path.write_text(json.dumps(fixture, separators=(",", ":")))
+        after = _read_fixture(repo)["sources"]
+        if _canonical_sha(after.get(source)) != before["sha"] or (source in after) != before["present"]:
+            raise ValueError("restored section does not match the pre-run section")
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        result["stage"] = "restore"
+        result["detail"] += f" | hold NOT isolated: restore failed: {exc}"
+        result["held"] = False
+        return result
+
+    promo_dir = Path(repo) / PROMOTIONS_REL
+    rolled_back_records = []
+    if promo_dir.is_dir():
+        for p in sorted(promo_dir.glob(f"{source}-*-promotion.json")):
+            if p.name not in before["promotion_records"]:
+                target = p.with_name(p.name[: -len(".json")] + ".rolled-back.json")
+                p.rename(target)
+                rolled_back_records.append(target.name)
+
+    kept = before["section"] if before["present"] else None
+    kept_week = section_week(kept)
+    weeks_behind = (nfl_week - kept_week) if (nfl_week is not None and kept_week is not None) else None
+    # Amber: the reader sees a source at most one week old, labelled with its
+    # own week (build-lag-001's one-week tolerance). Red: two or more weeks
+    # behind, or no section/week at all -- held for more than a week.
+    severity = "amber" if (weeks_behind is not None and weeks_behind <= 1) else "red"
+    result.update({
+        "status": "held",
+        "rolled_back": result.get("promoted", 0),
+        "promoted": 0,
+        "rolled_back_records": rolled_back_records,
+        "kept_section": {
+            "present": before["present"],
+            "week_designated": (kept or {}).get("week_designated"),
+            "content_vintage": (kept or {}).get("content_vintage"),
+            "content_week": kept_week,
+        },
+        "weeks_behind": weeks_behind,
+        "hold_severity": severity,
+    })
+    print(f"  ⚠ HELD (isolated): kept last promoted {source} section "
+          f"(week {kept_week}, {weeks_behind} week(s) behind -> {severity}); "
+          f"rolled back {result['rolled_back']} section(s) promoted this run")
     return result
 
 
@@ -762,6 +940,11 @@ def describe_result(result):
     """Human-readable one-line status for the dashboard (string, not a code)."""
     if result["status"] == "ok":
         return f"promoted {result['promoted']}/{result['sections']}"
+    if result["status"] == "held":
+        kept = result.get("kept_section") or {}
+        label = kept.get("week_designated") or kept.get("content_vintage") or "no prior section"
+        return (f"HELD at stage 'review' ({result.get('hold_severity')}): kept last promoted "
+                f"section ({label}); held candidate not promoted: {result.get('detail', '')}")
     stage = result.get("stage") or "unknown"
     return f"FAILED at stage '{stage}': {result.get('detail', '')}"
 
@@ -800,18 +983,44 @@ def source_vintages(repo):
 
 
 def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner):
-    """Write the chain status JSON for the monitoring dashboard."""
-    failed = [s for s, r in results.items() if r["status"] != "ok"]
-    if fit_result is not None and fit_result["status"] != "ok":
+    """Write the chain status JSON for the monitoring dashboard.
+
+    `success` (the exit code, and what lets the workflow publish the fixture)
+    requires: every source reached and either ok or an isolated hold; at
+    least one review-gated source promoted; fit and _adjusted both ok.
+    """
+    failed = [s for s, r in results.items() if r["status"] not in ("ok", "held")]
+    failed += [s for s in SOURCES if s not in results]  # never reached
+    held = sorted(s for s, r in results.items() if r["status"] == "held")
+    if all_review_gated_held(results):
+        failed.append("all_review_gated_sources_held")
+    if fit_result is None or fit_result["status"] != "ok":
         failed.append("fit")
-    if adjusted_result is not None and adjusted_result["status"] != "ok":
+    if adjusted_result is None or adjusted_result["status"] != "ok":
         failed.append("adjusted_sections")
+    success = len(failed) == 0
+    severities = [results[s].get("hold_severity") for s in held]
+    hold_severity = ("red" if "red" in severities else "amber") if held else "none"
     status_data = {
         "run_at": datetime.now(timezone.utc).isoformat(),
         "nfl_week": nfl_week,
         "sources": {s: describe_result(r) for s, r in results.items()},
         "failed": sorted(set(failed)),
-        "success": len(failed) == 0,
+        "success": success,
+        # per-source-promotion-001: the run can publish with held sources.
+        # "published_with_holds" is a success that the monitor still shows
+        # amber/red per hold_severity; it is never reported as plain green.
+        "outcome": ("failed" if not success else
+                    "published_with_holds" if held else "green"),
+        "held": held,
+        "hold_severity": hold_severity,
+        "held_detail": {s: {
+            "detail": results[s].get("detail"),
+            "kept_section": results[s].get("kept_section"),
+            "weeks_behind": results[s].get("weeks_behind"),
+            "hold_severity": results[s].get("hold_severity"),
+            "rolled_back": results[s].get("rolled_back"),
+        } for s in held},
         # Honest runner label: "github-actions" or "local".
         # (An earlier revision mislabeled local runs as "muse-cron".)
         "runner": runner,
@@ -827,6 +1036,35 @@ def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, run
         with open(path, "w") as f:
             json.dump(status_data, f, indent=2)
     return status_data
+
+
+def all_review_gated_held(results):
+    """True when every review-gated source that ran was held (nothing new)."""
+    gated = [s for s in HOLD_ISOLATED_SOURCES if s in results]
+    return bool(gated) and all(results[s]["status"] == "held" for s in gated)
+
+
+def write_step_summary(status_data, path=None):
+    """Append a held-source report to the GitHub run summary (if available)."""
+    path = path or os.environ.get("GITHUB_STEP_SUMMARY")
+    lines = [f"## Comparison chain: {status_data.get('outcome')}", "",
+             "| source | result |", "| --- | --- |"]
+    for source, text in (status_data.get("sources") or {}).items():
+        lines.append(f"| {source} | {str(text).replace('|', '/')[:400]} |")
+    for source in status_data.get("held") or []:
+        d = status_data["held_detail"][source]
+        level = "error" if d.get("hold_severity") == "red" else "warning"
+        kept = d.get("kept_section") or {}
+        print(f"::{level} title=Source held ({source})::{source} review is 'hold'; site keeps its "
+              f"last promoted section ({kept.get('week_designated') or kept.get('content_vintage')}), "
+              f"{d.get('weeks_behind')} week(s) behind. A human must review the hold.")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write("\n".join(lines) + "\n")
+    except OSError as exc:
+        print(f"::warning::could not write step summary: {exc}")
 
 
 def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
@@ -859,12 +1097,19 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             elif source == "espn":
                 results[source] = run_espn_source(source, nfl_week, repo, run_fn)
             else:
+                before = (snapshot_source_state(repo, source)
+                          if source in HOLD_ISOLATED_SOURCES else None)
                 results[source] = run_source(source, nfl_week, repo, run_fn)
+                if source in HOLD_ISOLATED_SOURCES and results[source].get("held"):
+                    isolate_hold(repo, source, before, results[source], nfl_week)
 
-        failed_sources = [s for s, r in results.items() if r["status"] != "ok"]
+        failed_sources = [s for s, r in results.items() if r["status"] not in ("ok", "held")]
+        if not failed_sources and all_review_gated_held(results):
+            failed_sources = ["all review-gated sources held"]
         if failed_sources:
             # The fit reads the combined fixture — it must not run against
-            # a partially-rebuilt fixture.
+            # a partially-rebuilt fixture. (An isolated hold is not partial:
+            # its section was restored to the last promoted one.)
             fit_result = {
                 "status": "skipped",
                 "detail": f"skipped: sources failed: {', '.join(failed_sources)}",
@@ -962,7 +1207,9 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         # results/fit_result/adjusted_result may be partially populated — write what's known.
         status_data = write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, runner)
         print(f"\nStatus written to output/comparison-chain-status.json "
-              f"(success={status_data['success']})")
+              f"(success={status_data['success']}, outcome={status_data['outcome']}, "
+              f"held={status_data['held']})")
+        write_step_summary(status_data)
     return status_data
 
 
