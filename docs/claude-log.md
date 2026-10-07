@@ -3210,3 +3210,15 @@ failure, the CBS re-write behaviour, and added the pg_cron schedule and a test.
   flags the pre-fix preview.yml (line 43) and passes on the env form. Added to test-unit.
 - The #379 body's checklist used "1. **Guard ID:**" which the checker regex doesn't accept; reformatted to
   "### 1. Guard ID" headings (local checker: PASS).
+
+## 2026-10-07 ~05:00 CDT — Claude (cloud session): trade-chart ingest live on main; Muse-off gaps recorded
+
+### Verified (check named)
+- #379 merged (CI ingest + preview injection fix). pg_cron jobid 24 `trade-chart-ingest-live` (7 12 * * *) active.
+  Dispatched a write run on main: CBS success (week-4 article, tables QB36/RB43/WR44/TE17); USA Today failed
+  (bot wall, expected — GAP-USAT-FIRECRAWL).
+- Pages deploy of 32dabde (engine #378 + registry #377 on main) succeeded (runs make validate incl. the
+  rendered gates).
+
+### Claimed, unverified
+- Live-site read of the engine files was not done this session (fetch permission prompt went unanswered).
