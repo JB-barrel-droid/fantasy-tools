@@ -83,16 +83,14 @@ SIDECAR = HIDDEN / "espn_ros_ppg.json"
 FORCE = "--force" in _args  # bypass the hash no-op (backfills only)
 
 sys.path.insert(0, str(BIN))
-# JEG-102: in the repo (and in CI) `identity` lives with the waiver-wire pipeline,
-# not beside this script as it did in the goal workspace. Append (never prepend) so
-# a local layout that has it next to the script still wins.
-IDENTITY_DIR = REPO / "waiver_wire" / "pipeline" / "bin"
-if IDENTITY_DIR.is_dir() and str(IDENTITY_DIR) not in sys.path:
-    sys.path.append(str(IDENTITY_DIR))
-import identity as ident  # noqa: E402  (shared Supabase IdentityMap snapshot)
+# Migrated from waiver_wire/pipeline/bin/identity (archived 2026-10-07).
+# The legacy shim in pipelines/lib/ preserves the identical public API
+# (norm_name, IdentityMap, SNAP). New identity work uses layered_identity.
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+import legacy_identity as ident  # noqa: E402  (shared Supabase IdentityMap snapshot)
 
-# The snapshot sits at <lottery>/data/player_identity_map.json in the goal workspace
-# (what `ident.SNAP` points at); the repo carries a copy under data/inputs/.
+# SNAP now points at data/inputs/ directly; the fallback path is kept for
+# any layout that still has an alternate snapshot.
 IDENTITY_SNAPSHOT = (Path(ident.SNAP) if Path(ident.SNAP).exists()
                      else REPO / "data" / "inputs" / "player_identity_map.json")
 
