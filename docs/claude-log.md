@@ -1,5 +1,28 @@
 # Claude session log
 
+## 2026-10-07 - USA Today slug plural form fix
+
+Contract: Fix USA Today trade-value-chart discovery to accept plural "charts" form (week 5+), which was silently missing those articles and falling back to stale week-4 data. Only the slug regex fix, no relay code from PR #382.
+
+### Verified (check named)
+- Plural URL extraction: `extract_week_from_url("...trade-value-charts-week-5-ros-rankings...")` returns 5 ✓
+- Singular URL still works: `extract_week_from_url("...trade-value-chart-week-4-ros-rankings...")` returns 4 ✓
+- Discovery with plural URL in sitemap: `discover_url(week=5)` finds "fantasy-trade-value-charts-week-5-ros-rankings/777/" ✓
+- Backward compat: singular week 4 still discovered ✓
+- Negative test: singular-only regex `r"trade-value-chart-week-5-ros-rankings"` does NOT match plural URL (proves the bug fix is necessary) ✓
+- Unit tests: 5/5 pass in `tests/test_trade_chart_ingest_ci.py::UsatSlugPluralTest`
+- Workflow tests: 6/6 pass in `WorkflowTest` (existing tests unbroken)
+- Sitemap outage tests: 4/4 pass in `UsatSitemapOutageTest` (existing behavior preserved)
+- Discrimination check: PASS (body.md describes guard GAP-USAT-SLUG-CHARTS, concrete broken scenario, negative test proving singular-only fails, correct-state test proving plural works)
+
+Changes (slug fix only):
+- ops/watchdog/pull_usatoday.py: Added `SLUG_RE = r"trade-value-charts?-week-%d-ros-rankings"`; discovery now uses `re.compile(SLUG_RE % wk)` instead of string substring; `extract_week_from_url()` accepts `charts?`
+- pipelines/check_source_fidelity.py: `_WEEK_SLUG_RE` accepts `charts?`
+- tests/test_trade_chart_ingest_ci.py: Added `UsatSlugPluralTest` class with 5 tests
+
+### Claimed, not confirmed
+- The fix will prevent future week 5+ article misses as long as USA Today maintains the plural slug form.
+
 ## 2026-10-07 - Monitoring coverage audit ("working and monitored")
 
 Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a
