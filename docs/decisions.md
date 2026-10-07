@@ -122,19 +122,35 @@ Option 2, implemented 2026-10-07 under Jeremy's authorization (pending his revie
 - deadline: 2026-10-06
 - category: copy
 - silence-default: explicit-tap
-- outcome: approved
+- outcome: proceeded
 - outcome_date: 2026-10-06
 - recommendation: Replace the locked user-facing term "value above waivers" (and the "never say VORP" rule) with "VORP vs waivers".
 
-### Decision (Jeremy, 2026-10-06, explicit)
+### Context
 
-"Do 'VORP vs waivers'."
+The locked user-facing term was "value above waivers", with a "never say VORP" rule. Jeremy asked for the abbreviation to appear in copy.
 
-### What changed
+### Problem
+
+What exact wording may user-facing copy use for value over the waiver line?
+
+### Options
+
+1. Keep "value above waivers" and the no-VORP rule.
+2. "VORP vs waivers" as the single allowed phrase.
+3. Allow bare "VORP" or "VORP vs replacement" wherever convenient.
+
+### Recommendation
+
+Option 2, chosen by Jeremy (2026-10-06, explicit): "Do 'VORP vs waivers'." Consequences:
 
 - The exact phrase "VORP vs waivers" is now the only allowed user-facing use of "VORP". Other wording ("Raw VORP", bare "VORP", "vorp vs waivers", "VORP vs replacement") is still blocked by `tests/test_public_copy_no_vorp.py`, which has negative cases for each.
 - Labels, titles, badges and methodology copy in the chart widgets, `app/trade-value-chart/index.html` and the monitor pages now say "VORP vs waivers". Internal data keys (`espn_vorp`, the `vorp` view ID) are unchanged.
 - Code comments and pipeline provenance strings baked into fixtures (`method` notes) were not rewritten; they are not chart labels, and rewriting baked text would need a re-bake.
+
+### Outcome Note
+
+Approved by Jeremy in session on 2026-10-06 ("Do 'VORP vs waivers'"); recorded as `proceeded` because the format has no `approved` outcome.
 
 ## ops-ownership-001: Muse owns nothing except as a last resort; Supabase-first tooling
 - id: ops-ownership-001
@@ -142,15 +158,27 @@ Option 2, implemented 2026-10-07 under Jeremy's authorization (pending his revie
 - deadline: 2026-10-06
 - category: publish
 - silence-default: explicit-tap
-- outcome: approved
+- outcome: proceeded
 - outcome_date: 2026-10-06
 - recommendation: Move ownership of merges, deploys, production QA and scheduled jobs on the trade-value project from Roman (Muse) to Claude; use Muse only as a last resort. Prefer Supabase tools (pg_cron, Edge Functions, database-side checks) over GitHub Actions for new automation.
 
-### Decision (Jeremy, 2026-10-06, explicit)
+### Context
 
-"I don't want muse owning things anymore, unless it's the last resort. And I think we should favor supabase tools over GitHub as a general guideline."
+Merges, deploys and production QA on the trade-value project were owned by Roman (Muse), with GitHub Actions as the default scheduler.
 
-### Consequences
+### Problem
+
+Who owns merges, deploys, production QA and scheduled jobs, and which tooling is the default for new automation?
+
+### Options
+
+1. Keep Muse ownership and GitHub Actions scheduling.
+2. Claude owns them; Muse is a last resort; Supabase tools are preferred over GitHub.
+3. Split ownership by task type.
+
+### Recommendation
+
+Option 2, chosen by Jeremy (2026-10-06, explicit): "I don't want muse owning things anymore, unless it's the last resort. And I think we should favor supabase tools over GitHub as a general guideline." Consequences:
 
 - Supersedes the AGENTS.md rule that Roman owns review, integration and all deploys to `main`.
 - Muse's trade-value crons (dashboard push, overnight QA loop, PR merge sweep, CBS/USA Today ingests) are retired as Claude-owned, Supabase-scheduled replacements go live; handoff note drafted 2026-10-06 for Jeremy to send to Muse.
@@ -158,7 +186,7 @@ Option 2, implemented 2026-10-07 under Jeremy's authorization (pending his revie
 
 ### Outcome Note
 
-Approved by Jeremy in session on 2026-10-06.
+Approved by Jeremy in session on 2026-10-06; recorded as `proceeded` because the format has no `approved` outcome.
 
 ## league-settings-001: Save one league setup; derive other league settings in the browser
 - id: league-settings-001
@@ -166,7 +194,7 @@ Approved by Jeremy in session on 2026-10-06.
 - deadline: 2026-10-06
 - category: methodology
 - silence-default: explicit-tap
-- outcome: approved
+- outcome: proceeded
 - outcome_date: 2026-10-06
 - recommendation: Save and validate one canonical setup (12 teams, standard roster) end to end, per scoring format (standard / half / full PPR). Derive every other team count, roster shape and bench share in the browser from that saved base. Never save rows per league-setting permutation.
 
@@ -174,7 +202,19 @@ Approved by Jeremy in session on 2026-10-06.
 
 Saving finished values for every (teams x roster x scoring x view) permutation multiplies storage per source per week (12 combos x 2 views today in `consolidated_values`, more with roster shapes) and would exhaust the Supabase tier. The 2026-10-04 hybrid decision (JEG-364) already baked one team size through and kept roster and bench flexibility client-side; this extends it to team count. JEG-331 found the saved chart values already depend on team count, so the browser must start from a deeper, setting-independent layer.
 
-### Decision (Jeremy, 2026-10-06, explicit tap)
+### Problem
+
+Which league setups are saved and validated in the backend, and which are derived in the browser?
+
+### Options
+
+1. Save finished values for every (teams x roster x scoring x view) permutation.
+2. Save one canonical 12-team standard-roster setup per scoring format and derive the rest in the browser.
+3. Derive everything, including scoring, in the browser.
+
+### Recommendation
+
+Option 2, chosen by Jeremy (2026-10-06, explicit tap):
 
 1. Backend: 12-team, standard-roster values are computed all the way through and are the only league setup saved, reviewed and validated.
 2. Scoring stays saved: three formats at 12 teams. Scoring changes a source's own numbers, so it is not derived; every saved number stays one a source actually published (or our model computed at the canonical setup).
@@ -182,7 +222,7 @@ Saving finished values for every (teams x roster x scoring x view) permutation m
 4. Validity: the backend validates the 12-team output; a parity gate proves the browser engine, set to 12 teams, reproduces the saved values exactly (JEG-364). Other settings inherit that guarantee because they run the same formula.
 5. Accepted trade-off: for sources that publish their own per-league-size numbers (FantasyCalc `numTeams`), only the 12-team publication is saved; our derived 8-team value will not match the source's own 8-team page.
 
-### Consequences
+**Consequences**
 
 - Answers architecture-target Q6: the Postgres on-demand view family (JEG-329/332/333/334 as written) is retired in favour of browser derivation; PR #202 was closed unmerged.
 - FantasyCalc weekly producer: pull and save 12-team only, three scorings (GAP-FC-PRODUCER).
@@ -190,7 +230,7 @@ Saving finished values for every (teams x roster x scoring x view) permutation m
 
 ### Outcome Note
 
-Approved by Jeremy in session on 2026-10-06 ("Good with your recommendation").
+Approved by Jeremy in session on 2026-10-06 ("Good with your recommendation"); recorded as `proceeded` because the format has no `approved` outcome.
 
 ## jeg-209-001: Eight-group VORP reweight — approve the allocation policy
 - id: jeg-209-001
