@@ -257,6 +257,11 @@ class FeasibleBenchBoundsParity(unittest.TestCase):
     def test_synthetic_edges_take_the_branch_they_name(self):
         by = {v["label"]: _python(v) for v in _synthetic_vectors()}
         self.assertIsNone(by["thin"]["benchSlots"])
+        # Decision feasible-bench-001: the blocking position is reported so the
+        # chart can disable the stepper with a reason; null when a range exists.
+        self.assertEqual(by["thin"]["benchSlotsBlocked"],
+                         {"pos": "QB", "rostered": 12, "pool": 10, "bench": 0})
+        self.assertIsNone(by["te-cap"]["benchSlotsBlocked"])
         self.assertLess(by["te-cap"]["benchSlots"]["max"], 14)
         self.assertEqual(by["te-cap"]["benchSlots"]["binding"]["pos"], "TE")
         # det < 0: QB's interval is (0.548, 0.96) -- reversed edges, and it

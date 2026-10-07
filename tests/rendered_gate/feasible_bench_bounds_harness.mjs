@@ -11,6 +11,12 @@
 //   slots-clamp    at 14 teams, typing 14 into the stepper lands on the max;
 //   slots-league   bench 13 at 12 teams, then switching to 14 teams, pulls
 //                  the bench back to the 14-team max;
+//   slots-blocked  5 quarterback slots at 12 teams (60 starters, more than
+//                  the projected quarterbacks): the Bench stepper is disabled
+//                  and blank, a one-line reason names quarterbacks in plain
+//                  words (no "QB"/"VORP"), typing into it changes nothing, and
+//                  going back to 1 quarterback re-enables it with a number
+//                  (decision feasible-bench-001);
 //   no page errors.
 // Prints a JSON report; exits 1 when any check fails.
 import { chromium } from "playwright-core";
@@ -121,6 +127,36 @@ async function main() {
     if (league.at12 !== 13) fail("slots-league", `could not set bench 13 at 12 teams (got ${league.at12})`);
     if (!league.rule || league.at14 !== league.rule.max || league.shown !== league.rule.max)
       fail("slots-league", `after 14 teams bench=${league.at14} shown=${league.shown}, rule max ${league.rule && league.rule.max}`);
+
+    // slots-blocked (5 QB slots at 12 teams -> no feasible bench size)
+    const blocked = await page.evaluate(() => {
+      const L = window.TradeValueTwoTierLive;
+      window.TradeValueCurveControls.setTeams(12);
+      const before = L.rosterShape().BENCH;
+      L.setRosterSpot("QB", 5, false);
+      const rule = L.benchSlotBounds();
+      const input = document.querySelector('input[data-roster-key="BENCH"]');
+      const note = document.getElementById("benchStepperBlocked");
+      const state = { rule, disabled: input ? input.disabled : null, value: input ? input.value : null,
+        note: note ? note.textContent : null };
+      L.setRosterSpot("BENCH", 3, false);
+      state.afterType = L.rosterShape().BENCH;
+      state.before = before;
+      L.setRosterSpot("QB", 1, false);
+      const back = document.querySelector('input[data-roster-key="BENCH"]');
+      state.restored = { disabled: back ? back.disabled : null, value: back ? back.value : null,
+        note: !!document.getElementById("benchStepperBlocked") };
+      return state;
+    });
+    report.checks.slotsBlocked = blocked;
+    if (!blocked.rule || !blocked.rule.blocked) fail("slots-blocked", `rule not blocked at 5 QB / 12 teams: ${JSON.stringify(blocked.rule)}`);
+    if (blocked.disabled !== true) fail("slots-blocked", `stepper not disabled (disabled=${blocked.disabled})`);
+    if (blocked.value !== "") fail("slots-blocked", `disabled stepper shows a number: "${blocked.value}"`);
+    if (!blocked.note || !/quarterbacks/.test(blocked.note) || /\bQB\b|VORP/.test(blocked.note) || /\n/.test(blocked.note))
+      fail("slots-blocked", `reason line missing or not plain words: ${JSON.stringify(blocked.note)}`);
+    if (blocked.afterType !== blocked.before) fail("slots-blocked", `typing into the disabled stepper moved bench ${blocked.before} -> ${blocked.afterType}`);
+    if (blocked.restored.disabled !== false || blocked.restored.value === "" || blocked.restored.note)
+      fail("slots-blocked", `stepper not restored after 1 QB: ${JSON.stringify(blocked.restored)}`);
 
     if (pageErrors.length) fail("page", `${pageErrors.length} uncaught page error(s): ${pageErrors[0]}`);
   } finally {

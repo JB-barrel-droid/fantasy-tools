@@ -1062,8 +1062,13 @@
         }
       }
     }
+    // benchSlotsBlocked: when NO bench size is feasible, the position whose
+    // starters alone (bench 0) already use up its projection pool -- the
+    // chart disables the Bench stepper and names it (Jeremy 2026-10-07,
+    // decision feasible-bench-001). Null whenever benchSlots is set.
     return {version: FEASIBLE_BENCH_VERSION, teams: teams, scoring: opts.scoring || null,
-      benchSlots: benchSlots, benchShare: benchShare, shareIntervals: shareIntervals, reasons: reasons};
+      benchSlots: benchSlots, benchSlotsBlocked: benchSlots ? null : binding,
+      benchShare: benchShare, shareIntervals: shareIntervals, reasons: reasons};
   }
 
   root.ValueModel = {

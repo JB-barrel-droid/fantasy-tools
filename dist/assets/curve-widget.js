@@ -2087,8 +2087,10 @@
 
   // JEG-432 R2: feasible bench-slot range for the active scoring, teams and
   // roster (the BENCH value itself does not move it). Memoised per setting.
-  // Null when the projection pool is unavailable -- the stepper then keeps
-  // its UI range rather than inventing a bound.
+  // Returns the rule's {min, max, reason, ...}; {blocked: {pos, rostered,
+  // pool}} when NO bench size is feasible (the starters alone use up a
+  // position's projections -- the stepper is then disabled, decision
+  // feasible-bench-001); null only when the projection pool is unavailable.
   const benchSlotBoundsCache = new Map();
   function benchSlotBounds() {
     const shape = {...rosterShape, BENCH: 0};
@@ -2097,9 +2099,10 @@
     let out = null;
     try {
       if (data && canonicalByKey.size) {
-        out = ValueModel.feasibleBenchBounds({
+        const rule = ValueModel.feasibleBenchBounds({
           teams, scoring, shape, pool: projectionPoolFrom(espnProjectionsByPos())
-        }).benchSlots;
+        });
+        out = rule.benchSlots || (rule.benchSlotsBlocked ? {blocked: rule.benchSlotsBlocked} : null);
       }
     } catch (e) {
       out = null;
@@ -2108,15 +2111,40 @@
     return out;
   }
 
+  const POSITION_PLURAL = {QB: "quarterbacks", RB: "running backs", WR: "wide receivers", TE: "tight ends"};
+
+  // One plain-language line for a disabled Bench stepper.
+  function benchBlockedReason(blocked) {
+    const noun = POSITION_PLURAL[blocked.pos] || "players";
+    return `Bench unavailable: these lineups start ${blocked.rostered} ${noun} across ${teams} teams, ` +
+      `but only ${blocked.pool} have projections, so no bench size leaves a player on waivers.`;
+  }
+
+  // Plain-words tooltip for an enabled Bench stepper (no position codes).
+  function benchRangeTitle(range) {
+    const head = `Bench spots ${range.min} to ${range.max}`;
+    const b = range.binding;
+    if (!b) return `${head}.`;
+    const noun = POSITION_PLURAL[b.pos] || "players";
+    return `${head}. At ${b.bench}, these lineups would roster ${b.rostered} ${noun}, ` +
+      `but only ${b.pool} have projections, so none would be left on waivers.`;
+  }
+
+  // [min, max] for the Bench stepper; null when it is disabled (no feasible
+  // bench size). The UI range is used only when the pool is unavailable.
   function benchSlotRange() {
     const b = benchSlotBounds();
+    if (b && b.blocked) return null;
     return b ? [b.min, b.max] : [ValueModel.BENCH_SLOTS_UI_MIN, ValueModel.BENCH_SLOTS_UI_MAX];
   }
 
   // Pull the bench stepper back inside the feasible range after a league
   // change (teams, scoring, a starter slot) shrank it. Returns true if moved.
+  // A disabled stepper keeps its last value; it is not shown.
   function clampBenchSlotsToFeasible() {
-    const [lo, hi] = benchSlotRange();
+    const range = benchSlotRange();
+    if (!range) return false;
+    const [lo, hi] = range;
     const next = Math.max(lo, Math.min(hi, Number(rosterShape.BENCH)));
     if (next === rosterShape.BENCH) return false;
     rosterShape.BENCH = next;
@@ -2540,6 +2568,7 @@
       // entirely, and these inputs were no-ops (POSITION_ORDER has no K/DST).
     ];
     grid.replaceChildren();
+    let blockedNote = null;
     controls.forEach(([key, label]) => {
       const wrapper = document.createElement("label");
       wrapper.className = "roster-step";
@@ -2548,22 +2577,36 @@
       const input = document.createElement("input");
       input.type = "number";
       // JEG-432 R2: the bench stepper is bounded by the feasible-bench rule
-      // for this scoring/teams/roster, not a fixed 0-14.
+      // for this scoring/teams/roster, not a fixed 0-14. When no bench size
+      // is feasible it is disabled and blank (fail closed: no misleading
+      // number), with a one-line reason below the grid.
+      const sb = key === "BENCH" ? benchSlotBounds() : null;
       const benchRange = key === "BENCH" ? benchSlotRange() : null;
-      input.min = key === "BENCH" ? String(benchRange[0]) : "1";
-      input.max = key === "BENCH" ? String(benchRange[1]) : "5";
-      if (key === "BENCH") {
-        const sb = benchSlotBounds();
-        if (sb) input.title = `Feasible ${sb.min}-${sb.max} bench spots: ${sb.reason}`;
-      }
+      const benchBlocked = key === "BENCH" && !benchRange;
+      input.min = key === "BENCH" ? String(benchRange ? benchRange[0] : 0) : "1";
+      input.max = key === "BENCH" ? String(benchRange ? benchRange[1] : 0) : "5";
+      if (key === "BENCH" && sb && !sb.blocked) input.title = benchRangeTitle(sb);
       input.step = "1";
-      input.value = rosterShape[key];
+      input.value = benchBlocked ? "" : rosterShape[key];
+      if (benchBlocked) {
+        input.disabled = true;
+        input.placeholder = "–";
+        blockedNote = benchBlockedReason(sb.blocked);
+      }
       input.dataset.rosterKey = key;
       input.setAttribute("aria-label", `${label} roster spots`);
       input.addEventListener("change", () => setRosterSpot(key, input.value));
       wrapper.append(text, input);
       grid.appendChild(wrapper);
     });
+    if (blockedNote) {
+      const note = document.createElement("p");
+      note.className = "roster-bench-blocked";
+      note.id = "benchStepperBlocked";
+      note.setAttribute("role", "status");
+      note.textContent = blockedNote;
+      grid.appendChild(note);
+    }
     // Bench share: one global bounded slider (not a free input). It writes the
     // same share to all skill positions (each falls back to the shared
     // default); K/DST are excluded. Bounds are the maximal feasible interval
@@ -2969,9 +3012,14 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const [benchMin, benchMax] = key === "BENCH" ? benchSlotRange() : [0, 14];
-    const min = key === "BENCH" ? benchMin : 1;
-    const max = key === "BENCH" ? benchMax : 5;
+    const benchRange = key === "BENCH" ? benchSlotRange() : null;
+    if (key === "BENCH" && !benchRange) {
+      // Disabled stepper (no feasible bench size): ignore the request.
+      makeRosterControls();
+      return;
+    }
+    const min = key === "BENCH" ? benchRange[0] : 1;
+    const max = key === "BENCH" ? benchRange[1] : 5;
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();

@@ -129,8 +129,10 @@ The design excludes older-week sources from the first load.
   slider changes nothing), inside the product range [0.01, 0.30]. The chart's
   bench stepper and bench-share slider clamp to it. Default roster, today's
   data: bench 0–14 at 8/10 teams, 0–13 at 12, 0–10 at 14; share e.g.
-  0.053–0.205 (half-PPR 12), default 0.15 everywhere. Math review pending
-  (Jeremy: "working tool now, math review later").
+  0.053–0.205 (half-PPR 12), default 0.15 everywhere. When no bench size
+  is feasible the rule returns `benchSlotsBlocked` and the chart disables the
+  Bench stepper with a one-line reason (decision feasible-bench-001).
+  Custom-roster share bounds are open (decision feasible-bench-002).
 - **R4 (inputs only):** Supabase `api.source_inputs_weekly` +
   `api.source_input_weeks` (§17.5) expose every saved week of 12-team
   inputs for the four published charts (weeks 2–5 today). The browser

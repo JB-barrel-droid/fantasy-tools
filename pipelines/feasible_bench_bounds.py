@@ -207,7 +207,8 @@ def feasible_bench_bounds(teams: int, shape: Optional[dict], pool: dict,
                                "maxPosition": hi_pos, "reason": why}
                 reasons.append("bench share: " + why)
     return {"version": VERSION, "teams": teams, "scoring": scoring,
-            "benchSlots": bench_slots, "benchShare": bench_share,
+            "benchSlots": bench_slots, "benchSlotsBlocked": None if bench_slots else binding,
+            "benchShare": bench_share,
             "shareIntervals": share_intervals, "reasons": reasons}
 
 

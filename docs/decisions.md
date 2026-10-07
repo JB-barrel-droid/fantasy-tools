@@ -78,6 +78,81 @@ reader can tell drafts apart from queued entries.
 
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
+
+## feasible-bench-001: Feasible bench bounds — slider ceiling, quarterback depth cap, disabled Bench stepper
+- id: feasible-bench-001
+- created: 2026-10-07
+- deadline: 2026-10-07
+- category: methodology
+- silence-default: explicit-tap
+- outcome: proceeded
+- outcome_date: 2026-10-07
+- recommendation: Keep the slider ceiling at the highest per-position edge, keep the projection-depth cap on bench spots, and disable the Bench stepper with a plain reason when no bench size is feasible.
+
+### Context
+
+JEG-432 R2 (PR #397) bounds the bench-share slider and the Bench stepper with the browser rule `feasible-bench/1` (`ValueModel.feasibleBenchBounds`, Python reference `pipelines/feasible_bench_bounds.py`). It shipped as "working tool now, math review later". The review listed the open choices in GAP-JEG432-R2-MATH-REVIEW.
+
+### Problem
+
+Three of the review's choices: (1) where the bench-share slider tops out; (2) whether the bench-spot range may be capped by the depth of our ESPN projections (37 quarterbacks); (3) what the Bench stepper does when no bench size is feasible (the starters alone use up a position's projections, e.g. 5 quarterback slots at 12 teams).
+
+### Options
+
+1. Slider ceiling: (a) the highest per-position upper edge, so a position above its own edge is priced at its highest feasible share; (b) the lowest upper edge, so nothing falls back, but the 15% default is unreachable where the tight-end edge is about 12%.
+2. Projection depth: (a) keep the cap; (b) bound on starters only and let a deeper bench use the bottom-of-list waiver line; (c) deepen the quarterback projection pool so the cap rises.
+3. No feasible bench size: (a) the stepper keeps its 0–14 range and shows a number (fail open); (b) the stepper is disabled and blank, with a one-line plain-language reason.
+
+### Recommendation
+
+Jeremy chose 1(a), 2(a) for now, with 2(c) as follow-up work, and 3(b) (2026-10-07, explicit, via the PR #397 review).
+
+- 1(a): no change to the rule.
+- 2(a): no change. Deepening the ESPN quarterback projection pool is tracked as GAP-ESPN-QB-POOL-DEPTH in `docs/risk-register.md`; the orchestrator opens the ticket.
+- 3(b): the rule now also returns `benchSlotsBlocked` (the position, its starters and its projection count) when no bench size is feasible. The chart disables the Bench stepper, leaves it blank, ignores input to it, and shows one line such as "Bench unavailable: these lineups start 60 quarterbacks across 12 teams, but only 37 have projections, so no bench size leaves a player on waivers." The stepper's tooltip uses the same plain words (no position codes). Guarded by the `slots-blocked` check in `tests/rendered_gate/feasible_bench_bounds_harness.mjs`, negative-tested by `tests/test_feasible_bench_bounds_rendered.py::test_harness_catches_fail_open_stepper`.
+
+### Outcome Note
+
+Approved by Jeremy on 2026-10-07 (explicit decisions on PR #397, relayed by the coordinator). Recorded as `proceeded`.
+
+## feasible-bench-002: Bench-share bounds for custom roster shapes
+- id: feasible-bench-002
+- created: 2026-10-07
+- deadline: 2026-10-14
+- category: methodology
+- silence-default: explicit-tap
+- outcome: pending
+- outcome_date:
+- recommendation: Make the browser's two-tier pool follow the user's roster shape (one calibration for values and bounds) as its own change with a custom-roster sweep; until then keep reference-shape bounds.
+
+### Context
+
+Jeremy (2026-10-07, PR #397): "We should only be building fixed values for one roster shape and league count shape, the rest is supposed to be computable on the client side." Direction relayed: the browser computes the bench-share bounds from the user's actual roster shape (superflex, 2 quarterbacks and so on) with the client-side pool and waiver logic, and nothing is saved per roster. No bounds are saved per roster on the backend today: `public.product_options` holds one product-wide `bench_share_min/max/default` row, and nothing else stores bounds.
+
+Implementing it found a conflict. The bench-share slider calibrates the two-tier pool, and that pool is always built at the reference roster (1 QB, 2 RB, 3 WR, 1 TE, 1 flex, legacy bench mix). Custom rosters reach the chart later, through `applyRosterShape`. Bounds computed from a pool built at the user's roster describe a different calibration from the one the slider drives. Measured in the browser with the same rule (half-PPR, user-roster pool vs reference pool):
+
+- 12 teams superflex: 0.117–0.25 vs 0.053–0.205.
+- 12 teams bench 3: 0.016–0.088 vs 0.053–0.205. The 15% default falls outside.
+- 12 teams bench 10: 0.201–0.30.
+- 14 teams bench 10: no feasible share at all.
+- Bench 0: no bench share exists.
+
+### Problem
+
+How should custom rosters bound, and calibrate, the bench share?
+
+### Options
+
+1. **The two-tier pool follows the user's roster** (slots, flex count, superflex eligibility, bench mix scaled by bench spots). Bounds and calibration are computed from the same pool. This changes the CBS ROS, ESPN and Razzball two-tier values for every non-default roster. `applyRosterShape` must stop applying to those sources, or the roster would count twice. The fixed-pie targets move with the roster, and bench 0 needs a share of 0. The default roster is unchanged.
+2. **Intersect the reference-pool bounds with the user-roster bounds.** No value changes, but the slider often shrinks a lot or vanishes. At 14 teams with bench 10 nothing is feasible, so the chart would blank. At 12 teams with bench 3, 15% is unreachable.
+3. **Keep the reference-roster bounds** (current). They exactly describe what the slider calibrates; roster effects stay in `applyRosterShape`.
+
+### Recommendation
+
+Option 1 is the architecture in Jeremy's words: everything beyond the one saved setup is computed in the browser, and the slider's meaning follows the reader's league. It is a valuation change for custom rosters, so it should ship as its own change, with a custom-roster sweep and Jeremy's sign-off. Option 3 stays in place until then. Option 2 is not recommended, because it blanks or pins the slider in ordinary leagues.
+
+### Outcome Note
+
 ## build-lag-001: Build on each source's newest week; a one-week lag does not block
 - id: build-lag-001
 - created: 2026-10-07

@@ -99,6 +99,8 @@
 #curve-widget .roster-shape-grid{display:grid;grid-template-columns:repeat(9,minmax(54px,1fr));gap:7px}
 #curve-widget .roster-step{display:grid;gap:3px;min-width:0;color:var(--muted);font:700 9px/1.2 "IBM Plex Mono",monospace;text-transform:uppercase}
 #curve-widget .roster-step input{width:100%;min-height:34px;border:1px solid var(--line-strong);border-radius:5px;background:var(--white);color:var(--ink);padding:5px 6px;font:700 12px/1 "Archivo",sans-serif}
+#curve-widget .roster-step input:disabled{background:var(--line);color:var(--muted);cursor:not-allowed}
+#curve-widget .roster-bench-blocked{grid-column:1/-1;margin:0;color:var(--ink);font:600 12px/1.35 "Archivo",sans-serif}
 #curve-widget .absence-step input{border-color:#b9c8d0;background:#f2f6f8}
 #curve-widget .specialist-toggle{align-self:end;display:flex;align-items:center;gap:6px;min-height:34px;margin:0}
 #curve-widget .specialist-toggle:has(input:disabled){opacity:.5}

@@ -55,7 +55,7 @@ class FeasibleBenchBoundsRendered(unittest.TestCase):
         rc, report = run_harness(DIST)
         self.assertTrue(report.get("ok"), report.get("mismatches"))
         self.assertEqual(rc, 0)
-        for name in ("shareBounds", "shareClamp", "slotsBounds", "slotsClamp", "slotsLeague"):
+        for name in ("shareBounds", "shareClamp", "slotsBounds", "slotsClamp", "slotsLeague", "slotsBlocked"):
             self.assertIn(name, report["checks"], f"harness skipped {name}")
 
     def test_harness_catches_fixed_ranges(self):
@@ -78,6 +78,26 @@ class FeasibleBenchBoundsRendered(unittest.TestCase):
         self.assertIn("share-clamp", joined)
         self.assertIn("slots-bounds", joined)
         self.assertIn("slots-clamp", joined)
+
+
+    def test_harness_catches_fail_open_stepper(self):
+        """Decision feasible-bench-001: with no feasible bench size the stepper
+        must be disabled with a reason. The pre-decision widget fell back to
+        the 0-14 UI range and kept showing a number; the harness must fail it."""
+        widget = (DIST / "assets" / "curve-widget.js").read_text()
+        old = "out = rule.benchSlots || (rule.benchSlotsBlocked ? {blocked: rule.benchSlotsBlocked} : null);"
+        self.assertIn(old, widget, "broken-state anchor missing from dist widget")
+        with tempfile.TemporaryDirectory() as tmp:
+            broken_dist = Path(tmp) / "dist"
+            shutil.copytree(DIST, broken_dist)
+            (broken_dist / "assets" / "curve-widget.js").write_text(
+                widget.replace(old, "out = rule.benchSlots;", 1))
+            rc, report = run_harness(broken_dist)
+        self.assertFalse(report.get("ok"), "harness passed with a fail-open bench stepper")
+        self.assertNotEqual(rc, 0)
+        joined = " ".join(report.get("mismatches", []))
+        self.assertIn("slots-blocked", joined)
+        self.assertIn("stepper not disabled", joined)
 
 
 if __name__ == "__main__":
