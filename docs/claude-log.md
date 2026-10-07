@@ -3072,3 +3072,60 @@ Ran `python3 -m unittest tests.test_health_function_no_hardcoded_green` outside 
 
 ### Claimed, unverified
 - None.
+
+## 2026-10-06 - CBS + USA Today trade-chart ingest moved from Muse to CI (branch ingest-ci)
+
+Contract: Muse's cbs-/usatoday-trade-chart-ingest crons were disabled 2026-10-06
+(ops-ownership-001). `.github/workflows/trade-chart-ingest.yml` (from an earlier
+session) runs the ingest scripts unchanged. This session fixed the USA Today
+failure, the CBS re-write behaviour, and added the pg_cron schedule and a test.
+
+### Verified
+- USA Today failure cause: www.usatoday.com answers GitHub-hosted runners with
+  HTTP 402 "Access Restricted" for article pages and web-sitemap-index.xml; the
+  gannett-cdn monthly sitemaps return 200. Evidence: probe runs 37566756316 and
+  37566852300 (curl), then ingest dry run `ingest/dry-3` (run 37567149312):
+  discovery found the week-4 URL (`.../2026/09/29/fantasy-trade-value-chart-week-4-ros-rankings/...`),
+  then `SOURCE_BLOCKED: fetch refused: status=402`. Not fixable from the runner;
+  recorded as GAP-USAT-CI-BLOCKED, not retried in a loop.
+- `ingest/dry-2` (run 37566582623) exited 0 with "week 4 article not published
+  yet" when the October sitemap returned 404. That was a silent failure: a
+  sitemap outage was treated as "not published". Fixed: `SitemapUnavailable`
+  (a non-quiet DiscoveryFailed) now becomes an IngestError.
+- CBS on a CI runner: there is no Muse fingerprint state, so every daily run
+  re-upserted the week and bumped pulled_at. Added `ingest_cbs.pre_write_guard`
+  (DB comparison of (player_key, scoring) -> native_value). Real-data check:
+  `ingest/write-3` (run 37568130311) logged "same-week content unchanged in DB
+  (342 keys); skipping write". pulled_at for week 4 stayed 2026-10-07 03:41:51.
+- Write runs (Supabase writes through the pipeline's own saver, week-4 grain):
+  `ingest/write-1` (run 37567840375) wrote 342 CBS rows (113 std / 113 half /
+  116 ppr, 78 review). Before it, the table held Muse's 10-06 12:07 UTC write of
+  week 4 (342 rows). `ingest/write-2` (run 37567935292) wrote the same 342 rows
+  again about a minute later (see Claimed). USA Today failed with
+  SOURCE_BLOCKED in all three runs; nothing was written.
+- Monitoring: `monitoring.check_observations` holds cbs_trade_chart_ingest
+  ok=true (ids 83, 87, 90) and usatoday_trade_chart_ingest ok=false
+  error_code=SOURCE_BLOCKED (ids 82, 88, 89).
+- Migration `ingest_ci_pg_cron` applied to iskiybsimubiujwuchsl (apply_migration
+  success). It adds pg_cron `trade-chart-ingest-live` '7 12 * * *', dispatching
+  trade-chart-ingest.yml with mode=write, and check_config rows (cbs: page;
+  usatoday: warn, because the block is known).
+- `tests/test_trade_chart_ingest_ci.py` (13 tests, in make test-unit) passes.
+  Broken-state runs: the guard fails 5/13 against the pre-fix ops/watchdog code
+  (patch removed, then restored). In-test mutations are each caught: an added
+  `schedule:`, a dropped `--dry-run`, `mode=write` as the default, the record
+  step running in dry mode, a quiet sitemap outage, and a removed CBS guard.
+- Week rule: kept `_common.nfl_week` (Thursday flip). USA Today dates week-N
+  articles on Tuesday, so a new week lands Thursday. Switching to the content
+  week would make Tuesday-morning runs fail loudly on the exact-week gate,
+  because discovery falls back to N-1 before the article is out. Recorded as
+  GAP-INGEST-THU-WEEK, with a fallback design as the next step.
+- `make validate` exit 0 (CHROMIUM_PATH set). Stamp files reverted.
+
+### Claimed, unverified
+- Why `ingest/write-2` rewrote rows that `ingest/write-1` wrote a minute
+  earlier is not known: possibly a CDN variant of the CBS page. The guard
+  didn't log its reason then. It now logs removed/added/changed counts with
+  examples, and the next write run will show the cause.
+- The daily 12:07 UTC dispatch dispatches from main, so it 404s until this PR
+  merges.

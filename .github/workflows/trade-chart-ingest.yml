@@ -79,12 +79,23 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          set -o pipefail
           args=""
           [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"
           [ -n "${{ github.event.inputs.week }}" ] && args="$args --week ${{ github.event.inputs.week }}"
-          python3 ops/watchdog/ingest_${{ matrix.source }}.py $args 2>&1 | tee /tmp/ingest.log
-          tail -4 /tmp/ingest.log | sed "s/^/::notice title=ingest ${{ matrix.source }}::/"
+          # Actions logs can't be downloaded through every proxy, so the
+          # outcome is surfaced as check-run annotations (readable via
+          # GET /check-runs/<job_id>/annotations): the tail as ::notice on
+          # success, as ::error on failure.
+          rc=0
+          python3 ops/watchdog/ingest_${{ matrix.source }}.py $args > /tmp/ingest.log 2>&1 || rc=$?
+          cat /tmp/ingest.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tail -8 /tmp/ingest.log | cut -c1-900 | sed "s/^/::$level title=ingest ${{ matrix.source }} rc=$rc::/"
+          code=INGEST_FAILED
+          grep -q "SOURCE_BLOCKED" /tmp/ingest.log && code=SOURCE_BLOCKED
+          grep -q "discovery source unavailable" /tmp/ingest.log && code=DISCOVERY_UNAVAILABLE
+          echo "error_code=$code" >> $GITHUB_OUTPUT
+          exit $rc
 
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.run == 'true' && steps.cfg.outputs.mode == 'write'
@@ -92,6 +103,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OK: ${{ steps.ingest.outcome == 'success' }}
+          ERROR_CODE: ${{ steps.ingest.outputs.error_code }}
         run: |
           python3 - <<'PY'
           import os, sbclient
@@ -99,7 +111,7 @@ jobs:
           sbclient.rpc("monitoring_record_observation", {
               "p_check_id": "${{ matrix.source }}_trade_chart_ingest",
               "p_ok": ok, "p_content_ok": ok,
-              "p_error_code": None if ok else "INGEST_FAILED",
+              "p_error_code": None if ok else (os.environ.get("ERROR_CODE") or "INGEST_FAILED"),
               "p_scheduler_owner_id": "trade-chart-ingest.yml",
           })
           print("recorded ok=%s" % ok)
