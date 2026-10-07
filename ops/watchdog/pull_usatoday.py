@@ -23,6 +23,7 @@ import json
 import os
 import re
 import sys
+import urllib.request
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -36,6 +37,11 @@ SECTION_SLUG = "trade-value-chart-week-%d-ros-rankings"
 # rename can never again make discovery silently miss the current article
 # while the sitemap still lists last week's (which then fails closed as a
 # "stale article"). extract_week_from_url already matches both patterns.
+# NOTE (2026-10-07): the week-5 article slug is
+# "fantasy-trade-value-charts-week-5-ros-rankings" -- "chart" became "charts".
+# The singular-only match silently missed it (and fell back to the stale
+# week-4 article), so the slug match accepts both forms.
+SLUG_RE = r"trade-value-charts?-week-%d-ros-rankings"
 SITEMAP_INDEX = "https://www.usatoday.com/web-sitemap-index.xml"
 SITEMAP_MONTH = "https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-%04d-%02d.xml"
 TABLE_MARK = "gnt_ar_b_tbl"
@@ -93,13 +99,13 @@ def discover_url(week=None, fetch_fn=fetch):
     for wk in (week, week - 1):
         if wk < 1:
             continue
-        slug = SECTION_SLUG % wk
+        slug_re = re.compile(SLUG_RE % wk)
         for dy, dm in ((today.year, today.month),
                        *([ (today.year, today.month - 1) ] if today.month > 1
                          else [(today.year - 1, 12)])):
             urls = sitemap_urls_for_month(dy, dm, fetch_fn)
             tried.append((dy, dm, len(urls)))
-            hits = [u for u in urls if slug in u]
+            hits = [u for u in urls if slug_re.search(u)]
             if hits:
                 # Newest article wins (sitemap order is chronological).
                 return hits[-1]
@@ -114,7 +120,7 @@ def extract_week_from_url(url: str) -> int | None:
     URL pattern: .../fantasy-football-trade-value-chart-week-N-ros-rankings/...
     Returns None if no week found.
     """
-    m = re.search(r"trade-value-chart-week-(\d+)-", url)
+    m = re.search(r"trade-value-charts?-week-(\d+)-", url)
     return int(m.group(1)) if m else None
 
 
@@ -180,7 +186,79 @@ def validate_week_consistency(url: str, tables: list[dict], requested_week: int 
     }
 
 
-def pull(url, fetch_fn=fetch):
+BLOCK_STATUSES = (401, 402, 403, 429)
+RELAY_FUNCTION = "usatoday-fetch"
+
+
+def fetch_via_relay(url, timeout=90):
+    """GET `url` through the Supabase Edge Function `usatoday-fetch`.
+
+    GitHub-hosted runner IPs are walled (402) by usatoday.com; Supabase's
+    egress is not (verified 2026-10-07). The relay returns the upstream
+    status verbatim, so every downstream check (status, table markup, exact
+    week gate) is unchanged. Returns (status, body) or None when the relay
+    is not configured / unreachable."""
+    base = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not base or not key:
+        return None
+    req = urllib.request.Request(
+        "%s/functions/v1/%s" % (base, RELAY_FUNCTION),
+        data=json.dumps({"url": url}).encode(), method="POST",
+        headers={"Content-Type": "application/json",
+                 "Authorization": "Bearer " + key, "apikey": key})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception as e:  # noqa: BLE001 - any relay failure = no relay
+        print("[usatoday] relay unavailable: %s" % e, file=sys.stderr, flush=True)
+        return None
+    if not isinstance(d, dict) or "status" not in d:
+        return None
+    return d["status"], d.get("body") or ""
+
+
+def fetch_via_firecrawl(url, timeout=90):
+    """Optional paid fallback: active only when FIRECRAWL_API_KEY is set.
+    Returns (status, rawHtml) or None. UNVERIFIED in CI (no secret yet)."""
+    key = os.environ.get("FIRECRAWL_API_KEY", "")
+    if not key:
+        return None
+    req = urllib.request.Request(
+        "https://api.firecrawl.dev/v1/scrape",
+        data=json.dumps({"url": url, "formats": ["rawHtml"]}).encode(),
+        method="POST",
+        headers={"Content-Type": "application/json",
+                 "Authorization": "Bearer " + key})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            d = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception as e:  # noqa: BLE001
+        print("[usatoday] firecrawl unavailable: %s" % e, file=sys.stderr, flush=True)
+        return None
+    html = ((d or {}).get("data") or {}).get("rawHtml")
+    return (200, html) if html else None
+
+
+def fetch_article(url, fetch_fn=fetch):
+    """Direct fetch first; on a bot-wall status fall back to the Supabase
+    relay, then Firecrawl (only if its secret exists). A fallback's non-200
+    never masks the original block: the caller still sees the blocked status
+    and raises SOURCE_BLOCKED."""
+    st, body = fetch_fn(url)
+    if st not in BLOCK_STATUSES:
+        return st, body
+    for name, fb in (("supabase relay", fetch_via_relay),
+                     ("firecrawl", fetch_via_firecrawl)):
+        got = fb(url)
+        if got and got[0] == 200 and got[1]:
+            print("[usatoday] direct fetch blocked (%s); fetched via %s"
+                  % (st, name), flush=True)
+            return got
+    return st, body
+
+
+def pull(url, fetch_fn=fetch_article):
     """Fetch + parse the article's position tables. Same table shape as the
     goal-workspace pull_usatoday(): [{title, headers, rows}]. Raises on
     fetch failure or markup mismatch (fail closed)."""
