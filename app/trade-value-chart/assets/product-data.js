@@ -454,6 +454,9 @@
   // Players a series can price for this league, counted on chart positions.
   // Combo-backed series count combo rows that resolve to a chart player;
   // projection-backed series count players with a per-game projection.
+  // The one saved league setup every other setting derives from (league-settings-001).
+  const DERIVATION_BASE_TEAMS = 12;
+
   function seriesCoverage(seriesKey, ctx) {
     const ppgField = PPG_FIELD_FOR_SERIES[seriesKey];
     if (ppgField) {
@@ -470,7 +473,16 @@
       .map(key => key.match(/^([a-z]+)_(\d+)/))
       .filter(match => match && match[1] === prefix)
       .map(match => Number(match[2])))].sort((a, b) => a - b);
-    const combo = combos[comboKeyFor(sourceKey, ctx.scoring, ctx.teams, "qb1")];
+    // JEG-332 (#378): published charts at an unsaved team count are derived in
+    // the browser from the saved 12-team setup (ValueModel.derivePublishedSetup),
+    // so the 12-team base is what makes the pair available there. Only a
+    // missing base for this scoring is league_setting_unsupported.
+    let combo = combos[comboKeyFor(sourceKey, ctx.scoring, ctx.teams, "qb1")];
+    let kind = "combo";
+    if (!combo && Number(ctx.teams) !== DERIVATION_BASE_TEAMS) {
+      combo = combos[comboKeyFor(sourceKey, ctx.scoring, DERIVATION_BASE_TEAMS, "qb1")];
+      kind = "derived";
+    }
     if (!combo) return {kind: "combo", count: null, savedTeams};
     const cell = combo.values || combo.reindexed || {};
     let count = 0;
@@ -479,7 +491,7 @@
       const player = Number.isInteger(playerKey) ? ctx.playerByKey.get(playerKey) : null;
       if (player && CHART_POSITIONS.has(player.pos) && Number.isFinite(Number(value))) count += 1;
     });
-    return {kind: "combo", count, savedTeams};
+    return {kind, count, savedTeams, derivedFrom: kind === "derived" ? DERIVATION_BASE_TEAMS : null};
   }
 
   // buildPairRegistry({sources, players, playerKeysBySourceId, scoring,
@@ -528,6 +540,7 @@
         }
         const coverage = seriesCoverage(seriesKey, ctx);
         row.shared_players = coverage.count;
+        row.derived_from_teams = coverage.derivedFrom || null;
         if (coverage.count === null) {
           row.reason_code = "league_setting_unsupported";
           row.reason_text = coverage.savedTeams && coverage.savedTeams.length

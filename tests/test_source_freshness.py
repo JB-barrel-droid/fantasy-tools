@@ -249,15 +249,25 @@ class PairRegistryTest(unittest.TestCase):
         self.assertEqual(row(reg, "espn", "vorp_vs_waivers")["method_label"], "VORP vs waivers")
         self.assertEqual(row(reg, "cbs", "adjusted")["method_label"], "Our Data Driven Adjustments")
 
-    def test_unsaved_team_count_is_league_setting_unsupported(self):
+    def test_unsaved_team_count_is_derived_from_the_12_team_base(self):
+        # JEG-332 (#378) derives published charts at 8/10/14 teams from the saved
+        # 12-team setup, so those pairs are available there (pinned before the
+        # engine shipped as league_setting_unsupported; premise changed).
         reg = registry(teams=10)
         for source in ("fantasycalc", "fantasypros", "cbs", "usatoday"):
             for method in ("adjusted", "indexed"):
                 r = row(reg, source, method)
-                self.assertFalse(r["available"])
-                self.assertEqual(r["reason_code"], "league_setting_unsupported")
-                self.assertIn("12", r["reason_text"])
+                self.assertTrue(r["available"], r)
+                self.assertEqual(r["derived_from_teams"], 12)
         self.assertTrue(row(reg, "espn", "adjusted")["available"])
+
+    def test_no_12_team_base_is_league_setting_unsupported(self):
+        sources = fixture_sources()
+        sources["cbs"]["combos"] = {k: v for k, v in sources["cbs"]["combos"].items()
+                                    if not k.endswith("_12")}
+        r = row(registry(sources=sources, teams=10), "cbs", "indexed")
+        self.assertFalse(r["available"])
+        self.assertEqual(r["reason_code"], "league_setting_unsupported")
 
     def derived_violations(self, mutations=()):
         """REG-DERIVED: drop CBS's 12-team combos -> CBS must go unavailable at 12."""

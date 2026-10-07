@@ -312,6 +312,17 @@
       const field = VORP_SOURCE_DEFS[key].ppgField;
       return [...canonicalByKey.values()].some(p => Number.isFinite(Number(p[field]?.[scoreField()])));
     }
+    // league-settings-001: a published chart and its adjusted column exist at
+    // every league setting when the saved 12-team setup for this scoring does.
+    // (Self-contained on purpose: tests/test_source_combo_contract.py runs
+    // this function extracted from the file.)
+    const publishedBase = key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
+    if (["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(publishedBase)) {
+      return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
+        ? window.TradeValueProductData.getPlayerValues({source: key === "cbs_adjusted" ? "cbs" : key,
+            scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view: "combo_reindexed"})
+        : null);
+    }
     // JEG-363: sourceComboExists reads via product-data.js (api.player_values).
     if (key === "cbs_adjusted") {
       return Boolean((typeof window !== "undefined" && window.TradeValueProductData)
@@ -491,6 +502,43 @@
     return commonFixedPieTotal(fallback);
   }
 
+  // league-settings-001 (JEG-332): published charts read their saved values at
+  // the saved setup (12 teams, standard roster) and are derived from the saved
+  // 12-team inputs everywhere else -- the same ValueModel.derivePublishedSetup
+  // the curve widget uses, so the table and the chart agree.
+  const AS_PUBLISHED_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
+  const derivedPublishedCache = new Map();
+
+  function derivedPublishedSourceMap(key) {
+    const shape = state.rosterShape;
+    const cacheKey = `${key}|${state.scoring}|${state.teams}|${["QB", "RB", "WR", "TE", "FLEX", "BENCH"].map(k => shape[k]).join(",")}`;
+    if (derivedPublishedCache.has(cacheKey)) return new Map(derivedPublishedCache.get(cacheKey));
+    const read = view => window.TradeValueProductData.getPlayerValues({
+      source: key, scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view,
+    });
+    const savedRow = read("combo_reindexed");
+    const nativeRow = read("native");
+    const saved = new Map();
+    const native = new Map();
+    savedRow?.values?.forEach((rawValue, playerKey) => {
+      const value = clampValue(rawValue);
+      if (canonicalByKey.has(playerKey) && value !== null) saved.set(playerKey, value);
+    });
+    nativeRow?.values?.forEach((rawValue, playerKey) => {
+      const value = Number(rawValue);
+      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
+    });
+    const values = saved.size && native.size
+      ? ValueModel.derivePublishedSetup({
+          native, saved, indexTotal: savedRow.index_total,
+          posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+          teams: state.teams, shape
+        }).values
+      : new Map();
+    derivedPublishedCache.set(cacheKey, values);
+    return new Map(values);
+  }
+
   function buildPublishedSourceMap(key) {
     // JEG-363 (2026-10-04): per-cell values come from product-data.js
     // (api.player_values surface, view=combo_reindexed). The widget no
@@ -498,6 +546,9 @@
     // the contract adapter owns every fixture read.
     if (typeof window === "undefined" || !window.TradeValueProductData) {
       throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
+    }
+    if (AS_PUBLISHED_KEYS.has(key) && !ValueModel.isSavedSetup(state.teams, state.rosterShape)) {
+      return derivedPublishedSourceMap(key);
     }
     const row = window.TradeValueProductData.getPlayerValues({
       source: key,
@@ -1325,9 +1376,17 @@
     const availableSources = renderKeys.filter(sourceAvailable);
     const configurableColumns = FIELD_COLUMNS.every(column => allColumnKeys().includes(column.key)) && availableSources.every(key => allColumnKeys().includes(key));
     // Current vintage does not imply a chart exists for every league size.
+    // league-settings-001 (JEG-332): a published chart's data for any league
+    // size is its saved 12-team setup (other sizes are derived from it), so
+    // that is the cell that must exist; every other source needs its own cell.
+    const savedBaseCell = key => window.TradeValueProductData.getPlayerValues({
+      source: key, scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view: "combo_reindexed"});
     const rolloverAware = renderKeys.every(key => !sourceComboExists(key)
       ? !allColumnKeys().includes(key)
-      : PURE_VORP_KEYS.includes(key) || Boolean(selectedCombo(key === "cbs_adjusted" ? "cbs" : key)));
+      : PURE_VORP_KEYS.includes(key)
+        || (["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, ""))
+          ? Boolean(savedBaseCell(key === "cbs_adjusted" ? "cbs" : key))
+          : Boolean(selectedCombo(key === "cbs_adjusted" ? "cbs" : key))));
     const diagnostics = {allSources, fullPpr12TeamQbsAvailable, fullPpr12TeamQbs, configurableColumns, rolloverAware, scoring:state.scoring, teams:state.teams, sourceCount:renderKeys.length, availableSourceCount:availableSources.length, activeReferenceWeek:activeReferenceWeek()};
     window.TradeValueComparisonDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["allSources", "fullPpr12TeamQbsAvailable", "configurableColumns", "rolloverAware"].includes(key) && value !== true);

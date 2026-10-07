@@ -478,7 +478,340 @@
     return { direct: direct, lineup: lineup, rostered: rostered };
   }
 
+  // ---------------------------------------------------------------------
+  // Published-chart value-above-waivers translation (JEG-332 / JEG-364).
+  //
+  // A line-for-line port of pipelines/vorp_translation/unified.py
+  // (translate_ranked) and vorp_via_roster.py (apportion, bench_for_teams,
+  // allocate_flex_vorp_weighted, rostered_for_teams). The server runs it
+  // once, at 12 teams and the standard roster; under league-settings-001 the
+  // browser runs the SAME arithmetic at whatever team count, roster and bench
+  // the reader picks, starting from the source's saved 12-team native values.
+  //
+  // Parity is enforced, not hoped for: tests/test_vorp_translation_js_parity.py
+  // runs this function and the Python on identical inputs and requires every
+  // count, waiver line and rounded value to be EQUAL. Bump the version when
+  // the arithmetic changes on purpose, and change the Python with it.
+  var VORP_TRANSLATION_VERSION = "unified-py-jeg62/1";
+  // Our positional maxes (unified.py OUR_MAX): the 0-70 anchors per position.
+  var TRANSLATION_OUR_MAX = {QB: 25.0, RB: 70.0, WR: 55.0, TE: 30.0};
+  // build_ddf_two_tier_leg.py REF_SLOTS / REF_FLEX_COUNT / BENCH_MIX_12.
+  var TRANSLATION_REF_SLOTS = {QB: 1, RB: 2, WR: 3, TE: 1};
+  var TRANSLATION_REF_FLEX_COUNT = 1;
+  var TRANSLATION_BENCH_MIX_12 = {QB: 10, RB: 27, WR: 33, TE: 10};
+
+  // Python round(x, nd): round-half-even on the exact binary value. toFixed
+  // rounds exact ties UP, so ties are detected and settled separately. An
+  // exact decimal tie at nd digits exists only when x * 2^(nd+1) is an odd
+  // integer (x = odd / 2^(nd+1)); e.g. 12.25 -> 12.2 in Python, 12.3 via toFixed.
+  function pyRound(x, nd) {
+    if (!isFinite(x)) return x;
+    if (x < 0) return -pyRound(-x, nd);
+    var twice = x * Math.pow(2, nd + 1);
+    if (Number.isInteger(twice) && twice % 2 === 1) {
+      var p = Math.pow(10, nd);
+      var n = Math.floor(x * p);
+      if (n % 2 !== 0) n += 1;
+      return n / p;
+    }
+    return Number(x.toFixed(nd));
+  }
+
+  // vorp_via_roster.apportion: highest-averages seat allocation. Ties go to
+  // the first position in POSITION_ORDER (Python max() keeps the first).
+  function apportionSlots(weights, total) {
+    if (!(total >= 0) || Math.floor(total) !== total) {
+      throw new Error("slot total must be a nonnegative integer");
+    }
+    POSITION_ORDER.forEach(function (pos) {
+      var w = weights[pos];
+      if (w !== undefined && (!isFinite(w) || w < 0)) {
+        throw new Error("allocation weights must be finite and nonnegative");
+      }
+    });
+    var result = {};
+    POSITION_ORDER.forEach(function (pos) { result[pos] = 0; });
+    var eligible = POSITION_ORDER.filter(function (pos) { return (weights[pos] || 0) > 0; });
+    if (total && !eligible.length) throw new Error("positive slot total requires positive weights");
+    for (var i = 0; i < total; i += 1) {
+      var best = null, bestScore = -Infinity;
+      eligible.forEach(function (pos) {
+        var score = weights[pos] / (result[pos] + 1);
+        if (score > bestScore) { best = pos; bestScore = score; }
+      });
+      result[best] += 1;
+    }
+    return result;
+  }
+
+  // vorp_via_roster.bench_for_teams.
+  function translationBench(teams, benchPerTeam) {
+    var total = teams * benchPerTeam;
+    if (!isFinite(total) || total < 0) throw new Error("bench capacity must be finite and nonnegative");
+    return apportionSlots(TRANSLATION_BENCH_MIX_12, Math.floor(total + 0.5));
+  }
+
+  function checkTeamsFlex(teams, flexCount) {
+    if (!(teams > 0) || Math.floor(teams) !== teams || !(flexCount >= 0) || Math.floor(flexCount) !== flexCount) {
+      throw new Error("teams must be positive and flex count nonnegative integers");
+    }
+  }
+
+  // vorp_via_roster.allocate_flex_vorp_weighted. ranked: {pos: [{value}]}
+  // sorted descending.
+  function translationFlexWeighted(ranked, teams, flexCount, waiverEstimates, slots, flexElig) {
+    checkTeamsFlex(teams, flexCount);
+    var totalFlex = teams * flexCount;
+    var weights = {};
+    var weightSum = 0;
+    flexElig.forEach(function (pos) {
+      var nDed = teams * (slots[pos] || 0);
+      var players = ranked[pos] || [];
+      var waiver = waiverEstimates[pos] !== undefined ? waiverEstimates[pos] : 0.0;
+      if (!isFinite(waiver) || players.some(function (p) { return !isFinite(p.value); })) {
+        throw new Error(pos + ": publisher values and waiver must be finite");
+      }
+      var candidates = players.slice(nDed, Math.min(players.length, nDed + totalFlex));
+      if (!candidates.length) { weights[pos] = 0.0; return; }
+      var sum = 0;
+      candidates.forEach(function (p) { sum += Math.max(0.0, p.value - waiver); });
+      var avg = totalFlex ? sum / totalFlex : 0.0;
+      weights[pos] = (slots[pos] || 0) * avg;
+    });
+    flexElig.forEach(function (pos) { weightSum += weights[pos]; });
+    if (weightSum <= 0) {
+      weights = {};
+      flexElig.forEach(function (pos) { weights[pos] = slots[pos] || 0; });
+    }
+    return apportionSlots(weights, totalFlex);
+  }
+
+  function waiverAt(players, n) {
+    if (players.length > n) return players[n].value;
+    if (players.length) return players[players.length - 1].value;
+    return 0.0;
+  }
+
+  // vorp_via_roster.rostered_for_teams (VORP-weighted flex when ranked given).
+  function translationRostered(teams, benchPerTeam, flexCount, ranked, slots, flexElig) {
+    checkTeamsFlex(teams, flexCount);
+    var flexAlloc;
+    if (ranked) {
+      var baseline = translationRostered(teams, benchPerTeam, flexCount, null, slots, flexElig);
+      var waiverEst = {};
+      POSITION_ORDER.forEach(function (pos) {
+        waiverEst[pos] = waiverAt(ranked[pos] || [], baseline[pos].rostered);
+      });
+      flexAlloc = translationFlexWeighted(ranked, teams, flexCount, waiverEst, slots, flexElig);
+    } else {
+      var w = {};
+      flexElig.forEach(function (pos) { w[pos] = slots[pos] || 0; });
+      flexAlloc = apportionSlots(w, teams * flexCount);
+    }
+    var benchAlloc = translationBench(teams, benchPerTeam);
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var dedicated = teams * (slots[pos] || 0);
+      var flex = flexAlloc[pos] || 0;
+      var bench = benchAlloc[pos] || 0;
+      out[pos] = {dedicated: dedicated, flex: flex, bench: bench, rostered: dedicated + flex + bench};
+    });
+    return out;
+  }
+
+  // unified.translate_ranked. opts:
+  //   ranked: {pos: [{key, value}]} -- the source's native values per position.
+  //           Sorted here (stable, value descending), so input order only
+  //           settles exact ties, which cannot change any output number.
+  //   teams, benchPerTeam (default 6), flexCount (default 1),
+  //   slots (default {QB:1,RB:2,WR:3,TE:1}), flexEligible (default RB/WR/TE).
+  // Returns {version, positions: {pos: {...}}, translated: {key: {pos,
+  // native, vorp, translated}}}. Only players above the waiver line appear in
+  // `translated`, exactly as on the server.
+  function translatePublishedVorp(opts) {
+    opts = opts || {};
+    var teams = Number(opts.teams);
+    var benchPerTeam = opts.benchPerTeam === undefined ? 6.0 : Number(opts.benchPerTeam);
+    var flexCount = opts.flexCount === undefined || opts.flexCount === null
+      ? TRANSLATION_REF_FLEX_COUNT : Number(opts.flexCount);
+    var slots = opts.slots || TRANSLATION_REF_SLOTS;
+    var flexElig = opts.flexEligible || DEFAULT_FLEX_ELIGIBLE;
+    var ranked = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var rows = (opts.ranked && opts.ranked[pos]) || [];
+      ranked[pos] = rows.map(function (row) { return {key: row.key, value: Number(row.value)}; })
+        .sort(function (a, b) { return b.value - a.value; });
+    });
+    var roster = translationRostered(teams, benchPerTeam, flexCount, ranked, slots, flexElig);
+    var result = {version: VORP_TRANSLATION_VERSION, positions: {}, translated: {}};
+    POSITION_ORDER.forEach(function (pos) {
+      var players = ranked[pos];
+      if (!players.length) return;
+      var r = roster[pos];
+      var nRostered = r.rostered;
+      var waiverVal, method;
+      if (players.length > nRostered) { waiverVal = players[nRostered].value; method = "roster_determined"; }
+      else { waiverVal = players[players.length - 1].value; method = "insufficient_coverage"; }
+      var maxVorp = 0.0, totalVorp = 0;
+      var vorps = players.map(function (p) {
+        var v = Math.max(0.0, p.value - waiverVal);
+        if (v > maxVorp) maxVorp = v;
+        totalVorp += v;
+        return v;
+      });
+      var scale = maxVorp > 0 ? TRANSLATION_OUR_MAX[pos] / maxVorp : 0.0;
+      players.forEach(function (p, i) {
+        var v = vorps[i];
+        if (v > 0) {
+          result.translated[p.key] = {
+            pos: pos,
+            native: pyRound(p.value, 1),
+            vorp: pyRound(v, 1),
+            translated: pyRound(v * scale, 1)
+          };
+        }
+      });
+      result.positions[pos] = {
+        n_dedicated: r.dedicated,
+        n_flex: r.flex,
+        n_bench: r.bench,
+        n_rostered: nRostered,
+        waiver_line_value: pyRound(waiverVal, 2),
+        waiver_method: method,
+        max_vorp: pyRound(maxVorp, 1),
+        total_vorp: pyRound(totalVorp, 1),
+        scale_factor: pyRound(scale, 3)
+      };
+    });
+    var total = 0;
+    Object.keys(result.positions).forEach(function (pos) { total += result.positions[pos].total_vorp; });
+    Object.keys(result.positions).forEach(function (pos) {
+      var w = total > 0 ? result.positions[pos].total_vorp / total : 0;
+      result.positions[pos].implied_weight = pyRound(w, 4);
+    });
+    return result;
+  }
+
+  // ---------------------------------------------------------------------
+  // League-settings engine for published charts (league-settings-001).
+  //
+  // The backend saves ONE setup per scoring: 12 teams, standard roster. At
+  // that setup the chart shows the saved values untouched. At any other team
+  // count or roster the browser derives the published chart from the saved
+  // 12-team inputs, running the same recipe the server ran at 12 teams:
+  //
+  //   1. value above waivers, translated onto our positional maxes
+  //      (translatePublishedVorp) at the chosen teams/roster/bench, for every
+  //      player above that setting's waiver line;
+  //   2. every other player keeps the server's fail-safe value: the 12-team
+  //      flex-aware pie value (native x the 12-team bucket scale saved in
+  //      index_total) -- which is exactly the saved value for the players the
+  //      server itself left on the fallback at 12 teams.
+  //
+  // DECISION FOR JEREMY (see docs/claude-log.md 2026-10-06): step 2 mirrors
+  // the server's fail-safe rather than pricing below-waiver players at zero.
+  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/1";
+  var SAVED_SETUP_TEAMS = 12;
+  var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
+
+  function isSavedSetup(teams, shape) {
+    if (Number(teams) !== SAVED_SETUP_TEAMS) return false;
+    shape = shape || {};
+    if (shape.SUPERFLEX) return false;
+    return Object.keys(SAVED_SETUP_SHAPE).every(function (key) {
+      return Number(shape[key]) === SAVED_SETUP_SHAPE[key];
+    });
+  }
+
+  // The 12-team flex-aware pie value for every bucketed player: natives
+  // ranked within position, dedicated / flex / bench buckets filled in that
+  // order at the saved bucket sizes, each scaled by its saved bucket scale.
+  function quantileReindexValues(opts) {
+    var native = opts.native;
+    var indexTotal = opts.indexTotal || {};
+    var posOf = opts.posOf;
+    var byPos = {};
+    POSITION_ORDER.forEach(function (pos) { byPos[pos] = []; });
+    native.forEach(function (value, key) {
+      var pos = posOf(key);
+      var v = Number(value);
+      if (byPos[pos] && isFinite(v)) byPos[pos].push({key: key, value: v});
+    });
+    var out = new Map();
+    POSITION_ORDER.forEach(function (pos) {
+      var buckets = (indexTotal[pos] || {}).buckets || {};
+      var rows = byPos[pos].sort(function (a, b) { return b.value - a.value; });
+      var i = 0;
+      ["dedicated", "flex", "bench"].forEach(function (role) {
+        var bucket = buckets[role];
+        if (!bucket) return;
+        var n = Number(bucket.n) || 0;
+        var scale = Number(bucket.scale);
+        rows.slice(i, i + n).forEach(function (row) {
+          if (isFinite(scale)) out.set(row.key, row.value * scale);
+        });
+        i += n;
+      });
+    });
+    return out;
+  }
+
+  // opts: native (Map key -> saved 12-team native value), saved (Map key ->
+  // saved 12-team chart value), indexTotal (saved 12-team index_total),
+  // posOf(key), teams, shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}).
+  // Returns {version, values: Map, translated, fallbackSaved, fallbackPie,
+  // unpriced}. The player set is the saved set, at every setting.
+  function derivePublishedSetup(opts) {
+    var native = opts.native;
+    var saved = opts.saved;
+    var posOf = opts.posOf;
+    var shape = opts.shape || SAVED_SETUP_SHAPE;
+    var ranked = {};
+    POSITION_ORDER.forEach(function (pos) { ranked[pos] = []; });
+    native.forEach(function (value, key) {
+      var pos = posOf(key);
+      var v = Number(value);
+      if (ranked[pos] && isFinite(v)) ranked[pos].push({key: key, value: v});
+    });
+    var base = translatePublishedVorp({ranked: ranked, teams: SAVED_SETUP_TEAMS});
+    var at = translatePublishedVorp({
+      ranked: ranked,
+      teams: Number(opts.teams),
+      benchPerTeam: Number(shape.BENCH),
+      flexCount: Number(shape.FLEX),
+      slots: {QB: Number(shape.QB), RB: Number(shape.RB), WR: Number(shape.WR), TE: Number(shape.TE)},
+      flexEligible: flexEligible(shape)
+    });
+    var pie = quantileReindexValues({native: native, indexTotal: opts.indexTotal, posOf: posOf});
+    var values = new Map();
+    var counts = {translated: 0, fallbackSaved: 0, fallbackPie: 0, unpriced: 0};
+    saved.forEach(function (savedValue, key) {
+      var t = at.translated[String(key)];
+      if (t) { values.set(key, t.translated); counts.translated += 1; return; }
+      if (!base.translated[String(key)]) {
+        values.set(key, Number(savedValue)); counts.fallbackSaved += 1; return;
+      }
+      if (pie.has(key)) { values.set(key, pie.get(key)); counts.fallbackPie += 1; return; }
+      values.set(key, 0); counts.unpriced += 1;
+    });
+    return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
+            values: values, translated: counts.translated, fallbackSaved: counts.fallbackSaved,
+            fallbackPie: counts.fallbackPie, unpriced: counts.unpriced};
+  }
+
   root.ValueModel = {
+    PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,
+    SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,
+    SAVED_SETUP_SHAPE: SAVED_SETUP_SHAPE,
+    isSavedSetup: isSavedSetup,
+    quantileReindexValues: quantileReindexValues,
+    derivePublishedSetup: derivePublishedSetup,
+    VORP_TRANSLATION_VERSION: VORP_TRANSLATION_VERSION,
+    TRANSLATION_OUR_MAX: TRANSLATION_OUR_MAX,
+    pyRound: pyRound,
+    apportionSlots: apportionSlots,
+    translationRostered: translationRostered,
+    translatePublishedVorp: translatePublishedVorp,
     POSITION_ORDER: POSITION_ORDER,
     DEFAULT_FLEX_ELIGIBLE: DEFAULT_FLEX_ELIGIBLE,
     MIN_SHARED_FOR_PIE: MIN_SHARED_FOR_PIE,

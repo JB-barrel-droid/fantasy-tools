@@ -49,11 +49,12 @@ The VORP translation work (JEG-32/JEG-61/JEG-62) defines the intended next
 published-chart transformation: publisher values plus league roster settings
 determine the waiver line, publisher-native surplus determines implied
 positional weights, and our valuation assumptions determine derived values.
-The new translation module is not proof that the live chart has switched.
-Until its inputs, configuration behavior, validation, and frontend integration
-are complete, the existing fitted path remains the current implementation.
-Once integrated, translation should replace that derived path for all four
-published-chart sources rather than stack another adjustment on top of it.
+The saved 12-team published values are this translation for players above the
+waiver line (JEG-64, `translate_via_vorp.py`), with the flex-aware pie value as
+the fail-safe for everyone else; the browser runs the same translation at every
+other league setting (see "League-settings engine" below). Exception, risk
+register JEG332-STORED-DRIFT: FantasyCalc's saved values are currently the pie
+values for every player, and some USA Today values are stale.
 
 Every derived output inherits the input's immutable source vintage. Acquisition,
 processing, fitting, and promotion times are separate operational timestamps;
@@ -70,20 +71,37 @@ source tile/curve toggle, removes its table column and reference choices,
 and yields null values rather than zeros. The source remains listed as
 unavailable for the selected scoring/team settings.
 
+**League-settings engine (league-settings-001, JEG-332, 2026-10-06).** Every
+published chart (CBS, FantasyPros, USA Today, FantasyCalc) is saved once per
+scoring at 12 teams and the standard roster (QB1 RB2 WR3 TE1 FLEX1 BENCH6). At
+that setup the chart and table show the saved values unchanged. At any other
+team count or roster the browser derives the chart from the saved 12-team
+inputs with `ValueModel.derivePublishedSetup` (value-model.js): the
+value-above-waivers translation (`translatePublishedVorp`, an exact port of
+`unified.translate_ranked`, held to it by `tests/test_vorp_translation_js_parity.py`)
+runs at the chosen setting for every player above that setting's waiver line;
+every other player keeps the server's fail-safe value (the saved value where the
+server left the player on the fallback at 12 teams, else the 12-team flex-aware
+pie value, native × the saved bucket scale). The caption labels these values
+derived. The adjusted series refit live against the ESPN two-tier leg at the
+chosen setting, as they already did at 12 teams. The saved `vorp_views` (other
+chart views) are not derived yet: at other settings those sources sit out of
+those views. A scoring with no saved 12-team setup is still unavailable and
+borrows nothing.
+
 The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
 native inputs. Their ingestion adapters currently assign `league_teams=12`
 (`save_usatoday_references.py`, `save_fantasypros_references.py`, and
 `save_espn_cbs_references.py`); no independently acquired 8/10/14-team variants
 exist in these fixtures. This is an ingestion/coverage limit, not proof that
 the publishers can never offer other formats. We do not duplicate those
-native charts into new league identities. A future roster-translated estimate
-must be labeled derived and retain the original native configuration/vintage.
+native charts into new league identities. Roster-translated estimates (the
+engine above) are labeled derived and retain the original native
+configuration/vintage.
 
-FantasyCalc currently has 8/10/12/14-team native charts for all three scoring
-formats and separate `qb1`/`qb2` grains (32, not 24, fixture combos). These
-views explicitly display the 1-QB publisher basis and select only `qb1` for
-both raw and adjusted charts. `qb2` remains a distinct acquired input, not a
-fallback for a missing `qb1`. Custom roster shape changes reprice derived
+FantasyCalc saves only its 12-team 1-QB setup since #361 (league-settings-001);
+its own 8/10/14-team and 2-QB pages are no longer saved, so derived 8-team
+values will not match FantasyCalc's 8-team page (accepted trade-off). Custom roster shape changes reprice derived
 values; they do not silently switch the publisher's native QB basis.
 
 Configuration selection never changes source vintage or acquisition/processing
