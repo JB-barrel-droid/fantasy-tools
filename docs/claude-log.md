@@ -1,5 +1,56 @@
 # Claude session log
 
+## 2026-10-07 - JEG-438 stages 1-2: one player table, alias map, resolver, nightly reconcile
+
+Contract (Jeremy): every player-name concept ties back to the player table; the
+table covers the NFL universe; per-source name mappings are maintained; fuzzy is
+only a flagged temporary match, re-resolved nightly; extreme edge cases only.
+
+### Verified (check named)
+- `public.players` is already the canonical table: 4,646 rows, `player_key`
+  unique, no nulls, no duplicates (`select ... group by player_key having count(*)>1`
+  = 0). Cross-ids in `external_id_map`: sleeper 3,969, nflverse 4,613, espn 1,196,
+  yahoo 1,201.
+- Universe gap: of 866 rostered fantasy-position Sleeper players (committed
+  `sleeper_identity_base.json`, 2026-10-06), 163 have no sleeper cross-id. A
+  server-side check (by gsis id, then by suffix-stripped name) showed most are
+  already in `players` without the id (Puka Nacua 1370, Kyren Williams 1063,
+  Michael Penix Jr. 1765, ...). Others are Sleeper ghosts listed as active with a
+  team (Ben Roethlisberger PIT, "Duplicate Player"). Only a handful are truly
+  new (Matt Hibner = players "Matthew Hibner" 2182 by nickname). So the table
+  needs cross-ids, not bulk inserts. The nightly job links them and inserts only
+  players a source actually names.
+- Migration `jeg438_player_identity` applied (Supabase MCP): `player_name_aliases`
+  602 rows (600 verified, 2 review), `player_identity_reconcile_runs`,
+  `player_identity_unresolved_v`. The first apply attempt timed out and rolled
+  back (`to_regclass` null afterwards). Re-applied with a temp normalized-name
+  table.
+- Known-unmatched names resolve on the exported snapshot:
+  `tests/test_player_resolver.SnapshotTest.test_known_unmatched_names_resolve`
+  (Gainwell 785, Palmer 822, Okonkwo 4247, Cropper 1268, Sturdivant 2201,
+  Trubisky 4214, Estime 4642, Hill 3081, Mixon 3735).
+- All 613 chart players in `data/fixtures/current/players.json` resolve to their
+  own key through the resolver (`test_every_chart_player_resolves_to_itself`).
+- Snapshot `data/inputs/player_registry.json` was produced by CI, not by hand:
+  run 37635504039 (push to identity-sync/jeg438-registry) exported 4,646 players
+  and 602 aliases and committed it. The resolver tests passed in that run.
+- Dry reconcile in CI (run 37636074438 annotations): 106 cross-ids to add, open
+  names `*`:1. It also planned to INSERT "Jackson Meeks" TE, but players 4000 is a
+  WR of that name. Fixed: a name or id held at another position is queued, never
+  inserted (`test_name_held_at_another_position_is_queued_not_inserted`, with a
+  broken-state check that the old code inserts).
+- Guard `tests/test_single_player_resolver.py` negative tests: a probe file
+  `pipelines/zz_probe_saver.py` defining `normalize_name` failed the guard. A stale
+  LEGACY entry (`pipelines/gone.py`) failed the ratchet. Both were removed after
+  the check.
+
+### Claimed (not verified)
+- The nightly job's write path (`--mode write`) has not run against production.
+  Its schedule migration is deliberately unapplied until the workflow is on main
+  (GAP-IDENTITY-CRON-PENDING).
+- No pipeline is migrated in this stage, so chart values cannot change. Stage 3
+  migrates the LEGACY list.
+
 ## 2026-10-07 - Monitoring coverage audit ("working and monitored")
 
 Contract: inventory every pipeline/workflow and pg_cron job; confirm each has a

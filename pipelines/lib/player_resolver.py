@@ -342,6 +342,15 @@ class PlayerResolver:
             return Resolution(None, "unmatched", "fuzzy-declined", res.confidence, res.candidates)
         return res
 
+    def name_candidates(self, name: Any) -> list[int]:
+        """Every player_key whose canonical name matches at any spelling tier,
+        any position (no filtering, no choice). For audits and the nightly job."""
+        k1 = norm_key(name)
+        keys = set()
+        for tier, k in zip(self._tiers, (k1, nickname_key(k1), compact_key(k1))):
+            keys.update(p.player_key for p in tier.get(k, []))
+        return sorted(keys)
+
     def key(self, name: Any, **kw) -> int | None:
         return self.resolve(name, **kw).player_key
 

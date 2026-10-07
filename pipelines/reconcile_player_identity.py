@@ -119,6 +119,18 @@ def sleeper_key(resolver: PlayerResolver, s: dict) -> tuple[int | None, str]:
     return None, res.status
 
 
+def existing_elsewhere(resolver: PlayerResolver, s: dict) -> list[int]:
+    """Keys the table already holds for this Sleeper player at ANY position
+    (by cross-id or by name). Non-empty means: do not insert a new row."""
+    keys = set()
+    for t in ("sleeper", "gsis", "espn", "yahoo"):
+        sid = s["sleeper_id"] if t == "sleeper" else s.get(t)
+        if sid and sid in resolver.xrefs.get(t, {}):
+            keys.add(resolver.xrefs[t][sid])
+    keys.update(resolver.name_candidates(s["name"]))
+    return sorted(keys)
+
+
 def plan_universe_sync(resolver: PlayerResolver, sleeper: list[dict]) -> list[dict]:
     """Cross-ids to add for rostered Sleeper players the table already holds."""
     adds = []
@@ -186,10 +198,17 @@ def plan_alias_reconcile(resolver: PlayerResolver, aliases: list[dict], sleeper:
         if len(uniq) == 1:
             s = uniq[0]
             key, how = sleeper_key(resolver, s)
+            held = existing_elsewhere(resolver, s)
             if key is not None:
                 act.update(action="promote", player_key=key, method=f"nightly:sleeper+{how}",
                            note=(None if old_key in (None, key)
                                  else f"provisional key {old_key} replaced by sleeper {s['sleeper_id']}"))
+            elif held:
+                # The table already holds this name or one of its ids at another
+                # position: the same human who moved positions, or a namesake.
+                # Never insert a second row for them; a human decides.
+                act.update(action="queue" if a["status"] != "review" else "keep",
+                           note=f"Sleeper {s['sleeper_id']} {s['pos']} vs players {held}: position disagreement")
             else:
                 act.update(action="insert_player", sleeper=s, method="nightly:sleeper-new-player")
             actions.append(act)
