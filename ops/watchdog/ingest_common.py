@@ -41,7 +41,11 @@ def url_week(url: str) -> int | None:
 
 def assert_url_week(url: str, week: int) -> int:
     """Fail closed when the selected article is not exactly the requested week."""
-    found = url_week(url)
+    return assert_found_week(url, url_week(url), week)
+
+
+def assert_found_week(url: str, found: int | None, week: int) -> int:
+    """Fail closed unless the article's week (`found`) is exactly `week`."""
     if found is None:
         raise IngestError(
             f"could not determine week from URL {url!r}; refusing to ingest"
@@ -51,6 +55,43 @@ def assert_url_week(url: str, week: int) -> int:
             f"stale article rejected: URL is week {found}, requested week {week}: {url}"
         )
     return found
+
+
+# ---------------------------------------------------------------------------
+# Missed-article guard (GAP-CBS-DISCOVERY-SLUG, 2026-10-08). "Not published
+# yet" is a quiet skip, which is right on the day the week turns over and
+# wrong forever after: a discovery that cannot see a published article (CBS
+# Week 5, USA Today's "charts" slug) looks exactly like an article that is
+# not out yet. Once the current content week is `overdue_after_days` old,
+# the same miss is a loud failure (DISCOVERY_OVERDUE) so someone looks.
+# ---------------------------------------------------------------------------
+
+def _today():
+    from _common import today_ct
+
+    return today_ct()
+
+
+def overdue(cfg: dict[str, Any], week: int, today: date | None = None) -> bool:
+    """True when `week` is the current content week and has been for at
+    least cfg["overdue_after_days"] days. Backfills of older weeks and
+    future weeks are never overdue (their misses stay quiet)."""
+    from article_discovery import is_overdue
+
+    grace = cfg.get("overdue_after_days")
+    if grace is None:
+        return False
+    today = today or (cfg.get("today_fn") or _today)()
+    return is_overdue(week, cfg["week_fn"], grace, today)
+
+
+def assert_not_overdue(cfg: dict[str, Any], week: int, detail: str) -> None:
+    if overdue(cfg, week):
+        raise IngestError(
+            f"[{cfg['name']}] DISCOVERY_OVERDUE: no week {week} article found "
+            f"{cfg['overdue_after_days']}+ days into week {week}; discovery is "
+            f"probably missing a published article ({detail}). Find the URL "
+            f"and re-run with --url, then fix discovery.")
 
 
 # ---------------------------------------------------------------------------
@@ -239,9 +280,11 @@ def run_ingest(cfg: dict[str, Any], *,
             raise IngestError(
                 f"[{name}] discovery source unavailable for week {week}: {e}") from e
         if disc_exc is not None and isinstance(e, disc_exc):
+            assert_not_overdue(cfg, week, str(e))
             print(f"[{name}] week {week} article not published yet; skipping ({e})",
                   flush=True)
-            return {"status": "not_published", "week": week}
+            return {"status": "not_published", "week": week,
+                    "newest_week": getattr(e, "newest_week", None)}
         raise
     print(f"[{name}] url: {url}", flush=True)
 
@@ -249,12 +292,15 @@ def run_ingest(cfg: dict[str, Any], *,
     # discovery itself fell back to an older week, the new chart is simply
     # not out yet: a quiet skip, like DiscoveryFailed. An explicit --url
     # that disagrees with the week still fails loudly.
-    found_week = url_week(url)
+    # The found week comes from the source's own rule when it has one (CBS:
+    # the slug week, else the page headline -- CBS slugs need not carry it).
+    found_week = (cfg.get("url_week_fn") or url_week)(url)
     if not explicit_url and found_week is not None and found_week < week:
+        assert_not_overdue(cfg, week, f"discovery returned the week {found_week} article {url}")
         print(f"[{name}] week {week} article not published yet; newest is "
               f"week {found_week}; skipping", flush=True)
         return {"status": "not_published", "week": week, "newest_week": found_week}
-    assert_url_week(url, week)
+    assert_found_week(url, found_week, week)
 
     # 3. Pull + persist pull JSON.
     tables = pull_fn(url)

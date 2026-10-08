@@ -165,6 +165,7 @@ test-unit:
 	python3 -m unittest tests.test_workflow_no_event_interpolation
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_pull_fantasypros_parse
+	python3 -m unittest tests.test_article_discovery
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations

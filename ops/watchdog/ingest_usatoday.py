@@ -136,6 +136,7 @@ CFG: dict[str, Any] = {
     "pull_prefix": "usatoday",
     "week_fn": content_week,
     "discovery_failed_cls": pull_usatoday.DiscoveryFailed,
+    "overdue_after_days": 2,  # GAP-CBS-DISCOVERY-SLUG: a week-old miss is loud
     "discover_fn": pull_usatoday.discover_url,
     "pull_fn": pull_usatoday.pull,
     "build_fn": _build_fn,

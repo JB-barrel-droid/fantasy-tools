@@ -30,6 +30,10 @@ on:
         description: "NFL week (blank = the ingest's own week rule)"
         required: false
         default: ""
+      url:
+        description: "Explicit article URL (skips discovery; needs a single source; the exact-week gate still applies)"
+        required: false
+        default: ""
   push:
     branches: ["ingest/dry-*", "ingest/write-*"]
 
@@ -59,6 +63,16 @@ jobs:
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
+      # Optional LLM fallback for article discovery (ops/watchdog/
+      # article_discovery.py): consulted only when the deterministic listing
+      # paths find nothing, and its pick must pass the same page checks.
+      # Without the ANTHROPIC_API_KEY secret the fallback is a no-op.
+      - name: Install the Anthropic SDK (discovery LLM fallback)
+        env:
+          HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        run: |
+          if [ "$HAS_KEY" = "true" ]; then pip install --quiet anthropic; else echo "no ANTHROPIC_API_KEY: LLM discovery fallback off"; fi
+
       - name: Resolve mode
         id: cfg
         run: |
@@ -82,10 +96,20 @@ jobs:
           # relay (the two secrets above) -> Firecrawl, active only when this
           # optional secret exists; empty = skipped -> SOURCE_BLOCKED.
           FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          INPUT_URL: ${{ github.event.inputs.url }}
+          INPUT_SOURCE: ${{ github.event.inputs.source }}
         run: |
           args=""
           [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"
           [ -n "${{ github.event.inputs.week }}" ] && args="$args --week ${{ github.event.inputs.week }}"
+          if [ -n "$INPUT_URL" ]; then
+            # One article belongs to one source: refuse a url with source=both.
+            if [ "$INPUT_SOURCE" != "${{ matrix.source }}" ]; then
+              echo "::error::url input needs source=cbs, usatoday or fantasypros (got '$INPUT_SOURCE')"; exit 1
+            fi
+            args="$args --url $INPUT_URL"
+          fi
           # Actions logs can't be downloaded through every proxy, so the
           # outcome is surfaced as check-run annotations (readable via
           # GET /check-runs/<job_id>/annotations): the tail as ::notice on
@@ -104,6 +128,7 @@ jobs:
           code=INGEST_FAILED
           grep -q "SOURCE_BLOCKED" /tmp/ingest.log && code=SOURCE_BLOCKED
           grep -q "discovery source unavailable" /tmp/ingest.log && code=DISCOVERY_UNAVAILABLE
+          grep -q "DISCOVERY_OVERDUE" /tmp/ingest.log && code=DISCOVERY_OVERDUE
           echo "error_code=$code" >> $GITHUB_OUTPUT
           exit $rc
 

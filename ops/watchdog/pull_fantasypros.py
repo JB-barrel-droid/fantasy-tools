@@ -30,7 +30,8 @@ import sys
 from datetime import date, datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import content_week, fetch, nfl_week, REPO
+import article_discovery as ad
+from _common import content_week, fetch, nfl_week, today_ct, REPO
 
 # Auto-discovery: FantasyPros trade-value-chart article slug embeds the week.
 # Candidate template (newest week first); discovery walks week N, N-1, N-2
@@ -41,8 +42,15 @@ SECTION_SLUG = ("https://www.fantasypros.com/2026/09/"
                 "fantasy-football-trade-value-chart-week-%d-2026/")
 
 
+# Listings read before falling back to older weeks (GAP-CBS-DISCOVERY-SLUG,
+# 2026-10-08): the week-5 article lives under /2026/10/ while the template
+# above hard-codes /2026/09/ (WordPress still resolves it today, by slug).
+ARTICLES_SITEMAP = "https://www.fantasypros.com/sitemaps/articles-sitemap.php"
+_CHART_RE = re.compile(r"trade[- ]value[- ]charts?", re.I)
+
+
 class DiscoveryFailed(RuntimeError):
-    pass
+    quiet = True
 
 
 def candidate_urls(week=None):
@@ -50,36 +58,77 @@ def candidate_urls(week=None):
     return [SECTION_SLUG % w for w in (week, week - 1, week - 2) if w >= 1]
 
 
-def discover_url(week=None, fetch_fn=fetch):
-    """First week-N slug (newest first) whose page is live AND whose page
-    headline week matches the slug week. Raises DiscoveryFailed when none
-    resolve — never silently reuses a stale pinned URL.
+def _page_matches(url, html, week):
+    """The page is the week-`week` chart: its title says a trade value chart
+    for that week, and the slug week (when the slug has one) agrees."""
+    title = _extract_title_text(html or "")
+    if not title or not _CHART_RE.search(title):
+        return False
+    title_week = extract_week_from_title(title)
+    slug_week = extract_week_from_url(url)
+    if slug_week is None:
+        slug_week = ad.week_in_slug(url)
+    return title_week == week and (slug_week is None or slug_week == week)
 
-    We require URL week == title week here too (not just on the parsed
-    payload) so a slug mismatch is caught at discovery, not after parsing.
+
+def _listing_candidates(week, fetch_fn):
+    """Trade-value-chart links from the articles news sitemap (titles) and
+    the current/previous monthly archives, week-N first."""
+    links = []
+    st, body = fetch_fn(ARTICLES_SITEMAP)
+    if st == 200 and body:
+        links += ad.sitemap_entries(body)
+    today = today_ct()
+    for y, m in ((today.year, today.month),
+                 (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)):
+        base = "https://www.fantasypros.com/%04d/%02d/" % (y, m)
+        st, body = fetch_fn(base)
+        if st == 200 and body:
+            links += [(u, t) for u, t in ad.links_from_html(body, base)
+                      if u.startswith("https://www.fantasypros.com/20")]
+    ranked, _ = ad.rank_candidates(
+        links, week, lambda u, t: bool(_CHART_RE.search(u) or _CHART_RE.search(t)))
+    return ranked, links
+
+
+def discover_url(week=None, fetch_fn=fetch, llm_fn=None):
+    """Week-N chart URL whose page title names a week-N trade value chart.
+
+    Order: the slug template for week N; trade-value-chart links on the
+    articles sitemap and monthly archives; the LLM fallback (no-op without
+    ANTHROPIC_API_KEY), whose pick must pass the same page check; then the
+    template for weeks N-1, N-2 (main() treats an older week as "not
+    published yet", loud once the week is overdue). Raises DiscoveryFailed
+    when nothing resolves -- never silently reuses a stale pinned URL.
     """
     week = week or content_week()
     tried = []
-    for w in (week, week - 1, week - 2):
-        if w < 1:
-            continue
-        url = SECTION_SLUG % w
+
+    def ok(url, w):
         st, html = fetch_fn(url)
         tried.append((url, st))
-        if st != 200 or not html:
+        return st == 200 and bool(html) and _page_matches(url, html, w)
+
+    if ok(SECTION_SLUG % week, week):
+        return SECTION_SLUG % week
+    ranked, links = _listing_candidates(week, fetch_fn)
+    seen = {ad.url_key(SECTION_SLUG % week)}
+    for url in ranked:
+        if ad.url_key(url) in seen:
             continue
-        title = _extract_title_text(html)
-        if title is None:
-            continue
-        title_week = extract_week_from_title(title)
-        url_week = extract_week_from_url(url)
-        if title_week is None or url_week is None:
-            continue
-        if title_week != url_week:
-            # Slug said week-A, headline said week-B: treat as a stale page
-            # (same class of miss as the 2026-10-02 USA Today incident).
-            continue
-        return url
+        seen.add(ad.url_key(url))
+        if ok(url, week):
+            print("[fantasypros] discovered week %d chart on a listing: %s" % (week, url),
+                  flush=True)
+            return url
+    pool = [(u, t) for u, t in links if ad.url_key(u) not in seen]
+    pick = (llm_fn or (lambda w, ls: ad.llm_pick("FantasyPros", w, ls)))(week, pool)
+    if pick and ok(pick, week):
+        print("[fantasypros] LLM fallback nominated %s: accepted" % pick, flush=True)
+        return pick
+    for w in (week - 1, week - 2):
+        if w >= 1 and ok(SECTION_SLUG % w, w):
+            return SECTION_SLUG % w
     raise DiscoveryFailed(
         "no FantasyPros trade chart page found (tried: %s)"
         % [(u.rsplit("/", 2)[-2][:60], s) for u, s in tried])
@@ -277,6 +326,23 @@ def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
     return clean, review
 
 
+OVERDUE_AFTER_DAYS = 2
+
+
+def _not_published(week, detail, save):
+    """Quiet skip while the week is young; DISCOVERY_OVERDUE (exit 1) once
+    the current content week is OVERDUE_AFTER_DAYS old (a discovery miss
+    must not look like "not published yet" forever)."""
+    if save and ad.is_overdue(week, content_week, OVERDUE_AFTER_DAYS, today_ct()):
+        print("[fantasypros] DISCOVERY_OVERDUE: no week %d chart found %d+ days into "
+              "week %d; discovery is probably missing a published article (%s). "
+              "Find the URL and re-run with --url, then fix discovery."
+              % (week, OVERDUE_AFTER_DAYS, week, detail), file=sys.stderr, flush=True)
+        return 1
+    print("week %d chart not published yet; skipping (%s)" % (week, detail), flush=True)
+    return 0
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--week", type=int, default=None)
@@ -294,12 +360,14 @@ def main():
     args = ap.parse_args()
 
     want = args.week or content_week()
-    url = args.url or discover_url(want)
+    try:
+        url = args.url or discover_url(want)
+    except DiscoveryFailed as e:
+        return _not_published(want, str(e), args.save)
     print("url:", url, flush=True)
-    if args.save and not args.url and (extract_week_from_url(url) or 0) < want:
-        print("week %d chart not published yet; newest is %s; skipping" % (
-            want, extract_week_from_url(url)), flush=True)
-        return 0
+    found = extract_week_from_url(url) or ad.week_in_slug(url)
+    if args.save and not args.url and found is not None and found < want:
+        return _not_published(want, "newest is week %s (%s)" % (found, url), args.save)
     title = pull(url)
     print("title:", title, flush=True)
 
