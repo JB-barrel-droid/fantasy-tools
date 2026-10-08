@@ -34,7 +34,11 @@ from (values
     ('Chigoziem Okonkwo', 'chigoziem okonkwo', 'TE', 4247, '2026-10-08 Razzball / CBS ROS review row; public.players one Okonkwo row'),
     ('Mitch Trubisky', 'mitch trubisky', 'QB', 4214, '2026-10-08 Razzball / CBS ROS review row; public.players one Trubisky row'),
     ('Jalen Cropper', 'jalen cropper', 'WR', 1268, '2026-10-08 Razzball review row (JEG-438); public.players one Cropper row (1268, gsis 00-0038740); Sleeper 11506 ''Jalen Cropper'' is the same player: Fresno State WR, 2023 class (years_exp 3); no other Cropper in public.players or the Sleeper base'),
-    ('J. Sturdivant', 'j sturdivant', 'WR', 2201, '2026-10-08 Razzball review row (JEG-438); public.players one Sturdivant row (2201, GB WR, gsis 00-0040948); Sleeper 13770 has the same full name; no other Sturdivant')
+    ('J. Sturdivant', 'j sturdivant', 'WR', 2201, '2026-10-08 Razzball review row (JEG-438); public.players one Sturdivant row (2201, GB WR, gsis 00-0040948); Sleeper 13770 has the same full name; no other Sturdivant'),
+    -- added 2026-10-08 (GAP-CBSROS-NICKNAME-MISSES); applied to production as a
+    -- data-only insert of these two rows after validate.
+    ('Christopher Brooks', 'christopher brooks', 'RB', 2515, '2026-10-08 CBS ROS saver no_match (run 37800639004); public.players one Brooks RB with a Chris/Christopher first name (2515, GB); Sleeper ''Chris Brooks'''),
+    ('Zonovan Knight', 'zonovan knight', 'RB', 868, '2026-10-08 CBS ROS saver no_match (run 37800639004); public.players one Knight RB (868 ''Bam Knight''); Sleeper ''Zonovan Knight'' RB, same 2022 class')
 ) as v(alias, norm_name, pos, player_key, verified)
 on conflict (source, norm_name, position) do update set
     source_player_name = excluded.source_player_name,

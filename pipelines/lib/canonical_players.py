@@ -52,6 +52,26 @@ SKILL_BIN = os.environ.get(
 _SUFFIX_RE = re.compile(r"\s+(jr|sr|ii|iii|iv|v)$")
 
 
+def strip_generational_suffix(s):
+    """`s` without a trailing generational suffix (" jr", " iii", ...).
+
+    The one suffix rule, for resolvers keyed on an already-lowercased label
+    (lib/legacy_identity's chart keys). Matching still goes through
+    norm_player_name()."""
+    return _SUFFIX_RE.sub("", s)
+
+
+def has_generational_suffix(name):
+    """True when a spelling ends in a generational suffix ("Walker III",
+    "kenneth walker iii", "etienne jr."). Lets a resolver break a tie between
+    same-form keys in favour of the spelling that names the suffix
+    (build_ddf_two_tier_leg.FixtureIdentity)."""
+    s = str(name).lower()
+    if s.endswith("."):
+        s = s[:-1]
+    return bool(_SUFFIX_RE.search(s))
+
+
 def norm_plain(name):
     """Normalization WITHOUT nickname expansion.
 
