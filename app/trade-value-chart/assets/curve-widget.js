@@ -1951,6 +1951,15 @@
     orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
     syncPlayerOptions();
     syncContext();
+    notifyRowsChanged();
+  }
+
+  // The main page's comparison table renders these rows, not a copy of the
+  // value math (GAP-MAIN-TABLE-ESPN-DRIFT). It reads getAllRows() once init
+  // has finished (isReady) and again after every rebuild, signalled here.
+  let engineReady = false;
+  function notifyRowsChanged() {
+    if (engineReady) window.dispatchEvent(new CustomEvent("trade-value-rows-change"));
   }
 
   function displayRows() {
@@ -3170,7 +3179,7 @@
     setLockOrder,
     setModel: () => {},
     redraw: () => draw(),
-    getState: () => ({position, scoring, teams, model: "monday", valueMode:"indexed", lockOrder, benchShare, absenceRate:benchShare, activeSources:activeSourceKeys()}),
+    getState: () => ({position, scoring, teams, model: "monday", valueMode:"indexed", viewMode, viewTitle:VIEW_MODE_DEFS[viewMode]?.title || null, lockOrder, benchShare, absenceRate:benchShare, activeSources:activeSourceKeys()}),
     getLockedDomain: () => displayRows().map((row, index) => ({rank:index + 1, player_key:row.player_key, name:row.name})),
     getPlayerValues: query => {
       const needle = String(query || "").trim().toLowerCase();
@@ -3190,6 +3199,7 @@
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
     getAllRows: () => universe.map(row => ({...row, values: {...row.values}})),
+    isReady: () => engineReady,
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),
     getReferenceWeek: () => activeReferenceWeek(),
@@ -4076,6 +4086,8 @@
         sourceMaps: () => new Map(sourceMaps),
         state: () => ({scoring, teams, benchShare, sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length})
       };
+      engineReady = true;
+      notifyRowsChanged();
     } catch (error) {
       $("#curve-status").innerHTML = `<strong>Curves unavailable:</strong> ${String(error.message)}`;
       console.error(error);

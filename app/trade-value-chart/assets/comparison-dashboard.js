@@ -2,7 +2,6 @@
   "use strict";
 
   const POSITIONS = ["QB", "RB", "WR", "TE"];
-  const POSITION_ORDER = ["QB", "RB", "WR", "TE"];
   const SOURCE_KEYS = [
     "usatoday",
     "fantasycalc",
@@ -90,14 +89,8 @@
   if (!root) return;
   const $ = selector => root.querySelector(selector);
   const esc = value => String(value ?? "").replace(/[&<>"']/g, ch => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
-  const has = (object, key) => Object.prototype.hasOwnProperty.call(object || {}, key);
   const scoreLabel = score => ({standard:"Standard", half:"Half PPR", full:"Full PPR"}[score] || score);
   const scoreField = () => state.scoring === "full" ? "ppr" : state.scoring === "half" ? "half_ppr" : "standard";
-  const clampValue = value => {
-    if (value === null || value === undefined || value === "") return null;
-    const number = Number(value);
-    return Number.isFinite(number) ? Math.max(0, number) : null;
-  };
   const formatValue = value => value === null ? "—" : Number(value).toFixed(1);
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball", "cbs_adjusted", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]);
   // GAP-043 / GAP-CHART-STALE-LABEL-CALENDAR: week labels and stale flags
@@ -188,111 +181,20 @@
     return Promise.resolve({meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}});
   }
 
-  // Same versioned adjustment-input asset the curve widget loads: stage-2
-  // adjustment cells are gated by source status, never assumed.
-  function loadAdjustmentInputs() {
-    // product-data.js owns the fixture read; the dashboard sees the projected
-    // payload via getAdjustmentInputs().
-    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
-      return window.TradeValueProductData.initProductData().then(() => {
-        const inputs = window.TradeValueProductData.getAdjustmentInputs();
-        window.TradeValueAdjustmentInputs = inputs;
-        return inputs;
-      });
-    }
-    return Promise.resolve(null);
-  }
-
   let data = null;
-  let adjustmentInputs = null;
   let canonicalByKey = new Map();
   let universeSize = 0;
   let renderKeys = [];
   let sourceMaps = new Map();
-  let vorpRowsCache = new Map();
+  let engineAvailableKeys = new Set();
+  let valuesLoaded = false;
   let espnRoleByKey = new Map();
   let referenceSource = "usatoday";
   let newsMeta = {};
   let newsByPlayerKey = new Map();
   let adjustmentsByPlayerKey = new Map();
 
-  const EXPECTED_ADJUSTMENT_CELL_KEYS = POSITION_ORDER.flatMap(pos => ["starter", "bench"].map(tier => `${pos}|${tier}`));
-
-  // Fixture-transition Option B: an *_adjusted column is PAUSED while its
-  // source has no validated-live adjustment cells in adjustment-inputs.json.
-  // espn ("ESPN adjusted") is the live bottom-up leg and is never paused.
-  function adjustmentCellCompleteness(entry) {
-    if (!(entry && entry.status === "live" && Array.isArray(entry.cells))) {
-      return {complete:false, present:[], missing:[...EXPECTED_ADJUSTMENT_CELL_KEYS]};
-    }
-    const present = new Set();
-    entry.cells.forEach(cell => {
-      const pos = String(cell.position || "").toUpperCase();
-      const tier = String(cell.tier || "").toLowerCase();
-      const alpha = Number(cell.alpha);
-      const beta = Number(cell.beta);
-      if (POSITION_ORDER.includes(pos) && ["starter", "bench"].includes(tier) &&
-          Number.isFinite(alpha) && Number.isFinite(beta)) {
-        present.add(`${pos}|${tier}`);
-      }
-    });
-    const missing = EXPECTED_ADJUSTMENT_CELL_KEYS.filter(key => !present.has(key));
-    return {complete: missing.length === 0, present: [...present], missing};
-  }
-
-  function adjustedCurvePaused(key, inputs) {
-    if (key === "espn" || !key.endsWith("_adjusted")) return false;
-    const rawKey = rawKeyForAdjusted(key);
-    const entry = inputs && inputs.sources ? inputs.sources[rawKey] : null;
-    return !adjustmentCellCompleteness(entry).complete;
-  }
-
-  const rawKeyForAdjusted = key => key === "cbs_adjusted" ? "cbs" : key.replace(/_adjusted$/, "");
-
-  // Widget-scope pause check: bound to the loaded adjustmentInputs.
-  // Fail-closed: before inputs load (or when absent), adjusted columns read
-  // as paused.
-  const isAdjustedCurvePaused = key => adjustedCurvePaused(key, adjustmentInputs);
-
-  function adjustmentCellsFor(rawKey) {
-    // Prefer live refit cells (reflect current global weights) when available;
-    // fall back to baked cells otherwise. Live cells mix all sources, so filter.
-    const live = window.TradeValueTwoTierLive;
-    if (live && live.liveCells) {
-      try {
-        const cells = live.liveCells();
-        if (cells && cells.length) {
-          const filtered = cells.filter(c => String(c.source || "").toLowerCase() === String(rawKey).toLowerCase());
-          if (filtered.length) return filtered;
-        }
-      } catch (e) { /* fall through to baked */ }
-    }
-    const entry = adjustmentInputs?.sources?.[rawKey];
-    return adjustmentCellCompleteness(entry).complete ? entry.cells : null;
-  }
-
-  function buildLiveAdjustedMap(rawKey, cells) {
-    const raw = buildPublishedSourceMap(rawKey);
-    const roles = roleMapForValues(raw);
-    const cellByPosTier = new Map();
-    cells.forEach(cell => {
-      const pos = String(cell.position || "").toUpperCase();
-      const tier = String(cell.tier || "").toLowerCase();
-      const alpha = Number(cell.alpha);
-      const beta = Number(cell.beta);
-      if (!POSITION_ORDER.includes(pos) || !["starter", "bench"].includes(tier) || !Number.isFinite(alpha) || !Number.isFinite(beta)) return;
-      cellByPosTier.set(`${pos}|${tier}`, {alpha, beta});
-    });
-    const adjusted = new Map();
-    raw.forEach((value, playerKey) => {
-      const player = canonicalByKey.get(playerKey);
-      const role = roles.get(playerKey);
-      const cell = player && role ? cellByPosTier.get(`${player.pos}|${role}`) : null;
-      const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
-      adjusted.set(playerKey, cell ? Math.max(0, cell.alpha + cell.beta * safeValue) : safeValue);
-    });
-    return adjusted;
-  }
+  const flexEligiblePositions = () => DEFAULT_FLEX_ELIGIBLE;
 
   function comboKeyFor(key) {
     if (PURE_VORP_KEYS.includes(key)) return null;
@@ -331,8 +233,22 @@
 
   const sourceIsStale = key => WEEKED_SOURCE_KEYS.has(key) && !isWeekCurrent(key);
 
+  // GAP-MAIN-TABLE-ESPN-DRIFT (2026-10-08): every value in this table is the
+  // chart engine's own value, read from TradeValueCurveControls.getAllRows()
+  // -- the maps the chart draws and getRows() returns. The table used to
+  // re-derive each column with a second copy of the value math. That copy
+  // drifted from the engine (ESPN, published charts, CBS ROS / Razzball), and
+  // its *_adjusted columns depended on which script finished loading first:
+  // baked adjustment cells when the table built before the chart, the chart's
+  // live refit cells when it built after. The table now renders only after the
+  // engine reports a completed build, and re-reads it after every rebuild.
+  const engine = () => window.TradeValueCurveControls || null;
+  const engineReady = () => Boolean(engine()?.isReady?.());
+  const ENGINE_SCORING = {ppr:"full", half_ppr:"half", standard:"standard"};
+
+  // A column is available exactly when the chart can draw that series.
   function sourceAvailable(key) {
-    return sourceComboExists(key);
+    return engineAvailableKeys.has(key);
   }
 
   function canonicalPlayers() {
@@ -354,377 +270,38 @@
         pos:player.pos,
         team:String(player.team || "—"),
         espn_ppg:player.espn_ppg || null,
+        // sourceComboExists reads each raw-VORP column's own projections.
+        cbsros_ppg:player.cbsros_ppg || null,
+        rz_ppg:player.rz_ppg || null,
         espn_projects_zero:player.espn_projects_zero === true
       });
     });
     return next;
   }
 
-  // One shared value model, two renderers: roster allocation ranks the pool
-  // on ESPN per-game projections and delegates the role math to
-  // ValueModel, exactly like the curve widget. (Preseason rank was removed
-  // here in Sep 2026: it is a positional ordering input, not a value, and
-  // the table must price from the same model as the curve.)
-  function allocationCountsFor(pool, shape = state.rosterShape) {
-    return ValueModel.allocationCounts({
-      pool,
-      teams: state.teams,
-      shape,
-      rankOf: player => Number(player.espn_ppg?.[scoreField()])
-    });
-  }
-
-  function roleMapForValues(values, shape = state.rosterShape) {
-    return ValueModel.roleMap({
-      values,
-      playerOf: playerKey => canonicalByKey.get(playerKey),
-      teams: state.teams,
-      shape
-    });
-  }
-
-  function rosterIsDefault() {
-    return Object.keys(DEFAULT_ROSTER_SHAPE).every(key => Number(state.rosterShape[key]) === DEFAULT_ROSTER_SHAPE[key]);
-  }
-
-  function applyRosterShape(values, key) {
-    if (rosterIsDefault() || PURE_VORP_KEYS.includes(key)) return values;
-    const shaped = new Map(values);
-    const defaultCounts = allocationCountsFor([...canonicalByKey.values()], DEFAULT_ROSTER_SHAPE);
-    const customCounts = allocationCountsFor([...canonicalByKey.values()], state.rosterShape);
-    // Totals are taken over QB/RB/WR/TE only, and the correction is applied
-    // to the same set. Kickers and defenses sit outside the skill pie: rolling
-    // them into the before/after totals let them dilute the correction, which
-    // left the anchor's skill total 7.9 short of its positional targets the
-    // moment a roster slot moved. They pass through unshaped, which is right --
-    // a WR slot does not reprice a kicker. ESPN is shaped like every other
-    // leg: its anchor values must move with the user's roster shape too.
-    const inPie = playerKey => POSITION_ORDER.includes(canonicalByKey.get(playerKey)?.pos);
-    const totalBefore = [...values.entries()].reduce((sum, [playerKey, value]) => sum + (inPie(playerKey) ? value : 0), 0);
-    POSITION_ORDER.forEach(pos => {
-      const rows = [...values.entries()]
-        .filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos)
-        .map(([playerKey, value]) => ({playerKey, value}))
-        .sort((a, b) => b.value - a.value);
-      if (!rows.length) return;
-      const defaultDepth = Math.max(1, Math.min(rows.length, defaultCounts.rostered[pos] || 1));
-      const customDepth = Math.max(1, Math.min(rows.length, customCounts.rostered[pos] || 1));
-      const averageTop = depth => rows.slice(0, depth).reduce((sum, row) => sum + row.value, 0) / depth;
-      const defaultAverage = averageTop(defaultDepth);
-      const customAverage = averageTop(customDepth);
-      const factor = defaultAverage > 0 ? Math.max(0.25, Math.min(1.8, customAverage / defaultAverage)) : 1;
-      rows.forEach(row => shaped.set(row.playerKey, row.value * factor));
-    });
-    const totalAfter = [...shaped.entries()].reduce((sum, [playerKey, value]) => sum + (inPie(playerKey) ? value : 0), 0);
-    const fixedPieScale = totalBefore > 0 && totalAfter > 0 ? totalBefore / totalAfter : 1;
-    shaped.forEach((value, playerKey) => { if (inPie(playerKey)) shaped.set(playerKey, value * fixedPieScale); });
-    return shaped;
-  }
-
-  // The charts are matched to the anchor's OWN starter/bench split. A
-  // hardcoded share re-split every column away from the anchor it is
-  // supposed to match, for no reason except that the constant disagreed
-  // with the leg the pipeline built. Measure it off the anchor instead.
-  function anchorDisplayShare(anchor) {
-    const measured = ValueModel.benchShareOf({
-      values: anchor,
-      playerOf: playerKey => canonicalByKey.get(playerKey),
-      teams: state.teams,
-      shape: state.rosterShape
-    });
-    return Number.isFinite(measured) ? measured : state.benchShare;
-  }
-
-  function adjustedMapFor(key) {
-    const rawKey = rawKeyForAdjusted(key);
-    const cells = adjustmentCellsFor(rawKey);
-    if (cells) return buildLiveAdjustedMap(rawKey, cells);
-    return new Map();
-  }
-
-  // Stage-2 activation: when baked adjustment cells exist for a source, its
-  // live-adjusted path normalizes at the ACTIVE slider share; every fallback
-  // path stays frozen at the stage-1 display share so moving the slider
-  // cannot change a fallback column.
-  function adjustedShareFor(key, fallbackShare = state.benchShare) {
-    const rawKey = rawKeyForAdjusted(key);
-    return adjustmentCellsFor(rawKey) ? state.benchShare : fallbackShare;
-  }
-
-  function normalizedAdjustedMapFor(key, anchorMap, displayShare) {
-    const rawKey = rawKeyForAdjusted(key);
-    const values = applyRosterShape(adjustedMapFor(key), key);
-    if (adjustmentCellsFor(rawKey)) {
-      return ValueModel.shapeToAnchorPeaksThenSharedTotal({
-        values,
-        anchor: anchorMap,
-        playerOf: playerKey => canonicalByKey.get(playerKey)
+  function rebuildSourceMaps() {
+    const controls = engine();
+    const engineState = controls.getState();
+    state.scoring = ENGINE_SCORING[engineState.scoring] || state.scoring;
+    state.teams = Number(engineState.teams);
+    state.benchShare = Number(engineState.benchShare);
+    state.rosterShape = {...controls.getRosterShape()};
+    // The chart's view (Indexed / VORP vs waivers / Adjusted values) decides
+    // which values the published-chart columns carry; the badge says which.
+    state.viewMode = engineState.viewMode || "indexed";
+    state.viewTitle = engineState.viewTitle || null;
+    SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
+    engineAvailableKeys = new Set(controls.getSourceInfo().filter(info => info.available).map(info => info.key));
+    sourceMaps = new Map(SOURCE_KEYS.map(key => [key, new Map()]));
+    espnRoleByKey = new Map();
+    controls.getAllRows().forEach(row => {
+      espnRoleByKey.set(row.player_key, row.espnRole);
+      SOURCE_KEYS.forEach(key => {
+        const value = row.values?.[key];
+        if (typeof value === "number" && Number.isFinite(value)) sourceMaps.get(key).set(row.player_key, value);
       });
-    }
-    return normalizeTradeChartToFixedPie(values, adjustedShareFor(key, displayShare), anchorMap);
-  }
-
-  function espnTargetTotal(pos, fallback) {
-    // JEG-363: read ESPN combo's index_total via product-data.js.
-    const row = (typeof window !== "undefined" && window.TradeValueProductData)
-      ? window.TradeValueProductData.getPlayerValues({source: "espn", scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
-      : null;
-    const target = Number(row?.index_total?.[pos]?.target_total);
-    return Number.isFinite(target) && target > 0 ? target : fallback;
-  }
-
-  function sourceTargetTotal(key) {
-    const sourceKey = key === "cbs_adjusted" ? "cbs" : key;
-    // JEG-363: read per-source combo's index_total via product-data.js.
-    const row = (typeof window !== "undefined" && window.TradeValueProductData)
-      ? window.TradeValueProductData.getPlayerValues({source: sourceKey, scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
-      : null;
-    const totals = Object.values(row?.index_total || {}).map(item => Number(item?.target_total)).filter(Number.isFinite);
-    return totals.reduce((sum, value) => sum + value, 0);
-  }
-
-  function commonFixedPieTotal(fallback) {
-    const totals = SOURCE_KEYS
-      .map(sourceTargetTotal)
-      .filter(value => Number.isFinite(value) && value > 0)
-      .sort((a, b) => a - b);
-    if (!totals.length) return fallback;
-    const middle = Math.floor(totals.length / 2);
-    return totals.length % 2 ? totals[middle] : (totals[middle - 1] + totals[middle]) / 2;
-  }
-
-  function espnTargetPool(fallback) {
-    return commonFixedPieTotal(fallback);
-  }
-
-  // league-settings-001 (JEG-332): published charts read their saved values at
-  // the saved setup (12 teams, standard roster) and are derived from the saved
-  // 12-team inputs everywhere else -- the same ValueModel.derivePublishedSetup
-  // the curve widget uses, so the table and the chart agree.
-  const AS_PUBLISHED_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
-  const derivedPublishedCache = new Map();
-
-  function derivedPublishedSourceMap(key) {
-    const shape = state.rosterShape;
-    const cacheKey = `${key}|${state.scoring}|${state.teams}|${["QB", "RB", "WR", "TE", "FLEX", "BENCH"].map(k => shape[k]).join(",")}`;
-    if (derivedPublishedCache.has(cacheKey)) return new Map(derivedPublishedCache.get(cacheKey));
-    const read = view => window.TradeValueProductData.getPlayerValues({
-      source: key, scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view,
     });
-    const savedRow = read("combo_reindexed");
-    const nativeRow = read("native");
-    const saved = new Map();
-    const native = new Map();
-    savedRow?.values?.forEach((rawValue, playerKey) => {
-      const value = clampValue(rawValue);
-      if (canonicalByKey.has(playerKey) && value !== null) saved.set(playerKey, value);
-    });
-    nativeRow?.values?.forEach((rawValue, playerKey) => {
-      const value = Number(rawValue);
-      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
-    });
-    // JEG332-DERIVED-PEAKS: the same ESPN projections the curve widget passes,
-    // so the positional maxes (and the table) match the chart.
-    const field = scoreField();
-    const projection = new Map();
-    canonicalByKey.forEach((player, playerKey) => {
-      const ppg = player.espn_ppg?.[field];
-      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
-    });
-    const values = saved.size && native.size
-      ? ValueModel.derivePublishedSetup({
-          native, saved, indexTotal: savedRow.index_total,
-          posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-          teams: state.teams, shape, projection
-        }).values
-      : new Map();
-    derivedPublishedCache.set(cacheKey, values);
-    return new Map(values);
-  }
-
-  function buildPublishedSourceMap(key) {
-    // JEG-363 (2026-10-04): per-cell values come from product-data.js
-    // (api.player_values surface, view=combo_reindexed). The widget no
-    // longer walks the legacy detail deep-path `data.sources[key].combos[...]`;
-    // the contract adapter owns every fixture read.
-    if (typeof window === "undefined" || !window.TradeValueProductData) {
-      throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
-    }
-    if (AS_PUBLISHED_KEYS.has(key) && !ValueModel.isSavedSetup(state.teams, state.rosterShape)) {
-      return derivedPublishedSourceMap(key);
-    }
-    const row = window.TradeValueProductData.getPlayerValues({
-      source: key,
-      scoring: state.scoring,
-      teams: state.teams,
-      qbVariant: "qb1",
-      view: "combo_reindexed",
-    });
-    const values = new Map();
-    if (!row || !row.values) return values;
-    row.values.forEach((rawValue, playerKey) => {
-      if (!canonicalByKey.has(playerKey)) return;
-      const value = clampValue(rawValue);
-      if (value === null) return;
-      if (values.has(playerKey) && values.get(playerKey) !== value) {
-        throw new Error(`Conflicting values for canonical player ${playerKey} in ${sourceLabel(key)}.`);
-      }
-      values.set(playerKey, value);
-    });
-    return values;
-  }
-
-  // One shared value model, two renderers: the fixed-pie normalization
-  // delegates to ValueModel, exactly like the curve widget. The caller
-  // passes the anchor series and the display share; the model does the
-  // tier splitting and anchor matching.
-  function normalizeTradeChartToFixedPie(values, share, anchor) {
-    return ValueModel.normalizeToFixedPie({
-      values,
-      anchor,
-      share,
-      playerOf: playerKey => canonicalByKey.get(playerKey),
-      teams: state.teams,
-      shape: state.rosterShape,
-      fallbackTarget: commonFixedPieTotal
-    });
-  }
-
-  function compareEspnPlayers(a, b) {
-    return b.ppg - a.ppg || ValueModel.stableTiebreak(a.player, b.player);
-  }
-
-  function vorpPricedRows(vorpKey) {
-    const def = VORP_SOURCE_DEFS[vorpKey];
-    const field = scoreField();
-    return [...canonicalByKey.values()]
-      .filter(player => POSITION_ORDER.includes(player.pos))
-      .map(player => ({player, ppg:Number(player[def.ppgField]?.[field])}))
-      .filter(item => Number.isFinite(item.ppg))
-      .sort(compareEspnPlayers);
-  }
-
-  function espnPricedRows() {
-    return vorpPricedRows("espn_vorp");
-  }
-
-  // Raw value-above-waivers rows per VORP source (JEG-38): the same
-  // projection-minus-waiver math for ESPN, CBS ROS, and Razzball, each from
-  // its own per-game projections. The target pie is the shared anchor pie
-  // for all three, so the raw columns sit on a comparable scale.
-  function buildVorpRows(vorpKey) {
-    const cacheKey = vorpKey;
-    if (vorpRowsCache.has(cacheKey)) return vorpRowsCache.get(cacheKey);
-    const priced = vorpPricedRows(vorpKey);
-    // Roles come from the shared model, ranked on surplus over each
-    // position's dedicated-starter baseline. Assigning them here by raw
-    // per-game points filled the bench with quarterbacks, collapsed the QB
-    // waiver line and made Josh Allen the most valuable asset in a 1QB league.
-    const ppgByKey = new Map(priced.map(row => [row.player.player_key, row.ppg]));
-    const assigned = ValueModel.projectionRoles({
-      pool: priced.map(row => row.player),
-      teams: state.teams,
-      shape: state.rosterShape,
-      rankOf: player => Number(ppgByKey.get(player.player_key))
-    }).roles;
-    const tiered = priced.map(row => ({
-      ...row,
-      role: assigned.get(row.player.player_key) || "waiver"
-    }));
-    const baselineByPos = new Map();
-    POSITION_ORDER.forEach(pos => {
-      const waiver = tiered
-        .filter(row => row.player.pos === pos && row.role === "waiver")
-        .sort(compareEspnPlayers)[0];
-      const fallback = tiered.filter(row => row.player.pos === pos).sort(compareEspnPlayers).at(-1);
-      baselineByPos.set(pos, Number(waiver?.ppg ?? fallback?.ppg ?? 0));
-    });
-    const withRaw = tiered.map(row => ({
-      ...row,
-      // True raw projection-minus-waiver VORP from ESPN projections only.
-      rawProjectionVorp: row.role === "waiver" ? 0 : Math.max(0, row.ppg - (baselineByPos.get(row.player.pos) || 0))
-    }));
-    // The ESPN curves use the true raw projection-minus-waiver VORP computed
-    // from ESPN projections above. We intentionally do NOT use the published
-    // "ESPN-implied" combo values here: those are already run through a
-    // valuation model (and can carry a ~91% starter share), which inverts
-    // the fixed-pie direction. Raw VORP keeps starters at ~69% of the pie,
-    // so the fixed-pie split marks starters up and bench down correctly.
-    // This also keeps the ESPN curves ESPN-pure (projections only, no
-    // expert/model blending).
-    const withVorp = withRaw.map(row => ({
-      ...row,
-      rawVorp: row.rawProjectionVorp
-    }));
-    const starterRaw = withVorp.filter(row => row.role === "starter").reduce((sum, row) => sum + row.rawVorp, 0);
-    const benchRaw = withVorp.filter(row => row.role === "bench").reduce((sum, row) => sum + row.rawVorp, 0);
-    const rawTotal = starterRaw + benchRaw;
-    // Same total as the per-position pie the adjusted curves are priced on,
-    // so the raw curve sits on a comparable scale.
-    const targetTotal = POSITION_ORDER.reduce((sum, pos) => {
-      const t = Number(espnTargetTotal(pos, NaN));
-      return sum + (Number.isFinite(t) && t > 0 ? t : 0);
-    }, 0) || espnTargetPool(rawTotal);
-    // Frozen stage-1 display share: the ESPN indexed map is a fallback
-    // curve and never moves with the bench-share slider.
-    const displayShare = Math.max(0, Math.min(1, state.benchShare));
-    const starterShare = Math.max(0, Math.min(1, 1 - displayShare));
-    const rawScale = rawTotal > 0 && targetTotal > 0 ? targetTotal / rawTotal : 1;
-    const starterScale = starterRaw > 0 && targetTotal > 0 ? (targetTotal * starterShare) / starterRaw : 0;
-    const benchScale = benchRaw > 0 && targetTotal > 0 ? (targetTotal * displayShare) / benchRaw : 0;
-    const rows = withVorp.map(row => ({
-      ...row,
-      pure: row.rawVorp * rawScale,
-      adjusted: row.role === "starter" ? row.rawVorp * starterScale : row.role === "bench" ? row.rawVorp * benchScale : 0
-    }));
-    vorpRowsCache.set(cacheKey, rows);
-    // The table's tier column is ESPN-based; only ESPN rows feed it.
-    if (vorpKey === "espn_vorp") {
-      espnRoleByKey = new Map(rows.map(row => [row.player.player_key, row.role]));
-    }
-    return rows;
-  }
-
-  function buildEspnRows() {
-    return buildVorpRows("espn_vorp");
-  }
-
-  function espnFixtureLeg() {
-    // The baked ESPN combo ("ESPN-implied" index values) as shipped in the
-    // fixture leg: the preferred, richer source for the indexed ESPN series.
-    return buildPublishedSourceMap("espn");
-  }
-
-  function buildEspnIndexedMap() {
-    const values = new Map();
-    const fixtureLeg = espnFixtureLeg();
-    if (fixtureLeg.size >= ValueModel.MIN_SHARED_FOR_PIE) {
-      // Built leg first: browser-derived rows are only a thin-data fallback.
-      fixtureLeg.forEach((value, playerKey) => values.set(playerKey, value));
-      return values;
-    }
-    buildEspnRows().forEach(row => values.set(row.player.player_key, row.adjusted));
-    return values;
-  }
-
-  function espnVorpRows(pos) {
-    return buildEspnRows().filter(row => row.player.pos === pos);
-  }
-
-  function buildVorpMap(vorpKey) {
-    const values = new Map();
-    buildVorpRows(vorpKey).forEach(row => values.set(row.player.player_key, row.pure));
-    return values;
-  }
-
-  function buildEspnVorpMap() {
-    return buildVorpMap("espn_vorp");
-  }
-
-  function buildEspnIndexedMap() {
-    const values = new Map();
-    buildEspnRows().forEach(row => values.set(row.player.player_key, row.adjusted));
-    return values;
+    valuesLoaded = true;
   }
 
   function selectedCombo(key) {
@@ -740,73 +317,6 @@
     });
   }
 
-  function buildSourceMap(key) {
-    if (key === "espn") return buildEspnIndexedMap();
-    if (PURE_VORP_KEYS.includes(key)) return buildVorpMap(key);
-    if (key === "cbs_adjusted") return buildCbsAdjustedMap();
-    return buildPublishedSourceMap(key);
-  }
-
-  function buildCbsAdjustedMap() {
-    const direct = buildSourceMap("cbs");
-    if (!direct.size) return new Map();
-    const pairs = [
-      ["fantasycalc", "fantasycalc_adjusted"],
-      ["usatoday", "usatoday_adjusted"],
-      ["fantasypros", "fantasypros_adjusted"]
-    ];
-    const existingMaps = new Map();
-    pairs.flat().forEach(key => existingMaps.set(key, buildSourceMap(key)));
-    const adjusted = new Map();
-    direct.forEach((directValue, playerKey) => {
-      const ratios = pairs.map(([rawKey, adjustedKey]) => {
-        const raw = existingMaps.get(rawKey)?.get(playerKey);
-        const adj = existingMaps.get(adjustedKey)?.get(playerKey);
-        return Number.isFinite(raw) && raw > 0 && Number.isFinite(adj) ? adj / raw : null;
-      }).filter(Number.isFinite);
-      const ratio = ratios.length ? ratios.reduce((sum, value) => sum + value, 0) / ratios.length : 1;
-      adjusted.set(playerKey, Math.max(0, directValue * ratio));
-    });
-    // JEG-363: CBS index_total via product-data.js.
-    const cbsRow = (typeof window !== "undefined" && window.TradeValueProductData)
-      ? window.TradeValueProductData.getPlayerValues({source: "cbs", scoring: state.scoring, teams: state.teams, qbVariant: "qb1", view: "combo_reindexed"})
-      : null;
-    POSITION_ORDER.forEach(pos => {
-      const rows = [...adjusted.entries()].filter(([playerKey]) => canonicalByKey.get(playerKey)?.pos === pos);
-      const total = rows.reduce((sum, [, value]) => sum + value, 0);
-      const target = Number(cbsRow?.index_total?.[pos]?.target_total);
-      const scale = total > 0 && Number.isFinite(target) && target > 0 ? target / total : 1;
-      rows.forEach(([playerKey, value]) => adjusted.set(playerKey, value * scale));
-    });
-    return adjusted;
-  }
-
-  function rebuildSourceMaps() {
-    vorpRowsCache.clear();
-    espnRoleByKey = new Map();
-    sourceMaps = new Map();
-    // The anchor must exist before anything normalises against it.
-    buildEspnRows();
-    const anchorMap = applyRosterShape(buildEspnIndexedMap(), "espn");
-    sourceMaps.set("espn", anchorMap);
-    const displayShare = anchorDisplayShare(anchorMap);
-    renderKeys.filter(key => !["espn", ...PURE_VORP_KEYS].includes(key)).forEach(key => {
-      const sourceMap = key.endsWith("_adjusted")
-        ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
-        : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap);
-      sourceMaps.set(key, sourceMap);
-    });
-    // Level-matched to the anchor over the players they share; each SHAPE is
-    // deliberately its own (raw projection-minus-waiver VORP, not the pie).
-    PURE_VORP_KEYS.forEach(vorpKey => {
-      sourceMaps.set(vorpKey, ValueModel.scaleToSharedTotal({
-        values: buildVorpMap(vorpKey),
-        anchor: anchorMap,
-        playerOf: playerKey => canonicalByKey.get(playerKey)
-      }));
-    });
-  }
-
   function allColumnKeys() {
     return [...FIELD_COLUMNS.map(column => column.key), ...renderKeys.filter(sourceAvailable)];
   }
@@ -818,15 +328,12 @@
     return cols.length ? cols : defaults;
   }
 
-  // GAP-025 (Jeremy, 2026-10-07: "Yes, use 0"): same rule as the curve
-  // widget's rowValue. A player ESPN projects at 0 (injured/out) shows 0.0 on
-  // the ESPN series; sourceMaps (the anchor) are untouched; no ESPN row = —.
-  const ESPN_ZERO_VALUE_KEYS = new Set(["espn", "espn_vorp"]);
+  // The engine's row value as-is: the ESPN-0 (GAP-025) and below-leg
+  // (GAP-ESPN-BELOW-LEG) 0.0 rules live in curve-widget.js rowValue only.
   function sourceValue(key, playerKey) {
     if (!sourceAvailable(key)) return null;
     const map = sourceMaps.get(key);
-    if (map?.has(playerKey)) return map.get(playerKey);
-    return ESPN_ZERO_VALUE_KEYS.has(key) && map?.size && canonicalByKey.get(playerKey)?.espn_projects_zero ? 0 : null;
+    return map?.has(playerKey) ? map.get(playerKey) : null;
   }
 
   // Content week from the freshness record; adjusted series add their fit date.
@@ -865,6 +372,14 @@
       return "as published · reindexed";
     }
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
+  }
+
+  // Outside the Indexed view the chart (and so this table) carries that
+  // view's values for the published charts; their badge names the view.
+  function headerBadge(key) {
+    const viewed = state.viewMode && state.viewMode !== "indexed" && state.viewTitle
+      && ["usatoday", "fantasycalc", "fantasypros", "cbs"].includes(key);
+    return viewed ? `as published · ${state.viewTitle}` : columnBadge(key);
   }
 
   function tradePublishedAt() {
@@ -1090,7 +605,7 @@
   function sortHeader(key, label) {
     const active = state.sort.column === key;
     const aria = active ? state.sort.direction === "asc" ? "ascending" : "descending" : "none";
-    return `<th aria-sort="${aria}"><button class="sortable ${key === "name" ? "left" : ""}" type="button" data-sort="${esc(key)}" title="Sort table by ${esc(label)}"><span class="sort-label">${esc(label)}</span>${key === "name" ? "" : `<span class="source-badge">${esc(columnBadge(key))}</span>`}</button></th>`;
+    return `<th aria-sort="${aria}"><button class="sortable ${key === "name" ? "left" : ""}" type="button" data-sort="${esc(key)}" title="Sort table by ${esc(label)}"><span class="sort-label">${esc(label)}</span>${key === "name" ? "" : `<span class="source-badge">${esc(headerBadge(key))}</span>`}</button></th>`;
   }
 
   function nextSortDirection(key) {
@@ -1152,6 +667,10 @@
               : `Sorted by ${columnLabel(state.sort.column)}, ${state.sort.direction === "asc" ? "ascending" : "descending"}; missing values last`;
     }
     const wrap = $("#tableWrap");
+    if (!valuesLoaded) {
+      wrap.innerHTML = '<div class="empty">Loading values from the chart.</div>';
+      return;
+    }
     if (!list.length) {
       wrap.innerHTML = '<div class="empty">No players match these filters.</div>';
       return;
@@ -1227,10 +746,7 @@
     const scoring = raw.settings?.scoring;
     const teams = Number(raw.settings?.teams);
     if (!["standard","half","full"].includes(scoring) || ![8,10,12,14].includes(teams)) throw new Error("League scoring or team count is not valid.");
-    state.scoring = scoring;
-    state.teams = teams;
     const importedBenchShare = Number(raw.settings?.benchShare ?? raw.settings?.absenceRate);
-    if (Number.isFinite(importedBenchShare)) state.benchShare = Math.max(0, Math.min(0.5, importedBenchShare));
     if (["ALL","QB","RB","WR","TE","FLEX"].includes(raw.filters?.position)) state.filters.position = raw.filters.position;
     state.filters.search = String(raw.filters?.search || "").slice(0, 80);
     if (["name","pos","team","espn_role","disagreement",...renderKeys].includes(raw.sort?.column)) {
@@ -1241,28 +757,13 @@
     const allowed = new Set(allColumnKeys());
     const columns = Array.isArray(raw.columns) ? raw.columns.filter(key => allowed.has(key)) : null;
     state.columns = columns && columns.length ? columns : visibleColumns();
-    SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-    rebuildSourceMaps();
-    renderAll();
-    runRegressionGuards();
-  }
-
-  function normalizeRosterShape(shape) {
-    if (!shape || typeof shape !== "object") return null;
-    const next = {};
-    const limits = {
-      QB:[1, 5],
-      RB:[1, 5],
-      WR:[1, 5],
-      TE:[1, 5],
-      FLEX:[1, 5],
-      BENCH:[0, 14]
-    };
-    Object.entries(limits).forEach(([key, [min, max]]) => {
-      const value = Math.round(Number(shape[key]));
-      next[key] = Number.isFinite(value) ? Math.max(min, Math.min(max, value)) : state.rosterShape[key];
-    });
-    return next;
+    // League settings belong to the chart engine; each setter rebuilds it and
+    // the table re-reads the result (trade-value-rows-change).
+    const controls = engine();
+    controls?.setScoring(scoring);
+    controls?.setTeams(teams);
+    if (Number.isFinite(importedBenchShare)) controls?.setBenchShareFraction(importedBenchShare);
+    syncFromEngine();
   }
 
   function bindStatic() {
@@ -1307,10 +808,11 @@
     renderTable();
   }
 
-  // The widget can dispatch shared-change before init() has loaded `data`; state is
-  // already updated by then and init() builds from it, so skip the rebuild (JEG-44).
-  function rebuildAndRender() {
-    if (!data) return;
+  // Re-read the engine and re-render. Called once the engine has finished
+  // its first build and after every engine rebuild; a no-op until both this
+  // table's own data and the engine are ready, whichever lands last.
+  function syncFromEngine() {
+    if (!data || !engineReady()) return;
     rebuildSourceMaps();
     renderAll();
     runRegressionGuards();
@@ -1319,55 +821,20 @@
   window.TradeValueComparisonControls = {
     refresh: () => data && renderAll(),
     setLockOrder: value => data && setLockOrder(value, false),
+    // League settings, roster, bench share and weights arrive with the
+    // engine's own rebuild (trade-value-rows-change); only view state is
+    // taken from the shared record.
     applyShared: shared => {
-      const scoring = ({standard:"standard", half_ppr:"half", ppr:"full", half:"half", full:"full"})[shared?.scoring];
-      if (scoring && scoring !== state.scoring) {
-        state.scoring = scoring;
-        SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-        rebuildAndRender();
-      }
-      const sharedTeams = Number(shared?.teams);
-      if ([8,10,12,14].includes(sharedTeams) && sharedTeams !== state.teams) {
-        state.teams = sharedTeams;
-        SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-        rebuildAndRender();
-      }
       if (["ALL","QB","RB","WR","TE","FLEX"].includes(shared?.position)) {
         state.filters.position = shared.position;
         renderFilters();
         renderTable();
       }
-      const rosterShape = normalizeRosterShape(shared?.rosterShape);
-      if (rosterShape && Object.keys(rosterShape).some(key => rosterShape[key] !== state.rosterShape[key])) {
-        state.rosterShape = rosterShape;
-        rebuildAndRender();
-      }
-      const sharedBenchShare = Number(shared?.benchShare ?? shared?.absenceRate);
-      if (Number.isFinite(sharedBenchShare)) {
-        const nextBenchShare = Math.max(0, Math.min(0.5, sharedBenchShare));
-        if (Math.abs(nextBenchShare - state.benchShare) > 0.0001) {
-          state.benchShare = nextBenchShare;
-          rebuildAndRender();
-        }
-      }
-      // Sync global position weights (from the standalone Weights section).
-      const sharedWeights = shared?.positionWeights;
-      if (sharedWeights && ["QB", "RB", "WR", "TE"].every(p => Number.isFinite(sharedWeights[p]))) {
-        const total = ["QB", "RB", "WR", "TE"].reduce((s, p) => s + sharedWeights[p], 0);
-        if (total > 0) {
-          const norm = {};
-          ["QB", "RB", "WR", "TE"].forEach(p => { norm[p] = sharedWeights[p] / total; });
-          const changed = ["QB", "RB", "WR", "TE"].some(p => Math.abs((state.positionWeights?.[p] || 0) - norm[p]) > 0.0001);
-          if (changed) {
-            state.positionWeights = norm;
-            rebuildAndRender();
-          }
-        }
-      }
       if (isLockKey(shared?.lockOrder)) setLockOrder(shared.lockOrder, false);
     }
   };
   window.addEventListener("trade-value-shared-change", event => window.TradeValueComparisonControls.applyShared(event.detail));
+  window.addEventListener("trade-value-rows-change", () => syncFromEngine());
   window.addEventListener("trade-value-lock-order-change", event => window.TradeValueComparisonControls.setLockOrder(event.detail?.lockOrder));
   window.addEventListener("trade-value-reference-source-change", event => {
     if (SOURCE_KEYS.includes(event.detail?.source)) referenceSource = event.detail.source;
@@ -1399,8 +866,8 @@
 
   async function init() {
     try {
-      [data, window.TradeValuePlayerNews, window.TradeValueAdjustmentInputs] = await Promise.all([loadComparisonData(), loadPlayerNews(), loadAdjustmentInputs()]);
-      adjustmentInputs = window.TradeValueAdjustmentInputs || null;
+      let loaded;
+      [loaded, window.TradeValuePlayerNews] = await Promise.all([loadComparisonData(), loadPlayerNews()]);
       newsMeta = window.TradeValuePlayerNews?.meta || {};
       newsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.news_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
       adjustmentsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.adjustments_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
@@ -1418,29 +885,14 @@
         : {};
       renderKeys = SOURCE_KEYS.filter(key => srcValidation[validationKeyFor(key)] === "live");
       if (renderKeys.length !== SOURCE_KEYS.length) throw new Error("One or more required comparison sources did not pass validation.");
-      if (!Array.isArray(state.columns)) state.columns = visibleColumns();
       if (SOURCE_KEYS.includes(window.TradeValueReferenceSource)) referenceSource = window.TradeValueReferenceSource;
       window.TradeValueReferenceSource = referenceSource;
-      SOURCE_KEYS.forEach(key => { state.combos[key] = comboKeyFor(key); });
-      rebuildSourceMaps();
       bindStatic();
-      renderAll();
+      // Values come from the engine; until it has built, the table says so.
+      data = loaded;
+      if (engineReady()) syncFromEngine();
+      else renderTable();
       if (window.TradeValueSharedState) window.TradeValueComparisonControls.applyShared(window.TradeValueSharedState);
-      // Backup sync: poll shared state every 2s in case the event was missed.
-      // This ensures the player table always reflects the chart's league settings.
-      let lastSyncKey = "";
-      setInterval(() => {
-        try {
-          const shared = window.TradeValueSharedState;
-          if (!shared) return;
-          const key = `${shared.scoring}|${shared.teams}|${shared.lockOrder}`;
-          if (key !== lastSyncKey) {
-            lastSyncKey = key;
-            window.TradeValueComparisonControls.applyShared(shared);
-          }
-        } catch (e) { /* silent */ }
-      }, 2000);
-      runRegressionGuards();
       if (isLockKey(window.TradeValueLockOrder)) setLockOrder(window.TradeValueLockOrder, false);
     } catch (error) {
       const message = `Source dates unavailable · ${error.message}`;

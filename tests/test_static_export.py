@@ -1087,10 +1087,12 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("setTableSort", text)
         self.assertIn("renderExpandedRow", text)
         self.assertIn("TradeValuePlayerNews", text)
-        self.assertIn("buildEspnIndexedMap", text)
-        self.assertIn("buildEspnVorpMap", text)
-        self.assertIn("normalizeRosterShape", text)
-        self.assertIn("buildEspnRows", text)
+        # GAP-MAIN-TABLE-ESPN-DRIFT (2026-10-08): the table renders the chart
+        # engine's rows; it no longer carries its own ESPN / roster-shape math
+        # (buildEspnIndexedMap, buildEspnVorpMap, normalizeRosterShape,
+        # buildEspnRows), which had drifted from the chart.
+        self.assertIn("getAllRows()", text)
+        self.assertIn('"trade-value-rows-change"', text)
         self.assertIn("DEFAULT_BENCH_SHARE = 0.15", text)
         self.assertIn('key:"espn_role"', text)
         self.assertIn("ESPN raw VORP vs waivers", text)
