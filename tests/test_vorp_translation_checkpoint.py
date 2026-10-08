@@ -88,6 +88,24 @@ class VorpTranslationSummaryTest(unittest.TestCase):
         self.assertIn("half_12", s["reason"])
         self.assertIn("4 < 5", s["reason"])
 
+    def test_lagging_source_grain_is_judged_by_its_content_week(self):
+        # GAP-VORP-GRAIN-WEEK-LABEL: CBS on Week-4 natives while the chain is
+        # in Week 5 is stamped grain week 4 -- correct, not stale.
+        combos = self._full_ok_combos()
+        combos["cbs"] = {f"{sc}_12": _combo("vorp-supabase", 4) for sc in ("full", "half", "standard")}
+        path = self._write(combos)
+        doc = json.loads(path.read_text())
+        doc["sources"]["cbs"]["week_designated"] = "Week 4"
+        path.write_text(json.dumps(doc))
+        s = self._run()
+        self.assertEqual(s["status"], "ok", s["reason"])
+        # ...and a Week-4 grain on a Week-5 section is still stale.
+        doc["sources"]["cbs"]["week_designated"] = "Week 5"
+        path.write_text(json.dumps(doc))
+        s = self._run()
+        self.assertEqual(s["status"], "warn", s["reason"])
+        self.assertIn("4 < 5", s["reason"])
+
     def test_warn_when_grain_week_unrecorded(self):
         # Discrimination: pre-JEG-70 provenance stamps week=null. The
         # checkpoint must not call that ok -- it must warn until the chain

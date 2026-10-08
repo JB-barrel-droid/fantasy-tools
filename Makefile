@@ -352,6 +352,7 @@ test-core:
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_superflex
+	python3 -m unittest tests.test_superflex_publisher_values
 	python3 -m unittest tests.test_cbsros_8t_qb
 	python3 -m unittest tests.test_projection_total_only
 	python3 -m unittest tests.test_cbsros_bake_identity
@@ -379,6 +380,7 @@ test-core:
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_source_scale_agreement_retired
+	python3 -m unittest tests.test_week_calendar
 
 test-all: naming naming-convention test-unit
 

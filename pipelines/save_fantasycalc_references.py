@@ -10,6 +10,12 @@ goal workspace's lottery/data/sources_cache/) and upserts one row per
 
 Only the 12-team / 1-QB combos are saved (the chart's canonical league
 config); the other 21 cached combos are the raw pull, not the saved grain.
+FantasyCalc's own superflex lists (fantasycalc_<scoring>_12_qb2.json, numQbs=2,
+written by pipelines/pull_fantasycalc_12team.py) are saved beside them as
+qb_slots = 2 rows in the same bake (GAP-SUPERFLEX-PUBLISHER-VALUES): every
+position, `native_value` = the published number, `value` NULL (the chart-scale
+reindex is defined against the 1-QB ESPN anchor only). They are optional: a
+cache without them saves the 1-QB rows alone.
 
 Identity: names resolve through the canonical public.players registry
 (numeric player_key), fail closed -- unmatched/ambiguous names go to the
@@ -61,7 +67,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 from import_source_snapshot import parse_float  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 # Reuse the Supabase plumbing, the fail-closed identity resolution, and the
 # shared isotonic reindex (same chart-scale contract as USA Today).
 from save_espn_cbs_references import (  # noqa: E402
@@ -85,6 +91,13 @@ FC_COMBOS = {
     "fantasycalc_standard_12_qb1": "std",
     "fantasycalc_half_12_qb1": "half",
     "fantasycalc_full_12_qb1": "full",
+}
+
+# FantasyCalc's superflex (numQbs=2) lists: optional, saved as qb_slots = 2.
+FC_SUPERFLEX_COMBOS = {
+    "fantasycalc_standard_12_qb2": "std",
+    "fantasycalc_half_12_qb2": "half",
+    "fantasycalc_full_12_qb2": "full",
 }
 
 SEASON = 2026
@@ -117,7 +130,13 @@ def build_fantasycalc_rows(
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = ""
-    for stem, scoring in FC_COMBOS.items():
+    # Superflex lists only when all three are cached (never a partial set).
+    superflex = (FC_SUPERFLEX_COMBOS
+                 if all((CACHE_DIR / f"{stem}.json").exists() for stem in FC_SUPERFLEX_COMBOS)
+                 else {})
+    stems = [(stem, scoring, 1) for stem, scoring in FC_COMBOS.items()]
+    stems += [(stem, scoring, 2) for stem, scoring in superflex.items()]
+    for stem, scoring, qb_slots in stems:
         rows, fetched_at = _read_combo(stem)
         pulled_at = pulled_at or fetched_at
         for r in rows:
@@ -142,6 +161,7 @@ def build_fantasycalc_rows(
                         "name": name,
                         "position": pos,
                         "scoring": scoring,
+                        "qb_slots": qb_slots,
                         "value": value,
                         "detail": "no single canonical players-table identity; never guessed",
                     }
@@ -155,12 +175,13 @@ def build_fantasycalc_rows(
                     "player_norm": normalize_name(name),
                     "scoring": scoring,
                     "league_teams": 12,
-                    "qb_slots": 1,
+                    "qb_slots": qb_slots,
                     "season": SEASON,
                     "week": week,
                     "position": canonical_pos or pos,
                     "team": None,  # FantasyCalc cache rows carry no team column
-                    "value": value,
+                    # Superflex rows have no chart-scale value (see docstring).
+                    "value": value if qb_slots == 1 else None,
                     "native_value": value,  # as published; reindexing is bake-time
                     "source_content_date": None,  # weekly snapshot; NULL by design
                     "pulled_at": fetched_at or datetime.now(timezone.utc).isoformat(),
@@ -187,7 +208,7 @@ def save_fantasycalc(
     bake_id: str | None = None,
     reindex: bool = True,
 ) -> dict[str, Any]:
-    week = week or nfl_week()
+    week = week or content_week()
     today = datetime.now(timezone.utc).date().isoformat()
     bake_id = bake_id or f"fcwk{week}_{today}_v1"
 
@@ -246,7 +267,7 @@ def main() -> int:
         "--week",
         type=int,
         default=None,
-        help="NFL week for the save grain (default: current week from ops/watchdog/_common.nfl_week).",
+        help="NFL week for the save grain (default: the content week, pipelines/nfl_week.py).",
     )
     parser.add_argument(
         "--bake-id",

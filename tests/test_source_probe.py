@@ -415,7 +415,7 @@ class WiringTest(unittest.TestCase):
             self.assertIn(f"source_probe.py ack --supabase --source {want} ", ack, wf)
             chain = step_block(text, "Dispatch the rebuild chain on new content")
             self.assertIn("steps.ack.outputs.new_content == 'true'", chain, wf)
-            self.assertIn("gh workflow run rebuild-chain.yml", chain, wf)
+            self.assertIn("source_probe.py dispatch-chain", chain, wf)
             self.assertRegex(text, r"\n  actions: write", wf)
             # The ack sits after the monitored-check step: an ack failure must
             # not be recorded as an ingest failure.
@@ -587,3 +587,73 @@ class CbsRosCutoffTest(unittest.TestCase):
         self.assertNotEqual(sp.cbsros_stable_rows(a), sp.cbsros_stable_rows(c))
         # Broken variant: hashing every row reports the swap as a change.
         self.assertNotEqual(sp.tables_hash(a), sp.tables_hash(b))
+
+
+class ChainConcurrencyTest(unittest.TestCase):
+    """Two chain runs 24 s apart both rebuilt and the second push failed on
+    rebase conflicts (run 37780929856, 2026-10-08)."""
+
+    def test_chain_has_one_queueing_group(self):
+        text = (WF / "rebuild-chain.yml").read_text()
+        m = re.search(r"(?m)^concurrency:\n  group: (\S+)\n  cancel-in-progress: (\S+)\n", text)
+        self.assertIsNotNone(m, "rebuild-chain.yml needs a workflow-level concurrency group")
+        self.assertEqual(m.group(1), "rebuild-chain")  # one group: bake runs too
+        self.assertEqual(m.group(2), "false")           # never cancel a running publish
+
+    def test_every_chain_dispatch_coalesces(self):
+        for wf in sorted(WF.glob("*.yml")):
+            if wf.name == "rebuild-chain.yml":
+                continue
+            text = wf.read_text()
+            self.assertNotIn("gh workflow run rebuild-chain.yml", text,
+                             f"{wf.name} dispatches the chain without coalescing")
+        for wf in ["source-vintage-check.yml"] + sorted({w for w, _ in sp.INGEST.values()}):
+            self.assertIn("source_probe.py dispatch-chain", (WF / wf).read_text(), wf)
+
+    def fake_gh(self, statuses):
+        calls = []
+
+        def run(argv):
+            calls.append(argv)
+            if argv[:3] == ["gh", "run", "list"]:
+                return json.dumps([{"status": s, "databaseId": i} for i, s in enumerate(statuses)])
+            return ""
+        return run, calls
+
+    def test_burst_of_changes_queues_at_most_one_run(self):
+        state = ["completed"]
+        dispatched = 0
+
+        def run(argv):
+            nonlocal dispatched
+            if argv[:3] == ["gh", "run", "list"]:
+                return json.dumps([{"status": s, "databaseId": i} for i, s in enumerate(state)])
+            dispatched += 1
+            state.insert(0, "pending" if "in_progress" in state else "in_progress")
+            return ""
+        for _ in range(5):  # five ingests acknowledge new content within a minute
+            sp.dispatch_chain("source-probe-x", run)
+        # one runs now, one waits (picks up everything written meanwhile), no more
+        self.assertEqual(dispatched, 2)
+
+    def test_waiting_run_is_never_replaced(self):
+        run, calls = self.fake_gh(["in_progress", "pending"])
+        self.assertTrue(sp.dispatch_chain("x", run).startswith("skipped"))
+        self.assertFalse([c for c in calls if c[:3] == ["gh", "workflow", "run"]])
+
+    def test_in_progress_run_does_not_absorb_a_new_change(self):
+        run, calls = self.fake_gh(["in_progress"])
+        self.assertEqual(sp.dispatch_chain("x", run), "dispatched")
+
+    def test_a_dispatch_that_ignores_waiting_runs_is_caught(self):
+        # Broken variant: always dispatch. Each extra dispatch would cancel the
+        # waiting run (possibly the daily bake).
+        def broken(reason, run):
+            run(["gh", "workflow", "run", "rebuild-chain.yml", "-f", f"source={reason}"])
+            return "dispatched"
+        run, calls = self.fake_gh(["pending"])
+        broken("x", run)
+        self.assertTrue([c for c in calls if c[:3] == ["gh", "workflow", "run"]])
+        run2, calls2 = self.fake_gh(["pending"])
+        sp.dispatch_chain("x", run2)
+        self.assertFalse([c for c in calls2 if c[:3] == ["gh", "workflow", "run"]])

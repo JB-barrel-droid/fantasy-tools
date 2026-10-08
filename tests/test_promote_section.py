@@ -288,6 +288,35 @@ class TestPromote(unittest.TestCase):
         self.assertEqual("Week 3", after["content_vintage"])
         self.assertEqual("Week 3", after["week_designated"])
 
+    def test_article_url_travels_with_promoted_values(self):
+        """GAP-SOURCE-URL-WEEK2: the section's url was a hand-set Week 2
+        article while the values were Week 5. Promotion now writes the URL
+        the promoted natives were priced from; a candidate without one keeps
+        the section's url (FantasyCalc has no article)."""
+        week3 = "https://example.test/fantasy-trade-value-chart-week-3/"
+        for prov_url, want in ((week3, week3), (None, "https://example.test/week-2/")):
+            with self.subTest(prov_url=prov_url):
+                tmp = Path(tempfile.mkdtemp())
+                fx_path, rp, revp = ready_review(tmp, source="fantasycalc")
+                fx = json.loads(fx_path.read_text())
+                fx["sources"]["fantasycalc"]["url"] = "https://example.test/week-2/"
+                fx_path.write_text(json.dumps(fx))
+                doc = json.loads(rp.read_text())
+                doc["content_vintage"] = "Week 3"
+                doc["source_provenance"] = {"source": "fantasycalc", "content_vintage": "Week 3",
+                                            "vintage_kind": "week_designated", "week_designated": 3,
+                                            "source_url": prov_url}
+                rp.write_text(json.dumps(doc))
+                rev = json.loads(revp.read_text())
+                rev["reindexed_sha256"] = promo.sha256_file(rp)
+                revp.write_text(json.dumps(rev))
+                health = tmp / "source-import-health.json"
+                write_import_health(health, vintage="Week 3", status="ok")
+                promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
+                              record_dir=str(tmp / "records"), import_health_path=str(health))
+                after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+                self.assertEqual(want, after["url"])
+
     def test_unpromoted_combos_keep_their_own_week(self):
         """2026-10-07: promoting full_12 relabelled the whole section Week 5,
         so the reviewer saw the still-Week-4 half_12 combo as Week 5 and held

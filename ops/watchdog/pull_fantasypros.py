@@ -31,7 +31,7 @@ from datetime import date, datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import article_discovery as ad
-from _common import content_week, fetch, nfl_week, today_ct, REPO
+from _common import content_week, fetch, today_ct, REPO
 
 # Auto-discovery: FantasyPros trade-value-chart article slug embeds the week.
 # Candidate template (newest week first); discovery walks week N, N-1, N-2
@@ -291,6 +291,43 @@ def parse_tables(html):
     return rows
 
 
+# GAP-SUPERFLEX-PUBLISHER-VALUES: the QB table also publishes "2QB Value"
+# (FantasyPros' superflex / 2-QB price). QB only: the RB/WR/TE tables have no
+# 2-QB column. Saved as qb_slots = 2 rows by save_fantasypros_references.py.
+SUPERFLEX_COLUMN = "2QB Value"
+
+
+def parse_superflex(html):
+    """-> {(name, team): 2QB value} from the QB table; {} when the chart has
+    no "2QB Value" column (never guessed)."""
+    out, pos = {}, None
+    for m in re.finditer(r"<h[23][^>]*>(.*?)</h[23]>|<table.*?</table>", html, re.S | re.I):
+        if m.group(1) is not None:
+            head = _cell_text(m.group(1)).lower()
+            pos = next((p for k, p in POSITION_HEADINGS if k in head), None)
+            continue
+        if pos != "QB":
+            pos = None
+            continue
+        pos = None
+        trs = re.findall(r"<tr.*?</tr>", m.group(0), re.S | re.I)
+        cells = [[_cell_text(c) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", tr, re.S | re.I)]
+                 for tr in trs]
+        header = cells[0] if cells else []
+        if SUPERFLEX_COLUMN not in header or "Name" not in header:
+            return {}
+        i_name, i_team, i_sf = header.index("Name"), header.index("Team"), header.index(SUPERFLEX_COLUMN)
+        for c in cells[1:]:
+            if len(c) <= i_sf or not c[i_name]:
+                continue
+            try:
+                out[(c[i_name], c[i_team])] = float(c[i_sf])
+            except ValueError:
+                continue
+        return out
+    return out
+
+
 def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
     """Resolve names to player_key and write the CSV + fetch-log entry that
     pipelines/save_fantasypros_references.py reads. Unresolved or ambiguous
@@ -301,6 +338,7 @@ def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
     if not published:
         raise RuntimeError("FantasyPros page has no article:published_time at %s" % url)
     index = build_name_index(players if players is not None else fetch_players())
+    superflex = parse_superflex(html)
     clean, review = [], []
     for pos, name, team, value in parse_tables(html):
         # FantasyPros prints curly apostrophes (D’Andre); the players table uses straight ones.
@@ -308,14 +346,16 @@ def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
         if key is None:
             review.append((pos, name, team, value))
             continue
+        sf_value = superflex.get((name, team)) if pos == "QB" else None
         clean.append({"player_key": key, "name": rec["full_name"], "team": team,
-                      "value_1": value, "source_name": name, "position": pos})
+                      "value_1": value, "source_name": name, "position": pos,
+                      "value_2qb": "" if sf_value is None else sf_value})
     if not clean:
         raise RuntimeError("FantasyPros resolved zero players; not writing")
     os.makedirs(os.path.dirname(csv_path), exist_ok=True)
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=["player_key", "name", "team", "value_1",
-                                           "source_name", "position"])
+                                           "source_name", "position", "value_2qb"])
         w.writeheader()
         w.writerows(clean)
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
@@ -340,7 +380,8 @@ def latest_saved_values(sb, week):
     rows = sb.get_all(
         "source_trade_values",
         params="?select=player_key,native_value,bake_id,created_at&source=eq.fantasypros"
-               "&variant=eq.as_published&season=eq.2026&scoring=eq.standard&week=eq.%d" % week)
+               "&variant=eq.as_published&season=eq.2026&scoring=eq.standard&qb_slots=eq.1"
+               "&week=eq.%d" % week)
     return values_of_latest_bake(rows)
 
 
@@ -445,8 +486,13 @@ def main():
         # A saved week is no longer a skip by itself (refresh-cadence,
         # 2026-10-08): FantasyPros edits the article mid-week, so the new pull
         # is compared with the week's latest saved bake below and saved as a
-        # new bake only when the published values differ.
+        # new bake only when the published values differ, or when the week was
+        # saved without its 2QB Value column (GAP-SUPERFLEX-PUBLISHER-VALUES).
         compare_with_saved = have > 0 and not args.force
+        have_sf = saver.count_rows(
+            "source_trade_values",
+            "?select=player_key&source=eq.fantasypros&variant=eq.as_published"
+            "&season=eq.2026&week=eq.%d&qb_slots=eq.2" % wk) if compare_with_saved else 0
         args.saver_inputs = True
 
     if args.saver_inputs:
@@ -466,6 +512,8 @@ def main():
             from save_espn_cbs_references import _sb
             saved = latest_saved_values(_sb(), week_info["week"])
             diff = content_diff(saved, csv_values(saver.FP_CSV))
+            if diff is None and have_sf == 0 and parse_superflex(html):
+                diff = "saved without its 2QB Value column"
             if diff is None:
                 print("week %d unchanged since the latest saved bake (%d players); skipping"
                       % (week_info["week"], len(saved)), flush=True)

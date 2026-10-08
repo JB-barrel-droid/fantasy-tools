@@ -776,6 +776,35 @@ def cmd_ack(args) -> int:
     return 0
 
 
+WAITING_STATUSES = ("queued", "pending", "waiting", "requested")
+
+
+def dispatch_chain(reason: str, run=None) -> str:
+    """Dispatch rebuild-chain.yml unless a run is already waiting to start.
+
+    The chain has one concurrency group (one run at a time, never cancelled).
+    A run that has not started yet will read the database after this ingest's
+    write, so a burst of changed ingests coalesces into that one queued run.
+    Skipping also keeps a waiting run (e.g. the 11:45 bake) from being replaced:
+    GitHub cancels an older pending run when a newer one joins the group.
+    A run already in progress may have read the database before this write,
+    so it does not count."""
+    import subprocess
+    run = run or (lambda argv: subprocess.run(argv, capture_output=True, text=True, check=True).stdout)
+    out = run(["gh", "run", "list", "--workflow", "rebuild-chain.yml", "--limit", "20",
+               "--json", "status,databaseId"])
+    waiting = [r for r in json.loads(out or "[]") if r.get("status") in WAITING_STATUSES]
+    if waiting:
+        return f"skipped: rebuild-chain run {waiting[0].get('databaseId')} is already waiting"
+    run(["gh", "workflow", "run", "rebuild-chain.yml", "-f", f"source={reason}"])
+    return "dispatched"
+
+
+def cmd_dispatch_chain(args) -> int:
+    print(f"rebuild-chain ({args.reason}): {dispatch_chain(args.reason)}")
+    return 0
+
+
 def cmd_show(args) -> int:
     print(json.dumps(_store(args).load(), indent=2, sort_keys=True, default=str))
     return 0
@@ -784,6 +813,8 @@ def cmd_show(args) -> int:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     sub = ap.add_subparsers(dest="cmd", required=True)
+    dc = sub.add_parser("dispatch-chain")
+    dc.add_argument("--reason", required=True)
     for name in ("probe", "ack", "show"):
         p = sub.add_parser(name)
         g = p.add_mutually_exclusive_group()
@@ -798,7 +829,8 @@ def main(argv: list[str] | None = None) -> int:
             p.add_argument("--source", required=True)
             p.add_argument("--fingerprint", default="")
     args = ap.parse_args(argv)
-    return {"probe": cmd_probe, "ack": cmd_ack, "show": cmd_show}[args.cmd](args)
+    return {"probe": cmd_probe, "ack": cmd_ack, "show": cmd_show,
+            "dispatch-chain": cmd_dispatch_chain}[args.cmd](args)
 
 
 if __name__ == "__main__":

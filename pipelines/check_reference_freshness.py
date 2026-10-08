@@ -163,6 +163,62 @@ def _relative_to_root(path: Path) -> str:
         return str(path)
 
 
+# GAP-034 / GAP-FRESH-SAVED-VS-PUBLISHED (2026-10-08): comparison.built_at is
+# the time ANY section was last promoted, so it says nothing about how old
+# each source's values are. Each source gets its own row: the content week the
+# page PUBLISHES (the fixture section, read as the page reads it) next to the
+# newest week SAVED in Supabase (import health), against the current content
+# week. One place, both views, named. Reported, never enforced: a lagging
+# source is a warning (build-lag-001), not a deploy block.
+COMPARISON_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs", "espn", "cbsros", "razzball")
+
+
+def make_source_week_item(source: str, section: dict[str, Any] | None,
+                          import_entry: dict[str, Any] | None, today: date) -> dict[str, Any]:
+    import sys
+    sys.path.insert(0, str(ROOT / "pipelines"))
+    from nfl_week import content_week, section_content_week, week_of_date, week_of_label
+
+    current = content_week(today)
+    published = section_content_week(section) if section else None
+    entry = import_entry or {}
+    saved = entry.get("content_week") if isinstance(entry.get("content_week"), int) else None
+    if saved is None:
+        vintage = entry.get("content_vintage")
+        saved = week_of_label(vintage) or week_of_date(vintage)
+    behind = None if published is None else max(current - published, 0)
+    if published is None:
+        status, color = "unknown", "unknown"
+    elif behind == 0:
+        status, color = "current", "green"
+    elif behind == 1:
+        status, color = "one_week_behind", "yellow"
+    else:
+        status, color = "stale", "red"
+    note = f"published Week {published}" if published else "published week unknown"
+    note += f"; newest saved Week {saved}" if saved else "; saved week unknown"
+    if published and saved and saved > published:
+        note += " (saved but not yet published: the next bake promotes it)"
+    elif published and saved and saved < published:
+        note += " (the import-health report is older than the published fixture)"
+    return {
+        "key": f"comparison.source.{source}",
+        "label": f"{source} content week (published / saved)",
+        "value": f"Week {published}" if published else None,
+        "published_week": published,
+        "saved_week": saved,
+        "current_content_week": current,
+        "weeks_behind": behind,
+        "pending_promotion": bool(published and saved and saved > published),
+        "status": status,
+        "color": color,
+        "freshness_ok": behind is not None and behind <= 1,
+        "enforced": False,
+        "changed_since_prior_report": True,
+        "note": note,
+    }
+
+
 def build_report(
     fixtures: Path,
     output: Path,
@@ -184,7 +240,7 @@ def build_report(
     items = [
         make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous, max_age_days, enforced_set),
         make_item("players.espn_snapshot", "ESPN projection snapshot", player_meta.get("espn_snapshot"), today, previous, max_age_days, enforced_set),
-        make_item("comparison.built_at", "Comparison source artifact build time", comparison.get("built_at"), today, previous, max_age_days, enforced_set),
+        make_item("comparison.built_at", "Comparison fixture last rebuilt (any source promotion; not input freshness)", comparison.get("built_at"), today, previous, max_age_days, enforced_set),
     ]
     if import_health.get("schema") == "trade-value-import-health-v1":
         items.append(
@@ -211,6 +267,11 @@ def build_report(
                     )
                 )
 
+    sections = comparison.get("sources") or {}
+    import_sources = import_health.get("sources") or {} if import_health.get("schema") == "trade-value-import-health-v1" else {}
+    source_weeks = [make_source_week_item(source, sections.get(source), import_sources.get(source), today)
+                    for source in COMPARISON_SOURCES if source in sections]
+
     hashes = {
         name: sha256(fixtures / name)
         for name in ("players.json", "comparison-sources-data.json", "source-import-health.json")
@@ -226,6 +287,9 @@ def build_report(
         and item["key"] != "source_import.checked_at"
         and not item["freshness_ok"]
     ]
+    # The per-source week rows are reported beside the dated items but kept
+    # out of the legacy day-age counts above (different unit: weeks).
+    items.extend(source_weeks)
     # JEG-316: chart inputs are a small subset of freshness rows that feed the
     # trade-value chart directly. Surface them as a dedicated section so the
     # dashboard can flag stale inputs even when the comparison artifact is
@@ -266,6 +330,16 @@ def build_report(
                 1 for item in chart_inputs if item["color"] in ("yellow", "red")
             ),
             "chart_input_keys": list(chart_input_keys),
+            # The honest comparison summary: built_at is only when the fixture
+            # was last rebuilt; the oldest PUBLISHED source week is what the
+            # page's values actually are.
+            "comparison_built_at": comparison.get("built_at"),
+            "comparison_oldest_published_week": min(
+                (i["published_week"] for i in source_weeks if i["published_week"]), default=None),
+            "comparison_sources_behind": sorted(
+                i["key"].rsplit(".", 1)[1] for i in source_weeks if (i["weeks_behind"] or 0) > 0),
+            "comparison_sources_pending_promotion": sorted(
+                i["key"].rsplit(".", 1)[1] for i in source_weeks if i["pending_promotion"]),
         },
         "source_validation": comparison.get("source_validation", {}),
         "artifact_hashes": hashes,

@@ -80,6 +80,9 @@ def source_provenance(snapshot_path: Path, snapshot: dict[str, Any]) -> dict[str
         "week_designated": manifest.get("week_designated"),
         "source_pulled_at": manifest.get("pulled_at"),
         "snapshot_fetched_at": snapshot.get("fetched_at"),
+        # GAP-SOURCE-URL-WEEK2: the article these values were priced from;
+        # promotion writes it to the fixture section's `url`.
+        "source_url": snapshot.get("source_url"),
         "snapshot_manifest": str(manifest_path) if manifest_path.is_file() else None,
         "note": (
             "content_vintage is immutable source provenance. "
@@ -215,26 +218,14 @@ def default_output_path(snapshot: dict[str, Any], output_dir: Path) -> Path:
     return output_dir / source / fetched / f"{source}-{scoring}-{teams}-matched.json"
 
 
-def match_snapshot(
-    snapshot_path: Path,
-    players_path: Path,
-    identity_map_path: Path | None = None,
-    use_sleeper: bool = True,
-) -> dict[str, Any]:
-    snapshot = load_json(snapshot_path)
-    if snapshot.get("schema") != INPUT_SCHEMA:
-        raise SystemExit(f"{snapshot_path} is not a {INPUT_SCHEMA} file")
-    rows = snapshot.get("rows")
-    if not isinstance(rows, list):
-        raise SystemExit(f"{snapshot_path} must contain rows[]")
-
-    # Jeremy 2026-10-04: identity resolves through the canonical table.
-    # players.json supplies chart player_keys only, joined via canonical name.
-    identity_map = load_identity_map(
-        identity_map_path or DEFAULT_IDENTITY_MAP
-    )
-    records = player_records(players_path)
-    index = build_canonical_index(records, identity_map)
+def _match_rows(
+    rows: list[dict[str, Any]],
+    snapshot: dict[str, Any],
+    identity_map: dict[str, Any],
+    index: dict[str, list[dict[str, Any]]],
+    use_sleeper: bool,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """-> (matched, review) for one list of snapshot rows."""
     matched = []
     review = []
     for row in rows:
@@ -310,7 +301,32 @@ def match_snapshot(
             }
         )
 
-    return {
+    return matched, review
+
+
+def match_snapshot(
+    snapshot_path: Path,
+    players_path: Path,
+    identity_map_path: Path | None = None,
+    use_sleeper: bool = True,
+) -> dict[str, Any]:
+    snapshot = load_json(snapshot_path)
+    if snapshot.get("schema") != INPUT_SCHEMA:
+        raise SystemExit(f"{snapshot_path} is not a {INPUT_SCHEMA} file")
+    rows = snapshot.get("rows")
+    if not isinstance(rows, list):
+        raise SystemExit(f"{snapshot_path} must contain rows[]")
+
+    # Jeremy 2026-10-04: identity resolves through the canonical table.
+    # players.json supplies chart player_keys only, joined via canonical name.
+    identity_map = load_identity_map(
+        identity_map_path or DEFAULT_IDENTITY_MAP
+    )
+    records = player_records(players_path)
+    index = build_canonical_index(records, identity_map)
+    matched, review = _match_rows(rows, snapshot, identity_map, index, use_sleeper)
+
+    result = {
         "schema": OUTPUT_SCHEMA,
         "generated_at": utc_now(),
         "input_snapshot": str(snapshot_path),
@@ -332,6 +348,16 @@ def match_snapshot(
         "matched_rows": matched,
         "review_rows": review,
     }
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's own superflex / 2-QB
+    # values (import_supabase_references `superflex_rows`) resolve through the
+    # same identity rule, apart from the 1-QB rows (they never join their
+    # groups, counts or review). Present only when the snapshot has them.
+    if "superflex_rows" in snapshot:
+        sf_matched, sf_review = _match_rows(
+            snapshot.get("superflex_rows") or [], snapshot, identity_map, index, use_sleeper)
+        result["superflex_matched_rows"] = [{**r, "qb_slots": 2} for r in sf_matched]
+        result["superflex_review_rows"] = sf_review + list(snapshot.get("superflex_review_rows") or [])
+    return result
 
 
 def main() -> int:

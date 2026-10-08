@@ -401,16 +401,19 @@ committed store `data/history/`. Each file is versioned by `schema` (`week-histo
   - published charts (`kind: "published_chart"`: usatoday, fantasycalc, fantasypros, cbs):
     `natives: {standard|half_ppr|ppr: {player_key: native}}`. These are the chart's own
     as-published values for the saved 12-team, 1-QB setup. They are the same cells the engine
-    derives the chart from, taken from Supabase `api.source_inputs_weekly` (the latest pull of
-    that week);
+    derives the chart from, taken from Supabase `public.source_trade_values` /
+    `public.cbs_trade_values` (every saved bake is a version; the week's snapshot is chosen by the
+    rule below);
   - projection sources (`kind: "projection"`: espn, cbsros, razzball): `field` (`espn_ppg`,
     `cbsros_ppg`, `rz_ppg`), `snapshot_date` and `ppg: {player_key: [standard, half_ppr, ppr]}`.
     These are per-game projections rounded to `PPG_DECIMALS`, as `bake_players.py` rounds them, taken from
     the served players.json or the Supabase projection tables.
 - `index.json` = `{schema, season, content_week, fixture_built_at, weeks: {"N": {file, frozen,
   sources: {s: {origin, complete, fingerprint, content_date?, pulled_at?}}}}, served: {s: {week,
-  label_week, fingerprint, label_mismatch? | reason?}}}`. `served[s].week` is the saved week whose
-  inputs equal what the page serves now. It is matched by content fingerprint, not by the
+  label_week, fingerprint, version?, label_mismatch? | reason?}}}`. `served[s].week` is the saved
+  week whose inputs equal what the page serves now; `version` is `"snapshot"` (the week's
+  snapshot) or `"superseded"` (another kept version of that week, e.g. an older revision still
+  served). It is matched by content fingerprint, not by the
   section's label. `label_mismatch` says when the two disagree.
 
 ### How weeks are coded (docs/week-coding-rules.md)
@@ -421,6 +424,31 @@ pull cannot predate that week. FantasyCalc is a live value, so it uses the week 
 pull must have been made in that week. `build_week_history.validate_week_doc` refuses any entry
 whose evidence gives a different week than its file, so a Week 4 file cannot carry Week 3
 content. `make sync` validates every file and stops on a bad one.
+
+### Which snapshot is a source's week (week-over-week rule, 2026-10-08)
+
+Sources save many versions: article revisions, daily projection snapshots, repeated FantasyCalc
+pulls (and, with the refresh-cadence lane, hourly ones). For each source and content week N
+exactly one saved version is **the week-N snapshot**; Δ and Risers & fallers compare against it.
+`pipelines/build_week_history.py` (`select_week_snapshot`) implements this; the content
+calendar is `pipelines/nfl_week.py` (Tuesday flip).
+
+| Source | Week N is | Week-N snapshot (one of many) |
+| --- | --- | --- |
+| USA Today, FantasyPros, CBS (articles) | the article for Week N (content date, or CBS's article week) | the **latest revision** of that article saved before week N freezes (the first capture after the Tuesday turnover to N+1) |
+| FantasyCalc (continuous crowd value) | pulls made during content week N | the **first pull at or after Tuesday 12:00 UTC** of week N (the cut: after Monday-night reaction, when the Week-N articles are out). No pull after the cut in week N: the week's latest pull, flagged `cut: "missed"` |
+| ESPN, CBS ROS, Razzball (projections) | snapshots dated in week N | the **newest snapshot dated in week N**, i.e. the last one before the Tuesday turnover |
+
+- While week N is open, its snapshot is provisional and follows the rule as new versions arrive
+  (articles and projections: newest; FantasyCalc: the cut pull once one exists, then fixed).
+- Once week N freezes, its snapshot never changes. A revision of the Week-N article saved later
+  is kept as a late version, never swapped in, so a published Δ cannot change after the fact.
+- Every other saved version of the week is kept in `data/history/superseded/week-<N>.json`
+  (not served; not read by the engine). A mid-week replacement therefore keeps both.
+- "This week" in Δ is what the page serves now (matched by content fingerprint to a saved
+  version of week N, selected or superseded); "last week" is week N−1's snapshot.
+- Review drift (`review_comparison_candidate.native_drift`) compares a candidate with what is
+  served, not with this rule: it guards the promotion, not the week-over-week reading.
 
 ### Append-only
 
@@ -455,13 +483,30 @@ movement, not a move in our projections.
   - Indexed view only. In the other views the result is `available: false` with the reason.
 - CBS ROS and Razzball: `ddfTwoTierValuesForSource` on the saved projections, then
   `normalizedAdjustedMapFor`, with the same below-the-leg 0 rule as the table.
-- ESPN, the Adjusted series and the VORP vs waivers series: `available: false` with a reason.
-  - ESPN is the scale every series is matched to. A prior ESPN week would need that week's built
-    two-tier leg, which is not served (risk row HISTORY-ESPN-PRIOR).
+- ESPN (2026-10-08, HISTORY-ESPN-PRIOR): that week's two-tier leg, built by the pipeline's own
+  leg code (`build_week_history.espn_legs_for_week`: `build_ddf_two_tier_leg` tiers and
+  `calibrate_tiers` at 12 teams and the 0.15 reference share, one 70/max scale, 1 dp as the
+  fixture) from the saved `espn_ppg`, served as `assets/history/espn-legs.json` (rebuilt by
+  `make sync`, not stored). It then takes the anchor's own path: the live cells at the active
+  bench share, the roster shape, and the table's display rules (ESPN lists the player at 0 → 0.0;
+  at or below the leg's lowest priced projection → 0.0). The served week's rebuild equals the
+  fixture's ESPN leg on every priced player. ESPN weeks saved before 2026-10-08 do not carry
+  ESPN's "projects 0" players, so in those weeks such a player is absent ("Δ —"), not 0.
+- VORP vs waivers (`espn_vorp`, `cbsros_vorp`, `razzball_vorp`): `buildVorpRows` on the saved
+  projections of the base source, level-matched to the current anchor (`scaleToSharedTotal`)
+  like the served series.
+- Adjusted (`*_adjusted`): the saved chart priced as above, then the CURRENT fit's cells
+  (`buildLiveAdjustedMap`) and `normalizedAdjustedMapFor`. Δ is the chart's movement through one
+  fit; a refit between weeks does not show up as movement. Indexed view only, and unavailable
+  while the Adjusted series is paused.
+- `getPriorWeek(series)` for a VORP or Adjusted series uses the served week of its base source
+  (`espn_vorp` → `espn`, `cbs_adjusted` → `cbs`).
 
 Proof that this is the engine's math: `getWeekValues(source, served week)` equals the chart's
 current values for every player in every one of the 12 scoring × team combos, and on a custom
-roster (`tests/test_week_history.py`).
+roster (`tests/test_week_history.py`), for all 14 series. ESPN allows only players priced 0.0 on
+one side and absent on the other (two players whose players.json ESPN status and the leg
+disagree; GAP-ESPN-LEG-STATUS-EDGE).
 
 ### How the front end computes Δ
 

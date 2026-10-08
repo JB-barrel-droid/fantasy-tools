@@ -121,6 +121,9 @@ def build_section(
 
     rows: list[dict[str, Any]] = []
     inherited: list[dict[str, Any]] = []
+    superflex_rows: list[dict[str, Any]] = []
+    superflex_inherited: list[dict[str, Any]] = []
+    has_superflex = False
     sources: set[Any] = set()
     fetched_ats: set[Any] = set()
     provenances: list[Any] = []
@@ -145,6 +148,10 @@ def build_section(
         ref_review = reference.get("review_rows")
         if isinstance(ref_review, list):
             inherited.extend(ref_review)
+        if "superflex_rows" in reference:
+            has_superflex = True
+            superflex_rows.extend(reference.get("superflex_rows") or [])
+            superflex_inherited.extend(reference.get("superflex_review_rows") or [])
 
     if len(sources) > 1:
         raise SystemExit(
@@ -304,6 +311,45 @@ def build_section(
         for combo, values in sorted(combos.items())
     }
 
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's own superflex / 2-QB
+    # values go on the 1-QB combo of the same (scoring, teams) as
+    # `native_superflex` (slug -> published value, same units as `native`;
+    # the engine overlays them on `native` when the roster has a superflex
+    # slot). Same identity rule as `native`: a player with no canonical slug
+    # is left out and reported, never guessed. They never touch `native`,
+    # `player_keys` or the 1-QB review rows.
+    superflex_review: list[dict[str, Any]] = []
+    if has_superflex:
+        by_base: dict[str, dict[str, float]] = {}
+        for row in superflex_rows:
+            player_key = row.get("player_key")
+            value = row.get("native_value", row.get("value"))
+            name = slugs.get(player_key) if isinstance(player_key, int) else None
+            if name is None or not isinstance(value, (int, float)) or isinstance(value, bool):
+                superflex_review.append({
+                    "reason": "no_canonical_slug" if name is None else "non_numeric_value",
+                    "player_key": player_key,
+                    "canonical_name": row.get("canonical_name"),
+                    "stage": "comparison-section",
+                })
+                continue
+            base = combo_key_for(row.get("scoring"), row.get("teams"))
+            if name in by_base.setdefault(base, {}):
+                superflex_review.append({
+                    "reason": "duplicate_player_key", "player_key": player_key,
+                    "canonical_name": row.get("canonical_name"), "combo": base,
+                    "stage": "comparison-section",
+                })
+                continue
+            by_base[base][name] = float(value)
+        for combo, payload in combo_payload.items():
+            if combo.endswith("_qb2"):
+                continue
+            base = combo[: -len("_qb1")] if combo.endswith("_qb1") else combo
+            if by_base.get(base):
+                payload["native_superflex"] = dict(sorted(by_base[base].items()))
+        superflex_review = superflex_inherited + superflex_review
+
     # JEG-132 R5a: stamp an immutable lineage block describing the raw
     # reference input(s) this derived candidate was built from. Multiple
     # inputs (per-scoring artifacts) are unioned into one candidate and
@@ -367,6 +413,7 @@ def build_section(
             "review_row_count": len(review_rows),
         },
         "review_rows": review_rows,
+        **({"superflex_review_rows": superflex_review} if has_superflex else {}),
     }
 
 

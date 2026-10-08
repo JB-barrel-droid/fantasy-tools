@@ -132,6 +132,19 @@ def apply_exclusion_gate(section: dict, player_keys: dict) -> tuple[dict, int]:
 
         combo["native"] = valid_native
 
+        # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's own superflex values
+        # (same units as native, no upper bound) pass the same identity and
+        # range contract; an invalid one is dropped (the engine then derives
+        # that player's superflex value from the 1-QB native). Not counted in
+        # hidden_invalid_rows, which describes the 1-QB rows.
+        if "native_superflex" in combo:
+            combo["native_superflex"] = {
+                slug: value for slug, value in combo["native_superflex"].items()
+                if validate_row(slug, value,
+                                combo_player_keys.get(slug) or player_keys.get(slug),
+                                check_upper_bound=False)[0]
+            }
+
         # Validate reindexed values (if present). Reindexed values live on the
         # 0-70 display scale, so the upper bound is a genuine corruption check.
         reindexed = combo.get("reindexed", {})
@@ -309,6 +322,14 @@ def _merge_promoted_combo(new_combo, cand_combo):
     new_combo["index_total"] = copy.deepcopy(cand_combo["index_total"])
     if "translation" in cand_combo:
         new_combo["translation"] = copy.deepcopy(cand_combo["translation"])
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's superflex values belong
+    # to the publication the natives came from, so they are replaced with the
+    # natives -- and removed when the new publication has none (an older
+    # week's superflex column never sits beside this week's 1-QB values).
+    if cand_combo.get("native_superflex"):
+        new_combo["native_superflex"] = dict(cand_combo["native_superflex"])
+    else:
+        new_combo.pop("native_superflex", None)
 
 
 def promote(review_path, approve, fixture_path=None, record_dir=None,
@@ -470,6 +491,12 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         new_section["week_designated"] = f"Week {prov_week}"
     elif vintage_week:
         new_section["week_designated"] = f"Week {int(vintage_week.group(1))}"
+    # GAP-SOURCE-URL-WEEK2: the section's article link travels with the
+    # values too -- the URL of the article this week's natives were priced
+    # from. A source without an article URL keeps its section url.
+    prov_url = prov.get("source_url") if isinstance(prov, dict) else None
+    if isinstance(prov_url, str) and prov_url.startswith("https://"):
+        new_section["url"] = prov_url
     promoted_vintage = {k: new_section.get(k) for k in ("week_designated", "content_vintage")
                         if new_section.get(k) is not None}
     for combo_name in section_with_gate["combos"]:

@@ -63,7 +63,7 @@ measured" means nobody has run that option yet.
 | --- | --- | --- |
 | 1. Definitions | MR-01 (which total), MR-03 (what Indexed values are) | Every other view and guard is stated in terms of these two. |
 | 2. The anchor | MR-02 (roster shape), MR-11 (bench share), MR-12 (ESPN display rules) | The anchor feeds every view. Decide how it moves before deciding what is scaled to it. |
-| 3. Published-chart inputs | MR-09 (translation assumptions), MR-08 (short charts) | These set each chart's value above waivers, which VORP vs waivers and Adjusted values both use. |
+| 3. Published-chart inputs | MR-09 (translation assumptions), MR-08 (short charts), MR-15 (publisher superflex values) | These set each chart's value above waivers, which VORP vs waivers and Adjusted values both use. |
 | 4. The other two views | MR-04 (VORP vs waivers), MR-05 (Adjusted values) | Both need stages 1-3. |
 | 5. Derived series | MR-06 (`*_adjusted` series), MR-10 (projection sources, option C) | Their role depends on what the views became. |
 | 6. Time | MR-07 (prior week) | Δ is a difference of two values made by the rules above. |
@@ -78,6 +78,8 @@ Dependencies:
 - MR-11 -> MR-02 (both change the anchor's position pies), MR-10 (the CBS ROS
   checks are bench-share checks)
 - MR-08, MR-09 -> MR-04, MR-05
+- MR-02, MR-08 -> MR-15 (publisher superflex values sit on the anchor's
+  unrepriced QB pie and on the short-chart extension)
 - MR-05 -> MR-06 (does the `*_adjusted` series still have a job), MR-14
 - Everything -> MR-13
 
@@ -184,9 +186,8 @@ At 10 teams the published QB1 goes 23.6 -> 35.6 while the anchor's goes
 - (d) Turn the roster steppers off for the anchor-based views and label them.
 
 Sub-question: publishers' own superflex values (FantasyCalc `numQbs=2`, CBS /
-USA Today / FantasyPros 2QB columns) are not saved anywhere
-(GAP-SUPERFLEX-PUBLISHER-VALUES). Every superflex chart is derived from 1-QB
-values today. Should the review wait for them?
+USA Today / FantasyPros 2QB columns). Saved and carried to the fixture since
+2026-10-08 (feat/superflex-publisher-values); how the views use them is MR-15.
 
 **Depends on:** MR-11 (bench share also sets the anchor's position pies).
 **Sources:** JEG332-SUPERFLEX-FLEX (open decision half),
@@ -574,6 +575,70 @@ consistent?
   (0.0 vs "—").
 
 **Depends on:** MR-03, MR-05, MR-12.
+
+## MR-15 - Publisher superflex values in the views
+
+**Question.** With a superflex slot on the roster, the engine replaces a
+chart's 1-QB natives with the publisher's own superflex values
+(`native_superflex`, `savedPublishedNative`) and then runs the same league
+math. Is that the right use of them in each view, and in the waiver-line
+extension?
+
+**Why it matters.** They are the only superflex numbers a publisher states.
+Once the producers save them (GAP-SUPERFLEX-PUBLISHER-VALUES), every
+superflex chart on the page uses them, and the QB depth they imply is very
+different from the 1-QB derivation.
+
+**Current behaviour.** Overlay by player: FantasyCalc replaces every
+position (its `numQbs=2` list reprices RBs too); CBS, USA Today and
+FantasyPros replace QBs only. The overlaid natives also feed the other
+charts' short-chart extension (`publishedPeers`, MR-08). Measured on a
+fixture carrying the live publisher columns (FantasyCalc `numQbs=2` pulled
+2026-10-08, CBS Week 4 2QB, FantasyPros Week 5 2QB Value; USA Today blocked
+locally, so it stays derived), Full PPR, QB1 / QB12 / QB24
+(`docs/claude-log/2026-10-08-sf-values.md`):
+
+| View, teams | Source | SF 0 | SF 1 derived from 1-QB | SF 1 publisher values |
+| --- | --- | --- | --- | --- |
+| Indexed, 12 | FantasyCalc | 25.0 / 3.6 / 0 | 70.0 / 11.1 / 0 | 70.0 / 22.9 / 8.4 |
+| Indexed, 12 | CBS | 25.0 / 5.6 / 0 | 70.0 / 16.0 / 0 | 70.0 / 9.5 / 0 |
+| Indexed, 12 | FantasyPros | 25.0 / 4.1 / 0 | 70.0 / 11.5 / 0 | 70.0 / 49.5 / 37.3 |
+| Indexed, 10 | FantasyPros | 23.6 / 3.9 / 0 | 35.6 / 5.8 / 0 | 35.6 / 18.0 / 7.7 |
+| VORP vs waivers, 12 | FantasyCalc | 31.4 / 5.6 / 0.5 | 43.5 / 6.9 / 0 | 76.1 / 24.9 / 9.2 |
+| Adjusted values, 12 | FantasyCalc | 32.3 / 5.8 / 0.4 | 31.1 / 5.7 / 0 | 13.0 / 4.4 / 2.2 |
+| Adjusted values, 12 | FantasyPros | 21.6 / 4.2 / 1.2 | 24.6 / 5.1 / 0 | 6.7 / 4.7 / 3.7 |
+
+FantasyCalc RB1 / RB12 / RB24, Indexed 12: 66.5 / 28.2 / 11.4 derived,
+66.5 / 21.1 / 6.9 with its own list.
+
+Not decided here:
+- *Adjusted values push superflex QBs below their 1-QB values* (FantasyCalc
+  QB1 32.3 -> 13.0, FantasyPros 21.6 -> 6.7). The DDF weights the groups are
+  normalized to come from the anchor, which does not reprice QBs for
+  superflex (MR-02), so a chart that prices QBs as superflex QBs is scaled
+  down to a 1-QB QB pie. This is the one result that looks wrong.
+- *FantasyPros QB24 at 37.3 (Indexed 12)* is faithful to the chart:
+  FantasyPros' own 2QB Value prices QB24 at 37.5 (QB1 69.5, QB32 1.0) against
+  RB24 at 25.8. Its list stops at 32 QBs, so the waiver line comes from the
+  MR-08 extension, which is now fed by the other charts' superflex values.
+- *CBS QB12 falls* (16.0 derived -> 9.5): its 2QB column is steeper than the
+  derivation. That is CBS's view.
+
+**Options.**
+- (a) Keep the overlay as is (the ranker's stated superflex numbers, then the
+  same league math).
+- (b) Use publisher superflex values only where the chart prices every
+  position (FantasyCalc); derive the QB-only columns' charts from 1-QB values.
+- (c) Use them for QB ordering only and keep the derived scale (rank-map the
+  superflex column onto the derived QB values).
+- (d) Hold all superflex values until MR-02 is decided (no overlay; the
+  saved rows wait).
+None of (b)-(d) is measured.
+
+**Depends on:** MR-02 (anchor follows roster shape), MR-08 (short charts),
+MR-05 (Adjusted values weights).
+**Sources:** GAP-SUPERFLEX-PUBLISHER-VALUES, JEG332-SUPERFLEX-FLEX,
+`docs/methodology.md` "Superflex".
 
 ---
 

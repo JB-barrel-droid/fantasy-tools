@@ -127,7 +127,8 @@ def get_current_vintage(source):
 
     if source in ("fantasycalc", "usatoday", "fantasypros"):
         # These use source_trade_values with source + variant filters, plus week + bake scoping
-        params = f"{base_params}&source=eq.{source}&variant=eq.as_published"
+        # qb_slots=eq.1: superflex rows (qb_slots = 2) never pick the vintage.
+        params = f"{base_params}&source=eq.{source}&variant=eq.as_published&qb_slots=eq.1"
         params += _latest_week_param(table, params)
         rows = _get_supabase_rows(table, params)
         if not rows:
@@ -144,7 +145,7 @@ def get_current_vintage(source):
     elif source == "cbs":
         # CBS: source=eq.cbs&variant=eq.as_published plus latest-week + latest-bake scoping
         # Matches canonical logic from import_supabase_references.py lines 628-648
-        params = f"{base_params}&source=eq.cbs&variant=eq.as_published"
+        params = f"{base_params}&source=eq.cbs&variant=eq.as_published&qb_slots=eq.1"
         params += _latest_week_param(table, params)
         rows = _get_supabase_rows(table, params)
         if not rows:

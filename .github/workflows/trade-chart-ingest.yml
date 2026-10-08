@@ -175,4 +175,4 @@ jobs:
         if: success() && steps.ack.outputs.new_content == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run rebuild-chain.yml -f source="source-probe-${{ matrix.source }}"
+        run: python3 pipelines/source_probe.py dispatch-chain --reason "source-probe-${{ matrix.source }}"

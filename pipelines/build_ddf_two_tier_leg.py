@@ -615,6 +615,34 @@ def resolve_identities(lists: dict[str, list[dict[str, Any]]],
     return resolved, review, aliases_used
 
 
+def calibrate_tiers(pool: dict[str, Any], bench_share: float) -> tuple[dict[str, Any], list[str]]:
+    """Calibrate every position of a tier pool at the requested bench share,
+    with the pipeline's feasible-share fallback (factored out of build_leg
+    2026-10-08 so a saved week's projections are priced by the same code:
+    pipelines/build_week_history.espn_legs_for_week)."""
+    calibration: dict[str, Any] = {}
+    calibration_notes = []  # Jeremy 2026-09-29: track per-position share adjustments
+    for pos in POSITIONS:
+        tier = pool["tiers"][pos]
+        # Jeremy 2026-09-29: Use the surplus measured from current data, not a
+        # stale pie file. The surplus IS the ESPN-measured pie for this dataset.
+        # A static pie file goes stale when the player pool changes (e.g., 492
+        # players -> 351 after IR moves), breaking calibration with "economics
+        # break" errors. Measuring from current data keeps pies in sync.
+        # The old pies[pos] file is kept for vintage reference only.
+        pie = tier["surplus"] if tier else 0
+        # Jeremy 2026-09-29: Use the feasible bench share per position. The
+        # requested share (default 0.15) may be infeasible for thin positions
+        # (e.g., TE after IR removals). Like the UI's bounded slider, we use
+        # the highest feasible share <= requested. This is not a manual patch —
+        # it's the same feasibility logic the UI applies.
+        feasible_share, calibration[pos], note = calibrate_feasible(tier, pie, bench_share)
+        if note:
+            calibration_notes.append(f"{pos}: {note}")
+
+    return calibration, calibration_notes
+
+
 def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
               scoring: str, teams: int, bench_share: float) -> dict[str, Any]:
     lists, csv_meta, csv_review = load_espn_lists(csv_path, scoring)
@@ -638,25 +666,7 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
 
     pool = build_position_tiers(pool_lists, teams, dict(REF_SLOTS), REF_FLEX_COUNT,
                                 list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(teams))
-    calibration: dict[str, Any] = {}
-    calibration_notes = []  # Jeremy 2026-09-29: track per-position share adjustments
-    for pos in POSITIONS:
-        tier = pool["tiers"][pos]
-        # Jeremy 2026-09-29: Use the surplus measured from current data, not a
-        # stale pie file. The surplus IS the ESPN-measured pie for this dataset.
-        # A static pie file goes stale when the player pool changes (e.g., 492
-        # players -> 351 after IR moves), breaking calibration with "economics
-        # break" errors. Measuring from current data keeps pies in sync.
-        # The old pies[pos] file is kept for vintage reference only.
-        pie = tier["surplus"] if tier else 0
-        # Jeremy 2026-09-29: Use the feasible bench share per position. The
-        # requested share (default 0.15) may be infeasible for thin positions
-        # (e.g., TE after IR removals). Like the UI's bounded slider, we use
-        # the highest feasible share <= requested. This is not a manual patch —
-        # it's the same feasibility logic the UI applies.
-        feasible_share, calibration[pos], note = calibrate_feasible(tier, pie, bench_share)
-        if note:
-            calibration_notes.append(f"{pos}: {note}")
+    calibration, calibration_notes = calibrate_tiers(pool, bench_share)
 
     # Full-precision raw values; the single 70/max multiplier applies BEFORE
     # any rounding (rounding is display-only and never enters this artifact).

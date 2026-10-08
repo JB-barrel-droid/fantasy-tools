@@ -16,6 +16,12 @@ as_published only: like FantasyCalc, the bias_adjusted FP fit is a derived
 calibration whose fit target is stale in-season; the importer never
 consumes bias_adjusted, so this saver never writes it.
 
+Superflex (GAP-SUPERFLEX-PUBLISHER-VALUES): the QB table's "2QB Value"
+column (CSV `value_2qb`, written by ops/watchdog/pull_fantasypros.py) is saved
+as qb_slots = 2 rows, QB only, reused for std/half/full like the base value;
+`native_value` = the published number, `value` NULL (no chart-scale anchor).
+A CSV without the column saves the 1-QB rows alone.
+
 Fail-closed: zero clean rows aborts; the post-upsert count check must
 match or the save aborts loudly.
 """
@@ -35,7 +41,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from match_source_snapshot import normalize_name  # noqa: E402
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 from save_espn_cbs_references import (  # noqa: E402
     fetch_players,
     upsert_rows,
@@ -64,8 +70,9 @@ FP_FETCH_LOG = (
 )
 
 
-def fetch_log_content_date(week: int) -> str:
-    """Return the article publication date from the fetch log (fail closed)."""
+def fetch_log_entry(week: int) -> dict:
+    """The latest ok fetch-log entry for the week: the article's publication
+    date (content date) and its url (fail closed when there is none)."""
     with FP_FETCH_LOG.open(encoding="utf-8") as fh:
         entries = [json.loads(line) for line in fh if line.strip()]
     cands = [
@@ -78,7 +85,14 @@ def fetch_log_content_date(week: int) -> str:
             f"FAIL-CLOSED: no ok fetch-log entry with a published date for "
             f"week {week} in {FP_FETCH_LOG}"
         )
-    return cands[-1]["published"]
+    return cands[-1]
+
+
+def parse_float_or_none(raw: Any) -> float | None:
+    try:
+        return float(raw) if str(raw if raw is not None else "").strip() else None
+    except ValueError:
+        return None
 
 
 def build_fp_rows(
@@ -91,7 +105,9 @@ def build_fp_rows(
     review, never guessed.
     """
     index = {p["player_key"]: p for p in fetch_players()}
-    content_date = fetch_log_content_date(week)
+    log_entry = fetch_log_entry(week)
+    content_date = log_entry["published"]
+    source_url = log_entry.get("url") or None  # GAP-SOURCE-URL-WEEK2
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = datetime.now(timezone.utc).isoformat()
@@ -140,7 +156,16 @@ def build_fp_rows(
                         "source_content_date": content_date,
                         "pulled_at": pulled_at,
                         "bake_id": bake_id,
+                        "source_url": source_url,
                     }
+                )
+            # Superflex: the same three rows at qb_slots = 2, priced by the
+            # published 2QB Value (QB only; see the docstring).
+            superflex = parse_float_or_none(row.get("value_2qb"))
+            if superflex is not None and rec["position"] == "QB":
+                clean.extend(
+                    {**one_qb, "qb_slots": 2, "value": None, "native_value": superflex}
+                    for one_qb in clean[-len(SCORING_LABELS):]
                 )
     return clean, review
 
@@ -153,7 +178,7 @@ def save_fantasypros(
     bake_id: str | None = None,
     reindex: bool = True,
 ) -> dict[str, Any]:
-    week = week or nfl_week()
+    week = week or content_week()
     today = datetime.now(timezone.utc).date().isoformat()
     bake_id = bake_id or f"fpwk{week}_{today}_v1"
 

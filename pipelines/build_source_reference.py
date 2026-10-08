@@ -203,6 +203,18 @@ def build_references(match_path: Path) -> list[dict[str, Any]]:
         )
     inherited_review = matched.get("review_rows") if isinstance(matched.get("review_rows"), list) else []
 
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's superflex / 2-QB values
+    # (match stage `superflex_matched_rows`) ride on the 1-QB artifact of the
+    # same (scoring, teams), never as a group of their own: the fixture has
+    # one combo per (scoring, teams), and the superflex values land on it as
+    # `native_superflex`. Keys appear only when the match has superflex rows.
+    has_superflex = "superflex_matched_rows" in matched
+    superflex_by_base: dict[tuple[Any, Any], list[dict[str, Any]]] = {}
+    for row in matched.get("superflex_matched_rows") or []:
+        scoring, teams, _qb = group_key_for(row, defaults)
+        superflex_by_base.setdefault((scoring, teams), []).append(row)
+    superflex_inherited = list(matched.get("superflex_review_rows") or [])
+
     artifacts = []
     for (scoring, teams, qb), group_rows in groups.items():
         reference_rows, duplicate_review = unique_reference_rows(group_rows)
@@ -249,6 +261,12 @@ def build_references(match_path: Path) -> list[dict[str, Any]]:
                 "review_rows": inherited_review + missing_scoring + duplicate_review,
             }
         )
+        if has_superflex:
+            sf_rows, sf_duplicates = (
+                unique_reference_rows(superflex_by_base.get((scoring, teams), []))
+                if qb in (None, 1) else ([], []))
+            artifacts[-1]["superflex_rows"] = [{**r, "qb_slots": 2} for r in sf_rows]
+            artifacts[-1]["superflex_review_rows"] = superflex_inherited + sf_duplicates
     return artifacts
 
 

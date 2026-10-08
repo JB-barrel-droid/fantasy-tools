@@ -58,7 +58,7 @@ class RefreshGrainsTest(unittest.TestCase):
         fake_sb = type("FakeSB", (), {"get_all": staticmethod(lambda *a, **k: rows)})()
         with patch.object(refresh, "_sb", return_value=fake_sb):
             with self.assertRaises(SystemExit) as ctx:
-                refresh.freshness_checkpoint(4)
+                refresh.freshness_checkpoint({s: 4 for s, _ in refresh.GRAINS})
         self.assertIn("cbs/ppr/12t", str(ctx.exception))
 
     def test_freshness_checkpoint_fails_on_missing_grain(self):
@@ -66,7 +66,7 @@ class RefreshGrainsTest(unittest.TestCase):
         fake_sb = type("FakeSB", (), {"get_all": staticmethod(lambda *a, **k: rows)})()
         with patch.object(refresh, "_sb", return_value=fake_sb):
             with self.assertRaises(SystemExit):
-                refresh.freshness_checkpoint(4)
+                refresh.freshness_checkpoint({s: 4 for s, _ in refresh.GRAINS})
 
     def test_freshness_checkpoint_passes_when_all_current(self):
         rows = []
@@ -76,7 +76,39 @@ class RefreshGrainsTest(unittest.TestCase):
                              "league_teams": teams, "week": 4, "season": 2026})
         fake_sb = type("FakeSB", (), {"get_all": staticmethod(lambda *a, **k: rows)})()
         with patch.object(refresh, "_sb", return_value=fake_sb):
-            refresh.freshness_checkpoint(4)  # must not raise
+            refresh.freshness_checkpoint({s: 4 for s, _ in refresh.GRAINS})  # must not raise
+
+    def test_grains_take_each_sources_content_week(self):
+        # GAP-VORP-GRAIN-WEEK-LABEL: a lagging CBS section (Week 4) is
+        # refreshed and checked at week 4 while the others are at week 5.
+        fixture = {"sources": {s: {"week_designated": "Week 5"} for s, _ in refresh.GRAINS}}
+        fixture["sources"]["cbs"] = {"source_provenance": {"week_designated": 4}}
+        weeks = refresh.source_content_weeks(fixture)
+        self.assertEqual(weeks["cbs"], 4)
+        self.assertEqual(weeks["usatoday"], 5)
+        rows = [{"source": s, "scoring": sc, "league_teams": t, "week": weeks[s], "season": 2026}
+                for s, t in refresh.GRAINS for sc in refresh.SCORINGS]
+        fake_sb = type("FakeSB", (), {"get_all": staticmethod(lambda *a, **k: rows)})()
+        with patch.object(refresh, "_sb", return_value=fake_sb):
+            refresh.freshness_checkpoint(weeks)  # CBS at 4 is fresh
+            with self.assertRaises(SystemExit):  # the old chain-week rule would demand 5
+                refresh.freshness_checkpoint({s: 5 for s, _ in refresh.GRAINS})
+        written = []
+        with patch.object(refresh, "source_content_weeks", return_value=weeks), \
+                patch.object(refresh, "refresh_grain", lambda s, sc, t, w: written.append((s, w))), \
+                patch.object(refresh, "freshness_checkpoint", lambda w: None), \
+                patch.object(sys, "argv", ["x", "--week", "5"]):
+            refresh.main()
+        self.assertEqual({w for s, w in written if s == "cbs"}, {4})
+        self.assertEqual({w for s, w in written if s != "cbs"}, {5})
+
+    def test_unreadable_content_week_fails_closed(self):
+        weeks = refresh.source_content_weeks({"sources": {}})
+        self.assertTrue(all(w is None for w in weeks.values()))
+        fake_sb = type("FakeSB", (), {"get_all": staticmethod(lambda *a, **k: [])})()
+        with patch.object(refresh, "_sb", return_value=fake_sb):
+            with self.assertRaises(SystemExit):
+                refresh.freshness_checkpoint(weeks)
 
 
 if __name__ == "__main__":
