@@ -1046,6 +1046,7 @@
   function openPopover(anchor, build) {
     const pop = $("v2Popover");
     pop.replaceChildren();
+    pop.classList.remove("v2-info-pop");
     build(pop);
     pop.hidden = false;
     popoverAnchor = anchor;
@@ -1067,6 +1068,8 @@
       panelOpen = false;
       $("v2Scrim").hidden = $("v2Drawer").hidden;
     }
+    // An anchor that announces its state (the ⓘ buttons) reads collapsed again.
+    if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");
     if (popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
     popoverAnchor = null;
   }
@@ -1741,11 +1744,110 @@
   // ---------- trade targets (frames 03 / 04) ----------
   // Every number here is read from the engine's rows; the one piece of
   // arithmetic (chart value − our value) lives in targets.js.
+  //
+  // Review fixes (JEG-456/458/459/461/464): both lists show at once (side by
+  // side from 1280 px, stacked below), each collapsed to its top 5 with its own
+  // "Show all"; every available chart is compared, and a chart still on an
+  // earlier week carries a "Wk N" badge; chart values are labeled as indexed.
+  const TARGETS_TOP = 5;
   const TARGETS_PAGE = 25;
+  const TARGET_SIDES = ["sell", "buy"];
+  const TARGET_IDS = {
+    sell: {section: "v2TSell", table: "v2TTable", cards: "v2TCards", meta: "v2TSellMeta", empty: "v2TSellEmpty", more: "v2TSellMore", less: "v2TSellLess"},
+    buy: {section: "v2TBuy", table: "v2TBuyTable", cards: "v2TBuyCards", meta: "v2TBuyMeta", empty: "v2TBuyEmpty", more: "v2TBuyMore", less: "v2TBuyLess"}
+  };
   // ours: which projection-derived series is "our value". Module state, so the
   // choice survives switching tabs like the engine-held selections do.
-  const T = {side: "sell", search: "", chart: "all", includeOlder: false, shown: TARGETS_PAGE, ours: "espn"};
+  // shown / expanded are per list: each list opens and collapses on its own.
+  const T = {search: "", chart: "all", ours: "espn",
+    shown: {sell: TARGETS_TOP, buy: TARGETS_TOP}, expanded: {sell: new Set(), buy: new Set()}};
   let targetsView = null;
+
+  // Shared (any tab may use these). JEG-459: a published source that has not
+  // posted the current week yet is shown on its latest week with a small
+  // "Wk N" badge in the older-week colour; its reason is the badge's tooltip
+  // and accessible name. A current-week source gets no badge (null).
+  function priorWeekInfo(key, item, refWeek) {
+    if (!item || !item.stale) return null;
+    const name = PUBLISHER_NAMES[key] || key;
+    const week = Number.isFinite(item.week) ? item.week : null;
+    const short = week ? `Wk ${week}` : "Earlier week";
+    const label = week && Number.isFinite(refWeek) && refWeek !== week
+      ? `${name} has not published Week ${refWeek} yet; showing Week ${week}.`
+      : `${name} has not published this week yet; showing ${week ? `Week ${week}` : "an earlier week"}.`;
+    return {short, label, week};
+  }
+  function priorWeekBadge(key, item, refWeek) {
+    const info = priorWeekInfo(key, item, refWeek);
+    if (!info) return null;
+    const badge = document.createElement("span");
+    badge.className = "v2-prior-badge";
+    badge.dataset.priorWeek = key;
+    badge.title = info.label;
+    badge.setAttribute("role", "img");
+    badge.setAttribute("aria-label", info.label);
+    badge.textContent = info.short;
+    return badge;
+  }
+
+  // Shared ⓘ (JEG-458): why published chart values are "indexed". A 44 px
+  // target that opens a small popover (Esc or a click outside closes it); it
+  // never reaches a row or column-header handler behind it.
+  const INDEXED_INFO = "Published charts use their own point scales. We rescale each chart so its total value "
+    + "matches our ESPN-based scale for your league, which makes the numbers comparable. Rankings within a chart "
+    + "don't change; only the scale does.";
+  function indexedInfoButton(context) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "v2-info";
+    button.dataset.info = "indexed";
+    button.setAttribute("aria-label", `What indexed means${context ? ` (${context})` : ""}`);
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
+    const glyph = document.createElement("span");
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = "ⓘ";
+    button.appendChild(glyph);
+    ["keydown", "keyup"].forEach(type => button.addEventListener(type, event => {
+      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+    }));
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (popoverAnchor === button && !$("v2Popover").hidden) { closePopover(); return; }
+      closePopover();
+      openPopover(button, pop => {
+        pop.classList.remove("is-panel");
+        pop.classList.add("v2-info-pop");
+        pop.setAttribute("aria-modal", "false");
+        pop.setAttribute("aria-labelledby", "v2InfoTitle");
+        const h = document.createElement("h2");
+        h.id = "v2InfoTitle";
+        h.textContent = "Indexed values";
+        const text = document.createElement("p");
+        text.className = "v2-info-text";
+        text.textContent = INDEXED_INFO;
+        const foot = document.createElement("div");
+        foot.className = "v2-info-foot";
+        const link = document.createElement("a");
+        link.className = "v2-link";
+        link.href = "v2/#how-values";
+        link.textContent = "How values work ↗";
+        link.addEventListener("click", () => closePopover());
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "v2-btn";
+        close.textContent = "Close";
+        close.addEventListener("click", closePopover);
+        foot.append(link, close);
+        pop.append(h, text, foot);
+      });
+      button.setAttribute("aria-expanded", "true");
+      const link = $("v2Popover").querySelector("a");
+      if (link) link.focus();
+    });
+    return button;
+  }
 
   const fmtGap = gap => {
     if (!Number.isFinite(gap)) return "—";
@@ -1754,11 +1856,7 @@
     return `${gap > 0 ? "+" : "−"}${text}`;
   };
 
-  function chartHeading(key) {
-    const item = targetsView.infoByKey[key];
-    const week = item && item.week ? `Week ${item.week}${item.stale ? " · older" : ""}` : "";
-    return {name: PUBLISHER_NAMES[key] || key, week};
-  }
+  const targetBadge = key => priorWeekBadge(key, targetsView.infoByKey[key], targetsView.refWeek);
 
   function collectTargets() {
     const TT = window.TradeValueTargets;
@@ -1767,10 +1865,12 @@
     const ourKey = TT.OUR_KEYS.includes(T.ours) ? T.ours : TT.OUR_KEY;
     const ours = infoByKey[ourKey];
     const choices = TT.ourChoices(info);
+    const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
+    const refWeek = freshness?.current_content_week || C.getReferenceWeek();
     // The published series are on the trade-value point scale only in the
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
-    const {used, skipped} = TT.chartsToCompare(info, {only: T.chart === "all" ? null : T.chart, includeOlder: T.includeOlder});
+    const {used, skipped, prior} = TT.chartsToCompare(info, {only: T.chart === "all" ? null : T.chart});
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
     rows.forEach((row, index) => { row.rank = index + 1; });
@@ -1781,7 +1881,8 @@
       : null;
     const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
-    targetsView = {...result, ours: ourKey, choices, used, skipped, info, infoByKey, blocked, position: C.getState().position};
+    targetsView = {...result, ours: ourKey, choices, used, skipped, prior: prior || [], info, infoByKey, refWeek, blocked,
+      position: C.getState().position};
   }
 
   function renderTargetControls() {
@@ -1797,10 +1898,22 @@
       const option = document.createElement("option");
       option.value = key;
       option.disabled = !item || !item.available;
-      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : item.stale ? ` · Week ${item.week} (older)` : ""}`;
+      const prior = option.disabled ? null : priorWeekInfo(key, item, targetsView.refWeek);
+      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : prior ? ` · ${prior.short} (prior week)` : ""}`;
+      if (prior) {
+        option.dataset.priorWeek = key;
+        option.title = prior.label;
+      }
       select.appendChild(option);
     });
     select.value = T.chart;
+    // The picked chart's own badge sits beside the caption (an <option> cannot hold one).
+    const slot = $("v2TChartBadge");
+    slot.replaceChildren();
+    if (T.chart !== "all") {
+      const badge = targetBadge(T.chart);
+      if (badge) slot.appendChild(badge);
+    }
     const oursSelect = $("v2TOurs");
     oursSelect.replaceChildren();
     targetsView.choices.forEach(choice => {
@@ -1811,16 +1924,7 @@
       oursSelect.appendChild(option);
     });
     oursSelect.value = targetsView.ours;
-    $("v2TOlder").checked = T.includeOlder;
     $("v2TPosition").value = targetsView.position;
-    document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
-      const on = button.dataset.side === T.side;
-      button.classList.toggle("is-on", on);
-      button.setAttribute("aria-pressed", String(on));
-    });
-    $("v2TCardTitle").textContent = T.side === "sell"
-      ? "Sell: the charts pay more than we would"
-      : "Buy: the charts pay less than we would";
   }
 
   function gapNode(cell, tag) {
@@ -1851,52 +1955,105 @@
     return span;
   }
 
-  function renderTargetTable(list) {
-    const table = $("v2TTable");
+  const targetBest = (side, p) => (side === "sell" ? p.bestSell : p.bestBuy);
+
+  // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
+  // Used by the phone cards and by an expanded row in the two-column layout.
+  function chartValueSpan(p, key) {
+    const cell = p.cells[key];
+    const span = document.createElement("span");
+    span.dataset.chart = key;
+    const label = document.createElement("span");
+    label.className = "lbl";
+    label.title = PUBLISHER_NAMES[key];
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.style.color = pubColor(key);
+    sym.textContent = `${PUBLISHERS[key].symbol} `;
+    label.append(sym, document.createTextNode(PUBLISHERS[key].label));
+    span.appendChild(label);
+    const badge = targetBadge(key);
+    if (badge) span.appendChild(badge);
+    if (cell.value === null) {
+      span.appendChild(missingNode(cell.reason, "not on chart"));
+      return span;
+    }
+    const val = document.createElement("span");
+    val.className = "val";
+    val.textContent = fmt(cell.value);
+    span.appendChild(val);
+    span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    return span;
+  }
+
+  // "Largest gap" attribution: the chart's name, plus its badge when it is on an earlier week.
+  function bestChartNode(chart, verb, cls) {
+    const who = document.createElement("span");
+    who.className = cls || "th-sub t-who";
+    who.append(document.createTextNode(verb ? `${PUBLISHER_NAMES[chart]} ${verb}` : PUBLISHER_NAMES[chart]));
+    const badge = targetBadge(chart);
+    if (badge) who.append(document.createTextNode(" "), badge);
+    return who;
+  }
+
+  function renderTargetTable(side, list) {
+    const ids = TARGET_IDS[side];
+    const table = $(ids.table);
     table.replaceChildren();
-    const best = p => (T.side === "sell" ? p.bestSell : p.bestBuy);
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    const head = (text, cls, sub, key) => {
+    const head = (text, cls, sub, key, info) => {
       const th = document.createElement("th");
       th.scope = "col";
       if (cls) th.className = cls;
+      const line = document.createElement("span");
+      line.className = "th-line";
       if (key) {
         const sym = document.createElement("span");
         sym.className = "v2-sym";
         sym.style.color = pubColor(key);
         sym.setAttribute("aria-hidden", "true");
         sym.textContent = `${PUBLISHERS[key].symbol} `;
-        th.appendChild(sym);
+        line.appendChild(sym);
       }
-      th.append(document.createTextNode(text));
+      line.append(document.createTextNode(text));
+      if (info) line.appendChild(indexedInfoButton(text));
+      th.appendChild(line);
       if (sub) {
         const s = document.createElement("span");
         s.className = "th-sub";
-        s.textContent = sub;
+        if (typeof sub === "string") s.textContent = sub;
+        else s.append(...sub);
         th.appendChild(s);
       }
       if (key) th.dataset.chart = key;
       hr.appendChild(th);
+      return th;
     };
     head("Player", "player");
-    head("Pos", "col-meta");
-    head("Team", "col-meta");
-    head("Tier", "col-meta");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
     targetsView.used.forEach(key => {
-      const h = chartHeading(key);
-      head(h.name, "num", h.week ? `${h.week} · gap vs ours` : "gap vs ours", key);
+      // JEG-458: "Wk 5 · indexed"; a chart on an earlier week shows its badge in place of the week.
+      const item = targetsView.infoByKey[key];
+      const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
+      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}indexed`)], key, true);
     });
-    head("Largest gap", "num", T.side === "sell" ? "chart pays more" : "chart pays less");
+    head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
+    const expandHead = head("", "t-expand");
+    const sr = document.createElement("span");
+    sr.className = "v2-sr";
+    sr.textContent = "Each chart";
+    expandHead.appendChild(sr);
     thead.appendChild(hr);
+    const columns = hr.children.length;
     const tbody = document.createElement("tbody");
-    list.slice(0, T.shown).forEach(p => {
+    list.slice(0, T.shown[side]).forEach(p => {
+      const key = String(p.row.player_key);
       const tr = document.createElement("tr");
       tr.tabIndex = 0;
-      tr.dataset.playerKey = String(p.row.player_key);
+      tr.dataset.playerKey = key;
       tr.addEventListener("click", () => openDrawer(p.row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row); });
+      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row); });
       const td = (cls, text) => {
         const cell = document.createElement("td");
         if (cls) cell.className = cls;
@@ -1910,15 +2067,12 @@
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
       name.appendChild(sub);
-      td("col-meta", p.row.pos);
-      td("col-meta", p.row.team || "FA");
-      td("col-meta", tierLabel(p.row.espnRole));
       const ours = td("num is-rank", fmt(p.ours));
       ours.dataset.ours = "";
-      targetsView.used.forEach(key => {
-        const cell = p.cells[key];
-        const c = td("num");
-        c.dataset.chart = key;
+      targetsView.used.forEach(chart => {
+        const cell = p.cells[chart];
+        const c = td("num t-chart");
+        c.dataset.chart = chart;
         if (cell.value === null) {
           c.appendChild(missingNode(cell.reason, "not on chart"));
         } else if (cell.atWaiver) {
@@ -1929,24 +2083,56 @@
           c.appendChild(gapNode(cell));
         }
       });
-      const b = best(p);
-      const bc = td("num best");
+      const b = targetBest(side, p);
+      const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
       bc.dataset.best = b.chart;
       bc.append(document.createTextNode(fmtGap(b.gap)));
-      const who = document.createElement("span");
-      who.className = "th-sub";
-      who.textContent = PUBLISHER_NAMES[b.chart];
-      bc.appendChild(who);
+      bc.appendChild(bestChartNode(b.chart));
+      // Two-column layout (≥1280 px) hides the per-chart cells; this opens them under the row.
+      const open = T.expanded[side].has(key);
+      const ec = td("t-expand");
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "v2-texpand";
+      toggle.dataset.expand = key;
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", `Each chart's value for ${p.row.name}`);
+      const glyph = document.createElement("span");
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = open ? "▴" : "▾";
+      toggle.appendChild(glyph);
+      toggle.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") event.stopPropagation(); });
+      toggle.addEventListener("click", event => {
+        event.stopPropagation();
+        if (T.expanded[side].has(key)) T.expanded[side].delete(key);
+        else T.expanded[side].add(key);
+        renderTargetTable(side, list);
+        const again = $(ids.table).querySelector(`[data-expand="${CSS.escape(key)}"]`);
+        if (again) again.focus();
+      });
+      ec.appendChild(toggle);
       tbody.appendChild(tr);
+      if (open) {
+        const detail = document.createElement("tr");
+        detail.className = "t-detail";
+        detail.dataset.detailFor = key;
+        const cell = document.createElement("td");
+        cell.colSpan = columns;
+        const line = document.createElement("div");
+        line.className = "vals";
+        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart)));
+        cell.appendChild(line);
+        detail.appendChild(cell);
+        tbody.appendChild(detail);
+      }
     });
     table.append(thead, tbody);
   }
 
-  function renderTargetCards(list) {
-    const ol = $("v2TCards");
+  function renderTargetCards(side, list) {
+    const ol = $(TARGET_IDS[side].cards);
     ol.replaceChildren();
-    const best = p => (T.side === "sell" ? p.bestSell : p.bestBuy);
-    list.slice(0, T.shown).forEach(p => {
+    list.slice(0, T.shown[side]).forEach(p => {
       const li = document.createElement("li");
       li.tabIndex = 0;
       li.dataset.playerKey = String(p.row.player_key);
@@ -1962,14 +2148,12 @@
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
       who.append(name, sub);
-      const b = best(p);
+      const b = targetBest(side, p);
       const big = document.createElement("div");
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
-      big.textContent = fmtGap(b.gap);
-      const by = document.createElement("span");
-      by.className = "v2-meta";
-      by.textContent = `${PUBLISHER_NAMES[b.chart]} pays ${b.gap > 0 ? "more" : "less"}`;
-      big.appendChild(by);
+      big.dataset.best = b.chart;
+      big.append(document.createTextNode(fmtGap(b.gap)));
+      big.appendChild(bestChartNode(b.chart, `pays ${b.gap > 0 ? "more" : "less"}`, "v2-meta t-who"));
       top.append(who, big);
       const line = document.createElement("div");
       line.className = "vals";
@@ -1977,24 +2161,29 @@
       ours.className = "ours";
       ours.textContent = `Ours ${fmt(p.ours)}`;
       line.appendChild(ours);
-      targetsView.used.forEach(key => {
-        const cell = p.cells[key];
-        const span = document.createElement("span");
-        span.dataset.chart = key;
-        span.append(document.createTextNode(`${PUBLISHERS[key].label} `));
-        if (cell.value === null) span.appendChild(missingNode(cell.reason, "not on chart"));
-        else if (cell.atWaiver) {
-          span.append(document.createTextNode(fmt(cell.value)));
-          span.appendChild(waiverNode(cell.reason));
-        } else {
-          span.append(document.createTextNode(fmt(cell.value)));
-          span.appendChild(gapNode(cell));
-        }
-        line.appendChild(span);
-      });
+      targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
       li.append(top, line);
       ol.appendChild(li);
     });
+  }
+
+  // JEG-461: each list opens on its top 5; "Show all N" then pages of 25; "Show top 5" collapses.
+  function renderTargetFoot(side, list) {
+    const ids = TARGET_IDS[side];
+    const more = $(ids.more);
+    const less = $(ids.less);
+    const shown = Math.min(T.shown[side], list.length);
+    const label = text => {
+      const arrow = document.createElement("span");
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = " ▾";
+      more.replaceChildren(document.createTextNode(text), arrow);
+    };
+    more.hidden = list.length <= shown;
+    less.hidden = T.shown[side] <= TARGETS_TOP || list.length <= TARGETS_TOP;
+    if (T.shown[side] <= TARGETS_TOP) label(`Show all ${list.length} ${side} targets`);
+    else label(`Show more (${shown} of ${list.length})`);
+    more.setAttribute("aria-controls", `${ids.table} ${ids.cards}`);
   }
 
   function renderTargets() {
@@ -2002,17 +2191,23 @@
     collectTargets();
     renderHeader();
     renderTargetControls();
-    const list = T.side === "sell" ? targetsView.sell : targetsView.buy;
-    renderTargetTable(list);
-    renderTargetCards(list);
-    const empty = $("v2TEmpty");
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
-    empty.hidden = !(blocked || noCharts || !list.length);
-    empty.textContent = blocked || (noCharts
-      ? "No published chart is available to compare for this selection."
-      : `No player has a ${T.side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
-    $("v2TTable").hidden = !list.length;
+    TARGET_SIDES.forEach(side => {
+      const ids = TARGET_IDS[side];
+      const list = targetsView[side];
+      renderTargetTable(side, list);
+      renderTargetCards(side, list);
+      renderTargetFoot(side, list);
+      const empty = $(ids.empty);
+      empty.hidden = !(blocked || noCharts || !list.length);
+      empty.textContent = blocked || (noCharts
+        ? "No published chart is available to compare for this selection."
+        : `No player has a ${side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
+      $(ids.table).hidden = !list.length;
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · largest gap first. `
+        + (side === "sell" ? "Offer them to managers who trade off that chart." : "Ask for them from managers who trade off that chart.");
+    });
     const notes = [];
     if (targetsView.skipped.length) {
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
@@ -2026,29 +2221,49 @@
     const note = $("v2TNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
-    const more = $("v2TShowMore");
-    more.hidden = list.length <= T.shown;
-    more.textContent = `Show more players (${Math.min(T.shown, list.length)} of ${list.length})`;
     $("v2TOursNote").textContent = window.TradeValueTargets.OUR_NAMES[targetsView.ours];
-    $("v2TMeta").textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · `
-      + `gap = chart value − our value · largest gap first. `
-      + (T.side === "sell" ? "Offer these players to managers who trade off that chart." : "Ask for these players from managers who trade off that chart.");
+    // Footnote: each compared chart that is still on an earlier week, with its badge.
+    const priorNote = $("v2TPriorNote");
+    priorNote.replaceChildren();
+    targetsView.prior.filter(key => targetsView.used.includes(key)).forEach(key => {
+      const badge = targetBadge(key);
+      if (!badge) return;
+      priorNote.append(badge, document.createTextNode(` ${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
+    });
   }
 
   function bindTargets() {
     let timer = null;
+    const resetLists = () => {
+      T.shown = {sell: TARGETS_TOP, buy: TARGETS_TOP};
+      T.expanded = {sell: new Set(), buy: new Set()};
+    };
     $("v2TSearch").addEventListener("input", event => {
       clearTimeout(timer);
-      timer = setTimeout(() => { T.search = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); }, 120);
+      timer = setTimeout(() => { T.search = event.target.value; resetLists(); renderTargets(); }, 120);
     });
-    $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); T.shown = TARGETS_PAGE; renderTargets(); });
-    $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
-    $("v2TOlder").addEventListener("change", event => { T.includeOlder = event.target.checked; renderTargets(); });
-    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
-    document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
-      button.addEventListener("click", () => { T.side = button.dataset.side; T.shown = TARGETS_PAGE; renderTargets(); });
+    $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
+    $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
+    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; resetLists(); renderTargets(); });
+    $("v2TChartInfoSlot").replaceWith(indexedInfoButton("Compare against"));
+    TARGET_SIDES.forEach(side => {
+      const ids = TARGET_IDS[side];
+      // Keep focus on a control that is still on screen after the list redraws.
+      const refocus = () => ($(ids.more).hidden ? $(ids.less) : $(ids.more)).focus();
+      $(ids.more).addEventListener("click", () => {
+        T.shown[side] = T.shown[side] <= TARGETS_TOP ? TARGETS_PAGE : T.shown[side] + TARGETS_PAGE;
+        renderTargets();
+        refocus();
+      });
+      $(ids.less).addEventListener("click", () => {
+        T.shown[side] = TARGETS_TOP;
+        T.expanded[side] = new Set();
+        renderTargets();
+        const section = $(ids.section);
+        if (section.getBoundingClientRect().top < 0) section.scrollIntoView({block: "start"});
+        refocus();
+      });
     });
-    $("v2TShowMore").addEventListener("click", () => { T.shown += TARGETS_PAGE; renderTargets(); });
   }
 
   // ---------- Compare a trade (frames 07 / 08, 24) ----------

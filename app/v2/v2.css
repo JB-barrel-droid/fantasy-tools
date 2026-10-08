@@ -221,17 +221,73 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-status[hidden] { display: none; }
 .v2-status.is-error { background: var(--v2-negative); }
 
-/* Trade targets (frames 03 / 04) */
+/* Trade targets (frames 03 / 04). Review fixes (JEG-456/458/459/461/464): both lists at once,
+   side by side from 1280 px and stacked below; one compact filter row; the table fits the window
+   from 1024 px without sideways scrolling (fluid padding and type, two-line headers). */
 .v2-check { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 13px; color: var(--v2-muted); cursor: pointer; }
 .v2-check input { width: 18px; height: 18px; accent-color: var(--v2-action); }
-.v2-seg button[aria-pressed] { min-height: 44px; }
+#v2Targets.v2-main { padding-top: clamp(16px, 2vw, 28px); }
+#v2Targets .v2-ttitle h1 { font-size: clamp(26px, 2.3vw, 34px); }
+#v2Targets .v2-ttitle p { margin-top: 4px !important; }
+.v2-tfilters { margin: 14px 0 0; gap: 8px 12px; }
+.v2-tfilters .v2-search { flex: 1 1 160px; max-width: 280px; }
+.v2-tcompare { display: inline-flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; }
+.v2-tcaption { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--v2-muted); white-space: nowrap; }
+.v2-tlists { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 16px; align-items: start; }
+.v2-tlist { margin-top: 14px; padding: 14px clamp(12px, 1.6vw, 24px) 12px; min-width: 0; }
+.v2-tlist-head h2 { font-size: 18px; font-weight: 700; }
+#v2TSellTitle > span { color: var(--v2-action); }
+#v2TBuyTitle > span { color: var(--v2-negative); }
+.v2-tlist-head .v2-meta { margin-top: 2px !important; }
+.v2-tlist .v2-table-wrap { margin-top: 2px; padding-top: 4px; }
+.v2-tlist-foot { display: flex; gap: 8px; margin-top: 8px; }
+.v2-tlist-foot .v2-tmore { flex: 1 1 auto; }
+.v2-tlist-foot .v2-tless { flex: 0 0 auto; }
+.v2-tnote { margin-top: 12px !important; }
+
+.v2-ttable th, .v2-ttable td { padding: 8px clamp(6px, .8vw, 12px); }
+.v2-ttable th { vertical-align: bottom; white-space: normal; line-height: 1.25; }
+.v2-ttable .th-line { display: inline-flex; align-items: center; gap: 2px; }
 .v2-table .th-sub { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); margin-top: 2px; }
-.v2-ttable th { vertical-align: bottom; }
+.v2-ttable td.player { white-space: normal; }
+.v2-ttable .player-sub { display: block; }
+.v2-ttable .num { font-size: clamp(13px, 1.1vw, 15px); }
+.v2-ttable td.best { font-size: clamp(14px, 1.15vw, 16px); }
+.v2-ttable td.best.up { color: var(--v2-action); }
+.v2-ttable td.best.down { color: var(--v2-negative); }
+.v2-ttable td.best .t-who { color: var(--v2-muted); white-space: nowrap; }
+.v2-ttable td.t-expand, .v2-ttable th.t-expand { width: 44px; padding: 4px 0; vertical-align: middle; }
+.v2-texpand { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: none; color: var(--v2-muted); cursor: pointer; font-size: 14px; }
+.v2-texpand:hover, .v2-texpand[aria-expanded="true"] { border-color: var(--v2-tint-border); color: var(--v2-action); background: var(--v2-positive); }
+.v2-ttable tr.t-detail { cursor: default; }
+.v2-ttable tr.t-detail td { padding-top: 0; white-space: normal; background: var(--v2-hover); }
 .v2-table .missing .why, .v2-tcards .missing .why { display: block; font-size: 11px; font-weight: 400; }
-.v2-table td.best { font-size: 16px; }
 .v2-table .at-waiver { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
 .v2-tcards .at-waiver { color: var(--v2-muted); }
-.v2-tcards { display: none; list-style: none; margin: 12px 0 0; padding: 0; }
+/* Two-column layout: a compact column set per card; each row opens its per-chart values. */
+@media (min-width: 1280px) {
+  .v2-tlists { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .v2-ttable .t-chart { display: none; }
+}
+@media (max-width: 1279px) {
+  .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }
+  .v2-ttable th, .v2-ttable td { padding-inline: clamp(4px, .55vw, 8px); }
+}
+
+/* Shared: the prior-week badge (JEG-459) and the ⓘ "indexed" button (JEG-458). */
+.v2-prior-badge { display: inline-flex; align-items: center; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; background: var(--v2-surface); color: var(--v2-older); font-size: 11px; font-weight: 600; line-height: 1.45; white-space: nowrap; vertical-align: baseline; }
+.v2-info { position: relative; z-index: 1; display: inline-flex; align-items: center; justify-content: center; flex: none; width: 44px; height: 44px; margin: -10px -4px -10px -10px; padding: 0; border: 0; border-radius: 50%; background: none; color: var(--v2-muted); cursor: pointer; font-size: 15px; font-weight: 400; line-height: 1; }
+.v2-info:hover, .v2-info[aria-expanded="true"] { color: var(--v2-action); }
+.v2-tcompare .v2-info { margin: 0 -8px; }
+/* Not a sort button: no sort arrow, and its own 44 px box is the hit area. */
+.v2-table th .v2-info::after, .v2-table th .v2-info::before { content: none; }
+.v2-popover.v2-info-pop { width: min(360px, calc(100vw - 32px)); }
+.v2-popover.v2-info-pop h2 { font-size: 16px; }
+.v2-info-text { font-size: 13px; margin-top: 6px !important; }
+.v2-info-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 12px; }
+.v2-info-foot .v2-link { display: inline-flex; align-items: center; text-decoration: none; padding: 0; }
+
+.v2-tcards { display: none; list-style: none; margin: 8px 0 0; padding: 0; }
 .v2-tcards li { border-top: 1px solid var(--v2-border); padding: 12px 0; cursor: pointer; }
 .v2-tcards .top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
 .v2-tcards .top b { display: block; font-size: 15px; }
@@ -239,14 +295,16 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-tcards .big.up { color: var(--v2-action); }
 .v2-tcards .big.down { color: var(--v2-negative); }
 .v2-tcards .big .v2-meta { display: block; font-weight: 500; }
-.v2-tcards .vals { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; font-variant-numeric: tabular-nums; }
-.v2-tcards .vals > span { display: inline-flex; gap: 4px; align-items: baseline; }
+.v2-tcards .vals, .v2-ttable .t-detail .vals { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 6px; font-size: 12px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.v2-tcards .vals > span, .v2-ttable .t-detail .vals > span { display: inline-flex; gap: 4px; align-items: baseline; }
 .v2-tcards .vals .ours { font-weight: 700; color: var(--v2-action); }
-.v2-tcards .gap { font-weight: 600; color: var(--v2-muted); }
-.v2-tcards .gap.up { color: var(--v2-action); }
-.v2-tcards .gap.down { color: var(--v2-negative); }
-.v2-tcards .missing { color: var(--v2-muted); display: inline-flex; gap: 4px; }
-.v2-tcards .missing .why { display: inline; }
+.v2-tcards .vals .val, .v2-ttable .t-detail .val { font-weight: 700; }
+.v2-tcards .gap, .v2-ttable .t-detail .gap { display: inline; font-size: 12px; font-weight: 600; color: var(--v2-muted); }
+.v2-tcards .gap.up, .v2-ttable .t-detail .gap.up { color: var(--v2-action); }
+.v2-tcards .gap.down, .v2-ttable .t-detail .gap.down { color: var(--v2-negative); }
+.v2-tcards .missing, .v2-ttable .t-detail .missing { color: var(--v2-muted); display: inline-flex; gap: 4px; }
+.v2-tcards .missing .why, .v2-ttable .t-detail .missing .why { display: inline; }
+.v2-ttable .t-detail .at-waiver { display: inline; }
 .v2-t-empty { margin-top: 12px !important; }
 /* GAP-025: ESPN projects 0 (injured/out). Label + symbol, not color alone. */
 .v2-espn-zero { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--v2-negative); border-radius: 4px; color: var(--v2-negative); background: var(--v2-surface); font-size: 11px; font-weight: 700; line-height: 1.4; white-space: nowrap; vertical-align: middle; }
@@ -255,11 +313,13 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 @media (max-width: 767px) {
   .v2-t-desktop { display: none; }
   .v2-tcards { display: block; }
-  #v2Targets .v2-filters .v2-seg, #v2Targets .v2-filters .v2-field-rank, #v2Targets .v2-check { flex-basis: 100%; }
-  #v2Targets .v2-seg button { flex: 1; }
+  #v2Targets .v2-filters .v2-field-rank, #v2Targets .v2-tcompare { flex-basis: 100%; }
   #v2Targets .v2-field-rank { min-width: 0; max-width: 100%; }
+  #v2Targets .v2-tcompare .v2-field-rank { flex: 1 1 100%; }
   #v2Targets .v2-field-rank select { flex: 1 1 0; width: 0; min-width: 0; }
   #v2Targets .v2-field select { width: 100%; min-width: 0; }
+  .v2-tcaption { white-space: normal; }
+  .v2-popover.v2-info-pop { left: 16px !important; top: 50% !important; transform: translateY(-50%); width: calc(100vw - 32px); height: auto; max-height: calc(100vh - 32px); border-radius: var(--v2-radius-card); }
 }
 
 /* Mobile 390 (frame 02): 16px margins, stacked controls, full-screen settings. */

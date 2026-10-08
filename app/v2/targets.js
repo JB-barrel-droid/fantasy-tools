@@ -79,22 +79,23 @@
     return {ours: ourKey, sell, buy, compared: players.length, omittedNoOurs, atWaiverCells};
   }
 
-  // Chart columns to compare: available published charts; older-week charts
-  // only when asked for (frame 03: current week only by default).
+  // Chart columns to compare: every available published chart (JEG-459). A
+  // chart that has not published this week yet is still compared on its
+  // latest week and listed in `prior`, so the page can badge it.
   function chartsToCompare(sourceInfo, opts) {
     const byKey = Object.fromEntries((sourceInfo || []).map(item => [item.key, item]));
     const only = opts && opts.only;
-    const includeOlder = Boolean(opts && opts.includeOlder);
     const used = [];
     const skipped = [];
+    const prior = [];
     CHART_KEYS.forEach(key => {
       if (only && only !== key) return;
       const item = byKey[key];
       if (!item || !item.available) skipped.push({key, reason: item && item.paused ? "waiting on fresh inputs" : "not available for this league"});
-      else if (item.stale && !includeOlder) skipped.push({key, reason: `older week${item.week ? ` (Week ${item.week})` : ""}`});
       else used.push(key);
+      if (item && item.available && item.stale) prior.push(key);
     });
-    return {used, skipped};
+    return {used, skipped, prior};
   }
 
   // Our-value choices at this league setting: unavailable ones carry a reason.

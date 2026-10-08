@@ -104,9 +104,9 @@ pair per column, not a spread across sources:
   to filter: it comes from a different roster model than the ESPN line (risk row
   V2-TIER-VS-ESPN-LEG).
 - Methods row stays hidden on this tab.
-- Default charts: available, current-week ones. Older-week charts are listed as not compared until
-  "Include older-week charts" is ticked. Position is the engine's shared setting, so it carries
-  across tabs.
+- Charts compared: every available one (JEG-459, 2026-10-08; the "Include older-week charts" opt-in
+  is gone). A chart that has not published the current week yet is compared on its latest week and
+  carries a "Wk N" badge. Position is the engine's shared setting, so it carries across tabs.
 - Fails closed if the picked series is unavailable, or if the engine is not in its Indexed view (where the
   published series would be in a different unit).
 
@@ -725,3 +725,43 @@ no blended score, but one series now gives a verdict.
   Marked "Example" in a banner, the verdict eyebrow and the table meta; side cards dashed; no remove
   buttons, no share link, nothing in the address. "Use this example" copies it onto the sides.
 - **Not done:** switching the verdict to DDF Value (waits for the engine series).
+
+## Trade targets: review fixes (JEG-456/458/459/461/464, 2026-10-08)
+
+- Copy (JEG-464): H1 "Where the trade market is wrong this week"; subtitle "We check four published
+  trade charts against our projection-based values for your league. Sell the players they overpay
+  for; buy the ones they undervalue." Nav label unchanged ("Trade targets", "Targets" on phones).
+- Both lists at once (JEG-461): the Sell/Buy toggle is gone. Sell and Buy are two cards
+  (`#v2TSell` / `#v2TBuy`), side by side from 1280 px, stacked (Sell, then Buy) below; phone cards
+  stack the same way. Each list opens on its top 5 by largest gap with a full-width
+  "Show all N sell targets ▾"; that shows 25, then "Show more (25 of N)" adds 25 at a time, and
+  "Show top 5" collapses. State is per list (`T.shown.sell` / `T.shown.buy`) and resets when a filter
+  changes. Filters are one row (search, position, our value, compare against + caption + ⓘ); the
+  "players left out" note moved below the lists. At 1440 × 900 and 1366 × 768 the H1, subtitle and
+  the top 5 of both lists are above the fold.
+- Two-column rows are compact: Player (with Pos · Team · Tier), Our value, Largest gap with the chart
+  it came from, and a 44 px ▾ that opens the row's per-chart values (value, gap, badge) underneath.
+  The per-chart cells stay in the DOM but are hidden at ≥1280 px. The player drawer is unchanged.
+- Fits the window (JEG-456 part 1): the Pos / Team / Tier columns are gone at every width (they were
+  already in the player sub-line, which now always shows); headers wrap to two lines; cell padding
+  and number size use clamp(). No sideways scroll from 1024 px (checked at 1024, 1100, 1279).
+  Part 2 (tier from the composite) waits on an engine series.
+- Indexed label (JEG-458): chart headers read "Wk 5 · indexed"; "Compare against" has the caption
+  "Indexed to our scale". An ⓘ (`indexedInfoButton()`, 44 px, `aria-expanded`, Enter opens, Esc or a
+  click outside closes and returns focus) sits beside "Compare against", in each chart column header
+  and in the Largest gap header; it opens the explanation with a link to How values work. It stops
+  propagation, so it never opens a player. The per-value hover math is JEG-457 (not built).
+  `closePopover()` now resets `aria-expanded` on any anchor that set it to true.
+- Prior-week badge (JEG-459): `priorWeekInfo(key, item, refWeek)` / `priorWeekBadge(...)` in v2.js
+  are shared helpers for any tab. Badge text "Wk 4" in the older-week colour, tooltip and accessible
+  name "FantasyPros has not published Week 5 yet; showing Week 4." (refWeek = freshness
+  `current_content_week`, else the engine reference week). Current-week sources get none. On this
+  tab it appears in the #v2TChart option text (and beside the caption when that chart is picked),
+  column headers, Largest gap attribution, opened rows, phone cards and the footnote.
+  `chartsToCompare()` in targets.js now returns `{used, skipped, prior}`.
+- Compatibility hook: the two list headings carry `data-side="sell"` / `data-side="buy"`, and the sell
+  list keeps the ids `#v2TTable` / `#v2TCards`; the ESPN-0 and below-waiver-line render suites click
+  `#v2Targets [data-side=sell]` and read `#v2TTable`.
+- Tests: tests/test_v2_targets_render.py (numbers for both lists, opened rows and cards; layout,
+  fold, paging, popover, simulated prior week; 12 broken-build mutations) and tests/test_v2_targets.py
+  (prior-week charts compared and flagged).

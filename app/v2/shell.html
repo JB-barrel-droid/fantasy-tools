@@ -164,16 +164,12 @@
 
 
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
-    <div class="v2-title">
-      <h1 id="v2TargetsTitle">Sell high. Buy low.</h1>
-      <p>Players a published trade chart pays more for than we would, and players it pays less for.</p>
+    <div class="v2-title v2-ttitle">
+      <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
+      <p>We check four published trade charts against our projection-based values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
     </div>
 
-    <div class="v2-filters" role="search">
-      <div class="v2-seg" role="group" aria-label="Trade direction">
-        <button type="button" data-side="sell" class="is-on" aria-pressed="true">Sell targets</button>
-        <button type="button" data-side="buy" aria-pressed="false">Buy targets</button>
-      </div>
+    <div class="v2-filters v2-tfilters" role="search">
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2TSearch" placeholder="Search players…" autocomplete="off">
       </label>
@@ -188,31 +184,50 @@
       <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">Our value:</span>
         <select id="v2TOurs"></select>
       </label>
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Compare against:</span>
-        <select id="v2TChart"></select>
-      </label>
-      <label class="v2-check"><input type="checkbox" id="v2TOlder"> Include older-week charts</label>
+      <div class="v2-tcompare">
+        <label class="v2-field v2-field-rank"><span class="v2-field-label">Compare against:</span>
+          <select id="v2TChart" aria-describedby="v2TChartCaption"></select>
+        </label>
+        <span class="v2-tcaption" id="v2TChartCaption">Indexed to our scale <span id="v2TChartBadge"></span></span>
+        <span id="v2TChartInfoSlot"></span>
+      </div>
     </div>
-    <p class="v2-filter-note" id="v2TNote" hidden></p>
 
-    <section class="v2-card v2-table-card" aria-labelledby="v2TCardTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2TCardTitle">Sell: the charts pay more than we would</h2>
-          <p class="v2-meta" id="v2TMeta">—</p>
+    <div class="v2-tlists">
+      <section class="v2-card v2-tlist" id="v2TSell" aria-labelledby="v2TSellTitle">
+        <div class="v2-tlist-head">
+          <h2 id="v2TSellTitle" data-side="sell"><span aria-hidden="true">▲</span> Sell: the charts pay more than we would</h2>
+          <p class="v2-meta" id="v2TSellMeta">—</p>
         </div>
-      </div>
-      <div class="v2-table-wrap v2-t-desktop">
-        <table class="v2-table v2-ttable" id="v2TTable"></table>
-      </div>
-      <ol class="v2-tcards" id="v2TCards"></ol>
-      <p class="v2-meta v2-t-empty" id="v2TEmpty" hidden></p>
-      <div class="v2-table-foot">
-        <button type="button" class="v2-btn" id="v2TShowMore" hidden>Show more players</button>
-      </div>
-    </section>
+        <div class="v2-table-wrap v2-t-desktop">
+          <table class="v2-table v2-ttable" id="v2TTable" aria-labelledby="v2TSellTitle"></table>
+        </div>
+        <ol class="v2-tcards" id="v2TCards" aria-labelledby="v2TSellTitle"></ol>
+        <p class="v2-meta v2-t-empty" id="v2TSellEmpty" hidden></p>
+        <div class="v2-tlist-foot">
+          <button type="button" class="v2-btn v2-tmore" id="v2TSellMore" data-more="sell" hidden>Show all</button>
+          <button type="button" class="v2-btn v2-tless" id="v2TSellLess" data-less="sell" hidden>Show top 5</button>
+        </div>
+      </section>
+      <section class="v2-card v2-tlist" id="v2TBuy" aria-labelledby="v2TBuyTitle">
+        <div class="v2-tlist-head">
+          <h2 id="v2TBuyTitle" data-side="buy"><span aria-hidden="true">▼</span> Buy: the charts pay less than we would</h2>
+          <p class="v2-meta" id="v2TBuyMeta">—</p>
+        </div>
+        <div class="v2-table-wrap v2-t-desktop">
+          <table class="v2-table v2-ttable" id="v2TBuyTable" aria-labelledby="v2TBuyTitle"></table>
+        </div>
+        <ol class="v2-tcards" id="v2TBuyCards" aria-labelledby="v2TBuyTitle"></ol>
+        <p class="v2-meta v2-t-empty" id="v2TBuyEmpty" hidden></p>
+        <div class="v2-tlist-foot">
+          <button type="button" class="v2-btn v2-tmore" id="v2TBuyMore" data-more="buy" hidden>Show all</button>
+          <button type="button" class="v2-btn v2-tless" id="v2TBuyLess" data-less="buy" hidden>Show top 5</button>
+        </div>
+      </section>
+    </div>
 
-    <p class="v2-footnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-filter-note v2-tnote" id="v2TNote" hidden></p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 

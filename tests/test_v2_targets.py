@@ -7,7 +7,9 @@ DDA), per player per chart, on the engine's own rows. These checks pin:
   * a missing value on either side gives no gap (null + reason), never 0, and a
     player without our value is left out and counted;
   * VORP vs waivers (a different unit) is never paired with anything;
-  * older-week charts are left out unless asked for;
+  * every available chart is compared, including one still on an earlier week
+    (JEG-459: the opt-in checkbox is gone), and such a chart is listed in
+    `prior` so the page can badge it;
   * our value can be any projection-derived series (ESPN default, CBS
     rest-of-season, Razzball), read from that series only; an unavailable one
     is offered disabled with a reason (Jeremy, 2026-10-07);
@@ -15,8 +17,8 @@ DDA), per player per chart, on the engine's own rows. These checks pin:
     never a buy target and gets no gap (Jeremy, 2026-10-07).
 
 Discrimination: test_checks_fail_on_broken_builds runs the same checks against
-mutated copies of targets.js (sign flipped, missing read as 0, older weeks
-included by default, missing ours read as 0, waiver rule removed, chosen series
+mutated copies of targets.js (sign flipped, missing read as 0, prior-week
+chart dropped, prior-week chart not flagged, missing ours read as 0, waiver rule removed, chosen series
 ignored, unavailable series offered as available) and requires every one to fail.
 """
 from __future__ import annotations
@@ -65,7 +67,6 @@ console.log(JSON.stringify({
   cbsros: {ours: c.ours, sell: c.sell.map(brief), buy: c.buy.map(brief), omitted: c.omittedNoOurs},
   choices: T.ourChoices(input.info), ourKeys: T.OUR_KEYS,
   defaultCharts: T.chartsToCompare(input.info, {}),
-  olderCharts: T.chartsToCompare(input.info, {includeOlder: true}),
   onlyCharts: T.chartsToCompare(input.info, {only: "fantasycalc"}),
   ourKey: T.OUR_KEY,
 }));
@@ -119,13 +120,14 @@ def check(result: dict) -> list[str]:
         errors.append("VORP vs waivers must never be paired with trade-value points")
     if 3 in {p["key"] for p in every}:
         errors.append("a zero gap is neither a buy nor a sell")
-    if result["defaultCharts"]["used"] != ["usatoday", "fantasycalc"]:
-        errors.append(f"default charts must be current-week available only: {result['defaultCharts']}")
+    # JEG-459 (rule changed): a chart still on an earlier week is always compared, and flagged.
+    if result["defaultCharts"]["used"] != ["usatoday", "fantasycalc", "cbs"]:
+        errors.append(f"every available chart must be compared, prior week included: {result['defaultCharts']}")
+    if result["defaultCharts"].get("prior") != ["cbs"]:
+        errors.append(f"the prior-week chart must be flagged (and only it): {result['defaultCharts']}")
     skipped = {s["key"]: s["reason"] for s in result["defaultCharts"]["skipped"]}
-    if "older week" not in skipped.get("cbs", "") or "fantasypros" not in skipped:
-        errors.append(f"skipped charts need a reason: {skipped}")
-    if result["olderCharts"]["used"] != ["usatoday", "fantasycalc", "cbs"]:
-        errors.append(f"older-week opt-in wrong: {result['olderCharts']}")
+    if set(skipped) != {"fantasypros"} or not skipped["fantasypros"]:
+        errors.append(f"only unavailable charts are skipped, with a reason: {skipped}")
     if result["onlyCharts"]["used"] != ["fantasycalc"]:
         errors.append(f"single-chart filter wrong: {result['onlyCharts']}")
     if result["ourKeys"] != ["espn", "cbsros", "razzball"]:
@@ -148,7 +150,8 @@ def check(result: dict) -> list[str]:
 MUTATIONS = {
     "sign flipped": ("const gap = value - ours;", "const gap = ours - value;"),
     "missing read as zero": ("const value = row.values[chart];", "const value = row.values[chart] ?? 0;"),
-    "older weeks by default": ("else if (item.stale && !includeOlder)", "else if (false)"),
+    "prior-week chart dropped": ("      else used.push(key);", "      else if (!item.stale) used.push(key);"),
+    "prior-week chart not flagged": ("if (item && item.available && item.stale) prior.push(key);", "if (false) prior.push(key);"),
     "missing ours read as zero": ("const ours = row.values ? row.values[ourKey] : null;",
                                   "const ours = (row.values && row.values[ourKey]) || 0;"),
     "waiver rule removed": ("if (value <= 0) {", "if (false) {"),
