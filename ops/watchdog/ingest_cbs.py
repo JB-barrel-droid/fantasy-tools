@@ -22,19 +22,19 @@ sys.path.insert(0, os.path.join(REPO, "pipelines"))
 
 import ingest_common as ic  # noqa: E402
 from _common import content_week  # noqa: E402
+import pull_cbs  # noqa: E402
 
 
 def _discover_fn(week: int) -> str:
-    import pull_cbs
-
     return pull_cbs.discover_url(week)
 
 
 def _pull_fn(url: str) -> list[dict[str, Any]]:
-    import pull_cbs
-
-    # JEG-85: pull() returns (tables, headline); ingest only needs tables.
-    tables, _headline = pull_cbs.pull(url)
+    # JEG-85: pull() returns (tables, headline). The headline must agree
+    # with the slug week (and must carry a week when the slug has none);
+    # the exact-week gate already matched that week to the request.
+    tables, headline = pull_cbs.pull(url)
+    pull_cbs.validate_week_consistency(url, headline, None)
     return tables
 
 
@@ -99,7 +99,12 @@ CFG: dict[str, Any] = {
     "season": 2026,
     "pull_prefix": "cbs",
     "week_fn": content_week,
-    "discovery_failed_cls": None,  # CBS discovery raises RuntimeError; not-published is not a quiet path
+    # Not found on any listing = quiet "not published yet" until the week is
+    # overdue_after_days old (then DISCOVERY_OVERDUE); no listing readable =
+    # loud "discovery source unavailable" (GAP-CBS-DISCOVERY-SLUG).
+    "discovery_failed_cls": pull_cbs.DiscoveryFailed,
+    "url_week_fn": pull_cbs.page_week,
+    "overdue_after_days": 2,
     "discover_fn": _discover_fn,
     "pull_fn": _pull_fn,
     "build_fn": _build_fn,

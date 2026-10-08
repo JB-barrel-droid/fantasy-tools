@@ -1,13 +1,14 @@
 {
  "content_week": 5,
- "fixture_built_at": "2026-10-08T10:00:44.098706+00:00",
+ "fixture_built_at": "2026-10-08T12:17:34.430629+00:00",
  "schema": "week-history-index/1",
  "season": 2026,
  "served": {
   "cbs": {
-   "fingerprint": "sha256:c00b9bbc293ca7fa7b3f440e6b0703f9295aa8a1c4bc15ceae8978f37ab77374",
-   "label_week": 4,
-   "week": 4
+   "fingerprint": "sha256:ec72f3a26741ae438183d28f69f714fa0cb6bfd57cefe9974bbbc8de51af33e0",
+   "label_week": 5,
+   "reason": "the served inputs match no saved week",
+   "week": null
   },
   "cbsros": {
    "fingerprint": "sha256:21ad36777053ad78fc80b684f219080b8d9abf825b2236d67cebf7620d65d9a5",
@@ -15,7 +16,7 @@
    "week": 5
   },
   "espn": {
-   "fingerprint": "sha256:96e422a35e9ab266b294ee01a8ea28759f95087b274531d7e20b07935c0a3c8e",
+   "fingerprint": "sha256:8636e0c0ff235a3d8c4314325a387e4638a2fdbbb93673e95f956d3028c2e3c1",
    "label_week": null,
    "week": 5
   },
@@ -30,7 +31,7 @@
    "week": 5
   },
   "razzball": {
-   "fingerprint": "sha256:c5874eb5f1e8b344a2a8f03b6330d35853fcc26877b40df3196d662173537ea4",
+   "fingerprint": "sha256:4b75baa4ae8c5af5c1938e9b7c92be1600834ee48466bc282e218c7f01ec9335",
    "label_week": 5,
    "week": 5
   },
@@ -177,6 +178,12 @@
    "file": "assets/history/week-5.json",
    "frozen": false,
    "sources": {
+    "cbs": {
+     "complete": true,
+     "fingerprint": "sha256:2c76f984a537e4f68d6535d7d3a244925b8fe8b6efbd1ff07bc9dcc2e6cdb2a4",
+     "origin": "supabase:api.source_inputs_weekly (12 teams, 1 QB, as published; latest pull of the week)",
+     "pulled_at": "2026-10-08T11:36:55+00:00"
+    },
     "cbsros": {
      "complete": true,
      "content_date": "2026-10-08",
@@ -185,8 +192,8 @@
     },
     "espn": {
      "complete": true,
-     "content_date": "2026-10-07",
-     "fingerprint": "sha256:96e422a35e9ab266b294ee01a8ea28759f95087b274531d7e20b07935c0a3c8e",
+     "content_date": "2026-10-08",
+     "fingerprint": "sha256:8636e0c0ff235a3d8c4314325a387e4638a2fdbbb93673e95f956d3028c2e3c1",
      "origin": "players.json (served)"
     },
     "fantasycalc": {
@@ -205,7 +212,7 @@
     "razzball": {
      "complete": true,
      "content_date": "2026-10-07",
-     "fingerprint": "sha256:c5874eb5f1e8b344a2a8f03b6330d35853fcc26877b40df3196d662173537ea4",
+     "fingerprint": "sha256:4b75baa4ae8c5af5c1938e9b7c92be1600834ee48466bc282e218c7f01ec9335",
      "origin": "players.json (served)"
     },
     "usatoday": {

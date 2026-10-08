@@ -31,8 +31,8 @@ Signals per source (measured 2026-10-08, docs/claude-log/2026-10-08-refresh-cade
     fantasycalc  JSON API, no ETag/Last-Modified, HEAD 404, Cache-Control
                  max-age=1200 -> hash of the (player id, value) pairs of the
                  three 12-team 1-QB lists (3 x ~150 KB)
-    usatoday     monthly web sitemap (gannett-cdn, ETag + Last-Modified) ->
-                 the week's article URL and its <lastmod>; the article page is
+    usatoday     the article the ingest's own discover_url finds in the monthly
+                 web sitemaps, and its <lastmod> there; the article page is
                  never fetched (it 402s plain clients from CI)
     fantasypros  no ETag/Last-Modified -> the article the ingest's own
                  discover_url finds, its JSON-LD dateModified and a tables hash
@@ -383,7 +383,6 @@ def probe_fantasycalc(fetch: Fetch, week: int) -> dict[str, Any]:
 
 
 USAT_SITEMAP = "https://www.gannett-cdn.com/sitemaps/USAT/web/web-sitemap-%04d-%02d.xml"
-USAT_SLUG = r"trade-value-charts?-week-%d-ros-rankings"
 SITEMAP_URL_RE = re.compile(r"<url>\s*<loc>([^<]+)</loc>\s*(?:<lastmod>([^<]+)</lastmod>)?", re.S)
 
 
@@ -392,29 +391,26 @@ def _months_back(today: date) -> list[tuple[int, int]]:
     return [(today.year, today.month), prev]
 
 
-def probe_usatoday(fetch: Fetch, week: int, today: date | None = None) -> dict[str, Any]:
-    """The week's article in USA Today's own monthly sitemap, and its <lastmod>.
-
-    Newest week first (N, then N-1 so a missing Week-N article reads as
-    "still last week's"), current month then the previous one."""
+def probe_usatoday(fetch: Fetch, week: int, today: date | None = None,
+                   discover=None) -> dict[str, Any]:
+    """The article the ingest's own discover_url finds (USA Today's monthly
+    sitemaps; the article page itself 402s plain clients from CI) and that
+    URL's <lastmod> in the same sitemaps."""
+    ad = _DiscoveryFetch(fetch)
+    url = _discover("usatoday", "pull_usatoday", ad, week, discover)
+    lastmod = None
     today = today or datetime.now(timezone.utc).date()
-    sitemaps: dict[tuple[int, int], list[tuple[str, str]]] = {}
-    for wk in (week, week - 1):
-        if wk < 1:
-            continue
-        pat = re.compile(USAT_SLUG % wk)
-        for ym in _months_back(today):
-            if ym not in sitemaps:
-                body = _need_200(fetch(USAT_SITEMAP % ym), f"usatoday sitemap {ym}")
-                if "</urlset>" not in body:
-                    raise ProbeError(f"usatoday sitemap {ym}: truncated")
-                sitemaps[ym] = SITEMAP_URL_RE.findall(body)
-            hits = [(u, lm) for u, lm in sitemaps[ym] if pat.search(u)]
+    for ym in _months_back(today):
+        sitemap = USAT_SITEMAP % ym
+        r = ad.resp(sitemap)
+        if r.status == 200 and "</urlset>" in (r.body or ""):
+            hits = [lm for u, lm in SITEMAP_URL_RE.findall(r.body) if u == url]
             if hits:
-                url, lastmod = hits[-1]
-                sig = {"week": wk, "url": url, "lastmod": lastmod}
-                return {"fingerprint": digest(sig), "signals": sig}
-    raise ProbeError(f"usatoday: no week {week} or {week - 1} article in the sitemaps")
+                lastmod = hits[-1]
+                break
+    m = re.search(r"week-(\d+)", url)
+    sig = {"week": int(m.group(1)) if m else None, "url": url, "lastmod": lastmod}
+    return {"fingerprint": digest(sig), "signals": sig}
 
 
 # Article discovery is the ingest's own (ops/watchdog/pull_fantasypros.py and
@@ -453,23 +449,28 @@ def _watchdog_module(name: str):
     return importlib.import_module(name)
 
 
-def _article_probe(source: str, module: str, fetch: "Fetch", week: int,
-                   discover: Callable[..., str] | None, headers: dict[str, str] | None,
-                   headline: Callable[[str], str | None]) -> dict[str, Any]:
-    ad = _DiscoveryFetch(fetch, headers)
+def _discover(source: str, module: str, ad: "_DiscoveryFetch", week: int,
+              discover: Callable[..., str] | None) -> str:
     discover = discover or _watchdog_module(module).discover_url
     try:
         try:
-            url = discover(week, fetch_fn=ad)
+            return discover(week, fetch_fn=ad)
         except Exception as e:  # noqa: BLE001
             # A quiet DiscoveryFailed means "week N is not out yet" (CBS returns
             # only the exact week): fingerprint last week's article instead, so
             # the probe reads as unchanged rather than failing every slot.
             if not getattr(e, "quiet", False) or week <= 1:
                 raise
-            url = discover(week - 1, fetch_fn=ad)
+            return discover(week - 1, fetch_fn=ad)
     except Exception as e:  # noqa: BLE001  DiscoveryFailed / RuntimeError / network
         raise ProbeError(f"{source} discovery: {e}") from e
+
+
+def _article_probe(source: str, module: str, fetch: "Fetch", week: int,
+                   discover: Callable[..., str] | None, headers: dict[str, str] | None,
+                   headline: Callable[[str], str | None]) -> dict[str, Any]:
+    ad = _DiscoveryFetch(fetch, headers)
+    url = _discover(source, module, ad, week, discover)
     r = ad.resp(url)
     if r.status != 200 or not r.body:
         raise ProbeError(f"{source} {url}: status={r.status}")

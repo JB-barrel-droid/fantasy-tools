@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-08T11:00:49.299292+00:00",
+  "run_at": "2026-10-08T12:17:38.080415+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,10 +10,8 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
+  "failed": [],
+  "success": true,
   "outcome": "green",
   "held": [],
   "hold_severity": "none",
@@ -48,7 +46,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (5916 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (5952 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -72,7 +70,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-07 -> 12 DDF legs -> section; review passed (5988 values)",
+      "detail": "snapshot 2026-10-07 -> 12 DDF legs -> section; review passed (6036 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -105,16 +103,16 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-07",
+      "content_vintage": "2026-10-08",
       "content_week": 5,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "cbs": {
-      "content_vintage": "Week 4",
-      "content_week": 4,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "Week 5",
+      "content_week": 5,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "cbsros": {
       "content_vintage": "2026-10-08",
@@ -128,21 +126,5 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
-  },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_guard_fails_on_pre_fix_widget",
-      "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_tier_matches_server_pool_and_espn_value"
-    ],
-    "assertions": [
-      "ModuleNotFoundError: No module named 'playwright'"
-    ],
-    "make_targets": [
-      "Makefile:379: test-core"
-    ],
-    "detail": "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_guard_fails_on_pre_fix_widget; ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_tier_matches_server_pool_and_espn_value; ModuleNotFoundError: No module named 'playwright'",
-    "recorded_at": "2026-10-08T11:01:01.625512+00:00"
   }
 }

@@ -66,13 +66,13 @@ def _fixture_exists(rel_path: str) -> bool:
     return os.path.isfile(_resolve(rel_path))
 
 
-def _players_freshness() -> tuple[str | None, str | None]:
-    """Read players.json meta.as_of and meta.kdst_snapshot (best-effort)."""
+def _players_freshness() -> str | None:
+    """Read players.json meta.as_of (best-effort)."""
     players = _load_json(_resolve("data/fixtures/current/players.json"))
     if not players:
-        return None, None
+        return None
     meta = players.get("meta", {}) or {}
-    return meta.get("as_of"), meta.get("kdst_snapshot")
+    return meta.get("as_of")
 
 
 def _reference_freshness_lookup() -> dict[str, str]:
@@ -88,11 +88,6 @@ def _reference_freshness_lookup() -> dict[str, str]:
     cmp_item = by_key.get("comparison.built_at")
     if cmp_item:
         out["data/fixtures/current/comparison-sources-data.json"] = str(cmp_item.get("value", ""))
-
-    # player-news.json -> "news.generated_at"
-    news_item = by_key.get("news.generated_at")
-    if news_item:
-        out["data/fixtures/current/player-news.json"] = str(news_item.get("value", ""))
 
     # players.json -> "players.as_of"
     as_of_item = by_key.get("players.as_of")
@@ -115,14 +110,10 @@ def build_items(now: str) -> list[dict[str]]:
     rf_generated = rf.get("generated_at") if rf else None
     rf_lookup = _reference_freshness_lookup()
 
-    players_as_of, players_kdst = _players_freshness()
+    players_as_of = _players_freshness()
     players_freshness = players_as_of if players_as_of else "?"
     if players_as_of:
         players_summary = f"meta.as_of={players_as_of}"
-        if players_kdst and players_kdst != "?":
-            players_summary += f"; meta.kdst_snapshot={players_kdst}"
-        elif players_kdst == "?":
-            players_summary += "; meta.kdst_snapshot=unknown"
     else:
         players_summary = "meta.as_of unavailable"
 
@@ -138,7 +129,7 @@ def build_items(now: str) -> list[dict[str]]:
         "last_checked": rf_generated,
     })
 
-    # 2. data/fixtures/current/players.json — meta.as_of + meta.kdst_snapshot, monitored.
+    # 2. data/fixtures/current/players.json — meta.as_of, monitored.
     items.append({
         "name": "data/fixtures/current/players.json",
         "freshness_source": players_summary,
@@ -203,19 +194,7 @@ def build_items(now: str) -> list[dict[str]]:
             "mtime": None,
         })
 
-    # 6. data/fixtures/current/player-news.json — monitored via reference-freshness.
-    items.append({
-        "name": "data/fixtures/current/player-news.json",
-        "freshness_source": (
-            "reference-freshness.json items[news.generated_at]"
-            f" (value={rf_lookup.get('data/fixtures/current/player-news.json', '?')}; "
-            f"report generated {rf_generated or 'unavailable'})"
-        ),
-        "monitor_check": True,
-        "last_checked": rf_generated,
-    })
-
-    # 7. app/trade-value-chart/assets/reference-freshness.json — self-reference (the report itself).
+    # 6. app/trade-value-chart/assets/reference-freshness.json — self-reference (the report itself).
     items.append({
         "name": "app/trade-value-chart/assets/reference-freshness.json",
         "freshness_source": "self (this coverage is derived from it; freshness = its own generated_at)",
@@ -223,7 +202,7 @@ def build_items(now: str) -> list[dict[str]]:
         "last_checked": rf_generated,
     })
 
-    # 8. app/trade-value-chart/assets/espn_inputs*.json — no file on this checkout.
+    # 7. app/trade-value-chart/assets/espn_inputs*.json — no file on this checkout.
     espn_inputs_glob = sorted(glob.glob(_resolve("app/trade-value-chart/assets/espn_inputs*.json")))
     if espn_inputs_glob:
         for path in espn_inputs_glob:

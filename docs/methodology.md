@@ -78,6 +78,29 @@ read-only accessor); `tests/test_math_inspector.py` holds its tables to the
 engine's `getAllRows()` in all three views at three settings. Built by
 `pipelines/build_inspector_page.py` from `app/inspector/` on every `make sync`.
 
+**What the views guarantee today (views-audit, measured 2026-10-08).** Jeremy
+stated the invariants on 2026-10-08. Indexed: "the positions and bench/starter
+have different weights but the total pies are the same". VORP vs waivers:
+"the differences in deconstructed values of each player on the same exact
+scale". Adjusted: "the differences in value of each player, when their
+positional and bench/starter weights have been normalized". They are measured
+on the players a source and the ESPN anchor both price (QB/RB/WR/TE).
+
+What holds and is gated by `make validate` (`tests/test_view_invariants.py`):
+- In every tab, CBS ROS, Razzball, the `*_adjusted` series and the raw
+  value-above-waivers series total exactly the anchor's total.
+- The raw series are therefore on one scale in VORP vs waivers.
+
+What does not hold yet (measured; options on `docs/math-review-agenda.md`,
+"From views-audit" and MR-01/03/04/05; not changed before the review):
+- The published charts' Indexed totals run 0.66-1.82x the anchor's.
+- Their VORP vs waivers totals run 0.71-1.00x.
+- Their Adjusted group totals are not the DDF weights (70 cap, mixed basis).
+
+The page reports all of it as `TradeValueCurveDiagnostics.viewInvariants`.
+`fixedPieIndexed` does not gate published charts. Its rows for them carry the
+measured gap, labelled "not gated (published)".
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:
@@ -221,7 +244,8 @@ Indexed, so a player at or below the waiver line is 0 in all three views:
   settings.
 
 Jeremy accepted any working setup ("I'm ok with however you set up values to
-get the tool working"); the recipe awaits his review.
+get the tool working"); the recipe awaits his review (`docs/math-review-agenda.md` MR-04,
+MR-05).
 
 The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
 native inputs. Their ingestion adapters currently assign `league_teams=12`
@@ -326,6 +350,10 @@ JEG332-SUPERFLEX-FLEX.
   dashboard-build -> frontend/site workflow.
 - `docs/risk-register.md` owns known methodology gaps and decisions still
   needing evidence.
+- `docs/math-review-agenda.md` collects every open math and logic question
+  (MR-01...) for the full math review, with dependencies, measured options
+  and the order to decide them. Add new questions there rather than settling
+  them one at a time.
 
 ## Validation Principle
 
@@ -360,7 +388,7 @@ ingest and the rebuild chain's review and `make validate`.
 | Source | Change signal | Probe cadence (UTC) | Full ingest when |
 | --- | --- | --- | --- |
 | FantasyCalc | hash of the three 12-team 1-QB lists (API has no ETag) | hourly | changed and ≥ 6 h since the last save, or 24 h; plus fixed Tue + Fri 13:07 saves |
-| USA Today | the week's article and its `<lastmod>` in USA Today's monthly sitemap | every 3 h Mon–Thu, 00:35 + 12:35 Fri–Sun | changed, or 20 h |
+| USA Today | the week's article, found by the ingest's own discovery, and its `<lastmod>` in USA Today's monthly sitemap | every 3 h Mon–Thu, 00:35 + 12:35 Fri–Sun | changed, or 20 h |
 | FantasyPros | the week's article, found by the ingest's own discovery: JSON-LD `dateModified` + tables hash | as USA Today | changed, or 20 h |
 | CBS | the week's article, found by the ingest's own discovery, on www.cbssports.com: `dateModified` + tables hash | as USA Today | changed, or 20 h |
 | ESPN | hash of the weekly projection blocks the puller sums | every 4 h, 03:25–23:25 | changed, or 20 h |

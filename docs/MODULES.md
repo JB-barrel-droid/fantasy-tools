@@ -34,11 +34,11 @@
 | L3 · Fixed-pie math | Two-tier, bench share | 🔴 6 test failures (data drift) |
 
 ### 3. comparison-dashboard — 🟢 HEALTHY
-**Owns:** Player news, health panel, dataset status
+**Owns:** Health panel, dataset status
 
 | Layer | File / Check | Status |
 |-------|--------------|--------|
-| L1 · Player news | `ingest_player_news.py` → max 3 + timing badges | ✅ |
+| L1 · Player news | Retired 2026-10-08 (no producer; last present at `aefb8f7`) | — |
 | L2 · Health panel | Dataset health display | ✅ |
 
 ### 4. page-shell — 🟢 HEALTHY

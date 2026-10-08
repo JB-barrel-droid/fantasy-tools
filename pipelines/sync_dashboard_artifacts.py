@@ -404,7 +404,6 @@ def main() -> int:
 
     (APP / "assets").mkdir(parents=True, exist_ok=True)
     shutil.copy2(FIXTURES / "comparison-sources-data.json", APP / "assets" / "comparison-sources-data.json")
-    shutil.copy2(FIXTURES / "player-news.json", APP / "assets" / "player-news.json")
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
     # JEG-137 R10: the per-source dataset cards read assets/deadline-checker.json
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
@@ -487,56 +486,6 @@ def main() -> int:
         # a leg to read.
         print(f"WARNING: skipping ddf-group-vorps.json rebuild: {e}", file=sys.stderr)
 
-    # JEG-211: 4-group K/DST VORP totals rewritten on every sync from the
-    # freshest K/DST DDF leg. K/DST are SEPARATE and OPTIONAL from the
-    # 8 skill-position groups per docs/kdst-group-contract.md. The artifact
-    # is marked display_status=computed_not_displayed; the chart UI
-    # (app/trade-value-chart/) never reads it. Fails closed (SystemExit) if
-    # the leg is missing or the 4 groups do not sum to the overall pie.
-    from build_ddf_kdst_groups import (
-        build_groups_from_leg as build_kdst_groups,
-        find_latest_leg as find_latest_kdst_leg,
-    )
-    try:
-        kdst_groups_artifact = build_kdst_groups(
-            find_latest_kdst_leg(), dist_modules / "ddf-kdst-group-vorps.json")
-        print(f"Wrote K/DST 4-group VORP totals -> "
-              f"{dist_modules / 'ddf-kdst-group-vorps.json'} "
-              f"(total_vorp={kdst_groups_artifact['totals']['total_vorp']}, "
-              f"display_status={kdst_groups_artifact['display_status']})")
-    except SystemExit as e:
-        # No K/DST leg yet. The K/DST leg is built only when espn_k_ppg /
-        # espn_dst_ros inputs exist and have a current snapshot date; if the
-        # pull is missing or stale, this skip fires. Same warning behavior
-        # as the 8-group step -- the module is regenerated on the next sync
-        # that has a leg to read.
-        print(f"WARNING: skipping ddf-kdst-group-vorps.json rebuild: {e}",
-              file=sys.stderr)
-
-    # JEG-265: per-view addressable artifacts (vorp-view.json, adj-view.json).
-    # Reads dist/modules/source-value-lineage.json and writes a slim per-view
-    # JSON for the dashboard's VORP / Adj cards. Skip with a warning when the
-    # lineage artifact is missing (CI may run sync before a lineage build has
-    # happened) -- the dashboard's renderers fail closed with an explicit badge.
-    try:
-        from build_view_artifacts import build_vorp_view, build_adj_view
-        lineage_path = DIST / "modules" / "source-value-lineage.json"
-        if lineage_path.exists():
-            lineage = json.loads(lineage_path.read_text(encoding="utf-8"))
-            v = build_vorp_view(lineage)
-            a = build_adj_view(lineage)
-            (dist_modules / "vorp-view.json").write_text(
-                json.dumps(v, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            (dist_modules / "adj-view.json").write_text(
-                json.dumps(a, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            print(f"Wrote per-view artifacts -> vorp-view.json (status={v['status']}), "
-                  f"adj-view.json (status={a['status']})")
-        else:
-            print(f"WARNING: skipping vorp-view.json / adj-view.json rebuild: "
-                  f"source-value-lineage.json missing at {lineage_path}",
-                  file=sys.stderr)
-    except SystemExit as e:
-        print(f"WARNING: skipping per-view artifacts: {e}", file=sys.stderr)
 
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).

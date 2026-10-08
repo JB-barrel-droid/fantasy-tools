@@ -77,7 +77,13 @@ def problems(snapshots, players):
 
 
 def read_all(overrides=None):
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        # Same contract as the other render tests: no browser stack -> skip,
+        # never an import error (an error here blocked every deploy and chain
+        # publish from fcf7da6 until this fix, 2026-10-08).
+        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
     with sync_playwright() as p:
         exe = chromium_executable(p)
         if exe is None:

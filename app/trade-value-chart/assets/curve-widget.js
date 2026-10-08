@@ -174,7 +174,7 @@
         `<table class="health-diag-table"><thead><tr><th></th><th>Source</th><th>Total</th><th>Target</th><th>Delta</th><th>Basis</th><th>Players</th><th></th></tr></thead>` +
         `<tbody>${rows}</tbody></table>` +
         `<p class="health-diag-note">Tolerance: ±${diagnostics.tolerance}. ` +
-        `Basis "shared" compares on players priced by both source and anchor; "fallback" uses the full-set total against the common pie; "anchor" is the ESPN reference itself; "pipeline" sources are indexed upstream and checked there.</p></details>`;
+        `Basis "shared" compares on players priced by both source and anchor; "fallback" uses the full-set total against the common pie; "anchor" is the ESPN reference itself; "not gated (published)" rows are measured, not held to the target (docs/math-review-agenda.md).</p></details>`;
     }
     function render() {
       const el = document.getElementById("chartHealthList");
@@ -1909,6 +1909,9 @@
     // 0.15-frozen value on a moved slider.
     const isDdfNative = ["espn", "cbsros", "razzball"].includes(rawKey);
     const adjusted = new Map();
+    // Per-cell sums for the clip correction below (two-tier-native only).
+    const cellSums = new Map();
+    const cellOf = new Map();
     raw.forEach((value, playerKey) => {
       const player = canonicalByKey.get(playerKey);
       const tier = tierOf(playerKey);
@@ -1925,7 +1928,31 @@
         return;
       }
       const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
-      adjusted.set(playerKey, cell ? Math.max(0, cell.alpha + cell.beta * safeValue) : safeValue);
+      const fitted = cell ? cell.alpha + cell.beta * safeValue : safeValue;
+      adjusted.set(playerKey, Math.max(0, fitted));
+      if (isDdfNative && cell) {
+        const cellKey = `${pos}|${tier}`;
+        const sums = cellSums.get(cellKey) || {fitted: 0, kept: 0};
+        sums.fitted += fitted;
+        sums.kept += Math.max(0, fitted);
+        cellSums.set(cellKey, sums);
+        cellOf.set(playerKey, cellKey);
+      }
+    });
+    // GAP-BENCH-SHARE-LOW-PIE: an OLS cell's fitted values sum to its
+    // target (the live two-tier tier total, so starter + bench = the
+    // position's pie at the active share), but clipping negative fits at 0
+    // adds mass. At low bench shares the bench cells clip and the anchor's
+    // total ran above its pie (Full PPR 12 teams at 1-4%: +1.5 to +2.05,
+    // past the fixedPieIndexed tolerance). Restore each clipped cell's
+    // fitted total by scaling its kept (positive) values; unclipped cells
+    // are untouched (factor exactly 1).
+    cellSums.forEach((sums, cellKey) => {
+      if (!(sums.kept > sums.fitted) || !(sums.fitted > 0)) return;
+      const factor = sums.fitted / sums.kept;
+      cellOf.forEach((key, playerKey) => {
+        if (key === cellKey) adjusted.set(playerKey, adjusted.get(playerKey) * factor);
+      });
     });
     return adjusted;
   }
@@ -2317,7 +2344,7 @@
   }
 
   // Refit + redraw + republish after any weight change (position or bench).
-  function refreshAfterWeightChange() {
+  function refreshAfterWeightChange(publish = true) {
     crossRank = null;
     liveCellsCache = null;
     syncPositionWeightControls();
@@ -2328,7 +2355,7 @@
     runRegressionGuards();
     draw();
     syncCurveStatus();
-    publishShared();
+    if (publish) publishShared();
   }
 
   function twoTierConfig() {
@@ -3228,6 +3255,16 @@
     // Syncing from the central setter covers every path (slider, dblclick
     // reset, the "Reset to 15%" button, resetAllWeights, external callers).
     syncWeightsReadout();
+    // GAP-BENCH-SHARE-LOW-PIE: the slider used to move only the control and
+    // readout; the chart kept the old share's values (and stale diagnostics)
+    // until some unrelated rebuild re-priced it, so a failed guard could not
+    // be recovered by moving the slider back. Re-price now, like the
+    // position-weight sliders do. Before init finishes there is nothing to
+    // re-price (init runs the guards itself).
+    if (engineReady) {
+      refreshAfterWeightChange(publish);
+      return;
+    }
     if (publish) publishShared();
   }
 
@@ -3887,14 +3924,20 @@
     visibleSourceKeys().filter(sourceAvailable).forEach(key => {
       const values = sourceMapsForCheck.get(key);
       if (!values) return;
-      // As-published sources are indexed by the pipeline via
-      // proportional_scaling_vorp_overlap, which calibrates on the VORP>0
-      // overlap set (not the full shared set). The browser does not re-scale
-      // them, so this shared-total check does not apply. The pipeline's
-      // fixed-pie invariant (overlap total = anchor overlap total) is verified
-      // by pipeline tests, not by this client-side guard.
+      // Published charts are NOT held to the anchor's total by this guard
+      // (views-audit 2026-10-08). The old note said the pipeline indexes them
+      // to the anchor's pie (proportional_scaling_vorp_overlap) and checks it
+      // there; that stopped being true when the saved values became the
+      // value-above-waivers translation (JEG-64), which puts each position's
+      // top at our positional max and has no total step -- on Week 5 their
+      // shared totals run 0.66-1.82x the anchor's. Whether Indexed should
+      // match totals is on docs/math-review-agenda.md ("From views-audit");
+      // until then the row reports the measured gap and does not gate.
       if (AS_PUBLISHED_KEYS.has(key)) {
-        checks.push({source:key, basis:"pipeline", shared:null, total:null, target:null, delta:null, ok:true});
+        const indexed = viewMode === "indexed" ? values : buildPublishedSourceMap(key);
+        const t = ValueModel.sharedTotals({values: indexed, anchor, playerOf: playerKey => canonicalByKey.get(playerKey)});
+        checks.push({source:key, basis:"not gated (published)", shared:t.shared, total:t.total, target:t.target,
+                     delta:t.total - t.target, ok:true});
         return;
       }
       if (key === "espn") {
@@ -3954,6 +3997,109 @@
                    delta:total - target, ok:Math.abs(total - target) <= tolerance});
     });
     return {tolerance, checks, ok:checks.every(check => check.ok)};
+  }
+
+  // views-audit (2026-10-08): how far each chart view is from Jeremy's stated
+  // invariants, measured on the values the view plots, for every source it
+  // can show, at the active setting -- all three views on every rebuild.
+  // READ-ONLY and informational: no value changes, no guard. The deploy gate
+  // (tests/test_view_invariants.py) requires only the rows that already hold
+  // ("gated"); the rest wait for the math review (docs/math-review-agenda.md).
+  // Basis: the players a source and the anchor both price (QB/RB/WR/TE).
+  //   indexed  -- ratio = source total / anchor total; maxShareDiff = largest
+  //               gap between the source's own position x starter/bench split
+  //               and the anchor's (0 would mean the split is forced equal);
+  //   vorp     -- ratio for every value-above-waivers series;
+  //   adjusted -- per position x starter/bench group (the chart's own roles vs
+  //               the anchor's): source total, anchor total (the DDF weight),
+  //               ratio; spread = max/min funded ratio (1 = proportional to
+  //               the DDF weights), level = their total ratio.
+  const VIEW_INVARIANT_REL_TOL = 1e-6;
+  const VIEW_GATED = {
+    indexed: key => !AS_PUBLISHED_KEYS.has(key),
+    vorp: key => PURE_VORP_KEYS.includes(key),
+    adjusted: () => false,
+  };
+  function viewTotalsRow(values, anchor) {
+    const t = ValueModel.sharedTotals({values, anchor, playerOf: playerKey => canonicalByKey.get(playerKey)});
+    const ratio = t.target > 0 ? t.total / t.target : null;
+    return {shared: t.shared, total: Number(t.total.toFixed(4)), target: Number(t.target.toFixed(4)),
+      ratio: ratio === null ? null : Number(ratio.toFixed(6)),
+      holds: t.shared >= ValueModel.MIN_SHARED_FOR_PIE && t.target > 0 && Math.abs(t.total - t.target) <= VIEW_INVARIANT_REL_TOL * t.target};
+  }
+  function viewSplitGap(values, anchor, anchorRoles) {
+    const playerOf = playerKey => canonicalByKey.get(playerKey);
+    const mine = ValueModel.groupShares({values, playerOf, teams, shape: rosterShape});
+    const anchorShared = new Map([...anchor.entries()].filter(([key]) => values.has(key)));
+    const theirs = ValueModel.groupShares({values: anchorShared, roles: anchorRoles, playerOf});
+    return Number(Math.max(...Object.keys(mine).map(g => Math.abs(mine[g] - theirs[g]))).toFixed(6));
+  }
+  // A published chart's map in a non-Indexed view without touching the
+  // page's lastPublishedView record.
+  function measuredPublishedView(key, viewKey) {
+    const saved = lastPublishedView;
+    lastPublishedView = {...saved};
+    try {
+      return publishedViewMap(key, viewKey);
+    } finally {
+      lastPublishedView = saved;
+    }
+  }
+  function viewInvariantsDiagnostics() {
+    const anchor = sourceMaps.get("espn");
+    const out = {version: "views-audit/1", informational: true, tolerance: VIEW_INVARIANT_REL_TOL,
+      basis: "players the source and the anchor both price",
+      indexed: {sources: {}}, vorp: {sources: {}}, adjusted: {sources: {}, notReweighted: {}}};
+    if (!anchor?.size) return {...out, reason: "no anchor"};
+    const playerOf = playerKey => canonicalByKey.get(playerKey);
+    const anchorRoles = ValueModel.roleMap({values: anchor, playerOf, teams, shape: rosterShape});
+    const shown = visibleSourceKeys().filter(key => key !== "espn" && sourceAvailable(key) && !isAdjustedCurvePaused(key));
+    shown.forEach(key => {
+      const values = AS_PUBLISHED_KEYS.has(key) ? buildPublishedSourceMap(key) : sourceMaps.get(key);
+      if (!values?.size) return;
+      out.indexed.sources[key] = {...viewTotalsRow(values, anchor), maxShareDiff: viewSplitGap(values, anchor, anchorRoles),
+        gated: VIEW_GATED.indexed(key)};
+    });
+    [...AS_PUBLISHED_KEYS].filter(sourceAvailable).forEach(key => {
+      const vorp = measuredPublishedView(key, "vorp");
+      if (vorp.size) out.vorp.sources[key] = {...viewTotalsRow(vorp, anchor), gated: false,
+        mode: savedViewApplies(key) ? "saved vorp_views" : "derived"};
+      const adj = measuredPublishedView(key, "adj_values");
+      const info = derivedViewBatch().sources[key]?.roles;
+      const roles = info ? new Map([...info].map(([k, row]) => [Number(k), row.role])) : null;
+      if (!adj.size || !roles) return;
+      const groups = ValueModel.sharedGroupTotals({values: adj, roles, anchor, anchorRoles, playerOf});
+      const rows = {};
+      const ratios = [];
+      let source = 0, budget = 0;
+      Object.entries(groups).forEach(([g, row]) => {
+        const ratio = row.anchor > 0 && row.players > 0 ? row.source / row.anchor : null;
+        if (ratio !== null) { ratios.push(ratio); source += row.source; budget += row.anchor; }
+        rows[g] = {total: Number(row.source.toFixed(4)), anchor: Number(row.anchor.toFixed(4)), players: row.players,
+          ratio: ratio === null ? null : Number(ratio.toFixed(6)), unfunded: row.players === 0 && row.anchor > 0};
+      });
+      const spread = ratios.length ? Math.max(...ratios) / Math.min(...ratios) : null;
+      out.adjusted.sources[key] = {groups: rows, mode: savedViewApplies(key) ? "saved vorp_views" : "derived",
+        spread: spread === null ? null : Number(spread.toFixed(6)),
+        level: budget > 0 ? Number((source / budget).toFixed(6)) : null,
+        holds: spread !== null && Math.abs(spread - 1) <= VIEW_INVARIANT_REL_TOL && budget > 0 && Math.abs(source / budget - 1) <= VIEW_INVARIANT_REL_TOL,
+        gated: false};
+    });
+    PURE_VORP_KEYS.filter(sourceAvailable).forEach(key => {
+      const values = sourceMaps.get(key);
+      if (values?.size) out.vorp.sources[key] = {...viewTotalsRow(values, anchor), gated: VIEW_GATED.vorp(key)};
+    });
+    ["cbsros", "razzball"].filter(sourceAvailable).forEach(key => {
+      out.adjusted.notReweighted[key] = {reason: "same values in every tab (total only, option C)",
+        maxShareDiff: viewSplitGap(sourceMaps.get(key), anchor, anchorRoles)};
+    });
+    ["indexed", "vorp", "adjusted"].forEach(view => {
+      const rows = Object.values(out[view].sources);
+      out[view].holds = rows.every(row => row.holds);
+      out[view].gatedHold = rows.filter(row => row.gated).every(row => row.holds);
+    });
+    out.gatedHold = out.indexed.gatedHold && out.vorp.gatedHold;
+    return out;
   }
 
   // Cross-source scale agreement for the ADJUSTED series. The band and the
@@ -4084,6 +4230,13 @@
     const clientX = rect.left + geometry.pad.left + (rank - zoomLow) / Math.max(1, zoomHigh - zoomLow) * geometry.innerWidth;
     showTooltip(rank, clientX, rect.top + geometry.pad.top + 18, false);
     if (status) status.textContent = `${match.name}: ${sourceLabel(selectedRankSourceKey())} player-axis rank ${rank}.`;
+  }
+
+  function clearCanvasForFailedGuard() {
+    const context = canvas?.getContext?.("2d");
+    if (!context) return;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, canvas.width, canvas.height);
   }
 
   function draw() {
@@ -4362,6 +4515,7 @@
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
     const fixedPie = fixedPieDiagnostics();
     const adjustedAgreement = adjustedAgreementDiagnostics();
+    const viewInvariants = viewInvariantsDiagnostics();
     // JEG-30: record the fixed-pie guard in Chart Health with its structured
     // per-source diagnostics. The detail view renders on failure; the happy
     // path stays clean. The thrown error below keeps a plain-words summary.
@@ -4409,13 +4563,28 @@
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, viewInvariants, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     // JEG-30: the per-source numbers live in the Chart Health detail view
     // (recorded above), not in the error string. The thrown error keeps a
     // plain-words summary; open Chart Health for the per-source breakdown.
-    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
+    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) {
+      const error = new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
+      // Fail closed for THIS setting only: no curves painted (draw() and the
+      // resize listener refuse) and the status says why. The next control
+      // change re-runs the guards and, when they pass, repaints and resets
+      // the status (GAP-BENCH-SHARE-LOW-PIE: a failure used to leave
+      // guardsPassed true, so a resize repainted the rejected curves).
+      guardsPassed = false;
+      clearCanvasForFailedGuard();
+      const status = $("#curve-status");
+      if (status) {
+        status.classList.remove("validated");
+        status.innerHTML = `<strong>Curves unavailable:</strong> ${error.message}`;
+      }
+      throw error;
+    }
     guardsPassed = true;
   }
 
@@ -4454,7 +4623,7 @@
     // JEG332-VORP-VIEWS: re-run the guards (and refresh the diagnostics) for
     // the view just entered, as every other control does. Skipped during
     // init, before the first guard run, when the toggles do not exist yet.
-    if (guardsPassed) runRegressionGuards();
+    if (engineReady || guardsPassed) runRegressionGuards();
     draw();
     syncCurveStatus();
     if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));

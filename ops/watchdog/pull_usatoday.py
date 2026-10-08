@@ -29,6 +29,7 @@ import urllib.request
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import article_discovery as ad
 from _common import fetch, nfl_week, today_ct, REPO
 
 SECTION_SLUG = "trade-value-chart-week-%d-ros-rankings"
@@ -88,7 +89,7 @@ def sitemap_urls_for_month(year, month, fetch_fn=fetch):
         "refusing to discover from a partial sitemap" % (year, month, last_err))
 
 
-def discover_url(week=None, fetch_fn=fetch):
+def discover_url(week=None, fetch_fn=fetch, llm_fn=None):
     """Find this week's USA Today trade-value-chart article URL.
 
     Searches the current and previous month's web sitemaps for the
@@ -98,22 +99,61 @@ def discover_url(week=None, fetch_fn=fetch):
     week = week or nfl_week()
     today = today_ct()
     tried = []
+    months = ((today.year, today.month),
+              *([(today.year, today.month - 1)] if today.month > 1
+                else [(today.year - 1, 12)]))
+    month_urls = {}
     for wk in (week, week - 1):
         if wk < 1:
             continue
         slug_re = re.compile(SLUG_RE % wk)
-        for dy, dm in ((today.year, today.month),
-                       *([ (today.year, today.month - 1) ] if today.month > 1
-                         else [(today.year - 1, 12)])):
-            urls = sitemap_urls_for_month(dy, dm, fetch_fn)
+        for dy, dm in months:
+            if (dy, dm) not in month_urls:
+                month_urls[(dy, dm)] = sitemap_urls_for_month(dy, dm, fetch_fn)
+            urls = month_urls[(dy, dm)]
             tried.append((dy, dm, len(urls)))
             hits = [u for u in urls if slug_re.search(u)]
             if hits:
                 # Newest article wins (sitemap order is chronological).
                 return hits[-1]
+        if wk == week:
+            # GAP-CBS-DISCOVERY-SLUG: before settling on last week, look for
+            # this week's chart under a reworded slug, then let the LLM
+            # fallback nominate one. Either must carry week N in its slug
+            # (the ingest's exact-week gate) and parse as week-N tables.
+            all_urls = [u for m in months for u in month_urls.get(m, [])]
+            hit = relaxed_match(all_urls, week) or llm_match(all_urls, week, llm_fn)
+            if hit:
+                return hit
     raise DiscoveryFailed(
         "no USA Today trade-value-chart article found for week %d "
         "(tried sitemaps: %s)" % (week, tried))
+
+
+_FANTASY_FB = "/sports/fantasy/football/"
+
+
+def relaxed_match(urls, week):
+    """Newest fantasy-football URL whose slug says trade + chart and week N
+    in any wording (e.g. "trade-value-charts-week-5", "week-5-trade-chart")."""
+    hits = [u for u in urls if _FANTASY_FB in u
+            and re.search(r"trade", u) and re.search(r"chart", u)
+            and ad.week_in_slug(u) == week]
+    return hits[-1] if hits else None
+
+
+def llm_match(urls, week, llm_fn=None):
+    """LLM fallback over this period's fantasy-football URLs (newest first);
+    the pick must still name week N in its slug."""
+    def slug_words(u):
+        parts = [p for p in u.split(_FANTASY_FB, 1)[1].split("/") if p]
+        return (parts[-2] if len(parts) >= 2 else parts[-1]).replace("-", " ")
+    pool = [(u, slug_words(u)) for u in reversed(urls) if _FANTASY_FB in u]
+    pick = (llm_fn or (lambda w, ls: ad.llm_pick("USA Today", w, ls)))(week, pool)
+    if pick and ad.week_in_slug(pick) == week:
+        print("[usatoday] LLM fallback nominated %s" % pick, flush=True)
+        return pick
+    return None
 
 
 def extract_week_from_url(url: str) -> int | None:

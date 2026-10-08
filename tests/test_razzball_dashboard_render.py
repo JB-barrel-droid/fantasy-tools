@@ -92,7 +92,6 @@ globalThis.setInterval = () => 0;
 globalThis.fetch = async (url) => {
   const u = String(url);
   const file = u.endsWith("comparison-sources-data.json") ? path.join(ASSETS, "comparison-sources-data.json")
-    : u.endsWith("player-news.json") ? path.join(ASSETS, "player-news.json")
     : u.endsWith("adjustment-inputs.json") ? path.join(ASSETS, "adjustment-inputs.json")
     : null;
   if (!file || !fs.existsSync(file)) return { ok: false, status: 404, json: async () => ({}) };

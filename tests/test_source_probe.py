@@ -273,12 +273,29 @@ class FingerprintTest(unittest.TestCase):
 
     def test_probes_use_the_ingests_own_discovery(self):
         # A probe that guessed slugs fingerprinted CBS Week 4 while Week 5 was
-        # up under a new slug (2026-10-08). The default discovery must be the
-        # ingest's discover_url.
-        import inspect
-        src = inspect.getsource(sp._article_probe)
-        self.assertIn("_watchdog_module(module).discover_url", src)
-        self.assertFalse(hasattr(sp, "CBS_SLUG") or hasattr(sp, "FP_SLUG"))
+        # up under a new slug (2026-10-08). Without an injected discover, each
+        # article probe must call its ingest module's discover_url.
+        import types
+        called = []
+
+        def fake_module(name):
+            def discover_url(wk, fetch_fn):
+                called.append(name)
+                fetch_fn("https://example.test/week-5/")
+                return "https://example.test/week-5/"
+            return types.SimpleNamespace(discover_url=discover_url,
+                                         extract_page_headline=lambda page: None)
+        saved = sp._watchdog_module
+        sp._watchdog_module = fake_module
+        try:
+            pages = FakeFetch({"week-5": article("x")})
+            sp.probe_cbs(pages, 5)
+            sp.probe_fantasypros(pages, 5)
+            sp.probe_usatoday(pages, 5, datetime(2026, 10, 8).date())
+        finally:
+            sp._watchdog_module = saved
+        self.assertEqual(called, ["pull_cbs", "pull_fantasypros", "pull_usatoday"])
+        self.assertFalse(hasattr(sp, "CBS_SLUG") or hasattr(sp, "FP_SLUG") or hasattr(sp, "USAT_SLUG"))
 
     def test_week_not_out_yet_falls_back_to_last_week(self):
         class NotOut(RuntimeError):
@@ -326,16 +343,23 @@ class FingerprintTest(unittest.TestCase):
         self.assertEqual(f.calls[0][1].get("Accept-Encoding"), "identity")
 
     def test_usatoday_uses_sitemap_lastmod(self):
-        def sitemap(lastmod, week=5):
-            return ("<urlset><url><loc>https://www.usatoday.com/story/x/"
-                    f"fantasy-trade-value-charts-week-{week}-ros-rankings/1/</loc>"
-                    f"<lastmod>{lastmod}</lastmod></url></urlset>")
+        url = "https://www.usatoday.com/story/x/fantasy-trade-value-charts-week-5-ros-rankings/1/"
+
+        def sitemap(lastmod):
+            return f"<urlset><url><loc>{url}</loc><lastmod>{lastmod}</lastmod></url></urlset>"
+
+        def discover(wk, fetch_fn):  # stand-in for pull_usatoday.discover_url
+            st, body = fetch_fn(sp.USAT_SITEMAP % (2026, 10))
+            if st != 200 or url not in body:
+                raise RuntimeError("no article")
+            return url
         today = datetime(2026, 10, 8).date()
-        a = sp.probe_usatoday(FakeFetch({"2026-10": sitemap("2026-10-06T21:36:56Z")}), 5, today)
-        b = sp.probe_usatoday(FakeFetch({"2026-10": sitemap("2026-10-07T09:00:00Z")}), 5, today)
+        a = sp.probe_usatoday(FakeFetch({"2026-10": sitemap("2026-10-06T21:36:56Z")}), 5, today, discover)
+        b = sp.probe_usatoday(FakeFetch({"2026-10": sitemap("2026-10-07T09:00:00Z")}), 5, today, discover)
+        self.assertEqual((a["signals"]["week"], a["signals"]["lastmod"]), (5, "2026-10-06T21:36:56Z"))
         self.assertNotEqual(a["fingerprint"], b["fingerprint"])
-        with self.assertRaises(sp.ProbeError):  # truncated sitemap never reads as "no article"
-            sp.probe_usatoday(FakeFetch({"2026-10": "<urlset><url>"}), 5, today)
+        with self.assertRaises(sp.ProbeError):
+            sp.probe_usatoday(FakeFetch({}), 5, today, discover)
 
     def test_razzball_stamp_moves_the_fingerprint(self):
         def page(stamp):

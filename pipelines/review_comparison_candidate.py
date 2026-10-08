@@ -281,8 +281,9 @@ def verify_coverage_drop_live(source, combo_name, dropped_slugs, pos=None,
 # hold. A live check that finds a dropped player still priced stays a fail.
 COVERAGE_CHURN_ABS = 3        # players, per (combo, position)
 COVERAGE_CHURN_FRAC = 0.05    # ...or this share of the fixture's priced set
-COVERAGE_CHURN_TAIL_FRAC = 0.10  # dropped player's fixture native must be
-                                 # below this share of the position's top native
+COVERAGE_CHURN_TAIL_FRAC = 0.10  # dropped player's fixture native must sit
+                                 # in this bottom share of the position's
+                                 # [floor, top] native range
 
 
 def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
@@ -296,7 +297,8 @@ def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
       - net drop and players dropped are each <= the cap
         max(COVERAGE_CHURN_ABS, ceil(COVERAGE_CHURN_FRAC * fixture count));
       - every dropped player was in the tail of the fixture's list (fixture
-        native < COVERAGE_CHURN_TAIL_FRAC x the position's top fixture native);
+        native - floor < COVERAGE_CHURN_TAIL_FRAC x (top - floor), floor and
+        top being the position's lowest and highest fixture natives);
       - no dropped player is still in the candidate's natives (listed by the
         source but unpriced = anchor or pipeline loss, not churn);
       - no dropped player (slug or player_key) is in the candidate's review
@@ -314,13 +316,24 @@ def coverage_drop_is_tail_churn(f_n, c_n, dropped, fx_native, pos_slugs,
     if len(dropped) > cap:
         return False, (f"{len(dropped)} players left the priced set > "
                        f"tolerance {cap} (dropped: {names})")
-    top = max((float(fx_native.get(s) or 0) for s in pos_slugs), default=0.0)
+    # Tail is measured within the position list's OWN range [floor, top].
+    # Most sources store the tail at (or near) 0, so floor ~ 0 and this is the
+    # plain "native < 10% of top" test. CBS's chart is floored at ~5 (its
+    # native unit is a ~5-47 scale): against a zero floor its LAST-listed TE
+    # (5 of top 33 = 15%) could never count as tail, so every CBS list trim
+    # held the chain (Week 5, 2026-10-08).
+    pos_natives = [float(fx_native.get(s) or 0) for s in pos_slugs]
+    top = max(pos_natives, default=0.0)
+    floor = min(pos_natives, default=0.0)
+    span = top - floor
     not_tail = [s for s in dropped
-                if top <= 0 or float(fx_native.get(s) or 0) >= COVERAGE_CHURN_TAIL_FRAC * top]
+                if span <= 0
+                or float(fx_native.get(s) or 0) - floor >= COVERAGE_CHURN_TAIL_FRAC * span]
     if not_tail:
         return False, (f"{len(not_tail)} dropped player(s) were not tail-of-list "
                        f"({', '.join(not_tail[:4])}; native >= "
-                       f"{COVERAGE_CHURN_TAIL_FRAC:.0%} of the position top {top:g})")
+                       f"{COVERAGE_CHURN_TAIL_FRAC:.0%} of the way from the position "
+                       f"floor {floor:g} to the top {top:g})")
     still_listed = [s for s in dropped if s in cand_native]
     if still_listed:
         return False, (f"{len(still_listed)} dropped player(s) still listed by the "
@@ -342,6 +355,36 @@ def _week_num(value):
     return int(m.group(1)) if m else None
 
 
+def vintage_week(section):
+    """The designated week of a section/candidate/combo vintage, or None.
+
+    Same precedence promote_comparison_section.py uses to label the promoted
+    week: the top-level ``week_designated``; else the importer's
+    ``source_provenance.week_designated`` (int from the table's week column);
+    else a ``content_vintage`` of the exact form "Week N". The chain builds
+    sections without --week-designated, so a week-coded source (CBS,
+    FantasyCalc) carries its week ONLY in source_provenance / "Week N"
+    content_vintage -- reading the top-level field alone returned None and
+    the CBS Week-5 drift against the Week-4 fixture hard-failed (2026-10-08).
+    A date-shaped content_vintage is never read as a week.
+    """
+    if not isinstance(section, dict):
+        return None
+    week = _week_num(section.get("week_designated"))
+    if week is not None:
+        return week
+    prov = section.get("source_provenance")
+    if isinstance(prov, dict):
+        pw = prov.get("week_designated")
+        if isinstance(pw, int) and not isinstance(pw, bool):
+            return pw
+        week = _week_num(pw) if isinstance(pw, str) else None
+        if week is not None:
+            return week
+    m = re.match(r"^\s*week\s*(\d+)\s*$", str(section.get("content_vintage") or ""), re.I)
+    return int(m.group(1)) if m else None
+
+
 def newer_vintage(cand, fx_section, fx_combo=None):
     """Return a description when the candidate is a newer publication than the
     fixture section (higher designated week, or same/unknown week with a later
@@ -357,7 +400,7 @@ def newer_vintage(cand, fx_section, fx_combo=None):
     # first promoted combo while the rest still hold the older week.
     if isinstance((fx_combo or {}).get("vintage"), dict):
         fx_section = fx_combo["vintage"]
-    cw, fw = _week_num(cand.get("week_designated")), _week_num(fx_section.get("week_designated"))
+    cw, fw = vintage_week(cand), vintage_week(fx_section)
     if cw is not None and fw is not None and cw != fw:
         return f"Week {cw} vs fixture Week {fw}" if cw > fw else None
     cd = str(cand.get("content_vintage") or "")[:10]

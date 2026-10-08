@@ -1189,6 +1189,72 @@
     return out;
   }
 
+  // ---------------------------------------------------------------------
+  // views-audit measurement helpers (2026-10-08). Read-only: they measure the
+  // views against Jeremy's stated invariants for TradeValueCurveDiagnostics.
+  // viewInvariants and change no plotted value. Basis: the players a source
+  // and the anchor both price (QB/RB/WR/TE), as sharedPieBasis.
+
+  function sharedTotals(opts) {
+    var values = opts.values, anchor = opts.anchor, playerOf = opts.playerOf;
+    var shared = 0, total = 0, target = 0;
+    values.forEach(function (value, key) {
+      var player = playerOf(key);
+      var a = Number(anchor.get(key)), v = Number(value);
+      if (!player || POSITION_ORDER.indexOf(player.pos) === -1 || !isFinite(a) || !isFinite(v)) return;
+      shared += 1; total += Math.max(0, v); target += Math.max(0, a);
+    });
+    return {shared: shared, total: total, target: target};
+  }
+
+  function groupKeyOf(key, roles, playerOf) {
+    var player = playerOf(key);
+    var role = roles.get(key);
+    if (!player || POSITION_ORDER.indexOf(player.pos) === -1) return null;
+    return role === "starter" || role === "bench" ? player.pos + "|" + role : null;
+  }
+
+  // Share of a value set's own total in each position x role group.
+  function groupShares(opts) {
+    var roles = opts.roles || roleMap(opts);
+    var totals = {}, sum = 0;
+    opts.values.forEach(function (value, key) {
+      var g = groupKeyOf(key, roles, opts.playerOf);
+      var v = Number(value);
+      if (!g || !isFinite(v) || !(v > 0)) return;
+      totals[g] = (totals[g] || 0) + v;
+      sum += v;
+    });
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      ["starter", "bench"].forEach(function (role) {
+        out[pos + "|" + role] = sum > 0 ? (totals[pos + "|" + role] || 0) / sum : 0;
+      });
+    });
+    return out;
+  }
+
+  // Per group, over the shared players: the source's total (its own roles)
+  // and the anchor's total (the anchor's roles -- the DDF weights).
+  function sharedGroupTotals(opts) {
+    var values = opts.values, anchor = opts.anchor, playerOf = opts.playerOf;
+    var groups = {};
+    POSITION_ORDER.forEach(function (pos) {
+      ["starter", "bench"].forEach(function (role) {
+        groups[pos + "|" + role] = {anchor: 0, source: 0, players: 0};
+      });
+    });
+    values.forEach(function (value, key) {
+      var a = Number(anchor.get(key)), v = Number(value);
+      if (!isFinite(a) || !isFinite(v) || !playerOf(key)) return;
+      var ga = groupKeyOf(key, opts.anchorRoles, playerOf);
+      var gs = groupKeyOf(key, opts.roles, playerOf);
+      if (ga) groups[ga].anchor += Math.max(0, a);
+      if (gs) { groups[gs].source += Math.max(0, v); groups[gs].players += 1; }
+    });
+    return groups;
+  }
+
   // Our anchor's eight group totals at a setting: the anchor's values summed
   // per position x role, roles from roleMap (dedicated, then flex, then bench,
   // by value) at that teams/roster over the WHOLE anchor. Waiver players are
@@ -1219,6 +1285,9 @@
     PUBLISHED_VIEWS_VERSION: PUBLISHED_VIEWS_VERSION,
     derivePublishedViews: derivePublishedViews,
     anchorGroupTotals: anchorGroupTotals,
+    sharedTotals: sharedTotals,
+    groupShares: groupShares,
+    sharedGroupTotals: sharedGroupTotals,
     VORP_TRANSLATION_VERSION: VORP_TRANSLATION_VERSION,
     TRANSLATION_OUR_MAX: TRANSLATION_OUR_MAX,
     POSITIONAL_MAX_VERSION: POSITIONAL_MAX_VERSION,

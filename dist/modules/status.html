@@ -125,7 +125,17 @@ const FEEDS = {
   surfaces: { url: () => BASE + "surfaces.json", time: null, label: "Surface spec" },
   fresh:    { url: () => ROOT + "assets/reference-freshness.json", time: "generated_at", amberH: 26, redH: 74, label: "Reader freshness labels" },
   history:  { url: () => ROOT + "assets/history/index.json", time: "fixture_built_at", amberH: 30, redH: 74, label: "Week history" },
+  // Freshness lane (GAP-033/044, GAP-LIVE-SCRAPE-STALE): derived checks built on every deploy or chain run.
+  e2e:      { url: () => BASE + "e2e-fidelity.json", time: "generated_at", amberH: 36, redH: 74, label: "End-to-end fidelity" },
+  accuracy: { url: () => BASE + "data-accuracy.json", time: "generated_at", amberH: 36, redH: 74, label: "Data accuracy" },
+  lineage:  { url: () => BASE + "input-lineage.json", time: "generated_at", amberH: 8, redH: 25, label: "Input lineage" },
+  audit:    { url: () => BASE + "source-value-lineage.json", time: "generated_at", amberH: 48, redH: Infinity, label: "Lineage audit (manual)" },
 };
+// Feeds written by health-artifacts.yml share its cadence. The monitoring
+// summary's own `producer` block says when they stop being trustworthy
+// (stale_after_minutes, twice the cadence; dashboard.html SYS_STALE_MIN
+// matches): past it they are red, and the monitor's verdict is unknown.
+const HEALTH_ARTIFACT_FEEDS = ["summary", "ops", "health", "cps"];
 
 function esc(s) {
   return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -280,9 +290,13 @@ function renderAlerts(feeds) {
   const s = feeds.summary.doc;
   if (!s) return card("alerts", "monitor", "Supabase monitor verdict", "bad", missing(feeds, "summary"));
   const counts = s.counts || {};
+  const expired = feeds.summary.status === "bad";
   const st2 = worst(norm(s.overall), feeds.summary.status, s.read_error ? "bad" : "ok", s.evaluator_stale ? "bad" : "ok");
+  const prod = s.producer;
   card("alerts", "monitor", "Supabase monitor verdict", st2, feedLine(feeds.summary) +
-    `<p><strong>${esc(s.headline || "—")}</strong></p>` +
+    (expired ? `<p><strong>Verdict unknown: the snapshot is ${esc(fmtAge(ageH(s.generated_at)))} old, past its ${esc(FEEDS.summary.redH)} h limit. The monitor itself has stopped reporting.</strong></p><p class="why">Last verdict: ${esc(s.headline || "—")}</p>`
+             : `<p><strong>${esc(s.headline || "—")}</strong></p>`) +
+    (prod ? `<p class="why">Producer ${esc(prod.workflow)} via pg_cron <code>${esc(prod.pg_cron_job)}</code> every ${esc(prod.cadence_minutes / 60)} h; stale after ${esc(prod.stale_after_minutes / 60)} h.</p>` : "") +
     `<dl class="kv"><dt>Checks</dt><dd>${esc(counts.green ?? "—")} passing · ${esc(counts.yellow ?? "—")} attention · ${esc(counts.red ?? "—")} failing of ${esc(counts.total ?? "—")}</dd>
      <dt>Evaluator last ran</dt><dd>${when(s.evaluator_last_run)}${s.evaluator_stale ? " " + pill("bad", "Evaluator stale") : ""}</dd>
      ${s.read_error ? `<dt>Read error</dt><dd>${esc(s.read_error)}</dd>` : ""}</dl>`);
@@ -452,6 +466,43 @@ function renderHistory(feeds) {
     table(["Week", "State", "Sources", "Detail"], rows) + `<p class="why">Served now: ${served || "—"}</p>`);
 }
 
+function renderDerived(feeds) {
+  // Freshness lane signals: derived checks rebuilt on every deploy (e2e
+  // fidelity, data accuracy) or chain run (input lineage), and the manual
+  // lineage audit, which is a stale audit after 48 h by design.
+  const rows = [], sts = [];
+  const row = (feed, st, detail) => {
+    sts.push(st);
+    const f = FEEDS[feed.key];
+    const limit = Number.isFinite(f.redH) ? `amber after ${f.amberH} h, red after ${f.redH} h` : `amber after ${f.amberH} h`;
+    rows.push(`<tr data-derived="${esc(feed.key)}" data-status="${st}"><td>${pill(st)}</td><td><strong>${esc(f.label)}</strong><div class="why"><code>${esc(feed.url)}</code></div></td>
+      <td>${feed.asOf ? when(feed.asOf) : "—"}<div class="why">${esc(limit)}</div></td><td class="why">${esc(detail)}</td></tr>`);
+  };
+  const gone = (feed) => feed.doc ? null : (feed.error || "not loaded");
+  { const f = feeds.e2e, d = f.doc;
+    const srcs = Object.entries(d?.sources || {});
+    const failing = srcs.filter(([, v]) => norm(v?.status) !== "ok").map(([k]) => k);
+    row(f, gone(f) ? "bad" : worst(f.status, failing.length ? norm(d.summary?.status) === "bad" ? "bad" : "warn" : "ok"),
+        gone(f) || `${srcs.length} published sources checked${failing.length ? `; not OK: ${failing.join(", ")}` : ", all OK"}`); }
+  { const f = feeds.accuracy, d = f.doc;
+    const v = d?.violations || [];
+    const notOk = (d?.checks || []).filter(c => norm(c.status) !== "ok");
+    row(f, gone(f) ? "bad" : worst(f.status, norm(d.status), v.length ? "bad" : "ok"),
+        gone(f) || `${(d.checks || []).length} checks · ${v.length} violations${notOk.length ? ": " + notOk.map(c => `${c.name} (${c.reason || c.status})`).join("; ") : ""}`); }
+  { const f = feeds.lineage, d = f.doc;
+    const lag = warningsAt(d, "mismatches");
+    let st = gone(f) ? "bad" : d.generated_at ? worst(f.status, lag.length ? "warn" : "ok") : "unk";
+    row(f, st, gone(f) || (!d.generated_at ? `not produced yet: ${d.note || "no generated_at"}`
+        : lag.length ? `${lag.length} derived sections lag their input: ${lag.join(", ")}` : `${d.checked ?? "—"} sections checked, none lag`)); }
+  { const f = feeds.audit, d = f.doc;
+    const lags = d?.stale_relative_to_fixture === true;
+    const stale = f.status !== "ok" || lags;
+    row(f, gone(f) ? "bad" : stale ? "warn" : "ok",
+        gone(f) || (stale ? `Stale audit: built ${fmtAge(ageH(d.generated_at))}${lags ? ", older than the served fixture" : ""}; not refreshed automatically (make monitor-lineage where data/raw exists)` : "audit current")); }
+  card("backend", "derived", "Derived checks (fidelity, accuracy, input lineage, lineage audit)", worst(sts),
+    table(["Status", "Check", "Built", "Detail"], rows), { wide: true });
+}
+
 function renderSecurity(feeds) {
   const s = feeds.summary.doc;
   if (!s) return card("backend", "security", "Supabase security posture", "bad", missing(feeds, "summary"));
@@ -552,6 +603,14 @@ function renderSynthetic(feeds) {
     (rows.length ? table(["Result", "Page", "HTTP", "Page errors", "Tabs", "Problems"], rows) : ""), { wide: true });
 }
 
+function warningsAt(doc, path) {
+  if (!path) return [];
+  const v = path.split(".").reduce((o, k) => (o == null ? o : o[k]), doc);
+  const list = Array.isArray(v) ? v : (v && typeof v === "object" ? Object.keys(v) : []);
+  const names = list.map(x => (typeof x === "string" ? x : (x && (x.section || x.key || x.name)) || "item"));
+  return [...new Set(names)];
+}
+
 async function evaluateSurface(s) {
   let resp;
   try { resp = await fetch(ROOT + s.url, { cache: "no-store" }); }
@@ -562,14 +621,24 @@ async function evaluateSurface(s) {
   const v = s.count_path ? doc?.[s.count_path] : doc;
   const n = Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : null;
   if (s.min_count != null && (n == null || n < s.min_count)) return { state: "bad", why: `${s.count_path || "content"}: ${n ?? "missing"} (needs ${s.min_count})` };
-  if (s.time_field) {
-    const ts = doc?.[s.time_field];
-    const h = ts ? ageH(ts) : null;
-    if (h == null) return { state: "warn", why: `no readable ${s.time_field}`, ts };
-    if (s.max_age_hours != null && h > s.max_age_hours) return { state: "warn", why: `stale: ${fmtAge(h)} (limit ${s.max_age_hours} h)`, ts };
-    return { state: "ok", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded", ts };
+  // GAP-033/GAP-044: a surface can name a list of warnings inside its file
+  // (warn_path, dotted). A non-empty list shows the surface as amber with the
+  // first few names: stale inputs and derived sections that lag their input
+  // are warnings on this page, never deploy blocks.
+  const notes = [];
+  const warnings = warningsAt(doc, s.warn_path);
+  if (warnings.length) {
+    const shown = warnings.slice(0, 4).join(", ") + (warnings.length > 4 ? ", …" : "");
+    notes.push(`${warnings.length} ${s.warn_label || "warnings"}: ${shown}`);
   }
-  return { state: "ok", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded" };
+  const ts = s.time_field ? doc?.[s.time_field] : undefined;
+  if (s.time_field) {
+    const h = ts ? ageH(ts) : null;
+    if (h == null) notes.push(`no readable ${s.time_field}`);
+    else if (s.max_age_hours != null && h > s.max_age_hours) notes.push(`stale: ${fmtAge(h)} (limit ${s.max_age_hours} h)`);
+  }
+  if (notes.length) return { state: "warn", why: notes.join(" · "), ts };
+  return { state: "ok", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded", ts };
 }
 
 async function renderSurfaces(feeds) {
@@ -626,9 +695,18 @@ async function main() {
   const keys = Object.keys(FEEDS);
   const loaded = await Promise.all(keys.map(loadFeed));
   const feeds = Object.fromEntries(keys.map((k, i) => [k, loaded[i]]));
+  const prod = feeds.summary.doc?.producer;
+  if (prod?.cadence_minutes && prod?.stale_after_minutes) {
+    for (const k of HEALTH_ARTIFACT_FEEDS) {
+      FEEDS[k].amberH = prod.cadence_minutes / 60 + 1;
+      FEEDS[k].redH = prod.stale_after_minutes / 60;
+      const f = feeds[k];
+      if (f.asOf) f.status = ageStatus(f.asOf, FEEDS[k].amberH, FEEDS[k].redH);
+    }
+  }
   renderFeeds(feeds);
   const steps = [renderAlerts, renderJobs, renderIngest, renderChain, renderCheckpoints, renderBake, renderHistory,
-                 renderSecurity, renderIdentity, renderDeploy, renderSynthetic, renderSurfaces, renderFreshness];
+                 renderDerived, renderSecurity, renderIdentity, renderDeploy, renderSynthetic, renderSurfaces, renderFreshness];
   for (const step of steps) {
     try { await step(feeds); }
     catch (e) {
