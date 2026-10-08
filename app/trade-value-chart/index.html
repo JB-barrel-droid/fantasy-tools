@@ -629,17 +629,6 @@
     .detail-block p { margin: 0; color: #465662; font-size: 10px; line-height: 1.5; }
     .detail-block p + p { margin-top: 6px; }
     .detail-tag { display: inline-block; margin-bottom: 6px; padding: 3px 5px; border-radius: 3px; background: #eef1ed; color: var(--navy); font-family: "IBM Plex Mono", monospace; font-size: 8px; font-weight: 600; text-transform: uppercase; }
-    .recent-news { margin-top: 13px; padding-top: 12px; border-top: 2px solid var(--line-strong); }
-    .recent-news-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 7px; }
-    .recent-news-head h3 { margin: 0; color: var(--navy); font-size: 13px; letter-spacing: -.01em; }
-    .recent-news-head span { flex: 0 0 auto; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 8px; }
-    .recent-news-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
-    .recent-news-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: start; padding: 8px 10px; background: var(--white); }
-    .recent-news-item p { margin: 0; color: #465662; font-size: 10px; line-height: 1.45; }
-    .news-tags { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 4px; }
-    .news-tag { display: inline-block; padding: 3px 5px; border-radius: 3px; background: #eef1ed; color: #465662; font-family: "IBM Plex Mono", monospace; font-size: 7px; font-weight: 600; line-height: 1.15; white-space: nowrap; }
-    .news-tag.new { background: var(--blue-soft); color: var(--navy); }
-    .news-tag.upside { background: var(--orange-soft); color: var(--orange-dark); }
     .method-deep { margin-top: 10px; border-top: 1px solid var(--line-strong); }
     .method-deep > summary { width: max-content; padding: 9px 0 0; color: var(--navy); font-size: 10px; font-weight: 800; cursor: pointer; }
     .method-deep > summary::marker { color: var(--orange); }
@@ -1351,9 +1340,6 @@
       .why-title > span { display: block; margin-top: 3px; }
       .detail-grid, .method-deep-body { grid-template-columns: 1fr; gap: 8px; }
       .method-gap-list li { grid-template-columns: 1fr; gap: 2px; }
-      .recent-news-head { align-items: flex-start; }
-      .recent-news-item { grid-template-columns: 1fr; gap: 6px; }
-      .news-tags { justify-content: flex-start; }
       .lottery-equation { grid-template-columns: 1fr 14px 1fr; gap: 4px; }
       .lottery-equation .equation-part.implied { grid-column: 1 / -1; width: 100%; }
       .lottery-equation .equation-symbol.equals { display: none; }
@@ -2265,24 +2251,20 @@
       // the element being absent (e.g., during partial renders).
       if(health) health.open=startCollapsed===false;
       try{
-        const [response,newsResponse,freshnessResponse]=await Promise.all([
+        const [response,freshnessResponse]=await Promise.all([
           fetch("assets/comparison-sources-data.json"),
-          fetch("assets/player-news.json").catch(()=>null),
           fetch("assets/reference-freshness.json").catch(()=>null)
         ]);
         if(!response.ok)throw new Error(`Source snapshot request failed (${response.status})`);
         const data=await response.json();
-        const news=newsResponse?.ok?await newsResponse.json():null;
         const freshness=freshnessResponse?.ok?await freshnessResponse.json():null;
-        const newsMeta=news?.meta||{};
         const universe=(embedded.players||[]).length;
         const live=order.filter(key=>key==="cbs_adjusted"?data.source_validation?.cbs==="live":data.source_validation?.[key]==="live");
         if(live.length!==order.length)throw new Error("One or more required sources did not pass validation.");
-        const reviewCount=Number(newsMeta.review_queue_count||0);
-        document.getElementById("dataHealthTitle").textContent="Current source artifacts, adjusted curves, and player news monitor";
+        document.getElementById("dataHealthTitle").textContent="Current source artifacts and adjusted curves";
         const staleRefs=Number(freshness?.summary?.stale_count||0);
-        document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${freshness?`<span class="health-count ${staleRefs?"pending":""}">${staleRefs} stale refs</span>`:""}${news?`<span class="health-count">${Number(newsMeta.matched_item_count||0)} news matches</span><span class="health-count ${reviewCount?"pending":""}">${reviewCount} review</span>`:""}`;
-        document.getElementById("dataHealthIntro").textContent=`Coverage is measured against the ${universe}-player canonical snapshot. Content, fit, and news dates identify the data actually powering the dashboard.`;
+        document.getElementById("dataHealthCounts").innerHTML=`<span class="health-count">9 curves</span>${freshness?`<span class="health-count ${staleRefs?"pending":""}">${staleRefs} stale refs</span>`:""}`;
+        document.getElementById("dataHealthIntro").textContent=`Coverage is measured against the ${universe}-player canonical snapshot. Content and fit dates identify the data actually powering the dashboard.`;
         // GAP-043: one freshness rule for every card and the header box. Each
         // source's content week comes from its own section (week_designated,
         // then content_vintage) on the Tuesday-flip content calendar, through
@@ -2307,12 +2289,6 @@
           const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "DDF methodology · common scale" : (translated ? "As published · VORP-translated" : "As published · reindexed"));
           return `<article class="dataset-card ${fresh.status==="current"?"status-live":"status-caution"}" data-source-key="${esc(key)}" data-freshness="${esc(fresh.status)}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badgeText[fresh.status])}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Content week</dt><dd class="source-freshness">${esc(fresh.text)}</dd></div>${fit}</dl></article>`;
         });
-        if(news){
-          const adjustments=Object.values(news.adjustments_by_player_key||{}).flat();
-          const pendingAdjustments=adjustments.filter(entry=>entry&&entry.consumed===false).length;
-          const suppressionCounts=newsMeta.review_suppression_counts||{};
-          cards.push(`<article class="dataset-card status-news"><div class="dataset-card-head"><h3>Player news pipeline</h3><span class="dataset-badge">Monitor</span></div><p class="dataset-role">${esc(newsMeta.note||"Play/value related news only; personal items are filtered out.")}</p><dl class="dataset-facts"><div><dt>Matched news</dt><dd>${Number(newsMeta.matched_item_count||0)}/${Number(newsMeta.value_item_count||0)} value items</dd></div><div><dt>Source refresh</dt><dd>${esc(monthDay(newsMeta.source_refresh_at||newsMeta.generated_at))}</dd></div><div><dt>Actionable news</dt><dd>${esc(monthDay(newsMeta.latest_actionable_news_at))}</dd></div><div><dt>Injury proof</dt><dd>${esc(monthDay(newsMeta.injury_data_updated_at))}</dd></div><div><dt>Adjustments</dt><dd>${Number(newsMeta.adjustment_count||0)} total · ${pendingAdjustments} pending</dd></div><div><dt>Review queue</dt><dd>${reviewCount} open · ${Number(newsMeta.suppressed_review_count||0)} suppressed</dd></div><div><dt>Suppression detail</dt><dd>${Number(suppressionCounts.already_reviewed||0)} reviewed · ${Number(suppressionCounts.duplicate||0)} dupes · ${Number(suppressionCounts.low_signal||0)} low signal</dd></div><div><dt>Model timestamp</dt><dd>${esc(monthDay(newsMeta.trade_values_published_at))}</dd></div></dl></article>`);
-        }
         if(freshness){
           const summary=freshness.summary||{};
           const staleItems=(freshness.items||[]).filter(item=>item.status==="stale").slice(0,4).map(item=>`${item.label}: ${monthDay(item.value)} (${item.note||"unchanged"})`);

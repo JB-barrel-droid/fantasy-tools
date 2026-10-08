@@ -60,7 +60,7 @@ source data -> reference compute -> dashboard build -> frontend/site
   `github-actions.json` (`rebuild-chain.yml`), `assets/reference-freshness.json`
   and `assets/history/index.json` (`make sync`). Each block shows its own as-of
   time and turns amber/red when stale. Test: `tests/test_ops_dashboard.py`.
-- Detail pages it links to: `modules/dashboard.html` (data monitor: lineage,
+- Detail pages it links to: `modules/dashboard.html` (data monitor:
   checkpoints, data accuracy) and `modules/consolidation.html`.
 
 ## Current Known Boundaries

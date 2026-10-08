@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -23,7 +23,6 @@ help:
 	@echo "  make comparison-reindex Reindex CANDIDATE_FILE onto the anchor scale (fixed pie)"
 	@echo "  make comparison-review Review REINDEXED_FILE for promotion (verdict: ready/hold)"
 	@echo "  make comparison-promote Promote REVIEW_FILE into the live fixture (needs APPROVE)"
-	@echo "  make source-news       Refresh player-news raw/source data and fixture"
 	@echo "  make naming            Fail closed when players.json diverges from the naming manifest"
 	@echo "  make reference         Validate current reference artifacts"
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
@@ -80,9 +79,6 @@ comparison-promote:
 		python3 pipelines/promote_comparison_section.py "$(REVIEW_FILE)" --approve "$(APPROVE)"; \
 	fi
 
-source-news:
-	python3 pipelines/ingest_player_news.py --fetch-rss
-
 naming:
 	python3 pipelines/check_naming_drift.py
 
@@ -99,14 +95,6 @@ sync:
 guard-harness:
 	node tools/guard_harness.mjs --assert-good
 	node tools/guard_harness.mjs --simulate tier-mismatch --assert-bad
-
-# Source value lineage: scrape live pages once, then build the lineage card.
-# The lineage builder consumes dist/modules/live-page-scrape.json and must NOT
-# re-scrape at build time (intermittent bot blocks used to silently poison the
-# monitor with null live values). Run the scrape first, then the builder.
-monitor-lineage:
-	python3 pipelines/scrape_live_source_pages.py
-	python3 pipelines/build_source_value_lineage.py
 
 # Unit tests: no data/raw, snapshot, or external service dependency.
 # Safe to run in CI (Pages deploy) where gitignored data is absent.
@@ -130,6 +118,7 @@ test-unit:
 	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
 	python3 -m unittest tests.test_ops_dashboard
+	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_targets_render
@@ -190,7 +179,6 @@ test-unit:
 	python3 -m unittest tests.test_reweight_inversion_budget
 	python3 -m unittest tests.test_espn_pool_cap
 	python3 -m unittest tests.test_vorp_refresh
-	python3 -m unittest tests.test_validate_imputed_vorps
 	python3 -m unittest tests.test_projection_source_kind
 	python3 -m unittest tests.test_vorp_translation_unified
 	python3 -m unittest tests.test_vorp_translation_js_parity
@@ -211,7 +199,6 @@ test-unit:
 	python3 -m unittest tests.test_backstop_hash_roundtrip
 	python3 -m unittest tests.test_vintage_trigger
 	python3 -m unittest tests.test_translate_via_vorp
-	python3 -m unittest tests.test_lineage_snapshot_guard
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
@@ -225,7 +212,6 @@ test-unit:
 	python3 -m unittest tests.test_source_combo_contract
 	python3 -m unittest tests.test_razzball_monitor_coverage
 	python3 -m unittest tests.test_indexed_monitor_math
-	python3 -m unittest tests.test_lineage_merge
 	python3 -m unittest tests.test_espn_zeroed_staleness
 	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
@@ -242,8 +228,6 @@ test-unit:
 	python3 -m unittest tests.test_sync_health_freshest
 	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_dashboard_view_tags
-	python3 -m unittest tests.test_view_artifacts
-	python3 -m unittest tests.test_lineage_view_indicators
 	python3 -m unittest tests.test_dist_manifest
 	python3 -m unittest tests.test_preview_workflow_matches_pages
 	python3 -m unittest tests.test_sync_monitor_fixture
@@ -251,7 +235,6 @@ test-unit:
 	python3 -m unittest tests.test_workflow_dispatch_permissions
 	python3 -m unittest tests.test_live_page_synthetic_workflow
 	python3 -m unittest tests.test_live_page_synthetic
-	python3 -m unittest tests.test_lineage_stage_retired
 	python3 -m unittest tests.test_status_warnings
 	python3 -m unittest tests.test_import_health_schema_doc
 	python3 -m unittest tests.test_player_identity_guard

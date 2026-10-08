@@ -4,11 +4,9 @@ import math
 import re
 import subprocess
 import unittest
-from argparse import Namespace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from pipelines import ingest_player_news
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -340,7 +338,6 @@ class StaticExportTest(unittest.TestCase):
         cls.index = (APP / "index.html").read_text(encoding="utf-8")
         cls.players = load_json(FIXTURES / "players.json")
         cls.comparison = load_json(FIXTURES / "comparison-sources-data.json")
-        cls.news = load_json(FIXTURES / "player-news.json")
 
     def test_inline_players_match_fixture(self):
         match = re.search(
@@ -1100,13 +1097,15 @@ class StaticExportTest(unittest.TestCase):
         self.assertGreaterEqual(min(gibbs_values), 45)
         self.assertGreaterEqual(max(gibbs_values), 68)
 
-    def test_player_table_supports_configurable_expandable_fields(self):
+    def test_player_table_supports_configurable_fields(self):
         text = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
         self.assertNotIn('key:"latest_news"', text)
         self.assertIn("visibleColumns()", text)
         self.assertIn("setTableSort", text)
-        self.assertIn("renderExpandedRow", text)
-        self.assertIn("TradeValuePlayerNews", text)
+        # Player news (and its expandable per-player rows) was retired
+        # 2026-10-08 (chore/retire-extras): no producer since 2026-09-20.
+        self.assertNotIn("renderExpandedRow", text)
+        self.assertNotIn("TradeValuePlayerNews", text)
         # GAP-MAIN-TABLE-ESPN-DRIFT (2026-10-08): the table renders the chart
         # engine's rows; it no longer carries its own ESPN / roster-shape math
         # (buildEspnIndexedMap, buildEspnVorpMap, normalizeRosterShape,
@@ -1117,121 +1116,24 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn('key:"espn_role"', text)
         self.assertIn("ESPN raw VORP vs waivers", text)
 
-    def test_data_health_surfaces_player_news_pipeline(self):
+    def test_data_health_has_no_retired_player_news_card(self):
+        # chore/retire-extras (2026-10-08): the player-news artifact had no
+        # producer (inputs only in a local raw folder; last built 2026-09-20)
+        # and showed only as a permanently stale card. It is gone from the
+        # build, the page and the published assets.
         html = (APP / "index.html").read_text(encoding="utf-8")
-        self.assertIn('fetch("assets/player-news.json")', html)
-        self.assertIn("Player news pipeline", html)
-        self.assertIn("review_queue_count", html)
-        self.assertIn("review_suppression_counts", html)
-        self.assertIn("news matches", html)
-        self.assertIn("source_refresh_at", html)
-        self.assertIn("latest_actionable_news_at", html)
-        self.assertIn("injury_data_updated_at", html)
+        self.assertNotIn("player-news.json", html)
+        self.assertNotIn("Player news pipeline", html)
+        self.assertNotIn("news matches", html)
+        for root in (APP / "assets", ROOT / "dist" / "assets", FIXTURES):
+            self.assertFalse((root / "player-news.json").exists(), root)
+        sync = (ROOT / "pipelines" / "sync_dashboard_artifacts.py").read_text(encoding="utf-8")
+        self.assertNotIn("player-news.json", sync)
+        product_data = (APP / "assets" / "product-data.js").read_text(encoding="utf-8")
+        self.assertNotIn("player-news.json", product_data)
         self.assertIn('fetch("assets/reference-freshness.json")', html)
         self.assertIn("Reference freshness pipe", html)
         self.assertTrue((APP / "assets" / "reference-freshness.json").exists())
-
-    def test_player_news_fixture_schema_supports_muse_review_layer(self):
-        self.assertEqual("player-news-v2", self.news["meta"]["schema"])
-        self.assertIsNotNone(self.news["meta"]["generated_at"])
-        self.assertEqual(544, self.news["meta"]["matched_item_count"])
-        self.assertEqual(16, self.news["meta"]["adjustment_count"])
-        self.assertEqual(4, self.news["meta"]["checked_but_not_adjusted_count"])
-        self.assertEqual(138, self.news["meta"]["review_queue_count"])
-        self.assertEqual(147, self.news["meta"]["suppressed_review_count"])
-        self.assertEqual({"already_reviewed": 89, "duplicate": 30, "low_signal": 28}, self.news["meta"]["review_suppression_counts"])
-        self.assertIn("source_refresh_at", self.news["meta"])
-        self.assertIn("latest_actionable_news_at", self.news["meta"])
-        self.assertIn("injury_data_updated_at", self.news["meta"])
-        self.assertGreaterEqual(len(self.news["news_by_player_key"]), 100)
-        self.assertEqual(16, len(self.news["adjustments_by_player_key"]))
-        self.assertEqual(4, len(self.news["checked_but_not_adjusted"]))
-        self.assertIn("trade_values_published_at", self.news["meta"])
-        adjustments = [entry for entries in self.news["adjustments_by_player_key"].values() for entry in entries]
-        by_id = {entry["id"]: entry for entry in adjustments}
-        self.assertTrue(by_id["aj-brown-high-ankle-ir-20260911"]["consumed"])
-        self.assertFalse(by_id["zay-flowers-hamstring-20260918"]["consumed"])
-
-    def test_player_news_matching_is_full_name_precision_first(self):
-        players, by_name, _ = ingest_player_news.load_players()
-        entry = {
-            "title": "A.J. Brown limited in practice after high-ankle sprain",
-            "summary": "Team says A.J. Brown is questionable for Sunday.",
-            "source": "Team report",
-        }
-        tags = ingest_player_news.topic_tags(entry)
-        player, reason, candidates = ingest_player_news.matched_player(entry, players, by_name)
-        self.assertIsNone(reason)
-        self.assertEqual(468, player.player_key)
-        self.assertIn("injury", tags)
-        self.assertIn("injury", ingest_player_news.topic_tags({"title": "Beat update on Josh Allen", "topics": ["injury"]}))
-        self.assertEqual(set(), ingest_player_news.actionable_topic_tags({"title": "Beat update on Josh Allen", "topics": ["injury"]}, ["injury"]))
-        self.assertEqual([468], [candidate.player_key for candidate in candidates])
-
-        vague_entry = {"title": "Packers love the new-look passing game", "source": "Example"}
-        player, reason, candidates = ingest_player_news.matched_player(vague_entry, players, by_name)
-        self.assertIsNone(player)
-        self.assertEqual("no_full_name_match", reason)
-        self.assertEqual([], candidates)
-
-    def test_muse_watchlist_loader_and_review_suppression(self):
-        players, by_name, _ = ingest_player_news.load_players()
-        with TemporaryDirectory() as directory:
-            watchlist_path = Path(directory) / "watchlist.json"
-            watchlist_path.write_text(json.dumps({"players": ["Ladd McConkey", "Josh Allen"]}), encoding="utf-8")
-            watchlist = ingest_player_news.load_watchlist(watchlist_path, players, by_name, 10)
-        self.assertEqual(["Ladd McConkey", "Josh Allen"], [player.name for player in watchlist])
-
-        adjusted = {468: ingest_player_news.parse_datetime_object("2026-09-11")}
-        checked = {}
-        self.assertTrue(ingest_player_news.suppress_review_item(468, "2026-09-13T00:12:08Z", adjusted, checked))
-        self.assertFalse(ingest_player_news.suppress_review_item(468, "2026-09-14T00:12:08Z", adjusted, checked))
-        pruned, counts = ingest_player_news.prune_review_queue(
-            [
-                {"player_key": 468, "published_at": "2026-09-13T00:12:08Z", "headline": "A.J. Brown out", "matched_player_count": 1},
-                {"player_key": 869, "published_at": "2026-09-14T00:12:08Z", "headline": "NFL Week 2 injury report: Josh Allen and others", "matched_player_count": 2},
-                {"player_key": 869, "published_at": "2026-09-14T00:12:08Z", "headline": "Josh Allen injury update", "matched_player_count": 1},
-                {"player_key": 869, "published_at": "2026-09-14T00:12:08Z", "headline": "Josh Allen injury update", "matched_player_count": 1},
-            ],
-            adjusted,
-            checked,
-        )
-        self.assertEqual(1, len(pruned))
-        self.assertEqual({"already_reviewed": 1, "low_signal": 1, "duplicate": 1}, counts)
-
-    def test_late_week_injury_freshness_gate(self):
-        passing = Namespace(
-            require_fresh_injury_data=True,
-            today="2026-09-20T12:00:00-05:00",
-            timezone="America/Chicago",
-            injury_data_updated_at="2026-09-18T18:30:00-05:00",
-            injury_freshness_file=None,
-        )
-        ingest_player_news.assert_injury_data_fresh(passing)
-        derived = Namespace(
-            require_fresh_injury_data=True,
-            today="2026-09-20T12:00:00-05:00",
-            timezone="America/Chicago",
-            injury_data_updated_at=None,
-            injury_freshness_file=None,
-        )
-        self.assertEqual(
-            "2026-09-18T23:30:00Z",
-            ingest_player_news.assert_injury_data_fresh(
-                derived,
-                [{"fetched_at": "2026-09-18T18:30:00-05:00", "title": "Fresh injury sweep"}],
-            ),
-        )
-
-        failing = Namespace(
-            require_fresh_injury_data=True,
-            today="2026-09-20T12:00:00-05:00",
-            timezone="America/Chicago",
-            injury_data_updated_at="2026-09-18T12:00:00-05:00",
-            injury_freshness_file=None,
-        )
-        with self.assertRaises(SystemExit):
-            ingest_player_news.assert_injury_data_fresh(failing)
 
     def test_default_qb_waiver_transition_is_zero_value_boundary(self):
         players = load_json(FIXTURES / "players.json")["players"]

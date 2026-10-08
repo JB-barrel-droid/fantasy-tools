@@ -89,11 +89,6 @@ def _reference_freshness_lookup() -> dict[str, str]:
     if cmp_item:
         out["data/fixtures/current/comparison-sources-data.json"] = str(cmp_item.get("value", ""))
 
-    # player-news.json -> "news.generated_at"
-    news_item = by_key.get("news.generated_at")
-    if news_item:
-        out["data/fixtures/current/player-news.json"] = str(news_item.get("value", ""))
-
     # players.json -> "players.as_of"
     as_of_item = by_key.get("players.as_of")
     if as_of_item:
@@ -203,19 +198,7 @@ def build_items(now: str) -> list[dict[str]]:
             "mtime": None,
         })
 
-    # 6. data/fixtures/current/player-news.json — monitored via reference-freshness.
-    items.append({
-        "name": "data/fixtures/current/player-news.json",
-        "freshness_source": (
-            "reference-freshness.json items[news.generated_at]"
-            f" (value={rf_lookup.get('data/fixtures/current/player-news.json', '?')}; "
-            f"report generated {rf_generated or 'unavailable'})"
-        ),
-        "monitor_check": True,
-        "last_checked": rf_generated,
-    })
-
-    # 7. app/trade-value-chart/assets/reference-freshness.json — self-reference (the report itself).
+    # 6. app/trade-value-chart/assets/reference-freshness.json — self-reference (the report itself).
     items.append({
         "name": "app/trade-value-chart/assets/reference-freshness.json",
         "freshness_source": "self (this coverage is derived from it; freshness = its own generated_at)",
@@ -223,7 +206,7 @@ def build_items(now: str) -> list[dict[str]]:
         "last_checked": rf_generated,
     })
 
-    # 8. app/trade-value-chart/assets/espn_inputs*.json — no file on this checkout.
+    # 7. app/trade-value-chart/assets/espn_inputs*.json — no file on this checkout.
     espn_inputs_glob = sorted(glob.glob(_resolve("app/trade-value-chart/assets/espn_inputs*.json")))
     if espn_inputs_glob:
         for path in espn_inputs_glob:

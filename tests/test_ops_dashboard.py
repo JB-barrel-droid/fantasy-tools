@@ -134,7 +134,6 @@ def green_site() -> dict:
                                        "checks": [{"name": "espn_ineligible_cross_check", "status": "ok"},
                                                   {"name": "espn_zeroed_staleness", "status": "ok"}]},
         "modules/input-lineage.json": {"generated_at": ago(2), "checked": 12, "mismatches": []},
-        "modules/source-value-lineage.json": {"generated_at": ago(20), "sources": {"cbs": {}}},
     }
 
 
@@ -144,7 +143,6 @@ def stale_site() -> dict:
     site["modules/comparison-chain-status.json"]["run_at"] = ago(10)
     site["modules/source-import-health.json"]["checked_at"] = ago(10)
     site["modules/ops-status.json"]["blocks"]["synthetic"]["run"]["created_at"] = ago(40)
-    site["modules/source-value-lineage.json"]["generated_at"] = ago(60)          # a stale manual audit
     site["modules/input-lineage.json"]["mismatches"] = [{"section": "cbsros", "reason": "lineage_raw_vintage_mismatch"}]
     return site
 
