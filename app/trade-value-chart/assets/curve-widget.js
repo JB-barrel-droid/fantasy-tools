@@ -1879,9 +1879,11 @@
     return adjustmentCellsFor(rawKey) ? benchShare : fallbackShare;
   }
 
-  function normalizedAdjustedMapFor(key, anchorMap, displayShare) {
+  // adjustedOverride (history accessor only): the source's adjusted map
+  // computed from a saved week's inputs instead of the served ones.
+  function normalizedAdjustedMapFor(key, anchorMap, displayShare, adjustedOverride) {
     const rawKey = rawKeyForAdjusted(key);
-    const values = applyRosterShape(adjustedMapFor(key), key);
+    const values = applyRosterShape(adjustedOverride || adjustedMapFor(key), key);
     if (adjustmentCellsFor(rawKey)) {
       return ValueModel.shapeToAnchorPeaksThenSharedTotal({
         values,
@@ -1914,17 +1916,22 @@
     return typeof ppg === "number" && Number.isFinite(ppg) ? ppg : null;
   }
   // key -> {pos: lowest per-game projection the leg prices at that position}.
+  // {pos: lowest projection among the players a leg map prices}; ppgOf reads
+  // the served projection, or a saved week's (history accessor).
+  function legFloorsOf(map, ppgOf) {
+    const byPos = {};
+    map?.forEach((_, playerKey) => {
+      const player = canonicalByKey.get(playerKey);
+      const ppg = ppgOf(player, playerKey);
+      if (ppg === null) return;
+      byPos[player.pos] = Math.min(byPos[player.pos] ?? Infinity, ppg);
+    });
+    return byPos;
+  }
   function buildLegFloors() {
     const floors = new Map();
     Object.keys(LEG_PPG_FIELDS).forEach(key => {
-      const byPos = {};
-      sourceMaps.get(key)?.forEach((_, playerKey) => {
-        const player = canonicalByKey.get(playerKey);
-        const ppg = projectionOf(player, key);
-        if (ppg === null) return;
-        byPos[player.pos] = Math.min(byPos[player.pos] ?? Infinity, ppg);
-      });
-      floors.set(key, byPos);
+      floors.set(key, legFloorsOf(sourceMaps.get(key), player => projectionOf(player, key)));
     });
     return floors;
   }
@@ -2352,9 +2359,11 @@
   // Bench mix: the LEGACY fixed mix (same as the pipeline legs), NOT the
   // dynamic benchMixFor. The legs were baked with BENCH_MIX_12 scaled by
   // teams/12; the live path must use the same mix to reproduce them at 0.15.
-  function ddfTwoTierValuesForSource(sourceKey) {
+  // nativeOverride (history accessor only): a {player_key -> ppg} Map of a
+  // saved week's projections, priced by exactly this function.
+  function ddfTwoTierValuesForSource(sourceKey, nativeOverride) {
     if (!["cbsros", "razzball"].includes(sourceKey)) return null;
-    const native = buildNativeSourceMap(sourceKey);
+    const native = nativeOverride || buildNativeSourceMap(sourceKey);
     if (!native.size) return null;
     const lists = {QB: [], RB: [], WR: [], TE: []};
     native.forEach((ppg, playerKey) => {
@@ -3244,6 +3253,186 @@
     if (publish) window.dispatchEvent(new CustomEvent("trade-value-lock-order-change", {detail: {lockOrder:value}}));
   }
 
+  // ---------------------------------------------------------------------
+  // Back-end contract: history (docs/v2-design-notes.md). Read-only: a saved
+  // week's inputs (assets/history/week-<N>.json, built by
+  // pipelines/build_week_history.py) priced by this engine's own functions at
+  // the CURRENT league, roster, bench share and weights, and against the
+  // current common scale (our projections' positional maxes, the ESPN anchor,
+  // the other charts served now). Only the source's own inputs come from the
+  // saved week. No new valuation
+  // math: a published chart goes through ValueModel.derivePublishedSetup, the
+  // function that prices it off the saved setup (and reproduces the saved
+  // values on it); CBS ROS / Razzball through ddfTwoTierValuesForSource and
+  // normalizedAdjustedMapFor, as rebuildDomain prices them.
+  const HISTORY_INDEX_PATH = "assets/history/index.json";
+  const HISTORY_SCORING_INDEX = {standard: 0, half_ppr: 1, ppr: 2};
+  const HISTORY_UNSUPPORTED = {
+    espn: "ESPN is the common scale every series is matched to; a prior ESPN week needs that week's two-tier leg, which is not served yet",
+    espn_vorp: "VORP vs waivers series have no prior-week recompute yet",
+    cbsros_vorp: "VORP vs waivers series have no prior-week recompute yet",
+    razzball_vorp: "VORP vs waivers series have no prior-week recompute yet",
+    fantasycalc_adjusted: "Adjusted series depend on the current fit; no prior-week recompute yet",
+    usatoday_adjusted: "Adjusted series depend on the current fit; no prior-week recompute yet",
+    fantasypros_adjusted: "Adjusted series depend on the current fit; no prior-week recompute yet",
+    cbs_adjusted: "Adjusted series depend on the current fit; no prior-week recompute yet"
+  };
+  let historyIndexPromise = null;
+  const historyWeekPromises = new Map();
+  function fetchHistoryJson(path) {
+    return fetch(path).then(response => {
+      if (!response.ok) throw new Error(`${path} request failed (${response.status})`);
+      return response.json();
+    });
+  }
+  function historyIndex() {
+    if (!historyIndexPromise) {
+      historyIndexPromise = fetchHistoryJson(HISTORY_INDEX_PATH).catch(error => {
+        historyIndexPromise = null;
+        throw error;
+      });
+    }
+    return historyIndexPromise;
+  }
+  function historyWeekDoc(index, week) {
+    const file = index?.weeks?.[String(week)]?.file;
+    if (!file) return Promise.resolve(null);
+    if (!historyWeekPromises.has(file)) {
+      historyWeekPromises.set(file, fetchHistoryJson(file).then(doc => {
+        if (doc?.week !== week) throw new Error(`${file} says week ${doc?.week}, not ${week}`);
+        return doc;
+      }).catch(error => {
+        historyWeekPromises.delete(file);
+        throw error;
+      }));
+    }
+    return historyWeekPromises.get(file);
+  }
+  function historySetting() {
+    return {scoring, teams, roster: {...rosterShape}, benchShare, viewMode, weights: activePositionWeights()};
+  }
+  function historyUnavailable(source, week, reason, extra) {
+    return {source, week, available: false, reason, values: null, setting: historySetting(), ...(extra || {})};
+  }
+  // A saved published chart's natives at the active scoring, keyed like
+  // savedPublishedNative (canonical players, finite values).
+  function historyNatives(entry) {
+    const native = new Map();
+    Object.entries(entry?.natives?.[scoring] || {}).forEach(([key, rawValue]) => {
+      const playerKey = Number(key);
+      const value = Number(rawValue);
+      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
+    });
+    return native;
+  }
+  // Peers (the other charts that extend a short chart's waiver line) are the
+  // ones served now, like the league and the scale: only this chart's own
+  // natives come from the saved week.
+  function historyPublishedValues(source, entry) {
+    const native = historyNatives(entry);
+    if (!native.size) return {reason: `no ${scoreLabel()} values saved for that week`};
+    const peers = publishedPeers(source);
+    const field = scoringField();
+    const projection = new Map();
+    canonicalByKey.forEach((player, playerKey) => {
+      const ppg = player.espn_ppg?.[field];
+      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
+    });
+    const derived = ValueModel.derivePublishedSetup({
+      native, saved: native, indexTotal: null,
+      posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+      teams, shape: rosterShape, projection, peers
+    });
+    return {values: derived.values, method: `ValueModel.derivePublishedSetup ${derived.version}`,
+      peers: Object.keys(peers).sort()};
+  }
+  function historyProjectionValues(source, entry) {
+    const idx = HISTORY_SCORING_INDEX[scoringField()];
+    const ppg = new Map();
+    Object.entries(entry?.ppg || {}).forEach(([key, triple]) => {
+      const playerKey = Number(key);
+      const value = Number(triple?.[idx]);
+      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) ppg.set(playerKey, value);
+    });
+    if (!ppg.size) return {reason: "no projections saved for that week"};
+    const anchorMap = sourceMaps.get("espn");
+    if (!anchorMap?.size) return {reason: "the ESPN anchor is not built"};
+    const ddf = ddfTwoTierValuesForSource(source, ppg);
+    const map = normalizedAdjustedMapFor(source, anchorMap, lastDisplayShare, ddf ? ddf.values : new Map());
+    if (!map.size) return {reason: "that week's projections price no players at this setting"};
+    // rowValue's display rule: below the leg's lowest priced projection = 0.
+    const floors = legFloorsOf(map, (player, playerKey) => ppg.has(playerKey) ? ppg.get(playerKey) : null);
+    const values = new Map(map);
+    ppg.forEach((value, playerKey) => {
+      if (values.has(playerKey)) return;
+      const floor = floors[canonicalByKey.get(playerKey)?.pos];
+      if (Number.isFinite(floor) && value <= floor) values.set(playerKey, 0);
+    });
+    return {values, method: "ddfTwoTierValuesForSource + normalizedAdjustedMapFor"};
+  }
+  // One saved week of one series at the reader's current setting.
+  // Resolves {source, week, available, reason?, values: {player_key: value}
+  // (players the saved week does not price are absent), setting, origin,
+  // fingerprint, method}.
+  async function getWeekValues(source, week) {
+    week = Number(week);
+    if (!Number.isInteger(week)) return historyUnavailable(source, week, "no week given");
+    if (HISTORY_UNSUPPORTED[source]) return historyUnavailable(source, week, HISTORY_UNSUPPORTED[source]);
+    if (!AS_PUBLISHED_KEYS.has(source) && !["cbsros", "razzball"].includes(source)) {
+      return historyUnavailable(source, week, `unknown series ${source}`);
+    }
+    let index, doc;
+    try {
+      index = await historyIndex();
+      doc = await historyWeekDoc(index, week);
+    } catch (error) {
+      return historyUnavailable(source, week, `history could not be read: ${error.message}`);
+    }
+    const entry = doc?.sources?.[source];
+    if (!entry) return historyUnavailable(source, week, `no Week ${week} ${sourceLabel(source)} content saved`);
+    if (entry.week !== week) return historyUnavailable(source, week, `saved entry is labelled week ${entry.week}`);
+    if (AS_PUBLISHED_KEYS.has(source) && viewMode !== "indexed") {
+      return historyUnavailable(source, week, "earlier weeks are recomputed in the Indexed view only");
+    }
+    const result = AS_PUBLISHED_KEYS.has(source)
+      ? historyPublishedValues(source, entry)
+      : historyProjectionValues(source, entry);
+    if (!result.values) return historyUnavailable(source, week, result.reason);
+    const values = {};
+    result.values.forEach((value, playerKey) => {
+      const clamped = clampValue(value);
+      if (clamped !== null) values[playerKey] = clamped;
+    });
+    return {source, week, available: true, values, setting: historySetting(), origin: entry.origin,
+      fingerprint: entry.fingerprint, method: result.method, ...(result.peers ? {peers: result.peers} : {})};
+  }
+  // The week before the one this series serves now (frame 22's exact pair).
+  // The served week comes from the history index, which matches the served
+  // inputs to a saved week by content fingerprint, not by the section label.
+  async function getPriorWeek(source, week) {
+    let index;
+    try {
+      index = await historyIndex();
+    } catch (error) {
+      return historyUnavailable(source, week ?? null, `history could not be read: ${error.message}`);
+    }
+    if (index?.fixture_built_at && data?.built_at && index.fixture_built_at !== data.built_at) {
+      return historyUnavailable(source, week ?? null, "the history index belongs to a different build of the values");
+    }
+    const served = index?.served?.[source];
+    if (!served || !Number.isInteger(served.week)) {
+      return historyUnavailable(source, week ?? null, served?.reason || `no saved week matches the ${sourceLabel(source)} values served now`);
+    }
+    const prior = served.week - 1;
+    const extra = {currentWeek: served.week, priorWeek: prior,
+      ...(served.label_mismatch ? {labelMismatch: served.label_mismatch} : {})};
+    if (week !== undefined && week !== null && Number(week) !== prior) {
+      return historyUnavailable(source, Number(week), `Week ${week} is not the week before the served Week ${served.week}`, extra);
+    }
+    const result = await getWeekValues(source, prior);
+    return {...result, ...extra};
+  }
+
   window.TradeValueCurveControls = {
     setPosition,
     setScoring,
@@ -3278,6 +3467,9 @@
     getActiveSources: () => activeSourceKeys(),
     getReferenceWeek: () => activeReferenceWeek(),
     getRosterShape: () => ({...rosterShape}),
+    // Back-end contract: history (read-only; both return Promises).
+    getWeekValues,
+    getPriorWeek,
     setRosterSpot,
     setBenchShareFraction,
     getBenchShare: () => benchShare,

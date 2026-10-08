@@ -345,6 +345,22 @@ def write_consolidated_export(fixture_path: Path, out_path: Path) -> dict:
     return doc
 
 
+def sync_week_history(target: Path) -> None:
+    """Per-week source history (pipelines/build_week_history.py): rebuild the
+    index against the fixture being published (which saved week each source
+    serves) and copy the frozen/open week files beside the page. Every week
+    file is validated first (no-relabel guard); a bad file stops the sync."""
+    from build_week_history import HISTORY_DIR, main as build_history
+    if not HISTORY_DIR.exists():
+        return
+    build_history(["--index-only"])
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True)
+    for path in sorted(HISTORY_DIR.glob("*.json")):
+        shutil.copy2(path, target / path.name)
+
+
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
@@ -360,6 +376,7 @@ def main() -> int:
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
     # checker run has produced it -- the page falls back to the 6h default
     # (unmeasured) when the asset is absent.
+    sync_week_history(APP / "assets" / "history")
     deadline_checker = ROOT / "output" / "deadline-checker.json"
     if deadline_checker.exists():
         shutil.copy2(deadline_checker, APP / "assets" / "deadline-checker.json")

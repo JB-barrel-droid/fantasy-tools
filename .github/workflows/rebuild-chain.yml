@@ -143,6 +143,29 @@ jobs:
           # mismatched import shows as an older week on the page.
           if [ "$rc" -ne 0 ]; then echo "::warning title=import-health::gate exit $rc (non-blocking)"; fi
 
+      # Week history (docs/v2-design-notes.md "Back-end contract: history"):
+      # append each source's saved inputs per content week to data/history/
+      # (published charts from api.source_inputs_weekly, projections from the
+      # served players.json and the Supabase projection tables). Past weeks are
+      # frozen; the no-relabel guard refuses any entry whose content evidence
+      # is another week. Non-blocking: a failed capture restores the committed
+      # history and the chain publishes without it (Risers & fallers then
+      # reads the last committed weeks). The chain's `make validate` copies
+      # the history beside the page and rebuilds its index for the new fixture.
+      - name: Capture week history
+        id: history
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/build_week_history.py --supabase
+
+      - name: Restore committed week history (capture failed)
+        if: steps.history.outcome == 'failure'
+        run: |
+          echo "::warning title=week-history::capture failed; the committed history is kept"
+          git checkout -- data/history
+
       - name: Rebuild comparison chain (if fixture stale)
         id: chain
         # The chain fails closed: any failure, an unisolated hold, or a run in
@@ -269,6 +292,9 @@ jobs:
                     app/trade-value-chart/assets/adjustment-inputs.json \
                     output/source-import-health.json \
                     output/comparison-chain-status.json || true
+            # Week history: the saved weeks and their index (built against
+            # this fixture by the chain's make sync).
+            git add data/history || true
             # The baked ESPN anchor ships only here: after the chain and its
             # `make validate` passed on it. Unchanged when no bake ran (or a
             # failed bake was restored), so these adds are then no-ops.
