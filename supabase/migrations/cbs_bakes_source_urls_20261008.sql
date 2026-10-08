@@ -1,3 +1,4 @@
+-- APPLIED 2026-10-08 by the integrator together with the fix/weeks-tidy merge.
 -- fix/weeks-tidy (2026-10-08). Apply BEFORE merging the code that uses it:
 -- the CBS saver's upsert names bake_id in on_conflict, and every saver writes
 -- source_url, so the CI ingests fail loudly until this runs.
@@ -66,6 +67,11 @@ update public.source_trade_values set source_url =
  where source = 'fantasypros' and season = 2026 and week = 2 and source_url is null;
 update public.cbs_trade_values set source_url =
   'https://www.cbssports.com/fantasy/football/news/dave-richards-week-' || week || '-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/'
- where season = 2026 and week in (2, 3, 4) and source_url is null;
+ where season = 2026 and week in (2, 4) and source_url is null;
+-- Integrator, at apply time (2026-10-08): week 3 skipped (CBS changes its slug
+-- weekly; the week-3 URL differs from this pattern), week 5's real URL added.
+update public.cbs_trade_values set source_url =
+  'https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-5-trade-chart/'
+ where season = 2026 and week = 5 and source_url is null;
 
 commit;
