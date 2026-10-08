@@ -186,3 +186,112 @@ v2 needs, read-only from the engine, something like
 
 v2 will compute only `current − prior` per exact pair, as it does for gaps. Until this exists the Δ
 toggle stays "Δ —" with the reason, and Risers & fallers stays marked "soon".
+
+Answered 2026-10-08 by the history contract below (branch `feat/week-history`): published charts,
+CBS ROS and Razzball get prior weeks, and ESPN, the Adjusted series and the VORP vs waivers series
+return "Δ —" with a reason.
+
+## Back-end contract: history
+
+Built 2026-10-08 (branch `feat/week-history`) for Risers & fallers (frames 05/06) and the Δ
+prior-week filter. It applies frame 22 as written: Δ = current value − prior-week value for that
+exact pair, recomputed with the current league and weights. If there is no match, show "Δ —" plus a
+reason, never zero, and never substitute a stale curve or history.
+
+### What is served
+
+`assets/history/index.json` and `assets/history/week-<N>.json`. `make sync` copies them from the
+committed store `data/history/`. Each file is versioned by `schema` (`week-history/1`,
+`week-history-index/1`).
+
+- `week-<N>.json` = `{schema, season, week, frozen, sources: {<source>: entry}}`. An entry has:
+  - common fields: `source`, `week`, `kind`, `week_evidence`, `origin`, `fingerprint`, `complete`
+    and `captured_at`;
+  - published charts (`kind: "published_chart"`: usatoday, fantasycalc, fantasypros, cbs):
+    `natives: {standard|half_ppr|ppr: {player_key: native}}`. These are the chart's own
+    as-published values for the saved 12-team, 1-QB setup. They are the same cells the engine
+    derives the chart from, taken from Supabase `api.source_inputs_weekly` (the latest pull of
+    that week);
+  - projection sources (`kind: "projection"`: espn, cbsros, razzball): `field` (`espn_ppg`,
+    `cbsros_ppg`, `rz_ppg`), `snapshot_date` and `ppg: {player_key: [standard, half_ppr, ppr]}`.
+    These are per-game projections rounded to `PPG_DECIMALS`, as `bake_players.py` rounds them, taken from
+    the served players.json or the Supabase projection tables.
+- `index.json` = `{schema, season, content_week, fixture_built_at, weeks: {"N": {file, frozen,
+  sources: {s: {origin, complete, fingerprint, content_date?, pulled_at?}}}}, served: {s: {week,
+  label_week, fingerprint, label_mismatch? | reason?}}}`. `served[s].week` is the saved week whose
+  inputs equal what the page serves now. It is matched by content fingerprint, not by the
+  section's label. `label_mismatch` says when the two disagree.
+
+### How weeks are coded (docs/week-coding-rules.md)
+
+The week comes from the content. Projections and USA Today / FantasyPros use the content date on
+the Tuesday-flip calendar (`pipelines/nfl_week.py`). CBS uses the article's week column, and the
+pull cannot predate that week. FantasyCalc is a live value, so it uses the week column, and the
+pull must have been made in that week. `build_week_history.validate_week_doc` refuses any entry
+whose evidence gives a different week than its file, so a Week 4 file cannot carry Week 3
+content. `make sync` validates every file and stops on a bad one.
+
+### Append-only
+
+A week freezes once the calendar has moved past it. A frozen entry is never replaced by different content: a different
+candidate is reported and dropped. The only replacement allowed is the same content (same
+snapshot or pull, same players, every saved value a rounding of the new one) at finer precision,
+for example when bake_players changed per-game rates to 6 dp. A source missing from a frozen week can still be added when
+its genuine content for that week turns up. The open week keeps the newest content seen. The
+rebuild chain (`rebuild-chain.yml`, step "Capture week history") runs
+`pipelines/build_week_history.py --supabase` before the chain and commits `data/history/` with
+the fixture. `make sync` also saves the served players.json projections (`--served-only`).
+
+### Engine accessors (read-only, both return Promises)
+
+- `TradeValueCurveControls.getPriorWeek(source[, week])` resolves to `{source, week, available,
+  reason?, values, setting, origin, fingerprint, method, currentWeek, priorWeek, labelMismatch?}`.
+  - `priorWeek = served[source].week − 1`. Passing a `week` that is not exactly that returns
+    `available: false`.
+  - `values` is `{player_key: value}`. A player the saved week does not price is absent, not 0.
+  - `setting` is the scoring, teams, roster, bench share, view and weights it was priced at.
+- `TradeValueCurveControls.getWeekValues(source, week)` returns the same object for any saved
+  week.
+
+It recomputes with the engine's own functions at the reader's current league, roster, bench
+share and weights, and against the current common scale. Only the source's own inputs come from
+the saved week. The common scale is the positional maxes from our ESPN projections, the ESPN
+anchor, and the other charts served now as waiver-line peers. So a chart's Δ is that chart's
+movement, not a move in our projections.
+
+- Published charts: `ValueModel.derivePublishedSetup` on the saved natives. This is the function
+  that prices the chart off the saved setup, and it reproduces the saved values on it.
+  - Indexed view only. In the other views the result is `available: false` with the reason.
+- CBS ROS and Razzball: `ddfTwoTierValuesForSource` on the saved projections, then
+  `normalizedAdjustedMapFor`, with the same below-the-leg 0 rule as the table.
+- ESPN, the Adjusted series and the VORP vs waivers series: `available: false` with a reason.
+  - ESPN is the scale every series is matched to. A prior ESPN week would need that week's built
+    two-tier leg, which is not served (risk row HISTORY-ESPN-PRIOR).
+
+Proof that this is the engine's math: `getWeekValues(source, served week)` equals the chart's
+current values for every player in every one of the 12 scoring × team combos, and on a custom
+roster (`tests/test_week_history.py`).
+
+### How the front end computes Δ
+
+For each exact pair (player, series), call `getPriorWeek(series)` after every
+`trade-value-rows-change`, because the values depend on the setting.
+
+- If `available` is false, show "Δ —" plus `reason`.
+- If the player has no prior value, show "Δ —" with "not on <source>'s Week N chart".
+- Otherwise Δ = `row.values[series] − values[player_key]`, labelled "vs Week `priorWeek`".
+
+Never compute Δ across two series, and never fill a missing prior value with 0 or with the current
+value.
+
+### What is saved (2026-10-08)
+
+| Source | W2 | W3 | W4 | W5 (open) | Served now |
+| --- | --- | --- | --- | --- | --- |
+| USA Today | 09-15 | 09-23 | 09-29 | 10-06 | W5 → prior W4 |
+| FantasyCalc | pull 09-16 | pull 09-23 | pull 10-05 | pull 10-06 | W5 → prior W4 |
+| FantasyPros | 09-15 | 09-22 | 09-29 | 10-06 | W5 → prior W4 |
+| CBS | article W2 | article W3 | article W4 | — | W4 → prior W3 |
+| ESPN | 09-17 | 09-22 | 10-03 | 10-07 | W5 (prior not recomputed) |
+| CBS ROS | — | — | 10-02 | — | W4 → no W3 saved |
+| Razzball | — | 09-22 | 10-01 | 10-06 | W3 (labelled W4) → no W2 saved |
