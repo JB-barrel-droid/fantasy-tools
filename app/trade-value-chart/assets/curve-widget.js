@@ -1909,6 +1909,9 @@
     // 0.15-frozen value on a moved slider.
     const isDdfNative = ["espn", "cbsros", "razzball"].includes(rawKey);
     const adjusted = new Map();
+    // Per-cell sums for the clip correction below (two-tier-native only).
+    const cellSums = new Map();
+    const cellOf = new Map();
     raw.forEach((value, playerKey) => {
       const player = canonicalByKey.get(playerKey);
       const tier = tierOf(playerKey);
@@ -1925,7 +1928,31 @@
         return;
       }
       const safeValue = Number.isFinite(value) ? Math.max(0, value) : 0;
-      adjusted.set(playerKey, cell ? Math.max(0, cell.alpha + cell.beta * safeValue) : safeValue);
+      const fitted = cell ? cell.alpha + cell.beta * safeValue : safeValue;
+      adjusted.set(playerKey, Math.max(0, fitted));
+      if (isDdfNative && cell) {
+        const cellKey = `${pos}|${tier}`;
+        const sums = cellSums.get(cellKey) || {fitted: 0, kept: 0};
+        sums.fitted += fitted;
+        sums.kept += Math.max(0, fitted);
+        cellSums.set(cellKey, sums);
+        cellOf.set(playerKey, cellKey);
+      }
+    });
+    // GAP-BENCH-SHARE-LOW-PIE: an OLS cell's fitted values sum to its
+    // target (the live two-tier tier total, so starter + bench = the
+    // position's pie at the active share), but clipping negative fits at 0
+    // adds mass. At low bench shares the bench cells clip and the anchor's
+    // total ran above its pie (Full PPR 12 teams at 1-4%: +1.5 to +2.05,
+    // past the fixedPieIndexed tolerance). Restore each clipped cell's
+    // fitted total by scaling its kept (positive) values; unclipped cells
+    // are untouched (factor exactly 1).
+    cellSums.forEach((sums, cellKey) => {
+      if (!(sums.kept > sums.fitted) || !(sums.fitted > 0)) return;
+      const factor = sums.fitted / sums.kept;
+      cellOf.forEach((key, playerKey) => {
+        if (key === cellKey) adjusted.set(playerKey, adjusted.get(playerKey) * factor);
+      });
     });
     return adjusted;
   }
@@ -2317,7 +2344,7 @@
   }
 
   // Refit + redraw + republish after any weight change (position or bench).
-  function refreshAfterWeightChange() {
+  function refreshAfterWeightChange(publish = true) {
     crossRank = null;
     liveCellsCache = null;
     syncPositionWeightControls();
@@ -2328,7 +2355,7 @@
     runRegressionGuards();
     draw();
     syncCurveStatus();
-    publishShared();
+    if (publish) publishShared();
   }
 
   function twoTierConfig() {
@@ -3228,6 +3255,16 @@
     // Syncing from the central setter covers every path (slider, dblclick
     // reset, the "Reset to 15%" button, resetAllWeights, external callers).
     syncWeightsReadout();
+    // GAP-BENCH-SHARE-LOW-PIE: the slider used to move only the control and
+    // readout; the chart kept the old share's values (and stale diagnostics)
+    // until some unrelated rebuild re-priced it, so a failed guard could not
+    // be recovered by moving the slider back. Re-price now, like the
+    // position-weight sliders do. Before init finishes there is nothing to
+    // re-price (init runs the guards itself).
+    if (engineReady) {
+      refreshAfterWeightChange(publish);
+      return;
+    }
     if (publish) publishShared();
   }
 
@@ -4086,6 +4123,13 @@
     if (status) status.textContent = `${match.name}: ${sourceLabel(selectedRankSourceKey())} player-axis rank ${rank}.`;
   }
 
+  function clearCanvasForFailedGuard() {
+    const context = canvas?.getContext?.("2d");
+    if (!context) return;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, canvas.width, canvas.height);
+  }
+
   function draw() {
     // Fail closed consistently. The resize listener calls draw() directly, so
     // without this a guard failure produced a contradictory page: the status
@@ -4415,7 +4459,22 @@
     // JEG-30: the per-source numbers live in the Chart Health detail view
     // (recorded above), not in the error string. The thrown error keeps a
     // plain-words summary; open Chart Health for the per-source breakdown.
-    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) throw new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
+    if (failed.length || !defaultGroupedSources || !pureVorpAvailable || !adjustableBenchShare || !tieredEspnValues) {
+      const error = new Error(`Curve regression guard failed: ${failed.map(([key]) => key).concat(defaultGroupedSources ? [] : ["defaultGroupedSources"], pureVorpAvailable ? [] : ["pureVorpAvailable"], adjustableBenchShare ? [] : ["adjustableBenchShare"], tieredEspnValues ? [] : ["tieredEspnValues"]).join(", ")}. See Chart Health for per-source diagnostics.`);
+      // Fail closed for THIS setting only: no curves painted (draw() and the
+      // resize listener refuse) and the status says why. The next control
+      // change re-runs the guards and, when they pass, repaints and resets
+      // the status (GAP-BENCH-SHARE-LOW-PIE: a failure used to leave
+      // guardsPassed true, so a resize repainted the rejected curves).
+      guardsPassed = false;
+      clearCanvasForFailedGuard();
+      const status = $("#curve-status");
+      if (status) {
+        status.classList.remove("validated");
+        status.innerHTML = `<strong>Curves unavailable:</strong> ${error.message}`;
+      }
+      throw error;
+    }
     guardsPassed = true;
   }
 
@@ -4454,7 +4513,7 @@
     // JEG332-VORP-VIEWS: re-run the guards (and refresh the diagnostics) for
     // the view just entered, as every other control does. Skipped during
     // init, before the first guard run, when the toggles do not exist yet.
-    if (guardsPassed) runRegressionGuards();
+    if (engineReady || guardsPassed) runRegressionGuards();
     draw();
     syncCurveStatus();
     if (publish) window.dispatchEvent(new CustomEvent("trade-value-view-mode-change", { detail: { viewMode: mode } }));
