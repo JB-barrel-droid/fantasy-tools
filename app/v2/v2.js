@@ -258,12 +258,15 @@
     $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
+    const notes = [];
     if (rangeOn && view.omittedMissing) {
-      note.hidden = false;
-      note.textContent = `${view.omittedMissing} player${view.omittedMissing === 1 ? "" : "s"} omitted: no ${sourceMeta(view.rankKey).short} value to compare against the range.`;
-    } else {
-      note.hidden = true;
+      notes.push(`${view.omittedMissing} player${view.omittedMissing === 1 ? "" : "s"} omitted: no ${sourceMeta(view.rankKey).short} value to compare against the range.`);
     }
+    if (state.delta) {
+      notes.push("Δ prior week: no prior-week values are saved yet, so every change shows Δ — instead of a number, never zero.");
+    }
+    note.hidden = !notes.length;
+    note.textContent = notes.join(" ");
   }
 
   // ---------- chart ----------
@@ -645,7 +648,7 @@
     title.textContent = row.name;
     const meta = document.createElement("p");
     meta.className = "v2-meta";
-    meta.textContent = `#${row.rank} by ${sourceMeta(view.rankKey).short} · ${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+    meta.textContent = `${row.rank ? `#${row.rank} by ${sourceMeta(view.rankKey).short} · ` : ""}${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
     const zeroBadge = espnZeroBadge(row);
     let zeroNote = null;
     if (zeroBadge) {
@@ -688,13 +691,49 @@
     const note = document.createElement("p");
     note.className = "v2-note";
     note.textContent = "DDA and Index values share the trade-value point scale for your league. VORP vs waivers is its own unit and is not comparable to them.";
-    drawer.append(close, title, meta);
+    drawer.append(close, title, meta, tradeActions(row));
     if (zeroNote) drawer.appendChild(zeroNote);
     drawer.append(...sections, note);
     $("v2Scrim").hidden = false;
     drawer.hidden = false;
     close.focus();
   }
+  // Player detail → Compare a trade: put the player on one side and open the tab.
+  function tradeActions(row) {
+    const key = String(row.player_key);
+    const on = ["give", "receive"].find(side => TR[side].some(p => p.key === key));
+    const box = document.createElement("div");
+    box.className = "v2-drawer-trade";
+    if (on) {
+      const p = document.createElement("p");
+      p.className = "v2-meta";
+      p.dataset.tradeOn = on;
+      p.textContent = `✓ On your trade: ${on === "give" ? "you give" : "you get"}.`;
+      const open = document.createElement("a");
+      open.className = "v2-link";
+      open.href = "v2/#compare-trade";
+      open.textContent = "Open Compare a trade ↗";
+      open.addEventListener("click", closeDrawer);
+      box.append(p, open);
+      return box;
+    }
+    [["give", "↑ Add to You give"], ["receive", "↓ Add to You get"]].forEach(([side, label]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "v2-btn";
+      b.dataset.tradeAdd = side;
+      b.textContent = label;
+      b.addEventListener("click", () => {
+        TR[side] = TR[side].concat({key, name: row.name});
+        closeDrawer();
+        if (location.hash === "#compare-trade") renderCompare();
+        else location.hash = "#compare-trade";
+      });
+      box.appendChild(b);
+    });
+    return box;
+  }
+
   function closeDrawer() {
     $("v2Drawer").hidden = true;
     $("v2Scrim").hidden = true;
@@ -1386,7 +1425,13 @@
       const li = document.createElement("li");
       li.dataset.playerKey = String(row.player_key);
       const who = document.createElement("div");
-      const name = document.createElement("b");
+      const name = document.createElement(row.unpriced ? "b" : "button");
+      if (!row.unpriced) {
+        name.type = "button";
+        name.className = "v2-trade-name";
+        name.setAttribute("aria-label", `${row.name}: player details`);
+        name.addEventListener("click", () => openDrawer(row));
+      }
       name.textContent = row.name;
       appendEspnZero(name, row);
       const sub = document.createElement("span");

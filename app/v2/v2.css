@@ -351,3 +351,15 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-drawer h2 { font-size: 20px; padding-right: 88px; }
   .v2-drawer .close { top: 12px; right: 12px; }
 }
+
+/* Player detail → Compare a trade. */
+.v2-drawer-trade { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; }
+.v2-drawer-trade .v2-btn { flex: 1 1 160px; }
+.v2-drawer-trade .v2-link { display: inline-flex; align-items: center; text-decoration: none; }
+.v2-trade-players .v2-trade-name { display: block; background: none; border: 0; padding: 0; font-weight: 700; cursor: pointer; text-align: left; min-height: 24px; text-decoration: underline; text-decoration-color: var(--v2-border); text-underline-offset: 3px; }
+
+/* Below 768 px every tab stays on screen: the tabs wrap instead of scrolling sideways. */
+@media (max-width: 767px) {
+  .v2-tabs { flex-wrap: wrap; overflow: visible; gap: 4px; padding-bottom: 8px; }
+  .v2-tab { min-height: 44px; }
+}

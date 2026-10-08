@@ -157,3 +157,32 @@ Built 2026-10-08 without opening the frames (figma.com is blocked from the cloud
 - Empty: on Player values, filters that leave no player hide the chart and table and say which filter
   did it (search text, value range, position), with "Clear filters".
 - Overlays 09–12 (sources, freshness, weights & bench, league) were already built; no change.
+
+## Navigation, Δ prior week and detail → trade (2026-10-08)
+
+- Below 768 px the tabs wrap onto extra rows instead of scrolling sideways, so every tab is on screen
+  at 390 (they were cut off past "Risers & fallers"). In-build tabs keep their "soon" label.
+- Δ prior week on: the reason is visible text under the filters, not only a hover title. Every Δ
+  stays "Δ —" until the prior-week contract below exists.
+- Player detail has "↑ Add to You give" / "↓ Add to You get". It puts the player on that side of
+  Compare a trade and opens the tab; once on the trade, the detail says so and links to the tab. A
+  player's name on Compare a trade opens the detail.
+
+## Back-end requests
+
+**BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
+Frame 22: "Δ = current value − prior-week value for that exact pair, recomputed with current league
+and weights. No match: 'Δ —' plus a reason, never zero. Never substitute a stale curve or history."
+v2 needs, read-only from the engine, something like
+`TradeValueCurveControls.getPriorRows()` (or a `prior` map on each `getRows()` row):
+
+- per player_key and per series key, the value the same engine computes from the **prior content
+  week's saved inputs** at the **current** league settings and weights (not last week's published
+  numbers at last week's settings);
+- `null` where that series had no value for the player last week, plus a per-series reason when the
+  whole series has no prior week (new source, missing snapshot, paused);
+- the prior content week number per series, so the page can label "vs Week N" and refuse a pair
+  whose weeks are not exactly one apart.
+
+v2 will compute only `current − prior` per exact pair, as it does for gaps. Until this exists the Δ
+toggle stays "Δ —" with the reason, and Risers & fallers stays marked "soon".
