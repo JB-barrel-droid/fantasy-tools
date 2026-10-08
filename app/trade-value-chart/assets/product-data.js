@@ -217,6 +217,27 @@
   // espn_ppg, rz_ppg, cbsros_ppg) and add the contract-mandated
   // canonical_name + kdst_excluded_from_chart + ir_zeroed so the cutover
   // does not change downstream semantics.
+  // GAP-025 (Jeremy, 2026-10-07): published charts keep their values as
+  // published; players ESPN projects at 0 get a visible badge instead. The
+  // flag reads the bake's own ESPN fields: espn_status "ineligible" means ESPN
+  // lists the player with a zero projection (injured or out), and an ESPN row
+  // whose per-game projection is 0 in every scoring is the same thing.
+  // espn_status "absent" means ESPN has no row at all; that is missing, not 0,
+  // and never gets the badge.
+  const ESPN_ZERO_BADGE = Object.freeze({
+    label: "ESPN: 0 (out)",
+    symbol: "\u2298",
+    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out). Published charts are shown as published, so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
+  });
+  function espnProjectsZero(player) {
+    if (player?.espn_status === "ineligible") return true;
+    if (player?.espn_status === "absent") return false;
+    const ppg = player?.espn_ppg;
+    if (!ppg || typeof ppg !== "object") return false;
+    const values = Object.values(ppg);
+    return values.length > 0 && values.every(value => typeof value === "number" && value === 0);
+  }
+
   function buildPlayers(playersPayload) {
     const raw = Array.isArray(playersPayload?.players) ? playersPayload.players : [];
     return Object.freeze(raw.map(player => {
@@ -230,6 +251,7 @@
         pos,
         team: String(player.team || "—"),
         ir_zeroed: Boolean(player.ir_zeroed),
+        espn_projects_zero: espnProjectsZero(player),
         kdst_excluded_from_chart: isKdst,
         espn_ppg: player.espn_ppg || null,
         rz_ppg: player.rz_ppg || null,
@@ -918,6 +940,7 @@
     AS_PUBLISHED_KEYS,
     QB_AWARE_SOURCES,
     CONTRACT_VERSION,
+    ESPN_ZERO_BADGE,
   });
 
   // ---------- Export ----------
@@ -953,6 +976,8 @@
     AS_PUBLISHED_KEYS,
     QB_AWARE_SOURCES,
     CONTRACT_VERSION,
+    ESPN_ZERO_BADGE,
+    espnProjectsZero,
   };
   if (typeof window !== "undefined") {
     window.TradeValueProductData = api;

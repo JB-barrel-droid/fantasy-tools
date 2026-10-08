@@ -130,6 +130,7 @@ test-unit:
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_targets_render
+	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo

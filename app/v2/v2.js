@@ -97,6 +97,27 @@
     return info;
   }
   const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";
+
+  // GAP-025: a label + symbol badge for players ESPN projects at 0
+  // (injured/out). The engine flags them from ESPN's own row; a player ESPN has
+  // no row for is missing, not 0, and gets nothing. Values stay as published.
+  function espnZeroBadge(row) {
+    const copy = row && row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
+    if (!copy) return null;
+    const badge = document.createElement("span");
+    badge.className = "v2-espn-zero";
+    badge.dataset.espnZero = "";
+    badge.title = copy.title;
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = copy.symbol;
+    badge.append(sym, document.createTextNode(` ${copy.label}`));
+    return badge;
+  }
+  function appendEspnZero(parent, row) {
+    const badge = espnZeroBadge(row);
+    if (badge) parent.appendChild(badge);
+  }
   const tierLabel = role => ({starter: "Starter", bench: "Bench", waiver: "Waiver"}[role] || "—");
 
   function collect() {
@@ -375,6 +396,7 @@
     tip.innerHTML = "";
     const h = document.createElement("h3");
     h.textContent = row.name;
+    appendEspnZero(h, row);
     const meta = document.createElement("span");
     meta.className = "v2-meta";
     meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}${weekNote}`;
@@ -564,6 +586,7 @@
         } else {
           td.textContent = v;
           if (col.id === "name") {
+            appendEspnZero(td, row);
             const sub = document.createElement("span");
             sub.className = "player-sub";
             sub.textContent = `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
@@ -598,6 +621,14 @@
     const meta = document.createElement("p");
     meta.className = "v2-meta";
     meta.textContent = `#${row.rank} by ${sourceMeta(view.rankKey).short} · ${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+    const zeroBadge = espnZeroBadge(row);
+    let zeroNote = null;
+    if (zeroBadge) {
+      zeroNote = document.createElement("p");
+      zeroNote.className = "v2-espn-zero-note";
+      zeroNote.append(zeroBadge, document.createTextNode(` ${zeroBadge.title}`));
+      zeroBadge.removeAttribute("title");
+    }
     const dl = document.createElement("dl");
     const methodRank = {dda: 0, indexed: 1, vorp: 2};
     view.info.filter(item => item.available)
@@ -616,7 +647,9 @@
     const note = document.createElement("p");
     note.className = "v2-note";
     note.textContent = "DDA and Index values share the trade-value point scale for your league. VORP vs waivers is its own unit and is not comparable to them.";
-    drawer.append(close, title, meta, dl, note);
+    drawer.append(close, title, meta);
+    if (zeroNote) drawer.appendChild(zeroNote);
+    drawer.append(dl, note);
     $("v2Scrim").hidden = false;
     drawer.hidden = false;
     close.focus();
@@ -1025,6 +1058,7 @@
         return cell;
       };
       const name = td("player", p.row.name);
+      appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
@@ -1073,6 +1107,7 @@
       const who = document.createElement("div");
       const name = document.createElement("b");
       name.textContent = p.row.name;
+      appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
@@ -1109,6 +1144,40 @@
     });
   }
 
+  // GAP-025: players ESPN projects at 0 whom a compared chart still pays for.
+  // No gap is computed (the engine has no ESPN · DDA value for them); the
+  // chart's value is shown as the engine has it.
+  function renderEspnZeroPaid() {
+    const box = $("v2TEspnZero");
+    const list = $("v2TEspnZeroList");
+    const items = T.side === "sell" && !targetsView.blocked ? (targetsView.espnZeroPaid || []) : [];
+    list.replaceChildren();
+    items.forEach(item => {
+      const li = document.createElement("li");
+      li.tabIndex = 0;
+      li.dataset.playerKey = String(item.row.player_key);
+      li.addEventListener("click", () => openDrawer(item.row));
+      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(item.row); });
+      const name = document.createElement("b");
+      name.textContent = item.row.name;
+      appendEspnZero(name, item.row);
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = ` ${item.row.pos} · ${item.row.team || "FA"}`;
+      const paid = document.createElement("span");
+      paid.className = "paid";
+      item.paid.forEach(cell => {
+        const span = document.createElement("span");
+        span.dataset.chart = cell.chart;
+        span.textContent = `${PUBLISHER_NAMES[cell.chart] || cell.chart} ${fmt(cell.value)}`;
+        paid.appendChild(span);
+      });
+      li.append(name, sub, paid);
+      list.appendChild(li);
+    });
+    box.hidden = !items.length;
+  }
+
   function renderTargets() {
     collect();
     collectTargets();
@@ -1117,6 +1186,7 @@
     const list = T.side === "sell" ? targetsView.sell : targetsView.buy;
     renderTargetTable(list);
     renderTargetCards(list);
+    renderEspnZeroPaid();
     const empty = $("v2TEmpty");
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;

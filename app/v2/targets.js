@@ -25,9 +25,23 @@
   function buildTargets(rows, charts) {
     const players = [];
     let omittedNoOurs = 0;
+    // GAP-025: players ESPN projects at 0 (injured/out) have no ESPN · DDA
+    // value in the engine, so they get no gap. A published chart that still
+    // pays for one is the plainest sell there is; list them with the chart's
+    // value as published, and no invented gap.
+    const espnZeroPaid = [];
     rows.forEach((row, index) => {
       const ours = row.values ? row.values[OUR_KEY] : null;
-      if (!finite(ours)) { omittedNoOurs += 1; return; }
+      if (!finite(ours)) {
+        omittedNoOurs += 1;
+        if (row.espnProjectsZero) {
+          const paid = charts.filter(chart => finite(row.values && row.values[chart]) && row.values[chart] > 0)
+            .map(chart => ({chart, value: row.values[chart]}))
+            .sort((a, b) => b.value - a.value);
+          if (paid.length) espnZeroPaid.push({row, order: index + 1, paid});
+        }
+        return;
+      }
       const cells = {};
       let bestSell = null;
       let bestBuy = null;
@@ -48,7 +62,8 @@
       .sort((a, b) => b.bestSell.gap - a.bestSell.gap || a.order - b.order);
     const buy = players.filter(p => p.bestBuy)
       .sort((a, b) => a.bestBuy.gap - b.bestBuy.gap || a.order - b.order);
-    return {sell, buy, compared: players.length, omittedNoOurs};
+    espnZeroPaid.sort((a, b) => b.paid[0].value - a.paid[0].value || a.order - b.order);
+    return {sell, buy, compared: players.length, omittedNoOurs, espnZeroPaid};
   }
 
   // Chart columns to compare: available published charts; older-week charts
