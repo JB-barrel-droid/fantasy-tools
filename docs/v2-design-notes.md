@@ -338,6 +338,20 @@ text node (`tests/test_v2_a11y_render.py`).
   because a #fragment would change the hash route). With player detail or a settings panel open, Tab and
   Shift+Tab stay inside it.
 
+## Product decisions (Jeremy, 2026-10-08, task 4 review)
+
+Asked as multiple choice after the product-marketing review; not built yet (build on request).
+
+- **Brand:** nav wordmark, `<title>` and og:title become "Data Driven Football".
+- **Landing tab:** a first visit opens on Trade targets; shared trade links still open Compare a trade.
+- **Chips and legends:** plain names at 768 px and up ("ESPN · Our value · Week 5", "FantasyCalc chart ·
+  Week 5", "Solid = our value · Dashed = published chart"); the short forms only below 768.
+- **Publisher-data rights:** the first release is a proof of concept without legal concerns; rights are
+  the next step once it works.
+- **Trade verdict:** keep none; per-source rows plus the story card.
+- **Page weight:** fix (about 12 MB, about 5 s to usable on a slowed phone) before the proof of concept
+  goes out; covered by its own task.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
