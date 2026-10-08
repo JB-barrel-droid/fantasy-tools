@@ -200,7 +200,7 @@ def verify(swept):
 
 
 def _widget():
-    return (APP / "assets" / "curve-widget.js").read_text()
+    return (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
 
 
 class ViewInvariants(unittest.TestCase):

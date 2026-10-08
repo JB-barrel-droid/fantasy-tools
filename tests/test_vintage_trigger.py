@@ -210,7 +210,7 @@ class VintageWorkflowContractTests(unittest.TestCase):
                    "GITHUB_OUTPUT": str(out), "GITHUB_STEP_SUMMARY": str(Path(tmp) / "summary")}
             proc = subprocess.run(["bash", "-e", "-c", script], env=env,
                                   capture_output=True, text=True, timeout=60)
-            outputs = out.read_text() if out.exists() else ""
+            outputs = out.read_text(encoding="utf-8") if out.exists() else ""
         return proc.returncode, outputs
 
     def test_check_step_survives_script_exit_1(self):

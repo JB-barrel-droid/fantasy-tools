@@ -12,8 +12,8 @@ ASSETS = ROOT / 'app' / 'trade-value-chart' / 'assets'
 
 class SourceComboContractTests(unittest.TestCase):
     def run_node(self, body):
-        table = (ASSETS / 'comparison-dashboard.js').read_text()
-        curve = (ASSETS / 'curve-widget.js').read_text()
+        table = (ASSETS / 'comparison-dashboard.js').read_text(encoding="utf-8")
+        curve = (ASSETS / 'curve-widget.js').read_text(encoding="utf-8")
         helpers = '\n'.join(extract_function(table, name) for name in
                             ('comboKeyFor', 'sourceComboExists', 'selectedCombo', 'sourceValue',
                              'allColumnKeys', 'runRegressionGuards'))

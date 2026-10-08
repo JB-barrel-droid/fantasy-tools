@@ -50,7 +50,7 @@ def provided_globals(sources):
         path = ASSETS / src
         if not path.exists():
             continue
-        for name in TRADE_VALUE_DEF_RE.findall(path.read_text()):
+        for name in TRADE_VALUE_DEF_RE.findall(path.read_text(encoding="utf-8")):
             provided.setdefault(name, src)
     return provided
 
@@ -68,9 +68,9 @@ def check_wiring(html: str):
             problems.append(f"product-data.js loads after {consumer}")
     provided = provided_globals(sources)
     for consumer_path in (WIDGET, DASHBOARD):
-        needed = set(TRADE_VALUE_GLOBAL_RE.findall(consumer_path.read_text()))
+        needed = set(TRADE_VALUE_GLOBAL_RE.findall(consumer_path.read_text(encoding="utf-8")))
         # Globals a module defines for itself are not a wiring dependency.
-        defined_here = set(TRADE_VALUE_DEF_RE.findall(consumer_path.read_text()))
+        defined_here = set(TRADE_VALUE_DEF_RE.findall(consumer_path.read_text(encoding="utf-8")))
         for name in sorted(needed - defined_here):
             if name not in provided:
                 problems.append(
@@ -82,7 +82,7 @@ def check_wiring(html: str):
 
 def scoring_prefix_map():
     """Parse the SCORING_PREFIX map out of product-data.js."""
-    text = PRODUCT_DATA.read_text()
+    text = PRODUCT_DATA.read_text(encoding="utf-8")
     m = re.search(r"SCORING_PREFIX\s*=\s*\{([^}]+)\}", text)
     if not m:
         return {}
@@ -93,7 +93,7 @@ def scoring_prefix_map():
 def check_combo_keys_reachable(prefix_map):
     """Every widget scoring name must resolve to a real fixture combo key."""
     problems = []
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     espn_combos = set(fixture["sources"]["espn"]["combos"])
     for scoring in WIDGET_SCORINGS:
         prefix = prefix_map.get(scoring)
@@ -111,12 +111,12 @@ def check_combo_keys_reachable(prefix_map):
 
 class TestProductDataWiring(unittest.TestCase):
     def test_script_tag_present_and_ordered(self):
-        problems = check_wiring(INDEX.read_text())
+        problems = check_wiring(INDEX.read_text(encoding="utf-8"))
         self.assertEqual(problems, [], f"wiring problems: {problems}")
 
     def test_broken_state_missing_tag_is_caught(self):
         """Simulate the shipped JEG-363 gap: strip the product-data.js tag."""
-        html = INDEX.read_text()
+        html = INDEX.read_text(encoding="utf-8")
         broken = re.sub(
             r'<script\s+src="assets/product-data\.js[^"]*"[^>]*>\s*',
             "",

@@ -19,7 +19,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / ".github/workflows/espn-supabase-sync.yml").read_text()
+WORKFLOW = (ROOT / ".github/workflows/espn-supabase-sync.yml").read_text(encoding="utf-8")
 SCRAPER = ROOT / "pipelines" / "pull_espn_projections.py"
 
 # The scrape step as it was on main before JEG-102 (verified in the 2026-10-02 run log).

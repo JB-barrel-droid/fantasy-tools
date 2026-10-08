@@ -178,7 +178,7 @@ def rendered_state(sources_edit=None, text_mutations=None):
         def log_message(self, *args):
             pass
 
-    data = json.loads((SERVE / "assets" / "comparison-sources-data.json").read_text())
+    data = json.loads((SERVE / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
     if sources_edit:
         sources_edit(data["sources"])
     today = datetime.datetime.now(ZoneInfo("America/New_York")).date().isoformat()

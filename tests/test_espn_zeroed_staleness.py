@@ -14,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 import check_data_accuracy as cda  # noqa: E402
 
-DASHBOARD = (ROOT / "modules" / "dashboard.html").read_text()
+DASHBOARD = (ROOT / "modules" / "dashboard.html").read_text(encoding="utf-8")
 
 
 def fixture(**sources):
@@ -103,7 +103,7 @@ class MonitorWiringTest(unittest.TestCase):
                         "the loader is defined but never called")
 
     def test_the_built_dashboard_copy_matches(self):
-        self.assertEqual(DASHBOARD, (ROOT / "dist" / "modules" / "dashboard.html").read_text())
+        self.assertEqual(DASHBOARD, (ROOT / "dist" / "modules" / "dashboard.html").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

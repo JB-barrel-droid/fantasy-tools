@@ -172,7 +172,7 @@ class TestTwoTierPort(unittest.TestCase):
         # pool, never ECR. The ECR pool's tail-floor caps total less than
         # bench capacity, which made the capacity invariant unsatisfiable;
         # production never feeds ECR here.
-        with PLAYERS.open() as f:
+        with PLAYERS.open(encoding="utf-8") as f:
             players = json.load(f)["players"]
         pools = {}
         for pos in ("QB", "RB", "WR", "TE"):
@@ -331,9 +331,9 @@ class TestTwoTierPort(unittest.TestCase):
 
 def build_configs():
     """The 12 supported scoring x teams configs from fixture data."""
-    with PLAYERS.open() as f:
+    with PLAYERS.open(encoding="utf-8") as f:
         players = json.load(f)["players"]
-    with COMPARE.open() as f:
+    with COMPARE.open(encoding="utf-8") as f:
         compare = json.load(f)["sources"]["espn"]["combos"]
     compact = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
     ref_slots = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
@@ -549,8 +549,8 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                 "refitLiveCells", "liveCellsCache"]
 
     def test_fallback_branch_functions_unchanged(self):
-        golden = json.loads(self.GOLDEN_PATH.read_text())
-        current = WIDGET.read_text()
+        golden = json.loads(self.GOLDEN_PATH.read_text(encoding="utf-8"))
+        current = WIDGET.read_text(encoding="utf-8")
         for name, body in golden.items():
             new = extract_function(current, name)
             self.assertIsNotNone(new, f"{name} missing from widget")
@@ -562,7 +562,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                     f"{name} references live machinery {ident}: empty-cell fallback is not independent")
 
     def test_display_share_frozen(self):
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("const DISPLAY_BENCH_SHARE = DEFAULT_BENCH_SHARE;", text)
         # Assert the INVARIANT (share defaults to the frozen display share) rather
         # than the literal signature, so adding a parameter cannot fail this.
@@ -590,7 +590,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         model = (APP / "assets" / "value-model.js").read_text(encoding="utf-8")
         self.assertIn("function sharedPieBasis(", model,
                       "shared-set pie basis missing from the shared model")
-        body = extract_function(WIDGET.read_text(), "normalizeTradeChartToFixedPie")
+        body = extract_function(WIDGET.read_text(encoding="utf-8"), "normalizeTradeChartToFixedPie")
         self.assertIsNotNone(body)
         self.assertIn("anchor", body, "normalisation must accept an anchor")
         self.assertIn("ValueModel.normalizeToFixedPie", body,
@@ -607,7 +607,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                 if "normalizeTradeChartToFixedPie(" in line:
                     self.assertIn("anchorMap", line,
                                   "%s normalises without an anchor: %s" % (name, line.strip()[:80]))
-        body = extract_function(WIDGET.read_text(), "rebuildDomain")
+        body = extract_function(WIDGET.read_text(encoding="utf-8"), "rebuildDomain")
         self.assertIsNotNone(body)
         calls = []
         needle = "normalizeTradeChartToFixedPie("
@@ -631,7 +631,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                           f"normalisation call without an anchor: {call.strip()[:90]}")
 
     def test_anchor_is_built_before_the_sources_that_use_it(self):
-        body = extract_function(WIDGET.read_text(), "rebuildDomain")
+        body = extract_function(WIDGET.read_text(encoding="utf-8"), "rebuildDomain")
         self.assertIsNotNone(body)
         built = body.index("const anchorMap")
         first_use = body.index("normalizeTradeChartToFixedPie")
@@ -639,7 +639,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                         "anchor must be built before any source normalises against it")
 
     def test_pie_diagnostic_checks_the_shared_set(self):
-        body = extract_function(WIDGET.read_text(), "fixedPieDiagnostics")
+        body = extract_function(WIDGET.read_text(encoding="utf-8"), "fixedPieDiagnostics")
         self.assertIsNotNone(body)
         self.assertIn('"shared"', body,
                       "diagnostic must report a shared-set basis")
@@ -653,7 +653,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
     def test_no_ecr_value_reaches_the_widget(self):
         """ECR is out of the build. preseason_ecr_rank is an ordering input,
         not a value, so only *_ppg / *_ros value fields are forbidden."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         leaks = re.findall(r"ecr_(?:ppg|ros|share)", text)
         self.assertEqual(leaks, [], f"ECR value field(s) still read by the widget: {leaks}")
 
@@ -759,7 +759,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                              "%s: buildVorpRows must not use modeled published values" % name)
             self.assertNotIn('buildPublishedSourceMap("espn")', body,
                              "%s: buildVorpRows must not read the ESPN-implied combo" % name)
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         body = extract_function(text, "buildVorpRows")
         self.assertIn("rawProjectionVorp", body,
                       "buildVorpRows must compute raw projection-minus-waiver VORP")

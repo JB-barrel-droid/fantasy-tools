@@ -179,7 +179,7 @@ class ImputationParity(unittest.TestCase):
         self.assertGreater(n, 500)
 
     def test_guard_catches_broken_ports(self):
-        source = VALUE_MODEL.read_text()
+        source = VALUE_MODEL.read_text(encoding="utf-8")
         mutations = {
             "no-cap": ("Math.min(last, slot[0] / slot[1])", "slot[0] / slot[1]"),
             "fit-whole-list": ("return Number(p.value) <= median;", "return true;"),
@@ -209,7 +209,7 @@ class ImputationParity(unittest.TestCase):
 
 class SavedFixture(unittest.TestCase):
     def test_saved_values_are_the_peer_extended_translation(self):
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(stored_drift_problems(fixture)[0], [])
         tr = fixture["sources"]["cbs"]["combos"]["full_12"]["translation"]
         self.assertEqual(tr["waiver_imputation"]["imputed_positions"], ["QB", "RB", "WR", "TE"])
@@ -218,7 +218,7 @@ class SavedFixture(unittest.TestCase):
     def test_old_end_of_list_values_are_caught(self):
         """Negative: the pre-change saved CBS values (waiver at the end of the
         list, provenance without the waiver block) must fail stored drift."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         broken = copy.deepcopy(fixture)
         pk = broken["player_keys"]
         for scoring, combo_key in (("ppr", "full_12"), ("half_ppr", "half_12"), ("standard", "standard_12")):

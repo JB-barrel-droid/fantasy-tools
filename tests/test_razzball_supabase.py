@@ -74,7 +74,7 @@ class MigrationMatchesSaverTest(unittest.TestCase):
     """The saver can only write columns the table has; a missing column is a 400 at
     the first real save, after the table was already created. Guard it here."""
 
-    SQL = (ROOT / "sql" / "migrations" / "003_razzball_projections.sql").read_text()
+    SQL = (ROOT / "sql" / "migrations" / "003_razzball_projections.sql").read_text(encoding="utf-8")
 
     def columns(self):
         import re
@@ -289,12 +289,12 @@ class ImporterTest(unittest.TestCase):
 
     def test_native_shape_and_manifest(self):
         result = self.import_rows(self.table_rows())
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual("trade-value-razzball-snapshot-v1", snapshot["schema"])
         self.assertEqual("2026-10-01", snapshot["vintage_date"])  # the leg fail-closes without it
         self.assertEqual("2026-10-01", result["content_vintage"])
         self.assertEqual(2, snapshot["row_count"])
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual("public.razzball_projections", manifest["supabase_table"])
         self.assertIsNone(manifest["week_designated"])  # daily rule, never a week label
         self.assertIn("razzball_snapshot_date", manifest["content_vintage_derived_from"])
@@ -304,14 +304,14 @@ class ImporterTest(unittest.TestCase):
         # must keep Razzball's label so the two build paths bucket the player the same.
         importer.fetch_player_positions = lambda keys: {869: "RB", 2227: "RB"}
         rows = self.table_rows()
-        snapshot = json.loads(self.import_rows(rows)["snapshot_path"].read_text())
+        snapshot = json.loads(self.import_rows(rows)["snapshot_path"].read_text(encoding="utf-8"))
         by_name = {r["player_name"]: r["pos"] for r in snapshot["rows"]}
         self.assertEqual("QB", by_name["Josh Allen"])  # the table's pos, not players.position
 
     def test_missing_per_game_goes_to_review(self):
         rows = self.table_rows()
         rows[0]["per_game_ppr"] = None
-        snapshot = json.loads(self.import_rows(rows)["snapshot_path"].read_text())
+        snapshot = json.loads(self.import_rows(rows)["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(1, snapshot["row_count"])
         self.assertEqual("missing_or_non_numeric_per_game", snapshot["review_rows"][0]["reason"])
 
@@ -319,13 +319,13 @@ class ImporterTest(unittest.TestCase):
         old = [dict(r, razzball_snapshot_date="2026-09-22", source_content_date="2026-09-22")
                for r in self.table_rows()]
         new = self.table_rows("2026-10-01")
-        snapshot = json.loads(self.import_rows(old + new)["snapshot_path"].read_text())
+        snapshot = json.loads(self.import_rows(old + new)["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual("2026-10-01", snapshot["vintage_date"])
         self.assertEqual(2, snapshot["row_count"])
 
     def test_round_trip_file_to_table_to_snapshot_carries_the_same_values(self):
         original = {r["player_name"]: r for r in SNAPSHOT_ROWS}
-        snapshot = json.loads(self.import_rows(self.table_rows())["snapshot_path"].read_text())
+        snapshot = json.loads(self.import_rows(self.table_rows())["snapshot_path"].read_text(encoding="utf-8"))
         rebuilt = {r["player_name"]: r for r in snapshot["rows"]}
         self.assertEqual(set(original), set(rebuilt))
         for name, row in original.items():

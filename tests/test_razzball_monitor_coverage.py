@@ -22,7 +22,7 @@ def _newest_razzball_leg_natives(leg_dir):
     """Independent read of the newest 12-team Razzball legs' per-game values."""
     legs = []
     for path in leg_dir.glob("*/ddf_leg_razzball.json"):
-        leg = json.loads(path.read_text())
+        leg = json.loads(path.read_text(encoding="utf-8"))
         inputs = leg.get("inputs", {})
         if inputs.get("teams") == 12 and inputs.get("scoring") in ("ppr", "half_ppr", "standard"):
             legs.append(leg)
@@ -49,7 +49,7 @@ class RazzballMonitorCoverageTest(unittest.TestCase):
         self.assertFalse(health["supabase_landing"])
 
     def test_razzball_is_in_dashboard_source_orders(self):
-        text = DASHBOARD_HTML.read_text()
+        text = DASHBOARD_HTML.read_text(encoding="utf-8")
         source_order = re.search(r"const SOURCE_ORDER = \[([^\]]+)\];", text)
         self.assertIsNotNone(source_order)
         self.assertIn('"razzball"', source_order.group(1))

@@ -26,7 +26,7 @@ def _call_sites(text):
 
 class FirstOkUnwrapTest(unittest.TestCase):
     def test_every_firstok_call_site_unwraps_json(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         sites = list(_call_sites(text))
         self.assertTrue(sites, "no firstOk call sites found -- test wiring is stale")
         broken = []
@@ -43,7 +43,7 @@ class FirstOkUnwrapTest(unittest.TestCase):
     def test_promise_all_destructuring_still_unwraps(self):
         """The checkpoints/chain destructuring is the reference-correct pattern:
         both halves must be unwrapped with .json."""
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         self.assertIn(
             "await Promise.all([firstOk(CP_PATHS), firstOk(CHAIN_PATHS)])", text
         )

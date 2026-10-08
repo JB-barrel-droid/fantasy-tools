@@ -106,7 +106,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Verify review has provenance fields
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         self.assertIsNotNone(review.get("fixture_native_before_sha256"))
         self.assertIsNotNone(review.get("candidate_native_sha256"))
         self.assertIsNotNone(review.get("review_created_at"))
@@ -120,7 +120,7 @@ class TestPromotionProvenance(unittest.TestCase):
                                record_dir=str(self.records))
 
         # Verify promotion record has provenance
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         self.assertEqual(rec["native_change_classification"], "reindex_only")
         self.assertTrue(rec["is_native_no_op"])
         self.assertIsNotNone(rec["fixture_native_before_sha256"])
@@ -136,7 +136,7 @@ class TestPromotionProvenance(unittest.TestCase):
         fx_path, players_path, cp = build_world(self.tmp)
 
         # Modify candidate to have different natives (actual native change)
-        cand = json.loads(cp.read_text())
+        cand = json.loads(cp.read_text(encoding="utf-8"))
         for combo in cand["combos"]:
             for slug in cand["combos"][combo]["native"]:
                 cand["combos"][combo]["native"][slug] += 10.0  # native drift
@@ -146,7 +146,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Verify classification is native_change with hold verdict
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         self.assertEqual(review["native_change_classification"], "native_change")
         self.assertEqual(review["verdict"], "hold")
 
@@ -169,7 +169,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Now: EDIT the fixture (simulating a hand-edit after review was created)
-        fx = json.loads(fx_path.read_text())
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
         fx["sources"]["syn"]["combos"]["full_12"]["native"]["player qb0"] += 5.0
         fx_path.write_text(json.dumps(fx, separators=(",", ":")))
 
@@ -187,7 +187,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Now: modify the reindexed file after review was created
-        reidx = json.loads(rp.read_text())
+        reidx = json.loads(rp.read_text(encoding="utf-8"))
         reidx["combos"]["full_12"]["native"]["player qb0"] += 1.0
         rp.write_text(json.dumps(reidx))
 
@@ -203,7 +203,7 @@ class TestPromotionProvenance(unittest.TestCase):
         fx_path, players_path, cp = build_world(self.tmp)
 
         # Create candidate with different natives
-        cand = json.loads(cp.read_text())
+        cand = json.loads(cp.read_text(encoding="utf-8"))
         for combo in cand["combos"]:
             for slug in cand["combos"][combo]["native"]:
                 cand["combos"][combo]["native"][slug] += 10.0
@@ -213,7 +213,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Now simulate a legacy review by removing provenance fields
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         review["verdict"] = "ready"  # bypass verdict check to reach provenance check
         del review["fixture_native_before_sha256"]
         del review["candidate_native_sha256"]
@@ -235,7 +235,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Verify it's reindex_only
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         self.assertEqual(review["native_change_classification"], "reindex_only")
 
         # Simulate legacy review by removing provenance fields
@@ -262,7 +262,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Try to promote to a different source (corrupt the review)
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         review["source_key"] = "different_source"
         revp.write_text(json.dumps(review))
 
@@ -290,7 +290,7 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Corrupt to hold
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         review["verdict"] = "hold"
         revp.write_text(json.dumps(review))
 
@@ -307,10 +307,10 @@ class TestPromotionProvenance(unittest.TestCase):
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
         # Read original fixture
-        before = fx_path.read_text()
+        before = fx_path.read_text(encoding="utf-8")
 
         # Try to promote with invalid state - edit fixture first
-        fx = json.loads(fx_path.read_text())
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
         fx["sources"]["syn"]["combos"]["full_12"]["native"]["player qb0"] += 5.0
         fx_path.write_text(json.dumps(fx, separators=(",", ":")))
 
@@ -323,7 +323,7 @@ class TestPromotionProvenance(unittest.TestCase):
 
         # Fixture should be unchanged (the edited version, not rolled back)
         # This verifies we don't write on failure
-        after = fx_path.read_text()
+        after = fx_path.read_text(encoding="utf-8")
         # The fixture IS changed (we changed it), but the promotion didn't modify it further
         # The key is: no NEW changes from the failed promotion attempt
 
@@ -346,14 +346,14 @@ class TestNativeNoOpClassification(unittest.TestCase):
         # Run review (natives identical)
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         self.assertEqual(review["native_change_classification"], "reindex_only")
 
         # Promotion succeeds
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                                record_dir=str(self.records))
 
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         self.assertTrue(rec["is_native_no_op"])
 
     def test_native_change_classification(self):
@@ -361,21 +361,21 @@ class TestNativeNoOpClassification(unittest.TestCase):
         fx_path, players_path, cp = build_world(self.tmp)
 
         # Modify candidate natives
-        cand = json.loads(cp.read_text())
+        cand = json.loads(cp.read_text(encoding="utf-8"))
         cand["combos"]["full_12"]["native"]["player qb0"] = 999.0
         cp.write_text(json.dumps(cand))
 
         # Run review
         rp, revp = run_reindex_and_review(self.tmp, fx_path, players_path, cp)
 
-        review = json.loads(revp.read_text())
+        review = json.loads(revp.read_text(encoding="utf-8"))
         self.assertEqual(review["native_change_classification"], "native_change")
 
         # Promotion succeeds
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                                record_dir=str(self.records))
 
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         self.assertEqual(rec["native_change_classification"], "native_change")
         self.assertFalse(rec["is_native_no_op"])
 

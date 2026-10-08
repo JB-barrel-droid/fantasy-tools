@@ -76,7 +76,7 @@ def _espn_csv(tmpdir):
          "r_receptions": "20.0", "r_rec_yds": "150.0", "r_rec_tds": "1.0"},
     ]
     p = Path(tmpdir) / "espn.csv"
-    with open(p, "w", newline="") as f:
+    with open(p, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=cols)
         w.writeheader()
         for r in rows:
@@ -268,7 +268,7 @@ class BakeTodayUnboundLocalTest(unittest.TestCase):
         result = self._run_bake()
         out_path = bake_players.FIXTURE_DIR / "players.json"
         self.assertTrue(out_path.exists(), "players.json must be written")
-        payload = json.loads(out_path.read_text())
+        payload = json.loads(out_path.read_text(encoding="utf-8"))
         self.assertEqual(payload["meta"]["as_of"], _real_date.today().isoformat())
         self.assertGreaterEqual(result["meta"]["n_players"], 2,
                                 "two priced ESPN rows must appear")

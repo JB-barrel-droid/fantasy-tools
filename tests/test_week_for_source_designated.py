@@ -68,7 +68,7 @@ def _extract_function(text, name):
 
 
 def _run_week_for_source(keys):
-    text = JS.read_text()
+    text = JS.read_text(encoding="utf-8")
     m = re.search(r"const WEEKED_SOURCE_KEYS = new Set\(\[.*?\]\);", text, re.DOTALL)
     assert m, "WEEKED_SOURCE_KEYS not found -- test wiring is stale"
     fn = "\n".join(_extract_function(text, name) for name in ("sourceFreshness", "weekForSource"))
@@ -76,7 +76,7 @@ def _run_week_for_source(keys):
     assert row, "freshnessRow not found -- test wiring is stale"
     script = (
         "const module = {exports: {}};\nconst window = {};\n"
-        + PRODUCT_DATA.read_text()
+        + PRODUCT_DATA.read_text(encoding="utf-8")
         + "\nconst pd = module.exports;\n"
         + "window.TradeValueProductData = {getSourceFreshness: () => pd.buildSourceFreshness("
         + json.dumps(_STUB_DATA["sources"])

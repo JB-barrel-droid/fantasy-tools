@@ -11,7 +11,7 @@ class SheetOracleTests(unittest.TestCase):
         root=Path(__file__).resolve().parents[1]
         path=root/'docs/audits/jeg-242-sheet-values.json'
         self.assertEqual(hashlib.sha256(path.read_bytes()).hexdigest(),'ee21497ce441ccde935a464fa03980b7657ab0b68818c2b9f3f625a9788357e0')
-        capt=json.loads(path.read_text());sheets={s['sheet']:s['data']['values'] for s in capt['sheets']}
+        capt=json.loads(path.read_text(encoding="utf-8"));sheets={s['sheet']:s['data']['values'] for s in capt['sheets']}
         raw=sheets['IN_FC'][1:];calc={r[2]:r for r in sheets['CALC_Main'][1:]};v={str(i+1):(r[0],r[3]) for i,r in enumerate(raw)}
         g={('QB','starter'):148.84,('QB','bench'):26.27,('RB','starter'):995.91,('RB','bench'):175.75,('WR','starter'):975.04,('WR','bench'):172.07,('TE','starter'):145.73,('TE','bench'):23.38}
         out=compute_imputed_vorps(v,g,RosterConfig(12,{'QB':1,'RB':2,'WR':3,'TE':1},1,72,'half_ppr'),require_complete=True)

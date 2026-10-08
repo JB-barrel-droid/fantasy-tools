@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -37,7 +38,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             result = subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/check_reference_freshness.py",
                     "--fixtures",
                     str(fixtures),
@@ -71,7 +72,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/check_reference_freshness.py",
                     "--fixtures",
                     str(fixtures),
@@ -101,7 +102,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/check_reference_freshness.py",
                     "--fixtures",
                     str(fixtures),
@@ -152,7 +153,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/check_reference_freshness.py",
                     "--fixtures",
                     str(fixtures),
@@ -188,7 +189,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
         with TemporaryDirectory() as tmp:
             root = Path(tmp) / "fixtures"
             self.write_fixtures(root, "2026-10-08")
-            comparison = json.loads((root / "comparison-sources-data.json").read_text())
+            comparison = json.loads((root / "comparison-sources-data.json").read_text(encoding="utf-8"))
             comparison["sources"] = {"usatoday": {"week_designated": "Week 5"},
                                      "cbs": {"week_designated": "Week 3"},
                                      "fantasycalc": {"week_designated": "Week 4"}}
@@ -241,7 +242,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/check_reference_freshness.py",
                     "--fixtures",
                     str(fixtures),
@@ -288,7 +289,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/check_reference_freshness.py",
                     "--fixtures",
                     str(fixtures),
@@ -369,7 +370,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
             output = Path(tmp) / "freshness.json"
             self.write_fixtures(fixtures, "2026-09-27")
             subprocess.run(
-                ["python3", "pipelines/check_reference_freshness.py", "--fixtures", str(fixtures),
+                [sys.executable, "pipelines/check_reference_freshness.py", "--fixtures", str(fixtures),
                  "--output", str(output), "--today", "2026-09-27", "--max-age-days", "2"],
                 cwd=ROOT, check=True, capture_output=True, text=True,
             )

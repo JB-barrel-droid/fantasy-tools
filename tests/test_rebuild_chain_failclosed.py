@@ -43,7 +43,7 @@ def simulate_bake(repo, **overrides):
     """players.json meta as bake_players.py writes it from the repo's inputs
     (GAP-BAKE-ON-CHANGE snapshot ids); overrides replace single ids."""
     players = Path(repo) / chain.PLAYERS_REL
-    doc = json.loads(players.read_text()) if players.is_file() else {"players": []}
+    doc = json.loads(players.read_text(encoding="utf-8")) if players.is_file() else {"players": []}
     meta = doc.setdefault("meta", {})
     for source, sid in {**input_ids(repo), **overrides}.items():
         meta[projection_identity.META_KEYS[source]] = sid
@@ -127,7 +127,7 @@ class WireFake:
 
         if script == "promote_comparison_section.py":
             review_path = Path(cmd[2])
-            data = json.loads(review_path.read_text())
+            data = json.loads(review_path.read_text(encoding="utf-8"))
             # Faithful to the real promoter: refuse non-ready verdicts.
             if data.get("verdict") != "ready":
                 return False, "promotion refused: review verdict is not 'ready'"
@@ -174,7 +174,7 @@ class WireFake:
                       for s in ("full", "half", "standard") for t in (8, 10, 12, 14)}
             fpath = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
             fpath.parent.mkdir(parents=True, exist_ok=True)
-            existing = json.loads(fpath.read_text()) if fpath.is_file() else {}
+            existing = json.loads(fpath.read_text(encoding="utf-8")) if fpath.is_file() else {}
             existing.setdefault("sources", {})["razzball"] = {
                 "combos": combos, "vintage": "2026-09-29",
                 "snapshot_id": input_ids(repo).get("razzball")}
@@ -224,7 +224,7 @@ class WireFake:
             # Merge with any existing fixture (cbsros may have written first).
             existing = {}
             if fpath.is_file():
-                existing = json.loads(fpath.read_text())
+                existing = json.loads(fpath.read_text(encoding="utf-8"))
             existing.setdefault("sources", {}).update(fixture["sources"])
             fpath.write_text(json.dumps(existing))
             return True, ""
@@ -276,7 +276,7 @@ class FailClosedTest(unittest.TestCase):
         review_files = list((self.repo / "output" / "reviewed").rglob("*-review.json"))
         self.assertTrue(review_files, "expected review artifacts on disk")
         for rf in review_files:
-            data = json.loads(rf.read_text())
+            data = json.loads(rf.read_text(encoding="utf-8"))
             self.assertEqual(data["verdict"], "hold")
             self.assertNotIn("auto_promotion_justification", data)
             self.assertNotIn("promoted_by", data)
@@ -315,7 +315,7 @@ class FailClosedTest(unittest.TestCase):
 
     def test_no_verdict_rewrite_code_paths_remain(self):
         """Static guard: the bypass mechanisms must not reappear."""
-        src = Path(chain.__file__).read_text()
+        src = Path(chain.__file__).read_text(encoding="utf-8")
         self.assertNotIn("auto_promotion_justification", src)
         self.assertNotIn('["verdict"] = "ready"', src)
         self.assertNotIn("['verdict'] = 'ready'", src)
@@ -469,7 +469,7 @@ class FailClosedTest(unittest.TestCase):
         status = chain.execute_chain(nfl_week=4, repo=self.repo, run_fn=boom)
         status_path = self.repo / "output" / "comparison-chain-status.json"
         self.assertTrue(status_path.is_file())
-        on_disk = json.loads(status_path.read_text())
+        on_disk = json.loads(status_path.read_text(encoding="utf-8"))
         self.assertFalse(on_disk["success"])
         self.assertFalse(status["success"])
         self.assertEqual(on_disk["detail"]["usatoday"]["stage"], "error")

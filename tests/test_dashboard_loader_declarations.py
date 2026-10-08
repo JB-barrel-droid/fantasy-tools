@@ -25,7 +25,7 @@ HTML = Path(__file__).resolve().parent.parent / "modules" / "dashboard.html"
 
 class LoaderDeclarationOrderTest(unittest.TestCase):
     def test_paths_consts_declared_before_loader_calls(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         lines = text.splitlines()
         call_idx = next(
             i
@@ -51,7 +51,7 @@ class LoaderDeclarationOrderTest(unittest.TestCase):
     def test_firstok_results_assigned_to_declared_vars(self):
         """Every `x = await firstOk(` target must be declared; under
         'use strict' an undeclared target throws ReferenceError."""
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         targets = re.findall(r"(?<!\.)\b([A-Za-z_$][\w$]*)\s*=\s*await\s+firstOk\(", text)
         # strip declarations on the same statement: `const x = await firstOk(`
         declared_targets = set(

@@ -15,7 +15,7 @@ HTML = Path(__file__).resolve().parent.parent / "modules" / "dashboard.html"
 
 class ScaleAgreementDashboardTest(unittest.TestCase):
     def test_section_host_rendered(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         self.assertIn(
             'id="scaleAgreement"',
             text,
@@ -28,7 +28,7 @@ class ScaleAgreementDashboardTest(unittest.TestCase):
         )
 
     def test_renderer_reads_json(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         self.assertIn(
             "scale-agreement.json",
             text,
@@ -43,7 +43,7 @@ class ScaleAgreementDashboardTest(unittest.TestCase):
             )
 
     def test_counter_tallies_scale_agreement(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         m = re.search(r"// Count all checkpoints.*?(?=// Render per-source|\\Z)", text, re.S)
         self.assertTrue(m, "fleet counter block not found -- test wiring is stale")
         block = m.group(0)
@@ -61,7 +61,7 @@ class ScaleAgreementDashboardTest(unittest.TestCase):
             Path(__file__).resolve().parent.parent
             / "pipelines" / "build_pipeline_checkpoints.py"
         )
-        text = builder.read_text()
+        text = builder.read_text(encoding="utf-8")
         self.assertIn(
             "scale_agreement",
             text,

@@ -220,7 +220,7 @@ class IssuesDisabledTest(unittest.TestCase):
              mock.patch.object(ma.urllib.request, "urlopen", urlopen), \
              contextlib.redirect_stdout(out):
             rc = ma.main(["--summary", str(summary_file), "--import-health", str(health_file)])
-        text = summary_path.read_text() if summary_path.exists() else ""
+        text = summary_path.read_text(encoding="utf-8") if summary_path.exists() else ""
         return rc, out.getvalue(), text
 
     def test_disabled_issues_put_the_alert_in_the_job_summary(self):

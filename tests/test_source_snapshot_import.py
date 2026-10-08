@@ -1,6 +1,7 @@
 import csv
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,7 +24,7 @@ class SourceSnapshotImportTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/import_source_snapshot.py",
                     "--input",
                     str(source),
@@ -74,7 +75,7 @@ class SourceSnapshotImportTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/import_source_snapshot.py",
                     "--input",
                     str(source),

@@ -72,13 +72,13 @@ def _extract_fn(source, name):
 
 class CurveGuardTest(unittest.TestCase):
     def _guard_expr(self):
-        text = CURVE_JS.read_text()
+        text = CURVE_JS.read_text(encoding="utf-8")
         match = re.search(r"const sourceMapCoverage = ([^;]+);", text)
         self.assertIsNotNone(match, "sourceMapCoverage assignment not found")
         return match.group(1).strip()
 
     def _registry(self):
-        text = CURVE_JS.read_text()
+        text = CURVE_JS.read_text(encoding="utf-8")
         match = re.search(r"const SOURCE_KEYS = \[([\s\S]*?)\];", text)
         self.assertIsNotNone(match, "SOURCE_KEYS not found")
         return re.findall(r'"([^"]+)"', match.group(1))
@@ -135,16 +135,16 @@ class ColumnBadgeTest(unittest.TestCase):
         return _node_eval(script, {"fnText": fn_text, "key": key})
 
     def test_razzball_badge_names_the_method(self):
-        fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
+        fn = _extract_fn(DASH_JS.read_text(encoding="utf-8"), "columnBadge")
         self.assertEqual(self._run_badge(fn, "razzball"), "Data Driven Football methodology")
 
     def test_cbsros_badge_names_the_method(self):
-        fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
+        fn = _extract_fn(DASH_JS.read_text(encoding="utf-8"), "columnBadge")
         self.assertEqual(self._run_badge(fn, "cbsros"), "Data Driven Football methodology",
                          "badge must be data-driven, not hardcoded per key")
 
     def test_other_badges_unchanged(self):
-        fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
+        fn = _extract_fn(DASH_JS.read_text(encoding="utf-8"), "columnBadge")
         self.assertEqual(self._run_badge(fn, "usatoday"), "as published · reindexed")
         self.assertEqual(self._run_badge(fn, "espn_vorp"), "raw VORP vs waivers")
         self.assertEqual(self._run_badge(fn, "cbsros_vorp"), "raw VORP vs waivers")
@@ -167,7 +167,7 @@ class ColumnBadgeTest(unittest.TestCase):
 
 class HealthPanelTest(unittest.TestCase):
     def _order_and_labels(self):
-        html = INDEX_HTML.read_text()
+        html = INDEX_HTML.read_text(encoding="utf-8")
         order = re.search(r"const order=\[([^\]]*)\];", html)
         labels = re.search(r"const labels=\{([^}]*)\};", html)
         self.assertIsNotNone(order, "health panel order array not found")
@@ -182,14 +182,14 @@ class HealthPanelTest(unittest.TestCase):
     def test_health_panel_validation_passes(self):
         """The panel throws unless every ordered source validates live."""
         order, _ = self._order_and_labels()
-        validation = json.loads(FIXTURE.read_text())["source_validation"]
+        validation = json.loads(FIXTURE.read_text(encoding="utf-8"))["source_validation"]
         live = [k for k in order
                 if (validation.get("cbs") if k == "cbs_adjusted" else validation.get(k)) == "live"]
         self.assertEqual(len(live), len(order),
                          f"panel would throw 'required sources did not pass validation': {order}")
 
     def test_health_panel_role_is_methodology_honest(self):
-        html = INDEX_HTML.read_text()
+        html = INDEX_HTML.read_text(encoding="utf-8")
         role = re.search(r"const role=([^;]+);", html)
         self.assertIsNotNone(role, "health panel role expression not found")
         self.assertIn("method_group", role.group(1),

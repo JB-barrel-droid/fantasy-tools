@@ -43,7 +43,7 @@ ORDERING_CASES = [
 class TestVorpWiring(unittest.TestCase):
     def test_ordering_preserved(self):
         """VORP-translated values must preserve native player ordering."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
         for source, combo_key, higher_name, lower_name in ORDERING_CASES:
             with self.subTest(source=source, combo=combo_key):

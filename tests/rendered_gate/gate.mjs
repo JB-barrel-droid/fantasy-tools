@@ -15,6 +15,7 @@
 // forcing a pie readout that sums to 100.1, and requires this gate to catch both. A
 // gate that cannot fail exits 1 here ("self-test").
 import { chromium } from "playwright-core";
+import { isMain } from "./is_main.mjs";
 import { enginePageFor } from "./engine_page.mjs";
 import http from "node:http";
 import fs from "node:fs";
@@ -122,4 +123,4 @@ async function main() {
   console.log("rendered gate passed");
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main().catch(e => { console.error(e); process.exit(1); });
+if (isMain(import.meta.url)) main().catch(e => { console.error(e); process.exit(1); });

@@ -31,7 +31,7 @@ class PullFantasyCalc12TeamTest(unittest.TestCase):
             # FantasyCalc's three superflex (numQbs=2) lists
             # (GAP-SUPERFLEX-PUBLISHER-VALUES; was the 1-QB three only).
             self.assertEqual(sorted({**S.FC_COMBOS, **S.FC_SUPERFLEX_COMBOS}), written)
-            doc = json.loads(Path(tmp, "fantasycalc_half_12_qb1.json").read_text())
+            doc = json.loads(Path(tmp, "fantasycalc_half_12_qb1.json").read_text(encoding="utf-8"))
             self.assertEqual(200, len(doc["rows"]))
             self.assertEqual({"name", "pos", "team", "value", "fantasycalc_id"}, set(doc["rows"][0]))
             self.assertEqual(5, doc["week"])

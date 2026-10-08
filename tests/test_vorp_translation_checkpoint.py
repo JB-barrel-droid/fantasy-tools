@@ -94,7 +94,7 @@ class VorpTranslationSummaryTest(unittest.TestCase):
         combos = self._full_ok_combos()
         combos["cbs"] = {f"{sc}_12": _combo("vorp-supabase", 4) for sc in ("full", "half", "standard")}
         path = self._write(combos)
-        doc = json.loads(path.read_text())
+        doc = json.loads(path.read_text(encoding="utf-8"))
         doc["sources"]["cbs"]["week_designated"] = "Week 4"
         path.write_text(json.dumps(doc))
         s = self._run()

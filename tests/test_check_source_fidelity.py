@@ -919,7 +919,7 @@ import contextlib  # noqa: E402
 
 
 class _PatchFixture:
-    """Context manager that redirects FIXTURE.read_text() inside main()."""
+    """Context manager that redirects FIXTURE.read_text(encoding="utf-8") inside main()."""
 
     def __init__(self, fixture_dict):
         self.fixture_dict = fixture_dict

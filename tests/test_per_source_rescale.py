@@ -422,7 +422,7 @@ class TestEmitArtifact(unittest.TestCase):
             returned = emit_artifact_rescale_audit(entries, path)
             self.assertEqual(returned, path)
             self.assertTrue(path.exists())
-            payload = json.loads(path.read_text())
+            payload = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema"], "rescale-audit-v1")
             self.assertEqual(len(payload["entries"]), len(entries))
             # Roundtrip the SUMMARY entry.

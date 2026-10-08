@@ -114,7 +114,7 @@ class SharedAnchorTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             batch,controls,out=self.fixture(tmp,with_granular=True)
             self.assertEqual(main(['--batch',str(batch),'--controls',str(controls),'--out',str(out)]),0)
-            result=json.loads(out.read_text())
+            result=json.loads(out.read_text(encoding="utf-8"))
             self.assertEqual(set(result['sources']),{'fantasycalc','usat','espn'})
             self.assertEqual(result['sources']['espn']['indexed'],{})
             # JEG-242 (ce53a55): "avg" joined SOURCE_KINDS, so derive the
@@ -130,16 +130,16 @@ class SharedAnchorTests(unittest.TestCase):
         for kind in ('hash','config','typed_config','exclusion'):
             with self.subTest(kind=kind),tempfile.TemporaryDirectory() as tmp:
                 batch,controls,out=self.fixture(tmp,with_granular=True);out.write_text('sentinel')
-                doc=json.loads(batch.read_text())
+                doc=json.loads(batch.read_text(encoding="utf-8"))
                 if kind=='hash':(Path(tmp)/'usat.json').write_text('{}')
                 elif kind in ('config','typed_config'):
-                    p=Path(tmp)/'espn.manifest.json';m=json.loads(p.read_text())
+                    p=Path(tmp)/'espn.manifest.json';m=json.loads(p.read_text(encoding="utf-8"))
                     if kind=='config':m['source_config']['scoring']='ppr'
                     else:m['source_config']['teams']=1.0
                     p.write_text(json.dumps(m))
                 else:doc['excluded_sources'].pop('cbs');batch.write_text(json.dumps(doc))
                 with self.assertRaises(ValueError):main(['--batch',str(batch),'--controls',str(controls),'--out',str(out)])
-                self.assertEqual(out.read_text(),'sentinel')
+                self.assertEqual(out.read_text(encoding="utf-8"),'sentinel')
 
 
 if __name__=='__main__':unittest.main()

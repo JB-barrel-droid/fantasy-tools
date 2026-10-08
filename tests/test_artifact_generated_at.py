@@ -121,7 +121,7 @@ class TestArtifactGeneratedAt(unittest.TestCase):
                     self.fail(f"Neither temp output nor repo output exists for {output_filename}")
 
             # Read and verify the output
-            with open(output_path) as f:
+            with open(output_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             # Verify generated_at exists at top level
@@ -194,7 +194,7 @@ class TestGeneratedAtFormatConsistency(unittest.TestCase):
                 # Skip if artifact doesn't exist yet
                 continue
 
-            with open(full_path) as f:
+            with open(full_path, encoding="utf-8") as f:
                 data = json.load(f)
 
             self.assertIn(

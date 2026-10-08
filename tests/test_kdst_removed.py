@@ -106,7 +106,7 @@ class BakeCarriesSkillPositionsOnly(unittest.TestCase):
         finally:
             for p in patches:
                 p.stop()
-        return json.loads((bake_players.FIXTURE_DIR / "players.json").read_text())
+        return json.loads((bake_players.FIXTURE_DIR / "players.json").read_text(encoding="utf-8"))
 
     def test_bake_writes_no_kdst(self):
         out = self._bake()

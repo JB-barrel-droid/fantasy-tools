@@ -34,7 +34,7 @@ def create_test_artifact(tmp_dir):
         }
     }
     path = os.path.join(tmp_dir, "pipeline-checkpoints.json")
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         json.dump(artifact, f, indent=2)
         f.write("\n")
     return path
@@ -72,7 +72,7 @@ class TestBrokenStateAFailedPuller(unittest.TestCase):
             )
 
             # Read back and verify
-            with open(artifact_path, "r") as f:
+            with open(artifact_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # The acquisition block must exist
@@ -125,7 +125,7 @@ class TestBrokenStateBUnchangedOutput(unittest.TestCase):
             )
 
             # Read back and verify
-            with open(artifact_path, "r") as f:
+            with open(artifact_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             # The acquisition block must exist
@@ -180,7 +180,7 @@ class TestSuccessfulAcquisition(unittest.TestCase):
             )
 
             # Read back and verify
-            with open(artifact_path, "r") as f:
+            with open(artifact_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             self.assertEqual(data["acquisition"]["espn"]["status"], "acquired")
@@ -212,7 +212,7 @@ class TestSuccessfulAcquisition(unittest.TestCase):
             )
 
             # Read back and verify both
-            with open(artifact_path, "r") as f:
+            with open(artifact_path, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             self.assertEqual(data["acquisition"]["espn"]["status"], "acquired")
@@ -235,7 +235,7 @@ class TestArtifactPreservation(unittest.TestCase):
             artifact_path = create_test_artifact(tmp_dir)
 
             # Read original
-            with open(artifact_path, "r") as f:
+            with open(artifact_path, "r", encoding="utf-8") as f:
                 original_data = json.load(f)
 
             # Add acquisition
@@ -248,7 +248,7 @@ class TestArtifactPreservation(unittest.TestCase):
             )
 
             # Read updated
-            with open(artifact_path, "r") as f:
+            with open(artifact_path, "r", encoding="utf-8") as f:
                 updated_data = json.load(f)
 
             # Verify original keys preserved

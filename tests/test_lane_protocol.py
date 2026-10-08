@@ -261,7 +261,7 @@ class TestAdapterDryRun(unittest.TestCase):
             result = adapter.dispatch(brief, dry_run=False)
             files = list(inbox.glob("minimax/*.json"))
             self.assertEqual(len(files), 1, "live dispatch should write exactly one file")
-            on_disk = json.loads(files[0].read_text())
+            on_disk = json.loads(files[0].read_text(encoding="utf-8"))
             self.assertEqual(on_disk["lane"], result["lane"])
             self.assertEqual(on_disk["signature"], result["signature"])
             # And the file must verify against the brief:
@@ -332,7 +332,7 @@ class TestOutboxInboxIO(unittest.TestCase):
 
 class TestCLI(unittest.TestCase):
     BIN_MMCODE = str(REPO / "bin" / "mmcode")
-    LANES_PROTOCOL = ["python3", "-m", "lanes.protocol"]
+    LANES_PROTOCOL = [sys.executable, "-m", "lanes.protocol"]
 
     def _run(self, cmd, *, cwd=None):
         return subprocess.run(
@@ -356,7 +356,7 @@ class TestCLI(unittest.TestCase):
             self.assertEqual(r.returncode, 0, r.stderr)
             files = list(outbox.glob("minimax/*.json"))
             self.assertEqual(len(files), 1)
-            on_disk = json.loads(files[0].read_text())
+            on_disk = json.loads(files[0].read_text(encoding="utf-8"))
             self.assertEqual(on_disk["signature"], "minimax|JEG-94|2026-10-02T20:15:00Z")
 
     def test_dispatch_dry_run_via_bin(self):

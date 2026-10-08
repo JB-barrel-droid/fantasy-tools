@@ -27,8 +27,8 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 import pull_razzball_ros as rz  # noqa: E402
 import save_razzball_references as saver  # noqa: E402
 
-WORKFLOW = (ROOT / ".github/workflows/razzball-supabase-sync.yml").read_text()
-MIGRATION = (ROOT / "supabase/migrations/razzball_sync_pg_cron.sql").read_text()
+WORKFLOW = (ROOT / ".github/workflows/razzball-supabase-sync.yml").read_text(encoding="utf-8")
+MIGRATION = (ROOT / "supabase/migrations/razzball_sync_pg_cron.sql").read_text(encoding="utf-8")
 RECORD = "Record the monitored check"
 RECORD_IF = "steps.cfg.outputs.mode == 'write'"
 
@@ -182,13 +182,13 @@ class PullerTest(unittest.TestCase):
         self.assertEqual(N_ROWS["RB"], snap["summary"]["by_pos"]["RB"])  # what the gate rejects
 
     def test_csv_is_muse_schema(self):
-        muse_header = (ROOT / "data/inputs/razzball_projections.csv").open().readline().strip()
+        muse_header = (ROOT / "data/inputs/razzball_projections.csv").open(encoding="utf-8").readline().strip()
         self.assertEqual(muse_header, ",".join(rz.CSV_COLUMNS))
         snap = rz.pull("2026-10-06", fetch_fn=fetcher({}))
         with tempfile.TemporaryDirectory() as td:
             out = Path(td) / "r.csv"
             rz.write_csv(snap, out)
-            rows = list(csv.DictReader(out.open()))
+            rows = list(csv.DictReader(out.open(encoding="utf-8")))
         self.assertEqual(snap["row_count"], len(rows))
         allen = next(r for r in rows if r["player"] == "Josh Allen")
         self.assertEqual(("josh allen", "QB", "BUF", "21.5", "21.5", "21.5", "2026-10-06"),
@@ -242,12 +242,12 @@ def python_calls(text, ref_name, inputs=None):
         r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Resolve mode")), ctx)],
                            cwd=td, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
-        outs = dict(line.split("=", 1) for line in out.read_text().split() if "=" in line)
+        outs = dict(line.split("=", 1) for line in out.read_text(encoding="utf-8").split() if "=" in line)
         ctx["steps.cfg.outputs.mode"] = outs["mode"]
         r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Scrape and save")), ctx)],
                            cwd=td, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr + r.stdout
-        return [line.split() for line in (td / "calls").read_text().splitlines()]
+        return [line.split() for line in (td / "calls").read_text(encoding="utf-8").splitlines()]
 
 
 def error_code_for(text, pull_stderr):
@@ -265,7 +265,7 @@ def error_code_for(text, pull_stderr):
         ctx = {"steps.cfg.outputs.mode": "dry"}
         r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Scrape and save")), ctx)],
                            cwd=td, env=env, capture_output=True, text=True)
-        outs = dict(line.split("=", 1) for line in out.read_text().split() if "=" in line)
+        outs = dict(line.split("=", 1) for line in out.read_text(encoding="utf-8").split() if "=" in line)
         return outs.get("error_code"), r.returncode, r.stdout
 
 

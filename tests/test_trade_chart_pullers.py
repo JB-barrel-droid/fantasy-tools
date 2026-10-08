@@ -30,7 +30,7 @@ DAY = date(2026, 9, 22)  # a Tuesday; nfl_week == 2
 
 def _write(path, text, mtime=None):
     os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(text)
     if mtime is not None:
         os.utime(path, (mtime, mtime))

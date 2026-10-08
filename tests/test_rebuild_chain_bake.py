@@ -29,8 +29,8 @@ from tests.test_rebuild_chain_workflow import (
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / ".github/workflows/rebuild-chain.yml").read_text()
-ESPN_WORKFLOW = (ROOT / ".github/workflows/espn-supabase-sync.yml").read_text()
+WORKFLOW = (ROOT / ".github/workflows/rebuild-chain.yml").read_text(encoding="utf-8")
+ESPN_WORKFLOW = (ROOT / ".github/workflows/espn-supabase-sync.yml").read_text(encoding="utf-8")
 
 BAKE = "Refresh ESPN anchor and bake players.json"
 DECIDE = "Decide whether to bake players.json"
@@ -132,7 +132,7 @@ def run_bake_scenario(text, chain_outcome, bake_outcome):
         git(td, "clone", "-q", str(remote), str(verify))
         changed = set(git(verify, "diff", "--name-only", base, "HEAD").splitlines())
         return {"changed": changed,
-                "remote": {rel: (verify / rel).read_text() for rel in BAKED},
+                "remote": {rel: (verify / rel).read_text(encoding="utf-8") for rel in BAKED},
                 "rcs": rcs}
 
 

@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
-SPEC = json.loads((ROOT / "modules" / "surfaces.json").read_text())
+SPEC = json.loads((ROOT / "modules" / "surfaces.json").read_text(encoding="utf-8"))
 
 
 def count_at(doc, path):
@@ -32,7 +32,7 @@ def problems(dist_root, surfaces):
             out.append(f"{s['id']}: {s['url']} not in the built site")
             continue
         try:
-            doc = json.loads(f.read_text())
+            doc = json.loads(f.read_text(encoding="utf-8"))
         except ValueError:
             out.append(f"{s['id']}: {s['url']} is not valid JSON")
             continue
@@ -54,7 +54,7 @@ class PublishedSurfacesTest(unittest.TestCase):
 
     def test_status_page_and_spec_are_published(self):
         self.assertTrue((DIST / "modules" / "status.html").is_file())
-        self.assertEqual(SPEC, json.loads((DIST / "modules" / "surfaces.json").read_text()))
+        self.assertEqual(SPEC, json.loads((DIST / "modules" / "surfaces.json").read_text(encoding="utf-8")))
 
     def test_every_required_surface_is_in_the_built_site(self):
         self.assertEqual([], problems(DIST, SPEC["surfaces"]))

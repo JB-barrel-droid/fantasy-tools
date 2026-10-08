@@ -235,7 +235,7 @@ class ImportsNotDuplicatesTest(unittest.TestCase):
     def test_no_local_reimplementation_of_check_functions(self):
         """Grep-style guard: the builder must not reimplement check_freshness
         or check_fidelity with its own copies of FIDELITY_PAIRS / parsing."""
-        src = (ROOT / "pipelines" / "build_e2e_fidelity.py").read_text()
+        src = (ROOT / "pipelines" / "build_e2e_fidelity.py").read_text(encoding="utf-8")
         # Forbidden local reimplementations.
         self.assertNotIn("FIDELITY_PAIRS", src,
                          "builder defines its own FIDELITY_PAIRS — should import")
@@ -266,7 +266,7 @@ class WriteOutputTest(unittest.TestCase):
             ])
             self.assertEqual(rc, 0)
             self.assertTrue(out_path.exists())
-            written = json.loads(out_path.read_text())
+            written = json.loads(out_path.read_text(encoding="utf-8"))
             self.assertIn("generated_at", written)
             self.assertIn("sources", written)
             self.assertEqual(set(written["sources"].keys()), set(csf.SOURCES))

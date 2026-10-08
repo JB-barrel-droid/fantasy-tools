@@ -106,7 +106,7 @@ class SleeperLayerTest(unittest.TestCase):
             self.assertFalse(out.exists())
 
     def test_committed_base_is_v2_and_sane(self):
-        base = json.loads((ROOT / "data/inputs/sleeper_identity_base.json").read_text())
+        base = json.loads((ROOT / "data/inputs/sleeper_identity_base.json").read_text(encoding="utf-8"))
         self.assertEqual(P.SCHEMA, base["schema"])
         self.assertEqual([], P.check_base(base))
 

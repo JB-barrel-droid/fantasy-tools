@@ -22,6 +22,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from tests._bash import usable_bash  # noqa: E402
 from tests.test_rebuild_chain_workflow import find_step, script_of  # noqa: E402
 from tests.test_cbs_usatoday_recurring import (  # noqa: E402
     CBS_URL_W2, USAT_URL_W2, FakeDb, WrapperHarness, _fake_build,
@@ -29,8 +30,8 @@ from tests.test_cbs_usatoday_recurring import (  # noqa: E402
 )
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / ".github/workflows/trade-chart-ingest.yml").read_text()
-MIGRATION = (ROOT / "supabase/migrations/ingest_ci_pg_cron.sql").read_text()
+WORKFLOW = (ROOT / ".github/workflows/trade-chart-ingest.yml").read_text(encoding="utf-8")
+MIGRATION = (ROOT / "supabase/migrations/ingest_ci_pg_cron.sql").read_text(encoding="utf-8")
 RECORD = "Record the monitored check"
 RECORD_IF = "steps.cfg.outputs.mode == 'write'"
 
@@ -63,24 +64,33 @@ def ingest_argv(text, ref_name, inputs=None, source="cbs"):
         ctx = {"matrix.source": source}
         for k in ("mode", "source", "week"):
             ctx[f"github.event.inputs.{k}"] = inputs.get(k, "")
-        env = {"PATH": f"{td / 'bin'}:/usr/bin:/bin", "HOME": str(td),
+        bash = usable_bash()
+        if bash is None:
+            raise unittest.SkipTest("no usable bash (on Windows, install Git for Windows)")
+        # PATH is set inside the script rather than in env, because bash does
+        # not read a Windows-form env PATH. The fake bin dir shadows python3.
+        env = {"PATH": os.environ.get("PATH", ""), "HOME": str(td),
                "GITHUB_REF_NAME": ref_name, "GITHUB_OUTPUT": str(out)}
+        if "SYSTEMROOT" in os.environ:
+            env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
+        prelude = 'export PATH="$PWD/bin:/usr/bin:/bin" FAKE_ARGV="$PWD/argv"\n'
         cfg = script_of(find_step(text, "Resolve mode"))
-        r = subprocess.run(["bash", "-e", "-c", render(cfg, ctx)], cwd=td, env=env,
+        r = subprocess.run([bash, "-e", "-c", prelude + render(cfg, ctx)], cwd=td, env=env,
                            capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
-        outs = dict(line.split("=", 1) for line in out.read_text().split() if "=" in line)
+        outs = dict(line.split("=", 1) for line in out.read_text(encoding="utf-8").split() if "=" in line)
         if outs.get("run") != "true":
             return None
         ctx["steps.cfg.outputs.mode"] = outs["mode"]
         (td / "bin").mkdir()
         fake = td / "bin" / "python3"
-        fake.write_text(f'#!/bin/bash\necho "$@" > {td}/argv\necho "[fake] ok"\n')
+        fake.write_text('#!/bin/bash\necho "$@" > "$FAKE_ARGV"\necho "[fake] ok"\n',
+                        encoding="utf-8", newline="\n")
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
-        r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Ingest")), ctx)],
+        r = subprocess.run([bash, "-e", "-c", prelude + render(script_of(find_step(text, "Ingest")), ctx)],
                            cwd=td, env=env, capture_output=True, text=True)
         assert r.returncode == 0, r.stderr + r.stdout
-        return (td / "argv").read_text().split()
+        return (td / "argv").read_text(encoding="utf-8").split()
 
 
 DRY_TRIGGERS = [

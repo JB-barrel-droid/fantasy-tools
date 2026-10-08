@@ -107,7 +107,7 @@ class AwaitPublishedTest(unittest.TestCase):
         self.assertEqual(1, rc, "fail-closed: a served copy that stays old is stale")
 
     def test_workflow_waits_only_when_this_run_published(self):
-        wf = (Path(__file__).resolve().parent.parent / ".github/workflows/health-artifacts.yml").read_text()
+        wf = (Path(__file__).resolve().parent.parent / ".github/workflows/health-artifacts.yml").read_text(encoding="utf-8")
         step = wf[wf.index("name: Watch served artifacts"):]
         step = step[:step.index("\n      - ")]
         self.assertIn("PUBLISHED: ${{ steps.publish.outputs.pushed }}", step)

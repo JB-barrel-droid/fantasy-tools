@@ -101,7 +101,7 @@ class ChainHoldsOnIdentity(unittest.TestCase):
         self.assertTrue(status["success"], status["failed"])
         self.assertIn("awaiting players bake", status["detail"]["cbsros"]["detail"])
         self.assertNotIn("build_cbsros_ddf_leg.py", fake.calls)
-        fixture = json.loads((repo / chain.FIXTURE_REL).read_text())
+        fixture = json.loads((repo / chain.FIXTURE_REL).read_text(encoding="utf-8"))
         self.assertEqual(kept, fixture["sources"]["cbsros"])
 
     def test_resave_with_the_gate_removed_publishes_a_mismatched_section(self):
@@ -113,7 +113,7 @@ class ChainHoldsOnIdentity(unittest.TestCase):
                 mock.patch.object(chain, "section_identity_mismatch", return_value=None):
             status = chain.execute_chain(nfl_week=5, repo=repo, run_fn=WireFake(repo))
         self.assertNotIn("cbsros", status["held"])
-        fixture = json.loads((repo / chain.FIXTURE_REL).read_text())
+        fixture = json.loads((repo / chain.FIXTURE_REL).read_text(encoding="utf-8"))
         self.assertNotEqual(kept, fixture["sources"]["cbsros"])
         self.assertNotEqual(pid.players_ids(repo / chain.PLAYERS_REL)["cbsros"],
                             fixture["sources"]["cbsros"]["snapshot_id"])
@@ -133,7 +133,7 @@ class ChainHoldsOnIdentity(unittest.TestCase):
                 ok, out = super().__call__(cmd, **kw)
                 if Path(cmd[1]).name == "build_cbsros_section_from_ddf_leg.py":
                     path = self.repo / chain.FIXTURE_REL
-                    doc = json.loads(path.read_text())
+                    doc = json.loads(path.read_text(encoding="utf-8"))
                     doc["sources"]["cbsros"]["snapshot_id"] = "sha256:" + "f" * 64
                     path.write_text(json.dumps(doc))
                 return ok, out
@@ -141,7 +141,7 @@ class ChainHoldsOnIdentity(unittest.TestCase):
         status = chain.execute_chain(nfl_week=5, repo=repo, run_fn=StaleSection(repo))
         self.assertEqual(["cbsros"], status["held"])
         self.assertEqual("review", status["detail"]["cbsros"]["failed_stage"])
-        fixture = json.loads((repo / chain.FIXTURE_REL).read_text())
+        fixture = json.loads((repo / chain.FIXTURE_REL).read_text(encoding="utf-8"))
         self.assertEqual(kept, fixture["sources"]["cbsros"])
 
     def test_players_json_without_ids_holds_rather_than_guesses(self):
@@ -187,7 +187,7 @@ class BakeDecision(unittest.TestCase):
         for source, path, text in (("espn", self.csv, "player,espn_snapshot_date\ny,2026-10-08\n"),
                                    ("razzball", self.rz, json.dumps({"vintage_date": "2026-10-08", "rows": []}))):
             with self.subTest(source=source):
-                before = path.read_text()
+                before = path.read_text(encoding="utf-8")
                 path.write_text(text)
                 self.assertTrue(pid.decide(self.inputs, force=False, players_path=self.players)[0])
                 path.write_text(before)
@@ -195,7 +195,7 @@ class BakeDecision(unittest.TestCase):
     def test_a_date_only_decision_would_miss_the_incident(self):
         # The broken rule: compare dates. Same date -> "no change" -> no bake.
         self.cbs.write_text(json.dumps({"vintage_date": "2026-10-08", "rows": ROWS_1354}))
-        date_rule = json.loads(self.cbs.read_text())["vintage_date"] == "2026-10-08"
+        date_rule = json.loads(self.cbs.read_text(encoding="utf-8"))["vintage_date"] == "2026-10-08"
         self.assertTrue(date_rule)  # the date rule says "same snapshot"
         self.assertTrue(pid.decide(self.inputs, force=False, players_path=self.players)[0])
 
@@ -268,8 +268,8 @@ def identity_problems(players_meta, fixture, espn_csv_id=None):
 
 class PublishedProjectionsAreOneSnapshot(unittest.TestCase):
     def test_committed_fixture(self):
-        meta = json.loads(PLAYERS.read_text())["meta"]
-        fixture = json.loads(FIXTURE.read_text())
+        meta = json.loads(PLAYERS.read_text(encoding="utf-8"))["meta"]
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual([], identity_problems(meta, fixture, pid.file_id(ESPN_CSV)))
 
     def test_guard_catches_the_incident_state(self):

@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -77,7 +78,7 @@ def ref_row(key, name, value, scoring="ppr", teams=12, qb=None):
 class ComparisonCandidateBuildTest(unittest.TestCase):
     def run_script(self, script, *args):
         result = subprocess.run(
-            ["python3", f"pipelines/{script}", *args],
+            [sys.executable, f"pipelines/{script}", *args],
             cwd=ROOT, capture_output=True, text=True,
         )
         self.assertEqual(0, result.returncode, msg=f"{script} failed:\n{result.stderr}")
@@ -264,7 +265,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
 
             evil = ROOT / "data" / "fixtures" / "current" / "evil-candidate.json"
             result = subprocess.run(
-                ["python3", "pipelines/merge_comparison_candidate.py",
+                [sys.executable, "pipelines/merge_comparison_candidate.py",
                  "--candidate", str(section_path), "--comparison", str(fixture),
                  "--output", str(evil)],
                 cwd=ROOT, capture_output=True, text=True,
@@ -369,7 +370,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             write_json(ref_b, payload_b)
             out = tmp / "section.json"
             result = subprocess.run(
-                ["python3", "pipelines/build_comparison_source_section.py",
+                [sys.executable, "pipelines/build_comparison_source_section.py",
                  "--input", str(ref_a), str(ref_b),
                  "--comparison", str(fixture), "--output", str(out)],
                 cwd=ROOT, capture_output=True, text=True,
@@ -383,7 +384,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             payload_c["fetched_at"] = "2026-09-20T12:00:00Z"
             write_json(ref_c, payload_c)
             result = subprocess.run(
-                ["python3", "pipelines/build_comparison_source_section.py",
+                [sys.executable, "pipelines/build_comparison_source_section.py",
                  "--input", str(ref_a), str(ref_c),
                  "--comparison", str(fixture), "--output", str(out)],
                 cwd=ROOT, capture_output=True, text=True,
@@ -397,7 +398,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             payload_d["fetched_at"] = "2026-09-20T00:00:00Z"
             write_json(ref_d, payload_d)
             result = subprocess.run(
-                ["python3", "pipelines/build_comparison_source_section.py",
+                [sys.executable, "pipelines/build_comparison_source_section.py",
                  "--input", str(ref_a), str(ref_d),
                  "--comparison", str(fixture), "--output", str(out)],
                 cwd=ROOT, capture_output=True, text=True,
@@ -448,7 +449,7 @@ class ComparisonCandidateBuildTest(unittest.TestCase):
             write_json(ref_b, payload_b)
             out = tmp / "section.json"
             result = subprocess.run(
-                ["python3", "pipelines/build_comparison_source_section.py",
+                [sys.executable, "pipelines/build_comparison_source_section.py",
                  "--input", str(ref_a), str(ref_b),
                  "--comparison", str(fixture), "--output", str(out)],
                 cwd=ROOT, capture_output=True, text=True,

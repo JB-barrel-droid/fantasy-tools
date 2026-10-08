@@ -78,7 +78,7 @@ class TestDefaultCurvesSatisfied(unittest.TestCase):
     def test_toggle_handler_tracks_deselection(self):
         """The source-toggle change handler must maintain userDeselectedSources
         so the guard exemption reflects real user intent."""
-        src = (REPO / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text()
+        src = (REPO / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("userDeselectedSources.add(key)", src)
         self.assertIn("userDeselectedSources.delete(key)", src)
         self.assertIn("const defaultGroupedSources = defaultCurvesSatisfied(", src)

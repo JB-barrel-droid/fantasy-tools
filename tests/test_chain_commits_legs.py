@@ -33,7 +33,7 @@ WORKFLOW = ROOT / ".github" / "workflows" / "rebuild-chain.yml"
 
 
 def commit_branches() -> tuple[str, str]:
-    text = WORKFLOW.read_text()
+    text = WORKFLOW.read_text(encoding="utf-8")
     step = text[text.index("- name: Commit and push if changed"):]
     step = step[:step.index("git diff --cached --quiet")]
     ok = step[step.index('if [ "$CHAIN_OUTCOME" = "success" ]; then'):step.index("          else")]
@@ -71,7 +71,7 @@ class UnchangedRebuildKeepsTheFile(unittest.TestCase):
             new = dict(self.LEG, generated_at="2026-10-08T10:00:00Z",
                        values=[{"player_key": 1, "value": 6.0}])
             got = write_leg_json(p, new)
-            self.assertEqual(json.loads(p.read_text())["values"][0]["value"], 6.0)
+            self.assertEqual(json.loads(p.read_text(encoding="utf-8"))["values"][0]["value"], 6.0)
             self.assertEqual(got["generated_at"], "2026-10-08T10:00:00Z")
 
 

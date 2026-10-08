@@ -18,6 +18,7 @@ expects QB-split combos for THAT source. These tests pin that behavior:
 
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -77,7 +78,7 @@ class QbSlotScopingTest(unittest.TestCase):
         write_json(ref, reference_artifact(rows, source))
         write_json(fixture, fixture_with_combos(source, fixture_combos))
         result = subprocess.run(
-            ["python3", "pipelines/build_comparison_source_section.py",
+            [sys.executable, "pipelines/build_comparison_source_section.py",
              "--input", str(ref), "--comparison", str(fixture),
              "--output", str(section)],
             cwd=ROOT, capture_output=True, text=True,

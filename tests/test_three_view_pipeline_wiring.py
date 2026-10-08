@@ -136,10 +136,10 @@ class ThreeViewPipelineWiringTests(unittest.TestCase):
             code, log = _run_refresh(args)
             self.assertEqual(code, 0, f"refresh failed:\n{log}")
             out = tmp / "out"
-            candidate = json.loads((out / "candidate.json").read_text())
+            candidate = json.loads((out / "candidate.json").read_text(encoding="utf-8"))
             self.assertEqual(candidate["schema"], "shared-batch70-views-v1")
             self.assertEqual(candidate["artifact_status"], "candidate")
-            manifest = json.loads((out / "refresh-run.manifest.json").read_text())
+            manifest = json.loads((out / "refresh-run.manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["schema"], "vorp-views-refresh-run-v1")
             self.assertEqual(manifest["weight_selection"], "controls")
             self.assertEqual(manifest["promotion"], "none: candidate only; promotion is a separate reviewed step")
@@ -194,14 +194,14 @@ class ThreeViewPipelineWiringTests(unittest.TestCase):
             (Path(args["--values-dir"]) / "mystery.json").write_text(json.dumps(_synthetic_values()))
             code, log = _run_refresh(args)
             self.assertEqual(code, 0, f"refresh failed:\n{log}")
-            manifest = json.loads((tmp / "out" / "refresh-run.manifest.json").read_text())
+            manifest = json.loads((tmp / "out" / "refresh-run.manifest.json").read_text(encoding="utf-8"))
             self.assertNotIn("mystery", manifest["sources_included"])
             self.assertNotIn("mystery", manifest["excluded_sources"])
 
     def test_refresh_really_invokes_avg_backstop_stage(self):
         """Regression for the 2026-10-03 integration trap: the AVG/backstop
         helper existed with tests but refresh_vorp_views never invoked it."""
-        src = (REPO / "pipelines" / "refresh_vorp_views.py").read_text()
+        src = (REPO / "pipelines" / "refresh_vorp_views.py").read_text(encoding="utf-8")
         self.assertIn("backstop_main", src)
         self.assertIn("avg_backstop", src)
         self.assertIn("vorp-source-batch-augmented-v1.json", src)
@@ -211,7 +211,7 @@ class ThreeViewPipelineWiringTests(unittest.TestCase):
         unified.translate_source. The new orchestrator must not import or
         reference it -- wiring the old method back in would reintroduce the
         defect this ticket fixes."""
-        src = (REPO / "pipelines" / "refresh_vorp_views.py").read_text()
+        src = (REPO / "pipelines" / "refresh_vorp_views.py").read_text(encoding="utf-8")
         self.assertNotRegex(src, r"\btranslate_source\b")
         self.assertNotRegex(src, r"from unified import|import unified\b")
         self.assertNotRegex(src, r"refresh_vorp_translation")
@@ -219,7 +219,7 @@ class ThreeViewPipelineWiringTests(unittest.TestCase):
     def test_makefile_names_the_wiring(self):
         """The wiring is only real if the Makefile names it: the refresh
         target exists and this module is in the required test-unit list."""
-        makefile = (REPO / "Makefile").read_text()
+        makefile = (REPO / "Makefile").read_text(encoding="utf-8")
         self.assertRegex(makefile, r"(?m)^refresh-vorp-views:")
         self.assertIn("tests.test_three_view_pipeline_wiring", makefile)
         unit_section = makefile.split("test-unit:")[1].split("test-integration:")[0]

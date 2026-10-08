@@ -111,6 +111,8 @@ test-unit:
 
 test-unit-modules:
 	python3 -m unittest tests.test_run_suite
+	python3 -m unittest tests.test_validate_runner
+	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_bake_espn_zero_universe

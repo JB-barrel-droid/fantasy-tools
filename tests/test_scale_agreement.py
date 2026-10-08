@@ -65,7 +65,7 @@ class VerdictLogicTest(unittest.TestCase):
             Path(__file__).resolve().parent.parent
             / "app" / "trade-value-chart" / "assets" / "value-model.js"
         )
-        text = chart_vm.read_text()
+        text = chart_vm.read_text(encoding="utf-8")
         self.assertIn("PEAK_AGREEMENT_LOW = 0.80", text)
         self.assertIn("PEAK_AGREEMENT_HIGH = 1.25", text)
 
@@ -91,7 +91,7 @@ class BuilderOutputTest(unittest.TestCase):
             check=True,
             capture_output=True,
         )
-        data = json.loads((repo / "dist" / "modules" / "scale-agreement.json").read_text())
+        data = json.loads((repo / "dist" / "modules" / "scale-agreement.json").read_text(encoding="utf-8"))
         self.assertEqual(data["anchor"], "espn")
         self.assertEqual(data["band"], [0.80, 1.25])
         self.assertIn(data["status"], ("ok", "warn", "bad"))

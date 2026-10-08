@@ -136,7 +136,8 @@ def built_widget() -> bytes:
 
 
 def mutate(widget: bytes, old: str, new: str) -> bytes:
-    text = widget.decode("utf-8")
+    # A Windows checkout has CRLF; the anchors are written with "\n".
+    text = widget.decode("utf-8").replace("\r\n", "\n")
     if text.count(old) != 1:
         raise AssertionError(f"mutation anchor not found exactly once: {old[:60]!r}")
     return text.replace(old, new).encode("utf-8")

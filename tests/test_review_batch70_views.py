@@ -178,7 +178,7 @@ class TestReviewBatch70Views(unittest.TestCase):
             tmp = Path(d)
             candidate, batch = _build_candidate(tmp)
             # Tamper: rewrite the batch with a modified exclusion reason.
-            doc = json.loads(batch.read_text())
+            doc = json.loads(batch.read_text(encoding="utf-8"))
             doc["excluded_sources"]["cbs"] = "tampered"
             batch.write_text(json.dumps(doc, indent=2, sort_keys=True))
             code, out = _run_review("--artifact", candidate, "--batch", batch)
@@ -190,7 +190,7 @@ class TestReviewBatch70Views(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
             candidate, _ = _build_candidate(tmp)
-            doc = json.loads(candidate.read_text())
+            doc = json.loads(candidate.read_text(encoding="utf-8"))
             del doc["manifest"]
             bad = tmp / "no_manifest.json"
             bad.write_text(json.dumps(doc))
@@ -203,7 +203,7 @@ class TestReviewBatch70Views(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
             candidate, _ = _build_candidate(tmp)
-            doc = json.loads(candidate.read_text())
+            doc = json.loads(candidate.read_text(encoding="utf-8"))
             doc["artifact_status"] = "reviewed"
             bad = tmp / "reviewed.json"
             bad.write_text(json.dumps(doc))
@@ -218,7 +218,7 @@ class TestReviewBatch70Views(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
             candidate, _ = _build_candidate(tmp)
-            doc = json.loads(candidate.read_text())
+            doc = json.loads(candidate.read_text(encoding="utf-8"))
             for views in doc["sources"].values():
                 adj = views["adj_values"]
                 peak = max(adj.values())
@@ -235,7 +235,7 @@ class TestReviewBatch70Views(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
             candidate, _ = _build_candidate(tmp)
-            doc = json.loads(candidate.read_text())
+            doc = json.loads(candidate.read_text(encoding="utf-8"))
             first = next(iter(doc["sources"].values()))
             doc["sources"]["mystery"] = copy.deepcopy(first)
             bad = tmp / "mystery.json"
@@ -250,7 +250,7 @@ class TestReviewBatch70Views(unittest.TestCase):
             candidate, batch = _build_candidate(tmp)
             # Rewrite one imputation artifact after the batch pinned it.
             target = tmp / "imputed_fantasycalc.json"
-            doc = json.loads(target.read_text())
+            doc = json.loads(target.read_text(encoding="utf-8"))
             first_key = next(iter(doc))
             doc[first_key]["imputed_vorp"] = doc[first_key]["imputed_vorp"] + 1.0
             target.write_text(json.dumps(doc, indent=2, sort_keys=True))
@@ -264,7 +264,7 @@ class TestReviewBatch70Views(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             tmp = Path(d)
             candidate, _ = _build_candidate(tmp)
-            doc = json.loads(candidate.read_text())
+            doc = json.loads(candidate.read_text(encoding="utf-8"))
             scale = doc["total_budget_per_source"]
             for name, views in doc["sources"].items():
                 total = math.fsum(views["adj_values"].values())

@@ -43,7 +43,7 @@ class ChartPositionsKdstExclusionTest(unittest.TestCase):
         exclusion). The 49cd201 stale-base push reintroduced them here while
         leaving CHART_POSITIONS clean, so this pins the exact constant.
         """
-        entries = top_level_positions(WIDGET.read_text())
+        entries = top_level_positions(WIDGET.read_text(encoding="utf-8"))
         self.assertIsNotNone(entries, "top-level POSITIONS constant not found in curve-widget.js")
         self.assertNotIn("K", entries, "POSITIONS must not contain K (JEG-211)")
         self.assertNotIn("DST", entries, "POSITIONS must not contain DST (JEG-211)")
@@ -52,7 +52,7 @@ class ChartPositionsKdstExclusionTest(unittest.TestCase):
 
     def test_no_specialist_position_arrays_in_widget(self):
         """No live SPECIALIST_POSITIONS / includeSpecialists code may remain."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         # Strip comments so a historical note doesn't trip the guard.
         code = re.sub(r'//[^\n]*', '', text)
         code = re.sub(r'/\*.*?\*/', '', code, flags=re.S)
@@ -67,7 +67,7 @@ class ViewModeWiringTest(unittest.TestCase):
 
     def test_view_mode_plumbing_present(self):
         """All view-mode functions/constants must exist in curve-widget.js."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         for name in ("VIEW_MODE_DEFS", "VIEW_MODE_ORDER",
                      "function setViewMode", "function makeViewModeTabs",
                      "function buildVorpViewSourceMap", "function sourceHasVorpView"):
@@ -76,22 +76,22 @@ class ViewModeWiringTest(unittest.TestCase):
 
     def test_view_tabs_wired_in_init(self):
         """init() must call makeViewModeTabs() so the tab clicks do something."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertRegex(text, r'makeViewModeTabs\(\);',
                          "init() must invoke makeViewModeTabs()")
 
     def test_tab_container_queried_by_widget(self):
         """The widget must query #viewModeTabs; otherwise the HTML tabs are dead."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("#viewModeTabs", text,
                       "curve-widget.js must reference #viewModeTabs")
-        html = INDEX.read_text()
+        html = INDEX.read_text(encoding="utf-8")
         self.assertIn('id="viewModeTabs"', html,
                       "index.html must contain the viewModeTabs container")
 
     def test_build_source_map_uses_view_values(self):
         """buildSourceMap must consult vorp_views for non-indexed views."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("buildVorpViewSourceMap(key, viewKey)", text,
                       "buildSourceMap must route non-indexed views through vorp_views")
 
@@ -108,7 +108,7 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
 
     def test_set_view_mode_activates_vorp_capable_sources(self):
         """Entering a non-indexed view must switch activeSources to the vorp_view keys."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("savedActiveSourcesForView", text,
                       "setViewMode must save/restore the user's source selection")
         # The non-indexed branch must filter AS_PUBLISHED_KEYS by vorp-view availability.
@@ -119,7 +119,7 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
 
     def test_set_view_mode_restores_indexed_selection(self):
         """Returning to Indexed must restore the saved source selection."""
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertRegex(
             text,
             r'if \(mode === "indexed"\) \{\s*if \(savedActiveSourcesForView\)',
@@ -133,7 +133,7 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
         0.8-1.25x band. agreementFor must read indexed units via
         indexedMapForAgreement.
         """
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("function indexedMapForAgreement", text,
                       "indexedMapForAgreement must exist")
         self.assertIn("indexedMapForAgreement(key)", text,
@@ -157,7 +157,7 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
         (getPlayerKeysBySourceId). tests/test_published_views_render.py proves
         it live (mutation "saved-views-unresolved").
         """
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         body = text.split("function buildVorpViewSourceMap")[1].split("function savedViewApplies")[0]
         self.assertIn("window.TradeValueProductData?.getPlayerKeysBySourceId?.()", body,
                       "buildVorpViewSourceMap must build its lookup from product-data's player_keys table")

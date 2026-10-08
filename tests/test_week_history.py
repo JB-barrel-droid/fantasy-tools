@@ -66,7 +66,7 @@ ZERO_ONLY = {}  # series -> players priced 0.0 on one side only (printed)
 
 
 def _week(n):
-    return json.loads((HISTORY / f"week-{n}.json").read_text())
+    return json.loads((HISTORY / f"week-{n}.json").read_text(encoding="utf-8"))
 
 
 class WeekFileSchemaTest(unittest.TestCase):
@@ -140,8 +140,8 @@ class WeekFileSchemaTest(unittest.TestCase):
             raise _render_env.unavailable("dist/ not built")
         for path in HISTORY.glob("week-*.json"):
             self.assertEqual((served / path.name).read_bytes(), path.read_bytes(), path.name)
-        index = json.loads((served / "index.json").read_text())
-        fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text())
+        index = json.loads((served / "index.json").read_text(encoding="utf-8"))
+        fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))
         self.assertEqual(index["fixture_built_at"], fixture["built_at"])
 
 
@@ -250,7 +250,7 @@ class WeekSnapshotRuleTest(unittest.TestCase):
             H.write_superseded(sup, Path(tmp))
             self.assertEqual(set(H.load_superseded(Path(tmp))), {4})
             self.assertEqual(sorted(p.name for p in Path(tmp).glob("week-*.json")), [])  # not served
-            bad = json.loads((Path(tmp) / "superseded" / "week-4.json").read_text())
+            bad = json.loads((Path(tmp) / "superseded" / "week-4.json").read_text(encoding="utf-8"))
             bad["versions"]["usatoday"][0]["week_evidence"]["content_date"] = "2026-09-23"
             with self.assertRaises(H.HistoryError):
                 H.validate_superseded_doc(bad, 4)
@@ -355,7 +355,7 @@ class ChainCaptureOrderTest(unittest.TestCase):
         # 2026-10-08: CBS Week 5 promoted at 12:11 while the only capture ran
         # before the chain, so the committed index was built against the old
         # fixture. A capture after the chain step must exist.
-        text = (ROOT / ".github/workflows/rebuild-chain.yml").read_text()
+        text = (ROOT / ".github/workflows/rebuild-chain.yml").read_text(encoding="utf-8")
         names = [line.split("- name:", 1)[1].strip() for line in text.splitlines() if "- name:" in line]
         chain = names.index("Rebuild comparison chain (if fixture stale)")
         commit = names.index("Commit and push if changed")
@@ -370,8 +370,8 @@ class EspnPriorLegTest(unittest.TestCase):
     build_espn_section_from_ddf_leg) on every player both price."""
 
     def _diff(self, entry):
-        fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text())
-        players = json.loads((ROOT / "data/fixtures/current/players.json").read_text())
+        fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))
+        players = json.loads((ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))
         legs = H.espn_legs_for_week(entry, players)["legs"]
         out = {}
         for scoring, word in (("standard", "standard"), ("half_ppr", "half"), ("ppr", "full")):
@@ -385,7 +385,7 @@ class EspnPriorLegTest(unittest.TestCase):
         return out
 
     def test_served_week_rebuild_is_the_fixture_leg(self):
-        index = json.loads((HISTORY / "index.json").read_text())
+        index = json.loads((HISTORY / "index.json").read_text(encoding="utf-8"))
         week = index["served"]["espn"]["week"]
         self.assertIsNotNone(week)
         for scoring, (diff, nonzero_only, shared) in self._diff(_week(week)["sources"]["espn"]).items():
@@ -394,7 +394,7 @@ class EspnPriorLegTest(unittest.TestCase):
             self.assertEqual(nonzero_only, [], scoring)  # membership differs only at 0.0
 
     def test_rebuild_catches_changed_projections(self):
-        index = json.loads((HISTORY / "index.json").read_text())
+        index = json.loads((HISTORY / "index.json").read_text(encoding="utf-8"))
         entry = copy.deepcopy(_week(index["served"]["espn"]["week"])["sources"]["espn"])
         top = max(entry["ppg"], key=lambda k: entry["ppg"][k][2])
         entry["ppg"][top] = [x * 0.8 for x in entry["ppg"][top]]
@@ -466,7 +466,7 @@ ESPN_PRIOR = """async () => {
 def _python_prior(source, week):
     """Independent price of a saved week at Full PPR / 12 / standard roster."""
     from vorp_translation import unified as U
-    fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text())
+    fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))
     slug_of = {v: k for k, v in fixture["player_keys"].items()}
     natives = _week(week)["sources"][source]["natives"]["ppr"]
     slugged = {slug_of[int(k)]: v for k, v in natives.items() if int(k) in slug_of}
@@ -527,7 +527,7 @@ def served_sources():
     served week to check; a present chart is checked in full. The ESPN anchor
     must be present."""
     sources = json.loads((ROOT / "data" / "fixtures" / "current" /
-                          "comparison-sources-data.json").read_text())["sources"]
+                          "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
     if "espn" not in sources:
         raise AssertionError("the ESPN anchor section is missing from the fixture")
     return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources]
@@ -544,7 +544,7 @@ def collect(overrides=None):
         raise _render_env.unavailable("dist/ is not built with history")
     # Every published chart whose week before the served one is saved (on
     # 2026-10-08: USA Today / FantasyCalc / FantasyPros Week 4, CBS Week 3).
-    index = json.loads((DIST / "assets" / "history" / "index.json").read_text())
+    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
     expected = {}
     for source in H.PUBLISHED:
         served = index["served"][source]["week"]
@@ -591,7 +591,7 @@ def collect(overrides=None):
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
             # ESPN at the reference share is that week's leg as the pipeline
             # builds it (espn_legs_for_week), player for player.
-            players = json.loads((ROOT / "data/fixtures/current/players.json").read_text())
+            players = json.loads((ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))
             for source, res in page.evaluate(ESPN_PRIOR).items():
                 served = index["served"][source.split("_")[0]]["week"]
                 if not res["available"]:
@@ -635,7 +635,7 @@ class DeltaRecomputeTest(unittest.TestCase):
             print(f"0.0-only membership differences (reported): {ZERO_ONLY}")
 
     def test_delta_guard_fails_on_broken_states(self):
-        widget = WIDGET.read_text()
+        widget = WIDGET.read_text(encoding="utf-8")
         relabelled = _week(3)
         relabelled_doc = json.dumps(dict(_week(4), week=3))
         substitute = widget.replace("const native = historyNatives(entry);",
@@ -659,7 +659,7 @@ class DeltaRecomputeTest(unittest.TestCase):
             "ESPN prior reads the served week's leg": {"assets/curve-widget.js": espn_served_leg},
             "VORP prior prices the served projections": {"assets/curve-widget.js": vorp_served},
         }
-        index = json.loads((DIST / "assets" / "history" / "index.json").read_text()) \
+        index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8")) \
             if (DIST / "assets" / "history" / "index.json").exists() else {}
         if any(r.get("version") == "superseded" for r in (index.get("served") or {}).values()):
             cases["served week read from the week's snapshot, not the served version"] = {

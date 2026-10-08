@@ -23,7 +23,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / ".github/workflows/live-page-synthetic.yml").read_text()
+WORKFLOW = (ROOT / ".github/workflows/live-page-synthetic.yml").read_text(encoding="utf-8")
 
 STEP = "Validate and prepare monitor artifact"
 
@@ -95,7 +95,7 @@ def run_bridge(script, report):
         r = subprocess.run(["bash", "-e", "-c", script], cwd=td, env=env,
                            capture_output=True, text=True)
         result_path = out / "live-page-synthetic.json"
-        data = json.loads(result_path.read_text()) if result_path.exists() else None
+        data = json.loads(result_path.read_text(encoding="utf-8")) if result_path.exists() else None
         return r, data
 
 

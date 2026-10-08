@@ -85,7 +85,7 @@ class TestNoFailopenWorkflows(unittest.TestCase):
         for wf in PULL_WORKFLOWS:
             path = WORKFLOWS / wf
             self.assertTrue(path.exists(), f"workflow missing: {wf}")
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
             for name, body in _step_blocks(text):
                 if not _is_pull_step(name, body):
                     continue
@@ -102,7 +102,7 @@ class TestNoFailopenWorkflows(unittest.TestCase):
         missing = []
         for wf in PULL_WORKFLOWS:
             path = WORKFLOWS / wf
-            text = path.read_text()
+            text = path.read_text(encoding="utf-8")
             if "GITHUB_STEP_SUMMARY" not in text:
                 missing.append(wf)
         self.assertEqual(

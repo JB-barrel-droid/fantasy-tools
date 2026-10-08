@@ -84,7 +84,7 @@ class RosterConfigTests(unittest.TestCase):
             groups.write_text(json.dumps(group_doc))
             args=['--values',str(vals),'--group-vorps',str(groups),'--roster-config',str(config),'--out',str(out)]
             self.assertEqual(main(args),0)
-            manifest=json.loads(out.with_suffix('.json.manifest.json').read_text())
+            manifest=json.loads(out.with_suffix('.json.manifest.json').read_text(encoding="utf-8"))
             self.assertEqual(manifest['publisher_roster']['bench_total'],72)
             self.assertEqual(manifest['target_bench_total'],80)
             self.assertEqual(manifest['role_counts'],{'starter':96,'bench':72,'cut':172})

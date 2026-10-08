@@ -125,7 +125,7 @@ def collect(overrides=None):
 
 
 def verify(collected):
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     problems = []
     for setting, got in collected.items():
@@ -159,8 +159,8 @@ class PublishedLeagueSettingsRender(unittest.TestCase):
         self.assertEqual(problems, [], "\n".join(problems[:20]))
 
     def test_guard_fails_on_broken_builds(self):
-        model = (APP / "assets" / "value-model.js").read_text()
-        widget = (APP / "assets" / "curve-widget.js").read_text()
+        model = (APP / "assets" / "value-model.js").read_text(encoding="utf-8")
+        widget = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         # "never-derive": every setting treated as the saved one, so 8/10/14 teams
         # and custom rosters plot the saved 12-team values. (Until #386 this was
         # "always-derive" -- deriving at the saved setup too -- which no longer

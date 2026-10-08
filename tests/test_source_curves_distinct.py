@@ -65,10 +65,10 @@ console.log(JSON.stringify(out));
 
 class SourceCurvesDistinct(unittest.TestCase):
     def test_guard_core(self):
-        self.assertEqual(run(extract(WIDGET.read_text())), EXPECTED)
+        self.assertEqual(run(extract(WIDGET.read_text(encoding="utf-8"))), EXPECTED)
 
     def test_guard_is_wired(self):
-        text = WIDGET.read_text()
+        text = WIDGET.read_text(encoding="utf-8")
         self.assertIn("|| sourceCurvesDistinct(activeKeysForGuard, sourceMaps);", text)
 
     def test_discrimination(self):

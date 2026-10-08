@@ -17,6 +17,7 @@
 //     mismatch: string | null,          // which assertion failed
 //   }
 import { chromium } from "playwright-core";
+import { isMain } from "./is_main.mjs";
 import { enginePageFor } from "./engine_page.mjs";
 import http from "node:http";
 import fs from "node:fs";
@@ -157,6 +158,6 @@ async function main() {
   if (!report.ok) process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   main().catch(e => { console.error(e); process.exit(2); });
 }

@@ -147,7 +147,7 @@ def _write_fixture_with_raw_and_adjusted(
     fx_path = tmp / "comparison-sources-data.json"
     fx_path.write_text(json.dumps(fixture))
     # Now stamp _adjusted sections. Default: stamp lineage matching the raw.
-    fixture = json.loads(fx_path.read_text())
+    fixture = json.loads(fx_path.read_text(encoding="utf-8"))
     if adj_lineage is None:
         # Default: build lineage that DOES match the current raw.
         for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
@@ -268,7 +268,7 @@ def _run_checker(fixture_path: Path, *, output_path: Path | None = None,
     if (output_path or (repo_root / "output" / "input-lineage.json")).exists():
         try:
             artifact = json.loads((output_path or (repo_root / "output" / "input-lineage.json"))
-                                  .read_text())
+                                  .read_text(encoding="utf-8"))
         except (OSError, ValueError):
             artifact = None
     return result.returncode, result.stdout, result.stderr, artifact
@@ -324,7 +324,7 @@ class TestStateA_MissingLineageBlock(unittest.TestCase):
             fx_path, _ = _write_fixture_with_raw_and_adjusted(tmp)
             # Strip the lineage off `fantasycalc_adjusted` (and leave the
             # other three alone, so we can assert WHICH sections are named).
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             fx["sources"]["fantasycalc_adjusted"].pop("lineage", None)
             fx_path.write_text(json.dumps(fx))
 
@@ -352,7 +352,7 @@ class TestStateA_MissingLineageBlock(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             fx_path, _ = _write_fixture_with_raw_and_adjusted(tmp)
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             # Build a cbsros section (no lineage) and a fresh leg.
             fx["sources"]["cbsros"] = {
                 "name": "CBS ROS", "kind": "model projections",
@@ -433,8 +433,8 @@ class TestStateC_CbsrosRealWorldCase(unittest.TestCase):
                 content_vintage="Week 4",
             )
             # Stamp the cbsros section with lineage that lies: claims Week 3.
-            fx = json.loads(fx_path.read_text())
-            leg_doc = json.loads(leg_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
+            leg_doc = json.loads(leg_path.read_text(encoding="utf-8"))
             triples = collect_leg_triples(leg_doc)
             correct_sha = compute_raw_sha(triples)
             fx["sources"]["cbsros"] = {
@@ -496,7 +496,7 @@ class TestStateD_ShaMismatch(unittest.TestCase):
                 adj_lineage=stale_lineage,
             )
             # Sabotage: overwrite every _adjusted section's sha to a wrong value.
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
                 key = f"{src}_adjusted"
                 fx["sources"][key]["lineage"]["raw_content_sha256"] = "0" * 64
@@ -526,7 +526,7 @@ class TestInvariants(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             fx_path, _ = _write_fixture_with_raw_and_adjusted(tmp)
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             fx["sources"]["fantasycalc_adjusted"].pop("lineage", None)
             fx_path.write_text(json.dumps(fx))
 

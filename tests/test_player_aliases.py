@@ -52,7 +52,7 @@ TARGET_KEY, TARGET_NAME, TARGET_POS = 4214, "Mitchell Trubisky", "QB"
 
 
 def players_rows() -> list[dict]:
-    return json.loads(PLAYERS.read_text())["players"]
+    return json.loads(PLAYERS.read_text(encoding="utf-8"))["players"]
 
 
 def registry_rows() -> list[dict]:
@@ -68,7 +68,7 @@ def saver_rows() -> list[dict]:
 def resolvers() -> dict:
     """name -> callable(raw_name) -> resolved player_key | canonical name | None."""
     ident = build_ddf_two_tier_leg.FixtureIdentity.from_fixture(FIXTURE)
-    imap = json.loads(IDENTITY_MAP.read_text())
+    imap = json.loads(IDENTITY_MAP.read_text(encoding="utf-8"))
 
     def fixture_leg(n):
         return ident.resolve(norm_plain(n), TARGET_POS)[0]
@@ -222,7 +222,7 @@ class NoPrivateAliasList(unittest.TestCase):
         self.assertEqual(bad, [])
 
     def test_identity_map_holds_only_mechanical_variants(self):
-        imap = json.loads(IDENTITY_MAP.read_text())
+        imap = json.loads(IDENTITY_MAP.read_text(encoding="utf-8"))
         curated = {a: t for a, t in imap["alias_to_canonical"].items()
                    if norm_player_name(a) != norm_player_name(t)}
         self.assertEqual(curated, {}, "curated aliases belong in data/inputs/player_aliases.json")
@@ -234,7 +234,7 @@ class AliasesAreVerified(unittest.TestCase):
         by_form: dict[str, set[int]] = {}
         for p in players_rows():
             by_form.setdefault(norm_player_name(p["name"]), set()).add(p["player_key"])
-        doc = json.loads((ROOT / "data" / "inputs" / "player_aliases.json").read_text())
+        doc = json.loads((ROOT / "data" / "inputs" / "player_aliases.json").read_text(encoding="utf-8"))
         self.assertEqual(len(doc["aliases"]), len(player_aliases.entries()), "duplicate alias forms")
         for e in doc["aliases"]:
             with self.subTest(alias=e["alias"]):

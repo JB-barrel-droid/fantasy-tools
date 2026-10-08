@@ -307,7 +307,7 @@ class TestAdjustedFixtureSectionsLineage(unittest.TestCase):
         for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
             self.assertEqual(stats[src]["status"], "built",
                              f"{src} _adjusted section failed to build")
-        fixture = json.loads(fx_path.read_text())
+        fixture = json.loads(fx_path.read_text(encoding="utf-8"))
         for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
             adj_key = f"{src}_adjusted"
             self.assertIn(adj_key, fixture["sources"],
@@ -331,7 +331,7 @@ class TestAdjustedFixtureSectionsLineage(unittest.TestCase):
         tmp, fx_path, inputs_path, players_path, fkeys, slug_to_pos = self._setup()
         import build_adjusted_fixture_sections as bafs
         bafs.build_adjusted_sections(fx_path, inputs_path, players_path)
-        fixture = json.loads(fx_path.read_text())
+        fixture = json.loads(fx_path.read_text(encoding="utf-8"))
         for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
             adj_key = f"{src}_adjusted"
             raw_section = fixture["sources"][src]
@@ -346,13 +346,13 @@ class TestAdjustedFixtureSectionsLineage(unittest.TestCase):
     def test_adjusted_does_not_mutate_raw_sections(self):
         tmp, fx_path, inputs_path, players_path, fkeys, slug_to_pos = self._setup()
         # Snapshot the raw section's keys before running the builder.
-        before = json.loads(fx_path.read_text())
+        before = json.loads(fx_path.read_text(encoding="utf-8"))
         raw_keys_before = {src: set(before["sources"][src].keys())
                            for src in ("fantasycalc", "usatoday",
                                        "fantasypros", "cbs")}
         import build_adjusted_fixture_sections as bafs
         bafs.build_adjusted_sections(fx_path, inputs_path, players_path)
-        after = json.loads(fx_path.read_text())
+        after = json.loads(fx_path.read_text(encoding="utf-8"))
         for src in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
             keys_after = set(after["sources"][src].keys())
             self.assertEqual(keys_after, raw_keys_before[src],
@@ -530,7 +530,7 @@ class TestDdfLegSectionLineage(unittest.TestCase):
             cbsros_mod.LEG_DIR = tmp / "data" / "ddf-two-tier"
             cbsros_mod.ROOT = tmp
             section = cbsros_mod.section_from_leg(
-                json.loads(fx_path.read_text()),
+                json.loads(fx_path.read_text(encoding="utf-8")),
                 source_url="https://example/cbsros",
                 combo_keys=cbsros_mod.COMBO_KEYS,
             )
@@ -578,7 +578,7 @@ class TestDdfLegSectionLineage(unittest.TestCase):
             cbsros_mod.LEG_DIR = tmp / "data" / "ddf-two-tier"
             cbsros_mod.ROOT = tmp
             section = cbsros_mod.section_from_leg(
-                json.loads(fx_path.read_text()),
+                json.loads(fx_path.read_text(encoding="utf-8")),
                 source_url="https://example/cbsros",
                 combo_keys=["full_12"],  # just one combo for speed
             )
@@ -617,7 +617,7 @@ class TestDdfLegSectionLineage(unittest.TestCase):
             cbsros_mod.LEG_DIR = tmp / "data" / "ddf-two-tier"
             cbsros_mod.ROOT = tmp
             section = cbsros_mod.section_from_leg(
-                json.loads(fx_path.read_text()),
+                json.loads(fx_path.read_text(encoding="utf-8")),
                 source_url="https://example/cbsros",
                 combo_keys=["full_12"],
             )

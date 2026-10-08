@@ -406,7 +406,7 @@ def step_block(text, name):
 class WiringTest(unittest.TestCase):
     def test_each_ingest_takes_probe_fp_and_acknowledges_its_own_source(self):
         for source, (wf, inputs) in sp.INGEST.items():
-            text = (WF / wf).read_text()
+            text = (WF / wf).read_text(encoding="utf-8")
             self.assertRegex(text, r"\n      probe_fp:\n", wf)
             ack = step_block(text, "Acknowledge probe fingerprint")
             self.assertIsNotNone(ack, wf)
@@ -425,7 +425,7 @@ class WiringTest(unittest.TestCase):
 
     def test_dispatch_args_match_declared_inputs(self):
         for source, (wf, _inputs) in sp.INGEST.items():
-            text = (WF / wf).read_text()
+            text = (WF / wf).read_text(encoding="utf-8")
             argv = sp.dispatch_args(source, "fp1")
             self.assertEqual(argv[:3], ["workflow", "run", wf])
             for key in [a.split("=", 1)[0] for a in argv[3:] if a != "-f"]:
@@ -435,18 +435,18 @@ class WiringTest(unittest.TestCase):
     def test_fantasycalc_bake_is_per_pull_not_per_day(self):
         # A date-only bake_id lets a later same-day save overwrite the Tuesday
         # 12:00 UTC cut pull that week history selects.
-        text = (WF / "fantasycalc-weekly-save.yml").read_text()
+        text = (WF / "fantasycalc-weekly-save.yml").read_text(encoding="utf-8")
         self.assertIn('--bake-id "$bake"', text)
         self.assertIn("date -u +%Y-%m-%dt%H%M", text)
 
     def test_probe_workflow_is_pg_cron_owned_and_dispatches(self):
-        text = (WF / "source-probe.yml").read_text()
+        text = (WF / "source-probe.yml").read_text(encoding="utf-8")
         self.assertNotRegex(text, r"(?m)^\s*schedule:")
         self.assertIn("actions: write", text)
         self.assertIn("source_probe.py probe", text)
 
     def test_migration_schedules_every_source_and_retires_the_blind_timers(self):
-        sql = MIGRATION.read_text()
+        sql = MIGRATION.read_text(encoding="utf-8")
         groups = re.findall(r"cron\.schedule\('(source-probe-[a-z-]+)', '([^']+)',\s*\$\$.*?"
                             r"\"sources\": \"([^\"]+)\"", sql, re.S)
         covered = {s for _, _, srcs in groups for s in srcs.split(",")}
@@ -526,7 +526,7 @@ class RevisionSaveTest(unittest.TestCase):
 
     def test_fantasypros_revision_is_saved_not_skipped(self):
         import pull_fantasypros as fp
-        src = (ROOT / "ops" / "watchdog" / "pull_fantasypros.py").read_text()
+        src = (ROOT / "ops" / "watchdog" / "pull_fantasypros.py").read_text(encoding="utf-8")
         # The pre-fix rule: any saved row for the week skipped the save.
         self.assertNotIn('print("week %d already saved (%d rows); skipping"', src)
         rows = [
@@ -595,7 +595,7 @@ class ChainConcurrencyTest(unittest.TestCase):
     rebase conflicts (run 37780929856, 2026-10-08)."""
 
     def test_chain_has_one_queueing_group(self):
-        text = (WF / "rebuild-chain.yml").read_text()
+        text = (WF / "rebuild-chain.yml").read_text(encoding="utf-8")
         m = re.search(r"(?m)^concurrency:\n  group: (\S+)\n  cancel-in-progress: (\S+)\n", text)
         self.assertIsNotNone(m, "rebuild-chain.yml needs a workflow-level concurrency group")
         self.assertEqual(m.group(1), "rebuild-chain")  # one group: bake runs too
@@ -605,11 +605,11 @@ class ChainConcurrencyTest(unittest.TestCase):
         for wf in sorted(WF.glob("*.yml")):
             if wf.name == "rebuild-chain.yml":
                 continue
-            text = wf.read_text()
+            text = wf.read_text(encoding="utf-8")
             self.assertNotIn("gh workflow run rebuild-chain.yml", text,
                              f"{wf.name} dispatches the chain without coalescing")
         for wf in ["source-vintage-check.yml"] + sorted({w for w, _ in sp.INGEST.values()}):
-            self.assertIn("source_probe.py dispatch-chain", (WF / wf).read_text(), wf)
+            self.assertIn("source_probe.py dispatch-chain", (WF / wf).read_text(encoding="utf-8"), wf)
 
     def fake_gh(self, statuses):
         calls = []
@@ -676,7 +676,7 @@ class ProbeOutputTest(unittest.TestCase):
             with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(out):
                 sp.main(["probe", "--sources", "cbs", "--dry-run",
                          "--state-file", f"{d}/state.json", "--out", f"{d}/probe.jsonl"])
-                written = Path(f"{d}/probe.jsonl").read_text()
+                written = Path(f"{d}/probe.jsonl").read_text(encoding="utf-8")
         finally:
             sp.PROBES.clear()
             sp.PROBES.update(saved)
@@ -694,7 +694,7 @@ class ProbeOutputTest(unittest.TestCase):
             self.assertEqual([(r["source"], r["ok"]) for r in rows], [("cbs", True)])
 
     def test_the_workflow_reads_the_results_file_not_stdout(self):
-        text = (WF / "source-probe.yml").read_text()
+        text = (WF / "source-probe.yml").read_text(encoding="utf-8")
         self.assertIn("--out /tmp/probe.jsonl", text)
         self.assertNotIn("| tee /tmp/probe.jsonl", text)
 
@@ -711,7 +711,7 @@ class ProbeOutputTest(unittest.TestCase):
 
 class MigrationSplitTest(unittest.TestCase):
     def test_tables_and_schedules_are_separate(self):
-        tables, sched = TABLES_MIGRATION.read_text(), MIGRATION.read_text()
+        tables, sched = TABLES_MIGRATION.read_text(encoding="utf-8"), MIGRATION.read_text(encoding="utf-8")
         self.assertIn("create table if not exists public.source_probe_state", tables)
         self.assertNotIn("cron.", tables)
         self.assertNotIn("create table", sched)

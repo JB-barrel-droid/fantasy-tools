@@ -47,7 +47,7 @@ class TestAdjustedFixtureSections(unittest.TestCase):
 
     def test_adjusted_sources_present(self):
         """All three _adjusted sources must be in the fixture."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         sources = fixture.get("sources", {})
         for key in ADJUSTED_SOURCES:
             assert key in sources, f"Missing _adjusted source: {key}"
@@ -55,7 +55,7 @@ class TestAdjustedFixtureSections(unittest.TestCase):
 
     def test_adjusted_sources_live(self):
         """source_validation must mark _adjusted sources as live."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         validation = fixture.get("source_validation", {})
         for key in ADJUSTED_SOURCES:
             assert validation.get(key) == "live", (
@@ -65,7 +65,7 @@ class TestAdjustedFixtureSections(unittest.TestCase):
 
     def test_adjusted_structure(self):
         """Each _adjusted source must have the required structure."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         for key in ADJUSTED_SOURCES:
             src = fixture["sources"][key]
             # Required metadata
@@ -85,7 +85,7 @@ class TestAdjustedFixtureSections(unittest.TestCase):
 
     def test_adjusted_values_reasonable(self):
         """Adjusted values should be positive and in a reasonable range."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         for key in ADJUSTED_SOURCES:
             src = fixture["sources"][key]
             for combo_name, combo in src["combos"].items():
@@ -97,7 +97,7 @@ class TestAdjustedFixtureSections(unittest.TestCase):
 
     def test_adjusted_differs_from_raw(self):
         """Adjusted values should differ from raw (the fit actually does something)."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         sources = fixture["sources"]
     
         for raw_key, adj_key in zip(RAW_SOURCES, ADJUSTED_SOURCES):
@@ -138,7 +138,7 @@ class TestAdjustedFixtureSections(unittest.TestCase):
         
             # Remove _adjusted from both to ensure clean build
             for fp in [fixture1, fixture2]:
-                d = json.loads(fp.read_text())
+                d = json.loads(fp.read_text(encoding="utf-8"))
                 for k in ADJUSTED_SOURCES:
                     d["sources"].pop(k, None)
                     d.get("source_validation", {}).pop(k, None)
@@ -156,8 +156,8 @@ class TestAdjustedFixtureSections(unittest.TestCase):
                 assert result.returncode == 0, f"Builder failed: {result.stderr}"
         
             # Compare outputs (excluding generated_at-style timestamps if any)
-            d1 = json.loads(fixture1.read_text())
-            d2 = json.loads(fixture2.read_text())
+            d1 = json.loads(fixture1.read_text(encoding="utf-8"))
+            d2 = json.loads(fixture2.read_text(encoding="utf-8"))
         
             for key in ADJUSTED_SOURCES:
                 s1 = d1["sources"][key]

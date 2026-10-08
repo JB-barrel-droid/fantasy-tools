@@ -30,11 +30,11 @@ from pipelines import build_monitoring_summary as bms
 from pipelines import record_monitor_check as rec
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = json.loads((ROOT / "config" / "monitoring_coverage.json").read_text())
+MANIFEST = json.loads((ROOT / "config" / "monitoring_coverage.json").read_text(encoding="utf-8"))
 WORKFLOWS = ROOT / ".github" / "workflows"
 MIGRATIONS = ROOT / "supabase" / "migrations"
-DASHBOARD = (ROOT / "modules" / "dashboard.html").read_text()
-SURFACES = json.loads((ROOT / "modules" / "surfaces.json").read_text())["surfaces"]
+DASHBOARD = (ROOT / "modules" / "dashboard.html").read_text(encoding="utf-8")
+SURFACES = json.loads((ROOT / "modules" / "surfaces.json").read_text(encoding="utf-8"))["surfaces"]
 STEP_NAME = "Record monitored check"
 
 
@@ -77,7 +77,7 @@ def retired_pg_cron_jobs(migration_texts):
     return retired
 
 
-def coverage_problems(manifest, workflow_texts, read=lambda p: (ROOT / p).read_text(), migrations_sql=None,
+def coverage_problems(manifest, workflow_texts, read=lambda p: (ROOT / p).read_text(encoding="utf-8"), migrations_sql=None,
                       migration_texts=None):
     """workflow_texts: {filename: text}. Returns a list of problems."""
     problems = []
@@ -123,11 +123,11 @@ def coverage_problems(manifest, workflow_texts, read=lambda p: (ROOT / p).read_t
 
 
 def load_workflows():
-    return {p.name: p.read_text() for p in WORKFLOWS.glob("*.yml")}
+    return {p.name: p.read_text(encoding="utf-8") for p in WORKFLOWS.glob("*.yml")}
 
 
 def all_migrations_sql():
-    return "\n".join(p.read_text() for p in sorted(MIGRATIONS.glob("*.sql")))
+    return "\n".join(p.read_text(encoding="utf-8") for p in sorted(MIGRATIONS.glob("*.sql")))
 
 
 def all_migration_texts():
@@ -170,7 +170,7 @@ class CoverageManifestTest(unittest.TestCase):
             "if: success() && github.ref == 'refs/heads/main'", 1)
         mutated = coverage_problems(
             MANIFEST, wfs,
-            read=lambda p: wfs[Path(p).name] if p.startswith(".github/") else (ROOT / p).read_text())
+            read=lambda p: wfs[Path(p).name] if p.startswith(".github/") else (ROOT / p).read_text(encoding="utf-8"))
         self.assertTrue(any("rebuild-chain.yml" in p and "always()" in p for p in mutated), mutated)
 
     def test_workflow_that_never_records_is_caught(self):
@@ -178,7 +178,7 @@ class CoverageManifestTest(unittest.TestCase):
         wfs["espn-supabase-sync.yml"] = wfs["espn-supabase-sync.yml"].replace("--check-id espn_supabase_sync", "--check-id some_other_check", 1)
         mutated = coverage_problems(
             MANIFEST, wfs,
-            read=lambda p: wfs[Path(p).name] if p.startswith(".github/") else (ROOT / p).read_text())
+            read=lambda p: wfs[Path(p).name] if p.startswith(".github/") else (ROOT / p).read_text(encoding="utf-8"))
         self.assertTrue(any("espn_supabase_sync" in p for p in mutated), mutated)
 
     def test_double_scheduler_owner_is_caught(self):
@@ -207,7 +207,7 @@ class CoverageManifestTest(unittest.TestCase):
 
 
 class MigrationTest(unittest.TestCase):
-    SQL = (MIGRATIONS / "monitoring_coverage_20261007.sql").read_text()
+    SQL = (MIGRATIONS / "monitoring_coverage_20261007.sql").read_text(encoding="utf-8")
 
     def test_dispatcher_is_not_executable_by_anon(self):
         self.assertRegex(self.SQL, r"revoke execute on function public\.dispatch_gha_workflow\(text, jsonb\)\s+from public, anon, authenticated")

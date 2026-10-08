@@ -14,8 +14,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
-SQL = (ROOT / "supabase/migrations/producers_schedule_tidy_20261008.sql").read_text()
-MANIFEST = json.loads((ROOT / "config/monitoring_coverage.json").read_text())
+SQL = (ROOT / "supabase/migrations/producers_schedule_tidy_20261008.sql").read_text(encoding="utf-8")
+MANIFEST = json.loads((ROOT / "config/monitoring_coverage.json").read_text(encoding="utf-8"))
 
 RETIRED = {
     "fantasycalc-drift.yml": ("trigger-fantasycalc-drift-live", "fantasycalc_native_drift"),
@@ -57,17 +57,17 @@ def trace_problems(text, sql):
 class RetiredJobsTest(unittest.TestCase):
     def test_real_state_is_clean(self):
         for name in RETIRED:
-            self.assertEqual(retired_problems(name, (WF / name).read_text(), SQL, MANIFEST), [])
-        self.assertEqual(trace_problems((WF / "player-trace-rebuild.yml").read_text(), SQL), [])
+            self.assertEqual(retired_problems(name, (WF / name).read_text(encoding="utf-8"), SQL, MANIFEST), [])
+        self.assertEqual(trace_problems((WF / "player-trace-rebuild.yml").read_text(encoding="utf-8"), SQL), [])
 
     def test_schedule_left_in_is_caught(self):
-        text = (WF / "weekly-dashboard-load.yml").read_text().replace(
+        text = (WF / "weekly-dashboard-load.yml").read_text(encoding="utf-8").replace(
             "on:\n  workflow_dispatch:", "on:\n  schedule:\n    - cron: '7 16 * * *'\n  workflow_dispatch:", 1)
         self.assertIn("weekly-dashboard-load.yml: still has a GitHub schedule",
                       retired_problems("weekly-dashboard-load.yml", text, SQL, MANIFEST))
 
     def test_record_step_left_in_is_caught(self):
-        text = (WF / "fantasycalc-drift.yml").read_text() + (
+        text = (WF / "fantasycalc-drift.yml").read_text(encoding="utf-8") + (
             '\n          sbclient.rpc("monitoring_record_observation", {"p_check_id": "fantasycalc_native_drift"})\n')
         self.assertTrue(any("records retired check" in p for p in
                             retired_problems("fantasycalc-drift.yml", text, SQL, MANIFEST)))
@@ -75,12 +75,12 @@ class RetiredJobsTest(unittest.TestCase):
     def test_check_row_left_is_caught(self):
         sql = SQL.replace("delete from monitoring.check_config", "-- (kept)")
         self.assertTrue(any("leaves check row" in p for p in
-                            retired_problems("fantasycalc-drift.yml", (WF / "fantasycalc-drift.yml").read_text(), sql, MANIFEST)))
+                            retired_problems("fantasycalc-drift.yml", (WF / "fantasycalc-drift.yml").read_text(encoding="utf-8"), sql, MANIFEST)))
 
     def test_trace_left_paused_is_caught(self):
         sql = SQL.replace("active := true", "active := false")
         self.assertIn("player-trace pg_cron job not re-enabled daily",
-                      trace_problems((WF / "player-trace-rebuild.yml").read_text(), sql))
+                      trace_problems((WF / "player-trace-rebuild.yml").read_text(encoding="utf-8"), sql))
 
 
 if __name__ == "__main__":

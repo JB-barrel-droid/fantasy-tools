@@ -74,7 +74,7 @@ class DistManifestTest(unittest.TestCase):
     def test_other_freshness_fields_are_not_ignored(self):
         a = dm.build_manifest(self.tree("a"))
         root_b = self.tree("b")
-        doc = json.loads((root_b / FRESH).read_text())
+        doc = json.loads((root_b / FRESH).read_text(encoding="utf-8"))
         doc["summary"]["stale_count"] = 7
         (root_b / FRESH).write_text(json.dumps(doc))
         b = dm.build_manifest(root_b)

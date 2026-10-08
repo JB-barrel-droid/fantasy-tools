@@ -34,7 +34,7 @@ class IndexedMonitorMathTest(unittest.TestCase):
             with mock.patch.object(builder, 'FIXTURE', fixture), mock.patch.object(builder, 'OUTPUT',output), \
                  mock.patch.object(builder, 'verify_ddf_leg', side_effect=AssertionError('Indexed invoked DDF')):
                 builder.main()
-            report = json.loads(output.read_text())
+            report = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(set(report['sources']), {'cbs','fantasycalc','fantasypros','usatoday'})
             self.assertFalse(report['rendered_verified'])
             for source in report['sources'].values():

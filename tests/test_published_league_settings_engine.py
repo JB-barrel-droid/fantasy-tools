@@ -160,7 +160,7 @@ def peers_ranked(peers, pos_of):
 
 def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     """Independent reference for the derived published chart (key -> value)."""
-    fixture = fixture or json.loads(FIXTURE.read_text())
+    fixture = fixture or json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = pos_of or browser_players()
     superflex = shape.get("SUPERFLEX", 0) > 0
     ranked, key_by_name = unified.load_native_values(source, scoring, 12, superflex=superflex)
@@ -190,7 +190,7 @@ def saved_setup_translated_keys(source, scoring):
     ranked, key_by_name = unified.load_native_values(source, scoring, 12)
     ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
                     for pos, rows in ranked.items()}
-    peers = peers_ranked(browser_peers(json.loads(FIXTURE.read_text()), browser_players(),
+    peers = peers_ranked(browser_peers(json.loads(FIXTURE.read_text(encoding="utf-8")), browser_players(),
                                        source, scoring), browser_players())
     return frozenset(unified.translate_ranked(ranked_keyed, 12, peers=peers)["translated"])
 
@@ -246,7 +246,7 @@ def all_settings():
 
 
 def run_engine(settings, model_path=VALUE_MODEL):
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     cases = _cases(fixture, pos_of, settings)
     results = run_js(cases, model_path)
@@ -292,7 +292,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
             self.assertTrue(all(v >= 0 for v in r["values"].values()))
 
     def test_saved_setup_is_exactly_the_standard_12_team_roster(self):
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         pos_of = browser_players()
         probe = [("cbs", "ppr", t, label, shape) for t in (8, 12, 14)
                  for label, shape in SHAPES]
@@ -305,7 +305,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         player at or below it is worth exactly 0 -- not the saved 12-team value
         and not the 12-team pie value (league-settings-001/3). Replaces the
         pre-2026-10-07 pin of the server's fail-safe, which Jeremy reversed."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         pos_of = browser_players()
         for source in SOURCES:
             case = _cases(fixture, pos_of, [(source, "ppr", 8, "std", SAVED_SHAPE)])
@@ -324,7 +324,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         while expected_derived overlaid native_superflex, so every superflex
         setting failed once a rebuild carried publisher superflex values
         (CI run 37834647888). Feeding the 1-QB natives must still fail."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         pos_of = browser_players()
         carriers = [s for s in SOURCES
                     if fixture["sources"][s]["combos"][unified.resolve_combo_key(
@@ -347,7 +347,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
             self.assertGreater(len(problems), 0, f"{source}: 1-QB inputs not caught")
 
     def test_guard_catches_broken_engines(self):
-        source = VALUE_MODEL.read_text()
+        source = VALUE_MODEL.read_text(encoding="utf-8")
         mutations = {
             # below-waiver players keep their saved 12-team value (pre-/3 fail-safe)
             "below-waiver-keeps-saved": ("values.set(key, 0); counts.belowWaiver += 1;",
@@ -370,7 +370,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
                 broken.write_text(source.replace(old, new))
                 failures = run_engine(settings, broken)[0]
                 if name == "saved-setup-teams-only":
-                    res = run_js(_cases(json.loads(FIXTURE.read_text()), browser_players(),
+                    res = run_js(_cases(json.loads(FIXTURE.read_text(encoding="utf-8")), browser_players(),
                                         [("cbs", "ppr", 12, "bench0", {**SAVED_SHAPE, "BENCH": 0})]),
                                  broken)
                     failures = failures + ([] if not res[0].get("savedSetup") else ["savedSetup at bench0"])

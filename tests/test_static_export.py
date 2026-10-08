@@ -3,6 +3,7 @@ import json
 import math
 import re
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -47,7 +48,7 @@ def present_sources(comparison, candidates):
     return [source for source in candidates if source in sources]
 
 def recompute_adjusted_combo(fixture, inputs, players, source, combo_name):
-    roster = json.loads((ROOT / "config" / "roster.json").read_text())
+    roster = json.loads((ROOT / "config" / "roster.json").read_text(encoding="utf-8"))
     shape, flex_ok = roster["roster_shape"], roster["flex_eligible"]
     canon = {}
     for p in players["players"]:
@@ -410,7 +411,7 @@ class StaticExportTest(unittest.TestCase):
             freshness = Path(tmp) / "reference-freshness.json"
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/build_reference_data.py",
                     "--output",
                     str(output),

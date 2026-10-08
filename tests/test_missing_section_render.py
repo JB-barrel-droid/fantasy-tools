@@ -84,7 +84,7 @@ def load(overrides, path="/classic/"):
                 page = browser.new_page()
                 page.goto(base + path, wait_until="networkidle")
                 try:
-                    page.wait_for_function("() => window.TradeValueCurveDiagnostics", timeout=15000)
+                    page.wait_for_function("() => window.TradeValueCurveDiagnostics", timeout=60000)
                 except Exception:
                     pass
                 page.wait_for_timeout(500)

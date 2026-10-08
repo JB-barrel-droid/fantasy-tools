@@ -51,7 +51,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
             out_path = os.path.join(tmp, "chart-input-coverage.json")
             rc = mod.main(argv=["--output", out_path])
             self.assertEqual(rc, 0)
-            with open(out_path) as f:
+            with open(out_path, encoding="utf-8") as f:
                 payload = json.load(f)
 
         self.assertIn("items", payload)
@@ -88,7 +88,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "chart-input-coverage.json")
             mod.main(argv=["--output", out_path])
-            with open(out_path) as f:
+            with open(out_path, encoding="utf-8") as f:
                 payload = json.load(f)
         items = payload["items"]
         self.assertTrue(
@@ -107,7 +107,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "chart-input-coverage.json")
             mod.main(argv=["--output", out_path])
-            with open(out_path) as f:
+            with open(out_path, encoding="utf-8") as f:
                 payload = json.load(f)
         names = {it["name"] for it in payload["items"]}
 
@@ -152,7 +152,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "chart-input-coverage.json")
             mod.main(argv=["--output", out_path])
-            with open(out_path) as f:
+            with open(out_path, encoding="utf-8") as f:
                 payload = json.load(f)
         players_rows = [
             it for it in payload["items"] if it["name"] == "data/fixtures/current/players.json"
@@ -161,7 +161,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
         players_row = players_rows[0]
 
         # Cross-check against the actual fixture meta.
-        with open(REPO / "data/fixtures/current/players.json") as f:
+        with open(REPO / "data/fixtures/current/players.json", encoding="utf-8") as f:
             fixture = json.load(f)
         meta = fixture.get("meta", {})
         self.assertIn(
@@ -177,7 +177,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
             OUTPUT_PATH.exists(),
             f"{OUTPUT_PATH} missing — builder must have run",
         )
-        with open(OUTPUT_PATH) as f:
+        with open(OUTPUT_PATH, encoding="utf-8") as f:
             persisted = json.load(f)
         # Schema sanity, not a full equality (generated_at drifts by design).
         self.assertIn("items", persisted)
@@ -197,7 +197,7 @@ class TestActualsFreshnessAggregateRow(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             out_path = os.path.join(tmp, "chart-input-coverage.json")
             mod.main(argv=["--output", out_path])
-            with open(out_path) as f:
+            with open(out_path, encoding="utf-8") as f:
                 payload = json.load(f)
         rows = [it for it in payload["items"] if it["name"] == "data/fixtures/current/actuals_*.json"]
         self.assertEqual(
@@ -276,7 +276,7 @@ class TestActualsAgeBandRenderer(unittest.TestCase):
     AGE_AMBER_THRESHOLD_DAYS = 14
 
     def _extract_chart_input_age_band(self) -> str:
-        html = DASHBOARD_HTML.read_text()
+        html = DASHBOARD_HTML.read_text(encoding="utf-8")
         m = re.search(
             r"function\s+chartInputAgeBand\s*\([^)]*\)\s*\{(?P<body>.*?)\n\}",
             html,
@@ -345,7 +345,7 @@ class TestActualsAgeBandRenderer(unittest.TestCase):
         # The renderer must apply the red style for that band — assert the
         # JS body references both the band name and the red CSS variable.
         self.assertIn("band: \"red\"", body, "JS body does not name the red band")
-        self.assertIn("--red-bg", DASHBOARD_HTML.read_text(),
+        self.assertIn("--red-bg", DASHBOARD_HTML.read_text(encoding="utf-8"),
                       "dashboard does not declare --red-bg; the renderer cannot paint red")
 
     def test_age_band_paints_amber_when_most_recent_actuals_is_10_days_old(self):
@@ -361,7 +361,7 @@ class TestActualsAgeBandRenderer(unittest.TestCase):
             f"actuals mtime {mtime_iso} is 10d old; expected amber band, got {result['band']}",
         )
         self.assertIn("band: \"amber\"", body, "JS body does not name the amber band")
-        self.assertIn("--yellow-bg", DASHBOARD_HTML.read_text(),
+        self.assertIn("--yellow-bg", DASHBOARD_HTML.read_text(encoding="utf-8"),
                       "dashboard does not declare --yellow-bg; the renderer cannot paint amber")
 
     def test_age_band_paints_red_when_mtime_missing(self):
@@ -378,7 +378,7 @@ class TestActualsAgeBandRenderer(unittest.TestCase):
         by chartInputAgeBand and apply the matching background style.
         Without this, the helper exists but the row still gets the default
         monitored/green treatment — a regression worth catching."""
-        html = DASHBOARD_HTML.read_text()
+        html = DASHBOARD_HTML.read_text(encoding="utf-8")
         m = re.search(
             r"async function loadChartInputs\(\)\s*\{(?P<body>.*?)\n\}\nloadChartInputs\(\);",
             html,
@@ -415,7 +415,7 @@ class TestDashboardRendersUnmonitoredRows(unittest.TestCase):
     (iv) gives unmonitored rows a visually distinct style."""
 
     def _extract_load_chart_inputs(self) -> str:
-        html = DASHBOARD_HTML.read_text()
+        html = DASHBOARD_HTML.read_text(encoding="utf-8")
         # Find the function body between the JEG-314 banner and its closing brace.
         m = re.search(
             r"//\s*JEG-314:.*?async function loadChartInputs\(\)\s*\{(?P<body>.*?)\n\}\nloadChartInputs\(\);",
@@ -431,7 +431,7 @@ class TestDashboardRendersUnmonitoredRows(unittest.TestCase):
 
     def test_loader_section_exists(self):
         """The dashboard must have a Chart inputs section near line 329."""
-        html = DASHBOARD_HTML.read_text()
+        html = DASHBOARD_HTML.read_text(encoding="utf-8")
         self.assertIn('id="chartInputsCard"', html)
         self.assertIn('id="chartInputsTable"', html)
         self.assertIn('id="chartInputsSummary"', html)

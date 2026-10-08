@@ -35,7 +35,7 @@ class ReferenceContractTests(unittest.TestCase):
             self.assertEqual(meta['normalized_weights'],{'espn':.5,'cbsros':.25,'razzball':.25})
             expected={g:0 for g in budgets};legacy={g:0 for g in budgets}
             for source,e in doc['sources'].items():
-                leg=json.loads((p.parent/e['leg']).read_text());weight=e['weight']/4
+                leg=json.loads((p.parent/e['leg']).read_text(encoding="utf-8"));weight=e['weight']/4
                 for row in leg['values']:
                     g=row['pos'],row['tier']
                     if g in expected:expected[g]+=weight*max(0,row['ppg']-leg['calibration'][row['pos']]['rw'])
@@ -77,7 +77,7 @@ class ReferenceContractTests(unittest.TestCase):
             root=Path(t);p,d=fixture(root)
             cfg=d['configuration'];sources={}
             for source,e in d['sources'].items():
-                leg=json.loads((root/e['leg']).read_text())
+                leg=json.loads((root/e['leg']).read_text(encoding="utf-8"))
                 pool={str(r['player_key']):{'group':r['pos']+'|'+r['tier'].title(),
                       'imputed_vorp':max(0,r['ppg']-leg['calibration'][r['pos']]['rw'])}
                       for r in leg['values'] if r['tier'] in ('starter','bench')}
@@ -90,14 +90,14 @@ class ReferenceContractTests(unittest.TestCase):
                 'excluded_sources':{s:'historical arithmetic fixture excludes publisher inputs' for s in SOURCE_KINDS if s not in sources}}))
             out=root/'out.json'
             self.assertEqual(main(['--batch',str(batch),'--reference',str(p),'--out',str(out)]),0)
-            result=json.loads(out.read_text())
+            result=json.loads(out.read_text(encoding="utf-8"))
             self.assertEqual(result['manifest']['control_origin'],'linear_blend_reference')
             self.assertEqual(result['manifest']['reference']['reference_sha256'],hashlib.sha256(p.read_bytes()).hexdigest())
             self.assertEqual(result['manifest']['reference']['normalized_weights'],{'espn':.5,'cbsros':.25,'razzball':.25})
             self.assertEqual(result['artifact_status'],'candidate')
             out.write_text('sentinel');d['configuration']['scoring']='ppr';p.write_text(json.dumps(d))
             with self.assertRaises(ValueError):main(['--batch',str(batch),'--reference',str(p),'--out',str(out)])
-            self.assertEqual(out.read_text(),'sentinel')
+            self.assertEqual(out.read_text(encoding="utf-8"),'sentinel')
 
 
 if __name__=='__main__':unittest.main()

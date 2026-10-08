@@ -79,7 +79,7 @@ class SaverInputsTest(unittest.TestCase):
             keys = {r["player_key"] for r in clean}
             self.assertIn(2606, keys)
             self.assertIn(2730, keys)
-            with open(f"{d}/fp.csv", newline="") as fh:
+            with open(f"{d}/fp.csv", newline="", encoding="utf-8") as fh:
                 self.assertEqual(len(list(csv.DictReader(fh))), 4)
             log = [json.loads(l) for l in open(f"{d}/log.jsonl")]
             self.assertEqual(log[-1]["week"], 5)

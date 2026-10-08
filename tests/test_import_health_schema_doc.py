@@ -14,7 +14,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 
 import verify_import_health as vih  # noqa: E402
 
-DOC = (ROOT / "docs" / "import-health-schema.md").read_text()
+DOC = (ROOT / "docs" / "import-health-schema.md").read_text(encoding="utf-8")
 WORDS = {5: "five", 6: "six", 7: "seven", 8: "eight"}
 
 

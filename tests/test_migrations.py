@@ -9,7 +9,7 @@ MIGRATION = Path(__file__).resolve().parents[1] / "sql/migrations/005_source_tra
 
 class MigrationTests(unittest.TestCase):
     def setUp(self):
-        self.sql = re.sub(r"--[^\n]*", "", MIGRATION.read_text())
+        self.sql = re.sub(r"--[^\n]*", "", MIGRATION.read_text(encoding="utf-8"))
 
     def test_legacy_grain_dropped_as_constraint(self):
         self.assertRegex(self.sql, r"(?is)ALTER\s+TABLE\s+public\.source_trade_values\s+DROP\s+CONSTRAINT\s+IF\s+EXISTS\s+source_trade_values_grain\s*;")

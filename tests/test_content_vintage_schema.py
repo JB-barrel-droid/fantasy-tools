@@ -183,7 +183,7 @@ class TestContentVintageSchema(unittest.TestCase):
                     "player_keys": {s: fkeys[s] for s in native},
                 }
 
-            fx_section = json.loads(fx_path.read_text())["sources"]["syn"]
+            fx_section = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["syn"]
             for combo in ("full_12",):
                 native = fx_section["combos"][combo]["native"]
                 cand["combos"][combo]["native"] = dict(native)
@@ -211,7 +211,7 @@ class TestContentVintageSchema(unittest.TestCase):
                                   record_dir=str(tmp / "records"))
 
             # Check fixture has content_vintage
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             promoted = fx["sources"]["syn"]
 
             self.assertIn("content_vintage", promoted,
@@ -244,7 +244,7 @@ class TestContentVintageSchema(unittest.TestCase):
                     "player_keys": {s: fkeys[s] for s in native},
                 }
 
-            fx_section = json.loads(fx_path.read_text())["sources"]["syn"]
+            fx_section = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["syn"]
             for combo in ("full_12",):
                 native = fx_section["combos"][combo]["native"]
                 cand["combos"][combo]["native"] = dict(native)
@@ -272,7 +272,7 @@ class TestContentVintageSchema(unittest.TestCase):
                                   record_dir=str(tmp / "records"))
 
             # Check fixture has content_vintage (stamped from fetched_at)
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             promoted = fx["sources"]["syn"]
 
             self.assertIn("content_vintage", promoted,
@@ -290,7 +290,7 @@ class TestD2ExclusionGate(unittest.TestCase):
                 tmp, invalid_type="null_identity")
 
             # Verify the fixture has the invalid row in native
-            fx_before = json.loads(fx_path.read_text())
+            fx_before = json.loads(fx_path.read_text(encoding="utf-8"))
             native_before = fx_before["sources"]["syn"]["combos"]["full_12"]["native"]
             self.assertIn("player_no_key", native_before,
                           "Test setup: fixture should have invalid row")
@@ -316,7 +316,7 @@ class TestD2ExclusionGate(unittest.TestCase):
             fx_path, players_path = build_candidate_with_invalid_row(
                 tmp, invalid_type="null_value")
 
-            fx_before = json.loads(fx_path.read_text())
+            fx_before = json.loads(fx_path.read_text(encoding="utf-8"))
             fx_section = fx_before["sources"]["syn"]
             player_keys = fx_before.get("player_keys", {})
 
@@ -340,7 +340,7 @@ class TestD2ExclusionGate(unittest.TestCase):
             fx_path, players_path = build_candidate_with_invalid_row(
                 tmp, invalid_type="negative_value")
 
-            fx_before = json.loads(fx_path.read_text())
+            fx_before = json.loads(fx_path.read_text(encoding="utf-8"))
             fx_section = fx_before["sources"]["syn"]
             player_keys = fx_before.get("player_keys", {})
 
@@ -364,7 +364,7 @@ class TestD2ExclusionGate(unittest.TestCase):
                 tmp, invalid_type="null_identity")
 
             # Verify fixture state before
-            fx = json.loads(fx_path.read_text())
+            fx = json.loads(fx_path.read_text(encoding="utf-8"))
             original_native_count = len(fx["sources"]["syn"]["combos"]["full_12"]["native"])
 
             # The promotion applies the exclusion gate
@@ -376,7 +376,7 @@ class TestD2ExclusionGate(unittest.TestCase):
             fx_path.write_text(json.dumps(fx, separators=(",", ":")))
 
             # Verify the field is present
-            fx_after = json.loads(fx_path.read_text())
+            fx_after = json.loads(fx_path.read_text(encoding="utf-8"))
             self.assertIn("hidden_invalid_rows", fx_after["sources"]["syn"],
                           "Section should have hidden_invalid_rows when invalid rows were excluded")
             self.assertEqual(fx_after["sources"]["syn"]["hidden_invalid_rows"], 1)

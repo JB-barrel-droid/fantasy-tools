@@ -114,7 +114,7 @@ def check(out):
 
 class RazzballDashboardRenderTest(unittest.TestCase):
     def test_razzball_live_in_fixture(self):
-        payload = json.loads(FIXTURE.read_text())
+        payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(payload["source_validation"].get("razzball"), "live",
                          "fixture must carry a validated-live razzball section")
         combos = payload["sources"]["razzball"]["combos"]
