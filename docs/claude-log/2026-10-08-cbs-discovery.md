@@ -68,6 +68,11 @@ charts. I'm open to light assistance from an LLM."
   reworded week-5 slug. Existing suites pass: test_cbs_usatoday_recurring,
   test_trade_chart_ingest_ci, test_pull_fantasypros_parse,
   test_cbs_week_coding, test_workflow_no_event_interpolation (121 + 70).
+- **CI dry run:** run 37770686795 (`--ref fix/cbs-discovery -f mode=dry
+  -f source=cbs -f week=5`), green. Annotations: discovered the week 5 URL on
+  the runner (www reachable from GitHub), tables QB=35 RB=44 TE=15 WR=45,
+  clean=343 (standard 113, half_ppr 113, ppr 117), review=74, "would upsert
+  343 rows into cbs_trade_values", no writes.
 - **Gate:** `make sync` then `make validate` (Chrome) both exit 0; build
   churn reverted.
 
@@ -82,5 +87,3 @@ charts. I'm open to light assistance from an LLM."
 - `tests/test_pull_fantasypros.py` fails to import (`No module named
   'fantasypros'`) on origin/main as well; not part of any make target; not
   touched.
-- The CBS listings were readable from this machine; GitHub runners were not
-  tried (CBS served the old sportsfly slugs to CI, so www should be fine).
