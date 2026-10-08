@@ -70,3 +70,21 @@ short-chart-waiver, suffix-names, main-table-drift.
   lane is installing a browser in CI so gate render tests run instead of skip.
 - Also: my background merge command would have pushed after a red validate;
   I stopped it before the push. Merge commands now push only when the gate exits 0.
+
+### Database migrations applied 2026-10-08
+- By the integrator: security_lockdown_20261008 (verified: 0 public tables without
+  RLS, 0 anon/authenticated write grants; owner reads intact),
+  monitoring_6h_and_posture_20261008 (monitoring_security_posture() ok=true,
+  11 accepted api.* definer views), retire_player_context_20261008 (guard: the
+  three tables were empty), archive_fp_kdst_20261008 (66-row table + view moved
+  to schema archive; not deleted).
+- By the migrations agent (verified per its report): fc_week4_value_repair
+  (591 rows repaired, hash of (id,value) matched the file; 1,773 out-of-scope rows
+  deleted), producers_schedule_tidy (drift + weekly-dashboard jobs removed,
+  player-trace daily 12:47), players_merge_audric_estime (1475 merged into 4642,
+  18 stats rows moved), live_page_synthetic_schedule (daily 12:15 UTC).
+- Not applied yet: cbs_bakes_source_urls_20261008 (fix/weeks-tidy) — breaks
+  main's CBS saver; applied together with that merge (GAP-MIGRATION-CBS-BAKES-ORDER).
+- Advisor residuals (accepted): 10–11 api.* definer views (read-only front-end
+  surface), pg_net in public (moving it breaks dispatch history), INFO
+  rls_enabled_no_policy on service-role-only tables.
