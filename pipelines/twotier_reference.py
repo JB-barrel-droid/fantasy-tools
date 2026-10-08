@@ -546,6 +546,31 @@ def calibrate_position_feasible(
             first = {**first, "bench_share_used": float(requested_share)}
         return first
     reason = str(first.get("invalidReason") or "")
+    if _BENCH_NOT_POSITIVE_RE.search(reason):
+        # JEG-74 upward step (GAP-CBSROS-8T-NO-QB): request below the window.
+        lo = float(requested_share)
+        hi = None
+        s = lo
+        while s < 0.99:
+            s = min(0.99, s + 0.01)
+            attempt = calibrate_position(tier, pie, s)
+            if attempt is not None and not attempt.get("invalid"):
+                hi = s
+                break
+            lo = s
+        if hi is None:
+            return first
+        for _ in range(15):
+            mid = (lo + hi) / 2
+            attempt = calibrate_position(tier, pie, mid)
+            if attempt is not None and not attempt.get("invalid"):
+                hi = mid
+            else:
+                lo = mid
+        best = calibrate_position(tier, pie, hi)
+        if best is None or best.get("invalid"):
+            return first
+        return {**best, "bench_share_used": hi}
     if not _ECON_BREAK_RE.search(reason):
         return first
     lo = 0.01
@@ -568,6 +593,7 @@ def calibrate_position_feasible(
 import re  # noqa: E402
 
 _ECON_BREAK_RE = re.compile(r"does not exceed|economics break", re.IGNORECASE)
+_BENCH_NOT_POSITIVE_RE = re.compile(r"bench rate .* not positive", re.IGNORECASE)
 
 
 # ---------------------------------------------------------------------------
