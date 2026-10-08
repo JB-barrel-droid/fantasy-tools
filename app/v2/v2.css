@@ -144,7 +144,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-showing-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; flex: 1 1 320px; font-size: 12px; color: var(--v2-muted); }
 .v2-showing-legend li { display: inline-flex; align-items: center; gap: 4px; }
 .v2-methods-row #v2EditSources { margin-left: auto; }
-.v2-wk { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--v2-older); border-radius: 4px; color: var(--v2-older); font-size: 11px; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.v2-wk { margin-left: 6px; }  /* the shared .v2-prior-badge, spaced inside a legend or row */
 /* Customize panel: grouped by type, every group explained. */
 .v2-cgroup { border-top: 1px solid var(--v2-border); padding: 12px 0 6px; }
 .v2-cgroup-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }

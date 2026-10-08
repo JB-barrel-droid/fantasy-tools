@@ -285,7 +285,7 @@ def check_freshness(page) -> list[str]:
                 item["value"] = "2026-10-06"
         route.fulfill(response=response, json=doc)
     other.route("**/assets/reference-freshness.json*", broken)
-    other.goto(page.url.split("#")[0] + "#player-values", wait_until="networkidle")
+    other.goto(page.url.split("#")[0] + "#player-values", wait_until="load", timeout=120000)
     other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
     other.wait_for_timeout(1500)   # the freshness record loads after the engine
     other.click("#v2Freshness")

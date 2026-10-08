@@ -62,16 +62,12 @@
     if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
     return "pub";
   }
-  // Prior-week badge (JEG-459 status language): shown only for a series whose week is behind.
+  // Prior-week badge for a series key: the shared JEG-459 badge, named by publisher.
   function weekBadge(key) {
     const item = view && view.infoByKey[key];
-    const meta = sourceMeta(key);
-    const badge = document.createElement("span");
-    badge.className = "v2-wk";
-    badge.textContent = item?.week ? `Wk ${item.week}` : "prior week";
-    const name = PLAIN_NAMES[meta.publisher] || meta.label;
-    badge.title = view?.refWeek && item?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${item.week}.` : `${name} is from a prior week.`;
-    badge.setAttribute("aria-label", badge.title);
+    const badge = priorWeekBadge(sourceMeta(key).publisher, {...item, stale: true}, view && view.refWeek);
+    badge.classList.add("v2-wk");
+    badge.dataset.priorWeek = key;
     return badge;
   }
 
