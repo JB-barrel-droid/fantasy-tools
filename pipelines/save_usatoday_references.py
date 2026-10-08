@@ -94,6 +94,39 @@ QB_SPLIT_NOTE = (
     "the 1QB value is reused for std/half/full (mirrors the CBS fixture convention)"
 )
 
+# GAP-SUPERFLEX-PUBLISHER-VALUES: the QB table also publishes a superflex
+# column (headers 1QB / 6-TD / SFLEX). It is saved as qb_slots = 2 rows, QB
+# only (USA Today publishes no superflex RB/WR/TE values: those stay the same
+# chart numbers in a superflex league), reused for std/half/full like 1QB.
+SUPERFLEX_QB_SLOTS = 2
+SUPERFLEX_HEADERS = ("sflex", "superflex", "2qb")
+
+
+def parse_superflex(payload: dict[str, Any]) -> list[tuple[str, str, float]]:
+    """-> [(name, "QB", published superflex value)] from the QB table's
+    superflex column; [] when the article has none (never guessed)."""
+    out: list[tuple[str, str, float]] = []
+    for table in payload.get("tables") or []:
+        title = str(table.get("title") or "").lower()
+        pos = next((p for key, p in POS_BY_TITLE.items() if key in title), None)
+        if pos != "QB":
+            continue
+        headers = [str(h or "").lower().replace(" ", "") for h in (table.get("headers") or [])]
+        col = next((i for i, h in enumerate(headers) if h in SUPERFLEX_HEADERS), None)
+        if col is None or col < 2:
+            continue
+        for cells in table.get("rows") or []:
+            if len(cells) <= col:
+                continue
+            name = _strip_html(cells[1])
+            try:
+                value = float(_strip_html(cells[col]))
+            except ValueError:
+                continue
+            if name:
+                out.append((name, pos, value))
+    return out
+
 
 def _strip_html(text: str) -> str:
     return re.sub(r"<.*?>", "", text or "").strip()
@@ -171,10 +204,15 @@ def build_usatoday_rows(
     combos = parse_tables(payload)
     index = build_name_index(fetch_players())
 
+    superflex = parse_superflex(payload)
+
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     for scoring in SCORING_LABELS:
-        for name, pos, value in combos[scoring]:
+        for name, pos, value, qb_slots in (
+            [(*row, 1) for row in combos[scoring]]
+            + [(*row, SUPERFLEX_QB_SLOTS) for row in superflex]
+        ):
             key, _rec, canonical_pos = resolve_name(name, pos, index)
             if key is None:
                 review.append(
@@ -182,6 +220,7 @@ def build_usatoday_rows(
                         "name": name,
                         "position": pos,
                         "scoring": scoring,
+                        "qb_slots": qb_slots,
                         "value": value,
                         "detail": "no single canonical players-table identity; never guessed",
                     }
@@ -195,7 +234,7 @@ def build_usatoday_rows(
                     "player_norm": normalize_name(name),
                     "scoring": scoring,
                     "league_teams": 12,
-                    "qb_slots": 1,
+                    "qb_slots": qb_slots,
                     "season": 2026,
                     "week": week,
                     "position": canonical_pos or pos,
@@ -268,6 +307,12 @@ def apply_reindex(
 
     from reindex_comparison_section import reindex_section
 
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's superflex / 2-QB rows
+    # (qb_slots = 2) have no ESPN anchor, so they are not reindexed: they pass
+    # through with `value` NULL and the published number in `native_value`.
+    # Any other qb_slots still fails closed in build_reindex_candidate.
+    superflex_rows = [r for r in clean_rows if r.get("qb_slots") == SUPERFLEX_QB_SLOTS]
+    clean_rows = [r for r in clean_rows if r.get("qb_slots") != SUPERFLEX_QB_SLOTS]
     candidate = build_reindex_candidate(clean_rows, bake_id)
     with tempfile.NamedTemporaryFile(
         "w", suffix=".json", prefix="usatoday-reindex-", delete=False
@@ -316,6 +361,7 @@ def apply_reindex(
         row = dict(r)
         row["value"] = val
         final_clean.append(row)
+    final_clean.extend({**r, "value": None} for r in superflex_rows)
     return final_clean, final_review
 
 

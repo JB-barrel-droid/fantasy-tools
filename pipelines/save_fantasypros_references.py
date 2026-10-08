@@ -16,6 +16,12 @@ as_published only: like FantasyCalc, the bias_adjusted FP fit is a derived
 calibration whose fit target is stale in-season; the importer never
 consumes bias_adjusted, so this saver never writes it.
 
+Superflex (GAP-SUPERFLEX-PUBLISHER-VALUES): the QB table's "2QB Value"
+column (CSV `value_2qb`, written by ops/watchdog/pull_fantasypros.py) is saved
+as qb_slots = 2 rows, QB only, reused for std/half/full like the base value;
+`native_value` = the published number, `value` NULL (no chart-scale anchor).
+A CSV without the column saves the 1-QB rows alone.
+
 Fail-closed: zero clean rows aborts; the post-upsert count check must
 match or the save aborts loudly.
 """
@@ -81,6 +87,13 @@ def fetch_log_content_date(week: int) -> str:
     return cands[-1]["published"]
 
 
+def parse_float_or_none(raw: Any) -> float | None:
+    try:
+        return float(raw) if str(raw if raw is not None else "").strip() else None
+    except ValueError:
+        return None
+
+
 def build_fp_rows(
     csv_path: Path, week: int, bake_id: str
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -141,6 +154,14 @@ def build_fp_rows(
                         "pulled_at": pulled_at,
                         "bake_id": bake_id,
                     }
+                )
+            # Superflex: the same three rows at qb_slots = 2, priced by the
+            # published 2QB Value (QB only; see the docstring).
+            superflex = parse_float_or_none(row.get("value_2qb"))
+            if superflex is not None and rec["position"] == "QB":
+                clean.extend(
+                    {**one_qb, "qb_slots": 2, "value": None, "native_value": superflex}
+                    for one_qb in clean[-len(SCORING_LABELS):]
                 )
     return clean, review
 

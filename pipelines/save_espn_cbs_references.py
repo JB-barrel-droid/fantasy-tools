@@ -285,6 +285,14 @@ CBS_QB_SPLIT_NOTE = (
     "IMPLIED: CBS publishes one QB column (1QB-4), no per-scoring split; "
     "the 1QB-4 value is reused for standard/half_ppr/ppr (fixture cbs convention)"
 )
+# GAP-SUPERFLEX-PUBLISHER-VALUES: the QB table's "2QB" column is CBS's own
+# superflex / 2-QB price, saved as qb_slots = 2 rows (same IMPLIED reuse for
+# the three scorings). QB only: CBS publishes no 2-QB RB/WR/TE values. A QB
+# dashed in the 1QB columns but priced in 2QB keeps his 2QB rows (CBS prices
+# him for superflex leagues only). value = native_value (CBS is chart scale).
+CBS_SUPERFLEX_COLUMNS = {
+    "QB": [("2QB", "standard"), ("2QB", "half_ppr"), ("2QB", "ppr")],
+}
 
 
 def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
@@ -325,7 +333,11 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
                     }
                 )
                 continue
-            for header, scoring in columns:
+            for header, scoring, qb_slots in (
+                [(h, sc, 1) for h, sc in columns]
+                + [(h, sc, 2) for h, sc in CBS_SUPERFLEX_COLUMNS.get(pos, [])
+                   if h in headers]
+            ):
                 try:
                     col_idx = headers.index(header)
                 except ValueError:
@@ -345,7 +357,7 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
                         "player_norm": normalize_name(name),
                         "scoring": scoring,
                         "league_teams": 12,
-                        "qb_slots": 1,
+                        "qb_slots": qb_slots,
                         "season": 2026,
                         "week": week,
                         "position": canonical_pos or pos,

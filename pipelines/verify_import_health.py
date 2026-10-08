@@ -83,7 +83,10 @@ RAZZBALL_FRESH_DAYS = 2   # age_days <= 2 -> ok
 RAZZBALL_WARN_DAYS = 6    # 3 <= age_days <= 6 -> warn
 # age_days > RAZZBALL_WARN_DAYS -> bad
 
-# Per-source table verification config. The big three import FROM
+# Per-source table verification config. qb_slots=eq.1: the importer's
+# snapshot holds the 1-QB rows; the publisher's superflex rows (qb_slots = 2,
+# GAP-SUPERFLEX-PUBLISHER-VALUES) are carried apart and never counted here.
+# The big three import FROM
 # public.source_trade_values, so the table holds every row the importer saw
 # (clean + review + ECR-backstop drops). ESPN/CBS tables are written BY the
 # save step (stage 1b closed 2026-09-22) and hold exactly the clean rows the
@@ -91,7 +94,7 @@ RAZZBALL_WARN_DAYS = 6    # 3 <= age_days <= 6 -> warn
 SOURCE_CONFIGS = {
     "fantasycalc": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasycalc&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasycalc&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         # Review rows never touch the table (fail-closed: only matched rows
         # are written by save_fantasycalc_references.py). The manifest's
@@ -100,13 +103,13 @@ SOURCE_CONFIGS = {
     },
     "usatoday": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.usatoday&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.usatoday&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
     "fantasypros": {
         "api_table": "source_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasypros&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.fantasypros&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": True,
     },
@@ -118,7 +121,7 @@ SOURCE_CONFIGS = {
     },
     "cbs": {
         "api_table": "cbs_trade_values",
-        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.cbs&variant=eq.as_published",
+        "params": "?select=player_key,source_content_date,week,created_at,bake_id&source=eq.cbs&variant=eq.as_published&qb_slots=eq.1",
         "vintage_date_col": "source_content_date",
         "table_holds_review_rows": False,
     },

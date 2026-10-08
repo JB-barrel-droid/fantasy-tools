@@ -240,6 +240,11 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                        "index_total": {},
                        "anchor_combo": anchor_name, "anchor_mapping": anchor_mapping,
                        "player_keys": {s: key_by_slug.get(s) for s in native}}
+        # GAP-SUPERFLEX-PUBLISHER-VALUES: the publisher's own superflex values
+        # travel unchanged (never reindexed: the engine overlays them on the
+        # natives); only when the candidate has them.
+        if combo.get("native_superflex"):
+            out_combo["native_superflex"] = dict(combo["native_superflex"])
         # As-published trade value charts publish globally-comparable values.
         # Their cross-position ranking is the product — we must not destroy it
         # with per-position remapping.

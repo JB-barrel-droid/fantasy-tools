@@ -112,7 +112,8 @@ def resolve_combo_key(sdata: dict, scoring: str, teams: int) -> str:
 
 
 def load_native_values(source: str, scoring: str, teams: int,
-                       fixture_path: Optional[Path] = None
+                       fixture_path: Optional[Path] = None,
+                       superflex: bool = False,
                        ) -> tuple[dict[str, list[tuple[str, float]]], dict[str, str]]:
     """Load publisher native values as ranked lists per position.
 
@@ -123,6 +124,11 @@ def load_native_values(source: str, scoring: str, teams: int,
     sorted descending; key_by_name maps lowercase name -> canonical player_key
     from the naming table (players.json). Every name in by_pos is guaranteed
     to have a key (unmatched names are excluded, fail-closed upstream).
+
+    superflex=True mirrors the browser with a superflex slot on the roster
+    (curve-widget.js savedPublishedNative, GAP-SUPERFLEX-PUBLISHER-VALUES):
+    the publisher's own superflex values (`native_superflex`) replace its
+    1-QB natives where it publishes them. Default False: the 1-QB natives.
     """
     if fixture_path is None:
         fixture_path = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
@@ -136,7 +142,10 @@ def load_native_values(source: str, scoring: str, teams: int,
 
     sdata = fixture["sources"].get(source, {})
     combo_key = resolve_combo_key(sdata, scoring, teams)
-    native = sdata.get("combos", {}).get(combo_key, {}).get("native", {})
+    combo = sdata.get("combos", {}).get(combo_key, {})
+    native = combo.get("native", {})
+    if superflex and native and combo.get("native_superflex"):
+        native = {**native, **combo["native_superflex"]}
     return rank_natives(native, reg)
 
 

@@ -104,7 +104,7 @@ def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
         return None
     new: dict[tuple[int, str], float] = {}
     for r in clean:
-        new[(int(r["player_key"]), str(r["scoring"]))] = float(r["native_value"])
+        new[ic.grain_key(r)] = float(r["native_value"])
     only_old = set(existing) - set(new)
     if only_old and len(only_old) / len(existing) > MAX_KEY_ATTRITION_FRAC:
         raise ic.IngestError(

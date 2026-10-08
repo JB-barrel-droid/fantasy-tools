@@ -184,6 +184,17 @@ def _default_fetch_rows(table: str, params: str) -> list[dict[str, Any]]:
     return save_espn_cbs_references.fetch_rows(table, params)
 
 
+def grain_key(row: dict[str, Any]) -> tuple:
+    """A saved row's content key for the same-week guards: (player_key,
+    scoring), plus qb_slots for a superflex / 2-QB row
+    (GAP-SUPERFLEX-PUBLISHER-VALUES). Without the qb_slots a QB's 2-QB value
+    and 1-QB value shared one slot, so the guard compared the wrong numbers.
+    qb_slots NULL/absent is 1 (the column default)."""
+    key = (int(row["player_key"]), str(row["scoring"]))
+    slots = int(row.get("qb_slots") or 1)
+    return key if slots == 1 else (*key, slots)
+
+
 class Db:
     def __init__(self, count_fn: Callable[[str, str], int] | None = None,
                  rows_fn: Callable[[str, str], list[dict[str, Any]]] | None = None):
@@ -209,14 +220,13 @@ class Db:
         skipped (fail-closed comparison treats them as a key-set difference
         at the guard, never as equal).
         """
-        params = ("?select=player_key,scoring,native_value"
+        params = ("?select=player_key,scoring,native_value,qb_slots"
                   f"&source=eq.{source}&variant=eq.{variant}"
                   f"&season=eq.{season}&week=eq.{week}")
         out: dict[tuple[int, str], float] = {}
         for r in self.rows_fn(table, params):
             try:
-                out[(int(r["player_key"]), str(r["scoring"]))] = float(
-                    r["native_value"])
+                out[grain_key(r)] = float(r["native_value"])
             except (KeyError, TypeError, ValueError):
                 continue
         return out
