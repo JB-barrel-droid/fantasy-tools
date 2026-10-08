@@ -257,7 +257,7 @@ class JSBandMatchesPythonReplicaTest(unittest.TestCase):
             self.skipTest("node not on PATH; JS-side band guard skipped")
 
     def _extract_vintage_line_js(self):
-        src = self.DASHBOARD_HTML.read_text()
+        src = self.DASHBOARD_HTML.read_text(encoding="utf-8")
         start = src.find(self.JS_START)
         end = src.find(self.JS_END, start)
         assert start > 0, "vintageLine block start marker not found in dashboard.html"

@@ -183,7 +183,7 @@ class TestReviewStage(unittest.TestCase):
 
     def test_insane_factor_fails(self):
         cand, fx = build(self.tmp)
-        doc = json.loads(cand.read_text())
+        doc = json.loads(cand.read_text(encoding="utf-8"))
         doc["combos"]["full_12"]["index_total"]["QB"]["factor"] = 42.0
         cand.write_text(json.dumps(doc))
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
@@ -286,7 +286,7 @@ class TestReviewStage(unittest.TestCase):
         cand, fx = build(self.tmp, source="syn", mutate=self._drift,
                          cand_meta={"week_designated": 5, "content_vintage": "2026-10-06"},
                          fx_meta={"week_designated": "Week 5", "content_vintage": "2026-10-06"})
-        doc = json.loads(fx.read_text())
+        doc = json.loads(fx.read_text(encoding="utf-8"))
         doc["sources"]["syn"]["combos"]["full_12"]["vintage"] = {
             "week_designated": "Week 4", "content_vintage": "2026-09-29"}
         fx.write_text(json.dumps(doc))
@@ -326,7 +326,7 @@ class TestReviewStage(unittest.TestCase):
     def _cbs_fixture(self, cand_meta):
         cand, fx = build(self.tmp, source="syn", mutate=self._drift,
                          cand_meta=cand_meta, fx_meta=self.CBS_FX)
-        doc = json.loads(fx.read_text())
+        doc = json.loads(fx.read_text(encoding="utf-8"))
         doc["sources"]["syn"]["combos"]["full_12"]["vintage"] = {
             "content_vintage": "Week 4", "week_designated": "Week 4"}
         fx.write_text(json.dumps(doc))
@@ -371,7 +371,7 @@ class TestRealFixtureReview(unittest.TestCase):
         repo = Path(__file__).resolve().parent.parent
         fixture = repo / "data/fixtures/current/comparison-sources-data.json"
         players_p = repo / "data/fixtures/current/players.json"
-        c = json.loads(fixture.read_text())
+        c = json.loads(fixture.read_text(encoding="utf-8"))
         fkeys = c.get("player_keys", {})
         # Build the candidate from the fixture's own usatoday natives, then
         # run the real stage-2 reindex on it -- fully hermetic, no local

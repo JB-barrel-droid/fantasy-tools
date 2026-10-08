@@ -35,7 +35,7 @@ class RefreshGrainsTest(unittest.TestCase):
         import json
         sys.path.insert(0, str(ROOT / "pipelines" / "vorp_translation"))
         from unified import resolve_combo_key
-        fx = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text())
+        fx = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text(encoding="utf-8"))
         for source, teams in refresh.GRAINS:
             for scoring in refresh.SCORINGS:
                 resolve_combo_key(fx["sources"][source], scoring, teams)  # SystemExit if retired

@@ -76,7 +76,7 @@ def _load_ranked(source, scoring):
 
 def _load_peers(source, scoring):
     """V2-WAIVER-COVERAGE: the other published charts' saved natives, keyed."""
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     return unified.peers_ranked(unified.peer_natives(fixture, source, scoring))
 
 
@@ -323,7 +323,7 @@ class VorpTranslationJsParity(unittest.TestCase):
                             for t in tie["translated"].values()))
 
     def test_12_team_default_reproduces_saved_values(self):
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         vectors = [v for v in _real_vectors()
                    if v["teams"] == 12 and v["bench_per_team"] == 6
                    and v["flex_count"] == 1 and v["slots"] is None and v["flex_eligible"] is None
@@ -343,7 +343,7 @@ class VorpTranslationJsParity(unittest.TestCase):
 
     def test_stored_drift_guard_catches_stale_values(self):
         """Negative test: each way the saved values went stale must fail the check."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual(stored_drift_problems(fixture)[0], [])
         pk = fixture["player_keys"]
 
@@ -404,7 +404,7 @@ class VorpTranslationJsParity(unittest.TestCase):
 
     def test_guard_catches_broken_ports(self):
         """Negative test: each realistic port bug must make the comparison fail."""
-        source = VALUE_MODEL.read_text()
+        source = VALUE_MODEL.read_text(encoding="utf-8")
         mutations = {
             # apportion ties settled by the LAST position (Python max keeps the first)
             "apportion-tie-last": ("if (score > bestScore)", "if (score >= bestScore)"),
@@ -625,7 +625,7 @@ class PositionalMaxParity(unittest.TestCase):
         self.assertGreater(top_qb, 35)
 
     def test_max_guard_catches_broken_ports(self):
-        source = VALUE_MODEL.read_text()
+        source = VALUE_MODEL.read_text(encoding="utf-8")
         max_mutations = {
             # top position no longer rescaled to 70
             "no-top-rescale": ("var k = TRANSLATION_TOP_OF_SCALE / top;", "var k = 1;"),

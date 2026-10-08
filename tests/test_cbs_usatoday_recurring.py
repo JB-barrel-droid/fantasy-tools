@@ -328,9 +328,9 @@ class UsatodayReindexTest(unittest.TestCase):
 
         fx = json.loads(
             (ROOT / "data/fixtures/current/comparison-sources-data.json")
-            .read_text())
+            .read_text(encoding="utf-8"))
         players = json.loads(
-            (ROOT / "data/fixtures/current/players.json").read_text())["players"]
+            (ROOT / "data/fixtures/current/players.json").read_text(encoding="utf-8"))["players"]
         slug_pos_key = {}
         for rec in players:
             slug_pos_key[normalize_name(rec["name"])] = (
@@ -866,7 +866,7 @@ class WrapperHappyPathTest(unittest.TestCase):
         pulls = list((self.tmp / "pulls").glob("cbs-*.json"))
         self.assertEqual(len(pulls), 1)
         state = json.loads((self.tmp / "state" / "last_ingest_cbs.json")
-                           .read_text())
+                           .read_text(encoding="utf-8"))
         self.assertEqual(state["week"], 2)
         self.assertEqual(state["written"], 6)
 

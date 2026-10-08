@@ -19,7 +19,7 @@ from pathlib import Path
 from tests.test_rebuild_chain_workflow import find_step, git, run_script, write  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / ".github/workflows/health-artifacts.yml").read_text()
+WORKFLOW = (ROOT / ".github/workflows/health-artifacts.yml").read_text(encoding="utf-8")
 PUBLISH = "Publish to the monitor (JEG-414)"
 HEALTH = "dist/modules/source-import-health.json"
 CHECKPOINTS = "dist/modules/pipeline-checkpoints.json"
@@ -60,7 +60,7 @@ def publish_run(text):
         verify = td / "verify"
         git(td, "clone", "-q", str(remote), str(verify))
         changed = set(git(verify, "diff", "--name-only", base, "HEAD").split())
-        return r.returncode, changed, (verify / HEALTH).read_text()
+        return r.returncode, changed, (verify / HEALTH).read_text(encoding="utf-8")
 
 
 class HealthArtifactsPublishTest(unittest.TestCase):

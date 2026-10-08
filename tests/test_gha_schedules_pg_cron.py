@@ -14,8 +14,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-MIGRATION = (ROOT / "supabase/migrations/gha_schedules_pg_cron.sql").read_text()
-MANIFEST = json.loads((ROOT / "config/monitoring_coverage.json").read_text())
+MIGRATION = (ROOT / "supabase/migrations/gha_schedules_pg_cron.sql").read_text(encoding="utf-8")
+MANIFEST = json.loads((ROOT / "config/monitoring_coverage.json").read_text(encoding="utf-8"))
 
 EXPECTED = {
     "pages.yml": ("pages-deploy-live", "30 11 * * *"),
@@ -24,7 +24,7 @@ EXPECTED = {
 
 
 def workflow_text(name):
-    return (ROOT / ".github/workflows" / name).read_text()
+    return (ROOT / ".github/workflows" / name).read_text(encoding="utf-8")
 
 
 def problems(workflows, migration, manifest):

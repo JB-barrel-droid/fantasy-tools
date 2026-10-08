@@ -77,7 +77,7 @@ process.stdout.write(JSON.stringify(out));
 
 
 def espn_players(scoring):
-    players = json.loads((ROOT / "data" / "fixtures" / "current" / "players.json").read_text())["players"]
+    players = json.loads((ROOT / "data" / "fixtures" / "current" / "players.json").read_text(encoding="utf-8"))["players"]
     out = []
     for p in players:
         val = (p.get("espn_ppg") or {}).get(scoring)
@@ -117,7 +117,7 @@ def qb_problems(model_path=VALUE_MODEL):
 
 def identity_problems(model_path=VALUE_MODEL):
     """SUPERFLEX 0 reproduces the default engine exactly (server and browser)."""
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     problems = []
     for source in SOURCES:
@@ -149,7 +149,7 @@ def identity_problems(model_path=VALUE_MODEL):
 
 
 def mutated(name, old, new):
-    source = VALUE_MODEL.read_text()
+    source = VALUE_MODEL.read_text(encoding="utf-8")
     if source.count(old) != 1:
         raise AssertionError(f"mutation anchor for {name} moved")
     path = Path(tempfile.mkdtemp()) / f"value-model-{name}.js"
@@ -244,7 +244,7 @@ def page_problems(got):
         problems.append("no working Superflex roster input on the classic page")
     if got["sf1"]["fixedPie"] is not True:
         problems.append(f"fixedPieIndexed {got['sf1']['fixedPie']} with superflex")
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     for source in SOURCES:
         values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
@@ -263,7 +263,7 @@ class SuperflexPage(unittest.TestCase):
     def test_page_guard_catches_missing_roster_key(self):
         # The pre-change widget: no SUPERFLEX roster key, so setRosterSpot
         # ignores it and the classic page has no Superflex input.
-        widget = (APP / "assets" / "curve-widget.js").read_text()
+        widget = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         broken = widget.replace("FLEX:1, SUPERFLEX:0, BENCH:6", "FLEX:1, BENCH:6").replace(
             '      ["SUPERFLEX", "Superflex"],\n', "")
         self.assertNotEqual(broken, widget)

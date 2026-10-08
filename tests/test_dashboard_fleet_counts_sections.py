@@ -21,7 +21,7 @@ HTML = Path(__file__).resolve().parent.parent / "modules" / "dashboard.html"
 
 class FleetCountsTopLevelSectionsTest(unittest.TestCase):
     def test_counter_tallies_methodology_consistency(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         m = re.search(r"// Count all checkpoints.*?(?=// Auto-open|\Z)", text, re.S)
         self.assertTrue(m, "fleet counter block not found -- test wiring is stale")
         block = m.group(0)
@@ -33,7 +33,7 @@ class FleetCountsTopLevelSectionsTest(unittest.TestCase):
         )
 
     def test_counter_tallies_adj_pipeline_stages(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         m = re.search(r"// Count all checkpoints.*?(?=// Auto-open|\Z)", text, re.S)
         self.assertTrue(m, "fleet counter block not found -- test wiring is stale")
         self.assertIn(
@@ -43,7 +43,7 @@ class FleetCountsTopLevelSectionsTest(unittest.TestCase):
         )
 
     def test_methodology_section_rendered(self):
-        text = HTML.read_text()
+        text = HTML.read_text(encoding="utf-8")
         self.assertIn(
             'id="methodologyConsistency"',
             text,

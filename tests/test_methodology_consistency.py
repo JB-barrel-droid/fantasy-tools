@@ -116,7 +116,7 @@ class TestMethodologyConsistency(unittest.TestCase):
         bpc.REPO = Path(_fixture(m, tmp))
         try:
             p = bpc.REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-            d = json.loads(p.read_text())
+            d = json.loads(p.read_text(encoding="utf-8"))
             del d["sources"]["cbs"]["combos"]["full_12"]["fit"]["flex_aware_pie"]
             p.write_text(json.dumps(d))
             res = bpc.build_methodology_consistency()

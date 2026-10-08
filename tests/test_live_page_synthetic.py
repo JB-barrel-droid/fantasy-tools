@@ -51,7 +51,7 @@ def _chromium():
 
 
 def _build_tag(dist: Path) -> str:
-    m = re.search(r'name="trade-chart-build" content="([^"]+)"', (dist / "index.html").read_text())
+    m = re.search(r'name="trade-chart-build" content="([^"]+)"', (dist / "index.html").read_text(encoding="utf-8"))
     return m.group(1) if m else ""
 
 
@@ -61,7 +61,7 @@ def _run_live(dist: Path) -> dict:
         env = dict(os.environ, CHROMIUM_PATH=_chromium())
         subprocess.run(["node", str(LIVE_MJS), "--url", base, "--expected-build", _build_tag(dist),
                         "--out", str(out)], env=env, capture_output=True, timeout=300)
-        return json.loads(out.read_text())
+        return json.loads(out.read_text(encoding="utf-8"))
 
 
 class LivePageSyntheticPagesTest(unittest.TestCase):
@@ -110,7 +110,7 @@ class LivePageSyntheticPagesTest(unittest.TestCase):
         def edit(d):
             p = d / "index.html"
             # The section stays in the DOM (no script error) but never shows.
-            p.write_text(p.read_text().replace(
+            p.write_text(p.read_text(encoding="utf-8").replace(
                 "</head>", "<style>#v2Risers{display:none!important}</style></head>", 1))
         page = self._failed_page(_run_live(self._mutated(edit)), "root")
         self.assertTrue(any("#risers-fallers" in s for s in page["problems"]), page["problems"])
@@ -119,7 +119,7 @@ class LivePageSyntheticPagesTest(unittest.TestCase):
         def edit(d):
             p = d / "index.html"
             # The values table renders, then loses its rows (no script error).
-            p.write_text(p.read_text().replace(
+            p.write_text(p.read_text(encoding="utf-8").replace(
                 "</body>", "<script>setInterval(function () { var t = document.getElementById('v2Table');"
                 " if (t) t.innerHTML = ''; }, 50);</script></body>", 1))
         page = self._failed_page(_run_live(self._mutated(edit)), "root")

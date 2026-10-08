@@ -94,15 +94,15 @@ class TestRunAsPublishedVorp(unittest.TestCase):
             out = tmp / "out"
             self.assertTrue((out / "candidate.json").is_file())
             self.assertTrue((out / "refresh-run.manifest.json").is_file())
-            prov = json.loads((out / "orchestrator.json").read_text())
+            prov = json.loads((out / "orchestrator.json").read_text(encoding="utf-8"))
             self.assertEqual(prov["schema"], "jeg242-orchestration-v1")
             self.assertEqual(prov["group_vorps"]["mode"], "rebuilt_from_pinned_leg")
             # leg pin verified against actual bytes
-            ref = json.loads(REFERENCE.read_text())
+            ref = json.loads(REFERENCE.read_text(encoding="utf-8"))
             leg_bytes = (REPO / ref["source"]["ddf_leg"]).read_bytes()
             self.assertEqual(prov["group_vorps"]["leg_sha256"],
                              hashlib.sha256(leg_bytes).hexdigest())
-            cand = json.loads((out / "candidate.json").read_text())
+            cand = json.loads((out / "candidate.json").read_text(encoding="utf-8"))
             self.assertEqual(cand["schema"], "shared-batch70-views-v1")
             self.assertIn("fantasycalc", cand["sources"])
 
@@ -111,15 +111,15 @@ class TestRunAsPublishedVorp(unittest.TestCase):
             tmp = Path(td)
             code, log = _run(_fixture(tmp))
             self.assertEqual(code, 0, f"orchestration failed:\n{log}")
-            controls = json.loads((tmp / "out" / "work" / "controls.from_reference.json").read_text())
-            ref = json.loads(REFERENCE.read_text())
+            controls = json.loads((tmp / "out" / "work" / "controls.from_reference.json").read_text(encoding="utf-8"))
+            ref = json.loads(REFERENCE.read_text(encoding="utf-8"))
             self.assertEqual(controls, ref["budgets"])
 
     def test_tampered_leg_pin_aborts_before_producers(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             bad_ref = tmp / "bad-reference.json"
-            ref = json.loads(REFERENCE.read_text())
+            ref = json.loads(REFERENCE.read_text(encoding="utf-8"))
             pin = ref["source"]["ddf_groups_sha256"]
             ref["source"]["ddf_groups_sha256"] = ("0" if pin[0] != "0" else "1") + pin[1:]
             bad_ref.write_text(json.dumps(ref))
@@ -133,7 +133,7 @@ class TestRunAsPublishedVorp(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)
             gv = tmp / "group_vorps.json"
-            ref = json.loads(REFERENCE.read_text())
+            ref = json.loads(REFERENCE.read_text(encoding="utf-8"))
             groups = [{"position": p, "role": r, "total_vorp": ref["budgets"][f"{p}/{r}"] + 5.0}
                       for p, r in [("QB", "starter"), ("QB", "bench"), ("RB", "starter"),
                                    ("RB", "bench"), ("WR", "starter"), ("WR", "bench"),
@@ -150,11 +150,11 @@ class TestRunAsPublishedVorp(unittest.TestCase):
             self.assertIn("disagrees with reference budget", log)
 
     def test_makefile_names_orchestration(self):
-        text = (REPO / "Makefile").read_text()
+        text = (REPO / "Makefile").read_text(encoding="utf-8")
         self.assertRegex(text, r"(?m)^run-as-published-vorp:")
 
     def test_no_todo_scaffold_remains(self):
-        src = (REPO / "pipelines" / "run_as_published_vorp.py").read_text()
+        src = (REPO / "pipelines" / "run_as_published_vorp.py").read_text(encoding="utf-8")
         self.assertNotIn("TODO", src)
         self.assertIn("refresh_views", src)
 

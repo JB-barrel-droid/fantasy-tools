@@ -112,7 +112,7 @@ class TestComboResolution(unittest.TestCase):
 class TestScoringAwareFlex(unittest.TestCase):
     def test_pinned_usatoday_scoring_direction(self):
         snapshot = json.loads((ROOT / 'tests' / 'fixtures' /
-                               'jeg61_usatoday_ranked_values.json').read_text())
+                               'jeg61_usatoday_ranked_values.json').read_text(encoding="utf-8"))
         allocations = []
         for scoring in ('standard', 'half_ppr', 'ppr'):
             ranked = {pos: [(str(i), value) for i, value in enumerate(values)]

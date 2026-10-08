@@ -42,7 +42,7 @@ GROUP_TARGETS = {
 
 
 def load_oracle():
-    return json.loads(ORACLE.read_text())
+    return json.loads(ORACLE.read_text(encoding="utf-8"))
 
 
 class SheetOracleCanonicalTests(unittest.TestCase):

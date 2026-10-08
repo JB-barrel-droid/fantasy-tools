@@ -43,7 +43,7 @@ def seed_fixture(repo):
     path = Path(repo) / FIXTURE_REL
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps({"built_at": OLD_BUILT_AT, "sources": sources}))
-    return json.loads(path.read_text())
+    return json.loads(path.read_text(encoding="utf-8"))
 
 
 class PromotingFake(WireFake):
@@ -74,14 +74,14 @@ class PromotingFake(WireFake):
         if script == "promote_comparison_section.py":
             self.calls.append(script)
             review_path = Path(cmd[2])
-            verdict = json.loads(review_path.read_text()).get("verdict")
+            verdict = json.loads(review_path.read_text(encoding="utf-8")).get("verdict")
             stem = review_path.name.replace("-review.json", "")
             self.promote_attempts.append((stem, verdict))
             if verdict != "ready":  # faithful: the real promoter refuses
                 return False, "promotion refused: review verdict is not 'ready'"
             source, letter = stem.split("-")[0], stem.split("-")[1]
             path = repo / FIXTURE_REL
-            fixture = json.loads(path.read_text())
+            fixture = json.loads(path.read_text(encoding="utf-8"))
             section = fixture["sources"].setdefault(source, {"combos": {}})
             section["combos"][f"{letter}_new"] = {"values": {"new player": 60.0}, "marker": "new"}
             section["week_designated"] = "Week 5"
@@ -94,9 +94,9 @@ class PromotingFake(WireFake):
         if script == "build_cbsros_section_from_ddf_leg.py":
             # Parent fake overwrites the whole fixture; merge instead.
             path = repo / FIXTURE_REL
-            keep = json.loads(path.read_text())
+            keep = json.loads(path.read_text(encoding="utf-8"))
             ok, out = super().__call__(cmd, **kwargs)
-            keep["sources"]["cbsros"] = json.loads(path.read_text())["sources"]["cbsros"]
+            keep["sources"]["cbsros"] = json.loads(path.read_text(encoding="utf-8"))["sources"]["cbsros"]
             path.write_text(json.dumps(keep))
             return ok, out
         return super().__call__(cmd, **kwargs)
@@ -108,7 +108,7 @@ def run_chain(tmp, verdicts, nfl_week=5, run_fn_wrap=None):
     fake = PromotingFake(repo, verdicts=verdicts)
     run_fn = run_fn_wrap(fake) if run_fn_wrap else fake
     status = chain.execute_chain(nfl_week=nfl_week, repo=repo, run_fn=run_fn)
-    after = json.loads((repo / FIXTURE_REL).read_text())
+    after = json.loads((repo / FIXTURE_REL).read_text(encoding="utf-8"))
     return status, before, after, fake, repo
 
 
@@ -172,7 +172,7 @@ class PerSourceHoldTest(unittest.TestCase):
         status, before, after, fake, _ = self._hold_fc_second_section()
         check_held_candidate_never_promoted(fake)
         review = json.loads((fake.repo / "output" / "reviewed"
-                             / "fantasycalc-b-reference-section-review.json").read_text())
+                             / "fantasycalc-b-reference-section-review.json").read_text(encoding="utf-8"))
         self.assertEqual(review["verdict"], "hold")  # never rewritten
 
     def test_one_week_hold_is_amber_two_weeks_is_red(self):

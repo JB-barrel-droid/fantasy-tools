@@ -69,7 +69,7 @@ def caption_rerendered_after_reset(segment, reason):
 
 class LockResetCaptionGuardTest(unittest.TestCase):
     def test_set_scoring_caption_rerendered_after_reset(self):
-        src = WIDGET.read_text()
+        src = WIDGET.read_text(encoding="utf-8")
         segment = _segment(src, "setScoring", *_SEGMENTS[0][1:3])
         self.assertTrue(
             caption_rerendered_after_reset(segment, _SEGMENTS[0][3]),
@@ -77,7 +77,7 @@ class LockResetCaptionGuardTest(unittest.TestCase):
         )
 
     def test_set_teams_caption_rerendered_after_reset(self):
-        src = WIDGET.read_text()
+        src = WIDGET.read_text(encoding="utf-8")
         segment = _segment(src, "setTeams", *_SEGMENTS[1][1:3])
         self.assertTrue(
             caption_rerendered_after_reset(segment, _SEGMENTS[1][3]),
@@ -92,7 +92,7 @@ class LockResetCaptionGuardTest(unittest.TestCase):
         only inside rebuildDomain() (before the reset), which is exactly what
         this simulated state restores.
         """
-        src = WIDGET.read_text()
+        src = WIDGET.read_text(encoding="utf-8")
         broken, n = _DEFECT2_BLOCK_RE.subn("", src)
         self.assertGreater(n, 0, "simulated broken state must remove the DEFECT 2 call")
         self.assertNotEqual(broken, src)

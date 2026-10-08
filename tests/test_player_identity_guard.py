@@ -116,7 +116,7 @@ def scan_pipelines_for_violations(pipelines_dir: Path):
 
             fpath = Path(root) / fname
             try:
-                source = fpath.read_text()
+                source = fpath.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(fpath))
                 visitor = PlayerIdentityGuard(fpath)
                 visitor.visit(tree)
@@ -154,7 +154,7 @@ def check_canonical_resolution_usage(pipelines_dir: Path):
 
             fpath = Path(root) / fname
             try:
-                source = fpath.read_text()
+                source = fpath.read_text(encoding="utf-8")
                 tree = ast.parse(source, filename=str(fpath))
 
                 # Check imports
@@ -229,7 +229,7 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         unified_path = PIPELINES_DIR / "vorp_translation" / "unified.py"
         self.assertTrue(unified_path.exists(), "unified.py must exist")
 
-        source = unified_path.read_text()
+        source = unified_path.read_text(encoding="utf-8")
         tree = ast.parse(source, filename=str(unified_path))
 
         # Check imports
@@ -276,7 +276,7 @@ def some_other_function():
             temp_path = f.name
 
         try:
-            source = Path(temp_path).read_text()
+            source = Path(temp_path).read_text(encoding="utf-8")
             tree = ast.parse(source, filename=temp_path)
             visitor = PlayerIdentityGuard(Path(temp_path))
             visitor.visit(tree)
@@ -347,9 +347,9 @@ class TestLayeredIdentityResolver(unittest.TestCase):
         import json
         from lib.canonical_players import norm_plain
         base = json.loads(
-            (REPO / "data/inputs/sleeper_identity_base.json").read_text())
+            (REPO / "data/inputs/sleeper_identity_base.json").read_text(encoding="utf-8"))
         manual = json.loads(
-            (REPO / "data/inputs/player_identity_map.json").read_text())
+            (REPO / "data/inputs/player_identity_map.json").read_text(encoding="utf-8"))
         known = set(manual["canonical"]) | set(manual["alias_to_canonical"])
         pick = None
         for key, ids in base.get("by_name", {}).items():

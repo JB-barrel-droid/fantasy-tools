@@ -185,11 +185,11 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         # deterministically and never blends them into one snapshot.
         rows = [espn_row(), espn_row(player_key=2227, espn_snapshot_date="2026-09-20")]
         result = self.import_with(rows, source="espn")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(result["content_vintage"], "2026-09-21")
         self.assertEqual(snapshot["row_count"], 1)
         self.assertEqual(snapshot["rows"][0]["source_player_id"], 869)
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertIn("latest snapshot date present (2026-09-21)", manifest["filter"])
 
     def test_cbs_latest_week_wins(self):
@@ -197,11 +197,11 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         # and never blends them into one snapshot.
         rows = [cbs_row(), cbs_row(player_key=869, week=3)]
         result = self.import_with(rows, source="cbs")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(result["content_vintage"], "Week 3")
         self.assertEqual(snapshot["row_count"], 1)
         self.assertEqual(snapshot["rows"][0]["source_player_id"], 869)
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual(manifest["week_designated"], 3)
         self.assertIn("latest week present (week=3)", manifest["filter"])
 
@@ -215,7 +215,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
                 cbs_row(week=4, native_value=21.0, bake_id="cbswk4_2026-10-07_v1",
                         created_at="2026-10-07T12:07:11Z", source_url=new)]
         result = self.import_with(rows, source="cbs")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(snapshot["row_count"], 1)
         self.assertEqual(snapshot["source_url"], new)
         self.assertIn("bake_id=cbswk4_2026-10-07_v1", result["manifest"]["filter"])
@@ -245,7 +245,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
             dated_row(player_key=869, week=3, source_content_date="2026-09-23"),
         ]
         result = self.import_with(rows, source="usatoday")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(result["content_vintage"], "2026-09-23")
         self.assertEqual(result["manifest"]["week_designated"], 3)
         self.assertEqual(snapshot["row_count"], 2)
@@ -325,11 +325,11 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         self.assertEqual(len(archived), 1)
         self.assertEqual(archived[0].read_bytes(), old_bytes)
         self.assertEqual(
-            json.loads((archived[0].parent / "snapshot-manifest.json").read_text())["save_gap"],
+            json.loads((archived[0].parent / "snapshot-manifest.json").read_text(encoding="utf-8"))["save_gap"],
             "no-supabase-table-stage1b",
         )
         # new manifest records the migration and the DB provenance
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertIn("supersedes", manifest)
         self.assertEqual(manifest["supersedes"]["sha256"], mod.sha256_bytes(old_bytes))
         self.assertEqual(manifest["supabase_table"], "public.espn_season_projections")
@@ -337,7 +337,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         # idempotent re-run keeps the audit trail
         again = self.import_with([espn_row()], source="espn")
         self.assertTrue(again["already_stamped"])
-        manifest2 = json.loads(again["manifest_path"].read_text())
+        manifest2 = json.loads(again["manifest_path"].read_text(encoding="utf-8"))
         self.assertIn("supersedes", manifest2)
 
     def test_cbs_file_snapshot_superseded_by_db_import(self):
@@ -348,7 +348,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         archived = list((snap_dir / "_superseded").rglob("snapshot.json"))
         self.assertEqual(len(archived), 1)
         self.assertEqual(archived[0].read_bytes(), old_bytes)
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual(manifest["supabase_table"], "public.cbs_trade_values")
         self.assertIsNone(manifest["save_gap"])
 
@@ -364,7 +364,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
             db_row(player_key=99999),  # unresolvable key -> review, never guessed
         ]
         result = self.import_with(rows)
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(snapshot["row_count"], 1)
         self.assertEqual(snapshot["rows"][0]["player_name"], "Jahmyr Gibbs")
         self.assertEqual(snapshot["review_count"], 5)
@@ -380,7 +380,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
     def test_espn_missing_ros_goes_to_review(self):
         rows = [espn_row(), espn_row(player_key=2227, ros_half_ppr=None)]
         result = self.import_with(rows, source="espn")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(snapshot["row_count"], 1)
         self.assertEqual(snapshot["review_count"], 1)
         self.assertEqual(snapshot["review_rows"][0]["reason"], "missing_or_non_numeric_value")
@@ -395,7 +395,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
             dated_row(source="fantasypros-ecr", player_key=869, value=99.9),
         ]
         result = self.import_with(rows, source="fantasypros")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         values = [r["value"] for r in snapshot["rows"]]
         self.assertNotIn(99.9, values)
         self.assertEqual(snapshot["row_count"], 1)
@@ -421,7 +421,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
     # defect: ESPN staying file-backed / ros value misread / pos-team misattributed
     def test_espn_db_import_row_shape_and_manifest(self):
         result = self.import_with([espn_row(), espn_row(player_key=2227, ros_half_ppr=350.70)], source="espn")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(result["content_vintage"], "2026-09-21")
         self.assertEqual(result["snapshot_path"].parent.name, "2026-09-21")
         self.assertEqual(snapshot["default_scoring"], "half_ppr")
@@ -436,7 +436,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         self.assertEqual(allen["native_value"], 366.13)
         gibbs = by_name["Jahmyr Gibbs"]
         self.assertEqual(gibbs["team"], "DET")
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual(manifest["supabase_table"], "public.espn_season_projections")
         self.assertIsNone(manifest["from_file"])
         self.assertIsNone(manifest["save_gap"])
@@ -455,13 +455,13 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
             cbs_row(player_key=869, position="QB", team="BUF", value=20.0),  # implied QB row
         ]
         result = self.import_with(rows, source="cbs")
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(result["content_vintage"], "Week 2")
         self.assertEqual(snapshot["row_count"], 4)
         by_key_scoring = {(r["source_player_id"], r["scoring"]): r for r in snapshot["rows"]}
         self.assertEqual(by_key_scoring[(2227, "half_ppr")]["value"], 46.0)
         self.assertEqual(by_key_scoring[(869, "half_ppr")]["player_name"], "Josh Allen")
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual(manifest["supabase_table"], "public.cbs_trade_values")
         self.assertIsNone(manifest["save_gap"])
         self.assertEqual(manifest["week_designated"], 2)
@@ -470,7 +470,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
     # -- schema / manifest ----------------------------------------------------
     def test_snapshot_uses_v1_schema_and_record_shape(self):
         result = self.import_with([db_row()])
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(snapshot["schema"], "trade-value-source-snapshot-v1")
         row = snapshot["rows"][0]
         for key in ("player_name", "value", "pos", "team", "scoring", "teams", "source_player_id"):
@@ -483,7 +483,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
 
     def test_manifest_fields_and_sha(self):
         result = self.import_with([db_row()])
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual(manifest["schema"], "trade-value-source-manifest-v1")
         self.assertEqual(manifest["source"], "fantasycalc")
         self.assertEqual(manifest["supabase_table"], "public.source_trade_values")
@@ -515,7 +515,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
                                       per_game_ppr=21.0, gp=14.0)],
             source="cbsros",
         )
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(result["content_vintage"], "2026-09-30")
         self.assertEqual(result["snapshot_path"].parent.name, "2026-09-30")
         self.assertEqual(snapshot["source"], "cbsros")
@@ -544,7 +544,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         summary = snapshot["summary"]
         self.assertEqual(summary["n_rows"], 2)
         self.assertEqual(summary["n_review"], 0)
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertEqual(manifest["supabase_table"], "public.cbs_ros_projections")
         self.assertIsNone(manifest["from_file"])
         self.assertIsNone(manifest["save_gap"])
@@ -559,7 +559,7 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
             [cbsros_row(per_game_ppr=None), cbsros_row(player_key=2227)],
             source="cbsros",
         )
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(snapshot["row_count"], 1)  # only Gibbs
         self.assertEqual(snapshot["review_count"], 1)
         self.assertEqual(snapshot["review_rows"][0]["reason"], "missing_or_non_numeric_per_game")
@@ -726,9 +726,9 @@ class ServerSideLatestWeekTest(unittest.TestCase):
         self.assertEqual(len(full_reads), 1, calls)
         self.assertIn("&week=eq.4", full_reads[0])
         self.assertTrue(any("limit=1" in c and "order=week.desc" in c for c in calls), calls)
-        snapshot = json.loads(result["snapshot_path"].read_text())
+        snapshot = json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
         self.assertEqual(snapshot["row_count"], 2)
-        manifest = json.loads(result["manifest_path"].read_text())
+        manifest = json.loads(result["manifest_path"].read_text(encoding="utf-8"))
         self.assertIn("latest week present (week=4)", manifest["filter"])
 
     def test_source_trade_values_read_scoped_to_latest_week(self):

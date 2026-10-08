@@ -148,7 +148,7 @@ def zero_set_failures(model_path=VALUE_MODEL, settings=READER_SETTINGS):
     """A player is 0 in the views exactly where the Indexed engine is 0 (same
     waiver line), except a player above the line whose Indexed value displays
     as 0.0 only because of the 0.1 rounding (rounding_band_violations)."""
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     cases, refs = view_cases(fixture, pos_of, settings)
     results = run_views(cases, model_path)
@@ -215,7 +215,7 @@ def all_view_settings():
 
 
 def check(settings, model_path=VALUE_MODEL):
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     cases, refs = view_cases(fixture, pos_of, settings)
     results = run_views(cases, model_path)
@@ -257,7 +257,7 @@ class PublishedViewsEngine(unittest.TestCase):
         order; the adjusted top is exactly 70; a player is 0 in the views
         where the Indexed engine prices 0."""
         self.assertEqual(zero_set_failures(), [])
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         pos_of = browser_players()
         cases, refs = view_cases(fixture, pos_of, READER_SETTINGS)
         results = run_views(cases)
@@ -292,7 +292,7 @@ class PublishedViewsEngine(unittest.TestCase):
                 self.assertTrue(all(groups[p]["starter"] > 0 for p in POSITIONS), tag)
 
     def test_guard_catches_broken_views(self):
-        source = VALUE_MODEL.read_text()
+        source = VALUE_MODEL.read_text(encoding="utf-8")
         mutations = {
             # within-group weight back to the raw published value (saved recipe)
             "weight-native": ("info.set(String(row.key), {pos: pos, role: role, vorp: t.vorp});",
@@ -335,7 +335,7 @@ class PublishedViewsEngine(unittest.TestCase):
         against Week 4 FantasyCalc and went red on Week 5 data (6 players, all
         legitimately above the waiver line); the count also could not see a
         leak of fewer than 5 sub-waiver players."""
-        source = VALUE_MODEL.read_text()
+        source = VALUE_MODEL.read_text(encoding="utf-8")
         mutations = {
             # one sub-waiver player per position (the first one off the
             # roster) leaks a sliver into the views: 4 players per chart, under

@@ -36,7 +36,7 @@ def _fn_body(text, name):
 
 class ColumnSelectionPreservedTest(unittest.TestCase):
     def test_ensure_available_selection_does_not_reassign_columns(self):
-        body = _fn_body(JS.read_text(), "ensureAvailableSelection")
+        body = _fn_body(JS.read_text(encoding="utf-8"), "ensureAvailableSelection")
         self.assertNotRegex(
             body,
             r"state\.columns\s*=",
@@ -46,7 +46,7 @@ class ColumnSelectionPreservedTest(unittest.TestCase):
 
     def test_visible_columns_still_filters_by_availability(self):
         """The render-time filter is what keeps unavailable columns hidden."""
-        body = _fn_body(JS.read_text(), "visibleColumns")
+        body = _fn_body(JS.read_text(encoding="utf-8"), "visibleColumns")
         self.assertIn("allowed.has(key)", body)
 
 

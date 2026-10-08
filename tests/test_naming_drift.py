@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -23,7 +24,7 @@ def player_row(key, name, pos="QB", team="BUF"):
 class NamingDriftTest(unittest.TestCase):
     def run_script(self, script, *args):
         return subprocess.run(
-            ["python3", f"pipelines/{script}", *args],
+            [sys.executable, f"pipelines/{script}", *args],
             cwd=ROOT, capture_output=True, text=True,
         )
 

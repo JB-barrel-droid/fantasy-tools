@@ -151,7 +151,7 @@ class TestNoAlertKeywords(unittest.TestCase):
         if not script_path.exists():
             self.skipTest("check_deadlines.py not found - base commit")
 
-        content = script_path.read_text().lower()
+        content = script_path.read_text(encoding="utf-8").lower()
 
         alert_keywords = ["mail", "webhook", "notify", "create-issue", "slack", "discord"]
         found = [kw for kw in alert_keywords if kw in content]
@@ -170,7 +170,7 @@ class TestNoAlertKeywords(unittest.TestCase):
         alert_keywords = ["mail", "webhook", "notify", "create-issue", "slack", "discord"]
         found = []
         for wf in candidates:
-            content = wf.read_text().lower()
+            content = wf.read_text(encoding="utf-8").lower()
             hits = [kw for kw in alert_keywords if kw in content]
             if hits:
                 found.append((wf.name, hits))

@@ -87,7 +87,7 @@ def _run(tmp: Path, candidate: dict, comparison: dict):
                                    "--out", str(out_path)])
         except SystemExit as e:
             code = e.code if isinstance(e.code, int) else 1
-    payload = json.loads(out_path.read_text()) if out_path.exists() else None
+    payload = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else None
     return code, out.getvalue() + err.getvalue(), payload
 
 
@@ -159,14 +159,14 @@ class TestTransformBatch70ToComparison(unittest.TestCase):
             self.assertNotIn("_jeg242_batch70", text)
 
     def test_makefile_names_transform(self):
-        text = (REPO / "Makefile").read_text()
+        text = (REPO / "Makefile").read_text(encoding="utf-8")
         self.assertRegex(text, r"(?m)^transform-vorp-views:")
 
     def test_preview_chain_runs_transform_and_parity(self):
         """The preview target must bridge the candidate into the copied
         dashboard AND verify it second-language -- otherwise the transformer
         output is never consumed."""
-        text = (REPO / "Makefile").read_text()
+        text = (REPO / "Makefile").read_text(encoding="utf-8")
         self.assertIn("transform_batch70_to_comparison.py", text)
         self.assertIn("check_vorp_views_parity.js", text)
 
@@ -199,7 +199,7 @@ class TestTransformBatch70ToComparison(unittest.TestCase):
             cand_path = tmp / "candidate.json"
             out_path = tmp / "out.json"
             cand_path.write_text(json.dumps(_candidate()))
-            tampered = json.loads(out_path.read_text())
+            tampered = json.loads(out_path.read_text(encoding="utf-8"))
             vv = tampered["sources"]["fantasycalc"]["vorp_views"]["views"]["vorp"]
             vv["Alice A"] = vv["Alice A"] + 0.5
             out_path.write_text(json.dumps(tampered))

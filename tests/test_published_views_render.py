@@ -154,7 +154,7 @@ def collect(overrides=None):
 
 
 def verify(collected):
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     names = player_names()
     problems = []
@@ -208,7 +208,7 @@ class PublishedViewsRender(unittest.TestCase):
         self.assertEqual(problems, [], "\n".join(problems[:20]))
 
     def test_guard_fails_on_broken_builds(self):
-        widget = (APP / "assets" / "curve-widget.js").read_text()
+        widget = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         broken = {
             # the JEG-363 regression: lookup table read from the snapshot
             # (empty), so the saved views never resolve

@@ -39,6 +39,7 @@
 // Usage: node gate_flexibility.mjs <dist-dir>
 // Output JSON: { ok: bool, steps: [...], mismatches: [...], pageErrors: [...] }
 import { chromium } from "playwright-core";
+import { isMain } from "./is_main.mjs";
 import { enginePageFor } from "./engine_page.mjs";
 import crypto from "node:crypto";
 import http from "node:http";
@@ -493,6 +494,6 @@ async function main() {
   if (!report.ok) process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   main().catch(e => { console.error(e); process.exit(2); });
 }

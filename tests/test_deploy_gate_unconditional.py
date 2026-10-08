@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PAGES = (ROOT / ".github/workflows/pages.yml").read_text()
+PAGES = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
 
 
 def steps(text):

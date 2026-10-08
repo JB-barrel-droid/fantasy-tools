@@ -17,7 +17,7 @@ WIDGET = Path(__file__).resolve().parent.parent / "app" / "trade-value-chart" / 
 
 
 def read_widget():
-    return WIDGET.read_text()
+    return WIDGET.read_text(encoding="utf-8")
 
 
 class TestJEG30HealthDiagnostics(unittest.TestCase):

@@ -63,7 +63,7 @@ def _page(pos: str, n: int) -> str:
 
 
 def _scrape_step_body() -> str:
-    text = WORKFLOW.read_text()
+    text = WORKFLOW.read_text(encoding="utf-8")
     m = re.search(r"- name: Scrape CBS ROS projections\n(.*?)(?=\n      - name:)", text, re.S)
     if not m:
         raise AssertionError("Scrape step not found in cbsros-supabase-sync.yml")
@@ -91,7 +91,7 @@ class WorkflowReadsRealSnapshot(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         pages = {p: _page(p, 5) for p in puller.POSITIONS}
         self.snapshot = _run_puller(Path(self.tmp.name), pages)
-        self.n_rows = len(json.loads(self.snapshot.read_text())["rows"])
+        self.n_rows = len(json.loads(self.snapshot.read_text(encoding="utf-8"))["rows"])
 
     def test_scrape_step_python_readers_succeed_on_puller_output(self):
         body = _scrape_step_body()

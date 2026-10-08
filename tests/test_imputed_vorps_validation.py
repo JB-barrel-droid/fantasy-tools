@@ -71,7 +71,7 @@ class ImputationValidationTests(unittest.TestCase):
                 out.write_text('sentinel')
                 with self.assertRaises(ValueError):
                     main(['--values', str(values), '--group-vorps', str(groups), '--out', str(out), '--roster-config', str(config)])
-                self.assertEqual(out.read_text(), 'sentinel')
+                self.assertEqual(out.read_text(encoding="utf-8"), 'sentinel')
 
 
 if __name__ == '__main__':

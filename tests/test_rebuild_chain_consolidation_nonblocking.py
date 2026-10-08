@@ -138,7 +138,7 @@ def guard_problems(text):
 
 class NonBlockingConsolidationTest(unittest.TestCase):
     def setUp(self):
-        self.text = WORKFLOW.read_text()
+        self.text = WORKFLOW.read_text(encoding="utf-8")
 
     def test_real_workflow_complies(self):
         self.assertEqual(guard_problems(self.text), [])

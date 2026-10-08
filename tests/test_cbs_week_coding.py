@@ -249,7 +249,7 @@ class TestCbsJsonContainsWeekEvidence(unittest.TestCase):
                                     "cbs-%s.json" % today)
                 self.assertTrue(os.path.exists(outp),
                                 "cbs pull JSON must be written")
-                with open(outp) as f:
+                with open(outp, encoding="utf-8") as f:
                     payload = json.load(f)
                 self.assertEqual(payload["week"], 4)
                 self.assertIn("week_evidence", payload)

@@ -86,7 +86,7 @@ class DispatchPermissionTest(unittest.TestCase):
     def test_all_workflows_grant_actions_write_for_dispatch_steps(self):
         failures = []
         for path in sorted(WORKFLOWS.glob("*.yml")):
-            failures.extend(check(path.read_text(), str(path.name)))
+            failures.extend(check(path.read_text(encoding="utf-8"), str(path.name)))
         self.assertEqual(failures, [], "\n".join(failures))
 
     def test_discrimination_removed_permission_is_caught(self):

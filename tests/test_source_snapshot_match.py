@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -56,7 +57,7 @@ class SourceSnapshotMatchTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/match_source_snapshot.py",
                     "--input",
                     str(snapshot),

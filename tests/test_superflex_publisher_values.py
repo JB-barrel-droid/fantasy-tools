@@ -92,7 +92,7 @@ def import_snapshot(rows, source="fantasycalc"):
     try:
         with tempfile.TemporaryDirectory() as tmp:
             result = importer.import_source(source, output_dir=Path(tmp))
-            return json.loads(result["snapshot_path"].read_text())
+            return json.loads(result["snapshot_path"].read_text(encoding="utf-8"))
     finally:
         importer.fetch_supabase_rows, importer.fetch_player_names = saved
 
@@ -195,7 +195,7 @@ def run_chain(snapshot, broken_stage=None):
         (tmp / "section.json").write_text(json.dumps(section))
         reindexed, _review = reindex_mod.reindex_section(str(tmp / "section.json"))
         reindexed = drop("reindex", reindexed)
-    fixture = json.loads(FIXTURE.read_text())
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     combo = copy.deepcopy(fixture["sources"]["fantasycalc"]["combos"]["full_12_qb1"])
     cand = reindexed["combos"]["full_12_qb1"]
     if broken_stage == "promote":
@@ -407,8 +407,8 @@ def injected_fixture():
     """The current fixture plus publisher-style superflex values on two charts:
     FantasyCalc (every position, QBs x2.2 / others x0.85, like its numQbs=2
     list) and CBS (QBs only, like its 2QB column)."""
-    fixture = json.loads(FIXTURE.read_text())
-    players = {p["player_key"]: p.get("pos") for p in json.loads(PLAYERS.read_text())["players"]}
+    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    players = {p["player_key"]: p.get("pos") for p in json.loads(PLAYERS.read_text(encoding="utf-8"))["players"]}
     pk = fixture["player_keys"]
     for source, combo_key, qb_only in (("fantasycalc", "full_12_qb1", False), ("cbs", "full_12", True)):
         combo = fixture["sources"][source]["combos"][combo_key]
@@ -461,7 +461,7 @@ def overlay_problems(widget_override=None):
 
     fixture = injected_fixture()
     got = collect_overlay_page(fixture, widget_override)
-    plain = collect_overlay_page(json.loads(FIXTURE.read_text()))
+    plain = collect_overlay_page(json.loads(FIXTURE.read_text(encoding="utf-8")))
     problems = [f"page error: {e[:200]}" for e in got["errors"]]
     pos_of = browser_players()
     with tempfile.TemporaryDirectory() as tmp:
@@ -496,7 +496,7 @@ class EngineOverlay(unittest.TestCase):
         self.assertEqual(problems, [], "\n".join(problems[:20]))
 
     def test_guard_catches_a_widget_ignoring_native_superflex(self):
-        widget = (APP / "assets" / "curve-widget.js").read_text()
+        widget = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn(OVERLAY_LINE, widget)
         problems = overlay_problems(widget.replace(OVERLAY_LINE, ""))
         print(f"\n[superflex overlay negative] {len(problems)} problems, e.g. {problems[:1]}")

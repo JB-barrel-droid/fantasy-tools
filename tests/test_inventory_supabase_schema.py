@@ -345,7 +345,7 @@ class ReadOnlySafetyTests(unittest.TestCase):
 
     def test_no_db_client_imports(self):
         # Scan the script source for known DB client import lines.
-        src = (REPO_ROOT / "pipelines" / "inventory_supabase_schema.py").read_text()
+        src = (REPO_ROOT / "pipelines" / "inventory_supabase_schema.py").read_text(encoding="utf-8")
         for forbidden in ("supabase", "psycopg", "psycopg2", "asyncpg",
                           "sqlalchemy", "pymongo", "requests.", "urllib.request",
                           "httpx", "aiohttp"):
@@ -357,7 +357,7 @@ class ReadOnlySafetyTests(unittest.TestCase):
                 )
 
     def test_no_socket_or_network_calls(self):
-        src = (REPO_ROOT / "pipelines" / "inventory_supabase_schema.py").read_text()
+        src = (REPO_ROOT / "pipelines" / "inventory_supabase_schema.py").read_text(encoding="utf-8")
         for forbidden in ("socket.", "urlopen", "create_connection",
                           "HTTPSConnection", "HTTPConnection"):
             with self.subTest(forbidden=forbidden):
@@ -418,7 +418,7 @@ class LiveRepoRunTests(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, msg=result.stderr)
             self.assertTrue(out_path.exists(), msg="--out did not write the file")
-            payload = json.loads(out_path.read_text())
+            payload = json.loads(out_path.read_text(encoding="utf-8"))
             self.assertEqual(payload["schema_version"],
                              "jeg111-schema-inventory-v1")
 

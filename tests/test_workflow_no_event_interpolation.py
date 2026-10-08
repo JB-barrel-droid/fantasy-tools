@@ -41,7 +41,7 @@ def run_block_offenders(text):
 
 class NoEventInterpolationTest(unittest.TestCase):
     def test_no_workflow_interpolates_event_text_into_run(self):
-        bad = {p.name: run_block_offenders(p.read_text()) for p in WORKFLOWS}
+        bad = {p.name: run_block_offenders(p.read_text(encoding="utf-8")) for p in WORKFLOWS}
         self.assertEqual({k: v for k, v in bad.items() if v}, {})
 
     def test_the_pre_fix_preview_step_is_caught(self):

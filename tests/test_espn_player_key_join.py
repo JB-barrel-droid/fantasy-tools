@@ -45,7 +45,7 @@ def test_slug_variations_resolve_via_player_key():
     in the fixture's player_keys registry."""
     fixture = json.loads(
         (REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json")
-        .read_text()
+        .read_text(encoding="utf-8")
     )
     player_keys = fixture.get("player_keys", {})
     # leg slug -> fixture slug -> both must map to the same numeric key
@@ -67,7 +67,7 @@ def test_fixture_espn_section_matches_leg():
     previously-dropped players (no stale values)."""
     fixture = json.loads(
         (REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json")
-        .read_text()
+        .read_text(encoding="utf-8")
     )
     half = fixture["sources"]["espn"]["combos"]["half_12"]["values"]
     # Skattebo: leg 28.7 (was stale 41.9); Etienne: leg 16.8 (was stale 36.9)

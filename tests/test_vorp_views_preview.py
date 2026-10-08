@@ -197,11 +197,11 @@ class VorpViewsPreviewTests(unittest.TestCase):
             self.assertTrue((dash / "index.html").is_file(),
                             "preview must be a copied dashboard")
             payload = json.loads(
-                (dash / "assets" / "vorp-views-preview.json").read_text())
+                (dash / "assets" / "vorp-views-preview.json").read_text(encoding="utf-8"))
             self.assertEqual(payload["schema"], "vorp-views-preview-v1")
             self.assertTrue((preview_dir / "preview.manifest.json").is_file())
 
-            cand = json.loads(candidate.read_text())
+            cand = json.loads(candidate.read_text(encoding="utf-8"))
             peak = cand["provisional_maximum"]
             views = payload["views"]
             for src in ("fantasycalc", "usat"):
@@ -252,7 +252,7 @@ class VorpViewsPreviewTests(unittest.TestCase):
             argv, out = _fixture(tmp)
             code, log = _run_refresh(argv)
             self.assertEqual(code, 0, f"refresh failed:\n{log}")
-            cand = json.loads((out / "candidate.json").read_text())
+            cand = json.loads((out / "candidate.json").read_text(encoding="utf-8"))
             src = "fantasycalc"
             k = next(iter(cand["sources"][src]["adj_values"]))
             cand["sources"][src]["adj_values"][k] += 1.0
@@ -272,15 +272,15 @@ class VorpViewsPreviewTests(unittest.TestCase):
             argv, out = _fixture(tmp)
             code, log = _run_refresh(argv)
             self.assertEqual(code, 0, f"refresh failed:\n{log}")
-            batch = json.loads((out / "work" / "batch.json").read_text())
+            batch = json.loads((out / "work" / "batch.json").read_text(encoding="utf-8"))
             src = "fantasycalc"
             entry = batch["sources"][src]
             vals_path = out / "work" / entry["values"]
-            pool = json.loads(vals_path.read_text())
+            pool = json.loads(vals_path.read_text(encoding="utf-8"))
             k = next(iter(pool))
             pool[k]["native"] = pool[k]["native"] * 1.5  # legacy per-source-peak signature
             vals_path.write_text(json.dumps(pool, sort_keys=True))
-            meta = json.loads((out / "work" / entry["manifest"]).read_text())
+            meta = json.loads((out / "work" / entry["manifest"]).read_text(encoding="utf-8"))
             meta["output_sha256"] = __import__("hashlib").sha256(
                 vals_path.read_bytes()).hexdigest()
             (out / "work" / entry["manifest"]).write_text(json.dumps(meta, sort_keys=True))
@@ -296,7 +296,7 @@ class VorpViewsPreviewTests(unittest.TestCase):
             argv, out = _fixture(tmp)
             code, log = _run_refresh(argv)
             self.assertEqual(code, 0, f"refresh failed:\n{log}")
-            cand = json.loads((out / "candidate.json").read_text())
+            cand = json.loads((out / "candidate.json").read_text(encoding="utf-8"))
             other = "fantasycalc"
             cand["sources"]["bogus"] = cand["sources"][other]
             tampered = tmp / "bogus.json"
@@ -307,7 +307,7 @@ class VorpViewsPreviewTests(unittest.TestCase):
     def test_makefile_names_preview_and_registers_tests(self):
         """The preview target exists and this module is a required check, so a
         future unwired state fails the gate instead of skipping it."""
-        makefile = (REPO / "Makefile").read_text()
+        makefile = (REPO / "Makefile").read_text(encoding="utf-8")
         self.assertIn("preview-vorp-views:", makefile)
         self.assertIn("tests.test_vorp_views_preview", makefile)
 

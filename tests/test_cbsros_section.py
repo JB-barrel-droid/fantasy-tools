@@ -65,7 +65,7 @@ class CbsrosWeekDesignatedTest(unittest.TestCase):
         monitor check requires."""
         fixture = json.loads(
             (ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json")
-            .read_text()
+            .read_text(encoding="utf-8")
         )
         self.assertEqual(
             fixture["sources"]["cbsros"].get("week_designated"), "rest of season"

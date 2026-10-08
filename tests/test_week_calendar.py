@@ -114,7 +114,7 @@ class DefaultWeekTest(unittest.TestCase):
                     "pipelines/save_fantasypros_references.py", "pipelines/save_fantasycalc_references.py",
                     "ops/watchdog/pull_usatoday.py", "ops/watchdog/pull_cbs.py",
                     "ops/watchdog/pull_fantasypros.py"):
-            text = (ROOT / rel).read_text()
+            text = (ROOT / rel).read_text(encoding="utf-8")
             self.assertNotRegex(text, r"\bnfl_week\(\)", rel)
             self.assertIn("content_week", text, rel)
 

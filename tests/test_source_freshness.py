@@ -67,7 +67,7 @@ def run(payload):
 
 
 def fixture_sources():
-    return json.loads(FIXTURE.read_text())["sources"]
+    return json.loads(FIXTURE.read_text(encoding="utf-8"))["sources"]
 
 
 def all_week(sources, week):
@@ -196,7 +196,7 @@ class FirstLoadDefaultsTest(unittest.TestCase):
         self.assertTrue(default_violations(GUARD_IGNORES_EXCLUSION))
 
     def test_widget_init_wires_freshness(self):
-        text = (ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text()
+        text = (ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         self.assertIn("getSourceFreshness", text)
         self.assertIn("defaultIndexedSourceKeys(adjustmentInputs, firstLoadExcluded)", text)
         self.assertIn("userDeselectedSources, firstLoadExcluded)", text)

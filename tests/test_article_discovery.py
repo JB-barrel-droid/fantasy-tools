@@ -64,7 +64,7 @@ def discover(mod, week, fetch, llm=None):
 
 
 def read(name):
-    return (FIX / name).read_text()
+    return (FIX / name).read_text(encoding="utf-8")
 
 
 def cbs_site(listings=("author", "hub", "sitemap"), w5=True, extra=None):
@@ -303,7 +303,7 @@ class UsaTodayDiscoveryTest(unittest.TestCase):
 
 
 class WorkflowUrlInputTest(unittest.TestCase):
-    WF = (ROOT / ".github/workflows/trade-chart-ingest.yml").read_text()
+    WF = (ROOT / ".github/workflows/trade-chart-ingest.yml").read_text(encoding="utf-8")
 
     def argv(self, inputs, source="cbs"):
         from tests.test_rebuild_chain_workflow import find_step, script_of
@@ -324,7 +324,7 @@ class WorkflowUrlInputTest(unittest.TestCase):
                                cwd=td, env=env, capture_output=True, text=True)
             if r.returncode != 0:
                 return None
-            return (td / "argv").read_text().split()
+            return (td / "argv").read_text(encoding="utf-8").split()
 
     def test_url_passed_to_the_ingest(self):
         self.assertEqual(self.argv({"url": CBS_W5, "source": "cbs", "week": "5"}),

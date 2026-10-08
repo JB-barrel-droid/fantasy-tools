@@ -43,8 +43,8 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-SPEC = json.loads((ROOT / "modules" / "surfaces.json").read_text())
-STATUS_HTML = (ROOT / "modules" / "status.html").read_text()
+SPEC = json.loads((ROOT / "modules" / "surfaces.json").read_text(encoding="utf-8"))
+STATUS_HTML = (ROOT / "modules" / "status.html").read_text(encoding="utf-8")
 
 
 def _chromium():

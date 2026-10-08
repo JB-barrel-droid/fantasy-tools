@@ -39,7 +39,7 @@ class ExpectedContentWeekTest(unittest.TestCase):
         # Broken-state guard: the old inline formula anchored a datetime to
         # the 2026-09-03 kickoff and counted days // 7. That exact code shape
         # must not reappear in the checkpoint builder.
-        src = (PIPELINES / "build_pipeline_checkpoints.py").read_text()
+        src = (PIPELINES / "build_pipeline_checkpoints.py").read_text(encoding="utf-8")
         self.assertNotIn("datetime(2026, 9, 3", src)
         self.assertNotIn("2026, 9, 3", src)
 

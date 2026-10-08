@@ -82,11 +82,11 @@ class BuilderEmitsValidJsonTest(unittest.TestCase):
     def test_emitted_file_is_valid_json(self):
         self.assertTrue(OUTPUT_JSON.exists(), f"{OUTPUT_JSON} not produced")
         # Must not raise -- proves the file is syntactically valid JSON.
-        payload = json.loads(OUTPUT_JSON.read_text())
+        payload = json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
         self.assertIsInstance(payload, dict)
 
     def test_emitted_file_has_all_four_keys(self):
-        payload = json.loads(OUTPUT_JSON.read_text())
+        payload = json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
         # Brief lists exactly these four keys; anything else is drift.
         self.assertEqual(
             sorted(payload.keys()),
@@ -99,12 +99,12 @@ class BuilderEmitsValidJsonTest(unittest.TestCase):
         round-N reference. Locking the literal here proves the builder
         baked what is in the HTML today (not invented values).
         """
-        payload = json.loads(OUTPUT_JSON.read_text())
+        payload = json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
         self.assertEqual(payload["round"], 1)
         self.assertEqual(payload["date"], "2026-09-30")
 
     def test_errors_and_frameworks_are_nonempty_arrays(self):
-        payload = json.loads(OUTPUT_JSON.read_text())
+        payload = json.loads(OUTPUT_JSON.read_text(encoding="utf-8"))
         self.assertIsInstance(payload["errors"], list)
         self.assertIsInstance(payload["frameworks"], list)
         self.assertGreaterEqual(len(payload["errors"]), 1)
@@ -128,7 +128,7 @@ class DashboardFallbackContractTest(unittest.TestCase):
     """
 
     def setUp(self):
-        self.text = DASHBOARD.read_text()
+        self.text = DASHBOARD.read_text(encoding="utf-8")
 
     def _slice_fence(self):
         return _qa_card_region(self.text)

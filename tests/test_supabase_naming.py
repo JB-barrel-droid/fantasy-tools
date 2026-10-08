@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -34,7 +35,7 @@ def _write_sql(tmp: Path, name: str, body: str) -> Path:
 
 def _run(sql_dir: Path) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["python3", SCRIPT, "--sql-dir", str(sql_dir)],
+        [sys.executable, SCRIPT, "--sql-dir", str(sql_dir)],
         cwd=ROOT,
         capture_output=True,
         text=True,

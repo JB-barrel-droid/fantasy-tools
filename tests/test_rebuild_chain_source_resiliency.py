@@ -37,7 +37,7 @@ from test_rebuild_chain_per_source_hold import (  # noqa: E402
 from test_rebuild_chain_workflow import find_step, script_of  # noqa: E402
 
 WORKFLOW_PATH = ROOT / ".github/workflows/rebuild-chain.yml"
-WORKFLOW = WORKFLOW_PATH.read_text()
+WORKFLOW = WORKFLOW_PATH.read_text(encoding="utf-8")
 IMPORT_STEP = "Import fresh snapshots from Supabase"
 CHAIN_STEP = "Rebuild comparison chain (if fixture stale)"
 
@@ -50,7 +50,7 @@ def seed_all(repo):
     plus one committed DDF leg each."""
     seed_fixture(repo)
     path = Path(repo) / FIXTURE_REL
-    fixture = json.loads(path.read_text())
+    fixture = json.loads(path.read_text(encoding="utf-8"))
     fixture["sources"]["espn"] = {"espn_snapshot": "2026-09-22", "marker": "old-espn",
                                   "value_provenance": "modeled", "combos": {}}
     fixture["sources"]["cbsros"] = {"vintage": "2026-09-23", "marker": "old-cbsros", "combos": {}}
@@ -59,12 +59,12 @@ def seed_all(repo):
     for rel, body in ((OLD_ESPN_LEG, "OLD-ESPN-LEG"), (OLD_CBSROS_LEG, "OLD-CBSROS-LEG")):
         (Path(repo) / rel).parent.mkdir(parents=True, exist_ok=True)
         (Path(repo) / rel).write_text(body)
-    return json.loads(path.read_text()), path.read_bytes()
+    return json.loads(path.read_text(encoding="utf-8")), path.read_bytes()
 
 
 def leg_tree(repo):
     root = Path(repo) / "data" / "ddf-two-tier"
-    return {str(p.relative_to(repo)): p.read_text() for p in root.rglob("*") if p.is_file()}
+    return {str(p.relative_to(repo)): p.read_text(encoding="utf-8") for p in root.rglob("*") if p.is_file()}
 
 
 def run_chain(tmp, verdicts=None, wrap=None, drop_snapshots=(), nfl_week=5):
@@ -76,7 +76,7 @@ def run_chain(tmp, verdicts=None, wrap=None, drop_snapshots=(), nfl_week=5):
     fake = PromotingFake(repo, verdicts=verdicts or {})
     status = chain.execute_chain(nfl_week=nfl_week, repo=repo,
                                  run_fn=wrap(fake) if wrap else fake)
-    after = json.loads((repo / FIXTURE_REL).read_text())
+    after = json.loads((repo / FIXTURE_REL).read_text(encoding="utf-8"))
     return dict(status=status, before=before, before_bytes=before_bytes, after=after,
                 fake=fake, repo=repo, legs_before=legs_before, legs_after=leg_tree(repo))
 
@@ -314,7 +314,7 @@ def import_problems(text):
         td = Path(td)
         env = workflow_env(td, FAIL_SOURCE="usatoday")
         proc = run_step(text, IMPORT_STEP, td, env)
-        calls = (td / "calls").read_text() if (td / "calls").exists() else ""
+        calls = (td / "calls").read_text(encoding="utf-8") if (td / "calls").exists() else ""
         imported = [line.split()[-1] for line in calls.splitlines()]
         problems = []
         if proc.returncode != 0:
@@ -346,7 +346,7 @@ def bake_revert_problems(text):
             (work / "data/inputs/espn_projections.csv").write_text("NEW")
             env = workflow_env(td, HELD=held, BAKE_OUTCOME=bake)
             proc = run_step(text, CHAIN_STEP, work, env)
-            got = (td / "validated").read_text() if (td / "validated").exists() else None
+            got = (td / "validated").read_text(encoding="utf-8") if (td / "validated").exists() else None
             if proc.returncode != 0:
                 problems.append(f"chain step exited {proc.returncode} (held={held}, bake={bake}): "
                                 f"{proc.stderr[-200:]}")

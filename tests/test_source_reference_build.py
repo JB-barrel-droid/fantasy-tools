@@ -1,5 +1,6 @@
 import json
 import subprocess
+import sys
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -14,7 +15,7 @@ class SourceReferenceBuildTest(unittest.TestCase):
         match_path.write_text(json.dumps(match_payload), encoding="utf-8")
         outdir = tmp / "out"
         result = subprocess.run(
-            ["python3", "pipelines/build_source_reference.py",
+            [sys.executable, "pipelines/build_source_reference.py",
              "--input", str(match_path), "--output-dir", str(outdir),
              *extra_args],
             cwd=ROOT, capture_output=True, text=True,
@@ -144,7 +145,7 @@ class SourceReferenceBuildTest(unittest.TestCase):
             self.write_match(match)
             outdir = tmp / "out"
             result = subprocess.run(
-                ["python3", "pipelines/build_source_reference.py",
+                [sys.executable, "pipelines/build_source_reference.py",
                  "--input", str(match), "--output-dir", str(outdir)],
                 cwd=ROOT, capture_output=True, text=True,
             )
@@ -220,7 +221,7 @@ class SourceReferenceBuildTest(unittest.TestCase):
             match.write_text(json.dumps(self.match_doc(rows)), encoding="utf-8")
             out = tmp / "reference.json"
             result = subprocess.run(
-                ["python3", "pipelines/build_source_reference.py",
+                [sys.executable, "pipelines/build_source_reference.py",
                  "--input", str(match), "--output", str(out)],
                 cwd=ROOT, capture_output=True, text=True,
             )
@@ -291,7 +292,7 @@ class SourceReferenceBuildTest(unittest.TestCase):
             }
             mp.write_text(json.dumps(match), encoding="utf-8")
             out = tmp / "ref.json"
-            r = subprocess.run(["python3", "pipelines/build_source_reference.py",
+            r = subprocess.run([sys.executable, "pipelines/build_source_reference.py",
                                 "--input", str(mp), "--output", str(out)],
                                cwd=Path(__file__).resolve().parents[1],
                                capture_output=True, text=True)
@@ -308,7 +309,7 @@ class SourceReferenceBuildTest(unittest.TestCase):
 
             subprocess.run(
                 [
-                    "python3",
+                    sys.executable,
                     "pipelines/build_source_reference.py",
                     "--input",
                     str(match),

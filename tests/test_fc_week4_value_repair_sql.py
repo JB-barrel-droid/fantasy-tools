@@ -11,7 +11,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-SQL = (ROOT / "supabase/migrations/fc_week4_value_repair.sql").read_text()
+SQL = (ROOT / "supabase/migrations/fc_week4_value_repair.sql").read_text(encoding="utf-8")
 ROW_RE = re.compile(r"\('([0-9a-f-]{36})'::uuid,\s*([-0-9.eE]+)\)")
 
 

@@ -17,7 +17,7 @@ result = runner.run(suite)
 
 # Save captured output to a file in the repo.
 out_path = REPO / "tests" / "_lane_protocol_test_output.txt"
-with open(out_path, "w") as f:
+with open(out_path, "w", encoding="utf-8") as f:
     f.write(buf.getvalue())
     f.write("\n")
     f.write(f"was_successful={result.wasSuccessful()}\n")

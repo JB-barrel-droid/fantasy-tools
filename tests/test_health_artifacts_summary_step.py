@@ -36,7 +36,7 @@ def _summary_run_script():
     literally -- the script is the indented block following the `run: |`
     line of the `- name: Summary` step.
     """
-    lines = WORKFLOW.read_text().splitlines()
+    lines = WORKFLOW.read_text(encoding="utf-8").splitlines()
     in_summary = False
     for i, line in enumerate(lines):
         if re.match(r"^\s*-\s+name:\s*Summary\s*$", line):
@@ -82,7 +82,7 @@ def _run_summary_script(script, scratch_dir):
     )
     text = ""
     if os.path.exists(summary_file):
-        text = Path(summary_file).read_text()
+        text = Path(summary_file).read_text(encoding="utf-8")
     return proc.returncode, text, proc.stderr
 
 

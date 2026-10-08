@@ -33,7 +33,7 @@ def _labels_block(text):
 
 class NoHardcodedWeekLabelsTest(unittest.TestCase):
     def test_labels_carry_no_week(self):
-        block = _labels_block(JS.read_text())
+        block = _labels_block(JS.read_text(encoding="utf-8"))
         hardcoded = re.findall(r"\((Week \d+)\)", block)
         self.assertFalse(
             hardcoded,
@@ -43,7 +43,7 @@ class NoHardcodedWeekLabelsTest(unittest.TestCase):
 
     def test_source_label_appends_data_driven_week(self):
         """The single week marker must come from weekForSource via sourceLabel."""
-        text = JS.read_text()
+        text = JS.read_text(encoding="utf-8")
         self.assertIn("const week = weekForSource(key);", text)
         self.assertRegex(text, r"return week && key !== \"espn\" \? `\$\{base\} Wk \$\{week\}` : base;")
 

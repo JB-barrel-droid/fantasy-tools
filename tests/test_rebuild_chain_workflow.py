@@ -25,7 +25,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WORKFLOW = (ROOT / ".github/workflows/rebuild-chain.yml").read_text()
+WORKFLOW = (ROOT / ".github/workflows/rebuild-chain.yml").read_text(encoding="utf-8")
 
 CHAIN = "Rebuild comparison chain (if fixture stale)"
 SYNC_OK = "Sync rebuilt fixture into dist (chain succeeded)"
@@ -150,7 +150,7 @@ def run_scenario(text, outcome):
 
         def remote_file(rel):
             p = verify / rel
-            return p.read_text() if p.exists() else None
+            return p.read_text(encoding="utf-8") if p.exists() else None
         return {
             "changed": changed,
             "fixture": remote_file(FIXTURE),
@@ -254,12 +254,12 @@ def health_failure_problems(text):
         verify = td / "verify"
         git(td, "clone", "-q", str(remote), str(verify))
         gh = verify / GH_ACTIONS
-        if not gh.exists() or gh.read_text() != "NEW-GH":
+        if not gh.exists() or gh.read_text(encoding="utf-8") != "NEW-GH":
             problems.append("a failed health check did not publish the refreshed workflow-health file")
         oh = verify / OUT_HEALTH
-        if not oh.exists() or oh.read_text() != "RED-HEALTH":
+        if not oh.exists() or oh.read_text(encoding="utf-8") != "RED-HEALTH":
             problems.append("a failed health check did not publish the red health artifact")
-        if (verify / FIXTURE).read_text() != "OLD":
+        if (verify / FIXTURE).read_text(encoding="utf-8") != "OLD":
             problems.append("a failed health check pushed the fixture")
     return problems
 
@@ -320,7 +320,7 @@ def failed_refresh_preserves_artifact(text):
         git(work, "add", "-A")
         git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "baseline")
         r = run_script(text, REFRESH, work)
-        return {"rc": r.returncode, "artifact": (work / GH_ACTIONS).read_text()}
+        return {"rc": r.returncode, "artifact": (work / GH_ACTIONS).read_text(encoding="utf-8")}
 
 
 HEALTH_STEP = "Run import health check"
@@ -342,7 +342,7 @@ def red_health_step(text):
               "sys.exit(1)\n")
         script_text = text.replace("${{ steps.week.outputs.nfl_week }}", "5")
         r = run_script(script_text, HEALTH_STEP, work)
-        return {"rc": r.returncode, "monitor": (work / HEALTH).read_text()}
+        return {"rc": r.returncode, "monitor": (work / HEALTH).read_text(encoding="utf-8")}
 
 
 PIN_FAILURE_LOG = (
@@ -381,7 +381,7 @@ def run_post_rebuild_scenario(text, validate_ok):
         write(work, "validate.out", PIN_FAILURE_LOG if not validate_ok else "OK\n")
         write(work, "Makefile", "validate:\n\t@cat validate.out; exit %d\n" % (0 if validate_ok else 1))
         recorder = ROOT / "pipelines/record_post_rebuild_validation.py"
-        write(work, "pipelines/record_post_rebuild_validation.py", recorder.read_text())
+        write(work, "pipelines/record_post_rebuild_validation.py", recorder.read_text(encoding="utf-8"))
         env = {"PATH": f"{os.path.dirname(sys.executable)}:/usr/bin:/bin:/usr/local/bin",
                "GITHUB_OUTPUT": str(td / "gh_out.txt")}
         chain_text = text.replace("${{ steps.week.outputs.nfl_week }}", "5")
@@ -396,8 +396,8 @@ def run_post_rebuild_scenario(text, validate_ok):
         changed = set(git(verify, "diff", "--name-only", base, "HEAD").splitlines())
         status_path = verify / MONITOR_STATUS
         return {"outcome": outcome, "changed": changed,
-                "fixture": (verify / FIXTURE).read_text(),
-                "monitor_status": status_path.read_text() if status_path.exists() else None,
+                "fixture": (verify / FIXTURE).read_text(encoding="utf-8"),
+                "monitor_status": status_path.read_text(encoding="utf-8") if status_path.exists() else None,
                 "fail_rc": rcs.get(FAIL), "chain_log": chain.stdout + chain.stderr}
 
 

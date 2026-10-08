@@ -28,7 +28,7 @@ PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
 def top_rb_value(combo):
     pos_by_key = {str(p["player_key"]): p["pos"]
-                  for p in json.loads(PLAYERS.read_text())["players"]}
+                  for p in json.loads(PLAYERS.read_text(encoding="utf-8"))["players"]}
     pk = combo.get("player_keys", {}) or {}
     best = None
     for slug, val in (combo.get("reindexed") or {}).items():
@@ -52,7 +52,7 @@ class TestComboParsing(unittest.TestCase):
 
 class TestSubstitution(unittest.TestCase):
     def setUp(self):
-        self.fixture = json.loads(FIXTURE.read_text())
+        self.fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.usatoday_half = self.fixture["sources"]["usatoday"]["combos"]["half_12"]
 
     def test_translated_values_replace_reindexed(self):
@@ -205,7 +205,7 @@ class TestNativesTranslation(unittest.TestCase):
         sys.path.insert(0, str(ROOT))
         from pipelines.vorp_translation import unified
         self.unified = unified
-        self.fixture = json.loads(FIXTURE.read_text())
+        self.fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
 
     def _section(self, source="usatoday", combo="full_12"):
         return {"source_key": source,
@@ -262,7 +262,7 @@ class TestNativesTranslation(unittest.TestCase):
         self.assertEqual(via_natives["combos"]["full_12"]["reindexed"][wr], fresh)
 
     def test_chain_uses_natives_mode(self):
-        src = (ROOT / "pipelines" / "rebuild_comparison_chain.py").read_text()
+        src = (ROOT / "pipelines" / "rebuild_comparison_chain.py").read_text(encoding="utf-8")
         self.assertIn('"--translation", "natives"', src)
 
 
@@ -278,7 +278,7 @@ class TestJeg64RegressionGuard(unittest.TestCase):
     PRE_TRANSLATION_USATODAY_RB_PEAK = 63.97
 
     def test_usatoday_rb_peak_guard(self):
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         combo = fixture["sources"]["usatoday"]["combos"]["half_12"]
         peak = top_rb_value(combo)
         method = (combo.get("translation") or {}).get("method")

@@ -39,11 +39,11 @@ class WireFake(_WireFake):
 
     def __call__(self, cmd, **kwargs):
         path = self.repo / chain.FIXTURE_REL
-        before = json.loads(path.read_text()) if path.is_file() else {}
+        before = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
         ok, out = super().__call__(cmd, **kwargs)
         if Path(cmd[1]).name in ("build_cbsros_section_from_ddf_leg.py",
                                  "build_espn_section_from_ddf_leg.py") and path.is_file():
-            after = json.loads(path.read_text())
+            after = json.loads(path.read_text(encoding="utf-8"))
             merged = dict(before)
             merged["sources"] = {**(before.get("sources") or {}), **after["sources"]}
             path.write_text(json.dumps(merged))
@@ -71,8 +71,8 @@ class VintageParityGuard(unittest.TestCase):
     """The live (players.json) Razzball and the section are one vintage."""
 
     def test_published_razzball_is_one_vintage(self):
-        meta = json.loads(PLAYERS.read_text())["meta"]
-        fixture = json.loads(FIXTURE.read_text())
+        meta = json.loads(PLAYERS.read_text(encoding="utf-8"))["meta"]
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         self.assertEqual([], vintage_problems(meta, fixture))
 
     def test_guard_catches_the_origin_main_state(self):
@@ -126,7 +126,7 @@ class ChainRebuildsRazzball(unittest.TestCase):
         self.assertIn("build_razzball_section_from_ddf_leg.py", fake.calls)
         self.assertEqual("ok", status["detail"]["razzball"]["status"])
         self.assertEqual([], status["held"])
-        fixture = json.loads((repo / chain.FIXTURE_REL).read_text())
+        fixture = json.loads((repo / chain.FIXTURE_REL).read_text(encoding="utf-8"))
         self.assertEqual(12, len(fixture["sources"]["razzball"]["combos"]))
 
     def _held_run(self, tag, mutate):
@@ -138,7 +138,7 @@ class ChainRebuildsRazzball(unittest.TestCase):
         mutate(repo)
         fake = WireFake(repo)
         status = chain.execute_chain(nfl_week=5, repo=repo, run_fn=fake)
-        fixture = json.loads(fpath.read_text())
+        fixture = json.loads(fpath.read_text(encoding="utf-8"))
         return status, fixture, fake, kept
 
     def test_unbaked_vintage_holds_razzball_and_keeps_its_section(self):
@@ -168,7 +168,7 @@ class ChainRebuildsRazzball(unittest.TestCase):
         status = chain.execute_chain(nfl_week=5, repo=repo, run_fn=failing)
         self.assertEqual(["razzball"], status["held"])
         self.assertTrue(status["success"], status["failed"])
-        self.assertEqual(kept, json.loads(fpath.read_text())["sources"]["razzball"])
+        self.assertEqual(kept, json.loads(fpath.read_text(encoding="utf-8"))["sources"]["razzball"])
 
     def test_bake_gate_reasons(self):
         # Since GAP-BAKE-ON-CHANGE (2026-10-08) the gate compares the
@@ -251,9 +251,9 @@ class BakeReadsTheSupabaseSnapshot(unittest.TestCase):
         self.assertEqual(("2026-10-06", [1095]), (vintage, list(med)))
 
     def test_rebuild_chain_bake_passes_the_razzball_snapshot(self):
-        text = (ROOT / ".github/workflows/rebuild-chain.yml").read_text()
+        text = (ROOT / ".github/workflows/rebuild-chain.yml").read_text(encoding="utf-8")
         self.assertIn("--razzball-snapshot", text)
-        text = (ROOT / ".github/workflows/bake-players.yml").read_text()
+        text = (ROOT / ".github/workflows/bake-players.yml").read_text(encoding="utf-8")
         self.assertIn("--razzball-snapshot", text)
         self.assertIn("import_supabase_references.py --source razzball", text)
 

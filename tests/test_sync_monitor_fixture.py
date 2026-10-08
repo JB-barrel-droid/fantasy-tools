@@ -50,7 +50,7 @@ class SyncMonitorFixtureTest(unittest.TestCase):
 
     def test_main_calls_the_helper(self):
         # main() must wire the helper in, or the monitor copy silently goes stale again.
-        source = (ROOT / "pipelines" / "sync_dashboard_artifacts.py").read_text()
+        source = (ROOT / "pipelines" / "sync_dashboard_artifacts.py").read_text(encoding="utf-8")
         self.assertIn("sync_monitor_fixture(FIXTURES, dist_modules)", source)
 
 

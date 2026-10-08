@@ -123,7 +123,7 @@ class TestReindexStage(unittest.TestCase):
     def test_preserves_candidate_vintage_metadata_for_review(self):
         fx = make_fixture(self.tmp, self.players, lambda pl: 10.0)
         cand = make_candidate(self.tmp, "syn", self.players, lambda pl: 100.0)
-        doc = json.loads(cand.read_text())
+        doc = json.loads(cand.read_text(encoding="utf-8"))
         doc["week_designated"] = "Week 3"
         doc["published"] = "2026-09-23"
         doc["content_vintage"] = "Week 3"
@@ -291,9 +291,9 @@ class TestReindexStage(unittest.TestCase):
         players = self.players
         fx = make_fixture(self.tmp, players, lambda pl: 5.0)
         cand = make_candidate(self.tmp, "syn", players, lambda pl: 100.0)
-        before = cand.read_text()
+        before = cand.read_text(encoding="utf-8")
         run_stage(cand, fx, self.players_path)
-        self.assertEqual(cand.read_text(), before)
+        self.assertEqual(cand.read_text(encoding="utf-8"), before)
 
 
 class TestRealFixtureSmoke(unittest.TestCase):
@@ -304,7 +304,7 @@ class TestRealFixtureSmoke(unittest.TestCase):
         repo = Path(__file__).resolve().parent.parent
         fixture = repo / "data/fixtures/current/comparison-sources-data.json"
         players_p = repo / "data/fixtures/current/players.json"
-        c = json.loads(fixture.read_text())
+        c = json.loads(fixture.read_text(encoding="utf-8"))
         # Build a candidate straight from the fixture's usatoday native values.
         tmp = Path(tempfile.mkdtemp())
         cand = {
@@ -327,7 +327,7 @@ class TestRealFixtureSmoke(unittest.TestCase):
         espn = c["sources"]["espn"]["combos"]
         fkeys = c.get("player_keys", {})
         ppos = {p["player_key"]: p["pos"]
-                for p in json.loads(players_p.read_text())["players"]}
+                for p in json.loads(players_p.read_text(encoding="utf-8"))["players"]}
         pos_by_slug = {s: ppos[k] for s, k in fkeys.items() if k in ppos}
         for combo_name, combo in section["combos"].items():
             anchor = espn[combo_name]["values"]
@@ -521,7 +521,7 @@ class TestQBAnchorResolution(unittest.TestCase):
             cand_p = make_candidate(tmp, "fantasypros", plist, native_fn,
                                   combos=("full_12",))
             # Mark as published for as-published path
-            cand_data = json.loads(cand_p.read_text())
+            cand_data = json.loads(cand_p.read_text(encoding="utf-8"))
             cand_data["value_provenance"] = "published"
             cand_p.write_text(json.dumps(cand_data))
             section, review = rcs.reindex_section(str(cand_p),
@@ -563,7 +563,7 @@ class TestQBAnchorResolution(unittest.TestCase):
                 return 100.0
             cand_p = make_candidate(tmp, "fantasypros", plist, native_fn,
                                   combos=("full_12",))
-            cand_data = json.loads(cand_p.read_text())
+            cand_data = json.loads(cand_p.read_text(encoding="utf-8"))
             cand_data["value_provenance"] = "published"
             cand_p.write_text(json.dumps(cand_data))
             section, review = rcs.reindex_section(str(cand_p),
@@ -605,7 +605,7 @@ class TestFlexAwareExactReconciliation(unittest.TestCase):
         fx = make_fixture(self.tmp, players, anchor_fn)
         cand = make_candidate(self.tmp, "fantasycalc", players, native_fn)
         # The flex-aware branch serves as-published sources only.
-        doc = json.loads(cand.read_text())
+        doc = json.loads(cand.read_text(encoding="utf-8"))
         doc["value_provenance"] = "published"
         cand.write_text(json.dumps(doc))
         section, review = run_stage(cand, fx, self.players_path)

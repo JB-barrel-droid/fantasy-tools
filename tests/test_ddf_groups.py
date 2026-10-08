@@ -321,7 +321,7 @@ class WriteArtifactTests(unittest.TestCase):
             out_path = Path(tmpdir) / "ddf-group-vorps.json"
             art = build_groups_from_leg(leg_path, out_path)
             self.assertTrue(out_path.exists())
-            loaded = json.loads(out_path.read_text())
+            loaded = json.loads(out_path.read_text(encoding="utf-8"))
             self.assertEqual(loaded["schema"], SCHEMA)
             self.assertEqual(len(loaded["groups"]), 8)
             self.assertEqual(art["groups"], loaded["groups"])
@@ -356,7 +356,7 @@ class LiveLegIntegrationTests(unittest.TestCase):
     def test_compute_groups_against_live_leg_if_present(self):
         if self.leg_path is None:
             self.skipTest("no local DDF leg under data/ddf-two-tier; integration skipped")
-        leg = json.loads(self.leg_path.read_text())
+        leg = json.loads(self.leg_path.read_text(encoding="utf-8"))
         art = compute_groups(leg)
         self.assertEqual(len(art["groups"]), 8)
         # Sum invariant on real data.
@@ -395,7 +395,7 @@ class RawUnitContractTests(unittest.TestCase):
 
     def test_real_raw_totals_match_independent_ppg_arithmetic(self):
         p = REPO / "data/ddf-two-tier/ddf-20260930-espn-half_ppr-12t-0p15/ddf_leg.json"
-        leg = json.loads(p.read_text())
+        leg = json.loads(p.read_text(encoding="utf-8"))
         art = compute_groups(leg)
         expected = sum(max(0, r["ppg"]-leg["calibration"][r["pos"]]["rw"])
                        for r in leg["values"] if r["tier"] in ("starter", "bench"))

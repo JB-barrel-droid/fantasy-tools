@@ -112,7 +112,7 @@ class WidgetRawGroupTest(unittest.TestCase):
     def test_raw_group_has_all_three_sources(self):
         groups = _node_eval(
             CONST_EVAL_SCRIPT,
-            {"t": _extract_const(WIDGET.read_text(), "SOURCE_GROUPS")},
+            {"t": _extract_const(WIDGET.read_text(encoding="utf-8"), "SOURCE_GROUPS")},
         )
         raw = [g for g in groups if g["label"] == "Raw VORP vs waivers"]
         self.assertEqual(len(raw), 1, "expected exactly one Raw VORP vs waivers group")
@@ -121,7 +121,7 @@ class WidgetRawGroupTest(unittest.TestCase):
     def test_vorp_defs_map_to_source_pure_fields(self):
         defs = _node_eval(
             CONST_EVAL_SCRIPT,
-            {"t": _extract_const(WIDGET.read_text(), "VORP_SOURCE_DEFS")},
+            {"t": _extract_const(WIDGET.read_text(encoding="utf-8"), "VORP_SOURCE_DEFS")},
         )
         self.assertEqual(defs["espn_vorp"]["ppgField"], "espn_ppg")
         self.assertEqual(defs["cbsros_vorp"]["ppgField"], "cbsros_ppg")
@@ -131,7 +131,7 @@ class WidgetRawGroupTest(unittest.TestCase):
 class WidgetSourcePurityTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        src = WIDGET.read_text()
+        src = WIDGET.read_text(encoding="utf-8")
         cls.fn_text = _extract_fn(src, "vorpPricedRows")
         cls.defs_text = _extract_const(src, "VORP_SOURCE_DEFS")
 
@@ -180,7 +180,7 @@ class DashboardRawColumnsTest(unittest.TestCase):
     def test_dashboard_source_keys_include_vorp_trio(self):
         keys = _node_eval(
             CONST_EVAL_SCRIPT,
-            {"t": _extract_const(DASH.read_text(), "SOURCE_KEYS")},
+            {"t": _extract_const(DASH.read_text(encoding="utf-8"), "SOURCE_KEYS")},
         )
         for key in ("espn_vorp", "cbsros_vorp", "razzball_vorp"):
             self.assertIn(key, keys)
@@ -188,7 +188,7 @@ class DashboardRawColumnsTest(unittest.TestCase):
     def test_dashboard_labels_cover_vorp_trio(self):
         labels = _node_eval(
             CONST_EVAL_SCRIPT,
-            {"t": _extract_const(DASH.read_text(), "LABELS")},
+            {"t": _extract_const(DASH.read_text(encoding="utf-8"), "LABELS")},
         )
         self.assertIn("raw vorp vs waivers", labels["espn_vorp"].lower())
         self.assertIn("raw vorp vs waivers", labels["cbsros_vorp"].lower())
@@ -197,7 +197,7 @@ class DashboardRawColumnsTest(unittest.TestCase):
     def test_dashboard_vorp_defs_source_pure(self):
         defs = _node_eval(
             CONST_EVAL_SCRIPT,
-            {"t": _extract_const(DASH.read_text(), "VORP_SOURCE_DEFS")},
+            {"t": _extract_const(DASH.read_text(encoding="utf-8"), "VORP_SOURCE_DEFS")},
         )
         self.assertEqual(defs["espn_vorp"]["ppgField"], "espn_ppg")
         self.assertEqual(defs["cbsros_vorp"]["ppgField"], "cbsros_ppg")

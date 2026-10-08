@@ -73,12 +73,12 @@ def scenario(text, other_push, attempt="1"):
         return {
             "rc": r.returncode,
             "log": r.stdout + r.stderr,
-            "remote_fixture": (verify / FIXTURE).read_text(),
-            "remote_monitor": (verify / MONITOR_FIXTURE).read_text(),
+            "remote_fixture": (verify / FIXTURE).read_text(encoding="utf-8"),
+            "remote_monitor": (verify / MONITOR_FIXTURE).read_text(encoding="utf-8"),
             "remote_head_is_other": git(verify, "rev-parse", "HEAD") == other_head,
-            "dispatch": dispatch.read_text() if dispatch.exists() else None,
-            "outputs": out.read_text() if out.exists() else "",
-            "summary": summary.read_text() if summary.exists() else "",
+            "dispatch": dispatch.read_text(encoding="utf-8") if dispatch.exists() else None,
+            "outputs": out.read_text(encoding="utf-8") if out.exists() else "",
+            "summary": summary.read_text(encoding="utf-8") if summary.exists() else "",
         }
 
 

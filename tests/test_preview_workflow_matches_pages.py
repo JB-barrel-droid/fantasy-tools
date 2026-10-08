@@ -14,8 +14,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PAGES = (ROOT / ".github/workflows/pages.yml").read_text()
-PREVIEW = (ROOT / ".github/workflows/preview.yml").read_text()
+PAGES = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
+PREVIEW = (ROOT / ".github/workflows/preview.yml").read_text(encoding="utf-8")
 
 FORBIDDEN_IN_PREVIEW = ("deploy-pages", "upload-pages-artifact", "configure-pages",
                         "pages: write", "id-token: write")

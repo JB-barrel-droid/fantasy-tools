@@ -34,7 +34,7 @@ GROUPS = [
 
 
 def _load_reference():
-    return json.loads(REFERENCE.read_text())
+    return json.loads(REFERENCE.read_text(encoding="utf-8"))
 
 
 def _leg_bytes(ref):

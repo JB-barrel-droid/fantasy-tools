@@ -119,11 +119,11 @@ class TestPromote(unittest.TestCase):
 
     def test_happy_path(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        before_fixture = json.loads(fx_path.read_text())
+        before_fixture = json.loads(fx_path.read_text(encoding="utf-8"))
         before = before_fixture["sources"]["syn"]
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                                record_dir=str(self.records))
-        after_fixture = json.loads(fx_path.read_text())
+        after_fixture = json.loads(fx_path.read_text(encoding="utf-8"))
         after = after_fixture["sources"]["syn"]
         # reindexed math replaced
         self.assertNotEqual(before["combos"]["full_12"]["reindexed"],
@@ -140,18 +140,18 @@ class TestPromote(unittest.TestCase):
         self.assertNotEqual(after_fixture["built_at"], before_fixture["built_at"],
                             "promotion must update fixture built_at so the freshness gate sees today")
         # promotion record with rollback + approver
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         self.assertEqual(rec["approved_by"], APPROVE)
         self.assertEqual(rec["replaced_section"], before)
         self.assertEqual(rec["anchor_change"], "monday_rail -> espn_leg")
         # fixture serialization preserved (compact, no trailing newline)
-        raw = fx_path.read_text()
+        raw = fx_path.read_text(encoding="utf-8")
         self.assertFalse(raw.endswith("\n"))
         self.assertEqual(json.dumps(json.loads(raw), separators=(",", ":")), raw)
 
     def test_refuse_hold_verdict(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         rev["verdict"] = "hold"
         revp.write_text(json.dumps(rev))
         with self.assertRaises(SystemExit):
@@ -166,7 +166,7 @@ class TestPromote(unittest.TestCase):
 
     def test_refuse_reindexed_changed_since_review(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        doc = json.loads(rp.read_text())
+        doc = json.loads(rp.read_text(encoding="utf-8"))
         doc["combos"]["full_12"]["reindexed"]["player qb0"] += 1.0
         rp.write_text(json.dumps(doc))
         with self.assertRaises(SystemExit):
@@ -175,7 +175,7 @@ class TestPromote(unittest.TestCase):
 
     def test_refuse_fixture_drift_since_review(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        fx = json.loads(fx_path.read_text())
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
         fx["sources"]["syn"]["combos"]["full_12"]["native"]["player qb0"] += 1.0
         fx_path.write_text(json.dumps(fx, separators=(",", ":")))
         with self.assertRaises(SystemExit):
@@ -187,7 +187,7 @@ class TestPromote(unittest.TestCase):
         # Simulate a tampered artifact: candidate gains a slug the fixture
         # never heard of (the real reindex stage is fail-closed, so this can
         # only arrive via tampering).
-        doc = json.loads(rp.read_text())
+        doc = json.loads(rp.read_text(encoding="utf-8"))
         doc["combos"]["full_12"]["native"]["mystery man"] = 50.0
         doc["combos"]["full_12"]["reindexed"]["mystery man"] = 5.0
         rp.write_text(json.dumps(doc))
@@ -207,7 +207,7 @@ class TestPromote(unittest.TestCase):
 
     def test_refuse_review_without_hashes(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         del rev["reindexed_sha256"]
         revp.write_text(json.dumps(rev))
         with self.assertRaises(SystemExit):
@@ -216,7 +216,7 @@ class TestPromote(unittest.TestCase):
 
     def test_refuse_wrong_schema(self):
         fx_path, rp, revp = ready_review(self.tmp)
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         rev["schema"] = "something-else-v1"
         revp.write_text(json.dumps(rev))
         with self.assertRaises(SystemExit):
@@ -225,7 +225,7 @@ class TestPromote(unittest.TestCase):
 
     def test_active_source_promotion_requires_fresh_matching_l1_vintage(self):
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
-        doc = json.loads(rp.read_text())
+        doc = json.loads(rp.read_text(encoding="utf-8"))
         doc["content_vintage"] = "Week 3"
         doc["source_provenance"] = {
             "source": "fantasycalc",
@@ -236,7 +236,7 @@ class TestPromote(unittest.TestCase):
             "snapshot_fetched_at": "2026-09-21T12:00:00Z",
         }
         rp.write_text(json.dumps(doc))
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         rev["reindexed_sha256"] = promo.sha256_file(rp)
         revp.write_text(json.dumps(rev))
 
@@ -256,10 +256,10 @@ class TestPromote(unittest.TestCase):
         write_import_health(health, vintage="Week 3", status="ok")
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                                record_dir=str(self.records), import_health_path=str(health))
-        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        after = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["fantasycalc"]
         self.assertEqual("Week 3", after["content_vintage"])
         self.assertEqual("Week 3", after["source_provenance"]["content_vintage"])
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         self.assertEqual("Week 3", rec["l1_import_health_gate"]["content_vintage"])
 
     def test_week_label_travels_with_promoted_values(self):
@@ -268,23 +268,23 @@ class TestPromote(unittest.TestCase):
         relabel it "Week 3" (the pre-fix promoter kept "Week 2": week-3
         values shown as Week 2)."""
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
-        fx = json.loads(fx_path.read_text())
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
         fx["sources"]["fantasycalc"]["week_designated"] = "Week 2"
         fx["sources"]["fantasycalc"]["content_vintage"] = "Week 2"
         fx_path.write_text(json.dumps(fx))
-        doc = json.loads(rp.read_text())
+        doc = json.loads(rp.read_text(encoding="utf-8"))
         doc["content_vintage"] = "Week 3"
         doc["source_provenance"] = {"source": "fantasycalc", "content_vintage": "Week 3",
                                     "vintage_kind": "week_designated", "week_designated": 3}
         rp.write_text(json.dumps(doc))
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         rev["reindexed_sha256"] = promo.sha256_file(rp)
         revp.write_text(json.dumps(rev))
         health = self.tmp / "source-import-health.json"
         write_import_health(health, vintage="Week 3", status="ok")
         promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                       record_dir=str(self.records), import_health_path=str(health))
-        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        after = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["fantasycalc"]
         self.assertEqual("Week 3", after["content_vintage"])
         self.assertEqual("Week 3", after["week_designated"])
 
@@ -298,23 +298,23 @@ class TestPromote(unittest.TestCase):
             with self.subTest(prov_url=prov_url):
                 tmp = Path(tempfile.mkdtemp())
                 fx_path, rp, revp = ready_review(tmp, source="fantasycalc")
-                fx = json.loads(fx_path.read_text())
+                fx = json.loads(fx_path.read_text(encoding="utf-8"))
                 fx["sources"]["fantasycalc"]["url"] = "https://example.test/week-2/"
                 fx_path.write_text(json.dumps(fx))
-                doc = json.loads(rp.read_text())
+                doc = json.loads(rp.read_text(encoding="utf-8"))
                 doc["content_vintage"] = "Week 3"
                 doc["source_provenance"] = {"source": "fantasycalc", "content_vintage": "Week 3",
                                             "vintage_kind": "week_designated", "week_designated": 3,
                                             "source_url": prov_url}
                 rp.write_text(json.dumps(doc))
-                rev = json.loads(revp.read_text())
+                rev = json.loads(revp.read_text(encoding="utf-8"))
                 rev["reindexed_sha256"] = promo.sha256_file(rp)
                 revp.write_text(json.dumps(rev))
                 health = tmp / "source-import-health.json"
                 write_import_health(health, vintage="Week 3", status="ok")
                 promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                               record_dir=str(tmp / "records"), import_health_path=str(health))
-                after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+                after = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["fantasycalc"]
                 self.assertEqual(want, after["url"])
 
     def test_unpromoted_combos_keep_their_own_week(self):
@@ -323,18 +323,18 @@ class TestPromote(unittest.TestCase):
         its Week 5 candidate on same-vintage drift. Each combo now records
         its own vintage; combos not promoted keep the section's old one."""
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
-        fx = json.loads(fx_path.read_text())
+        fx = json.loads(fx_path.read_text(encoding="utf-8"))
         sec = fx["sources"]["fantasycalc"]
         sec["week_designated"] = "Week 2"
         sec["content_vintage"] = "Week 2"
         sec["combos"]["half_12"] = json.loads(json.dumps(sec["combos"]["full_12"]))
         fx_path.write_text(json.dumps(fx))
-        doc = json.loads(rp.read_text())
+        doc = json.loads(rp.read_text(encoding="utf-8"))
         doc["content_vintage"] = "Week 3"
         doc["source_provenance"] = {"source": "fantasycalc", "content_vintage": "Week 3",
                                     "vintage_kind": "week_designated", "week_designated": 3}
         rp.write_text(json.dumps(doc))
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         rev["reindexed_sha256"] = promo.sha256_file(rp)
         rev["fixture_native_sha256"] = rev["fixture_native_before_sha256"] = promo.sha256_canonical(
             {c: sec["combos"][c]["native"] for c in sec["combos"]})
@@ -343,7 +343,7 @@ class TestPromote(unittest.TestCase):
         write_import_health(health, vintage="Week 3", status="ok")
         promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                       record_dir=str(self.records), import_health_path=str(health))
-        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        after = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["fantasycalc"]
         self.assertEqual("Week 3", after["week_designated"])
         self.assertEqual("Week 3", after["combos"]["full_12"]["vintage"]["week_designated"])
         self.assertEqual("Week 2", after["combos"]["half_12"]["vintage"]["week_designated"])
@@ -351,7 +351,7 @@ class TestPromote(unittest.TestCase):
     def _active_review(self, vintage="Week 3"):
         """Ready review for an active source; candidate vintage None = absent."""
         fx_path, rp, revp = ready_review(self.tmp, source="fantasycalc")
-        doc = json.loads(rp.read_text())
+        doc = json.loads(rp.read_text(encoding="utf-8"))
         doc.pop("content_vintage", None)
         doc.pop("source_provenance", None)
         if vintage is not None:
@@ -359,7 +359,7 @@ class TestPromote(unittest.TestCase):
             doc["source_provenance"] = {"source": "fantasycalc",
                                         "content_vintage": vintage}
         rp.write_text(json.dumps(doc))
-        rev = json.loads(revp.read_text())
+        rev = json.loads(revp.read_text(encoding="utf-8"))
         rev["reindexed_sha256"] = promo.sha256_file(rp)
         revp.write_text(json.dumps(rev))
         return fx_path, revp
@@ -400,9 +400,9 @@ class TestPromote(unittest.TestCase):
 
         fx_path, revp = self._active_review(vintage="Week 3")
         result = self._promote_active(fx_path, revp, health)
-        after = json.loads(fx_path.read_text())["sources"]["fantasycalc"]
+        after = json.loads(fx_path.read_text(encoding="utf-8"))["sources"]["fantasycalc"]
         self.assertEqual("Week 3", after["content_vintage"])
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         gate = rec["l1_import_health_gate"]
         self.assertEqual("warning", gate["status"])
         self.assertTrue(gate["failure_reason"].startswith("LAGGING_ONE_WEEK"))
@@ -417,7 +417,7 @@ class TestPromote(unittest.TestCase):
         fx_path, revp = self._active_review()
         health = self.tmp / "health.json"
         write_import_health(health)
-        doc = json.loads(health.read_text())
+        doc = json.loads(health.read_text(encoding="utf-8"))
         doc["schema"] = "something-else-v1"
         health.write_text(json.dumps(doc))
         with self.assertRaises(SystemExit) as ctx:
@@ -447,7 +447,7 @@ class TestPromote(unittest.TestCase):
         write_import_health(health, vintage="Week 3", status="ok")  # checked_at 2026-09-21T12:30Z
         fx_path, revp = self._active_review(vintage="Week 3")
         result = self._promote_active(fx_path, revp, health)
-        gate = json.loads(Path(result["promotion_record"]).read_text())["l1_import_health_gate"]
+        gate = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))["l1_import_health_gate"]
         self.assertTrue(gate["applied"])
         self.assertEqual(1, len(gate["warnings"]))
         self.assertIn("checked", gate["warnings"][0])
@@ -467,7 +467,7 @@ class TestPromote(unittest.TestCase):
         fx_path, rp, revp = ready_review(self.tmp)  # source "syn"
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),
                                record_dir=str(self.records))
-        rec = json.loads(Path(result["promotion_record"]).read_text())
+        rec = json.loads(Path(result["promotion_record"]).read_text(encoding="utf-8"))
         self.assertFalse(rec["l1_import_health_gate"]["applied"])
 
 

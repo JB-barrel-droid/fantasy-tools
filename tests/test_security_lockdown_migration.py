@@ -11,8 +11,8 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-LOCKDOWN = (ROOT / "supabase/migrations/20261008_security_lockdown.sql").read_text()
-POSTURE = (ROOT / "supabase/migrations/20261008_monitoring_6h_and_posture.sql").read_text()
+LOCKDOWN = (ROOT / "supabase/migrations/20261008_security_lockdown.sql").read_text(encoding="utf-8")
+POSTURE = (ROOT / "supabase/migrations/20261008_monitoring_6h_and_posture.sql").read_text(encoding="utf-8")
 
 MONITORING_TABLES = ("check_config", "check_observations", "check_heartbeats", "scheduler_heartbeats")
 ADVISOR_FUNCTIONS = ("public.f_american_prob", "public.resolve_player_identity", "public.resolve_weekly_identities(",
