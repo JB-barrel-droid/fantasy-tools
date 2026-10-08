@@ -291,6 +291,38 @@ waivers" (copy rule).
 - **Mobile navigation.** Below 768 the five tabs sit on one row with short labels (Values · Targets ·
   Movers · Trade · How); frames say "Split" and "More", renamed for Trade targets and How values work.
 
+## Rails for the remaining screens (2026-10-08, task 3)
+
+- **Choose your sources (09 / 20).** One block per publisher (kind, week, older weeks in amber) with a
+  toggle per supported method: "✓ DDA" / "+ Indexed" / "+ VORP vs waivers". It is a draft: nothing
+  reaches the engine until "Apply N pairs" (adds first, then removes, so the engine never hits zero).
+  An empty draft is refused with "Choose at least one". Older-week pairs stay disabled until "Include
+  Week N" is ticked; unavailable pairs are disabled with the engine's reason.
+- **Source freshness (10).** Earlier-week banner; one row per engine series: snapshot week, provenance
+  (freshness label, waiver note, publish date), status Current / Older · selected / Older · not
+  selected / Unavailable. An active older series offers "Remove older source". "Manage selected
+  sources" opens 09. The header badge shows ⚠ when a selected series is unavailable (frame 18
+  "partial source failure").
+- **Weights & bench (11).** Bench share slider as a draft with "Starters N% / Bench N%", feasible range
+  from `getBenchBounds`, Reset defaults (15%) / Cancel / Apply. Position shares are shown read only
+  from `getPositionWeights` (BE-2).
+- **Your league (12).** Segmented scoring and teams, steppers for QB / RB / WR / TE / FLEX / Bench, as a
+  draft; Apply goes through the dropped-series notice. "Reset defaults" returns to the engine's state
+  at first load. No SUPERFLEX row (BE-2).
+- **Chart options (21).** From the chart header ("Chart options", "···" below 768). Player range Full /
+  Top 100 / Top 50 / Top 25 / Starter / Bench / Waiver; the last three are the engine's roster
+  boundaries (`getZones`) mapped onto the filtered list. Hide zero-value tail, Y axis Auto / Custom
+  bounds, Position / Team / Tier columns. Cancel / "Apply chart options".
+- **Navigator and value range (24).** The brush track carries an overview line of the ranking series;
+  "From" / "To" number fields and "Reset to all" sit under it (the handles keep arrow / Home / End).
+  Value range names its basis series and week, has two handles mirroring Minimum / Maximum, refuses
+  minimum above maximum, and still counts the players it leaves out.
+- **Benchmark decisions (23).** A rationale frame with no screen of its own; its adopted items are the
+  ones above and in task 2 (mover lists per source with a clear week basis, min/max filter, totals and
+  signed bars per pair with no fairness label, navigator with numeric bounds and reset).
+- All overlays are centered panels over a scrim on desktop and full screen below 768; Escape and the
+  scrim close them; focus returns to the control that opened them.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
@@ -313,6 +345,13 @@ toggle stays "Δ —" with the reason, and Risers & fallers stays marked "soon".
 Answered 2026-10-08 by the history contract below (branch `feat/week-history`): published charts,
 CBS ROS and Razzball get prior weeks, and ESPN, the Adjusted series and the VORP vs waivers series
 return "Δ —" with a reason.
+
+**BE-2 · Editable position shares and superflex (frames 11, 12).** Frame 11 lets the reader set QB /
+RB / WR / TE shares of total value; frame 12 has a SUPERFLEX slot. The engine exposes
+`getPositionWeights()` but no setter, and `setRosterSpot` knows QB, RB, WR, TE, FLEX, BENCH (K and DST
+are fixed at 0). v2 needs, in `TradeValueCurveControls`: `setPositionWeights({QB, RB, WR, TE})` with the
+feasible bounds per position (like `getBenchBounds`), and a `SUPERFLEX` roster key that the value model
+prices. Until then 11 shows the shares read only and 12 says superflex is not supported yet.
 
 ## Back-end contract: history
 
