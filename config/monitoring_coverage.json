@@ -23,8 +23,6 @@
      "records": [{"check_id": "espn_supabase_sync", "file": ".github/workflows/espn-supabase-sync.yml", "contains": "--check-id espn_supabase_sync --owner espn-supabase-sync.yml"}]},
     {"workflow": "cbsros-supabase-sync.yml", "scheduler": "source_probe", "pg_cron_job": null, "dispatched_by": "source-probe.yml (on change or max age)",
      "records": [{"check_id": "cbsros_supabase_sync", "file": ".github/workflows/cbsros-supabase-sync.yml", "contains": "--check-id cbsros_supabase_sync --owner cbsros-supabase-sync.yml"}]},
-    {"workflow": "cbsros-supabase-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-cbsros-sync-retry",
-     "records": [{"check_id": "cbsros_supabase_sync", "file": ".github/workflows/cbsros-supabase-sync.yml", "contains": "--check-id cbsros_supabase_sync --owner cbsros-supabase-sync.yml"}]},
     {"workflow": "fantasycalc-weekly-save.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-fantasycalc-weekly-save",
      "records": [{"check_id": "fantasycalc_weekly_save", "file": ".github/workflows/fantasycalc-weekly-save.yml", "contains": "\"p_check_id\": \"fantasycalc_weekly_save\""}]},
     {"workflow": "health-artifacts.yml", "scheduler": "pg_cron", "pg_cron_job": "health-artifacts-live",

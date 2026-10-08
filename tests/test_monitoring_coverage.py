@@ -11,6 +11,9 @@ it names (a mutated workflow, manifest, or summary).
   - every monitored workflow records through a step that runs `always()`;
   - a pg_cron-owned workflow has no GitHub `schedule:` (one scheduler owner);
   - every check id has a check_config insert in supabase/migrations;
+  - no manifest pg_cron job is one a migration retired (cron.unschedule without
+    re-scheduling it in the same file): health-artifacts' live coverage audit
+    fails every run on such an entry (2026-10-08: trigger-cbsros-sync-retry);
   - the evaluator migration counts a never-observed check as missed;
   - the dispatcher is not executable by anon;
   - the dashboard banner is fail-closed: unreadable, malformed or stale is red.
@@ -55,9 +58,35 @@ def step_block(text, name):
     return "\n".join(out)
 
 
-def coverage_problems(manifest, workflow_texts, read=lambda p: (ROOT / p).read_text(), migrations_sql=None):
+def retired_pg_cron_jobs(migration_texts):
+    """Job names a migration unschedules and does not schedule again in the
+    same file: `cron.unschedule(jobid) from cron.job where jobname = / in (...)`
+    and the guarded `foreach j in array[...] loop ... cron.unschedule(j)` form."""
+    retired = set()
+    for text in migration_texts:
+        sql = re.sub(r"--[^\n]*", "", text)
+        names = set()
+        for m in re.finditer(r"cron\.unschedule\(\s*jobid\s*\)\s+from\s+cron\.job\s+where\s+jobname\s*"
+                             r"(?:=\s*'([^']+)'|in\s*\(([^)]*)\))", sql, re.I):
+            names.update([m.group(1)] if m.group(1) else re.findall(r"'([^']+)'", m.group(2)))
+        for m in re.finditer(r"foreach\s+\w+\s+in\s+array\s+array\[([^\]]*)\]\s+loop(.*?)end\s+loop", sql, re.I | re.S):
+            if "cron.unschedule" in m.group(2):
+                names.update(re.findall(r"'([^']+)'", m.group(1)))
+        rescheduled = set(re.findall(r"cron\.schedule\(\s*'([^']+)'", sql))
+        retired |= names - rescheduled
+    return retired
+
+
+def coverage_problems(manifest, workflow_texts, read=lambda p: (ROOT / p).read_text(), migrations_sql=None,
+                      migration_texts=None):
     """workflow_texts: {filename: text}. Returns a list of problems."""
     problems = []
+    if migration_texts is not None:
+        retired = retired_pg_cron_jobs(migration_texts)
+        for p in manifest["pipelines"]:
+            if p.get("pg_cron_job") in retired:
+                problems.append(f"{p['workflow']}: pg_cron job {p['pg_cron_job']} was retired by a migration "
+                                "but is still in config/monitoring_coverage.json")
     listed = {p["workflow"] for p in manifest["pipelines"] if not p.get("workflow_missing_on_main")}
     unmonitored = set(manifest["unmonitored_workflows"])
     for wf in sorted(workflow_texts):
@@ -101,9 +130,32 @@ def all_migrations_sql():
     return "\n".join(p.read_text() for p in sorted(MIGRATIONS.glob("*.sql")))
 
 
+def all_migration_texts():
+    return [p.read_text(encoding="utf-8") for p in sorted(MIGRATIONS.glob("*.sql"))]
+
+
 class CoverageManifestTest(unittest.TestCase):
     def test_real_repo_is_fully_covered(self):
-        self.assertEqual([], coverage_problems(MANIFEST, load_workflows(), migrations_sql=all_migrations_sql()))
+        self.assertEqual([], coverage_problems(MANIFEST, load_workflows(), migrations_sql=all_migrations_sql(),
+                                               migration_texts=all_migration_texts()))
+
+    def test_retired_pg_cron_job_in_the_manifest_is_caught(self):
+        stale = json.loads(json.dumps(MANIFEST))
+        stale["pipelines"].append({"workflow": "cbsros-supabase-sync.yml", "scheduler": "pg_cron",
+                                   "pg_cron_job": "trigger-cbsros-sync-retry", "records": []})
+        problems = coverage_problems(stale, load_workflows(), migration_texts=all_migration_texts())
+        self.assertTrue(any("trigger-cbsros-sync-retry was retired" in p for p in problems), problems)
+
+    def test_retired_job_detection_reads_each_unschedule_form(self):
+        retired = retired_pg_cron_jobs([
+            "select cron.unschedule(jobid) from cron.job where jobname = 'one';",
+            "select cron.unschedule(jobid) from cron.job where jobname in ('two', -- note\n 'three');",
+            "do $$ declare j text; begin foreach j in array array['four'] loop "
+            "perform cron.unschedule(j); end loop; end $$;",
+            "select cron.unschedule(jobid) from cron.job where jobname = 'five';\n"
+            "select cron.schedule('five', '0 * * * *', $$select 1$$);",
+        ])
+        self.assertEqual(retired, {"one", "two", "three", "four"})
 
     def test_unlisted_workflow_is_caught(self):
         wfs = load_workflows()
