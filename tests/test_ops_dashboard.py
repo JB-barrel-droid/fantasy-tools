@@ -69,8 +69,9 @@ def green_site() -> dict:
              "last_start": ago(0.05), "last_status": "succeeded"},
         ],
         "security": {"schema": "ddf-security-posture-v1", "checked_at": ago(1), "ok": True,
-                     "public_tables_without_rls": [], "anon_or_auth_write_grants": [], "public_definer_views": [],
-                     "mutable_search_path_functions": [], "api_definer_views": ["api.x"]},
+                     "tables_without_rls": 0, "anon_or_auth_write_grants": 0, "public_definer_views": 0,
+                     "mutable_search_path_functions": 0, "anon_executable_definer_functions": 0,
+                     "api_definer_views_accepted": 3, "details": {}},
     }
     run = lambda wf, h=2: {"created_at": ago(h), "updated_at": ago(h - 0.05), "status": "completed",  # noqa: E731
                            "conclusion": "success", "event": "workflow_dispatch", "duration_s": 180}
@@ -145,6 +146,7 @@ def failed_site() -> dict:
     summary = site["modules/monitoring-summary.json"]
     summary["overall"] = "red"
     summary["checks"][0].update(status="red", state="error", reason="last run failed (SOURCE_BLOCKED)")
+    summary["security"].update(ok=False, tables_without_rls=1, details={"tables_without_rls": ["monitoring.check_config"]})
     ops = site["modules/ops-status.json"]["blocks"]
     ops["deploy"]["pages_runs"].insert(0, {"status": "completed", "conclusion": "failure", "created_at": ago(0.5),
                                            "event": "push", "duration_s": 90, "head_sha": "f" * 40, "html_url": "x"})
@@ -161,7 +163,8 @@ EXPECT = {
     "green": {"__banner__": "ok"},
     "stale": {"__banner__": "warn", "chain": "warn", "ingest": "warn", "synthetic": "warn"},
     "failed": {"__banner__": "bad", "chain": "bad", "jobs": "bad", "ingest": "bad", "deploy": "bad",
-               "alerts": "bad", "monitor": "bad", "synthetic": "bad", "surfaces": "bad", "freshness": "bad"},
+               "alerts": "bad", "monitor": "bad", "synthetic": "bad", "surfaces": "bad", "freshness": "bad",
+               "security": "bad"},
 }
 SCENARIOS = {"green": green_site, "stale": stale_site, "failed": failed_site}
 
@@ -272,7 +275,9 @@ class OpsDashboardRenderTests(unittest.TestCase):
         site = green_site()
         site["modules/monitoring-summary.json"]["generated_at"] = ago(30)   # past the 25 h red limit
         del site["modules/comparison-chain-status.json"]
+        site["modules/monitoring-summary.json"]["security"] = {"read_error": "permission denied"}
         result = render(self.browser, site, self.html)
+        self.assertEqual("unk", result["cards"]["security"])
         self.assertEqual("bad", result["cards"]["monitor"])
         self.assertEqual("bad", result["cards"]["chain"])
         self.assertEqual("bad", result["banner"])

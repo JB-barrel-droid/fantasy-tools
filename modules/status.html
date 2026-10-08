@@ -458,12 +458,17 @@ function renderSecurity(feeds) {
   const p = s.security;
   if (!p) return card("backend", "security", "Supabase security posture", "unk", feedLine(feeds.summary) +
     `<p class="why">Not reported: the monitoring summary has no security block (needs public.monitoring_security_posture(), monitoring lane).</p>`);
-  const fields = ["public_tables_without_rls", "anon_or_auth_write_grants", "public_definer_views", "mutable_search_path_functions"];
+  if (p.read_error) return card("backend", "security", "Supabase security posture", "unk", feedLine(feeds.summary) +
+    `<p class="why">Posture could not be read: ${esc(p.read_error)}</p>`);
+  // Field names: monitoring lane, public.monitoring_security_posture() (ddf-security-posture-v1).
+  const fields = ["tables_without_rls", "anon_or_auth_write_grants", "public_definer_views",
+                  "mutable_search_path_functions", "anon_executable_definer_functions"];
   const count = (v) => Array.isArray(v) ? v.length : Number(v ?? 0);
   const st = worst(p.ok === true ? "ok" : p.ok === false ? "bad" : "unk", feeds.summary.status, ageStatus(p.checked_at, 7, 25));
+  const names = (f) => (p.details?.[f] || []).slice(0, 25).join(", ");
   card("backend", "security", "Supabase security posture", st,
-    `<div class="asof">Checked ${when(p.checked_at)}</div><dl class="kv">${fields.map(f => `<dt>${esc(f.replace(/_/g, " "))}</dt><dd>${pill(count(p[f]) ? "bad" : "ok", String(count(p[f])))}</dd>`).join("")}
-     ${p.api_definer_views != null ? `<dt>api definer views (accepted)</dt><dd>${esc(count(p.api_definer_views))}</dd>` : ""}</dl>`);
+    `<div class="asof">Checked ${when(p.checked_at)}</div><dl class="kv">${fields.map(f => `<dt>${esc(f.replace(/_/g, " "))}</dt><dd>${pill(count(p[f]) ? "bad" : "ok", String(count(p[f])))}${names(f) ? ` <span class="why">${esc(names(f))}</span>` : ""}</dd>`).join("")}
+     ${p.api_definer_views_accepted != null ? `<dt>api definer views (accepted, info)</dt><dd>${esc(count(p.api_definer_views_accepted))}</dd>` : ""}</dl>`);
 }
 
 function renderIdentity(feeds) {
