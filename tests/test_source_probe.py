@@ -570,3 +570,20 @@ class RowOrderTest(unittest.TestCase):
         self.assertNotEqual(sp.tables_hash(a), sp.tables_hash(c))
         # Broken variant: an order-sensitive text hash reports a change.
         self.assertNotEqual(sp.digest(sp.tables_text(a)), sp.digest(sp.tables_text(b)))
+
+
+class CbsRosCutoffTest(unittest.TestCase):
+    @staticmethod
+    def page(rows):
+        return "<table>" + "".join(f"<tr><td>{r}</td></tr>" for r in rows) + "</table>"
+
+    TOP = [f"Player{i} RB NE 13 {200 - i}.0 {(200 - i) / 13:.1f}" for i in range(20)]
+
+    def test_players_tied_at_the_cutoff_swapping_do_not_move_the_hash(self):
+        a = self.page(self.TOP + ["Corey Kiner RB NE 13 8.8 0.7"])
+        b = self.page(self.TOP + ["Andrew Beck FB NYJ 13 8.8 0.7"])
+        c = self.page(self.TOP[:-1] + ["Player19 RB NE 13 181.5 14.0", "Corey Kiner RB NE 13 8.8 0.7"])
+        self.assertEqual(sp.cbsros_stable_rows(a), sp.cbsros_stable_rows(b))
+        self.assertNotEqual(sp.cbsros_stable_rows(a), sp.cbsros_stable_rows(c))
+        # Broken variant: hashing every row reports the swap as a change.
+        self.assertNotEqual(sp.tables_hash(a), sp.tables_hash(b))

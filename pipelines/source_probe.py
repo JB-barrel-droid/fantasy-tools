@@ -559,15 +559,34 @@ CBSROS_URL = ("https://www.cbssports.com/fantasy/football/stats/{pos}/2026/resto
 POSITIONS = ("QB", "RB", "WR", "TE")
 
 
+def cbsros_stable_rows(page: str) -> list[str]:
+    """The stats table's player rows minus the ones tied at the cutoff.
+
+    Each page lists the top 100 players by projected points, and players tied
+    on the last row's points swap in and out between requests (measured
+    2026-10-08: Corey Kiner / Andrew Beck at 8.8, Justin Joly / Ja'Tavion
+    Sanders at 4.1, nothing else moving). Rows are compared as a sorted set."""
+    rows = []
+    for block in TABLE_RE.findall(page or ""):
+        for tr in ROW_RE.findall(block):
+            toks = WS_RE.sub(" ", htmllib.unescape(TAG_RE.sub(" ", tr))).strip().split(" ")
+            if len(toks) >= 4 and re.fullmatch(r"-?[\d.]+", toks[-2]):
+                rows.append(toks)
+    if not rows:
+        return []
+    cutoff = rows[-1][-2]  # projected points of the last listed player
+    return sorted(" ".join(t) for t in rows if t[-2] != cutoff)
+
+
 def probe_cbsros(fetch: Fetch, week: int) -> dict[str, Any]:
     hashes, etags = {}, {}
     for pos in POSITIONS:
         r = fetch(CBSROS_URL.format(pos=pos))
         body = _need_200(r, f"cbsros {pos}")
-        th = tables_hash(body)
-        if not th:
-            raise ProbeError(f"cbsros {pos}: no stats table")
-        hashes[pos], etags[pos] = th, r.header("ETag")
+        rows = cbsros_stable_rows(body)
+        if len(rows) < 10:
+            raise ProbeError(f"cbsros {pos}: no stats table ({len(rows)} rows)")
+        hashes[pos], etags[pos] = digest(rows), r.header("ETag")
     return {"fingerprint": digest(hashes), "signals": {"tables": hashes, "etags": etags}}
 
 
