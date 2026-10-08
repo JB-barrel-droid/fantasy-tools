@@ -7,6 +7,8 @@ canvas on 2026-10-07.
 
 ## Frame map (open with `?node-id=<id>`)
 
+All 25 frames on the page, read in a browser on 2026-10-08 (node ids from the layers panel).
+
 | Frame | Node |
 | --- | --- |
 | 00 Start here | 59-2938 |
@@ -14,23 +16,26 @@ canvas on 2026-10-07.
 | 02 Player values, mobile 390 | 59-2443 |
 | 03 Market disagreement, desktop 1440 | 59-1817 |
 | 04 Market disagreement, mobile 390 | 59-2567 |
+| 05 Risers & fallers, desktop 1440 | 59-1956 |
+| 06 Risers & fallers, mobile 390 | 59-2684 |
+| 07 Compare a trade, desktop 1440 | 54-433 |
+| 08 Compare a trade, mobile 390 | 59-2773 |
 | 09 Source selection overlay | 54-957 |
 | 10 Freshness overlay | 54-1028 |
 | 11 Weights & bench overlay | 54-1128 |
 | 12 League settings overlay | 54-1173 |
 | 13 Player detail, desktop drawer | 59-2259 |
-| 15 How values work, desktop | 59-2316 |
+| 14 Player detail, mobile full screen | 59-1297 |
+| 15 How values work, desktop 1440 | 59-2316 |
+| 16 How values work, mobile 390 | 59-2862 |
 | 17 Design system & responsive rules | 59-1484 |
 | 18 Empty, loading & failure states | 59-1668 |
-| 19 Implementation contract | 59-1575 |
+| 19 Implementation contract & feedback traceability | 59-1575 |
+| 20 Source selection, mobile full screen | 59-1771 |
+| 21 Chart options, shared overlay | 59-2395 |
 | 22 Review amendments: interactions & source logic | 61-1593 |
+| 23 Benchmark decisions & adoption | 68-109 |
 | 24 Navigator, filters & trade detail states | 68-147 |
-
-Not yet mapped: 05/06 Risers & fallers (built 2026-10-08 on the history contract without opening the frames), 07/08 Compare a trade (built 2026-10-08 from the frame 22
-rule and frame 17 language: figma.com is blocked by the cloud session's network policy, so the frame
-itself was not opened),
-14 Player detail mobile (built 2026-10-08 without opening it), 16 How values work mobile (built 2026-10-08 without opening it), 20 Source selection mobile, 21 Chart options,
-23 Benchmark decisions.
 
 ## Design language (frame 17)
 
@@ -167,6 +172,87 @@ Built 2026-10-08 without opening the frames (figma.com is blocked from the cloud
 - Player detail has "↑ Add to You give" / "↓ Add to You get". It puts the player on that side of
   Compare a trade and opens the tab; once on the trade, the detail says so and links to the tab. A
   player's name on Compare a trade opens the detail.
+
+## Figma review: what the frames specify that the build lacks (2026-10-08)
+
+Every frame was read on the canvas. The frames use illustrative Week 4 numbers, the old brand
+("Trade Value") and the old tab name "Market disagreement"; those are not gaps (brand rule, and
+Jeremy's Trade targets decision). "VORP" alone and "Pure VORP" in the frames become "VORP vs
+waivers" (copy rule).
+
+- **05 / 06 Risers & fallers.** Title "Risers & fallers." / "Value-point changes. One source. Two
+  snapshots." Risers and Fallers are two cards side by side at 1440 (stacked at 390), not one
+  table behind a toggle. Each row: name, "Pos · Team", "before → after", ▲/▼ signed Δ, and a bar on
+  one shared scale ("Bars share a scale of N value points"). Controls: "Movement: <source>" and a
+  week-pair picker "Week 3 → Week 4" (frame 19 #05: only this tab has the N−1 → N control). Methods
+  row visible. Footnote "Δ — for missing history · Never a zero change." Build: table with
+  Week N / Week N−1 columns, Risers/Fallers toggle, no bars, no week-pair picker, Methods row hidden.
+- **07 / 08 Compare a trade.** Title "Build a better offer." / "See the deal through every selected
+  source." "Player values shown: <series>" puts that series' value next to every player on both
+  sides and a "<series> total" at the foot of each side. "You give" / "You receive". "Swap sides ⇄"
+  and "Clear trade". A story callout ("Same publisher. Different result.") when one publisher's
+  DDA and Indexed nets have opposite signs (frame 22 #15: complete comparable rows only, names the
+  publisher, methods and signed nets from data; no conflict = summarize agreement; different weeks =
+  no contrast story). "Difference by source & method" rows: source, Give, Receive, a diverging bar
+  (Less value | More value) and the signed net; a row expands to player-by-player arithmetic
+  (frame 24 "Expanded result"). Mobile: rows become cards ("98.0 give → 94.0 receive", bar, net);
+  Swap / Clear at the foot. Build: no per-player values, no side totals, no swap, no story, no
+  bars, no expansion; a missing value reads — instead of "Incomplete" (frame 18).
+- **13 / 14 Player detail.** × close (44 px). Hero card: ranking series, big value, "Trade-value
+  points", and the active source range. "Source values" matrix: one row per publisher with week,
+  columns Adjusted / Indexed / VORP; cells show the value, "Available ↗" (not selected, adds it),
+  "Not selected", "Older" or —. "Stats & context", "Latest player news", "Adjustments applied",
+  then "See market disagreement" and "Add to trade" (a menu chooses Give or Get). Source rows open
+  provenance. Mobile 14 is full screen, not a bottom sheet; the matrix scrolls sideways. Build:
+  lists grouped by method, "Close" text button, no hero, no news, two separate add buttons,
+  bottom sheet on mobile.
+- **15 / 16 How values work.** Title "Know what the numbers mean." / "Three methods. Visible source
+  context. Your league settings." (mobile "Know your values." / "Three methods. One clear
+  comparison."). Methods row visible. Cards in the order DDA, Indexed ("Source-relative index"),
+  VORP, each with a method pill and two short lines. "Your league shapes the comparison": league
+  line, position weights, bench allocation, and a Weights & bench button. "Read the evidence, then
+  make the call." Build: VORP first, long copy, no weights/bench line, Methods row hidden.
+- **18 States.** Loading keeps league and source controls visible with a skeleton chart and rows.
+  "No current-week sources" offers [Choose older sources] [Retry]. "No player matches" offers
+  [Clear search] [Reset position] separately. "Only one comparable series" offers [Choose sources].
+  "Partial source failure": other series stay, warning badge, [Retry source] in freshness.
+  "Incomplete trade": that source's total and difference read "Incomplete" and name the missing
+  player. "No sources / incompatible league": keep the last series and say "Choose at least one";
+  when a league change drops a pair, say which. "Empty trade": "Search and add a player" per side;
+  players selected on one side are disabled on the other. "Stale source explicitly selected":
+  freshness offers [Remove older source]. Build: loading hides every control, one Clear filters,
+  no dropped-pair notice, no remove-older action, chosen players vanish from search instead of
+  showing "Added".
+- **20 Source selection, mobile (same layout as 09 at 720 wide).** "Choose your sources": a
+  "N pairs selected" summary, one block per publisher (kind + week) with a toggle per supported
+  method ("✓ DDA", "+ VORP", "+ Indexed"), older-week publishers disabled until "Include Week N"
+  is on, "Only supported pairs are offered. VORP stays in its own panel.", Cancel / "Apply N
+  pairs" (a draft, applied at once). Full screen below 768. Build: method-grouped checkboxes that
+  apply on every click, a popover on every width.
+- **21 Chart options.** Opened from "Chart options" in the chart header (mobile: "···"). Player
+  range Full / Top 25 / Top 50 / Starter / Bench / Waiver (presets follow the ranking series;
+  Starter / Bench / Waiver use the league's roster boundaries), "Hide zero-value tail", Y axis
+  Auto / Custom bounds (lower, upper), table metadata columns Position / Team / Tier, Cancel /
+  "Apply chart options". Build: All / Top 100 / 50 / 25 buttons only.
+- **23 Benchmark decisions.** A rationale frame, no screen. Adopted: source-specific mover lists, a
+  clear week basis, always-available search; compact data-first controls; min/max value filter
+  without buy/sell verdicts; totals and signed bars per pair without a fairness label; a rank-range
+  navigator with numeric bounds, keyboard control and reset.
+- **24 Navigator, filters & trade detail.** Rank navigator: overview line of the ranking series
+  under two handles, "From N" / "To N" number fields, "Reset to all"; Left/Right moves a bound one
+  rank, Home/End jump. Value range: "Basis <series> · Week N", "Keep players with values between",
+  Minimum / Maximum plus a two-handle slider, "Missing values are excluded with a visible count",
+  Clear range / Apply. Trade search: results show position, team and value; an already chosen
+  player shows "✓ Added"; no results keeps the query and offers Clear search. Build: no overview
+  line or number fields in the navigator, no basis week or slider in the range filter.
+- **09 – 12 overlays** (mapped earlier, not re-checked until now). 09 = frame 20 layout. 10 "Source
+  freshness": an earlier-week banner, a Source / Snapshot / Status table that includes
+  unavailable sources, "Manage selected sources". 11: titled panel with ×, bench share slider with
+  "Starters N% / Bench N%", position shares, Reset defaults / Cancel / Apply. 12 "Your league":
+  segmented scoring and team buttons, steppers per roster slot including SUPERFLEX, Reset defaults
+  / Cancel / Apply. Build: small popovers that apply on change; no SUPERFLEX.
+- **Mobile navigation (02/04/06/08/16).** Below 768 the tabs are short labels on one row (Values ·
+  Split · Movers · Trade · More). Build: full labels wrapping onto extra rows.
 
 ## Back-end requests
 
