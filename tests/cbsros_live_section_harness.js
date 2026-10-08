@@ -10,7 +10,9 @@
 // comparison isolates the calibration math from the identity difference
 // (the leg drops suffix-name players as unresolved_identity; the browser
 // pool does not -- GAP-CBSROS-LIVE-POOL).
-// Prints one JSON object: {combo: {withheld, shares, stats: {pos: {n, nSection, maxErr, top}}}}.
+// Since fix/suffix-names the leg resolves suffix spellings, so browser-pool
+// and section-pool price the same players (nLive == nSection == n).
+// Prints one JSON object: {combo: {withheld, shares, stats: {pos: {n, nSection, nLive, maxErr, top}}}}.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -59,7 +61,7 @@ for (const [prefix, field] of Object.entries(SCORINGS)) {
     raw.forEach(v => { if (v > mx) mx = v; });
     const scale = mx > 0 ? 70 / mx : 1;
     const stats = {};
-    T.POSITIONS.forEach(pos => { stats[pos] = {n: 0, nSection: 0, maxErr: 0, top: null}; });
+    T.POSITIONS.forEach(pos => { stats[pos] = {n: 0, nSection: 0, nLive: lists[pos].length, maxErr: 0, top: null}; });
     for (const [slug, val] of Object.entries(section)) {
       const key = slugToKey[slug];
       const pos = posOf.get(key);

@@ -39,6 +39,12 @@ canonical chart names (2026-09-19 waiver investigation, confirmed against
 Supabase players.full_name 2026-09-22): c Cameron Ward (697),
 'cameron skattebo' -> 'cam skattebo' (3664), 'travis etienne jr' ->
 'travis etienne' (810), 'michael pittman jr' -> 'michael pittman' (561).
+Generational suffixes, punctuation and first-name nicknames are matched
+through the repo's single normalization rule (lib/canonical_players.
+norm_player_name) by FixtureIdentity below: 'kenneth walker' (CBS ROS,
+Razzball) and 'kenneth walker iii' (fixture slug) are the same player_key.
+A normalized form that maps to more than one player_key (after the
+position filter) is ambiguous and excluded, never guessed.
 Anything else unresolvable is excluded to review_rows, never guessed.
 """
 
@@ -49,6 +55,7 @@ import csv
 import hashlib
 import json
 import math
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -78,6 +85,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from games_remaining import (  # noqa: E402
     load_byes, window_from_rows, games_in_window, BYES_PATH,
 )
+from canonical_players import norm_player_name  # noqa: E402 -- the single normalization rule
 
 # Reference league shape (mirrors the widget's TwoTier constants exactly).
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
@@ -99,6 +107,120 @@ ALIASES = {
     # single "Kenneth Gainwell" (player_key 785, RB), verified 2026-10-07.
     "kenny gainwell": "kenneth gainwell",
 }
+
+
+# A trailing generational suffix on a source spelling: the spelling itself
+# names the suffixed player, so it may break a tie between same-name keys.
+_GENERATIONAL_SUFFIX = re.compile(r"\s(jr|sr|ii|iii|iv|v)\.?$")
+
+
+class FixtureIdentity:
+    """Resolve a source's normalized name to the fixture's numeric player_key.
+
+    The fixture's player_keys slugs do not follow one suffix convention
+    ('kenneth walker iii' keeps it, 'travis etienne' drops it), and sources
+    differ too (CBS ROS and Razzball strip suffixes, ESPN keeps them). An
+    exact slug lookup therefore dropped every suffixed player whose source
+    and slug disagreed (GAP-CBSROS-LIVE-POOL), while bake_players.py, which
+    feeds the browser, resolves through norm_player_name and priced them.
+
+    Order: verified ALIASES, then the exact slug, then the slug's
+    norm_player_name form (suffixes, punctuation and nicknames removed).
+    Fail-closed: when the normalized form maps to more than one player_key
+    in the row's position (or in any position when the fixture has no
+    position for a key), the row is ambiguous and excluded -- unless the
+    source spelling itself carries the suffix and hits a slug exactly.
+    resolve() returns (player_key | None, how, alias) with how one of
+    exact | alias | normalized | ambiguous | unresolved.
+    """
+
+    def __init__(self, player_keys: dict[str, Any], key_pos: dict[int, str] | None = None):
+        self.player_keys = {slug: key for slug, key in player_keys.items() if isinstance(key, int)}
+        self.key_pos = dict(key_pos or {})
+        self.by_norm: dict[str, set[int]] = {}
+        self.slug_by_key: dict[int, str] = {}
+        for slug, key in self.player_keys.items():
+            self.by_norm.setdefault(norm_player_name(slug), set()).add(key)
+            self.slug_by_key.setdefault(key, slug)
+
+    @classmethod
+    def from_fixture(cls, fixture_path: Path) -> "FixtureIdentity":
+        fixture = json.loads(Path(fixture_path).read_text(encoding="utf-8"))
+        key_pos: dict[int, str] = {}
+        players_path = Path(fixture_path).with_name("players.json")
+        if players_path.exists():
+            for p in json.loads(players_path.read_text(encoding="utf-8")).get("players", []):
+                if isinstance(p.get("player_key"), int) and p.get("pos"):
+                    key_pos[p["player_key"]] = str(p["pos"]).upper()
+        return cls(fixture.get("player_keys") or {}, key_pos)
+
+    def slug_for(self, key: int) -> str:
+        """The fixture slug for a resolved key: what sections and leg checks join on."""
+        return self.slug_by_key[key]
+
+    def candidates(self, name: str, pos: str | None = None) -> set[int]:
+        keys = self.by_norm.get(norm_player_name(name), set())
+        if pos:
+            keys = {k for k in keys if self.key_pos.get(k) in (None, pos.upper())}
+        return keys
+
+    def ambiguous_forms(self) -> dict[str, list[int]]:
+        """Normalized forms shared by more than one player_key in one position."""
+        out: dict[str, list[int]] = {}
+        for form, keys in self.by_norm.items():
+            by_pos: dict[str | None, list[int]] = {}
+            for k in keys:
+                by_pos.setdefault(self.key_pos.get(k), []).append(k)
+            clash = [k for p, ks in by_pos.items() for k in ks
+                     if len(ks) > 1 or (p is None and len(keys) > 1)]
+            if clash:
+                out[form] = sorted(clash)
+        return out
+
+    def resolve(self, norm: str, pos: str | None = None) -> tuple[int | None, str, str | None]:
+        alias = ALIASES.get(norm)
+        target = alias or norm
+        exact = self.player_keys.get(target)
+        cands = self.candidates(target, pos)
+        if len(cands) > 1:
+            if exact in cands and _GENERATIONAL_SUFFIX.search(target):
+                return exact, ("alias" if alias else "exact"), alias
+            return None, "ambiguous", alias
+        if exact is not None and (not cands or exact in cands):
+            return exact, ("alias" if alias else "exact"), alias
+        if len(cands) == 1:
+            return next(iter(cands)), ("alias" if alias else "normalized"), alias
+        return None, "unresolved", alias
+
+
+def drop_duplicate_keys(resolved: dict[str, list[dict[str, Any]]],
+                        review: list[dict[str, Any]], name_field: str) -> None:
+    """Fail closed when two source rows resolve to one player_key.
+
+    Normalization can map two spellings ('x jr', 'x') onto one key; which
+    row's projection is right is unknown, so neither is priced.
+    """
+    counts: dict[int, int] = {}
+    for rows in resolved.values():
+        for d in rows:
+            counts[d["player_key"]] = counts.get(d["player_key"], 0) + 1
+    dupes = {k for k, n in counts.items() if n > 1}
+    if not dupes:
+        return
+    for pos, rows in resolved.items():
+        keep = []
+        for d in rows:
+            if d["player_key"] in dupes:
+                review.append({"reason": "duplicate_identity", "player": d.get(name_field),
+                               "player_key": d["player_key"], "pos": pos})
+            else:
+                keep.append(d)
+        resolved[pos] = keep
+
+
+def identity_review_row(how: str, player: Any, norm: str, pos: str) -> dict[str, Any]:
+    reason = "ambiguous_identity" if how == "ambiguous" else "unresolved_identity"
+    return {"reason": reason, "player": player, "player_norm": norm, "pos": pos}
 
 
 def utc_now() -> str:
@@ -371,26 +493,21 @@ def resolve_identities(lists: dict[str, list[dict[str, Any]]],
     Join: csv player_norm -> fixture player_keys (with the verified alias
     map). Unresolvable norms are excluded to review_rows, never guessed.
     """
-    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-    player_keys = fixture.get("player_keys") or {}
+    ident = FixtureIdentity.from_fixture(fixture_path)
     resolved: dict[str, list[dict[str, Any]]] = {pos: [] for pos in POSITIONS}
     review: list[dict[str, Any]] = []
     aliases_used: list[dict[str, Any]] = []
     for pos in POSITIONS:
         for d in lists[pos]:
             norm = d["id"]
-            key = player_keys.get(norm)
-            alias = None
-            if key is None and norm in ALIASES:
-                alias = ALIASES[norm]
-                key = player_keys.get(alias)
-            if not isinstance(key, int):
-                review.append({"reason": "unresolved_identity", "player": d["name"],
-                               "player_norm": norm, "pos": pos})
+            key, how, alias = ident.resolve(norm, pos)
+            if key is None:
+                review.append(identity_review_row(how, d["name"], norm, pos))
                 continue
             if alias:
                 aliases_used.append({"csv_norm": norm, "canonical_id": alias, "player_key": key})
             resolved[pos].append({**d, "player_key": key})
+    drop_duplicate_keys(resolved, review, "name")
     return resolved, review, aliases_used
 
 

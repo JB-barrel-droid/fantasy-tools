@@ -541,7 +541,14 @@ class StaticExportTest(unittest.TestCase):
             # on the first real CBS ROS production run (JEG-134; fixture
             # vintage 2026-10-02 vs the old 2026-09-30 snapshot) -- 176
             # players moved, broad fresh-data refresh, verified against fixture.
-            ("cbsros", "full_12"): 20.8,
+            # 2026-10-08 (GAP-CBSROS-LIVE-POOL, fix/suffix-names): 20.8 -> 20.3.
+            # The 20.8 pin was wrong: the leg had dropped 16 suffix-name
+            # players (Kenneth Walker III, Michael Penix Jr., ...) as
+            # unresolved identities, which moved every waiver and starter
+            # line. With them resolved, the same 2026-10-02 snapshot gives
+            # 20.3, which is what the browser's live CBS ROS path already
+            # showed (tests/cbsros_live_section_harness.js: live 20.29).
+            ("cbsros", "full_12"): 20.3,
             # 2026-10-02 (JEG-88): VORP translation extended to Full PPR combos.
             # Josh Allen's adjusted value moves 26.3 -> 25.8 on the fresh
             # VORP-translated inputs.
