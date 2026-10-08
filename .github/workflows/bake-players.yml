@@ -11,6 +11,11 @@ name: Bake players.json (non-Mac producer)
 # dispatch from main (commits to a fresh bake/<run_id> branch). Never pushes
 # to main: main only changes through a reviewed merge, and pages.yml's
 # `make validate` gate still decides whether anything deploys.
+#
+# This is the manual, review-branch path. The daily ESPN anchor refresh that
+# lands on main is rebuild-chain.yml with bake_players=true (pg_cron
+# rebuild-chain-bake-live): it bakes from the latest scrape's CSV and pushes
+# only after the chain's `make validate` passes.
 
 on:
   push:

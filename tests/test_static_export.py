@@ -254,6 +254,70 @@ def visible_ddf_lines(name, text):
     return [line.strip()[:140] for line in code.splitlines() if "DDF" in line]
 
 
+# --- ESPN anchor checks that survive a data refresh (2026-10-07) ---
+# The daily ESPN anchor bake (rebuild-chain.yml, bake_players=true) refreshes
+# data/inputs/espn_projections.csv, players.json and the ESPN section in one
+# validated commit. Hand pins on those numbers (Allen's ESPN full_12 value,
+# the count of ESPN-zeroed players) failed `make validate` on every refresh
+# and froze the anchor -- the same class as GAP-MAIN-STATIC-PIN. They are
+# replaced by checks re-derived from the committed inputs.
+ESPN_CSV = ROOT / "data" / "inputs" / "espn_projections.csv"
+ESPN_GAMES_DIVISOR = 16  # weeks 3-18, the DDF two-tier leg's per-game divisor
+ESPN_NATIVE_COMBOS = {"full_12": 0.5, "half_12": 0.0, "standard_12": -0.5}
+
+
+def load_espn_csv():
+    import csv
+    with ESPN_CSV.open(newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+
+def espn_anchor_problems(players_doc, comparison, csv_rows):
+    """The ESPN anchor is one vintage everywhere, and the section's per-game
+    natives are the committed CSV's rest-of-season points / 16."""
+    from pipelines.build_ddf_two_tier_leg import ALIASES
+    problems = []
+    section = comparison["sources"]["espn"]
+    csv_dates = {r.get("espn_snapshot_date") for r in csv_rows}
+    vintages = {"csv": ",".join(sorted(d or "" for d in csv_dates)),
+                "players.json meta.espn_snapshot": players_doc["meta"].get("espn_snapshot"),
+                "espn section espn_snapshot": section.get("espn_snapshot")}
+    if len(set(vintages.values())) != 1:
+        problems.append(f"ESPN anchor vintages disagree: {vintages}")
+    by_slug = {ALIASES.get(r["player_norm"], r["player_norm"]): r for r in csv_rows}
+    for combo, rec_weight in ESPN_NATIVE_COMBOS.items():
+        native = section["combos"][combo]["native"]
+        for slug, value in native.items():
+            row = by_slug.get(slug)
+            if row is None:
+                problems.append(f"espn/{combo}: {slug} has a native but no CSV row")
+                continue
+            expected = (float(row["ros_half_ppr"])
+                        + rec_weight * float(row["r_receptions"])) / ESPN_GAMES_DIVISOR
+            if abs(round(expected, 2) - value) > 0.0051:
+                problems.append(f"espn/{combo}: {slug} native {value} != CSV {expected:.4f}")
+    return problems
+
+
+def universe_problems(players_doc, comparison):
+    """JEG-392: the board carries every comparison-keyed player (ESPN-ineligible
+    or ESPN-absent ones at ESPN 0); dropping them orphaned 185 identities."""
+    problems = []
+    players = players_doc["players"]
+    keys = [p.get("player_key") for p in players]
+    if len(keys) != len(set(keys)):
+        problems.append("duplicate player_key in players.json")
+    orphans = sorted({k for k in (comparison.get("player_keys") or {}).values()
+                      if isinstance(k, int)} - set(keys))
+    if orphans:
+        problems.append(f"{len(orphans)} comparison player_keys missing from "
+                        f"players.json: {orphans[:5]}")
+    for p in players:
+        if p.get("espn_zeroed") and p.get("espn_status") not in ("ineligible", "absent"):
+            problems.append(f"{p['name']}: espn_zeroed without an ineligible/absent status")
+    return problems
+
+
 class StaticExportTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -314,9 +378,14 @@ class StaticExportTest(unittest.TestCase):
         # JEG-392 (2026-10-05): + 146 ESPN-ineligible + 42 ESPN-absent
         # comparison-keyed skill players at ESPN 0 = 613. The 425 rows above
         # are unchanged; dropping the rest orphaned 185 comparison keys.
-        self.assertEqual(613, len(players))
+        # 2026-10-07: the 613 / 188 counts were data-snapshot pins (ESPN's
+        # eligible list moves weekly: 188 -> 197 zeroed on the 2026-10-07
+        # pull), so they blocked every anchor refresh. The rule they stood
+        # for -- no comparison-keyed player dropped, every zero explained --
+        # is checked directly (negative-tested below).
+        self.assertEqual([], universe_problems(self.players, self.comparison))
         zeroed = [p for p in players if p.get("espn_zeroed")]
-        self.assertEqual(188, len(zeroed))
+        self.assertTrue(zeroed, "ESPN-ineligible/absent players must stay on the board at 0")
         # ESPN-zeroed rows must never feed the chart's ESPN pools.
         self.assertFalse([p["name"] for p in zeroed if "espn_ppg" in p or "blend_ppg" in p])
         by_name = {player["name"]: player for player in players}
@@ -446,7 +515,13 @@ class StaticExportTest(unittest.TestCase):
             # 26.6985... lands in the fixture as 26.7 -- genuine data move
             # (Allen ppg 21.15 -> 19.65 on the fresh ESPN pull), verified
             # against the rebuilt leg.
-            ("espn", "full_12"): 26.7,
+            # 2026-10-07: the ESPN pin (26.7) is retired. The ESPN anchor is
+            # now refreshed daily (rebuild-chain.yml bake_players), and the
+            # first fresh pull moved Allen to 29.5 (Lamar Jackson's ESPN ROS
+            # fell 280 -> 257, widening Allen's QB1 margin): a hand pin
+            # failed validate on every refresh. test_espn_anchor_* recompute
+            # the section's natives from the committed CSV and require one
+            # vintage across CSV, players.json and the section.
             # cbsros (CBS rest-of-season projections through the DDF two-tier
             # leg): Allen's CBS ROS per-game is 24.357 vs ESPN's 21.15, yet
             # his indexed value is 20.8 vs ESPN's 26.9 -- the two-tier leg
@@ -492,6 +567,29 @@ class StaticExportTest(unittest.TestCase):
         for key, expected_value in expected.items():
             self.assertEqual(expected_value, value(*key),
                              msg=f"pinned value for {key} (josh allen)")
+
+    def test_espn_anchor_matches_committed_inputs(self):
+        self.assertEqual([], espn_anchor_problems(
+            self.players, self.comparison, load_espn_csv()))
+
+    def test_espn_anchor_check_catches_a_stale_section(self):
+        # Simulated 2026-10-07 state: CSV + players.json re-baked, ESPN
+        # section still on the previous vintage with the old natives.
+        rows = load_espn_csv()
+        fresh = [{**r, "espn_snapshot_date": "2099-01-01",
+                  "ros_half_ppr": str(float(r["ros_half_ppr"]) + 16.0)} for r in rows]
+        players = copy.deepcopy(self.players)
+        players["meta"]["espn_snapshot"] = "2099-01-01"
+        problems = espn_anchor_problems(players, self.comparison, fresh)
+        self.assertTrue(any("vintages disagree" in p for p in problems), problems)
+        self.assertTrue(any("josh allen native" in p for p in problems), problems[:3])
+
+    def test_universe_check_catches_a_dropped_player(self):
+        players = copy.deepcopy(self.players)
+        dropped = next(p for p in players["players"] if p.get("espn_zeroed"))
+        players["players"].remove(dropped)
+        problems = universe_problems(players, self.comparison)
+        self.assertTrue(any("missing from players.json" in p for p in problems), problems)
 
     def _adjustment_inputs(self):
         return load_json(APP / "assets" / "adjustment-inputs.json")
