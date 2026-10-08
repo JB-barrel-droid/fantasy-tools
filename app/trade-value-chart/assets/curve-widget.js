@@ -1879,11 +1879,25 @@
     return adjustmentCellsFor(rawKey) ? benchShare : fallbackShare;
   }
 
+  // Projection sources other than the anchor (Jeremy, 2026-10-08, option C):
+  // ONE factor matches their total to the anchor's over the shared players.
+  // Each keeps its own weighting across positions and its own top values
+  // (no cap at the anchor's top). The per-position peak pin below is for the
+  // fitted *_adjusted series only (GAP-PROJ-PEAK-PIN).
+  const PROJECTION_TOTAL_ONLY_KEYS = new Set(["cbsros", "razzball"]);
+
   // adjustedOverride (history accessor only): the source's adjusted map
   // computed from a saved week's inputs instead of the served ones.
   function normalizedAdjustedMapFor(key, anchorMap, displayShare, adjustedOverride) {
     const rawKey = rawKeyForAdjusted(key);
     const values = applyRosterShape(adjustedOverride || adjustedMapFor(key), key);
+    if (PROJECTION_TOTAL_ONLY_KEYS.has(key)) {
+      return ValueModel.scaleToSharedTotal({
+        values,
+        anchor: anchorMap,
+        playerOf: playerKey => canonicalByKey.get(playerKey)
+      });
+    }
     if (adjustmentCellsFor(rawKey)) {
       return ValueModel.shapeToAnchorPeaksThenSharedTotal({
         values,
