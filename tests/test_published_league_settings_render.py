@@ -26,6 +26,7 @@ import contextlib
 import functools
 import http.server
 import json
+import os
 import shutil
 import socketserver
 import threading
@@ -43,7 +44,8 @@ CUSTOM_ROSTER = {"RB": 3, "FLEX": 2, "BENCH": 8}
 
 
 def _chromium_executable(playwright):
-    candidates = [Path(playwright.chromium.executable_path)]
+    candidates = [Path(p) for p in (os.environ.get("CHROMIUM_PATH"),) if p]
+    candidates.append(Path(playwright.chromium.executable_path))
     chromium = shutil.which("chromium")
     if chromium:
         candidates.append(Path(chromium))
