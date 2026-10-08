@@ -962,8 +962,15 @@
     return map;
   }
 
+  // Frame 22: never compute a spread across unlike units. VORP vs waivers
+  // series -- the raw *_vorp curves always, and the published charts while
+  // the VORP vs waivers view is on -- are not on the trade-value point scale
+  // the Indexed and Adjusted series share, so they stay out of the spread.
+  const spreadSourceKeys = () => visibleSourceKeys().filter(key => !PURE_VORP_KEYS.includes(key)
+    && !(viewMode === VIEW_MODE_ORDER[1] && AS_PUBLISHED_KEYS.has(key)));
+
   function disagreement(row) {
-    const values = visibleSourceKeys().map(key => row.values[key]).filter(Number.isFinite);
+    const values = spreadSourceKeys().map(key => row.values[key]).filter(Number.isFinite);
     return values.length >= 2 ? Math.max(...values) - Math.min(...values) : null;
   }
 

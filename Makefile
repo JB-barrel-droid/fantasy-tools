@@ -349,6 +349,7 @@ test-core:
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
+	python3 -m unittest tests.test_disagreement_units_render
 
 test-all: naming naming-convention test-unit
 
