@@ -33,6 +33,7 @@ from bake_players import (  # noqa: E402
     _latest_cbsros_snapshot,
 )
 from canonical_players import load_registry  # noqa: E402
+from games_remaining import PPG_DECIMALS  # noqa: E402
 
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "players.json"
 SNAPSHOT_DIR = ROOT / "data" / "fixtures" / "snapshots"
@@ -67,7 +68,7 @@ def main():
         p["cbsros_comp_count"] = len(covered)
         p["cbsros_covered"] = covered
         if complete:
-            p["cbsros_ppg"] = {s: round(c[s], 2) for s in SCORINGS}
+            p["cbsros_ppg"] = {s: round(c[s], PPG_DECIMALS) for s in SCORINGS}
             n += 1
         else:
             p.pop("cbsros_ppg", None)

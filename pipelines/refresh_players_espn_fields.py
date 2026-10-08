@@ -31,6 +31,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 from scoring import fantasy_points  # noqa: E402
+from games_remaining import PPG_DECIMALS  # noqa: E402
 
 FIXTURE_PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
 DEFAULT_CSV = REPO / "data" / "inputs" / "espn_projections.csv"
@@ -121,7 +122,7 @@ def main() -> int:
         complete = pos in NEED and has_price and all(c in comps for c in NEED[pos])
 
         espn_ros = {s: round(fantasy_points(comps, s), 2) for s in SCORINGS}
-        espn_ppg = {s: round(espn_ros[s] / gr, 2) for s in SCORINGS}
+        espn_ppg = {s: round(espn_ros[s] / gr, PPG_DECIMALS) for s in SCORINGS}
 
         p["espn_complete"] = bool(complete)
         p["espn_comp_count"] = len(covered)
