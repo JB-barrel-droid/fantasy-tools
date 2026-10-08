@@ -206,6 +206,7 @@ def build_usatoday_rows(
                     "source_content_date": content_date,
                     "pulled_at": pulled_at,
                     "bake_id": bake_id,
+                    "source_url": url or None,  # GAP-SOURCE-URL-WEEK2
                 }
             )
     return clean, review, pulled_at, url

@@ -45,6 +45,8 @@ CREATE TABLE IF NOT EXISTS public.cbs_trade_values (
         CHECK (scoring IN ('standard', 'half_ppr', 'ppr'))
 );
 
+-- Superseded 2026-10-08 by cbs_trade_values_bake_version_uidx (bake_id in the
+-- key; supabase/migrations/cbs_bakes_source_urls_20261008.sql).
 CREATE UNIQUE INDEX IF NOT EXISTS cbs_trade_values_grain_uidx
     ON public.cbs_trade_values (source, variant, scoring, league_teams, qb_slots, season, week, player_key);
 

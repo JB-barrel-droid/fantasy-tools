@@ -64,8 +64,9 @@ FP_FETCH_LOG = (
 )
 
 
-def fetch_log_content_date(week: int) -> str:
-    """Return the article publication date from the fetch log (fail closed)."""
+def fetch_log_entry(week: int) -> dict:
+    """The latest ok fetch-log entry for the week: the article's publication
+    date (content date) and its url (fail closed when there is none)."""
     with FP_FETCH_LOG.open(encoding="utf-8") as fh:
         entries = [json.loads(line) for line in fh if line.strip()]
     cands = [
@@ -78,7 +79,7 @@ def fetch_log_content_date(week: int) -> str:
             f"FAIL-CLOSED: no ok fetch-log entry with a published date for "
             f"week {week} in {FP_FETCH_LOG}"
         )
-    return cands[-1]["published"]
+    return cands[-1]
 
 
 def build_fp_rows(
@@ -91,7 +92,9 @@ def build_fp_rows(
     review, never guessed.
     """
     index = {p["player_key"]: p for p in fetch_players()}
-    content_date = fetch_log_content_date(week)
+    log_entry = fetch_log_entry(week)
+    content_date = log_entry["published"]
+    source_url = log_entry.get("url") or None  # GAP-SOURCE-URL-WEEK2
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
     pulled_at = datetime.now(timezone.utc).isoformat()
@@ -140,6 +143,7 @@ def build_fp_rows(
                         "source_content_date": content_date,
                         "pulled_at": pulled_at,
                         "bake_id": bake_id,
+                        "source_url": source_url,
                     }
                 )
     return clean, review

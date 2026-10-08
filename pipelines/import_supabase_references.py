@@ -383,6 +383,17 @@ def _select_latest_snapshot_date(
     return [r for r in rows if r.get(date_key) == latest], latest
 
 
+def unanimous_source_url(rows: list[dict[str, Any]]) -> str | None:
+    """The article URL the selected rows were priced from (GAP-SOURCE-URL-WEEK2).
+
+    One bake is one pull of one article, so its rows agree. None when no row
+    carries one (sources without an article, rows saved before 2026-10-08) or
+    when they disagree (never pick one of two URLs).
+    """
+    urls = {str(r.get("source_url")) for r in rows if r.get("source_url")}
+    return next(iter(urls)) if len(urls) == 1 else None
+
+
 def vintage_dir_slug(content_vintage: str) -> str:
     return slug(content_vintage)
 
@@ -461,7 +472,7 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
         "schema": SCHEMA,
         "source": source,
         "fetched_at": fetched_at,
-        "source_url": None,
+        "source_url": unanimous_source_url(rows),
         "default_scoring": None,  # mixed scorings carried per row
         "default_teams": default_teams,
         "row_count": len(clean_rows),
@@ -643,9 +654,9 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         if scoped_week is not None else ""
     )
 
-    # Single-bake scoping (no-op while CBS rows carry no bake_id; keeps the
-    # read contract uniform for when CBS versions).
-    rows, _ = _select_latest_bake(rows)
+    # Single-bake scoping: CBS weeks are versioned (GAP-CBS-WEEK-OVERWRITE,
+    # 2026-10-08), so a revised week holds several bakes; read the latest.
+    rows, scoped_bake = _select_latest_bake(rows)
 
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 
@@ -675,7 +686,7 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "schema": SCHEMA,
         "source": "cbs",
         "fetched_at": fetched_at,
-        "source_url": None,
+        "source_url": unanimous_source_url(rows),
         "default_scoring": None,  # mixed scorings carried per row
         "default_teams": default_teams,
         "row_count": len(clean_rows),
@@ -694,6 +705,7 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             "(standard/half_ppr/ppr) -- the live fixture's cbs convention; "
             f"python backstop dropped {len(ecr_dropped)} ECR-flavored row(s)"
             f"{week_scope_note}"
+            f"{f' scoped to latest bake present (bake_id={scoped_bake})' if scoped_bake else ''}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,

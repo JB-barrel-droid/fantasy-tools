@@ -78,6 +78,9 @@ def source_provenance(snapshot_path: Path, snapshot: dict[str, Any]) -> dict[str
         "week_designated": manifest.get("week_designated"),
         "source_pulled_at": manifest.get("pulled_at"),
         "snapshot_fetched_at": snapshot.get("fetched_at"),
+        # GAP-SOURCE-URL-WEEK2: the article these values were priced from;
+        # promotion writes it to the fixture section's `url`.
+        "source_url": snapshot.get("source_url"),
         "snapshot_manifest": str(manifest_path) if manifest_path.is_file() else None,
         "note": (
             "content_vintage is immutable source provenance. "
