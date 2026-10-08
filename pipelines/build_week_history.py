@@ -15,7 +15,8 @@ What an entry holds (one source, one content week):
     (the latest pull of that week, one per source/week/scoring).
   * projection sources (espn, cbsros, razzball): per-game projections per
     scoring, the same field the engine reads from players.json (espn_ppg,
-    cbsros_ppg, rz_ppg), rounded to 2 dp as pipelines/bake_players.py does.
+    cbsros_ppg, rz_ppg), rounded to PPG_DECIMALS as pipelines/bake_players.py
+    does.
     Origin: players.json (what the page served) or the Supabase projection
     tables.
 
@@ -60,6 +61,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from nfl_week import current_nfl_week  # noqa: E402
+
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+from games_remaining import PPG_DECIMALS  # noqa: E402  (bake_players' per-game precision)
 
 HISTORY_DIR = ROOT / "data" / "history"
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
@@ -286,13 +290,13 @@ def projection_entries_from_tables(snapshots: list[dict]) -> list[dict]:
                 continue
             if vals is None or len(vals) != 3 or any(x is None for x in vals):
                 continue
-            ppg[str(int(key))] = [round(float(x), 2) for x in vals]
+            ppg[str(int(key))] = [round(float(x), PPG_DECIMALS) for x in vals]
         if not ppg:
             continue
         date_ = snap.get("cd") or snap["snap"]
         table = {"razzball": "razzball_projections", "cbsros": "cbs_ros_projections"}[source]
         out.append(projection_entry(source, ppg, str(date_),
-                                    f"supabase:public.{table} snapshot {snap['snap']} (per_game_*, rounded to 2 dp as bake_players)",
+                                    f"supabase:public.{table} snapshot {snap['snap']} (per_game_*, rounded to {PPG_DECIMALS} dp as bake_players)",
                                     "supabase", pulled_at=str(snap.get("pulled_at") or "") or None))
     return out
 
@@ -366,6 +370,45 @@ def load_weeks(directory: Path = HISTORY_DIR) -> dict[int, dict]:
     return docs
 
 
+def _decimals(x: float) -> int:
+    text = repr(float(x))
+    return 0 if "e" in text or "." not in text else len(text.split(".")[1].rstrip("0"))
+
+
+def same_content_finer(have: dict, cand: dict) -> bool:
+    """True when a candidate is the SAME saved content as a frozen entry, only
+    stored at a finer precision (e.g. bake_players moving per-game rates from
+    2 dp to PPG_DECIMALS): same source, kind, week and content date / pull,
+    the same players, and every saved value equals the candidate's value
+    rounded to the saved value's own precision. Anything else is a different
+    candidate, and a frozen entry keeps it out (append-only)."""
+    if (have.get("source"), have.get("kind"), have.get("week")) != (cand.get("source"), cand.get("kind"), cand.get("week")):
+        return False
+    ev_have, ev_cand = have.get("week_evidence") or {}, cand.get("week_evidence") or {}
+    if have.get("kind") == "projection":
+        if have.get("snapshot_date") != cand.get("snapshot_date"):
+            return False
+        old, new = have["ppg"], cand["ppg"]
+        if set(old) != set(new):
+            return False
+        pairs = [(o, n) for k in old for o, n in zip(old[k], new[k])]
+    else:
+        if (ev_have.get("content_date"), ev_have.get("week_column"), ev_have.get("pulled_at")) != \
+                (ev_cand.get("content_date"), ev_cand.get("week_column"), ev_cand.get("pulled_at")):
+            return False
+        old, new = have["natives"], cand["natives"]
+        if set(old) != set(new) or any(set(old[s]) != set(new[s]) for s in old):
+            return False
+        pairs = [(old[s][k], new[s][k]) for s in old for k in old[s]]
+    finer = False
+    for o, n in pairs:
+        d = _decimals(o)
+        if _decimals(n) < d or abs(float(n) - float(o)) > 0.5 * 10 ** -d + 1e-12:
+            return False
+        finer = finer or _decimals(n) > d
+    return finer
+
+
 def merge(docs: dict[int, dict], candidates: list[dict], content_week: int, log=print) -> dict[int, dict]:
     """Fold candidate entries into the week documents (append-only)."""
     for cand in candidates:
@@ -385,6 +428,13 @@ def merge(docs: dict[int, dict], candidates: list[dict], content_week: int, log=
             log(f"add {cand['source']} week {week}{' (late, frozen week)' if doc['frozen'] else ''}")
             continue
         if have["fingerprint"] == cand["fingerprint"]:
+            continue
+        if doc["frozen"] and same_content_finer(have, cand):
+            cand["captured_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            cand["_sort"] = sort_key
+            cand["rebased_from"] = have["fingerprint"]
+            doc["sources"][cand["source"]] = cand
+            log(f"rebase frozen {cand['source']} week {week}: same content, finer precision")
             continue
         if doc["frozen"]:
             log(f"KEEP frozen {cand['source']} week {week}: a different candidate "
@@ -503,7 +553,10 @@ def main(argv=None) -> int:
     ap.add_argument("--only", action="append", default=[],
                     help="with --players-*, keep only these sources")
     ap.add_argument("--index-only", action="store_true",
-                    help="only rebuild index.json from the saved weeks (make sync)")
+                    help="only rebuild index.json from the saved weeks")
+    ap.add_argument("--served-only", action="store_true",
+                    help="capture only the served players.json projections, then rebuild the "
+                         "index (make sync: no Supabase; keeps the served week saved)")
     ap.add_argument("--today", help="override today's date (YYYY-MM-DD)")
     ap.add_argument("--dir", type=Path, default=HISTORY_DIR)
     args = ap.parse_args(argv)
@@ -516,7 +569,9 @@ def main(argv=None) -> int:
         write_index(build_index(docs, json.loads(FIXTURE.read_text()), players, content_week), args.dir)
         return 0
     candidates: list[dict] = []
-    if args.supabase or args.supabase_dump:
+    if args.served_only:
+        pass
+    elif args.supabase or args.supabase_dump:
         published, snaps = fetch_supabase() if args.supabase else rows_from_dump(args.supabase_dump)
         candidates += published_entries_from_rows(published)
         candidates += projection_entries_from_tables(snaps)

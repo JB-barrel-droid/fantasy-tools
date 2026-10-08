@@ -150,6 +150,29 @@ class AppendOnlyTest(unittest.TestCase):
         self.assertEqual(docs[4]["sources"]["fantasycalc"]["natives"]["ppr"]["217"], 100.0)
         H.validate_week_doc(docs[4], 4)
 
+    def _projection(self, values, snapshot="2026-10-02"):
+        return H.projection_entry("cbsros", {"217": values}, snapshot, "test", "players.json")
+
+    def test_frozen_projection_rebases_only_to_finer_same_content(self):
+        quiet = lambda *_: None
+        docs = H.merge({}, [self._projection([17.53, 19.67, 21.81])], content_week=5, log=quiet)
+        self.assertTrue(docs[4]["frozen"])
+        # The same 10-02 content at bake_players' finer precision replaces it,
+        # so the served week stays matched after a precision change.
+        docs = H.merge(docs, [self._projection([17.529, 19.671, 21.814])], content_week=5, log=quiet)
+        self.assertEqual(docs[4]["sources"]["cbsros"]["ppg"]["217"], [17.529, 19.671, 21.814])
+        # Different content (a value that does not round to the saved one, or
+        # another snapshot date) never replaces a frozen entry.
+        for cand in (self._projection([17.6011, 19.671, 21.814]),
+                     self._projection([17.5291, 19.6711, 21.8141], snapshot="2026-10-01")):
+            before = copy.deepcopy(docs[4]["sources"]["cbsros"])
+            docs = H.merge(docs, [cand], content_week=5, log=quiet)
+            self.assertEqual(docs[4]["sources"]["cbsros"]["ppg"], before["ppg"])
+        # Coarser values are not "finer".
+        docs = H.merge(docs, [self._projection([17.53, 19.67, 21.81])], content_week=5, log=quiet)
+        self.assertEqual(docs[4]["sources"]["cbsros"]["ppg"]["217"], [17.529, 19.671, 21.814])
+        H.validate_week_doc(docs[4], 4)
+
     def test_open_week_takes_the_newer_pull(self):
         docs = H.merge({}, [self._candidate(5, 100.0, "2026-10-06 00:00:00+00")], content_week=5, log=lambda *_: None)
         self.assertFalse(docs[5]["frozen"])

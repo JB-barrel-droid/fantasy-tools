@@ -346,14 +346,15 @@ def write_consolidated_export(fixture_path: Path, out_path: Path) -> dict:
 
 
 def sync_week_history(target: Path) -> None:
-    """Per-week source history (pipelines/build_week_history.py): rebuild the
-    index against the fixture being published (which saved week each source
-    serves) and copy the frozen/open week files beside the page. Every week
-    file is validated first (no-relabel guard); a bad file stops the sync."""
+    """Per-week source history (pipelines/build_week_history.py): save the
+    projection inputs players.json serves (append-only; no Supabase), rebuild
+    the index against the fixture being published (which saved week each
+    source serves) and copy the week files beside the page. Every week file
+    is validated (no-relabel guard); a bad file stops the sync."""
     from build_week_history import HISTORY_DIR, main as build_history
     if not HISTORY_DIR.exists():
         return
-    build_history(["--index-only"])
+    build_history(["--served-only"])
     if target.exists():
         shutil.rmtree(target)
     target.mkdir(parents=True)
