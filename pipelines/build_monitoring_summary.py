@@ -66,7 +66,7 @@ def validate(payload):
     return None
 
 
-def build(fetch, now=None, fetch_security=None):
+def build(fetch, now=None, fetch_security=None, fetch_identity=None):
     now = now or datetime.now(timezone.utc)
     try:
         payload = fetch()
@@ -78,7 +78,26 @@ def build(fetch, now=None, fetch_security=None):
     snap["producer"] = dict(PRODUCER)
     if fetch_security is not None:
         snap["security"] = security_snapshot(fetch_security)
+    if fetch_identity is not None:
+        snap["identity"] = identity_snapshot(fetch_identity, now)
     return snap
+
+
+def identity_snapshot(fetch_identity, now):
+    """Open (unmatched/review/provisional) player names per source, seen in
+    the last RECENT_DAYS days (JEG-438). Never raises; a failed read is
+    {"read_error": ...}, never an empty (green-looking) count."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+    import identity_queue  # noqa: PLC0415
+    try:
+        rows = fetch_identity()
+    except Exception as exc:  # noqa: BLE001
+        return {"read_error": f"{type(exc).__name__}: {str(exc)[:200]}"}
+    if not isinstance(rows, list):
+        return {"read_error": "player_name_aliases read is not a list"}
+    return {"open_by_source": identity_queue.open_counts(rows, now),
+            "alert_threshold": identity_queue.OPEN_NAMES_ALERT,
+            "window_days": identity_queue.RECENT_DAYS}
 
 
 def security_snapshot(fetch_security):
@@ -108,11 +127,17 @@ def _security():
     return _client().rpc("monitoring_security_posture", {})
 
 
+def _identity():
+    return _client().get_all("player_name_aliases",
+                             "?select=source,source_player_name,status,last_seen_at"
+                             "&status=in.(unmatched,review,provisional)")
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--out", type=Path, default=DEFAULT_OUT)
     args = ap.parse_args(argv)
-    snap = build(_rpc, fetch_security=_security)
+    snap = build(_rpc, fetch_security=_security, fetch_identity=_identity)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(json.dumps(snap, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     c = snap.get("counts", {})

@@ -15,6 +15,18 @@ Rewriting a name to the entry's full_name (the public.players spelling) is
 how resolvers keyed on names use it; resolvers keyed on player_key use
 alias_key(). No fuzzy matching: a name that is not an exact (normalized)
 alias spelling is returned unchanged.
+
+Where the list lives (JEG-438): the target home is Supabase
+public.player_name_aliases, rows with source '*', method 'curated' and status
+'verified' (seeded from the JSON by
+supabase/migrations/jeg438_alias_table_curated.sql). When Supabase credentials
+are in the environment and that table holds curated rows, load() reads them;
+otherwise (no credentials, no curated rows yet, any read error, or
+PLAYER_ALIASES_SOURCE=json) it reads the committed JSON. The two hold the same
+entries (tests/test_player_alias_table.py pins the seed to the JSON, and
+reconcile_player_identity.py reports drift), so which one a run reads never
+changes a number. Other rows of that table (backfills, saver misses, nightly
+proposals) are never read here.
 """
 
 from __future__ import annotations
@@ -22,6 +34,8 @@ from __future__ import annotations
 import json
 import os
 import sys
+import urllib.parse
+import urllib.request
 
 _LIB = os.path.dirname(os.path.abspath(__file__))
 if _LIB not in sys.path:
@@ -32,7 +46,10 @@ _REPO = os.path.dirname(os.path.dirname(_LIB))
 ALIAS_FILE = os.path.join(_REPO, "data", "inputs", "player_aliases.json")
 SCHEMA = "player-aliases-v1"
 
+TABLE = "player_name_aliases"
+CURATED_METHOD = "curated"
 _cache: dict | None = None
+_loaded_from: str | None = None
 
 
 def _index(entries: list[dict]) -> dict[str, dict]:
@@ -54,19 +71,78 @@ def _index(entries: list[dict]) -> dict[str, dict]:
     return out
 
 
-def load(path: str | None = None) -> dict[str, dict]:
-    """norm_player_name(alias) -> entry. Cached for the default file."""
-    global _cache
-    if path is None and _cache is not None:
-        return _cache
+def json_entries(path: str | None = None) -> list[dict]:
+    """The committed list's raw entries."""
     with open(path or ALIAS_FILE, encoding="utf-8") as fh:
         doc = json.load(fh)
     if doc.get("schema") != SCHEMA:
         raise ValueError(f"player_aliases: unexpected schema {doc.get('schema')!r}")
-    idx = _index(doc.get("aliases") or [])
-    if path is None:
-        _cache = idx
+    return doc.get("aliases") or []
+
+
+def table_rows_to_entries(rows: list[dict]) -> list[dict]:
+    """Curated public.player_name_aliases rows (players(full_name) embedded)
+    -> alias entries."""
+    out = []
+    for r in rows:
+        player = r.get("players") or {}
+        out.append({"alias": r.get("source_player_name"), "player_key": r.get("player_key"),
+                    "full_name": player.get("full_name") if isinstance(player, dict) else None,
+                    "pos": r.get("position") or None})
+    return out
+
+
+def _fetch_curated_rows(timeout: float = 10.0) -> list[dict] | None:
+    """Curated verified rows from Supabase, or None when not configured."""
+    if os.environ.get("PLAYER_ALIASES_SOURCE", "").strip().lower() == "json":
+        return None
+    url = os.environ.get("SUPABASE_URL", "").rstrip("/")
+    key = os.environ.get("SUPABASE_SERVICE_KEY", "")
+    if not url or not key:
+        return None
+    params = urllib.parse.urlencode({
+        "select": "source_player_name,player_key,position,players(full_name)",
+        "source": "eq.*", "status": "eq.verified", "method": f"eq.{CURATED_METHOD}",
+        "order": "id"})
+    req = urllib.request.Request(f"{url}/rest/v1/{TABLE}?{params}")
+    req.add_header("apikey", key)
+    req.add_header("Authorization", f"Bearer {key}")
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        rows = json.loads(resp.read().decode() or "[]")
+    if not isinstance(rows, list):
+        raise ValueError("player_aliases: unexpected Supabase response")
+    return rows
+
+
+fetch_curated_rows = _fetch_curated_rows  # replaced in tests
+
+
+def load(path: str | None = None) -> dict[str, dict]:
+    """norm_player_name(alias) -> entry. Cached for the default source:
+    the Supabase curated rows when present, else the committed JSON."""
+    global _cache, _loaded_from
+    if path is not None:
+        return _index(json_entries(path))
+    if _cache is not None:
+        return _cache
+    idx, origin = None, "json"
+    try:
+        rows = fetch_curated_rows()
+        if rows:
+            idx, origin = _index(table_rows_to_entries(rows)), "supabase"
+            print(f"player_aliases: {len(idx)} curated aliases from public.{TABLE}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 -- the JSON holds the same list
+        print(f"player_aliases: Supabase read failed ({type(exc).__name__}: {str(exc)[:120]}); "
+              "using data/inputs/player_aliases.json", file=sys.stderr)
+    if idx is None:
+        idx = _index(json_entries())
+    _cache, _loaded_from = idx, origin
     return idx
+
+
+def loaded_from() -> str | None:
+    """'supabase' or 'json' once load() ran, else None."""
+    return _loaded_from
 
 
 def entries() -> list[dict]:
@@ -113,5 +189,6 @@ def spellings(name) -> list:
 
 def _reset_for_tests(idx: dict[str, dict] | None = None) -> None:
     """Replace (or clear) the cached list. Tests only."""
-    global _cache
+    global _cache, _loaded_from
     _cache = idx
+    _loaded_from = None

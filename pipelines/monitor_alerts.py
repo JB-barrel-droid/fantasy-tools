@@ -18,6 +18,9 @@ and reconciles that set with what is already open:
                             table without RLS, an anon/authenticated write
                             grant, a public definer view, a mutable
                             search_path or an anon-executable definer function
+    identity-unmatched-<source>  more than identity_queue.OPEN_NAMES_ALERT
+                            player names from one source seen in the last
+                            week still resolve to no player (JEG-438)
 
 Everything else on the monitor (staleness, holds, yellow checks) stays a
 warning on the page, per Jeremy's pre-launch direction. Nothing here can fail
@@ -139,12 +142,42 @@ def security_alert(summary):
                  "Fix pattern: supabase/migrations/20261008_security_lockdown.sql.")
 
 
+def identity_unmatched_alerts(summary):
+    """JEG-438: a source with more open player names (unmatched / review /
+    provisional, seen in the window) than the summary's threshold. A failed
+    identity read raises nothing here: the summary carries the read_error."""
+    ident = summary.get("identity")
+    if not isinstance(ident, dict) or ident.get("read_error"):
+        return []
+    threshold = ident.get("alert_threshold")
+    if not isinstance(threshold, int):
+        return []
+    out = []
+    for source, c in sorted((ident.get("open_by_source") or {}).items()):
+        n = (c or {}).get("open") or 0
+        if n <= threshold:
+            continue
+        names = ", ".join((c.get("names") or [])[:30])
+        out.append(Alert(
+            f"identity-unmatched-{re.sub(r'[^a-z0-9_.-]', '-', str(source).lower()) or 'unknown'}",
+            f"{source}: {n} player names do not resolve to a player",
+            f"`{source}` has **{n}** open player names (unmatched {c.get('unmatched')}, review "
+            f"{c.get('review')}, provisional {c.get('provisional')}) seen in the last "
+            f"{ident.get('window_days')} days; alert threshold {threshold}.\n\n"
+            f"Names: {names}\n\n"
+            "Their rows are left out of that source's saved values (never guessed). Check each in "
+            "`public.player_name_aliases` and `pipelines/reconcile_player_identity.py`'s report; add a "
+            "verified spelling to `data/inputs/player_aliases.json` when it is the same player."))
+    return out
+
+
 def evaluate(summary, import_health, now, stuck_days=SOURCE_STUCK_DAYS, stale_hours=REBUILD_STALE_HOURS):
     """All alert conditions that hold now (list of Alert, unique keys)."""
     summary = summary or {}
     alerts = [monitor_unreadable_alert(summary), security_alert(summary)]
     if not summary.get("read_error"):
         alerts.append(rebuild_chain_alert(summary, now, stale_hours))
+    alerts.extend(identity_unmatched_alerts(summary))
     alerts.extend(source_stuck_alerts(import_health or {}, now, stuck_days))
     return [a for a in alerts if a]
 

@@ -315,6 +315,9 @@ def main() -> int:
         f"(dry_run={result['dry_run']}), {result['review_count']} in review, "
         f"bake_id={result['bake_id']}"
     )
+    if not result["dry_run"]:
+        import identity_queue  # noqa: PLC0415 -- on sys.path via save_espn_cbs_references
+        identity_queue.record_misses("fantasycalc", result["review"])
     if result["review"]:
         review_path = args.review_out or (
             ROOT / "output" / "fantasycalc-save-review" / f"{result['bake_id']}.json"

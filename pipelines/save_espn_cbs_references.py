@@ -77,6 +77,7 @@ from import_source_snapshot import parse_float  # noqa: E402
 # here and in build_ddf_two_tier_leg.py must never diverge.
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import player_aliases  # noqa: E402 -- the one verified alias list
+import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
 from canonical_players import narrow_candidates  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import content_week  # noqa: E402 -- content week for the CBS save grain
@@ -528,6 +529,8 @@ def main() -> int:
         review_path.write_text(json.dumps(result["review"], indent=2, sort_keys=True) + "\n", encoding="utf-8")
         print(f"review report ({len(result['review'])} rows): {review_path}")
 
+    if not result["dry_run"]:
+        identity_queue.record_misses(result["source"], result["review"])
     status = "dry-run" if result["dry_run"] else "saved"
     print(
         f"{status}: {result['written']} {result['source']} rows -> {result['table']} "

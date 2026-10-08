@@ -45,7 +45,9 @@
     {"workflow": "sleeper-identity-refresh.yml", "scheduler": "pg_cron", "pg_cron_job": "sleeper-identity-refresh-live",
      "records": [{"check_id": "sleeper_identity_refresh", "file": ".github/workflows/sleeper-identity-refresh.yml", "contains": "--check-id sleeper_identity_refresh --owner sleeper-identity-refresh.yml"}]},
     {"workflow": "razzball-supabase-sync.yml", "scheduler": "source_probe", "pg_cron_job": null, "dispatched_by": "source-probe.yml (on change or max age)",
-     "records": [{"check_id": "razzball_projections_sync", "file": ".github/workflows/razzball-supabase-sync.yml", "contains": "\"p_check_id\": \"razzball_projections_sync\""}]}
+     "records": [{"check_id": "razzball_projections_sync", "file": ".github/workflows/razzball-supabase-sync.yml", "contains": "\"p_check_id\": \"razzball_projections_sync\""}]},
+    {"workflow": "player-identity-reconcile.yml", "scheduler": "pg_cron", "pg_cron_job": "player-identity-reconcile-nightly",
+     "records": [{"check_id": "player_identity_reconcile", "file": "pipelines/reconcile_player_identity.py", "contains": "CHECK_ID = \"player_identity_reconcile\""}]}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}

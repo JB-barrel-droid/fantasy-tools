@@ -33,6 +33,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import player_aliases  # noqa: E402 -- the one verified alias list
+import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
 from canonical_players import narrow_candidates  # noqa: E402
 from nfl_week import current_nfl_week  # noqa: E402
 
@@ -275,6 +276,7 @@ def main() -> None:
             f"Fail closed: {table} holds {live} rows for vintage {vintage} "
             f"after prune, expected {len(clean)}."
         )
+    identity_queue.record_misses("cbsros", review)
     print("CBS ROS save complete.")
 
 

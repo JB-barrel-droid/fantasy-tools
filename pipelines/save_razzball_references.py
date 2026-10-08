@@ -38,6 +38,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import player_aliases  # noqa: E402 -- the one verified alias list
+import identity_queue  # noqa: E402 -- unresolved names, counted per source (JEG-438)
 from canonical_players import narrow_candidates  # noqa: E402
 from nfl_week import current_nfl_week  # noqa: E402
 
@@ -286,6 +287,7 @@ def main() -> None:
             f"Fail closed: {TABLE} holds {live} rows for vintage {vintage} "
             f"after upsert, expected {len(clean)}."
         )
+    identity_queue.record_misses("razzball", review)
     print("Razzball save complete.")
 
 
