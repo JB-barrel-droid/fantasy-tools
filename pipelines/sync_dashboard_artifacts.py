@@ -219,6 +219,35 @@ def replace_inline_methodology(index_html: str, payload: dict) -> str:
     return index_html[:start] + baked + index_html[end:]
 
 
+SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
+# Launch 2026-10-08 (Jeremy): the v2 page is the front door at the site root;
+# the chart dashboard moves to /classic/. build_v2_page reads this page as its
+# engine input and writes dist/index.html (root) and dist/v2/index.html.
+CLASSIC_DIR = "classic"
+
+
+def classic_page_html(index_html: str) -> str:
+    """The chart dashboard as served from dist/classic/index.html.
+
+    One directory down from the site root, so a <base href="../"> keeps every
+    relative asset, fetch and data path pointing where it always has. A base
+    also re-targets in-page "#x" links at the base URL (the root, now v2), so
+    those are rewritten to "classic/#x", which is this same document.
+    Canonical to itself; noindex so search results land on the front door
+    rather than the secondary chart view.
+    """
+    if "<head>" not in index_html or "</title>" not in index_html:
+        raise SystemExit("classic page: <head> or <title> missing from app/trade-value-chart/index.html")
+    html = index_html.replace("<head>", '<head>\n  <base href="../">', 1)
+    html = html.replace('href="#', f'href="{CLASSIC_DIR}/#')
+    head_extra = (
+        f'\n  <link rel="canonical" href="{SITE_URL}{CLASSIC_DIR}/">'
+        '\n  <meta name="robots" content="noindex, follow">'
+    )
+    title_end = html.index("</title>") + len("</title>")
+    return html[:title_end] + head_extra + html[title_end:]
+
+
 def copy_tree(source: Path, target: Path) -> None:
     if target.exists():
         shutil.rmtree(target)
@@ -398,8 +427,10 @@ def main() -> int:
     # dist/server/index.js (a Cloudflare-style worker stub that Pages never
     # executes). Both were Muse hosting leftovers, as was space.json.
     DIST.mkdir(parents=True, exist_ok=True)
-    for name in ("index.html", "icon.jpg", "404.html"):
+    for name in ("icon.jpg", "404.html"):
         shutil.copy2(APP / name, DIST / name)
+    (DIST / CLASSIC_DIR).mkdir(parents=True, exist_ok=True)
+    (DIST / CLASSIC_DIR / "index.html").write_text(classic_page_html(index_html), encoding="utf-8")
     copy_tree(APP / "assets", DIST / "assets")
 
     # The module monitor and the health artifact it reads. Previously both
@@ -513,6 +544,8 @@ def main() -> int:
         shutil.copy2(source, target / "index.html")
 
     # v2 front end: the new layout over the same engine and data (app/v2/).
+    # It is the site's front door: written to dist/index.html (root) and
+    # dist/v2/index.html (old links), both from dist/classic/index.html.
     from build_v2_page import build as build_v2_page
     build_v2_page(DIST)
 

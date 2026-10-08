@@ -117,7 +117,7 @@ def collect(overrides=None):
                                        " && window.TradeValueCurveControls.getRows().length > 0", timeout=30000)
                 return page, errors
 
-            page, errors = open_page(f"{base}/index.html")
+            page, errors = open_page(f"{base}/classic/")
             for scoring, teams in SETTINGS:
                 page.evaluate("([s, t]) => { const c = window.TradeValueCurveControls; c.setScoring(s); c.setTeams(t); }",
                               [scoring, teams])

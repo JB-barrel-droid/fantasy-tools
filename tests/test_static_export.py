@@ -1006,8 +1006,10 @@ class StaticExportTest(unittest.TestCase):
         html = (APP / "index.html").read_text(encoding="utf-8")
         names = ["curve-widget.js", "comparison-dashboard.js", "comparison-dashboard.css"]
         sources = {name: (APP / "assets" / name).read_text(encoding="utf-8") for name in names}
-        self.assertIn("<title>Trade Value Dashboard</title>", html)
-        self.assertNotIn("Data Driven Football", html)
+        # Jeremy 2026-10-08 (launch): the brand is Data Driven Football on the
+        # main page too, matching v2. The old rule forbade the name here.
+        self.assertIn("<title>Trade Value · Data Driven Football</title>", html)
+        self.assertNotIn("Trade Value Dashboard</title>", html)
         self.assertNotIn("legacy model", html.lower())
         self.assertNotIn('"key":"ddf"', html)
         for name, text in sources.items():

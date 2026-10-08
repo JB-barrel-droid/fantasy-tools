@@ -281,7 +281,7 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
     page.on("pageerror", e => report.pageErrors.push(String(e).slice(0, 240)));
-    await page.goto(`http://127.0.0.1:${server.address().port}/`, { waitUntil: "networkidle" });
+    await page.goto(`http://127.0.0.1:${server.address().port}/classic/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1500);
 
     // ---- Baseline table hash + readout (JEG-103 default is 15.0%) ----
