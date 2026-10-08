@@ -277,6 +277,51 @@ def write_saver_inputs(url, html, week, csv_path, log_path, players=None):
     return clean, review
 
 
+def pull_bake_id(week, now=None):
+    """fpwk<week>_<UTC date>t<HHMM>_v1: one bake per pull. A date-only id let a
+    second save on the same day upsert over the first (bake_id is in the
+    unique grain)."""
+    now = now or datetime.now(timezone.utc)
+    return "fpwk%d_%st%s_v1" % (week, now.strftime("%Y-%m-%d"), now.strftime("%H%M"))
+
+
+def latest_saved_values(sb, week):
+    """{player_key: native_value} of the week's newest saved bake (standard
+    scoring; FantasyPros publishes one scoring-agnostic Value column)."""
+    rows = sb.get_all(
+        "source_trade_values",
+        params="?select=player_key,native_value,bake_id,created_at&source=eq.fantasypros"
+               "&variant=eq.as_published&season=eq.2026&scoring=eq.standard&week=eq.%d" % week)
+    return values_of_latest_bake(rows)
+
+
+def values_of_latest_bake(rows):
+    bakes = {}
+    for r in rows or []:
+        bakes.setdefault(r.get("bake_id"), []).append(r)
+    if not bakes:
+        return {}
+    newest = max(bakes, key=lambda b: (max(str(r.get("created_at") or "") for r in bakes[b]),
+                                       str(b or "")))
+    return {int(r["player_key"]): float(r["native_value"]) for r in bakes[newest]
+            if r.get("player_key") is not None and r.get("native_value") is not None}
+
+
+def csv_values(path):
+    with open(path, newline="", encoding="utf-8") as fh:
+        return {int(r["player_key"]): float(r["value_1"]) for r in csv.DictReader(fh)
+                if (r.get("player_key") or "").strip() and (r.get("value_1") or "").strip()}
+
+
+def content_diff(saved, new):
+    """None when identical, else a short description of what moved."""
+    added, removed = set(new) - set(saved), set(saved) - set(new)
+    changed = [k for k in set(new) & set(saved) if abs(new[k] - saved[k]) > 1e-9]
+    if not (added or removed or changed):
+        return None
+    return "%d added, %d removed, %d changed" % (len(added), len(removed), len(changed))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--week", type=int, default=None)
@@ -330,9 +375,11 @@ def main():
             "source_trade_values",
             "?select=player_key&source=eq.fantasypros&variant=eq.as_published"
             "&season=eq.2026&week=eq.%d" % wk)
-        if have > 0 and not args.force:
-            print("week %d already saved (%d rows); skipping" % (wk, have), flush=True)
-            return 0
+        # A saved week is no longer a skip by itself (refresh-cadence,
+        # 2026-10-08): FantasyPros edits the article mid-week, so the new pull
+        # is compared with the week's latest saved bake below and saved as a
+        # new bake only when the published values differ.
+        compare_with_saved = have > 0 and not args.force
         args.saver_inputs = True
 
     if args.saver_inputs:
@@ -348,7 +395,18 @@ def main():
             ["%s %s" % (r[0], r[1]) for r in review]))
 
     if args.save:
-        res = saver.save_fantasypros(saver.FP_CSV, dry_run=args.dry_run, week=week_info["week"])
+        if compare_with_saved:
+            from save_espn_cbs_references import _sb
+            saved = latest_saved_values(_sb(), week_info["week"])
+            diff = content_diff(saved, csv_values(saver.FP_CSV))
+            if diff is None:
+                print("week %d unchanged since the latest saved bake (%d players); skipping"
+                      % (week_info["week"], len(saved)), flush=True)
+                return 0
+            print("week %d revised since the latest saved bake: %s; saving a new bake"
+                  % (week_info["week"], diff), flush=True)
+        res = saver.save_fantasypros(saver.FP_CSV, dry_run=args.dry_run, week=week_info["week"],
+                                     bake_id=pull_bake_id(week_info["week"]))
         print("INGEST OK fantasypros week=%d written=%d review=%d bake_id=%s" % (
             week_info["week"], res["written"], res["review_count"], res["bake_id"]), flush=True)
     return 0

@@ -442,3 +442,44 @@ class VintageCheckTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RevisionSaveTest(unittest.TestCase):
+    """A probe-detected article revision must reach the database as a new bake;
+    otherwise the ingest acknowledges a change it never saved."""
+
+    def test_fantasypros_revision_is_saved_not_skipped(self):
+        import pull_fantasypros as fp
+        src = (ROOT / "ops" / "watchdog" / "pull_fantasypros.py").read_text()
+        # The pre-fix rule: any saved row for the week skipped the save.
+        self.assertNotIn('print("week %d already saved (%d rows); skipping"', src)
+        rows = [
+            {"player_key": 1, "native_value": 70.0, "bake_id": "old", "created_at": "2026-10-06T16:00:00Z"},
+            {"player_key": 1, "native_value": 68.0, "bake_id": "new", "created_at": "2026-10-07T21:23:00Z"},
+            {"player_key": 2, "native_value": 40.0, "bake_id": "new", "created_at": "2026-10-07T21:23:00Z"},
+        ]
+        saved = fp.values_of_latest_bake(rows)
+        self.assertEqual(saved, {1: 68.0, 2: 40.0})
+        self.assertIsNone(fp.content_diff(saved, {1: 68.0, 2: 40.0}))
+        self.assertEqual(fp.content_diff(saved, {1: 69.0, 2: 40.0}), "0 added, 0 removed, 1 changed")
+        self.assertEqual(fp.content_diff(saved, {1: 68.0}), "0 added, 1 removed, 0 changed")
+
+    def test_comparing_against_an_older_bake_is_caught(self):
+        import pull_fantasypros as fp
+        rows = [
+            {"player_key": 1, "native_value": 70.0, "bake_id": "old", "created_at": "2026-10-06T16:00:00Z"},
+            {"player_key": 1, "native_value": 68.0, "bake_id": "new", "created_at": "2026-10-07T21:23:00Z"},
+        ]
+        oldest = {1: 70.0}  # broken variant: compare with the first bake
+        self.assertIsNotNone(fp.content_diff(oldest, {1: 68.0}))
+        self.assertIsNone(fp.content_diff(fp.values_of_latest_bake(rows), {1: 68.0}))
+
+    def test_trade_chart_bakes_are_per_pull(self):
+        import ingest_usatoday
+        import pull_fantasypros as fp
+        t1 = datetime(2026, 10, 7, 9, 35, tzinfo=timezone.utc)
+        t2 = datetime(2026, 10, 7, 21, 35, tzinfo=timezone.utc)
+        self.assertNotEqual(ingest_usatoday.bake_id_fn(5, {}, t1), ingest_usatoday.bake_id_fn(5, {}, t2))
+        self.assertEqual(ingest_usatoday.bake_id_fn(5, {}, t1), "usatwk5_2026-10-07t0935_v1")
+        self.assertNotEqual(fp.pull_bake_id(5, t1), fp.pull_bake_id(5, t2))
+        self.assertTrue(fp.pull_bake_id(5, t1).startswith("fpwk5_2026-10-07t"))
