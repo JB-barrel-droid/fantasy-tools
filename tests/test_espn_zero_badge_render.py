@@ -159,7 +159,9 @@ def collect(overrides=None):
             page.close()
 
             # ---- v2: Player values ----
-            page, errors = open_page(f"{base}/v2/")
+            # /v2/ lands on Trade targets (Jeremy, 2026-10-08) and renders only
+            # the active view, so the Player values table needs its own hash.
+            page, errors = open_page(f"{base}/v2/#player-values")
             page.wait_for_function("() => document.querySelector('#v2Table tbody tr')", timeout=30000)
             v2 = {}
             for label, row in (("zero", probe_zero), ("absent", probe_absent)):

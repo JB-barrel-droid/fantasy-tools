@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -102,7 +102,15 @@ guard-harness:
 
 # Unit tests: no data/raw, snapshot, or external service dependency.
 # Safe to run in CI (Pages deploy) where gitignored data is absent.
+# Runs every line of test-unit-modules and keeps going past a failing one,
+# then exits 1 listing the failures (2026-10-08: one playwright timeout
+# stopped the suite and hid every module after it). `make test-unit-modules`
+# runs the same list and stops at the first failure.
 test-unit:
+	python3 tests/run_suite.py test-unit-modules
+
+test-unit-modules:
+	python3 -m unittest tests.test_run_suite
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_bake_espn_zero_universe
