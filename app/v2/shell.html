@@ -36,7 +36,18 @@
     </div>
   </section>
 
-  <main class="v2-wrap v2-main" id="v2Main">
+  <div class="v2-wrap v2-state-wrap" id="v2State">
+    <section class="v2-card v2-state" data-state="loading" aria-labelledby="v2StateTitle" aria-live="polite">
+      <span class="v2-state-sym" id="v2StateSym" aria-hidden="true">◌</span>
+      <div>
+        <h2 id="v2StateTitle">Loading values for your league…</h2>
+        <p class="v2-meta" id="v2StateText">Pricing every source for your league settings. This takes a few seconds.</p>
+        <button type="button" class="v2-btn v2-btn-primary" id="v2StateRetry" hidden>Try again</button>
+      </div>
+    </section>
+  </div>
+
+  <main class="v2-wrap v2-main" id="v2Main" hidden>
     <div class="v2-title">
       <h1>Every value. Your league.</h1>
       <p>Compare the sources. Keep the context.</p>
@@ -78,6 +89,11 @@
           </div>
           <span class="v2-meta">Solid = DDA · Dashed = Indexed</span>
         </div>
+      </div>
+      <div class="v2-empty" id="v2Empty" hidden>
+        <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
+        <p class="v2-meta" id="v2EmptyText"></p>
+        <button type="button" class="v2-btn" id="v2EmptyClear">Clear filters</button>
       </div>
       <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
       <div class="v2-brush">
@@ -290,7 +306,7 @@
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
-  <div class="v2-status" id="v2Status" role="status">Loading values…</div>
+  <div class="v2-status" id="v2Status" role="status" hidden></div>
 
   <div class="v2-tip" id="v2Tip" role="tooltip" hidden></div>
   <div class="v2-scrim" id="v2Scrim" hidden></div>

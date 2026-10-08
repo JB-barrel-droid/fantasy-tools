@@ -325,3 +325,29 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 @media (max-width: 767px) {
   .v2-how-views { grid-template-columns: 1fr; }
 }
+
+/* Frame 18 states: loading, failed, and filters that leave no player. */
+.v2-state-wrap { padding-top: 28px; }
+.v2-state-wrap[hidden] { display: none; }
+.v2-state { display: flex; gap: 16px; align-items: flex-start; margin-top: 0; }
+.v2-state h2 { font-size: 20px; font-weight: 700; }
+.v2-state .v2-meta { margin-top: 6px !important; font-size: 14px; }
+.v2-state .v2-btn { margin-top: 16px; }
+.v2-state-sym { flex: none; width: 36px; height: 36px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; background: var(--v2-positive); color: var(--v2-action); }
+.v2-state[data-state="loading"] .v2-state-sym { animation: v2-spin 1.2s linear infinite; }
+.v2-state[data-state="failed"] { border-color: var(--v2-negative); }
+.v2-state[data-state="failed"] .v2-state-sym { background: var(--v2-negative); color: #fff; }
+@keyframes v2-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .v2-state[data-state="loading"] .v2-state-sym { animation: none; } }
+.v2-empty { padding: 32px 0; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.v2-empty[hidden], .v2-brush[hidden], .v2-chart[hidden], .v2-card[hidden] { display: none; }
+
+/* Player detail: method groups (frame 13), bottom sheet below 768 px (frame 14). */
+.v2-drawer-group h3 { margin: 20px 0 0; font-size: 13px; font-weight: 700; }
+.v2-drawer-group dl { margin: 8px 0 0; }
+@media (max-width: 767px) {
+  .v2-drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100vw; max-height: 85vh; border-radius: 16px 16px 0 0; padding: 28px 16px 24px; box-shadow: 0 -8px 32px rgba(0,0,0,.18); }
+  .v2-drawer::before { content: ""; position: absolute; top: 8px; left: 50%; width: 40px; height: 4px; margin-left: -20px; border-radius: 2px; background: var(--v2-border); }
+  .v2-drawer h2 { font-size: 20px; padding-right: 88px; }
+  .v2-drawer .close { top: 12px; right: 12px; }
+}

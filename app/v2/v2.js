@@ -76,6 +76,23 @@
     });
   }
 
+  // Frame 18: the engine failed or never finished. No tab is shown, so no
+  // stale or partial value can be read as current; say why and offer a retry.
+  function showFailure(reason) {
+    setStatus("");
+    ["v2Main", "v2Targets", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });
+    const card = $("v2State").querySelector(".v2-state");
+    card.dataset.state = "failed";
+    $("v2State").hidden = false;
+    $("v2FreshnessLabel").textContent = "Values unavailable";
+    $("v2StateSym").textContent = "!";
+    $("v2StateTitle").textContent = "Values are unavailable right now";
+    $("v2StateText").textContent = `${reason} No values are shown rather than showing wrong or partial ones.`;
+    const retry = $("v2StateRetry");
+    retry.hidden = false;
+    retry.onclick = () => location.reload();
+  }
+
   function setStatus(text, isError) {
     const node = $("v2Status");
     node.textContent = text || "";
@@ -630,27 +647,43 @@
       zeroNote.append(zeroBadge, document.createTextNode(` ${zeroBadge.title}`));
       zeroBadge.removeAttribute("title");
     }
-    const dl = document.createElement("dl");
-    const methodRank = {dda: 0, indexed: 1, vorp: 2};
-    view.info.filter(item => item.available)
-      .sort((a, b) => methodRank[sourceMeta(a.key).method] - methodRank[sourceMeta(b.key).method])
-      .forEach(item => {
-      const m = sourceMeta(item.key);
-      const dt = document.createElement("dt");
-      dt.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span>`;
-      dt.append(document.createTextNode(`${PUBLISHER_NAMES[m.publisher] || m.label} · ${METHOD_LABEL[m.method]}${item.week ? ` · W${item.week}` : ""}${view.active.includes(item.key) ? "" : " (not plotted)"}`));
-      const dd = document.createElement("dd");
-      const v = row.values[item.key];
-      if (Number.isFinite(v)) dd.textContent = fmt(v);
-      else dd.innerHTML = '<span class="missing">— not priced</span>';
-      dl.append(dt, dd);
-    });
+    // Grouped by method (frame 13 / 14): trade-value points first, VORP vs waivers on its own.
+    const groups = [["dda", "Data Driven Adjustments", "Trade-value points"], ["indexed", "Indexed", "Trade-value points"],
+      ["vorp", "VORP vs waivers", "Each source's own scale"]];
+    const sections = groups.map(([method, title, unit]) => {
+      const items = view.info.filter(item => item.available && sourceMeta(item.key).method === method);
+      if (!items.length) return null;
+      const section = document.createElement("section");
+      section.className = "v2-drawer-group";
+      section.dataset.method = method;
+      const h = document.createElement("h3");
+      h.textContent = title;
+      const u = document.createElement("span");
+      u.className = "v2-meta";
+      u.textContent = ` · ${unit}`;
+      h.appendChild(u);
+      const dl = document.createElement("dl");
+      items.forEach(item => {
+        const m = sourceMeta(item.key);
+        const dt = document.createElement("dt");
+        dt.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span>`;
+        dt.append(document.createTextNode(`${PUBLISHER_NAMES[m.publisher] || m.label}${item.week ? ` · W${item.week}` : ""}${view.active.includes(item.key) ? "" : " (not plotted)"}`));
+        const dd = document.createElement("dd");
+        dd.dataset.source = item.key;
+        const v = row.values[item.key];
+        if (Number.isFinite(v)) dd.textContent = fmt(v);
+        else dd.innerHTML = '<span class="missing">— not priced by this source</span>';
+        dl.append(dt, dd);
+      });
+      section.append(h, dl);
+      return section;
+    }).filter(Boolean);
     const note = document.createElement("p");
     note.className = "v2-note";
     note.textContent = "DDA and Index values share the trade-value point scale for your league. VORP vs waivers is its own unit and is not comparable to them.";
     drawer.append(close, title, meta);
     if (zeroNote) drawer.appendChild(zeroNote);
-    drawer.append(dl, note);
+    drawer.append(...sections, note);
     $("v2Scrim").hidden = false;
     drawer.hidden = false;
     close.focus();
@@ -1534,8 +1567,26 @@
   function refreshValues() {
     collect();
     renderHeader();
+    renderEmpty();
     renderCharts();
     renderTable();
+  }
+
+  // Frame 18: filters that leave no player say which filter did it.
+  function renderEmpty() {
+    const empty = !view.rows.length;
+    $("v2Empty").hidden = !empty;
+    $("v2Chart").hidden = empty;
+    document.querySelector("#v2Main .v2-brush").hidden = empty;
+    document.querySelector("#v2Main .v2-table-card").hidden = empty;
+    if (!empty) return;
+    const why = [];
+    if (state.search.trim()) why.push(`no player name contains “${state.search.trim()}”`);
+    if (state.range.min !== null || state.range.max !== null) {
+      why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);
+    }
+    if (view.state.position !== "ALL") why.push(`the position filter is ${view.state.position}`);
+    $("v2EmptyText").textContent = why.length ? `With these filters, ${why.join("; ")}.` : "No player is priced for this selection.";
   }
 
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
@@ -1556,6 +1607,7 @@
     $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; refresh(); });
     $("v2DeltaBtn").addEventListener("click", () => { state.delta = !state.delta; refresh(); });
     $("v2RangeBtn").addEventListener("click", openRange);
+    $("v2EmptyClear").addEventListener("click", () => $("v2ClearFilters").click());
     $("v2ClearFilters").addEventListener("click", () => {
       state.search = ""; $("v2Search").value = "";
       state.range = {min: null, max: null};
@@ -1625,11 +1677,11 @@
     try {
       C = await waitForEngine();
     } catch (error) {
-      setStatus(`Values unavailable: ${error.message}`, true);
-      $("v2Main").setAttribute("aria-busy", "false");
+      showFailure(error.message);
       return;
     }
     bind();
+    $("v2State").hidden = true;
     applyRoute();
     setStatus("");
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,

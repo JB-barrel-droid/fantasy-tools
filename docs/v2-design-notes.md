@@ -29,7 +29,7 @@ canvas on 2026-10-07.
 Not yet mapped: 05/06 Risers & fallers, 07/08 Compare a trade (built 2026-10-08 from the frame 22
 rule and frame 17 language: figma.com is blocked by the cloud session's network policy, so the frame
 itself was not opened),
-14 Player detail mobile, 16 How values work mobile (built 2026-10-08 without opening it), 20 Source selection mobile, 21 Chart options,
+14 Player detail mobile (built 2026-10-08 without opening it), 16 How values work mobile (built 2026-10-08 without opening it), 20 Source selection mobile, 21 Chart options,
 23 Benchmark decisions.
 
 ## Design language (frame 17)
@@ -140,3 +140,20 @@ blocked by its network policy); re-check against frames 15/16.
 - "Reading the numbers": — means missing, 0 is at or below the waiver line, one source at a time,
   older weeks labeled, label + symbol. Links to the other tabs.
 - The Methods row is hidden on this tab (nothing to select). Three columns at 1440, stacked below 768.
+
+## Player detail and frame 18 states (frames 13 / 14 / 18)
+
+Built 2026-10-08 without opening the frames (figma.com is blocked from the cloud session); frame 22's
+"mobile tap pins a detail sheet" is the spec used.
+
+- Player detail groups values by method: Data Driven Adjustments and Indexed (trade-value points),
+  then VORP vs waivers (each source's own scale). A missing value reads "— not priced by this source".
+  At 1440 it is the 440 px right-hand drawer; below 768 px it is a bottom sheet (full width, up to
+  85% of the screen, rounded top, grab handle, Close top right).
+- Loading: the page starts with every tab hidden behind a loading card ("Loading values for your
+  league…"); the tabs appear once the engine has rows.
+- Failure: if the engine reports an error or does not finish in 30 seconds, every tab and the Methods
+  row stay hidden and a failure card says why, with "Try again" (reload). No value is shown.
+- Empty: on Player values, filters that leave no player hide the chart and table and say which filter
+  did it (search text, value range, position), with "Clear filters".
+- Overlays 09–12 (sources, freshness, weights & bench, league) were already built; no change.
