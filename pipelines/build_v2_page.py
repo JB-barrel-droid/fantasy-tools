@@ -53,6 +53,42 @@ ROOT_LINK_SHIM = """  <script>
 """
 
 
+# Page weight (2026-10-08): the engine scripts each fetch the same JSON files
+# (comparison-sources-data.json is 2.3 MB and was downloaded and parsed three
+# times). Share one network request per URL; every caller gets its own clone of
+# the response, and a caller's own abort signal still rejects that caller.
+FETCH_SHARE_SHIM = r"""  <script>
+  (function () {
+    var nativeFetch = window.fetch && window.fetch.bind(window);
+    if (!nativeFetch) return;
+    var shared = new Map();
+    window.fetch = function (input, init) {
+      var url = typeof input === "string" ? input : (input && input.url) || "";
+      var method = ((init && init.method) || (input && input.method) || "GET").toUpperCase();
+      if (method !== "GET" || !/\.json(\?|$)/.test(url)) return nativeFetch(input, init);
+      var key = new URL(url, document.baseURI).href;
+      if (!shared.has(key)) {
+        var request = nativeFetch(key).catch(function (error) { shared.delete(key); throw error; });
+        shared.set(key, request);
+      }
+      var signal = init && init.signal;
+      var mine = shared.get(key).then(function (response) { return response.clone(); });
+      if (!signal) return mine;
+      return new Promise(function (resolve, reject) {
+        var abort = function () { reject(new DOMException("The operation was aborted.", "AbortError")); };
+        if (signal.aborted) return abort();
+        signal.addEventListener("abort", abort, {once: true});
+        mine.then(resolve, reject);
+      });
+    };
+  })();
+  </script>
+"""
+
+# The classic page's own fonts; v2 uses Inter only, and the engine is never shown.
+CLASSIC_FONTS = re.compile(r'\n?\s*<link href="https://fonts\.googleapis\.com/css2\?family=Archivo[^"]*" rel="stylesheet">')
+
+
 def _set_meta(html: str, attr: str, key: str, content: str) -> str:
     """Replace (or add) <meta {attr}="{key}" content="..."> in the head."""
     tag = f'<meta {attr}="{key}" content="{content}" />'
@@ -91,11 +127,13 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False) -> st
         if marker not in index_html:
             raise SystemExit(f"build_v2_page: marker {marker!r} missing from the chart dashboard page")
     html = head_for_v2(index_html, at_root)
+    html = CLASSIC_FONTS.sub("", html, count=1)
     if at_root:
         shell_html = shell_html.replace('href="v2/#', 'href="#')
     head_extra = (
         '  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n'
         '  <link rel="stylesheet" href="v2/v2.css">\n'
+        + FETCH_SHARE_SHIM
         + (ROOT_LINK_SHIM if at_root else "")
     )
     html = html.replace("</head>", head_extra + "</head>", 1)

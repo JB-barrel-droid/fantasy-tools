@@ -44,8 +44,9 @@
 body.v2 { margin: 0; background: var(--v2-canvas); color: var(--v2-ink); }
 body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !important; }
 
-/* The engine keeps running off-screen; nothing in it is visible or focusable. */
-.legacy-engine { position: absolute !important; left: -20000px !important; top: 0 !important; width: 1200px !important; visibility: hidden; pointer-events: none; }
+/* The engine keeps running but is never laid out or painted (page weight, 2026-10-08): its 16,000+
+   nodes cost about 3 s of layout on a slowed phone. Its values are identical either way. */
+.legacy-engine { display: none !important; }
 
 .v2-app, .v2-app * { box-sizing: border-box; }
 /* The off-screen engine's stylesheet targets bare elements; keep v2 on its own type. */

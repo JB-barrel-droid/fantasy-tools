@@ -368,6 +368,28 @@ Built 2026-10-08:
   removed, so the accessor threw and the live week-pair picker showed only the current pair. The
   Risers test caught it.
 
+## Page weight (2026-10-08, JEG-449)
+
+Measured on a local `make sync` build, headless Chromium, CPU slowed 4×:
+
+| | Before | After |
+| --- | --- | --- |
+| Decoded bytes on first load | 8.8 MB | 4.1 MB |
+| Time to usable, 390 px (Trade targets cards) | 7.0–10.7 s | 2.8 s |
+| Time to usable, 1440 px | — | 2.5 s |
+| `comparison-sources-data.json` downloads | 3 × 2.3 MB | 1 × 2.3 MB (261 KB gzipped) |
+
+- The hidden engine container was `visibility: hidden` off-screen, which still lays out its 16,700
+  nodes (about 3.2 s of layout and 1.1 s of style at 4×). It is now `display: none`. Proof that no
+  number moves: `getAllRows()` (every series), `getSourceInfo()`, `getZones()`, weights, selection and
+  every `TradeValueCurveDiagnostics` field are identical with and without it at four league settings
+  (checked by hand), and `tests/test_v2_weight_render.py` repeats the row / info / zone comparison.
+- A small script in the v2 head shares one network request per same-origin `.json` URL between the
+  engine scripts (each caller gets its own clone; a caller's abort signal still rejects that caller).
+- The classic page's fonts (Archivo, IBM Plex Mono) are no longer requested by v2.
+- Not changed (back-end lane): the 1 MB inline `players-data` island (129 KB gzipped) and the 2.3 MB
+  comparison file itself.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
