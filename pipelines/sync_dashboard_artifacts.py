@@ -392,6 +392,10 @@ def sync_week_history(target: Path) -> None:
     # Prior ESPN legs, rebuilt from the saved projections with today's
     # pipeline code (HISTORY-ESPN-PRIOR); derived, so served but not stored.
     write_espn_legs(load_weeks(HISTORY_DIR), json.loads(PLAYERS.read_text()), target / "espn-legs.json")
+    # The served version of a week when it is not that week's snapshot.
+    from build_week_history import load_superseded, write_served_versions
+    write_served_versions(json.loads((HISTORY_DIR / "index.json").read_text()), load_superseded(HISTORY_DIR),
+                          target / "served.json")
 
 
 def main() -> int:

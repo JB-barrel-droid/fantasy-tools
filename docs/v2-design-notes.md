@@ -413,7 +413,9 @@ committed store `data/history/`. Each file is versioned by `schema` (`week-histo
   label_week, fingerprint, version?, label_mismatch? | reason?}}}`. `served[s].week` is the saved
   week whose inputs equal what the page serves now; `version` is `"snapshot"` (the week's
   snapshot) or `"superseded"` (another kept version of that week, e.g. an older revision still
-  served). It is matched by content fingerprint, not by the
+  served, or a FantasyCalc pull newer than the Tuesday cut). Then `entry_fingerprint` names it,
+  `make sync` serves it in `assets/history/served.json` (`{schema, season, sources: {s: entry}}`),
+  and `getWeekValues(s, served week)` prices that version, so "this week" is exactly the chart. It is matched by content fingerprint, not by the
   section's label. `label_mismatch` says when the two disagree.
 
 ### How weeks are coded (docs/week-coding-rules.md)

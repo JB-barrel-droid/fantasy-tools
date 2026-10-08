@@ -289,6 +289,36 @@ class WeekSnapshotRuleTest(unittest.TestCase):
         fixture["sources"]["cbs"]["combos"]["full_12"]["native"]["bijan"] = 46.0
         self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["cbs"]["week"])
 
+    def test_two_qb_rows_in_the_same_bake_are_ignored(self):
+        # FantasyCalc saves qb_slots=2 rows in the same bake (superflex
+        # publisher values); history is the 1-QB natives only.
+        base = {"season": 2026, "scoring": "ppr", "source_content_date": None, "week": 5,
+                "source": "fantasycalc", "bake_id": "fcwk5_2026-10-08t1259_v1",
+                "pulled_at": "2026-10-08T12:59:15+00:00", "league_teams": 12}
+        rows = [dict(base, player_key=217, native_value=9000.0, qb_slots=1),
+                dict(base, player_key=217, native_value=7000.0, qb_slots=2),
+                dict(base, player_key=1, native_value=500.0, qb_slots=2)]
+        [entry] = H.published_entries_from_rows(rows)
+        self.assertEqual(entry["natives"]["ppr"], {"217": 9000.0})
+
+    def test_served_superseded_version_is_served_for_its_week(self):
+        # The chart serves a FantasyCalc pull newer than the week's Tuesday
+        # cut: the index names it and make sync serves it (served.json), so
+        # "this week" is exactly what the chart shows.
+        sup = {}
+        cut = self._chart("fantasycalc", 5, 100.0, "2026-10-06 14:20:24+00")
+        newer = self._chart("fantasycalc", 5, 104.0, "2026-10-08 12:59:15+00")
+        docs = H.merge({}, [cut, newer], content_week=5, log=self.quiet, superseded=sup)
+        self.assertEqual(docs[5]["sources"]["fantasycalc"]["natives"]["ppr"]["217"], 100.0)
+        fixture = {"player_keys": {"bijan": 217}, "sources": {"fantasycalc": {"week_designated": "Week 5", "combos": {
+            c: {"native": {"bijan": 104.0}} for c in H.FIXTURE_COMBO.values()}}}}
+        index = H.build_index(docs, fixture, {"players": [], "meta": {}}, 5, sup)
+        rec = index["served"]["fantasycalc"]
+        self.assertEqual((rec["week"], rec["version"]), (5, "superseded"))
+        with tempfile.TemporaryDirectory() as tmp:
+            served = H.write_served_versions(index, sup, Path(tmp) / "served.json")
+        self.assertEqual(served["sources"]["fantasycalc"]["natives"]["ppr"]["217"], 104.0)
+
     def test_timestamp_formats_compare_as_times(self):
         # The base tables return ISO 'T' timestamps, the old view a space: a
         # raw string compare ranks any 'T' stamp above any same-day space one.
@@ -586,6 +616,9 @@ class DeltaRecomputeTest(unittest.TestCase):
         self.assertNotEqual(espn_served_leg, widget)
         vorp_served = widget.replace("values: buildVorpMap(series, ppg),", "values: buildVorpMap(series),")
         self.assertNotEqual(vorp_served, widget)
+        served_ignored = widget.replace('if (servedRec?.week === week && servedRec?.version === "superseded") {',
+                                        'if (false) {')
+        self.assertNotEqual(served_ignored, widget)
         cases = {
             "week-4 file served relabelled as week 3": {"assets/history/week-4.json": relabelled_doc},
             "week-4 file served with week-3 content": {"assets/history/week-4.json": json.dumps(dict(relabelled, week=4))},
@@ -594,6 +627,11 @@ class DeltaRecomputeTest(unittest.TestCase):
             "ESPN prior reads the served week's leg": {"assets/curve-widget.js": espn_served_leg},
             "VORP prior prices the served projections": {"assets/curve-widget.js": vorp_served},
         }
+        index = json.loads((DIST / "assets" / "history" / "index.json").read_text()) \
+            if (DIST / "assets" / "history" / "index.json").exists() else {}
+        if any(r.get("version") == "superseded" for r in (index.get("served") or {}).values()):
+            cases["served week read from the week's snapshot, not the served version"] = {
+                "assets/curve-widget.js": served_ignored}
         for name, overrides in cases.items():
             with self.subTest(name):
                 self.assertNotEqual(collect(overrides), [], f"{name} was not caught")
