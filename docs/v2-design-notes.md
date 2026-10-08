@@ -296,16 +296,19 @@ committed store `data/history/`. Each file is versioned by `schema` (`week-histo
   - published charts (`kind: "published_chart"`: usatoday, fantasycalc, fantasypros, cbs):
     `natives: {standard|half_ppr|ppr: {player_key: native}}`. These are the chart's own
     as-published values for the saved 12-team, 1-QB setup. They are the same cells the engine
-    derives the chart from, taken from Supabase `api.source_inputs_weekly` (the latest pull of
-    that week);
+    derives the chart from, taken from Supabase `public.source_trade_values` /
+    `public.cbs_trade_values` (every saved bake is a version; the week's snapshot is chosen by the
+    rule below);
   - projection sources (`kind: "projection"`: espn, cbsros, razzball): `field` (`espn_ppg`,
     `cbsros_ppg`, `rz_ppg`), `snapshot_date` and `ppg: {player_key: [standard, half_ppr, ppr]}`.
     These are per-game projections rounded to `PPG_DECIMALS`, as `bake_players.py` rounds them, taken from
     the served players.json or the Supabase projection tables.
 - `index.json` = `{schema, season, content_week, fixture_built_at, weeks: {"N": {file, frozen,
   sources: {s: {origin, complete, fingerprint, content_date?, pulled_at?}}}}, served: {s: {week,
-  label_week, fingerprint, label_mismatch? | reason?}}}`. `served[s].week` is the saved week whose
-  inputs equal what the page serves now. It is matched by content fingerprint, not by the
+  label_week, fingerprint, version?, label_mismatch? | reason?}}}`. `served[s].week` is the saved
+  week whose inputs equal what the page serves now; `version` is `"snapshot"` (the week's
+  snapshot) or `"superseded"` (another kept version of that week, e.g. an older revision still
+  served). It is matched by content fingerprint, not by the
   section's label. `label_mismatch` says when the two disagree.
 
 ### How weeks are coded (docs/week-coding-rules.md)

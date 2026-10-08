@@ -158,8 +158,11 @@ jobs:
 
       # Week history (docs/v2-design-notes.md "Back-end contract: history"):
       # append each source's saved inputs per content week to data/history/
-      # (published charts from api.source_inputs_weekly, projections from the
-      # served players.json and the Supabase projection tables). Past weeks are
+      # (published charts: every saved bake in public.source_trade_values /
+      # cbs_trade_values; projections: the served players.json and the
+      # Supabase projection tables). One snapshot per source and week by the
+      # week-over-week rule; other versions go to data/history/superseded/.
+      # Past weeks are
       # frozen; the no-relabel guard refuses any entry whose content evidence
       # is another week. Non-blocking: a failed capture restores the committed
       # history and the chain publishes without it (Risers & fallers then

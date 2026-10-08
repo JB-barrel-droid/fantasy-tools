@@ -38,6 +38,7 @@ import http.server
 import json
 import socketserver
 import sys
+import tempfile
 import threading
 import unittest
 from pathlib import Path
@@ -180,6 +181,96 @@ class AppendOnlyTest(unittest.TestCase):
         self.assertEqual(docs[5]["sources"]["fantasycalc"]["natives"]["ppr"]["217"], 120.0)
         docs = H.merge(docs, [self._candidate(5, 90.0, "2026-10-05 00:00:00+00")], content_week=5, log=lambda *_: None)
         self.assertEqual(docs[5]["sources"]["fantasycalc"]["natives"]["ppr"]["217"], 120.0)
+
+
+class WeekSnapshotRuleTest(unittest.TestCase):
+    """The week-over-week rule (docs/v2-design-notes.md "Which snapshot is a
+    source's week") and HISTORY-WEEK-CAPTURE: one snapshot per source and
+    week, every other version kept, never lost."""
+    quiet = staticmethod(lambda *_: None)
+
+    def _chart(self, source, week, value, pulled, content_date=None):
+        if content_date:
+            ev = {"rule": "content_date", "content_date": content_date, "week_column": week, "pulled_at": pulled}
+        elif source == "cbs":
+            ev = {"rule": "week_column_article", "week_column": week, "pulled_at": pulled}
+        else:
+            ev = {"rule": "week_column_pull", "week_column": week, "pulled_at": pulled}
+        return {"source": source, "kind": "published_chart", "week": week, "week_evidence": ev,
+                "origin": f"test {pulled}", "pulled_at": pulled, "bake_ids": [], "complete": True,
+                "natives": {s: {"217": value} for s in H.SCORINGS}, "sort_key": [pulled, 1]}
+
+    def test_fantasycalc_takes_the_first_pull_after_the_tuesday_cut(self):
+        # Week 5 cut = Tue 2026-10-06 12:00 UTC. Hourly pulls around it, in any order.
+        pulls = ["2026-10-06 03:00:00+00", "2026-10-06 11:59:00+00", "2026-10-06 12:05:00+00",
+                 "2026-10-06 13:00:00+00", "2026-10-08 09:00:00+00"]
+        for order in (pulls, list(reversed(pulls))):
+            sup = {}
+            docs = H.merge({}, [self._chart("fantasycalc", 5, 100.0 + i, p) for i, p in
+                                enumerate(order)], content_week=5, log=self.quiet, superseded=sup)
+            entry = docs[5]["sources"]["fantasycalc"]
+            self.assertEqual(entry["pulled_at"], "2026-10-06 12:05:00+00")
+            self.assertEqual(entry["cut"], "after")
+            self.assertEqual(len(sup[5]["versions"]["fantasycalc"]), 4)  # the rest are kept
+        # No pull after the cut in the week: the week's latest, flagged.
+        docs = H.merge({}, [self._chart("fantasycalc", 5, 1.0, "2026-10-06 03:00:00+00"),
+                            self._chart("fantasycalc", 5, 2.0, "2026-10-06 11:00:00+00")],
+                       content_week=5, log=self.quiet)
+        self.assertEqual(docs[5]["sources"]["fantasycalc"]["pulled_at"], "2026-10-06 11:00:00+00")
+        self.assertEqual(docs[5]["sources"]["fantasycalc"]["cut"], "missed")
+
+    def test_article_revision_keeps_both_and_frozen_week_never_swaps(self):
+        sup = {}
+        first = self._chart("usatoday", 4, 66.0, "2026-09-29 00:00:00+00", "2026-09-29")
+        revised = self._chart("usatoday", 4, 68.0, "2026-10-02 00:00:00+00", "2026-09-29")
+        docs = H.merge({}, [first], content_week=4, log=self.quiet, superseded=sup)
+        docs = H.merge(docs, [revised], content_week=4, log=self.quiet, superseded=sup)
+        self.assertEqual(docs[4]["sources"]["usatoday"]["natives"]["ppr"]["217"], 68.0)  # latest revision
+        self.assertEqual([v["natives"]["ppr"]["217"] for v in sup[4]["versions"]["usatoday"]], [66.0])
+        # Week 5 opens and the first capture freezes week 4; a Week-4 revision
+        # saved after that is kept, not swapped in.
+        docs = H.merge(docs, [], content_week=5, log=self.quiet, superseded=sup)
+        late = self._chart("usatoday", 4, 70.0, "2026-10-07 00:00:00+00", "2026-09-29")
+        docs = H.merge(docs, [late], content_week=5, log=self.quiet, superseded=sup)
+        self.assertTrue(docs[4]["frozen"])
+        self.assertEqual(docs[4]["sources"]["usatoday"]["natives"]["ppr"]["217"], 68.0)
+        self.assertEqual(sorted(v["natives"]["ppr"]["217"] for v in sup[4]["versions"]["usatoday"]), [66.0, 70.0])
+        # Superseded files go through the same no-relabel guard.
+        with tempfile.TemporaryDirectory() as tmp:
+            H.write_superseded(sup, Path(tmp))
+            self.assertEqual(set(H.load_superseded(Path(tmp))), {4})
+            self.assertEqual(sorted(p.name for p in Path(tmp).glob("week-*.json")), [])  # not served
+            bad = json.loads((Path(tmp) / "superseded" / "week-4.json").read_text())
+            bad["versions"]["usatoday"][0]["week_evidence"]["content_date"] = "2026-09-23"
+            with self.assertRaises(H.HistoryError):
+                H.validate_superseded_doc(bad, 4)
+
+    def test_every_bake_is_a_version_and_overwrite_leftovers_are_not(self):
+        base = {"season": 2026, "scoring": "ppr", "source_content_date": "2026-09-29", "week": 4,
+                "source": "usatoday"}
+        rows = [dict(base, player_key=217, native_value=66.0, pulled_at="2026-09-29 00:00:00+00", bake_id="b1"),
+                dict(base, player_key=1, native_value=5.0, pulled_at="2026-09-29 00:00:00+00", bake_id="b1"),
+                dict(base, player_key=217, native_value=68.0, pulled_at="2026-10-02 00:00:00+00", bake_id="b2"),
+                # b2 overwritten in place on 10-03: player 1 dropped, left behind at 10-02.
+                dict(base, player_key=1, native_value=4.0, pulled_at="2026-10-02 00:00:00+00", bake_id="b3"),
+                dict(base, player_key=217, native_value=69.0, pulled_at="2026-10-03 00:00:00+00", bake_id="b3")]
+        entries = H.published_entries_from_rows(rows)
+        got = sorted((e["bake_ids"][0], sorted(e["natives"]["ppr"].items())) for e in entries)
+        self.assertEqual(got, [("b1", [("1", 5.0), ("217", 66.0)]), ("b2", [("217", 68.0)]),
+                               ("b3", [("217", 69.0)])])
+
+    def test_index_matches_a_served_superseded_version(self):
+        sup = {}
+        older = self._chart("usatoday", 5, 60.0, "2026-10-06 00:00:00+00", "2026-10-06")
+        newer = self._chart("usatoday", 5, 62.0, "2026-10-07 00:00:00+00", "2026-10-06")
+        docs = H.merge({}, [older, newer], content_week=5, log=self.quiet, superseded=sup)
+        fixture = {"player_keys": {"bijan": 217}, "sources": {"usatoday": {"week_designated": "Week 5", "combos": {
+            c: {"native": {"bijan": 60.0}} for c in H.FIXTURE_COMBO.values()}}}}
+        index = H.build_index(docs, fixture, {"players": [], "meta": {}}, 5, sup)
+        self.assertEqual(index["served"]["usatoday"]["week"], 5)
+        self.assertEqual(index["served"]["usatoday"]["version"], "superseded")
+        # Without the kept versions (the old behaviour) the served week is lost.
+        self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["usatoday"]["week"])
 
 
 # ------------------------------------------------------------------ browser

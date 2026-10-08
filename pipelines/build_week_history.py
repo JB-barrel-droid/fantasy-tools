@@ -11,8 +11,8 @@ What an entry holds (one source, one content week):
   * published charts (usatoday, fantasycalc, fantasypros, cbs): the source's
     own as-published native values for the saved 12-team, 1-QB setup, per
     scoring -- exactly the `native` cells the engine derives a chart from
-    (ValueModel.derivePublishedSetup). Origin: Supabase api.source_inputs_weekly
-    (the latest pull of that week, one per source/week/scoring).
+    (ValueModel.derivePublishedSetup). Origin: Supabase public.source_trade_values
+    / public.cbs_trade_values, one entry per bake (its latest pull).
   * projection sources (espn, cbsros, razzball): per-game projections per
     scoring, the same field the engine reads from players.json (espn_ppg,
     cbsros_ppg, rz_ppg), rounded to PPG_DECIMALS as pipelines/bake_players.py
@@ -30,6 +30,16 @@ CONTENT, never from the request or a label:
     which must equal the content week the pull happened in.
 An entry whose evidence does not give the file's week is refused
 (validate_week_doc), so a Week 4 file can never carry Week 3 content.
+
+Which version is a week's snapshot (Jeremy 2026-10-08, "the snapshot we
+compare to week over week"; prefer()): articles = the latest revision saved
+before the week froze; FantasyCalc = the first pull at or after Tuesday
+12:00 UTC of the week; projections = the newest snapshot dated in the week.
+Every other distinct version is kept in data/history/superseded/week-<N>.json
+(not served), so a mid-week replacement keeps both (HISTORY-WEEK-CAPTURE).
+Published-chart versions are read from the base tables, where every ingest
+writes an immutable bake, so a revision saved and replaced between two chain
+runs is still captured.
 
 Append-only: a week is frozen once the content calendar has moved past it.
 A frozen entry is never replaced (a differing candidate is reported and
@@ -60,7 +70,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
-from nfl_week import current_nfl_week  # noqa: E402
+from nfl_week import content_week_start, current_nfl_week  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from games_remaining import PPG_DECIMALS  # noqa: E402  (bake_players' per-game precision)
@@ -71,6 +81,13 @@ PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
 SCHEMA = "week-history/1"
 INDEX_SCHEMA = "week-history-index/1"
+SUPERSEDED_SCHEMA = "week-history-superseded/1"
+SUPERSEDED_DIR_NAME = "superseded"   # data/history/superseded/ (never served)
+MAX_SUPERSEDED_PER_SOURCE = 12        # newest kept per source and week
+# FantasyCalc is a continuous crowd value: its week-N snapshot is the first
+# pull at or after this cut in content week N (the Tuesday turnover, after the
+# Monday-night reaction, when the Week-N articles are out).
+FANTASYCALC_CUT_HOUR_UTC = 12
 SEASON = 2026
 SCORINGS = ("standard", "half_ppr", "ppr")
 PUBLISHED = ("usatoday", "fantasycalc", "fantasypros", "cbs")
@@ -200,18 +217,36 @@ def validate_week_doc(doc: dict, expected_week: int | None = None) -> None:
 
 # ------------------------------------------------------------------ captures
 
-def published_entries_from_rows(rows: list[dict]) -> list[dict]:
-    """api.source_inputs_weekly rows -> one entry per (source, week)."""
-    groups: dict = {}
+def _latest_pull_per_bake(rows: list[dict]) -> list[dict]:
+    """Within one bake keep only its latest pull. A bake overwritten in place
+    (an upsert re-pulled into the same bake_id, or the pre-versioning CBS
+    week grain) leaves rows of players the newer pull dropped behind with an
+    older pulled_at; they are leftovers, not a version, and never part of the
+    newer one (same rule as api.source_inputs_weekly)."""
+    latest: dict = {}
     for row in rows:
+        k = (row["source"], int(row["week"]), row.get("bake_id"))
+        latest[k] = max(latest.get(k, ""), str(row.get("pulled_at") or ""))
+    return [r for r in rows
+            if str(r.get("pulled_at") or "") == latest[(r["source"], int(r["week"]), r.get("bake_id"))]]
+
+
+def published_entries_from_rows(rows: list[dict]) -> list[dict]:
+    """Saved chart rows -> one entry per (source, week, version). A version
+    is one bake's latest pull (every immutable revision the ingests saved);
+    which one is the week's snapshot is merge()'s job (select rule)."""
+    groups: dict = {}
+    rows = [r for r in rows if r.get("source") in PUBLISHED and r.get("week") is not None]
+    for row in _latest_pull_per_bake(rows):
         source = row["source"]
-        if source not in PUBLISHED or int(row.get("season") or SEASON) != SEASON:
+        if int(row.get("season") or SEASON) != SEASON:
             continue
         scoring = SB_SCORING.get(row["scoring"])
         if scoring is None or row.get("player_key") is None or row.get("native_value") is None:
             continue
-        g = groups.setdefault((source, int(row["week"])), {"natives": {}, "pulls": set(),
-                                                            "content": set(), "bakes": set()})
+        version = (row.get("bake_id"), str(row.get("pulled_at")))
+        g = groups.setdefault((source, int(row["week"]), version),
+                              {"natives": {}, "pulls": set(), "content": set(), "bakes": set()})
         g["natives"].setdefault(scoring, {})[str(int(row["player_key"]))] = float(row["native_value"])
         g["pulls"].add(str(row["pulled_at"]))
         if row.get("source_content_date"):
@@ -219,7 +254,7 @@ def published_entries_from_rows(rows: list[dict]) -> list[dict]:
         if row.get("bake_id"):
             g["bakes"].add(row["bake_id"])
     out = []
-    for (source, week_col), g in sorted(groups.items()):
+    for (source, week_col, _version), g in sorted(groups.items(), key=lambda kv: (kv[0][0], kv[0][1], kv[0][2][1])):
         if len(g["content"]) > 1:
             raise HistoryError(f"{source} week {week_col}: mixed content dates {sorted(g['content'])}")
         pulled = max(g["pulls"])
@@ -234,7 +269,8 @@ def published_entries_from_rows(rows: list[dict]) -> list[dict]:
         else:
             raise HistoryError(f"{source} week {week_col}: no content date")
         entry = {"source": source, "kind": "published_chart", "week": None, "week_evidence": ev,
-                 "origin": "supabase:api.source_inputs_weekly (12 teams, 1 QB, as published; latest pull of the week)",
+                 "origin": (f"supabase:{'public.cbs_trade_values' if source == 'cbs' else 'public.source_trade_values'}"
+                            f" bake {next(iter(g['bakes']), 'none')} (12 teams, 1 QB, as published)"),
                  "pulled_at": pulled, "bake_ids": sorted(g["bakes"]),
                  "complete": all(s in g["natives"] for s in SCORINGS),
                  "natives": g["natives"], "sort_key": [pulled, ORIGIN_RANK["supabase"]]}
@@ -317,9 +353,24 @@ def fetch_supabase() -> tuple[list[dict], list[dict]]:
                 return rows
             offset += 1000
 
-    published = paged("source_inputs_weekly",
-                      "source,season,week,scoring,player_key,native_value,source_content_date,pulled_at,bake_id",
-                      "source,week,scoring,player_key", schema="api")
+    # Every saved version (HISTORY-WEEK-CAPTURE): the ingests write each
+    # revision as an immutable bake, so reading the base tables (not the
+    # latest-pull view) recovers a version replaced between two chain runs.
+    cols = "source,season,week,scoring,player_key,native_value,source_content_date,pulled_at,bake_id"
+    grain = f"&season=eq.{SEASON}&league_teams=eq.12&qb_slots=eq.1&variant=eq.as_published"
+
+    def published_rows(table, source_filter):
+        rows, offset = [], 0
+        while True:
+            page = sbclient.get(table, f"?select={cols}&{source_filter}{grain}"
+                                       f"&order=id&limit=1000&offset={offset}")
+            rows.extend(page)
+            if len(page) < 1000:
+                return rows
+            offset += 1000
+
+    published = (published_rows("source_trade_values", "source=in.(fantasycalc,fantasypros,usatoday)")
+                 + published_rows("cbs_trade_values", "source=eq.cbs"))
     snaps: dict = {}
     for src, table, date_col in (("razzball", "razzball_projections", "razzball_snapshot_date"),
                                  ("cbsros", "cbs_ros_projections", "cbs_snapshot_date")):
@@ -409,8 +460,67 @@ def same_content_finer(have: dict, cand: dict) -> bool:
     return finer
 
 
-def merge(docs: dict[int, dict], candidates: list[dict], content_week: int, log=print) -> dict[int, dict]:
-    """Fold candidate entries into the week documents (append-only)."""
+def _stamp() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _pulled(entry: dict) -> str:
+    return str(entry.get("pulled_at") or (entry.get("week_evidence") or {}).get("pulled_at") or "")
+
+
+def fantasycalc_cut(week: int) -> str:
+    """Tuesday 12:00 UTC of content week `week`, as a comparable timestamp."""
+    return f"{content_week_start(week).isoformat()} {FANTASYCALC_CUT_HOUR_UTC:02d}:00:00+00"
+
+
+def _ts(value: str) -> str:
+    """Normalise '2026-10-06T14:20:24+00:00' / '2026-10-06 14:20:24+00' for
+    string comparison (date, space, time)."""
+    return str(value).replace("T", " ")[:19]
+
+
+def prefer(cand: dict, have: dict) -> bool:
+    """True when `cand` is the better week-N snapshot than `have` (the
+    week-over-week rule, docs/v2-design-notes.md "Which snapshot is a
+    source's week"):
+      * FantasyCalc: the first pull at or after Tuesday 12:00 UTC of the
+        week; with no pull after the cut, the week's latest pull;
+      * articles and projections: the newest version (latest revision /
+        newest snapshot dated in the week).
+    """
+    if cand["source"] == "fantasycalc" and cand.get("kind") == "published_chart":
+        cut = _ts(fantasycalc_cut(cand["week"]))
+        c, h = _ts(_pulled(cand)), _ts(_pulled(have))
+        if (c >= cut) != (h >= cut):
+            return c >= cut
+        return c < h if c >= cut else c > h
+    return cand["_sort"] >= (have.get("_sort") or [have.get("pulled_at") or have.get("snapshot_date") or "", 0])
+
+
+def _supersede(superseded: dict, entry: dict, log) -> None:
+    """Keep a version that is not (or no longer) the week's snapshot."""
+    doc = superseded.setdefault(entry["week"], {"schema": SUPERSEDED_SCHEMA, "season": SEASON,
+                                                "week": entry["week"], "versions": {}})
+    versions = doc["versions"].setdefault(entry["source"], [])
+    if any(v["fingerprint"] == entry["fingerprint"] for v in versions):
+        return
+    versions.append(entry)
+    versions.sort(key=lambda v: (_pulled(v) or v.get("snapshot_date") or ""))
+    if len(versions) > MAX_SUPERSEDED_PER_SOURCE:
+        dropped = versions.pop(0)
+        log(f"superseded cap: drop oldest {entry['source']} week {entry['week']} version {dropped['origin']}")
+    log(f"keep superseded {entry['source']} week {entry['week']}: {entry['origin']}")
+
+
+def merge(docs: dict[int, dict], candidates: list[dict], content_week: int, log=print,
+          superseded: dict[int, dict] | None = None) -> dict[int, dict]:
+    """Fold candidate entries into the week documents (append-only).
+
+    Each (source, week) gets ONE snapshot by the week-over-week rule
+    (prefer); every other distinct version goes to `superseded` (when given),
+    so a version replaced mid-week is kept, not lost (HISTORY-WEEK-CAPTURE).
+    A frozen week's snapshot never changes (late versions are superseded)."""
+    superseded = {} if superseded is None else superseded
     for cand in candidates:
         week = cand["week"]
         sort_key = cand.pop("sort_key")
@@ -420,36 +530,83 @@ def merge(docs: dict[int, dict], candidates: list[dict], content_week: int, log=
             continue
         doc = docs.setdefault(week, {"schema": SCHEMA, "season": SEASON, "week": week,
                                      "frozen": False, "sources": {}})
+        cand["_sort"] = sort_key
+        if cand["source"] == "fantasycalc" and cand.get("kind") == "published_chart":
+            cand["cut"] = "after" if _ts(_pulled(cand)) >= _ts(fantasycalc_cut(week)) else "missed"
         have = doc["sources"].get(cand["source"])
         if have is None:
-            cand["captured_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            cand["_sort"] = sort_key
+            cand["captured_at"] = _stamp()
             doc["sources"][cand["source"]] = cand
             log(f"add {cand['source']} week {week}{' (late, frozen week)' if doc['frozen'] else ''}")
             continue
         if have["fingerprint"] == cand["fingerprint"]:
             continue
         if doc["frozen"] and same_content_finer(have, cand):
-            cand["captured_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            cand["_sort"] = sort_key
+            cand["captured_at"] = _stamp()
             cand["rebased_from"] = have["fingerprint"]
             doc["sources"][cand["source"]] = cand
             log(f"rebase frozen {cand['source']} week {week}: same content, finer precision")
             continue
+        cand["captured_at"] = _stamp()
         if doc["frozen"]:
             log(f"KEEP frozen {cand['source']} week {week}: a different candidate "
-                f"({cand['origin']}) was not applied (append-only)")
+                f"({cand['origin']}) is kept as a superseded version (append-only)")
+            _supersede(superseded, cand, log)
             continue
-        if sort_key >= (have.get("_sort") or [have.get("pulled_at") or have.get("snapshot_date") or "", 0]):
-            cand["captured_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-            cand["_sort"] = sort_key
+        if prefer(cand, have):
             doc["sources"][cand["source"]] = cand
             log(f"update open week {week} {cand['source']} -> {cand['origin']}")
+            _supersede(superseded, have, log)
+        else:
+            _supersede(superseded, cand, log)
     for week, doc in docs.items():
         if week < content_week and not doc["frozen"]:
             doc["frozen"] = True
             log(f"freeze week {week}")
+    for week, sdoc in superseded.items():
+        selected = docs.get(week, {}).get("sources", {})
+        for source in list(sdoc["versions"]):
+            fp = (selected.get(source) or {}).get("fingerprint")
+            sdoc["versions"][source] = [v for v in sdoc["versions"][source] if v["fingerprint"] != fp]
+            if not sdoc["versions"][source]:
+                del sdoc["versions"][source]
     return docs
+
+
+def superseded_dir(directory: Path = HISTORY_DIR) -> Path:
+    return directory / SUPERSEDED_DIR_NAME
+
+
+def load_superseded(directory: Path = HISTORY_DIR) -> dict[int, dict]:
+    out = {}
+    for path in sorted(superseded_dir(directory).glob("week-*.json")):
+        week = int(path.stem.split("-")[1])
+        doc = json.loads(path.read_text())
+        validate_superseded_doc(doc, week)
+        out[week] = doc
+    return out
+
+
+def validate_superseded_doc(doc: dict, expected_week: int) -> None:
+    """Same no-relabel guard as a week file, for every kept version."""
+    if doc.get("schema") != SUPERSEDED_SCHEMA or doc.get("week") != expected_week:
+        raise HistoryError(f"superseded week-{expected_week}: bad schema/week")
+    for source, versions in (doc.get("versions") or {}).items():
+        probe = {"schema": SCHEMA, "season": doc.get("season"), "week": expected_week, "frozen": True,
+                 "sources": {}}
+        for v in versions:
+            probe["sources"] = {source: v}
+            validate_week_doc(probe, expected_week)
+
+
+def write_superseded(superseded: dict[int, dict], directory: Path = HISTORY_DIR) -> None:
+    target = superseded_dir(directory)
+    for week, doc in sorted(superseded.items()):
+        if not doc["versions"]:
+            continue
+        validate_superseded_doc(doc, week)
+        target.mkdir(parents=True, exist_ok=True)
+        (target / f"week-{week}.json").write_text(json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n")
 
 
 def write_weeks(docs: dict[int, dict], directory: Path = HISTORY_DIR) -> None:
@@ -500,21 +657,30 @@ def label_week(fixture: dict, source: str) -> int | None:
     return None
 
 
-def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_week: int) -> dict:
+def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_week: int,
+                superseded: dict[int, dict] | None = None) -> dict:
     served = {}
     fps = served_fingerprints(fixture, players)
+    superseded = superseded or {}
     for source in (*PUBLISHED, *PROJECTION_FIELDS):
         fp = fps.get(source)
         matches = [w for w, d in sorted(docs.items())
                    if (d["sources"].get(source) or {}).get("fingerprint") == fp]
+        # The page may serve a version that is not its week's snapshot (an
+        # older revision still in the fixture, or a FantasyCalc pull other
+        # than the cut): it is still that week's content, so Δ pairs it with
+        # the week before (version: "superseded").
+        other = [w for w, d in sorted(superseded.items())
+                 if any(v.get("fingerprint") == fp for v in (d.get("versions") or {}).get(source, []))]
         label = label_week(fixture, source)
         rec = {"label_week": label, "fingerprint": fp}
         if not fp:
             rec.update(week=None, reason="the page serves no inputs for this source")
-        elif not matches:
+        elif not matches and not other:
             rec.update(week=None, reason="the served inputs match no saved week")
         else:
-            rec["week"] = matches[-1]
+            rec["week"] = matches[-1] if matches else other[-1]
+            rec["version"] = "snapshot" if matches else "superseded"
             if label is not None and label != rec["week"]:
                 rec["label_mismatch"] = (f"section label says Week {label}; the served inputs are "
                                          f"the saved Week {rec['week']} content")
@@ -564,9 +730,11 @@ def main(argv=None) -> int:
     today = date.fromisoformat(args.today) if args.today else date.today()
     content_week = current_nfl_week(today)
     docs = load_weeks(args.dir)
+    superseded = load_superseded(args.dir)
     players = json.loads(PLAYERS.read_text())
     if args.index_only:
-        write_index(build_index(docs, json.loads(FIXTURE.read_text()), players, content_week), args.dir)
+        write_index(build_index(docs, json.loads(FIXTURE.read_text()), players, content_week, superseded),
+                    args.dir)
         return 0
     candidates: list[dict] = []
     if args.served_only:
@@ -584,9 +752,10 @@ def main(argv=None) -> int:
                 candidates.append(entry)
     # Always: the projection inputs the page serves right now.
     candidates += projection_entries_from_players(players, "players.json (served)")
-    docs = merge(docs, candidates, content_week)
+    docs = merge(docs, candidates, content_week, superseded=superseded)
     write_weeks(docs, args.dir)
-    index = build_index(docs, json.loads(FIXTURE.read_text()), players, content_week)
+    write_superseded(superseded, args.dir)
+    index = build_index(docs, json.loads(FIXTURE.read_text()), players, content_week, superseded)
     write_index(index, args.dir)
     for source, rec in index["served"].items():
         note = rec.get("label_mismatch") or rec.get("reason") or ""
