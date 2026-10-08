@@ -54,3 +54,19 @@ short-chart-waiver, suffix-names, main-table-drift.
   players.json espn 2026-10-07, rz 2026-10-07, cbsros 2026-10-08.
 - Live: `/`, `/v2/`, `/classic/` 200 with "Trade Value · Data Driven Football";
   unknown path 404 page; root renders v2, fixedPieIndexed true, 507 rows.
+
+### Outage: deploys and chain publishes blocked 10:52–12:00 UTC (integrator error)
+- Cause: tests/test_espn_tier_matches_leg.py (merged with fix/engine-tidy, fcf7da6)
+  imported playwright unguarded. CI has no Python playwright, so it errored (not
+  skipped) inside `make validate`: every pages.yml deploy (fcf7da6 .. 2bb1486) and
+  the 11:45 bake chain run failed; the live site stayed on a1ff559. My local
+  validations passed because playwright is installed locally.
+- Fix 4fe8a6c: guarded the import in that test and four others with the same
+  pattern. Verified with a CI simulation: `PYTHONPATH=<shim making playwright
+  unimportable> make validate` -> rc 0; normal local validate rc 0. Next deploy
+  (ff92591) green; manual bake chain published (espn 2026-10-08).
+- Process change: every merge now runs both validations before push
+  (scratchpad gate.sh); the agent brief requires the same. The tests-hygiene
+  lane is installing a browser in CI so gate render tests run instead of skip.
+- Also: my background merge command would have pushed after a red validate;
+  I stopped it before the push. Merge commands now push only when the gate exits 0.
