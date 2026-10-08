@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-08T10:00:48.320934+00:00",
+  "run_at": "2026-10-08T11:00:49.299292+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,8 +10,10 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
   "outcome": "green",
   "held": [],
   "hold_severity": "none",
@@ -126,5 +128,21 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_guard_fails_on_pre_fix_widget",
+      "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_tier_matches_server_pool_and_espn_value"
+    ],
+    "assertions": [
+      "ModuleNotFoundError: No module named 'playwright'"
+    ],
+    "make_targets": [
+      "Makefile:379: test-core"
+    ],
+    "detail": "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_guard_fails_on_pre_fix_widget; ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_tier_matches_server_pool_and_espn_value; ModuleNotFoundError: No module named 'playwright'",
+    "recorded_at": "2026-10-08T11:01:01.625512+00:00"
   }
 }
