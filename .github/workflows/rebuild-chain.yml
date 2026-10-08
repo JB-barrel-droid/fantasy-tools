@@ -294,6 +294,23 @@ jobs:
             fi
           fi
           mkdir -p output
+          # JEG-479 (Jeremy 2026-10-08): the math lives in two places on
+          # purpose. Run the engine headless on this build and the Python
+          # reference (pipelines/value_reference.py) on the same snapshot and
+          # diff every value (output/value-check.json, machine-readable). A
+          # disagreeing source and every series derived from it
+          # (value_check.SOURCE_DERIVED) are held: their sections go back to
+          # the last published ones, marked validationHold {reason, week}, so
+          # the page labels them and keeps them out of the DDF Value; the
+          # other sources publish. A comparison that cannot run holds nothing
+          # and is a warning; `make validate` below stays the deploy gate.
+          if env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/sync_dashboard_artifacts.py > output/value-check-sync.log 2>&1 \
+             && python3 pipelines/value_check.py compare; then
+            python3 pipelines/value_check.py hold \
+              || echo "::warning title=value-check::the hold step failed; see the log"
+          else
+            echo "::warning title=value-check::engine vs reference comparison did not run; nothing held"
+          fi
           set +e
           env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
           rc=$?
@@ -325,6 +342,8 @@ jobs:
           # Sync the rebuilt fixture, chain status, and fit output into dist for Pages
           cp data/fixtures/current/comparison-sources-data.json dist/modules/comparison-sources-data.json
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null || true
+          # JEG-479: the engine vs reference report, for the monitor and the fidelity pulse.
+          cp output/value-check.json dist/modules/value-check.json 2>/dev/null || true
           cp app/trade-value-chart/assets/adjustment-inputs.json dist/assets/adjustment-inputs.json 2>/dev/null || true
 
       # GAP-044: detect derived sections that lag their input, generically.
@@ -433,6 +452,8 @@ jobs:
             # GAP-044: input lineage (written by the step above). Own add, so
             # a missing file cannot abort the fixture's add.
             git add dist/modules/input-lineage.json 2>/dev/null || true
+            # JEG-479: engine vs Python reference report (own add, may be absent).
+            git add dist/modules/value-check.json 2>/dev/null || true
             # The served fit's versioned provenance copy (written by the same
             # fit stage as the asset above; tests/test_adjustment_inputs.py
             # requires it for the served version).
@@ -553,6 +574,23 @@ jobs:
           exit 1
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Value check summary (JEG-479)
+        if: always()
+        run: |
+          if [ -f output/value-check.md ]; then cat output/value-check.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+      - name: Upload value check report (JEG-479)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: value-check
+          path: |
+            output/value-check.json
+            output/value-check.md
+            output/value-check-engine.json
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Upload review artifacts (JEG-113)
         # The review JSONs are gitignored, so a bare "hold" in the log says

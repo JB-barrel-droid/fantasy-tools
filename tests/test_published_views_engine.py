@@ -35,6 +35,7 @@ from tests.test_published_league_settings_engine import (
     _cases, browser_inputs, browser_players, peers_ranked, run_js,
 )
 from pipelines.vorp_translation import unified
+from pipelines import value_reference
 
 TOL = 1e-9
 
@@ -54,51 +55,12 @@ def budgets_for(teams, shape, n_players):
 
 def expected_views(inputs, teams, shape, pos_of):
     """Independent reference: {src: {"vorp": {key: v}, "adj": {key: v}}}.
-    inputs: {src: (native [(key, value)], keys [key], budgets)}."""
-    slots = {p: shape[p] for p in POSITIONS}
-    vorp_out, adj_raw, batch_max = {}, {}, 0.0
-    for src, (native, keys, budgets) in inputs.items():
-        total = sum(b for g in budgets.values() for b in g.values() if b > 0)
-        ranked = {p: [] for p in POSITIONS}
-        for key, value in native:
-            ranked[pos_of[key]].append((str(key), str(key), float(value)))
-        for p in POSITIONS:
-            ranked[p].sort(key=lambda r: -r[2])  # stable, like the JS
-        # V2-WAIVER-COVERAGE: each chart's peers are the other charts in the batch.
-        peers = peers_ranked({other: inputs[other][0] for other in inputs if other != src}, pos_of)
-        at = unified.translate_ranked(ranked, teams, shape["BENCH"], shape["FLEX"],
-                                      slots=slots, peers=peers,
-                                      superflex_count=shape.get("SUPERFLEX", 0))
-        info, groups, vorp_sum = {}, {p: {"starter": 0.0, "bench": 0.0} for p in POSITIONS}, 0.0
-        for p in POSITIONS:
-            pinfo = at["positions"].get(p)
-            if not pinfo:
-                continue
-            n_start = pinfo["n_dedicated"] + pinfo.get("n_superflex", 0) + pinfo["n_flex"]
-            for i, (pkey, _name, _val) in enumerate(ranked[p]):
-                t = at["translated"].get(pkey)
-                if t is None:
-                    continue
-                role = "starter" if i < n_start else "bench"
-                info[pkey] = (p, role, t["vorp"])
-                groups[p][role] += t["vorp"]
-                vorp_sum += t["vorp"]
-        vorp_scale = total / vorp_sum if vorp_sum > 0 else 0.0
-        vals, weighted = {}, {}
-        for key in keys:
-            row = info.get(str(key))
-            v = w = 0.0
-            if row:
-                p, role, vorp = row
-                v = vorp * vorp_scale
-                group_total, budget = groups[p][role], budgets[p][role]
-                w = budget * vorp / group_total if group_total > 0 and budget > 0 else 0.0
-            vals[key], weighted[key] = v, w
-            batch_max = max(batch_max, w)
-        vorp_out[src], adj_raw[src] = vals, weighted
-    scale = 70.0 / batch_max if batch_max > 0 else 0.0
-    return {src: {"vorp": vorp_out[src], "adj": {k: w * scale for k, w in adj_raw[src].items()}}
-            for src in vorp_out}
+    inputs: {src: (native [(key, value)], keys [key], budgets)}. The math is
+    the production reference's (pipelines/value_reference.derive_views, the
+    one the chain's engine-vs-reference check runs, JEG-479)."""
+    batch = {src: (dict(native), list(keys), budgets) for src, (native, keys, budgets) in inputs.items()}
+    natives = {src: dict(native) for src, (native, _k, _b) in inputs.items()}
+    return value_reference.derive_views(batch, natives, lambda k: pos_of[int(k)], teams, shape)
 
 
 INDEXED_PRECISION = 0.1  # translate_ranked rounds `translated` to 1 decimal
