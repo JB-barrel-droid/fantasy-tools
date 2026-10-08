@@ -44,7 +44,6 @@ from tests.test_v2_targets_render import DIST, _built_dist  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_DATA_JS = ROOT / "app" / "trade-value-chart" / "assets" / "product-data.js"
 CURVE_WIDGET_JS = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
-DASHBOARD_JS = ROOT / "app" / "trade-value-chart" / "assets" / "comparison-dashboard.js"
 CHARTS = ("usatoday", "fantasycalc", "fantasypros", "cbs")
 LABEL = "ESPN: 0 (out)"
 SYMBOL = "⊘"
@@ -307,18 +306,15 @@ class EspnZeroBadgeRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         source = PRODUCT_DATA_JS.read_text(encoding="utf-8")
         widget = CURVE_WIDGET_JS.read_text(encoding="utf-8")
-        dashboard = DASHBOARD_JS.read_text(encoding="utf-8")
         # The engine before "Yes, use 0": an ESPN-0 player is missing (—).
+        # (GAP-MAIN-TABLE-ESPN-DRIFT, 2026-10-08: the main table renders the
+        # engine's rows and has no copy of the rule to mutate separately; this
+        # one mutation reaches the chart, the main table and /v2/.)
         no_zero_widget = widget.replace(
             "if (ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero) return 0;", "", 1)
-        no_zero_dashboard = dashboard.replace(
-            "return ESPN_ZERO_VALUE_KEYS.has(key) && map?.size && canonicalByKey.get(playerKey)?.espn_projects_zero ? 0 : null;",
-            "return null;", 1)
         self.assertNotEqual(no_zero_widget, widget, "mutation anchor for the engine 0.0 rule is stale")
-        self.assertNotEqual(no_zero_dashboard, dashboard, "mutation anchor for the table 0.0 rule is stale")
         for name, overrides in {
             "ESPN-0 missing in the engine": {"**/assets/curve-widget.js*": no_zero_widget},
-            "ESPN-0 missing in the main table": {"**/assets/comparison-dashboard.js*": no_zero_dashboard},
         }.items():
             with self.subTest(mutation=name):
                 self.assertNotEqual(check(collect(overrides)), [], f"render checks did not catch: {name}")

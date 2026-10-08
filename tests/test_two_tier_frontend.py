@@ -646,8 +646,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         """A source normalised with no anchor silently falls back to the old
         full-total basis -- the exact bug. Every call site must pass one,
         in BOTH renderers."""
-        for name, fn in (("curve-widget.js", "rebuildDomain"),
-                         ("comparison-dashboard.js", "rebuildSourceMaps")):
+        for name, fn in (("curve-widget.js", "rebuildDomain"),):
             b = extract_function((APP / "assets" / name).read_text(encoding="utf-8"), fn)
             self.assertIsNotNone(b, "%s missing %s" % (name, fn))
             for line in b.splitlines():
@@ -718,7 +717,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         for fn in self.VALUE_MODEL_FNS:
             self.assertIn("function %s(" % fn, model, "%s missing from shared model" % fn)
         # Neither renderer may re-implement the scaling.
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             text = (APP / "assets" / name).read_text(encoding="utf-8")
             body = extract_function(text, "normalizeTradeChartToFixedPie")
             self.assertIsNotNone(body, "%s lost its normalisation entry point" % name)
@@ -733,6 +732,27 @@ class TestStage1FallbackFrozen(unittest.TestCase):
             self.assertIn("ValueModel.allocationCounts", alloc,
                           "%s must delegate its roster allocation" % name)
 
+    # GAP-MAIN-TABLE-ESPN-DRIFT (2026-10-08): the "both renderers" guards
+    # above used to pin the table's own copy of this math. They did not keep
+    # the copies in step: the table's live buildEspnIndexedMap was a second,
+    # later definition that re-derived ESPN in the browser while these guards
+    # read the first one, and its adjusted columns depended on load order. The
+    # table now renders the engine's rows, so the guards cover the engine only
+    # and this one pins that the table has no value math left to drift.
+    TABLE_MUST_NOT_PRICE = ("normalizeTradeChartToFixedPie", "buildVorpRows", "buildEspnIndexedMap",
+                            "buildLiveAdjustedMap", "applyRosterShape", "adjustmentCellsFor",
+                            "normalizedAdjustedMapFor", "buildPublishedSourceMap", "buildCbsAdjustedMap",
+                            "derivedPublishedSourceMap", "anchorDisplayShare")
+
+    def test_table_reads_the_engine_rows_and_prices_nothing_itself(self):
+        text = (APP / "assets" / "comparison-dashboard.js").read_text(encoding="utf-8")
+        for fn in self.TABLE_MUST_NOT_PRICE:
+            self.assertNotIn("function %s(" % fn, text,
+                             "comparison-dashboard.js prices %s itself; read the engine instead" % fn)
+        body = extract_function(text, "rebuildSourceMaps")
+        self.assertIn("getAllRows()", body, "the table must read the engine's rows")
+        self.assertNotIn("ValueModel.", body, "the table must not re-run the value model")
+
     def test_shared_model_loads_before_its_consumers(self):
         html = (APP / "index.html").read_text(encoding="utf-8")
         order = [html.find("value-model.js"), html.find("curve-widget.js"),
@@ -742,7 +762,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
                          "value-model.js must load before both renderers")
 
     def test_roster_allocation_ranks_on_espn_projections(self):
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
                                     "allocationCountsFor")
             self.assertIn("espn_ppg", body,
@@ -777,7 +797,7 @@ class TestStage1FallbackFrozen(unittest.TestCase):
         # 76.5 in the table until the guard was widened to cover both.
         # JEG-38: the raw-VORP math lives in buildVorpRows (buildEspnRows is a
         # thin wrapper); the purity invariants apply to the real body.
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
                                     "buildVorpRows")
             self.assertIsNotNone(body, "buildVorpRows missing from %s" % name)
@@ -817,7 +837,7 @@ class EspnAnchorIsTheBuiltLegTest(unittest.TestCase):
         return body, body + helper
 
     def test_anchor_reads_the_built_leg_in_both_renderers(self):
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             text = (APP / "assets" / name).read_text(encoding="utf-8")
             body, resolved = self._anchor_source(text)
             self.assertTrue(body, "buildEspnIndexedMap missing from %s" % name)
@@ -828,7 +848,7 @@ class EspnAnchorIsTheBuiltLegTest(unittest.TestCase):
     def test_derived_leg_is_only_the_fall_back(self):
         """`adjusted` may still be reachable, but only below the shared-set
         minimum -- i.e. when the fixture carries no leg for this combo."""
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             text = (APP / "assets" / name).read_text(encoding="utf-8")
             body, _ = self._anchor_source(text)
             self.assertIn("MIN_SHARED_FOR_PIE", body,
@@ -849,7 +869,7 @@ class EspnAnchorIsTheBuiltLegTest(unittest.TestCase):
         roster slot moved -- while every published chart, which IS re-anchored
         after shaping, stayed at delta 0 and hid it.
         """
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
                                     "applyRosterShape")
             self.assertIsNotNone(body)
@@ -864,7 +884,7 @@ class EspnAnchorIsTheBuiltLegTest(unittest.TestCase):
         """It used to be exempt because it was re-derived per roster shape.
         A fixture read is static, so skipping it freezes the ESPN line while
         every other curve moves with the roster controls."""
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
                                     "applyRosterShape")
             self.assertIsNotNone(body)
@@ -1019,8 +1039,7 @@ class RawSeriesLevelMatchTest(unittest.TestCase):
                          "too thin an overlap must not invent a scale")
 
     def test_raw_series_is_level_matched_in_both_renderers(self):
-        for name, fn in (("curve-widget.js", "rebuildDomain"),
-                         ("comparison-dashboard.js", "rebuildSourceMaps")):
+        for name, fn in (("curve-widget.js", "rebuildDomain"),):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"), fn)
             self.assertIsNotNone(body)
             self.assertIn("scaleToSharedTotal", body,
@@ -1063,8 +1082,7 @@ class AdjustedShapeGuardTest(unittest.TestCase):
         table kept using stale baked adjusted sections / CBS ratio derivation.
         Both renderers must load the same adjustment-input asset and shape live
         adjusted values to the ESPN anchor."""
-        for name, rebuild in (("curve-widget.js", "rebuildDomain"),
-                              ("comparison-dashboard.js", "rebuildSourceMaps")):
+        for name, rebuild in (("curve-widget.js", "rebuildDomain"),):
             text = (APP / "assets" / name).read_text(encoding="utf-8")
             self.assertIn("function loadAdjustmentInputs", text,
                           "%s must load the versioned adjustment inputs" % name)
@@ -1078,7 +1096,7 @@ class AdjustedShapeGuardTest(unittest.TestCase):
                           "%s must route adjusted series through the live normalizer" % name)
 
     def test_adjusted_live_normalizer_shapes_to_anchor_in_both_renderers(self):
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             body = extract_function((APP / "assets" / name).read_text(encoding="utf-8"),
                                     "normalizedAdjustedMapFor")
             self.assertIsNotNone(body, "%s: normalizedAdjustedMapFor missing" % name)
@@ -1097,7 +1115,7 @@ class AnchorDisplayShareTest(unittest.TestCase):
     """
 
     def test_bench_share_is_measured_not_assumed(self):
-        for name in ("curve-widget.js", "comparison-dashboard.js"):
+        for name in ("curve-widget.js",):
             text = (APP / "assets" / name).read_text(encoding="utf-8")
             body = extract_function(text, "anchorDisplayShare")
             self.assertIsNotNone(body, "%s: anchorDisplayShare missing" % name)
