@@ -323,6 +323,21 @@ waivers" (copy rule).
 - All overlays are centered panels over a scrim on desktop and full screen below 768; Escape and the
   scrim close them; focus returns to the control that opened them.
 
+## UX pass 2 (2026-10-08, task 5)
+
+Swept every tab in light and dark at 1440, 820 and 390, with a computed-contrast check of every visible
+text node (`tests/test_v2_a11y_render.py`).
+
+- Contrast: green text on the pale green tint was 4.47:1 (light) and 4.4:1 (dark); it now uses
+  `--v2-action-strong` (4.5:1+). In dark mode, white on the action green was 3.1:1; buttons on the
+  action colour now use dark ink. Publisher symbols and chart lines were 2.1–3.4:1 on dark surfaces;
+  dark mode now uses a lightened palette of the same hues (`DARK_COLORS` in v2.js), redrawn when the
+  system theme changes. Hard-coded light tints (rank field border, active chip border, brush fill) are
+  tokens with dark values.
+- Keyboard: "Skip to content" is the first tab stop; it focuses the visible tab's main region (a button,
+  because a #fragment would change the hash route). With player detail or a settings panel open, Tab and
+  Shift+Tab stay inside it.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
