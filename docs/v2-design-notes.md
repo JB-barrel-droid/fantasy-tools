@@ -323,6 +323,35 @@ waivers" (copy rule).
 - All overlays are centered panels over a scrim on desktop and full screen below 768; Escape and the
   scrim close them; focus returns to the control that opened them.
 
+## UX pass 2 (2026-10-08, task 5)
+
+Swept every tab in light and dark at 1440, 820 and 390, with a computed-contrast check of every visible
+text node (`tests/test_v2_a11y_render.py`).
+
+- Contrast: green text on the pale green tint was 4.47:1 (light) and 4.4:1 (dark); it now uses
+  `--v2-action-strong` (4.5:1+). In dark mode, white on the action green was 3.1:1; buttons on the
+  action colour now use dark ink. Publisher symbols and chart lines were 2.1–3.4:1 on dark surfaces;
+  dark mode now uses a lightened palette of the same hues (`DARK_COLORS` in v2.js), redrawn when the
+  system theme changes. Hard-coded light tints (rank field border, active chip border, brush fill) are
+  tokens with dark values.
+- Keyboard: "Skip to content" is the first tab stop; it focuses the visible tab's main region (a button,
+  because a #fragment would change the hash route). With player detail or a settings panel open, Tab and
+  Shift+Tab stay inside it.
+
+## Product decisions (Jeremy, 2026-10-08, task 4 review)
+
+Asked as multiple choice after the product-marketing review; not built yet (build on request).
+
+- **Brand:** nav wordmark, `<title>` and og:title become "Data Driven Football".
+- **Landing tab:** a first visit opens on Trade targets; shared trade links still open Compare a trade.
+- **Chips and legends:** plain names at 768 px and up ("ESPN · Our value · Week 5", "FantasyCalc chart ·
+  Week 5", "Solid = our value · Dashed = published chart"); the short forms only below 768.
+- **Publisher-data rights:** the first release is a proof of concept without legal concerns; rights are
+  the next step once it works.
+- **Trade verdict:** keep none; per-source rows plus the story card.
+- **Page weight:** fix (about 12 MB, about 5 s to usable on a slowed phone) before the proof of concept
+  goes out; covered by its own task.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**

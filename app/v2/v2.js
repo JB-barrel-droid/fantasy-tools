@@ -21,6 +21,15 @@
     cbsros: {label: "CBS ROS", color: "#6B7280", symbol: "▽"},
     razzball: {label: "Razzball", color: "#9D174D", symbol: "✚"}
   };
+  // Dark theme: the same hues, lightened so symbols and lines keep 3:1 against the dark surfaces.
+  const DARK_COLORS = {espn: "#3FBF85", fantasycalc: "#7AA7EE", fantasypros: "#AE93E4", usatoday: "#3DB6D0",
+    cbs: "#A8B2BF", cbsros: "#B9BFC9", razzball: "#E7759F"};
+  const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  const isDark = () => {
+    const theme = document.documentElement.dataset.theme;
+    return theme === "dark" || (theme !== "light" && Boolean(darkQuery && darkQuery.matches));
+  };
+  const pubColor = publisher => (isDark() && DARK_COLORS[publisher]) || PUBLISHERS[publisher]?.color || "#64736F";
   const PUBLISHER_NAMES = {
     espn: "ESPN", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", usatoday: "USA Today",
     cbs: "CBS Sports", cbsros: "CBS ROS projections", razzball: "Razzball projections"
@@ -35,7 +44,8 @@
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
     else { method = "indexed"; publisher = key; }
     const pub = PUBLISHERS[publisher] || {label: key, color: "#64736F", symbol: "•"};
-    return {key, method, publisher, ...pub, short: `${pub.label} · ${METHOD_LABEL[method]}`};
+    return {key, method, publisher, ...pub, color: PUBLISHERS[publisher] ? pubColor(publisher) : pub.color,
+      short: `${pub.label} · ${METHOD_LABEL[method]}`};
   }
 
   const state = {
@@ -810,7 +820,7 @@
       const th = document.createElement("th");
       th.scope = "row";
       th.className = `player${any?.stale ? " is-older" : ""}`;
-      th.innerHTML = `<span style="color:${PUBLISHERS[pub].color}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
+      th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
       th.append(document.createTextNode(`${PUBLISHER_NAMES[pub]}${any?.week ? ` · W${any.week}` : ""}`));
       const prov = document.createElement("span");
       prov.className = "th-sub";
@@ -1179,7 +1189,7 @@
           const top = document.createElement("div");
           top.className = "v2-pblock-top";
           const name = document.createElement("h3");
-          name.innerHTML = `<span style="color:${PUBLISHERS[pub].color}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
+          name.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
           name.append(document.createTextNode(PUBLISHER_NAMES[pub]));
           const kind = document.createElement("span");
           kind.className = "v2-meta";
@@ -1780,7 +1790,7 @@
       if (key) {
         const sym = document.createElement("span");
         sym.className = "v2-sym";
-        sym.style.color = PUBLISHERS[key].color;
+        sym.style.color = pubColor(key);
         sym.setAttribute("aria-hidden", "true");
         sym.textContent = `${PUBLISHERS[key].symbol} `;
         th.appendChild(sym);
@@ -2800,6 +2810,13 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    // Skip link: a button, because a #fragment would change the hash route.
+    $("v2Skip").addEventListener("click", () => {
+      const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);
+      if (!main) return;
+      main.tabIndex = -1;
+      main.focus();
+    });
     $("v2ShowMore").addEventListener("click", () => { state.shown += PAGE_SIZE; renderTable(); });
     document.querySelectorAll(".v2-seg button[data-window]").forEach(button => {
       button.addEventListener("click", () => { state.windowPreset = button.dataset.window; refresh(); });
@@ -2849,6 +2866,19 @@
     bindChartKeys();
     $("v2Scrim").addEventListener("click", () => { if (panelOpen) closePopover(); else closeDrawer(); });
     document.addEventListener("keydown", event => {
+      if (event.key === "Tab") {
+        const box = !$("v2Popover").hidden && panelOpen ? $("v2Popover") : !$("v2Drawer").hidden ? $("v2Drawer") : null;
+        if (!box) return;
+        const items = [...box.querySelectorAll("button, a[href], input, select, [tabindex='0']")]
+          .filter(n => !n.disabled && n.offsetParent !== null);
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!box.contains(document.activeElement)) { event.preventDefault(); first.focus(); }
+        else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        return;
+      }
       if (event.key !== "Escape") return;
       if (!$("v2Popover").hidden) closePopover();
       else if (!$("v2Drawer").hidden) closeDrawer();
@@ -2864,6 +2894,7 @@
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
     });
     window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
+    if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
