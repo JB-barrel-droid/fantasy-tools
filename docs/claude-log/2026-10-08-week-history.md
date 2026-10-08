@@ -113,3 +113,45 @@ Nothing was written to Supabase.
 
 - RAZZBALL-LIVE-WEEK3: the live Razzball curve is Week 3 content (CSV 09-22) under a Week 4
   label. It is reported to main for the Razzball lane. `index.json` flags it as `label_mismatch`.
+
+### Follow-up: merged with origin/main (fix/value-small, feat/source-resiliency, fix/launch-qa)
+
+**Cause of the failure.** After the merge, `test_prior_week_is_engine_math_on_saved_inputs` failed.
+fix/value-small moved players.json per-game rates to `PPG_DECIMALS` (6 dp). The saved CBS ROS Week
+4 and ESPN Week 5 entries held the earlier 2 dp values. Their content fingerprints no longer
+matched the served inputs, so `index.served` was null for cbsros and espn, and
+`getWeekValues(served week)` came back unavailable. The test failed correctly: before the fix,
+Δ would have shown "—" for those series.
+
+**Fix.**
+
+- Supabase projection captures round to `games_remaining.PPG_DECIMALS`, as bake_players does.
+- `same_content_finer` lets a frozen entry be replaced only by the same content stored at finer
+  precision. Same content means the same snapshot or pull, the same players, and every saved
+  value a rounding of the new one. Any other candidate is still kept out.
+- `make sync` now captures the served players.json projections (`--served-only`, no Supabase), so
+  the served week is always saved.
+- New test `test_frozen_projection_rebases_only_to_finer_same_content`. It fails without the
+  rule, and it shows that different values, another snapshot and coarser values are refused.
+
+**Verified.**
+
+- CBS ROS Week 4 was rebased to 3 dp, and ESPN Week 5 (open) was updated. Served weeks are back:
+  USA Today, FantasyCalc and FantasyPros Week 5, CBS Week 4, CBS ROS Week 4, ESPN Week 5, Razzball
+  Week 3.
+- `tests.test_week_history`: 10/10 OK.
+- 12-combo sweep against origin/main cbeac8d's curve-widget.js: `getAllRows()` for all series is
+  identical in all 12 combos, and fixedPieIndexed / sourceScaleAgreement are unchanged.
+
+**Simulated fix/razzball-refresh (67e866c).** The branch was merged in a scratch worktree. Its
+players.json conflicts with main's, so I used main's players.json with the refresh branch's Razzball
+fields and `rz_snapshot`. Then `make sync`:
+
+- served razzball = Week 5 (2026-10-06), with no label mismatch;
+- `getWeekValues(razzball, 5)` equals the chart with 0 mismatches;
+- `getPriorWeek(razzball)` = Week 4 (Supabase 2026-10-01, 494 players);
+- `tests.test_week_history` OK.
+
+Claimed, not confirmed: the real merge will use a re-baked players.json. If its Razzball values
+differ from Supabase 10-06 (other than by precision), the open Week 5 entry simply takes the
+served one.

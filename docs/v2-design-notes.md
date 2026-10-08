@@ -214,7 +214,7 @@ committed store `data/history/`. Each file is versioned by `schema` (`week-histo
     that week);
   - projection sources (`kind: "projection"`: espn, cbsros, razzball): `field` (`espn_ppg`,
     `cbsros_ppg`, `rz_ppg`), `snapshot_date` and `ppg: {player_key: [standard, half_ppr, ppr]}`.
-    These are per-game projections rounded to 2 dp, as `bake_players.py` rounds them, taken from
+    These are per-game projections rounded to `PPG_DECIMALS`, as `bake_players.py` rounds them, taken from
     the served players.json or the Supabase projection tables.
 - `index.json` = `{schema, season, content_week, fixture_built_at, weeks: {"N": {file, frozen,
   sources: {s: {origin, complete, fingerprint, content_date?, pulled_at?}}}}, served: {s: {week,
@@ -233,12 +233,14 @@ content. `make sync` validates every file and stops on a bad one.
 
 ### Append-only
 
-A week freezes once the calendar has moved past it. A frozen entry is never replaced: a different
-candidate is reported and dropped. A source missing from a frozen week can still be added when
+A week freezes once the calendar has moved past it. A frozen entry is never replaced by different content: a different
+candidate is reported and dropped. The only replacement allowed is the same content (same
+snapshot or pull, same players, every saved value a rounding of the new one) at finer precision,
+for example when bake_players changed per-game rates to 6 dp. A source missing from a frozen week can still be added when
 its genuine content for that week turns up. The open week keeps the newest content seen. The
 rebuild chain (`rebuild-chain.yml`, step "Capture week history") runs
 `pipelines/build_week_history.py --supabase` before the chain and commits `data/history/` with
-the fixture.
+the fixture. `make sync` also saves the served players.json projections (`--served-only`).
 
 ### Engine accessors (read-only, both return Promises)
 
