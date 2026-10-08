@@ -15,78 +15,73 @@ loop maps player_key -> fixture slug via fixture['player_keys'].
 
 import json
 import sys
+import unittest
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
 
-from build_espn_section_from_ddf_leg import load_leg_values, load_leg_ppg
+from build_espn_section_from_ddf_leg import (  # noqa: E402
+    SCORING_MAP, TEAM_COUNTS, find_fresh_leg, load_leg_ppg, load_leg_values,
+)
+
+FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+# leg slug -> fixture slug -> both must map to the same numeric key
+SLUG_VARIATIONS = [
+    ("cameron skattebo", "cam skattebo", 3664),
+    ("travis etienne jr", "travis etienne", 810),
+]
 
 
-def test_leg_loaders_key_by_player_key():
-    """Leg loaders must return player_key-keyed dicts, not name-keyed."""
-    legs = sorted((REPO / "data" / "ddf-two-tier").glob("*/ddf_leg.json"))
-    assert legs, "no DDF legs found"
-    # Use the half_ppr leg (has the known problem players)
-    leg_path = next(p for p in legs if "-espn-half_ppr-" in p.parent.name)
-    vals = load_leg_values(leg_path)
-    ppgs = load_leg_ppg(leg_path)
-    # Keys must be ints (player_key), not strings
-    assert all(isinstance(k, int) for k in vals), "values not keyed by int player_key"
-    assert all(isinstance(k, int) for k in ppgs), "ppgs not keyed by int player_key"
-    # Known slug-variation players must be present by key
-    assert 3664 in vals, "cameron skattebo (key 3664) missing from leg values"
-    assert 810 in vals, "travis etienne jr (key 810) missing from leg values"
-    print("PASS: leg loaders key by numeric player_key")
+def _fixture():
+    return json.loads(FIXTURE.read_text(encoding="utf-8"))
 
 
-def test_slug_variations_resolve_via_player_key():
-    """The exact slug pairs that broke must resolve to the same player_key
-    in the fixture's player_keys registry."""
-    fixture = json.loads(
-        (REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json")
-        .read_text()
-    )
-    player_keys = fixture.get("player_keys", {})
-    # leg slug -> fixture slug -> both must map to the same numeric key
-    pairs = [
-        ("cameron skattebo", "cam skattebo", 3664),
-        ("travis etienne jr", "travis etienne", 810),
-    ]
-    for leg_slug, fixture_slug, expected_key in pairs:
-        fkey = player_keys.get(fixture_slug)
-        assert fkey is not None, f"fixture slug {fixture_slug!r} not in player_keys"
-        assert int(fkey) == expected_key, (
-            f"{fixture_slug!r} maps to {fkey}, expected {expected_key}"
-        )
-    print("PASS: slug variations resolve to the same player_key")
+class EspnPlayerKeyJoinTest(unittest.TestCase):
+    def test_leg_loaders_key_by_player_key(self):
+        """Leg loaders must return player_key-keyed dicts, not name-keyed."""
+        leg_path = find_fresh_leg("half_ppr")
+        vals = load_leg_values(leg_path)
+        ppgs = load_leg_ppg(leg_path)
+        self.assertTrue(vals, f"no values in {leg_path}")
+        self.assertTrue(all(isinstance(k, int) for k in vals), "values not keyed by int player_key")
+        self.assertTrue(all(isinstance(k, int) for k in ppgs), "ppgs not keyed by int player_key")
+        for leg_slug, _, key in SLUG_VARIATIONS:
+            self.assertIn(key, vals, f"{leg_slug} (key {key}) missing from leg values")
 
+    def test_slug_variations_resolve_via_player_key(self):
+        """The slug pairs that broke must resolve to the same player_key in the
+        fixture's player_keys registry."""
+        player_keys = _fixture().get("player_keys", {})
+        for _, fixture_slug, expected_key in SLUG_VARIATIONS:
+            fkey = player_keys.get(fixture_slug)
+            self.assertIsNotNone(fkey, f"fixture slug {fixture_slug!r} not in player_keys")
+            self.assertEqual(int(fkey), expected_key)
 
-def test_fixture_espn_section_matches_leg():
-    """The built fixture ESPN section must carry fresh leg values for the
-    previously-dropped players (no stale values)."""
-    fixture = json.loads(
-        (REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json")
-        .read_text()
-    )
-    half = fixture["sources"]["espn"]["combos"]["half_12"]["values"]
-    # Skattebo: leg 28.7 (was stale 41.9); Etienne: leg 16.8 (was stale 36.9)
-    assert abs(half.get("cam skattebo", -1) - 28.7) < 0.1, (
-        f"cam skattebo fixture={half.get('cam skattebo')}, expected ~28.7"
-    )
-    assert abs(half.get("travis etienne", -1) - 16.8) < 0.1, (
-        f"travis etienne fixture={half.get('travis etienne')}, expected ~16.8"
-    )
-    # Achane (IR, explicit ESPN zero) must carry 0.0 in the fixture, not be
-    # absent and not a stale 54.9 (JEG-13: explicit zero propagates end to end).
-    assert half.get("devon achane") == 0.0, (
-        f"devon achane fixture={half.get('devon achane')}, expected explicit 0.0"
-    )
-    print("PASS: fixture ESPN section carries fresh leg values")
+    def test_fixture_espn_section_matches_leg(self):
+        """Every ESPN combo carries the leg's own value for every leg player
+        the fixture knows by key: the slug-variation players are present and
+        fresh (not stale, not dropped), and an explicit leg zero (Achane on
+        IR, JEG-13) is carried as 0.0, not left out.
+
+        Was pinned to the 2026-09-30 numbers (Skattebo 28.7, Etienne 16.8),
+        which every weekly ESPN refresh changes; the rule is leg == fixture.
+        """
+        fixture = _fixture()
+        key_to_slug = {}
+        for slug, key in fixture.get("player_keys", {}).items():
+            key_to_slug.setdefault(int(key), slug)
+        combos = fixture["sources"]["espn"]["combos"]
+        for scoring, word in SCORING_MAP.items():
+            leg_vals = load_leg_values(find_fresh_leg(scoring))
+            expected = {key_to_slug[k]: round(v, 1) for k, v in leg_vals.items() if k in key_to_slug}
+            for _, fixture_slug, key in SLUG_VARIATIONS:
+                self.assertIn(fixture_slug, expected, f"{scoring}: key {key} did not join to {fixture_slug!r}")
+            for teams in TEAM_COUNTS:
+                values = combos[f"{word}_{teams}"]["values"]
+                wrong = {s: (values.get(s), v) for s, v in expected.items() if values.get(s) != v}
+                self.assertEqual(wrong, {}, f"espn {word}_{teams}: fixture != leg (fixture, leg)")
 
 
 if __name__ == "__main__":
-    test_leg_loaders_key_by_player_key()
-    test_slug_variations_resolve_via_player_key()
-    test_fixture_espn_section_matches_leg()
-    print("All ESPN player_key join tests passed.")
+    unittest.main()
