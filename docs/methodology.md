@@ -54,6 +54,11 @@ The stable rules are:
 Value above waivers and DDF values follow the user's league-settings inputs
 (teams, scoring, roster). There is no cap at the anchor's top value: a
 publisher whose implied weighting puts its top player above ours shows that.
+CBS ROS and Razzball are matched to the ESPN anchor by total only (Jeremy,
+2026-10-08): one factor makes their total over the players they share with ESPN
+equal ESPN's, so each keeps its own weighting across positions and its own top
+values. Aligning each position's top to ESPN's applies only to the fitted
+`*_adjusted` series.
 
 ## Source Families And Adjustments
 
