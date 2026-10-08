@@ -198,9 +198,12 @@ def saved_setup_translated_keys(source, scoring):
 def _cases(fixture, pos_of, settings):
     cases = []
     for source, scoring, teams, label, shape in settings:
-        native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring)
+        # With a superflex slot the widget overlays every chart's own
+        # native_superflex (savedPublishedNative), for the chart and its peers.
+        superflex = shape.get("SUPERFLEX", 0) > 0
+        native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring, superflex)
         projection = sorted(browser_projection(scoring).items())
-        peers = browser_peers(fixture, pos_of, source, scoring)
+        peers = browser_peers(fixture, pos_of, source, scoring, superflex)
         peer_rows = [row for rows in peers.values() for row in rows]
         cases.append({"source": source, "scoring": scoring, "teams": teams, "label": label,
                       "shape": shape, "native": native, "saved": saved,
@@ -313,6 +316,35 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
             self.assertEqual(res["belowWaiver"], len(zeros), source)
             # Those players had a positive saved value: the rule moved them.
             self.assertTrue(any(saved[k] > 0 for k in zeros), source)
+
+    def test_superflex_cases_carry_publisher_superflex_values(self):
+        """With a superflex slot the engine gets the overlaid natives the
+        widget passes (own chart and peers, curve-widget.js
+        savedPublishedNative). Before this, _cases fed it the 1-QB natives
+        while expected_derived overlaid native_superflex, so every superflex
+        setting failed once a rebuild carried publisher superflex values
+        (CI run 37834647888). Feeding the 1-QB natives must still fail."""
+        fixture = json.loads(FIXTURE.read_text())
+        pos_of = browser_players()
+        carriers = [s for s in SOURCES
+                    if fixture["sources"][s]["combos"][unified.resolve_combo_key(
+                        fixture["sources"][s], "ppr", 12)].get("native_superflex")]
+        if not carriers:
+            self.skipTest("fixture carries no native_superflex")
+        sf_shape = dict(SHAPES)["superflex"]
+        for source in carriers:
+            case = _cases(fixture, pos_of, [(source, "ppr", 12, "superflex", sf_shape)])[0]
+            one_qb = browser_inputs(fixture, pos_of, source, "ppr")[0]
+            self.assertNotEqual(case["native"], one_qb, source)
+            self.assertEqual(case["native"],
+                             browser_inputs(fixture, pos_of, source, "ppr", True)[0], source)
+            stale = {**case, "native": one_qb,
+                     "peers": browser_peers(fixture, pos_of, source, "ppr")}
+            got = {int(k): v for k, v in run_js([stale])[0]["values"].items()}
+            problems, _ = compare_maps(
+                expected_derived(source, "ppr", 12, sf_shape, fixture, pos_of), got)
+            print(f"\n[JEG-332 engine superflex negative] {source}: {len(problems)} problems with 1-QB inputs")
+            self.assertGreater(len(problems), 0, f"{source}: 1-QB inputs not caught")
 
     def test_guard_catches_broken_engines(self):
         source = VALUE_MODEL.read_text()
