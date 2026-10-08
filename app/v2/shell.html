@@ -7,7 +7,7 @@
         <a class="v2-tab" href="v2/#trade-targets" data-view="targets">Trade targets</a>
         <span class="v2-tab is-soon" aria-disabled="true" title="In build">Risers &amp; fallers</span>
         <a class="v2-tab" href="v2/#compare-trade" data-view="compare">Compare a trade</a>
-        <span class="v2-tab is-soon" aria-disabled="true" title="In build">How values work</span>
+        <a class="v2-tab" href="v2/#how-values" data-view="how">How values work</a>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
@@ -230,6 +230,63 @@
     </section>
 
     <p class="v2-footnote">Each row uses one source only: the sum of what you get minus the sum of what you give, in that source's values for your league. Rows are never combined into one score, and there is no overall verdict: where the sources disagree, that is the trade target. If a player has no value in a source, that row shows —, never zero.</p>
+    <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
+  <main class="v2-wrap v2-main" id="v2How" hidden aria-labelledby="v2HowTitle">
+    <div class="v2-title">
+      <h1 id="v2HowTitle">How values work</h1>
+      <p>Three ways to read a player's value. Every one follows your league's settings.</p>
+    </div>
+
+    <section class="v2-card v2-how-league" aria-labelledby="v2HowLeagueTitle">
+      <h2 id="v2HowLeagueTitle">Your league</h2>
+      <p><strong data-engine="league" id="v2HowLeague">—</strong> <span class="v2-meta" data-engine="roster" id="v2HowRoster">—</span></p>
+      <p class="v2-meta">Scoring, team count and roster decide where the waiver line sits and how many starters and bench players each position gets. Change them with Edit league; every view below updates.</p>
+    </section>
+
+    <ol class="v2-how-views">
+      <li class="v2-card" data-view-method="vorp">
+        <span class="v2-how-step" data-step aria-hidden="true">1</span>
+        <h2>VORP vs waivers</h2>
+        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 4"/></svg> Dotted line</p>
+        <p>Each source's value above a waiver-level player. Projections and published trade charts alike are translated the same way: start from the roster the publisher assumes (standard league settings unless its own materials say otherwise), read the positional weights its values imply for starters and bench, flex included, then measure each player against the waiver line.</p>
+        <p class="v2-meta">Each source keeps its own scale here, so these values are shown in their own panel and never compared with trade-value points.</p>
+        <h3>Sources</h3>
+        <ul class="v2-how-sources" data-sources="vorp"></ul>
+      </li>
+      <li class="v2-card" data-view-method="dda">
+        <span class="v2-how-step" data-step aria-hidden="true">2</span>
+        <h2>Data Driven Adjustments</h2>
+        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2"/></svg> Solid line</p>
+        <p>Our value. Every source's value above waivers is re-weighted to Data Driven Football's weights by position and by starter or bench group, on the trade-value point scale for your league. ESPN, CBS rest-of-season and Razzball are priced this way straight from each publisher's own projections, never from another source's.</p>
+        <p class="v2-meta">Use these to rank players and to weigh a trade, one source at a time.</p>
+        <h3>Sources</h3>
+        <ul class="v2-how-sources" data-sources="dda"></ul>
+      </li>
+      <li class="v2-card" data-view-method="indexed">
+        <span class="v2-how-step" data-step aria-hidden="true">3</span>
+        <h2>Indexed</h2>
+        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg> Dashed line</p>
+        <p>The published trade charts as their publishers rank them, indexed to match the value range of the other charts. The order and the shape are the publisher's own; only the scale moves.</p>
+        <p class="v2-meta">This is what a manager trading off that chart expects. Where a chart pays more than our value, sell; where it pays less, buy.</p>
+        <h3>Sources</h3>
+        <ul class="v2-how-sources" data-sources="indexed"></ul>
+      </li>
+    </ol>
+
+    <section class="v2-card" aria-labelledby="v2HowRulesTitle">
+      <h2 id="v2HowRulesTitle">Reading the numbers</h2>
+      <ul class="v2-how-rules">
+        <li><b>— means missing.</b> A source that has no value for a player shows — with the reason, never zero.</li>
+        <li><b>Zero is real.</b> A value of zero means the player sits at or below that source's waiver line for your league.</li>
+        <li><b>One source at a time.</b> Sources are never blended into one score. Every comparison pairs one exact source and method with another.</li>
+        <li><b>Older weeks are labeled.</b> A source whose latest values are from an earlier week is marked as an older week, and only current-week sources are selected at first.</li>
+        <li><b>Label and symbol.</b> Each publisher keeps one color, one symbol and its name everywhere, so color is never the only cue.</li>
+      </ul>
+      <p class="v2-how-links"><a class="v2-link" href="v2/#player-values">See every value ↗</a> <a class="v2-link" href="v2/#trade-targets">Find trade targets ↗</a> <a class="v2-link" href="v2/#compare-trade">Compare a trade ↗</a></p>
+    </section>
+
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 

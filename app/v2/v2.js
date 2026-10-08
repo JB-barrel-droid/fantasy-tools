@@ -1473,17 +1473,52 @@
     $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; renderCompare(); });
   }
 
+  // ---------- How values work (frames 15 / 16) ----------
+  // Explains the three views (docs/methodology.md, "The Three Views"). It adds no
+  // numbers: the league line and the source lists come straight from the engine.
+  function renderHow() {
+    collect();
+    renderHeader();
+    $("v2HowLeague").textContent = $("v2LeagueName").textContent;
+    $("v2HowRoster").textContent = $("v2RosterLine").textContent;
+    document.querySelectorAll("#v2How [data-sources]").forEach(list => {
+      const method = list.dataset.sources;
+      list.replaceChildren();
+      view.info.filter(item => sourceMeta(item.key).method === method).forEach(item => {
+        const meta = sourceMeta(item.key);
+        const li = document.createElement("li");
+        li.dataset.source = item.key;
+        li.dataset.available = String(Boolean(item.available));
+        const sym = document.createElement("span");
+        sym.className = "v2-sym";
+        sym.style.color = meta.color;
+        sym.setAttribute("aria-hidden", "true");
+        sym.textContent = `${meta.symbol} `;
+        li.append(sym, document.createTextNode(PUBLISHER_NAMES[meta.publisher] || meta.label));
+        const why = document.createElement("span");
+        why.className = `v2-meta${item.stale ? " is-older" : ""}`;
+        why.textContent = !item.available
+          ? (item.paused ? " — waiting on fresh inputs" : " — not available for this league")
+          : item.stale ? " · older week" : "";
+        if (why.textContent) li.appendChild(why);
+        list.appendChild(li);
+      });
+    });
+  }
+
   // ---------- routing ----------
   const currentView = () => (location.hash === "#trade-targets" ? "targets"
-    : location.hash === "#compare-trade" ? "compare" : "values");
+    : location.hash === "#compare-trade" ? "compare"
+    : location.hash === "#how-values" ? "how" : "values");
 
   function applyRoute() {
     const v = currentView();
     $("v2Main").hidden = v !== "values";
     $("v2Targets").hidden = v !== "targets";
     $("v2Compare").hidden = v !== "compare";
+    $("v2How").hidden = v !== "how";
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
-    $("v2Methods").hidden = v === "targets";
+    $("v2Methods").hidden = v === "targets" || v === "how";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -1507,6 +1542,7 @@
   function refresh() {
     if (currentView() === "targets") renderTargets();
     else if (currentView() === "compare") renderCompare();
+    else if (currentView() === "how") renderHow();
     else refreshValues();
   }
 

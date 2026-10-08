@@ -29,7 +29,7 @@ canvas on 2026-10-07.
 Not yet mapped: 05/06 Risers & fallers, 07/08 Compare a trade (built 2026-10-08 from the frame 22
 rule and frame 17 language: figma.com is blocked by the cloud session's network policy, so the frame
 itself was not opened),
-14 Player detail mobile, 16 How values work mobile, 20 Source selection mobile, 21 Chart options,
+14 Player detail mobile, 16 How values work mobile (built 2026-10-08 without opening it), 20 Source selection mobile, 21 Chart options,
 23 Benchmark decisions.
 
 ## Design language (frame 17)
@@ -125,3 +125,18 @@ trade-story rule and the frame 17 design language; re-check against the frames w
 - The Methods row (source selection) is shown on this tab; the selection is shared across tabs. The
   sides are v2 module state, so they survive switching tabs (no storage, like the other v2 state).
 - Below 768 px each source row stacks as a card: source name, then give / get / net with labels.
+
+## How values work tab (frames 15 / 16)
+
+Built as **How values work** (`v2/#how-values`) on 2026-10-08 from docs/methodology.md "The Three
+Views". Frame 15 (59-2316) is mapped but could not be opened from the cloud session (figma.com is
+blocked by its network policy); re-check against frames 15/16.
+
+- No new numbers. The only numbers on the tab are the "Your league" line (engine `getState` and
+  `getRosterShape`, the same text as the league bar) and the 1-2-3 step markers.
+- Three cards, in the methodology's order: VORP vs waivers (dotted), Data Driven Adjustments
+  (solid), Indexed (dashed). Each lists the engine's series of that method from `getSourceInfo()`,
+  unavailable ones with a reason and older weeks labeled from the freshness record.
+- "Reading the numbers": — means missing, 0 is at or below the waiver line, one source at a time,
+  older weeks labeled, label + symbol. Links to the other tabs.
+- The Methods row is hidden on this tab (nothing to select). Three columns at 1440, stacked below 768.

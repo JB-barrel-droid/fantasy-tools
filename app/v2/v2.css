@@ -307,3 +307,21 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 }
 /* The ranking source keeps its tint, but the net's color comes from its sign, not the tint. */
 .v2-ctable tr.is-rank { color: var(--v2-ink); }
+
+/* How values work (frames 15 / 16): the three views side by side, stacked below 768 px. */
+.v2-how-league p { margin-top: 8px !important; }
+.v2-how-views { list-style: none; margin: 16px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.v2-how-views > li { margin-top: 0; display: flex; flex-direction: column; gap: 10px; }
+.v2-how-views h2 { font-size: 20px; font-weight: 700; }
+.v2-how-views h3 { font-size: 12px; font-weight: 600; color: var(--v2-muted); margin: 6px 0 0; text-transform: uppercase; letter-spacing: .06em; }
+.v2-how-step { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; align-items: center; justify-content: center; background: var(--v2-positive); color: var(--v2-action); font-weight: 700; }
+.v2-how-line { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; color: var(--v2-muted); }
+.v2-how-sources { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.v2-how-sources li[data-available="false"] { color: var(--v2-muted); }
+.v2-how-sources .is-older { color: var(--v2-older); }
+.v2-how-rules { margin: 12px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.v2-how-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px !important; }
+.v2-how-links .v2-link { display: inline-flex; align-items: center; text-decoration: none; padding: 0; }
+@media (max-width: 767px) {
+  .v2-how-views { grid-template-columns: 1fr; }
+}
