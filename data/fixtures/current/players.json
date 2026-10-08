@@ -5,6 +5,9 @@
   "espn_snapshot": "2026-10-08",
   "rz_snapshot": "2026-10-07",
   "cbsros_snapshot": "2026-10-08",
+  "espn_snapshot_id": "sha256:167a155975c1773cddfe91155a5c8294f29b25781f3042a59032fbe7ea95e00a",
+  "cbsros_snapshot_id": "sha256:ca28dccde34d4a3a83698a3949ffbda1c49c128795f42a114e8f8d22d9ed1dbc",
+  "rz_snapshot_id": "sha256:af126d0dbda0489429260854c59942cb62ad8859c8f714253b1ab84606df8814",
   "n_players": 536,
   "n_espn_complete": 339,
   "n_rz_complete": 503,
@@ -33,7 +36,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-08T13:59:17Z",
+   "built_at": "2026-10-08T14:50:06Z",
    "as_of": "2026-10-08",
    "summary": {
     "live": 3,
