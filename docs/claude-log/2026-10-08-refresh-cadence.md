@@ -125,3 +125,19 @@ local DNS blip and is excluded.
     "2026-10-07 11:07:17 PM EST", so it updates late evening US time.
   - CBS ROS changed on 09-30, 10-02 and 10-08.
   - USA Today revised Week 4 once mid-week.
+
+### Follow-up: probe output fix (fix/probe-output)
+
+- Verified, run 37784191326 (main, dry): all 7 probes ran, then the summary step failed with json
+  "Expecting value". The CBS discovery line "[cbs] discovered week 5 chart: ..." was on stdout
+  between the JSON lines.
+- Fix:
+  - `run_probe` redirects anything a probe prints to stderr.
+  - `probe --out` writes the JSON lines to a file, and the workflow reads that file.
+  - Pinned by `ProbeOutputTest`. Removing the redirect makes it fail; checked.
+- Verified, run 37784444647 (`fix/probe-output`, dry=true): green, 7/7 "ingest (first)".
+  - Fingerprints in CI equal the local ones (CBS ROS 767985420fcf…, ESPN 0090bb9fd7bd…, USA Today
+    59561ffbb85e…). Probes give the same result from CI and from this machine.
+- Migration split:
+  - `source_probe_tables_20261008.sql`, part 1, already applied.
+  - `source_probe_schedules_20261008.sql`, parts 2–4, not applied yet.
