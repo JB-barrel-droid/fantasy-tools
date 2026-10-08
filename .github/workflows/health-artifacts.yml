@@ -1,18 +1,23 @@
 name: Health artifacts (non-Muse producer + watch)
 
-# JEG-414 (ARCH-013). The monitor's health writer, every 30 minutes:
+# JEG-414 (ARCH-013). The monitor's health writer, every 6 hours:
 #   1. Builds source-import-health.json and pipeline-checkpoints.json in CI
 #      and PUBLISHES them to dist/modules on main (cut over from Muse's
 #      30-min dashboard push, 2026-10-06). C2 uses the Supabase landing time
 #      when no Mac-local pull file exists (GAP-C2-MTIME), never a file mtime.
 #   2. Measures the age of the SERVED artifacts from their own timestamps
 #      and records each result in Supabase monitoring.check_observations.
-#   3. Fails (red) when a served artifact is older than 60 minutes.
-# A pg_cron evaluator (monitoring-evaluator-5min) marks these checks
-# 'missed' if this workflow itself stops reporting.
+#   3. Fails (red) when a served artifact is older than 720 minutes.
+#   4. Evaluates every check and snapshots the result
+#      (public.monitoring_refresh_summary -> monitoring-summary.json). This is
+#      the only evaluator run: the 5-minute pg_cron evaluator was retired
+#      2026-10-08 (pre-launch: no 5-minute jobs). If this workflow stops, the
+#      page sees monitoring-summary.json age past 720 min and turns red.
+#   5. Opens/closes deduplicated `ops-alert` GitHub issues for real failures
+#      (pipelines/monitor_alerts.py). Never blocks a deploy.
 
-# Scheduler owner: Supabase pg_cron `health-artifacts-live` (11,41 * * * *,
-# supabase/migrations/jeg414_health_artifacts_pg_cron.sql). No `schedule:`
+# Scheduler owner: Supabase pg_cron `health-artifacts-live` (50 */6 * * *,
+# supabase/migrations/20261008_monitoring_6h_and_posture.sql). No `schedule:`
 # here, so there is one owner (ops-ownership-001: Supabase first).
 on:
   workflow_dispatch:
@@ -22,6 +27,7 @@ on:
 permissions:
   contents: write  # publish the health artifacts to main (JEG-414)
   actions: write   # dispatch pages.yml; GITHUB_TOKEN pushes don't trigger it (JEG-274)
+  issues: write    # ops-alert issues (pipelines/monitor_alerts.py, GAP-ALERT-CHANNEL)
 
 concurrency:
   group: health-artifacts
@@ -143,10 +149,11 @@ jobs:
           producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
           python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" 2>&1 | tee /tmp/watch.log
 
-      # "Is everything working?" banner source: snapshot of
-      # public.monitoring_summary() (evaluator output over
-      # monitoring.check_observations). Runs after the watch step so this run's
-      # own observations are in it. Written even when the read fails (red,
+      # "Is everything working?" banner source: public.monitoring_refresh_summary()
+      # records pg_cron history, runs the evaluator over
+      # monitoring.check_observations and returns the summary (plus the
+      # security posture). Runs after the watch step so this run's own
+      # observations are in it. Written even when the read fails (red,
       # fail-closed) so the page never shows a stale green. Separate commit from
       # the health artifacts above so that step's publish rules stay unchanged.
       - name: Build monitoring summary
@@ -193,6 +200,17 @@ jobs:
       - name: Audit monitoring coverage
         if: always() && hashFiles('output/monitoring-summary.json') != ''
         run: python3 pipelines/audit_monitoring_coverage.py output/monitoring-summary.json
+
+      # Real failures only (rebuild chain not publishing, a source stuck,
+      # monitor unreadable, security regression): one `ops-alert` issue per
+      # condition, opened once and closed when it clears. Everything else is a
+      # warning on the page. Never fails the run.
+      - name: Alert on real failures
+        if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: python3 pipelines/monitor_alerts.py --summary output/monitoring-summary.json --import-health dist/modules/source-import-health.json
 
       - name: Summary
         if: always()

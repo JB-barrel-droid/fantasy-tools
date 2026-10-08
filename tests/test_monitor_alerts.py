@@ -1,0 +1,166 @@
+"""GAP-ALERT-CHANNEL: pipelines/monitor_alerts.py raises an alert only for real
+failures and delivers each one once (one open `ops-alert` issue per key,
+closed when it clears).
+
+Each rule is negative-tested: the state it names must alert, the neighbouring
+benign state must not, and a mutated rule (threshold removed, dedup removed)
+must be caught by the same assertions.
+"""
+import unittest
+from datetime import datetime, timedelta, timezone
+from unittest import mock
+
+from pipelines import monitor_alerts as ma
+
+NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
+
+
+def iso(dt):
+    return dt.isoformat()
+
+
+def summary(state="healthy", last_ok_hours=1.0, **extra):
+    s = {"overall": "green", "evaluator_stale": False,
+         "checks": [{"check_id": "rebuild_chain", "state": state, "reason": "r",
+                     "last_ok_at": iso(NOW - timedelta(hours=last_ok_hours)) if last_ok_hours is not None else None}]}
+    s.update(extra)
+    return s
+
+
+def health(**ages_days):
+    return {"sources": {src: {"db_latest_arrived_at": iso(NOW - timedelta(days=d)), "content_vintage": "Week 5",
+                              "status": "ok"} for src, d in ages_days.items()}}
+
+
+def keys(alerts):
+    return sorted(a.key for a in alerts)
+
+
+class ConditionsTest(unittest.TestCase):
+    def test_healthy_system_raises_nothing(self):
+        self.assertEqual([], ma.evaluate(summary(), health(espn=1, cbs=6), NOW))
+
+    def test_rebuild_chain_failing_for_hours_alerts(self):
+        self.assertEqual(["rebuild-chain-failing"], keys(ma.evaluate(summary("error", 13), health(), NOW)))
+        self.assertEqual(["rebuild-chain-failing"], keys(ma.evaluate(summary("missed", None), health(), NOW)))
+
+    def test_one_red_run_between_green_ones_does_not_alert(self):
+        # 2026-10-08 08:48-09:00: three red chain runs, green again at 09:50.
+        self.assertEqual([], ma.evaluate(summary("error", 2), health(), NOW))
+
+    def test_guard_catches_a_rule_without_the_publish_threshold(self):
+        with mock.patch.object(ma, "REBUILD_STALE_HOURS", 0):
+            self.assertEqual(["rebuild-chain-failing"],
+                             keys(ma.evaluate(summary("error", 2), health(), NOW, stale_hours=ma.REBUILD_STALE_HOURS)))
+
+    def test_source_stuck_past_threshold_alerts(self):
+        self.assertEqual(["source-stuck-cbs"], keys(ma.evaluate(summary(), health(espn=1, cbs=11), NOW)))
+
+    def test_recent_content_date_beats_an_old_landing_time(self):
+        # ESPN upserts keep db_latest_arrived_at old while content moves on.
+        h = {"sources": {"espn": {"db_latest_arrived_at": iso(NOW - timedelta(days=12)),
+                                  "content_vintage": "2026-10-07"}}}
+        self.assertEqual([], ma.evaluate(summary(), h, NOW))
+
+    def test_source_with_no_timestamp_is_stuck_not_fine(self):
+        h = {"sources": {"usatoday": {"content_vintage": "Week 5"}}}
+        self.assertEqual(["source-stuck-usatoday"], keys(ma.evaluate(summary(), h, NOW)))
+
+    def test_unreadable_monitor_alerts_and_suppresses_chain_guess(self):
+        self.assertEqual(["monitor-unreadable"],
+                         keys(ma.evaluate({"read_error": "HTTP 404", "checks": []}, health(), NOW)))
+        self.assertEqual(["monitor-unreadable"], keys(ma.evaluate(summary(evaluator_stale=True), health(), NOW)))
+
+    def test_security_regression_alerts_only_on_ok_false(self):
+        bad = {"schema": "ddf-security-posture-v1", "ok": False, "tables_without_rls": 3}
+        self.assertEqual(["security-regression"], keys(ma.evaluate(summary(security=bad), health(), NOW)))
+        for fine in ({"ok": True}, {"read_error": "function does not exist"}, None):
+            self.assertEqual([], ma.evaluate(summary(security=fine), health(), NOW), fine)
+
+    def test_yellow_checks_and_holds_stay_warnings(self):
+        s = summary()
+        s["checks"] += [{"check_id": "rebuild_chain_source_held", "state": "error", "last_ok_at": None},
+                        {"check_id": "usatoday_trade_chart_ingest", "state": "missed", "last_ok_at": None}]
+        self.assertEqual([], ma.evaluate(s, health(), NOW))
+
+
+class FakeIssues:
+    def __init__(self, open_issues=()):
+        self.issues = {i["number"]: dict(i) for i in open_issues}
+        self.created, self.updated, self.closed = [], [], []
+
+    def ensure_label(self):
+        pass
+
+    def open_issues(self):
+        return [i for i in self.issues.values() if i.get("state", "open") == "open"]
+
+    def create(self, title, body):
+        n = max(self.issues, default=0) + 1
+        self.issues[n] = {"number": n, "title": title, "body": body, "state": "open"}
+        self.created.append(n)
+        return self.issues[n]
+
+    def update(self, number, body):
+        self.issues[number]["body"] = body
+        self.updated.append(number)
+
+    def close(self, number, comment):
+        self.issues[number]["state"] = "closed"
+        self.closed.append(number)
+
+
+def chain_alert():
+    return ma.evaluate(summary("error", 20), health(), NOW)
+
+
+class DeliveryTest(unittest.TestCase):
+    def run_once(self, client, alerts):
+        ma.reconcile(alerts, client, NOW, mention="JB-barrel-droid", log=lambda *_: None)
+
+    def test_opens_once_then_updates_silently_then_closes(self):
+        gh = FakeIssues()
+        self.run_once(gh, chain_alert())
+        self.assertEqual([1], gh.created)
+        self.assertIn("@JB-barrel-droid", gh.issues[1]["body"])
+        self.assertIn("ops-alert-key: rebuild-chain-failing", gh.issues[1]["body"])
+        self.run_once(gh, chain_alert())
+        self.run_once(gh, chain_alert())
+        self.assertEqual([1], gh.created, "a still-failing chain must not open a second issue")
+        self.assertEqual([1, 1], gh.updated)
+        self.run_once(gh, [])
+        self.assertEqual([1], gh.closed)
+        self.run_once(gh, chain_alert())
+        self.assertEqual([1, 2], gh.created, "a new failure after it cleared opens a new issue")
+
+    def test_guard_catches_delivery_without_dedup(self):
+        gh = FakeIssues()
+        with mock.patch.object(ma, "issue_key", lambda issue: None):  # the broken state: keys never match
+            self.run_once(gh, chain_alert())
+            self.run_once(gh, chain_alert())
+        self.assertEqual(2, len(gh.created), "without the key marker every run re-opens: this guard must see it")
+
+    def test_unrelated_open_issues_are_left_alone(self):
+        gh = FakeIssues([{"number": 7, "title": "manual", "body": "no marker", "state": "open"}])
+        self.run_once(gh, [])
+        self.assertEqual([], gh.closed)
+
+    def test_webhook_gets_transitions_only(self):
+        gh, sent = FakeIssues(), []
+        with mock.patch.object(ma, "post_webhook", lambda url, text: sent.append(text)):
+            for alerts in (chain_alert(), chain_alert(), []):
+                ma.reconcile(alerts, gh, NOW, webhook="https://hooks.example/x", log=lambda *_: None)
+        self.assertEqual(2, len(sent))
+        self.assertTrue(sent[0].startswith("ALERT") and sent[1].startswith("CLEARED"))
+
+    def test_main_never_fails_the_run_and_dry_run_touches_nothing(self):
+        with mock.patch.dict("os.environ", {"GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "t"}), \
+             mock.patch.object(ma.GitHubIssues, "ensure_label", side_effect=OSError("network down")):
+            self.assertEqual(0, ma.main(["--summary", "/nonexistent.json", "--import-health", "/nonexistent.json"]))
+        with mock.patch.object(ma, "reconcile") as rec:
+            self.assertEqual(0, ma.main(["--summary", "/nonexistent.json", "--import-health", "/x", "--dry-run"]))
+            rec.assert_not_called()
+
+
+if __name__ == "__main__":
+    unittest.main()

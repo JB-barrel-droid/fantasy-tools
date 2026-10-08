@@ -3,9 +3,10 @@ name: Deploy dashboard
 on:
   push:
     branches: [main]
+  # The daily 11:30 UTC rebuild is owned by Supabase pg_cron
+  # `pages-deploy-live` (supabase/migrations/gha_schedules_pg_cron.sql), which
+  # dispatches this workflow. No `schedule:` here (GAP-GHA-SCHEDULES).
   workflow_dispatch:
-  schedule:
-    - cron: "30 11 * * *"
 
 permissions:
   contents: read
