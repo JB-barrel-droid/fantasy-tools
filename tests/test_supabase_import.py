@@ -663,6 +663,107 @@ saver = importlib.util.module_from_spec(spec_saver)
 spec_saver.loader.exec_module(saver)
 
 
+class ServerSideLatestWeekTest(unittest.TestCase):
+    """GAP-IMPORTER-ALL-WEEKS: the weekly-table read is scoped to the newest
+    week server-side, so it no longer pages through every week and bake."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.outdir = Path(self.tmp.name) / "sources"
+        saved = (mod.fetch_supabase_rows, mod.fetch_player_names,
+                 mod.fetch_player_positions, mod.fixture_pos_team)
+        self.addCleanup(lambda: (setattr(mod, "fetch_supabase_rows", saved[0]),
+                                 setattr(mod, "fetch_player_names", saved[1]),
+                                 setattr(mod, "fetch_player_positions", saved[2]),
+                                 setattr(mod, "fixture_pos_team", saved[3])))
+        self.addCleanup(self.tmp.cleanup)
+        mod.fetch_player_names = lambda keys: {2227: "Jahmyr Gibbs", 869: "Josh Allen"}
+        mod.fetch_player_positions = lambda keys: {2227: "RB", 869: "QB"}
+        mod.fixture_pos_team = lambda: {2227: ("RB", "DET"), 869: ("QB", "BUF")}
+
+    def fake_postgrest(self, table_rows):
+        """Honours the filters the importer sends (week, qb_slots or, order,
+        limit) and records every read."""
+        calls = []
+
+        def fetch(table, params):
+            calls.append(params)
+            parts = params.lstrip("?").split("&")
+            rows = list(table_rows)
+            for part in parts:
+                if part.startswith("week=eq."):
+                    rows = [r for r in rows if r.get("week") == int(part[8:])]
+                elif part == "week=not.is.null":
+                    rows = [r for r in rows if r.get("week") is not None]
+                elif part == "or=(qb_slots.is.null,qb_slots.eq.1)":
+                    rows = [r for r in rows if r.get("qb_slots") in (None, 1)]
+                elif part == "order=week.desc":
+                    rows.sort(key=lambda r: r.get("week"), reverse=True)
+            for part in parts:
+                if part.startswith("limit="):
+                    rows = rows[: int(part[6:])]
+            return [dict(r) for r in rows]
+
+        return fetch, calls
+
+    def table(self, source):
+        make = cbs_row if source == "cbs" else db_row
+        rows = []
+        for week in (2, 3, 4):
+            rows.append(make(week=week, bake_id=f"wk{week}",
+                             created_at=f"2026-09-{10 + week}T00:00:00+00:00"))
+            rows.append(make(week=week, player_key=869, bake_id=f"wk{week}",
+                             created_at=f"2026-09-{10 + week}T00:00:00+00:00"))
+        # A newer superflex-only week never picks the week (split_qb_slots).
+        rows.append(make(week=5, qb_slots=2, bake_id="wk5"))
+        return rows
+
+    def assert_scoped(self, source):
+        fetch, calls = self.fake_postgrest(self.table(source))
+        mod.fetch_supabase_rows = fetch
+        result = mod.import_source(source, output_dir=self.outdir)
+        full_reads = [c for c in calls if "select=*" in c and "limit=" not in c]
+        self.assertEqual(len(full_reads), 1, calls)
+        self.assertIn("&week=eq.4", full_reads[0])
+        self.assertTrue(any("limit=1" in c and "order=week.desc" in c for c in calls), calls)
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(snapshot["row_count"], 2)
+        manifest = json.loads(result["manifest_path"].read_text())
+        self.assertIn("latest week present (week=4)", manifest["filter"])
+
+    def test_source_trade_values_read_scoped_to_latest_week(self):
+        self.assert_scoped("fantasycalc")
+
+    def test_cbs_trade_values_read_scoped_to_latest_week(self):
+        self.assert_scoped("cbs")
+
+    def test_no_week_rows_keep_unscoped_read(self):
+        fetch, calls = self.fake_postgrest([db_row(week=None, source="usatoday",
+                                                   source_content_date="2026-09-15")])
+        mod.fetch_supabase_rows = fetch
+        mod.import_source("usatoday", output_dir=self.outdir)
+        self.assertFalse(any("week=eq." in c for c in calls), calls)
+
+    def test_default_reader_reads_one_page_when_limited(self):
+        # get_all drops limit= and pages through the table; a limited read
+        # must use the single-page get, or the lookup reads every week.
+        used = []
+        fake = type(sys)("sbclient")
+        fake.get = lambda table, params="": used.append(("get", params)) or [{"week": 4}]
+        fake.get_all = lambda table, params="": used.append(("get_all", params)) or []
+        saved = sys.modules.get("sbclient")
+        sys.modules["sbclient"] = fake
+        try:
+            mod._default_supabase_rows("source_trade_values", "?select=week&limit=1")
+            mod._default_supabase_rows("source_trade_values", "?select=*&week=eq.4")
+        finally:
+            if saved is None:
+                sys.modules.pop("sbclient", None)
+            else:
+                sys.modules["sbclient"] = saved
+        self.assertEqual([u[0] for u in used], ["get", "get_all"])
+
+
 class CbsrosSaverVintageDerivationTest(unittest.TestCase):
     """season/week/default-snapshot must derive from the snapshot vintage.
 
