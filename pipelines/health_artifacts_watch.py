@@ -17,6 +17,16 @@ independent of Muse:
     prints a parity table for the cutover decision;
   * exits 1 when any served artifact is older than MAX_AGE_MINUTES (red).
 
+--await-published DIR (2026-10-08): when this run has just pushed new
+artifacts and dispatched the Pages deploy, the served copies are still the
+previous deploy's for the next ~10 minutes. Measuring them at once judged the
+last run's output, not this one's: three runs in a row went red (37638759289,
+37645910631, 37779712658) while their own fresh artifacts were mid-deploy.
+With the flag the watch first polls until each served artifact carries at
+least the timestamp of the copy in DIR (what this run published), up to
+--await-timeout-minutes, then judges the served copy as usual. A deploy that
+never lands still ends red, because the served copy is then really stale.
+
 Fail-closed: an unreachable artifact, unparseable JSON or a missing
 timestamp is stale, never fresh.
 """
@@ -52,15 +62,21 @@ def parse_ts(value):
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
-def artifact_age_minutes(payload, fields, now):
-    """Age of the artifact's own timestamp in minutes, or None (= stale)."""
+def artifact_ts(payload, fields):
+    """The artifact's own timestamp (first field present), or None."""
     if not isinstance(payload, dict):
         return None
     for field in fields:
         ts = parse_ts(payload.get(field))
         if ts is not None:
-            return (now - ts).total_seconds() / 60.0
+            return ts
     return None
+
+
+def artifact_age_minutes(payload, fields, now):
+    """Age of the artifact's own timestamp in minutes, or None (= stale)."""
+    ts = artifact_ts(payload, fields)
+    return None if ts is None else (now - ts).total_seconds() / 60.0
 
 
 def evaluate(payload, fields, now, max_age=MAX_AGE_MINUTES):
@@ -89,6 +105,36 @@ def fetch_json(url, timeout=30):
     except Exception:  # noqa: BLE001 - fail-closed, reported as stale
         return None, None, int((time.monotonic() - started) * 1000)
     return payload, status, int((time.monotonic() - started) * 1000)
+
+
+def await_published(base_url, published_dir, timeout_s, interval_s=60,
+                    fetch=None, sleep=time.sleep, clock=time.monotonic, log=print):
+    """Poll until every served artifact is at least as new as the copy this run
+    published into published_dir. Returns the names still behind (empty when
+    the deploy landed). Never raises: the caller judges the served copy next."""
+    fetch = fetch or fetch_json
+    pending = {}
+    for name, fields in ARTIFACTS.values():
+        try:
+            ts = artifact_ts(json.loads((Path(published_dir) / name).read_text(encoding="utf-8")), fields)
+        except (OSError, ValueError):
+            ts = None
+        if ts is not None:
+            pending[name] = (fields, ts)
+    deadline = clock() + timeout_s
+    while pending:
+        for name, (fields, want) in list(pending.items()):
+            served = artifact_ts(fetch(base_url + name)[0], fields)
+            if served is not None and served >= want:
+                log(f"served {name} now carries this run's artifact ({want.isoformat()})")
+                del pending[name]
+        if not pending or clock() >= deadline:
+            break
+        sleep(interval_s)
+    for name in pending:
+        log(f"::warning title=health watch::served {name} did not reach this run's artifact "
+            f"within {timeout_s / 60:.0f} min (Pages deploy slow or failed); judging the served copy as is")
+    return sorted(pending)
 
 
 def record(check_id, ok, content_ok, http_status, latency_ms, error_code, dry_run):
@@ -121,7 +167,7 @@ def parity_rows(shadow_dir):
     return rows
 
 
-def main() -> int:
+def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base-url", default=BASE_URL)
     ap.add_argument("--max-age-minutes", type=float, default=MAX_AGE_MINUTES)
@@ -129,9 +175,17 @@ def main() -> int:
     ap.add_argument("--producer-ok", choices=("true", "false"), default=None,
                     help="also record the CI producer observation")
     ap.add_argument("--dry-run", action="store_true", help="do not write to Supabase")
-    args = ap.parse_args()
+    ap.add_argument("--await-published", type=Path, default=None, metavar="DIR",
+                    help="first wait for the served copies to reach the artifacts this run published in DIR")
+    ap.add_argument("--await-timeout-minutes", type=float, default=25.0)
+    ap.add_argument("--await-interval-seconds", type=float, default=60.0)
+    args = ap.parse_args(argv)
 
-    now = datetime.now(timezone.utc)
+    if args.await_published is not None:
+        await_published(args.base_url, args.await_published, args.await_timeout_minutes * 60,
+                        args.await_interval_seconds)
+
+    now = datetime.now(timezone.utc)  # after the wait: age is judged when measured
     stale = []
     if args.producer_ok is not None:
         ok = args.producer_ok == "true"

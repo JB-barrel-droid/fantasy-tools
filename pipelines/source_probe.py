@@ -787,7 +787,7 @@ def cmd_ack(args) -> int:
 WAITING_STATUSES = ("queued", "pending", "waiting", "requested")
 
 
-def dispatch_chain(reason: str, run=None) -> str:
+def dispatch_chain(reason: str, run=None, fields=()) -> str:
     """Dispatch rebuild-chain.yml unless a run is already waiting to start.
 
     The chain has one concurrency group (one run at a time, never cancelled).
@@ -796,7 +796,11 @@ def dispatch_chain(reason: str, run=None) -> str:
     Skipping also keeps a waiting run (e.g. the 11:45 bake) from being replaced:
     GitHub cancels an older pending run when a newer one joins the group.
     A run already in progress may have read the database before this write,
-    so it does not count."""
+    so it does not count.
+
+    fields: extra "key=value" workflow inputs (rebuild-chain.yml's own
+    conflict handoff passes attempt=N and bake_players). Each key must be a
+    declared workflow_dispatch input, or the API rejects the dispatch (422)."""
     import subprocess
     run = run or (lambda argv: subprocess.run(argv, capture_output=True, text=True, check=True).stdout)
     out = run(["gh", "run", "list", "--workflow", "rebuild-chain.yml", "--limit", "20",
@@ -804,12 +808,15 @@ def dispatch_chain(reason: str, run=None) -> str:
     waiting = [r for r in json.loads(out or "[]") if r.get("status") in WAITING_STATUSES]
     if waiting:
         return f"skipped: rebuild-chain run {waiting[0].get('databaseId')} is already waiting"
-    run(["gh", "workflow", "run", "rebuild-chain.yml", "-f", f"source={reason}"])
+    argv = ["gh", "workflow", "run", "rebuild-chain.yml", "-f", f"source={reason}"]
+    for field in fields:
+        argv += ["-f", field]
+    run(argv)
     return "dispatched"
 
 
 def cmd_dispatch_chain(args) -> int:
-    print(f"rebuild-chain ({args.reason}): {dispatch_chain(args.reason)}")
+    print(f"rebuild-chain ({args.reason}): {dispatch_chain(args.reason, fields=args.field or ())}")
     return 0
 
 
@@ -823,6 +830,8 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     dc = sub.add_parser("dispatch-chain")
     dc.add_argument("--reason", required=True)
+    dc.add_argument("--field", action="append", metavar="KEY=VALUE",
+                    help="extra workflow input (repeatable)")
     for name in ("probe", "ack", "show"):
         p = sub.add_parser(name)
         g = p.add_mutually_exclusive_group()
