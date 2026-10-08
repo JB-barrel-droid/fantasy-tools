@@ -26,7 +26,7 @@
     "transformed_at": "2026-10-03T21:04:32.183609+00:00",
     "transformer": "pipelines/transform_batch70_to_comparison.py"
   },
-  "built_at": "2026-10-08T23:27:14.972554+00:00",
+  "built_at": "2026-10-08T23:40:11.494716+00:00",
   "display": {
     "aaron jones": "Aaron Jones",
     "aaron rodgers": "Aaron Rodgers",
@@ -2816,7 +2816,7 @@
       "name": "CBS",
       "native_unit": "CBS chart points (their ~5\u201347 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-08T23:27:14Z",
+      "promoted_at": "2026-10-08T23:40:11Z",
       "promoted_from_review": "cbs-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-08T12:59:38+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: CBS publishes 1QB-4 / 1QB-6 / 2QB, so the 1QB-4 column is reused for every scoring mode. QBs with '--' in the 1QB columns carry 2QB-only value and are not covered in 1QB.",
@@ -2829,7 +2829,7 @@
         "snapshot_fetched_at": "2026-10-08T12:59:38+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/cbs/week-5/snapshot-manifest.json",
         "source": "cbs",
-        "source_pulled_at": "2026-10-08T23:26:28Z",
+        "source_pulled_at": "2026-10-08T23:39:46Z",
         "source_url": "https://www.cbssports.com/fantasy/football/news/dave-richards-2026-week-5-trade-chart/",
         "vintage_kind": "week_designated",
         "week_designated": 5
@@ -37550,7 +37550,7 @@
         "stale": false,
         "vintage": "2026-10-08"
       },
-      "fetched_at": "2026-10-08T23:27:12Z",
+      "fetched_at": "2026-10-08T23:40:09Z",
       "kind": "model projections, valued by our model",
       "lineage": {
         "raw_built_at": "2026-10-08T23:27:11Z",
@@ -37595,18 +37595,18 @@
                   "scale": 0.0048556430446194225
                 },
                 "RB/bench": {
-                  "anchor": 126.2,
+                  "anchor": 126.1,
                   "n": 26,
-                  "post": 126.2,
+                  "post": 126.1,
                   "pre": 8732.0,
-                  "scale": 0.014452588181401741
+                  "scale": 0.014441136051305542
                 },
                 "RB/dedicated": {
-                  "anchor": 837.0,
+                  "anchor": 836.8,
                   "n": 24,
-                  "post": 837.0,
+                  "post": 836.8,
                   "pre": 122334.0,
-                  "scale": 0.006841924567168571
+                  "scale": 0.006840289698693739
                 },
                 "RB/flex": {
                   "anchor": 148.6,
@@ -37630,33 +37630,33 @@
                   "scale": 0.005884982121573301
                 },
                 "WR/bench": {
-                  "anchor": 208.3,
+                  "anchor": 207.4,
                   "n": 36,
-                  "post": 208.3,
+                  "post": 207.39999999999998,
                   "pre": 10463.0,
-                  "scale": 0.019908248112396065
+                  "scale": 0.01982223071776737
                 },
                 "WR/dedicated": {
-                  "anchor": 704.1999999999999,
+                  "anchor": 700.5,
                   "n": 24,
-                  "post": 704.1999999999999,
+                  "post": 700.5,
                   "pre": 113393.0,
-                  "scale": 0.006210259892585962
+                  "scale": 0.00617763001243463
                 },
                 "WR/flex": {
-                  "anchor": 228.3,
+                  "anchor": 228.5,
                   "n": 14,
-                  "post": 228.3,
+                  "post": 228.5,
                   "pre": 18964.0,
-                  "scale": 0.012038599451592491
+                  "scale": 0.012049145749841806
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 195,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.007504109659780416,
-                "post_total": 2615.7,
+                "factor": 0.0074906259592792245,
+                "post_total": 2611.0,
                 "pre_total": 348569.0
               }
             },
@@ -37703,18 +37703,18 @@
             "RB": {
               "buckets": {
                 "bench": {
-                  "anchor": 126.2,
+                  "anchor": 126.1,
                   "n": 26,
-                  "post": 126.2,
+                  "post": 126.1,
                   "pre": 8732.0,
-                  "scale": 0.014452588181401741
+                  "scale": 0.014441136051305542
                 },
                 "dedicated": {
-                  "anchor": 837.0,
+                  "anchor": 836.8,
                   "n": 24,
-                  "post": 837.0,
+                  "post": 836.8,
                   "pre": 122334.0,
-                  "scale": 0.006841924567168571
+                  "scale": 0.006840289698693739
                 },
                 "flex": {
                   "anchor": 148.6,
@@ -37724,11 +37724,11 @@
                   "scale": 0.01284467110381191
                 }
               },
-              "factor": 0.00779472079082974,
+              "factor": 0.00779261752024398,
               "n_priced": 60,
-              "post_total": 1111.8,
+              "post_total": 1111.5,
               "pre_total": 142635.0,
-              "target_total": 1111.8
+              "target_total": 1111.5
             },
             "TE": {
               "buckets": {
@@ -37756,32 +37756,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 208.3,
+                  "anchor": 207.4,
                   "n": 36,
-                  "post": 208.3,
+                  "post": 207.39999999999998,
                   "pre": 10463.0,
-                  "scale": 0.019908248112396065
+                  "scale": 0.01982223071776737
                 },
                 "dedicated": {
-                  "anchor": 704.1999999999999,
+                  "anchor": 700.5,
                   "n": 24,
-                  "post": 704.1999999999999,
+                  "post": 700.5,
                   "pre": 113393.0,
-                  "scale": 0.006210259892585962
+                  "scale": 0.00617763001243463
                 },
                 "flex": {
-                  "anchor": 228.3,
+                  "anchor": 228.5,
                   "n": 14,
-                  "post": 228.3,
+                  "post": 228.5,
                   "pre": 18964.0,
-                  "scale": 0.012038599451592491
+                  "scale": 0.012049145749841806
                 }
               },
-              "factor": 0.007987676795966951,
+              "factor": 0.00795686878588433,
               "n_priced": 74,
-              "post_total": 1140.8,
+              "post_total": 1136.4,
               "pre_total": 142820.0,
-              "target_total": 1140.8
+              "target_total": 1136.4
             }
           },
           "n": 195,
@@ -38446,11 +38446,11 @@
                   "scale": 0.0076956025128498
                 },
                 "QB/dedicated": {
-                  "anchor": 156.6,
+                  "anchor": 156.5,
                   "n": 12,
-                  "post": 156.6,
+                  "post": 156.5,
                   "pre": 25925.0,
-                  "scale": 0.0060405014464802315
+                  "scale": 0.006036644165863066
                 },
                 "RB/bench": {
                   "anchor": 213.29999999999998,
@@ -38488,33 +38488,33 @@
                   "scale": 0.005934695436318503
                 },
                 "WR/bench": {
-                  "anchor": 150.4,
+                  "anchor": 147.4,
                   "n": 36,
-                  "post": 150.4,
+                  "post": 147.4,
                   "pre": 10374.0,
-                  "scale": 0.014497782918835552
+                  "scale": 0.014208598419124736
                 },
                 "WR/dedicated": {
-                  "anchor": 678.6,
+                  "anchor": 660.6,
                   "n": 24,
-                  "post": 678.6,
+                  "post": 660.6,
                   "pre": 112610.0,
-                  "scale": 0.006026107805701093
+                  "scale": 0.005866264097327058
                 },
                 "WR/flex": {
-                  "anchor": 208.0,
+                  "anchor": 206.5,
                   "n": 14,
-                  "post": 208.0,
+                  "post": 206.5,
                   "pre": 18830.0,
-                  "scale": 0.011046202867764206
+                  "scale": 0.010966542750929368
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 195,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.008098777396104626,
-                "post_total": 2808.0,
+                "factor": 0.008033594928457916,
+                "post_total": 2785.4,
                 "pre_total": 346719.0
               }
             },
@@ -38545,18 +38545,18 @@
                   "scale": 0.0076956025128498
                 },
                 "dedicated": {
-                  "anchor": 156.6,
+                  "anchor": 156.5,
                   "n": 12,
-                  "post": 156.6,
+                  "post": 156.5,
                   "pre": 25925.0,
-                  "scale": 0.0060405014464802315
+                  "scale": 0.006036644165863066
                 }
               },
-              "factor": 0.006392541528743661,
+              "factor": 0.0063895046919129036,
               "n_priced": 34,
-              "post_total": 210.5,
+              "post_total": 210.4,
               "pre_total": 32929.0,
-              "target_total": 210.5
+              "target_total": 210.4
             },
             "RB": {
               "buckets": {
@@ -38614,32 +38614,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 150.4,
+                  "anchor": 147.4,
                   "n": 36,
-                  "post": 150.4,
+                  "post": 147.4,
                   "pre": 10374.0,
-                  "scale": 0.014497782918835552
+                  "scale": 0.014208598419124736
                 },
                 "dedicated": {
-                  "anchor": 678.6,
+                  "anchor": 660.6,
                   "n": 24,
-                  "post": 678.6,
+                  "post": 660.6,
                   "pre": 112610.0,
-                  "scale": 0.006026107805701093
+                  "scale": 0.005866264097327058
                 },
                 "flex": {
-                  "anchor": 208.0,
+                  "anchor": 206.5,
                   "n": 14,
-                  "post": 208.0,
+                  "post": 206.5,
                   "pre": 18830.0,
-                  "scale": 0.011046202867764206
+                  "scale": 0.010966542750929368
                 }
               },
-              "factor": 0.00731239510908655,
+              "factor": 0.007153736584540314,
               "n_priced": 74,
-              "post_total": 1037.0,
+              "post_total": 1014.5,
               "pre_total": 141814.0,
-              "target_total": 1037.0
+              "target_total": 1014.5
             }
           },
           "n": 195,
@@ -39318,11 +39318,11 @@
                   "scale": 0.029514363885088917
                 },
                 "RB/dedicated": {
-                  "anchor": 995.6,
+                  "anchor": 995.5,
                   "n": 24,
-                  "post": 995.6,
+                  "post": 995.4999999999999,
                   "pre": 123029.0,
-                  "scale": 0.008092400978631054
+                  "scale": 0.008091588162140633
                 },
                 "RB/flex": {
                   "anchor": 220.2,
@@ -39346,33 +39346,33 @@
                   "scale": 0.005598323170731708
                 },
                 "WR/bench": {
-                  "anchor": 112.9,
+                  "anchor": 112.3,
                   "n": 36,
-                  "post": 112.9,
+                  "post": 112.3,
                   "pre": 10263.0,
-                  "scale": 0.01100068206177531
+                  "scale": 0.01094221962389165
                 },
                 "WR/dedicated": {
-                  "anchor": 588.2,
+                  "anchor": 584.3,
                   "n": 24,
-                  "post": 588.2,
+                  "post": 584.3,
                   "pre": 111404.0,
-                  "scale": 0.0052798822304405595
+                  "scale": 0.005244874510789558
                 },
                 "WR/flex": {
-                  "anchor": 176.0,
+                  "anchor": 176.2,
                   "n": 14,
-                  "post": 176.0,
+                  "post": 176.2,
                   "pre": 18624.0,
-                  "scale": 0.009450171821305841
+                  "scale": 0.009460910652920962
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 195,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.00797911876563562,
-                "post_total": 2758.9,
+                "factor": 0.007966393359651784,
+                "post_total": 2754.4999999999995,
                 "pre_total": 345765.0
               }
             },
@@ -39426,11 +39426,11 @@
                   "scale": 0.029514363885088917
                 },
                 "dedicated": {
-                  "anchor": 995.6,
+                  "anchor": 995.5,
                   "n": 24,
-                  "post": 995.6,
+                  "post": 995.4999999999999,
                   "pre": 123029.0,
-                  "scale": 0.008092400978631054
+                  "scale": 0.008091588162140633
                 },
                 "flex": {
                   "anchor": 220.2,
@@ -39440,11 +39440,11 @@
                   "scale": 0.018933791917454857
                 }
               },
-              "factor": 0.010281598817549902,
+              "factor": 0.010280901618199691,
               "n_priced": 60,
-              "post_total": 1474.7,
+              "post_total": 1474.6,
               "pre_total": 143431.0,
-              "target_total": 1474.7
+              "target_total": 1474.6
             },
             "TE": {
               "buckets": {
@@ -39472,32 +39472,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 112.9,
+                  "anchor": 112.3,
                   "n": 36,
-                  "post": 112.9,
+                  "post": 112.3,
                   "pre": 10263.0,
-                  "scale": 0.01100068206177531
+                  "scale": 0.01094221962389165
                 },
                 "dedicated": {
-                  "anchor": 588.2,
+                  "anchor": 584.3,
                   "n": 24,
-                  "post": 588.2,
+                  "post": 584.3,
                   "pre": 111404.0,
-                  "scale": 0.0052798822304405595
+                  "scale": 0.005244874510789558
                 },
                 "flex": {
-                  "anchor": 176.0,
+                  "anchor": 176.2,
                   "n": 14,
-                  "post": 176.0,
+                  "post": 176.2,
                   "pre": 18624.0,
-                  "scale": 0.009450171821305841
+                  "scale": 0.009460910652920962
                 }
               },
-              "factor": 0.0062520047615313885,
+              "factor": 0.006221354185229273,
               "n_priced": 74,
-              "post_total": 877.1,
+              "post_total": 872.8,
               "pre_total": 140291.0,
-              "target_total": 877.1
+              "target_total": 872.8
             }
           },
           "n": 195,
@@ -40156,7 +40156,7 @@
       "name": "FantasyCalc",
       "native_unit": "FantasyCalc crowd value (their ~2\u201310,500 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-08T23:27:04Z",
+      "promoted_at": "2026-10-08T23:40:03Z",
       "promoted_from_review": "fantasycalc-standard-12-qb1-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-08T20:05:24+00:00; reindex mapping updated.",
       "provenance_note": "Weekly snapshot tied to the NFL week \u2014 pulled once per week, frozen for the week, never a live read. Refresh only with --refresh-fc --fc-week \"Week N\".",
@@ -40196,7 +40196,7 @@
         "snapshot_fetched_at": "2026-10-08T20:05:24+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasycalc/week-5/snapshot-manifest.json",
         "source": "fantasycalc",
-        "source_pulled_at": "2026-10-08T23:26:20Z",
+        "source_pulled_at": "2026-10-08T23:39:42Z",
         "source_url": null,
         "vintage_kind": "week_designated",
         "week_designated": 5
@@ -40836,11 +40836,11 @@
           "reindexed": {
             "aaron jones": 19.0,
             "aaron rodgers": 0.0,
-            "adonai mitchell": 4.9,
-            "aj brown": 24.4,
-            "alec pierce": 5.3,
+            "adonai mitchell": 4.8,
+            "aj brown": 24.3,
+            "alec pierce": 5.2,
             "alvin kamara": 14.2,
-            "amonra st brown": 43.5,
+            "amonra st brown": 43.4,
             "antonio williams": 0.0,
             "ashton jeanty": 40.9,
             "baker mayfield": 0.0,
@@ -40857,19 +40857,19 @@
             "brock purdy": 11.8,
             "bryce young": 9.9,
             "bucky irving": 23.7,
-            "caleb douglas": 4.5,
+            "caleb douglas": 4.4,
             "caleb williams": 8.4,
             "cam skattebo": 22.0,
             "cam ward": 0.0,
-            "carnell tate": 17.8,
-            "ceedee lamb": 44.8,
+            "carnell tate": 17.7,
+            "ceedee lamb": 44.6,
             "chase brown": 37.9,
-            "chris bell": 4.5,
+            "chris bell": 4.4,
             "chris godwin": 7.3,
             "chris olave": 34.5,
             "chris rodriguez jr": 0.0,
-            "christian mccaffrey": 48.1,
-            "christian watson": 24.8,
+            "christian mccaffrey": 48.0,
+            "christian watson": 24.7,
             "chuba hubbard": 31.2,
             "cj stroud": 0.3,
             "colston loveland": 9.8,
@@ -40881,27 +40881,27 @@
             "dandre swift": 26.5,
             "daniel jones": 0.0,
             "darren waller": 0.0,
-            "davante adams": 22.8,
+            "davante adams": 22.7,
             "david montgomery": 17.8,
-            "deebo samuel sr": 15.9,
-            "denzel boston": 15.5,
+            "deebo samuel sr": 15.8,
+            "denzel boston": 15.4,
             "derrick henry": 44.4,
             "deshaun watson": 0.0,
             "devaughn vele": 8.0,
-            "devonta smith": 21.4,
+            "devonta smith": 21.3,
             "dj moore": 17.9,
-            "dk metcalf": 16.1,
-            "dohnte meyers": 5.1,
+            "dk metcalf": 16.0,
+            "dohnte meyers": 5.0,
             "dontayvion wicks": 6.1,
-            "drake london": 31.9,
+            "drake london": 31.8,
             "drake maye": 8.3,
             "emanuel wilson": 10.1,
-            "emeka egbuka": 16.1,
+            "emeka egbuka": 16.0,
             "emmett johnson": 1.9,
-            "garrett wilson": 26.7,
+            "garrett wilson": 26.6,
             "geno smith": 0.0,
             "george kittle": 15.1,
-            "george pickens": 23.9,
+            "george pickens": 23.8,
             "harold fannin jr": 9.2,
             "hunter henry": 3.3,
             "isaiah likely": 8.0,
@@ -40911,16 +40911,16 @@
             "jahmyr gibbs": 61.5,
             "jake ferguson": 3.9,
             "jakobi meyers": 6.3,
-            "jalen coker": 16.7,
+            "jalen coker": 16.6,
             "jalen hurts": 6.8,
             "jalon daniels": 0.0,
             "jamarr chase": 42.8,
             "jameis winston": 0.0,
             "james cook": 44.6,
-            "jameson williams": 16.1,
+            "jameson williams": 16.0,
             "jared goff": 7.2,
             "javonte williams": 37.8,
-            "jaxon smithnjigba": 48.5,
+            "jaxon smithnjigba": 48.3,
             "jayden daniels": 8.8,
             "jaylen waddle": 19.1,
             "jaylen warren": 24.8,
@@ -40938,16 +40938,16 @@
             "josh downs": 8.7,
             "josh jacobs": 9.4,
             "justin herbert": 1.7,
-            "justin jefferson": 33.8,
+            "justin jefferson": 33.7,
             "juwan johnson": 8.3,
             "kaelon black": 2.5,
             "kalif raymond": 6.0,
             "kc concepcion": 7.9,
             "keaton mitchell": 6.4,
-            "keenan allen": 5.0,
+            "keenan allen": 4.9,
             "kendre miller": 0.0,
             "kenneth gainwell": 3.6,
-            "kenneth walker iii": 55.9,
+            "kenneth walker iii": 55.7,
             "kenyon sadiq": 4.2,
             "keon coleman": 6.9,
             "khalil shakir": 6.0,
@@ -40956,13 +40956,13 @@
             "kyle pitts": 4.0,
             "kyler murray": 0.0,
             "kyren williams": 40.5,
-            "ladd mcconkey": 16.8,
+            "ladd mcconkey": 16.7,
             "lamar jackson": 15.6,
             "luther burden iii": 17.9,
             "mack hollins": 0.0,
-            "makai lemon": 5.9,
+            "makai lemon": 5.8,
             "malachi fields": 0.0,
-            "malik nabers": 25.9,
+            "malik nabers": 25.8,
             "malik washington": 6.7,
             "malik willis": 0.0,
             "mark andrews": 4.1,
@@ -40972,47 +40972,47 @@
             "matthew stafford": 9.7,
             "michael mayer": 0.0,
             "michael penix jr": 0.0,
-            "michael pittman": 5.1,
-            "michael wilson": 22.1,
+            "michael pittman": 5.0,
+            "michael wilson": 22.0,
             "mike evans": 18.4,
             "mike gesicki": 0.0,
             "mike washington jr": 2.1,
             "najee harris": 0.0,
-            "nico collins": 32.7,
+            "nico collins": 32.6,
             "ollie gordon ii": 13.9,
             "omarion hampton": 22.3,
             "oronde gadsden ii": 0.0,
-            "parker washington": 23.0,
+            "parker washington": 22.9,
             "pat freiermuth": 0.0,
             "patrick mahomes": 10.5,
             "puka nacua": 42.5,
-            "quentin johnston": 4.9,
+            "quentin johnston": 4.8,
             "quinshon judkins": 22.1,
             "rachaad white": 3.6,
             "rashee rice": 20.3,
             "rashid shaheed": 0.0,
-            "rashod bateman": 4.6,
+            "rashod bateman": 4.5,
             "rhamondre stevenson": 17.1,
             "rico dowdle": 7.2,
             "rj harvey": 17.4,
             "roman wilson": 6.0,
-            "rome odunze": 15.1,
+            "rome odunze": 15.0,
             "romeo doubs": 7.7,
             "sam darnold": 1.2,
             "sam laporta": 11.7,
             "saquon barkley": 27.6,
-            "stefon diggs": 14.4,
+            "stefon diggs": 14.3,
             "tank bigsby": 0.0,
-            "tank dell": 4.8,
-            "tee higgins": 23.1,
-            "terry mclaurin": 15.6,
-            "tetairoa mcmillan": 26.7,
+            "tank dell": 4.7,
+            "tee higgins": 23.0,
+            "terry mclaurin": 15.5,
+            "tetairoa mcmillan": 26.6,
             "tj hockenson": 3.9,
             "tony pollard": 16.1,
             "travis etienne": 16.2,
             "travis kelce": 10.0,
-            "tre harris": 5.2,
-            "tre tucker": 5.5,
+            "tre harris": 5.1,
+            "tre tucker": 5.4,
             "treveyon henderson": 17.4,
             "trevor lawrence": 7.2,
             "trey mcbride": 27.0,
@@ -41028,7 +41028,7 @@
             "woody marks": 7.2,
             "xavier worthy": 7.0,
             "zach charbonnet": 14.0,
-            "zay flowers": 32.2
+            "zay flowers": 32.1
           },
           "native": {
             "aaron jones": 11.8,
@@ -41259,18 +41259,18 @@
             "RB": {
               "buckets": {
                 "bench": {
-                  "anchor": 126.2,
+                  "anchor": 126.1,
                   "n": 26,
-                  "post": 126.2,
+                  "post": 126.1,
                   "pre": 8732.0,
-                  "scale": 0.014452588181401741
+                  "scale": 0.014441136051305542
                 },
                 "dedicated": {
-                  "anchor": 837.0,
+                  "anchor": 836.8,
                   "n": 24,
-                  "post": 837.0,
+                  "post": 836.8,
                   "pre": 122334.0,
-                  "scale": 0.006841924567168571
+                  "scale": 0.006840289698693739
                 },
                 "flex": {
                   "anchor": 148.6,
@@ -41280,11 +41280,11 @@
                   "scale": 0.01284467110381191
                 }
               },
-              "factor": 0.00779472079082974,
+              "factor": 0.00779261752024398,
               "n_priced": 60,
-              "post_total": 1111.8,
+              "post_total": 1111.5,
               "pre_total": 142635.0,
-              "target_total": 1111.8
+              "target_total": 1111.5
             },
             "TE": {
               "buckets": {
@@ -41312,32 +41312,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 208.3,
+                  "anchor": 207.4,
                   "n": 36,
-                  "post": 208.3,
+                  "post": 207.39999999999998,
                   "pre": 10463.0,
-                  "scale": 0.019908248112396065
+                  "scale": 0.01982223071776737
                 },
                 "dedicated": {
-                  "anchor": 704.1999999999999,
+                  "anchor": 700.5,
                   "n": 24,
-                  "post": 704.1999999999999,
+                  "post": 700.5,
                   "pre": 113393.0,
-                  "scale": 0.006210259892585962
+                  "scale": 0.00617763001243463
                 },
                 "flex": {
-                  "anchor": 228.3,
+                  "anchor": 228.5,
                   "n": 14,
-                  "post": 228.3,
+                  "post": 228.5,
                   "pre": 18964.0,
-                  "scale": 0.012038599451592491
+                  "scale": 0.012049145749841806
                 }
               },
-              "factor": 0.007987676795966951,
+              "factor": 0.00795686878588433,
               "n_priced": 74,
-              "post_total": 1140.8,
+              "post_total": 1136.4,
               "pre_total": 142820.0,
-              "target_total": 1140.8
+              "target_total": 1136.4
             }
           }
         },
@@ -41345,11 +41345,11 @@
           "reindexed": {
             "aaron jones": 23.4,
             "aaron rodgers": 0.0,
-            "adonai mitchell": 4.4,
-            "aj brown": 22.2,
-            "alec pierce": 4.8,
+            "adonai mitchell": 4.3,
+            "aj brown": 21.7,
+            "alec pierce": 4.7,
             "alvin kamara": 17.5,
-            "amonra st brown": 39.7,
+            "amonra st brown": 38.8,
             "antonio williams": 0.0,
             "ashton jeanty": 50.4,
             "baker mayfield": 0.0,
@@ -41361,7 +41361,7 @@
             "breece hall": 32.7,
             "brenton strange": 3.3,
             "brian robinson": 17.1,
-            "brian thomas jr": 6.6,
+            "brian thomas jr": 6.5,
             "brock bowers": 27.8,
             "brock purdy": 14.7,
             "bryce young": 12.3,
@@ -41370,19 +41370,19 @@
             "caleb williams": 10.5,
             "cam skattebo": 27.1,
             "cam ward": 0.0,
-            "carnell tate": 16.2,
-            "ceedee lamb": 40.8,
+            "carnell tate": 15.8,
+            "ceedee lamb": 39.9,
             "chase brown": 46.8,
             "chris bell": 4.0,
-            "chris godwin": 6.6,
-            "chris olave": 31.5,
+            "chris godwin": 6.5,
+            "chris olave": 30.8,
             "chris rodriguez jr": 0.0,
             "christian mccaffrey": 59.2,
-            "christian watson": 22.5,
+            "christian watson": 22.1,
             "chuba hubbard": 38.4,
             "cj stroud": 0.4,
             "colston loveland": 9.6,
-            "courtland sutton": 5.5,
+            "courtland sutton": 5.4,
             "dak prescott": 11.9,
             "dallas goedert": 3.7,
             "dalton kincaid": 9.3,
@@ -41390,27 +41390,27 @@
             "dandre swift": 32.7,
             "daniel jones": 0.0,
             "darren waller": 0.0,
-            "davante adams": 20.7,
+            "davante adams": 20.3,
             "david montgomery": 21.9,
-            "deebo samuel sr": 14.4,
-            "denzel boston": 14.1,
+            "deebo samuel sr": 14.1,
+            "denzel boston": 13.8,
             "derrick henry": 54.7,
             "deshaun watson": 0.0,
-            "devaughn vele": 7.3,
-            "devonta smith": 19.4,
-            "dj moore": 16.3,
-            "dk metcalf": 14.6,
-            "dohnte meyers": 4.6,
-            "dontayvion wicks": 5.5,
-            "drake london": 29.0,
-            "drake maye": 10.4,
+            "devaughn vele": 7.1,
+            "devonta smith": 19.0,
+            "dj moore": 15.9,
+            "dk metcalf": 14.3,
+            "dohnte meyers": 4.5,
+            "dontayvion wicks": 5.4,
+            "drake london": 28.4,
+            "drake maye": 10.3,
             "emanuel wilson": 12.5,
-            "emeka egbuka": 14.6,
+            "emeka egbuka": 14.3,
             "emmett johnson": 2.4,
-            "garrett wilson": 24.3,
+            "garrett wilson": 23.8,
             "geno smith": 0.0,
             "george kittle": 14.5,
-            "george pickens": 21.7,
+            "george pickens": 21.2,
             "harold fannin jr": 9.0,
             "hunter henry": 3.3,
             "isaiah likely": 7.8,
@@ -41419,19 +41419,19 @@
             "jadarian price": 6.7,
             "jahmyr gibbs": 76.0,
             "jake ferguson": 3.9,
-            "jakobi meyers": 5.7,
-            "jalen coker": 15.2,
+            "jakobi meyers": 5.6,
+            "jalen coker": 14.9,
             "jalen hurts": 8.5,
             "jalon daniels": 0.0,
-            "jamarr chase": 39.0,
+            "jamarr chase": 38.2,
             "jameis winston": 0.0,
             "james cook": 55.0,
-            "jameson williams": 14.6,
+            "jameson williams": 14.3,
             "jared goff": 8.9,
             "javonte williams": 46.6,
-            "jaxon smithnjigba": 44.3,
+            "jaxon smithnjigba": 43.2,
             "jayden daniels": 11.0,
-            "jaylen waddle": 17.4,
+            "jaylen waddle": 17.0,
             "jaylen warren": 30.6,
             "jaylen wright": 0.0,
             "jeremiyah love": 34.5,
@@ -41439,89 +41439,89 @@
             "joe burrow": 14.3,
             "jonah coleman": 1.2,
             "jonathan taylor": 62.8,
-            "jordan addison": 6.8,
+            "jordan addison": 6.7,
             "jordan love": 1.7,
             "jordan mason": 9.2,
-            "jordyn tyson": 8.3,
+            "jordyn tyson": 8.1,
             "josh allen": 35.9,
-            "josh downs": 7.9,
+            "josh downs": 7.7,
             "josh jacobs": 11.6,
             "justin herbert": 2.1,
-            "justin jefferson": 30.7,
+            "justin jefferson": 30.1,
             "juwan johnson": 8.1,
             "kaelon black": 3.1,
-            "kalif raymond": 5.5,
-            "kc concepcion": 7.2,
+            "kalif raymond": 5.4,
+            "kc concepcion": 7.0,
             "keaton mitchell": 7.9,
-            "keenan allen": 4.5,
+            "keenan allen": 4.4,
             "kendre miller": 0.0,
             "kenneth gainwell": 4.5,
             "kenneth walker iii": 68.8,
             "kenyon sadiq": 4.2,
-            "keon coleman": 6.3,
-            "khalil shakir": 5.4,
+            "keon coleman": 6.1,
+            "khalil shakir": 5.3,
             "kirk cousins": 1.4,
             "kyle monangai": 19.5,
             "kyle pitts": 4.0,
             "kyler murray": 0.0,
             "kyren williams": 49.9,
-            "ladd mcconkey": 15.4,
+            "ladd mcconkey": 15.0,
             "lamar jackson": 19.4,
-            "luther burden iii": 16.3,
+            "luther burden iii": 15.9,
             "mack hollins": 0.0,
-            "makai lemon": 5.3,
+            "makai lemon": 5.2,
             "malachi fields": 0.0,
-            "malik nabers": 23.6,
-            "malik washington": 6.1,
+            "malik nabers": 23.0,
+            "malik washington": 5.9,
             "malik willis": 0.0,
             "mark andrews": 4.1,
             "marshawn lloyd": 4.0,
-            "marvin harrison jr": 7.2,
-            "matthew golden": 16.8,
+            "marvin harrison jr": 7.0,
+            "matthew golden": 16.5,
             "matthew stafford": 12.1,
             "michael mayer": 0.0,
             "michael penix jr": 0.0,
-            "michael pittman": 4.6,
-            "michael wilson": 20.1,
-            "mike evans": 16.7,
+            "michael pittman": 4.5,
+            "michael wilson": 19.6,
+            "mike evans": 16.4,
             "mike gesicki": 0.0,
             "mike washington jr": 2.6,
             "najee harris": 0.0,
-            "nico collins": 29.7,
+            "nico collins": 29.1,
             "ollie gordon ii": 17.1,
             "omarion hampton": 27.4,
             "oronde gadsden ii": 0.0,
-            "parker washington": 20.9,
+            "parker washington": 20.4,
             "pat freiermuth": 0.0,
             "patrick mahomes": 13.1,
-            "puka nacua": 38.7,
-            "quentin johnston": 4.4,
+            "puka nacua": 37.9,
+            "quentin johnston": 4.3,
             "quinshon judkins": 27.2,
             "rachaad white": 4.5,
-            "rashee rice": 18.5,
+            "rashee rice": 18.1,
             "rashid shaheed": 0.0,
             "rashod bateman": 4.1,
             "rhamondre stevenson": 21.1,
             "rico dowdle": 9.2,
             "rj harvey": 21.4,
-            "roman wilson": 5.4,
-            "rome odunze": 13.7,
-            "romeo doubs": 7.0,
+            "roman wilson": 5.3,
+            "rome odunze": 13.4,
+            "romeo doubs": 6.8,
             "sam darnold": 1.4,
             "sam laporta": 11.4,
             "saquon barkley": 34.0,
-            "stefon diggs": 13.1,
+            "stefon diggs": 12.8,
             "tank bigsby": 0.0,
-            "tank dell": 4.3,
-            "tee higgins": 21.0,
-            "terry mclaurin": 14.2,
-            "tetairoa mcmillan": 24.3,
+            "tank dell": 4.2,
+            "tee higgins": 20.5,
+            "terry mclaurin": 13.9,
+            "tetairoa mcmillan": 23.8,
             "tj hockenson": 3.9,
             "tony pollard": 19.8,
             "travis etienne": 20.0,
             "travis kelce": 9.8,
-            "tre harris": 4.7,
-            "tre tucker": 5.0,
+            "tre harris": 4.6,
+            "tre tucker": 4.9,
             "treveyon henderson": 21.4,
             "trevor lawrence": 8.9,
             "trey mcbride": 26.2,
@@ -41532,12 +41532,12 @@
             "tyler shough": 8.5,
             "tyler warren": 12.3,
             "tyson bagent": 0.0,
-            "wandale robinson": 6.2,
+            "wandale robinson": 6.0,
             "will shipley": 6.1,
             "woody marks": 8.9,
-            "xavier worthy": 6.3,
+            "xavier worthy": 6.2,
             "zach charbonnet": 17.2,
-            "zay flowers": 29.3
+            "zay flowers": 28.6
           },
           "native": {
             "aaron jones": 11.8,
@@ -41752,18 +41752,18 @@
                   "scale": 0.0076956025128498
                 },
                 "dedicated": {
-                  "anchor": 156.6,
+                  "anchor": 156.5,
                   "n": 12,
-                  "post": 156.6,
+                  "post": 156.5,
                   "pre": 25925.0,
-                  "scale": 0.0060405014464802315
+                  "scale": 0.006036644165863066
                 }
               },
-              "factor": 0.006392541528743661,
+              "factor": 0.0063895046919129036,
               "n_priced": 34,
-              "post_total": 210.5,
+              "post_total": 210.4,
               "pre_total": 32929.0,
-              "target_total": 210.5
+              "target_total": 210.4
             },
             "RB": {
               "buckets": {
@@ -41821,32 +41821,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 150.4,
+                  "anchor": 147.4,
                   "n": 36,
-                  "post": 150.4,
+                  "post": 147.4,
                   "pre": 10374.0,
-                  "scale": 0.014497782918835552
+                  "scale": 0.014208598419124736
                 },
                 "dedicated": {
-                  "anchor": 678.6,
+                  "anchor": 660.6,
                   "n": 24,
-                  "post": 678.6,
+                  "post": 660.6,
                   "pre": 112610.0,
-                  "scale": 0.006026107805701093
+                  "scale": 0.005866264097327058
                 },
                 "flex": {
-                  "anchor": 208.0,
+                  "anchor": 206.5,
                   "n": 14,
-                  "post": 208.0,
+                  "post": 206.5,
                   "pre": 18830.0,
-                  "scale": 0.011046202867764206
+                  "scale": 0.010966542750929368
                 }
               },
-              "factor": 0.00731239510908655,
+              "factor": 0.007153736584540314,
               "n_priced": 74,
-              "post_total": 1037.0,
+              "post_total": 1014.5,
               "pre_total": 141814.0,
-              "target_total": 1037.0
+              "target_total": 1014.5
             }
           }
         },
@@ -41855,15 +41855,15 @@
             "aaron jones": 25.2,
             "aaron rodgers": 0.0,
             "adonai mitchell": 3.7,
-            "aj brown": 18.8,
+            "aj brown": 18.7,
             "alec pierce": 4.0,
             "alvin kamara": 18.8,
-            "amonra st brown": 33.5,
+            "amonra st brown": 33.4,
             "antonio williams": 0.0,
             "ashton jeanty": 54.2,
             "baker mayfield": 0.0,
             "bhayshul tuten": 33.8,
-            "bijan robinson": 81.9,
+            "bijan robinson": 81.8,
             "blake corum": 11.7,
             "bo nix": 3.4,
             "braelon allen": 9.3,
@@ -41879,19 +41879,19 @@
             "caleb williams": 11.5,
             "cam skattebo": 29.1,
             "cam ward": 0.0,
-            "carnell tate": 13.7,
-            "ceedee lamb": 34.5,
+            "carnell tate": 13.6,
+            "ceedee lamb": 34.3,
             "chase brown": 50.3,
             "chris bell": 3.4,
             "chris godwin": 5.6,
-            "chris olave": 26.6,
+            "chris olave": 26.5,
             "chris rodriguez jr": 0.0,
             "christian mccaffrey": 63.7,
-            "christian watson": 19.1,
+            "christian watson": 19.0,
             "chuba hubbard": 41.2,
             "cj stroud": 0.4,
             "colston loveland": 8.9,
-            "courtland sutton": 4.7,
+            "courtland sutton": 4.6,
             "dak prescott": 13.1,
             "dallas goedert": 3.4,
             "dalton kincaid": 8.6,
@@ -41899,27 +41899,27 @@
             "dandre swift": 35.2,
             "daniel jones": 0.0,
             "darren waller": 0.0,
-            "davante adams": 17.5,
+            "davante adams": 17.4,
             "david montgomery": 23.6,
             "deebo samuel sr": 12.2,
             "denzel boston": 11.9,
             "derrick henry": 58.9,
             "deshaun watson": 0.0,
             "devaughn vele": 6.1,
-            "devonta smith": 16.4,
-            "dj moore": 13.8,
-            "dk metcalf": 12.4,
+            "devonta smith": 16.3,
+            "dj moore": 13.7,
+            "dk metcalf": 12.3,
             "dohnte meyers": 3.9,
-            "dontayvion wicks": 4.7,
-            "drake london": 24.5,
+            "dontayvion wicks": 4.6,
+            "drake london": 24.4,
             "drake maye": 11.3,
             "emanuel wilson": 13.4,
-            "emeka egbuka": 12.4,
+            "emeka egbuka": 12.3,
             "emmett johnson": 2.5,
-            "garrett wilson": 20.5,
+            "garrett wilson": 20.4,
             "geno smith": 0.0,
             "george kittle": 13.6,
-            "george pickens": 18.4,
+            "george pickens": 18.3,
             "harold fannin jr": 8.4,
             "hunter henry": 3.0,
             "isaiah likely": 7.3,
@@ -41932,15 +41932,15 @@
             "jalen coker": 12.8,
             "jalen hurts": 9.3,
             "jalon daniels": 0.0,
-            "jamarr chase": 33.0,
+            "jamarr chase": 32.8,
             "jameis winston": 0.0,
             "james cook": 59.2,
-            "jameson williams": 12.4,
+            "jameson williams": 12.3,
             "jared goff": 9.8,
             "javonte williams": 50.2,
-            "jaxon smithnjigba": 37.4,
+            "jaxon smithnjigba": 37.3,
             "jayden daniels": 12.1,
-            "jaylen waddle": 14.7,
+            "jaylen waddle": 14.6,
             "jaylen warren": 32.9,
             "jaylen wright": 0.0,
             "jeremiyah love": 37.2,
@@ -41948,7 +41948,7 @@
             "joe burrow": 15.6,
             "jonah coleman": 1.3,
             "jonathan taylor": 67.6,
-            "jordan addison": 5.8,
+            "jordan addison": 5.7,
             "jordan love": 1.9,
             "jordan mason": 9.9,
             "jordyn tyson": 7.0,
@@ -41956,11 +41956,11 @@
             "josh downs": 6.7,
             "josh jacobs": 12.5,
             "justin herbert": 2.3,
-            "justin jefferson": 26.0,
+            "justin jefferson": 25.9,
             "juwan johnson": 7.5,
             "kaelon black": 3.4,
-            "kalif raymond": 4.7,
-            "kc concepcion": 6.1,
+            "kalif raymond": 4.6,
+            "kc concepcion": 6.0,
             "keaton mitchell": 8.5,
             "keenan allen": 3.8,
             "kendre miller": 0.0,
@@ -41976,34 +41976,34 @@
             "kyren williams": 53.7,
             "ladd mcconkey": 12.9,
             "lamar jackson": 21.2,
-            "luther burden iii": 13.8,
+            "luther burden iii": 13.7,
             "mack hollins": 0.0,
             "makai lemon": 4.5,
             "malachi fields": 0.0,
-            "malik nabers": 19.9,
+            "malik nabers": 19.8,
             "malik washington": 5.1,
             "malik willis": 0.0,
             "mark andrews": 3.8,
             "marshawn lloyd": 4.3,
-            "marvin harrison jr": 6.1,
+            "marvin harrison jr": 6.0,
             "matthew golden": 14.2,
             "matthew stafford": 13.2,
             "michael mayer": 0.0,
             "michael penix jr": 0.0,
             "michael pittman": 3.9,
-            "michael wilson": 17.0,
-            "mike evans": 14.2,
+            "michael wilson": 16.9,
+            "mike evans": 14.1,
             "mike gesicki": 0.0,
             "mike washington jr": 2.8,
             "najee harris": 0.0,
-            "nico collins": 25.1,
+            "nico collins": 25.0,
             "ollie gordon ii": 18.4,
             "omarion hampton": 29.5,
             "oronde gadsden ii": 0.0,
-            "parker washington": 17.7,
+            "parker washington": 17.6,
             "pat freiermuth": 0.0,
             "patrick mahomes": 14.4,
-            "puka nacua": 32.8,
+            "puka nacua": 32.6,
             "quentin johnston": 3.7,
             "quinshon judkins": 29.3,
             "rachaad white": 4.8,
@@ -42014,17 +42014,17 @@
             "rico dowdle": 9.9,
             "rj harvey": 23.1,
             "roman wilson": 4.6,
-            "rome odunze": 11.6,
+            "rome odunze": 11.5,
             "romeo doubs": 5.9,
             "sam darnold": 1.6,
             "sam laporta": 10.7,
             "saquon barkley": 36.6,
-            "stefon diggs": 11.1,
+            "stefon diggs": 11.0,
             "tank bigsby": 0.0,
-            "tank dell": 3.7,
+            "tank dell": 3.6,
             "tee higgins": 17.7,
-            "terry mclaurin": 12.0,
-            "tetairoa mcmillan": 20.5,
+            "terry mclaurin": 11.9,
+            "tetairoa mcmillan": 20.4,
             "tj hockenson": 3.6,
             "tony pollard": 21.3,
             "travis etienne": 21.5,
@@ -42044,9 +42044,9 @@
             "wandale robinson": 5.2,
             "will shipley": 6.6,
             "woody marks": 9.5,
-            "xavier worthy": 5.4,
+            "xavier worthy": 5.3,
             "zach charbonnet": 18.5,
-            "zay flowers": 24.8
+            "zay flowers": 24.6
           },
           "native": {
             "aaron jones": 11.8,
@@ -42284,11 +42284,11 @@
                   "scale": 0.029514363885088917
                 },
                 "dedicated": {
-                  "anchor": 995.6,
+                  "anchor": 995.5,
                   "n": 24,
-                  "post": 995.6,
+                  "post": 995.4999999999999,
                   "pre": 123029.0,
-                  "scale": 0.008092400978631054
+                  "scale": 0.008091588162140633
                 },
                 "flex": {
                   "anchor": 220.2,
@@ -42298,11 +42298,11 @@
                   "scale": 0.018933791917454857
                 }
               },
-              "factor": 0.010281598817549902,
+              "factor": 0.010280901618199691,
               "n_priced": 60,
-              "post_total": 1474.7,
+              "post_total": 1474.6,
               "pre_total": 143431.0,
-              "target_total": 1474.7
+              "target_total": 1474.6
             },
             "TE": {
               "buckets": {
@@ -42330,32 +42330,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 112.9,
+                  "anchor": 112.3,
                   "n": 36,
-                  "post": 112.9,
+                  "post": 112.3,
                   "pre": 10263.0,
-                  "scale": 0.01100068206177531
+                  "scale": 0.01094221962389165
                 },
                 "dedicated": {
-                  "anchor": 588.2,
+                  "anchor": 584.3,
                   "n": 24,
-                  "post": 588.2,
+                  "post": 584.3,
                   "pre": 111404.0,
-                  "scale": 0.0052798822304405595
+                  "scale": 0.005244874510789558
                 },
                 "flex": {
-                  "anchor": 176.0,
+                  "anchor": 176.2,
                   "n": 14,
-                  "post": 176.0,
+                  "post": 176.2,
                   "pre": 18624.0,
-                  "scale": 0.009450171821305841
+                  "scale": 0.009460910652920962
                 }
               },
-              "factor": 0.0062520047615313885,
+              "factor": 0.006221354185229273,
               "n_priced": 74,
-              "post_total": 877.1,
+              "post_total": 872.8,
               "pre_total": 140291.0,
-              "target_total": 877.1
+              "target_total": 872.8
             }
           }
         }
@@ -42418,18 +42418,18 @@
                   "scale": 0.6582940868655155
                 },
                 "RB/bench": {
-                  "anchor": 112.6,
+                  "anchor": 112.5,
                   "n": 18,
-                  "post": 112.6,
+                  "post": 112.5,
                   "pre": 157.7,
-                  "scale": 0.7140139505389981
+                  "scale": 0.7133798351299937
                 },
                 "RB/dedicated": {
-                  "anchor": 829.7,
+                  "anchor": 829.5,
                   "n": 24,
-                  "post": 829.7,
+                  "post": 829.5,
                   "pre": 1055.0,
-                  "scale": 0.7864454976303318
+                  "scale": 0.7862559241706161
                 },
                 "RB/flex": {
                   "anchor": 138.9,
@@ -42453,33 +42453,33 @@
                   "scale": 0.8346539883782356
                 },
                 "WR/bench": {
-                  "anchor": 211.79999999999998,
+                  "anchor": 210.2,
                   "n": 36,
-                  "post": 211.79999999999995,
+                  "post": 210.2,
                   "pre": 383.5,
-                  "scale": 0.5522816166883963
+                  "scale": 0.548109517601043
                 },
                 "WR/dedicated": {
-                  "anchor": 690.5,
+                  "anchor": 686.8,
                   "n": 24,
-                  "post": 690.5,
+                  "post": 686.8,
                   "pre": 888.4,
-                  "scale": 0.7772399819900946
+                  "scale": 0.7730751913552454
                 },
                 "WR/flex": {
-                  "anchor": 231.1,
+                  "anchor": 231.3,
                   "n": 14,
-                  "post": 231.1,
+                  "post": 231.3,
                   "pre": 308.9,
-                  "scale": 0.7481385561670444
+                  "scale": 0.7487860148915507
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 178,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.7414166498224134,
-                "post_total": 2567.6,
+                "factor": 0.739857353238428,
+                "post_total": 2562.2000000000003,
                 "pre_total": 3463.1
               }
             },
@@ -42526,18 +42526,18 @@
             "RB": {
               "buckets": {
                 "bench": {
-                  "anchor": 112.6,
+                  "anchor": 112.5,
                   "n": 18,
-                  "post": 112.6,
+                  "post": 112.5,
                   "pre": 157.7,
-                  "scale": 0.7140139505389981
+                  "scale": 0.7133798351299937
                 },
                 "dedicated": {
-                  "anchor": 829.7,
+                  "anchor": 829.5,
                   "n": 24,
-                  "post": 829.7,
+                  "post": 829.5,
                   "pre": 1055.0,
-                  "scale": 0.7864454976303318
+                  "scale": 0.7862559241706161
                 },
                 "flex": {
                   "anchor": 138.9,
@@ -42547,11 +42547,11 @@
                   "scale": 0.6228699551569506
                 }
               },
-              "factor": 0.7530821202201017,
+              "factor": 0.752873162917044,
               "n_priced": 52,
-              "post_total": 1081.2,
+              "post_total": 1080.9,
               "pre_total": 1435.7,
-              "target_total": 1081.2
+              "target_total": 1080.9
             },
             "TE": {
               "buckets": {
@@ -42579,32 +42579,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 211.79999999999998,
+                  "anchor": 210.2,
                   "n": 36,
-                  "post": 211.79999999999995,
+                  "post": 210.2,
                   "pre": 383.5,
-                  "scale": 0.5522816166883963
+                  "scale": 0.548109517601043
                 },
                 "dedicated": {
-                  "anchor": 690.5,
+                  "anchor": 686.8,
                   "n": 24,
-                  "post": 690.5,
+                  "post": 686.8,
                   "pre": 888.4,
-                  "scale": 0.7772399819900946
+                  "scale": 0.7730751913552454
                 },
                 "flex": {
-                  "anchor": 231.1,
+                  "anchor": 231.3,
                   "n": 14,
-                  "post": 231.1,
+                  "post": 231.3,
                   "pre": 308.9,
-                  "scale": 0.7481385561670444
+                  "scale": 0.7487860148915507
                 }
               },
-              "factor": 0.7169787449392712,
+              "factor": 0.7137525303643725,
               "n_priced": 74,
-              "post_total": 1133.3999999999999,
+              "post_total": 1128.3,
               "pre_total": 1580.8,
-              "target_total": 1133.3999999999999
+              "target_total": 1128.3
             }
           },
           "n": 178,
@@ -43075,11 +43075,11 @@
                   "scale": 2.384955752212389
                 },
                 "QB/dedicated": {
-                  "anchor": 156.6,
+                  "anchor": 156.5,
                   "n": 12,
-                  "post": 156.6,
+                  "post": 156.5,
                   "pre": 191.1,
-                  "scale": 0.8194662480376766
+                  "scale": 0.8189429618001047
                 },
                 "RB/bench": {
                   "anchor": 173.6,
@@ -43117,33 +43117,33 @@
                   "scale": 0.820919175911252
                 },
                 "WR/bench": {
-                  "anchor": 157.9,
+                  "anchor": 154.5,
                   "n": 36,
-                  "post": 157.9,
+                  "post": 154.5,
                   "pre": 383.5,
-                  "scale": 0.41173402868318126
+                  "scale": 0.4028683181225554
                 },
                 "WR/dedicated": {
-                  "anchor": 664.1,
+                  "anchor": 646.6,
                   "n": 24,
-                  "post": 664.1,
+                  "post": 646.6,
                   "pre": 888.4,
-                  "scale": 0.7475236380009005
+                  "scale": 0.7278253039171545
                 },
                 "WR/flex": {
-                  "anchor": 210.2,
+                  "anchor": 208.5,
                   "n": 14,
-                  "post": 210.2,
+                  "post": 208.5,
                   "pre": 308.9,
-                  "scale": 0.6804791194561347
+                  "scale": 0.674975720297831
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 178,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.7929889405445988,
-                "post_total": 2746.2,
+                "factor": 0.7864341197193265,
+                "post_total": 2723.4999999999995,
                 "pre_total": 3463.1
               }
             },
@@ -43174,18 +43174,18 @@
                   "scale": 2.384955752212389
                 },
                 "dedicated": {
-                  "anchor": 156.6,
+                  "anchor": 156.5,
                   "n": 12,
-                  "post": 156.6,
+                  "post": 156.5,
                   "pre": 191.1,
-                  "scale": 0.8194662480376766
+                  "scale": 0.8189429618001047
                 }
               },
-              "factor": 0.9850257370145064,
+              "factor": 0.9845577912962096,
               "n_priced": 32,
-              "post_total": 210.5,
+              "post_total": 210.39999999999998,
               "pre_total": 213.7,
-              "target_total": 210.5
+              "target_total": 210.39999999999998
             },
             "RB": {
               "buckets": {
@@ -43243,32 +43243,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 157.9,
+                  "anchor": 154.5,
                   "n": 36,
-                  "post": 157.9,
+                  "post": 154.5,
                   "pre": 383.5,
-                  "scale": 0.41173402868318126
+                  "scale": 0.4028683181225554
                 },
                 "dedicated": {
-                  "anchor": 664.1,
+                  "anchor": 646.6,
                   "n": 24,
-                  "post": 664.1,
+                  "post": 646.6,
                   "pre": 888.4,
-                  "scale": 0.7475236380009005
+                  "scale": 0.7278253039171545
                 },
                 "flex": {
-                  "anchor": 210.2,
+                  "anchor": 208.5,
                   "n": 14,
-                  "post": 210.2,
+                  "post": 208.5,
                   "pre": 308.9,
-                  "scale": 0.6804791194561347
+                  "scale": 0.674975720297831
                 }
               },
-              "factor": 0.6529605263157895,
+              "factor": 0.638663967611336,
               "n_priced": 74,
-              "post_total": 1032.2,
+              "post_total": 1009.6,
               "pre_total": 1580.8,
-              "target_total": 1032.2
+              "target_total": 1009.6
             }
           },
           "n": 178,
@@ -43753,11 +43753,11 @@
                   "scale": 1.2587190868738112
                 },
                 "RB/dedicated": {
-                  "anchor": 992.2,
+                  "anchor": 992.1,
                   "n": 24,
-                  "post": 992.2,
+                  "post": 992.1,
                   "pre": 1055.0,
-                  "scale": 0.9404739336492891
+                  "scale": 0.9403791469194313
                 },
                 "RB/flex": {
                   "anchor": 224.7,
@@ -43781,33 +43781,33 @@
                   "scale": 0.7760169043845747
                 },
                 "WR/bench": {
-                  "anchor": 120.89999999999999,
+                  "anchor": 120.2,
                   "n": 36,
-                  "post": 120.89999999999999,
+                  "post": 120.20000000000002,
                   "pre": 383.5,
-                  "scale": 0.31525423728813556
+                  "scale": 0.31342894393741855
                 },
                 "WR/dedicated": {
-                  "anchor": 574.8,
+                  "anchor": 570.9,
                   "n": 24,
-                  "post": 574.8,
+                  "post": 570.9,
                   "pre": 888.4,
-                  "scale": 0.6470058532192705
+                  "scale": 0.6426159387663215
                 },
                 "WR/flex": {
-                  "anchor": 177.3,
+                  "anchor": 177.5,
                   "n": 14,
-                  "post": 177.3,
+                  "post": 177.5,
                   "pre": 308.9,
-                  "scale": 0.5739721592748463
+                  "scale": 0.5746196179993526
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 178,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.7770494643527476,
-                "post_total": 2691.0,
+                "factor": 0.7757500505327597,
+                "post_total": 2686.5,
                 "pre_total": 3463.1
               }
             },
@@ -43861,11 +43861,11 @@
                   "scale": 1.2587190868738112
                 },
                 "dedicated": {
-                  "anchor": 992.2,
+                  "anchor": 992.1,
                   "n": 24,
-                  "post": 992.2,
+                  "post": 992.1,
                   "pre": 1055.0,
-                  "scale": 0.9404739336492891
+                  "scale": 0.9403791469194313
                 },
                 "flex": {
                   "anchor": 224.7,
@@ -43875,11 +43875,11 @@
                   "scale": 1.0076233183856502
                 }
               },
-              "factor": 0.9858605558264262,
+              "factor": 0.9857909033920735,
               "n_priced": 52,
-              "post_total": 1415.4,
+              "post_total": 1415.3,
               "pre_total": 1435.7,
-              "target_total": 1415.4
+              "target_total": 1415.3
             },
             "TE": {
               "buckets": {
@@ -43907,32 +43907,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 120.89999999999999,
+                  "anchor": 120.2,
                   "n": 36,
-                  "post": 120.89999999999999,
+                  "post": 120.20000000000002,
                   "pre": 383.5,
-                  "scale": 0.31525423728813556
+                  "scale": 0.31342894393741855
                 },
                 "dedicated": {
-                  "anchor": 574.8,
+                  "anchor": 570.9,
                   "n": 24,
-                  "post": 574.8,
+                  "post": 570.9,
                   "pre": 888.4,
-                  "scale": 0.6470058532192705
+                  "scale": 0.6426159387663215
                 },
                 "flex": {
-                  "anchor": 177.3,
+                  "anchor": 177.5,
                   "n": 14,
-                  "post": 177.3,
+                  "post": 177.5,
                   "pre": 308.9,
-                  "scale": 0.5739721592748463
+                  "scale": 0.5746196179993526
                 }
               },
-              "factor": 0.552252024291498,
+              "factor": 0.5494686234817814,
               "n_priced": 74,
-              "post_total": 873.0,
+              "post_total": 868.6,
               "pre_total": 1580.8,
-              "target_total": 873.0
+              "target_total": 868.6
             }
           },
           "n": 178,
@@ -44397,7 +44397,7 @@
       "name": "FantasyPros",
       "native_unit": "FantasyPros analyst-consensus chart points (~1.0\u201375.1 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-08T23:27:06Z",
+      "promoted_at": "2026-10-08T23:40:06Z",
       "promoted_from_review": "fantasypros-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-08T15:36:14.073164+00:00; reindex mapping updated.",
       "provenance_note": "FantasyPros publishes one base Value column. It is treated as scoring-agnostic and reused across the three scoring combos; values are only isotonic-reindexed onto the 0\u201370 display scale.",
@@ -44410,7 +44410,7 @@
         "snapshot_fetched_at": "2026-10-08T15:36:14.073164+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasypros/2026-10-06/snapshot-manifest.json",
         "source": "fantasypros",
-        "source_pulled_at": "2026-10-08T23:26:25Z",
+        "source_pulled_at": "2026-10-08T23:39:45Z",
         "source_url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-5-2026/",
         "vintage_kind": "week_designated",
         "week_designated": 5
@@ -45007,23 +45007,23 @@
           "reindexed": {
             "aaron jones": 15.6,
             "aaron rodgers": 0.0,
-            "adonai mitchell": 7.0,
-            "aj brown": 17.7,
-            "alec pierce": 5.8,
-            "alvin kamara": 6.6,
-            "amonra st brown": 44.0,
+            "adonai mitchell": 6.9,
+            "aj brown": 17.6,
+            "alec pierce": 5.7,
+            "alvin kamara": 6.5,
+            "amonra st brown": 43.9,
             "antonio williams": 4.0,
             "ashton jeanty": 37.9,
             "baker mayfield": 0.0,
             "bhayshul tuten": 30.5,
-            "bijan robinson": 58.9,
+            "bijan robinson": 58.8,
             "blake corum": 16.3,
             "bo nix": 0.0,
             "braelon allen": 6.7,
             "breece hall": 27.4,
             "brenton strange": 3.4,
             "brian robinson": 0.0,
-            "brian thomas jr": 7.0,
+            "brian thomas jr": 6.9,
             "brock bowers": 26.1,
             "brock purdy": 20.0,
             "bryce young": 3.0,
@@ -45036,37 +45036,37 @@
             "ceedee lamb": 32.3,
             "chase brown": 36.9,
             "chris bell": 3.0,
-            "chris godwin": 7.8,
+            "chris godwin": 7.7,
             "chris olave": 33.0,
             "chris rodriguez jr": 6.3,
             "christian mccaffrey": 39.9,
-            "christian watson": 26.5,
+            "christian watson": 26.3,
             "chuba hubbard": 28.5,
             "cj stroud": 0.0,
             "colston loveland": 9.9,
-            "courtland sutton": 7.7,
+            "courtland sutton": 7.6,
             "dak prescott": 11.1,
             "dallas goedert": 6.4,
             "dalton kincaid": 12.6,
-            "dandre swift": 32.7,
+            "dandre swift": 32.6,
             "daniel jones": 0.0,
-            "davante adams": 24.2,
+            "davante adams": 24.1,
             "david montgomery": 22.5,
             "deebo samuel sr": 14.6,
             "denzel boston": 12.8,
             "derrick henry": 41.6,
             "deshaun watson": 0.0,
-            "devaughn vele": 5.9,
-            "devonta smith": 26.7,
+            "devaughn vele": 5.8,
+            "devonta smith": 26.6,
             "dezhaun stribling": 0.0,
-            "dj moore": 22.6,
+            "dj moore": 22.5,
             "dk metcalf": 13.8,
-            "dontayvion wicks": 6.4,
+            "dontayvion wicks": 6.3,
             "drake london": 31.2,
             "drake maye": 7.9,
-            "emeka egbuka": 18.4,
+            "emeka egbuka": 18.3,
             "emmett johnson": 7.1,
-            "garrett wilson": 22.9,
+            "garrett wilson": 22.8,
             "geno smith": 0.0,
             "george kittle": 16.8,
             "george pickens": 29.6,
@@ -45076,20 +45076,20 @@
             "jacoby brissett": 0.0,
             "jacory croskeymerritt": 14.9,
             "jadarian price": 13.7,
-            "jahmyr gibbs": 66.5,
+            "jahmyr gibbs": 66.6,
             "jake ferguson": 0.0,
-            "jakobi meyers": 7.5,
-            "jalen coker": 17.2,
+            "jakobi meyers": 7.4,
+            "jalen coker": 17.1,
             "jalen hurts": 9.1,
-            "jamarr chase": 46.8,
+            "jamarr chase": 46.6,
             "jameis winston": 0.0,
             "james cook": 50.6,
-            "jameson williams": 21.0,
+            "jameson williams": 20.9,
             "jared goff": 9.6,
             "javonte williams": 33.4,
-            "jaxon smithnjigba": 45.2,
+            "jaxon smithnjigba": 45.1,
             "jayden daniels": 0.0,
-            "jaylen waddle": 23.2,
+            "jaylen waddle": 23.1,
             "jaylen warren": 23.9,
             "jaylin noel": 1.6,
             "jeremiyah love": 31.2,
@@ -45097,10 +45097,10 @@
             "joe burrow": 11.6,
             "jonah coleman": 7.0,
             "jonathan taylor": 43.5,
-            "jordan addison": 7.5,
+            "jordan addison": 7.4,
             "jordan love": 0.0,
             "jordan mason": 9.5,
-            "jordyn tyson": 6.1,
+            "jordyn tyson": 6.0,
             "josh allen": 23.2,
             "josh downs": 14.4,
             "josh jacobs": 7.1,
@@ -45110,62 +45110,62 @@
             "kaelon black": 7.0,
             "kalif raymond": 3.5,
             "kayshon boutte": 4.3,
-            "kc concepcion": 7.8,
+            "kc concepcion": 7.7,
             "keaton mitchell": 6.3,
-            "keenan allen": 5.5,
+            "keenan allen": 5.4,
             "kenneth gainwell": 6.3,
             "kenneth walker iii": 52.2,
             "kenyon sadiq": 2.7,
-            "khalil shakir": 6.9,
+            "khalil shakir": 6.8,
             "kirk cousins": 0.0,
             "kyle monangai": 11.4,
             "kyle pitts": 5.4,
             "kyler murray": 0.0,
             "kyren williams": 34.7,
-            "ladd mcconkey": 17.3,
+            "ladd mcconkey": 17.2,
             "lamar jackson": 23.0,
-            "luther burden iii": 19.9,
-            "makai lemon": 7.2,
+            "luther burden iii": 19.8,
+            "makai lemon": 7.1,
             "malachi fields": 2.2,
-            "malik nabers": 25.2,
+            "malik nabers": 25.0,
             "malik washington": 4.6,
             "malik willis": 0.0,
             "mark andrews": 6.7,
             "marshawn lloyd": 6.3,
-            "marvin harrison jr": 6.7,
-            "matthew golden": 19.2,
+            "marvin harrison jr": 6.6,
+            "matthew golden": 19.1,
             "matthew stafford": 0.0,
             "michael penix jr": 0.0,
             "michael pittman": 3.1,
-            "michael wilson": 17.2,
-            "mike evans": 19.8,
+            "michael wilson": 17.1,
+            "mike evans": 19.7,
             "mike washington jr": 7.0,
-            "nico collins": 28.6,
+            "nico collins": 28.5,
             "omarion hampton": 25.5,
-            "parker washington": 29.1,
+            "parker washington": 29.0,
             "pat bryant": 4.1,
             "patrick mahomes": 16.0,
-            "puka nacua": 41.6,
-            "quentin johnston": 7.4,
+            "puka nacua": 41.5,
+            "quentin johnston": 7.3,
             "quinshon judkins": 18.9,
             "rachaad white": 7.0,
-            "rashee rice": 20.1,
+            "rashee rice": 20.0,
             "rashid shaheed": 4.1,
-            "rashod bateman": 5.7,
+            "rashod bateman": 5.6,
             "rhamondre stevenson": 16.1,
             "rico dowdle": 6.9,
             "rj harvey": 7.0,
-            "rome odunze": 17.3,
-            "romeo doubs": 8.0,
+            "rome odunze": 17.2,
+            "romeo doubs": 7.9,
             "ryan flournoy": 0.0,
             "sam darnold": 0.0,
             "sam laporta": 13.2,
             "saquon barkley": 31.7,
             "stefon diggs": 12.7,
-            "tee higgins": 24.5,
+            "tee higgins": 24.4,
             "terrance ferguson": 0.0,
-            "terry mclaurin": 19.7,
-            "tetairoa mcmillan": 24.7,
+            "terry mclaurin": 19.6,
+            "tetairoa mcmillan": 24.5,
             "tony pollard": 9.7,
             "travis etienne": 14.0,
             "travis kelce": 8.3,
@@ -45178,10 +45178,10 @@
             "tyler allgeier": 6.3,
             "tyler shough": 6.5,
             "tyler warren": 10.2,
-            "wandale robinson": 6.6,
+            "wandale robinson": 6.5,
             "woody marks": 6.7,
-            "xavier worthy": 6.3,
-            "zach charbonnet": 6.5,
+            "xavier worthy": 6.2,
+            "zach charbonnet": 6.4,
             "zay flowers": 32.3
           },
           "native": {
@@ -45396,18 +45396,18 @@
             "RB": {
               "buckets": {
                 "bench": {
-                  "anchor": 112.6,
+                  "anchor": 112.5,
                   "n": 18,
-                  "post": 112.6,
+                  "post": 112.5,
                   "pre": 157.7,
-                  "scale": 0.7140139505389981
+                  "scale": 0.7133798351299937
                 },
                 "dedicated": {
-                  "anchor": 829.7,
+                  "anchor": 829.5,
                   "n": 24,
-                  "post": 829.7,
+                  "post": 829.5,
                   "pre": 1055.0,
-                  "scale": 0.7864454976303318
+                  "scale": 0.7862559241706161
                 },
                 "flex": {
                   "anchor": 138.9,
@@ -45417,11 +45417,11 @@
                   "scale": 0.6228699551569506
                 }
               },
-              "factor": 0.7530821202201017,
+              "factor": 0.752873162917044,
               "n_priced": 52,
-              "post_total": 1081.2,
+              "post_total": 1080.9,
               "pre_total": 1435.7,
-              "target_total": 1081.2
+              "target_total": 1080.9
             },
             "TE": {
               "buckets": {
@@ -45449,32 +45449,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 211.79999999999998,
+                  "anchor": 210.2,
                   "n": 36,
-                  "post": 211.79999999999995,
+                  "post": 210.2,
                   "pre": 383.5,
-                  "scale": 0.5522816166883963
+                  "scale": 0.548109517601043
                 },
                 "dedicated": {
-                  "anchor": 690.5,
+                  "anchor": 686.8,
                   "n": 24,
-                  "post": 690.5,
+                  "post": 686.8,
                   "pre": 888.4,
-                  "scale": 0.7772399819900946
+                  "scale": 0.7730751913552454
                 },
                 "flex": {
-                  "anchor": 231.1,
+                  "anchor": 231.3,
                   "n": 14,
-                  "post": 231.1,
+                  "post": 231.3,
                   "pre": 308.9,
-                  "scale": 0.7481385561670444
+                  "scale": 0.7487860148915507
                 }
               },
-              "factor": 0.7169787449392712,
+              "factor": 0.7137525303643725,
               "n_priced": 74,
-              "post_total": 1133.3999999999999,
+              "post_total": 1128.3,
               "pre_total": 1580.8,
-              "target_total": 1133.3999999999999
+              "target_total": 1128.3
             }
           }
         },
@@ -45482,12 +45482,12 @@
           "reindexed": {
             "aaron jones": 19.1,
             "aaron rodgers": 0.0,
-            "adonai mitchell": 6.3,
-            "aj brown": 16.1,
-            "alec pierce": 5.2,
+            "adonai mitchell": 6.2,
+            "aj brown": 15.7,
+            "alec pierce": 5.1,
             "alvin kamara": 8.0,
-            "amonra st brown": 40.2,
-            "antonio williams": 3.7,
+            "amonra st brown": 39.3,
+            "antonio williams": 3.6,
             "ashton jeanty": 46.3,
             "baker mayfield": 0.0,
             "bhayshul tuten": 37.3,
@@ -45498,53 +45498,53 @@
             "breece hall": 33.5,
             "brenton strange": 3.4,
             "brian robinson": 0.0,
-            "brian thomas jr": 6.3,
+            "brian thomas jr": 6.2,
             "brock bowers": 26.1,
-            "brock purdy": 25.0,
+            "brock purdy": 24.9,
             "bryce young": 3.8,
             "bucky irving": 36.1,
-            "caleb douglas": 4.1,
+            "caleb douglas": 4.0,
             "caleb williams": 10.2,
             "cam skattebo": 29.2,
             "cam ward": 0.0,
-            "carnell tate": 11.3,
-            "ceedee lamb": 29.4,
+            "carnell tate": 11.1,
+            "ceedee lamb": 28.8,
             "chase brown": 45.1,
-            "chris bell": 2.8,
-            "chris godwin": 7.1,
-            "chris olave": 30.1,
+            "chris bell": 2.7,
+            "chris godwin": 6.9,
+            "chris olave": 29.4,
             "chris rodriguez jr": 7.8,
             "christian mccaffrey": 48.8,
-            "christian watson": 24.1,
+            "christian watson": 23.6,
             "chuba hubbard": 34.8,
             "cj stroud": 0.0,
             "colston loveland": 9.8,
-            "courtland sutton": 7.0,
+            "courtland sutton": 6.8,
             "dak prescott": 13.8,
             "dallas goedert": 6.3,
             "dalton kincaid": 12.5,
             "dandre swift": 39.9,
             "daniel jones": 0.0,
-            "davante adams": 22.1,
+            "davante adams": 21.6,
             "david montgomery": 27.5,
-            "deebo samuel sr": 13.3,
-            "denzel boston": 11.7,
+            "deebo samuel sr": 13.0,
+            "denzel boston": 11.4,
             "derrick henry": 50.9,
             "deshaun watson": 0.0,
-            "devaughn vele": 5.3,
-            "devonta smith": 24.3,
+            "devaughn vele": 5.2,
+            "devonta smith": 23.8,
             "dezhaun stribling": 0.0,
-            "dj moore": 20.6,
-            "dk metcalf": 12.6,
-            "dontayvion wicks": 5.8,
-            "drake london": 28.4,
-            "drake maye": 9.9,
-            "emeka egbuka": 16.7,
+            "dj moore": 20.2,
+            "dk metcalf": 12.3,
+            "dontayvion wicks": 5.7,
+            "drake london": 27.8,
+            "drake maye": 9.8,
+            "emeka egbuka": 16.4,
             "emmett johnson": 8.6,
-            "garrett wilson": 20.9,
+            "garrett wilson": 20.4,
             "geno smith": 0.0,
             "george kittle": 16.8,
-            "george pickens": 27.0,
+            "george pickens": 26.4,
             "harold fannin jr": 9.0,
             "hunter henry": 1.9,
             "isaiah likely": 6.1,
@@ -45553,99 +45553,99 @@
             "jadarian price": 16.7,
             "jahmyr gibbs": 81.3,
             "jake ferguson": 0.0,
-            "jakobi meyers": 6.8,
-            "jalen coker": 15.6,
+            "jakobi meyers": 6.7,
+            "jalen coker": 15.3,
             "jalen hurts": 11.3,
-            "jamarr chase": 42.6,
+            "jamarr chase": 41.7,
             "jameis winston": 0.0,
             "james cook": 61.7,
-            "jameson williams": 19.1,
+            "jameson williams": 18.7,
             "jared goff": 12.0,
             "javonte williams": 40.8,
-            "jaxon smithnjigba": 41.2,
+            "jaxon smithnjigba": 40.3,
             "jayden daniels": 0.0,
-            "jaylen waddle": 21.2,
+            "jaylen waddle": 20.7,
             "jaylen warren": 29.2,
-            "jaylin noel": 1.5,
+            "jaylin noel": 1.4,
             "jeremiyah love": 38.2,
             "jk dobbins": 8.6,
             "joe burrow": 14.4,
             "jonah coleman": 8.5,
             "jonathan taylor": 53.2,
-            "jordan addison": 6.8,
+            "jordan addison": 6.7,
             "jordan love": 0.0,
             "jordan mason": 11.6,
-            "jordyn tyson": 5.5,
-            "josh allen": 28.8,
-            "josh downs": 13.2,
+            "jordyn tyson": 5.4,
+            "josh allen": 28.9,
+            "josh downs": 12.9,
             "josh jacobs": 8.6,
             "justin herbert": 0.0,
-            "justin jefferson": 27.8,
+            "justin jefferson": 27.2,
             "juwan johnson": 8.1,
             "kaelon black": 8.5,
-            "kalif raymond": 3.2,
-            "kayshon boutte": 4.0,
-            "kc concepcion": 7.1,
+            "kalif raymond": 3.1,
+            "kayshon boutte": 3.9,
+            "kc concepcion": 6.9,
             "keaton mitchell": 7.8,
-            "keenan allen": 5.0,
+            "keenan allen": 4.9,
             "kenneth gainwell": 7.8,
             "kenneth walker iii": 63.7,
             "kenyon sadiq": 2.7,
-            "khalil shakir": 6.3,
+            "khalil shakir": 6.1,
             "kirk cousins": 0.0,
             "kyle monangai": 13.9,
             "kyle pitts": 5.3,
             "kyler murray": 0.0,
             "kyren williams": 42.4,
-            "ladd mcconkey": 15.7,
+            "ladd mcconkey": 15.4,
             "lamar jackson": 28.6,
-            "luther burden iii": 18.1,
-            "makai lemon": 6.5,
+            "luther burden iii": 17.7,
+            "makai lemon": 6.4,
             "malachi fields": 2.0,
-            "malik nabers": 22.9,
-            "malik washington": 4.2,
+            "malik nabers": 22.4,
+            "malik washington": 4.1,
             "malik willis": 0.0,
             "mark andrews": 6.6,
             "marshawn lloyd": 7.8,
-            "marvin harrison jr": 6.1,
-            "matthew golden": 17.5,
+            "marvin harrison jr": 5.9,
+            "matthew golden": 17.1,
             "matthew stafford": 0.0,
             "michael penix jr": 0.0,
-            "michael pittman": 2.9,
-            "michael wilson": 15.6,
-            "mike evans": 18.0,
+            "michael pittman": 2.8,
+            "michael wilson": 15.3,
+            "mike evans": 17.6,
             "mike washington jr": 8.5,
-            "nico collins": 26.0,
+            "nico collins": 25.5,
             "omarion hampton": 31.2,
-            "parker washington": 26.5,
-            "pat bryant": 3.8,
+            "parker washington": 25.9,
+            "pat bryant": 3.7,
             "patrick mahomes": 19.9,
-            "puka nacua": 37.9,
-            "quentin johnston": 6.7,
+            "puka nacua": 37.1,
+            "quentin johnston": 6.6,
             "quinshon judkins": 23.1,
             "rachaad white": 8.5,
-            "rashee rice": 18.3,
-            "rashid shaheed": 3.8,
-            "rashod bateman": 5.2,
+            "rashee rice": 17.9,
+            "rashid shaheed": 3.7,
+            "rashod bateman": 5.0,
             "rhamondre stevenson": 19.7,
             "rico dowdle": 8.4,
             "rj harvey": 8.5,
-            "rome odunze": 15.7,
-            "romeo doubs": 7.3,
+            "rome odunze": 15.4,
+            "romeo doubs": 7.1,
             "ryan flournoy": 0.0,
             "sam darnold": 0.0,
             "sam laporta": 13.1,
             "saquon barkley": 38.8,
-            "stefon diggs": 11.6,
-            "tee higgins": 22.4,
+            "stefon diggs": 11.3,
+            "tee higgins": 21.9,
             "terrance ferguson": 0.0,
-            "terry mclaurin": 17.9,
-            "tetairoa mcmillan": 22.4,
+            "terry mclaurin": 17.5,
+            "tetairoa mcmillan": 22.0,
             "tony pollard": 11.8,
             "travis etienne": 17.1,
             "travis kelce": 8.2,
-            "tre harris": 4.4,
-            "tre tucker": 2.4,
+            "tre harris": 4.3,
+            "tre tucker": 2.3,
             "treveyon henderson": 20.2,
             "trevor lawrence": 24.8,
             "trey mcbride": 24.2,
@@ -45653,11 +45653,11 @@
             "tyler allgeier": 7.8,
             "tyler shough": 8.0,
             "tyler warren": 10.1,
-            "wandale robinson": 6.0,
+            "wandale robinson": 5.8,
             "woody marks": 8.1,
-            "xavier worthy": 5.7,
+            "xavier worthy": 5.6,
             "zach charbonnet": 7.9,
-            "zay flowers": 29.4
+            "zay flowers": 28.8
           },
           "native": {
             "aaron jones": 22.6,
@@ -45855,18 +45855,18 @@
                   "scale": 2.384955752212389
                 },
                 "dedicated": {
-                  "anchor": 156.6,
+                  "anchor": 156.5,
                   "n": 12,
-                  "post": 156.6,
+                  "post": 156.5,
                   "pre": 191.1,
-                  "scale": 0.8194662480376766
+                  "scale": 0.8189429618001047
                 }
               },
-              "factor": 0.9850257370145064,
+              "factor": 0.9845577912962096,
               "n_priced": 32,
-              "post_total": 210.5,
+              "post_total": 210.39999999999998,
               "pre_total": 213.7,
-              "target_total": 210.5
+              "target_total": 210.39999999999998
             },
             "RB": {
               "buckets": {
@@ -45924,32 +45924,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 157.9,
+                  "anchor": 154.5,
                   "n": 36,
-                  "post": 157.9,
+                  "post": 154.5,
                   "pre": 383.5,
-                  "scale": 0.41173402868318126
+                  "scale": 0.4028683181225554
                 },
                 "dedicated": {
-                  "anchor": 664.1,
+                  "anchor": 646.6,
                   "n": 24,
-                  "post": 664.1,
+                  "post": 646.6,
                   "pre": 888.4,
-                  "scale": 0.7475236380009005
+                  "scale": 0.7278253039171545
                 },
                 "flex": {
-                  "anchor": 210.2,
+                  "anchor": 208.5,
                   "n": 14,
-                  "post": 210.2,
+                  "post": 208.5,
                   "pre": 308.9,
-                  "scale": 0.6804791194561347
+                  "scale": 0.674975720297831
                 }
               },
-              "factor": 0.6529605263157895,
+              "factor": 0.638663967611336,
               "n_priced": 74,
-              "post_total": 1032.2,
+              "post_total": 1009.6,
               "pre_total": 1580.8,
-              "target_total": 1032.2
+              "target_total": 1009.6
             }
           }
         },
@@ -45957,23 +45957,23 @@
           "reindexed": {
             "aaron jones": 20.5,
             "aaron rodgers": 0.0,
-            "adonai mitchell": 5.4,
-            "aj brown": 13.6,
+            "adonai mitchell": 5.3,
+            "aj brown": 13.5,
             "alec pierce": 4.4,
             "alvin kamara": 8.6,
-            "amonra st brown": 33.9,
+            "amonra st brown": 33.8,
             "antonio williams": 3.1,
             "ashton jeanty": 49.6,
             "baker mayfield": 0.0,
             "bhayshul tuten": 40.0,
-            "bijan robinson": 77.1,
+            "bijan robinson": 77.2,
             "blake corum": 21.4,
             "bo nix": 0.0,
             "braelon allen": 8.7,
             "breece hall": 35.9,
             "brenton strange": 3.2,
             "brian robinson": 0.0,
-            "brian thomas jr": 5.4,
+            "brian thomas jr": 5.3,
             "brock bowers": 24.5,
             "brock purdy": 27.3,
             "bryce young": 4.1,
@@ -45982,15 +45982,15 @@
             "caleb williams": 11.1,
             "cam skattebo": 31.3,
             "cam ward": 0.0,
-            "carnell tate": 9.6,
-            "ceedee lamb": 24.9,
+            "carnell tate": 9.5,
+            "ceedee lamb": 24.8,
             "chase brown": 48.3,
             "chris bell": 2.3,
             "chris godwin": 6.0,
-            "chris olave": 25.4,
+            "chris olave": 25.3,
             "chris rodriguez jr": 8.3,
-            "christian mccaffrey": 52.3,
-            "christian watson": 20.4,
+            "christian mccaffrey": 52.2,
+            "christian watson": 20.3,
             "chuba hubbard": 37.3,
             "cj stroud": 0.0,
             "colston loveland": 9.2,
@@ -45998,28 +45998,28 @@
             "dak prescott": 15.1,
             "dallas goedert": 6.0,
             "dalton kincaid": 11.8,
-            "dandre swift": 42.8,
+            "dandre swift": 42.7,
             "daniel jones": 0.0,
-            "davante adams": 18.7,
+            "davante adams": 18.6,
             "david montgomery": 29.4,
-            "deebo samuel sr": 11.3,
-            "denzel boston": 9.9,
+            "deebo samuel sr": 11.2,
+            "denzel boston": 9.8,
             "derrick henry": 54.5,
             "deshaun watson": 0.0,
             "devaughn vele": 4.5,
-            "devonta smith": 20.5,
+            "devonta smith": 20.4,
             "dezhaun stribling": 0.0,
-            "dj moore": 17.4,
-            "dk metcalf": 10.7,
+            "dj moore": 17.3,
+            "dk metcalf": 10.6,
             "dontayvion wicks": 4.9,
-            "drake london": 24.0,
+            "drake london": 23.9,
             "drake maye": 10.8,
-            "emeka egbuka": 14.2,
+            "emeka egbuka": 14.1,
             "emmett johnson": 9.2,
-            "garrett wilson": 17.7,
+            "garrett wilson": 17.6,
             "geno smith": 0.0,
             "george kittle": 15.9,
-            "george pickens": 22.8,
+            "george pickens": 22.7,
             "harold fannin jr": 8.5,
             "hunter henry": 1.8,
             "isaiah likely": 5.8,
@@ -46028,18 +46028,18 @@
             "jadarian price": 17.9,
             "jahmyr gibbs": 87.3,
             "jake ferguson": 0.0,
-            "jakobi meyers": 5.8,
+            "jakobi meyers": 5.7,
             "jalen coker": 13.2,
             "jalen hurts": 12.4,
-            "jamarr chase": 36.0,
+            "jamarr chase": 35.8,
             "jameis winston": 0.0,
             "james cook": 66.2,
-            "jameson williams": 16.2,
+            "jameson williams": 16.1,
             "jared goff": 13.1,
             "javonte williams": 43.7,
-            "jaxon smithnjigba": 34.8,
+            "jaxon smithnjigba": 34.6,
             "jayden daniels": 0.0,
-            "jaylen waddle": 17.9,
+            "jaylen waddle": 17.8,
             "jaylen warren": 31.3,
             "jaylin noel": 1.2,
             "jeremiyah love": 40.9,
@@ -46047,15 +46047,15 @@
             "joe burrow": 15.8,
             "jonah coleman": 9.1,
             "jonathan taylor": 57.0,
-            "jordan addison": 5.8,
+            "jordan addison": 5.7,
             "jordan love": 0.0,
             "jordan mason": 12.4,
-            "jordyn tyson": 4.7,
+            "jordyn tyson": 4.6,
             "josh allen": 31.7,
             "josh downs": 11.1,
             "josh jacobs": 9.2,
             "justin herbert": 0.0,
-            "justin jefferson": 23.5,
+            "justin jefferson": 23.4,
             "juwan johnson": 7.6,
             "kaelon black": 9.1,
             "kalif raymond": 2.7,
@@ -46072,50 +46072,50 @@
             "kyle pitts": 5.0,
             "kyler murray": 0.0,
             "kyren williams": 45.4,
-            "ladd mcconkey": 13.3,
+            "ladd mcconkey": 13.2,
             "lamar jackson": 31.4,
             "luther burden iii": 15.3,
             "makai lemon": 5.5,
             "malachi fields": 1.7,
-            "malik nabers": 19.4,
+            "malik nabers": 19.3,
             "malik washington": 3.6,
             "malik willis": 0.0,
             "mark andrews": 6.2,
             "marshawn lloyd": 8.3,
             "marvin harrison jr": 5.1,
-            "matthew golden": 14.8,
+            "matthew golden": 14.7,
             "matthew stafford": 0.0,
             "michael penix jr": 0.0,
             "michael pittman": 2.4,
             "michael wilson": 13.2,
-            "mike evans": 15.3,
+            "mike evans": 15.2,
             "mike washington jr": 9.1,
-            "nico collins": 22.0,
+            "nico collins": 21.9,
             "omarion hampton": 33.4,
-            "parker washington": 22.4,
+            "parker washington": 22.3,
             "pat bryant": 3.2,
             "patrick mahomes": 21.8,
-            "puka nacua": 32.1,
+            "puka nacua": 31.9,
             "quentin johnston": 5.7,
             "quinshon judkins": 24.8,
             "rachaad white": 9.1,
-            "rashee rice": 15.5,
+            "rashee rice": 15.4,
             "rashid shaheed": 3.2,
-            "rashod bateman": 4.4,
+            "rashod bateman": 4.3,
             "rhamondre stevenson": 21.1,
             "rico dowdle": 9.0,
             "rj harvey": 9.1,
-            "rome odunze": 13.3,
+            "rome odunze": 13.2,
             "romeo doubs": 6.1,
             "ryan flournoy": 0.0,
             "sam darnold": 0.0,
             "sam laporta": 12.3,
             "saquon barkley": 41.6,
             "stefon diggs": 9.8,
-            "tee higgins": 18.9,
+            "tee higgins": 18.8,
             "terrance ferguson": 0.0,
-            "terry mclaurin": 15.2,
-            "tetairoa mcmillan": 19.0,
+            "terry mclaurin": 15.1,
+            "tetairoa mcmillan": 18.9,
             "tony pollard": 12.7,
             "travis etienne": 18.3,
             "travis kelce": 7.7,
@@ -46128,11 +46128,11 @@
             "tyler allgeier": 8.3,
             "tyler shough": 8.8,
             "tyler warren": 9.5,
-            "wandale robinson": 5.1,
+            "wandale robinson": 5.0,
             "woody marks": 8.7,
             "xavier worthy": 4.8,
             "zach charbonnet": 8.4,
-            "zay flowers": 24.9
+            "zay flowers": 24.8
           },
           "native": {
             "aaron jones": 22.6,
@@ -46353,11 +46353,11 @@
                   "scale": 1.2587190868738112
                 },
                 "dedicated": {
-                  "anchor": 992.2,
+                  "anchor": 992.1,
                   "n": 24,
-                  "post": 992.2,
+                  "post": 992.1,
                   "pre": 1055.0,
-                  "scale": 0.9404739336492891
+                  "scale": 0.9403791469194313
                 },
                 "flex": {
                   "anchor": 224.7,
@@ -46367,11 +46367,11 @@
                   "scale": 1.0076233183856502
                 }
               },
-              "factor": 0.9858605558264262,
+              "factor": 0.9857909033920735,
               "n_priced": 52,
-              "post_total": 1415.4,
+              "post_total": 1415.3,
               "pre_total": 1435.7,
-              "target_total": 1415.4
+              "target_total": 1415.3
             },
             "TE": {
               "buckets": {
@@ -46399,32 +46399,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 120.89999999999999,
+                  "anchor": 120.2,
                   "n": 36,
-                  "post": 120.89999999999999,
+                  "post": 120.20000000000002,
                   "pre": 383.5,
-                  "scale": 0.31525423728813556
+                  "scale": 0.31342894393741855
                 },
                 "dedicated": {
-                  "anchor": 574.8,
+                  "anchor": 570.9,
                   "n": 24,
-                  "post": 574.8,
+                  "post": 570.9,
                   "pre": 888.4,
-                  "scale": 0.6470058532192705
+                  "scale": 0.6426159387663215
                 },
                 "flex": {
-                  "anchor": 177.3,
+                  "anchor": 177.5,
                   "n": 14,
-                  "post": 177.3,
+                  "post": 177.5,
                   "pre": 308.9,
-                  "scale": 0.5739721592748463
+                  "scale": 0.5746196179993526
                 }
               },
-              "factor": 0.552252024291498,
+              "factor": 0.5494686234817814,
               "n_priced": 74,
-              "post_total": 873.0,
+              "post_total": 868.6,
               "pre_total": 1580.8,
-              "target_total": 873.0
+              "target_total": 868.6
             }
           }
         }
@@ -58947,18 +58947,18 @@
                   "scale": 0.5106719367588932
                 },
                 "RB/bench": {
-                  "anchor": 157.2,
+                  "anchor": 157.1,
                   "n": 43,
-                  "post": 157.2,
+                  "post": 157.1,
                   "pre": 310.0,
-                  "scale": 0.5070967741935484
+                  "scale": 0.506774193548387
                 },
                 "RB/dedicated": {
-                  "anchor": 829.1,
+                  "anchor": 828.9,
                   "n": 24,
-                  "post": 829.1,
+                  "post": 828.9,
                   "pre": 1134.0,
-                  "scale": 0.7311287477954145
+                  "scale": 0.7309523809523809
                 },
                 "RB/flex": {
                   "anchor": 127.5,
@@ -58982,33 +58982,33 @@
                   "scale": 0.3940149625935162
                 },
                 "WR/bench": {
-                  "anchor": 194.7,
+                  "anchor": 193.8,
                   "n": 66,
-                  "post": 194.7,
+                  "post": 193.8,
                   "pre": 324.0,
-                  "scale": 0.6009259259259259
+                  "scale": 0.5981481481481482
                 },
                 "WR/dedicated": {
-                  "anchor": 674.1,
+                  "anchor": 670.4,
                   "n": 24,
-                  "post": 674.1,
+                  "post": 670.4,
                   "pre": 1142.0,
-                  "scale": 0.5902802101576182
+                  "scale": 0.5870402802101576
                 },
                 "WR/flex": {
-                  "anchor": 282.5,
+                  "anchor": 282.7,
                   "n": 16,
-                  "post": 282.5,
+                  "post": 282.7,
                   "pre": 403.0,
-                  "scale": 0.7009925558312655
+                  "scale": 0.7014888337468982
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 252,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.6017395284962234,
-                "post_total": 2629.0,
+                "factor": 0.6006637674525064,
+                "post_total": 2624.3,
                 "pre_total": 4369.0
               }
             },
@@ -59055,18 +59055,18 @@
             "RB": {
               "buckets": {
                 "bench": {
-                  "anchor": 157.2,
+                  "anchor": 157.1,
                   "n": 43,
-                  "post": 157.2,
+                  "post": 157.1,
                   "pre": 310.0,
-                  "scale": 0.5070967741935484
+                  "scale": 0.506774193548387
                 },
                 "dedicated": {
-                  "anchor": 829.1,
+                  "anchor": 828.9,
                   "n": 24,
-                  "post": 829.1,
+                  "post": 828.9,
                   "pre": 1134.0,
-                  "scale": 0.7311287477954145
+                  "scale": 0.7309523809523809
                 },
                 "flex": {
                   "anchor": 127.5,
@@ -59076,11 +59076,11 @@
                   "scale": 0.7774390243902439
                 }
               },
-              "factor": 0.6926616915422885,
+              "factor": 0.6924751243781094,
               "n_priced": 75,
-              "post_total": 1113.8,
+              "post_total": 1113.5,
               "pre_total": 1608.0,
-              "target_total": 1113.8
+              "target_total": 1113.5
             },
             "TE": {
               "buckets": {
@@ -59108,32 +59108,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 194.7,
+                  "anchor": 193.8,
                   "n": 66,
-                  "post": 194.7,
+                  "post": 193.8,
                   "pre": 324.0,
-                  "scale": 0.6009259259259259
+                  "scale": 0.5981481481481482
                 },
                 "dedicated": {
-                  "anchor": 674.1,
+                  "anchor": 670.4,
                   "n": 24,
-                  "post": 674.1,
+                  "post": 670.4,
                   "pre": 1142.0,
-                  "scale": 0.5902802101576182
+                  "scale": 0.5870402802101576
                 },
                 "flex": {
-                  "anchor": 282.5,
+                  "anchor": 282.7,
                   "n": 16,
-                  "post": 282.5,
+                  "post": 282.7,
                   "pre": 403.0,
-                  "scale": 0.7009925558312655
+                  "scale": 0.7014888337468982
                 }
               },
-              "factor": 0.6159978598180845,
+              "factor": 0.6136436597110755,
               "n_priced": 106,
-              "post_total": 1151.3,
+              "post_total": 1146.9,
               "pre_total": 1869.0,
-              "target_total": 1151.3
+              "target_total": 1146.9
             }
           },
           "n": 249,
@@ -59983,11 +59983,11 @@
               "anchor": "espn_leg",
               "buckets": {
                 "QB/bench": {
-                  "anchor": 49.800000000000004,
+                  "anchor": 49.7,
                   "n": 20,
-                  "post": 49.8,
+                  "post": 49.7,
                   "pre": 88.0,
-                  "scale": 0.5659090909090909
+                  "scale": 0.5647727272727273
                 },
                 "QB/dedicated": {
                   "anchor": 160.70000000000002,
@@ -60032,33 +60032,33 @@
                   "scale": 0.40155038759689926
                 },
                 "WR/bench": {
-                  "anchor": 148.4,
+                  "anchor": 145.2,
                   "n": 67,
-                  "post": 148.4,
+                  "post": 145.2,
                   "pre": 329.0,
-                  "scale": 0.4510638297872341
+                  "scale": 0.441337386018237
                 },
                 "WR/dedicated": {
-                  "anchor": 645.8,
+                  "anchor": 628.9,
                   "n": 24,
-                  "post": 645.8,
+                  "post": 628.9,
                   "pre": 1106.0,
-                  "scale": 0.5839059674502712
+                  "scale": 0.5686256781193489
                 },
                 "WR/flex": {
-                  "anchor": 249.2,
+                  "anchor": 246.6,
                   "n": 15,
-                  "post": 249.2,
+                  "post": 246.6,
                   "pre": 371.0,
-                  "scale": 0.6716981132075471
+                  "scale": 0.6646900269541779
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 252,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.6714251724958363,
-                "post_total": 2822.0,
+                "factor": 0.6660004758505829,
+                "post_total": 2799.2,
                 "pre_total": 4203.0
               }
             },
@@ -60082,11 +60082,11 @@
             "QB": {
               "buckets": {
                 "bench": {
-                  "anchor": 49.800000000000004,
+                  "anchor": 49.7,
                   "n": 20,
-                  "post": 49.8,
+                  "post": 49.7,
                   "pre": 88.0,
-                  "scale": 0.5659090909090909
+                  "scale": 0.5647727272727273
                 },
                 "dedicated": {
                   "anchor": 160.70000000000002,
@@ -60096,11 +60096,11 @@
                   "scale": 0.6351778656126483
                 }
               },
-              "factor": 0.6173020527859238,
+              "factor": 0.617008797653959,
               "n_priced": 32,
-              "post_total": 210.5,
+              "post_total": 210.40000000000003,
               "pre_total": 341.0,
-              "target_total": 210.5
+              "target_total": 210.40000000000003
             },
             "RB": {
               "buckets": {
@@ -60158,32 +60158,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 148.4,
+                  "anchor": 145.2,
                   "n": 67,
-                  "post": 148.4,
+                  "post": 145.2,
                   "pre": 329.0,
-                  "scale": 0.4510638297872341
+                  "scale": 0.441337386018237
                 },
                 "dedicated": {
-                  "anchor": 645.8,
+                  "anchor": 628.9,
                   "n": 24,
-                  "post": 645.8,
+                  "post": 628.9,
                   "pre": 1106.0,
-                  "scale": 0.5839059674502712
+                  "scale": 0.5686256781193489
                 },
                 "flex": {
-                  "anchor": 249.2,
+                  "anchor": 246.6,
                   "n": 15,
-                  "post": 249.2,
+                  "post": 246.6,
                   "pre": 371.0,
-                  "scale": 0.6716981132075471
+                  "scale": 0.6646900269541779
                 }
               },
-              "factor": 0.5777408637873753,
+              "factor": 0.565171650055371,
               "n_priced": 106,
-              "post_total": 1043.3999999999999,
+              "post_total": 1020.6999999999999,
               "pre_total": 1806.0,
-              "target_total": 1043.3999999999999
+              "target_total": 1020.6999999999999
             }
           },
           "n": 249,
@@ -61069,11 +61069,11 @@
                   "scale": 1.1587044534412956
                 },
                 "RB/dedicated": {
-                  "anchor": 989.3000000000001,
+                  "anchor": 989.2,
                   "n": 24,
-                  "post": 989.3000000000001,
+                  "post": 989.2,
                   "pre": 1052.0,
-                  "scale": 0.9403992395437263
+                  "scale": 0.9403041825095058
                 },
                 "RB/flex": {
                   "anchor": 210.5,
@@ -61097,33 +61097,33 @@
                   "scale": 0.3896551724137931
                 },
                 "WR/bench": {
-                  "anchor": 112.5,
+                  "anchor": 111.9,
                   "n": 67,
-                  "post": 112.5,
+                  "post": 111.9,
                   "pre": 320.0,
-                  "scale": 0.3515625
+                  "scale": 0.34968750000000004
                 },
                 "WR/dedicated": {
-                  "anchor": 575.4,
+                  "anchor": 571.5,
                   "n": 24,
-                  "post": 575.4,
+                  "post": 571.5,
                   "pre": 1077.0,
-                  "scale": 0.5342618384401114
+                  "scale": 0.5306406685236769
                 },
                 "WR/flex": {
-                  "anchor": 194.1,
+                  "anchor": 194.3,
                   "n": 15,
-                  "post": 194.1,
+                  "post": 194.29999999999998,
                   "pre": 361.0,
-                  "scale": 0.5376731301939058
+                  "scale": 0.5382271468144044
                 }
               },
               "method": "proportional_scaling_flex_aware_per_position",
               "n_priced": 252,
               "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
               "pie": {
-                "factor": 0.6805732484076433,
-                "post_total": 2778.1,
+                "factor": 0.6794953454189123,
+                "post_total": 2773.7000000000003,
                 "pre_total": 4082.0
               }
             },
@@ -61177,11 +61177,11 @@
                   "scale": 1.1587044534412956
                 },
                 "dedicated": {
-                  "anchor": 989.3000000000001,
+                  "anchor": 989.2,
                   "n": 24,
-                  "post": 989.3000000000001,
+                  "post": 989.2,
                   "pre": 1052.0,
-                  "scale": 0.9403992395437263
+                  "scale": 0.9403041825095058
                 },
                 "flex": {
                   "anchor": 210.5,
@@ -61191,11 +61191,11 @@
                   "scale": 1.2604790419161678
                 }
               },
-              "factor": 1.0136425648021827,
+              "factor": 1.013574351978172,
               "n_priced": 75,
-              "post_total": 1486.0,
+              "post_total": 1485.9,
               "pre_total": 1466.0,
-              "target_total": 1486.0
+              "target_total": 1485.9
             },
             "TE": {
               "buckets": {
@@ -61223,32 +61223,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 112.5,
+                  "anchor": 111.9,
                   "n": 67,
-                  "post": 112.5,
+                  "post": 111.9,
                   "pre": 320.0,
-                  "scale": 0.3515625
+                  "scale": 0.34968750000000004
                 },
                 "dedicated": {
-                  "anchor": 575.4,
+                  "anchor": 571.5,
                   "n": 24,
-                  "post": 575.4,
+                  "post": 571.5,
                   "pre": 1077.0,
-                  "scale": 0.5342618384401114
+                  "scale": 0.5306406685236769
                 },
                 "flex": {
-                  "anchor": 194.1,
+                  "anchor": 194.3,
                   "n": 15,
-                  "post": 194.1,
+                  "post": 194.29999999999998,
                   "pre": 361.0,
-                  "scale": 0.5376731301939058
+                  "scale": 0.5382271468144044
                 }
               },
-              "factor": 0.5017064846416383,
+              "factor": 0.4992605233219568,
               "n_priced": 106,
-              "post_total": 882.0,
+              "post_total": 877.7,
               "pre_total": 1758.0,
-              "target_total": 882.0
+              "target_total": 877.7
             }
           },
           "n": 249,
@@ -62112,7 +62112,7 @@
       "name": "USA Today",
       "native_unit": "USA Today chart points (their ~0\u201370 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-08T23:27:01Z",
+      "promoted_at": "2026-10-08T23:40:01Z",
       "promoted_from_review": "usatoday-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-08T00:00:00+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: USA Today publishes one QB column set (1QB / 6-pt-TD / Superflex), so the 1QB column is reused for every scoring mode.",
@@ -62125,7 +62125,7 @@
         "snapshot_fetched_at": "2026-10-08T00:00:00+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/usatoday/2026-10-06/snapshot-manifest.json",
         "source": "usatoday",
-        "source_pulled_at": "2026-10-08T23:26:23Z",
+        "source_pulled_at": "2026-10-08T23:39:44Z",
         "source_url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/06/fantasy-trade-value-charts-week-5-ros-rankings/92125556007/",
         "vintage_kind": "week_designated",
         "week_designated": 5
@@ -62919,10 +62919,10 @@
             "aaron rodgers": 0.0,
             "adonai mitchell": 5.3,
             "aj barner": 0.0,
-            "aj brown": 20.9,
+            "aj brown": 20.8,
             "alec pierce": 0.0,
             "alvin kamara": 12.7,
-            "amonra st brown": 41.4,
+            "amonra st brown": 41.2,
             "andrei iosivas": 0.0,
             "antonio williams": 4.5,
             "ashton jeanty": 36.9,
@@ -62946,16 +62946,16 @@
             "cam skattebo": 22.1,
             "cam ward": 0.0,
             "carnell tate": 18.4,
-            "ceedee lamb": 44.5,
+            "ceedee lamb": 44.4,
             "chase brown": 36.9,
             "chig okonkwo": 0.0,
             "chris bell": 4.5,
             "chris brooks": 0.0,
-            "chris godwin": 6.3,
-            "chris olave": 38.9,
+            "chris godwin": 6.2,
+            "chris olave": 38.8,
             "chris rodriguez jr": 0.0,
             "christian mccaffrey": 47.1,
-            "christian watson": 29.6,
+            "christian watson": 29.5,
             "chuba hubbard": 38.6,
             "cj stroud": 0.0,
             "cody white": 0.0,
@@ -62973,35 +62973,35 @@
             "darnell mooney": 0.0,
             "darnell washington": 0.0,
             "darren waller": 1.2,
-            "davante adams": 19.7,
+            "davante adams": 19.6,
             "david montgomery": 19.0,
             "dawson knox": 0.0,
-            "deebo samuel sr": 15.4,
+            "deebo samuel sr": 15.3,
             "demond claiborne": 0.0,
-            "denzel boston": 16.0,
+            "denzel boston": 15.9,
             "derrick henry": 43.2,
             "deshaun watson": 1.3,
             "devaughn vele": 8.0,
-            "devonta smith": 24.1,
+            "devonta smith": 24.0,
             "dezhaun stribling": 3.6,
-            "dj moore": 19.7,
-            "dk metcalf": 14.8,
+            "dj moore": 19.6,
+            "dk metcalf": 14.7,
             "dohnte meyers": 4.0,
-            "dontayvion wicks": 6.3,
-            "drake london": 34.6,
+            "dontayvion wicks": 6.2,
+            "drake london": 34.5,
             "drake maye": 8.7,
             "elic ayomanor": 0.0,
             "elijah arroyo": 0.0,
             "emanuel wilson": 8.9,
-            "emeka egbuka": 15.4,
+            "emeka egbuka": 15.3,
             "emmett johnson": 4.8,
             "evan engram": 0.0,
             "fernando mendoza": 0.0,
-            "garrett wilson": 27.1,
+            "garrett wilson": 26.9,
             "geno smith": 0.0,
             "george holani": 0.0,
             "george kittle": 19.3,
-            "george pickens": 22.1,
+            "george pickens": 22.0,
             "germie bernard": 0.0,
             "greg dulcich": 0.0,
             "gunnar helm": 0.0,
@@ -63018,23 +63018,23 @@
             "jahmyr gibbs": 58.9,
             "jake ferguson": 4.2,
             "jakobi lane": 0.0,
-            "jakobi meyers": 11.7,
-            "jalen coker": 17.2,
+            "jakobi meyers": 11.6,
+            "jalen coker": 17.1,
             "jalen hurts": 7.6,
             "jalen mcmillan": 0.0,
             "jalen nailor": 0.0,
             "jalen royals": 0.0,
-            "jamarr chase": 43.2,
+            "jamarr chase": 43.1,
             "jameis winston": 0.0,
             "james conner": 0.0,
-            "james cook": 44.0,
+            "james cook": 43.9,
             "jameson williams": 13.5,
             "jared goff": 9.9,
             "jauan jennings": 0.0,
             "javonte williams": 39.3,
             "jaxon smithnjigba": 47.5,
             "jayden daniels": 6.6,
-            "jaylen waddle": 21.6,
+            "jaylen waddle": 21.5,
             "jaylen warren": 22.8,
             "jaylen wright": 4.3,
             "jaylin noel": 0.0,
@@ -63043,31 +63043,31 @@
             "jk dobbins": 6.3,
             "joe burrow": 10.8,
             "jonah coleman": 0.0,
-            "jonathan taylor": 51.0,
+            "jonathan taylor": 50.9,
             "jonathon brooks": 0.0,
-            "jordan addison": 7.1,
+            "jordan addison": 7.0,
             "jordan love": 4.5,
             "jordan mason": 9.4,
-            "jordyn tyson": 6.7,
+            "jordyn tyson": 6.6,
             "josh allen": 26.8,
             "josh cameron": 0.0,
             "josh downs": 14.1,
             "josh jacobs": 20.5,
             "justice hill": 0.0,
             "justin herbert": 0.5,
-            "justin jefferson": 31.5,
+            "justin jefferson": 31.3,
             "juwan johnson": 11.1,
             "kaelon black": 6.3,
             "kaleb johnson": 0.0,
             "kalif raymond": 7.5,
             "kayshon boutte": 0.0,
-            "kc concepcion": 6.7,
+            "kc concepcion": 6.6,
             "keaton mitchell": 8.9,
-            "keenan allen": 6.3,
+            "keenan allen": 6.2,
             "kendre miller": 4.8,
             "kendrick bourne": 0.0,
             "kenneth gainwell": 5.3,
-            "kenneth walker iii": 55.8,
+            "kenneth walker iii": 55.7,
             "kenyon sadiq": 4.8,
             "keon coleman": 4.5,
             "khalil shakir": 0.0,
@@ -63078,37 +63078,37 @@
             "kyle pitts": 3.0,
             "kyler murray": 2.0,
             "kyren williams": 42.4,
-            "ladd mcconkey": 20.3,
+            "ladd mcconkey": 20.2,
             "lamar jackson": 16.3,
             "laquon treadwell": 0.0,
-            "luther burden iii": 20.3,
+            "luther burden iii": 20.2,
             "makai lemon": 4.9,
             "malachi fields": 4.5,
-            "malik nabers": 25.8,
+            "malik nabers": 25.7,
             "malik washington": 7.5,
             "malik willis": 0.0,
             "mark andrews": 1.2,
             "marshawn lloyd": 5.8,
             "marvin harrison jr": 5.3,
-            "matthew golden": 24.1,
+            "matthew golden": 24.0,
             "matthew stafford": 6.9,
             "michael penix jr": 0.0,
             "michael pittman": 4.5,
-            "michael wilson": 20.3,
-            "mike evans": 20.9,
+            "michael wilson": 20.2,
+            "mike evans": 20.8,
             "mike gesicki": 0.0,
             "mike washington jr": 0.0,
             "najee harris": 0.0,
             "nicholas singleton": 0.0,
-            "nico collins": 33.3,
+            "nico collins": 33.2,
             "ollie gordon ii": 9.4,
             "omarion hampton": 22.8,
             "oronde gadsden ii": 0.0,
-            "parker washington": 24.6,
+            "parker washington": 24.5,
             "pat bryant": 0.0,
             "pat freiermuth": 0.0,
             "patrick mahomes": 8.7,
-            "puka nacua": 40.8,
+            "puka nacua": 40.6,
             "quentin johnston": 5.3,
             "quinshon judkins": 22.8,
             "rachaad white": 6.3,
@@ -63135,17 +63135,17 @@
             "stefon diggs": 13.5,
             "tank dell": 0.0,
             "ted hurst iii": 0.0,
-            "tee higgins": 22.1,
+            "tee higgins": 22.0,
             "terrance ferguson": 0.0,
-            "terry mclaurin": 16.6,
-            "tetairoa mcmillan": 26.5,
+            "terry mclaurin": 16.5,
+            "tetairoa mcmillan": 26.4,
             "tj hockenson": 3.0,
             "tony pollard": 13.5,
             "tory horton": 0.0,
             "travis etienne": 14.3,
             "travis kelce": 11.6,
             "tre harris": 0.0,
-            "tre tucker": 6.7,
+            "tre tucker": 6.6,
             "treveyon henderson": 15.0,
             "trevor lawrence": 10.1,
             "trey mcbride": 23.1,
@@ -63166,7 +63166,7 @@
             "xavier worthy": 4.5,
             "zach charbonnet": 6.3,
             "zachariah branch": 0.0,
-            "zay flowers": 33.3
+            "zay flowers": 33.2
           },
           "native": {
             "aaron jones": 15.8,
@@ -63454,18 +63454,18 @@
             "RB": {
               "buckets": {
                 "bench": {
-                  "anchor": 157.2,
+                  "anchor": 157.1,
                   "n": 43,
-                  "post": 157.2,
+                  "post": 157.1,
                   "pre": 310.0,
-                  "scale": 0.5070967741935484
+                  "scale": 0.506774193548387
                 },
                 "dedicated": {
-                  "anchor": 829.1,
+                  "anchor": 828.9,
                   "n": 24,
-                  "post": 829.1,
+                  "post": 828.9,
                   "pre": 1134.0,
-                  "scale": 0.7311287477954145
+                  "scale": 0.7309523809523809
                 },
                 "flex": {
                   "anchor": 127.5,
@@ -63475,11 +63475,11 @@
                   "scale": 0.7774390243902439
                 }
               },
-              "factor": 0.6926616915422885,
+              "factor": 0.6924751243781094,
               "n_priced": 75,
-              "post_total": 1113.8,
+              "post_total": 1113.5,
               "pre_total": 1608.0,
-              "target_total": 1113.8
+              "target_total": 1113.5
             },
             "TE": {
               "buckets": {
@@ -63507,32 +63507,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 194.7,
+                  "anchor": 193.8,
                   "n": 66,
-                  "post": 194.7,
+                  "post": 193.8,
                   "pre": 324.0,
-                  "scale": 0.6009259259259259
+                  "scale": 0.5981481481481482
                 },
                 "dedicated": {
-                  "anchor": 674.1,
+                  "anchor": 670.4,
                   "n": 24,
-                  "post": 674.1,
+                  "post": 670.4,
                   "pre": 1142.0,
-                  "scale": 0.5902802101576182
+                  "scale": 0.5870402802101576
                 },
                 "flex": {
-                  "anchor": 282.5,
+                  "anchor": 282.7,
                   "n": 16,
-                  "post": 282.5,
+                  "post": 282.7,
                   "pre": 403.0,
-                  "scale": 0.7009925558312655
+                  "scale": 0.7014888337468982
                 }
               },
-              "factor": 0.6159978598180845,
+              "factor": 0.6136436597110755,
               "n_priced": 106,
-              "post_total": 1151.3,
+              "post_total": 1146.9,
               "pre_total": 1869.0,
-              "target_total": 1151.3
+              "target_total": 1146.9
             }
           }
         },
@@ -63540,14 +63540,14 @@
           "reindexed": {
             "aaron jones": 19.6,
             "aaron rodgers": 0.0,
-            "adonai mitchell": 4.9,
+            "adonai mitchell": 4.8,
             "aj barner": 0.0,
-            "aj brown": 19.2,
+            "aj brown": 18.8,
             "alec pierce": 0.0,
             "alvin kamara": 11.5,
-            "amonra st brown": 37.9,
+            "amonra st brown": 37.2,
             "andrei iosivas": 0.0,
-            "antonio williams": 4.1,
+            "antonio williams": 4.0,
             "ashton jeanty": 45.4,
             "baker mayfield": 0.6,
             "bhayshul tuten": 36.0,
@@ -63558,35 +63558,35 @@
             "breece hall": 37.1,
             "brenton strange": 0.0,
             "brian robinson": 14.4,
-            "brian thomas jr": 7.0,
+            "brian thomas jr": 6.8,
             "brock bowers": 29.7,
-            "brock purdy": 16.2,
+            "brock purdy": 16.1,
             "bryce young": 6.8,
             "bucky irving": 31.9,
             "cade otton": 0.0,
-            "caleb douglas": 3.7,
+            "caleb douglas": 3.6,
             "caleb williams": 8.2,
             "cam skattebo": 26.7,
             "cam ward": 0.0,
-            "carnell tate": 15.7,
-            "ceedee lamb": 40.9,
+            "carnell tate": 15.3,
+            "ceedee lamb": 40.1,
             "chase brown": 45.4,
             "chig okonkwo": 0.0,
-            "chris bell": 4.1,
+            "chris bell": 4.0,
             "chris brooks": 0.0,
-            "chris godwin": 5.3,
-            "chris olave": 35.0,
+            "chris godwin": 5.2,
+            "chris olave": 34.3,
             "chris rodriguez jr": 5.4,
             "christian mccaffrey": 58.7,
-            "christian watson": 27.4,
+            "christian watson": 26.8,
             "chuba hubbard": 48.4,
             "cj stroud": 0.0,
             "cody white": 0.0,
             "colston loveland": 9.2,
             "cooper kupp": 0.0,
-            "courtland sutton": 4.9,
+            "courtland sutton": 4.8,
             "cyrus allen": 0.0,
-            "dak prescott": 10.9,
+            "dak prescott": 10.8,
             "dallas goedert": 1.1,
             "dalton kincaid": 12.9,
             "dalton schultz": 1.1,
@@ -63596,35 +63596,35 @@
             "darnell mooney": 0.0,
             "darnell washington": 0.0,
             "darren waller": 1.8,
-            "davante adams": 18.0,
+            "davante adams": 17.6,
             "david montgomery": 23.8,
             "dawson knox": 0.0,
-            "deebo samuel sr": 14.4,
+            "deebo samuel sr": 14.1,
             "demond claiborne": 0.0,
-            "denzel boston": 15.1,
+            "denzel boston": 14.8,
             "derrick henry": 55.6,
             "deshaun watson": 1.6,
-            "devaughn vele": 7.4,
-            "devonta smith": 22.1,
-            "dezhaun stribling": 3.3,
-            "dj moore": 18.0,
-            "dk metcalf": 13.9,
-            "dohnte meyers": 3.7,
-            "dontayvion wicks": 5.8,
-            "drake london": 31.5,
-            "drake maye": 10.9,
+            "devaughn vele": 7.2,
+            "devonta smith": 21.6,
+            "dezhaun stribling": 3.2,
+            "dj moore": 17.6,
+            "dk metcalf": 13.6,
+            "dohnte meyers": 3.6,
+            "dontayvion wicks": 5.7,
+            "drake london": 30.8,
+            "drake maye": 10.8,
             "elic ayomanor": 0.0,
             "elijah arroyo": 0.0,
             "emanuel wilson": 10.9,
-            "emeka egbuka": 13.9,
+            "emeka egbuka": 13.6,
             "emmett johnson": 6.1,
             "evan engram": 0.0,
             "fernando mendoza": 0.0,
-            "garrett wilson": 25.1,
+            "garrett wilson": 24.5,
             "geno smith": 0.0,
             "george holani": 0.0,
             "george kittle": 18.8,
-            "george pickens": 20.9,
+            "george pickens": 20.4,
             "germie bernard": 0.0,
             "greg dulcich": 0.0,
             "gunnar helm": 0.0,
@@ -63641,58 +63641,58 @@
             "jahmyr gibbs": 73.9,
             "jake ferguson": 4.6,
             "jakobi lane": 0.0,
-            "jakobi meyers": 8.3,
-            "jalen coker": 15.1,
+            "jakobi meyers": 8.1,
+            "jalen coker": 14.8,
             "jalen hurts": 9.5,
             "jalen mcmillan": 0.0,
             "jalen nailor": 0.0,
             "jalen royals": 0.0,
-            "jamarr chase": 39.8,
+            "jamarr chase": 39.0,
             "jameis winston": 0.0,
             "james conner": 0.0,
             "james cook": 56.6,
-            "jameson williams": 13.2,
+            "jameson williams": 12.9,
             "jared goff": 12.2,
             "jauan jennings": 0.0,
             "javonte williams": 49.5,
-            "jaxon smithnjigba": 43.1,
+            "jaxon smithnjigba": 42.4,
             "jayden daniels": 8.2,
-            "jaylen waddle": 19.8,
+            "jaylen waddle": 19.3,
             "jaylen warren": 27.9,
             "jaylen wright": 0.0,
             "jaylin noel": 0.0,
             "jeremiyah love": 43.2,
-            "jerry jeudy": 3.7,
+            "jerry jeudy": 3.6,
             "jk dobbins": 8.8,
             "joe burrow": 13.4,
             "jonah coleman": 0.0,
             "jonathan taylor": 64.8,
             "jonathon brooks": 0.0,
-            "jordan addison": 6.6,
+            "jordan addison": 6.5,
             "jordan love": 5.6,
             "jordan mason": 15.5,
-            "jordyn tyson": 6.2,
-            "josh allen": 33.1,
+            "jordyn tyson": 6.0,
+            "josh allen": 33.3,
             "josh cameron": 0.0,
-            "josh downs": 12.1,
+            "josh downs": 11.9,
             "josh jacobs": 25.8,
             "justice hill": 0.0,
             "justin herbert": 0.6,
-            "justin jefferson": 28.6,
+            "justin jefferson": 28.0,
             "juwan johnson": 10.8,
             "kaelon black": 8.1,
             "kaleb johnson": 0.0,
-            "kalif raymond": 6.6,
+            "kalif raymond": 6.5,
             "kayshon boutte": 0.0,
-            "kc concepcion": 6.2,
+            "kc concepcion": 6.0,
             "keaton mitchell": 9.5,
-            "keenan allen": 5.3,
+            "keenan allen": 5.2,
             "kendre miller": 0.0,
             "kendrick bourne": 0.0,
             "kenneth gainwell": 0.0,
             "kenneth walker iii": 70.8,
             "kenyon sadiq": 5.2,
-            "keon coleman": 4.1,
+            "keon coleman": 4.0,
             "khalil shakir": 0.0,
             "kimani vidal": 0.0,
             "kirk cousins": 3.7,
@@ -63701,50 +63701,50 @@
             "kyle pitts": 3.4,
             "kyler murray": 2.5,
             "kyren williams": 52.5,
-            "ladd mcconkey": 18.5,
-            "lamar jackson": 20.1,
+            "ladd mcconkey": 18.1,
+            "lamar jackson": 20.2,
             "laquon treadwell": 0.0,
-            "luther burden iii": 18.5,
-            "makai lemon": 4.5,
-            "malachi fields": 4.1,
-            "malik nabers": 23.3,
-            "malik washington": 5.8,
+            "luther burden iii": 18.1,
+            "makai lemon": 4.4,
+            "malachi fields": 4.0,
+            "malik nabers": 22.8,
+            "malik washington": 5.7,
             "malik willis": 0.6,
             "mark andrews": 1.8,
             "marshawn lloyd": 5.4,
-            "marvin harrison jr": 4.9,
-            "matthew golden": 22.1,
+            "marvin harrison jr": 4.8,
+            "matthew golden": 21.6,
             "matthew stafford": 8.6,
             "michael penix jr": 0.0,
-            "michael pittman": 3.7,
-            "michael wilson": 17.4,
-            "mike evans": 19.8,
+            "michael pittman": 3.6,
+            "michael wilson": 17.0,
+            "mike evans": 19.3,
             "mike gesicki": 0.0,
             "mike washington jr": 0.0,
             "najee harris": 0.0,
             "nicholas singleton": 0.0,
-            "nico collins": 30.3,
+            "nico collins": 29.6,
             "ollie gordon ii": 15.5,
             "omarion hampton": 28.9,
             "oronde gadsden ii": 0.0,
-            "parker washington": 22.7,
+            "parker washington": 22.2,
             "pat bryant": 0.0,
             "pat freiermuth": 0.6,
-            "patrick mahomes": 10.9,
-            "puka nacua": 37.4,
-            "quentin johnston": 5.3,
+            "patrick mahomes": 10.8,
+            "puka nacua": 36.6,
+            "quentin johnston": 5.2,
             "quinshon judkins": 26.7,
             "rachaad white": 6.8,
-            "rashee rice": 16.3,
-            "rashid shaheed": 3.7,
+            "rashee rice": 16.0,
+            "rashid shaheed": 3.6,
             "rashod bateman": 0.0,
             "ray davis": 0.0,
             "rhamondre stevenson": 22.6,
             "rico dowdle": 7.4,
             "rj harvey": 10.1,
-            "roman wilson": 4.1,
-            "rome odunze": 12.1,
-            "romeo doubs": 8.3,
+            "roman wilson": 4.0,
+            "rome odunze": 11.9,
+            "romeo doubs": 8.1,
             "ryan flournoy": 0.0,
             "sam darnold": 0.0,
             "sam laporta": 14.5,
@@ -63755,20 +63755,20 @@
             "seth mcgowan": 0.0,
             "shedeur sanders": 0.0,
             "sione vaki": 0.0,
-            "stefon diggs": 12.7,
+            "stefon diggs": 12.4,
             "tank dell": 0.0,
             "ted hurst iii": 0.0,
-            "tee higgins": 20.4,
+            "tee higgins": 20.0,
             "terrance ferguson": 0.0,
-            "terry mclaurin": 15.7,
-            "tetairoa mcmillan": 23.9,
+            "terry mclaurin": 15.3,
+            "tetairoa mcmillan": 23.3,
             "tj hockenson": 2.3,
             "tony pollard": 16.6,
             "tory horton": 0.0,
             "travis etienne": 16.6,
             "travis kelce": 11.2,
             "tre harris": 0.0,
-            "tre tucker": 5.8,
+            "tre tucker": 5.7,
             "treveyon henderson": 18.5,
             "trevor lawrence": 12.5,
             "trey mcbride": 21.5,
@@ -63782,14 +63782,14 @@
             "tyler shough": 12.2,
             "tyler warren": 10.8,
             "tyrone tracy jr": 0.0,
-            "wandale robinson": 6.2,
+            "wandale robinson": 6.0,
             "will shipley": 7.4,
             "woody marks": 8.8,
             "xavier legette": 0.0,
-            "xavier worthy": 3.7,
+            "xavier worthy": 3.6,
             "zach charbonnet": 8.8,
             "zachariah branch": 0.0,
-            "zay flowers": 30.3
+            "zay flowers": 29.6
           },
           "native": {
             "aaron jones": 15.4,
@@ -64054,11 +64054,11 @@
             "QB": {
               "buckets": {
                 "bench": {
-                  "anchor": 49.800000000000004,
+                  "anchor": 49.7,
                   "n": 20,
-                  "post": 49.8,
+                  "post": 49.7,
                   "pre": 88.0,
-                  "scale": 0.5659090909090909
+                  "scale": 0.5647727272727273
                 },
                 "dedicated": {
                   "anchor": 160.70000000000002,
@@ -64068,11 +64068,11 @@
                   "scale": 0.6351778656126483
                 }
               },
-              "factor": 0.6173020527859238,
+              "factor": 0.617008797653959,
               "n_priced": 32,
-              "post_total": 210.5,
+              "post_total": 210.40000000000003,
               "pre_total": 341.0,
-              "target_total": 210.5
+              "target_total": 210.40000000000003
             },
             "RB": {
               "buckets": {
@@ -64130,32 +64130,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 148.4,
+                  "anchor": 145.2,
                   "n": 67,
-                  "post": 148.4,
+                  "post": 145.2,
                   "pre": 329.0,
-                  "scale": 0.4510638297872341
+                  "scale": 0.441337386018237
                 },
                 "dedicated": {
-                  "anchor": 645.8,
+                  "anchor": 628.9,
                   "n": 24,
-                  "post": 645.8,
+                  "post": 628.9,
                   "pre": 1106.0,
-                  "scale": 0.5839059674502712
+                  "scale": 0.5686256781193489
                 },
                 "flex": {
-                  "anchor": 249.2,
+                  "anchor": 246.6,
                   "n": 15,
-                  "post": 249.2,
+                  "post": 246.6,
                   "pre": 371.0,
-                  "scale": 0.6716981132075471
+                  "scale": 0.6646900269541779
                 }
               },
-              "factor": 0.5777408637873753,
+              "factor": 0.565171650055371,
               "n_priced": 106,
-              "post_total": 1043.3999999999999,
+              "post_total": 1020.6999999999999,
               "pre_total": 1806.0,
-              "target_total": 1043.3999999999999
+              "target_total": 1020.6999999999999
             }
           }
         },
@@ -64165,12 +64165,12 @@
             "aaron rodgers": 0.0,
             "adonai mitchell": 4.2,
             "aj barner": 0.0,
-            "aj brown": 16.7,
-            "alec pierce": 2.8,
+            "aj brown": 16.6,
+            "alec pierce": 2.7,
             "alvin kamara": 12.5,
             "amonra st brown": 31.9,
             "andrei iosivas": 0.0,
-            "antonio williams": 3.5,
+            "antonio williams": 3.4,
             "ashton jeanty": 48.1,
             "baker mayfield": 0.7,
             "bhayshul tuten": 39.2,
@@ -64181,13 +64181,13 @@
             "breece hall": 39.2,
             "brenton strange": 0.0,
             "brian robinson": 16.9,
-            "brian thomas jr": 6.1,
+            "brian thomas jr": 6.0,
             "brock bowers": 27.6,
             "brock purdy": 17.7,
             "bryce young": 7.5,
             "bucky irving": 34.7,
             "cade otton": 0.0,
-            "caleb douglas": 2.8,
+            "caleb douglas": 2.7,
             "caleb williams": 9.0,
             "cam skattebo": 28.0,
             "cam ward": 0.0,
@@ -64195,19 +64195,19 @@
             "ceedee lamb": 34.5,
             "chase brown": 48.1,
             "chig okonkwo": 0.0,
-            "chris bell": 3.5,
+            "chris bell": 3.4,
             "chris brooks": 0.0,
             "chris godwin": 4.2,
             "chris olave": 29.3,
             "chris rodriguez jr": 6.6,
             "christian mccaffrey": 61.6,
-            "christian watson": 23.3,
+            "christian watson": 23.2,
             "chuba hubbard": 52.5,
             "cj stroud": 0.0,
             "cody white": 0.0,
             "colston loveland": 8.9,
             "cooper kupp": 0.0,
-            "courtland sutton": 4.6,
+            "courtland sutton": 4.5,
             "cyrus allen": 0.0,
             "dak prescott": 11.9,
             "dallas goedert": 1.2,
@@ -64219,21 +64219,21 @@
             "darnell mooney": 0.0,
             "darnell washington": 0.0,
             "darren waller": 1.7,
-            "davante adams": 15.6,
+            "davante adams": 15.5,
             "david montgomery": 25.8,
             "dawson knox": 0.0,
             "deebo samuel sr": 12.5,
             "demond claiborne": 0.0,
-            "denzel boston": 13.1,
+            "denzel boston": 13.0,
             "derrick henry": 61.6,
             "deshaun watson": 1.8,
-            "devaughn vele": 6.4,
-            "devonta smith": 18.7,
-            "dezhaun stribling": 2.8,
+            "devaughn vele": 6.3,
+            "devonta smith": 18.6,
+            "dezhaun stribling": 2.7,
             "dj moore": 15.0,
             "dk metcalf": 12.5,
             "dohnte meyers": 3.1,
-            "dontayvion wicks": 5.0,
+            "dontayvion wicks": 4.9,
             "drake london": 26.2,
             "drake maye": 11.9,
             "elic ayomanor": 0.0,
@@ -64243,11 +64243,11 @@
             "emmett johnson": 7.3,
             "evan engram": 0.0,
             "fernando mendoza": 0.0,
-            "garrett wilson": 21.2,
+            "garrett wilson": 21.1,
             "geno smith": 0.0,
             "george holani": 0.0,
             "george kittle": 17.7,
-            "george pickens": 18.2,
+            "george pickens": 18.1,
             "germie bernard": 0.0,
             "greg dulcich": 0.0,
             "gunnar helm": 0.0,
@@ -64264,7 +64264,7 @@
             "jahmyr gibbs": 79.3,
             "jake ferguson": 4.5,
             "jakobi lane": 0.0,
-            "jakobi meyers": 6.4,
+            "jakobi meyers": 6.3,
             "jalen coker": 12.0,
             "jalen hurts": 10.4,
             "jalen mcmillan": 0.0,
@@ -64273,14 +64273,14 @@
             "jamarr chase": 33.4,
             "jameis winston": 0.0,
             "james conner": 0.0,
-            "james cook": 62.7,
-            "jameson williams": 11.6,
+            "james cook": 62.6,
+            "jameson williams": 11.5,
             "jared goff": 13.4,
             "jauan jennings": 0.0,
             "javonte williams": 53.8,
             "jaxon smithnjigba": 36.4,
             "jayden daniels": 9.0,
-            "jaylen waddle": 16.7,
+            "jaylen waddle": 16.6,
             "jaylen warren": 29.1,
             "jaylen wright": 0.0,
             "jaylin noel": 0.0,
@@ -64291,23 +64291,23 @@
             "jonah coleman": 0.0,
             "jonathan taylor": 70.4,
             "jonathon brooks": 0.0,
-            "jordan addison": 5.7,
+            "jordan addison": 5.6,
             "jordan love": 6.1,
             "jordan mason": 18.0,
-            "jordyn tyson": 5.3,
+            "jordyn tyson": 5.2,
             "josh allen": 36.2,
             "josh cameron": 0.0,
             "josh downs": 9.9,
             "josh jacobs": 28.0,
             "justice hill": 0.0,
             "justin herbert": 0.7,
-            "justin jefferson": 23.8,
+            "justin jefferson": 23.7,
             "juwan johnson": 9.9,
             "kaelon black": 9.5,
             "kaleb johnson": 0.0,
-            "kalif raymond": 5.3,
+            "kalif raymond": 5.2,
             "kayshon boutte": 0.0,
-            "kc concepcion": 5.3,
+            "kc concepcion": 5.2,
             "keaton mitchell": 8.0,
             "keenan allen": 4.2,
             "kendre miller": 0.0,
@@ -64315,7 +64315,7 @@
             "kenneth gainwell": 0.0,
             "kenneth walker iii": 76.0,
             "kenyon sadiq": 5.1,
-            "keon coleman": 3.5,
+            "keon coleman": 3.4,
             "khalil shakir": 0.0,
             "kimani vidal": 0.0,
             "kirk cousins": 4.0,
@@ -64324,50 +64324,50 @@
             "kyle pitts": 3.4,
             "kyler murray": 2.8,
             "kyren williams": 56.0,
-            "ladd mcconkey": 15.6,
+            "ladd mcconkey": 15.5,
             "lamar jackson": 21.9,
             "laquon treadwell": 0.0,
-            "luther burden iii": 16.1,
-            "makai lemon": 3.9,
-            "malachi fields": 3.5,
-            "malik nabers": 19.7,
+            "luther burden iii": 16.0,
+            "makai lemon": 3.8,
+            "malachi fields": 3.4,
+            "malik nabers": 19.6,
             "malik washington": 4.2,
             "malik willis": 0.7,
             "mark andrews": 2.2,
             "marshawn lloyd": 0.0,
             "marvin harrison jr": 4.2,
-            "matthew golden": 18.7,
+            "matthew golden": 18.6,
             "matthew stafford": 9.4,
             "michael penix jr": 0.0,
             "michael pittman": 3.1,
-            "michael wilson": 14.1,
-            "mike evans": 17.2,
+            "michael wilson": 14.0,
+            "mike evans": 17.1,
             "mike gesicki": 0.0,
             "mike washington jr": 0.0,
             "najee harris": 0.0,
             "nicholas singleton": 0.0,
-            "nico collins": 25.2,
+            "nico collins": 25.1,
             "ollie gordon ii": 18.0,
             "omarion hampton": 32.5,
             "oronde gadsden ii": 0.0,
-            "parker washington": 19.2,
+            "parker washington": 19.1,
             "pat bryant": 0.0,
             "pat freiermuth": 0.6,
             "patrick mahomes": 11.9,
-            "puka nacua": 31.3,
-            "quentin johnston": 5.0,
+            "puka nacua": 31.4,
+            "quentin johnston": 4.9,
             "quinshon judkins": 28.0,
             "rachaad white": 6.6,
             "rashee rice": 13.5,
-            "rashid shaheed": 3.9,
+            "rashid shaheed": 3.8,
             "rashod bateman": 0.0,
             "ray davis": 0.0,
             "rhamondre stevenson": 23.6,
             "rico dowdle": 8.0,
             "rj harvey": 8.8,
-            "roman wilson": 3.5,
+            "roman wilson": 3.4,
             "rome odunze": 9.9,
-            "romeo doubs": 6.8,
+            "romeo doubs": 6.7,
             "ryan flournoy": 0.0,
             "sam darnold": 0.0,
             "sam laporta": 13.5,
@@ -64381,17 +64381,17 @@
             "stefon diggs": 11.0,
             "tank dell": 0.0,
             "ted hurst iii": 0.0,
-            "tee higgins": 17.6,
+            "tee higgins": 17.5,
             "terrance ferguson": 0.0,
             "terry mclaurin": 13.5,
-            "tetairoa mcmillan": 20.2,
+            "tetairoa mcmillan": 20.1,
             "tj hockenson": 1.2,
             "tony pollard": 19.1,
             "tory horton": 0.0,
             "travis etienne": 18.0,
             "travis kelce": 10.4,
             "tre harris": 0.0,
-            "tre tucker": 4.6,
+            "tre tucker": 4.5,
             "treveyon henderson": 21.4,
             "trevor lawrence": 13.7,
             "trey mcbride": 19.8,
@@ -64405,14 +64405,14 @@
             "tyler shough": 13.4,
             "tyler warren": 10.4,
             "tyrone tracy jr": 0.0,
-            "wandale robinson": 3.9,
+            "wandale robinson": 3.8,
             "will shipley": 8.8,
             "woody marks": 9.5,
             "xavier legette": 0.0,
             "xavier worthy": 3.1,
             "zach charbonnet": 10.3,
             "zachariah branch": 0.0,
-            "zay flowers": 25.2
+            "zay flowers": 25.1
           },
           "native": {
             "aaron jones": 15.7,
@@ -64707,11 +64707,11 @@
                   "scale": 1.1587044534412956
                 },
                 "dedicated": {
-                  "anchor": 989.3000000000001,
+                  "anchor": 989.2,
                   "n": 24,
-                  "post": 989.3000000000001,
+                  "post": 989.2,
                   "pre": 1052.0,
-                  "scale": 0.9403992395437263
+                  "scale": 0.9403041825095058
                 },
                 "flex": {
                   "anchor": 210.5,
@@ -64721,11 +64721,11 @@
                   "scale": 1.2604790419161678
                 }
               },
-              "factor": 1.0136425648021827,
+              "factor": 1.013574351978172,
               "n_priced": 75,
-              "post_total": 1486.0,
+              "post_total": 1485.9,
               "pre_total": 1466.0,
-              "target_total": 1486.0
+              "target_total": 1485.9
             },
             "TE": {
               "buckets": {
@@ -64753,32 +64753,32 @@
             "WR": {
               "buckets": {
                 "bench": {
-                  "anchor": 112.5,
+                  "anchor": 111.9,
                   "n": 67,
-                  "post": 112.5,
+                  "post": 111.9,
                   "pre": 320.0,
-                  "scale": 0.3515625
+                  "scale": 0.34968750000000004
                 },
                 "dedicated": {
-                  "anchor": 575.4,
+                  "anchor": 571.5,
                   "n": 24,
-                  "post": 575.4,
+                  "post": 571.5,
                   "pre": 1077.0,
-                  "scale": 0.5342618384401114
+                  "scale": 0.5306406685236769
                 },
                 "flex": {
-                  "anchor": 194.1,
+                  "anchor": 194.3,
                   "n": 15,
-                  "post": 194.1,
+                  "post": 194.29999999999998,
                   "pre": 361.0,
-                  "scale": 0.5376731301939058
+                  "scale": 0.5382271468144044
                 }
               },
-              "factor": 0.5017064846416383,
+              "factor": 0.4992605233219568,
               "n_priced": 106,
-              "post_total": 882.0,
+              "post_total": 877.7,
               "pre_total": 1758.0,
-              "target_total": 882.0
+              "target_total": 877.7
             }
           }
         }
