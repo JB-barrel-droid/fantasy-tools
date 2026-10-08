@@ -2349,6 +2349,115 @@
     refreshAfterWeightChange();
   }
 
+  // JEG-452 (BE-2): programmatic position shares for the v2 Weights panel.
+  // A share scales its position's calibration pie (activePies). The two-tier
+  // solve is linear in the pie, so every share > 0 calibrates exactly like the
+  // default and only a share of 0 would withhold the position; the floor keeps
+  // all four priced. 1% matches the bench-share slider's floor. Whether the
+  // floor should be higher, and how far a share edit should reach (today:
+  // the live DDF calibration and the series fitted to it, not the Adjusted
+  // view's anchor group totals), is on docs/math-review-agenda.md (MR-16).
+  const POSITION_WEIGHT_FLOOR = 0.01;
+
+  function positionWeightBounds() {
+    if (!bakedPositionWeights()) return null;
+    const hi = 1 - (TwoTier.POSITIONS.length - 1) * POSITION_WEIGHT_FLOOR;
+    return Object.fromEntries(TwoTier.POSITIONS.map(pos => [pos, [POSITION_WEIGHT_FLOOR, hi]]));
+  }
+
+  // Lift any share in `positions` below the floor to it and take the
+  // difference from that set's shares above the floor, proportionally
+  // (water-fill). The set's total is unchanged.
+  function liftToPositionFloor(weights, positions = TwoTier.POSITIONS) {
+    const w = {...weights};
+    const setTotal = positions.reduce((s, pos) => s + w[pos], 0);
+    for (let pass = 0; pass < positions.length; pass += 1) {
+      const low = positions.filter(pos => w[pos] < POSITION_WEIGHT_FLOOR - 1e-12);
+      if (!low.length) break;
+      low.forEach(pos => { w[pos] = POSITION_WEIGHT_FLOOR; });
+      const fixed = positions.filter(pos => w[pos] <= POSITION_WEIGHT_FLOOR + 1e-12);
+      const rest = positions.filter(pos => !fixed.includes(pos));
+      if (!rest.length) break;
+      const room = setTotal - fixed.length * POSITION_WEIGHT_FLOOR;
+      const restTotal = rest.reduce((s, pos) => s + w[pos], 0);
+      rest.forEach(pos => { w[pos] = restTotal > 0 ? w[pos] * room / restTotal : room / rest.length; });
+    }
+    return w;
+  }
+
+  // setPositionWeights({QB, RB, WR, TE}, publish = true)
+  //   Fractions of the total pie. Partial objects are allowed: the named
+  //   shares are set and the unnamed ones share what is left in proportion to
+  //   their current shares (the classic page's linked sliders, setPositionWeight).
+  //   With all four named, they are rescaled to total 1. Every share is then
+  //   clamped into getPositionWeightBounds() and the result totals exactly 1.
+  //   null / undefined / "default" resets to the derived defaults. A league
+  //   change (setScoring, setTeams) also resets them.
+  //   Returns {ok, weights, requested, clamped, isDefault} or {ok:false, error}
+  //   with no state change when the input is invalid.
+  function setPositionWeights(request, publish = true) {
+    if (request === null || request === undefined || request === "default") {
+      positionWeights = null;
+      if (engineReady) refreshAfterWeightChange(publish);
+      else if (publish) publishShared();
+      return {ok: true, weights: activePositionWeights(), requested: null, clamped: false, isDefault: true};
+    }
+    if (typeof request !== "object" || Array.isArray(request)) {
+      return {ok: false, error: "expected an object of position shares, e.g. {QB: 0.2}"};
+    }
+    const bounds = positionWeightBounds();
+    if (!bounds) return {ok: false, error: "position shares are not available until the engine has loaded"};
+    const keys = Object.keys(request);
+    if (!keys.length) return {ok: false, error: "no position shares given"};
+    const unknown = keys.filter(key => !TwoTier.POSITIONS.includes(key));
+    if (unknown.length) return {ok: false, error: `unknown position(s): ${unknown.join(", ")} (expected QB, RB, WR, TE)`};
+    const asked = {};
+    for (const pos of keys) {
+      const value = request[pos];
+      const n = typeof value === "number" || typeof value === "string" ? Number(value) : NaN;
+      if (!Number.isFinite(n)) return {ok: false, error: `${pos} share must be a finite number between 0 and 1`};
+      asked[pos] = n;
+    }
+    const [lo, hi] = bounds[keys[0]];
+    const clampShare = v => Math.min(hi, Math.max(lo, v));
+    const current = activePositionWeights();
+    const free = TwoTier.POSITIONS.filter(pos => !(pos in asked));
+    let w = {};
+    if (!free.length) {
+      const set = Object.fromEntries(TwoTier.POSITIONS.map(pos => [pos, clampShare(asked[pos])]));
+      const total = TwoTier.POSITIONS.reduce((s, pos) => s + set[pos], 0);
+      TwoTier.POSITIONS.forEach(pos => { w[pos] = set[pos] / total; });
+    } else {
+      keys.forEach(pos => { w[pos] = clampShare(asked[pos]); });
+      // The named shares can take at most what leaves every unnamed one its floor.
+      const named = keys.reduce((s, pos) => s + w[pos], 0);
+      const room = 1 - free.length * lo;
+      if (named > room) keys.forEach(pos => { w[pos] *= room / named; });
+      const left = 1 - keys.reduce((s, pos) => s + w[pos], 0);
+      const freeTotal = free.reduce((s, pos) => s + current[pos], 0);
+      free.forEach(pos => { w[pos] = freeTotal > 1e-12 ? left * current[pos] / freeTotal : left / free.length; });
+      // Floor the unnamed shares out of what was left, so the named ones keep
+      // their (clamped) values.
+      w = liftToPositionFloor(w, free);
+    }
+    w = liftToPositionFloor(w);
+    const total = TwoTier.POSITIONS.reduce((s, pos) => s + w[pos], 0);
+    TwoTier.POSITIONS.forEach(pos => { w[pos] /= total; });
+    const clamped = keys.some(pos => Math.abs(w[pos] - asked[pos]) > 1e-9);
+    const baked = bakedPositionWeights();
+    const isDefault = TwoTier.POSITIONS.every(pos => Math.abs(w[pos] - baked[pos]) <= 1e-12);
+    const before = activePositionWeights();
+    // Setting the derived defaults back is the default state itself, so the
+    // outputs are exactly the no-edit outputs (no float drift through activePies).
+    positionWeights = isDefault ? null : w;
+    const changed = TwoTier.POSITIONS.some(pos => Math.abs(activePositionWeights()[pos] - before[pos]) > 1e-12);
+    if (changed) {
+      if (engineReady) refreshAfterWeightChange(publish);
+      else if (publish) publishShared();
+    }
+    return {ok: true, weights: activePositionWeights(), requested: {...asked}, clamped, isDefault};
+  }
+
   // Refit + redraw + republish after any weight change (position or bench).
   function refreshAfterWeightChange(publish = true) {
     crossRank = null;
@@ -3838,6 +3947,11 @@
       return bounds ? TwoTier.inwardBounds(bounds[0], bounds[1]) : null;
     },
     getPositionWeights: () => activePositionWeights(),
+    // JEG-452 (BE-2): see setPositionWeights above for the semantics.
+    setPositionWeights,
+    resetPositionWeights: (publish = true) => setPositionWeights(null, publish),
+    getDefaultPositionWeights: () => bakedPositionWeights(),
+    getPositionWeightBounds: () => positionWeightBounds(),
     getSourceInfo: () => visibleSourceKeys().map(key => ({
       key,
       label: sourceLabel(key),

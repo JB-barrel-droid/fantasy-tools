@@ -446,6 +446,7 @@ test-core:
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
+	python3 -m unittest tests.test_position_weights_setter
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_vorp_translation_js_parity

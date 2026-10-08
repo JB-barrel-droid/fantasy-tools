@@ -62,7 +62,7 @@ measured" means nobody has run that option yet.
 | Stage | Items | Why this order |
 | --- | --- | --- |
 | 1. Definitions | MR-01 (which total), MR-03 (what Indexed values are) | Every other view and guard is stated in terms of these two. |
-| 2. The anchor | MR-02 (roster shape), MR-11 (bench share), MR-12 (ESPN display rules) | The anchor feeds every view. Decide how it moves before deciding what is scaled to it. |
+| 2. The anchor | MR-02 (roster shape), MR-11 (bench share), MR-12 (ESPN display rules), MR-16 (reader position shares) | The anchor feeds every view. Decide how it moves before deciding what is scaled to it. |
 | 3. Published-chart inputs | MR-09 (translation assumptions), MR-08 (short charts), MR-15 (publisher superflex values) | These set each chart's value above waivers, which VORP vs waivers and Adjusted values both use. |
 | 4. The other two views | MR-04 (VORP vs waivers), MR-05 (Adjusted values) | Both need stages 1-3. |
 | 5. Derived series | MR-06 (`*_adjusted` series), MR-10 (projection sources, option C) | Their role depends on what the views became. |
@@ -639,6 +639,55 @@ None of (b)-(d) is measured.
 MR-05 (Adjusted values weights).
 **Sources:** GAP-SUPERFLEX-PUBLISHER-VALUES, JEG332-SUPERFLEX-FLEX,
 `docs/methodology.md` "Superflex".
+
+## MR-16 - Reader position shares: how far an edit reaches, and the bounds
+
+**Question.** `TradeValueCurveControls.setPositionWeights` (JEG-452, BE-2)
+lets the reader set the QB / RB / WR / TE shares of the total pie. Which
+views and series should a share edit move, should the anchor's total stay
+fixed when it does, and what range should each share have?
+
+**Why it matters.** Frame 11 of v2 puts the shares in the reader's hands. A
+share edit is a statement of the reader's own weights, so it is the most
+direct input to Adjusted values ("re-weighted to DDF weights"), yet today it
+reaches the views only through the live two-tier calibration.
+
+**Current behaviour** (built with the API, no rule changed; Full PPR, 12
+teams, QB 6.4% -> 16.4%, the other three scaled down in proportion):
+- A share scales that position's calibration pie (`activePies`), the same
+  path as the classic page's linked sliders (`setPositionWeight`). The live
+  DDF calibration, the ESPN anchor fitted to it and the `*_adjusted` series
+  move: ESPN top QB / RB / WR / TE 29.5 / 70.0 / 47.8 / 29.2 ->
+  70.0 / 58.0 / 39.6 / 24.2; FantasyCalc adjusted QB1 27.3 -> 64.2.
+- The anchor's total is not kept: 2,636 -> 2,444 (-7%), because the display
+  scale pins the overall top player at 70. CBS ROS and Razzball are matched to
+  the anchor by total, so they scale down about 7% at every position.
+  `fixedPieIndexed` holds (it checks against the moved anchor).
+- The published charts' Indexed values do not move. In the VORP vs waivers and
+  Adjusted tabs the CBS series also moves; FantasyCalc, FantasyPros and
+  USA Today do not.
+- Bounds: 1% to 97% per share (`getPositionWeightBounds`). The two-tier solve
+  is linear in the pie, so any share above 0 calibrates like the default and
+  only 0 would withhold the position; 1% matches the bench-share floor.
+  Out-of-range shares are clamped, the four always total 1, and a league
+  change (scoring or teams) resets them to the derived defaults.
+- With no edit, every value is unchanged (12 combos x three views, 148,716
+  values, before/after sweep in the JEG-452 PR).
+
+**Options.**
+- Reach: (a) keep (calibration pie only); (b) also set the DDF group weights
+  the Adjusted view normalizes to (MR-05); (c) also reprice the published
+  charts' Adjusted values directly. Not measured.
+- Anchor total: keep the 70 top pin (current), or hold the anchor's total and
+  let the top move (MR-01, MR-03). Not measured.
+- Range: 1% floor (current), a per-position floor (for example the share
+  where the position's top player would fall below waivers), or the bench
+  share's feasible window logic applied per position. League change: reset
+  (current) or carry the shares over.
+
+**Depends on:** MR-01, MR-03, MR-05, MR-11.
+**Sources:** JEG-452, `docs/v2-design-notes.md` BE-2,
+`tests/test_position_weights_setter.py`.
 
 ---
 
