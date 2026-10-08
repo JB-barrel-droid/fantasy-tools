@@ -245,6 +245,7 @@ test-unit:
 	python3 -m unittest tests.test_live_page_synthetic_workflow
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
+	python3 -m unittest tests.test_cbsros_sync_workflow
 	python3 -m unittest tests.test_github_actions_status
 	python3 -m unittest tests.test_check_fidelity_ordering
 	python3 -m unittest tests.test_input_lineage

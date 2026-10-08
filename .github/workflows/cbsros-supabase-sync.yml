@@ -46,7 +46,7 @@ jobs:
           # empty snapshot; the save step never runs on a bad pull.
           python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
           echo "snapshot=/tmp/cbsros_snapshot/snapshot.json" >> $GITHUB_OUTPUT
-          rows=$(python3 -c "import json; print(json.load(open('/tmp/cbsros_snapshot/snapshot.json'))['row_count'])")
+          rows=$(python3 -c "import json; print(json.load(open('/tmp/cbsros_snapshot/snapshot.json'))['summary']['n_rows'])")
           vintage=$(date -u +%F)
           echo "CBS ROS scrape: acquired ${rows} rows at vintage ${vintage}" >> "$GITHUB_STEP_SUMMARY"
 

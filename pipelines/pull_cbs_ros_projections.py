@@ -32,6 +32,8 @@ import argparse
 import json
 import re
 import sys
+import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -77,12 +79,43 @@ def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def fetch(url: str) -> str:
+FETCH_ATTEMPTS = 3
+FETCH_BACKOFF_SECONDS = 5.0
+# Transient statuses worth a retry. Anything else (403 block, 404 moved page)
+# fails on the first attempt: retrying would only delay the loud failure.
+RETRYABLE_HTTP = {429, 500, 502, 503, 504}
+
+
+def _fetch_once(url: str) -> str:
     req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "text/html"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         if resp.status != 200:
             raise SystemExit(f"Fail closed: HTTP {resp.status} for {url}")
         return resp.read().decode("utf-8", errors="replace")
+
+
+def fetch(url: str, *, attempts: int = FETCH_ATTEMPTS,
+          backoff: float = FETCH_BACKOFF_SECONDS, sleep=time.sleep) -> str:
+    """GET a CBS page, retrying transient network / 429 / 5xx errors.
+
+    Fails closed (SystemExit) once attempts are exhausted or on a
+    non-retryable HTTP status.
+    """
+    last_err: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return _fetch_once(url)
+        except urllib.error.HTTPError as err:
+            if err.code not in RETRYABLE_HTTP:
+                raise SystemExit(f"Fail closed: HTTP {err.code} for {url}") from err
+            last_err = err
+        except (urllib.error.URLError, TimeoutError, ConnectionError) as err:
+            last_err = err
+        if attempt < attempts:
+            print(f"    attempt {attempt}/{attempts} failed ({last_err}); retrying",
+                  flush=True)
+            sleep(backoff * attempt)
+    raise SystemExit(f"Fail closed: {url} failed after {attempts} attempts: {last_err}")
 
 
 def parse_num(raw: str) -> float | None:
@@ -178,6 +211,7 @@ def main() -> int:
     all_rows: list[dict] = []
     all_review: list[dict] = []
     page_urls = {}
+    page_counts: dict[str, int] = {}
     for pos in POSITIONS:
         url = BASE.format(pos=pos)
         page_urls[pos] = url
@@ -185,11 +219,17 @@ def main() -> int:
         html = fetch(url)
         rows, review = parse_position(pos, html)
         print(f"    {len(rows)} players, {len(review)} review rows")
+        page_counts[pos] = len(rows)
         all_rows.extend(rows)
         all_review.extend(review)
 
     if not all_rows:
         raise SystemExit("Fail closed: no players parsed from any CBS page.")
+    # A position page that parses to nothing is a page change or a block, not
+    # an empty position: publishing the other three would silently drop it.
+    empty = [p for p in POSITIONS if not page_counts.get(p)]
+    if empty:
+        raise SystemExit(f"Fail closed: no players parsed for {', '.join(empty)}.")
 
     snapshot = {
         "schema": "trade-value-cbsros-snapshot-v1",
