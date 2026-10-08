@@ -20,12 +20,16 @@ Conventions (mirror pipelines/bake_players.py meta):
   present and sane or the builder raises. Per-dataset side inputs degrade
   to explicit "unavailable" entries — loud in the UI, never silent.
 
-The full source taxonomy (10 entries) is preserved: our_value, espn,
-prediction_markets, fantasycalc, usatoday, fantasypros, fantasycalc_adjusted,
-usatoday_adjusted, fantasypros_adjusted, razzball (kdst removed with K/DST,
-GAP-029 2026-10-08). Nothing may be
-dropped — a missing side input degrades its entry to explicit "unavailable",
-never to omission.
+The full source taxonomy (9 entries) is preserved: our_value, espn,
+fantasycalc, usatoday, fantasypros, fantasycalc_adjusted, usatoday_adjusted,
+fantasypros_adjusted, razzball (kdst removed with K/DST, GAP-029 2026-10-08).
+Nothing may be dropped — a missing side input degrades its entry to explicit
+"unavailable", never to omission.
+
+2026-10-08 (producers lane, GAP-MUSE-OFF-PULLERS): the prediction_markets
+entry is retired with the leg itself. Its puller ran only on Muse (disabled
+2026-10-06), its input froze at 2026-09-22, and no page read its fields (the
+entry claimed shown_in_ui while the health panel's source list omitted it).
 
 JEG-ECR-EXIT (2026-10-05): the ECR entry is removed (full-season ECR
 content / tables / loaders retired). ESPN becomes the primary projection
@@ -417,43 +421,6 @@ def build_dataset_status(meta, players, snapshot_dir=None,
         "ui_note": "Powers the 'Where ESPN disagrees' rank view. IS the primary value.",
     }
 
-    # ---- Prediction markets --------------------------------------------------
-    pm_snapshot = str(meta.get("pm_snapshot") or "?")
-    pm_entry = {
-        "key": "prediction_markets",
-        "name": "Prediction markets",
-        "role": "Market leg: raw Kalshi/Polymarket season ladders through our own isotonic math and liquidity gate — crowd wisdom, NOT sportsbook money.",
-        "method": _METHOD_TV[0],
-        "method_group": _METHOD_TV[1],
-        "method_description": (
-            "Prediction-market-implied stat medians (raw Kalshi/Polymarket "
-            "ladders, our own isotonic math) where priced, ESPN fills the "
-            "rest, translated to fantasy points, then run through the current "
-            "value-above-waivers methodology — the same math as the chart's "
-            "primary value."),
-        "status": "live",
-        "shown_in_ui": True,
-        "completeness": {
-            "priced": meta.get("n_pm_complete"), "universe": n,
-            "note": (f"{meta.get('n_pm_covered')} players have at least one "
-                     f"priced component. Season receptions ladders have no "
-                     f"liquid two-sided market, so pass-catchers' pure reads "
-                     f"exclude reception points by construction. Never "
-                     f"zero-filled.")},
-        "freshness": {
-            "snapshot_date": pm_snapshot, "content_date": pm_snapshot,
-            "note": "Ladder snapshot date from the pull."},
-        "prior": {"available": False, "prior_date": None,
-                  "delta_summary": "Ladder snapshots are overwritten in place — no prior retained, no verified delta."},
-        "stale": False,
-        "stale_reason": None,
-        "caveat": ("Thin coverage is the story here: only "
-                   f"{meta.get('n_pm_complete')} of {n} players are fully "
-                   f"priced. Treat unpriced players as 'no market read', not "
-                   f"as zeros."),
-        "ui_note": "Curve widget source toggle (off by default).",
-    }
-
     # ---- Razzball ------------------------------------------------------------
     rz_entry = {
         "key": "razzball",
@@ -587,7 +554,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     usat_adj_entry = _adjusted_entry("usatoday_adjusted", "USA Today", "USAT")
     fp_adj_entry = _adjusted_entry("fantasypros_adjusted", "FantasyPros", "FP")
 
-    datasets = [ddf_entry, espn_entry, pm_entry,
+    datasets = [ddf_entry, espn_entry,
                 fc_entry, usatoday_entry, fantasypros_entry,
                 fc_adj_entry, usat_adj_entry, fp_adj_entry,
                 rz_entry]

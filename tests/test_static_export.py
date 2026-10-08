@@ -279,7 +279,10 @@ def espn_anchor_problems(players_doc, comparison, csv_rows):
     """The ESPN anchor is one vintage everywhere, and the section's per-game
     natives are the committed CSV's rest-of-season points / the team's games
     in ESPN's ROS window."""
-    from pipelines.build_ddf_two_tier_leg import ALIASES
+    import sys
+    sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+    import player_aliases
+    from canonical_players import norm_plain
     from games_remaining import load_byes, window_from_rows, games_in_window
     byes, _ = load_byes()
     window = window_from_rows(csv_rows)
@@ -291,7 +294,10 @@ def espn_anchor_problems(players_doc, comparison, csv_rows):
                 "espn section espn_snapshot": section.get("espn_snapshot")}
     if len(set(vintages.values())) != 1:
         problems.append(f"ESPN anchor vintages disagree: {vintages}")
-    by_slug = {ALIASES.get(r["player_norm"], r["player_norm"]): r for r in csv_rows}
+    def slug(norm):
+        hit = player_aliases.lookup(norm)
+        return norm_plain(hit["full_name"]) if hit else norm
+    by_slug = {slug(r["player_norm"]): r for r in csv_rows}
     for combo, rec_weight in ESPN_NATIVE_COMBOS.items():
         native = section["combos"][combo]["native"]
         for slug, value in native.items():

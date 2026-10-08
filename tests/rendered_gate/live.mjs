@@ -3,6 +3,13 @@
 // Usage:
 //   node live.mjs --url <url> --expected-build <tag> [--expected-build <tag2> ...] --out report.json
 //
+// GAP-038 (2026-10-08): after the root build-tag check, the same run renders
+// every page a reader can reach: each v2 tab on the root (Player values, Trade
+// targets, Risers & fallers, Compare a trade, How values work), the /v2/ copy,
+// the chart dashboard at /classic/, and the 404 page. Each page must answer 200, carry the
+// root's build tag, show its section with content, and raise no uncaught page
+// error. Results land in report.pages[]; any failing page fails the run.
+//
 // Fetches the live page in headless Chromium, reads the trade-chart-build meta
 // tag (stamped by `make sync` in the deploy pipeline), and compares it against
 // the expected tag(s). The workflow passes the tag computed from HEAD's commit
@@ -106,11 +113,132 @@ async function check(url, expectedBuilds) {
       report.problems.push(`${report.pageErrors.length} uncaught page error(s) on live page`);
       return report;
     }
+    report.pages = await checkPages(browser, url, report.liveTag);
+    const badPages = report.pages.filter(p => !p.passed);
+    if (badPages.length) {
+      for (const p of badPages) report.problems.push(`${p.name}: ${p.problems.join("; ")}`);
+      return report;
+    }
     report.passed = true;
     return report;
   } finally {
     await browser.close();
   }
+}
+
+// GAP-038: the pages and v2 tabs the scheduled synthetic renders. `section`
+// must be visible after the route applies; `rows` (when set) is a selector
+// that must match at least `minRows` elements, so an empty values table fails.
+export const V2_TABS = [
+  { hash: "#player-values", section: "#v2Main", rows: "#v2Table tr", minRows: 10 },
+  { hash: "#trade-targets", section: "#v2Targets" },
+  { hash: "#risers-fallers", section: "#v2Risers" },
+  { hash: "#compare-trade", section: "#v2Compare" },
+  { hash: "#how-values", section: "#v2How" },
+];
+
+function siteRoot(url) {
+  const u = new URL(url);
+  u.hash = ""; u.search = "";
+  if (!u.pathname.endsWith("/")) u.pathname = u.pathname.replace(/[^/]*$/, "");
+  return u.toString();
+}
+
+async function loadPage(browser, url, expectedTag) {
+  const result = { url, httpStatus: null, liveTag: null, pageErrors: [], problems: [] };
+  const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+  page.on("pageerror", (e) => result.pageErrors.push(String(e).slice(0, 240)));
+  let response = null;
+  try {
+    response = await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
+  } catch (e) {
+    result.problems.push(`did not load: ${String(e).slice(0, 200)}`);
+    return { page, result };
+  }
+  result.httpStatus = response ? response.status() : null;
+  if (result.httpStatus !== 200) result.problems.push(`HTTP ${result.httpStatus} (expected 200)`);
+  await page.waitForTimeout(2000);
+  result.liveTag = await page.evaluate(() =>
+    document.querySelector('meta[name="trade-chart-build"]')?.getAttribute("content") || null);
+  if (result.liveTag !== expectedTag) {
+    result.problems.push(`build tag ${result.liveTag} differs from the root's ${expectedTag}`);
+  }
+  return { page, result };
+}
+
+function finish(result) {
+  if (result.pageErrors.length) result.problems.push(`${result.pageErrors.length} uncaught page error(s)`);
+  result.passed = result.problems.length === 0;
+  return result;
+}
+
+async function checkTab(page, tab) {
+  await page.evaluate((h) => { location.hash = h; }, tab.hash);
+  await page.waitForTimeout(1200);
+  return page.evaluate(({ section, rows }) => {
+    const el = document.querySelector(section);
+    const visible = !!el && !el.hidden && el.getBoundingClientRect().height > 0;
+    const text = el ? (el.innerText || "").trim().length : 0;
+    const rowCount = rows ? document.querySelectorAll(rows).length : null;
+    return { visible, text, rowCount };
+  }, { section: tab.section, rows: tab.rows || null });
+}
+
+async function checkPages(browser, url, rootTag) {
+  const base = siteRoot(url);
+  const pages = [];
+  for (const [name, pageUrl] of [["root", base], ["v2", new URL("v2/", base).toString()]]) {
+    const { page, result } = await loadPage(browser, pageUrl, rootTag);
+    result.name = name;
+    result.tabs = [];
+    if (!result.problems.length) {
+      // The /v2/ copy is the same page; its default tab is enough there.
+      for (const tab of name === "root" ? V2_TABS : V2_TABS.slice(0, 1)) {
+        const t = { hash: tab.hash, ...(await checkTab(page, tab)) };
+        t.problems = [];
+        if (!t.visible) t.problems.push(`${tab.section} not visible`);
+        if (t.text < 40) t.problems.push(`${tab.section} has almost no text (${t.text} chars)`);
+        if (tab.rows && t.rowCount < tab.minRows) t.problems.push(`${tab.rows} matched ${t.rowCount} (< ${tab.minRows})`);
+        result.tabs.push(t);
+        for (const p of t.problems) result.problems.push(`${tab.hash}: ${p}`);
+      }
+    }
+    await page.close();
+    pages.push(finish(result));
+  }
+  {
+    const { page, result } = await loadPage(browser, new URL("classic/", base).toString(), rootTag);
+    result.name = "classic";
+    if (!result.problems.length) {
+      const readout = await page.evaluate(() => (document.querySelector("#weightsReadout")?.textContent || "").trim());
+      if (!readout) result.problems.push("#weightsReadout is empty (chart did not render)");
+    }
+    await page.close();
+    pages.push(finish(result));
+  }
+  {
+    // An unknown address must answer 404 with the site's own not-found page
+    // (a link back to the main page), not a GitHub default or a 200.
+    const missing = new URL("ddf-synthetic-missing-page/", base).toString();
+    const result = { name: "not-found", url: missing, httpStatus: null, pageErrors: [], problems: [] };
+    const page = await browser.newPage();
+    try {
+      const response = await page.goto(missing, { waitUntil: "load", timeout: 60000 });
+      result.httpStatus = response ? response.status() : null;
+      if (result.httpStatus !== 404) result.problems.push(`HTTP ${result.httpStatus} (expected 404)`);
+      const ok = await page.evaluate((root) => {
+        const h1 = (document.querySelector("h1")?.textContent || "").trim();
+        const back = [...document.querySelectorAll("a[href]")].some(a => a.href === root);
+        return h1 === "Page not found" && back;
+      }, base);
+      if (!ok) result.problems.push("not the site's 404 page (no 'Page not found' heading linking to the main page)");
+    } catch (e) {
+      result.problems.push(`did not load: ${String(e).slice(0, 200)}`);
+    }
+    await page.close();
+    pages.push(finish(result));
+  }
+  return pages;
 }
 
 // Self-test discrimination: a gate that cannot fail exits 1 here. Run with

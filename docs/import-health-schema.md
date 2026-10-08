@@ -1,28 +1,44 @@
 # Import health JSON — consumer contract for the pull watchdog
 
-**Status:** normative. The pull watchdog codes against this document; do not
-change field names, types, the status enum, or the failure codes without
-coordinating with the watchdog builder.
+**Status:** mixed; each section says which.
 
-## File
+- **Normative** (code reads it; change only with the consumers):
+  "Sources covered", "Schema" (field names and types), "Status enum",
+  "`failure_reason` codes" and "Gate semantics". Consumers:
+  `pipelines/promote_comparison_section.py` (promotion contract),
+  `pipelines/check_reference_freshness.py` (L1 freshness rows),
+  the rebuild chain and `health-artifacts.yml` (publish the file to the
+  monitor), and the monitor dashboard's import-health table.
+  `tests/test_import_health_schema_doc.py` fails when this document and
+  `pipelines/verify_import_health.py` disagree on the source list, the
+  failure codes, the advisory statuses or the hard exclusions.
+- **Informative** (description, not contract): "File" (where and when it
+  runs), "Per-source content_vintage" and its freshness colour bands, and
+  "Stage 1b closed" (history).
+
+## File (informative)
 
 - **Path:** `output/source-import-health.json` (repo-relative). `output/` is
-  gitignored — the file is runtime state, never committed.
-- **Writer:** `make import-health NFL_WEEK=<n>` runs
-  `pipelines/verify_import_health.py --nfl-week <n>`, which verifies all seven
-  active dashboard trade-value sources and writes this file.
-- **Update cadence / trigger:** the pull watchdog runs `make import-health`
-  after each source pull's expected time and reads this file. `NFL_WEEK` is
-  optional: when omitted, the verifier uses the content week from
+  gitignored. The served copy is `dist/modules/source-import-health.json`,
+  committed by the producers below.
+- **Writer:** `pipelines/verify_import_health.py --nfl-week <n>` (also
+  `make import-health NFL_WEEK=<n>`), which verifies all seven active
+  dashboard trade-value sources and writes this file.
+- **Where it runs (2026-10-08):** every rebuild-chain run
+  (`.github/workflows/rebuild-chain.yml`, "Run import health check") and
+  `.github/workflows/health-artifacts.yml`. Since go-live (2026-10-07) a red
+  gate is a warning in the chain (`::warning title=import-health`), not a
+  stop; promotion still enforces the per-source contract below. `NFL_WEEK`
+  is optional: when omitted, the verifier uses the content week from
   `pipelines/nfl_week.py` (flips Tuesday). Never pass the Thursday-flip
   `ops/watchdog/_common.nfl_week`. A `--nfl-week` that differs from the
   content week for the check date prints a `NOTE:` line (it does not block).
-- **Sources covered (exactly these seven, never others):**
+- **Sources covered (normative; exactly these seven, never others):**
   `fantasycalc`, `usatoday`, `fantasypros`, `espn`, `cbs`, `cbsros`, `razzball`.
   ECR, Vegas, and prediction markets are hard exclusions — an unknown source name is a
   hard error in the verifier.
 
-## Schema
+## Schema (normative)
 
 Top-level object (key order as written; parsers must read by name):
 
@@ -72,7 +88,7 @@ Top-level object (key order as written; parsers must read by name):
 | `age_days` | int \| null | Razzball only: `check_date - vintage_date`, in days. Razzball has no CI puller (GAP-024), so this entry detects a snapshot that has drifted while the DB landing still agrees. |
 | `failure_reason` | string \| null | null on `ok`; otherwise `"<CODE>: <one-line detail>"`. Codes: |
 
-## Per-source content_vintage surfaced in `pipeline-checkpoints.json` (JEG-315, GAP-043)
+## Per-source content_vintage surfaced in `pipeline-checkpoints.json` (JEG-315, GAP-043) (informative)
 
 GAP-043: `comparison-sources-data.json` carries both `built_at` (the fixture
 build time, conflates across all sources) and a per-section
@@ -115,7 +131,7 @@ label (e.g. CBS week-designated charts). The dashboard renders the
 are rendered in the unknown band because week labels do not carry
 absolute age information.
 
-### Freshness color bands (dashboard per-source card)
+### Freshness color bands (dashboard per-source card) (informative)
 
 | Band | Color | Age (today − content_vintage) |
 |---|---|---|
@@ -129,7 +145,7 @@ The bands are evaluated client-side from `content_vintage` against
 display signal that lets a reader see at a glance which sources are
 stale, independent of the pipeline checkpoints' pass/fail status.
 
-### Status enum
+### Status enum (normative)
 
 - `ok` — snapshot exists, bytes match the manifest sha256, table (if any)
   matches, vintage is fresh. Week-designated charts are fresh when their
@@ -149,14 +165,16 @@ stale, independent of the pipeline checkpoints' pass/fail status.
   date.
 - `red` — `MISSED_WINDOW`: a week-designated chart with a verified schedule
   (usatoday, cbsros) two or more weeks behind. Blocks.
-- `warn` / `bad` / `unk` — Razzball snapshot age (JEG-307). Advisory: Razzball
-  is not a rebuild-chain source, so these do not block. Its byte or table
-  failures (`failed`) still do.
+- `warn` / `bad` / `unk` — Razzball snapshot age (JEG-307). Advisory: these
+  never block (`ADVISORY_FRESHNESS` in the verifier). Its byte or table
+  failures (`failed`) still do. (Razzball has been a rebuild-chain source with
+  a scheduled puller, `razzball-supabase-sync.yml`, since 2026-10-08; the
+  advisory rule was written before that and is unchanged.)
 - `missing` — no snapshot/manifest exists under `data/raw/sources/<source>/`.
 - `failed` — a check itself failed: byte mismatch, table drift, undeterminable
   vintage, or a failed Supabase re-query.
 
-### `failure_reason` codes
+### `failure_reason` codes (normative)
 
 | Code | Meaning |
 |---|---|
@@ -168,9 +186,9 @@ stale, independent of the pipeline checkpoints' pass/fail status.
 | `TABLE_DRIFT` | The Supabase table's row count or unanimous vintage no longer matches the manifest — a partial or stale table is not treated as complete. |
 | `NO_VINTAGE` | No content vintage is derivable from the manifest — a vintage-less snapshot may never back fixture updates. |
 | `IMPORT_FAILED` | The verification itself could not run (e.g. Supabase re-query error, unreadable snapshot, missing file ref for a gap source). |
-| `RAZZBALL_STALE` | Razzball only (JEG-307): the snapshot directory is older than the freshness window (`age_days > 2` warn, `> 6` bad). The DB landing can still be fresh; this entry is read-only and watches the snapshot itself because no CI puller refreshes Razzball (GAP-024). |
+| `RAZZBALL_STALE` | Razzball only (JEG-307): the snapshot directory is older than the freshness window (`age_days > 2` warn, `> 6` bad). The DB landing can still be fresh; this entry watches the snapshot itself (written when Razzball had no CI puller, GAP-024). |
 
-## Stage 1b closed (2026-09-22)
+## Stage 1b closed (2026-09-22) (informative)
 
 The former stage1b gap no longer exists: ESPN and CBS each have a dedicated
 Supabase table (`public.espn_season_projections`, `public.cbs_trade_values`),
@@ -189,7 +207,7 @@ date); CBS vintage is week-designated (`week` column, e.g. `Week 2`). CBS QBs
 are written once per scoring (standard/half_ppr/ppr) from the single published
 `1QB-4` column — labeled IMPLIED, not three separately published values.
 
-## Gate semantics (for the watchdog)
+## Gate semantics (normative)
 
 - The verifier exits **0 only if no entry is `blocking`** (build-lag-001).
   The check is fail-closed: only `ok`, `warning`, and Razzball's advisory

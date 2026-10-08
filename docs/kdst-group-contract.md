@@ -65,7 +65,8 @@ DST slots=1, bench_total = league-measured bench K/DST count, scoring=
 - Gray/de-emphasized rows with a footnote: "K/DST shown from ESPN projections
   only (pulled <date>); no peer source to compare." The approved label copy for
   the reason is Jeremy's call.
-- K/DST are excluded from `fixedPieIndexed` and `sourceScaleAgreement` guards —
+- K/DST are excluded from the `fixedPieIndexed` guard (`sourceScaleAgreement` was
+  retired 2026-10-08, GAP-026) —
   the skill pie never moves because of them.
 
 ## Options (no silent choice — see audit for full reasoning)

@@ -18,7 +18,6 @@ class ReferenceFreshnessTest(unittest.TestCase):
                     "meta": {
                         "as_of": value_date,
                         "espn_snapshot": value_date,
-                        "pm_snapshot": value_date,
                     },
                     "players": [],
                 }
@@ -70,9 +69,9 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Freshness gate failed", result.stdout)
             payload = json.loads(output.read_text(encoding="utf-8"))
-            # 6, was 7: players.kdst_snapshot is no longer a freshness row
-            # (K/DST not carried, GAP-029 2026-10-08).
-            self.assertEqual(6, payload["summary"]["expired_count"])
+            # 5, was 7: players.pm_snapshot (prediction-markets leg retired)
+            # and players.kdst_snapshot (K/DST not carried, GAP-029) are gone.
+            self.assertEqual(5, payload["summary"]["expired_count"])
             self.assertEqual(1, payload["summary"]["enforced_expired_count"])
 
     def test_freshness_gate_passes_for_current_reference_dates(self):
@@ -132,8 +131,9 @@ class ReferenceFreshnessTest(unittest.TestCase):
             )
 
             payload = json.loads(output.read_text(encoding="utf-8"))
-            # 5, was 6: the players.kdst_snapshot row is gone (GAP-029).
-            self.assertEqual(5, payload["summary"]["expired_count"])
+            # 4, was 6: the players.pm_snapshot and players.kdst_snapshot rows
+            # are gone (prediction markets retired; K/DST GAP-029).
+            self.assertEqual(4, payload["summary"]["expired_count"])
             self.assertEqual(0, payload["summary"]["enforced_expired_count"])
 
     def test_l1_import_health_is_reported_as_source_freshness(self):

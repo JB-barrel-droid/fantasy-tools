@@ -150,11 +150,13 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
   instead of the raw FantasyCalc number (9914). The matcher and
   `build_source_reference.py` now carry `native_value` through every stage.
 - Regression tests: `tests/test_fantasycalc_drift.py` (5 tests).
-- Refresh schedule: GitHub Actions workflow `.github/workflows/fantasycalc-drift.yml`
-  runs daily at 11:45 UTC (6:45 AM CDT). If drift is detected, it refreshes
-  the snapshot, re-runs the pipeline, re-imports to Supabase via
-  `pipelines/refresh_fantasycalc_supabase.py`, verifies health, and pushes.
-  No local cron — project rules require GitHub Actions for scheduled work.
+- Refresh (updated 2026-10-08): the scheduled FantasyCalc producer is
+  `.github/workflows/fantasycalc-weekly-save.yml` (pg_cron
+  `trigger-fantasycalc-weekly-save`, Tue + Fri 13:07 UTC): pulls the 12-team
+  lists and saves a reindexed bake via `save_fantasycalc_references.py`.
+  `fantasycalc-drift.yml` is a manual-only drift check now.
+  `refresh_fantasycalc_supabase.py` (wrote raw natives into `value`, hardcoded
+  Week 4, no bake_id) was deleted; see docs/watchdog.md "Producer schedules".
 
 ## As-published indexing: proportional scaling (2026-09-30)
 - User directive: "there is no need for rounding like this, so figure out a logic that applies to all the ones sourced from trade value charts." The per-position quantile mapping was destroying real value differences (Jeanty 6365 vs Cook 7157 → both 41.4) and scrambling cross-position rank.

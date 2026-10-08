@@ -199,7 +199,30 @@ def utc_now():
     return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
 
 
-def check_l1_freshness(source, section, import_health_path=None):
+# GAP-015: how old the import-health check may be before promotion WARNS.
+# Never refuses (Jeremy, 2026-10-07: staleness is a warning, only wrong numbers
+# block). The chain re-runs verify_import_health minutes before promoting, so
+# in CI this only fires when a manual promotion reuses an old health file.
+L1_MAX_AGE_HOURS = 24
+
+
+def l1_age_warning(checked_at, now=None):
+    """(age_hours or None, warning or None) for the import-health checked_at."""
+    now = now or datetime.now(timezone.utc)
+    try:
+        ts = datetime.fromisoformat(str(checked_at).replace("Z", "+00:00"))
+    except ValueError:
+        return None, f"import health checked_at {checked_at!r} is unreadable: its age is unknown"
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    age = (now - ts).total_seconds() / 3600.0
+    if age > L1_MAX_AGE_HOURS:
+        return round(age, 1), (f"import health was checked {age:.1f} h ago (> {L1_MAX_AGE_HOURS} h); "
+                               "re-run `make import-health` for a current verdict")
+    return round(age, 1), None
+
+
+def check_l1_freshness(source, section, import_health_path=None, now=None):
     """Refuse promotion of an active raw source unless L1 is fresh and matching.
 
     Fail-closed: a missing, unreadable or wrong-schema health file, a missing
@@ -246,9 +269,14 @@ def check_l1_freshness(source, section, import_health_path=None):
         raise SystemExit(f"promotion refused: candidate content_vintage "
                          f"{candidate_vintage!r} does not match fresh L1 vintage "
                          f"{fresh_vintage!r} for {source!r}")
+    age_hours, age_warning = l1_age_warning(health.get("checked_at"), now)
+    if age_warning:
+        print(f"WARNING (GAP-015, not blocking): {source}: {age_warning}", file=sys.stderr)
     return {
         "applied": True,
         "source": source,
+        "checked_at_age_hours": age_hours,
+        "warnings": [age_warning] if age_warning else [],
         "status": entry["status"],
         "failure_reason": entry.get("failure_reason"),
         "content_vintage": fresh_vintage,

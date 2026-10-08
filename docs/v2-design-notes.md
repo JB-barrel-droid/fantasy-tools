@@ -112,9 +112,8 @@ pair per column, not a spread across sources:
 
 ## Compare a trade tab (frames 07 / 08)
 
-Built as **Compare a trade** (`v2/#compare-trade`) on 2026-10-08. Frames 07/08 could not be opened
-from the cloud session (figma.com is blocked by its network policy), so the layout follows the frame 22
-trade-story rule and the frame 17 design language; re-check against the frames when they are mapped.
+Built as **Compare a trade** (`v2/#compare-trade`) on 2026-10-08, first from the frame 22 rule, then
+brought in line with frames 07/08/24 the same day (see "Aligned with the frames" below).
 
 - Two cards, "You give" and "You get", each with a player search (all positions, from the engine's
   new read-only `TradeValueCurveControls.getAllRows()`, which ignores the position filter). Search
@@ -134,8 +133,7 @@ trade-story rule and the frame 17 design language; re-check against the frames w
 ## How values work tab (frames 15 / 16)
 
 Built as **How values work** (`v2/#how-values`) on 2026-10-08 from docs/methodology.md "The Three
-Views". Frame 15 (59-2316) is mapped but could not be opened from the cloud session (figma.com is
-blocked by its network policy); re-check against frames 15/16.
+Views", then brought in line with frames 15/16 (see "Aligned with the frames" below).
 
 - No new numbers. The only numbers on the tab are the "Your league" line (engine `getState` and
   `getRosterShape`, the same text as the league bar) and the 1-2-3 step markers.
@@ -148,8 +146,8 @@ blocked by its network policy); re-check against frames 15/16.
 
 ## Player detail and frame 18 states (frames 13 / 14 / 18)
 
-Built 2026-10-08 without opening the frames (figma.com is blocked from the cloud session); frame 22's
-"mobile tap pins a detail sheet" is the spec used.
+Built 2026-10-08 from frame 22's "mobile tap pins a detail sheet", then brought in line with frames
+13/14/18 (see "Aligned with the frames" below; the bottom sheet is now full screen).
 
 - Player detail groups values by method: Data Driven Adjustments and Indexed (trade-value points),
   then VORP vs waivers (each source's own scale). A missing value reads "— not priced by this source".
@@ -254,6 +252,77 @@ waivers" (copy rule).
 - **Mobile navigation (02/04/06/08/16).** Below 768 the tabs are short labels on one row (Values ·
   Split · Movers · Trade · More). Build: full labels wrapping onto extra rows.
 
+## Aligned with the frames (2026-10-08, task 2)
+
+- **Risers & fallers (05/06).** "Risers & fallers." title. Risers and Fallers are two cards side by side
+  (stacked below 768). Each row: name, Pos · Team, "before → after", ▲/▼ signed Δ and a bar; both cards
+  share one bar scale, named under the cards. "Movement: <series>" plus a week-pair picker
+  ("Week N−1 → Week N", latest first). The served pair is the engine's rows minus `getPriorWeek`; an
+  earlier pair is `getWeekValues(series, N) − getWeekValues(series, N−1)`, both at the reader's league.
+  The saved weeks come from a new read-only accessor `TradeValueCurveControls.getHistoryWeeks(series)`
+  → `{servedWeek, weeks[]}`. Deviation: the Methods row and the Player values filters (value range,
+  rank by, Δ toggle) shown in frame 05 stay off this tab; they change nothing here.
+- **Compare a trade (07/08/24).** "Build a better offer." "Player values shown" (one exact series,
+  ranking series by default) puts each player's value on both sides and a "<series> total" under each
+  (`TradeValueTrade.sideTotal`: incomplete, never 0, if any player lacks the value). "You receive". Swap
+  sides and Clear trade. Story card (`TradeValueTrade.tradeStory`): "Same publisher. Different result."
+  when one publisher's DDA and Indexed nets flip sign in the same week; otherwise "every complete source
+  points the same way" or "the sources split", from complete rows only. Table "Difference by source &
+  method": Give, Receive, a diverging bar (complete rows only, one scale per table), Receive − give.
+  "Show players" opens the per-player arithmetic (frame 24). Search lists position, team and the
+  ranking series' value; a chosen player stays listed as "✓ Added" / "✓ On You give", disabled; no
+  match keeps the query and offers Clear search.
+- **Player detail (13/14).** ✕ close. Hero: the ranking series' value with its week, plus the range
+  across the selected Data Driven Adjustments series (same unit, frame 03's DDA-only rule). "Source
+  values" matrix: one row per publisher and week, columns Adjusted / Indexed / VORP vs waivers; a cell
+  is the value, — with a reason, or "Available ↗" / "Older ↗" for a series that is not selected (adds
+  it). Stats & context; Latest player news and Adjustments applied from
+  `TradeValueProductData.getPlayerContext` (read only); "See trade targets" and "Add to trade" (menu:
+  You give / You receive). Full screen below 768.
+- **How values work (15/16).** Frame titles (short ones below 768). Methods row shown. Cards in the
+  order DDA, Indexed ("Source-relative index"), VORP vs waivers, with method pills. "Your league shapes
+  the comparison" adds position weights (`getPositionWeights`) and bench allocation (`getBenchShare`)
+  and a Weights & bench button. "Read the evidence, then make the call."
+- **States (18).** Loading shows a skeleton chart and rows under the loading card. No player matches:
+  one button per active filter (Clear search, Clear value range, Reset position; Clear all filters when
+  two or more). Player values notice for "only one series selected" and "no current-week series
+  selected", with Choose sources. A league change that drops a selected series says which one (status
+  toast). Empty trade: "Search and add a player." per side.
+- **Mobile navigation.** Below 768 the five tabs sit on one row with short labels (Values · Targets ·
+  Movers · Trade · How); frames say "Split" and "More", renamed for Trade targets and How values work.
+
+## Rails for the remaining screens (2026-10-08, task 3)
+
+- **Choose your sources (09 / 20).** One block per publisher (kind, week, older weeks in amber) with a
+  toggle per supported method: "✓ DDA" / "+ Indexed" / "+ VORP vs waivers". It is a draft: nothing
+  reaches the engine until "Apply N pairs" (adds first, then removes, so the engine never hits zero).
+  An empty draft is refused with "Choose at least one". Older-week pairs stay disabled until "Include
+  Week N" is ticked; unavailable pairs are disabled with the engine's reason.
+- **Source freshness (10).** Earlier-week banner; one row per engine series: snapshot week, provenance
+  (freshness label, waiver note, publish date), status Current / Older · selected / Older · not
+  selected / Unavailable. An active older series offers "Remove older source". "Manage selected
+  sources" opens 09. The header badge shows ⚠ when a selected series is unavailable (frame 18
+  "partial source failure").
+- **Weights & bench (11).** Bench share slider as a draft with "Starters N% / Bench N%", feasible range
+  from `getBenchBounds`, Reset defaults (15%) / Cancel / Apply. Position shares are shown read only
+  from `getPositionWeights` (BE-2).
+- **Your league (12).** Segmented scoring and teams, steppers for QB / RB / WR / TE / FLEX / Bench, as a
+  draft; Apply goes through the dropped-series notice. "Reset defaults" returns to the engine's state
+  at first load. No SUPERFLEX row (BE-2).
+- **Chart options (21).** From the chart header ("Chart options", "···" below 768). Player range Full /
+  Top 100 / Top 50 / Top 25 / Starter / Bench / Waiver; the last three are the engine's roster
+  boundaries (`getZones`) mapped onto the filtered list. Hide zero-value tail, Y axis Auto / Custom
+  bounds, Position / Team / Tier columns. Cancel / "Apply chart options".
+- **Navigator and value range (24).** The brush track carries an overview line of the ranking series;
+  "From" / "To" number fields and "Reset to all" sit under it (the handles keep arrow / Home / End).
+  Value range names its basis series and week, has two handles mirroring Minimum / Maximum, refuses
+  minimum above maximum, and still counts the players it leaves out.
+- **Benchmark decisions (23).** A rationale frame with no screen of its own; its adopted items are the
+  ones above and in task 2 (mover lists per source with a clear week basis, min/max filter, totals and
+  signed bars per pair with no fairness label, navigator with numeric bounds and reset).
+- All overlays are centered panels over a scrim on desktop and full screen below 768; Escape and the
+  scrim close them; focus returns to the control that opened them.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
@@ -276,6 +345,13 @@ toggle stays "Δ —" with the reason, and Risers & fallers stays marked "soon".
 Answered 2026-10-08 by the history contract below (branch `feat/week-history`): published charts,
 CBS ROS and Razzball get prior weeks, and ESPN, the Adjusted series and the VORP vs waivers series
 return "Δ —" with a reason.
+
+**BE-2 · Editable position shares and superflex (frames 11, 12).** Frame 11 lets the reader set QB /
+RB / WR / TE shares of total value; frame 12 has a SUPERFLEX slot. The engine exposes
+`getPositionWeights()` but no setter, and `setRosterSpot` knows QB, RB, WR, TE, FLEX, BENCH (K and DST
+are fixed at 0). v2 needs, in `TradeValueCurveControls`: `setPositionWeights({QB, RB, WR, TE})` with the
+feasible bounds per position (like `getBenchBounds`), and a `SUPERFLEX` roster key that the value model
+prices. Until then 11 shows the shares read only and 12 says superflex is not supported yet.
 
 ## Back-end contract: history
 
@@ -396,8 +472,8 @@ Swept every tab at 390, 768, 820, 1024 and 1440 in light and dark (`tests/test_v
 
 ## Risers & fallers tab and Δ prior week (frames 05 / 06, built 2026-10-08)
 
-Built on the back-end history contract above (`getPriorWeek`), which answers BE-1. Frames 05/06 were
-not opened (figma.com blocked from the cloud session); re-check when they are.
+Built on the back-end history contract above (`getPriorWeek`), which answers BE-1, then brought in line
+with frames 05/06 (see "Aligned with the frames" below; the table became two cards).
 
 - `v2/#risers-fallers`. One exact series at a time, picked under "Source:"; a series the engine has no
   prior week for is listed disabled and named in the note with the engine's reason (today ESPN, the

@@ -133,8 +133,18 @@ class WorkflowTest(unittest.TestCase):
         # The workflow records "<matrix.source>_trade_chart_ingest"; each
         # matrix source must have its check_config row in the migration.
         self.assertIn('"p_check_id": "${{ matrix.source }}_trade_chart_ingest"', WORKFLOW)
-        self.assertIn("source: [cbs, usatoday]", WORKFLOW)
-        for source in ("cbs", "usatoday"):
+        # 2026-10-08: the matrix gained fantasypros (pulled, not recorded:
+        # the Record step skips it). The old pin "source: [cbs, usatoday]"
+        # asserted a literal that was stale, not the rule; the rule is that
+        # every matrix source whose run IS recorded has a check_config row.
+        matrix = re.search(r"source:\s*\[([^\]]+)\]", WORKFLOW).group(1)
+        sources = [x.strip() for x in matrix.split(",")]
+        record_if = find_step(WORKFLOW, RECORD)
+        recorded = [x for x in sources
+                    if f"matrix.source != '{x}'" not in record_if]
+        self.assertIn("cbs", recorded)
+        self.assertIn("usatoday", recorded)
+        for source in recorded:
             self.assertIn(f"'{source}_trade_chart_ingest'", MIGRATION)
 
 
@@ -302,13 +312,97 @@ class UsatSourceBlockedFallbackTests(unittest.TestCase):
     def _restore(self, o):
         pull_usatoday.fetch_via_relay, pull_usatoday.fetch_via_firecrawl = o
 
+    # A fallback only counts when it returns the chart's table markup
+    # (2026-10-08: the earlier fixture body "<html>ok</html>" had no tables,
+    # so it now models a soft wall; the accepted body carries the markup).
+    CHART = "<h2>QB</h2><table class=gnt_ar_b_tbl></table>"
+    SOFT_WALL = "<html>Access Restricted</html>"
+
     def test_blocked_direct_falls_back_to_relay(self):
-        o = self._patched(lambda u: (200, "<html>ok</html>"))
+        o = self._patched(lambda u: (200, self.CHART))
         try:
             got = pull_usatoday.fetch_article(self.W5, fetch_fn=lambda u: (402, "wall"))
         finally:
             self._restore(o)
-        self.assertEqual(got, (200, "<html>ok</html>"))
+        self.assertEqual(got, (200, self.CHART))
+
+    def test_relay_soft_wall_falls_through_to_firecrawl(self):
+        # Broken state (origin/main): any relay 200 was accepted, so a relay
+        # 200 interstitial stopped the chain before Firecrawl was tried.
+        o = self._patched(lambda u: (200, self.SOFT_WALL),
+                          firecrawl=lambda u: (200, self.CHART))
+        try:
+            got = pull_usatoday.fetch_article(self.W5, fetch_fn=lambda u: (402, "wall"))
+        finally:
+            self._restore(o)
+        self.assertEqual(got, (200, self.CHART))
+
+    def test_relay_unconfigured_uses_firecrawl(self):
+        o = self._patched(lambda u: None, firecrawl=lambda u: (200, self.CHART))
+        try:
+            got = pull_usatoday.fetch_article(self.W5, fetch_fn=lambda u: (402, "wall"))
+        finally:
+            self._restore(o)
+        self.assertEqual(got, (200, self.CHART))
+
+    def test_all_fallbacks_soft_walled_is_source_blocked_and_named(self):
+        # Broken state (origin/main): the relay's 200 wall page was returned,
+        # so pull() raised "table markup not found" -- an INGEST_FAILED, not
+        # the SOURCE_BLOCKED the monitor and runbook key on.
+        o = self._patched(lambda u: (200, self.SOFT_WALL), firecrawl=lambda u: None)
+        try:
+            with self.assertRaises(RuntimeError) as cm:
+                pull_usatoday.pull(self.W5, fetch_fn=lambda u, _f=pull_usatoday.fetch_article:
+                                   _f(u, fetch_fn=lambda x: (402, "wall")))
+        finally:
+            self._restore(o)
+        msg = str(cm.exception)
+        self.assertIn("SOURCE_BLOCKED", msg)
+        self.assertIn("supabase relay=status 200, no chart tables", msg)
+        self.assertIn("firecrawl=not configured/unreachable", msg)
+
+    def test_firecrawl_response_parsing(self):
+        import io
+        import json as _json
+        import urllib.request as ur
+        seen = {}
+
+        class Resp(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def fake_urlopen(req, timeout=None):
+            seen["url"] = req.full_url
+            seen["auth"] = req.headers.get("Authorization")
+            seen["body"] = _json.loads(req.data)
+            return Resp(_json.dumps({"success": True,
+                                     "data": {"rawHtml": self.CHART}}).encode())
+        old_env = os.environ.get("FIRECRAWL_API_KEY")
+        old_open = ur.urlopen
+        os.environ["FIRECRAWL_API_KEY"] = "fc-test"
+        ur.urlopen = fake_urlopen
+        try:
+            got = pull_usatoday.fetch_via_firecrawl(self.W5)
+        finally:
+            ur.urlopen = old_open
+            if old_env is None:
+                os.environ.pop("FIRECRAWL_API_KEY", None)
+            else:
+                os.environ["FIRECRAWL_API_KEY"] = old_env
+        self.assertEqual(got, (200, self.CHART))
+        self.assertEqual(seen["url"], "https://api.firecrawl.dev/v1/scrape")
+        self.assertEqual(seen["auth"], "Bearer fc-test")
+        self.assertEqual(seen["body"], {"url": self.W5, "formats": ["rawHtml"]})
+
+    def test_workflow_passes_firecrawl_secret_to_ingest(self):
+        # Broken state (origin/main): the secret was never mapped into the
+        # Ingest step's env, so adding it in GitHub would have changed nothing.
+        block = find_step(WORKFLOW, "Ingest")
+        self.assertRegex(block, r"FIRECRAWL_API_KEY:\s*\$\{\{\s*secrets\.FIRECRAWL_API_KEY\s*\}\}")
+        self.assertIn("SUPABASE_SERVICE_KEY", block)
 
     def test_direct_200_never_uses_relay(self):
         def boom(u):

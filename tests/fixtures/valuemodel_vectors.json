@@ -173,7 +173,7 @@
       ]
     },
     {
-      "id": "flexEligible_superflex",
+      "id": "flexEligible_superflex_does_not_widen_flex",
       "fn": "flexEligible",
       "inputs": {
         "shape": {
@@ -183,11 +183,10 @@
           "TE": 1,
           "FLEX": 1,
           "BENCH": 6,
-          "SUPERFLEX": true
+          "SUPERFLEX": 1
         }
       },
       "expected": [
-        "QB",
         "RB",
         "WR",
         "TE"
@@ -462,7 +461,7 @@
       }
     },
     {
-      "id": "roleMap_superflex_QB_in_flex",
+      "id": "roleMap_superflex_slot_best_value",
       "fn": "roleMap",
       "inputs": {
         "values": {
@@ -525,12 +524,90 @@
           "TE": 1,
           "FLEX": 1,
           "BENCH": 6,
-          "SUPERFLEX": true
+          "SUPERFLEX": 1
         }
       },
       "expected": {
         "100": "starter",
         "101": "bench",
+        "200": "starter",
+        "201": "starter",
+        "202": "starter",
+        "300": "starter",
+        "301": "starter",
+        "400": "starter"
+      }
+    },
+    {
+      "id": "roleMap_superflex_slot_takes_QB_when_QB_is_best",
+      "fn": "roleMap",
+      "inputs": {
+        "values": {
+          "100": 90,
+          "101": 88,
+          "200": 95,
+          "201": 90,
+          "202": 85,
+          "300": 85,
+          "301": 80,
+          "400": 60
+        },
+        "players": [
+          {
+            "player_key": "100",
+            "name": "Josh Allen",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "Lamar Jackson",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "Bijan Robinson",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "Saquon Barkley",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "Derrick Henry",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "CeeDee Lamb",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "Justin Jefferson",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "Travis Kelce",
+            "pos": "TE"
+          }
+        ],
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6,
+          "SUPERFLEX": 1
+        }
+      },
+      "expected": {
+        "100": "starter",
+        "101": "starter",
         "200": "starter",
         "201": "starter",
         "202": "starter",
@@ -677,7 +754,7 @@
       }
     },
     {
-      "id": "projectionRoles_superflex_uses_surplus_for_flex",
+      "id": "projectionRoles_superflex_slot_takes_QB_on_points",
       "fn": "projectionRoles",
       "inputs": {
         "pool": [
@@ -752,7 +829,113 @@
           "TE": 1,
           "FLEX": 1,
           "BENCH": 6,
-          "SUPERFLEX": true
+          "SUPERFLEX": 1
+        }
+      },
+      "expected": {
+        "roles": {
+          "100": "starter",
+          "101": "starter",
+          "200": "starter",
+          "201": "starter",
+          "202": "starter",
+          "300": "starter",
+          "301": "starter",
+          "302": "starter",
+          "400": "starter",
+          "401": "bench"
+        },
+        "direct": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1
+        },
+        "baseline": {
+          "QB": 28,
+          "RB": 17,
+          "WR": 17,
+          "TE": 12
+        }
+      }
+    },
+    {
+      "id": "projectionRoles_superflex_zero_is_default",
+      "fn": "projectionRoles",
+      "inputs": {
+        "pool": [
+          {
+            "player_key": "100",
+            "name": "QB1",
+            "pos": "QB"
+          },
+          {
+            "player_key": "101",
+            "name": "QB2",
+            "pos": "QB"
+          },
+          {
+            "player_key": "200",
+            "name": "RB1",
+            "pos": "RB"
+          },
+          {
+            "player_key": "201",
+            "name": "RB2",
+            "pos": "RB"
+          },
+          {
+            "player_key": "202",
+            "name": "RB3",
+            "pos": "RB"
+          },
+          {
+            "player_key": "300",
+            "name": "WR1",
+            "pos": "WR"
+          },
+          {
+            "player_key": "301",
+            "name": "WR2",
+            "pos": "WR"
+          },
+          {
+            "player_key": "302",
+            "name": "WR3",
+            "pos": "WR"
+          },
+          {
+            "player_key": "400",
+            "name": "TE1",
+            "pos": "TE"
+          },
+          {
+            "player_key": "401",
+            "name": "TE2",
+            "pos": "TE"
+          }
+        ],
+        "ranks": {
+          "100": 28.0,
+          "101": 25.0,
+          "200": 18.0,
+          "201": 17.0,
+          "202": 16.0,
+          "300": 19.0,
+          "301": 18.0,
+          "302": 17.0,
+          "400": 12.0,
+          "401": 10.0
+        },
+        "teams": 1,
+        "shape": {
+          "QB": 1,
+          "RB": 2,
+          "WR": 3,
+          "TE": 1,
+          "FLEX": 1,
+          "BENCH": 6,
+          "SUPERFLEX": 0
         }
       },
       "expected": {
@@ -3175,7 +3358,7 @@
       }
     },
     {
-      "id": "allocationCounts_superflex_dual_counted_QB",
+      "id": "allocationCounts_superflex_slot_starts_QB2",
       "fn": "allocationCounts",
       "inputs": {
         "pool": [
@@ -3250,7 +3433,7 @@
           "TE": 1,
           "FLEX": 1,
           "BENCH": 6,
-          "SUPERFLEX": true
+          "SUPERFLEX": 1
         }
       },
       "expected": {
@@ -3261,7 +3444,7 @@
           "TE": 1
         },
         "lineup": {
-          "QB": 1,
+          "QB": 2,
           "RB": 3,
           "WR": 3,
           "TE": 1

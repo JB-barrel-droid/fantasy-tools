@@ -34,11 +34,9 @@ Locked decisions (Jeremy, 2026-09-21/22):
     never zero-filled or guessed.
 
 Identity: numeric player_key via the fixture's player_keys map
-(source-id -> canonical key). Four CSV spellings are verified aliases of
-canonical chart names (2026-09-19 waiver investigation, confirmed against
-Supabase players.full_name 2026-09-22): c Cameron Ward (697),
-'cameron skattebo' -> 'cam skattebo' (3664), 'travis etienne jr' ->
-'travis etienne' (810), 'michael pittman jr' -> 'michael pittman' (561).
+(source-id -> canonical key). Verified spelling aliases ('cameron ward' ->
+Cam Ward 697, 'mitch trubisky' -> Mitchell Trubisky 4214, ...) come from the
+one shared list, data/inputs/player_aliases.json (lib/player_aliases.py).
 Generational suffixes, punctuation and first-name nicknames are matched
 through the repo's single normalization rule (lib/canonical_players.
 norm_player_name) by FixtureIdentity below: 'kenneth walker' (CBS ROS,
@@ -86,6 +84,7 @@ from games_remaining import (  # noqa: E402
     load_byes, window_from_rows, games_in_window, BYES_PATH,
 )
 from canonical_players import norm_player_name  # noqa: E402 -- the single normalization rule
+import player_aliases  # noqa: E402 -- the single verified alias list
 
 # Reference league shape (mirrors the widget's TwoTier constants exactly).
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
@@ -96,27 +95,9 @@ BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 # Backward-compatible alias for the pre-rename constant name.
 REF_BENCH_SLOTS = BENCH_MIX_12
 
-# Verified spelling aliases: csv player_norm -> fixture player_keys id.
-# (Same humans; verified 2026-09-19, re-confirmed vs players.full_name.)
-ALIASES = {
-    "cameron ward": "cam ward",
-    "cameron skattebo": "cam skattebo",
-    "travis etienne jr": "travis etienne",
-    "michael pittman jr": "michael pittman",
-    # FantasyPros Week 5 chart spells him "Kenny Gainwell"; players table has a
-    # single "Kenneth Gainwell" (player_key 785, RB), verified 2026-10-07.
-    "kenny gainwell": "kenneth gainwell",
-    # Razzball ROS spellings (2026-10-06 save review rows). Each target is the
-    # only public.players row of that surname at that position (exact
-    # full_name check, read-only, 2026-10-08) and is the fixture slug:
-    # Josh Palmer 822 WR, Andrew Ogletree 920 TE, Chig Okonkwo 4247 TE,
-    # Mitchell Trubisky 4214 QB. No Joshua Palmer / Drew Ogletree /
-    # Chigoziem Okonkwo / Mitch Trubisky row exists.
-    "joshua palmer": "josh palmer",
-    "drew ogletree": "andrew ogletree",
-    "chigoziem okonkwo": "chig okonkwo",
-    "mitch trubisky": "mitchell trubisky",
-}
+# Verified spelling aliases live in ONE list, data/inputs/player_aliases.json,
+# read through lib/player_aliases.py by every resolver (savers, legs, bake,
+# matcher). Do not add a private map here (GAP-CBSROS-BAKE-IDENTITY).
 
 
 # A trailing generational suffix on a source spelling: the spelling itself
@@ -134,7 +115,7 @@ class FixtureIdentity:
     and slug disagreed (GAP-CBSROS-LIVE-POOL), while bake_players.py, which
     feeds the browser, resolves through norm_player_name and priced them.
 
-    Order: verified ALIASES, then the exact slug, then the slug's
+    Order: the shared verified alias list (lib/player_aliases), then the exact slug, then the slug's
     norm_player_name form (suffixes, punctuation and nicknames removed).
     Fail-closed: when the normalized form maps to more than one player_key
     in the row's position (or in any position when the fixture has no
@@ -188,19 +169,50 @@ class FixtureIdentity:
         return out
 
     def resolve(self, norm: str, pos: str | None = None) -> tuple[int | None, str, str | None]:
-        alias = ALIASES.get(norm)
-        target = alias or norm
-        exact = self.player_keys.get(target)
-        cands = self.candidates(target, pos)
+        hit = player_aliases.lookup(norm)
+        if hit is not None:
+            # A verified alias names one public.players row: price that key
+            # or nothing (never fall back to a name match on the alias).
+            key = hit["player_key"]
+            key_pos = self.key_pos.get(key)
+            if key in self.slug_by_key and (not pos or key_pos in (None, pos.upper())):
+                slug = self.slug_by_key[key]
+                return key, ("exact" if slug == norm else "alias"), (None if slug == norm else slug)
+            return None, "unresolved", None
+        exact = self.player_keys.get(norm)
+        cands = self.candidates(norm, pos)
         if len(cands) > 1:
-            if exact in cands and _GENERATIONAL_SUFFIX.search(target):
-                return exact, ("alias" if alias else "exact"), alias
-            return None, "ambiguous", alias
+            if exact in cands and _GENERATIONAL_SUFFIX.search(norm):
+                return exact, "exact", None
+            return None, "ambiguous", None
         if exact is not None and (not cands or exact in cands):
-            return exact, ("alias" if alias else "exact"), alias
+            return exact, "exact", None
         if len(cands) == 1:
-            return next(iter(cands)), ("alias" if alias else "normalized"), alias
-        return None, "unresolved", alias
+            return next(iter(cands)), "normalized", None
+        return None, "unresolved", None
+
+
+def write_leg_json(out_path: Path, leg: dict[str, Any]) -> dict[str, Any]:
+    """Write a DDF leg, keeping the file untouched when only generated_at differs.
+
+    The chain rebuilds every leg hourly and commits data/ddf-two-tier
+    (GAP-RAZZBALL-REFRESH-FOLLOWUPS (1)). An unchanged rebuild must not
+    rewrite the file: the commit stays empty and the section's lineage
+    (raw_built_at = the leg's generated_at) still names the committed leg.
+    Returns the leg as it is on disk.
+    """
+    out_path = Path(out_path)
+    if out_path.is_file():
+        try:
+            prior = json.loads(out_path.read_text(encoding="utf-8"))
+        except ValueError:
+            prior = None
+        if isinstance(prior, dict) and "generated_at" in prior and \
+                {k: v for k, v in prior.items() if k != "generated_at"} == \
+                {k: v for k, v in json.loads(json.dumps(leg)).items() if k != "generated_at"}:
+            return prior
+    out_path.write_text(json.dumps(leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return leg
 
 
 def drop_duplicate_keys(resolved: dict[str, list[dict[str, Any]]],
@@ -384,6 +396,88 @@ def calibrate_position(tier: dict[str, Any] | None, pie: float,
             "starter_raw": pb * tier["a_start"] + ps * tier["b_start"]}
 
 
+# GAP-STEPUP-EDGE-PB0: when the requested bench share sits BELOW a position's
+# feasible window, the share used is this far inside the window's lower edge,
+# not the edge itself. At the edge the bench rate is exactly 0, so the whole
+# position pie goes to starter slices and concentrates on the top outliers
+# (8-team CBS ROS QB, 8fbddc7 pool: Josh Allen 30.6% of the QB pie at the
+# edge, 28.1% at 0.18). One percentage point = the step the upward scan
+# already uses; if the window is narrower, the step halves until it fits
+# (8 tries), then falls back to the edge. Mirrors
+# curve-widget.js TwoTier.calibratePositionFeasible exactly.
+STEP_INSIDE_WINDOW = 0.01
+
+
+def calibrate_feasible(tier: dict[str, Any] | None, pie: float,
+                       bench_share: float) -> tuple[float, dict[str, Any], str | None]:
+    """Calibrate at the requested share, or at the nearest feasible share.
+
+    Returns (share_used, calibration, note); note is None when the requested
+    share calibrated directly. The one rule every two-tier leg builder uses
+    (ESPN, CBS ROS, Razzball) and the browser mirrors:
+      - bench rate not positive (request BELOW the window, JEG-74): scan up
+        0.01 at a time to the first feasible share, bisect 15 times toward
+        the window's lower edge, then step STEP_INSIDE_WINDOW inside it.
+      - economics break (request ABOVE the window): 20 bisections on
+        [0.01, requested] for the highest feasible share.
+    Anything else (degenerate exposures, non-positive pie) raises.
+    """
+    try:
+        return bench_share, calibrate_position(tier, pie, bench_share), None
+    except ValueError as e:
+        msg = str(e)
+    if "not positive" in msg:
+        lo = bench_share  # last infeasible
+        hi = None         # first feasible
+        s = bench_share
+        while s < 0.99:
+            s = min(0.99, s + 0.01)
+            try:
+                calibrate_position(tier, pie, s)
+                hi = s
+                break
+            except ValueError:
+                lo = s
+        if hi is None:
+            raise ValueError(msg)
+        for _ in range(15):  # refine to ~0.0003 precision
+            mid = (lo + hi) / 2
+            try:
+                calibrate_position(tier, pie, mid)
+                hi = mid
+            except ValueError:
+                lo = mid
+        # hi is now the window's lower edge (bench rate ~0): step inside.
+        step = STEP_INSIDE_WINDOW
+        chosen = None
+        for _ in range(8):
+            try:
+                chosen = (hi + step, calibrate_position(tier, pie, hi + step))
+                break
+            except ValueError:
+                step /= 2
+        if chosen is None:
+            chosen = (hi, calibrate_position(tier, pie, hi))
+        share, cal = chosen
+        return share, cal, (f"bench share {bench_share} below the feasible window; "
+                            f"using {share:.3f} ({share - hi:.4f} inside its lower edge {hi:.4f})")
+    if "economics break" in msg or "does not exceed" in msg:
+        lo, hi = 0.01, bench_share
+        best = None
+        for _ in range(20):  # 20 iterations = high precision
+            mid = (lo + hi) / 2
+            try:
+                best = (mid, calibrate_position(tier, pie, mid))
+                lo = mid  # try higher
+            except ValueError:
+                hi = mid  # try lower
+        if best is None:
+            raise ValueError(msg)
+        share, cal = best
+        return share, cal, f"bench share {bench_share} infeasible, using {share:.3f}"
+    raise ValueError(msg)
+
+
 def price_for_projection(x: float, cal: dict[str, Any]) -> float:
     if not (x > cal["rw"]):
         return 0.0
@@ -560,63 +654,9 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
         # (e.g., TE after IR removals). Like the UI's bounded slider, we use
         # the highest feasible share <= requested. This is not a manual patch —
         # it's the same feasibility logic the UI applies.
-        feasible_share = bench_share
-        try:
-            calibration[pos] = calibrate_position(tier, pie, feasible_share)
-        except ValueError as e:
-            msg = str(e)
-            if "not positive" in msg:
-                # JEG-74: requested bench share is BELOW this tier's feasible
-                # window (bench rate went negative). Scan UPWARD for the
-                # minimum feasible share >= requested, then refine.
-                # (cbsros 2026-10-02 QB 8-team standard: feasible window sits
-                # just above 0.15; 0.20 calibrates cleanly.)
-                best = None
-                lo = bench_share  # last infeasible
-                hi = None  # first feasible
-                s = bench_share
-                while s < 0.99:
-                    s = min(0.99, s + 0.01)
-                    try:
-                        test_cal = calibrate_position(tier, pie, s)
-                        hi = s
-                        best = (s, test_cal)
-                        break
-                    except ValueError:
-                        lo = s
-                if best is not None:
-                    for _ in range(15):  # refine to ~0.0003 precision
-                        mid = (lo + hi) / 2
-                        try:
-                            test_cal = calibrate_position(tier, pie, mid)
-                            best = (mid, test_cal)
-                            hi = mid
-                        except ValueError:
-                            lo = mid
-                    feasible_share, calibration[pos] = best
-                    calibration_notes.append(f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
-                else:
-                    raise
-            elif "economics break" in msg or "does not exceed" in msg:
-                # Binary search for max feasible share
-                lo, hi = 0.01, bench_share
-                best = None
-                for _ in range(20):  # 20 iterations = high precision
-                    mid = (lo + hi) / 2
-                    try:
-                        test_cal = calibrate_position(tier, pie, mid)
-                        best = (mid, test_cal)
-                        lo = mid  # try higher
-                    except ValueError:
-                        hi = mid  # try lower
-                if best:
-                    feasible_share, calibration[pos] = best
-                    # Record the adjustment in notes
-                    calibration_notes.append(f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
-                else:
-                    raise
-            else:
-                raise
+        feasible_share, calibration[pos], note = calibrate_feasible(tier, pie, bench_share)
+        if note:
+            calibration_notes.append(f"{pos}: {note}")
 
     # Full-precision raw values; the single 70/max multiplier applies BEFORE
     # any rounding (rounding is display-only and never enters this artifact).
@@ -739,7 +779,7 @@ def main() -> int:
     out_dir = args.output_dir / leg["bake_id"]
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "ddf_leg.json"
-    out_path.write_text(json.dumps(leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    leg = write_leg_json(out_path, leg)
     summary = leg["summary"]
     print(f"Built DDF leg {leg['bake_id']}: {summary['n_values']} values "
           f"({summary['n_starters']} starters / {summary['n_bench']} bench / "

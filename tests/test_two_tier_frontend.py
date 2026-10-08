@@ -344,8 +344,12 @@ class TestTwoTierPort(unittest.TestCase):
         self.assertEqual(got["roles"]["6"], "waiver", got)
         self.assertEqual(got["counts"]["lineup"]["RB"], 3, got)
 
-    def test_projection_roles_keep_superflex_on_surplus(self):
-        """Superflex keeps QB on the surplus scale so raw QB points do not dominate."""
+    def test_projection_roles_superflex_slot_goes_to_best_projection(self):
+        """JEG332-SUPERFLEX-FLEX option A (Jeremy 2026-10-08): the superflex
+        slot is its own slot, filled before FLEX by the best remaining
+        projection with QBs eligible. Replaces the 2026-10-0x pin that kept QB
+        on the surplus scale -- that rule is what kept QBs out of superflex
+        (QB2 at 24 ppg lost to RB2 at 17.5)."""
         pool = [
             {"player_key": 1, "name": "QB1", "pos": "QB", "x": 25.0},
             {"player_key": 2, "name": "QB2", "pos": "QB", "x": 24.0},
@@ -355,10 +359,11 @@ class TestTwoTierPort(unittest.TestCase):
         got = run_harness("projectionroles", {
             "pool": pool,
             "teams": 1,
-            "shape": {"QB": 1, "RB": 1, "WR": 0, "TE": 0, "FLEX": 1, "BENCH": 0, "SUPERFLEX": True},
+            "shape": {"QB": 1, "RB": 1, "WR": 0, "TE": 0, "FLEX": 1, "BENCH": 0, "SUPERFLEX": 1},
         })
-        self.assertEqual(got["roles"]["4"], "starter", got)
-        self.assertEqual(got["roles"]["2"], "waiver", got)
+        self.assertEqual(got["roles"]["2"], "starter", got)  # QB2 in the superflex slot
+        self.assertEqual(got["roles"]["4"], "starter", got)  # RB2 still gets FLEX
+        self.assertEqual(got["counts"]["lineup"]["QB"], 2, got)
 
     def test_tail_floor_scans_from_the_bottom(self):
         """A top-down scan returns the UPPER plateau; this must not."""

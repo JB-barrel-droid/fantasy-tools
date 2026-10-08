@@ -57,6 +57,11 @@ live.
 ## Before changing the trade-value chart
 
 Run the 12-combo headless sweep (3 scorings × 4 league sizes) against the built
-`dist/`, and check `fixedPieIndexed` and `sourceScaleAgreement` in
-`TradeValueCurveDiagnostics` for each. Pie totals agreeing across sources
-proves nothing about curve shape: compare where each position's curve starts.
+`dist/`, and check `fixedPieIndexed` in `TradeValueCurveDiagnostics` for each.
+Pie totals agreeing across sources proves nothing about curve shape: compare
+where each position's curve starts. The published charts start at a fixed
+index (12 teams: QB/RB/WR/TE 25/70/55/30), so a published curve starting
+anywhere else is a defect; the ESPN, CBS ROS and Razzball lines start where
+their own projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
+band on published charts, was retired 2026-10-08, GAP-026: publisher shape
+disagreement is the product.)

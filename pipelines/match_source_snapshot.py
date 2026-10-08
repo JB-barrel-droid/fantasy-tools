@@ -18,6 +18,8 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 
 from lib.canonical_players import norm_plain  # noqa: E402  -- identity-map key convention
 from lib.layered_identity import resolve_sleeper  # noqa: E402  -- JEG-366 base layer
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+import player_aliases  # noqa: E402  -- the one verified alias list
 
 DEFAULT_PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 DEFAULT_IDENTITY_MAP = ROOT / "data" / "inputs" / "player_identity_map.json"
@@ -117,7 +119,9 @@ def resolve_identity(
     """
     alias_to_canonical = identity_map["alias_to_canonical"]
     canonical = identity_map["canonical"]
-    raw = str(name or "")
+    # Verified aliases (data/inputs/player_aliases.json) first: the identity
+    # map holds only mechanical spelling variants.
+    raw = str(player_aliases.canonical_spelling(name) or "")
     for key in identity_keys(raw):
         canonical_key = alias_to_canonical.get(key)
         if canonical_key is None and key in canonical:

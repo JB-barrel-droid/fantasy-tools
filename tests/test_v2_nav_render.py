@@ -2,21 +2,22 @@
 
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
-  * at 390 px every tab sits fully on screen (frame 17: below 768 px the
-    navigation shortens; nothing hides behind a sideways scroll), and every
-    in-build tab still carries its visible "soon" label;
+  * at 390 px every tab sits fully on screen on one row with its short label
+    (frames 02 / 04 / 06 / 08 / 16: below 768 px the navigation shortens;
+    nothing hides behind a sideways scroll), and every in-build tab still
+    carries its visible "soon" label;
   * Δ prior week on with the default series (ESPN and Adjusted, which have no
     prior-week recompute): the reason is visible text on the page (not only a
     hover title) and every Δ cell reads "Δ —", never a number (frame 22;
     real Δ numbers are checked in tests/test_v2_risers_render.py);
-  * player detail "Add to You give" / "Add to You get" puts that player on that
+  * player detail "Add to trade" → "You give" / "You receive" puts that player on that
     side of Compare a trade and opens the tab; the detail then says the player
     is on the trade instead of offering to add them again; the player's name on
     Compare a trade opens the same detail;
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.css without the
-wrapping tabs, v2.js without the visible Δ reason, and v2.js adding to the
+short one-row tabs, v2.js without the visible Δ reason, and v2.js adding to the
 wrong side, and requires the checks to fail on each.
 """
 from __future__ import annotations
@@ -41,7 +42,7 @@ from tests.test_published_league_settings_render import _chromium_executable  # 
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-NAV_CSS = "/* Below 768 px every tab stays on screen: the tabs wrap instead of scrolling sideways. */"
+NAV_CSS = "/* Below 768 px the tabs use short labels on one row (frames 02 / 04 / 06 / 08 / 16). */"
 
 
 def _serve(body, content_type, route, *_):
@@ -96,9 +97,11 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
 
             tabs = page.evaluate("""() => [...document.querySelectorAll('.v2-tab')].map(t => {
               const b = t.getBoundingClientRect();
-              return {text: t.textContent, left: b.left, right: b.right, soon: t.classList.contains('is-soon'),
+              return {text: t.textContent, left: b.left, right: b.right, top: b.top, soon: t.classList.contains('is-soon'),
                 after: getComputedStyle(t, '::after').content};
             })""")
+            if len({round(tab["top"]) for tab in tabs}) != 1:
+                errors.append(f"tabs are not on one row at 390px: {[(t['text'], round(t['top'])) for t in tabs]}")
             for tab in tabs:
                 if tab["left"] < 0 or tab["right"] > 390:
                     errors.append(f"tab {tab['text']!r} is off screen at 390px ({tab['left']:.0f}–{tab['right']:.0f})")
@@ -123,6 +126,7 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
                 key = page.evaluate(f"() => String(window.TradeValueV2.view().rows[{index}].player_key)")
                 picked.append((key, side))
                 row.click()
+                page.click("#v2Drawer .v2-btn-soft")   # "Add to trade" opens the Give / Get menu (frame 13)
                 page.click(f'#v2Drawer [data-trade-add="{side}"]')
                 page.wait_for_function("() => !document.getElementById('v2Compare').hidden")
                 if index == 0:
@@ -166,8 +170,8 @@ class NavRenderTest(unittest.TestCase):
         js = V2_JS.read_text(encoding="utf-8")
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
-            "tabs scroll sideways": {"v2_css": css.replace(NAV_CSS, NAV_CSS + "\n@media (max-width: 0px) {", 1)
-                                     .replace("  .v2-tab { min-height: 44px; }\n}", "  .v2-tab { min-height: 44px; }\n}\n}", 1)},
+            "full labels on extra rows": {"v2_css": css.replace(NAV_CSS + "\n@media (max-width: 767px) {",
+                                                            NAV_CSS + "\n@media (max-width: 0px) {", 1)},
             "Δ reason only on hover": {"v2_js": js.replace("    if (state.delta) {\n      const keys = view.plotKeys.concat(view.vorpKeys);",
                                                        "    if (false) {\n      const keys = view.plotKeys.concat(view.vorpKeys);", 1)},
             "added to the wrong side": {"v2_js": js.replace(

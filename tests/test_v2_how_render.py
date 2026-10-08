@@ -4,20 +4,22 @@ Builds dist/v2 into a temp copy of the built dist/, loads /v2/#how-values
 headless (desktop 1440 and mobile 390) after switching the engine to a 10-team
 league, and checks:
 
-  * the "Your league" line is the engine's own state (getState scoring and
-    teams, getRosterShape counts), so it follows Edit league;
+  * the "Your league shapes the comparison" card is the engine's own state
+    (getState scoring and teams, getRosterShape counts, getPositionWeights,
+    getBenchShare), so it follows Edit league and Weights & bench; the Methods
+    row is shown (frame 15);
   * each of the three views (VORP vs waivers, Data Driven Adjustments,
     Indexed) lists exactly the engine's series of that method from
     getSourceInfo(), unavailable ones marked with a reason, older weeks labeled per the
     data's freshness record;
   * copy rules (CLAUDE.md): no "Vegas"; "VORP" only inside "VORP vs waivers";
-    no numbers anywhere on the tab except the engine-filled league line and
-    the 1-2-3 step markers;
+    no numbers anywhere on the tab except the engine-filled league card;
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds builds the tab with a bare
-"VORP", with a hard-coded number in the copy, with the league line hard-coded,
-and with the source lists not split by method, and requires each to fail.
+"VORP", with a hard-coded number in the copy, with the league line or the
+position weights hard-coded, and with the source lists not split by method,
+and requires each to fail.
 """
 from __future__ import annotations
 
@@ -55,7 +57,9 @@ READ = """() => {
     const row = fresh[item.key];
     return row && typeof row.is_older_week === 'boolean' ? {...item, stale: row.is_older_week} : item;
   });
-  return {state: C.getState(), roster: C.getRosterShape(), info,
+  return {state: C.getState(), roster: C.getRosterShape(), info, weights: C.getPositionWeights(), bench: C.getBenchShare(),
+    weightsLine: document.getElementById('v2HowWeights').textContent, benchLine: document.getElementById('v2HowBench').textContent,
+    methodsShown: !document.getElementById('v2Methods').hidden,
     league: document.getElementById('v2HowLeague').textContent,
     rosterLine: document.getElementById('v2HowRoster').textContent,
     lists: Object.fromEntries([...how.querySelectorAll('[data-sources]')].map(ul => [ul.dataset.sources,
@@ -85,6 +89,13 @@ def check(snap) -> list[str]:
     line = f"{roster['QB']} QB · {roster['RB']} RB · {roster['WR']} WR · {roster['TE']} TE · {roster['FLEX']} FLEX · {roster['BENCH']} BN"
     if snap["rosterLine"] != line:
         errors.append(f"roster line {snap['rosterLine']!r} != engine {line!r}")
+    want_weights = " · ".join(f"{p} {float(snap['weights'][p]) * 100:.1f}%" for p in ("QB", "RB", "WR", "TE"))
+    if snap["weightsLine"] != want_weights:
+        errors.append(f"weights line {snap['weightsLine']!r} != engine {want_weights!r}")
+    if snap["benchLine"] != f"{snap['bench'] * 100:.1f}%":
+        errors.append(f"bench line {snap['benchLine']!r} != engine {snap['bench']!r}")
+    if not snap["methodsShown"]:
+        errors.append("frame 15: the Methods row is shown on How values work")
     for view in ("vorp", "dda", "indexed"):
         want = [item for item in snap["info"] if method(item["key"]) == view]
         got = snap["lists"].get(view, [])
@@ -199,12 +210,15 @@ class HowValuesRenderTest(unittest.TestCase):
         shell = SHELL.read_text(encoding="utf-8")
         v2 = V2_JS.read_text(encoding="utf-8")
         broken = {
-            "bare VORP": {"shell_html": shell.replace("<h2>Indexed</h2>", "<h2>Indexed VORP</h2>", 1)},
+            "bare VORP": {"shell_html": shell.replace("<h2>Source-relative index</h2>", "<h2>Source-relative VORP index</h2>", 1)},
             "hard-coded number": {"shell_html": shell.replace(
                 "<b>Zero is real.</b>", "<b>Zero is real.</b> About 30 players per position clear the line.", 1)},
             "league line hard-coded": {"v2_js": v2.replace(
                 '$("v2HowLeague").textContent = $("v2LeagueName").textContent;',
                 '$("v2HowLeague").textContent = "Full PPR · 12 teams";', 1)},
+            "weights hard-coded": {"v2_js": v2.replace(
+                '$("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]',
+                '$("v2HowWeights").textContent = "QB 6.1% · RB 44.2% · WR 43.6% · TE 6.1%"; void ["QB", "RB", "WR", "TE"]', 1)},
             "sources not split by method": {"v2_js": v2.replace(
                 "list.replaceChildren();\n      view.info.filter(item => sourceMeta(item.key).method === method)",
                 "list.replaceChildren();\n      view.info", 1)},

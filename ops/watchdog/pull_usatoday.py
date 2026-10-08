@@ -222,7 +222,8 @@ def fetch_via_relay(url, timeout=90):
 
 def fetch_via_firecrawl(url, timeout=90):
     """Optional paid fallback: active only when FIRECRAWL_API_KEY is set.
-    Returns (status, rawHtml) or None. UNVERIFIED in CI (no secret yet)."""
+    Returns (status, rawHtml) or None. Wired into trade-chart-ingest.yml as the
+    optional secret FIRECRAWL_API_KEY; unexercised in CI until that secret exists."""
     key = os.environ.get("FIRECRAWL_API_KEY", "")
     if not key:
         return None
@@ -242,22 +243,42 @@ def fetch_via_firecrawl(url, timeout=90):
     return (200, html) if html else None
 
 
+def _usable(got):
+    """A fallback result counts only when it is a 200 carrying the chart's
+    table markup. A relay or scraper can answer 200 with the bot wall or an
+    interstitial; accepting that would stop the chain one step early and end
+    in "table markup not found" instead of trying the next fallback."""
+    return bool(got) and got[0] == 200 and bool(got[1]) and TABLE_MARK in got[1]
+
+
 def fetch_article(url, fetch_fn=fetch):
     """Direct fetch first; on a bot-wall status fall back to the Supabase
-    relay, then Firecrawl (only if its secret exists). A fallback's non-200
-    never masks the original block: the caller still sees the blocked status
-    and raises SOURCE_BLOCKED."""
+    relay, then Firecrawl (only if FIRECRAWL_API_KEY is set). A fallback is
+    accepted only when it returns the chart's table markup (_usable). When
+    every fallback fails the caller still sees the original blocked status,
+    so pull() raises SOURCE_BLOCKED naming each fallback it tried."""
+    fetch_article.last_fallbacks = []
     st, body = fetch_fn(url)
     if st not in BLOCK_STATUSES:
         return st, body
+    tried = []
     for name, fb in (("supabase relay", fetch_via_relay),
                      ("firecrawl", fetch_via_firecrawl)):
         got = fb(url)
-        if got and got[0] == 200 and got[1]:
+        if _usable(got):
             print("[usatoday] direct fetch blocked (%s); fetched via %s"
                   % (st, name), flush=True)
             return got
+        tried.append("%s=%s" % (name, "not configured/unreachable" if not got
+                                else "status %r, %s" % (got[0], "no chart tables"
+                                                        if got[0] == 200 else "refused")))
+    print("[usatoday] all fallbacks failed: %s" % "; ".join(tried),
+          file=sys.stderr, flush=True)
+    fetch_article.last_fallbacks = tried
     return st, body
+
+
+fetch_article.last_fallbacks = []
 
 
 def pull(url, fetch_fn=fetch_article):
@@ -268,8 +289,10 @@ def pull(url, fetch_fn=fetch_article):
     if st in (401, 402, 403, 429):
         # 2026-10-06: usatoday.com answers GitHub-hosted runners with 402
         # "Access Restricted" (bot wall); the gannett-cdn sitemaps still 200.
-        raise RuntimeError("SOURCE_BLOCKED: fetch refused: status=%r url=%s"
-                           % (st, url))
+        tried = getattr(fetch_article, "last_fallbacks", None) or []
+        raise RuntimeError("SOURCE_BLOCKED: fetch refused: status=%r url=%s%s"
+                           % (st, url, (" (fallbacks: %s)" % "; ".join(tried))
+                              if tried else ""))
     if st != 200 or not html:
         raise RuntimeError("fetch failed: status=%r url=%s" % (st, url))
     if TABLE_MARK not in html:

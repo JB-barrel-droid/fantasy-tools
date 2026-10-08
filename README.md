@@ -27,7 +27,7 @@ last session measured, what it asserted without checking, and what is still open
 - `data/fixtures/current/` - the finished artifacts everything else builds from.
 - `data/inputs/`, `data/raw/` - vendored source inputs and raw pulls (`raw/` is ignored).
 - `pipelines/` - build and data-artifact generation steps; shared helpers in `pipelines/lib/`.
-- `modules/` - the module monitor (`dashboard.html`), published to `dist/modules/`.
+- `modules/` - internal monitor pages, published to `dist/modules/`: `status.html` (ops dashboard, start here) and `dashboard.html` (data monitor drill-down).
 - `ops/watchdog/` - source-pull watchdog and per-source ingesters.
 - `weekly_vegas/` - Weekly Vegas dashboard (Vegas-vs-ECR disagreement signals) + its build pipeline (bin/, collectors/, engine/, v4/, loaders/, sql/, docs/, research/); a segmented sibling tree to the trade-value chart, not part of it. See `weekly_vegas/README.md`.
 - `waiver_wire/` - Waiver dashboard (weekly add / don't-add / drop board) + its build pipeline (bin/, engine/, sql/); a segmented sibling tree to both the trade-value chart and `weekly_vegas/`. Its only cross-tree relationship is a read-only input from the published chart fixture `data/fixtures/current/players.json`. See `waiver_wire/README.md`.

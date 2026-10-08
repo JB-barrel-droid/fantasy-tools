@@ -78,6 +78,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # USA Today fallback chain (GAP-USAT-FIRECRAWL): direct -> Supabase
+          # relay (the two secrets above) -> Firecrawl, active only when this
+          # optional secret exists; empty = skipped -> SOURCE_BLOCKED.
+          FIRECRAWL_API_KEY: ${{ secrets.FIRECRAWL_API_KEY }}
         run: |
           args=""
           [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"

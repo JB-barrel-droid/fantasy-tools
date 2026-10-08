@@ -233,6 +233,21 @@ jobs:
           cp output/comparison-chain-status.json dist/modules/comparison-chain-status.json 2>/dev/null || true
           cp app/trade-value-chart/assets/adjustment-inputs.json dist/assets/adjustment-inputs.json 2>/dev/null || true
 
+      # GAP-044: detect derived sections that lag their input, generically.
+      # check_input_lineage.py recomputes every derived section's raw input
+      # (the legs this run just wrote, the parent fixture sections) and
+      # compares it with the lineage block the section carries. A mismatch is
+      # a warning on the monitor (modules/surfaces.json input-lineage), never
+      # a stop. Only here do the run's fresh legs exist: data/ddf-two-tier is
+      # not committed, so a local run compares against stale legs.
+      - name: Check input lineage (warning only)
+        if: steps.chain.outcome == 'success'
+        run: |
+          python3 pipelines/check_input_lineage.py \
+            || echo "::warning title=input-lineage::derived section(s) lag their input; see dist/modules/input-lineage.json"
+          cp output/input-lineage.json dist/modules/input-lineage.json \
+            || echo "::warning::check_input_lineage wrote no artifact; nothing to publish"
+
       # Non-blocking (decision consol-nonblocking-001, Jeremy 2026-10-07): the
       # site serves the fixture, not public.consolidated_values, so a failed
       # Supabase write must not hold the Pages deploy. The writer still fails
@@ -317,9 +332,18 @@ jobs:
                     app/trade-value-chart/assets/adjustment-inputs.json \
                     output/source-import-health.json \
                     output/comparison-chain-status.json || true
+            # GAP-044: input lineage (written by the step above). Own add, so
+            # a missing file cannot abort the fixture's add.
+            git add dist/modules/input-lineage.json 2>/dev/null || true
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true
+            # The DDF legs the published espn/cbsros/razzball sections were
+            # built from (held sources' legs were restored by the chain). An
+            # unchanged rebuild leaves the files untouched (write_leg_json), so
+            # this adds only new vintages / real changes
+            # (GAP-RAZZBALL-REFRESH-FOLLOWUPS (1)).
+            git add data/ddf-two-tier || true
             # The baked ESPN anchor ships only here: after the chain and its
             # `make validate` passed on it. Unchanged when no bake ran (or a
             # failed bake was restored), so these adds are then no-ops.
