@@ -6,10 +6,10 @@ Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
     (frames 02 / 04 / 06 / 08 / 16: below 768 px the navigation shortens;
     nothing hides behind a sideways scroll), and every in-build tab still
     carries its visible "soon" label;
-  * Δ prior week on with the default series (ESPN and Adjusted, which have no
-    prior-week recompute): the reason is visible text on the page (not only a
-    hover title) and every Δ cell reads "Δ —", never a number (frame 22;
-    real Δ numbers are checked in tests/test_v2_risers_render.py);
+  * Δ prior week on with the default series: the reason is visible text on the
+    page (not only a hover title), and every Δ cell of a series the engine has
+    no prior week for reads "Δ —", never a number (frame 22; real Δ numbers are
+    checked in tests/test_v2_risers_render.py);
   * player detail "Add to trade" → "You give" / "You receive" puts that player on that
     side of Compare a trade and opens the tab; the detail then says the player
     is on the trade instead of offering to add them again; the player's name on
@@ -118,12 +118,21 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
 
             page.click("#v2DeltaBtn")
             page.wait_for_function("() => ![...document.querySelectorAll('#v2Table .delta')].some(d => d.textContent === 'Δ …')", timeout=30000)
-            delta = page.evaluate("""() => ({note: document.getElementById('v2FilterNote').hidden ? '' : document.getElementById('v2FilterNote').textContent,
-              cells: [...document.querySelectorAll('#v2Table .delta')].map(d => d.textContent)})""")
+            delta = page.evaluate("""async () => { const C = window.TradeValueCurveControls; const priors = {};
+              const cells = [];
+              for (const d of document.querySelectorAll('#v2Table .delta[data-source]')) {
+                const s = d.dataset.source; if (!(s in priors)) priors[s] = (await C.getPriorWeek(s)).available;
+                cells.push({s, text: d.textContent, prior: priors[s]}); }
+              return {note: document.getElementById('v2FilterNote').hidden ? '' : document.getElementById('v2FilterNote').textContent, cells}; }""")
             if "prior-week" not in delta["note"] or "never zero" not in delta["note"]:
                 errors.append(f"Δ on: no visible reason, note {delta['note']!r}")
-            if not delta["cells"] or any(c != "Δ —" for c in delta["cells"]):
-                errors.append(f"Δ cells must all read 'Δ —': {sorted(set(delta['cells']))}")
+            # A series the engine has no prior week for reads "Δ —", never a number
+            # (the numbers themselves are checked in tests/test_v2_risers_render.py).
+            if not delta["cells"]:
+                errors.append("Δ on: no Δ cells rendered")
+            bad = sorted({c["text"] for c in delta["cells"] if not c["prior"] and c["text"] != "Δ —"})
+            if bad:
+                errors.append(f"Δ cells for series without a prior week must read 'Δ —': {bad}")
             page.click("#v2DeltaBtn")
 
             # Detail → Compare a trade, one player to each side.

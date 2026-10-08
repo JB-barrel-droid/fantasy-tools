@@ -6,7 +6,7 @@
 - The "Dashboard health" box is hidden on public pages (its checks still run).
 - Monitor pages under modules/ are deployed but linked from no public page.
 - The "Chart build" stamp sits in the footer.
-- Titles carry the brand: "Trade Value · Data Driven Football".
+- Titles carry the brand: v2 is "Data Driven Football"; the classic dashboard is "Trade Value · Data Driven Football".
 
 The static tests run against the builders and sources; the rendered test
 serves the built dist/ under /fantasy-tools/ (as GitHub Pages does) and needs
@@ -43,6 +43,8 @@ APP = ROOT / "app" / "trade-value-chart"
 DIST = ROOT / "dist"
 SITE = "https://jb-barrel-droid.github.io/fantasy-tools/"
 BRAND_TITLE = "<title>Trade Value · Data Driven Football</title>"
+# v2 carries the brand alone (Jeremy, 2026-10-08); the classic dashboard keeps BRAND_TITLE.
+V2_TITLE = "Data Driven Football"
 PUBLIC_SOURCES = [APP / "index.html", APP / "404.html", ROOT / "app" / "v2" / "shell.html",
                   ROOT / "waiver_wire" / "dashboard" / "index.html",
                   ROOT / "weekly_vegas" / "dashboard" / "index.html"]
@@ -86,7 +88,7 @@ class FrontDoorBuildTests(unittest.TestCase):
         self.assertNotIn("<base", head)
         self.assertIn(f'<link rel="canonical" href="{SITE}">', head)
         self.assertNotIn('name="robots"', head)
-        self.assertIn(BRAND_TITLE, head)
+        self.assertIn(f"<title>{V2_TITLE}</title>", head)
         self.assertNotIn("every source on one scale", head)  # classic description/og copy
         # Tabs stay on the root page; no static link sends a visitor to /v2/.
         self.assertNotIn('href="v2/#', self.root.split('<div id="legacyEngine"')[0])
@@ -209,16 +211,17 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 # Root: the v2 page itself, branded, canonical, no page errors.
                 page, errors, _ = open_page(base)
                 engine_ready(page)
-                page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
+                # Landing tab is Trade targets (Jeremy, 2026-10-08).
+                page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
                 self.assertEqual([], errors)
-                self.assertEqual("Trade Value · Data Driven Football", page.title())
+                self.assertEqual(V2_TITLE, page.title())
                 self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
                 v2_rows = page.evaluate(ROWS_JS)
                 self.assertGreater(len(v2_rows), 100)
                 # A tab click stays on the root page.
-                page.click('.v2-tab[data-view="targets"]')
-                page.wait_for_selector("#v2Targets:not([hidden])", timeout=30000)
-                self.assertEqual(base + "#trade-targets", page.url)
+                page.click('.v2-tab[data-view="values"]')
+                page.wait_for_selector("#v2Main:not([hidden])", timeout=30000)
+                self.assertEqual(base + "#player-values", page.url)
                 # Links v2.js builds at runtime as "v2/#view" (the drawer's
                 # "Open Compare a trade") also stay on the root page.
                 page.evaluate("""() => { const a = document.createElement('a');
@@ -232,7 +235,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 page.close()
 
                 # /v2/ and its deep links still work.
-                for url, shown in ((base + "v2/", "#v2Main"), (base + "v2/#trade-targets", "#v2Targets")):
+                for url, shown in ((base + "v2/", "#v2Targets"), (base + "v2/#player-values", "#v2Main")):
                     page, errors, response = open_page(url)
                     self.assertEqual(200, response.status, url)
                     page.wait_for_selector(f"{shown}:not([hidden])", timeout=60000)

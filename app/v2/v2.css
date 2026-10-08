@@ -623,3 +623,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-app .v2-btn-soft, .v2-added, .v2-pill, .v2-app .v2-dhero-value, .v2-pbig { color: var(--v2-action-strong); }
 .v2-skip { position: absolute; left: 16px; top: -60px; z-index: 80; background: var(--v2-surface); color: var(--v2-ink); border: 2px solid var(--v2-focus); border-radius: var(--v2-radius-btn); padding: 10px 16px; font-weight: 600; text-decoration: none; }
 .v2-skip:focus { top: 8px; }
+
+/* Plain chip labels are longer: source chips take their own row at every width; Edit sources stays on the first row. */
+.v2-methods-row .v2-source-chips { flex-basis: 100%; order: 2; }
+.v2-methods-row #v2EditSources { order: 1; margin-left: auto; }

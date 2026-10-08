@@ -27,7 +27,7 @@ DIST = ROOT / "dist"
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 CLASSIC_INPUT = Path("classic") / "index.html"
-TITLE = "Trade Value · Data Driven Football"
+TITLE = "Data Driven Football"   # brand only (Jeremy, 2026-10-08)
 DESCRIPTION = ("Rest-of-season fantasy football trade values for your league settings, "
                "trade targets where the published charts disagree with our values, "
                "and a trade calculator.")

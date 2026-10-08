@@ -31,7 +31,7 @@
   const OUR_KEYS = ["espn", "cbsros", "razzball"];
   const OUR_KEY = OUR_KEYS[0];   // default
   const OUR_NAMES = {espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
-  const OUR_SHORT = {espn: "ESPN · DDA", cbsros: "CBS ROS · DDA", razzball: "Razzball · DDA"};
+  const OUR_SHORT = {espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections"};
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 

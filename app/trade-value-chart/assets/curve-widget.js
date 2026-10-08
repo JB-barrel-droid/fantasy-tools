@@ -3698,8 +3698,7 @@
     const weeks = Object.keys(index?.weeks || {}).map(Number).filter(week => Number.isInteger(week)
       && index.weeks[String(week)]?.sources?.[source]).sort((a, b) => a - b);
     const served = index?.served?.[source];
-    return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks,
-      ...(HISTORY_UNSUPPORTED[source] ? {reason: HISTORY_UNSUPPORTED[source]} : {})};
+    return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks};
   }
 
   // Math inspector (internal page, read-only). Every input and intermediate

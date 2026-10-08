@@ -340,7 +340,8 @@ text node (`tests/test_v2_a11y_render.py`).
 
 ## Product decisions (Jeremy, 2026-10-08, task 4 review)
 
-Asked as multiple choice after the product-marketing review; not built yet (build on request).
+Asked as multiple choice after the product-marketing review. Brand, landing tab and labels were built
+the same day (see below); the rest are decisions, not code.
 
 - **Brand:** nav wordmark, `<title>` and og:title become "Data Driven Football".
 - **Landing tab:** a first visit opens on Trade targets; shared trade links still open Compare a trade.
@@ -351,6 +352,21 @@ Asked as multiple choice after the product-marketing review; not built yet (buil
 - **Trade verdict:** keep none; per-source rows plus the story card.
 - **Page weight:** fix (about 12 MB, about 5 s to usable on a slowed phone) before the proof of concept
   goes out; covered by its own task.
+
+Built 2026-10-08:
+
+- Nav wordmark and v2 `<title>` / og:title are "Data Driven Football" (`build_v2_page.TITLE`); the
+  classic dashboard keeps its own title. The wordmark links to Trade targets.
+- A URL with no known tab (the root, `/v2/`) opens Trade targets; `#player-values` opens Player values.
+  The tab order is unchanged.
+- At 768 px and up, series read "ESPN · Our value · Week 5" and "FantasyCalc chart · Week 5"; the method
+  chips read "Our values" / "Published charts" / "VORP vs waivers"; the legend reads "Solid = our value ·
+  Dashed = published chart". Below 768 the short forms stay. Sentences (notes, story, detail) use the
+  plain words at every width. The labels re-render when the width crosses 768. Source chips take their
+  own row at every width.
+- `getHistoryWeeks` lost its reason field: it referred to `HISTORY_UNSUPPORTED`, which the back end
+  removed, so the accessor threw and the live week-pair picker showed only the current pair. The
+  Risers test caught it.
 
 ## Back-end requests
 

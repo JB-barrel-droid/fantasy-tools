@@ -32,9 +32,21 @@
   const pubColor = publisher => (isDark() && DARK_COLORS[publisher]) || PUBLISHERS[publisher]?.color || "#64736F";
   const PUBLISHER_NAMES = {
     espn: "ESPN", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", usatoday: "USA Today",
-    cbs: "CBS Sports", cbsros: "CBS ROS projections", razzball: "Razzball projections"
+    cbs: "CBS Sports", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"
   };
-  const METHOD_LABEL = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
+  // Labels (Jeremy, 2026-10-08): plain words at 768 px and up, the short forms only below.
+  const PLAIN_NAMES = {espn: "ESPN", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", usatoday: "USA Today",
+    cbs: "CBS Sports", cbsros: "CBS rest of season", razzball: "Razzball"};
+  const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
+  const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
+  const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
+  const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
+  const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
+  // One series in plain words, whatever the width: "ESPN · Our value", "FantasyCalc chart".
+  function plainSeries(publisher, method) {
+    const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
+    return method === "indexed" ? `${name} chart` : `${name} · ${PLAIN_METHOD[method]}`;
+  }
 
   function sourceMeta(key) {
     let method;
@@ -45,7 +57,7 @@
     else { method = "indexed"; publisher = key; }
     const pub = PUBLISHERS[publisher] || {label: key, color: "#64736F", symbol: "•"};
     return {key, method, publisher, ...pub, color: PUBLISHERS[publisher] ? pubColor(publisher) : pub.color,
-      short: `${pub.label} · ${METHOD_LABEL[method]}`};
+      short: isNarrow() ? `${pub.label} · ${SHORT_METHOD[method]}` : plainSeries(publisher, method)};
   }
 
   const state = {
@@ -234,7 +246,7 @@
   function sourceLabelFor(key) {
     const meta = sourceMeta(key);
     const item = view.infoByKey[key];
-    const week = item && item.week ? ` · W${item.week}` : "";
+    const week = item && item.week ? (isNarrow() ? ` · W${item.week}` : ` · Week ${item.week}`) : "";
     return `${meta.short}${week}`;
   }
 
@@ -255,7 +267,8 @@
 
     const methods = $("v2MethodChips");
     methods.replaceChildren();
-    [["dda", "DDA"], ["indexed", "Indexed"], ["vorp", "VORP vs waivers"]].forEach(([method, label]) => {
+    (isNarrow() ? [["dda", "DDA"], ["indexed", "Indexed"], ["vorp", "VORP vs waivers"]]
+      : [["dda", "Our values"], ["indexed", "Published charts"], ["vorp", "VORP vs waivers"]]).forEach(([method, label]) => {
       const on = view.active.some(key => sourceMeta(key).method === method);
       const chip = document.createElement("button");
       chip.type = "button";
@@ -624,7 +637,7 @@
       get: row => row.values[key]}));
     const ddaKeys = view.plotKeys.filter(key => sourceMeta(key).method === "dda");
     if (ddaKeys.length >= 2) {
-      cols.push({id: "spread", label: "DDA spread", cls: "num", get: row => {
+      cols.push({id: "spread", label: isNarrow() ? "DDA spread" : "Spread of our values", cls: "num", get: row => {
         const values = ddaKeys.map(key => row.values[key]).filter(Number.isFinite);
         return values.length >= 2 ? Math.max(...values) - Math.min(...values) : null;
       }});
@@ -735,7 +748,7 @@
   // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
   let lastFocus = null;
   let drawerRow = null;
-  const METHOD_COLUMNS = [["dda", "Adjusted"], ["indexed", "Indexed"], ["vorp", "VORP vs waivers"]];
+  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Published chart"], ["vorp", "VORP vs waivers"]];
   const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Indexed", vorp: "VORP vs waivers"};
 
   function drawerSection(title, sub) {
@@ -783,7 +796,7 @@
       range.className = "v2-dhero-range";
       const label = document.createElement("p");
       label.className = "v2-eyebrow";
-      label.textContent = "Selected source range · DDA";
+      label.textContent = "Range across our selected values";
       const value = document.createElement("p");
       value.dataset.range = "dda";
       value.textContent = `${fmt(Math.min(...dda))}–${fmt(Math.max(...dda))}`;
@@ -1210,7 +1223,7 @@
             b.dataset.series = item.key;
             b.setAttribute("aria-pressed", String(on));
             b.disabled = blocked;
-            b.textContent = `${on ? "✓" : "+"} ${m.method === "dda" ? "DDA" : m.method === "indexed" ? "Indexed" : "VORP vs waivers"}`;
+            b.textContent = `${on ? "✓" : "+"} ${PLAIN_METHOD[m.method]}`;
             if (!item.available) b.title = item.paused ? "Waiting on fresh inputs" : "Not available for this league";
             else if (blocked) b.title = "Older week: turn on Include older weeks below";
             b.addEventListener("click", () => {
@@ -1240,7 +1253,7 @@
         count.textContent = `${draft.size} pair${draft.size === 1 ? "" : "s"} selected`;
         const unit = document.createElement("span");
         unit.className = "v2-meta";
-        unit.textContent = "DDA and Indexed use normalized trade-value points; VORP vs waivers stays in its own panel.";
+        unit.textContent = "Our values and published charts share trade-value points; VORP vs waivers stays in its own panel.";
         summary.append(count, unit);
         if (apply) apply.textContent = `Apply ${draft.size} pair${draft.size === 1 ? "" : "s"}`;
       }
@@ -1989,7 +2002,7 @@
 
   function seriesName(key) {
     const meta = sourceMeta(key);
-    return `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`;
+    return plainSeries(meta.publisher, meta.method);
   }
 
   function collectCompare() {
@@ -2500,7 +2513,7 @@
 
   function priorLabel(key) {
     const meta = sourceMeta(key);
-    return `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`;
+    return plainSeries(meta.publisher, meta.method);
   }
 
   // Week pairs the engine can price for a series: every saved week whose week before is
@@ -2697,7 +2710,8 @@
   const currentView = () => (hashBase() === "#trade-targets" ? "targets"
     : hashBase() === "#risers-fallers" ? "risers"
     : hashBase() === "#compare-trade" ? "compare"
-    : hashBase() === "#how-values" ? "how" : "values");
+    : hashBase() === "#how-values" ? "how"
+    : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
     const v = currentView();
@@ -2895,6 +2909,7 @@
     });
     window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
+    if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", () => { if (C) refresh(); });
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
