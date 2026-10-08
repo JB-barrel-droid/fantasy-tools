@@ -12,8 +12,10 @@ headless at 1440 and 390. Every check reads the engine back
     getRosterShape() / getState().teams, SUPERFLEX included; a change that
     moves the bench share says so (JEG-444); Reset defaults returns to the
     first-load league;
-  * Weights & bench (11): position shares equal getPositionWeights(); Apply
-    sets getBenchShare() to the slider's value;
+  * Weights & bench (11): position shares shown equal getPositionWeights();
+    an edited share reaches the engine on Apply (setPositionWeights) and the
+    shares still total 1; Reset defaults returns them to
+    getDefaultPositionWeights(); Apply sets getBenchShare() to the slider;
   * Source freshness (10): one row per getSourceInfo() series, with
     "Older" for older-week series and the engine's unavailability;
   * Chart options (21): Bench shows exactly the ranks between the engine's
@@ -185,6 +187,20 @@ def check_weights(page) -> list[str]:
     for pos, text in shown.items():
         if text != f"{float(weights[pos]) * 100:.1f}%":
             errors.append(f"weights: {pos} shows {text}, engine {weights[pos]}")
+    # Position shares (frame 11, JEG-452): the edited share reaches the engine, the rest rebalance there.
+    page.fill("#v2ShareQB", "10")
+    page.click('#v2Popover [data-apply="weights"]')
+    got = page.evaluate("() => window.TradeValueCurveControls.getPositionWeights()")
+    if abs(got["QB"] - 0.10) > 0.002 or abs(sum(got[p] for p in ("QB", "RB", "WR", "TE")) - 1) > 1e-6:
+        errors.append(f"weights: QB 10% applied as {got}")
+    page.click("#v2Weights")
+    page.click("#v2Popover .v2-preset")
+    page.click('#v2Popover [data-apply="weights"]')
+    back = page.evaluate("""() => { const C = window.TradeValueCurveControls; const a = C.getPositionWeights(), d = C.getDefaultPositionWeights();
+      return ['QB', 'RB', 'WR', 'TE'].every(p => Math.abs(a[p] - d[p]) < 1e-9); }""")
+    if not back:
+        errors.append("weights: Reset defaults did not return the position shares to the league's defaults")
+    page.click("#v2Weights")
     bounds = page.evaluate("() => window.TradeValueCurveControls.getBenchBounds()")
     if bounds:
         target = round((bounds[0] + bounds[1]) / 2, 3)
@@ -339,6 +355,8 @@ class PanelsRenderTest(unittest.TestCase):
             "bench move not reported": v2.replace(
                 "    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {",
                 "    if (false) {", 1),
+            "shares not applied": v2.replace(
+                "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1),
             "league Apply does nothing": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1),

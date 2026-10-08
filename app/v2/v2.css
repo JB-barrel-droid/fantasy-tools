@@ -628,3 +628,10 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* Plain chip labels are longer: source chips take their own row at every width; Edit sources stays on the first row. */
 .v2-methods-row .v2-source-chips { flex-basis: 100%; order: 2; }
 .v2-methods-row #v2EditSources { order: 1; margin-left: auto; }
+
+/* Weights & bench: editable position shares (frame 11, JEG-452). */
+.v2-pshare { grid-template-columns: 40px 1fr 96px 56px; }
+.v2-pshare label { font-weight: 700; }
+.v2-pshare-field { display: inline-flex; align-items: center; gap: 2px; }
+.v2-pshare-field input { width: 72px; min-height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 8px; background: var(--v2-surface); color: var(--v2-ink); text-align: right; }
+.v2-pshare > span[data-weight] { text-align: right; }

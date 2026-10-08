@@ -1395,7 +1395,7 @@
   function openWeights() {
     const bounds = C.getBenchBounds();
     let draft = C.getBenchShare();
-    openPanel($("v2Weights"), "Weights & bench", "Applies across tabs · Same model as the chart dashboard", pop => {
+    openPanel($("v2Weights"), "Weights & bench", "Applies across tabs", pop => {
       const body = panelBody(pop);
       eyebrow(body, "Bench allocation");
       const top = document.createElement("div");
@@ -1438,32 +1438,83 @@
       };
       slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
       sync();
+      // Frame 11 position shares (JEG-452 engine API). The reader edits any shares; on Apply the
+      // engine sets exactly those and splits the rest in proportion (setPositionWeights), so v2
+      // never rebalances them itself.
       eyebrow(body, "Position shares of total value");
       const shares = document.createElement("p");
       shares.className = "v2-meta";
-      shares.textContent = "Shares total 100%. Bench share splits each position. Set by the Data Driven Football model for your league.";
+      shares.textContent = "Shares total 100%. Shares you leave alone split the rest in proportion when you apply.";
       body.appendChild(shares);
       const weights = C.getPositionWeights();
+      const shareBounds = C.getPositionWeightBounds ? C.getPositionWeightBounds() : null;
+      const edited = {};
+      let resetShares = false;
+      const inputs = {};
       ["QB", "RB", "WR", "TE"].forEach(pos => {
         const line = document.createElement("div");
         line.className = "v2-pshare";
         const v = Number(weights[pos]);
-        line.innerHTML = `<b>${pos}</b><span class="v2-pshare-bar" aria-hidden="true"><span style="width:${Number.isFinite(v) ? Math.min(100, v * 100) : 0}%"></span></span>`;
-        const val = document.createElement("span");
-        val.dataset.weight = pos;
-        val.textContent = Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "—";
-        line.appendChild(val);
+        const label = document.createElement("label");
+        label.htmlFor = `v2Share${pos}`;
+        label.textContent = pos;
+        const bar = document.createElement("span");
+        bar.className = "v2-pshare-bar";
+        bar.setAttribute("aria-hidden", "true");
+        bar.innerHTML = `<span style="width:${Number.isFinite(v) ? Math.min(100, v * 100) : 0}%"></span>`;
+        const field = document.createElement("span");
+        field.className = "v2-pshare-field";
+        const input = document.createElement("input");
+        input.type = "number";
+        input.id = `v2Share${pos}`;
+        input.step = "0.1";
+        const [lo, hi] = shareBounds && shareBounds[pos] ? shareBounds[pos] : [0, 1];
+        input.min = (lo * 100).toFixed(1);
+        input.max = (hi * 100).toFixed(1);
+        input.value = Number.isFinite(v) ? (v * 100).toFixed(1) : "";
+        input.disabled = !shareBounds;
+        input.addEventListener("input", () => {
+          const n = Number(input.value);
+          if (input.value !== "" && Number.isFinite(n)) edited[pos] = n / 100;
+          else delete edited[pos];
+          resetShares = false;
+        });
+        inputs[pos] = input;
+        const now = document.createElement("span");
+        now.className = "v2-meta";
+        now.dataset.weight = pos;
+        now.textContent = Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "—";
+        field.append(input, document.createTextNode("% "));
+        line.append(label, bar, field, now);
         body.appendChild(line);
       });
       const reset = document.createElement("button");
       reset.type = "button";
       reset.className = "v2-btn v2-preset";
       reset.textContent = "Reset defaults";
-      reset.addEventListener("click", () => { draft = 0.15; slider.value = String(draft); sync(); });
+      reset.addEventListener("click", () => {
+        draft = 0.15; slider.value = String(draft); sync();
+        const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+        Object.keys(edited).forEach(pos => delete edited[pos]);
+        resetShares = true;
+        if (defaults) Object.entries(inputs).forEach(([pos, input]) => { input.value = (Number(defaults[pos]) * 100).toFixed(1); });
+      });
       panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
         if (bounds) C.setBenchShareFraction(draft);
+        let note = "";
+        if (resetShares && C.resetPositionWeights) C.resetPositionWeights();
+        else if (Object.keys(edited).length && C.setPositionWeights) {
+          const result = C.setPositionWeights(edited);
+          if (result && result.ok && result.clamped) note = "Some position shares were held to their allowed range.";
+          else if (result && !result.ok) note = "Position shares were not changed.";
+        }
         closePopover();
         refresh();
+        if (note) {
+          setStatus(note);
+          clearTimeout(statusTimer);
+          statusTimer = setTimeout(() => setStatus(""), 6000);
+        }
       }, {"data-apply": "weights"}]], reset);
     });
   }
@@ -2440,6 +2491,11 @@
       parts.push(`scoring=${C.getState().scoring}`);
       parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
       parts.push(`bench=${Number(C.getBenchShare()).toFixed(3)}`);
+      // Position shares only when the sender changed them (back end: encode when not default).
+      const shares = C.getPositionWeights();
+      const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+      const custom = defaults && ["QB", "RB", "WR", "TE"].some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4);
+      if (custom) parts.push(`shares=${["QB", "RB", "WR", "TE"].map(pos => `${pos}${Number(shares[pos]).toFixed(3)}`).join("_")}`);
     }
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
@@ -2457,7 +2513,13 @@
     const rosterChange = Object.entries(roster).filter(([key, value]) => key in shape && shape[key] !== value);
     const bench = Number(params.get("bench"));
     const benchChange = params.has("bench") && Number.isFinite(bench) && Math.abs(bench - C.getBenchShare()) > 5e-4;
-    if (!scoringChange && !rosterChange.length && !benchChange) return;
+    const shares = {};
+    String(params.get("shares") || "").split("_").forEach(part => {
+      const m = /^(QB|RB|WR|TE)(\d*\.?\d+)$/.exec(part);
+      if (m) shares[m[1]] = Number(m[2]);
+    });
+    const sharesGiven = Object.keys(shares).length === 4 && Boolean(C.setPositionWeights);
+    if (!scoringChange && !rosterChange.length && !benchChange && !sharesGiven) return;
     if (scoringChange || rosterChange.length) {
       leagueChange(() => {
         if (scoringChange) C.setScoring(scoring);
@@ -2466,6 +2528,8 @@
     }
     // The link's bench share is the sender's choice, set after the league (not a re-clamp notice).
     if (benchChange) { C.setBenchShareFraction(bench); refresh(); }
+    // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
+    if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
       + `bench ${(C.getBenchShare() * 100).toFixed(1)}%.${earlier}`);
@@ -2496,7 +2560,7 @@
     note.hidden = false;
     try {
       await navigator.clipboard.writeText(url);
-      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster and bench share; the team count stays the reader's.";
+      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster, bench share and position shares; the team count stays the reader's.";
     } catch (error) {
       note.textContent = `Copy this link: ${url}`;
     }

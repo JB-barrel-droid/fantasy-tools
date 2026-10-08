@@ -410,6 +410,16 @@ Jeremy's answers to the follow-up questions:
   through the engine's setters and says so. The team count is not carried yet.
 - `/classic/` is to be retired (back-end ticket JEG-453). v2 signed off (JEG-448).
 
+## Editable position shares (2026-10-08, JEG-452 front end)
+
+- Weights & bench: each position share has a number field (bounds from `getPositionWeightBounds`).
+  On Apply, v2 passes only the shares the reader changed to `setPositionWeights`; the engine clamps
+  them and splits the rest in proportion, so v2 never rebalances shares itself. Reset defaults calls
+  `resetPositionWeights`. A clamped set says so. No copy explains share semantics yet (MR-16).
+- Shared trade links carry custom shares (`&shares=QB0.100_RB0.400_WR0.400_TE0.100`) only when they
+  differ from the league's defaults, applied after scoring, roster and bench (a league change resets
+  shares). A rejected set is ignored.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**
