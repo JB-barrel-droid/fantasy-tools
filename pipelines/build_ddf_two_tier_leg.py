@@ -53,7 +53,6 @@ import csv
 import hashlib
 import json
 import math
-import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -83,7 +82,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from games_remaining import (  # noqa: E402
     load_byes, window_from_rows, games_in_window, BYES_PATH,
 )
-from canonical_players import norm_player_name  # noqa: E402 -- the single normalization rule
+from canonical_players import has_generational_suffix, norm_player_name  # noqa: E402 -- the single normalization rule
 import player_aliases  # noqa: E402 -- the single verified alias list
 
 # Reference league shape (mirrors the widget's TwoTier constants exactly).
@@ -100,9 +99,9 @@ REF_BENCH_SLOTS = BENCH_MIX_12
 # matcher). Do not add a private map here (GAP-CBSROS-BAKE-IDENTITY).
 
 
-# A trailing generational suffix on a source spelling: the spelling itself
-# names the suffixed player, so it may break a tie between same-name keys.
-_GENERATIONAL_SUFFIX = re.compile(r"\s(jr|sr|ii|iii|iv|v)\.?$")
+# A trailing generational suffix on a source spelling names the suffixed
+# player, so it may break a tie between same-name keys
+# (canonical_players.has_generational_suffix, the one suffix rule).
 
 
 class FixtureIdentity:
@@ -182,7 +181,7 @@ class FixtureIdentity:
         exact = self.player_keys.get(norm)
         cands = self.candidates(norm, pos)
         if len(cands) > 1:
-            if exact in cands and _GENERATIONAL_SUFFIX.search(norm):
+            if exact in cands and has_generational_suffix(norm):
                 return exact, "exact", None
             return None, "ambiguous", None
         if exact is not None and (not cands or exact in cands):

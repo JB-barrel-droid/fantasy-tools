@@ -43,6 +43,7 @@ SUFFIXES = ("jr", "sr", "ii", "iii", "iv", "v")
 if str(_LIB) not in sys.path:
     sys.path.insert(0, str(_LIB))
 from nicknames import NICKNAMES  # noqa: E402
+from canonical_players import strip_generational_suffix  # noqa: E402 -- the one suffix rule
 import player_aliases  # noqa: E402
 
 
@@ -56,7 +57,7 @@ def norm_name(n):
 
 
 def _strip_suffix(k):
-    return re.sub(r"\s+(jr|sr|ii|iii|iv|v)$", "", k).strip()
+    return strip_generational_suffix(k).strip()
 
 
 class IdentityMap:

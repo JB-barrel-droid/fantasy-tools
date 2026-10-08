@@ -294,5 +294,38 @@ class DuplicatePlayersRowIsDeterministic(unittest.TestCase):
         self.assertEqual(narrow_candidates(rows, "RB"), (None, "ambiguous"))
 
 
+class CbsRosNicknameMisses(unittest.TestCase):
+    """GAP-CBSROS-NICKNAME-MISSES: the CBS ROS saver (run 37800639004,
+    vintage 2026-10-08) left "Christopher Brooks" and "Zonovan Knight"
+    unresolved. Its matcher has no nickname folding, so they resolve only
+    through a verified alias."""
+
+    CASES = (("Christopher Brooks", "RB", 2515), ("Zonovan Knight", "RB", 868))
+
+    def tearDown(self):
+        player_aliases._reset_for_tests(None)
+
+    def resolve_all(self):
+        out = {}
+        for mod in (save_cbsros_references, save_espn_cbs_references, save_razzball_references):
+            idx = mod.build_name_index(saver_rows())
+            for name, pos, _key in self.CASES:
+                out[(mod.__name__, name)] = mod.resolve_name(name, pos, idx)[0]
+        return out
+
+    def test_the_savers_resolve_both_spellings(self):
+        player_aliases._reset_for_tests(player_aliases._index(player_aliases.json_entries()))
+        got = self.resolve_all()
+        for (mod, name), key in got.items():
+            with self.subTest(saver=mod, name=name):
+                self.assertEqual(key, dict((n, k) for n, _p, k in self.CASES)[name])
+
+    def test_without_the_aliases_they_stay_unresolved(self):
+        names = {norm_player_name(n) for n, _p, _k in self.CASES}
+        player_aliases._reset_for_tests({f: e for f, e in player_aliases._index(
+            player_aliases.json_entries()).items() if f not in names})
+        self.assertEqual(set(self.resolve_all().values()), {None})
+
+
 if __name__ == "__main__":
     unittest.main()

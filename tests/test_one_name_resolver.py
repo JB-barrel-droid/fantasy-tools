@@ -17,10 +17,10 @@ matches names another way:
 
 LEGACY lists the files that predate the rule. It can only shrink: an entry
 that no longer violates fails the test until it is removed, and any new file
-or new rule in a listed file fails at once. Migrating a LEGACY chart matcher
-(match_source_snapshot, legacy_identity, the FantasyPros rebuild scripts)
-needs the 12-combo sweep, so they are tracked as GAP-IDENTITY-LEGACY-MATCHERS
-in docs/risk-register.md rather than rewritten here.
+or new rule in a listed file fails at once. Migrating a remaining LEGACY
+matcher (match_source_snapshot, legacy_identity, the staged-bundle producer)
+changes its output and needs the 12-combo sweep; tracked as
+GAP-IDENTITY-LEGACY-MATCHERS in docs/risk-register.md.
 
 Limits: a one-off lambda or inline `.lower()` used as a join key is not
 detected; the rule names in a code review still apply.
@@ -49,15 +49,21 @@ SANCTIONED = {
     "pipelines/reconcile_player_identity.py": {"fuzzy"},
 }
 
-# Shrink-only ratchet (GAP-IDENTITY-LEGACY-MATCHERS).
+# Shrink-only ratchet (GAP-IDENTITY-LEGACY-MATCHERS). 2026-10-08: 8 files
+# -> 3. Migrated with identical output on current data: the suffix rules of
+# build_ddf_two_tier_leg and legacy_identity (canonical_players
+# has_generational_suffix / strip_generational_suffix) and build_player_trace
+# (norm_player_name + aliases). Archived (no caller): rebuild_fp_fixture_section,
+# rebuild_fp_natives_from_snapshot, refresh_players_espn_fields.
+# Each remaining entry would change output if migrated:
 LEGACY = {
-    "pipelines/build_ddf_two_tier_leg.py": {"suffix"},        # FixtureIdentity namesake tie-break
-    "pipelines/build_player_trace.py": {"normalizer"},
-    "pipelines/lib/legacy_identity.py": {"normalizer", "suffix"},
+    # norm_name is the key format of the identity snapshot's chart keys and of
+    # espn_projections.csv player_norm, which the ESPN leg joins on.
+    "pipelines/lib/legacy_identity.py": {"normalizer"},
+    # normalize_name is shared by six reference savers; nickname folding would
+    # resolve names they leave unresolved today, and its form is a review label.
     "pipelines/match_source_snapshot.py": {"normalizer", "suffix"},
-    "pipelines/rebuild_fp_fixture_section.py": {"normalizer"},
-    "pipelines/rebuild_fp_natives_from_snapshot.py": {"normalizer"},
-    "pipelines/refresh_players_espn_fields.py": {"normalizer"},
+    # _norm is the staged bundle's player_key for ESPN rows (loader contract).
     "producers/build_staged_bundle_espn.py": {"normalizer"},
 }
 
@@ -147,6 +153,24 @@ class TheScanDiscriminatesTest(unittest.TestCase):
         self.assertEqual(violations_in("import re\nR = re.compile(r'\\s(jr|sr|ii|iii|iv|v)\\.?$')\n"), {"suffix"})
         self.assertEqual(violations_in("R = r'\\b(jr|sr|ii|iii|iv)\\.?\\b'\n"), {"suffix"})
         self.assertEqual(violations_in("TEAMS = 'jax|sf'\n"), set())
+
+    def test_shared_suffix_helpers_match_the_rules_they_replaced(self):
+        # build_ddf_two_tier_leg tested r"\s(jr|sr|ii|iii|iv|v)\.?$" on
+        # lowercased player_norm labels; legacy_identity stripped
+        # r"\s+(jr|sr|ii|iii|iv|v)$". The shared helpers must agree on both.
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+        from canonical_players import has_generational_suffix, strip_generational_suffix
+        old_leg = re.compile(r"\s(jr|sr|ii|iii|iv|v)\.?$")
+        old_strip = re.compile(r"\s+(jr|sr|ii|iii|iv|v)$")
+        for label in ("kenneth walker iii", "travis etienne jr.", "travis etienne jr", "marvin harrison jr",
+                      "kenneth walker", "aj brown", "brian thomas", "will levis", "devon achane",
+                      "patrick mahomes ii", "odell beckham", "jr.", "michael pittman jr  "):
+            with self.subTest(label=label):
+                self.assertEqual(has_generational_suffix(label), bool(old_leg.search(label)))
+                self.assertEqual(strip_generational_suffix(label), old_strip.sub("", label))
+        self.assertTrue(has_generational_suffix("Kenneth Walker III"))
+        self.assertFalse(has_generational_suffix("Steve Smith Sr Fan"))
 
     def test_a_new_file_with_its_own_matcher_fails_the_ratchet(self):
         found = {"pipelines/new_saver.py": {"normalizer"}}

@@ -14,7 +14,8 @@ only its own field family, so baked values are untouched:
   - pipelines/annotate_cbsros_ppg.py — refreshes cbsros_* fields + the
     cbsros meta block from the latest CBS ROS snapshot (same intake the
     full bake uses; the bake normally writes these itself).
-(Note: pipelines/refresh_players_espn_fields.py was retired by JEG-402 and
+(Note: refresh_players_espn_fields.py was retired by JEG-402, archived to
+archive/2026-10-08/pipelines/ by JEG-438, and
 is no longer a writer.)
 Anything else claiming to write players.json is a bug.
 
