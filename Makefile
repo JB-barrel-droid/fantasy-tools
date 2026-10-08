@@ -137,6 +137,7 @@ test-unit:
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
+	python3 -m unittest tests.test_v2_share_render
 	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs

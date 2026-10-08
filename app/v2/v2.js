@@ -755,7 +755,7 @@
       b.addEventListener("click", () => {
         TR[side] = TR[side].concat({key, name: row.name});
         closeDrawer();
-        if (location.hash === "#compare-trade") renderCompare();
+        if (currentView() === "compare") renderCompare();
         else location.hash = "#compare-trade";
       });
       box.appendChild(b);
@@ -1568,9 +1568,50 @@
         + "each row is that source's values only. Positive means you get more value than you give by that source."
       : "Pick the players on both sides to see each source's numbers.";
     $("v2CClear").hidden = !count;
+    $("v2CShare").hidden = !ready;
+    if (!ready) $("v2CShareNote").hidden = true;
+    syncTradeHash();
+  }
+
+  // Shareable trade: the sides live in the hash, so a copied link opens the same trade.
+  function tradeHash() {
+    const keys = side => TR[side].map(p => encodeURIComponent(p.key)).join(",");
+    const parts = [];
+    if (TR.give.length) parts.push(`give=${keys("give")}`);
+    if (TR.receive.length) parts.push(`get=${keys("receive")}`);
+    return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
+  }
+  function readTradeHash() {
+    const [base, query] = location.hash.split("?");
+    if (base !== "#compare-trade" || !query) return;
+    const params = new URLSearchParams(query);
+    const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
+    const seen = new Set();
+    const read = name => (params.get(name) || "").split(",").map(k => decodeURIComponent(k).trim())
+      .filter(k => k && !seen.has(k) && seen.add(k))
+      .map(k => ({key: k, name: rowsByKey.get(k)?.name || `Player ${k}`}));
+    TR.give = read("give");
+    TR.receive = read("get");
+  }
+  function syncTradeHash() {
+    if (currentView() !== "compare") return;
+    const want = tradeHash();
+    if (location.hash !== want) history.replaceState(null, "", want);
+  }
+  async function copyTradeLink() {
+    const url = location.href;
+    const note = $("v2CShareNote");
+    note.hidden = false;
+    try {
+      await navigator.clipboard.writeText(url);
+      note.textContent = "✓ Link copied. Anyone who opens it sees this trade, priced for their own league settings.";
+    } catch (error) {
+      note.textContent = `Copy this link: ${url}`;
+    }
   }
 
   function bindCompare() {
+    $("v2CShare").addEventListener("click", copyTradeLink);
     ["give", "receive"].forEach(side => {
       const input = $(SIDE_IDS[side].search);
       input.addEventListener("input", () => renderSearch(side));
@@ -1815,10 +1856,12 @@
   }
 
   // ---------- routing ----------
-  const currentView = () => (location.hash === "#trade-targets" ? "targets"
-    : location.hash === "#risers-fallers" ? "risers"
-    : location.hash === "#compare-trade" ? "compare"
-    : location.hash === "#how-values" ? "how" : "values");
+  // A hash may carry a query (a shared trade: #compare-trade?give=1,2&get=3).
+  const hashBase = () => location.hash.split("?")[0];
+  const currentView = () => (hashBase() === "#trade-targets" ? "targets"
+    : hashBase() === "#risers-fallers" ? "risers"
+    : hashBase() === "#compare-trade" ? "compare"
+    : hashBase() === "#how-values" ? "how" : "values");
 
   function applyRoute() {
     const v = currentView();
@@ -1948,7 +1991,7 @@
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
     });
-    window.addEventListener("hashchange", applyRoute);
+    window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
@@ -1975,6 +2018,7 @@
       return;
     }
     bind();
+    readTradeHash();
     $("v2State").hidden = true;
     applyRoute();
     setStatus("");

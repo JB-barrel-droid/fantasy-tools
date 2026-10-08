@@ -327,3 +327,12 @@ not opened (figma.com blocked from the cloud session); re-check when they are.
   `Δ —` with the engine's reason; the note under the filters lists each plotted series' prior week or
   reason. With the first-use DDA selection every Δ is "Δ —" (ESPN and Adjusted have no prior week);
   adding an Indexed chart shows real Δ.
+
+## Shareable trades and page metadata (2026-10-08)
+
+- Compare a trade keeps its sides in the address: `v2/#compare-trade?give=<player_key,…>&get=<…>`.
+  "Copy link to this trade" copies it (falls back to showing the link if the clipboard is blocked).
+  Whoever opens it sees the same players, priced for their own league settings; an unknown key is
+  listed and turns every row it touches into —; a repeated key is read once.
+- `build_v2_page.py` sets `color-scheme: light dark` (v1's `light` kept selects light inside v2's dark
+  theme) and the v2 nav colour as `theme-color`.

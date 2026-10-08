@@ -30,6 +30,9 @@ def build_v2_html(index_html: str, shell_html: str) -> str:
     title_start = html.index("<title>")
     title_end = html.index("</title>") + len("</title>")
     html = html[:title_start] + "<title>Trade Value · Data Driven Football</title>" + html[title_end:]
+    # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
+    html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
+    html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
     head_extra = (
         '  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">\n'
         '  <link rel="stylesheet" href="v2/v2.css">\n'

@@ -403,3 +403,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   #v2Risers .v2-field-rank select { flex: 1 1 0; width: 0; min-width: 0; }
   #v2Risers .v2-field select { width: 100%; min-width: 0; }
 }
+
+/* Compare a trade: share. */
+.v2-ctools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.v2-cshare { margin-top: 8px !important; word-break: break-all; color: var(--v2-action); }
