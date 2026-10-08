@@ -23,12 +23,15 @@ function runSetup(c) {
     native, saved, indexTotal: c.index_total, posOf: k => pos.get(k),
     teams: c.teams, shape: c.shape,
     projection: c.projection ? new Map(c.projection.map(([k, v]) => [k, v])) : undefined,
+    peers: c.peers ? Object.fromEntries(Object.entries(c.peers).map(([src, rows]) =>
+      [src, new Map(rows.map(([k, v]) => [k, v]))])) : undefined,
   });
   return {
     values: Object.fromEntries([...out.values.entries()]),
     translated: out.translated, belowWaiver: out.belowWaiver, version: out.version,
     positionalMax: out.positionalMax, ourMax: out.ourMax,
     savedSetup: ValueModel.isSavedSetup(c.teams, c.shape),
+    waiver: out.waiver,
   };
 }
 
@@ -44,7 +47,8 @@ function runViews(c) {
   const res = {version: out.version, batchMax: out.batchMax, adjScale: out.adjScale, sources: {}};
   Object.entries(out.sources).forEach(([src, s]) => {
     res.sources[src] = {vorp: Object.fromEntries([...s.vorp.entries()]),
-                        adj: Object.fromEntries([...s.adj.entries()]), groups: s.groups};
+                        adj: Object.fromEntries([...s.adj.entries()]), groups: s.groups,
+                        waiver: s.waiver};
   });
   return res;
 }

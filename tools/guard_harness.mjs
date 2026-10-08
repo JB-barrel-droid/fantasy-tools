@@ -26,12 +26,21 @@ const EXPECTED_JEG5 = {
   // the adjustment fit was rerun, so the simulated broken state now misses
   // the (unchanged) fixed pie by -38.1 (12/101 tier mismatches) instead of
   // +78.2. Still far outside the tolerance of 2: the guard still fails it.
+  // Re-recorded 2026-10-07 (V2-WAIVER-COVERAGE, Jeremy's rule): CBS lists
+  // fewer players than a 12-team league rosters at every position, so its
+  // waiver line is now extrapolated from the other charts and its bottom
+  // players are priced instead of 0 (cbs_adjusted rebuilt from the new raw
+  // values on the same fit cells). The fixed-pie target had also moved on
+  // main (2329.32 after the ESPN-zero / below-leg / games-remaining changes;
+  // main's recorded numbers were already stale there). The simulated broken
+  // state now misses the pie by +59.5 (19/114 tier mismatches): still far
+  // outside the tolerance of 2.
   source: "cbs_adjusted",
   basis: "shared",
   shared: 114,
-  total: 1931.76243,
-  target: 1969.895514,
-  delta: -38.133085,
+  total: 2388.778887,
+  target: 2329.316572,
+  delta: 59.462314,
 };
 
 function parseArgs(argv) {

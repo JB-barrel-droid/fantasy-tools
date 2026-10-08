@@ -1102,6 +1102,58 @@
     });
   }
 
+  // A published chart's saved 12-team native values at this scoring.
+  function savedPublishedNative(key) {
+    const native = new Map();
+    savedPublishedRow(key, "native")?.values?.forEach((rawValue, playerKey) => {
+      const value = Number(rawValue);
+      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
+    });
+    return native;
+  }
+
+  // V2-WAIVER-COVERAGE (Jeremy 2026-10-07): the OTHER published charts' saved
+  // natives. A chart that lists fewer players at a position than the league
+  // rosters has its waiver line extrapolated from them; the imputed players
+  // are never shown as that chart's values.
+  function publishedPeers(key) {
+    const peers = {};
+    AS_PUBLISHED_KEYS.forEach(other => {
+      if (other === key) return;
+      const native = savedPublishedNative(other);
+      if (native.size) peers[other] = native;
+    });
+    return peers;
+  }
+
+  // How each position's waiver line is set for a published chart at the
+  // active setting ({positions, imputed, short}); memoised like the values.
+  let publishedWaiverCache = new Map();
+  function publishedWaiver(key) {
+    const raw = AS_PUBLISHED_KEYS.has(key) ? key : (key.endsWith("_adjusted") ? rawKeyForAdjusted(key) : null);
+    if (!raw || !AS_PUBLISHED_KEYS.has(raw)) return null;
+    const cacheKey = `${raw}|${scoring}|${teams}|${rosterSignature()}`;
+    if (publishedWaiverCache.has(cacheKey)) return publishedWaiverCache.get(cacheKey);
+    const native = savedPublishedNative(raw);
+    const info = native.size ? ValueModel.publishedWaiverInfo({
+      native, peers: publishedPeers(raw), posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+      teams, shape: rosterShape
+    }) : null;
+    publishedWaiverCache.set(cacheKey, info);
+    return info;
+  }
+
+  // The denotation copy: which positions' waiver line is extrapolated from
+  // the other charts, or still sits at the end of the chart's own list.
+  function waiverNote(key) {
+    const info = publishedWaiver(key);
+    if (!info) return null;
+    const parts = [];
+    if (info.imputed.length) parts.push(`waiver line extrapolated from other charts (${info.imputed.join(", ")})`);
+    if (info.short.length) parts.push(`waiver line at the end of its list, no other chart covers enough players (${info.short.join(", ")})`);
+    return parts.length ? parts.join("; ") : null;
+  }
+
   function derivedPublishedSourceMap(key) {
     const cacheKey = `${key}|${scoring}|${teams}|${rosterSignature()}`;
     if (derivedPublishedCache.has(cacheKey)) {
@@ -1135,13 +1187,13 @@
       const derived = ValueModel.derivePublishedSetup({
         native, saved, indexTotal: savedRow.index_total,
         posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-        teams, shape: rosterShape, projection
+        teams, shape: rosterShape, projection, peers: publishedPeers(key)
       });
       values = derived.values;
       info = {mode: "derived", version: derived.version,
         positionalMax: derived.positionalMax, ourMax: derived.ourMax,
         translationVersion: derived.translationVersion, translated: derived.translated,
-        belowWaiver: derived.belowWaiver};
+        belowWaiver: derived.belowWaiver, waiver: derived.waiver};
     }
     derivedPublishedCache.set(cacheKey, {values, info});
     lastPublishedDerivation[key] = info;
@@ -1157,7 +1209,7 @@
       throw new Error("product-data.js missing; buildPublishedSourceMap refused.");
     }
     if (AS_PUBLISHED_KEYS.has(key) && !onSavedSetup()) return derivedPublishedSourceMap(key);
-    if (AS_PUBLISHED_KEYS.has(key)) lastPublishedDerivation[key] = {mode: "saved"};
+    if (AS_PUBLISHED_KEYS.has(key)) lastPublishedDerivation[key] = {mode: "saved", waiver: publishedWaiver(key)};
     const row = window.TradeValueProductData.getPlayerValues({
       source: key,
       scoring,
@@ -1248,9 +1300,16 @@
         input.budgets = ValueModel.anchorGroupTotals({values: anchor, playerOf, roles, keys: new Set(input.keys)});
       });
     }
+    // V2-WAIVER-COVERAGE: every published chart's natives, so each chart's
+    // peers are exactly the ones the Indexed derivation uses.
+    const natives = {};
+    AS_PUBLISHED_KEYS.forEach(key => {
+      const native = savedPublishedNative(key);
+      if (native.size) natives[key] = native;
+    });
     derivedViewBatchCache = anchor?.size && Object.keys(inputs).length
       ? ValueModel.derivePublishedViews({
-          sources: inputs, posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+          sources: inputs, natives, posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
           teams, shape: rosterShape
         })
       : {version: ValueModel.PUBLISHED_VIEWS_VERSION, sources: {}, batchMax: 0, adjScale: 0};
@@ -1996,8 +2055,23 @@
       ` · ${positionLabel} · ${axisLabel} · ${weekLabel} plus ESPN projections${espnText ? ` (${espnText})` : ""}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
       // league-settings-001 / methodology.md: values derived for a league
       // setting the source did not publish must be labelled derived.
-      onSavedSetup() ? "" : " · published charts derived from their 12-team, standard-roster values"
+      onSavedSetup() ? "" : " · published charts derived from their 12-team, standard-roster values",
+      waiverContextNote()
     );
+  }
+
+  // V2-WAIVER-COVERAGE: name the active published charts whose waiver line is
+  // extrapolated from the other charts (they list fewer players than this
+  // league rosters). Players those charts do not list stay "—".
+  function waiverContextNote() {
+    const notes = [...AS_PUBLISHED_KEYS]
+      .filter(key => activeSourceKeys().some(active => active === key || (active.endsWith("_adjusted") && rawKeyForAdjusted(active) === key)))
+      .map(key => {
+        const info = publishedWaiver(key);
+        return info && info.imputed.length ? `${SOURCE_LABELS[key] || key} (${info.imputed.join(", ")})` : null;
+      })
+      .filter(Boolean);
+    return notes.length ? ` · waiver line extrapolated from other charts: ${notes.join(", ")}` : "";
   }
 
   function makeTabs() {
@@ -3210,7 +3284,11 @@
       available: sourceAvailable(key) && !isAdjustedCurvePaused(key),
       paused: isAdjustedCurvePaused(key),
       active: activeSources.has(key),
-      color: SOURCE_STYLES[key]?.color || null
+      color: SOURCE_STYLES[key]?.color || null,
+      // V2-WAIVER-COVERAGE: set when this chart's values rest on a waiver
+      // line extrapolated from the other charts (or on the end of its list).
+      waiverNote: waiverNote(key),
+      waiver: publishedWaiver(key)
     })),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
     getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value]))

@@ -354,6 +354,48 @@ class FailClosedTest(unittest.TestCase):
         self.assertTrue(status["success"])
         self.assertEqual(status["fit"]["status"], "ok")
 
+    def test_fixture_retranslated_after_promotion_before_fit(self):
+        """V2-WAIVER-COVERAGE: a short chart's waiver line comes from the OTHER
+        charts' natives, so after every promotion the whole fixture is
+        re-translated (fixture mode, natives) before the fit reads it."""
+        repo = make_repo(self.tmp / "retr", tuple(chain.SOURCES))
+        fake = WireFake(repo, verdicts={"*": "ready"})
+        seen = []
+        orig = fake.__call__
+
+        def spy(cmd, **kwargs):
+            if Path(cmd[1]).name == "translate_via_vorp.py" and "--fixture" in cmd:
+                seen.append(list(cmd))
+            return orig(cmd, **kwargs)
+
+        status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=spy)
+        self.assertTrue(status["success"])
+        self.assertEqual(len(seen), 1, "fixture re-translation must run exactly once")
+        cmd = seen[0]
+        self.assertEqual(cmd[cmd.index("--translation") + 1], "natives")
+        self.assertTrue(cmd[cmd.index("--fixture") + 1].endswith("comparison-sources-data.json"))
+        calls = fake.calls
+        last_promote = max(i for i, c in enumerate(calls) if c == "promote_comparison_section.py")
+        retr = [i for i, c in enumerate(calls) if c == "translate_via_vorp.py"][-1]
+        self.assertLess(last_promote, retr)
+        self.assertLess(retr, calls.index("build_adjustment_inputs.py"))
+
+    def test_retranslate_failure_fails_chain(self):
+        repo = make_repo(self.tmp / "retr2", tuple(chain.SOURCES))
+        fake = WireFake(repo, verdicts={"*": "ready"})
+        orig = fake.__call__
+
+        def bad(cmd, **kwargs):
+            if Path(cmd[1]).name == "translate_via_vorp.py" and "--fixture" in cmd:
+                fake.calls.append("translate_via_vorp.py")
+                return False, "retranslate exploded"
+            return orig(cmd, **kwargs)
+
+        status = chain.execute_chain(nfl_week=4, repo=repo, run_fn=bad)
+        self.assertFalse(status["success"])
+        self.assertEqual(status["fit"]["stage"], "retranslate")
+        self.assertNotIn("build_adjustment_inputs.py", fake.calls)
+
     # --- status durability -------------------------------------------------
     def test_status_written_on_unexpected_exception(self):
         """The finally path records partial runs even when a stage blows up

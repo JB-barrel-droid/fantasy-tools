@@ -125,6 +125,59 @@ adjusted series refit live against the ESPN two-tier leg at the chosen setting,
 as they already did at 12 teams. A scoring with no saved 12-team setup is still
 unavailable and borrows nothing.
 
+**Short charts: waiver line extrapolated from the other charts
+(V2-WAIVER-COVERAGE, Jeremy 2026-10-07).** Jeremy: "If needed for
+computations, cover them by extrapolating from the average of other charts.
+Denote them. Where it's not needed, hide those values." This supersedes the
+earlier rule that a chart's waiver line falls back to its last listed value when
+it lists no more players at a position than the league rosters
+(`insufficient_coverage`), which priced the bottom of a short chart at 0 only
+because the list ended (e.g. CBS lists 12 QBs, about 43 RBs, 44 WRs and 17 TEs).
+The rule, the same on the server (`unified.impute_extension` /
+`translate_ranked(peers=...)`) and in the browser
+(`ValueModel.imputeExtension` / `translatePublishedVorp({peers})`), held equal
+by `tests/test_vorp_translation_js_parity.py`:
+
+- *Peers.* The other published charts' saved 12-team natives at the same
+  scoring (CBS, FantasyCalc, FantasyPros, USA Today minus the chart itself).
+- *Mapping into the chart's units.* Per position and peer, one ratio: the sum of
+  the chart's natives over the sum of the peer's natives, on the players both
+  list among the bottom half of the chart's list (value at or below its median
+  listed value; at least 3 such players, else that peer is not used). The
+  ratio is fitted on the tail because that is where the line is extrapolated.
+- *Imputed native* for a player the chart does not list = the mean, over the
+  usable peers that list him, of ratio x peer native, capped at the chart's
+  last listed value (a chart that leaves a player out values him at most at
+  its last listed value). The extension is ordered by that value and appended
+  after the chart's own list.
+- *Waiver line.* Only a position where the chart lists no more players than the
+  league rosters is extended (re-checked after the flex allocation moves). The
+  roster allocation and the waiver line then use the extended list; the line
+  is the value at the rostered count (`waiver_method:
+  imputed_from_other_charts`, `n_imputed` = how far past the list it reads).
+  If no peer covers enough players, the old fallback stays and is labelled
+  (`insufficient_coverage`). A chart that is never short translates exactly as
+  before.
+- *Hidden.* Imputed players exist only for this computation. They never get a
+  value in any view: the chart still shows "—" for players it does not list
+  (CTL-006 still holds: no unpublished player is displayed).
+- *Denoted.* The saved combo's `translation.waiver` /
+  `translation.waiver_imputation` record each position's method and the
+  peers; the engine exposes it (`getSourceInfo()[].waiverNote` / `.waiver`,
+  `TradeValueCurveDiagnostics.publishedDerivation[src].waiver`); the main
+  chart's caption line names the charts ("waiver line extrapolated from other
+  charts: CBS (QB, RB, WR, TE)") and the v2 Sources and Freshness lists add the
+  note to the chart's line.
+- *Coupling.* A chart's saved values now depend on the other charts' natives,
+  so the comparison chain re-translates every published chart in the promoted
+  fixture after the per-source stages (`rebuild_comparison_chain.run_retranslate`)
+  before the fit.
+
+Because a chart's translated value is value above waivers scaled so its top
+player sits at our positional max, a lower waiver line raises the chart's
+lower and middle values a little as well as pricing the bottom; its top value
+does not move.
+
 **Other chart views (JEG332-VORP-VIEWS, `published-views-001/1`, 2026-10-07).**
 The "VORP vs waivers" and "Adjusted values" views show the saved `vorp_views`
 only at the setup they were built for (full PPR, 12 teams, standard roster;

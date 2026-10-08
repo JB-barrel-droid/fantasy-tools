@@ -69,12 +69,19 @@ def _load_ranked(source, scoring):
             for pos, rows in ranked.items()}
 
 
+def _load_peers(source, scoring):
+    """V2-WAIVER-COVERAGE: the other published charts' saved natives, keyed."""
+    fixture = json.loads(FIXTURE.read_text())
+    return unified.peers_ranked(unified.peer_natives(fixture, source, scoring))
+
+
 def _real_vectors():
     vectors = []
     for source in SOURCES:
         for scoring in SCORINGS:
             ranked = _load_ranked(source, scoring)
-            base = {"source": source, "scoring": scoring, "ranked_keyed": ranked}
+            base = {"source": source, "scoring": scoring, "ranked_keyed": ranked,
+                    "peers": _load_peers(source, scoring)}
             for teams in (8, 10, 12, 14):
                 for bench in (0, 3, 6, 9, 14):
                     for flex in (0, 1, 2, 5):
@@ -110,7 +117,35 @@ def _synthetic_vectors():
              "TE": keyed("TE", range(30, 0, -1))}
     vectors.append({"label": "empty", "ranked_keyed": empty, "teams": 10,
                     "bench_per_team": 6, "flex_count": 2, "slots": None, "flex_eligible": None})
+    # V2-WAIVER-COVERAGE: thin chart + peers that cover it (imputed waiver),
+    # and peers that share too few players to fit (old fallback kept).
+    vectors.append({"label": "thin-peers", "ranked_keyed": THIN_CHART, "peers": THIN_PEERS,
+                    "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
+                    "flex_eligible": None})
+    vectors.append({"label": "thin-no-cover", "ranked_keyed": THIN_CHART, "peers": NO_COVER_PEERS,
+                    "teams": 12, "bench_per_team": 6, "flex_count": 1, "slots": None,
+                    "flex_eligible": None})
     return vectors
+
+
+def _keyed(prefix, values, start=0):
+    return [(f"{prefix}{i}", f"{prefix} {i}", float(v)) for i, v in enumerate(values, start)]
+
+
+# A chart listing 6 QBs / 12 RBs (a 12-team league rosters ~21 / ~55) whose
+# bottom half is also on two peer charts in other units, plus players it omits.
+THIN_CHART = {"QB": _keyed("q", [30, 25, 20, 15, 10, 8]),
+              "RB": _keyed("r", [60, 50, 45, 40, 35, 30, 25, 20, 18, 16, 14, 12]),
+              "WR": _keyed("w", range(200, 20, -2)), "TE": _keyed("t", range(60, 20, -1))}
+THIN_PEERS = {
+    "peer_a": {"QB": _keyed("q", [300, 250, 200, 150, 100, 80] + list(range(78, 0, -3))),
+               "RB": _keyed("r", [600, 500, 450, 400, 350, 300, 250, 200, 180, 160, 140, 120]
+                            + list(range(118, 0, -2)))},
+    "peer_b": {"QB": _keyed("q", [60, 50, 40, 30, 20, 16, 15.5, 15, 14, 9, 8, 7, 6, 5, 4, 3, 2, 1,
+                                  0.5, 0.4, 0.3, 0.2, 0.1, 0.05, 0.01])},
+}
+NO_COVER_PEERS = {"peer_a": {"QB": _keyed("q", [5, 4, 3], start=40),
+                             "RB": _keyed("r", [9, 8], start=4) + _keyed("r", [7, 6, 5], start=90)}}
 
 
 def _python(vector):
@@ -119,7 +154,8 @@ def _python(vector):
                                         vector["bench_per_team"], vector["flex_count"],
                                         slots=vector["slots"],
                                         flex_eligible=vector["flex_eligible"],
-                                        our_max=vector.get("our_max"))
+                                        our_max=vector.get("our_max"),
+                                        peers=vector.get("peers"))
     except (ValueError, SystemExit) as error:
         return {"error": str(error)}
 
@@ -130,6 +166,8 @@ def _js(vectors, model_path=VALUE_MODEL):
         "teams": vec["teams"], "bench_per_team": vec["bench_per_team"],
         "flex_count": vec["flex_count"], "slots": vec["slots"],
         "flex_eligible": vec["flex_eligible"], "our_max": vec.get("our_max"),
+        "peers": ({src: {pos: [[r[0], r[-1]] for r in rows] for pos, rows in by_pos.items()}
+                   for src, by_pos in vec["peers"].items()} if vec.get("peers") else None),
     } for vec in vectors]}
     proc = subprocess.run(["node", str(DRIVER), str(model_path)], input=json.dumps(payload),
                           capture_output=True, text=True, timeout=300)
@@ -213,7 +251,11 @@ def stored_drift_problems(fixture):
             ranked, key_by_name = unified.rank_natives(combo["native"])
             ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
                             for pos, rows in ranked.items()}
-            run = unified.translate_ranked(ranked_keyed, 12)["translated"]
+            # V2-WAIVER-COVERAGE: the saved values extrapolate a short chart's
+            # waiver line from the OTHER charts' saved natives in this fixture.
+            peers = unified.peers_ranked(unified.peer_natives(fixture, source, scoring))
+            core = unified.translate_ranked(ranked_keyed, 12, peers=peers)
+            run = core["translated"]
             evaluated = {k for rows in ranked_keyed.values() for k, _n, _v in rows}
             off, not_zero, hits, below, fallback = [], [], 0, 0, 0
             for slug, value in combo["reindexed"].items():
@@ -241,6 +283,9 @@ def stored_drift_problems(fixture):
                     problems.append(f"{tag}: provenance {field}={tr.get(field)} but recomputed {want}")
             if tr.get("translated_from") != "combo-natives":
                 problems.append(f"{tag}: provenance translated_from={tr.get('translated_from')!r}")
+            want_waiver = unified.waiver_summary(core["positions"])
+            if tr.get("waiver") != want_waiver:
+                problems.append(f"{tag}: provenance waiver={tr.get('waiver')} but recomputed {want_waiver}")
             report.append(f"{tag}: translated={hits} below_waiver={below} fallback={fallback} "
                           f"differ={len(off)} not_zero={len(not_zero)}")
     return problems, report
@@ -259,7 +304,7 @@ class VorpTranslationJsParity(unittest.TestCase):
         self.assertEqual(max_diff, 0.0)
         self.assertGreater(numbers, 100000)
         versions = {r.get("version") for r in js_results if "version" in r}
-        self.assertEqual(versions, {"unified-py-jeg62/1"})
+        self.assertEqual(versions, {"unified-py-jeg62/2"})
         # The synthetic tie vector really exercises the half-even branch.
         tie = next(r for v, r in zip(self.vectors, js_results) if v.get("label") == "ties")
         self.assertTrue(any(str(t["translated"]).endswith(("2", "4", "6", "8", "0"))
@@ -296,7 +341,7 @@ class VorpTranslationJsParity(unittest.TestCase):
         def split(source, scoring):
             run = _python({"ranked_keyed": _load_ranked(source, scoring), "teams": 12,
                            "bench_per_team": 6, "flex_count": 1, "slots": None,
-                           "flex_eligible": None})
+                           "flex_eligible": None, "peers": _load_peers(source, scoring)})
             saved = combo(fixture, source, scoring)["reindexed"]
             above = sorted((s for s in saved if str(pk.get(s)) in run["translated"]),
                            key=lambda s: -saved[s])

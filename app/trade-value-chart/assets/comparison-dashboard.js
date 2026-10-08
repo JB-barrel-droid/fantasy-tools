@@ -508,8 +508,8 @@
     const shape = state.rosterShape;
     const cacheKey = `${key}|${state.scoring}|${state.teams}|${["QB", "RB", "WR", "TE", "FLEX", "BENCH"].map(k => shape[k]).join(",")}`;
     if (derivedPublishedCache.has(cacheKey)) return new Map(derivedPublishedCache.get(cacheKey));
-    const read = view => window.TradeValueProductData.getPlayerValues({
-      source: key, scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view,
+    const read = (view, source = key) => window.TradeValueProductData.getPlayerValues({
+      source, scoring: state.scoring, teams: ValueModel.SAVED_SETUP_TEAMS, qbVariant: "qb1", view,
     });
     const savedRow = read("combo_reindexed");
     const nativeRow = read("native");
@@ -531,11 +531,24 @@
       const ppg = player.espn_ppg?.[field];
       if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
     });
+    // V2-WAIVER-COVERAGE: the other published charts' saved natives, as the
+    // curve widget passes them (a short chart's waiver line is extrapolated
+    // from them).
+    const peers = {};
+    AS_PUBLISHED_KEYS.forEach(other => {
+      if (other === key) return;
+      const peer = new Map();
+      read("native", other)?.values?.forEach((rawValue, playerKey) => {
+        const value = Number(rawValue);
+        if (canonicalByKey.has(playerKey) && Number.isFinite(value)) peer.set(playerKey, value);
+      });
+      if (peer.size) peers[other] = peer;
+    });
     const values = saved.size && native.size
       ? ValueModel.derivePublishedSetup({
           native, saved, indexTotal: savedRow.index_total,
           posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-          teams: state.teams, shape, projection
+          teams: state.teams, shape, projection, peers
         }).values
       : new Map();
     derivedPublishedCache.set(cacheKey, values);

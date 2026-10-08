@@ -185,6 +185,13 @@
     return item.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "content week unknown";
   }
 
+  // V2-WAIVER-COVERAGE: a published chart that lists fewer players than this
+  // league rosters has its waiver line extrapolated from the other charts
+  // (engine getSourceInfo().waiverNote). Say so wherever its source is listed.
+  function withWaiverNote(text, item) {
+    return item && item.waiverNote ? `${text} · ${item.waiverNote}` : text;
+  }
+
   function sourceLabelFor(key) {
     const meta = sourceMeta(key);
     const item = view.infoByKey[key];
@@ -781,7 +788,7 @@
           reason.className = `reason${item.stale ? " is-older" : ""}`;
           reason.textContent = !item.available
             ? (item.paused ? "— waiting on fresh inputs" : "— not available for this league")
-            : freshnessText(item);
+            : withWaiverNote(freshnessText(item), item);
           label.append(box, name, reason);
           group.appendChild(label);
         });
@@ -899,7 +906,7 @@
         line.append(document.createTextNode(` ${PUBLISHER_NAMES[m.publisher] || m.label} · ${METHOD_LABEL[m.method]}`));
         const reason = document.createElement("span");
         reason.className = `reason${item.stale ? " is-older" : ""}`;
-        reason.textContent = freshnessText(item);
+        reason.textContent = withWaiverNote(freshnessText(item), item);
         line.appendChild(reason);
         group.appendChild(line);
       });
