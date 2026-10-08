@@ -60,6 +60,24 @@ equal ESPN's, so each keeps its own weighting across positions and its own top
 values. Aligning each position's top to ESPN's applies only to the fitted
 `*_adjusted` series.
 
+### Inspecting the math
+
+Internal page: `modules/math-inspector.html` (live:
+https://jb-barrel-droid.github.io/fantasy-tools/modules/math-inspector.html).
+Noindex, linked from no public page. It runs the chart engine off-screen and
+shows, for any scoring, team count, roster and bench share: each source's saved
+inputs and provenance (content week, URL, bake, identity rows not resolved to a
+charted player); the translation (rostered counts, waiver line and how it was
+set, value above waivers in the chart's own units, implied weights by position
+and starter/bench); the Indexed pie split by position x starter/bench beside
+the anchor's on the same players; VORP vs waivers and Adjusted values per
+player side by side with every factor; a one-player drill-down across all
+sources and views with the prior week's change; and a CSV/JSON download of
+every table. It reads only `TradeValueCurveControls.getInspection()` (a
+read-only accessor); `tests/test_math_inspector.py` holds its tables to the
+engine's `getAllRows()` in all three views at three settings. Built by
+`pipelines/build_inspector_page.py` from `app/inspector/` on every `make sync`.
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:

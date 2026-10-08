@@ -1057,7 +1057,9 @@
     return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
             positionalMax: projection ? POSITIONAL_MAX_VERSION : "fixed", ourMax: maxes,
             values: values, translated: counts.translated, belowWaiver: counts.belowWaiver,
-            waiver: waiverSummary(at)};
+            waiver: waiverSummary(at),
+            // Read-only echo of the translation behind `values` (math inspector).
+            translation: at};
   }
 
   // ---------------------------------------------------------------------
@@ -1171,8 +1173,12 @@
         if (w > out.batchMax) out.batchMax = w;
       });
       grouped[src] = weighted;
+      // budgets, roles (key -> {pos, role, vorp}) and translation are
+      // read-only echoes of this function's inputs and intermediates for the
+      // math inspector; no value is derived from them.
       out.sources[src] = {vorp: vorp, total: total, vorpScale: vorpScale, groups: groups,
-                          waiver: waiverSummary(at)};
+                          waiver: waiverSummary(at), budgets: budgets, roles: info,
+                          translation: at};
     });
     out.adjScale = out.batchMax > 0 ? VIEW_TOP_OF_SCALE / out.batchMax : 0;
     Object.keys(out.sources).forEach(function (src) {
