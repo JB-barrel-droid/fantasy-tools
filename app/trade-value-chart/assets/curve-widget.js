@@ -1809,17 +1809,51 @@
 
   // GAP-025 (Jeremy, 2026-10-07: "Yes, use 0"): a player ESPN lists but
   // projects at 0 (injured/out) is worth 0.0 on the ESPN series, not missing,
-  // so a chart that still pays for him has a real gap. This is display only:
-  // the zeros are added to the row, never to sourceMaps, so the ESPN anchor
-  // every chart is indexed against, its pie and its peaks are unchanged. A
-  // player with no ESPN row (espn_status "absent") stays missing (—).
-  // CBS ROS and Razzball need no rule: a row projecting 0 is already priced
-  // at 0 by their legs, and a player with no row is missing.
+  // so a chart that still pays for him has a real gap.
+  // GAP-ESPN-BELOW-LEG (Jeremy, 2026-10-07): the same for a player a source
+  // projects above 0 but below its built leg: 0.0 on that leg, not missing.
+  // "Below the leg" is proved, not assumed: his per-game projection is at or
+  // below the lowest projection the leg prices at his position. A player above
+  // that line whom the leg still lacks, or a position the leg does not price
+  // at all (CBS ROS quarterbacks at 8 teams), stays missing (fail closed).
+  // Display only: the zeros go into the row, never into sourceMaps, so the
+  // ESPN anchor every chart is indexed against, its pie and its peaks are
+  // unchanged. A player with no row in the source stays missing (—).
+  // The raw *_vorp series already price every projected player (0 at or below
+  // waivers), so only ESPN-0 needs a rule there.
   const ESPN_ZERO_VALUE_KEYS = new Set(["espn", "espn_vorp"]);
+  const LEG_PPG_FIELDS = {espn: "espn_ppg", cbsros: "cbsros_ppg", razzball: "rz_ppg"};
+  let legFloors = new Map();
+  function projectionOf(player, key) {
+    const ppg = player?.[LEG_PPG_FIELDS[key]]?.[scoringField()];
+    return typeof ppg === "number" && Number.isFinite(ppg) ? ppg : null;
+  }
+  // key -> {pos: lowest per-game projection the leg prices at that position}.
+  function buildLegFloors() {
+    const floors = new Map();
+    Object.keys(LEG_PPG_FIELDS).forEach(key => {
+      const byPos = {};
+      sourceMaps.get(key)?.forEach((_, playerKey) => {
+        const player = canonicalByKey.get(playerKey);
+        const ppg = projectionOf(player, key);
+        if (ppg === null) return;
+        byPos[player.pos] = Math.min(byPos[player.pos] ?? Infinity, ppg);
+      });
+      floors.set(key, byPos);
+    });
+    return floors;
+  }
   function rowValue(key, player) {
     const map = sourceMaps.get(key);
     if (map?.has(player.player_key)) return map.get(player.player_key);
-    return ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero && map?.size ? 0 : null;
+    if (!map?.size) return null;
+    if (ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero) return 0;
+    if (LEG_PPG_FIELDS[key]) {
+      const ppg = projectionOf(player, key);
+      const floor = legFloors.get(key)?.[player.pos];
+      if (ppg !== null && Number.isFinite(floor) && ppg <= floor) return 0;
+    }
+    return null;
   }
 
   function rebuildDomain() {
@@ -1879,6 +1913,7 @@
       }));
     });
 
+    legFloors = buildLegFloors();
     const keys = new Set();
     visibleSourceKeys().forEach(key => sourceMaps.get(key)?.forEach((_, playerKey) => keys.add(playerKey)));
     universe = [...keys].map(playerKey => {

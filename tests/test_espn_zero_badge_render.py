@@ -310,7 +310,7 @@ class EspnZeroBadgeRenderTest(unittest.TestCase):
         dashboard = DASHBOARD_JS.read_text(encoding="utf-8")
         # The engine before "Yes, use 0": an ESPN-0 player is missing (—).
         no_zero_widget = widget.replace(
-            "return ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero && map?.size ? 0 : null;", "return null;", 1)
+            "if (ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero) return 0;", "", 1)
         no_zero_dashboard = dashboard.replace(
             "return ESPN_ZERO_VALUE_KEYS.has(key) && map?.size && canonicalByKey.get(playerKey)?.espn_projects_zero ? 0 : null;",
             "return null;", 1)
