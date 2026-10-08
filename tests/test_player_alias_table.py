@@ -219,13 +219,17 @@ class NightlyReconcile(unittest.TestCase):
         self.assertNotIn("espn", report["open_by_source"])        # settled tonight
         self.assertEqual(report["sources_over_threshold"], {"razzball": 6})
         self.assertIn((11, "verified"), [(i, b["status"]) for i, b in patches])
+        runs = {r["source"]: r for r in report["runs"]}
+        self.assertEqual((runs["razzball"]["unmatched"], runs["razzball"]["promoted"]), (6, 0))
+        self.assertEqual((runs["espn"]["promoted"], runs["espn"]["queued"]), (1, 0))
 
     def test_dry_run_writes_nothing_and_write_records_the_check(self):
         rows = [open_row(1, "Jackson Meeks", "TE")]
         for write in (False, True):
             with self.subTest(write=write):
-                patched, recorded = [], []
+                patched, recorded, runs = [], [], []
                 with mock.patch.object(rec, "fetch_open", lambda: rows), \
+                        mock.patch.object(rec, "post_runs", runs.extend), \
                         mock.patch.object(rec, "fetch_players", lambda: PLAYERS), \
                         mock.patch.object(rec, "fetch_curated", lambda: []), \
                         mock.patch.object(rec, "patch_row", lambda i, b: patched.append(i)), \
@@ -236,6 +240,7 @@ class NightlyReconcile(unittest.TestCase):
                 self.assertEqual(rc, 0)
                 self.assertEqual(patched, [1] if write else [])
                 self.assertEqual(recorded, [(True, True, None)] if write else [])
+                self.assertEqual([r["source"] for r in runs], ["razzball"] if write else [])
 
     def test_curated_drift_is_reported(self):
         rows = [{"source_player_name": e["alias"], "player_key": e["player_key"]}

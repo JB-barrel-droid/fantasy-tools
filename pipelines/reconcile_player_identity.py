@@ -50,6 +50,7 @@ from canonical_players import narrow_candidates, norm_player_name  # noqa: E402
 
 DEFAULT_OUT = ROOT / "output" / "player-identity-reconcile.json"
 CHECK_ID = "player_identity_reconcile"
+RUNS_TABLE = "player_identity_reconcile_runs"  # existing stage-2 table, one row per source per run
 FUZZY_FLOOR = 0.88
 FUZZY_MARGIN = 0.05
 WRITER = "reconcile_player_identity"
@@ -144,6 +145,18 @@ def reconcile(open_rows: list[dict[str, Any]], players: list[dict[str, Any]],
         after.append({**row, **new})
     counts = identity_queue.open_counts(after, now)
     over = {s: c["open"] for s, c in counts.items() if c["open"] > identity_queue.OPEN_NAMES_ALERT}
+    promoted: dict[str, int] = {}
+    for c in settled:
+        if c["status"] == "verified":
+            promoted[str(c["source"])] = promoted.get(str(c["source"]), 0) + 1
+    runs = []
+    for src in sorted(set(counts) | set(promoted)):
+        c = counts.get(src, {"unmatched": 0, "review": 0, "provisional": 0, "open": 0, "names": []})
+        runs.append({"run_at": now.isoformat(), "run_label": WRITER, "source": src,
+                     "total_aliases": c["open"] + promoted.get(src, 0), "verified": promoted.get(src, 0),
+                     "promoted": promoted.get(src, 0), "unmatched": c["unmatched"], "review": c["review"],
+                     "provisional": c["provisional"], "queued": c["open"],
+                     "detail": {"open_names": c["names"], "window_days": identity_queue.RECENT_DAYS}})
     report = {
         "schema": "player-identity-reconcile-v1",
         "generated_at": now.isoformat(),
@@ -153,6 +166,7 @@ def reconcile(open_rows: list[dict[str, Any]], players: list[dict[str, Any]],
         "alert_threshold": identity_queue.OPEN_NAMES_ALERT,
         "window_days": identity_queue.RECENT_DAYS,
         "sources_over_threshold": over,
+        "runs": runs,
         "fuzzy_floor": FUZZY_FLOOR,
         "fuzzy_margin": FUZZY_MARGIN,
     }
@@ -186,6 +200,11 @@ def _patch(row_id: int, body: dict[str, Any]) -> None:
     _sb().patch(identity_queue.TABLE, body, f"?id=eq.{row_id}")
 
 
+def _post_runs(rows: list[dict[str, Any]]) -> None:
+    if rows:
+        _sb().post(RUNS_TABLE, rows, prefer="return=minimal")
+
+
 def _record(ok: bool, content_ok: bool, error_code: str | None) -> None:
     _sb().rpc("monitoring_record_observation", {
         "p_check_id": CHECK_ID, "p_ok": ok, "p_content_ok": content_ok,
@@ -196,6 +215,7 @@ fetch_open: Callable[[], list[dict[str, Any]]] = _fetch_open
 fetch_players: Callable[[], list[dict[str, Any]]] = _fetch_players
 fetch_curated: Callable[[], list[dict[str, Any]]] = _fetch_curated
 patch_row: Callable[[int, dict[str, Any]], None] = _patch
+post_runs: Callable[[list[dict[str, Any]]], None] = _post_runs
 record_check: Callable[[bool, bool, str | None], None] = _record
 
 
@@ -214,6 +234,7 @@ def main(argv=None) -> int:
         if args.write:
             for row_id, body in patches:
                 patch_row(row_id, body)
+            post_runs(report["runs"])  # history per source: public.player_identity_reconcile_runs
         report["mode"] = "write" if args.write else "dry-run"
     except Exception as exc:  # noqa: BLE001 -- recorded as a failed run
         print(f"IDENTITY RECONCILE FAILED: {type(exc).__name__}: {str(exc)[:300]}")
