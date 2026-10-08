@@ -34,11 +34,11 @@
 | L3 · Fixed-pie math | Two-tier, bench share | 🔴 6 test failures (data drift) |
 
 ### 3. comparison-dashboard — 🟢 HEALTHY
-**Owns:** Player news, health panel, dataset status
+**Owns:** Health panel, dataset status
 
 | Layer | File / Check | Status |
 |-------|--------------|--------|
-| L1 · Player news | `ingest_player_news.py` → max 3 + timing badges | ✅ |
+| L1 · Player news | Retired 2026-10-08 (no producer; last present at `aefb8f7`) | — |
 | L2 · Health panel | Dataset health display | ✅ |
 
 ### 4. page-shell — 🟢 HEALTHY
@@ -60,6 +60,8 @@
 | L4 · Verify | `verify_live.py` | ✅ LIVE OK |
 
 ## Live Dashboard
+
+**Ops dashboard (start here):** https://jb-barrel-droid.github.io/fantasy-tools/modules/status.html -- pipelines, back end, front end and alerts with as-of times (see SYSTEM_MAP.md "Internal Monitoring"). The data monitor below is the drill-down.
 
 **URL:** https://jb-barrel-droid.github.io/fantasy-tools/modules/dashboard.html
 

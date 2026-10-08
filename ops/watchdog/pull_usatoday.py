@@ -29,6 +29,7 @@ import urllib.request
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import article_discovery as ad
 from _common import content_week, fetch, today_ct, REPO
 
 SECTION_SLUG = "trade-value-chart-week-%d-ros-rankings"
@@ -88,7 +89,7 @@ def sitemap_urls_for_month(year, month, fetch_fn=fetch):
         "refusing to discover from a partial sitemap" % (year, month, last_err))
 
 
-def discover_url(week=None, fetch_fn=fetch):
+def discover_url(week=None, fetch_fn=fetch, llm_fn=None):
     """Find this week's USA Today trade-value-chart article URL.
 
     Searches the current and previous month's web sitemaps for the
@@ -98,22 +99,61 @@ def discover_url(week=None, fetch_fn=fetch):
     week = week or content_week()
     today = today_ct()
     tried = []
+    months = ((today.year, today.month),
+              *([(today.year, today.month - 1)] if today.month > 1
+                else [(today.year - 1, 12)]))
+    month_urls = {}
     for wk in (week, week - 1):
         if wk < 1:
             continue
         slug_re = re.compile(SLUG_RE % wk)
-        for dy, dm in ((today.year, today.month),
-                       *([ (today.year, today.month - 1) ] if today.month > 1
-                         else [(today.year - 1, 12)])):
-            urls = sitemap_urls_for_month(dy, dm, fetch_fn)
+        for dy, dm in months:
+            if (dy, dm) not in month_urls:
+                month_urls[(dy, dm)] = sitemap_urls_for_month(dy, dm, fetch_fn)
+            urls = month_urls[(dy, dm)]
             tried.append((dy, dm, len(urls)))
             hits = [u for u in urls if slug_re.search(u)]
             if hits:
                 # Newest article wins (sitemap order is chronological).
                 return hits[-1]
+        if wk == week:
+            # GAP-CBS-DISCOVERY-SLUG: before settling on last week, look for
+            # this week's chart under a reworded slug, then let the LLM
+            # fallback nominate one. Either must carry week N in its slug
+            # (the ingest's exact-week gate) and parse as week-N tables.
+            all_urls = [u for m in months for u in month_urls.get(m, [])]
+            hit = relaxed_match(all_urls, week) or llm_match(all_urls, week, llm_fn)
+            if hit:
+                return hit
     raise DiscoveryFailed(
         "no USA Today trade-value-chart article found for week %d "
         "(tried sitemaps: %s)" % (week, tried))
+
+
+_FANTASY_FB = "/sports/fantasy/football/"
+
+
+def relaxed_match(urls, week):
+    """Newest fantasy-football URL whose slug says trade + chart and week N
+    in any wording (e.g. "trade-value-charts-week-5", "week-5-trade-chart")."""
+    hits = [u for u in urls if _FANTASY_FB in u
+            and re.search(r"trade", u) and re.search(r"chart", u)
+            and ad.week_in_slug(u) == week]
+    return hits[-1] if hits else None
+
+
+def llm_match(urls, week, llm_fn=None):
+    """LLM fallback over this period's fantasy-football URLs (newest first);
+    the pick must still name week N in its slug."""
+    def slug_words(u):
+        parts = [p for p in u.split(_FANTASY_FB, 1)[1].split("/") if p]
+        return (parts[-2] if len(parts) >= 2 else parts[-1]).replace("-", " ")
+    pool = [(u, slug_words(u)) for u in reversed(urls) if _FANTASY_FB in u]
+    pick = (llm_fn or (lambda w, ls: ad.llm_pick("USA Today", w, ls)))(week, pool)
+    if pick and ad.week_in_slug(pick) == week:
+        print("[usatoday] LLM fallback nominated %s" % pick, flush=True)
+        return pick
+    return None
 
 
 def extract_week_from_url(url: str) -> int | None:
@@ -222,7 +262,8 @@ def fetch_via_relay(url, timeout=90):
 
 def fetch_via_firecrawl(url, timeout=90):
     """Optional paid fallback: active only when FIRECRAWL_API_KEY is set.
-    Returns (status, rawHtml) or None. UNVERIFIED in CI (no secret yet)."""
+    Returns (status, rawHtml) or None. Wired into trade-chart-ingest.yml as the
+    optional secret FIRECRAWL_API_KEY; unexercised in CI until that secret exists."""
     key = os.environ.get("FIRECRAWL_API_KEY", "")
     if not key:
         return None
@@ -242,22 +283,42 @@ def fetch_via_firecrawl(url, timeout=90):
     return (200, html) if html else None
 
 
+def _usable(got):
+    """A fallback result counts only when it is a 200 carrying the chart's
+    table markup. A relay or scraper can answer 200 with the bot wall or an
+    interstitial; accepting that would stop the chain one step early and end
+    in "table markup not found" instead of trying the next fallback."""
+    return bool(got) and got[0] == 200 and bool(got[1]) and TABLE_MARK in got[1]
+
+
 def fetch_article(url, fetch_fn=fetch):
     """Direct fetch first; on a bot-wall status fall back to the Supabase
-    relay, then Firecrawl (only if its secret exists). A fallback's non-200
-    never masks the original block: the caller still sees the blocked status
-    and raises SOURCE_BLOCKED."""
+    relay, then Firecrawl (only if FIRECRAWL_API_KEY is set). A fallback is
+    accepted only when it returns the chart's table markup (_usable). When
+    every fallback fails the caller still sees the original blocked status,
+    so pull() raises SOURCE_BLOCKED naming each fallback it tried."""
+    fetch_article.last_fallbacks = []
     st, body = fetch_fn(url)
     if st not in BLOCK_STATUSES:
         return st, body
+    tried = []
     for name, fb in (("supabase relay", fetch_via_relay),
                      ("firecrawl", fetch_via_firecrawl)):
         got = fb(url)
-        if got and got[0] == 200 and got[1]:
+        if _usable(got):
             print("[usatoday] direct fetch blocked (%s); fetched via %s"
                   % (st, name), flush=True)
             return got
+        tried.append("%s=%s" % (name, "not configured/unreachable" if not got
+                                else "status %r, %s" % (got[0], "no chart tables"
+                                                        if got[0] == 200 else "refused")))
+    print("[usatoday] all fallbacks failed: %s" % "; ".join(tried),
+          file=sys.stderr, flush=True)
+    fetch_article.last_fallbacks = tried
     return st, body
+
+
+fetch_article.last_fallbacks = []
 
 
 def pull(url, fetch_fn=fetch_article):
@@ -268,8 +329,10 @@ def pull(url, fetch_fn=fetch_article):
     if st in (401, 402, 403, 429):
         # 2026-10-06: usatoday.com answers GitHub-hosted runners with 402
         # "Access Restricted" (bot wall); the gannett-cdn sitemaps still 200.
-        raise RuntimeError("SOURCE_BLOCKED: fetch refused: status=%r url=%s"
-                           % (st, url))
+        tried = getattr(fetch_article, "last_fallbacks", None) or []
+        raise RuntimeError("SOURCE_BLOCKED: fetch refused: status=%r url=%s%s"
+                           % (st, url, (" (fallbacks: %s)" % "; ".join(tried))
+                              if tried else ""))
     if st != 200 or not html:
         raise RuntimeError("fetch failed: status=%r url=%s" % (st, url))
     if TABLE_MARK not in html:

@@ -27,7 +27,7 @@ last session measured, what it asserted without checking, and what is still open
 - `data/fixtures/current/` - the finished artifacts everything else builds from.
 - `data/inputs/`, `data/raw/` - vendored source inputs and raw pulls (`raw/` is ignored).
 - `pipelines/` - build and data-artifact generation steps; shared helpers in `pipelines/lib/`.
-- `modules/` - the module monitor (`dashboard.html`), published to `dist/modules/`.
+- `modules/` - internal monitor pages, published to `dist/modules/`: `status.html` (ops dashboard, start here) and `dashboard.html` (data monitor drill-down).
 - `ops/watchdog/` - source-pull watchdog and per-source ingesters.
 - `weekly_vegas/` - Weekly Vegas dashboard (Vegas-vs-ECR disagreement signals) + its build pipeline (bin/, collectors/, engine/, v4/, loaders/, sql/, docs/, research/); a segmented sibling tree to the trade-value chart, not part of it. See `weekly_vegas/README.md`.
 - `waiver_wire/` - Waiver dashboard (weekly add / don't-add / drop board) + its build pipeline (bin/, engine/, sql/); a segmented sibling tree to both the trade-value chart and `weekly_vegas/`. Its only cross-tree relationship is a read-only input from the published chart fixture `data/fixtures/current/players.json`. See `waiver_wire/README.md`.
@@ -99,12 +99,6 @@ make freshness-check MAX_STALE_DAYS=2
 
 `make validate` runs this gate before syncing `dist/`, and the GitHub Pages workflow also runs on a daily schedule so stale artifacts cannot keep deploying silently.
 
-Ingest play/value news when a raw JSON or JSONL feed is available:
-
-```bash
-python3 pipelines/ingest_player_news.py --input data/raw/player-news.jsonl
-```
-
 Import a scraped trade-value page from Muse or another scraper into the standard
 raw source format:
 
@@ -131,37 +125,9 @@ make source-section REFERENCE_FILE=output/source-references/fantasycalc/2026-09-
 make comparison-candidate SECTION_FILE=output/comparison-source-sections/fantasycalc/2026-09-21/fantasycalc-ppr-12-section.json
 ```
 
-Pull the free league-wide RSS feeds into the raw article store, then rebuild the dashboard fixture and review queues:
-
-```bash
-python3 pipelines/ingest_player_news.py --fetch-rss
-```
-
-Add the daily per-player Google News layer for the top watchlist players:
-
-```bash
-python3 pipelines/ingest_player_news.py --fetch-rss --fetch-google-news --watchlist-top 200
-```
-
-Curated news adjustments are read from `data/raw/player-news-adjustments.json` and the checked-but-not-adjusted log is read from `data/raw/news-checked.json`. Ambiguous full-name matches are written to `output/player-news-unmatched.json`; injury and suspension items that need a reviewer are written to `output/player-news-review-queue.json`.
-
-Muse player-news bundles can be unpacked under `data/raw/muse-player-news/`; copy `poll_log.jsonl`, `news_adjustments.json`, `news_checked.json`, and `news_consumed.json` to the default raw filenames above before running the ingester. The Google News pull automatically uses the latest `data/raw/muse-player-news/news-watchlist*.json` file when present, or you can pass one explicitly:
-
-```bash
-python3 pipelines/ingest_player_news.py --fetch-rss --fetch-google-news --watchlist data/raw/muse-player-news/news-watchlist-week2-2026-09-20.json
-```
-
-For late-week builds, fail closed unless supplemental injury data is fresh as of Friday evening or later:
-
-```bash
-python3 pipelines/ingest_player_news.py --require-fresh-injury-data --injury-data-updated-at 2026-09-18T18:30:00-05:00
-```
-
-When the raw player-news store contains `fetched_at` timestamps, the ingester can derive that freshness proof automatically:
-
-```bash
-python3 pipelines/ingest_player_news.py --require-fresh-injury-data
-```
+The player-news pipeline (`ingest_player_news.py`, `make source-news`) was
+retired 2026-10-08: it had no producer outside a local raw folder. Revive it
+from git history (last present at `aefb8f7`) if news comes back.
 
 Sync the finished fixtures into the static dashboard and deployable `dist/` output:
 

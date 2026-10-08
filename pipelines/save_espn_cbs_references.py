@@ -23,13 +23,10 @@ Tables (grain = upsert key; writes are idempotent on the grain):
     pulled_at=now, player_norm as join label.
 
 Identity (fail closed, same rule as the chart bake): numeric player_key only,
-resolved via public.players (full_name is the naming authority). Four
-verified spelling aliases are applied to the normalized name before lookup
-(the ALIASES map shared with pipelines/build_ddf_two_tier_leg.py, verified
-against players.full_name 2026-09-22): 'cameron ward' -> 'cam ward' (697),
-'cameron skattebo' -> 'cam skattebo' (3664), 'travis etienne jr' ->
-'travis etienne' (810), 'michael pittman jr' -> 'michael pittman' (561).
-The map is exact-match only: any other spelling is looked up verbatim and
+resolved via public.players (full_name is the naming authority). Verified
+spelling aliases (data/inputs/player_aliases.json, the one list every
+resolver shares, each checked against public.players) are applied before
+lookup, e.g. 'Cameron Ward' -> Cam Ward (697). Exact spellings only: any other spelling is looked up verbatim and
 still fails closed. Unmatched or ambiguous names go to the review report --
 never guessed, never zero-filled.
 
@@ -78,7 +75,9 @@ from import_source_snapshot import parse_float  # noqa: E402
 # Single source of truth for the verified spelling aliases (shared with the
 # DDF two-tier leg). Verified against players.full_name 2026-09-22; the map
 # here and in build_ddf_two_tier_leg.py must never diverge.
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+import player_aliases  # noqa: E402 -- the one verified alias list
+from canonical_players import narrow_candidates  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import content_week  # noqa: E402 -- content week for the CBS save grain
 # Writer audit for Supabase write provenance
@@ -103,7 +102,7 @@ def _sb():
 
 def _default_fetch_players() -> list[dict[str, Any]]:
     sbclient = _sb()
-    rows = sbclient.get_all("players", params="?select=player_key,full_name,position")
+    rows = sbclient.get_all("players", params="?select=player_key,full_name,position,active")
     if not isinstance(rows, list):
         raise SystemExit("Unexpected Supabase response for players")
     return [r for r in rows if isinstance(r, dict)]
@@ -153,7 +152,9 @@ def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, 
         if not isinstance(key, int) or not name:
             continue
         index.setdefault(normalize_name(name), []).append(
-            {"player_key": key, "full_name": name, "position": str(record.get("position") or "").strip().upper() or None}
+            {"player_key": key, "full_name": name,
+             "position": str(record.get("position") or "").strip().upper() or None,
+             "active": record.get("active")}
         )
     return index
 
@@ -166,27 +167,18 @@ def resolve_name(
     pos comes back as the canonical players-table position (the DB write's
     position source; the file's own spelling is never trusted for pos).
 
-    Verified spelling aliases (ALIASES, shared with the DDF two-tier leg) are
-    applied to the normalized name BEFORE lookup, so the import and the leg
-    resolve the same identities. The map is exact-match only: any spelling not
-    in ALIASES is looked up verbatim and still fails closed (no fuzzy
-    matching, no guessing).
+    Verified spelling aliases (data/inputs/player_aliases.json, the one list
+    every resolver shares) rewrite the name to its public.players spelling
+    BEFORE lookup, so the import, the legs and the bake resolve the same
+    identities. Exact (normalized) spellings only: anything else is looked up
+    verbatim and still fails closed (no fuzzy matching, no guessing).
+    Same-name candidates narrow by position, then by the single active row.
     """
-    norm = normalize_name(name)
-    norm = ALIASES.get(norm, norm)
-    candidates = index.get(norm, [])
-    if not candidates:
-        return None, None, "no_match"
-    if len(candidates) == 1:
-        rec = candidates[0]
-        return rec["player_key"], rec, rec["position"]
-    wanted = (pos or "").strip().upper()
-    if wanted:
-        filtered = [c for c in candidates if c.get("position") == wanted]
-        if len(filtered) == 1:
-            rec = filtered[0]
-            return rec["player_key"], rec, rec["position"]
-    return None, None, "ambiguous"
+    norm = normalize_name(player_aliases.canonical_spelling(name))
+    rec, reason = narrow_candidates(index.get(norm, []), pos)
+    if rec is None:
+        return None, None, reason
+    return rec["player_key"], rec, rec["position"]
 
 
 # ---------------------------------------------------------------------------

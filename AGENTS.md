@@ -150,11 +150,13 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
   instead of the raw FantasyCalc number (9914). The matcher and
   `build_source_reference.py` now carry `native_value` through every stage.
 - Regression tests: `tests/test_fantasycalc_drift.py` (5 tests).
-- Refresh schedule: GitHub Actions workflow `.github/workflows/fantasycalc-drift.yml`
-  runs daily at 11:45 UTC (6:45 AM CDT). If drift is detected, it refreshes
-  the snapshot, re-runs the pipeline, re-imports to Supabase via
-  `pipelines/refresh_fantasycalc_supabase.py`, verifies health, and pushes.
-  No local cron — project rules require GitHub Actions for scheduled work.
+- Refresh (updated 2026-10-08): the scheduled FantasyCalc producer is
+  `.github/workflows/fantasycalc-weekly-save.yml` (pg_cron
+  `trigger-fantasycalc-weekly-save`, Tue + Fri 13:07 UTC): pulls the 12-team
+  lists and saves a reindexed bake via `save_fantasycalc_references.py`.
+  `fantasycalc-drift.yml` is a manual-only drift check now.
+  `refresh_fantasycalc_supabase.py` (wrote raw natives into `value`, hardcoded
+  Week 4, no bake_id) was deleted; see docs/watchdog.md "Producer schedules".
 
 ## As-published indexing: proportional scaling (2026-09-30)
 - User directive: "there is no need for rounding like this, so figure out a logic that applies to all the ones sourced from trade value charts." The per-position quantile mapping was destroying real value differences (Jeanty 6365 vs Cook 7157 → both 41.4) and scrambling cross-position rank.
@@ -177,6 +179,8 @@ Detailed delegation templates live in `docs/delegation-workflow.md`.
 - Rule: any committed `dist/modules/*.json` that CI regenerates must be buildable from repo inputs alone, or the rebuild step must fail closed instead of writing degraded output. Same class as the import-health staleness bug.
 - Regression: `tests/test_lineage_snapshot_guard.py` (4 tests: empty refuses, partial refuses, full passes, real local snapshots satisfy — the last is `skipUnless` the gitignored snapshots exist, because a test asserting their presence can never pass in CI; the first version of it failed CI validation and blocked the 3c2136bf deploy). Rebuilt locally 2026-10-01: FantasyPros 25/25, CBS 25/25, FantasyCalc 22/25 (3 genuine intraday moves), USA Today 19/25 + 6 no-live (scrape 402, recorded in live_stale_sources), ESPN N/A-by-design.
 - Oddity found during the fix: `data/raw/sources/fantasycalc/week-4/snapshot.json` is force-added to git despite `.gitignore` carrying `data/raw/`; the fantasypros/usatoday snapshots are properly ignored. That's why CI loaded 196 fantasycalc natives while fp/usa loaded 0. Left as-is (removing it would change FantasyCalc lineage behavior); flagging for the next snapshot-management pass.
+
+- Retired 2026-10-08 (chore/retire-extras): the lineage builder, its CI step and `tests/test_lineage_snapshot_guard.py` are gone (last present at `aefb8f7`). The rule above still stands for every other CI-regenerated artifact.
 
 ## CI sync must prefer the freshest health file, not the fixture (2026-10-01)
 - The 30-min health cron pushes a fresh `dist/modules/source-import-health.json` with every run, but CI's `make sync` (where the gitignored `output/` runtime file is absent) unconditionally fell back to the committed fixture `data/fixtures/current/source-import-health.json` and OVERWROTE the fresh pushed copy before upload. On 2026-10-01 the served monitor read `checked_at` 08:37Z while main held 10:07Z, because the last three health pushes (4e035da, 46638ad, 28b346f) had stopped including the fixture copy.

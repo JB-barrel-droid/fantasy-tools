@@ -80,12 +80,27 @@ def source_combo_key(source: str, scoring: str, teams: int, qb_slots: int | None
 
 
 # ---------------------------------------------------------------------------
-# Flex eligibility: SUPERFLEX adds QB to the eligible list.
+# Superflex (JEG332-SUPERFLEX-FLEX option A, Jeremy 2026-10-08): a DEDICATED
+# slot count, filled after dedicated slots and before FLEX by the best
+# remaining player at any position. FLEX stays RB/WR/TE.
 # ---------------------------------------------------------------------------
+SUPERFLEX_ELIGIBLE = ["QB", "RB", "WR", "TE"]
+
+
+def superflex_count(shape: dict[str, Any] | None) -> int:
+    """Mirror value-model.js::superflexCount."""
+    try:
+        n = float((shape or {}).get("SUPERFLEX") or 0)
+    except (TypeError, ValueError):
+        return 0
+    if n != n or n in (float("inf"), float("-inf")):
+        return 0
+    n = int(n // 1)
+    return n if n > 0 else 0
+
+
 def flex_eligible(shape: dict[str, Any] | None) -> list[str]:
-    """Mirror value-model.js::flexEligible."""
-    if shape and shape.get("SUPERFLEX"):
-        return ["QB"] + list(DEFAULT_FLEX_ELIGIBLE)
+    """Mirror value-model.js::flexEligible (superflex no longer widens FLEX)."""
     return list(DEFAULT_FLEX_ELIGIBLE)
 
 
@@ -146,6 +161,9 @@ def role_map(values: dict[Any, float], player_of: Callable[[Any], dict[str, Any]
         take = teams * (_safe_int(shape.get(pos)))
         for _, p, pk in [r for r in rows if r[1].get("pos") == pos][:take]:
             roles[pk] = "starter"
+    sf_rows = [r for r in rows if r[2] not in roles]
+    for _, p, pk in sf_rows[:teams * superflex_count(shape)]:
+        roles[pk] = "starter"
     elig = flex_eligible(shape)
     elig_rows = [r for r in rows if r[1].get("pos") in elig and r[2] not in roles]
     for _, p, pk in elig_rows[:teams * _safe_int(shape.get("FLEX"))]:
@@ -487,9 +505,9 @@ def projection_roles(pool: list[dict[str, Any]], teams: int, shape: dict[str, An
         out_list.sort(key=lambda p: (-float(score_of(p)), str(p.get("name") or ""), _safe_int(p.get("player_key"))))
         return out_list
 
-    flex_positions = flex_eligible(shape)
-    flex_score = rank_of if "QB" not in flex_positions else surplus
-    for p in remaining(flex_positions, flex_score)[: teams * _safe_int(shape.get("FLEX"))]:
+    for p in remaining(SUPERFLEX_ELIGIBLE, rank_of)[: teams * superflex_count(shape)]:
+        roles[p.get("player_key")] = "starter"
+    for p in remaining(flex_eligible(shape), rank_of)[: teams * _safe_int(shape.get("FLEX"))]:
         roles[p.get("player_key")] = "starter"
     for p in remaining(POSITION_ORDER, surplus)[: teams * _safe_int(shape.get("BENCH"))]:
         roles[p.get("player_key")] = "bench"

@@ -106,26 +106,17 @@ class DefaultWeekTest(unittest.TestCase):
     TUESDAY = date(2026, 10, 6)  # content week 5, game week 4
 
     def test_savers_and_pullers_default_to_content_week(self):
-        import pull_cbs
         import pull_fantasypros
         with mock.patch.object(_common, "today_ct", lambda: self.TUESDAY):
             self.assertEqual(_common.content_week(), 5)
-            self.assertEqual(pull_cbs.candidate_urls()[0], pull_cbs.SLUG % 5)
             self.assertEqual(pull_fantasypros.candidate_urls()[0], pull_fantasypros.candidate_urls(5)[0])
         for rel in ("pipelines/save_espn_cbs_references.py", "pipelines/save_usatoday_references.py",
                     "pipelines/save_fantasypros_references.py", "pipelines/save_fantasycalc_references.py",
                     "ops/watchdog/pull_usatoday.py", "ops/watchdog/pull_cbs.py",
-                    "ops/watchdog/refresh_fantasycalc.py", "ops/watchdog/pull_watchdog.py"):
+                    "ops/watchdog/pull_fantasypros.py"):
             text = (ROOT / rel).read_text()
             self.assertNotRegex(text, r"\bnfl_week\(\)", rel)
             self.assertIn("content_week", text, rel)
-
-    def test_watchdog_import_health_takes_the_verifier_default(self):
-        import pull_watchdog
-        calls = []
-        with mock.patch("subprocess.run", lambda cmd, **kw: calls.append(cmd)):
-            pull_watchdog.refresh_import_health()
-        self.assertEqual(calls, [["make", "import-health"]])
 
 
 if __name__ == "__main__":

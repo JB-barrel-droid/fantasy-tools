@@ -500,7 +500,11 @@ def prefer(cand: dict, have: dict) -> bool:
         if (c >= cut) != (h >= cut):
             return c >= cut
         return c < h if c >= cut else c > h
-    return cand["_sort"] >= (have.get("_sort") or [have.get("pulled_at") or have.get("snapshot_date") or "", 0])
+    have_sort = have.get("_sort") or [have.get("pulled_at") or have.get("snapshot_date") or "", 0]
+    # Timestamps arrive as '2026-10-07 00:00:00+00' (view, dumps) and
+    # '2026-10-07T00:00:00+00:00' (PostgREST on the base tables): compare
+    # them normalised, never as raw strings.
+    return [_ts(cand["_sort"][0]), cand["_sort"][1]] >= [_ts(have_sort[0]), have_sort[1]]
 
 
 def _supersede(superseded: dict, entry: dict, log) -> None:

@@ -27,9 +27,14 @@ class HealthArtifactsWatchTest(unittest.TestCase):
 
     def test_stale_artifact_is_red(self):
         # The defect this guards: Muse cron stops, file keeps old contents.
-        ok, age, err = w.evaluate({"generated_at": iso(61)}, ("generated_at",), NOW)
+        # 2026-10-08: the producer runs every 6 h, so the limit is 720 min
+        # (twice the cadence; was 60 min at the 30-minute cadence).
+        self.assertEqual(720, w.MAX_AGE_MINUTES)
+        ok, age, err = w.evaluate({"generated_at": iso(721)}, ("generated_at",), NOW)
         self.assertFalse(ok)
         self.assertTrue(err.startswith("stale_"))
+        ok, _, _ = w.evaluate({"generated_at": iso(400)}, ("generated_at",), NOW)
+        self.assertTrue(ok, "one cadence old is current, not stale")
 
     def test_missing_timestamp_is_red_not_fresh(self):
         ok, _, err = w.evaluate({"sources": {}}, ("generated_at",), NOW)

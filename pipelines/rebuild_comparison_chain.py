@@ -1059,57 +1059,6 @@ def run_vorp_refresh(nfl_week, repo, run_fn):
     return {"status": "failed", "detail": f"refresh failed: {last}"}
 
 
-def run_lineage_rebuild(repo, run_fn):
-    """Stage 10 (JEG-200): rebuild source value lineage locally.
-
-    Runs pipelines/build_source_value_lineage.py with the same inputs the
-    chain just produced (fresh fixture, fresh scrape artifact). Where raw
-    snapshots exist (local dev), this writes a fresh lineage artifact
-    whose `generated_at` matches the fixture vintage. Where snapshots are
-    absent (CI), the builder raises SystemExit and stamps an explicit
-    staleness badge on the committed artifact instead.
-
-    The builder reads its fixture input from dist/assets/ (DATA_PATH), so
-    Stage 10 first syncs the canonical fixture
-    (data/fixtures/current/comparison-sources-data.json) there -- otherwise
-    the "fresh" rebuild would bake stale inputs, and the staleness badge
-    would compare the lineage against a stale copy and report lag 0.
-
-    Fail-safe: a rebuild failure is logged and never halts the chain. The
-    lineage is a monitoring artifact, not a deployment gate. We mirror
-    Stage 9's fail-safe pattern: try / except / log / return status dict.
-    """
-    canonical = os.path.join(repo, "data", "fixtures", "current",
-                             "comparison-sources-data.json")
-    builder_input = os.path.join(repo, "dist", "assets",
-                                 "comparison-sources-data.json")
-    try:
-        if os.path.exists(canonical):
-            os.makedirs(os.path.dirname(builder_input), exist_ok=True)
-            shutil.copy2(canonical, builder_input)
-            print(f"  synced fixture -> {builder_input}")
-        else:
-            print(f"  ! canonical fixture missing: {canonical} (continuing)")
-    except Exception as e:
-        print(f"  ! fixture sync failed (non-fatal): {e}")
-    try:
-        ok, out = run_fn([
-            "python3", "pipelines/build_source_value_lineage.py",
-        ])
-    except Exception as e:
-        print(f"  ✗ lineage rebuild raised (non-fatal): {e}")
-        return {"status": "failed", "detail": f"unexpected error: {e}"}
-    last = out.strip().splitlines()[-1] if out and out.strip() else "no output"
-    if ok:
-        print(f"  ✓ lineage rebuild complete: {last}")
-        return {"status": "ok", "detail": f"rebuilt: {last}"}
-    # Builder exits non-zero (e.g. require_snapshot_natives() raises
-    # SystemExit on a machine without data/raw). The committed artifact has
-    # been stamped with the staleness badge; chain continues.
-    print(f"  ✗ lineage rebuild failed (non-fatal, badge stamped): {last}")
-    return {"status": "failed", "detail": f"builder raised: {last}"}
-
-
 def describe_result(result):
     """Human-readable one-line status for the dashboard (string, not a code)."""
     if result["status"] == "ok":
@@ -1261,7 +1210,6 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     results = {}
     fit_result = None
     adjusted_result = None
-    lineage_result = {"status": "skipped", "detail": "not reached"}
     try:
         for source in SOURCES:
             print(f"\n[{source}] Starting chain...")
@@ -1364,22 +1312,13 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         else:
             print("  VORP refresh skipped: no nfl_week")
 
-        # Stage 10 (JEG-200): rebuild source value lineage locally so the
-        # dashboard's lineage artifact reflects the fresh fixture vintage.
-        # Same run, same inputs, same fixture vintage as Stage 9 wrote.
-        # Fail-safe: rebuild failure is logged, never halts the chain.
-        # When the builder raises (e.g. CI without data/raw snapshots), the
-        # committed artifact is stamped with the staleness badge by the
-        # builder's own SystemExit handler before this stage returns.
-        print("\n" + "=" * 60)
-        print("STAGE 10: SOURCE VALUE LINEAGE REBUILD (JEG-200)")
-        print("=" * 60)
-        try:
-            lineage_result = run_lineage_rebuild(repo, run_fn)
-        except Exception as e:
-            lineage_result = {"status": "failed",
-                              "detail": f"unexpected error: {e}"}
-            print(f"  ✗ lineage rebuild error (non-fatal): {e}")
+        # Stage 10 (the JEG-200 source value lineage rebuild) was retired
+        # 2026-10-08 (GAP-LIVE-SCRAPE-STALE). It could never succeed here: the
+        # builder needs the gitignored data/raw Week 4 source snapshots and a
+        # live-page scrape of the Week 4 article URLs, and the chain never
+        # committed its output. It logged a failure every run and changed
+        # nothing. The lineage audit itself was then retired the same day
+        # (chore/retire-extras); git history before aefb8f7 keeps it.
 
         print("\n" + "=" * 60)
         print("CHAIN COMPLETE")
@@ -1391,7 +1330,6 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         if adjusted_result is not None:
             print(f"  adjusted_sections: {adjusted_result['status']}")
         print(f"  vorp_refresh: {vorp_result['status']}")
-        print(f"  lineage_rebuild: {lineage_result['status']}")
     finally:
         # Always record the run, even on interruption or unexpected error.
         # results/fit_result/adjusted_result may be partially populated — write what's known.

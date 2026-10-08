@@ -21,8 +21,6 @@ DEFAULT_ENFORCED_KEYS = ("comparison.built_at",)
 # itself is current.
 DEFAULT_CHART_INPUT_KEYS: tuple[str, ...] = (
     "players.as_of",
-    "players.kdst_snapshot",
-    "news.generated_at",
 )
 
 
@@ -232,23 +230,17 @@ def build_report(
 ) -> dict[str, Any]:
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
-    news = load_json(fixtures / "player-news.json")
     import_health_source = import_health_path or (fixtures / "source-import-health.json")
     import_health = load_json(import_health_source)
     previous = prior_items(output)
 
     player_meta = players.get("meta", {})
-    news_meta = news.get("meta", {})
     enforced_set = set(enforced_keys)
     chart_input_set = set(chart_input_keys)
     items = [
         make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous, max_age_days, enforced_set),
         make_item("players.espn_snapshot", "ESPN projection snapshot", player_meta.get("espn_snapshot"), today, previous, max_age_days, enforced_set),
-        make_item("players.pm_snapshot", "Prediction-market snapshot", player_meta.get("pm_snapshot"), today, previous, max_age_days, enforced_set),
-        make_item("players.kdst_snapshot", "K/DST snapshot", player_meta.get("kdst_snapshot"), today, previous, max_age_days, enforced_set),
         make_item("comparison.built_at", "Comparison fixture last rebuilt (any source promotion; not input freshness)", comparison.get("built_at"), today, previous, max_age_days, enforced_set),
-        make_item("news.generated_at", "Player-news artifact generation time", news_meta.get("generated_at"), today, previous, max_age_days, enforced_set),
-        make_item("news.trade_values_published_at", "Trade-value publication timestamp", news_meta.get("trade_values_published_at"), today, previous, max_age_days, enforced_set),
     ]
     if import_health.get("schema") == "trade-value-import-health-v1":
         items.append(
@@ -282,7 +274,7 @@ def build_report(
 
     hashes = {
         name: sha256(fixtures / name)
-        for name in ("players.json", "comparison-sources-data.json", "player-news.json", "source-import-health.json")
+        for name in ("players.json", "comparison-sources-data.json", "source-import-health.json")
     }
     all_same_day = all(item["status"] == "same_day" for item in items if item["status"] != "unknown")
     stale = [item for item in items if item["status"] == "stale"]
@@ -324,6 +316,9 @@ def build_report(
             "unknown_count": len(unknown),
             "expired_count": len(expired),
             "enforced_expired_count": len(enforced_expired),
+            # GAP-033: the keys past the freshness window, so the status page
+            # (modules/surfaces.json warn_path) shows each one as a warning.
+            "expired_keys": [item["key"] for item in expired],
             "l1_unhealthy_count": len(l1_unhealthy),
             "unchanged_count": sum(1 for item in items if not item["changed_since_prior_report"]),
             "max_age_days": max_age_days,

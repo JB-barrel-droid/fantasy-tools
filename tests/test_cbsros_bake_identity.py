@@ -5,8 +5,9 @@ as the chain's CBS ROS legs.
 Root cause (2026-10-08 chain run, post-rebuild validate red): the
 2026-10-08 save was the first to store 'chigoziem okonkwo' (Chig Okonkwo,
 4247 TE) and 'mitch trubisky' (Mitchell Trubisky, 4214 QB), resolved by the
-saver through the verified ALIASES in build_ddf_two_tier_leg. The legs
-resolve the same spellings through the same ALIASES and priced both. The
+saver through the verified ALIASES in build_ddf_two_tier_leg (since
+2026-10-08 the one list data/inputs/player_aliases.json). The legs
+resolve the same spellings through the same aliases and priced both. The
 exporter dropped the saved player_key and the bake re-resolved the saved
 player_norm by name through the canonical registry, which has no such
 alias, so both were "unresolved" and missing from players.json. Okonkwo
@@ -35,7 +36,9 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 
 import bake_players  # noqa: E402
 import export_cbsros_snapshot  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES, FixtureIdentity  # noqa: E402
+from build_ddf_two_tier_leg import FixtureIdentity  # noqa: E402
+import player_aliases  # noqa: E402
+from canonical_players import norm_plain  # noqa: E402
 from canonical_players import Registry  # noqa: E402
 
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
@@ -80,10 +83,11 @@ class CbsRosBakeIdentity(unittest.TestCase):
         self.assertEqual(bake_keys(snap, self.registry), {4247, 4214})
 
     def test_bake_pool_equals_leg_pool_for_every_alias(self):
-        # Every verified ALIASES spelling the leg resolves to a fixture key
-        # must reach players.json under the same key through export + bake.
+        # Every verified alias spelling (the one shared list) the leg resolves
+        # to a fixture key must reach players.json under the same key through
+        # export + bake.
         checked = 0
-        for spelling in sorted(ALIASES):
+        for spelling in sorted(norm_plain(e["alias"]) for e in player_aliases.entries()):
             for pos in ("QB", "RB", "WR", "TE"):
                 key, _how, _alias = self.ident.resolve(spelling, pos)
                 if key is None or self.pos.get(key) != pos:

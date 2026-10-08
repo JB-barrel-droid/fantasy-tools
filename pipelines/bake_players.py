@@ -25,10 +25,7 @@ Inputs (all repo-local unless noted):
                               via lib.canonical_players)
   - data/inputs/espn_projections.csv        (ESPN season projections, ROS)
                                               -- PRIMARY PROJECTION LEG
-  - data/inputs/prediction_markets_season.csv (PM season ladders, ROS)
   - data/inputs/razzball_projections.csv    (Razzball per-game projections)
-  - data/inputs/espn_k_ppg_2026-09-21.json  (ESPN kicker per-game rates)
-  - data/inputs/espn_dst_ros_2026-09-21.json (ESPN DST per-game rates)
   - data/inputs/ecr_draft.json              (preseason draft ECR ranks,
                                               preseason reference only)
 
@@ -47,7 +44,7 @@ Fail-closed gates (each aborts the build, never publishes partial data):
     ESPN-labeled field is sourced ONLY from ESPN projections. The PRIMARY
     leg (blend_ros/blend_ppg) is 100% ESPN for skill players (pricing=
     "espn_only"); ESPN-purity now applies to skill players as the
-    primary leg, not just K/DST. K/DST are also ESPN-priced.
+    primary leg. Kickers and defenses are not carried (GAP-029).
 
 Ported from the retired trade-value/build_values.py (2026-09-22) with one
 deliberate fix: the retired bake appended K/DST rows with pricing="espn"
@@ -78,7 +75,7 @@ sys.path.insert(0, str(LIB))
 
 from canonical_players import (  # noqa: E402
     load_registry, resolve, resolve_skill, require_canonical_name,
-    assert_canonical_names, norm_plain,
+    assert_canonical_names, norm_plain, SKILL_POSITIONS,
 )
 from scoring import fantasy_points  # noqa: E402
 from dataset_status import build_dataset_status  # noqa: E402
@@ -139,8 +136,6 @@ ESPN_COMPS = {
     "r_rec_yds": "receiving_yards",
     "r_rec_tds": "receiving_tds",
 }
-
-PM_COMPS = dict(ESPN_COMPS)  # same r_* column contract
 
 RZ_LEGS = (("rz_std_ppg", "standard"),
            ("rz_half_ppr_ppg", "half_ppr"),
@@ -205,45 +200,6 @@ def _resolve_csv_row(name, pos, source_label, registry):
         print(f"{source_label} intake: unresolved '{name}' ({pos}): {e}",
               flush=True)
         return None
-
-
-def _intake_csv(path, comp_map, elig_col, label, registry):
-    """Generic component CSV intake -> {player_key: {comp: value}}.
-
-    Only non-blank cells become priced components (never zero-filled).
-    Returns (med, snapshot_date, rows, unresolved).
-    """
-    med, snap = {}, None
-    n_rows = n_unres = 0
-    with open(path, newline="") as f:
-        for r in csv.DictReader(f):
-            n_rows += 1
-            d = (r.get("razzball_snapshot_date")
-                 or r.get("espn_snapshot_date")
-                 or r.get("prediction_markets_snapshot_date") or "").strip()
-            if d:
-                snap = d if snap is None else max(snap, d)
-            if not _elig_flag(r.get(elig_col)):
-                continue
-            key = _resolve_csv_row(r.get("player", ""), (r.get("pos") or "").strip(),
-                                   label, registry)
-            if key is None:
-                n_unres += 1
-                continue
-            comps = {}
-            for csv_col, comp in comp_map.items():
-                raw = r.get(csv_col)
-                if raw is None or str(raw).strip() == "":
-                    continue
-                comps[comp] = float(raw)
-            if comps:
-                if key in med:
-                    print(f"{label} intake WARNING: duplicate key: {key} "
-                          f"({r.get('player')})")
-                med[key] = comps
-    print(f"{label} intake: {len(med)} eligible players "
-          f"({n_rows} rows, {n_unres} unresolved), snapshot {snap}")
-    return med, snap
 
 
 def _intake_razzball(path, registry):
@@ -388,7 +344,7 @@ def _intake_cbsros(snapshot_path, registry):
 
     GAP-CBSROS-BAKE-IDENTITY (2026-10-08): re-resolving the saved
     player_norm by name dropped 'chigoziem okonkwo' and 'mitch trubisky'
-    (verified ALIASES the saver and the legs apply, the registry does not),
+    (the saver and the legs applied verified aliases the registry once lacked; it now reads the same list),
     so the browser priced a different TE pool from the section.
     """
     snap = json.loads(Path(snapshot_path).read_text(encoding="utf-8"))
@@ -573,8 +529,6 @@ def bake(args):
     espn_med, espn_snapshot_date = fetch_espn_intake(args.espn_csv, registry)
 
     # ---- Other comparison intakes (unchanged) --------------------------------
-    pm_med, pm_snapshot_date = _intake_csv(
-        args.pm_csv, PM_COMPS, "has_prediction_market_line", "pm", registry)
     rz_med, rz_snapshot_date = razzball_intake(args, registry)
     cbsros_snapshot = args.cbsros_snapshot or _latest_cbsros_snapshot()
     cbsros_med, cbsros_snapshot_date = _intake_cbsros(cbsros_snapshot,
@@ -599,8 +553,7 @@ def bake(args):
     # ---- Skill-player rows ----------------------------------------------------
     # Iterate over ESPN intake keys (every charted skill player has an
     # ESPN projection). pos / team come from the ESPN CSV row; fall back
-    # to the canonical registry when the CSV is silent on one (DST / K
-    # rows are appended separately below).
+    # to the canonical registry when the CSV is silent on one.
     espn_zero = espn_zero_universe(
         args.espn_csv, getattr(args, "comparison_fixture", None), espn_med,
         registry)
@@ -627,19 +580,6 @@ def bake(args):
         espn_complete = pos in NEED and all(c in v for c in NEED[pos])
         espn_covered = sorted(c for c in COMPS if c in v)
 
-        pm = pm_med.get(key, {})
-        pm_complete = pos in NEED and all(c in pm for c in NEED[pos])
-        pm_covered = sorted(c for c in COMPS if c in pm)
-        pm_ros = pm_filled_ros = None
-        if pm_covered:
-            pm_ros = {s: pts({c: pm[c] for c in pm_covered}, s)
-                      for s in SCORINGS}
-        if pm_complete:
-            # ESPN is now the fill source for PM (replaces ECR fill).
-            pm_filled_ros = {
-                s: pts({c: pm[c] if c in pm else espn_ros_comps[c] for c in COMPS}, s)
-                for s in SCORINGS}
-
         z = rz_med.get(key, {})
         rz_complete = (pos in ("QB", "RB", "WR", "TE")
                        and all(s in z for s in SCORINGS))
@@ -660,9 +600,6 @@ def bake(args):
             "espn_complete": bool(espn_complete),
             "espn_comp_count": sum(1 for c in COMPS if c in v),
             "espn_covered": espn_covered,
-            "pm_complete": bool(pm_complete),
-            "pm_comp_count": sum(1 for c in COMPS if c in pm),
-            "pm_covered": pm_covered,
             "rz_complete": bool(rz_complete),
             "rz_comp_count": len(rz_covered),
             "rz_covered": rz_covered,
@@ -680,12 +617,6 @@ def bake(args):
             # published). The ESPN-only primary value is therefore 0.
             row["espn_zeroed"] = True
             row["espn_status"] = espn_status
-        if pm_ros is not None:
-            row["pm_ros"] = pm_ros
-        if pm_complete:
-            row["pm_filled_ros"] = pm_filled_ros
-            if not espn_status:
-                row["delta_pm_espn"] = round(pm_filled_ros["ppr"] - row["espn_ros"]["ppr"], 2)
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
@@ -701,15 +632,6 @@ def bake(args):
             if has_espn:
                 row["blend_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
                 row["espn_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
-            if pm_ros is not None:
-                row["pm_ppg"] = {s: round(row["pm_ros"][s] / gr, PPG_DECIMALS)
-                                 for s in SCORINGS}
-            if pm_complete:
-                row["pm_filled_ppg"] = {s: round(pm_filled_ros[s] / gr, PPG_DECIMALS)
-                                        for s in SCORINGS}
-                if has_espn:
-                    row["delta_pm_espn_ppg"] = round(
-                        row["pm_filled_ppg"]["ppr"] - row["espn_ppg"]["ppr"], 2)
             # Razzball: rz_ros = rz_ppg x the pipeline's OWN games_remaining.
             # Razzball's displayed Games/totals are doubled (Allen: 32 games)
             # and are NEVER used. The source-accounting audit below fails the
@@ -733,87 +655,12 @@ def bake(args):
                 row["cbsros_ppg"] = {s: round(c[s], PPG_DECIMALS) for s in SCORINGS}
         players.append(row)
 
-    # ---- Kickers & team defenses: ESPN projections only ----------------------
-    # ESPN-purity directive (2026-09-21): every ESPN-labeled value comes from
-    # ESPN projections only — no expert blend anywhere in K/DST pricing.
-    # K: ESPN per-game rates (filterSlotIds [17]). DST: ESPN per-game
-    # component recipe (filterSlotIds [16]).
-    k_data = json.load(open(args.k_json))
-    dst_data = json.load(open(args.dst_json))
-    k_ppg = {k["name"]: k["ppg"] for k in k_data["kickers"]}
-    dst_ppg = {d["abbr"]: d["ppg"] for d in dst_data["defenses"]}
-    kdst_snapshot = str(k_data.get("snapshot_date") or dst_data.get("snapshot_date")
-                        or "?")
-    kdst_unresolved = []
-    window_len = ros_window[1] - ros_window[0] + 1
-
-    def kdst_games(team, required=False):
-        games = games_left.get(canonical_team(team)) if team else None
-        if games:
-            return games
-        if required:
-            raise SystemExit(f"FAIL-CLOSED: no games remaining for K/DST team {team!r}.")
-        return window_len
-
-    for name, ppg in sorted(k_ppg.items(), key=lambda kv: -kv[1]):
-        kk = resolve(name, position="K", registry=registry)
-        if kk is None:
-            kdst_unresolved.append(("K", name))
-            continue
-        # GAP-KDST-GAMES-FIXED: the kicker's team's games inside ESPN's ROS
-        # window, the same count skill players use (was a fixed 16). The K
-        # input carries no team abbreviation, so the team comes from the
-        # canonical registry; a kicker with no team divides by the window
-        # length, as the leg does for teamless rows.
-        gr = kdst_games(_resolve_team_abbr(None, kk, registry, team_abbr))
-        ros = round(ppg * gr, 2)
-        same3 = {"standard": ros, "half_ppr": ros, "ppr": ros}
-        ppg3 = {"standard": ppg, "half_ppr": ppg, "ppr": ppg}
-        players.append({
-            "player_key": kk,
-            "name": require_canonical_name(kk, registry=registry),
-            "pos": "K",
-            "team": None,
-            "espn_ros": dict(same3), "blend_ros": dict(same3),
-            "espn_ppg": dict(ppg3), "blend_ppg": dict(ppg3),
-            "games_remaining": gr,
-            # K/DST price from ESPN only — never experts_only.
-            "pricing": "espn_only",
-            "espn_complete": True, "espn_comp_count": 1, "espn_covered": ["k"],
-            "pm_complete": False, "pm_comp_count": 0, "pm_covered": [],
-            "rz_complete": False, "rz_comp_count": 0, "rz_covered": [],
-            "cbsros_complete": False, "cbsros_comp_count": 0, "cbsros_covered": [],
-            "prior_espn_ros": None, "prior_blend_ros": None,
-        })
-    for abbr, ppg in sorted(dst_ppg.items(), key=lambda kv: -kv[1]):
-        kk = resolve(abbr, position="DST", registry=registry)
-        if kk is None:
-            kdst_unresolved.append(("DST", abbr))
-            continue
-        # GAP-KDST-GAMES-FIXED: games inside ESPN's ROS window (was a fixed
-        # 15). A defense's team is always known; fail closed if it is not.
-        gr = kdst_games(_TEAM_ABBR_FIX.get(abbr, abbr), required=True)
-        ros = round(ppg * gr, 2)
-        same3 = {"standard": ros, "half_ppr": ros, "ppr": ros}
-        ppg3 = {"standard": ppg, "half_ppr": ppg, "ppr": ppg}
-        players.append({
-            "player_key": kk,
-            "name": require_canonical_name(kk, registry=registry),
-            "pos": "DST",
-            "team": _TEAM_ABBR_FIX.get(abbr, abbr),
-            "espn_ros": dict(same3), "blend_ros": dict(same3),
-            "espn_ppg": dict(ppg3), "blend_ppg": dict(ppg3),
-            "games_remaining": gr,
-            "pricing": "espn_only",
-            "espn_complete": True, "espn_comp_count": 1, "espn_covered": ["dst"],
-            "pm_complete": False, "pm_comp_count": 0, "pm_covered": [],
-            "rz_complete": False, "rz_comp_count": 0, "rz_covered": [],
-            "cbsros_complete": False, "cbsros_comp_count": 0, "cbsros_covered": [],
-            "prior_espn_ros": None, "prior_blend_ros": None,
-        })
-    if kdst_unresolved:
-        print(f"K/DST ESPN unresolved (excluded): {kdst_unresolved}",
-              file=sys.stderr)
+    # GAP-029 (Jeremy 2026-10-08, JEG-211 reconfirmed): kickers and team
+    # defenses are not carried. The chart excludes them and nothing else
+    # read them, so the bake publishes skill positions only; the audit below
+    # rejects any other position.
+    # Revival: the K/DST block is in bake_players.py at dac0ff2
+    # (docs/claude-log/2026-10-08-kdst.md).
 
     # rank by primary (ESPN-based) full-PPR value for convenience
     players.sort(key=lambda p: p["blend_ros"]["ppr"], reverse=True)
@@ -858,7 +705,7 @@ def bake(args):
     # ---- positional shade / demeaned deltas -----------------------------------
     # JEG-ECR-EXIT (2026-10-05): the shade baseline was ESPN-vs-ECR
     # (ESPN reads compared to the ECR primary). With ESPN now primary,
-    # the comparison shade stays meaningful (PM / Razzball vs ESPN) but
+    # the comparison shade stays meaningful (Razzball vs ESPN) but
     # the ECR-vs-ESPN shade disappears (it is now zero by construction).
     def _shade(leg_ppg, leg_complete, label):
         out = {}
@@ -873,16 +720,12 @@ def bake(args):
             out[pos] = {"ppr": round(sum(vals) / len(vals), 3)} if vals else {"ppr": 0.0}
         return out
 
-    pm_shade_ppg = _shade("pm_filled_ppg", "espn_ppg", "pm")
     rz_shade_ppg = _shade("rz_filled_ppg", "espn_ppg", "rz")
     # ESPN-vs-ESPN shade is zero by construction (ESPN primary vs itself);
     # keep an empty entry so the meta.disagree_baseline_note can still
     # reference shade_ppg without a structural fork.
     shade_ppg = {p: {"ppr": 0.0} for p in ("QB", "RB", "WR", "TE")}
     for p in players:
-        if p.get("delta_pm_espn_ppg") is not None:
-            p["delta_pm_espn_ppg_demeaned"] = round(
-                p["delta_pm_espn_ppg"] - pm_shade_ppg[p["pos"]]["ppr"], 2)
         if p.get("delta_rz_espn_ppg") is not None:
             p["delta_rz_espn_ppg_demeaned"] = round(
                 p["delta_rz_espn_ppg"] - rz_shade_ppg[p["pos"]]["ppr"], 2)
@@ -897,30 +740,27 @@ def bake(args):
     for p in players:
         pid = f"{p['name']} (key={p['player_key']})"
         pricing = p.get("pricing")
-        if p["pos"] in ("K", "DST"):
-            if pricing != "espn_only":
-                violations.append(f"{pid}: K/DST pricing must be 'espn_only', "
-                                  f"got '{pricing}'")
-            if not p.get("espn_ros"):
-                violations.append(f"{pid}: K/DST espn_ros missing")
-        else:
-            if pricing != "espn_only":
-                violations.append(f"{pid}: skill pricing must be 'espn_only' "
-                                  f"(ESPN-primary, JEG-ECR-EXIT), got '{pricing}'")
-            if p.get("blend_ros") is None or p.get("espn_ros") is None:
-                violations.append(f"{pid}: skill row missing espn/blend legs")
-            # ESPN comps consistency: espn_ros must equal pts(espn_ros_comps).
-            espn_entry = espn_med.get(p["player_key"])
-            if espn_entry:
-                v = espn_entry["comps"]
-                comps_full = {c: v.get(c, 0.0) for c in COMPS}
-                check = {s: pts(comps_full, s) for s in SCORINGS}
-                for s in SCORINGS:
-                    if abs(check[s] - p["espn_ros"][s]) > 0.01:
-                        violations.append(
-                            f"{pid}: espn_ros[{s}] inconsistent with "
-                            "ESPN-med recomputation")
-                        break
+        if p["pos"] not in SKILL_POSITIONS:
+            violations.append(f"{pid}: position {p['pos']!r} is not carried "
+                              "(skill positions only; K/DST removed, GAP-029)")
+            continue
+        if pricing != "espn_only":
+            violations.append(f"{pid}: skill pricing must be 'espn_only' "
+                              f"(ESPN-primary, JEG-ECR-EXIT), got '{pricing}'")
+        if p.get("blend_ros") is None or p.get("espn_ros") is None:
+            violations.append(f"{pid}: skill row missing espn/blend legs")
+        # ESPN comps consistency: espn_ros must equal pts(espn_ros_comps).
+        espn_entry = espn_med.get(p["player_key"])
+        if espn_entry:
+            v = espn_entry["comps"]
+            comps_full = {c: v.get(c, 0.0) for c in COMPS}
+            check = {s: pts(comps_full, s) for s in SCORINGS}
+            for s in SCORINGS:
+                if abs(check[s] - p["espn_ros"][s]) > 0.01:
+                    violations.append(
+                        f"{pid}: espn_ros[{s}] inconsistent with "
+                        "ESPN-med recomputation")
+                    break
         # Razzball doubling guard: rz_filled_ros == rz_ppg x games_remaining.
         if p.get("rz_filled_ros"):
             gr = p.get("games_remaining")
@@ -955,26 +795,13 @@ def bake(args):
         "as_of": today,
         "prior_blend_snapshot": str(prior_date) if prior_date else None,
         "espn_snapshot": str(espn_snapshot_date),
-        "pm_snapshot": str(pm_snapshot_date),
         "rz_snapshot": str(rz_snapshot_date),
         "cbsros_snapshot": str(cbsros_snapshot_date),
         "n_players": len(players),
         "n_espn_complete": sum(1 for p in players if p["espn_complete"]),
-        "n_pm_complete": sum(1 for p in players if p["pm_complete"]),
-        "n_pm_covered": sum(1 for p in players if p.get("pm_comp_count", 0) > 0),
         "n_rz_complete": sum(1 for p in players if p["rz_complete"]),
         "n_cbsros_complete": sum(1 for p in players
                                  if p.get("cbsros_complete")),
-        "n_k": sum(1 for p in players if p["pos"] == "K"),
-        "n_dst": sum(1 for p in players if p["pos"] == "DST"),
-        "kdst_snapshot": kdst_snapshot,
-        "kdst_note": ("Kickers and team defenses price from ESPN projections "
-                      "only (ESPN-purity directive, 2026-09-21): no expert/ECR "
-                      "data anywhere in the K/DST leg. K and DST ROS = ESPN "
-                      "per-game rate x the team's games inside ESPN's ROS "
-                      "window (same count as skill players; a kicker with no "
-                      "registry team uses the window length). Scoring-"
-                      "invariant: one number serves standard/half/full."),
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
         "ppg_note": ("Per-game points = ROS fantasy points / the games the "
                      "team plays inside ESPN's ROS window (weeks_covered "
@@ -987,17 +814,6 @@ def bake(args):
                       "for skill players — espn_ros IS blend_ros for skill "
                       "rows. Every ESPN-labeled field is sourced ONLY from "
                       "ESPN projections."),
-        "pm_note": ("pm_ros/pm_ppg = pure prediction-markets read over priced "
-                    "components only (pm_covered lists them; never zero-filled). "
-                    "pm_filled_ros/pm_filled_ppg = prediction markets where "
-                    "priced, ESPN fills the rest (PM takes precedence, no "
-                    "averaging); delta_pm_espn(_ppg) is filled minus full ESPN. "
-                    "Source: raw Kalshi/Polymarket season ladders (own isotonic "
-                    "math, local liquidity gate) — crowd wisdom, NOT sportsbook "
-                    "money. Season receptions ladders have no liquid two-sided "
-                    "market, so pass-catchers' pure reads exclude reception "
-                    "points by construction; complete reads (all NEED components "
-                    "priced) are a minority — see pm_complete/pm_covered."),
         "rz_note": ("rz_ppg = pure Razzball per-game projection read "
                     "(rz_std_ppg / rz_half_ppr_ppg / rz_ppr_ppg — already pure "
                     "per-game rates). rz_ros = rz_ppg x the pipeline's own "
@@ -1010,8 +826,7 @@ def bake(args):
                     "delta_rz_espn(_ppg) is filled minus full ESPN. Verified "
                     "independent third projection source 2026-09-17 (rank corr "
                     "vs ECR 0.78-0.91, never 0.99+; deviations largely "
-                    "independent of ESPN). K/DST have no Razzball projections "
-                    "(ESPN-priced). Source: the Razzball snapshot imported from "
+                    "independent of ESPN). Source: the Razzball snapshot imported from "
                     "public.razzball_projections (the same vintage the "
                     "comparison chain's Razzball section is built from); "
                     "rz_snapshot is its vintage."),
@@ -1022,15 +837,14 @@ def bake(args):
                         "add 0.5/1.0 per reception. The curve re-prices live "
                         "from cbsros_ppg through the shared two-tier "
                         "value-above-waivers math (source's own pool and pies, "
-                        "never ESPN's). K/DST have no CBS ROS projections."),
+                        "never ESPN's)."),
         "method_note": ("Primary trade value (blend_ros/blend_ppg): JEG-ECR-EXIT "
                         "(2026-10-05) the primary value IS the ESPN leg — ESPN "
                         "season projections (already rest-of-season, no actuals "
                         "subtraction) translated to fantasy points with the DDF "
-                        "value-above-waivers methodology applied. PM / Razzball "
+                        "value-above-waivers methodology applied. Razzball "
                         "/ CBS ROS live in the comparison columns (no ESPn now "
-                        "primary). K/DST player pricing is ESPN (2026-09-21 "
-                        "vintage). The chart engine applies the DDF "
+                        "primary). The chart engine applies the DDF "
                         "value-above-waivers methodology: raw value is projected "
                         "points above the positional waiver line; each 1-point "
                         "slice is priced on a two-tier marginal curve (bench "
@@ -1042,19 +856,17 @@ def bake(args):
         "disagree_baseline_note": (
             "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline "
             "is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by "
-            "construction). PM and Razzball comparison shades are still "
-            "measured against ESPN: pm_shade_ppg = mean(pm_filled_ppg - "
-            "espn_ppg); rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). "
-            "Positive shade = comparison cooler than ESPN; negative = "
-            "warmer. delta_pm_espn_ppg_demeaned / delta_rz_espn_ppg_demeaned "
+            "construction). The Razzball comparison shade is still "
+            "measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - "
+            "espn_ppg). Positive shade = comparison cooler than ESPN; "
+            "negative = warmer. delta_rz_espn_ppg_demeaned "
             "subtract the positional baseline so rank gaps are genuine "
             "ordering differences, not shade."),
         "pricing_note": ("pricing labels are uniform 'espn_only' across all "
                          "positions (JEG-ECR-EXIT 2026-10-05): the primary "
                          "value IS ESPN, with ESPN-purity (every ESPN-labeled "
-                         "field sourced ONLY from ESPN projections) extended "
-                         "from K/DST-only (2026-09-21) to all charted "
-                         "positions. The source-accounting audit rejects any "
+                         "field sourced ONLY from ESPN projections) for every "
+                         "charted position. The source-accounting audit rejects any "
                          "other label."),
     }
 
@@ -1089,8 +901,7 @@ def bake(args):
     # sanity: top 8 primary-value PPR
     for p in players[:8]:
         print(p["name"], p["pos"], p["team"], p["blend_ros"]["ppr"],
-              "espn" if p["espn_complete"] else "espn-partial",
-              "+pm" if p.get("pm_complete") else "")
+              "espn" if p["espn_complete"] else "espn-partial")
 
     return {"meta": meta, "n_players": len(players)}
 
@@ -1098,7 +909,6 @@ def bake(args):
 def main():
     ap = argparse.ArgumentParser(description="Repo-owned players.json bake")
     ap.add_argument("--espn-csv", default=str(INPUTS_DIR / "espn_projections.csv"))
-    ap.add_argument("--pm-csv", default=str(INPUTS_DIR / "prediction_markets_season.csv"))
     ap.add_argument("--razzball-snapshot", default=None,
                     help="Razzball snapshot.json (import_supabase_references.py "
                          "--source razzball); default: latest under "
@@ -1113,8 +923,6 @@ def main():
                     default=str(FIXTURE_DIR / "comparison-sources-data.json"),
                     help="comparison artifact whose keyed identities the board "
                          "must carry (JEG-392); ESPN-absent ones bake at 0")
-    ap.add_argument("--k-json", default=str(INPUTS_DIR / "espn_k_ppg_2026-09-21.json"))
-    ap.add_argument("--dst-json", default=str(INPUTS_DIR / "espn_dst_ros_2026-09-21.json"))
     args = ap.parse_args()
     if args.razzball_snapshot is None and args.razzball_csv is None:
         latest = _latest_razzball_snapshot()
@@ -1124,9 +932,8 @@ def main():
     result = bake(args)
     print(json.dumps({k: v for k, v in result["meta"].items()
                       if k in ("as_of", "prior_blend_snapshot",
-                               "n_players", "n_espn_complete", "n_pm_complete",
-                               "n_rz_complete", "n_cbsros_complete",
-                               "n_k", "n_dst")}, indent=1))
+                               "n_players", "n_espn_complete",
+                               "n_rz_complete", "n_cbsros_complete")}, indent=1))
 
 
 if __name__ == "__main__":

@@ -60,7 +60,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 from import_source_snapshot import parse_float  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from _common import content_week  # noqa: E402
 # Reuse the Supabase plumbing, the fail-closed identity resolution, and the

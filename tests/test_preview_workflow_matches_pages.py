@@ -70,9 +70,9 @@ def check_preview(preview_text, pages_text):
     if v_flags.get("make validate"):
         problems.append("make validate must be blocking in the preview "
                         "(no continue-on-error)")
-    lineage = "python3 pipelines/build_source_value_lineage.py"
-    if lineage in p_flags and p_flags[lineage] != v_flags.get(lineage):
-        problems.append("lineage step continue-on-error differs from pages.yml")
+    for command, blocking_off in p_flags.items():
+        if command in v_flags and v_flags[command] != blocking_off:
+            problems.append(f"{command}: continue-on-error differs from pages.yml")
     for key in ("python-version", "fetch-depth"):
         if setting(pages_text, key) != setting(preview_text, key):
             problems.append(f"{key} differs: pages={setting(pages_text, key)!r} "
@@ -104,7 +104,7 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_real_preview_matches_production(self):
         self.assertEqual([], check_preview(PREVIEW, PAGES))
 
-    def test_production_build_steps_are_the_expected_three(self):
+    def test_production_build_steps_are_the_expected_four(self):
         # If pages.yml changes its build steps this fails loudly, so the guard's
         # pinned list is updated deliberately instead of drifting unnoticed.
         # JEG-133: make validate is blocking on every run (no continue-on-error,
@@ -112,7 +112,10 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         # but uses a multi-line run block and is excluded by run_command.
         self.assertEqual(
             [("make sync", False), ("make validate", False),
-             ("python3 pipelines/build_source_value_lineage.py", True)],
+             # GAP-E2E-FIDELITY / GAP-031 (2026-10-08): monitor signals
+             # produced on every deploy, never blocking it.
+             ("python3 pipelines/build_e2e_fidelity.py", True),
+             ("python3 pipelines/check_data_accuracy.py", True)],
             build_steps(PAGES))
 
     def test_pages_runs_the_rendered_gate(self):
@@ -152,17 +155,16 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_reordering_build_steps_is_caught(self):
         # JEG-139 inserted a multi-line step (the PR discrimination check)
         # between "make sync" and "make validate", so the old two-line swap
-        # no longer matches any text. Swap the two adjacent single-line build
-        # steps instead: "make validate" and the lineage rebuild.
-        mutated = PREVIEW.replace(
-            "      - run: make validate\n"
-            "      - name: Rebuild source value lineage\n"
-            "        run: python3 pipelines/build_source_value_lineage.py\n"
-            "        continue-on-error: true\n",
-            "      - name: Rebuild source value lineage\n"
-            "        run: python3 pipelines/build_source_value_lineage.py\n"
-            "        continue-on-error: true\n"
-            "      - run: make validate\n")
+        # no longer matches any text. Swap two adjacent single-line build
+        # steps instead: the e2e fidelity card and the data accuracy refresh
+        # (the lineage rebuild used here before was retired 2026-10-08).
+        e2e = ("      - name: Build end-to-end fidelity card\n"
+               "        run: python3 pipelines/build_e2e_fidelity.py\n"
+               "        continue-on-error: true\n")
+        acc = ("      - name: Refresh data accuracy signals\n"
+               "        run: python3 pipelines/check_data_accuracy.py\n"
+               "        continue-on-error: true\n")
+        mutated = PREVIEW.replace(e2e + acc, acc + e2e)
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "build commands differ")
 
@@ -179,10 +181,14 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "must be blocking")
 
-    def test_lineage_flag_drift_is_caught(self):
-        mutated = PREVIEW.replace("        continue-on-error: true\n", "", 1)
+    def test_continue_on_error_drift_is_caught(self):
+        # The first continue-on-error in preview.yml belongs to the e2e
+        # fidelity step (non-blocking in pages.yml).
+        mutated = PREVIEW.replace(
+            "        run: python3 pipelines/build_e2e_fidelity.py\n        continue-on-error: true\n",
+            "        run: python3 pipelines/build_e2e_fidelity.py\n", 1)
         self.assertNotEqual(PREVIEW, mutated)
-        self.assertCaught(mutated, "lineage step continue-on-error differs")
+        self.assertCaught(mutated, "build_e2e_fidelity.py: continue-on-error differs")
 
     def test_python_version_drift_is_caught(self):
         mutated = PREVIEW.replace('python-version: "3.12"', 'python-version: "3.11"')

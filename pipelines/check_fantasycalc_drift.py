@@ -299,8 +299,7 @@ def main() -> int:
 
     # Rebuild the monitors
     for builder in ["pipelines/build_source_fidelity.py",
-                    "pipelines/build_index_math.py",
-                    "pipelines/build_source_value_lineage.py"]:
+                    "pipelines/build_index_math.py"]:
         r = subprocess.run(["python3", builder], cwd=REPO,
                            capture_output=True, text=True)
         if r.returncode != 0:

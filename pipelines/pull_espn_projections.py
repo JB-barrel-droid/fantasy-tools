@@ -198,7 +198,7 @@ def load_team_map(problems):
 
 def resolve_identity(imap, name, pos, problems):
     """ESPN name -> (canonical_key, display) or None (fail closed)."""
-    key = ident.norm_name(name)
+    key = ident.norm_name(ident.shared_alias_spelling(name))
     canon = None
     if key in imap.alias_to_canonical:
         canon = imap.alias_to_canonical[key]

@@ -120,7 +120,9 @@ class TestBuilderEmitsRows(unittest.TestCase):
         self.assertIn(
             "app/trade-value-chart/assets/adjustment-inputs.json", names
         )
-        self.assertIn("data/fixtures/current/player-news.json", names)
+        # Retired 2026-10-08 (chore/retire-extras): player-news.json has no
+        # producer and no reader; it must not come back as a monitored input.
+        self.assertNotIn("data/fixtures/current/player-news.json", names)
         self.assertIn(
             "app/trade-value-chart/assets/reference-freshness.json", names
         )
@@ -143,7 +145,7 @@ class TestBuilderEmitsRows(unittest.TestCase):
 
     def test_players_json_row_reads_meta_freshness(self):
         """The players.json row's `freshness_source` must surface
-        `meta.as_of` (and kdst_snapshot when present) from the fixture —
+        `meta.as_of` from the fixture —
         NOT a hardcoded value. Negative-test target: a regression that
         drops the read or returns the wrong field."""
         mod = _load_builder_module()

@@ -65,7 +65,7 @@
   // published setup (ValueModel.SAVED_SETUP_SHAPE). The table used to default
   // to WR2/FLEX2, so on first load it derived every published column instead
   // of showing the saved values the chart above it showed (JEG332-VORP-VIEWS).
-  const DEFAULT_ROSTER_SHAPE = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6});
+  const DEFAULT_ROSTER_SHAPE = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, SUPERFLEX:0, BENCH:6});
   const state = {
     scoring: "full",
     teams: 12,
@@ -75,8 +75,7 @@
     combos: {},
     sort: {column: "espn", direction: "desc"},
     filters: {position: "ALL", search: ""},
-    columns: null,
-    expanded: new Set()
+    columns: null
   };
   const FIELD_COLUMNS = [
     {key:"pos", label:"Pos", badge:"field"},
@@ -150,37 +149,6 @@
     return Promise.reject(new Error("product-data.js missing; render refused."));
   }
 
-  function loadPlayerNews() {
-    // product-data.js owns the player-news fixture read; the dashboard reads
-    // per-player context via getPlayerContext() and meta via getSnapshot().
-    if (window.TradeValueProductData && window.TradeValueProductData.initProductData) {
-      return window.TradeValueProductData.initProductData().then(() => {
-        const meta = window.TradeValueProductData.getSnapshot().context_meta || {};
-        const projected = {
-          meta,
-          // The contract collapses to per-player reads; expose the legacy
-          // bulk shape as a view derived from getPlayerContext() calls.
-          news_by_player_key: {},
-          adjustments_by_player_key: {},
-        };
-        // Pre-warm the legacy shape so downstream code that walks it keeps
-        // working (this is an interim shim — Phase D replaces these readers
-        // with getPlayerContext() calls).
-        const players = window.TradeValueProductData.getPlayers();
-        players.forEach(player => {
-          const ctx = window.TradeValueProductData.getPlayerContext(player.player_key);
-          if (!ctx) return;
-          const key = String(player.player_key);
-          if (ctx.news && ctx.news.length) projected.news_by_player_key[key] = ctx.news;
-          if (ctx.adjustments && ctx.adjustments.length) projected.adjustments_by_player_key[key] = ctx.adjustments;
-        });
-        window.TradeValuePlayerNews = projected;
-        return projected;
-      });
-    }
-    return Promise.resolve({meta:{}, news_by_player_key:{}, adjustments_by_player_key:{}});
-  }
-
   let data = null;
   let canonicalByKey = new Map();
   let universeSize = 0;
@@ -190,9 +158,6 @@
   let valuesLoaded = false;
   let espnRoleByKey = new Map();
   let referenceSource = "usatoday";
-  let newsMeta = {};
-  let newsByPlayerKey = new Map();
-  let adjustmentsByPlayerKey = new Map();
 
   const flexEligiblePositions = () => DEFAULT_FLEX_ELIGIBLE;
 
@@ -382,99 +347,6 @@
     return viewed ? `as published · ${state.viewTitle}` : columnBadge(key);
   }
 
-  function tradePublishedAt() {
-    const raw = newsMeta.trade_values_published_at || data?.built_at || "";
-    const parsed = new Date(raw);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  function normalizeNewsEntry(entry) {
-    if (!entry || typeof entry !== "object") return null;
-    const title = String(entry.title || entry.headline || "").trim();
-    if (!title) return null;
-    const tags = [
-      ...(Array.isArray(entry.tags) ? entry.tags : []),
-      entry.category,
-      entry.topic
-    ].map(value => String(value || "").toLowerCase());
-    const valueWords = /\b(injury|injured|practice|limited|out|questionable|doubtful|suspend|suspension|discipline|snap|role|starter|backup|depth|target|touch|carry|route|usage|trade|contract|holdout|return|active|inactive|bench|waiver|fantasy|value)\b/i;
-    const personalOnly = /\b(birthday|wedding|charity|family|vacation|podcast|interview only)\b/i;
-    // JEG-41: filter out pure fantasy trade speculation. Articles that are only
-    // about "trade for X" / "trade away Y" / "trade targets" without injury,
-    // scheme, or role substance don't affect projected scoring.
-    const tradeSpeculation = /\b(trade\s+(for|away|targets?)|fantasy\s+trade|trade\s+value|trade\s+deadline\s+deals?)\b/i;
-    const substanceWords = /\b(injury|injured|practice|limited|questionable|doubtful|suspend|suspension|discipline|snap|role|starter|backup|depth\s+chart|target\s+share|coaching|scheme|play-?call)/i;
-    const valueRelated = tags.some(tag => ["injury","availability","role","usage","depth","discipline","suspension","transaction","fantasy","player_value"].includes(tag)) || valueWords.test(title) || valueWords.test(String(entry.summary || ""));
-    if (!valueRelated || personalOnly.test(title)) return null;
-    if (tradeSpeculation.test(title) && !substanceWords.test(title) && !substanceWords.test(String(entry.summary || ""))) return null;
-    const published = new Date(entry.published_at || entry.published || "");
-    const publishedAt = Number.isNaN(published.getTime()) ? null : published;
-    const valueDate = tradePublishedAt();
-    const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "fresher than values" : "older than values") : "timing unavailable";
-    // JEG-41: only news newer than the source values affects projected scoring.
-    // Older news was already priced into the projections.
-    if (timing !== "fresher than values") return null;
-    return {
-      type: "news",
-      title,
-      url: String(entry.url || "").trim(),
-      source: String(entry.source || "News").trim(),
-      publishedAt,
-      timing,
-      summary: String(entry.summary || "").trim()
-    };
-  }
-
-  function normalizeAdjustmentEntry(entry) {
-    if (!entry || typeof entry !== "object") return null;
-    const kind = String(entry.kind || "adjustment").trim();
-    const status = String(entry.status || "").trim();
-    const injury = String(entry.injury || "").trim();
-    const title = `${kind.charAt(0).toUpperCase()}${kind.slice(1)} adjustment${status ? ` · ${status}` : ""}${injury ? ` · ${injury}` : ""}`;
-    const published = new Date(entry.date || "");
-    const publishedAt = Number.isNaN(published.getTime()) ? null : published;
-    const valueDate = tradePublishedAt();
-    const timing = publishedAt && valueDate ? (publishedAt > valueDate ? "pending after current values" : "priced or older than values") : "timing unavailable";
-    const weeks = Array.isArray(entry.weeks_out_range) ? entry.weeks_out_range.filter(value => value !== null && value !== undefined).join("-") : "";
-    const detail = [
-      entry.note,
-      weeks ? `Missed-games estimate: ${weeks}` : (entry.weeks_out !== null && entry.weeks_out !== undefined ? `Missed-games estimate: ${entry.weeks_out}` : ""),
-      entry.skip_form ? "Skip most recent game form when pricing." : "",
-      entry.beneficiary_review ? `Beneficiary review: ${entry.beneficiary_review}` : ""
-    ].filter(Boolean).join(" ");
-    return {
-      type: "adjustment",
-      title,
-      url: "",
-      source: String(entry.source || "Adjustment log").trim(),
-      publishedAt,
-      timing,
-      summary: detail,
-      consumed: Boolean(entry.consumed)
-    };
-  }
-
-  function playerNews(playerKey) {
-    return (newsByPlayerKey.get(Number(playerKey)) || []).map(normalizeNewsEntry).filter(Boolean);
-  }
-
-  function playerAdjustments(playerKey) {
-    return (adjustmentsByPlayerKey.get(Number(playerKey)) || []).map(normalizeAdjustmentEntry).filter(Boolean);
-  }
-
-  function playerContext(playerKey) {
-    return [...playerAdjustments(playerKey), ...playerNews(playerKey)].sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
-  }
-
-  function latestNews(row) {
-    return playerContext(row.player_key)[0] || null;
-  }
-
-  function formatDate(value) {
-    if (!(value instanceof Date) || Number.isNaN(value.getTime())) return "date unavailable";
-    return new Intl.DateTimeFormat("en-US", {month:"short", day:"numeric", timeZone:"UTC"}).format(value);
-  }
-
   function sortValue(row, column) {
     if (column === "name") return row.name;
     if (column === "espn_role") return row.espn_role;
@@ -486,10 +358,6 @@
     if (column === "team") return row.team;
     if (column === "espn_role") return row.espn_role || "waiver";
     if (column === "disagreement") return formatValue(row.disagreement);
-    if (column === "latest_news") {
-      const latest = latestNews(row);
-      return latest ? `${formatDate(latest.publishedAt)} · ${latest.timing}` : "—";
-    }
     return formatValue(row[column]);
   }
 
@@ -580,7 +448,7 @@
       // Frame 22: VORP vs waivers columns are a different unit from the
       // trade-value point scale; the spread covers only the point-scale series.
       const priced = renderKeys.filter(key => !PURE_VORP_KEYS.includes(key)).map(key => values[key]).filter(Number.isFinite);
-      return {...player, espn_role:espnRoleByKey.get(playerKey) || "waiver", ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null, newsCount:playerContext(playerKey).length};
+      return {...player, espn_role:espnRoleByKey.get(playerKey) || "waiver", ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null};
     }).filter(Boolean);
   }
 
@@ -629,32 +497,10 @@
     renderTable();
   }
 
-  function renderNewsList(row) {
-    const items = playerNews(row.player_key);
-    if (!items.length) return '<p class="news-empty">No player-value news is loaded for this player yet.</p>';
-    // Very brief: max 3 items, truncated summaries, pre/post-values timing prominent.
-    return `<ul class="news-list">${items.slice(0, 3).map(item => {
-      const brief = item.summary ? (item.summary.length > 120 ? item.summary.slice(0, 117) + "…" : item.summary) : "";
-      const timingBadge = item.timing === "fresher than values" ? "post-values" : item.timing === "older than values" ? "pre-values" : "timing n/a";
-      return `<li><a href="${esc(item.url || "#")}"${item.url ? ' target="_blank" rel="noopener noreferrer"' : ""}>${esc(item.title)}</a>${brief ? `<p>${esc(brief)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · <strong>${esc(timingBadge)}</strong></span></li>`;
-    }).join("")}</ul>`;
-  }
-
-  function renderAdjustmentList(row) {
-    const items = playerAdjustments(row.player_key);
-    if (!items.length) return "";
-    return `<div class="adjustment-block"><h4>Valuation adjustments</h4><ul class="news-list adjustment-list">${items.slice(0, 4).map(item => `<li><strong>${esc(item.title)}</strong>${item.summary ? `<p>${esc(item.summary)}</p>` : ""}<span>${esc(item.source)} · ${esc(formatDate(item.publishedAt))} · ${esc(item.timing)}${item.consumed ? " · consumed" : " · pending"}</span></li>`).join("")}</ul></div>`;
-  }
-
-  function renderExpandedRow(row, colSpan) {
-    const open = state.expanded.has(row.player_key);
-    return `<tr class="expand-row ${open ? "open" : ""}" data-expand-for="${row.player_key}"><td id="player-detail-${row.player_key}" colspan="${colSpan}"><div class="player-news-detail"><h3>Recent player-value news</h3>${renderAdjustmentList(row)}${renderNewsList(row)}</div></td></tr>`;
-  }
-
   function renderTable() {
     const list = filteredRows();
     if ($("#boardTitle")) $("#boardTitle").textContent = "Compare player values";
-    if ($("#boardDescription")) $("#boardDescription").textContent = "Search, sort, and expand players using the graph's league settings.";
+    if ($("#boardDescription")) $("#boardDescription").textContent = "Search and sort players using the graph's league settings.";
     if ($("#consensusNote")) $("#consensusNote").textContent = "Missing source values show —, never zero.";
     if ($("#resultCount")) $("#resultCount").textContent = `${list.length} player${list.length === 1 ? "" : "s"}`;
     if ($("#sortNote")) {
@@ -677,32 +523,18 @@
     }
     const keys = visibleColumns();
     const head = `<tr>${sortHeader("name", "Player")}${keys.map(key => sortHeader(key, columnLabel(key))).join("")}</tr>`;
-    const colSpan = keys.length + 1;
     const body = list.map(row => {
-      const open = state.expanded.has(row.player_key);
-      // JEG-41: only expandable when the player has relevant news/adjustments.
-      const hasContext = playerContext(row.player_key).length > 0;
       // GAP-025 (was JEG-50): badge players ESPN projects at 0 (injured/out),
       // from the player's own ESPN fields; published values stay as published.
       // A player ESPN has no row for is missing, not 0, and gets no badge.
       const zero = row.espn_projects_zero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
       const zeroBadge = zero ? ` <span class="espn-zero-badge" data-espn-zero title="${esc(zero.title)}"><span aria-hidden="true">${zero.symbol}</span> ${esc(zero.label)}</span>` : "";
-      const nameCell = hasContext
-        ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong>${zeroBadge}</button>`
-        : `<strong>${esc(row.name)}</strong>${zeroBadge}`;
-      const main = `<tr class="row-main ${open ? "open" : ""}" data-player-key="${row.player_key}"><td data-label="Player">${nameCell}<span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
-      return main + renderExpandedRow(row, colSpan);
+      const nameCell = `<strong>${esc(row.name)}</strong>${zeroBadge}`;
+      return `<tr class="row-main" data-player-key="${row.player_key}"><td data-label="Player">${nameCell}<span class="name-sub">${esc(row.pos)} · ${esc(row.team)}</span></td>${keys.map(key => `<td data-label="${esc(columnLabel(key))}">${esc(displayValue(row, key))}</td>`).join("")}</tr>`;
     }).join("");
     wrap.innerHTML = `<table class="all-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
     wrap.querySelectorAll("[data-sort]").forEach(button => button.addEventListener("click", () => {
       setTableSort(button.dataset.sort);
-    }));
-    wrap.querySelectorAll("[data-expand]").forEach(button => button.addEventListener("click", event => {
-      event.stopPropagation();
-      const key = Number(button.dataset.expand);
-      if (state.expanded.has(key)) state.expanded.delete(key);
-      else state.expanded.add(key);
-      renderTable();
     }));
   }
 
@@ -866,11 +698,7 @@
 
   async function init() {
     try {
-      let loaded;
-      [loaded, window.TradeValuePlayerNews] = await Promise.all([loadComparisonData(), loadPlayerNews()]);
-      newsMeta = window.TradeValuePlayerNews?.meta || {};
-      newsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.news_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
-      adjustmentsByPlayerKey = new Map(Object.entries(window.TradeValuePlayerNews?.adjustments_by_player_key || {}).map(([key, entries]) => [Number(key), Array.isArray(entries) ? entries : []]));
+      const loaded = await loadComparisonData();
       universeSize = (typeof window !== "undefined" && window.TradeValueProductData)
         ? window.TradeValueProductData.getPlayers().length
         : 0;

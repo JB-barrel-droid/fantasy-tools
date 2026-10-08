@@ -260,6 +260,28 @@ class WeekSnapshotRuleTest(unittest.TestCase):
         self.assertEqual(got, [("b1", [("1", 5.0), ("217", 66.0)]), ("b2", [("217", 68.0)]),
                                ("b3", [("217", 69.0)])])
 
+    def test_cbs_rows_before_and_after_the_bake_migration_are_one_version(self):
+        # Before cbs_bakes_source_urls_20261008: bake_id NULL and the week
+        # overwritten in place (leftover rows keep the older pulled_at). After
+        # it: the same rows labelled cbswk5_legacy. Same content either way.
+        base = {"season": 2026, "scoring": "ppr", "source_content_date": None, "week": 5, "source": "cbs"}
+        rows = [dict(base, player_key=217, native_value=47.0, pulled_at="2026-10-08T11:36:55+00:00"),
+                dict(base, player_key=1, native_value=3.0, pulled_at="2026-10-08T11:36:55+00:00"),
+                dict(base, player_key=9, native_value=1.0, pulled_at="2026-10-06T11:00:00+00:00")]  # leftover
+        before = H.published_entries_from_rows([dict(r, bake_id=None) for r in rows])
+        after = H.published_entries_from_rows([dict(r, bake_id="cbswk5_legacy") for r in rows])
+        self.assertEqual(len(before), 1)
+        self.assertEqual(sorted(before[0]["natives"]["ppr"]), ["1", "217"])
+        self.assertEqual(H.fingerprint(before[0]), H.fingerprint(after[0]))
+
+    def test_timestamp_formats_compare_as_times(self):
+        # The base tables return ISO 'T' timestamps, the old view a space: a
+        # raw string compare ranks any 'T' stamp above any same-day space one.
+        later = self._chart("usatoday", 5, 62.0, "2026-10-07 21:00:00+00", "2026-10-06")
+        earlier = self._chart("usatoday", 5, 60.0, "2026-10-07T09:00:00+00:00", "2026-10-06")
+        docs = H.merge({}, [later, earlier], content_week=5, log=self.quiet)
+        self.assertEqual(docs[5]["sources"]["usatoday"]["natives"]["ppr"]["217"], 62.0)
+
     def test_index_matches_a_served_superseded_version(self):
         sup = {}
         older = self._chart("usatoday", 5, 60.0, "2026-10-06 00:00:00+00", "2026-10-06")

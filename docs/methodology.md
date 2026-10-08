@@ -60,6 +60,47 @@ equal ESPN's, so each keeps its own weighting across positions and its own top
 values. Aligning each position's top to ESPN's applies only to the fitted
 `*_adjusted` series.
 
+### Inspecting the math
+
+Internal page: `modules/math-inspector.html` (live:
+https://jb-barrel-droid.github.io/fantasy-tools/modules/math-inspector.html).
+Noindex, linked from no public page. It runs the chart engine off-screen and
+shows, for any scoring, team count, roster and bench share: each source's saved
+inputs and provenance (content week, URL, bake, identity rows not resolved to a
+charted player); the translation (rostered counts, waiver line and how it was
+set, value above waivers in the chart's own units, implied weights by position
+and starter/bench); the Indexed pie split by position x starter/bench beside
+the anchor's on the same players; VORP vs waivers and Adjusted values per
+player side by side with every factor; a one-player drill-down across all
+sources and views with the prior week's change; and a CSV/JSON download of
+every table. It reads only `TradeValueCurveControls.getInspection()` (a
+read-only accessor); `tests/test_math_inspector.py` holds its tables to the
+engine's `getAllRows()` in all three views at three settings. Built by
+`pipelines/build_inspector_page.py` from `app/inspector/` on every `make sync`.
+
+**What the views guarantee today (views-audit, measured 2026-10-08).** Jeremy
+stated the invariants on 2026-10-08. Indexed: "the positions and bench/starter
+have different weights but the total pies are the same". VORP vs waivers:
+"the differences in deconstructed values of each player on the same exact
+scale". Adjusted: "the differences in value of each player, when their
+positional and bench/starter weights have been normalized". They are measured
+on the players a source and the ESPN anchor both price (QB/RB/WR/TE).
+
+What holds and is gated by `make validate` (`tests/test_view_invariants.py`):
+- In every tab, CBS ROS, Razzball, the `*_adjusted` series and the raw
+  value-above-waivers series total exactly the anchor's total.
+- The raw series are therefore on one scale in VORP vs waivers.
+
+What does not hold yet (measured; options on `docs/math-review-agenda.md`,
+"From views-audit" and MR-01/03/04/05; not changed before the review):
+- The published charts' Indexed totals run 0.66-1.82x the anchor's.
+- Their VORP vs waivers totals run 0.71-1.00x.
+- Their Adjusted group totals are not the DDF weights (70 cap, mixed basis).
+
+The page reports all of it as `TradeValueCurveDiagnostics.viewInvariants`.
+`fixedPieIndexed` does not gate published charts. Its rows for them carry the
+measured gap, labelled "not gated (published)".
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:
@@ -203,7 +244,8 @@ Indexed, so a player at or below the waiver line is 0 in all three views:
   settings.
 
 Jeremy accepted any working setup ("I'm ok with however you set up values to
-get the tool working"); the recipe awaits his review.
+get the tool working"); the recipe awaits his review (`docs/math-review-agenda.md` MR-04,
+MR-05).
 
 The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
 native inputs. Their ingestion adapters currently assign `league_teams=12`
@@ -254,6 +296,62 @@ the week; projection sources use the newest snapshot dated in the week. A closed
 never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
 "Back-end contract: history".
 
+## Superflex (JEG332-SUPERFLEX-FLEX, Jeremy 2026-10-08, option A)
+
+A superflex league has a **dedicated superflex slot**: roster key `SUPERFLEX`
+(slots per team; the page offers 0 or 1, default 0). It is filled after the
+dedicated QB/RB/WR/TE slots and before FLEX, by the best remaining player with
+QBs eligible. FLEX stays RB/WR/TE. There is no per-position slot weighting in
+the superflex fill -- the `slots[pos] x surplus` flex weight is what kept QBs
+out of a QB-eligible flex before (risk register JEG332-SUPERFLEX-FLEX). "Best"
+means, per context:
+
+- *Projection series and roles* (ESPN, CBS ROS, Razzball; `projectionRoles`,
+  `allocationCounts`): projected points per game, like ordinary FLEX. A lineup
+  starts whoever scores more, so on ESPN's 2026 projections every superflex
+  slot goes to a quarterback (24 QB starters at 12 teams, 20 at 10).
+- *Value-ordered roles* (`roleMap`, the anchor's starter/bench groups): the
+  values being split.
+- *Published-chart translation* (`vorp_via_roster.allocate_superflex`,
+  mirrored by `ValueModel.translatePublishedVorp({superflexCount})`): the
+  teams x slots best players left after the dedicated starters by the
+  chart's own values (ties: QB, RB, WR, TE, then rank); flex candidates start
+  after them. The league-following positional maxes
+  (`positionalMaxForSetup`) run the same allocation on our ESPN projections,
+  which is where the quarterback scarcity of a superflex league enters every
+  derived chart.
+
+**Whose values.** The Three Views say the ranker's assumed setting is the
+standard default unless the publisher states otherwise. Where a publisher
+publishes superflex / 2-QB values -- FantasyCalc (`numQbs=2`), CBS (2QB QB
+column), USA Today (Superflex QB column), FantasyPros (2QB Value for QBs) --
+those are the publisher's own superflex numbers and the engine uses them: the
+saved 12-team combo's `native_superflex` (same units as `native`, only the
+players the publisher prices differently) replaces the 1-QB native for those
+players when the roster has a superflex slot (`savedPublishedNative`). Where a
+publisher's superflex values are not saved, its 1-QB values go through the
+league math above unchanged ("derived from 1-QB values" in
+`publishedDerivation[src].superflex`). **As of 2026-10-08 no superflex values
+are saved for any publisher** (Supabase `source_trade_values` and
+`api.source_inputs_weekly` hold only `qb_slots = 1`; the pullers keep only the
+1-QB columns), so every published chart is derived from its 1-QB values until
+a producer saves them.
+
+Saved setup: a roster with a superflex slot is never the saved setup; the
+saved 12-team values apply only at SUPERFLEX 0, which reproduces the
+pre-superflex engine exactly (`tests/test_superflex.py`, and a 12-combo x
+three-view sweep with zero moved values). Versions: `unified-py-jeg62/3`,
+`league-settings-001/5`, `published-views-001/3`.
+
+**Not repriced by superflex (open, same as the QB stepper).** The ESPN anchor
+is the pipeline's built leg at the reference roster; a roster change reaches
+it only through `applyRosterShape`'s top-N average factor, and the raw
+value-above-waivers series keep each position's pie at the reference roster.
+So with a superflex slot the anchor's QB values barely move (12 teams, full
+PPR: QB1 29.5 -> 30.9) while the derived published charts' QB1 reaches 70.
+Re-pricing the anchor for roster shape is the open decision in
+JEG332-SUPERFLEX-FLEX.
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,
@@ -262,6 +360,10 @@ never changes; other versions are kept, not used. Full rule and contract: docs/v
   dashboard-build -> frontend/site workflow.
 - `docs/risk-register.md` owns known methodology gaps and decisions still
   needing evidence.
+- `docs/math-review-agenda.md` collects every open math and logic question
+  (MR-01...) for the full math review, with dependencies, measured options
+  and the order to decide them. Add new questions there rather than settling
+  them one at a time.
 
 ## Validation Principle
 

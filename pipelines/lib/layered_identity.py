@@ -1,5 +1,7 @@
 """JEG-366: Layered player identity resolution.
 
+Layer 3 (aliases):  verified spellings, data/inputs/player_aliases.json (the one
+                    list every resolver shares) rewrite the name first.
 Layer 2 (override): manual table data/inputs/player_identity_map.json. Always wins.
 Layer 1 (base):     Sleeper NFL player database (data/inputs/sleeper_identity_base.json,
                     refreshed by .github/workflows/sleeper-identity-refresh.yml).
@@ -30,6 +32,7 @@ _LIB = os.path.dirname(os.path.abspath(__file__))
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
 from canonical_players import norm_plain  # noqa: E402
+import player_aliases  # noqa: E402 -- the one verified alias list
 
 _INPUTS = Path(_LIB).parent.parent / "data" / "inputs"
 BASE_SCHEMA = "sleeper-identity-base-v2"
@@ -63,6 +66,9 @@ def _keys(name: str) -> list[str]:
 
 
 def resolve_manual(name: str) -> dict | None:
+    spelled = player_aliases.canonical_spelling(name)
+    aliased = norm_plain(str(spelled or "")) != norm_plain(str(name or ""))
+    name = spelled
     manual = _load_manual()
     canon = manual.get("canonical", {})
     aliases = manual.get("alias_to_canonical", {})
@@ -70,7 +76,8 @@ def resolve_manual(name: str) -> dict | None:
         if key in canon:
             e = canon[key]
             return {"name": e.get("name", name), "pos": e.get("pos"),
-                    "team": e.get("team"), "source": "manual"}
+                    "team": e.get("team"),
+                    "source": "manual-alias" if aliased else "manual"}
         if key in aliases and aliases[key] in canon:
             e = canon[aliases[key]]
             return {"name": e.get("name", name), "pos": e.get("pos"),
@@ -82,9 +89,13 @@ def sleeper_candidates(name: str, pos: str | None = None) -> list[dict]:
     """Every Sleeper player whose name key matches (and position, if given)."""
     base = _load_base()
     by_id = base.get("by_sleeper_id", {})
-    key = norm_plain(str(name or ""))
+    # Sleeper may carry any verified spelling ("Kenny Gainwell", "Chig
+    # Okonkwo"); look up every spelling of the same player, one hit per id.
+    sids = []
+    for spelling in player_aliases.spellings(str(name or "")):
+        sids += base.get("by_name", {}).get(norm_plain(str(spelling or "")), [])
     out = []
-    for sid in base.get("by_name", {}).get(key, []):
+    for sid in dict.fromkeys(sids):
         e = by_id.get(sid)
         if e is None:
             continue

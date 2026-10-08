@@ -440,6 +440,29 @@ class TestPromote(unittest.TestCase):
             self._promote_active(fx_path, revp, health)
         self.assertIn("lacks immutable content_vintage", str(ctx.exception))
 
+    def test_l1_gate_warns_on_old_health_check_and_still_promotes(self):
+        """GAP-015: the age of the import-health check (checked_at) is a
+        WARNING, never a refusal (Jeremy 2026-10-07: only wrong numbers block)."""
+        health = self.tmp / "health.json"
+        write_import_health(health, vintage="Week 3", status="ok")  # checked_at 2026-09-21T12:30Z
+        fx_path, revp = self._active_review(vintage="Week 3")
+        result = self._promote_active(fx_path, revp, health)
+        gate = json.loads(Path(result["promotion_record"]).read_text())["l1_import_health_gate"]
+        self.assertTrue(gate["applied"])
+        self.assertEqual(1, len(gate["warnings"]))
+        self.assertIn("checked", gate["warnings"][0])
+        self.assertGreater(gate["checked_at_age_hours"], promo.L1_MAX_AGE_HOURS)
+
+    def test_l1_age_warning_boundaries(self):
+        from datetime import datetime, timezone
+        now = datetime(2026, 9, 21, 12, 30, tzinfo=timezone.utc)
+        self.assertEqual((2.0, None), promo.l1_age_warning("2026-09-21T10:30:00Z", now))
+        age, warn = promo.l1_age_warning("2026-09-20T10:00:00Z", now)
+        self.assertEqual(26.5, age)
+        self.assertIsNotNone(warn)
+        self.assertEqual(None, promo.l1_age_warning("not a time", now)[0])
+        self.assertIn("unreadable", promo.l1_age_warning("not a time", now)[1])
+
     def test_l1_gate_not_applied_to_non_active_source(self):
         fx_path, rp, revp = ready_review(self.tmp)  # source "syn"
         result = promo.promote(str(revp), APPROVE, fixture_path=str(fx_path),

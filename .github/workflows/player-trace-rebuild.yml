@@ -1,13 +1,17 @@
 name: Rebuild player trace
 
 # Rebuilds the player trace artifact (dist/modules/player-trace.json)
-# from the latest pipeline data. Runs after the comparison chain rebuild.
+# from the latest pipeline data. The served monitor page
+# (dist/modules/dashboard.html, "Player Trace") reads it.
+#
+# Scheduler owner: Supabase pg_cron `trigger-player-trace-live`, daily 12:47 UTC
+# (after the 11:45 rebuild-chain-bake-live run publishes the day's bake).
+# Was every 6 h at :47 until paused 2026-10-07; re-enabled daily 2026-10-08
+# (producers lane, supabase/migrations/producers_schedule_tidy_20261008.sql):
+# a 6-hourly commit to main for an internal page was churn, a stale trace on a
+# served page was worse. No `schedule:` here, so there is one owner.
 
 on:
-  # JEG-285: cron disabled 2026-10-03, now triggered by Supabase pg_cron
-#   schedule:
-#     # Every 6 hours, offset from the comparison chain rebuild
-#     - cron: '47 */6 * * *'
   workflow_dispatch:
 
 permissions:

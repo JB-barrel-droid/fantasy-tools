@@ -67,7 +67,7 @@ ADJUSTED_PARENTS = {
     "cbs_adjusted": ("fixture", "cbs"),
 }
 LEG_DERIVED = {
-    "espn":     {"mark": "-espn-",     "filename": "ddf_leg_espn.json",     "snapshot_field": "espn_snapshot_date"},
+    "espn":     {"mark": "-espn-",     "filename": "ddf_leg.json",          "snapshot_field": "espn_snapshot_date"},
     "cbsros":   {"mark": "-cbsros-",   "filename": "ddf_leg_cbsros.json",   "snapshot_field": "cbsros_snapshot_date"},
     "razzball": {"mark": "-razzball-", "filename": "ddf_leg_razzball.json", "snapshot_field": "razzball_snapshot_date"},
 }
@@ -125,6 +125,22 @@ def find_freshest_leg_for_source(derived_key: str) -> Path | None:
         return None
     hits.sort(reverse=True)
     return hits[0][2]
+
+
+def legs_of_newest_vintage(derived_key: str) -> list[Path]:
+    """Every leg file of the source's newest snapshot vintage."""
+    spec = LEG_DERIVED[derived_key]
+    by_vintage: dict[str, list[Path]] = {}
+    for leg_path in LEG_DIR.glob(f"*/{spec['filename']}"):
+        try:
+            doc = json.loads(leg_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if spec["mark"] not in doc.get("bake_id", ""):
+            continue
+        snap = (doc.get("inputs") or {}).get(spec["snapshot_field"], "")
+        by_vintage.setdefault(snap, []).append(leg_path)
+    return sorted(by_vintage[max(by_vintage)]) if by_vintage else []
 
 
 def recompute_leg_lineage(leg_path: Path, derived_key: str) -> dict:
@@ -270,8 +286,16 @@ def check_fixture_sections(fixture: dict, mismatches: list) -> int:
             ))
             continue
         actual_lineage = recompute_leg_lineage(leg_path, derived_key)
-        for field in ("raw_vintage", "raw_content_sha256",
-                      "raw_built_at", "vintage_source"):
+        # The section writer stamps the first combo's leg of its run (12 legs,
+        # one vintage, built seconds apart); the freshest-leg pick above is
+        # usually another combo's. The stamp is right when it names ANY leg of
+        # the newest vintage exactly (GAP-RAZZBALL-REFRESH-FOLLOWUPS (1)).
+        fields = ("raw_vintage", "raw_content_sha256", "raw_built_at", "vintage_source")
+        if any(all(lineage.get(f) == cand[f] for f in fields)
+               for cand in (recompute_leg_lineage(p, derived_key)
+                            for p in legs_of_newest_vintage(derived_key))):
+            continue
+        for field in fields:
             if lineage.get(field) != actual_lineage[field]:
                 mismatches.append(mismatch(
                     derived_key,

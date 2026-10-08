@@ -5,16 +5,16 @@ name: Weekly dashboard load to Supabase
 # flipping is_current only after the loader verifies the view count.
 # Idempotent: exits 0 with NOOP when the current run already covers the bundle.
 #
-# Runs LIVE on schedule. While weekly production is paused (JEG-ECR-EXIT
-# retired the ECR feed; transition tracked in JEG-399), no new bundles are
-# published, so the job simply NOOPs each day until bundles flow again.
-# Standing direction (Jeremy): as many processes as possible live in
-# Supabase, with minor assistance from GitHub — never on the Muse runtime.
+# MANUAL ONLY since 2026-10-08 (producers lane). Weekly production is paused
+# (JEG-ECR-EXIT retired the ECR feed; JEG-399), no new bundles are staged, and
+# neither the trade-value chart nor the v2 site reads the weekly dashboard
+# tables. The daily GitHub cron failed every day (exit 2: no new bundle) and
+# held the monitoring banner red, so the schedule, the pg_cron job
+# `weekly-dashboard-load-live` and the monitored check `weekly_dashboard_load`
+# are retired (supabase/migrations/producers_schedule_tidy_20261008.sql).
+# When weekly production resumes, re-add a pg_cron dispatch and the check row.
 
 on:
-  schedule:
-    # Daily at 16:07 UTC (11:07 CT)
-    - cron: '7 16 * * *'
   workflow_dispatch:
 
 permissions:
@@ -58,13 +58,3 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/check_weekly_freshness.py
-
-      # Monitoring: record this run in Supabase monitoring.check_observations,
-      # red or green. A run that never happens is flagged `missed` by the
-      # evaluator. Never fails the job. Declared in config/monitoring_coverage.json.
-      - name: Record monitored check
-        if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 pipelines/record_monitor_check.py --check-id weekly_dashboard_load --owner weekly-dashboard-load.yml --outcome "${{ job.status }}"

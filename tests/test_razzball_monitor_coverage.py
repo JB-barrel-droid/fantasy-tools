@@ -10,7 +10,6 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 import build_index_math  # noqa: E402
 import build_pipeline_checkpoints  # noqa: E402
 import build_source_fidelity  # noqa: E402
-import build_source_value_lineage  # noqa: E402
 
 
 DASHBOARD_HTML = ROOT / "modules" / "dashboard.html"
@@ -36,7 +35,8 @@ class RazzballMonitorCoverageTest(unittest.TestCase):
         self.assertIsNotNone(source_order)
         self.assertIn('"razzball"', source_order.group(1))
         self.assertNotIn("10 checkpoints × 5 sources", text)
-        self.assertIn('razzball:"Razzball"', text)
+        # The razzball:"Razzball" label lived in the source-value lineage
+        # card's label map, retired 2026-10-08 (chore/retire-extras).
 
     def test_razzball_fidelity_loads_ddf_leg_natives(self):
         self.assertIn("razzball", build_source_fidelity.SOURCES)
@@ -55,15 +55,6 @@ class RazzballMonitorCoverageTest(unittest.TestCase):
         self.assertEqual(result["status"], "ok", result.get("mismatches"))
         self.assertIn("full_12", result["combos"])
         self.assertGreater(result["combos"]["full_12"]["checked"], 0)
-
-    def test_razzball_lineage_is_projection_calculated(self):
-        self.assertEqual(build_source_value_lineage.COMBO_KEYS["razzball"], "half_12")
-        self.assertIsNone(build_source_value_lineage.ADJUSTED_SOURCES["razzball"])
-        self.assertEqual(
-            build_source_value_lineage.SOURCE_TYPES["razzball"],
-            "calculated_from_projections",
-        )
-        self.assertIn("football.razzball.com", build_source_value_lineage.SOURCE_URLS["razzball"]["url"])
 
 
 if __name__ == "__main__":

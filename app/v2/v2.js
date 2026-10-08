@@ -21,6 +21,15 @@
     cbsros: {label: "CBS ROS", color: "#6B7280", symbol: "▽"},
     razzball: {label: "Razzball", color: "#9D174D", symbol: "✚"}
   };
+  // Dark theme: the same hues, lightened so symbols and lines keep 3:1 against the dark surfaces.
+  const DARK_COLORS = {espn: "#3FBF85", fantasycalc: "#7AA7EE", fantasypros: "#AE93E4", usatoday: "#3DB6D0",
+    cbs: "#A8B2BF", cbsros: "#B9BFC9", razzball: "#E7759F"};
+  const darkQuery = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+  const isDark = () => {
+    const theme = document.documentElement.dataset.theme;
+    return theme === "dark" || (theme !== "light" && Boolean(darkQuery && darkQuery.matches));
+  };
+  const pubColor = publisher => (isDark() && DARK_COLORS[publisher]) || PUBLISHERS[publisher]?.color || "#64736F";
   const PUBLISHER_NAMES = {
     espn: "ESPN", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", usatoday: "USA Today",
     cbs: "CBS Sports", cbsros: "CBS ROS projections", razzball: "Razzball projections"
@@ -35,7 +44,8 @@
     else if (key === "espn" || key === "cbsros" || key === "razzball") { method = "dda"; publisher = key; }
     else { method = "indexed"; publisher = key; }
     const pub = PUBLISHERS[publisher] || {label: key, color: "#64736F", symbol: "•"};
-    return {key, method, publisher, ...pub, short: `${pub.label} · ${METHOD_LABEL[method]}`};
+    return {key, method, publisher, ...pub, color: PUBLISHERS[publisher] ? pubColor(publisher) : pub.color,
+      short: `${pub.label} · ${METHOD_LABEL[method]}`};
   }
 
   const state = {
@@ -47,7 +57,10 @@
     sort: null,            // {key, dir}; null = rank-series order
     shown: PAGE_SIZE,
     hoverIndex: null,
-    focusIndex: 0
+    focusIndex: 0,
+    hideZeroTail: false,   // frame 21: chart only
+    yBounds: null,         // frame 21: {lo, hi} custom Y axis, null = auto
+    metaCols: {pos: true, team: true, tier: true}
   };
   let C = null;            // TradeValueCurveControls
   let view = null;         // derived snapshot for rendering
@@ -150,6 +163,7 @@
     const plotKeys = ordered.filter(key => sourceMeta(key).method !== "vorp");
     const vorpKeys = ordered.filter(key => sourceMeta(key).method === "vorp");
     const allRows = C.getRows();
+    allRows.forEach((row, index) => { row.fullRank = index + 1; });
     const needle = state.search.trim().toLowerCase();
     const {min, max} = state.range;
     let omittedMissing = 0;
@@ -169,12 +183,37 @@
     view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, totalRows: allRows.length, omittedMissing,
       refWeek, state: C.getState(), roster: C.getRosterShape()};
     const n = rows.length;
-    if (!state.window || state.windowPreset !== "custom") {
-      const hi = state.windowPreset === "all" ? n : Number(state.windowPreset) || n;
-      state.window = [1, Math.max(1, Math.min(n, hi))];
+    // Frame 21 "Hide zero-value tail": the chart stops at the last player with a ranking value above 0.
+    let last = n;
+    if (state.hideZeroTail) {
+      while (last > 1 && !(rows[last - 1].values[rankKey] > 0)) last -= 1;
+    }
+    const zone = zoneWindow(rows, state.windowPreset);
+    if (zone) {
+      state.window = [Math.min(zone[0], last), Math.max(1, Math.min(zone[1], last))];
+    } else if (!state.window || state.windowPreset !== "custom") {
+      const hi = state.windowPreset === "all" ? last : Number(state.windowPreset) || last;
+      state.window = [1, Math.max(1, Math.min(last, hi))];
     } else {
       state.window = [Math.max(1, Math.min(state.window[0], n)), Math.max(1, Math.min(state.window[1], n))];
     }
+  }
+
+  // Frame 21 Starter / Bench / Waiver: the engine's roster boundaries (getZones, in
+  // ranking-series order) mapped onto the filtered list. null for the other presets.
+  function zoneWindow(rows, preset) {
+    if (!["starter", "bench", "waiver"].includes(preset) || !rows.length) return null;
+    const zones = C.getZones ? C.getZones() : {};
+    const sb = zones.starter_to_bench;
+    const bw = zones.bench_to_waiver;
+    if (!Number.isFinite(sb) || !Number.isFinite(bw)) return null;
+    const inZone = row => (preset === "starter" ? row.fullRank < sb
+      : preset === "bench" ? row.fullRank > sb && row.fullRank < bw : row.fullRank > bw);
+    const first = rows.findIndex(inZone);
+    if (first < 0) return [1, 1];
+    let lastIndex = first;
+    rows.forEach((row, index) => { if (inZone(row)) lastIndex = index; });
+    return [first + 1, lastIndex + 1];
   }
 
   // GAP-043: the same per-source freshness wording the main page uses.
@@ -207,8 +246,12 @@
     const r = view.roster;
     $("v2RosterLine").textContent = `${r.QB} QB · ${r.RB} RB · ${r.WR} WR · ${r.TE} TE · ${r.FLEX} FLEX · ${r.BENCH} BN`;
     const older = view.active.some(key => view.infoByKey[key]?.stale);
-    $("v2FreshnessLabel").textContent = view.refWeek ? `W${view.refWeek} · Freshness ↗` : "Freshness ↗";
+    // Frame 18 "partial source failure": a selected series the engine cannot price right now.
+    const failing = view.active.filter(key => !view.infoByKey[key]?.available);
+    $("v2FreshnessLabel").textContent = `${failing.length ? "⚠ " : ""}${view.refWeek ? `W${view.refWeek} · ` : ""}Freshness ↗`;
     $("v2Freshness").classList.toggle("is-older", older);
+    $("v2Freshness").classList.toggle("is-failing", failing.length > 0);
+    $("v2Freshness").setAttribute("aria-label", `Source freshness${failing.length ? `: ${failing.length} selected source${failing.length === 1 ? "" : "s"} unavailable` : ""}`);
 
     const methods = $("v2MethodChips");
     methods.replaceChildren();
@@ -320,12 +363,18 @@
       const v = row.values[key];
       if (Number.isFinite(v) && v > vmax) vmax = v;
     }));
-    const {max: ymax, step: ystep} = niceScale(vmax);
+    let {max: ymax, step: ystep} = niceScale(vmax);
+    let ymin = 0;
+    if (opts.yBounds) {
+      ymin = Number.isFinite(opts.yBounds.lo) ? opts.yBounds.lo : 0;
+      if (Number.isFinite(opts.yBounds.hi)) ymax = opts.yBounds.hi;
+      ystep = niceScale(ymax - ymin).step;
+    }
     const x = i => pad.l + (n <= 1 ? (width - pad.l - pad.r) / 2 : (i / (n - 1)) * (width - pad.l - pad.r));
-    const y = v => pad.t + (1 - v / ymax) * (height - pad.t - pad.b);
+    const y = v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
     const grid = el("g", {class: "grid"}, svg);
     const axis = el("g", {class: "axis"}, svg);
-    for (let v = 0; v <= ymax + 1e-9; v += ystep) {
+    for (let v = ymin; v <= ymax + 1e-9; v += ystep) {
       el("line", {x1: pad.l, x2: width - pad.r, y1: y(v), y2: y(v)}, grid);
       const label = el("text", {x: pad.l - 8, y: y(v) + 4, "text-anchor": "end"}, axis);
       label.textContent = Math.round(v);
@@ -372,7 +421,7 @@
 
   function renderCharts() {
     renderLegend();
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true});
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, yBounds: state.yBounds});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
@@ -387,10 +436,32 @@
     const fill = $("v2BrushFill");
     fill.style.left = `${((lo - 1) / Math.max(1, n - 1)) * 100}%`;
     fill.style.width = `${((hi - lo) / Math.max(1, n - 1)) * 100}%`;
-    document.querySelectorAll(".v2-seg button").forEach(button => {
+    // Frame 24: numeric bounds and an overview line of the ranking series under the handles.
+    ["v2FromRank", "v2ToRank"].forEach(id => { $(id).max = String(n); });
+    if (document.activeElement !== $("v2FromRank")) $("v2FromRank").value = String(lo);
+    if (document.activeElement !== $("v2ToRank")) $("v2ToRank").value = String(hi);
+    drawOverview();
+    document.querySelectorAll("#v2Main .v2-seg button[data-window]").forEach(button => {
       button.classList.toggle("is-on", button.dataset.window === state.windowPreset);
     });
     drawHover();
+  }
+
+  function drawOverview() {
+    const svg = $("v2BrushOverview");
+    svg.replaceChildren();
+    const rows = view.rows;
+    const values = rows.map(row => row.values[view.rankKey]);
+    const max = Math.max(0, ...values.filter(Number.isFinite));
+    if (!rows.length || !(max > 0)) return;
+    svg.setAttribute("viewBox", `0 0 ${Math.max(1, rows.length - 1)} 100`);
+    let d = "";
+    let pen = false;
+    values.forEach((v, i) => {
+      if (Number.isFinite(v)) { d += `${pen ? "L" : "M"}${i},${(100 - (Math.max(0, v) / max) * 90).toFixed(1)}`; pen = true; }
+      else pen = false;
+    });
+    el("path", {d, class: "overview", stroke: sourceMeta(view.rankKey).color, "vector-effect": "non-scaling-stroke"}, svg);
   }
 
   function drawHover() {
@@ -548,7 +619,7 @@
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
       {id: "tier", label: "Tier", cls: "col-meta", get: row => tierLabel(row.espnRole), text: true}
-    ];
+    ].filter(col => state.metaCols[col.id] !== false);
     valueKeys.forEach(key => cols.push({id: key, label: sourceLabelFor(key), source: key, cls: "num",
       get: row => row.values[key]}));
     const ddaKeys = view.plotKeys.filter(key => sourceMeta(key).method === "dda");
@@ -749,7 +820,7 @@
       const th = document.createElement("th");
       th.scope = "row";
       th.className = `player${any?.stale ? " is-older" : ""}`;
-      th.innerHTML = `<span style="color:${PUBLISHERS[pub].color}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
+      th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
       th.append(document.createTextNode(`${PUBLISHER_NAMES[pub]}${any?.week ? ` · W${any.week}` : ""}`));
       const prov = document.createElement("span");
       prov.className = "th-sub";
@@ -978,34 +1049,13 @@
     const pop = $("v2Popover");
     if (pop.hidden) return;
     pop.hidden = true;
+    if (panelOpen) {
+      panelOpen = false;
+      $("v2Scrim").hidden = $("v2Drawer").hidden;
+    }
     if (popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
     popoverAnchor = null;
   }
-  function heading(pop, text, sub) {
-    const h = document.createElement("h2");
-    h.textContent = text;
-    pop.appendChild(h);
-    if (sub) {
-      const p = document.createElement("p");
-      p.className = "v2-meta";
-      p.textContent = sub;
-      pop.appendChild(p);
-    }
-  }
-  function actions(pop, buttons) {
-    const row = document.createElement("div");
-    row.className = "actions";
-    buttons.forEach(([label, primary, fn]) => {
-      const b = document.createElement("button");
-      b.type = "button";
-      b.className = `v2-btn${primary ? " v2-btn-primary" : ""}`;
-      b.textContent = label;
-      b.addEventListener("click", fn);
-      row.appendChild(b);
-    });
-    pop.appendChild(row);
-  }
-
   function toggleEngineSource(key) {
     const input = document.querySelector(`#legacyEngine #sourceToggles input[data-source="${key}"]`);
     if (!input || input.disabled) return false;
@@ -1013,44 +1063,215 @@
     return true;
   }
 
-  function openSources(anchor, focusMethod) {
-    openPopover(anchor || $("v2EditSources"), pop => {
-      heading(pop, "Sources", "Pick the series to compare. Selection applies across tabs.");
-      [["dda", "Data Driven Adjustments (DDA)"], ["indexed", "Indexed trade charts"], ["vorp", "VORP vs waivers"]].forEach(([method, title]) => {
-        const group = document.createElement("div");
-        group.className = "group";
-        const h = document.createElement("h3");
-        h.textContent = title;
-        group.appendChild(h);
-        view.info.filter(item => sourceMeta(item.key).method === method).forEach(item => {
-          const m = sourceMeta(item.key);
-          const label = document.createElement("label");
-          label.className = `opt${item.available ? "" : " is-disabled"}`;
-          const box = document.createElement("input");
-          box.type = "checkbox";
-          box.checked = view.active.includes(item.key);
-          box.disabled = !item.available;
-          box.addEventListener("change", () => {
-            if (!toggleEngineSource(item.key)) { box.checked = !box.checked; return; }
-            refresh();
-            // The engine keeps at least one series on; reflect what it decided.
-            box.checked = view.active.includes(item.key);
-          });
-          const name = document.createElement("span");
-          name.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span> `;
-          name.append(document.createTextNode(`${PUBLISHER_NAMES[m.publisher] || m.label}`));
-          const reason = document.createElement("span");
-          reason.className = `reason${item.stale ? " is-older" : ""}`;
-          reason.textContent = !item.available
-            ? (item.paused ? "— waiting on fresh inputs" : "— not available for this league")
-            : withWaiverNote(freshnessText(item), item);
-          label.append(box, name, reason);
-          group.appendChild(label);
-        });
-        pop.appendChild(group);
-        if (focusMethod === method) setTimeout(() => group.scrollIntoView({block: "nearest"}), 0);
+  // Overlay panels (frames 09–12, 20, 21): a titled panel with ✕, a draft the
+  // user edits, and Cancel / Apply. Centered over a scrim on desktop, full
+  // screen below 768 px (frame 17). Nothing reaches the engine until Apply.
+  let panelOpen = false;
+  function openPanel(anchor, title, sub, build) {
+    openPopover(anchor, pop => {
+      pop.classList.add("is-panel");
+      const head = document.createElement("div");
+      head.className = "v2-panel-head";
+      const titles = document.createElement("div");
+      const h = document.createElement("h2");
+      h.id = "v2PanelTitle";
+      h.textContent = title;
+      titles.appendChild(h);
+      if (sub) {
+        const p = document.createElement("p");
+        p.className = "v2-meta";
+        p.textContent = sub;
+        titles.appendChild(p);
+      }
+      const close = document.createElement("button");
+      close.type = "button";
+      close.className = "v2-btn v2-panel-close";
+      close.textContent = "✕";
+      close.setAttribute("aria-label", `Close ${title}`);
+      close.addEventListener("click", closePopover);
+      head.append(titles, close);
+      pop.appendChild(head);
+      pop.setAttribute("aria-labelledby", "v2PanelTitle");
+      pop.setAttribute("aria-modal", "true");
+      build(pop);
+    });
+    const pop = $("v2Popover");
+    pop.style.left = "";
+    pop.style.top = "";
+    $("v2Scrim").hidden = false;
+    panelOpen = true;
+    const first = pop.querySelector(".v2-panel-body input, .v2-panel-body select, .v2-panel-body button") || pop.querySelector("button");
+    if (first) first.focus();
+  }
+  function panelActions(pop, buttons, left) {
+    const row = document.createElement("div");
+    row.className = "actions v2-panel-foot";
+    if (left) row.appendChild(left);
+    buttons.forEach(([label, primary, fn, attrs]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = `v2-btn${primary ? " v2-btn-primary" : ""}`;
+      b.textContent = label;
+      Object.entries(attrs || {}).forEach(([k, v]) => b.setAttribute(k, v));
+      b.addEventListener("click", fn);
+      row.appendChild(b);
+    });
+    pop.appendChild(row);
+    return row;
+  }
+  function panelBody(pop) {
+    const body = document.createElement("div");
+    body.className = "v2-panel-body";
+    pop.appendChild(body);
+    return body;
+  }
+  function segmented(label, options, value, onPick) {
+    const box = document.createElement("div");
+    box.className = "v2-pseg";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", label);
+    const buttons = options.map(([v, text]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.value = String(v);
+      b.textContent = text;
+      b.addEventListener("click", () => { onPick(v); sync(v); });
+      box.appendChild(b);
+      return b;
+    });
+    function sync(current) {
+      buttons.forEach(b => {
+        const on = b.dataset.value === String(current);
+        b.classList.toggle("is-on", on);
+        b.setAttribute("aria-pressed", String(on));
       });
-      actions(pop, [["Done", true, closePopover]]);
+    }
+    sync(value);
+    return box;
+  }
+  function eyebrow(parent, text) {
+    const h = document.createElement("h3");
+    h.className = "v2-eyebrow";
+    h.textContent = text;
+    parent.appendChild(h);
+    return h;
+  }
+
+  // ---------- 09 / 20 Choose your sources ----------
+  const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
+  let includeOlder = false;
+  function openSources(anchor) {
+    const draft = new Set(view.active);
+    const publishers = Object.keys(PUBLISHERS).filter(pub => view.info.some(item => sourceMeta(item.key).publisher === pub));
+    const staleWeeks = [...new Set(view.info.filter(item => item.stale && item.week).map(item => item.week))];
+    openPanel(anchor || $("v2EditSources"), "Choose your sources", "Select the source + method pairs you want to compare.", pop => {
+      const body = panelBody(pop);
+      const summary = document.createElement("div");
+      summary.className = "v2-psummary";
+      summary.setAttribute("role", "status");
+      body.appendChild(summary);
+      const blocks = document.createElement("div");
+      body.appendChild(blocks);
+      const err = document.createElement("p");
+      err.className = "v2-perror";
+      err.hidden = true;
+      err.textContent = "Choose at least one pair. The last one stays selected.";
+      let apply = null;
+      function render() {
+        blocks.replaceChildren();
+        publishers.forEach(pub => {
+          const items = view.info.filter(item => sourceMeta(item.key).publisher === pub)
+            .sort((a, b) => ["dda", "indexed", "vorp"].indexOf(sourceMeta(a.key).method) - ["dda", "indexed", "vorp"].indexOf(sourceMeta(b.key).method));
+          const lead = items.find(item => item.available) || items[0];
+          const block = document.createElement("section");
+          block.className = "v2-pblock";
+          block.dataset.publisher = pub;
+          const top = document.createElement("div");
+          top.className = "v2-pblock-top";
+          const name = document.createElement("h3");
+          name.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
+          name.append(document.createTextNode(PUBLISHER_NAMES[pub]));
+          const kind = document.createElement("span");
+          kind.className = "v2-meta";
+          kind.textContent = KIND[pub] || "Published trade chart";
+          const week = document.createElement("span");
+          week.className = `v2-meta v2-pweek${lead?.stale ? " is-older" : ""}`;
+          week.textContent = lead?.week ? `Week ${lead.week}${lead.stale ? " · older" : ""}` : "week unknown";
+          top.append(name, week, kind);
+          const row = document.createElement("div");
+          row.className = "v2-ppairs";
+          items.forEach(item => {
+            const m = sourceMeta(item.key);
+            const on = draft.has(item.key);
+            const blocked = !item.available || (item.stale && !includeOlder && !on);
+            const b = document.createElement("button");
+            b.type = "button";
+            b.className = `v2-ppair${on ? " is-on" : ""}`;
+            b.dataset.series = item.key;
+            b.setAttribute("aria-pressed", String(on));
+            b.disabled = blocked;
+            b.textContent = `${on ? "✓" : "+"} ${m.method === "dda" ? "DDA" : m.method === "indexed" ? "Indexed" : "VORP vs waivers"}`;
+            if (!item.available) b.title = item.paused ? "Waiting on fresh inputs" : "Not available for this league";
+            else if (blocked) b.title = "Older week: turn on Include older weeks below";
+            b.addEventListener("click", () => {
+              if (draft.has(item.key)) draft.delete(item.key);
+              else draft.add(item.key);
+              err.hidden = true;
+              render();
+              const again = blocks.querySelector(`[data-series="${item.key}"]`);
+              if (again) again.focus();
+            });
+            row.appendChild(b);
+          });
+          block.append(top, row);
+          const reason = items.find(item => !item.available) ? (lead && !lead.available
+            ? (lead.paused ? "Waiting on fresh inputs." : "Not available for this league.") : "") : "";
+          const note = withWaiverNote("", lead || {}).replace(/^ · /, "");
+          if (reason || note) {
+            const why = document.createElement("p");
+            why.className = "v2-meta";
+            why.textContent = [reason, note].filter(Boolean).join(" ");
+            block.appendChild(why);
+          }
+          blocks.appendChild(block);
+        });
+        summary.innerHTML = "";
+        const count = document.createElement("b");
+        count.textContent = `${draft.size} pair${draft.size === 1 ? "" : "s"} selected`;
+        const unit = document.createElement("span");
+        unit.className = "v2-meta";
+        unit.textContent = "DDA and Indexed use normalized trade-value points; VORP vs waivers stays in its own panel.";
+        summary.append(count, unit);
+        if (apply) apply.textContent = `Apply ${draft.size} pair${draft.size === 1 ? "" : "s"}`;
+      }
+      if (staleWeeks.length) {
+        const older = document.createElement("label");
+        older.className = "v2-polder";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = includeOlder;
+        box.addEventListener("change", () => { includeOlder = box.checked; render(); });
+        const text = document.createElement("span");
+        text.innerHTML = "<b>Older snapshots are off by default.</b> ";
+        text.append(document.createTextNode(`Include Week ${staleWeeks.join(", ")}`));
+        older.append(box, text);
+        body.appendChild(older);
+      }
+      const foot = document.createElement("p");
+      foot.className = "v2-meta";
+      foot.textContent = "Only supported pairs are offered. VORP vs waivers stays in its own panel.";
+      body.append(foot, err);
+      const row = panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
+        if (!draft.size) { err.hidden = false; return; }
+        const adds = [...draft].filter(key => !view.active.includes(key));
+        const drops = view.active.filter(key => !draft.has(key));
+        adds.forEach(toggleEngineSource);
+        drops.forEach(toggleEngineSource);
+        closePopover();
+        refresh();
+      }, {"data-apply": "sources"}]]);
+      apply = row.querySelector("[data-apply]");
+      render();
     });
   }
 
@@ -1068,125 +1289,250 @@
     statusTimer = setTimeout(() => setStatus(""), 6000);
   }
 
+  // ---------- 12 Your league ----------
+  let leagueDefaults = null;   // the engine's state at first load: what "Reset defaults" returns to
+  const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5], ["BENCH", "Bench slots", 0, 14]];
   function openLeague() {
-    openPopover($("v2EditLeague"), pop => {
-      heading(pop, "League settings", "Values recompute for your scoring, league size and roster.");
-      const s = view.state;
-      const row = document.createElement("div");
-      row.className = "row2";
-      const scoring = document.createElement("label");
-      scoring.textContent = "Scoring";
-      const sSel = document.createElement("select");
-      [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]].forEach(([v, t]) => {
-        const o = document.createElement("option"); o.value = v; o.textContent = t; o.selected = v === s.scoring; sSel.appendChild(o);
-      });
-      sSel.addEventListener("change", () => leagueChange(() => C.setScoring(sSel.value)));
-      scoring.appendChild(sSel);
-      const teams = document.createElement("label");
-      teams.textContent = "Teams";
-      const tSel = document.createElement("select");
-      [8, 10, 12, 14].forEach(v => {
-        const o = document.createElement("option"); o.value = String(v); o.textContent = `${v} teams`; o.selected = v === s.teams; tSel.appendChild(o);
-      });
-      tSel.addEventListener("change", () => leagueChange(() => C.setTeams(Number(tSel.value))));
-      teams.appendChild(tSel);
-      row.append(scoring, teams);
-      pop.appendChild(row);
-      const roster = document.createElement("div");
-      roster.className = "row2";
-      roster.style.flexWrap = "wrap";
-      const shape = C.getRosterShape();
-      [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5], ["BENCH", "Bench", 0, 14]].forEach(([key, text, min, max]) => {
-        const label = document.createElement("label");
-        label.style.flex = "1 1 30%";
-        label.textContent = text;
-        const input = document.createElement("input");
-        input.type = "number"; input.min = String(min); input.max = String(max); input.step = "1";
-        input.value = String(shape[key]);
-        input.addEventListener("change", () => { leagueChange(() => C.setRosterSpot(key, input.value)); input.value = String(C.getRosterShape()[key]); });
-        label.appendChild(input);
-        roster.appendChild(label);
-      });
-      pop.appendChild(roster);
-      actions(pop, [["Done", true, closePopover]]);
+    const s = view.state;
+    const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}};
+    openPanel($("v2EditLeague"), "Your league", "One league setup for charts, tables and trades.", pop => {
+      const body = panelBody(pop);
+      const content = document.createElement("div");
+      body.appendChild(content);
+      function render() {
+        content.replaceChildren();
+        eyebrow(content, "Scoring");
+        content.appendChild(segmented("Scoring", [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]],
+          draft.scoring, v => { draft.scoring = v; }));
+        eyebrow(content, "Teams");
+        content.appendChild(segmented("Teams", [8, 10, 12, 14].map(v => [v, String(v)]), draft.teams, v => { draft.teams = v; }));
+        eyebrow(content, "Starting roster");
+        ROSTER_SLOTS.forEach(([key, label, min, max]) => {
+          const line = document.createElement("div");
+          line.className = "v2-pstep";
+          const name = document.createElement("span");
+          name.id = `v2Step${key}`;
+          name.textContent = label;
+          const stepper = document.createElement("div");
+          stepper.className = "v2-stepper";
+          const value = document.createElement("output");
+          value.setAttribute("aria-labelledby", name.id);
+          value.textContent = String(draft.roster[key]);
+          const mk = (text, delta, aria) => {
+            const b = document.createElement("button");
+            b.type = "button";
+            b.textContent = text;
+            b.setAttribute("aria-label", `${aria} ${label}`);
+            b.disabled = delta < 0 ? draft.roster[key] <= min : draft.roster[key] >= max;
+            b.addEventListener("click", () => {
+              draft.roster[key] = Math.max(min, Math.min(max, draft.roster[key] + delta));
+              render();
+              const again = content.querySelector(`[aria-label="${aria} ${label}"]`);
+              if (again && !again.disabled) again.focus();
+            });
+            return b;
+          };
+          stepper.append(mk("−", -1, "Fewer"), value, mk("+", 1, "More"));
+          line.append(name, stepper);
+          content.appendChild(line);
+        });
+        const note = document.createElement("p");
+        note.className = "v2-meta";
+        note.textContent = "Position weights and bench allocation live in Weights & bench. Superflex leagues are not supported yet.";
+        content.appendChild(note);
+      }
+      render();
+      panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
+        const cur = view.state;
+        const shape = C.getRosterShape();
+        leagueChange(() => {
+          if (draft.scoring !== cur.scoring) C.setScoring(draft.scoring);
+          if (draft.teams !== cur.teams) C.setTeams(draft.teams);
+          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });
+        });
+        closePopover();
+      }, {"data-apply": "league"}]], (() => {
+        const reset = document.createElement("button");
+        reset.type = "button";
+        reset.className = "v2-btn v2-preset";
+        reset.textContent = "Reset defaults";
+        reset.addEventListener("click", () => {
+          if (!leagueDefaults) return;
+          draft.scoring = leagueDefaults.scoring;
+          draft.teams = leagueDefaults.teams;
+          draft.roster = {...leagueDefaults.roster};
+          render();
+        });
+        return reset;
+      })());
     });
   }
 
+  // ---------- 11 Weights & bench ----------
   function openWeights() {
-    openPopover($("v2Weights"), pop => {
-      heading(pop, "Weights & bench", "How the league's value is split by position, and how much goes to bench players.");
-      const weights = C.getPositionWeights();
-      const grid = document.createElement("div");
-      grid.className = "weights";
-      ["QB", "RB", "WR", "TE"].forEach(pos => {
-        const cell = document.createElement("div");
-        cell.innerHTML = `<span class="v2-meta">${pos}</span><b>${(Number(weights[pos]) * 100).toFixed(1)}%</b>`;
-        grid.appendChild(cell);
-      });
-      pop.appendChild(grid);
-      const bounds = C.getBenchBounds();
-      const share = C.getBenchShare();
+    const bounds = C.getBenchBounds();
+    let draft = C.getBenchShare();
+    openPanel($("v2Weights"), "Weights & bench", "Applies across tabs · Same model as the chart dashboard", pop => {
+      const body = panelBody(pop);
+      eyebrow(body, "Bench allocation");
+      const top = document.createElement("div");
+      top.className = "v2-pbench";
       const label = document.createElement("label");
-      label.className = "v2-meta";
-      label.style.display = "block";
-      label.style.marginTop = "14px";
-      const readout = document.createElement("b");
-      readout.textContent = `Bench allocation ${(share * 100).toFixed(1)}%`;
-      label.appendChild(readout);
+      label.htmlFor = "v2BenchSlider";
+      label.innerHTML = "<b>Bench share</b><span class=\"v2-meta\">Share of total value allocated to bench depth</span>";
+      const readout = document.createElement("output");
+      readout.className = "v2-pbig";
+      readout.htmlFor = "v2BenchSlider";
+      top.append(label, readout);
+      body.appendChild(top);
       const slider = document.createElement("input");
       slider.type = "range";
+      slider.id = "v2BenchSlider";
       if (bounds) {
-        slider.min = String(bounds[0]); slider.max = String(bounds[1]); slider.step = "0.005"; slider.value = String(share);
+        slider.min = String(bounds[0]); slider.max = String(bounds[1]); slider.step = "0.005"; slider.value = String(draft);
       } else {
         slider.disabled = true;
       }
-      slider.setAttribute("aria-label", "Bench allocation");
-      slider.addEventListener("change", () => {
-        C.setBenchShareFraction(Number(slider.value));
-        const now = C.getBenchShare();
-        slider.value = String(now);
-        readout.textContent = `Bench allocation ${(now * 100).toFixed(1)}%`;
-        refresh();
-      });
-      slider.addEventListener("input", () => { readout.textContent = `Bench allocation ${(Number(slider.value) * 100).toFixed(1)}%`; });
-      label.appendChild(slider);
-      pop.appendChild(label);
-      const note = document.createElement("p");
-      note.className = "v2-meta";
-      note.textContent = bounds
-        ? `Allowed range ${(bounds[0] * 100).toFixed(1)}–${(bounds[1] * 100).toFixed(1)}% for this league; 15% is the recommended default.`
+      body.appendChild(slider);
+      const range = document.createElement("p");
+      range.className = "v2-meta";
+      range.textContent = bounds
+        ? `Feasible ${(bounds[0] * 100).toFixed(1)}%–${(bounds[1] * 100).toFixed(1)}% for this league · Recommended 15%`
         : "Bench allocation is unavailable for this league setup.";
-      pop.appendChild(note);
-      actions(pop, [["Reset to 15%", false, () => { C.setBenchShareFraction(0.15); refresh(); openWeights(); }], ["Done", true, closePopover]]);
-    });
-  }
-
-  function openFreshness() {
-    openPopover($("v2Freshness"), pop => {
-      heading(pop, "Freshness", view.refWeek ? `Board week: Week ${view.refWeek}. Older weeks stay available and are marked.` : "Source weeks");
-      const group = document.createElement("div");
-      group.className = "group";
-      view.info.filter(item => item.available).forEach(item => {
-        const m = sourceMeta(item.key);
-        const line = document.createElement("label");
-        line.className = "opt";
-        line.style.cursor = "default";
-        line.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span>`;
-        line.append(document.createTextNode(` ${PUBLISHER_NAMES[m.publisher] || m.label} · ${METHOD_LABEL[m.method]}`));
-        const reason = document.createElement("span");
-        reason.className = `reason${item.stale ? " is-older" : ""}`;
-        reason.textContent = withWaiverNote(freshnessText(item), item);
-        line.appendChild(reason);
-        group.appendChild(line);
+      body.appendChild(range);
+      const split = document.createElement("div");
+      split.className = "v2-psplit";
+      body.appendChild(split);
+      const sync = () => {
+        readout.textContent = `${(draft * 100).toFixed(1)}%`;
+        split.innerHTML = "";
+        const b = document.createElement("b");
+        b.textContent = `Starters ${(100 - draft * 100).toFixed(1)}% / Bench ${(draft * 100).toFixed(1)}%`;
+        const p = document.createElement("span");
+        p.className = "v2-meta";
+        p.textContent = "Feasible bounds recalculate with league structure.";
+        split.append(b, p);
+      };
+      slider.addEventListener("input", () => { draft = Number(slider.value); sync(); });
+      sync();
+      eyebrow(body, "Position shares of total value");
+      const shares = document.createElement("p");
+      shares.className = "v2-meta";
+      shares.textContent = "Shares total 100%. Bench share splits each position. Set by the Data Driven Football model for your league.";
+      body.appendChild(shares);
+      const weights = C.getPositionWeights();
+      ["QB", "RB", "WR", "TE"].forEach(pos => {
+        const line = document.createElement("div");
+        line.className = "v2-pshare";
+        const v = Number(weights[pos]);
+        line.innerHTML = `<b>${pos}</b><span class="v2-pshare-bar" aria-hidden="true"><span style="width:${Number.isFinite(v) ? Math.min(100, v * 100) : 0}%"></span></span>`;
+        const val = document.createElement("span");
+        val.dataset.weight = pos;
+        val.textContent = Number.isFinite(v) ? `${(v * 100).toFixed(1)}%` : "—";
+        line.appendChild(val);
+        body.appendChild(line);
       });
-      pop.appendChild(group);
-      actions(pop, [["Done", true, closePopover]]);
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.className = "v2-btn v2-preset";
+      reset.textContent = "Reset defaults";
+      reset.addEventListener("click", () => { draft = 0.15; slider.value = String(draft); sync(); });
+      panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
+        if (bounds) C.setBenchShareFraction(draft);
+        closePopover();
+        refresh();
+      }, {"data-apply": "weights"}]], reset);
     });
   }
 
+  // ---------- 10 Source freshness ----------
+  function openFreshness() {
+    const fresh = window.TradeValueProductData?.getSourceFreshness?.() || null;
+    openPanel($("v2Freshness"), "Source freshness",
+      view.refWeek ? `Week ${view.refWeek} board · each source's own week` : "Each source's own week", pop => {
+        const body = panelBody(pop);
+        const older = view.info.filter(item => item.stale && item.available);
+        if (older.length) {
+          const banner = document.createElement("div");
+          banner.className = "v2-pbanner";
+          const b = document.createElement("b");
+          const names = [...new Set(older.map(item => `${PUBLISHER_NAMES[sourceMeta(item.key).publisher]} W${item.week}`))];
+          b.textContent = `${names.length} source${names.length === 1 ? " is" : "s are"} from an earlier week`;
+          const p = document.createElement("span");
+          p.textContent = `${names.join(", ")} ${names.length === 1 ? "is" : "are"} left out of first-use selections unless you choose to include ${names.length === 1 ? "it" : "them"}.`;
+          banner.append(b, p);
+          body.appendChild(banner);
+        }
+        const table = document.createElement("table");
+        table.className = "v2-ptable";
+        table.innerHTML = "<thead><tr><th scope=\"col\">Source</th><th scope=\"col\">Snapshot</th><th scope=\"col\">Status</th></tr></thead>";
+        const tbody = document.createElement("tbody");
+        view.info.forEach(item => {
+          const m = sourceMeta(item.key);
+          const tr = document.createElement("tr");
+          tr.dataset.series = item.key;
+          const name = document.createElement("th");
+          name.scope = "row";
+          name.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span> `;
+          name.append(document.createTextNode(seriesName(item.key)));
+          const prov = document.createElement("span");
+          prov.className = "th-sub";
+          const row = fresh?.series?.[item.key];
+          prov.textContent = withWaiverNote(freshnessText(item), item);
+          if (row && (row.published_at || row.fetched_at)) prov.textContent += ` · ${String(row.published_at || row.fetched_at).slice(0, 10)}`;
+          name.appendChild(prov);
+          const snap = document.createElement("td");
+          snap.textContent = item.week ? `Week ${item.week}` : "—";
+          const status = document.createElement("td");
+          const active = view.active.includes(item.key);
+          if (!item.available) {
+            status.className = "is-bad";
+            status.textContent = item.paused ? "⚠ Unavailable · waiting on fresh inputs" : "— Not available for this league";
+          } else if (item.stale) {
+            status.className = "is-older";
+            status.textContent = active ? "Older · selected " : "Older · not selected";
+            if (active) {
+              const remove = document.createElement("button");
+              remove.type = "button";
+              remove.className = "v2-link";
+              remove.dataset.removeSeries = item.key;
+              remove.textContent = "Remove older source";
+              remove.addEventListener("click", () => { toggleEngineSource(item.key); refresh(); openFreshness(); });
+              status.appendChild(remove);
+            }
+          } else {
+            status.className = "is-ok";
+            status.textContent = active ? "✓ Current · selected" : "Current";
+          }
+          tr.append(name, snap, status);
+          tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        const wrap = document.createElement("div");
+        wrap.className = "v2-ptable-wrap";
+        wrap.appendChild(table);
+        body.appendChild(wrap);
+        const manage = document.createElement("button");
+        manage.type = "button";
+        manage.className = "v2-btn v2-btn-soft";
+        manage.textContent = "Manage selected sources";
+        manage.addEventListener("click", () => openSources($("v2EditSources")));
+        panelActions(pop, [["Close", false, closePopover]], manage);
+      });
+  }
+
+  // ---------- 24 Value range ----------
   function openRange() {
-    openPopover($("v2RangeBtn"), pop => {
-      heading(pop, "Value range", `Measured against one exact series: ${sourceMeta(view.rankKey).short}. Blank = open ended.`);
+    const key = view.rankKey;
+    const item = view.infoByKey[key];
+    const values = C.getRows().map(row => row.values[key]).filter(Number.isFinite);
+    const lo = values.length ? Math.floor(Math.min(...values)) : 0;
+    const hi = values.length ? Math.ceil(Math.max(...values)) : 100;
+    openPanel($("v2RangeBtn"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
+      const body = panelBody(pop);
+      const lead = document.createElement("p");
+      lead.textContent = "Keep players with values between";
+      body.appendChild(lead);
       const row = document.createElement("div");
       row.className = "row2";
       const mk = (text, value) => {
@@ -1201,28 +1547,120 @@
       };
       const minI = mk("Minimum", state.range.min);
       const maxI = mk("Maximum", state.range.max);
-      pop.appendChild(row);
+      body.appendChild(row);
+      // Two handles over the basis series' own spread; they mirror the number fields.
+      const dual = document.createElement("div");
+      dual.className = "v2-dual";
+      const mkSlider = (aria, value) => {
+        const s = document.createElement("input");
+        s.type = "range"; s.min = String(lo); s.max = String(hi); s.step = "0.1";
+        s.value = String(value);
+        s.setAttribute("aria-label", aria);
+        dual.appendChild(s);
+        return s;
+      };
+      const minS = mkSlider("Minimum value", state.range.min ?? lo);
+      const maxS = mkSlider("Maximum value", state.range.max ?? hi);
+      minS.addEventListener("input", () => { if (Number(minS.value) > Number(maxS.value)) minS.value = maxS.value; minI.value = minS.value; });
+      maxS.addEventListener("input", () => { if (Number(maxS.value) < Number(minS.value)) maxS.value = minS.value; maxI.value = maxS.value; });
+      minI.addEventListener("input", () => { if (minI.value !== "") minS.value = minI.value; });
+      maxI.addEventListener("input", () => { if (maxI.value !== "") maxS.value = maxI.value; });
+      body.appendChild(dual);
       const err = document.createElement("p");
       err.className = "v2-meta";
-      err.style.marginTop = "8px";
-      err.textContent = "Inclusive. Players without a value in this series are left out and counted.";
-      pop.appendChild(err);
-      actions(pop, [
-        ["Clear", false, () => { state.range = {min: null, max: null}; closePopover(); refresh(); }],
-        ["Show matching players", true, () => {
+      err.textContent = "Inclusive. Blank = open ended. Missing values are excluded with a visible count.";
+      body.appendChild(err);
+      panelActions(pop, [
+        ["Clear range", false, () => { state.range = {min: null, max: null}; closePopover(); refresh(); }],
+        ["Apply", true, () => {
           const min = minI.value === "" ? null : Number(minI.value);
           const max = maxI.value === "" ? null : Number(maxI.value);
           if (min !== null && max !== null && min > max) {
             err.textContent = "Minimum is above maximum. Swap them or clear one.";
-            err.style.color = "var(--v2-negative)";
+            err.classList.add("v2-perror");
             return;
           }
           state.range = {min, max};
           state.windowPreset = "100";
           closePopover();
           refresh();
-        }]
+        }, {"data-apply": "range"}]
       ]);
+    });
+  }
+
+  // ---------- 21 Chart options ----------
+  function openChartOptions() {
+    const draft = {preset: state.windowPreset, hideZeroTail: state.hideZeroTail, y: state.yBounds ? {...state.yBounds} : null,
+      meta: {...state.metaCols}};
+    openPanel($("v2ChartOptions"), "Chart options", "Player range, axis and table columns for Player values.", pop => {
+      const body = panelBody(pop);
+      eyebrow(body, "Player range");
+      body.appendChild(segmented("Player range", [["all", "Full"], ["100", "Top 100"], ["50", "Top 50"], ["25", "Top 25"],
+        ["starter", "Starter"], ["bench", "Bench"], ["waiver", "Waiver"]], draft.preset, v => { draft.preset = v; }));
+      const tail = document.createElement("label");
+      tail.className = "v2-check";
+      const tailBox = document.createElement("input");
+      tailBox.type = "checkbox";
+      tailBox.checked = draft.hideZeroTail;
+      tailBox.addEventListener("change", () => { draft.hideZeroTail = tailBox.checked; });
+      tail.append(tailBox, document.createTextNode(" Hide zero-value tail"));
+      body.appendChild(tail);
+      eyebrow(body, "Y axis");
+      const yRow = document.createElement("div");
+      yRow.className = "row2";
+      const mk = (text, value) => {
+        const label = document.createElement("label");
+        label.textContent = text;
+        const input = document.createElement("input");
+        input.type = "number"; input.step = "1";
+        input.value = value === null || value === undefined ? "" : String(value);
+        label.appendChild(input);
+        yRow.appendChild(label);
+        return input;
+      };
+      body.appendChild(segmented("Y axis", [["auto", "Auto"], ["custom", "Custom bounds"]], draft.y ? "custom" : "auto", v => {
+        draft.y = v === "custom" ? (draft.y || {lo: 0, hi: null}) : null;
+        yRow.hidden = !draft.y;
+      }));
+      const yLo = mk("Lower value", draft.y?.lo ?? 0);
+      const yHi = mk("Upper value", draft.y?.hi ?? "");
+      yRow.hidden = !draft.y;
+      body.appendChild(yRow);
+      eyebrow(body, "Table metadata");
+      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, text]) => {
+        const label = document.createElement("label");
+        label.className = "v2-check v2-pcheck";
+        const box = document.createElement("input");
+        box.type = "checkbox";
+        box.checked = draft.meta[id];
+        box.dataset.meta = id;
+        box.addEventListener("change", () => { draft.meta[id] = box.checked; });
+        label.append(box, document.createTextNode(` ${text}`));
+        body.appendChild(label);
+      });
+      const notes = document.createElement("p");
+      notes.className = "v2-meta";
+      notes.textContent = "Presets use the chosen ranking source. Starter / Bench / Waiver use your league's roster boundaries. These options affect this chart and table only; value filters affect the player list.";
+      body.appendChild(notes);
+      const err = document.createElement("p");
+      err.className = "v2-perror";
+      err.hidden = true;
+      body.appendChild(err);
+      panelActions(pop, [["Cancel", false, closePopover], ["Apply chart options", true, () => {
+        if (draft.y) {
+          const lo = yLo.value === "" ? 0 : Number(yLo.value);
+          const hi = yHi.value === "" ? null : Number(yHi.value);
+          if (hi !== null && !(hi > lo)) { err.hidden = false; err.textContent = "The upper value must be above the lower value."; return; }
+          draft.y = {lo, hi};
+        }
+        state.windowPreset = draft.preset;
+        state.hideZeroTail = draft.hideZeroTail;
+        state.yBounds = draft.y;
+        state.metaCols = draft.meta;
+        closePopover();
+        refresh();
+      }, {"data-apply": "chart"}]]);
     });
   }
 
@@ -1352,7 +1790,7 @@
       if (key) {
         const sym = document.createElement("span");
         sym.className = "v2-sym";
-        sym.style.color = PUBLISHERS[key].color;
+        sym.style.color = pubColor(key);
         sym.setAttribute("aria-hidden", "true");
         sym.textContent = `${PUBLISHERS[key].symbol} `;
         th.appendChild(sym);
@@ -2372,8 +2810,15 @@
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
+    // Skip link: a button, because a #fragment would change the hash route.
+    $("v2Skip").addEventListener("click", () => {
+      const main = [...document.querySelectorAll("main.v2-main")].find(m => !m.hidden);
+      if (!main) return;
+      main.tabIndex = -1;
+      main.focus();
+    });
     $("v2ShowMore").addEventListener("click", () => { state.shown += PAGE_SIZE; renderTable(); });
-    document.querySelectorAll(".v2-seg button").forEach(button => {
+    document.querySelectorAll(".v2-seg button[data-window]").forEach(button => {
       button.addEventListener("click", () => { state.windowPreset = button.dataset.window; refresh(); });
     });
     const onBrush = () => {
@@ -2400,11 +2845,40 @@
     $("v2ZoomIn").addEventListener("click", () => zoom(0.5));
     $("v2ZoomOut").addEventListener("click", () => zoom(2));
     $("v2ZoomReset").addEventListener("click", () => { state.windowPreset = "100"; refresh(); });
+    $("v2ResetAll").addEventListener("click", () => { state.windowPreset = "all"; refresh(); });
+    const onBounds = () => {
+      const n = view.rows.length;
+      let lo = Math.round(Number($("v2FromRank").value));
+      let hi = Math.round(Number($("v2ToRank").value));
+      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return;
+      lo = Math.max(1, Math.min(n, lo));
+      hi = Math.max(1, Math.min(n, hi));
+      if (lo > hi) [lo, hi] = [hi, lo];
+      state.window = [lo, hi];
+      state.windowPreset = "custom";
+      renderCharts();
+    };
+    $("v2FromRank").addEventListener("change", onBounds);
+    $("v2ToRank").addEventListener("change", onBounds);
+    $("v2ChartOptions").addEventListener("click", openChartOptions);
     bindChart("v2Chart", () => mainChart);
     bindChart("v2VorpChart", () => vorpChart);
     bindChartKeys();
-    $("v2Scrim").addEventListener("click", closeDrawer);
+    $("v2Scrim").addEventListener("click", () => { if (panelOpen) closePopover(); else closeDrawer(); });
     document.addEventListener("keydown", event => {
+      if (event.key === "Tab") {
+        const box = !$("v2Popover").hidden && panelOpen ? $("v2Popover") : !$("v2Drawer").hidden ? $("v2Drawer") : null;
+        if (!box) return;
+        const items = [...box.querySelectorAll("button, a[href], input, select, [tabindex='0']")]
+          .filter(n => !n.disabled && n.offsetParent !== null);
+        if (!items.length) return;
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (!box.contains(document.activeElement)) { event.preventDefault(); first.focus(); }
+        else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+        else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+        return;
+      }
       if (event.key !== "Escape") return;
       if (!$("v2Popover").hidden) closePopover();
       else if (!$("v2Drawer").hidden) closeDrawer();
@@ -2420,6 +2894,7 @@
       resizeTimer = setTimeout(() => { if (currentView() === "values") renderCharts(); }, 100);
     });
     window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
+    if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
@@ -2446,6 +2921,7 @@
       showFailure(error.message);
       return;
     }
+    leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     bind();
     readTradeHash();
     $("v2State").hidden = true;

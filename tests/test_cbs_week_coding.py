@@ -13,7 +13,7 @@ tests against the broken state:
   - a happy-path pull: URL week == headline week == requested week
 
 Stdlib unittest; hermetic (no network, mocked fetch). Mirrors the structure
-of tests/test_pull_watchdog.py (which already exercises pull_cbs discovery
+of tests/test_trade_chart_pullers.py (which already exercises pull_cbs discovery
 and markup-mismatch paths) but is dedicated to the week-coding contract.
 """
 import json

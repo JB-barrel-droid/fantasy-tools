@@ -43,6 +43,26 @@ source data -> reference compute -> dashboard build -> frontend/site
 - Both renderers must consume the same finished artifacts and shared value model;
   table/curve drift is a correctness bug.
 
+## Internal Monitoring
+
+- `modules/status.html` (live: `/modules/status.html`) is the ops dashboard:
+  one page answering "is everything working and fresh?" for pipelines
+  (pg_cron slots -> GitHub workflows, next run, last run outcome/duration;
+  per-source ingest), back end (rebuild chain, checkpoints, players.json bake,
+  week history, Supabase security posture, identity review queue) and front
+  end (deploys and live vs main build tag, live synthetic page checks,
+  published files, reader-facing freshness labels), plus open `ops-alert`
+  issues. Internal: noindex, never linked from public pages.
+- It reads only published JSON: `modules/monitoring-summary.json`,
+  `source-import-health.json`, `pipeline-checkpoints.json` and
+  `ops-status.json` (all from `health-artifacts.yml`; `ops-status.json` is
+  `pipelines/build_ops_status.py`), `comparison-chain-status.json` and
+  `github-actions.json` (`rebuild-chain.yml`), `assets/reference-freshness.json`
+  and `assets/history/index.json` (`make sync`). Each block shows its own as-of
+  time and turns amber/red when stale. Test: `tests/test_ops_dashboard.py`.
+- Detail pages it links to: `modules/dashboard.html` (data monitor:
+  checkpoints, data accuracy) and `modules/consolidation.html`.
+
 ## Current Known Boundaries
 
 - Supabase is the production source store, but production writes require explicit
