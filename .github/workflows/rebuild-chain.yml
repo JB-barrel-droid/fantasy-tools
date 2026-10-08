@@ -55,6 +55,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The headless render tests in `make validate` need a browser. Without
+      # one they skipped and validate passed with them unrun (until
+      # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
+      # an error for every later step instead of a silent skip.
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
 
       - name: Install standalone Supabase client
         run: |
@@ -353,6 +362,10 @@ jobs:
             # GAP-044: input lineage (written by the step above). Own add, so
             # a missing file cannot abort the fixture's add.
             git add dist/modules/input-lineage.json 2>/dev/null || true
+            # The served fit's versioned provenance copy (written by the same
+            # fit stage as the asset above; tests/test_adjustment_inputs.py
+            # requires it for the served version).
+            git add data/adjustment-inputs || true
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true

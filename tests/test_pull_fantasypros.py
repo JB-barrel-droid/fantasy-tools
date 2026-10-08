@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Negative tests for the FantasyPros week-coding pullers (JEG-86).
 
-Covers:
-  - ops/watchdog/pull_fantasypros.py (new page puller with URL+title validation)
-  - weekly_vegas/pipeline/loaders/fantasypros.py (filename-week guard for the
-    CSV snapshot path; the page puller can also cache a sidecar week.json).
+Covers ops/watchdog/pull_fantasypros.py (page puller with URL+title
+validation). The CSV-loader filename-week tests were removed 2026-10-08: they
+tested weekly_vegas/pipeline/loaders/fantasypros.py, archived 2026-10-07
+(archive/2026-10-07/weekly_vegas/), and the loader is no longer on any path.
 
 Each test simulates the historical miss the guard must catch: a stale URL
 slug, a wrong page title, a caller's --week that disagrees with the page,
@@ -20,14 +20,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                "..", "ops", "watchdog"))
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                               "..", "weekly_vegas", "pipeline", "loaders"))
-import pull_fantasypros as fp
-from fantasypros import (  # noqa: E402
-    extract_week_from_filename,
-    fp_week_sidecar_path,
-    validate_filename_week_consistency,
-)
+import pull_fantasypros as fp  # noqa: E402
 
 
 FP_URL_W4 = ("https://www.fantasypros.com/2026/09/"
@@ -38,12 +31,6 @@ FP_HTML_W3 = "<html><head><title>Week 3 fantasy football trade value chart</titl
 FP_HTML_W4 = "<html><head><title>Week 4 fantasy football trade value chart</title></head><body></body></html>"
 FP_HTML_TITLE_W5_URL_W4 = ("<html><head><title>Week 5 fantasy football trade value chart"
                           "</title></head></html>")
-
-
-def _write(path, text):
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w") as f:
-        f.write(text)
 
 
 # --- URL slug + title extraction --------------------------------------------
@@ -217,112 +204,6 @@ class TestDiscoverUrl(unittest.TestCase):
             return (404, "")
         with self.assertRaises(fp.DiscoveryFailed):
             fp.discover_url(4, fetch_fn=fetch)
-
-
-# --- CSV loader filename-week guard ----------------------------------------
-
-class TestExtractWeekFromFilename(unittest.TestCase):
-    def test_weekly_csv(self):
-        self.assertEqual(extract_week_from_filename(
-            "/data/fantasypros/ecr_qb_wk4.csv"), 4)
-
-    def test_projection_csv(self):
-        self.assertEqual(extract_week_from_filename(
-            "/data/fantasypros/proj_wr_wk5.csv"), 5)
-
-    def test_ros_csv(self):
-        self.assertEqual(extract_week_from_filename(
-            "/data/fantasypros/ros_qb_wk3.csv"), 3)
-
-    def test_draft_csv_returns_none(self):
-        # Draft / dynasty CSVs are not week-stamped; the guard must not fire.
-        self.assertIsNone(extract_week_from_filename(
-            "/data/fantasypros/ecr_draft_qb.csv"))
-
-    def test_dynasty_csv_returns_none(self):
-        self.assertIsNone(extract_week_from_filename(
-            "/data/fantasypros/ecr_dynasty_wr.csv"))
-
-
-class TestValidateFilenameWeekConsistency(unittest.TestCase):
-    def test_filename_agrees_with_requested_week(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "proj_qb_wk4.csv")
-            _write(csv_p, "Player,Team\nA,B\n")
-            ev = validate_filename_week_consistency(csv_p, 4)
-            self.assertEqual(ev["week"], 4)
-            self.assertEqual(ev["week_filename"], 4)
-            self.assertEqual(ev["week_requested"], 4)
-            self.assertIsNone(ev["week_sidecar_week"])
-
-    def test_filename_agrees_with_requested_week_when_no_request(self):
-        # Caller didn't pass --week; the filename alone is enough to label.
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "proj_qb_wk4.csv")
-            _write(csv_p, "Player,Team\n")
-            ev = validate_filename_week_consistency(csv_p, None)
-            self.assertEqual(ev["week"], 4)
-            self.assertEqual(ev["week_requested"], None)
-
-    def test_filename_disagrees_with_requested_week_fails_closed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "proj_qb_wk3.csv")
-            _write(csv_p, "Player,Team\n")
-            with self.assertRaises(RuntimeError) as cm:
-                validate_filename_week_consistency(csv_p, 4)
-            self.assertIn("filename week", str(cm.exception))
-            self.assertIn("requested week", str(cm.exception))
-
-    def test_sidecar_agrees_with_filename(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "proj_qb_wk4.csv")
-            _write(csv_p, "Player,Team\n")
-            _write(fp_week_sidecar_path(csv_p), json.dumps({
-                "week": 4,
-                "week_evidence": {"week": 4, "week_titles": [4]}}))
-            ev = validate_filename_week_consistency(csv_p, 4)
-            self.assertEqual(ev["week_sidecar_week"], 4)
-            self.assertEqual(ev["week_titles"], [4])
-
-    def test_sidecar_disagrees_with_filename_fails_closed(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "proj_qb_wk3.csv")
-            _write(csv_p, "Player,Team\n")
-            _write(fp_week_sidecar_path(csv_p), json.dumps({
-                "week": 4,
-                "week_evidence": {"week": 4, "week_titles": [4]}}))
-            with self.assertRaises(RuntimeError) as cm:
-                validate_filename_week_consistency(csv_p, 3)
-            self.assertIn("filename week", str(cm.exception))
-            self.assertIn("page puller week", str(cm.exception))
-
-    def test_missing_sidecar_is_ok_when_filename_agrees(self):
-        # The sidecar is optional: until the page puller caches it, the
-        # filename is the only evidence the CSV loader has. Agreement
-        # between filename and --week is sufficient; no sidecar, no fail.
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "proj_qb_wk4.csv")
-            _write(csv_p, "Player,Team\n")
-            ev = validate_filename_week_consistency(csv_p, 4)
-            self.assertIsNone(ev["week_sidecar_week"])
-
-    def test_draft_csv_with_zero_requested_week_is_ok(self):
-        # Draft / dynasty CSVs are not week-stamped and callers pass 0.
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "ecr_draft_qb.csv")
-            _write(csv_p, "Player,Team\n")
-            ev = validate_filename_week_consistency(csv_p, 0)
-            self.assertEqual(ev["week"], 0)
-            self.assertIsNone(ev["week_filename"])
-
-    def test_draft_csv_with_nonzero_requested_week_fails_closed(self):
-        # A draft CSV with caller --week=4 is a caller/snapshot mismatch;
-        # we must not silently relabel.
-        with tempfile.TemporaryDirectory() as tmp:
-            csv_p = os.path.join(tmp, "ecr_draft_qb.csv")
-            _write(csv_p, "Player,Team\n")
-            with self.assertRaises(RuntimeError):
-                validate_filename_week_consistency(csv_p, 4)
 
 
 if __name__ == "__main__":

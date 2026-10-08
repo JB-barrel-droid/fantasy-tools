@@ -37,6 +37,14 @@ from build_ddf_two_tier_leg import (  # noqa: E402
     POSITIONS, REF_FLEX_COUNT, REF_FLEX_ELIGIBLE, REF_SLOTS,
     bench_mix_for_teams, build_position_tiers,
 )
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 PRE_FIX_COMMIT = "dac0ff2"
 SCORINGS = ("standard", "half_ppr", "ppr")
@@ -83,12 +91,12 @@ def read_all(overrides=None):
         # Same contract as the other render tests: no browser stack -> skip,
         # never an import error (an error here blocked every deploy and chain
         # publish from fcf7da6 until this fix, 2026-10-08).
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     with sync_playwright() as p:
         exe = chromium_executable(p)
         if exe is None:
-            raise unittest.SkipTest("no Chromium available")
-        browser = p.chromium.launch(executable_path=exe)
+            raise _render_env.unavailable("no Chromium available")
+        browser = p.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
         try:
             with serve(DIST, overrides) as base:
                 page = browser.new_page()
@@ -104,7 +112,7 @@ class EspnTierMatchesLegTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not (DIST / "classic" / "index.html").exists():
-            raise unittest.SkipTest("dist/ not built (run make sync)")
+            raise _render_env.unavailable("dist/ not built (run make sync)")
         cls.players = json.loads((ROOT / "data" / "fixtures" / "current" / "players.json")
                                  .read_text(encoding="utf-8"))["players"]
 

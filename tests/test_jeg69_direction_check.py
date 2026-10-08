@@ -156,14 +156,17 @@ class DirectionFixtureTest(unittest.TestCase):
                     )
         self.assertEqual(failures, [], f"direction failures: {failures}")
 
-    def test_knife_edge_shape_pinned(self):
+    def test_harness_share_matches_its_pool(self):
+        # Recompute-based (2026-10-08). This used to pin the 14-team standard
+        # share at 0.8534, a 2026-10-02 snapshot value that went red on the
+        # next CBS ROS refresh (0.8452). The knife-edge acceptance itself is
+        # pinned data-free in DirectionPredicateTest; here the harness share
+        # must be the starter fraction of the pool it priced.
         out = _harness("--ppg-field", "cbsros_ppg", "--scoring", "standard",
                        "--teams", "14")
         self.assertAlmostEqual(
-            out["rawStarterShare"], GENUINE_CBSROS_14T_STD_SHARE, places=3
-        )
-        self.assertTrue(
-            _node_eval_direction([[out["rawStarterShare"], TARGET_SHARE]])[0]
+            out["rawStarterShare"],
+            out["starterRaw"] / (out["starterRaw"] + out["benchRaw"]), places=4
         )
 
     def test_prevalued_simulation_still_fails_direction(self):

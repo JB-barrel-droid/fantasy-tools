@@ -40,6 +40,14 @@ from pathlib import Path
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests.test_v2_targets_render import DIST, _built_dist  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_DATA_JS = ROOT / "app" / "trade-value-chart" / "assets" / "product-data.js"
@@ -86,15 +94,15 @@ def collect(overrides=None):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     zero, absent = expected_sets()
     out = {"zero_expected": sorted(zero), "absent_expected": sorted(absent)}
     with _built_dist() as v2_url, sync_playwright() as playwright:
         base = v2_url.split("/v2/")[0]
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             def open_page(url):
                 page = browser.new_page(viewport={"width": 1440, "height": 1000})

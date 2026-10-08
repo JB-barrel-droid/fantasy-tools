@@ -34,6 +34,14 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from check_reference_freshness import build_report  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 SPEC = json.loads((ROOT / "modules" / "surfaces.json").read_text())
 STATUS_HTML = (ROOT / "modules" / "status.html").read_text()
@@ -78,7 +86,7 @@ def render_status(status_html: str, surfaces: list, files: dict) -> dict:
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     from test_launch_front_door import _pages_server
     with tempfile.TemporaryDirectory() as tmp:
         site = Path(tmp)
@@ -90,7 +98,7 @@ def render_status(status_html: str, surfaces: list, files: dict) -> dict:
             (site / rel).parent.mkdir(parents=True, exist_ok=True)
             (site / rel).write_text(json.dumps(doc))
         with _pages_server(site) as base, sync_playwright() as pw:
-            browser = pw.chromium.launch(executable_path=_chromium())
+            browser = pw.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium())
             page = browser.new_page()
             page.goto(base + "modules/status.html")
             page.wait_for_selector("body[data-ready='1']", timeout=20000)
@@ -107,9 +115,9 @@ class RenderedStatusWarningsTest(unittest.TestCase):
         try:
             import playwright.sync_api  # noqa: F401
         except ImportError:
-            raise unittest.SkipTest("needs Playwright for Python")
+            raise _render_env.unavailable("needs Playwright for Python")
         if not _chromium():
-            raise unittest.SkipTest("needs a Chromium (CHROMIUM_PATH)")
+            raise _render_env.unavailable("needs a Chromium (CHROMIUM_PATH)")
 
     SURFACES = [
         {"id": "fresh", "page": "t", "label": "fresh", "url": "fresh.json", "backend": "t",

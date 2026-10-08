@@ -44,6 +44,14 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
@@ -84,12 +92,7 @@ READ = """() => {
 
 
 def _chromium_executable(playwright):
-    candidates = [Path(playwright.chromium.executable_path),
-                  Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")]
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return None
+    return _render_env.chromium_executable(playwright)
 
 
 @contextlib.contextmanager
@@ -158,16 +161,16 @@ def collect(overrides=None, scenarios=SCENARIOS):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     if not (DIST / "index.html").exists():
-        raise unittest.SkipTest("dist/index.html is not built")
+        raise _render_env.unavailable("dist/index.html is not built")
     delays = {"by_name": {}, "overrides": dict(overrides or {})}
     results = {}
     with _server(delays) as url, sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             for name, by_name in scenarios.items():
                 delays["by_name"] = by_name

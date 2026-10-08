@@ -32,10 +32,19 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           # Run the check and capture JSON output. The script exits 1 whenever
-          # it detects a change (fail-closed, including on errors), so `|| true`
-          # keeps the step alive -- without it, bash -e fails the step on every
-          # detection and the dispatch below never fires (JEG-268).
-          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json || true
+          # it detects a change (fail-closed, including on errors), so exit 1
+          # must keep the step alive -- otherwise bash -e fails the step on
+          # every detection and the dispatch below never fires (JEG-268).
+          # Any other exit code is a crash and fails the step (JEG-128: no
+          # swallowed failures on pull steps).
+          set +e
+          python3 pipelines/check_source_vintage.py --json > /tmp/vintage-check.json
+          rc=$?
+          set -e
+          if [ "$rc" -ne 0 ] && [ "$rc" -ne 1 ]; then
+            echo "check_source_vintage.py crashed (exit $rc)" >&2
+            exit "$rc"
+          fi
 
           # Read the JSON report the script always prints: changed=True on a
           # detected change or on any error, by design (fail-closed).
@@ -89,7 +98,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .github/source-vintage-state.json
           git diff --cached --quiet || git commit -m "JEG-205: record dispatched pipelines code hash"
-          git pull --rebase origin main || true
+          git pull --rebase origin main
           git push
 
       - name: Report no changes

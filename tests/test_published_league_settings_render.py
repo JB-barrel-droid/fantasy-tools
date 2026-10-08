@@ -26,7 +26,6 @@ import contextlib
 import functools
 import http.server
 import json
-import os
 import shutil
 import socketserver
 import threading
@@ -36,6 +35,14 @@ from pathlib import Path
 from tests.test_published_league_settings_engine import (
     FIXTURE, SAVED_SHAPE, SCORINGS, browser_players, compare_maps, expected_derived,
 )
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "trade-value-chart"
@@ -44,15 +51,7 @@ CUSTOM_ROSTER = {"RB": 3, "FLEX": 2, "BENCH": 8}
 
 
 def _chromium_executable(playwright):
-    candidates = [Path(p) for p in (os.environ.get("CHROMIUM_PATH"),) if p]
-    candidates.append(Path(playwright.chromium.executable_path))
-    chromium = shutil.which("chromium")
-    if chromium:
-        candidates.append(Path(chromium))
-    for candidate in candidates:
-        if candidate.exists():
-            return str(candidate)
-    return None
+    return _render_env.chromium_executable(playwright)
 
 
 @contextlib.contextmanager
@@ -85,13 +84,13 @@ def collect(overrides=None):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out = {}
     with _server() as url, sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             page = browser.new_page()
             errors = []

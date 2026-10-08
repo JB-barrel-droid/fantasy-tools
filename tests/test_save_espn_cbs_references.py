@@ -365,9 +365,13 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
              "rows": [["Jahmyr Gibbs", "DET", "45", "46", "47"]]},
         ])
         _, _, conflict = self.writes[0]
+        # 2026-10-08: CBS is versioned like USA Today (928477b, migration
+        # cbs_bakes_source_urls_20261008.sql: bake_id joins the unique
+        # index), so the conflict target is the 9-column bake grain. A re-run
+        # of the same bake still merges on it.
         self.assertEqual(
             conflict,
-            "source,variant,scoring,league_teams,qb_slots,season,week,player_key",
+            "source,variant,scoring,league_teams,qb_slots,season,week,player_key,bake_id",
         )
 
 

@@ -96,6 +96,10 @@ guard-harness:
 	node tools/guard_harness.mjs --assert-good
 	node tools/guard_harness.mjs --simulate tier-mismatch --assert-bad
 
+# Headless render tests skip when no browser is installed, unless
+# RENDER_TESTS_REQUIRED=1 (tests/_render_env.py). CI sets it in the step that
+# installs the browser, so in CI a missing browser fails instead of skipping.
+
 # Unit tests: no data/raw, snapshot, or external service dependency.
 # Safe to run in CI (Pages deploy) where gitignored data is absent.
 test-unit:
@@ -251,10 +255,69 @@ test-unit:
 	python3 -m unittest tests.test_identity_case_duplicates
 	python3 -m unittest tests.test_lane_protocol
 	python3 -m unittest lanes.test_plan_tracker
+	python3 -m unittest tests.test_anchor_scale_guard
+	python3 -m unittest tests.test_backstop_exclusions
+	python3 -m unittest tests.test_bake_espn_intake
+	python3 -m unittest tests.test_bake_team_abbr
+	python3 -m unittest tests.test_bake_today_unboundlocal
+	python3 -m unittest tests.test_below_leg_zero_render
+	python3 -m unittest tests.test_build_e2e_fidelity
+	python3 -m unittest tests.test_build_source_fidelity
+	python3 -m unittest tests.test_cbs_week_coding
+	python3 -m unittest tests.test_cbsros_replace_semantics
+	python3 -m unittest tests.test_cbsros_section
+	python3 -m unittest tests.test_chart_input_coverage
+	python3 -m unittest tests.test_check_issue_acceptance
+	python3 -m unittest tests.test_check_source_fidelity
+	python3 -m unittest tests.test_check_source_vintage
+	python3 -m unittest tests.test_content_vintage_schema
+	python3 -m unittest tests.test_dashboard_column_selection_preserved
+	python3 -m unittest tests.test_dashboard_firstok_unwrap
+	python3 -m unittest tests.test_dashboard_labels_no_hardcoded_week
+	python3 -m unittest tests.test_dashboard_scale_agreement
+	python3 -m unittest tests.test_ddf_groups
+	python3 -m unittest tests.test_deadline_checker
+	python3 -m unittest tests.test_espn_player_key_join
+	python3 -m unittest tests.test_fantasycalc_drift
+	python3 -m unittest tests.test_imputed_vorps_clean
+	python3 -m unittest tests.test_inventory_supabase_schema
+	python3 -m unittest tests.test_jeg137_card_script_order
+	python3 -m unittest tests.test_jeg189_slip_wiring
+	python3 -m unittest tests.test_jeg30_health_diagnostics
+	python3 -m unittest tests.test_jeg38_raw_vorp_sources
+	python3 -m unittest tests.test_lineage_writers
+	python3 -m unittest tests.test_load_weekly_vintage_gate
+	python3 -m unittest tests.test_lock_reset_caption_guard
+	python3 -m unittest tests.test_no_failopen_workflows
+	python3 -m unittest tests.test_pipeline_checkpoints
+	python3 -m unittest tests.test_promote_exclusion_gate
+	python3 -m unittest tests.test_promotion_provenance
+	python3 -m unittest tests.test_publish_gate
+	python3 -m unittest tests.test_pull_acquisition_summary
+	python3 -m unittest tests.test_pull_fantasypros
+	python3 -m unittest tests.test_quantile_mapping
+	python3 -m unittest tests.test_razzball_dashboard_render
+	python3 -m unittest tests.test_razzball_production_followups
+	python3 -m unittest tests.test_rebuild_chain_bake
+	python3 -m unittest tests.test_rebuild_chain_source_resiliency
+	python3 -m unittest tests.test_scale_agreement
+	python3 -m unittest tests.test_supabase_naming
+	python3 -m unittest tests.test_trade_qa_card
+	python3 -m unittest tests.test_verify_health_bake_selection
+	python3 -m unittest tests.test_vorp_translation_checkpoint
+	python3 -m unittest tests.test_week_for_source_designated
+	# Dashboard render harnesses (JEG-308/310/312/318) that no target ran
+	# until 2026-10-08. They need tests/rendered_gate's playwright-core
+	# (npm ci --prefix tests/rendered_gate) and a Chromium (CHROMIUM_PATH).
+	node tests/rendered_gate/freshness-hero.mjs dist
+	node tests/rendered_gate/razzball_pill_harness.mjs dist
+	node tests/rendered_gate/source-import-health-table.mjs dist
+	node tests/rendered_gate/trade-qa-open-findings.mjs dist
 
 
-# Integration tests: require data/raw snapshots, Supabase, or pipeline artifacts.
-# Run in the rebuild-chain workflow or locally where data is present.
+# Integration tests: multi-stage pipeline paths (cascade, savers, imports,
+# writer audit) on synthetic inputs. Hermetic -- no network, Supabase or
+# data/raw -- and part of `make validate` since 2026-10-08 (GAP-013).
 test-integration:
 	python3 -m unittest tests.test_cbs_usatoday_recurring
 	python3 -m unittest tests.test_naming_drift
@@ -339,7 +402,9 @@ preview-vorp-views:
 # Deploy gate (go-live, 2026-10-07): block only when the numbers are wrong or
 # the site would be broken. Everything else runs in `make test-unit`, which CI
 # runs as non-blocking.
-validate: reference sync guard-harness test-core
+# GAP-013 (2026-10-08): the hermetic integration tests (cascade, promote,
+# writer audit, savers) gate deploys too; none needs network, Supabase or data/raw.
+validate: reference sync guard-harness test-core test-integration
 
 test-core:
 	python3 -m unittest tests.test_static_export
@@ -379,6 +444,8 @@ test-core:
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
+	python3 -m unittest tests.test_vorp_translation_js_parity
+	python3 -m unittest tests.test_short_chart_waiver
 
 test-all: naming naming-convention test-unit
 

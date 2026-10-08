@@ -107,6 +107,11 @@ def string_literals(source):
 INTERNAL_VIEW_ORDER_RE = re.compile(
     r'^\s*const VIEW_MODE_ORDER = \["indexed", "vorp", "adj"\];\s*$'
 )
+# The same view ID passed as the lookup key of publishedViewMap() (math
+# inspector, 2026-10-08). Only this exact call shape on its own line.
+INTERNAL_VIEW_LOOKUP_RE = re.compile(
+    r'^\s*const \w+ = publishedViewMap\(key, "vorp"\);\s*$'
+)
 
 
 def visible_vorp_literals(source):
@@ -115,7 +120,8 @@ def visible_vorp_literals(source):
     for lineno, text, quote in string_literals(source):
         if text in INTERNAL_LITERALS:
             continue
-        if text == "vorp" and INTERNAL_VIEW_ORDER_RE.fullmatch(lines[lineno - 1]):
+        if text == "vorp" and (INTERNAL_VIEW_ORDER_RE.fullmatch(lines[lineno - 1])
+                               or INTERNAL_VIEW_LOOKUP_RE.fullmatch(lines[lineno - 1])):
             continue
         if VORP_RE.search(LOCKED_PHRASE_RE.sub("", static_text(text, quote))):
             offenders.append((lineno, text))
@@ -143,6 +149,11 @@ class PublicCopyNoVorpTest(unittest.TestCase):
                         'const title = "Raw VORP";'):
             with self.subTest(visible=visible):
                 self.assertEqual(len(visible_vorp_literals(internal + "\n" + visible)), 1)
+
+    def test_internal_view_lookup_is_exempt_only_as_that_call(self):
+        self.assertEqual(visible_vorp_literals('        const vorp = publishedViewMap(key, "vorp");'), [])
+        self.assertTrue(visible_vorp_literals('        const vorp = publishedViewMap(key, "vorp"); label.textContent = "vorp";'))
+        self.assertTrue(visible_vorp_literals('        caption.textContent = "vorp";'))
 
     def test_extra_rendered_literal_on_enum_line_is_not_exempt(self):
         source = 'const VIEW_MODE_ORDER = ["indexed", "vorp", "adj"]; caption.textContent = "vorp";'

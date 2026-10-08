@@ -32,6 +32,14 @@ from tests.test_published_league_settings_render import APP, _chromium_executabl
 from tests.test_published_views_engine import expected_views
 
 import re
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 PUBLISHED = ("cbs", "fantasypros", "usatoday", "fantasycalc")
 SAVED_VIEW_SOURCES = ("fantasypros", "usatoday", "fantasycalc")
@@ -102,13 +110,13 @@ def collect(overrides=None):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out = {}
     with _server() as url, sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             page = browser.new_page()
             errors = []
@@ -213,9 +221,11 @@ class PublishedViewsRender(unittest.TestCase):
                 "return VIEW_SCORING[String(vorpViews.scoring || \"\").toLowerCase()] === scoring\n      && Number(vorpViews.teams) === teams;",
                 "return Number(vorpViews.teams) === teams;"),
             # views not derived: published charts sit out at non-saved settings
+            # (anchored on the leading newline: the math inspector added an
+            # indented `const batch = derivedViewBatch();` of its own, 2026-10-08)
             "not-derived": (
-                "    const batch = derivedViewBatch();\n",
-                "    if (true) return new Map();\n    const batch = derivedViewBatch();\n"),
+                "\n    const batch = derivedViewBatch();\n",
+                "\n    if (true) return new Map();\n    const batch = derivedViewBatch();\n"),
             # views show the Indexed values in disguise
             "indexed-in-disguise": (
                 "      if (viewKey) return publishedViewMap(key, viewKey);",

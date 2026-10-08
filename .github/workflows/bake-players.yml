@@ -45,6 +45,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The headless render tests in `make validate` need a browser. Without
+      # one they skipped and validate passed with them unrun (until
+      # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
+      # an error for every later step instead of a silent skip.
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
 
       - name: Install standalone Supabase client
         run: |

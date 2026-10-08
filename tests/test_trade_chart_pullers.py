@@ -254,9 +254,14 @@ def _cbs_fetch(url):
 
 
 class TestCbsDiscovery(unittest.TestCase):
-    def test_falls_back_to_latest_live_week(self):
-        url = cbs.discover_url(3, fetch_fn=_cbs_fetch)
-        self.assertIn("week-2-trade-chart", url)
+    def test_never_falls_back_to_an_older_week(self):
+        # 2026-10-08: the old test required a Week 2 article when Week 3 was
+        # asked for. 10bd086 (GAP-CBS-DISCOVERY-SLUG) made discovery never
+        # return an older week -- that fallback is how CBS sat on Week 4 while
+        # Week 5 was published -- so the same state must now fail closed.
+        # Listing-based discovery is covered by tests/test_article_discovery.py.
+        with self.assertRaises(cbs.DiscoveryFailed):
+            cbs.discover_url(3, fetch_fn=_cbs_fetch)
 
     def test_discovery_fails_closed_when_none_resolve(self):
         with self.assertRaises(cbs.DiscoveryFailed):

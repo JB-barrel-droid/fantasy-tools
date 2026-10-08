@@ -9,6 +9,7 @@ PIPELINES = Path(__file__).resolve().parent.parent / "pipelines"
 sys.path.insert(0, str(PIPELINES))
 
 import cascade_source_update as cascade_mod  # noqa: E402
+import match_source_snapshot as match_mod  # noqa: E402
 
 
 POSITIONS = ("QB", "RB", "WR", "TE")
@@ -32,6 +33,24 @@ def build_players(tmp: Path) -> tuple[Path, dict[str, int]]:
     path = tmp / "players.json"
     write_json(path, {"players": rows})
     return path, player_keys
+
+
+def build_identity_map(tmp: Path, player_keys: dict[str, int]) -> Path:
+    """A canonical identity table for the synthetic players.
+
+    Since 2026-10-04 the match stage resolves identity only through the
+    canonical table (data/inputs/player_identity_map.json), which does not
+    know these synthetic names, so every row went to review and the cascade
+    stopped at the reference stage (red since then, 2026-10-08 fix)."""
+    canonical = {}
+    for slug in player_keys:
+        pos = slug.split()[1].rstrip("0123456789").upper()
+        name = " ".join(part.capitalize() for part in slug.split())
+        canonical[slug] = {"name": name, "pos": pos, "team": "TST"}
+    path = tmp / "player_identity_map.json"
+    write_json(path, {"meta": {}, "canonical": canonical,
+                      "alias_to_canonical": {slug: slug for slug in canonical}})
+    return path
 
 
 def build_comparison(tmp: Path, player_keys: dict[str, int]) -> Path:
@@ -135,6 +154,16 @@ def make_runner(tmp: Path, players: Path, comparison: Path) -> cascade_mod.Casca
 
 
 class PipelineCascadeTest(unittest.TestCase):
+    def setUp(self):
+        self._td = tempfile.TemporaryDirectory()
+        _, keys = build_players(Path(self._td.name))
+        self._orig_map = match_mod.DEFAULT_IDENTITY_MAP
+        match_mod.DEFAULT_IDENTITY_MAP = build_identity_map(Path(self._td.name), keys)
+
+    def tearDown(self):
+        match_mod.DEFAULT_IDENTITY_MAP = self._orig_map
+        self._td.cleanup()
+
     def test_changed_snapshot_triggers_every_downstream_stage_in_order(self):
         with tempfile.TemporaryDirectory() as td:
             tmp = Path(td)

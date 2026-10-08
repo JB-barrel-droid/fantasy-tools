@@ -29,6 +29,14 @@ import unittest
 from pathlib import Path
 
 from tests._dist_server import DIST, ROOT, chromium_executable, serve
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 PRE_FIX_COMMIT = "dac0ff2"
 DROP = ("usatoday", "usatoday_adjusted")
@@ -65,12 +73,12 @@ def load(overrides, path="/classic/"):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     with sync_playwright() as p:
         exe = chromium_executable(p)
         if exe is None:
-            raise unittest.SkipTest("no Chromium available")
-        browser = p.chromium.launch(executable_path=exe)
+            raise _render_env.unavailable("no Chromium available")
+        browser = p.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
         try:
             with serve(DIST, overrides) as base:
                 page = browser.new_page()
@@ -103,7 +111,7 @@ class MissingSectionRenderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not (DIST / "classic" / "index.html").exists():
-            raise unittest.SkipTest("dist/ not built (run make sync)")
+            raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_missing_source_is_dropped_and_the_rest_renders(self):
         overrides = {"assets/comparison-sources-data.json": fixture_without(*DROP)}

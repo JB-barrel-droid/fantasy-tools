@@ -333,7 +333,7 @@
       // publisher's projections with our value-above-waivers method — they
       // are not the publisher's published values reindexed. Read the method
       // from the fixture, not the key name, so future DDF legs label honestly.
-      if (data?.sources?.[key]?.method_group === "ddf-methodology") return "DDF methodology";
+      if (data?.sources?.[key]?.method_group === "ddf-methodology") return "Data Driven Football methodology";
       return "as published · reindexed";
     }
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";

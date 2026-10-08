@@ -47,6 +47,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 import build_week_history as H  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 HISTORY = ROOT / "data" / "history"
 DIST = ROOT / "dist"
@@ -128,7 +136,7 @@ class WeekFileSchemaTest(unittest.TestCase):
     def test_served_copy_matches_store(self):
         served = DIST / "assets" / "history"
         if not served.exists():
-            self.skipTest("dist/ not built")
+            raise _render_env.unavailable("dist/ not built")
         for path in HISTORY.glob("week-*.json"):
             self.assertEqual((served / path.name).read_bytes(), path.read_bytes(), path.name)
         index = json.loads((served / "index.json").read_text())
@@ -376,16 +384,14 @@ PRIOR = """async () => {
   }
   return out;
 }"""
-SELF = """async () => {
+SELF = """async (keys) => {
   const c = window.TradeValueCurveControls;
   c.setScoring('half'); c.setTeams(10); c.setRosterSpot('BENCH', c.getRosterShape().BENCH + 1);
   const index = await (await fetch('assets/history/index.json')).json();
   const rows = c.getAllRows();
   const base = k => k.endsWith('_vorp') ? k.slice(0, -5) : k.endsWith('_adjusted') ? k.replace(/_adjusted$/, '') : k;
   const out = {};
-  for (const k of ['usatoday', 'fantasycalc', 'fantasypros', 'cbs', 'cbsros', 'razzball', 'espn',
-                   'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
-                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']) {
+  for (const k of keys) {
     const week = index.served[base(k)].week;
     const r = await c.getWeekValues(k, week);
     const errors = [], zeroOnly = [];
@@ -466,15 +472,41 @@ def _server(overrides):
             server.shutdown()
 
 
+SERVED_WEEK_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball", "espn",
+                       "espn_vorp", "cbsros_vorp", "razzball_vorp",
+                       "usatoday_adjusted", "fantasycalc_adjusted", "fantasypros_adjusted", "cbs_adjusted")
+
+
+def _base(key):
+    """The fixture section a served series comes from (same rule as SELF's base())."""
+    for suffix in ("_vorp", "_adjusted"):
+        if key.endswith(suffix):
+            return key[: -len(suffix)]
+    return key
+
+
+def served_sources():
+    """The served-week check's sources that the fixture carries (2026-10-08).
+
+    A chart absent from the fixture is dropped by the page, so it has no
+    served week to check; a present chart is checked in full. The ESPN anchor
+    must be present."""
+    sources = json.loads((ROOT / "data" / "fixtures" / "current" /
+                          "comparison-sources-data.json").read_text())["sources"]
+    if "espn" not in sources:
+        raise AssertionError("the ESPN anchor section is missing from the fixture")
+    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources]
+
+
 def collect(overrides=None):
     """Failures of the Δ checks against the built dist/ (with optional
     served-file overrides that simulate a broken state)."""
     try:
         from playwright.sync_api import Error as PlaywrightError, sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     if not (DIST / "assets" / "history" / "index.json").exists():
-        raise unittest.SkipTest("dist/ is not built with history")
+        raise _render_env.unavailable("dist/ is not built with history")
     # Every published chart whose week before the served one is saved (on
     # 2026-10-08: USA Today / FantasyCalc / FantasyPros Week 4, CBS Week 3).
     index = json.loads((DIST / "assets" / "history" / "index.json").read_text())
@@ -485,16 +517,11 @@ def collect(overrides=None):
             expected[source] = (served - 1, _python_prior(source, served - 1))
     failures = [] if expected else ["no published chart has a saved prior week"]
     with _server(overrides or {}) as url, sync_playwright() as playwright:
-        exe = None
-        for cand in (Path(playwright.chromium.executable_path),
-                     Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")):
-            if cand.exists():
-                exe = str(cand)
-                break
+        exe = _render_env.chromium_executable(playwright)
         try:
-            browser = playwright.chromium.launch(executable_path=exe)
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             errors = []
@@ -551,7 +578,7 @@ def collect(overrides=None):
                     if bad or not got:
                         failures.append(f"espn prior != pipeline leg on {len(bad)} players, e.g. "
                                         f"{[(k, got[k], want[k]) for k in bad[:4]]}")
-            for source, res in page.evaluate(SELF).items():
+            for source, res in page.evaluate(SELF, served_sources()).items():
                 if res["errors"]:
                     failures.append(f"{source} served week != chart: {res['errors'][:2]} ({len(res['errors'])} players)")
                 if len(res["zeroOnly"]) > 5:

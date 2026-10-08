@@ -25,6 +25,14 @@ import tempfile
 import threading
 import unittest
 from pathlib import Path
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 PAGE = ROOT / "modules" / "status.html"
@@ -261,13 +269,13 @@ class OpsDashboardRenderTests(unittest.TestCase):
         try:
             from playwright.sync_api import sync_playwright
         except Exception as exc:  # noqa: BLE001
-            raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
         cls._pw = sync_playwright().start()
         exe = chromium_path(cls._pw)
         if not exe:
             cls._pw.stop()
-            raise unittest.SkipTest("Chromium is not available")
-        cls.browser = cls._pw.chromium.launch(executable_path=exe)
+            raise _render_env.unavailable("Chromium is not available")
+        cls.browser = cls._pw.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
         cls.html = PAGE.read_text(encoding="utf-8")
 
     @classmethod

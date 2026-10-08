@@ -12,36 +12,23 @@ const REAL_CONSOLE_ERROR = console.error.bind(console);
 const REAL_CONSOLE_WARN = console.warn.bind(console);
 const POSITIONS = ["QB", "RB", "WR", "TE"];
 const SIM_DEFAULT_SOURCE = "cbs";
+// The JEG-5 bug class (live cells partitioned by published tiers instead of
+// DDF training tiers) is simulated on the CBS adjusted map, where the tiers
+// genuinely differ (JEG-392: on ESPN, the primary leg, the simulation moved
+// the pie by only -1.35, inside the tolerance of 2, so the guard could not
+// fail). Until 2026-10-08 this pinned the simulated total/target/delta to the
+// fixture of the day; it was re-recorded three times in three days and was
+// red on main between refreshes. It is now recompute-based: the simulated
+// broken state must use the same pie and shared-player set as the current
+// state, its delta must be its total minus that pie, and it must miss the pie
+// by at least MIN_JEG5_MISS_TOLERANCES times the guard tolerance (recorded
+// misses: -79.9, +78.2, -38.1, +59.5), so a simulation that drifts towards
+// passing (the ESPN -1.35 failure mode) fails the harness.
 const EXPECTED_JEG5 = {
-  // Re-pointed 2026-10-05 (JEG-392): after JEG-ECR-EXIT ESPN IS the primary
-  // leg, so its published tiers equal the DDF training tiers and the ESPN
-  // simulation moved the pie by only -1.35 (< tolerance 2) -- the guard could
-  // no longer fail. The JEG-5 bug class (live cells partitioned by published
-  // tiers instead of DDF training tiers) is now simulated on the CBS
-  // adjusted map, where the tiers genuinely differ (22 mismatches) and the
-  // broken state misses the fixed pie by ~78 (cf. the original JEG-5 -79.90).
-  // The CBS check uses the shared-player basis, so only these fields exist.
-  // Re-recorded 2026-10-07 (JEG332-STORED-DRIFT): CBS's 13-22 players at or
-  // below the waiver line are now saved as 0 instead of the pie fallback and
-  // the adjustment fit was rerun, so the simulated broken state now misses
-  // the (unchanged) fixed pie by -38.1 (12/101 tier mismatches) instead of
-  // +78.2. Still far outside the tolerance of 2: the guard still fails it.
-  // Re-recorded 2026-10-07 (V2-WAIVER-COVERAGE, Jeremy's rule): CBS lists
-  // fewer players than a 12-team league rosters at every position, so its
-  // waiver line is now extrapolated from the other charts and its bottom
-  // players are priced instead of 0 (cbs_adjusted rebuilt from the new raw
-  // values on the same fit cells). The fixed-pie target had also moved on
-  // main (2329.32 after the ESPN-zero / below-leg / games-remaining changes;
-  // main's recorded numbers were already stale there). The simulated broken
-  // state now misses the pie by +59.5 (19/114 tier mismatches): still far
-  // outside the tolerance of 2.
   source: "cbs_adjusted",
   basis: "shared",
-  shared: 114,
-  total: 2388.778887,
-  target: 2329.316572,
-  delta: 59.462314,
 };
+const MIN_JEG5_MISS_TOLERANCES = 10;
 
 function parseArgs(argv) {
   const args = {
@@ -65,6 +52,7 @@ function parseArgs(argv) {
     else if (arg === "--scoring") args.scoring = argv[++i];
     else if (arg === "--teams") args.teams = Number(argv[++i]);
     else if (arg === "--source") args.source = argv[++i];
+    else if (arg === "--min-miss-tolerances") args.minMissTolerances = Number(argv[++i]);
     else if (arg === "--fixture-dir") args.fixtureDir = path.resolve(argv[++i]);
     else if (arg === "--help" || arg === "-h") {
       usage();
@@ -85,7 +73,9 @@ Options:
   --assert-good              fail unless the current fixedPieIndexed guard passes
   --simulate tier-mismatch   simulate the old JEG-5 published-tier partition bug
   --assert-bad               fail unless the simulated state fails the guard
-  --assert-jeg5-recorded     additionally require the recorded JEG-5 numbers
+  --assert-jeg5-recorded     additionally require the JEG-5 simulation to be
+                             self-consistent and to miss the pie by a wide margin
+  --min-miss-tolerances N    the margin, in guard tolerances (default ${MIN_JEG5_MISS_TOLERANCES})
   --fixture-dir PATH         read comparison-sources-data.json and players.json from PATH
   --scoring KEY              standard, half_ppr, or ppr (default ppr)
   --teams N                  8, 10, 12, or 14 (default 12)
@@ -387,17 +377,26 @@ function assertBad(summary, tierComparison) {
   }
 }
 
-function assertJEG5Recorded(summary) {
+function assertJEG5Recorded(summary, currentSummary, minMissTolerances = MIN_JEG5_MISS_TOLERANCES) {
   const check = simCheck(summary);
   if (!check || check.ok) {
     throw new Error(`expected simulated JEG-5 state to fail fixedPieIndexed: ${JSON.stringify(check)}`);
   }
+  const current = currentSummary && simCheck(currentSummary);
   const failures = [];
+  if (!current) failures.push(`no current ${SIM_KEY} check to compare against`);
   if (check.source !== EXPECTED_JEG5.source) failures.push(`source ${check.source}`);
   if (check.basis !== EXPECTED_JEG5.basis) failures.push(`basis ${check.basis}`);
-  if (check.shared !== EXPECTED_JEG5.shared) failures.push(`shared ${check.shared}`);
-  for (const field of ["total", "target", "delta"]) {
-    if (!closeEnough(check[field], EXPECTED_JEG5[field], 0.01)) failures.push(`${field} ${check[field]}`);
+  if (current) {
+    if (check.shared !== current.shared) failures.push(`shared ${check.shared} != current ${current.shared}`);
+    if (!closeEnough(check.target, current.target, 0.01)) failures.push(`target ${check.target} != current pie ${current.target}`);
+  }
+  if (!closeEnough(check.delta, Number(check.total) - Number(check.target), 0.01)) {
+    failures.push(`delta ${check.delta} != total ${check.total} - target ${check.target}`);
+  }
+  const minMiss = minMissTolerances * Number(summary.tolerance);
+  if (!(Math.abs(Number(check.delta)) >= minMiss)) {
+    failures.push(`simulated miss |${check.delta}| < ${minMiss} (${minMissTolerances}x tolerance)`);
   }
   if (failures.length) {
     throw new Error(`simulated JEG-5 numbers drifted: ${failures.join("; ")}`);
@@ -465,7 +464,7 @@ async function main() {
       tierComparison,
     };
     if (args.assertBad) assertBad(brokenFixedPie, tierComparison);
-    if (args.assertJeg5Recorded) assertJEG5Recorded(brokenFixedPie);
+    if (args.assertJeg5Recorded) assertJEG5Recorded(brokenFixedPie, currentFixedPie, args.minMissTolerances ?? MIN_JEG5_MISS_TOLERANCES);
   } else if (args.assertBad || args.assertJeg5Recorded) {
     throw new Error("--assert-bad/--assert-jeg5-recorded require --simulate tier-mismatch");
   }

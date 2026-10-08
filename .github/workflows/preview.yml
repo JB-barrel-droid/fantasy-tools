@@ -36,6 +36,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The headless render tests in `make validate` need a browser. Without
+      # one they skipped and validate passed with them unrun (until
+      # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
+      # an error for every later step instead of a silent skip.
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make sync
       - run: make validate
       # Monitor signals refreshed on every deploy (warnings, never deploy
@@ -80,10 +89,9 @@ jobs:
           echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
           if [ $rc2 -ne 0 ]; then echo "JEG-103 bench-share readout guard failed"; fi
           if [ $rc3 -ne 0 ]; then echo "JEG-135 rendered input sweep failed"; fi
-          exit $rc
-          echo "page_errors=$(python3 -c "import json; print(len(json.load(open('rendered-gate.json'))['pageErrors']))")" >> "$GITHUB_OUTPUT"
-          echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
-          exit $rc
+          # Every harness in this step blocks (2026-10-08): the bench-share
+          # readout and the input sweep used to print and pass.
+          if [ $rc -ne 0 ] || [ $rc2 -ne 0 ] || [ $rc3 -ne 0 ]; then exit 1; fi
       - name: Comment on the pull request
         if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.upload.outcome == 'success' }}
         uses: actions/github-script@v7

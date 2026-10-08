@@ -79,11 +79,23 @@ def all_week(sources, week):
 
 
 def mixed_sources():
-    """FantasyCalc (raw + adjusted) on Week 5, every other weekly chart on Week 4."""
+    """FantasyCalc (raw + adjusted) on Week 5, every other weekly chart on Week 4.
+
+    The rest-of-season legs are also put on Week 4 (2026-10-08): first-load
+    exclusion must never apply to them even when they are behind the weekly
+    reference. Left at the fixture's own vintage, they were on Week 5 after the
+    week-5 refresh, so the EXCLUDE_ROS_TOO mutation excluded nothing and its
+    negative test went red without the guard having changed."""
     out = all_week(fixture_sources(), 4)
     for key in ("fantasycalc", "fantasycalc_adjusted"):
         out[key]["week_designated"] = "Week 5"
         out[key]["content_vintage"] = "Week 5"
+    for key in ROS_KEYS:
+        if key in out:
+            # Dated by pull date (a Week 4 day), as rest-of-season legs are:
+            # a content_vintage would make the row weekly.
+            out[key]["content_vintage"] = None
+            out[key]["vintage"] = "2026-09-30"
     return out
 
 

@@ -45,12 +45,6 @@ OLD_BADGE_FN = """function columnBadge(key) {
     if (SOURCE_KEYS.includes(key)) return key === "espn" ? "utilization adjusted" : key === "espn_vorp" ? "raw value above waivers" : (key.endsWith("_adjusted") ? "bias adjusted" : "as published · reindexed");
     return FIELD_COLUMNS.find(column => column.key === key)?.badge || "field";
   }"""
-OLD_SOURCEDATE_FN = """function sourceDate(key) {
-    const source = data.sources[key] || {};
-    const raw = source.published || source.espn_snapshot || source.fetched_at;
-    if (!raw) return "date unavailable";
-    return "content";
-  }"""
 
 
 def _node_eval(script, payload):
@@ -140,13 +134,13 @@ class ColumnBadgeTest(unittest.TestCase):
         )
         return _node_eval(script, {"fnText": fn_text, "key": key})
 
-    def test_razzball_badge_is_ddf_methodology(self):
+    def test_razzball_badge_names_the_method(self):
         fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
-        self.assertEqual(self._run_badge(fn, "razzball"), "DDF methodology")
+        self.assertEqual(self._run_badge(fn, "razzball"), "Data Driven Football methodology")
 
-    def test_cbsros_badge_is_ddf_methodology(self):
+    def test_cbsros_badge_names_the_method(self):
         fn = _extract_fn(DASH_JS.read_text(), "columnBadge")
-        self.assertEqual(self._run_badge(fn, "cbsros"), "DDF methodology",
+        self.assertEqual(self._run_badge(fn, "cbsros"), "Data Driven Football methodology",
                          "badge must be data-driven, not hardcoded per key")
 
     def test_other_badges_unchanged(self):
@@ -163,29 +157,12 @@ class ColumnBadgeTest(unittest.TestCase):
                          "old badge unexpectedly honest -- test would not discriminate")
 
 
-class SourceDateTest(unittest.TestCase):
-    def _run_sourcedate(self, fn_text, key):
-        script = (
-            "const {fnText, key} = JSON.parse(require(\"fs\").readFileSync(0, \"utf8\"));\n"
-            "const PURE_VORP_KEYS = [\"espn_vorp\",\"cbsros_vorp\",\"razzball_vorp\"];\n"
-            "const VORP_SOURCE_DEFS = {espn_vorp: {validationKey: \"espn\"},"
-            " cbsros_vorp: {validationKey: \"cbsros\"}, razzball_vorp: {validationKey: \"razzball\"}};\n"
-            "const data = {sources: {razzball: {vintage: \"2026-10-01\"}}};\n"
-            "const sourceDate = eval(\"(\" + fnText + \")\");\n"
-            "process.stdout.write(JSON.stringify(sourceDate(key)));\n"
-        )
-        return _node_eval(script, {"fnText": fn_text, "key": key})
-
-    def test_razzball_date_uses_vintage(self):
-        fn = _extract_fn(DASH_JS.read_text(), "sourceDate")
-        result = self._run_sourcedate(fn, "razzball")
-        self.assertIn("Oct 1", result, f"expected vintage date, got {result!r}")
-        self.assertNotIn("unavailable", result)
-
-    def test_old_sourcedate_hides_razzball_vintage(self):
-        self.assertEqual(self._run_sourcedate(OLD_SOURCEDATE_FN, "razzball"),
-                         "date unavailable",
-                         "old sourceDate unexpectedly finds the date")
+# SourceDateTest removed 2026-10-08: it eval'd comparison-dashboard.js's
+# sourceDate() in a bare harness, but sourceDate now delegates to
+# freshnessText() and the product-data freshness rows, which the harness never
+# had, so it crashed on every run. The Razzball date it guarded is covered on
+# the built page by tests/test_freshness_display_render.py (labels per source,
+# Razzball included, checked against the fixture).
 
 
 class HealthPanelTest(unittest.TestCase):
@@ -217,7 +194,7 @@ class HealthPanelTest(unittest.TestCase):
         self.assertIsNotNone(role, "health panel role expression not found")
         self.assertIn("method_group", role.group(1),
                       "health panel role text ignores the fixture method_group")
-        self.assertIn("DDF methodology", role.group(1))
+        self.assertIn("Data Driven Football methodology", role.group(1))
 
 
 if __name__ == "__main__":
