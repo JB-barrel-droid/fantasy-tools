@@ -361,8 +361,38 @@ class TestAdjustedFixtureSectionsLineage(unittest.TestCase):
                              f"raw {src} got a lineage block; raw sections must NOT")
 
 
+# The section builders resolve their paths at module load; the tests below
+# repoint them at a temp tree. Every test restores them, or a later test in
+# the same process (test_cbsros_section) reads a deleted temp root.
+_BUILDER_MODULES = ("build_espn_section_from_ddf_leg",
+                    "build_cbsros_section_from_ddf_leg",
+                    "build_razzball_section_from_ddf_leg")
+_BUILDER_GLOBALS = ("ROOT", "REPO", "LEG_DIR", "FIXTURE", "PLAYERS")
+
+
+def _builder_globals() -> dict:
+    import importlib
+    out = {}
+    for name in _BUILDER_MODULES:
+        mod = importlib.import_module(name)
+        for attr in _BUILDER_GLOBALS:
+            if hasattr(mod, attr):
+                out[(name, attr)] = getattr(mod, attr)
+    return out
+
+
 class TestDdfLegSectionLineage(unittest.TestCase):
     """CBS-ROS / ESPN / Razzball builders stamp lineage from the raw DDF leg."""
+
+    def setUp(self):
+        import importlib
+        saved = _builder_globals()
+
+        def restore():
+            for (name, attr), value in saved.items():
+                setattr(importlib.import_module(name), attr, value)
+
+        self.addCleanup(restore)
 
     def _write_ddf_leg(self, leg_dir: Path, *, bake_id: str,
                        snapshot_date: str,
@@ -597,6 +627,19 @@ class TestDdfLegSectionLineage(unittest.TestCase):
             expected = compute_raw_sha(triples)
             self.assertEqual(section["lineage"]["raw_content_sha256"], expected,
                              "CBS-ROS SHA must reproduce from leg triples.")
+
+
+class TestBuilderGlobalsRestored(unittest.TestCase):
+    """Running the leg-section tests leaves the builders pointed at the repo
+    (they used to leak a deleted temp ROOT/LEG_DIR into later tests)."""
+
+    def test_leg_section_tests_restore_builder_paths(self):
+        before = _builder_globals()
+        suite = unittest.defaultTestLoader.loadTestsFromTestCase(TestDdfLegSectionLineage)
+        result = unittest.TestResult()
+        suite.run(result)
+        self.assertTrue(result.wasSuccessful(), result.failures + result.errors)
+        self.assertEqual(_builder_globals(), before)
 
 
 class TestComparisonSourceSectionLineage(unittest.TestCase):
