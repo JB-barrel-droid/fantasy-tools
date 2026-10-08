@@ -224,34 +224,30 @@ ROWS_JS = """() => window.TradeValueCurveControls.getAllRows()
 # column order (meta columns, then plotted series, then VORP series, then an
 # optional spread) is v2's choice; the numbers must be the engine's.
 TABLE_VS_ENGINE_JS = """() => {
+  // Match rows and cells by the data attributes v2 renders (data-player-key on
+  // each row, data-source on each value cell), not by column position: the
+  // table layout (folded Pos/Team sub-line, grouped header rows) may change.
   const V = window.TradeValueV2.view();
   const keys = V.plotKeys.concat(V.vorpKeys);
-  const id = (name, pos, team) => [name, pos, team || "FA"].join("|");
-  const engine = new Map(), dup = new Set();
-  window.TradeValueCurveControls.getRows().forEach(r => {
-    const k = id(r.name, r.pos, r.team);
-    if (engine.has(k)) dup.add(k); engine.set(k, r);
-  });
-  const heads = [...document.querySelectorAll('#v2Table thead th')].map(th => th.textContent.replace(/[↕↓↑]/g, '').trim());
-  const meta = heads.indexOf("Player");
-  const first = heads.length - keys.length - (/spread/i.test(heads[heads.length - 1]) ? 1 : 0);
+  const byKey = new Map(window.TradeValueCurveControls.getRows().map(r => [String(r.player_key), r]));
   const text = td => (td && td.firstChild ? td.firstChild.textContent : "").trim();
   const problems = [];
-  let compared = 0, skipped = 0;
+  let compared = 0, skipped = 0, cells = 0;
   [...document.querySelectorAll('#v2Table tbody tr')].forEach(tr => {
-    const cells = [...tr.cells];
-    const k = id(text(cells[meta]), text(cells[meta + 1]), text(cells[meta + 2]));
-    const row = engine.get(k);
-    if (!row || dup.has(k)) { skipped++; return; }
+    const row = byKey.get(tr.dataset.playerKey);
+    if (!row) { skipped++; return; }
     compared++;
-    keys.forEach((key, i) => {
+    keys.forEach(key => {
+      const td = tr.querySelector(`td[data-source="${key}"]`);
+      if (!td) return;  // the Columns menu can hide a group
+      cells++;
       const v = row.values[key];
       const want = Number.isFinite(v) ? v.toFixed(1) : "—";
-      const got = text(cells[first + i]);
-      if (got !== want) problems.push(`${k} ${key}: table ${got}, engine ${want}`);
+      const got = text(td);
+      if (got !== want) problems.push(`${row.name} ${key}: table ${got}, engine ${want}`);
     });
   });
-  return {compared, skipped, columns: keys.length, problems};
+  return {compared, skipped, cells, columns: keys.length, problems};
 }"""
 
 
@@ -293,6 +289,8 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 good = self._table_vs_engine(browser, base)
                 self.assertGreaterEqual(good["compared"], 25, good)
                 self.assertGreaterEqual(good["columns"], 3, good)
+                self.assertGreaterEqual(good["cells"], good["compared"] * 3, good)
+                self.assertEqual(0, good["skipped"], good)
                 self.assertEqual([], good["problems"][:10], f"{len(good['problems'])} cells differ")
                 bad = self._table_vs_engine(browser, base, drifted)
                 self.assertNotEqual([], bad["problems"], "the table check did not catch a 2% drift")
