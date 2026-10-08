@@ -429,6 +429,25 @@ are fixed at 0). v2 needs, in `TradeValueCurveControls`: `setPositionWeights({QB
 feasible bounds per position (like `getBenchBounds`), and a `SUPERFLEX` roster key that the value model
 prices. Until then 11 shows the shares read only and 12 says superflex is not supported yet.
 
+Answered 2026-10-08 (JEG-452), position shares, in `TradeValueCurveControls`:
+
+- `setPositionWeights(shares, publish = true)`: `shares` is `{QB, RB, WR, TE}` as fractions of the
+  total pie (0.2 = 20%); partial objects are allowed. Named shares are set and the unnamed ones split
+  what is left in proportion to their current shares; with all four named they are rescaled to total
+  1. Each share is clamped into the bounds and the four always total exactly 1. `null` (or
+  `"default"`) resets to the derived defaults. It recomputes and redraws like the other setters and
+  fires `trade-value-shared-change` (with `positionWeights`) unless `publish` is false. Returns
+  `{ok: true, weights, requested, clamped, isDefault}`; invalid input (unknown key, non-number, empty,
+  not an object, engine not loaded) returns `{ok: false, error}` and changes nothing.
+- `resetPositionWeights(publish = true)`: same as `setPositionWeights(null)`.
+- `getPositionWeightBounds()`: `{QB: [0.01, 0.97], RB: ..., WR: ..., TE: ...}`, or `null` before the
+  engine has loaded.
+- `getDefaultPositionWeights()`: the derived defaults (from the calibration pies) for the active
+  scoring and teams; `getPositionWeights()` is the active shares.
+- A scoring or teams change resets the shares to that league's defaults. How far an edit reaches
+  (today: the live calibration, the ESPN anchor and the `*_adjusted` series) is open as
+  `docs/math-review-agenda.md` MR-16.
+
 ## Back-end contract: history
 
 Built 2026-10-08 (branch `feat/week-history`) for Risers & fallers (frames 05/06) and the Δ
