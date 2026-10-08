@@ -21,6 +21,7 @@ Pinned here, each negative-tested against the broken state it names:
   6. The committed fixture: every projection section matches players.json
      (id when both carry one, else the older date keys) and players.json's
      ESPN id is the committed ESPN CSV.
+  7. bake-players.yml (manual) bakes from the chain's inputs, not a re-export.
 """
 import json
 import shutil
@@ -288,6 +289,57 @@ class PublishedProjectionsAreOneSnapshot(unittest.TestCase):
     def test_guard_catches_a_csv_other_than_the_baked_one(self):
         meta = {"espn_snapshot_id": "sha256:" + "a" * 64}
         self.assertEqual(1, len(identity_problems(meta, {}, "sha256:" + "c" * 64)))
+
+
+def _step(text, name):
+    """The body of the workflow step named `name` (up to the next step)."""
+    start = text.index(f"- name: {name}")
+    nxt = text.find("\n      - name: ", start + 1)
+    return text[start: nxt if nxt != -1 else len(text)]
+
+
+class ManualBakeUsesTheChainInputs(unittest.TestCase):
+    """7. bake-players.yml (manual) bakes CBS ROS / Razzball from the same
+    files as the chain's bake: the importer's snapshots, picked by
+    projection_identity decide. A re-export (export_cbsros_snapshot.py) is
+    another file with another cbsros_snapshot_id, so the next chain run held
+    CBS ROS and re-baked."""
+
+    def setUp(self):
+        self.text = (ROOT / ".github/workflows/bake-players.yml").read_text(encoding="utf-8")
+
+    def test_no_second_cbsros_export(self):
+        self.assertNotIn("export_cbsros_snapshot", self.text)
+
+    def test_imports_then_decides_then_bakes_the_decided_files(self):
+        imp = _step(self.text, "Import CBS ROS and Razzball snapshots from Supabase")
+        self.assertIn("import_supabase_references.py --source cbsros", imp)
+        self.assertIn("import_supabase_references.py --source razzball", imp)
+        self.assertIn("projection_identity.py decide --force true", imp)
+        self.assertLess(imp.index("--source cbsros"), imp.index("decide"))
+        bake = _step(self.text, "Bake players.json")
+        self.assertIn("CBSROS_SNAPSHOT: ${{ steps.inputs.outputs.cbsros_snapshot }}", bake)
+        self.assertIn("RAZZBALL_SNAPSHOT: ${{ steps.inputs.outputs.razzball_snapshot }}", bake)
+        self.assertIn('--cbsros-snapshot "$CBSROS_SNAPSHOT"', bake)
+        self.assertIn('--razzball-snapshot "$RAZZBALL_SNAPSHOT"', bake)
+
+    def test_the_chain_bakes_the_same_way(self):
+        chain_text = (ROOT / ".github/workflows/rebuild-chain.yml").read_text(encoding="utf-8")
+        self.assertIn("import_supabase_references.py --source", chain_text)
+        self.assertIn("projection_identity.py decide", chain_text)
+        self.assertIn('--cbsros-snapshot "$CBSROS_SNAPSHOT"', chain_text)
+
+    def test_decide_outputs_the_imported_snapshot(self):
+        # decide's default CBS ROS input is the chain's own latest snapshot
+        # lookup over data/raw/sources (where the importer writes).
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            for day in ("2026-10-07", "2026-10-08"):
+                d = repo / "data" / "raw" / "sources" / "cbsros" / day
+                d.mkdir(parents=True)
+                (d / "snapshot.json").write_text(json.dumps({"vintage_date": day, "rows": []}))
+            got = pid.latest_snapshot("cbsros", repo)
+        self.assertEqual(("2026-10-08", "snapshot.json"), (got.parent.name, got.name))
 
 
 if __name__ == "__main__":
