@@ -1,4 +1,4 @@
-.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health watchdog plan-status test-core test-all
+.PHONY: help source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote comparison-merge source-news naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core test-all
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -29,7 +29,6 @@ help:
 	@echo "  make sync              Copy reference artifacts into app/ and dist/"
 	@echo "  make guard-harness     Run curve-widget guard math against fixture data"
 	@echo "  make test              Run regression tests"
-	@echo "  make watchdog          Run the source-pull watchdog (writes ops/watchdog/health.json)"
 	@echo "  make validate          Run naming, reference, sync, and tests"
 	@echo "  make serve             Serve the local dashboard"
 	@echo "  make preview-local     Build dist/ the way production does, then serve dist/"
@@ -128,7 +127,6 @@ test-unit:
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
-	python3 -m unittest tests.test_refresh_fantasycalc_supabase
 	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
 	python3 -m unittest tests.test_load_ddf_leg_contract
@@ -270,7 +268,7 @@ test-integration:
 	python3 -m unittest tests.test_cbs_usatoday_recurring
 	python3 -m unittest tests.test_naming_drift
 	python3 -m unittest tests.test_pipeline_cascade
-	python3 -m unittest tests.test_pull_watchdog
+	python3 -m unittest tests.test_trade_chart_pullers
 	python3 -m unittest tests.test_save_espn_cbs_references
 	python3 -m unittest tests.test_source_snapshot_import
 	python3 -m unittest tests.test_supabase_import
@@ -347,9 +345,6 @@ preview-vorp-views:
 		"$(VORP_VIEWS_OUT_DIR)/candidate.json" \
 		"$(VORP_VIEWS_PREVIEW_DIR)/preview-dashboard/assets/comparison-sources-data.json"
 
-watchdog:
-	python3 ops/watchdog/pull_watchdog.py
-
 # Deploy gate (go-live, 2026-10-07): block only when the numbers are wrong or
 # the site would be broken. Everything else runs in `make test-unit`, which CI
 # runs as non-blocking.
@@ -369,6 +364,9 @@ test-core:
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_razzball_refresh
+	python3 -m unittest tests.test_trade_chart_ingest_ci
+	python3 -m unittest tests.test_fc_week4_value_repair_sql
+	python3 -m unittest tests.test_producers_schedule_tidy
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets

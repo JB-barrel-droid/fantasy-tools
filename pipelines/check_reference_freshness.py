@@ -188,7 +188,6 @@ def build_report(
     items = [
         make_item("players.as_of", "Players artifact as_of", player_meta.get("as_of"), today, previous, max_age_days, enforced_set),
         make_item("players.espn_snapshot", "ESPN projection snapshot", player_meta.get("espn_snapshot"), today, previous, max_age_days, enforced_set),
-        make_item("players.pm_snapshot", "Prediction-market snapshot", player_meta.get("pm_snapshot"), today, previous, max_age_days, enforced_set),
         make_item("players.kdst_snapshot", "K/DST snapshot", player_meta.get("kdst_snapshot"), today, previous, max_age_days, enforced_set),
         make_item("comparison.built_at", "Comparison source artifact build time", comparison.get("built_at"), today, previous, max_age_days, enforced_set),
         make_item("news.generated_at", "Player-news artifact generation time", news_meta.get("generated_at"), today, previous, max_age_days, enforced_set),

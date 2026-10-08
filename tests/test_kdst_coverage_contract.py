@@ -133,20 +133,6 @@ class KdstNoPeerComparisonTest(unittest.TestCase):
         self.assertEqual(dst_player["rz_comp_count"], 0,
             "K/DST should have zero Razzball components")
 
-    def test_kdst_no_pm_data(self):
-        """K/DST rows should have no prediction markets data."""
-        k_player = {
-            "pos": "K",
-            "pm_complete": False,
-            "pm_comp_count": 0,
-            "pm_covered": [],
-        }
-
-        self.assertFalse(k_player["pm_complete"],
-            "K/DST should have pm_complete = False (no prediction markets)")
-        self.assertEqual(k_player["pm_comp_count"], 0,
-            "K/DST should have zero PM components")
-
     def test_kdst_pricing_label_enforced(self):
         """K/DST must have pricing='espn_only', not 'experts_only'.
 
