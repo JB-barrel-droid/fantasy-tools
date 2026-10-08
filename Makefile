@@ -195,7 +195,7 @@ test-unit:
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_published_league_settings_render
 	python3 -m unittest tests.test_published_views_engine
-	python3 -m unittest tests.test_published_views_render
+	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
 	python3 -m unittest tests.test_review_batch70_views
@@ -374,6 +374,7 @@ test-core:
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
+	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_espn_tier_matches_leg

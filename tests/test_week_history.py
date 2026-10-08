@@ -18,7 +18,9 @@ one:
      independent price of the saved natives by the Python translation the
      chain promotes with (pipelines/vorp_translation/unified.translate_natives,
      same peers), player for player; the known player (Bijan Robinson) has
-     a prior value equal to that independent price, and Δ = current - prior
+     a prior value equal to that independent price (indexed by one factor to
+     the anchor's total over the shared players, views-invariants-001), and
+     Δ = current - prior
      (Week 4 -> 5 FantasyCalc, Week 3 -> 4 CBS) is printed;
    * feeding each source's SERVED saved week back through getWeekValues
      reproduces the chart's current values exactly at a non-default setting
@@ -194,6 +196,7 @@ PRIOR = """async () => {
     const row = c.getAllRows().find(r => r.player_key === 217);
     out[k] = {prior, current: row ? row.values[k] : null};
   }
+  out._anchor = Object.fromEntries([...window.TradeValueCurveHarness.sourceMaps().get('espn').entries()]);
   return out;
 }"""
 SELF = """async () => {
@@ -296,6 +299,16 @@ def collect(overrides=None):
             page.goto(url, wait_until="networkidle", timeout=120000)
             page.wait_for_function(READY, timeout=30000)
             prior = page.evaluate(PRIOR)
+            # views-invariants-001 (2026-10-08): the chart's Indexed value is
+            # the translation times one factor to the anchor's total over the
+            # shared players; the prior week is priced the same way on the
+            # anchor served now (tests.test_view_invariants.scale_to_shared_total).
+            from tests.test_view_invariants import scale_to_shared_total
+            from tests.test_published_league_settings_engine import browser_players
+            anchor = {int(k): v for k, v in prior.pop("_anchor").items()}
+            pos_of = browser_players()
+            expected = {src: (wk, scale_to_shared_total(want, anchor, pos_of))
+                        for src, (wk, want) in expected.items()}
             for source, (week, want) in expected.items():
                 got = prior[source]["prior"]
                 if not got.get("available"):

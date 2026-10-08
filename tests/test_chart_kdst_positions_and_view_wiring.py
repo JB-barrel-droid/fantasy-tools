@@ -70,7 +70,7 @@ class ViewModeWiringTest(unittest.TestCase):
         text = WIDGET.read_text()
         for name in ("VIEW_MODE_DEFS", "VIEW_MODE_ORDER",
                      "function setViewMode", "function makeViewModeTabs",
-                     "function buildVorpViewSourceMap", "function sourceHasVorpView"):
+                     "function publishedViewMap", "function sourceHasVorpView"):
             self.assertIn(name, text,
                           f"{name} must exist in curve-widget.js (view wiring)")
 
@@ -90,10 +90,16 @@ class ViewModeWiringTest(unittest.TestCase):
                       "index.html must contain the viewModeTabs container")
 
     def test_build_source_map_uses_view_values(self):
-        """buildSourceMap must consult vorp_views for non-indexed views."""
+        """buildSourceMap must route non-indexed views to the view values.
+
+        2026-10-08 (views-invariants-001): the views are derived from the
+        current natives and anchored on the live anchor at every setting; the
+        saved `vorp_views` (older natives, blend-reference budgets) are no
+        longer drawn, so the route is publishedViewMap, not vorp_views.
+        tests/test_view_invariants.py proves the values live."""
         text = WIDGET.read_text()
-        self.assertIn("buildVorpViewSourceMap(key, viewKey)", text,
-                      "buildSourceMap must route non-indexed views through vorp_views")
+        self.assertIn("if (viewKey) return publishedViewMap(key, viewKey);", text,
+                      "buildSourceMap must route non-indexed views through publishedViewMap")
 
 
 class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
@@ -138,34 +144,6 @@ class ViewModeSwitchesDisplayedSourcesTest(unittest.TestCase):
                       "indexedMapForAgreement must exist")
         self.assertIn("indexedMapForAgreement(key)", text,
                       "agreementFor must read indexed units for the anchor band")
-
-    def test_vorp_view_resolves_via_player_keys(self):
-        """buildVorpViewSourceMap must resolve the normalized player_keys form.
-
-        vorp_views keys are normalized lowercase display names ("aj brown"),
-        while canonical names carry punctuation ("A.J. Brown"). Resolving via
-        the canonical name silently matches nothing, the view map comes back
-        empty, and buildSourceMap falls back to indexed values -- so every tab
-        shows identical numbers. The lookup must go through the fixture's
-        player_keys table.
-
-        2026-10-07 (JEG332-VORP-VIEWS): this test used to require the lookup to
-        read `data.player_keys`. Since JEG-363 `data` is product-data's
-        snapshot, which carries no player_keys, so that exact form produced the
-        empty map described above and the views showed the Indexed values. The
-        pin was wrong; the table is read through product-data
-        (getPlayerKeysBySourceId). tests/test_published_views_render.py proves
-        it live (mutation "saved-views-unresolved").
-        """
-        text = WIDGET.read_text()
-        body = text.split("function buildVorpViewSourceMap")[1].split("function savedViewApplies")[0]
-        self.assertIn("window.TradeValueProductData?.getPlayerKeysBySourceId?.()", body,
-                      "buildVorpViewSourceMap must build its lookup from product-data's player_keys table")
-        self.assertNotIn("data.player_keys", body,
-                         "the snapshot `data` has no player_keys (JEG-363); reading it empties the views")
-        # The old broken form keyed the lookup by the canonical (punctuated) name.
-        self.assertNotIn("player.full_name || player.name", text.split("function buildVorpViewSourceMap")[1].split("function sourceHasVorpView")[0],
-                         "buildVorpViewSourceMap must not key by canonical full_name/name")
 
 
 if __name__ == "__main__":

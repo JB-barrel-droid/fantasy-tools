@@ -1261,45 +1261,6 @@
     return values;
   }
 
-  // JEG-242: build a source map from vorp_views (indexed/vorp/adj_values).
-  // vorp_views keys are normalized lowercase display names, exactly the form
-  // used by the fixture's player_keys table. JEG332-VORP-VIEWS (2026-10-07):
-  // resolve through product-data's copy of that table -- since JEG-363 the
-  // snapshot `data` carries no player_keys, so this lookup came back empty and
-  // the views silently showed the Indexed values instead.
-  function buildVorpViewSourceMap(key, viewKey) {
-    const vorpViews = data.sources?.[key]?.vorp_views;
-    const viewData = vorpViews?.views?.[viewKey];
-    if (!viewData || typeof viewData !== "object") return new Map();
-    const keysById = window.TradeValueProductData?.getPlayerKeysBySourceId?.() || new Map();
-    const nameToKey = new Map();
-    keysById.forEach((playerKey, displayName) => {
-      const norm = String(displayName).trim().toLowerCase();
-      if (canonicalByKey.has(Number(playerKey)) && norm && !nameToKey.has(norm)) nameToKey.set(norm, Number(playerKey));
-    });
-    const values = new Map();
-    Object.entries(viewData).forEach(([displayName, rawValue]) => {
-      const playerKey = nameToKey.get(String(displayName).trim().toLowerCase());
-      const player = canonicalByKey.get(playerKey);
-      const value = clampValue(rawValue);
-      if (!player || value === null) return;
-      values.set(playerKey, value);
-    });
-    return values;
-  }
-
-  // JEG332-VORP-VIEWS: the saved vorp_views apply only at the exact setup
-  // they were built for -- their own scoring and team count, standard roster.
-  // (Before 2026-10-07 the scoring was never compared, so Standard / Half PPR
-  // at 12 teams showed the full-PPR views.)
-  const VIEW_SCORING = {ppr: "ppr", full: "ppr", half_ppr: "half_ppr", half: "half_ppr", standard: "standard"};
-  function savedViewApplies(key) {
-    const vorpViews = data.sources?.[key]?.vorp_views;
-    if (!vorpViews || !onSavedSetup()) return false;
-    return VIEW_SCORING[String(vorpViews.scoring || "").toLowerCase()] === scoring
-      && Number(vorpViews.teams) === teams;
-  }
-
   // JEG332-VORP-VIEWS: every published chart derived into the VORP-vs-waivers
   // and Adjusted views at the active setting (ValueModel.derivePublishedViews),
   // as one batch so the Adjusted 70 anchor is shared. Inputs: each chart's
@@ -1349,21 +1310,56 @@
   }
 
   // The VORP-vs-waivers / Adjusted map for a published chart at the active
-  // setting: the saved view at its own setup, derived everywhere else.
+  // setting, derived from the chart's CURRENT saved natives at every setting
+  // and anchored on the live anchor (views-invariants-001, Jeremy 2026-10-08):
+  //   VORP vs waivers -- value above the setting's waiver line times ONE factor
+  //     so the chart's total over the players it shares with the anchor equals
+  //     the anchor's there: every VORP series on the one anchor-total scale;
+  //   Adjusted values -- the same value above waivers, one factor per position
+  //     x starter/bench group (the chart's own roles) so each group's total
+  //     equals the anchor's same group: the DDF weights. No top-of-scale cap.
+  // The saved `vorp_views` are no longer drawn: they carry the natives of the
+  // week they were built (FantasyCalc / USA Today: older than the Indexed
+  // values beside them) and the Adjusted ones blend-reference group budgets,
+  // not the DDF weights.
   function publishedViewMap(key, viewKey) {
-    if (savedViewApplies(key)) {
-      const saved = buildVorpViewSourceMap(key, viewKey);
-      if (saved.size) {
-        lastPublishedView[key] = {mode: "saved", view: viewKey};
-        return saved;
-      }
-    }
     const batch = derivedViewBatch();
-    const derived = viewKey === "adj_values" ? batch.sources[key]?.adj : batch.sources[key]?.vorp;
-    lastPublishedView[key] = derived?.size
-      ? {mode: "derived", view: viewKey, version: batch.version, batchMax: batch.batchMax, adjScale: batch.adjScale}
-      : {mode: "unavailable", view: viewKey};
-    return derived ? new Map(derived) : new Map();
+    const entry = batch.sources[key];
+    const anchor = sourceMaps.get("espn");
+    if (!entry?.rawVorp?.size || !anchor?.size) {
+      lastPublishedView[key] = {mode: "unavailable", view: viewKey};
+      return new Map();
+    }
+    const values = anchoredPublishedView(key, viewKey, anchor);
+    lastPublishedView[key] = {mode: "derived", view: viewKey, version: batch.version,
+      invariants: ValueModel.VIEWS_INVARIANTS_VERSION};
+    return values;
+  }
+
+  function anchorRoleMap(anchor) {
+    return ValueModel.roleMap({values: anchor, playerOf: playerKey => canonicalByKey.get(playerKey), teams, shape: rosterShape});
+  }
+
+  // One published chart in VORP vs waivers ("vorp") or Adjusted ("adj_values")
+  // on the given anchor. Pure in (key, setting, anchor).
+  function anchoredPublishedView(key, viewKey, anchor) {
+    const entry = derivedViewBatch().sources[key];
+    if (!entry?.rawVorp?.size || !anchor?.size) return new Map();
+    const playerOf = playerKey => canonicalByKey.get(playerKey);
+    if (viewKey === "adj_values") {
+      return ValueModel.anchorGroups({values: entry.rawVorp, roles: entry.roles, anchor,
+        anchorRoles: anchorRoleMap(anchor), playerOf}).values;
+    }
+    return ValueModel.scaleToSharedTotal({values: entry.rawVorp, anchor, playerOf});
+  }
+
+  // Indexed: the chart's translated values times ONE factor so its total over
+  // the players it shares with the anchor equals the anchor's there
+  // (views-invariants-001; Jeremy 2026-10-08: "the total pies are the same").
+  // The chart keeps its own position and starter/bench weights.
+  function indexedPublishedMap(key, anchor) {
+    return ValueModel.scaleToSharedTotal({values: buildPublishedSourceMap(key), anchor,
+      playerOf: playerKey => canonicalByKey.get(playerKey)});
   }
 
   // JEG-210: does this source have a view for the current view mode? Since
@@ -1372,7 +1368,6 @@
   function sourceHasVorpView(key) {
     const viewKey = getViewKey(viewMode);
     if (!viewKey) return true;
-    if (savedViewApplies(key) && buildVorpViewSourceMap(key, viewKey).size) return true;
     const nativeRow = savedPublishedRow(key, "native");
     return !!(nativeRow?.values && nativeRow.values.size);
   }
@@ -1573,17 +1568,25 @@
     // present that is what the ESPN line renders, so a wobble in the
     // fall-back is a note, not a failure -- recording it as a failure is how
     // a 1.048-vs-1.05 markup on an undisplayed curve came to sit red in the
-    // health panel. CBS ROS and Razzball have no built-leg fallback, so
-    // their checks record directly.
-    const recordForKey = vorpKey === "espn_vorp"
-      ? (() => {
-          const legIsFallback = espnLegIsFallback();
-          return legIsFallback
-            ? (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail)
-            : (id, label, ok, detail) => (ok ? ChartHealth.record(id, label, true, detail)
-                                             : ChartHealth.warn(id, label, `${detail} -- fall-back leg only; the ESPN line renders the built leg`));
-        })()
-      : (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail);
+    // health panel.
+    // CBS ROS and Razzball (views-audit, 2026-10-08): the starter/bench scales
+    // below price NOTHING they display -- their line is their own two-tier leg
+    // (ddfTwoTierValuesForSource) matched to the anchor by one total factor
+    // (option C), and their raw value-above-waivers curve uses `pure` (one
+    // factor). A raw pool more starter-heavy than 85/15 is a property of the
+    // week's projections (CBS ROS 86.8% at full PPR / 8 teams, 86.1% at
+    // standard / 10 teams on Week 5; same pipeline, same source-pure inputs),
+    // and normalising starter/bench weights legitimately marks starters DOWN
+    // there. So out-of-band is a note (the JEG-68 pre-valued-inputs signal
+    // stays visible), never a FAIL on an undisplayed computation.
+    const legIsFallback = vorpKey === "espn_vorp" && espnLegIsFallback();
+    const noteOnly = vorpKey === "espn_vorp"
+      ? "fall-back leg only; the ESPN line renders the built leg"
+      : `informational: ${def.short} displays its own two-tier leg (total-matched) and a one-factor raw curve, not this starter/bench split`;
+    const recordForKey = legIsFallback
+      ? (id, label, ok, detail) => ChartHealth.record(id, label, ok, detail)
+      : (id, label, ok, detail) => (ok ? ChartHealth.record(id, label, true, detail)
+                                       : ChartHealth.warn(id, label, `${detail} -- ${noteOnly}`));
     if (rawTotal > 0 && starterRaw > 0 && benchRaw > 0) {
       const rawStarterShare = starterRaw / rawTotal;
       recordForKey(
@@ -2054,7 +2057,7 @@
       const sourceMap = key.endsWith("_adjusted") || TWO_TIER_NATIVE_LIVE_KEYS.has(key)
         ? normalizedAdjustedMapFor(key, anchorMap, displayShare)
         : AS_PUBLISHED_KEYS.has(key)
-          ? buildSourceMap(key)
+          ? (viewMode === "indexed" ? indexedPublishedMap(key, anchorMap) : buildSourceMap(key))
           : normalizeTradeChartToFixedPie(applyRosterShape(buildSourceMap(key), key), displayShare, anchorMap, key);
       sourceMaps.set(key, sourceMap);
       // As-published sources get a native-value map for lock-order sorting.
@@ -3420,7 +3423,13 @@
       posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
       teams, shape: rosterShape, projection, peers
     });
-    return {values: derived.values, method: `ValueModel.derivePublishedSetup ${derived.version}`,
+    // Indexed on the chart: one factor to the anchor's total over the shared
+    // players (views-invariants-001), on the anchor served now.
+    const anchorMap = sourceMaps.get("espn");
+    if (!anchorMap?.size) return {reason: "the ESPN anchor is not built"};
+    const values = ValueModel.scaleToSharedTotal({values: derived.values, anchor: anchorMap,
+      playerOf: playerKey => canonicalByKey.get(playerKey)});
+    return {values, method: `ValueModel.derivePublishedSetup ${derived.version} + scaleToSharedTotal (${ValueModel.VIEWS_INVARIANTS_VERSION})`,
       peers: Object.keys(peers).sort()};
   }
   function historyProjectionValues(source, entry) {
@@ -3772,12 +3781,10 @@
     visibleSourceKeys().filter(sourceAvailable).forEach(key => {
       const values = sourceMapsForCheck.get(key);
       if (!values) return;
-      // As-published sources are indexed by the pipeline via
-      // proportional_scaling_vorp_overlap, which calibrates on the VORP>0
-      // overlap set (not the full shared set). The browser does not re-scale
-      // them, so this shared-total check does not apply. The pipeline's
-      // fixed-pie invariant (overlap total = anchor overlap total) is verified
-      // by pipeline tests, not by this client-side guard.
+      // Published charts carry a different view's values outside Indexed, so
+      // they are checked per view by viewInvariantsDiagnostics (Indexed /
+      // VORP vs waivers shared totals, Adjusted group totals), which the
+      // deploy gate requires (tests/test_view_invariants.py).
       if (AS_PUBLISHED_KEYS.has(key)) {
         checks.push({source:key, basis:"pipeline", shared:null, total:null, target:null, delta:null, ok:true});
         return;
@@ -3841,6 +3848,99 @@
     return {tolerance, checks, ok:checks.every(check => check.ok)};
   }
 
+  // views-invariants-001 (Jeremy, 2026-10-08): each chart view's invariant,
+  // measured for every source it shows, at the active setting -- all three
+  // views every rebuild, whichever tab is open. Basis: the players a source
+  // and the anchor both price (QB/RB/WR/TE).
+  //   indexed  -- every source's total equals the anchor's (one factor), and
+  //               each published chart keeps its own position x starter/bench
+  //               split (maxShareDiff vs the anchor's split > 0);
+  //   vorp     -- every value-above-waivers series (published charts, the raw
+  //               projection series) sums to the anchor's total: one scale;
+  //   adjusted -- every published chart's eight position x starter/bench group
+  //               totals equal the anchor's (the DDF weights).
+  // Projection sources (CBS ROS, Razzball) are total-only in every view
+  // (option C, 2026-10-08); their Adjusted group split is reported under
+  // adjusted.notAnchored, not checked.
+  const VIEW_INVARIANT_REL_TOL = 1e-6;
+  function totalsCheck(values, anchor) {
+    const t = ValueModel.sharedTotals({values, anchor, playerOf: playerKey => canonicalByKey.get(playerKey)});
+    const delta = t.total - t.target;
+    const enough = t.shared >= ValueModel.MIN_SHARED_FOR_PIE;
+    return {shared: t.shared, total: Number(t.total.toFixed(4)), target: Number(t.target.toFixed(4)),
+      delta: Number(delta.toFixed(6)), ratio: t.target > 0 ? Number((t.total / t.target).toFixed(6)) : null,
+      ok: enough && t.target > 0 && Math.abs(delta) <= VIEW_INVARIANT_REL_TOL * t.target};
+  }
+  function splitCheck(values, anchor) {
+    const playerOf = playerKey => canonicalByKey.get(playerKey);
+    const shared = new Map([...values.entries()].filter(([key]) => anchor.has(key)));
+    const mine = ValueModel.groupShares({values, playerOf, teams, shape: rosterShape});
+    const anchorShared = new Map([...anchor.entries()].filter(([key]) => shared.has(key)));
+    const anchorShares = ValueModel.groupShares({values: anchorShared, roles: anchorRoleMap(anchor), playerOf});
+    let maxShareDiff = 0;
+    Object.keys(mine).forEach(g => { maxShareDiff = Math.max(maxShareDiff, Math.abs(mine[g] - anchorShares[g])); });
+    return {shares: mine, anchorShares, maxShareDiff: Number(maxShareDiff.toFixed(6))};
+  }
+  function viewInvariantsDiagnostics() {
+    const anchor = sourceMaps.get("espn");
+    const out = {version: ValueModel.VIEWS_INVARIANTS_VERSION, tolerance: VIEW_INVARIANT_REL_TOL,
+      basis: "players the source and the anchor both price",
+      indexed: {ok: true, sources: {}}, vorp: {ok: true, sources: {}}, adjusted: {ok: true, sources: {}, notAnchored: {}}, ok: true};
+    if (!anchor?.size) { out.ok = false; out.reason = "no anchor"; return out; }
+    const playerOf = playerKey => canonicalByKey.get(playerKey);
+    const shown = visibleSourceKeys().filter(key => key !== "espn" && sourceAvailable(key) && !isAdjustedCurvePaused(key));
+    shown.forEach(key => {
+      const published = AS_PUBLISHED_KEYS.has(key);
+      const values = published ? indexedPublishedMap(key, anchor) : sourceMaps.get(key);
+      if (!values?.size) return;
+      const check = totalsCheck(values, anchor);
+      const split = splitCheck(values, anchor);
+      check.maxShareDiff = split.maxShareDiff;
+      check.ownSplit = split.maxShareDiff > 1e-3;
+      if (published) check.ok = check.ok && check.ownSplit;
+      out.indexed.sources[key] = check;
+    });
+    [...AS_PUBLISHED_KEYS].filter(sourceAvailable).forEach(key => {
+      const vorp = anchoredPublishedView(key, "vorp", anchor);
+      if (vorp.size) out.vorp.sources[key] = totalsCheck(vorp, anchor);
+      const entry = derivedViewBatch().sources[key];
+      const adj = anchoredPublishedView(key, "adj_values", anchor);
+      if (!adj.size || !entry?.roles) return;
+      const regrouped = ValueModel.anchorGroups({values: adj, roles: entry.roles, anchor,
+        anchorRoles: anchorRoleMap(anchor), playerOf}).groups;
+      const groups = {};
+      const unfunded = [];
+      let ok = true;
+      Object.entries(regrouped).forEach(([g, row]) => {
+        // A group the chart puts nobody in (CBS lists 12 quarterbacks, so no
+        // bench QB at 12 teams) cannot carry its DDF weight: reported as
+        // unfunded, its budget is missing from that chart's pie.
+        if (row.shared === 0) {
+          if (row.budget > 0) unfunded.push(g);
+          groups[g] = {budget: Number(row.budget.toFixed(4)), total: 0, players: 0, ok: true, unfunded: row.budget > 0};
+          return;
+        }
+        const groupOk = Math.abs(row.source - row.budget) <= VIEW_INVARIANT_REL_TOL * Math.max(1, row.budget);
+        ok = ok && groupOk;
+        groups[g] = {budget: Number(row.budget.toFixed(4)), total: Number(row.source.toFixed(4)), players: row.shared, ok: groupOk};
+      });
+      out.adjusted.sources[key] = {ok, groups, unfunded};
+    });
+    PURE_VORP_KEYS.filter(key => sourceAvailable(key)).forEach(key => {
+      const values = sourceMaps.get(key);
+      if (values?.size) out.vorp.sources[key] = totalsCheck(values, anchor);
+    });
+    ["cbsros", "razzball"].filter(sourceAvailable).forEach(key => {
+      out.adjusted.notAnchored[key] = {reason: "projection sources are matched to the anchor by total only (option C)",
+        maxShareDiff: splitCheck(sourceMaps.get(key), anchor).maxShareDiff};
+    });
+    ["indexed", "vorp", "adjusted"].forEach(view => {
+      out[view].ok = Object.values(out[view].sources).every(row => row.ok);
+      out.ok = out.ok && out[view].ok;
+    });
+    return out;
+  }
+
   // Cross-source scale agreement for the ADJUSTED series. The band and the
   // comparison live in the shared value model so they can be tested against
   // the numbers the defect actually produced; this only supplies the peaks.
@@ -3881,7 +3981,7 @@
   // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
   function indexedMapForAgreement(key) {
     if (viewMode === "indexed" || !AS_PUBLISHED_KEYS.has(key)) return sourceMaps.get(key);
-    return buildPublishedSourceMap(key);
+    return indexedPublishedMap(key, sourceMaps.get("espn"));
   }
 
   function adjustedAgreementDiagnostics() {
@@ -4247,6 +4347,18 @@
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
     const fixedPie = fixedPieDiagnostics();
     const adjustedAgreement = adjustedAgreementDiagnostics();
+    // Deploy-gated (tests/test_view_invariants.py), visible here, not blocking
+    // the live page: an odd reader setting must not blank the chart.
+    const viewInvariants = viewInvariantsDiagnostics();
+    if (viewInvariants.ok) {
+      ChartHealth.record("view-invariants", "Chart views hold their invariants", true,
+        "Indexed and VORP vs waivers totals equal the anchor's; Adjusted values carry our position and starter/bench weights");
+    } else {
+      const viewTitle = {indexed: "Indexed", vorp: VIEW_MODE_DEFS.vorp.title, adjusted: "Adjusted values"};
+      const bad = ["indexed", "vorp", "adjusted"].flatMap(view => Object.entries(viewInvariants[view].sources)
+        .filter(([, row]) => !row.ok).map(([key]) => `${viewTitle[view]}: ${sourceLabel(key)}`));
+      ChartHealth.warn("view-invariants", "Chart views hold their invariants", `off: ${bad.join(", ") || viewInvariants.reason}`);
+    }
     // JEG-30: record the fixed-pie guard in Chart Health with its structured
     // per-source diagnostics. The detail view renders on failure; the happy
     // path stays clean. The thrown error below keeps a plain-words summary.
@@ -4294,7 +4406,7 @@
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, viewInvariants, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     // JEG-30: the per-source numbers live in the Chart Health detail view

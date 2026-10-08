@@ -60,6 +60,46 @@ equal ESPN's, so each keeps its own weighting across positions and its own top
 values. Aligning each position's top to ESPN's applies only to the fitted
 `*_adjusted` series.
 
+**The invariants each view holds (views-invariants-001, Jeremy 2026-10-08).**
+His words: Indexed -- "the positions and bench/starter have different weights
+but the total pies are the same"; VORP vs waivers -- "the differences in
+deconstructed values of each player on the same exact scale"; Adjusted --
+"the differences in value of each player, when their positional and
+bench/starter weights have been normalized". As implemented, every total is
+measured on ONE basis, in every view, for every source: the players the source
+and the ESPN anchor both price (QB/RB/WR/TE), the same basis as the fixed-pie
+guard (`ValueModel.sharedPieBasis`). Groups are position x starter/bench
+(starter = dedicated + flex).
+
+| View | What each published chart plots | Invariant (checked per source) |
+| --- | --- | --- |
+| Indexed | the chart's translated value (value above the setting's waiver line, each position's top at our positional max) times ONE factor | total = anchor's total; the chart's own position x starter/bench split is kept (differs from the anchor's by 1.4-13.3pp on Week 5) |
+| VORP vs waivers | the chart's value above the setting's waiver line (publisher units) times ONE factor | total = anchor's total, for the published charts and the raw ESPN / CBS ROS / Razzball series alike: one scale, the anchor's |
+| Adjusted values | the same value above waivers, one factor per position x starter/bench group (the chart's own roles) | each group's total = the anchor's same group (the DDF weights); remaining differences are within-group only. No top-of-scale cap |
+
+The other series do not change between tabs: ESPN (the anchor), CBS ROS and
+Razzball (total only, option C), the fitted `*_adjusted` series (peak-aligned,
+then total) and the raw value-above-waivers series (one factor) all hold the
+Indexed total invariant, and the raw series hold the VORP one. CBS ROS and
+Razzball are not re-weighted to the DDF groups in the Adjusted tab (their own
+split differs from the anchor's by 0.5-7.2pp; a decision for Jeremy, see
+docs/claude-log/2026-10-08-views-audit.md).
+
+A chart that puts nobody in a group the anchor funds (CBS lists 12
+quarterbacks, so it has no bench QB at 12+ teams; FantasyPros has none at 14)
+cannot carry that group's weight: the group is reported `unfunded` and its
+budget is missing from that chart's Adjusted pie.
+
+The page measures all three invariants on every rebuild
+(`TradeValueCurveDiagnostics.viewInvariants`: `indexed`/`vorp`/`adjusted`
+`.sources[key]` with `shared`, `total`, `target`, `ratio`, `ok`, and for
+Indexed `maxShareDiff`/`ownSplit`; Adjusted `groups["POS|role"]` = `{budget,
+total, players, ok, unfunded}` plus `unfunded`; `adjusted.notAnchored` for CBS
+ROS / Razzball), shows them in Chart Health as a warning, and the deploy gate
+(`tests/test_view_invariants.py`, in `make validate`) requires them at the 12
+combos, a custom roster and two non-default bench shares, recomputed
+independently from `unified.translate_ranked`.
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:
@@ -180,30 +220,25 @@ by `tests/test_vorp_translation_js_parity.py`:
 
 Because a chart's translated value is value above waivers scaled so its top
 player sits at our positional max, a lower waiver line raises the chart's
-lower and middle values a little as well as pricing the bottom; its top value
-does not move.
+lower and middle values a little as well as pricing the bottom. On the chart
+that translation is then indexed by one factor to the anchor's total
+(views-invariants-001), so its top value moves with that factor.
 
-**Other chart views (JEG332-VORP-VIEWS, `published-views-001/1`, 2026-10-07).**
-The "VORP vs waivers" and "Adjusted values" views show the saved `vorp_views`
-only at the setup they were built for (full PPR, 12 teams, standard roster;
-FantasyCalc, FantasyPros, USA Today). At every other scoring, team count and
-roster -- and for CBS everywhere -- `ValueModel.derivePublishedViews` derives
-them from the saved 12-team natives on the same translation and waiver line as
-Indexed, so a player at or below the waiver line is 0 in all three views:
-
-- *VORP vs waivers*: each player's value above the setting's waiver line in the
-  publisher's units, times one factor per chart so the chart's total equals the
-  ESPN anchor's total over the players that chart ranks (no re-tiering: the
-  publisher's own cross-position valuation is kept).
-- *Adjusted values*: players grouped position × starter/bench (starter = the
-  setting's dedicated + flex count at the position); each group shares the
-  anchor's total for that group in proportion to value above waivers; one
-  factor across all published charts at the setting puts the top player at 70.
-  The saved run's blend-reference group budgets are not carried to other
-  settings.
-
-Jeremy accepted any working setup ("I'm ok with however you set up values to
-get the tool working"); the recipe awaits his review.
+**Other chart views (JEG332-VORP-VIEWS, 2026-10-07; anchored by
+views-invariants-001, 2026-10-08).** The "VORP vs waivers" and "Adjusted
+values" views are derived at every scoring, team count and roster
+(`ValueModel.derivePublishedViews` for each chart's value above waivers and
+its own starter/bench roles, from its CURRENT saved 12-team natives, on the
+same translation and waiver line as Indexed, so a player at or below the
+waiver line is 0 in all three views), then anchored on the live ESPN anchor:
+VORP vs waivers by one factor (`ValueModel.scaleToSharedTotal`), Adjusted by
+one factor per group (`ValueModel.anchorGroups`). The saved `vorp_views` are no
+longer drawn: they carry the natives of the week they were built (on
+2026-10-08, FantasyCalc and USA Today views from 2026-10-03 natives beside
+Week 5 Indexed values) and Adjusted values built on blend-reference group
+budgets, not the DDF weights. `derivePublishedViews`' own `vorp` / `adj`
+outputs (budget total, top player at 70) are the published-views-001 recipe,
+kept for its reference tests; the chart reads `rawVorp` and `roles`.
 
 The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
 native inputs. Their ingestion adapters currently assign `league_teams=12`

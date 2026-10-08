@@ -11,8 +11,15 @@ count, plus one non-default roster:
     tests/test_published_league_settings_engine.expected_derived;
   * the fixed-pie guard stays green in every combination.
 
+views-invariants-001 (Jeremy, 2026-10-08, "the total pies are the same"):
+the plotted Indexed value is that saved / derived value times ONE factor per
+chart, so its total over the players it shares with the live ESPN anchor
+equals the anchor's there (tests.test_view_invariants.scale_to_shared_total,
+anchor read from the same page). Before, the chart plotted the bare
+translation, whose totals ran 0.69-1.45x the anchor's.
+
 The other two chart views ("VORP vs waivers", "Adjusted values") are checked
-live in tests/test_published_views_render.py (JEG332-VORP-VIEWS); until
+live in tests/test_view_invariants.py (views-invariants-001); until
 2026-10-07 this file pinned their old sit-out-at-non-saved-settings gating.
 
 Discrimination: the same checks run against two broken builds served in
@@ -107,13 +114,13 @@ def collect(overrides=None):
                 for teams in (8, 10, 12, 14):
                     page.evaluate("([s, t]) => { const c = window.TradeValueCurveControls; "
                                   "try { c.setScoring(s); c.setTeams(t); } catch (e) {} }", [scoring, teams])
-                    out[(scoring, teams, "std")] = page.evaluate(READ_MAPS, list(PUBLISHED))
+                    out[(scoring, teams, "std")] = page.evaluate(READ_MAPS, list(PUBLISHED) + ["espn"])
             page.evaluate("() => { try { window.TradeValueCurveControls.setScoring('ppr'); "
                           "window.TradeValueCurveControls.setTeams(12); } catch (e) {} }")
             for key, value in CUSTOM_ROSTER.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
-            out[("ppr", 12, "custom")] = page.evaluate(READ_MAPS, list(PUBLISHED))
+            out[("ppr", 12, "custom")] = page.evaluate(READ_MAPS, list(PUBLISHED) + ["espn"])
             for key, value in SAVED_SHAPE.items():
                 page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                   i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
@@ -124,6 +131,7 @@ def collect(overrides=None):
 
 
 def verify(collected):
+    from tests.test_view_invariants import scale_to_shared_total
     fixture = json.loads(FIXTURE.read_text())
     pos_of = browser_players()
     problems = []
@@ -140,7 +148,9 @@ def verify(collected):
             if not values:
                 problems.append(f"{setting} {source}: unavailable (empty map)")
                 continue
-            expected = expected_derived(source, scoring, teams, shape, fixture, pos_of)
+            anchor = {int(k): v for k, v in got["maps"]["espn"].items()}
+            expected = scale_to_shared_total(
+                expected_derived(source, scoring, teams, shape, fixture, pos_of), anchor, pos_of)
             diffs, _ = compare_maps(expected, values)
             if diffs:
                 problems.append(f"{setting} {source}: {diffs[:2]}")

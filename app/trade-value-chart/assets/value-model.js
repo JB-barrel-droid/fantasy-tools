@@ -1084,6 +1084,11 @@
       var vorpScale = vorpSum > 0 ? total / vorpSum : 0;
       var vorp = new Map();
       var weighted = new Map();
+      // views-invariants-001: the chart anchors the views itself (see
+      // anchorGroups / scaleToSharedTotal); it needs each player's value above
+      // waivers in publisher units and the chart's own position x role.
+      var rawVorp = new Map();
+      var roles = new Map();
       var keys = input.keys instanceof Map ? Array.from(input.keys.keys()) : Array.from(input.keys);
       keys.forEach(function (key) {
         var row = info.get(String(key));
@@ -1096,17 +1101,112 @@
         }
         vorp.set(key, v);
         weighted.set(key, w);
+        rawVorp.set(key, row ? row.vorp : 0);
+        if (row) roles.set(key, row.role);
         if (w > out.batchMax) out.batchMax = w;
       });
       grouped[src] = weighted;
       out.sources[src] = {vorp: vorp, total: total, vorpScale: vorpScale, groups: groups,
-                          waiver: waiverSummary(at)};
+                          rawVorp: rawVorp, roles: roles, waiver: waiverSummary(at)};
     });
     out.adjScale = out.batchMax > 0 ? VIEW_TOP_OF_SCALE / out.batchMax : 0;
     Object.keys(out.sources).forEach(function (src) {
       var adj = new Map();
       grouped[src].forEach(function (w, key) { adj.set(key, w * out.adjScale); });
       out.sources[src].adj = adj;
+    });
+    return out;
+  }
+
+  // ---------------------------------------------------------------------
+  // views-invariants-001 (Jeremy, 2026-10-08). One basis for every source in
+  // every view: the players the source AND the anchor both price (QB/RB/WR/TE),
+  // as sharedPieBasis. Indexed and VORP vs waivers: one factor per source so
+  // its total there equals the anchor's (scaleToSharedTotal). Adjusted values:
+  // one factor per position x starter/bench group so each group's total there
+  // equals the anchor's same group (the DDF weights) -- anchorGroups below.
+
+  // The eight-group key of a player under a role map.
+  function groupOf(playerKey, roles, playerOf) {
+    var player = playerOf(playerKey);
+    var role = roles.get(playerKey);
+    if (!player || POSITION_ORDER.indexOf(player.pos) === -1) return null;
+    return role === "starter" || role === "bench" ? player.pos + "|" + role : null;
+  }
+
+  // Adjusted values. opts: values (Map key -> value above waivers, any units),
+  // roles (Map key -> "starter"|"bench": the SOURCE's own roles), anchor (Map),
+  // anchorRoles (Map: the anchor's roles), playerOf. Each group g of the
+  // source is scaled by budget_g / source_g, where budget_g = the anchor's
+  // total over the shared players the anchor puts in g and source_g = the
+  // source's total over the shared players the source puts in g. A player
+  // the source puts in no group (waiver) is 0. Returns {values, groups:
+  // {"POS|role": {budget, source, rate, shared}}}; a group whose source_g is 0
+  // while budget_g > 0 cannot carry its budget (rate 0, reported).
+  function anchorGroups(opts) {
+    var values = opts.values, anchor = opts.anchor, playerOf = opts.playerOf;
+    var roles = opts.roles, anchorRoles = opts.anchorRoles || roleMap({
+      values: anchor, playerOf: playerOf, teams: opts.teams, shape: opts.shape});
+    var groups = {};
+    POSITION_ORDER.forEach(function (pos) {
+      ["starter", "bench"].forEach(function (role) {
+        groups[pos + "|" + role] = {budget: 0, source: 0, rate: 0, shared: 0};
+      });
+    });
+    values.forEach(function (value, key) {
+      var a = Number(anchor.get(key));
+      var v = Number(value);
+      if (!isFinite(a) || !isFinite(v) || !playerOf(key)) return;
+      var ga = groupOf(key, anchorRoles, playerOf);
+      var gs = groupOf(key, roles, playerOf);
+      if (ga) groups[ga].budget += Math.max(0, a);
+      if (gs) { groups[gs].source += Math.max(0, v); groups[gs].shared += 1; }
+    });
+    Object.keys(groups).forEach(function (g) {
+      var row = groups[g];
+      row.rate = row.source > 0 ? row.budget / row.source : 0;
+    });
+    var out = new Map();
+    values.forEach(function (value, key) {
+      var g = groupOf(key, roles, playerOf);
+      var v = Number(value);
+      out.set(key, g && isFinite(v) ? Math.max(0, v) * groups[g].rate : 0);
+    });
+    return {values: out, groups: groups};
+  }
+
+  // The shared-basis totals of a source against the anchor (the quantity
+  // the Indexed and VORP-vs-waivers invariants hold equal).
+  function sharedTotals(opts) {
+    var values = opts.values, anchor = opts.anchor, playerOf = opts.playerOf;
+    var shared = 0, total = 0, target = 0;
+    values.forEach(function (value, key) {
+      var player = playerOf(key);
+      var a = Number(anchor.get(key)), v = Number(value);
+      if (!player || POSITION_ORDER.indexOf(player.pos) === -1 || !isFinite(a) || !isFinite(v)) return;
+      shared += 1; total += Math.max(0, v); target += Math.max(0, a);
+    });
+    return {shared: shared, total: total, target: target};
+  }
+
+  // Share of a value set's own pie in each position x role group (roles from
+  // the set itself unless given): how a source splits its total.
+  function groupShares(opts) {
+    var roles = opts.roles || roleMap(opts);
+    var totals = {}, sum = 0;
+    opts.values.forEach(function (value, key) {
+      var g = groupOf(key, roles, opts.playerOf);
+      var v = Number(value);
+      if (!g || !isFinite(v) || !(v > 0)) return;
+      totals[g] = (totals[g] || 0) + v;
+      sum += v;
+    });
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      ["starter", "bench"].forEach(function (role) {
+        var g = pos + "|" + role;
+        out[g] = sum > 0 ? (totals[g] || 0) / sum : 0;
+      });
     });
     return out;
   }
@@ -1141,6 +1241,10 @@
     PUBLISHED_VIEWS_VERSION: PUBLISHED_VIEWS_VERSION,
     derivePublishedViews: derivePublishedViews,
     anchorGroupTotals: anchorGroupTotals,
+    VIEWS_INVARIANTS_VERSION: "views-invariants-001",
+    anchorGroups: anchorGroups,
+    sharedTotals: sharedTotals,
+    groupShares: groupShares,
     VORP_TRANSLATION_VERSION: VORP_TRANSLATION_VERSION,
     TRANSLATION_OUR_MAX: TRANSLATION_OUR_MAX,
     POSITIONAL_MAX_VERSION: POSITIONAL_MAX_VERSION,
