@@ -2335,6 +2335,13 @@
     return addable;
   }
 
+  // "A, B and C" (or "A, B or C") from series keys, in plain words.
+  function listSeries(keys, joiner) {
+    const names = keys.map(seriesName);
+    if (names.length <= 1) return names.join("");
+    return `${names.slice(0, -1).join(", ")} ${joiner || "and"} ${names[names.length - 1]}`;
+  }
+
   // Frame 22 #15: copy names the publisher, methods and signed nets from data.
   function renderStory() {
     const box = $("v2CStory");
@@ -2350,14 +2357,20 @@
       text.textContent = `${name}: the Indexed chart shows ${fmtGap(s.indexed.net)}; Data Driven Adjustments show ${fmtGap(s.dda.net)}. `
         + "Your league's adjustments reverse the direction. Compare the same publisher before comparing across sources.";
     } else if (s.kind === "agree") {
+      const all = listSeries(s.upKeys.concat(s.downKeys, s.evenKeys));
       title.textContent = "Every complete source points the same way.";
-      text.textContent = s.up ? `All ${s.total} complete sources show you receive more value than you give.`
-        : s.down ? `All ${s.total} complete sources show you give more value than you receive.`
-          : `All ${s.total} complete sources show the trade as even.`;
+      text.textContent = s.up ? `You receive more value than you give by every complete source: ${all}.`
+        : s.down ? `You give more value than you receive by every complete source: ${all}.`
+          : `The trade is even by every complete source: ${all}.`;
     } else if (s.kind === "split") {
+      // Name the series on each side (Jeremy, 2026-10-08), then who is likeliest to say yes.
       title.textContent = "The sources split.";
-      text.textContent = `${s.up} show you receive more, ${s.down} show you give more${s.even ? `, ${s.even} even` : ""}. `
-        + "A manager who trades off a source that favors their side is the one most likely to accept.";
+      const parts = [];
+      if (s.up) parts.push(`You receive more by ${listSeries(s.upKeys)}.`);
+      if (s.down) parts.push(`You give more by ${listSeries(s.downKeys)}.`);
+      if (s.even) parts.push(`Even by ${listSeries(s.evenKeys)}.`);
+      if (s.down) parts.push(`A manager who trades off ${listSeries(s.downKeys, "or")} is the likeliest to accept.`);
+      text.textContent = parts.join(" ");
     } else {
       title.textContent = "No complete source yet.";
       text.textContent = "Every selected source is missing a value for at least one player, so no row has a result. See each row for who is missing.";
@@ -2413,12 +2426,51 @@
   }
 
   // Shareable trade: the sides live in the hash, so a copied link opens the same trade.
+  // A shared trade also carries the sender's scoring and roster (Jeremy, 2026-10-08: the receiver
+  // is assumed to be in the same league). Team count is not carried yet.
+  const LINK_ROSTER = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["FLEX", "FLEX"], ["SUPERFLEX", "SF"], ["BENCH", "BN"]];
+  const LINK_SCORING = ["standard", "half_ppr", "ppr"];
   function tradeHash() {
     const keys = side => TR[side].map(p => encodeURIComponent(p.key)).join(",");
     const parts = [];
     if (TR.give.length) parts.push(`give=${keys("give")}`);
     if (TR.receive.length) parts.push(`get=${keys("receive")}`);
+    if (parts.length) {
+      const shape = C.getRosterShape();
+      parts.push(`scoring=${C.getState().scoring}`);
+      parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
+      parts.push(`bench=${Number(C.getBenchShare()).toFixed(3)}`);
+    }
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
+  }
+  // Apply a link's scoring and roster when they differ from the reader's; say so.
+  function applyLinkLeague(params) {
+    const scoring = params.get("scoring");
+    const roster = {};
+    String(params.get("roster") || "").split(".").forEach(part => {
+      const m = /^([A-Z]+)(\d+)$/.exec(part);
+      const slot = m && LINK_ROSTER.find(([, code]) => code === m[1]);
+      if (slot) roster[slot[0]] = Number(m[2]);
+    });
+    const shape = C.getRosterShape();
+    const scoringChange = LINK_SCORING.includes(scoring) && scoring !== C.getState().scoring;
+    const rosterChange = Object.entries(roster).filter(([key, value]) => key in shape && shape[key] !== value);
+    const bench = Number(params.get("bench"));
+    const benchChange = params.has("bench") && Number.isFinite(bench) && Math.abs(bench - C.getBenchShare()) > 5e-4;
+    if (!scoringChange && !rosterChange.length && !benchChange) return;
+    if (scoringChange || rosterChange.length) {
+      leagueChange(() => {
+        if (scoringChange) C.setScoring(scoring);
+        rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
+      });
+    }
+    // The link's bench share is the sender's choice, set after the league (not a re-clamp notice).
+    if (benchChange) { C.setBenchShareFraction(bench); refresh(); }
+    const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
+    setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
+      + `bench ${(C.getBenchShare() * 100).toFixed(1)}%.${earlier}`);
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => setStatus(""), 8000);
   }
   function readTradeHash() {
     const [base, query] = location.hash.split("?");
@@ -2431,6 +2483,7 @@
       .map(k => ({key: k, name: rowsByKey.get(k)?.name || `Player ${k}`}));
     TR.give = read("give");
     TR.receive = read("get");
+    applyLinkLeague(params);
   }
   function syncTradeHash() {
     if (currentView() !== "compare") return;
@@ -2443,7 +2496,7 @@
     note.hidden = false;
     try {
       await navigator.clipboard.writeText(url);
-      note.textContent = "✓ Link copied. Anyone who opens it sees this trade, priced for their own league settings.";
+      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster and bench share; the team count stays the reader's.";
     } catch (error) {
       note.textContent = `Copy this link: ${url}`;
     }
@@ -2948,10 +3001,10 @@
     }
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     bind();
-    readTradeHash();
+    setStatus("");
+    readTradeHash();   // may set a status: a shared link's league settings were applied
     $("v2State").hidden = true;
     applyRoute();
-    setStatus("");
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
       compare: () => compareView, tradeState: TR,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache)};

@@ -399,6 +399,17 @@ Measured on a local `make sync` build, headless Chromium, CPU slowed 4×:
   engine's feasible range is 1–30% at every roster, so this does not fire with real settings; the test
   simulates a re-clamp.
 
+## Compare a trade: named story and league in links (2026-10-08, JEG-454)
+
+Jeremy's answers to the follow-up questions:
+- The story card names the sources: "You receive more by A and B. You give more by C. A manager who
+  trades off C is the likeliest to accept." (agree: "… by every complete source: A, B and C").
+  `TradeValueTrade.tradeStory` returns the series keys per direction.
+- A shared trade link carries the sender's scoring, roster and bench share (`&scoring=ppr&roster=QB1.RB2.WR3.TE1.
+  FLEX1.SF0.BN6&bench=0.150`), on the assumption that the receiver is in the same league; opening it applies them
+  through the engine's setters and says so. The team count is not carried yet.
+- `/classic/` is to be retired (back-end ticket JEG-453). v2 signed off (JEG-448).
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**

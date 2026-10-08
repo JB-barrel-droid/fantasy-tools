@@ -86,6 +86,9 @@ READ = """() => {
     give: side('v2GivePlayers'), receive: side('v2GetPlayers'),
     giveTotal: total('v2GiveTotal'), getTotal: total('v2GetTotal'), rows,
     story: document.getElementById('v2CStory').hidden ? null : document.getElementById('v2CStory').dataset.story,
+    storyText: document.getElementById('v2CStoryText').textContent,
+    names: Object.fromEntries([...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr =>
+      [tr.dataset.source, tr.querySelector('td.player').childNodes[1].textContent])),
     overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 
@@ -173,6 +176,11 @@ def check_story(snap) -> list[str]:
         want = "incomplete"
     if snap["story"] != want:
         return [f"story {snap['story']!r}, complete rows {complete} want {want!r}"]
+    # Jeremy, 2026-10-08: the story names the sources (agree and split).
+    if want in ("agree", "split"):
+        missing = [snap["names"][k] for k, _ in complete if snap["names"][k] not in snap["storyText"]]
+        if missing:
+            return [f"story does not name {missing}: {snap['storyText']!r}"]
     return []
 
 
@@ -255,6 +263,19 @@ def run_checks(v2_js=None, trade_js=None, viewports=((1440, 1000), (390, 844))) 
                     snap = page.evaluate(READ)
                     errors += [tag + e for e in check_sides(snap, pick)]
                 errors += [tag + e for e in check_story(snap)]
+                # Without the FantasyCalc chart there is no same-publisher contrast, so the story
+                # must agree or split, naming every complete source.
+                page.evaluate("""() => { const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="fantasycalc"]');
+                  if (box && box.checked) box.click(); location.hash = '#player-values'; }""")
+                page.wait_for_function("() => !document.getElementById('v2Main').hidden")
+                page.evaluate("p => { location.hash = `#compare-trade?give=${p.give.join(',')}&get=${p.receive.join(',')}`; }", pick)
+                page.wait_for_function("() => !document.getElementById('v2Compare').hidden && !document.getElementById('v2CTable').hidden")
+                plain = page.evaluate(READ)
+                if plain["story"] not in ("agree", "split"):
+                    errors.append(tag + f"without the FantasyCalc chart the story should agree or split, got {plain['story']!r}")
+                errors += [tag + e for e in check_story(plain)]
+                page.evaluate("""() => { const box = document.querySelector('#legacyEngine #sourceToggles input[data-source="fantasycalc"]');
+                  if (box && !box.checked) box.click(); }""")
                 # Per-player arithmetic for the first complete row.
                 first = next((r for r in snap["rows"] if not r["missing"]), None)
                 if first:
@@ -300,6 +321,8 @@ class OfferRenderTest(unittest.TestCase):
         v2 = V2_JS.read_text(encoding="utf-8")
         trade = TRADE_JS.read_text(encoding="utf-8")
         broken = {
+            "story names no source": {"v2_js": v2.replace(
+                "    const names = keys.map(seriesName);", "    const names = keys.map(() => \"a source\");", 1)},
             "values from the ranking series": {"v2_js": v2.replace(
                 "const v = shown && row.values ? row.values[shown] : null;",
                 "const v = shown && row.values ? row.values[view.rankKey] : null;", 1)},

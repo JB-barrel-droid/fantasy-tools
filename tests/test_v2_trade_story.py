@@ -37,7 +37,8 @@ const out = {
   totals: input.totals.map(([rows, key]) => { const t = T.sideTotal(rows, key);
     return {total: t.total, missing: t.missing.map(r => r.player_key)}; }),
   stories: input.stories.map(rows => { const s = T.tradeStory(rows, meta);
-    return {kind: s.kind, publisher: s.publisher || null, up: s.up ?? null, down: s.down ?? null}; })
+    return {kind: s.kind, publisher: s.publisher || null, up: s.up ?? null, down: s.down ?? null,
+      upKeys: s.upKeys || null, downKeys: s.downKeys || null}; })
 };
 console.log(JSON.stringify(out));
 """
@@ -95,6 +96,9 @@ def check(trade_js: Path) -> list[str]:
     for i, (have, (kind, publisher)) in enumerate(zip(got["stories"], WANT_STORIES)):
         if have["kind"] != kind or (publisher and have["publisher"] != publisher):
             errors.append(f"story {i}: {have} != {kind} {publisher or ''}")
+    split = got["stories"][1]
+    if (split["upKeys"], split["downKeys"]) != (["cbs_adjusted", "espn"], ["cbs"]):
+        errors.append(f"split story names the wrong series per side: {split}")
     if got["stories"][2]["up"] != 2:
         errors.append(f"agree story counts only complete rows: {got['stories'][2]}")
     return errors
@@ -116,6 +120,9 @@ class TradeStoryTest(unittest.TestCase):
                 "if (!pair.dda || !pair.indexed || pair.dda.week !== pair.indexed.week) continue;",
                 "if (!pair.dda || !pair.indexed) continue;", 1),
             "contrast on same signs": source.replace("if (a && b && a !== b) return", "if (a && b) return", 1),
+            "series sides swapped": source.replace(
+                "    const upKeys = keysWhere(1);\n    const downKeys = keysWhere(-1);",
+                "    const upKeys = keysWhere(-1);\n    const downKeys = keysWhere(1);", 1),
             "incomplete rows counted": source.replace(
                 "const complete = rows.filter(row => row.net !== null);",
                 "const complete = rows.map(row => (row.net === null ? {...row, net: 0} : row));", 1),

@@ -72,15 +72,18 @@
       const b = sign(pair.indexed.row);
       if (a && b && a !== b) return {kind: "contrast", publisher, dda: pair.dda.row, indexed: pair.indexed.row};
     }
-    const signs = complete.map(sign);
-    const up = signs.filter(s => s > 0).length;
-    const down = signs.filter(s => s < 0).length;
-    const even = signs.length - up - down;
-    if (complete.length < 2) return {kind: "single", up, down, even, total: complete.length};
-    if ((up && !down && !even) || (down && !up && !even) || (even && !up && !down)) {
-      return {kind: "agree", up, down, even, total: complete.length};
-    }
-    return {kind: "split", up, down, even, total: complete.length};
+    // Which series point which way, so the copy can name them (Jeremy, 2026-10-08).
+    const keysWhere = want => complete.filter(row => sign(row) === want).map(row => row.key);
+    const upKeys = keysWhere(1);
+    const downKeys = keysWhere(-1);
+    const evenKeys = keysWhere(0);
+    const up = upKeys.length;
+    const down = downKeys.length;
+    const even = evenKeys.length;
+    const counts = {up, down, even, total: complete.length, upKeys, downKeys, evenKeys};
+    if (complete.length < 2) return {kind: "single", ...counts};
+    if ((up && !down && !even) || (down && !up && !even) || (even && !up && !down)) return {kind: "agree", ...counts};
+    return {kind: "split", ...counts};
   }
 
   const api = {compareTrade, sideTotal, tradeStory};

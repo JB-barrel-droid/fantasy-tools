@@ -3,7 +3,11 @@
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
   * build a trade on Compare a trade through the search boxes; the address
-    becomes #compare-trade?give=<keys>&get=<keys>;
+    becomes #compare-trade?give=<keys>&get=<keys>&scoring=<s>&roster=<shape>
+    (Jeremy, 2026-10-08: links carry the sender's scoring and roster, not teams);
+  * a link with another scoring and roster opens with exactly those settings
+    in the engine (getState / getRosterShape), the reader's team count kept,
+    and says so;
   * opening that address in a fresh page shows the same players on the same
     sides and the same per-source rows (same give / get / net text);
   * a link with an unknown or repeated key does not crash: the unknown player is
@@ -111,7 +115,10 @@ def run_checks(v2_js=None) -> list[str]:
             first = page.evaluate(READ)
             if first["scheme"] != "light dark":
                 errors.append(f"color-scheme meta is {first['scheme']!r}, expected 'light dark'")
-            want = f"#compare-trade?give={','.join(first['give'])}&get={','.join(first['get'])}"
+            league = page.evaluate("""() => { const C = window.TradeValueCurveControls; const r = C.getRosterShape();
+              return `scoring=${C.getState().scoring}&roster=QB${r.QB}.RB${r.RB}.WR${r.WR}.TE${r.TE}.FLEX${r.FLEX}.SF${r.SUPERFLEX || 0}.BN${r.BENCH}`
+                + `&bench=${C.getBenchShare().toFixed(3)}`; }""")
+            want = f"#compare-trade?give={','.join(first['give'])}&get={','.join(first['get'])}&{league}"
             if first["hash"] != want:
                 errors.append(f"address {first['hash']!r} != {want!r}")
             shared = open_page(base + want)
@@ -120,6 +127,23 @@ def run_checks(v2_js=None) -> list[str]:
                 errors.append(f"shared link opened {second['give']} / {second['get']}, built {first['give']} / {first['get']}")
             if not first["rows"] or second["rows"] != first["rows"]:
                 errors.append("shared link rows differ from the built trade's rows")
+            # The sender's scoring and roster travel with the link; the team count stays the reader's.
+            teams = page.evaluate("() => window.TradeValueCurveControls.getState().teams")
+            other = open_page(base + f"#compare-trade?give={first['give'][0]}&get={first['get'][0]}"
+                              "&scoring=half_ppr&roster=QB1.RB2.WR2.TE1.FLEX2.SF1.BN5&bench=0.200")
+            got = other.evaluate("""() => { const C = window.TradeValueCurveControls; return {scoring: C.getState().scoring,
+              teams: C.getState().teams, roster: C.getRosterShape(), bench: C.getBenchShare(),
+              toast: document.getElementById('v2Status').textContent}; }""")
+            if abs(got["bench"] - 0.2) > 0.006:
+                errors.append(f"link bench share not applied: {got['bench']}")
+            r = got["roster"]
+            if got["scoring"] != "half_ppr" or (r["QB"], r["RB"], r["WR"], r["TE"], r["FLEX"], r.get("SUPERFLEX"), r["BENCH"]) != (1, 2, 2, 1, 2, 1, 5):
+                errors.append(f"link league not applied: {got['scoring']} {r}")
+            if got["teams"] != teams:
+                errors.append(f"team count changed by the link: {got['teams']} (was {teams})")
+            if "link's league settings" not in got["toast"]:
+                errors.append(f"no notice that the link's settings were applied: {got['toast']!r}")
+            other.close()
             odd = open_page(base + f"#compare-trade?give={first['give'][0]},{first['give'][0]},999999999&get={first['get'][0]}")
             third = odd.evaluate(READ)
             if third["give"] != [first["give"][0], "999999999"]:
@@ -142,7 +166,9 @@ class ShareRenderTest(unittest.TestCase):
     def test_guard_fails_on_broken_builds(self):
         js = V2_JS.read_text(encoding="utf-8")
         broken = {
-            "hash not read": js.replace("    bind();\n    readTradeHash();\n", "    bind();\n", 1),
+            "hash not read": js.replace("    readTradeHash();   // may set a status", "    // readTradeHash();", 1),
+            "link league ignored": js.replace("    TR.receive = read(\"get\");\n    applyLinkLeague(params);", "    TR.receive = read(\"get\");", 1),
+            "link bench ignored": js.replace("    if (benchChange) { C.setBenchShareFraction(bench); refresh(); }", "", 1),
             "hash not written": js.replace("    if (location.hash !== want) history.replaceState(null, \"\", want);", "", 1),
         }
         for name, body in broken.items():
