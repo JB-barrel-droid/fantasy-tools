@@ -3,7 +3,7 @@
 
 The served monitor JSON (modules/pipeline-checkpoints.json and
 modules/source-import-health.json) has been produced only by the Muse
-30-minute cron. If that cron stops, the files keep their last contents and
+30-minute cron (now this workflow, every 6 hours). If it stops, the files keep their last contents and
 look live. This watch runs from GitHub Actions (health-artifacts.yml),
 independent of Muse:
 
@@ -32,7 +32,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/modules/"
-MAX_AGE_MINUTES = 60  # twice the 30-minute heartbeat (BH-8)
+MAX_AGE_MINUTES = 720  # twice the 6-hour heartbeat (BH-8); pg_cron health-artifacts-live, 2026-10-08
 OWNER = "health-artifacts.yml"
 
 ARTIFACTS = {

@@ -215,7 +215,31 @@ class SummaryBuilderTest(unittest.TestCase):
 
     def test_valid_summary_passes_through_unchanged(self):
         s = good_summary(overall="yellow")
-        self.assertEqual(s, bms.build(lambda: s))
+        out = bms.build(lambda: s)
+        self.assertEqual(s, {k: v for k, v in out.items() if k != "producer"})
+        self.assertEqual(bms.PRODUCER, out["producer"])
+
+    def test_producer_staleness_matches_the_page(self):
+        # The page's fail-closed limit and the published producer contract
+        # must agree, or the page goes red between two healthy runs (or never).
+        m = re.search(r"var SYS_STALE_MIN = (\d+);", DASHBOARD)
+        self.assertIsNotNone(m)
+        self.assertEqual(int(m.group(1)), bms.PRODUCER["stale_after_minutes"])
+        self.assertEqual(2 * bms.PRODUCER["cadence_minutes"], bms.PRODUCER["stale_after_minutes"])
+
+    def test_security_posture_is_attached_and_fail_closed(self):
+        good = {"schema": "ddf-security-posture-v1", "ok": True, "tables_without_rls": 0}
+        s = good_summary()
+        self.assertEqual(good, bms.build(lambda: s, fetch_security=lambda: good)["security"])
+        def boom():
+            raise OSError("function does not exist")
+        self.assertIn("read_error", bms.build(lambda: s, fetch_security=boom)["security"])
+        for bad in (None, {"ok": True}, {"schema": "ddf-security-posture-v1", "ok": "yes"}):
+            self.assertIn("read_error", bms.build(lambda: s, fetch_security=lambda b=bad: b)["security"], bad)
+        # a failed summary read still carries the posture
+        def down():
+            raise OSError("proxy 403")
+        self.assertEqual(good, bms.build(down, fetch_security=lambda: good)["security"])
 
 
 class CoverageAuditTest(unittest.TestCase):
@@ -272,7 +296,11 @@ class BannerFailClosedTest(unittest.TestCase):
             ("fresh green", fresh, "green"),
             ("fresh yellow", good_summary(now - timedelta(minutes=10), "yellow"), "yellow"),
             ("fresh red", good_summary(now - timedelta(minutes=10), "red"), "red"),
-            ("stale green", good_summary(now - timedelta(minutes=90), "green"), "red"),
+            # 2026-10-08: the producer runs every 6 h, so the limit is 720 min
+            # (was 60 min at the 30-minute cadence). A snapshot between two
+            # runs is current; one past twice the cadence is unknown (red).
+            ("one cadence old green", good_summary(now - timedelta(minutes=400), "green"), "green"),
+            ("stale green", good_summary(now - timedelta(minutes=730), "green"), "red"),
             ("future timestamp", good_summary(now + timedelta(minutes=30), "green"), "red"),
             ("null", None, "red"),
             ("read error", {"read_error": "HTTP 404"}, "red"),

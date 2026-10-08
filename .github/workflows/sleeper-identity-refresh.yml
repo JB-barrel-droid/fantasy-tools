@@ -5,13 +5,12 @@ name: Sleeper identity refresh (JEG-366)
 # partial pull, runs the identity tests against the new file, and commits
 # only when player content changed (not just meta.pulled_at).
 #
-#   schedule (Tue + Thu, after waivers start moving)  -> commit to main
+#   pg_cron dispatch (Tue + Thu 09:17 UTC, `sleeper-identity-refresh-live`,
+#   supabase/migrations/gha_schedules_pg_cron.sql; dispatches on main) -> commit to main
 #   push to identity/**                               -> commit back to that branch
 #   manual dispatch                                    -> commit to the dispatched ref
 
 on:
-  schedule:
-    - cron: "17 9 * * 2,4"
   push:
     branches: ["identity/**"]
     paths-ignore: ["data/inputs/sleeper_identity_base.json"]
