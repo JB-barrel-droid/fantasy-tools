@@ -380,7 +380,7 @@ def sync_week_history(target: Path) -> None:
     the index against the fixture being published (which saved week each
     source serves) and copy the week files beside the page. Every week file
     is validated (no-relabel guard); a bad file stops the sync."""
-    from build_week_history import HISTORY_DIR, main as build_history
+    from build_week_history import HISTORY_DIR, PLAYERS, load_weeks, main as build_history, write_espn_legs
     if not HISTORY_DIR.exists():
         return
     build_history(["--served-only"])
@@ -389,6 +389,9 @@ def sync_week_history(target: Path) -> None:
     target.mkdir(parents=True)
     for path in sorted(HISTORY_DIR.glob("*.json")):
         shutil.copy2(path, target / path.name)
+    # Prior ESPN legs, rebuilt from the saved projections with today's
+    # pipeline code (HISTORY-ESPN-PRIOR); derived, so served but not stored.
+    write_espn_legs(load_weeks(HISTORY_DIR), json.loads(PLAYERS.read_text()), target / "espn-legs.json")
 
 
 def main() -> int:

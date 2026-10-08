@@ -53,6 +53,7 @@ DIST = ROOT / "dist"
 WIDGET = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
 BIJAN = 217
 DELTAS = {}  # source -> Bijan Robinson Δ at Full PPR / 12 (printed by the test)
+ZERO_ONLY = {}  # series -> players priced 0.0 on one side only (printed)
 
 
 def _week(n):
@@ -273,6 +274,44 @@ class WeekSnapshotRuleTest(unittest.TestCase):
         self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["usatoday"]["week"])
 
 
+class EspnPriorLegTest(unittest.TestCase):
+    """HISTORY-ESPN-PRIOR: a saved ESPN week's leg is rebuilt with the
+    pipeline's leg code. Proof it is the pipeline's leg: the SERVED week's
+    rebuild equals the fixture's ESPN combos (built by
+    build_espn_section_from_ddf_leg) on every player both price."""
+
+    def _diff(self, entry):
+        fixture = json.loads((ROOT / "data/fixtures/current/comparison-sources-data.json").read_text())
+        players = json.loads((ROOT / "data/fixtures/current/players.json").read_text())
+        legs = H.espn_legs_for_week(entry, players)["legs"]
+        out = {}
+        for scoring, word in (("standard", "standard"), ("half_ppr", "half"), ("ppr", "full")):
+            combo = fixture["sources"]["espn"]["combos"][f"{word}_12"]
+            fx = {str(combo["player_keys"][s]): v for s, v in combo["values"].items()}
+            leg = legs[scoring]
+            shared = set(fx) & set(leg)
+            out[scoring] = ([k for k in shared if abs(fx[k] - leg[k]) > 1e-9],
+                            [k for k in set(fx) ^ set(leg) if (fx[k] if k in fx else leg[k]) != 0.0],
+                            len(shared))
+        return out
+
+    def test_served_week_rebuild_is_the_fixture_leg(self):
+        index = json.loads((HISTORY / "index.json").read_text())
+        week = index["served"]["espn"]["week"]
+        self.assertIsNotNone(week)
+        for scoring, (diff, nonzero_only, shared) in self._diff(_week(week)["sources"]["espn"]).items():
+            self.assertGreater(shared, 300, scoring)
+            self.assertEqual(diff, [], scoring)
+            self.assertEqual(nonzero_only, [], scoring)  # membership differs only at 0.0
+
+    def test_rebuild_catches_changed_projections(self):
+        index = json.loads((HISTORY / "index.json").read_text())
+        entry = copy.deepcopy(_week(index["served"]["espn"]["week"])["sources"]["espn"])
+        top = max(entry["ppg"], key=lambda k: entry["ppg"][k][2])
+        entry["ppg"][top] = [x * 0.8 for x in entry["ppg"][top]]
+        self.assertTrue(any(diff for diff, _, _ in self._diff(entry).values()))
+
+
 # ------------------------------------------------------------------ browser
 
 READY = "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()"
@@ -292,19 +331,46 @@ SELF = """async () => {
   c.setScoring('half'); c.setTeams(10); c.setRosterSpot('BENCH', c.getRosterShape().BENCH + 1);
   const index = await (await fetch('assets/history/index.json')).json();
   const rows = c.getAllRows();
+  const base = k => k.endsWith('_vorp') ? k.slice(0, -5) : k.endsWith('_adjusted') ? k.replace(/_adjusted$/, '') : k;
   const out = {};
-  for (const k of ['usatoday', 'fantasycalc', 'fantasypros', 'cbs', 'cbsros', 'razzball']) {
-    const week = index.served[k].week;
+  for (const k of ['usatoday', 'fantasycalc', 'fantasypros', 'cbs', 'cbsros', 'razzball', 'espn',
+                   'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
+                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']) {
+    const week = index.served[base(k)].week;
     const r = await c.getWeekValues(k, week);
-    const errors = [];
-    if (!r.available) { out[k] = [`week ${week}: ${r.reason}`]; continue; }
+    const errors = [], zeroOnly = [];
+    if (!r.available) { out[k] = {errors: [`week ${week}: ${r.reason}`], zeroOnly}; continue; }
+    let compared = 0;
     rows.forEach(row => {
       const v = row.values[k];
       const p = r.values[row.player_key];
       if (v == null && p == null) return;
-      if (v == null || p == null || Math.abs(v - p) > 1e-9) errors.push(`${row.name}: chart ${v}, week ${week} ${p}`);
+      compared += 1;
+      if (v != null && p != null && Math.abs(v - p) <= 1e-9) return;
+      // ESPN only: a player one side prices at 0.0 and the other lacks is the
+      // leg/players.json identity edge (reported, GAP-ESPN-LEG-STATUS-EDGE).
+      if (k === 'espn' && (v == null ? p : v) === 0) { zeroOnly.push(row.name); return; }
+      errors.push(`${row.name}: chart ${v}, week ${week} ${p}`);
     });
-    out[k] = errors;
+    if (!compared) errors.push('no player compared');
+    out[k] = {errors, zeroOnly};
+  }
+  return out;
+}"""
+ESPN_PRIOR = """async () => {
+  const c = window.TradeValueCurveControls;
+  c.setScoring('ppr'); c.setTeams(12);
+  const out = {};
+  for (const k of ['espn', 'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
+                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']) {
+    const r = await c.getPriorWeek(k);
+    let changed = 0;
+    c.getAllRows().forEach(row => {
+      const now = row.values[k], before = r.values?.[row.player_key];
+      if (now != null && before != null && Math.abs(now - before) > 1e-9) changed += 1;
+    });
+    out[k] = {available: r.available, reason: r.reason || null, week: r.week, priorWeek: r.priorWeek,
+              n: r.values ? Object.keys(r.values).length : 0, changed, values: k === 'espn' ? r.values : null};
   }
   return out;
 }"""
@@ -410,9 +476,38 @@ def collect(overrides=None):
                     failures.append(f"{source}: Bijan prior {values[BIJAN]}, Python {want[BIJAN]}")
                 else:
                     DELTAS[source] = round(current - values[BIJAN], 1)
-            for source, errs in page.evaluate(SELF).items():
-                if errs:
-                    failures.append(f"{source} served week != chart: {errs[:2]} ({len(errs)} players)")
+            # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
+            # ESPN at the reference share is that week's leg as the pipeline
+            # builds it (espn_legs_for_week), player for player.
+            players = json.loads((ROOT / "data/fixtures/current/players.json").read_text())
+            for source, res in page.evaluate(ESPN_PRIOR).items():
+                served = index["served"][source.split("_")[0]]["week"]
+                if not res["available"]:
+                    if (source.split("_")[0] in index["weeks"].get(str(served - 1), {}).get("sources", {})):
+                        failures.append(f"{source}: prior week unavailable ({res['reason']})")
+                    continue
+                if res["priorWeek"] != served - 1 or res["n"] == 0:
+                    failures.append(f"{source}: prior week {res['priorWeek']} with {res['n']} values")
+                if res["changed"] == 0:  # the served week passed off as the prior one
+                    failures.append(f"{source}: prior week identical to the served values")
+                if source == "espn":
+                    entry = _week(served - 1)["sources"]["espn"]
+                    want = H.espn_legs_for_week(entry, players)["legs"]["ppr"]
+                    got = {k: v for k, v in res["values"].items() if v != 0}
+                    # The anchor's live cells map the 1-dp leg onto the
+                    # full-precision two-tier values (near identity at the
+                    # reference share), so allow the leg's own rounding.
+                    bad = [k for k, v in got.items() if k in want and abs(v - want[k]) > 0.06]
+                    if bad or not got:
+                        failures.append(f"espn prior != pipeline leg on {len(bad)} players, e.g. "
+                                        f"{[(k, got[k], want[k]) for k in bad[:4]]}")
+            for source, res in page.evaluate(SELF).items():
+                if res["errors"]:
+                    failures.append(f"{source} served week != chart: {res['errors'][:2]} ({len(res['errors'])} players)")
+                if len(res["zeroOnly"]) > 5:
+                    failures.append(f"{source}: {len(res['zeroOnly'])} zero-only membership differences")
+                elif res["zeroOnly"]:
+                    ZERO_ONLY[source] = res["zeroOnly"]
             failures += [f"page error: {e}" for e in errors]
             page.close()
         finally:
@@ -424,6 +519,8 @@ class DeltaRecomputeTest(unittest.TestCase):
     def test_prior_week_is_engine_math_on_saved_inputs(self):
         self.assertEqual(collect(), [])
         print(f"Bijan Robinson Δ (Full PPR, 12 teams): {DELTAS}")
+        if ZERO_ONLY:
+            print(f"0.0-only membership differences (reported): {ZERO_ONLY}")
 
     def test_delta_guard_fails_on_broken_states(self):
         widget = WIDGET.read_text()
@@ -434,11 +531,18 @@ class DeltaRecomputeTest(unittest.TestCase):
         self.assertNotEqual(substitute, widget)
         same_week = widget.replace("const prior = served.week - 1;", "const prior = served.week;")
         self.assertNotEqual(same_week, widget)
+        espn_served_leg = widget.replace("const leg = saved?.legs?.[scoringField()];",
+                                          "const leg = legs?.weeks?.[String(week + 1)]?.legs?.[scoringField()];")
+        self.assertNotEqual(espn_served_leg, widget)
+        vorp_served = widget.replace("values: buildVorpMap(series, ppg),", "values: buildVorpMap(series),")
+        self.assertNotEqual(vorp_served, widget)
         cases = {
             "week-4 file served relabelled as week 3": {"assets/history/week-4.json": relabelled_doc},
             "week-4 file served with week-3 content": {"assets/history/week-4.json": json.dumps(dict(relabelled, week=4))},
             "accessor substitutes the served natives": {"assets/curve-widget.js": substitute},
             "prior paired with the served week": {"assets/curve-widget.js": same_week},
+            "ESPN prior reads the served week's leg": {"assets/curve-widget.js": espn_served_leg},
+            "VORP prior prices the served projections": {"assets/curve-widget.js": vorp_served},
         }
         for name, overrides in cases.items():
             with self.subTest(name):

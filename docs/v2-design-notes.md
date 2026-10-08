@@ -378,13 +378,30 @@ movement, not a move in our projections.
   - Indexed view only. In the other views the result is `available: false` with the reason.
 - CBS ROS and Razzball: `ddfTwoTierValuesForSource` on the saved projections, then
   `normalizedAdjustedMapFor`, with the same below-the-leg 0 rule as the table.
-- ESPN, the Adjusted series and the VORP vs waivers series: `available: false` with a reason.
-  - ESPN is the scale every series is matched to. A prior ESPN week would need that week's built
-    two-tier leg, which is not served (risk row HISTORY-ESPN-PRIOR).
+- ESPN (2026-10-08, HISTORY-ESPN-PRIOR): that week's two-tier leg, built by the pipeline's own
+  leg code (`build_week_history.espn_legs_for_week`: `build_ddf_two_tier_leg` tiers and
+  `calibrate_tiers` at 12 teams and the 0.15 reference share, one 70/max scale, 1 dp as the
+  fixture) from the saved `espn_ppg`, served as `assets/history/espn-legs.json` (rebuilt by
+  `make sync`, not stored). It then takes the anchor's own path: the live cells at the active
+  bench share, the roster shape, and the table's display rules (ESPN lists the player at 0 → 0.0;
+  at or below the leg's lowest priced projection → 0.0). The served week's rebuild equals the
+  fixture's ESPN leg on every priced player. ESPN weeks saved before 2026-10-08 do not carry
+  ESPN's "projects 0" players, so in those weeks such a player is absent ("Δ —"), not 0.
+- VORP vs waivers (`espn_vorp`, `cbsros_vorp`, `razzball_vorp`): `buildVorpRows` on the saved
+  projections of the base source, level-matched to the current anchor (`scaleToSharedTotal`)
+  like the served series.
+- Adjusted (`*_adjusted`): the saved chart priced as above, then the CURRENT fit's cells
+  (`buildLiveAdjustedMap`) and `normalizedAdjustedMapFor`. Δ is the chart's movement through one
+  fit; a refit between weeks does not show up as movement. Indexed view only, and unavailable
+  while the Adjusted series is paused.
+- `getPriorWeek(series)` for a VORP or Adjusted series uses the served week of its base source
+  (`espn_vorp` → `espn`, `cbs_adjusted` → `cbs`).
 
 Proof that this is the engine's math: `getWeekValues(source, served week)` equals the chart's
 current values for every player in every one of the 12 scoring × team combos, and on a custom
-roster (`tests/test_week_history.py`).
+roster (`tests/test_week_history.py`), for all 14 series. ESPN allows only players priced 0.0 on
+one side and absent on the other (two players whose players.json ESPN status and the leg
+disagree; GAP-ESPN-LEG-STATUS-EDGE).
 
 ### How the front end computes Δ
 

@@ -521,29 +521,11 @@ def resolve_identities(lists: dict[str, list[dict[str, Any]]],
     return resolved, review, aliases_used
 
 
-def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
-              scoring: str, teams: int, bench_share: float) -> dict[str, Any]:
-    lists, csv_meta, csv_review = load_espn_lists(csv_path, scoring)
-    pies, pies_meta = load_pies(pies_path, scoring, teams)
-    resolved, id_review, aliases_used = resolve_identities(lists, fixture_path)
-    review_rows = csv_review + id_review
-
-    # JEG-67 (reverts JEG-52/JEG-60 pool cap): the cap was a value no-op.
-    # Discrimination test (2026-10-02) proved it on real snapshots: capping
-    # the pool at 3x starters changed ZERO of 252 shared Razzball values and
-    # left calibration (rw/rs/pie/pb/ps) byte-identical in all 4 positions,
-    # while dropping 217 players from leg outputs (469 -> 252). Mechanism:
-    # the surplus sums only players above the waiver line, and the waiver
-    # line is set by the fixed roster shape (starters + bench_mix), never by
-    # pool depth -- deep tails below the line were never inflating anything.
-    # The cap only destroyed coverage, so it is removed; every resolved
-    # player is priced (tails below the waiver line price to exactly 0.0).
-
-    # Tier pool keyed by canonical player_key (stable total order by key).
-    pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]] for pos in POSITIONS}
-
-    pool = build_position_tiers(pool_lists, teams, dict(REF_SLOTS), REF_FLEX_COUNT,
-                                list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(teams))
+def calibrate_tiers(pool: dict[str, Any], bench_share: float) -> tuple[dict[str, Any], list[str]]:
+    """Calibrate every position of a tier pool at the requested bench share,
+    with the pipeline's feasible-share fallback (factored out of build_leg
+    2026-10-08 so a saved week's projections are priced by the same code:
+    pipelines/build_week_history.espn_legs_for_week)."""
     calibration: dict[str, Any] = {}
     calibration_notes = []  # Jeremy 2026-09-29: track per-position share adjustments
     for pos in POSITIONS:
@@ -617,6 +599,34 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
                     raise
             else:
                 raise
+
+    return calibration, calibration_notes
+
+
+def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
+              scoring: str, teams: int, bench_share: float) -> dict[str, Any]:
+    lists, csv_meta, csv_review = load_espn_lists(csv_path, scoring)
+    pies, pies_meta = load_pies(pies_path, scoring, teams)
+    resolved, id_review, aliases_used = resolve_identities(lists, fixture_path)
+    review_rows = csv_review + id_review
+
+    # JEG-67 (reverts JEG-52/JEG-60 pool cap): the cap was a value no-op.
+    # Discrimination test (2026-10-02) proved it on real snapshots: capping
+    # the pool at 3x starters changed ZERO of 252 shared Razzball values and
+    # left calibration (rw/rs/pie/pb/ps) byte-identical in all 4 positions,
+    # while dropping 217 players from leg outputs (469 -> 252). Mechanism:
+    # the surplus sums only players above the waiver line, and the waiver
+    # line is set by the fixed roster shape (starters + bench_mix), never by
+    # pool depth -- deep tails below the line were never inflating anything.
+    # The cap only destroyed coverage, so it is removed; every resolved
+    # player is priced (tails below the waiver line price to exactly 0.0).
+
+    # Tier pool keyed by canonical player_key (stable total order by key).
+    pool_lists = {pos: [{"id": d["player_key"], "x": d["x"]} for d in resolved[pos]] for pos in POSITIONS}
+
+    pool = build_position_tiers(pool_lists, teams, dict(REF_SLOTS), REF_FLEX_COUNT,
+                                list(REF_FLEX_ELIGIBLE), bench_mix_for_teams(teams))
+    calibration, calibration_notes = calibrate_tiers(pool, bench_share)
 
     # Full-precision raw values; the single 70/max multiplier applies BEFORE
     # any rounding (rounding is display-only and never enters this artifact).
