@@ -1099,7 +1099,10 @@ def build_vorp_translation_summary():
     Expected: every combo that is not a qb-divergent sibling (data-driven
     guard in translate_via_vorp._qb_divergent_siblings, which pins those to
     reindex-fallback by design) has translation.method == "vorp-supabase"
-    with grain.week == the current NFL week.
+    with grain.week == that source's content week (the week of its natives,
+    translate_via_vorp.section_content_week; GAP-VORP-GRAIN-WEEK-LABEL).
+    A source lagging the calendar is not a stale GRAIN; its lag is reported
+    by import health / freshness.
 
     The fixture is read as COMMITTED on origin/main (committed_fixture_json),
     not from the working tree: the shared checkout is routinely dirty with
@@ -1116,7 +1119,8 @@ def build_vorp_translation_summary():
              at all (wiring never ran)
       unk  - fixture unreadable; never a failure claim
     """
-    from translate_via_vorp import AS_PUBLISHED_SOURCES, _qb_divergent_siblings
+    from translate_via_vorp import (AS_PUBLISHED_SOURCES, _qb_divergent_siblings,
+                                    section_content_week)
 
     label = "VORP: legacy translation freshness (not Option C readiness)"
     fixture, fixture_source = committed_fixture_json(
@@ -1141,6 +1145,7 @@ def build_vorp_translation_summary():
         sdata = sources.get(source, {}) or {}
         combos = sdata.get("combos", {}) or {}
         guarded = _qb_divergent_siblings(source, sdata)
+        source_week = section_content_week(sdata) or week
         for combo_name, combo in combos.items():
             if not isinstance(combo, dict):
                 continue
@@ -1157,8 +1162,8 @@ def build_vorp_translation_summary():
                 fallback.append(f"{tag}: reindex-fallback is the steady state")
             elif grain_week is None:
                 unrecorded.append(tag)
-            elif grain_week < week:
-                stale.append(f"{tag}: grain week {grain_week} < {week}")
+            elif grain_week < source_week:
+                stale.append(f"{tag}: grain week {grain_week} < {source_week} (its content week)")
             else:
                 n_ok += 1
 

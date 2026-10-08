@@ -125,6 +125,37 @@ class TestSubstitution(unittest.TestCase):
             self.assertIn(s, tv.AS_PUBLISHED_SOURCES)
         self.assertNotIn("translation", doc["sources"]["espn"]["combos"]["half_12"])
 
+    def test_grain_week_is_the_sections_content_week(self):
+        # GAP-VORP-GRAIN-WEEK-LABEL: a section on Week-4 natives is fetched
+        # and stamped as week 4 even when the chain passes week 5.
+        doc = deepcopy(self.fixture)
+        for key, sec in doc["sources"].items():
+            if key in tv.AS_PUBLISHED_SOURCES:
+                sec.pop("week_designated", None)
+                sec.pop("source_provenance", None)
+                sec.pop("content_vintage", None)
+        doc["sources"]["usatoday"]["week_designated"] = "Week 4"
+        weeks = []
+        def fake_fetch(source, scoring, teams, week, season, sb=None):
+            weeks.append((source, week))
+            return {}
+        with patch.object(tv, "fetch_translated", side_effect=fake_fetch):
+            summary = tv.translate_document(doc, week=5, season=2026)
+        self.assertEqual(summary["week"], 5)
+        self.assertTrue(weeks)
+        self.assertEqual({w for s, w in weeks if s == "usatoday"}, {4})
+        self.assertEqual({w for s, w in weeks if s != "usatoday"}, {5})  # unlabelled: chain week
+        stamped = doc["sources"]["usatoday"]["combos"]["half_12"]["translation"]["grain"]["week"]
+        self.assertEqual(stamped, 4)
+
+    def test_section_content_week_sources(self):
+        self.assertEqual(tv.section_content_week({"week_designated": "Week 4"}), 4)
+        self.assertEqual(tv.section_content_week({"source_provenance": {"week_designated": 3}}), 3)
+        self.assertEqual(tv.section_content_week({"content_vintage": "Week 2"}), 2)
+        self.assertEqual(tv.section_content_week({"content_vintage": "2026-10-06"}), 5)  # Tuesday
+        self.assertEqual(tv.section_content_week({"content_vintage": "2026-10-05"}), 4)  # Monday
+        self.assertIsNone(tv.section_content_week({}))
+
 
 class TestQbDivergenceGuard(unittest.TestCase):
     """The JEG-62 grain has no qb dimension. When a source's qb-split

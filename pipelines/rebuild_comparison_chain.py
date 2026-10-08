@@ -237,13 +237,11 @@ def process_section(section, repo, run_fn, nfl_week=None):
     # Supabase grain is written after promotion (run_vorp_refresh) from the
     # previous natives, so reading it here promoted a stale translation on
     # every native refresh (USA Today, 2026-10-02).
-    # build-lag-001: this stays the CHAIN week even for a source lagging one
-    # week. The grain's `week` is a refresh-cycle label: Stage 9
-    # (refresh_vorp_translation --week <chain week>) computes every grain
-    # from the promoted fixture's natives, whatever week each source's
-    # content is, and labels it with the chain week. Fetching a lagging
-    # source at its own content week would read LAST cycle's grain (older
-    # natives). The source's real week is carried by its content_vintage.
+    # GAP-VORP-GRAIN-WEEK-LABEL (2026-10-08): --week is only the fallback.
+    # The provenance grain is labelled with the SECTION's content week
+    # (translate_via_vorp.section_content_week), as are the stored grains
+    # (refresh_vorp_translation), so a lagging source's Week-4 natives are
+    # recorded as Week 4, never under the chain week.
     vorp_cmd = [
         "python3", "pipelines/translate_via_vorp.py",
         "--section", str(reindexed), "--translation", "natives",
