@@ -60,36 +60,12 @@ def parse_combo(combo_name):
 
 
 def section_content_week(section):
-    """The content week of a source section (fixture section or reindexed
-    section artifact): the week its natives belong to, NOT the chain week.
-
-    GAP-VORP-GRAIN-WEEK-LABEL: the translation grain is labelled with this
-    week, so a lagging source's Week-4 natives are stored and stamped as
-    Week 4 even while the chain runs in Week 5. Order: the promoted label
-    (week_designated "Week N"), the importer's provenance week, a "Week N"
-    content_vintage, then a dated content_vintage placed on the content
-    calendar (pipelines/nfl_week.py). None when nothing says.
-    """
-    if not isinstance(section, dict):
-        return None
-    m = re.match(r"^\s*week\s*(\d+)\s*$", str(section.get("week_designated") or ""), re.I)
-    if m:
-        return int(m.group(1))
-    prov = section.get("source_provenance") or {}
-    prov_week = prov.get("week_designated") if isinstance(prov, dict) else None
-    if isinstance(prov_week, int) and not isinstance(prov_week, bool) and prov_week > 0:
-        return prov_week
-    vintage = str(section.get("content_vintage") or prov.get("content_vintage") or "")
-    m = re.match(r"^\s*week\s*(\d+)\s*$", vintage, re.I)
-    if m:
-        return int(m.group(1))
-    m = re.match(r"^(\d{4}-\d{2}-\d{2})", vintage)
-    if m:
-        from datetime import date as _date
-        sys.path.insert(0, str(REPO / "pipelines"))
-        from nfl_week import content_week_or_none
-        return content_week_or_none(_date.fromisoformat(m.group(1)))
-    return None
+    """The content week of a source section (GAP-VORP-GRAIN-WEEK-LABEL): the
+    translation grain is labelled with it, never the chain week. Defined once
+    in pipelines/nfl_week.py."""
+    sys.path.insert(0, str(REPO / "pipelines"))
+    from nfl_week import section_content_week as _week
+    return _week(section)
 
 
 def _sb():

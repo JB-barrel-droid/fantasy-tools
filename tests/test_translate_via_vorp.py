@@ -131,9 +131,9 @@ class TestSubstitution(unittest.TestCase):
         doc = deepcopy(self.fixture)
         for key, sec in doc["sources"].items():
             if key in tv.AS_PUBLISHED_SOURCES:
-                sec.pop("week_designated", None)
-                sec.pop("source_provenance", None)
-                sec.pop("content_vintage", None)
+                for field in ("week_designated", "source_provenance", "content_vintage", "vintage",
+                              "espn_snapshot", "lineage", "fetched_at"):
+                    sec.pop(field, None)
         doc["sources"]["usatoday"]["week_designated"] = "Week 4"
         weeks = []
         def fake_fetch(source, scoring, teams, week, season, sb=None):

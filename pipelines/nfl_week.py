@@ -68,6 +68,48 @@ def game_week(day: date | None = None) -> int:
     return max(1, min(LAST_GAME_WEEK, week))
 
 
+def week_of_label(value) -> int | None:
+    """'Week 5' -> 5; anything else -> None."""
+    import re
+    m = re.match(r"^\s*week\s*(\d+)\s*$", str(value or ""), re.I)
+    return int(m.group(1)) if m else None
+
+
+def week_of_date(value) -> int | None:
+    """Content week of an ISO date/timestamp string, or None."""
+    try:
+        return content_week_or_none(date.fromisoformat(str(value or "")[:10]))
+    except ValueError:
+        return None
+
+
+def section_content_week(section) -> int | None:
+    """Content week of a fixture source section: the week its values belong
+    to (what the page labels it), never the chain week. Same order as the
+    page's product-data.js sourceVintage: the "Week N" label
+    (week_designated), a "Week N" content_vintage, then the importer's
+    provenance week, then the first dated field (content_vintage, vintage,
+    espn_snapshot, lineage.raw_vintage, fetched_at) on the content calendar.
+    None when nothing dates the section."""
+    if not isinstance(section, dict):
+        return None
+    for value in (section.get("week_designated"), section.get("content_vintage")):
+        week = week_of_label(value)
+        if week:
+            return week
+    prov = section.get("source_provenance") if isinstance(section.get("source_provenance"), dict) else {}
+    prov_week = prov.get("week_designated")
+    if isinstance(prov_week, int) and not isinstance(prov_week, bool) and prov_week > 0:
+        return prov_week
+    lineage = section.get("lineage") if isinstance(section.get("lineage"), dict) else {}
+    for value in (section.get("content_vintage") or prov.get("content_vintage"), section.get("vintage"),
+                  section.get("espn_snapshot"), lineage.get("raw_vintage"), section.get("fetched_at")):
+        week = week_of_date(value)
+        if week:
+            return week
+    return None
+
+
 def current_nfl_week(today: date | None = None) -> int:
     """Back-compatible name for content_week (the chain's week)."""
     return content_week(today)
