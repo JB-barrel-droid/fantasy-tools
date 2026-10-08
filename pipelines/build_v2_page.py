@@ -80,6 +80,9 @@ def head_for_v2(html: str, at_root: bool) -> str:
     html = _set_meta(html, "property", "og:title", OG_TITLE)
     html = _set_meta(html, "property", "og:description", OG_DESCRIPTION)
     html = _set_meta(html, "property", "og:url", SITE_URL)
+    # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
+    html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
+    html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
     return html.replace("</head>", f'  <link rel="canonical" href="{SITE_URL}">\n</head>', 1)
 
 
@@ -108,6 +111,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False) -> st
     line_end = html.index("</script>", last_at) + len("</script>")
     v2_scripts = ('\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
+                  '\n  <script src="v2/movers.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
     return html
@@ -121,7 +125,7 @@ def build(dist: Path = DIST) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html), encoding="utf-8")
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True), encoding="utf-8")
-    for name in ("v2.css", "targets.js", "trade.js", "v2.js"):
+    for name in ("v2.css", "targets.js", "trade.js", "movers.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 

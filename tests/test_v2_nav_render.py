@@ -5,9 +5,10 @@ Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
   * at 390 px every tab sits fully on screen (frame 17: below 768 px the
     navigation shortens; nothing hides behind a sideways scroll), and every
     in-build tab still carries its visible "soon" label;
-  * Δ prior week on: with no prior-week values saved, the reason is visible
-    text on the page (not only a hover title) and every Δ cell reads "Δ —",
-    never a number (frame 22);
+  * Δ prior week on with the default series (ESPN and Adjusted, which have no
+    prior-week recompute): the reason is visible text on the page (not only a
+    hover title) and every Δ cell reads "Δ —", never a number (frame 22;
+    real Δ numbers are checked in tests/test_v2_risers_render.py);
   * player detail "Add to You give" / "Add to You get" puts that player on that
     side of Compare a trade and opens the tab; the detail then says the player
     is on the trade instead of offering to add them again; the player's name on
@@ -105,7 +106,7 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
                     errors.append(f"tab {tab['text']!r} is in build but has no visible label")
 
             page.click("#v2DeltaBtn")
-            page.wait_for_timeout(300)
+            page.wait_for_function("() => ![...document.querySelectorAll('#v2Table .delta')].some(d => d.textContent === 'Δ …')", timeout=30000)
             delta = page.evaluate("""() => ({note: document.getElementById('v2FilterNote').hidden ? '' : document.getElementById('v2FilterNote').textContent,
               cells: [...document.querySelectorAll('#v2Table .delta')].map(d => d.textContent)})""")
             if "prior-week" not in delta["note"] or "never zero" not in delta["note"]:
@@ -167,7 +168,8 @@ class NavRenderTest(unittest.TestCase):
         broken = {
             "tabs scroll sideways": {"v2_css": css.replace(NAV_CSS, NAV_CSS + "\n@media (max-width: 0px) {", 1)
                                      .replace("  .v2-tab { min-height: 44px; }\n}", "  .v2-tab { min-height: 44px; }\n}\n}", 1)},
-            "Δ reason only on hover": {"v2_js": js.replace("    if (state.delta) {\n      notes.push(", "    if (false) {\n      notes.push(", 1)},
+            "Δ reason only on hover": {"v2_js": js.replace("    if (state.delta) {\n      const keys = view.plotKeys.concat(view.vorpKeys);",
+                                                       "    if (false) {\n      const keys = view.plotKeys.concat(view.vorpKeys);", 1)},
             "added to the wrong side": {"v2_js": js.replace(
                 "TR[side] = TR[side].concat({key, name: row.name});",
                 'TR.give = TR.give.concat({key, name: row.name});', 1)},

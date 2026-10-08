@@ -26,7 +26,7 @@ canvas on 2026-10-07.
 | 22 Review amendments: interactions & source logic | 61-1593 |
 | 24 Navigator, filters & trade detail states | 68-147 |
 
-Not yet mapped: 05/06 Risers & fallers, 07/08 Compare a trade (built 2026-10-08 from the frame 22
+Not yet mapped: 05/06 Risers & fallers (built 2026-10-08 on the history contract without opening the frames), 07/08 Compare a trade (built 2026-10-08 from the frame 22
 rule and frame 17 language: figma.com is blocked by the cloud session's network policy, so the frame
 itself was not opened),
 14 Player detail mobile (built 2026-10-08 without opening it), 16 How values work mobile (built 2026-10-08 without opening it), 20 Source selection mobile, 21 Chart options,
@@ -307,3 +307,32 @@ Swept every tab at 390, 768, 820, 1024 and 1440 in light and dark (`tests/test_v
   12 px between rows so neighbouring hit boxes do not overlap.
 - Dark mode: hovered table rows, the status toast and the "Indexed" chip used light-only colours (a
   hovered row went near-white under light text). They now use tokens with dark values.
+
+## Risers & fallers tab and Δ prior week (frames 05 / 06, built 2026-10-08)
+
+Built on the back-end history contract above (`getPriorWeek`), which answers BE-1. Frames 05/06 were
+not opened (figma.com blocked from the cloud session); re-check when they are.
+
+- `v2/#risers-fallers`. One exact series at a time, picked under "Source:"; a series the engine has no
+  prior week for is listed disabled and named in the note with the engine's reason (today ESPN, the
+  Adjusted series, VORP vs waivers and CBS rest-of-season). Default: the first series with a prior week
+  (FantasyCalc · Index).
+- Δ = this week − the engine's recompute of last week, at the reader's league (`app/v2/movers.js`, the
+  tab's only arithmetic). Risers: Δ > 0, largest first; Fallers: Δ < 0, most negative first; a Δ that
+  shows as 0.0 is neither and is counted. A player without a prior value is left out and counted, never 0.
+- Columns: Player, Pos, Team, Week N (tinted), Week N−1, Δ (▲ / ▼ + signed number). Cards below 768 px.
+  Position is the shared engine setting.
+- Prior-week results are cached per series and dropped on every `trade-value-rows-change`.
+- Player values, Δ prior week on: every series cell shows `Δ ±x.x` (hover: "vs Week N: value") or
+  `Δ —` with the engine's reason; the note under the filters lists each plotted series' prior week or
+  reason. With the first-use DDA selection every Δ is "Δ —" (ESPN and Adjusted have no prior week);
+  adding an Indexed chart shows real Δ.
+
+## Shareable trades and page metadata (2026-10-08)
+
+- Compare a trade keeps its sides in the address: `v2/#compare-trade?give=<player_key,…>&get=<…>`.
+  "Copy link to this trade" copies it (falls back to showing the link if the clipboard is blocked).
+  Whoever opens it sees the same players, priced for their own league settings; an unknown key is
+  listed and turns every row it touches into —; a repeated key is read once.
+- `build_v2_page.py` sets `color-scheme: light dark` (v1's `light` kept selects light inside v2's dark
+  theme) and the v2 nav colour as `theme-color`.

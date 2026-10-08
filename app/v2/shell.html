@@ -5,7 +5,7 @@
       <nav class="v2-tabs" aria-label="Views">
         <a class="v2-tab is-active" href="v2/#player-values" data-view="values" aria-current="page">Player values</a>
         <a class="v2-tab" href="v2/#trade-targets" data-view="targets">Trade targets</a>
-        <span class="v2-tab is-soon" aria-disabled="true" title="In build">Risers &amp; fallers</span>
+        <a class="v2-tab" href="v2/#risers-fallers" data-view="risers">Risers &amp; fallers</a>
         <a class="v2-tab" href="v2/#compare-trade" data-view="compare">Compare a trade</a>
         <a class="v2-tab" href="v2/#how-values" data-view="how">How values work</a>
       </nav>
@@ -193,6 +193,55 @@
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
+  <main class="v2-wrap v2-main" id="v2Risers" hidden aria-labelledby="v2RisersTitle">
+    <div class="v2-title">
+      <h1 id="v2RisersTitle">Who moved since last week.</h1>
+      <p>One source at a time: this week's value minus last week's, both priced for your league.</p>
+    </div>
+
+    <div class="v2-filters" role="search">
+      <div class="v2-seg" role="group" aria-label="Direction">
+        <button type="button" data-move="rise" class="is-on" aria-pressed="true">▲ Risers</button>
+        <button type="button" data-move="fall" aria-pressed="false">▼ Fallers</button>
+      </div>
+      <label class="v2-search"><span class="v2-sr">Search players</span>
+        <input type="search" id="v2RSearch" placeholder="Search players…" autocomplete="off">
+      </label>
+      <label class="v2-field"><span class="v2-sr">Position</span>
+        <select id="v2RPosition">
+          <option value="ALL">All positions</option>
+          <option value="QB">QB</option><option value="RB">RB</option>
+          <option value="WR">WR</option><option value="TE">TE</option>
+          <option value="FLEX">FLEX (RB/WR/TE)</option>
+        </select>
+      </label>
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Source:</span>
+        <select id="v2RSeries"></select>
+      </label>
+    </div>
+    <p class="v2-filter-note" id="v2RNote" hidden></p>
+
+    <section class="v2-card v2-table-card" aria-labelledby="v2RCardTitle">
+      <div class="v2-card-head">
+        <div>
+          <h2 id="v2RCardTitle">Risers</h2>
+          <p class="v2-meta" id="v2RMeta">—</p>
+        </div>
+      </div>
+      <div class="v2-table-wrap v2-t-desktop">
+        <table class="v2-table v2-rtable" id="v2RTable"></table>
+      </div>
+      <ol class="v2-tcards" id="v2RCards"></ol>
+      <p class="v2-meta v2-t-empty" id="v2REmpty" hidden></p>
+      <div class="v2-table-foot">
+        <button type="button" class="v2-btn" id="v2RShowMore" hidden>Show more players</button>
+      </div>
+    </section>
+
+    <p class="v2-footnote">Δ = this week's value − last week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price last week has no Δ and is left out, never shown as zero.</p>
+    <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
   <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
     <div class="v2-title">
       <h1 id="v2CompareTitle">Weigh a trade, source by source.</h1>
@@ -225,8 +274,12 @@
           <h2 id="v2CResultTitle">The trade by each source</h2>
           <p class="v2-meta" id="v2CMeta">—</p>
         </div>
-        <button type="button" class="v2-link" id="v2CClear">Clear trade</button>
+        <div class="v2-ctools">
+          <button type="button" class="v2-btn" id="v2CShare" hidden>Copy link to this trade</button>
+          <button type="button" class="v2-link" id="v2CClear">Clear trade</button>
+        </div>
       </div>
+      <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
       <p class="v2-meta v2-t-empty" id="v2CEmpty">Add at least one player to each side.</p>
       <div class="v2-table-wrap">
         <table class="v2-table v2-ctable" id="v2CTable" hidden></table>

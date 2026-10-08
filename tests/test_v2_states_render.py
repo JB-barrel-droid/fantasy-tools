@@ -181,7 +181,7 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
                                        " || !document.getElementById('v2Main').hidden", timeout=45000)
                 failed = page.evaluate("""() => ({state: document.querySelector('.v2-state').dataset.state,
                   retry: !document.getElementById('v2StateRetry').hidden,
-                  tabs: ['v2Main', 'v2Targets', 'v2Compare', 'v2How'].filter(id => !document.getElementById(id).hidden),
+                  tabs: ['v2Main', 'v2Targets', 'v2Risers', 'v2Compare', 'v2How'].filter(id => !document.getElementById(id).hidden),
                   digits: (document.querySelector('.v2-app').innerText.match(/\\d+(\\.\\d)?/g) || [])})""")
                 if failed["state"] != "failed" or not failed["retry"] or failed["tabs"] or failed["digits"]:
                     errors.append(f"failure state wrong: {failed}")
@@ -203,7 +203,7 @@ class StatesRenderTest(unittest.TestCase):
                 "view.info.filter(item => item.available && sourceMeta(item.key).method === method)",
                 "view.info.filter(item => item.available)", 1), "with_failure": False},
             "failure leaves values visible": {"v2_js": js.replace(
-                '["v2Main", "v2Targets", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });',
+                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });',
                 '$("v2Main").hidden = false;', 1)},
             "empty state never drawn": {"v2_js": js.replace("    renderEmpty();\n", "", 1), "with_failure": False},
             "no bottom sheet": {"v2_css": css[:css.index(SHEET_CSS)], "with_failure": False},
