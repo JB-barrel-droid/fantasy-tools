@@ -18,7 +18,6 @@ class ReferenceFreshnessTest(unittest.TestCase):
                     "meta": {
                         "as_of": value_date,
                         "espn_snapshot": value_date,
-                        "pm_snapshot": value_date,
                         "kdst_snapshot": value_date,
                     },
                     "players": [],
@@ -71,7 +70,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Freshness gate failed", result.stdout)
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(7, payload["summary"]["expired_count"])
+            self.assertEqual(6, payload["summary"]["expired_count"])  # 2026-10-08: players.pm_snapshot item retired with the prediction-markets leg (one fewer item)
             self.assertEqual(1, payload["summary"]["enforced_expired_count"])
 
     def test_freshness_gate_passes_for_current_reference_dates(self):
@@ -131,7 +130,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
             )
 
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(6, payload["summary"]["expired_count"])
+            self.assertEqual(5, payload["summary"]["expired_count"])  # 2026-10-08: players.pm_snapshot item retired with the prediction-markets leg (one fewer item)
             self.assertEqual(0, payload["summary"]["enforced_expired_count"])
 
     def test_l1_import_health_is_reported_as_source_freshness(self):

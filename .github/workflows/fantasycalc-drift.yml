@@ -2,12 +2,16 @@ name: FantasyCalc drift check and refresh
 
 # JEG-426: drift DETECTION only. Compares live FantasyCalc values against the
 # FantasyCalc data currently in Supabase (the system of record, freshly
-# imported here) and records the result as the monitored check
-# `fantasycalc_native_drift`.
+# imported here).
 #
-# Scheduler owner: Supabase pg_cron job `trigger-fantasycalc-drift-live`
-# (daily 11:45 UTC, supabase/migrations/jeg426_fantasycalc_drift_monitor.sql).
-# There is deliberately no `schedule:` here, so there is exactly one owner.
+# MANUAL ONLY since 2026-10-08 (producers lane): pg_cron job
+# `trigger-fantasycalc-drift-live` and monitored check
+# `fantasycalc_native_drift` are retired
+# (supabase/migrations/producers_schedule_tidy_20261008.sql). The weekly
+# producer (fantasycalc-weekly-save.yml, Tue + Fri) re-saves FantasyCalc before
+# drift between saves can age past a few days, and drift is not wrong numbers
+# (pre-launch: monitoring warns, it does not page). Dispatch by hand to ask
+# "has FantasyCalc moved since the last save?".
 #
 # What this job no longer does (and why):
 #   - It no longer runs check_fantasycalc_drift.py --trigger. That path wrote
@@ -90,26 +94,6 @@ jobs:
             *) echo "FantasyCalc: drift check could not run (rc=$rc)" >> "$GITHUB_STEP_SUMMARY" ;;
           esac
 
-      - name: Record the monitored check
-        if: always() && steps.drift.outputs.rc != ''
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          RC: ${{ steps.drift.outputs.rc }}
-        run: |
-          python3 - <<'EOF'
-          import os, sbclient
-          rc = int(os.environ["RC"])
-          sbclient.rpc("monitoring_record_observation", {
-              "p_check_id": "fantasycalc_native_drift",
-              "p_ok": rc == 0,
-              "p_content_ok": rc in (0, 1),
-              "p_error_code": {0: None, 1: "DRIFT"}.get(rc, "CHECK_FAILED"),
-              "p_scheduler_owner_id": "fantasycalc-drift.yml",
-          })
-          print(f"recorded fantasycalc_native_drift rc={rc}")
-          EOF
-
       - name: Fail only if the check itself failed
         if: steps.drift.outputs.rc != '0' && steps.drift.outputs.rc != '1'
         run: exit 1
@@ -123,7 +107,7 @@ jobs:
           python3 pipelines/lib/record_workflow_run.py \
             --workflow "FantasyCalc drift check and refresh" \
             --started-at "${WORKFLOW_STARTED_AT:-$(date -u +%FT%TZ)}" \
-            --cron "45 11 * * *" \
+            --cron "manual" \
             --run-id "$GITHUB_RUN_ID" \
             --status "$STATUS" \
             --output output/comparison-chain-status.json

@@ -104,7 +104,7 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_real_preview_matches_production(self):
         self.assertEqual([], check_preview(PREVIEW, PAGES))
 
-    def test_production_build_steps_are_the_expected_three(self):
+    def test_production_build_steps_are_the_expected_five(self):
         # If pages.yml changes its build steps this fails loudly, so the guard's
         # pinned list is updated deliberately instead of drifting unnoticed.
         # JEG-133: make validate is blocking on every run (no continue-on-error,
@@ -112,7 +112,11 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         # but uses a multi-line run block and is excluded by run_command.
         self.assertEqual(
             [("make sync", False), ("make validate", False),
-             ("python3 pipelines/build_source_value_lineage.py", True)],
+             ("python3 pipelines/build_source_value_lineage.py", True),
+             # GAP-E2E-FIDELITY / GAP-031 (2026-10-08): monitor signals
+             # produced on every deploy, never blocking it.
+             ("python3 pipelines/build_e2e_fidelity.py", True),
+             ("python3 pipelines/check_data_accuracy.py", True)],
             build_steps(PAGES))
 
     def test_pages_runs_the_rendered_gate(self):

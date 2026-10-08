@@ -8,7 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from check_reference_freshness import build_report
@@ -394,7 +394,11 @@ def sync_week_history(target: Path) -> None:
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
-    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, date.today(), import_health_path=import_health)
+    # UTC, like every timestamp the report reads: a local date ran a day
+    # behind them each evening in Chicago, so fresh inputs read as -1 days
+    # old ("unknown") on a locally built monitor.
+    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, datetime.now(timezone.utc).date(),
+                             import_health_path=import_health)
     REFERENCE_FRESHNESS.parent.mkdir(parents=True, exist_ok=True)
     REFERENCE_FRESHNESS.write_text(json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -548,6 +552,11 @@ def main() -> int:
     # dist/v2/index.html (old links), both from dist/classic/index.html.
     from build_v2_page import build as build_v2_page
     build_v2_page(DIST)
+
+    # Internal math inspector (noindex, linked from no public page): the same
+    # engine off-screen, every input and intermediate of the value math shown.
+    from build_inspector_page import build as build_inspector_page
+    build_inspector_page(DIST)
 
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0

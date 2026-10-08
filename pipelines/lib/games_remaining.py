@@ -7,7 +7,7 @@ that sum divided by the games the team actually plays inside the same window:
 the window length, minus one if the team's bye falls inside it.
 
 This is the one place that number is computed. bake_players.py (players.json
-espn_ppg / blend_ppg / pm_ppg / rz_ros, the browser's live pools) and
+espn_ppg / blend_ppg / rz_ros, the browser's live pools) and
 build_ddf_two_tier_leg.py (the baked ESPN DDF leg) both call it, so the
 browser and the baked leg divide by the same count.
 
@@ -33,7 +33,7 @@ TEAM_ALIASES = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "STL": "LA",
                 "OAK": "LV", "SD": "LAC"}
 
 # Decimal places for every per-game rate the bake publishes (espn_ppg,
-# blend_ppg, pm_ppg, rz_ppg, cbsros_ppg ...). These are model INPUTS, not
+# blend_ppg, rz_ppg, cbsros_ppg ...). These are model INPUTS, not
 # display numbers: the browser ranks players by them to split starters from
 # bench, and the baked legs rank on the unrounded rates. At 2 dp, players
 # the leg tells apart tie in the browser and the browser's id tiebreak can

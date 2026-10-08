@@ -98,7 +98,13 @@
   // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
   // TwoTier below and build_ddf_two_tier_leg.py). The previous WR:2/FLEX:2
   // default disagreed with the shape every published number was priced under.
-  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6, K:0, DST:0});
+  // SUPERFLEX (JEG332-SUPERFLEX-FLEX option A, Jeremy 2026-10-08): dedicated
+  // superflex slots per team (0 or 1), QB-eligible, filled after the
+  // dedicated slots and before FLEX (value-model.js superflexCount).
+  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, SUPERFLEX:0, BENCH:6, K:0, DST:0});
+  // Stepper bounds per roster key (setRosterSpot clamps to them).
+  const ROSTER_BOUNDS = Object.freeze({BENCH: [0, 14], SUPERFLEX: [0, 1]});
+  const rosterBounds = key => ROSTER_BOUNDS[key] || [1, 5];
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
   // Minimum plausible peak for an indexed curve. See the collapse guard in
@@ -214,6 +220,18 @@
     const DEFAULT_BENCH_SHARE_TT = 0.15;
     const GLIDE_WIDTH_FRAC = 0.25;
     const FEAS_TOL = 1e-4;
+    // GAP-STEPUP-EDGE-PB0: when the requested bench share sits BELOW a
+    // position's feasible window, the share used is this far inside the
+    // window's lower edge, not the edge itself. At the edge the bench rate is
+    // exactly 0, so the whole position pie goes to starter slices and
+    // concentrates on the top outliers (8-team CBS ROS QB, 8fbddc7 pool: Josh
+    // Allen 30.6% of the QB pie at the edge, 28.1% at 0.18). One percentage
+    // point of bench share = the step the upward scan already uses. If the
+    // window is narrower than that, the step halves until it fits (8 tries),
+    // then falls back to the edge. Mirrored exactly in
+    // pipelines/build_ddf_two_tier_leg.py::calibrate_feasible and
+    // pipelines/twotier_reference.py::calibrate_position_feasible.
+    const STEP_INSIDE_WINDOW = 0.01;
     // 12-team reference bench depths (elboberto-aligned). Scaled by
     // teams / 12 with round-half-up for other league sizes.
     const REF_BENCH_SLOTS = 6;
@@ -528,7 +546,8 @@
     // build_cbsros_ddf_leg.py) step for step:
     //  - bench rate not positive (request BELOW the feasible window, JEG-74):
     //    step up 0.01 at a time to the first feasible share, then 15
-    //    bisection iterations toward the window's lower edge.
+    //    bisection iterations toward the window's lower edge, then
+    //    STEP_INSIDE_WINDOW inside that edge (GAP-STEPUP-EDGE-PB0).
     //  - economics break (request ABOVE the window): 20 bisection
     //    iterations on [0.01, requested] for the highest feasible share.
     // Records bench_share_used on the returned calibration. Degenerate
@@ -558,6 +577,16 @@
           const attempt = calibratePosition(tier, pie, mid);
           if (attempt && !attempt.invalid) hi = mid;
           else lo = mid;
+        }
+        // hi is now the window's lower edge (bench rate ~0): step inside.
+        let step = STEP_INSIDE_WINDOW;
+        for (let i = 0; i < 8; i++) {
+          const inside = calibratePosition(tier, pie, hi + step);
+          if (inside && !inside.invalid) {
+            inside.bench_share_used = hi + step;
+            return inside;
+          }
+          step /= 2;
         }
         const best = calibratePosition(tier, pie, hi);
         if (!best || best.invalid) return first;
@@ -619,7 +648,7 @@
     }
 
     return {
-      POSITIONS, DEFAULT_BENCH_SHARE: DEFAULT_BENCH_SHARE_TT, GLIDE_WIDTH_FRAC,
+      POSITIONS, DEFAULT_BENCH_SHARE: DEFAULT_BENCH_SHARE_TT, GLIDE_WIDTH_FRAC, STEP_INSIDE_WINDOW,
       REF_SLOTS, REF_FLEX_COUNT, REF_FLEX_ELIGIBLE, WITHHELD_FLAG,
       softplus, sliceExposures, checkShare, solveTierPrices, feasibleAt,
       feasibleBenchShareInterval, sliderBounds, roundHalfEven,
@@ -916,7 +945,7 @@
     return `${base} Wk ${week}`;
   }
   const lockLabel = key => key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
-  const flexEligiblePositions = (shape = rosterShape) => shape.SUPERFLEX ? ["QB", ...DEFAULT_FLEX_ELIGIBLE] : [...DEFAULT_FLEX_ELIGIBLE];
+  const flexEligiblePositions = () => [...DEFAULT_FLEX_ELIGIBLE];
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
@@ -929,6 +958,15 @@
       ? window.TradeValueProductData.getSnapshot().source_validation
       : null;
     return key === "cbs_adjusted" ? sv?.cbs : sv?.[key];
+  };
+  // GAP-MISSING-SECTION-REFUSES-RENDER: a source whose whole section is
+  // absent from the fixture is dropped by product-data (the ESPN anchor's
+  // absence still refuses the render). It is listed, greyed out and labelled
+  // unavailable; it never draws and never reads as zero.
+  const sourceMissingFromData = key => {
+    const missing = (typeof window !== "undefined" && window.TradeValueProductData?.getMissingSources)
+      ? window.TradeValueProductData.getMissingSources() : [];
+    return missing.includes(key);
   };
   const sourceComboExists = key => {
     // Pure VORP curves are browser-computed from each source's per-game
@@ -1102,14 +1140,26 @@
     });
   }
 
-  // A published chart's saved 12-team native values at this scoring.
+  // A published chart's saved 12-team native values at this scoring. With a
+  // superflex slot on the roster, the publisher's own superflex / 2-QB values
+  // (saved as `native_superflex`, same units) replace its 1-QB values where it
+  // publishes them -- the ranker's stated setting (methodology, The Three
+  // Views). Where it publishes none, the 1-QB values go through the league
+  // math unchanged (JEG332-SUPERFLEX-FLEX).
   function savedPublishedNative(key) {
     const native = new Map();
-    savedPublishedRow(key, "native")?.values?.forEach((rawValue, playerKey) => {
+    const take = row => row?.values?.forEach((rawValue, playerKey) => {
       const value = Number(rawValue);
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
+    take(savedPublishedRow(key, "native"));
+    if (native.size && ValueModel.superflexCount(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
     return native;
+  }
+
+  // Which published charts carry their own superflex values (for the note).
+  function publishesSuperflex(key) {
+    return Boolean(savedPublishedRow(key, "native_superflex")?.values?.size);
   }
 
   // V2-WAIVER-COVERAGE (Jeremy 2026-10-07): the OTHER published charts' saved
@@ -1154,13 +1204,9 @@
     return parts.length ? parts.join("; ") : null;
   }
 
-  function derivedPublishedSourceMap(key) {
-    const cacheKey = `${key}|${scoring}|${teams}|${rosterSignature()}`;
-    if (derivedPublishedCache.has(cacheKey)) {
-      const hit = derivedPublishedCache.get(cacheKey);
-      lastPublishedDerivation[key] = hit.info;
-      return new Map(hit.values);
-    }
+  // The derivation of one published chart at the active setting (pure; the
+  // math inspector calls it too, at the saved setup as well).
+  function derivePublishedFor(key) {
     const savedRow = savedPublishedRow(key, "combo_reindexed");
     const nativeRow = savedPublishedRow(key, "native");
     const saved = new Map();
@@ -1169,31 +1215,43 @@
       const value = clampValue(rawValue);
       if (canonicalByKey.has(playerKey) && value !== null) saved.set(playerKey, value);
     });
-    nativeRow?.values?.forEach((rawValue, playerKey) => {
-      const value = Number(rawValue);
-      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
+    if (nativeRow?.values?.size) savedPublishedNative(key).forEach((value, playerKey) => native.set(playerKey, value));
+    if (!saved.size || !native.size) return {saved, native, derived: null};
+    // JEG332-DERIVED-PEAKS: our ESPN projections let the positional maxes
+    // follow the league (ValueModel.positionalMaxForSetup).
+    const field = scoringField();
+    const projection = new Map();
+    canonicalByKey.forEach((player, playerKey) => {
+      const ppg = player.espn_ppg?.[field];
+      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
     });
+    const derived = ValueModel.derivePublishedSetup({
+      native, saved, indexTotal: savedRow.index_total,
+      posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+      teams, shape: rosterShape, projection, peers: publishedPeers(key)
+    });
+    return {saved, native, derived};
+  }
+
+  function derivedPublishedSourceMap(key) {
+    const cacheKey = `${key}|${scoring}|${teams}|${rosterSignature()}`;
+    if (derivedPublishedCache.has(cacheKey)) {
+      const hit = derivedPublishedCache.get(cacheKey);
+      lastPublishedDerivation[key] = hit.info;
+      return new Map(hit.values);
+    }
+    const {derived} = derivePublishedFor(key);
     let values = new Map();
     let info = {mode: "unavailable", reason: "no saved 12-team setup for this scoring"};
-    if (saved.size && native.size) {
-      // JEG332-DERIVED-PEAKS: our ESPN projections let the positional maxes
-      // follow the league (ValueModel.positionalMaxForSetup).
-      const field = scoringField();
-      const projection = new Map();
-      canonicalByKey.forEach((player, playerKey) => {
-        const ppg = player.espn_ppg?.[field];
-        if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
-      });
-      const derived = ValueModel.derivePublishedSetup({
-        native, saved, indexTotal: savedRow.index_total,
-        posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-        teams, shape: rosterShape, projection, peers: publishedPeers(key)
-      });
+    if (derived) {
       values = derived.values;
       info = {mode: "derived", version: derived.version,
         positionalMax: derived.positionalMax, ourMax: derived.ourMax,
         translationVersion: derived.translationVersion, translated: derived.translated,
-        belowWaiver: derived.belowWaiver, waiver: derived.waiver};
+        belowWaiver: derived.belowWaiver, waiver: derived.waiver,
+        superflex: ValueModel.superflexCount(rosterShape)
+          ? (publishesSuperflex(key) ? "publisher superflex values" : "derived from 1-QB values")
+          : null};
     }
     derivedPublishedCache.set(cacheKey, {values, info});
     lastPublishedDerivation[key] = info;
@@ -1279,13 +1337,8 @@
     const inputs = {};
     [...AS_PUBLISHED_KEYS].forEach(key => {
       const savedRow = savedPublishedRow(key, "combo_reindexed");
-      const nativeRow = savedPublishedRow(key, "native");
-      const native = new Map();
+      const native = savedPublishedNative(key);
       const keys = [];
-      nativeRow?.values?.forEach((rawValue, playerKey) => {
-        const value = Number(rawValue);
-        if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
-      });
       savedRow?.values?.forEach((rawValue, playerKey) => {
         if (canonicalByKey.has(playerKey) && clampValue(rawValue) !== null) keys.push(playerKey);
       });
@@ -1598,11 +1651,32 @@
         : row.role === "bench" ? row.rawVorp * (tierScales.bench[row.player.pos] || 0) : 0
     }));
     vorpRowsCache.set(vorpKey, rows);
-    // The table's tier column is ESPN-based; only ESPN rows feed it.
-    if (vorpKey === "espn_vorp") {
-      espnRoleByKey = new Map(rows.map(row => [row.player.player_key, row.role]));
-    }
     return rows;
+  }
+
+  // The ESPN tier shown in every table (V2-TIER-VS-ESPN-LEG). It comes from
+  // the SAME roster model that prices the ESPN line: the two-tier pool for
+  // the active scoring and team count (reference slots, legacy bench mix by
+  // teams), which is the browser twin of the tier the pipeline leg writes
+  // (pipelines/build_ddf_two_tier_leg.py, values[].tier). The ESPN line
+  // prices exactly that pool's starters and bench, so a player tiered
+  // Waiver here has no ESPN value and every priced player carries a
+  // Starter or Bench tier. The tier used to come from the raw
+  // value-above-waivers rows (projectionRoles: surplus over each position's
+  // starter baseline, custom roster shape), a different roster model that
+  // tiered 25 priced players Waiver at 12 teams (Blake Corum, ESPN 7.2).
+  // Falls back to those roles only when the two-tier pool cannot be built,
+  // which is also when the ESPN line stops reading it.
+  function espnTierMap() {
+    const pool = twoTierConfig().pool;
+    if (!pool) {
+      return new Map(buildEspnRows().map(row => [row.player.player_key, row.role]));
+    }
+    const tiers = new Map();
+    Object.values(twoTierConfig().lists || {}).forEach(list => list.forEach(d => {
+      tiers.set(d.id, pool.starters.has(d.id) ? "starter" : pool.bench.has(d.id) ? "bench" : "waiver");
+    }));
+    return tiers;
   }
 
   function buildEspnRows() {
@@ -1643,8 +1717,8 @@
   // The charts were right. The anchor was a different model.
   //
   // buildEspnRows() still runs: it prices the raw value-above-waivers series
-  // (a deliberately separate, labelled curve) and assigns the ESPN tier shown
-  // in the table. Its `adjusted` field is the fail-safe used only when the
+  // (a deliberately separate, labelled curve). The ESPN tier shown in the
+  // table comes from the leg's own pool (espnTierMap). Its `adjusted` field is the fail-safe used only when the
   // fixture carries no leg for this combo.
   // Memoised so the guards in buildEspnRows can ask whether the built leg is
   // present without rebuilding it. Cleared with the rest of the domain.
@@ -1979,6 +2053,7 @@
     // via its refit cells. At the 0.15 reference share the cells are identity
     // and this reproduces the baked fixture leg (pinned regression test).
     buildEspnRows();
+    espnRoleByKey = espnTierMap();
     const espnLiveCells = adjustmentCellsFor("espn");
     const espnAnchorValues = espnLiveCells
       ? buildLiveAdjustedMap("espn", espnLiveCells)
@@ -2067,7 +2142,8 @@
     const referenceWeek = freshness?.first_load_reference_week;
     const weekLabel = referenceWeek ? `Week ${referenceWeek} references` : "references of unknown week";
     const espnText = freshnessText("espn");
-    const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/${rosterShape.BENCH}BN`;
+    const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/` +
+      `${rosterShape.SUPERFLEX ? `${rosterShape.SUPERFLEX}SF/` : ""}${rosterShape.BENCH}BN`;
     const staleLabel = activeSourceKeys().filter(sourceIsStale)
       .map(key => ` · ${SOURCE_LABELS[key] || key}: ${freshnessText(key)}`).join("");
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
@@ -2727,6 +2803,7 @@
       ["WR", "WR"],
       ["TE", "TE"],
       ["FLEX", "Flex"],
+      ["SUPERFLEX", "Superflex"],
       ["BENCH", "Bench"]
       // JEG-298: K/DST inputs removed — JEG-211 excluded K/DST from the chart
       // entirely, and these inputs were no-ops (POSITION_ORDER has no K/DST).
@@ -2739,8 +2816,8 @@
       text.textContent = label;
       const input = document.createElement("input");
       input.type = "number";
-      input.min = key === "BENCH" ? "0" : "1";
-      input.max = key === "BENCH" ? "14" : "5";
+      input.min = String(rosterBounds(key)[0]);
+      input.max = String(rosterBounds(key)[1]);
       input.step = "1";
       input.value = rosterShape[key];
       input.dataset.rosterKey = key;
@@ -2985,7 +3062,11 @@
       input.setAttribute("aria-label", `Show ${sourceLabel(key)} curve`);
       if (key.startsWith("fantasycalc")) label.title = "FantasyCalc publisher basis: 1 QB";
       label.classList.toggle("is-stale", staleWeek && available);
-      if (paused) {
+      const missingFromData = sourceMissingFromData(key);
+      if (missingFromData) {
+        label.classList.add("is-disabled");
+        label.title = `${sourceLabel(key)} is unavailable: its data is missing from this build, so it is left off the chart. Every other source is unaffected.`;
+      } else if (paused) {
         label.classList.add("is-disabled");
         label.title = `${sourceLabel(key)} is paused while it waits on fresh adjustment inputs. It will return automatically once they land.`;
       } else if (!available) {
@@ -3013,7 +3094,12 @@
       const text = document.createElement("span");
       text.className = "src-text";
       text.textContent = sourceLabel(key);
-      if (paused) {
+      if (missingFromData) {
+        const meta = document.createElement("span");
+        meta.className = "src-meta";
+        meta.textContent = "unavailable · missing from this build";
+        text.appendChild(meta);
+      } else if (paused) {
         const meta = document.createElement("span");
         meta.className = "src-meta";
         meta.textContent = "paused · waiting on fresh adjustment inputs";
@@ -3153,8 +3239,7 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const min = key === "BENCH" ? 0 : 1;
-    const max = key === "BENCH" ? 14 : 5;
+    const [min, max] = rosterBounds(key);
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();
@@ -3446,6 +3531,112 @@
     const result = await getWeekValues(source, prior);
     return {...result, ...extra};
   }
+  // Read-only: which saved weeks exist for a series, and the week served now.
+  // Lets a page offer week pairs (N−1 → N) without reading the history files itself.
+  async function getHistoryWeeks(source) {
+    let index;
+    try {
+      index = await historyIndex();
+    } catch (error) {
+      return {source, servedWeek: null, weeks: [], reason: `history could not be read: ${error.message}`};
+    }
+    const weeks = Object.keys(index?.weeks || {}).map(Number).filter(week => Number.isInteger(week)
+      && index.weeks[String(week)]?.sources?.[source]).sort((a, b) => a - b);
+    const served = index?.served?.[source];
+    return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks,
+      ...(HISTORY_UNSUPPORTED[source] ? {reason: HISTORY_UNSUPPORTED[source]} : {})};
+  }
+
+  // Math inspector (internal page, read-only). Every input and intermediate
+  // the chart uses at the active setting, read from the same maps and the
+  // same pure ValueModel calls the chart makes. Nothing here prices a player
+  // differently from the chart. The two diagnostic records publishedViewMap /
+  // buildPublishedSourceMap write (lastPublishedView, lastPublishedDerivation)
+  // are swapped for copies and restored, so reading leaves no trace.
+  const mapToObject = map => {
+    const out = {};
+    map?.forEach((value, key) => { out[key] = value; });
+    return out;
+  };
+  function getInspection() {
+    const keptView = lastPublishedView;
+    const keptDerivation = lastPublishedDerivation;
+    lastPublishedView = {...keptView};
+    lastPublishedDerivation = {...keptDerivation};
+    try {
+      const anchor = sourceMaps.get("espn") || new Map();
+      const playerOf = playerKey => canonicalByKey.get(playerKey);
+      const anchorRoles = ValueModel.roleMap({values: anchor, playerOf, teams, shape: rosterShape});
+      const batch = derivedViewBatch();
+      const published = {};
+      [...AS_PUBLISHED_KEYS].forEach(key => {
+        const {saved, native, derived} = derivePublishedFor(key);
+        const indexed = buildPublishedSourceMap(key);
+        const indexedInfo = lastPublishedDerivation[key] || null;
+        const vorp = publishedViewMap(key, "vorp");
+        const vorpInfo = lastPublishedView[key] || null;
+        const adj = publishedViewMap(key, "adj_values");
+        const adjInfo = lastPublishedView[key] || null;
+        const views = batch.sources?.[key];
+        published[key] = {
+          native: mapToObject(native),
+          saved12: mapToObject(saved),
+          savedIndexTotal: savedPublishedRow(key, "combo_reindexed")?.index_total || null,
+          peers: Object.keys(publishedPeers(key)).sort(),
+          derivation: derived ? {
+            version: derived.version, positionalMax: derived.positionalMax, ourMax: derived.ourMax,
+            translated: derived.translated, belowWaiver: derived.belowWaiver, waiver: derived.waiver,
+            translation: derived.translation, values: mapToObject(derived.values)
+          } : null,
+          indexed: {mode: indexedInfo?.mode || null, info: indexedInfo, values: mapToObject(indexed)},
+          vorp: {mode: vorpInfo?.mode || null, values: mapToObject(vorp)},
+          adj: {mode: adjInfo?.mode || null, values: mapToObject(adj)},
+          views: views ? {
+            total: views.total, vorpScale: views.vorpScale, groups: views.groups,
+            budgets: views.budgets, roles: mapToObject(views.roles), translation: views.translation,
+            vorp: mapToObject(views.vorp), adj: mapToObject(views.adj)
+          } : null
+        };
+      });
+      // What the chart shows for every series in the Indexed view: the
+      // published charts' Indexed maps above; every other series straight
+      // from the chart's own rows (they do not change with the view).
+      const series = {};
+      visibleSourceKeys().forEach(key => {
+        if (AS_PUBLISHED_KEYS.has(key)) {
+          series[key] = published[key].indexed.values;
+          return;
+        }
+        const out = {};
+        universe.forEach(row => {
+          const value = row.values[key];
+          if (value !== null && value !== undefined) out[row.player_key] = value;
+        });
+        series[key] = out;
+      });
+      return {
+        setting: {scoring, scoringField: scoringField(), teams, roster: {...rosterShape}, benchShare,
+          viewMode, savedSetup: onSavedSetup(), displayShare: lastDisplayShare,
+          flexEligible: flexEligiblePositions()},
+        versions: {derivation: ValueModel.PUBLISHED_DERIVATION_VERSION, views: ValueModel.PUBLISHED_VIEWS_VERSION,
+          translation: ValueModel.VORP_TRANSLATION_VERSION, imputation: ValueModel.IMPUTATION_VERSION,
+          positionalMax: ValueModel.POSITIONAL_MAX_VERSION},
+        positions: [...POSITION_ORDER],
+        publishedKeys: [...AS_PUBLISHED_KEYS],
+        seriesKeys: visibleSourceKeys(),
+        labels: Object.fromEntries(visibleSourceKeys().map(key => [key, sourceLabel(key)])),
+        anchor: {key: "espn", values: mapToObject(anchor), roles: mapToObject(anchorRoles)},
+        espnRoles: mapToObject(espnRoleByKey),
+        batch: {version: batch.version, batchMax: batch.batchMax, adjScale: batch.adjScale},
+        published,
+        series,
+        fixedPie: fixedPieDiagnostics()
+      };
+    } finally {
+      lastPublishedView = keptView;
+      lastPublishedDerivation = keptDerivation;
+    }
+  }
 
   window.TradeValueCurveControls = {
     setPosition,
@@ -3484,6 +3675,7 @@
     // Back-end contract: history (read-only; both return Promises).
     getWeekValues,
     getPriorWeek,
+    getHistoryWeeks,
     setRosterSpot,
     setBenchShareFraction,
     getBenchShare: () => benchShare,
@@ -3499,6 +3691,9 @@
       stale: sourceIsStale(key),
       available: sourceAvailable(key) && !isAdjustedCurvePaused(key),
       paused: isAdjustedCurvePaused(key),
+      // The source's section is missing from this build's data (dropped,
+      // not fatal): show it as unavailable, never as zeros.
+      unavailable: sourceMissingFromData(key),
       active: activeSources.has(key),
       color: SOURCE_STYLES[key]?.color || null,
       // V2-WAIVER-COVERAGE: set when this chart's values rest on a waiver
@@ -3507,7 +3702,9 @@
       waiver: publishedWaiver(key)
     })),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
-    getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value]))
+    getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value])),
+    // Internal math inspector (read-only): see getInspection above.
+    getInspection
   };
 
   function fullRankMax() {
@@ -3634,8 +3831,8 @@
   function rosterOrdinals() {
     const counts = allocationCounts();
     if (position === "ALL") return {
-      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX),
-      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH)
+      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (rosterShape.SUPERFLEX || 0)),
+      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (rosterShape.SUPERFLEX || 0) + rosterShape.BENCH)
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,
@@ -3759,15 +3956,10 @@
     return {tolerance, checks, ok:checks.every(check => check.ok)};
   }
 
-  // Cross-source scale agreement. The band and the comparison live in the
-  // shared value model so they can be tested against the numbers the defect
-  // actually produced; this only supplies the peaks.
-  //
-  // Scope is the DIRECT published charts. The *_adjusted series are
-  // deliberately re-weighted away from their source and the raw
-  // value-above-waivers series is deliberately un-adjusted, so neither is
-  // evidence about the anchor's shape.
-  const DIRECT_CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+  // Cross-source scale agreement for the ADJUSTED series. The band and the
+  // comparison live in the shared value model so they can be tested against
+  // the numbers the defect actually produced; this only supplies the peaks.
+  // (The direct published-chart version of this check is retired, GAP-026.)
   // The adjusted series are deliberately re-weighted, so they get a wider
   // band and a warning rather than a failure. They still need to stay on one
   // readable trade-value scale with the ESPN anchor.
@@ -3805,10 +3997,6 @@
   function indexedMapForAgreement(key) {
     if (viewMode === "indexed" || !AS_PUBLISHED_KEYS.has(key)) return sourceMaps.get(key);
     return buildPublishedSourceMap(key);
-  }
-
-  function scaleAgreementDiagnostics() {
-    return agreementFor(DIRECT_CHART_KEYS);
   }
 
   function adjustedAgreementDiagnostics() {
@@ -4173,7 +4361,6 @@
     const rosterTransitions = markers.length === 2
       && markers.every((marker, index) => marker.axis === "x" && Number.isFinite(marker.value) && marker.label === ["Starter → Bench", "Bench → Waiver"][index]);
     const fixedPie = fixedPieDiagnostics();
-    const scaleAgreement = scaleAgreementDiagnostics();
     const adjustedAgreement = adjustedAgreementDiagnostics();
     // JEG-30: record the fixed-pie guard in Chart Health with its structured
     // per-source diagnostics. The detail view renders on failure; the happy
@@ -4204,28 +4391,12 @@
         `${adjustedAgreement.compared} positional peaks within ${adjustedAgreement.band.join("-")}x of the anchor`
       );
     }
-    // Visible, not failing: a direct-series scale disagreement is genuine
-    // publisher shape disagreement -- the pipeline's scale-agreement monitor
-    // verdicts fantasycalc/usatoday "genuine disagreement" (their published
-    // shapes sit outside the band before any indexation) -- so it surfaces as
-    // a warning like the adjusted family, never a red "numbers are wrong"
-    // FAIL. The 0.8-1.25x band itself is unchanged.
-    // Re-restored 2026-10-04 (dropped by the JEG-325 refactor).
-    if (scaleAgreement.compared > 0 && !scaleAgreement.ok) {
-      ChartHealth.warn(
-        "source-scale-agreement",
-        "Published charts agree with the anchor's scale",
-        `positional peaks outside ${scaleAgreement.band.join("-")}x of the anchor: ` +
-        `${scaleAgreement.offenders.join("; ")} -- genuine publisher shape disagreement, see scale-agreement monitor`
-      );
-    } else {
-      ChartHealth.record(
-        "source-scale-agreement",
-        "Published charts agree with the anchor's scale",
-        scaleAgreement.ok,
-        `${scaleAgreement.compared} positional peaks within ${scaleAgreement.band.join("-")}x of the anchor`
-      );
-    }
+    // The direct-series "Published charts agree with the anchor's scale"
+    // check (JEG-32, GAP-026) is retired (Jeremy, 2026-10-08): publisher
+    // shape disagreement is what the chart exists to show, so a peak-vs-anchor
+    // band on the published charts only ever warned about the product itself.
+    // Curve correctness stays guarded by fixedPieIndexed, the 12-combo sweep
+    // and the per-source parity tests.
     // JEG-392: in the Value-above-waivers / Adjusted views setViewMode()
     // deliberately swaps activeSources to the as-published view set and
     // parks the Indexed selection in savedActiveSourcesForView. Checking the
@@ -4238,12 +4409,8 @@
     const pureVorpAvailable = PURE_VORP_KEYS.some(key => sourceMaps.get(key)?.size > 0);
     const adjustableBenchShare = DEFAULT_BENCH_SHARE === 0.15 && Number.isFinite(benchShare) && typeof setBenchShare === "function";
     const tieredEspnValues = ["starter", "bench", "waiver"].every(role => [...espnRoleByKey.values()].includes(role));
-    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, sourceScaleAgreement:scaleAgreement.ok, scaleAgreement, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
+    const diagnostics = {sourceMapCoverage, sourceToggles, noAggregate, stableDomain, validValues, distinctSourcePeaks, valuesAboveCollapseFloor, curveCollapseFloor:CURVE_COLLAPSE_FLOOR, dynamicAxisCoversData, sharedPlayerAxis, sourcePeaks, yAxisMax:scale.max, rosterTransitions, rosterMarkerAxis:"x", fixedPieIndexed:fixedPie.ok, fixedPie, adjustedAgreement, defaultGroupedSources, pureVorpAvailable, adjustableBenchShare, tieredEspnValues, valueMode:"indexed", viewMode, publishedView:JSON.parse(JSON.stringify(lastPublishedView)), lockOrder, rankSource:selectedRankSourceKey(), sourceCount:SOURCE_KEYS.length, activeCount:activeSourceKeys().length, curveCount:activeSourceKeys().length, firstLoadExcluded:[...firstLoadExcluded], adjustmentInputsVersion:adjustmentInputs?.version || null, savedSetup:onSavedSetup(), publishedDerivation:JSON.parse(JSON.stringify(lastPublishedDerivation)), adjustmentWeightRows:adjustmentWeightRows().length, adjustmentAllocation:adjustmentAllocationRows(), liveAdjustedSources:["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"].filter(key => adjustmentCellsFor(rawKeyForAdjusted(key)) !== null)};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
-    // sourceScaleAgreement is NOT blocking: genuine inter-source disagreements
-    // (e.g., USA Today QB 0.51x of ESPN anchor) are surfaced via ChartHealth
-    // as a warning, but must not blank the entire chart. The chart renders
-    // with a visible disagreement notice instead.
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed"].includes(key) && value !== true);
     // JEG-30: the per-source numbers live in the Chart Health detail view
     // (recorded above), not in the error string. The thrown error keeps a

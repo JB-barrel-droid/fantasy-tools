@@ -6,8 +6,10 @@ name: Live page synthetic gate
 # grepped the tag from the repo's committed dist/index.html, but the deploy
 # pipeline rebuilds dist/ in CI and never commits it back -- the committed
 # copy's tag is stale by construction, so the gate failed on every run.
-# Scheduler owner: Supabase pg_cron `live-page-synthetic-live` (daily 06:00 UTC),
-# dispatching this workflow. No `schedule:` here, so there is one owner. (The
+# GAP-038 (2026-10-08): live.mjs also renders every v2 tab on the root, the
+# /v2/ copy, /classic/ and the 404 page; any failing page fails the run.
+# Scheduler owner: Supabase pg_cron `live-page-synthetic-live` (daily 12:15 UTC,
+# 45 minutes after the daily pg_cron Pages deploy), dispatching this workflow. No `schedule:` here, so there is one owner. (The
 # job used to call the live-page-synthetic edge function, which answered 401 on
 # every run while cron still showed "succeeded"; public.live_page_checks never
 # got a row.) Each main run is recorded as check `live_page_synthetic`.
@@ -25,6 +27,7 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 jobs:
   live-gate:
@@ -32,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 50
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -48,6 +51,8 @@ jobs:
 
       - name: Compute expected build tag(s) from HEAD
         id: build-tag
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # JEG-263: the build tag is deterministic per commit: tv-YYYYMMDD-HHMM-<sha>
           # from HEAD's commit time -- the exact formula in
@@ -69,6 +74,15 @@ jobs:
               # build while a deploy is in flight. Accepting HEAD~1 keeps the
               # gate from false-failing on that window; anything older still fails.
               tag HEAD~1
+              # Bot commits pushed with GITHUB_TOKEN (e.g. the dispatched
+              # pipelines code-hash record) do not trigger a deploy, so the
+              # live page can legitimately serve an older commit than HEAD~1:
+              # also accept the commit of the last successful Pages deploy.
+              DEPLOYED=$(gh run list --workflow pages.yml --branch main --status success -L 1 \
+                --json headSha --jq '.[0].headSha' 2>/dev/null || true)
+              if [ -n "$DEPLOYED" ] && git cat-file -e "$DEPLOYED^{commit}" 2>/dev/null; then
+                tag "$DEPLOYED"
+              fi
               echo "EOF"
             } >> $GITHUB_OUTPUT
           fi

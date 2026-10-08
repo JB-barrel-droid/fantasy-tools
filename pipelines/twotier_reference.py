@@ -56,6 +56,9 @@ from typing import Any
 POSITIONS = ["QB", "RB", "WR", "TE"]
 DEFAULT_BENCH_SHARE = 0.15
 GLIDE_WIDTH_FRAC = 0.25
+# Mirrors TwoTier.STEP_INSIDE_WINDOW (curve-widget.js) and
+# build_ddf_two_tier_leg.STEP_INSIDE_WINDOW (GAP-STEPUP-EDGE-PB0).
+STEP_INSIDE_WINDOW = 0.01
 FEAS_TOL = 1e-4
 REF_BENCH_SLOTS = 6
 # Kept only as the regression anchor for the pinned-constant test.
@@ -567,6 +570,14 @@ def calibrate_position_feasible(
                 hi = mid
             else:
                 lo = mid
+        # GAP-STEPUP-EDGE-PB0: hi is the window's lower edge (bench rate ~0);
+        # step STEP_INSIDE_WINDOW inside it, halving up to 8 times.
+        step = STEP_INSIDE_WINDOW
+        for _ in range(8):
+            inside = calibrate_position(tier, pie, hi + step)
+            if inside is not None and not inside.get("invalid"):
+                return {**inside, "bench_share_used": hi + step}
+            step /= 2
         best = calibrate_position(tier, pie, hi)
         if best is None or best.get("invalid"):
             return first

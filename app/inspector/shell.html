@@ -1,0 +1,62 @@
+<div class="mi-app" id="mathInspector">
+  <header class="mi-header">
+    <div>
+      <h1>Math Inspector</h1>
+      <p class="mi-sub">Internal. Every number below is read from the chart engine running on this page
+        (<code>TradeValueCurveControls.getInspection()</code>); nothing is recomputed here except sums and
+        ratios that are labelled as such. <span id="miBuild"></span></p>
+    </div>
+    <div class="mi-status" id="miStatus" role="status">Loading the engine…</div>
+  </header>
+
+  <section class="mi-controls" aria-label="League setting">
+    <label>Scoring
+      <select id="miScoring">
+        <option value="ppr">Full PPR</option>
+        <option value="half_ppr">Half PPR</option>
+        <option value="standard">Standard</option>
+      </select>
+    </label>
+    <label>Teams
+      <select id="miTeams">
+        <option>8</option><option>10</option><option selected>12</option><option>14</option>
+      </select>
+    </label>
+    <span class="mi-roster" id="miRoster"></span>
+    <label>Bench share <input type="number" step="0.01" min="0" max="1" id="miBenchShare"></label>
+    <label>Source
+      <select id="miSource"></select>
+    </label>
+    <label>Position
+      <select id="miPosition">
+        <option value="ALL">All</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option>
+      </select>
+    </label>
+    <span class="mi-setting" id="miSetting"></span>
+  </section>
+
+  <nav class="mi-nav" aria-label="Sections">
+    <a href="#mi-checks">Checks</a>
+    <a href="#mi-inputs">1 Inputs</a>
+    <a href="#mi-translation">2 Translation</a>
+    <a href="#mi-indexed">3 Indexed</a>
+    <a href="#mi-vorp">4 VORP vs waivers</a>
+    <a href="#mi-adjusted">5 Adjusted values</a>
+    <a href="#mi-player">6 Player</a>
+    <button type="button" id="miExportAll">Download everything (JSON)</button>
+  </nav>
+
+  <section id="mi-checks" class="mi-section"><h2>View checks at this setting</h2><div class="mi-body"></div></section>
+  <section id="mi-inputs" class="mi-section"><h2>1. Inputs</h2><div class="mi-body"></div></section>
+  <section id="mi-translation" class="mi-section"><h2>2. Translation: value above waivers in each chart's own units</h2><div class="mi-body"></div></section>
+  <section id="mi-indexed" class="mi-section"><h2>3. Indexed: pie split against the ESPN anchor</h2><div class="mi-body"></div></section>
+  <section id="mi-vorp" class="mi-section"><h2>4. VORP vs waivers: one shared scale</h2><div class="mi-body"></div></section>
+  <section id="mi-adjusted" class="mi-section"><h2>5. Adjusted values: our position and starter/bench weights</h2><div class="mi-body"></div></section>
+  <section id="mi-player" class="mi-section"><h2>6. One player, every source, every step</h2>
+    <div class="mi-player-pick">
+      <label>Player <input type="search" id="miPlayerSearch" list="miPlayerList" placeholder="Type a name"></label>
+      <datalist id="miPlayerList"></datalist>
+    </div>
+    <div class="mi-body"></div>
+  </section>
+</div>

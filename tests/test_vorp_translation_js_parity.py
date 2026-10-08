@@ -63,6 +63,11 @@ ROSTER_SHAPES = [
 ]
 
 
+# (label, flex_count, superflex_count): dedicated superflex slots
+# (JEG332-SUPERFLEX-FLEX option A). sf0 must equal the omitted default.
+SUPERFLEX_SHAPES = [("sf0", 1, 0), ("sf1", 1, 1), ("sf1-flex2", 2, 1), ("sf2", 1, 2)]
+
+
 def _load_ranked(source, scoring):
     ranked, key_by_name = unified.load_native_values(source, scoring, 12)
     return {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
@@ -92,6 +97,11 @@ def _real_vectors():
                     vectors.append({**base, "teams": teams, "bench_per_team": 6,
                                     "flex_count": 1, "slots": slots,
                                     "flex_eligible": elig, "shape": label})
+                # JEG332-SUPERFLEX-FLEX option A: a dedicated superflex slot.
+                for label, flex, sf in SUPERFLEX_SHAPES:
+                    vectors.append({**base, "teams": teams, "bench_per_team": 6,
+                                    "flex_count": flex, "slots": None, "flex_eligible": None,
+                                    "superflex_count": sf, "shape": label})
     return vectors
 
 
@@ -155,7 +165,8 @@ def _python(vector):
                                         slots=vector["slots"],
                                         flex_eligible=vector["flex_eligible"],
                                         our_max=vector.get("our_max"),
-                                        peers=vector.get("peers"))
+                                        peers=vector.get("peers"),
+                                        superflex_count=vector.get("superflex_count", 0))
     except (ValueError, SystemExit) as error:
         return {"error": str(error)}
 
@@ -166,6 +177,7 @@ def _js(vectors, model_path=VALUE_MODEL):
         "teams": vec["teams"], "bench_per_team": vec["bench_per_team"],
         "flex_count": vec["flex_count"], "slots": vec["slots"],
         "flex_eligible": vec["flex_eligible"], "our_max": vec.get("our_max"),
+        "superflex_count": vec.get("superflex_count"),
         "peers": ({src: {pos: [[r[0], r[-1]] for r in rows] for pos, rows in by_pos.items()}
                    for src, by_pos in vec["peers"].items()} if vec.get("peers") else None),
     } for vec in vectors]}
@@ -304,7 +316,7 @@ class VorpTranslationJsParity(unittest.TestCase):
         self.assertEqual(max_diff, 0.0)
         self.assertGreater(numbers, 100000)
         versions = {r.get("version") for r in js_results if "version" in r}
-        self.assertEqual(versions, {"unified-py-jeg62/2"})
+        self.assertEqual(versions, {"unified-py-jeg62/3"})
         # The synthetic tie vector really exercises the half-even branch.
         tie = next(r for v, r in zip(self.vectors, js_results) if v.get("label") == "ties")
         self.assertTrue(any(str(t["translated"]).endswith(("2", "4", "6", "8", "0"))
@@ -314,7 +326,8 @@ class VorpTranslationJsParity(unittest.TestCase):
         fixture = json.loads(FIXTURE.read_text())
         vectors = [v for v in _real_vectors()
                    if v["teams"] == 12 and v["bench_per_team"] == 6
-                   and v["flex_count"] == 1 and v["slots"] is None and v["flex_eligible"] is None]
+                   and v["flex_count"] == 1 and v["slots"] is None and v["flex_eligible"] is None
+                   and "superflex_count" not in v]
         self.assertEqual(len(vectors), len(SOURCES) * len(SCORINGS))
         js_results = _js(vectors)
         for vec, js in zip(vectors, js_results):
@@ -444,6 +457,10 @@ def _max_vectors():
                     vectors.append({**base, "teams": teams, "bench_per_team": 6,
                                     "flex_count": flex, "slots": slots,
                                     "flex_eligible": elig, "shape": label})
+            for label, flex, sf in SUPERFLEX_SHAPES:
+                vectors.append({**base, "teams": teams, "bench_per_team": 6,
+                                "flex_count": flex, "slots": None, "flex_eligible": None,
+                                "superflex_count": sf, "shape": label})
     # Synthetic: a position with no surplus at the reference (all equal) and an
     # empty position -- both fall back to OUR_MAX for that position.
     def keyed(pos, values):
@@ -460,7 +477,8 @@ def _py_max(vec):
     try:
         return unified.positional_max_for_setup(vec["projection"], vec["teams"], vec["bench_per_team"],
                                                 vec["flex_count"], slots=vec["slots"],
-                                                flex_eligible=vec["flex_eligible"])
+                                                flex_eligible=vec["flex_eligible"],
+                                                superflex_count=vec.get("superflex_count", 0))
     except (ValueError, SystemExit) as error:
         return {"error": str(error)}
 
@@ -472,6 +490,7 @@ def _js_max(vectors, model_path=VALUE_MODEL):
         "teams": vec["teams"], "bench_per_team": vec["bench_per_team"],
         "flex_count": vec["flex_count"], "slots": vec["slots"],
         "flex_eligible": vec["flex_eligible"],
+        "superflex_count": vec.get("superflex_count"),
     } for vec in vectors]}
     proc = subprocess.run(["node", str(DRIVER), str(model_path)], input=json.dumps(payload),
                           capture_output=True, text=True, timeout=300)
@@ -516,6 +535,13 @@ def _derived_translation_vectors():
                                     "teams": teams, "bench_per_team": bench, "flex_count": flex,
                                     "slots": slots, "flex_eligible": elig, "shape": label,
                                     "our_max": our_max})
+                for label, flex, sf in SUPERFLEX_SHAPES:
+                    our_max = unified.positional_max_for_setup(proj, teams, 6, flex,
+                                                               superflex_count=sf)
+                    vectors.append({"source": source, "scoring": scoring, "ranked_keyed": ranked,
+                                    "teams": teams, "bench_per_team": 6, "flex_count": flex,
+                                    "slots": None, "flex_eligible": None, "shape": label,
+                                    "superflex_count": sf, "our_max": our_max})
     return vectors
 
 
@@ -560,7 +586,8 @@ class PositionalMaxParity(unittest.TestCase):
     def test_saved_setup_is_exactly_our_max_both_sides(self):
         vecs = [v for v in self.vectors if v.get("scoring") and v["teams"] == 12
                 and v["bench_per_team"] == 6 and v["flex_count"] == 1
-                and v["slots"] is None and v["flex_eligible"] is None]
+                and v["slots"] is None and v["flex_eligible"] is None
+                and "superflex_count" not in v]
         self.assertEqual(len(vecs), len(SCORINGS))
         for vec, js in zip(vecs, _js_max(vecs)):
             self.assertEqual(_py_max(vec), unified.OUR_MAX)

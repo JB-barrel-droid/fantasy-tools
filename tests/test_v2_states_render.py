@@ -3,22 +3,24 @@
 Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
   * player detail: opened from the first Player values row at 1440 (side drawer
-    on the right) and 390 (bottom sheet: full width, flush with the bottom, at
-    most 85% of the screen). Every value equals the engine's
+    on the right) and 390 (full screen, frame 14). Every value in the hero and
+    the "Source values" matrix equals the engine's
     TradeValueCurveControls.getRows() value for that player and series; a
-    missing one shows "— not priced", never 0; VORP vs waivers series appear only
-    in their own group and never in the trade-value groups;
+    missing one shows "—" with a reason, never 0; each series sits in its own
+    method's column (Adjusted, Indexed, VORP vs waivers), so VORP vs waivers is
+    never in a trade-value column;
   * empty: a search that matches no player hides the chart and table, says which
-    filter emptied the list, and "Clear filters" brings the players back;
+    filter emptied the list, offers "Clear search" for that filter (frame 18),
+    and it brings the players back;
   * loading: the built page starts with every tab hidden behind the loading card;
   * failure: with the engine script served empty, the page shows the failure
     card with a retry button, no tab and no number;
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the detail
-groups not split by method, with the failure path leaving Player values
-visible, and with the empty state never drawn, and v2.css without the bottom
-sheet, and requires the checks to fail on each.
+matrix columns out of method order, with the failure path leaving Player values
+visible, and with the empty state never drawn, and v2.css with the old bottom
+sheet instead of the full-screen detail, and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -43,7 +45,6 @@ from tests.test_published_league_settings_render import _chromium_executable  # 
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-SHEET_CSS = "/* Player detail: method groups (frame 13), bottom sheet below 768 px (frame 14). */"
 
 READ_DRAWER = """() => {
   const drawer = document.getElementById('v2Drawer');
@@ -52,8 +53,10 @@ READ_DRAWER = """() => {
   const row = window.TradeValueCurveControls.getRows().find(r => String(r.player_key) === String(key));
   const box = drawer.getBoundingClientRect();
   return {hidden: drawer.hidden, values: row ? row.values : null,
-    groups: [...drawer.querySelectorAll('.v2-drawer-group')].map(g => ({method: g.dataset.method,
-      cells: [...g.querySelectorAll('dd')].map(dd => ({key: dd.dataset.source, text: dd.textContent}))})),
+    groups: ['dda', 'indexed', 'vorp'].map((method, i) => ({method,
+      cells: [...drawer.querySelectorAll('.v2-dmatrix tbody tr')].map(tr => tr.children[i + 1])
+        .filter(td => td && td.dataset.source).map(td => ({key: td.dataset.source, text: td.textContent}))})),
+    hero: [...drawer.querySelectorAll('.v2-dhero [data-source]')].map(n => ({key: n.dataset.source, text: n.textContent})),
     box: {left: box.left, right: box.right, top: box.top, bottom: box.bottom, width: box.width, height: box.height},
     vw: window.innerWidth, vh: window.innerHeight,
     overflow: document.documentElement.scrollWidth - window.innerWidth};
@@ -66,14 +69,15 @@ def finite(value):
 
 def check_drawer(snap, width) -> list[str]:
     errors = []
-    if snap["hidden"] or not snap["groups"]:
+    if snap["hidden"] or not any(g["cells"] for g in snap["groups"]):
         return [f"{width}px: player detail did not open"]
     values = snap["values"] or {}
+    snap["groups"].append({"method": None, "cells": snap["hero"]})
     for group in snap["groups"]:
         for cell in group["cells"]:
             key = cell["key"]
             is_vorp = key.endswith("_vorp")
-            if is_vorp != (group["method"] == "vorp"):
+            if group["method"] is not None and is_vorp != (group["method"] == "vorp"):
                 errors.append(f"{width}px: {key} listed under {group['method']}")
             value = values.get(key)
             if finite(value):
@@ -83,8 +87,8 @@ def check_drawer(snap, width) -> list[str]:
                 errors.append(f"{width}px: {key} has no engine value but shows {cell['text']!r}")
     box, vw, vh = snap["box"], snap["vw"], snap["vh"]
     if width <= 390:
-        if abs(box["bottom"] - vh) > 1 or box["width"] < vw - 1 or box["height"] > 0.85 * vh + 1:
-            errors.append(f"{width}px: detail is not a bottom sheet: {box}")
+        if abs(box["bottom"] - vh) > 1 or box["top"] > 1 or box["width"] < vw - 1:
+            errors.append(f"{width}px: detail is not full screen: {box}")
     elif abs(box["right"] - vw) > 1 or box["top"] > 1 or box["width"] > 441:
         errors.append(f"{width}px: detail is not a right-hand drawer: {box}")
     if snap["overflow"] > 0 and width <= 390:
@@ -166,7 +170,7 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
                 if not empty["shown"] or "zzzz" not in empty["text"] or empty["chart"] or empty["table"]:
                     errors.append(f"{width}px: empty search state wrong: {empty}")
                 if empty["shown"]:
-                    page.click("#v2EmptyClear")
+                    page.click("#v2EmptyActions [data-clear=search]")
                 else:
                     page.click("#v2ClearFilters")
                 page.wait_for_timeout(400)
@@ -199,14 +203,17 @@ class StatesRenderTest(unittest.TestCase):
         js = V2_JS.read_text(encoding="utf-8")
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
-            "detail groups not split": {"v2_js": js.replace(
-                "view.info.filter(item => item.available && sourceMeta(item.key).method === method)",
-                "view.info.filter(item => item.available)", 1), "with_failure": False},
+            "detail columns not split by method": {"v2_js": js.replace(
+                'const METHOD_COLUMNS = [["dda", "Adjusted"], ["indexed", "Indexed"], ["vorp", "VORP vs waivers"]];',
+                'const METHOD_COLUMNS = [["vorp", "Adjusted"], ["indexed", "Indexed"], ["dda", "VORP vs waivers"]];', 1),
+                "with_failure": False},
             "failure leaves values visible": {"v2_js": js.replace(
                 '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });',
                 '$("v2Main").hidden = false;', 1)},
             "empty state never drawn": {"v2_js": js.replace("    renderEmpty();\n", "", 1), "with_failure": False},
-            "no bottom sheet": {"v2_css": css[:css.index(SHEET_CSS)], "with_failure": False},
+            "bottom sheet instead of full screen": {"v2_css": css.replace(
+                "  .v2-drawer { inset: 0; width: 100vw; height: 100vh; max-height: none;",
+                "  .v2-drawer { top: auto; left: 0; right: 0; bottom: 0; width: 100vw; max-height: 85vh;", 1), "with_failure": False},
         }
         for name, kwargs in broken.items():
             with self.subTest(mutation=name):

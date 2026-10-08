@@ -58,14 +58,17 @@ def player_names():
 
 def role_map(values, pos_of, names, teams, shape):
     """Independent port of ValueModel.roleMap: dedicated slots by value, then
-    flex (RB/WR/TE, plus QB under SUPERFLEX), then bench, by value."""
+    superflex slots (any position, JEG332-SUPERFLEX-FLEX option A), then flex
+    (RB/WR/TE), then bench, by value."""
     rows = [(k, v) for k, v in values.items() if pos_of.get(k) in POSITIONS and v > 0]
     rows.sort(key=lambda r: (-r[1], names.get(r[0], ""), r[0]))
     roles = {}
     for pos in POSITIONS:
         for k, _ in [r for r in rows if pos_of[r[0]] == pos][:teams * shape.get(pos, 0)]:
             roles[k] = "starter"
-    elig = ("QB", "RB", "WR", "TE") if shape.get("SUPERFLEX") else ("RB", "WR", "TE")
+    for k, _ in [r for r in rows if r[0] not in roles][:teams * int(shape.get("SUPERFLEX", 0))]:
+        roles[k] = "starter"
+    elig = ("RB", "WR", "TE")
     for k, _ in [r for r in rows if pos_of[r[0]] in elig and r[0] not in roles][:teams * shape.get("FLEX", 0)]:
         roles[k] = "starter"
     for k, _ in [r for r in rows if r[0] not in roles][:teams * shape.get("BENCH", 0)]:

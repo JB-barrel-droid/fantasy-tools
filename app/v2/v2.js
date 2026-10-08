@@ -661,83 +661,256 @@
     $("v2TableMeta").textContent = `${rows.length} players · ranked by ${sourceMeta(view.rankKey).short}. Every plotted series has a sortable column; the ranking series is highlighted.`;
   }
 
-  // ---------- drawer (frame 13 / 14) ----------
+  // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
   let lastFocus = null;
+  let drawerRow = null;
+  const METHOD_COLUMNS = [["dda", "Adjusted"], ["indexed", "Indexed"], ["vorp", "VORP vs waivers"]];
+  const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Indexed", vorp: "VORP vs waivers"};
+
+  function drawerSection(title, sub) {
+    const section = document.createElement("section");
+    section.className = "v2-dsection";
+    const h = document.createElement("h3");
+    h.textContent = title;
+    section.appendChild(h);
+    if (sub) {
+      const p = document.createElement("p");
+      p.className = "v2-meta";
+      p.textContent = sub;
+      section.appendChild(p);
+    }
+    return section;
+  }
+
+  // Hero (frame 13): the ranking series' value, and the range across the selected
+  // Data Driven Adjustments series (the same unit; frame 03: DDA only in a spread).
+  function drawerHero(row) {
+    const key = view.rankKey;
+    const meta = sourceMeta(key);
+    const item = view.infoByKey[key];
+    const hero = document.createElement("div");
+    hero.className = "v2-dhero";
+    const main = document.createElement("div");
+    const eyebrow = document.createElement("p");
+    eyebrow.className = "v2-eyebrow";
+    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_FULL[meta.method]}${item?.week ? ` · W${item.week}` : ""}`;
+    const big = document.createElement("p");
+    big.className = "v2-dhero-value";
+    big.dataset.source = key;
+    const v = row.values[key];
+    if (Number.isFinite(v)) big.textContent = fmt(v);
+    else big.appendChild(missingNode(`No ${seriesName(key)} value for ${row.name}`, "not priced by this source"));
+    const unit = document.createElement("p");
+    unit.className = "v2-meta";
+    unit.textContent = meta.method === "vorp" ? "VORP vs waivers, on this source's own scale" : "Trade-value points";
+    main.append(eyebrow, big, unit);
+    hero.appendChild(main);
+    const dda = view.active.filter(k => sourceMeta(k).method === "dda" && view.infoByKey[k]?.available)
+      .map(k => row.values[k]).filter(Number.isFinite);
+    if (dda.length >= 2) {
+      const range = document.createElement("div");
+      range.className = "v2-dhero-range";
+      const label = document.createElement("p");
+      label.className = "v2-eyebrow";
+      label.textContent = "Selected source range · DDA";
+      const value = document.createElement("p");
+      value.dataset.range = "dda";
+      value.textContent = `${fmt(Math.min(...dda))}–${fmt(Math.max(...dda))}`;
+      range.append(label, value);
+      hero.appendChild(range);
+    }
+    return hero;
+  }
+
+  // Frame 13 "Source values": one row per publisher, one column per method.
+  function drawerMatrix(row) {
+    const section = drawerSection("Source values", "Every available method. A missing value stays missing, never zero.");
+    const wrap = document.createElement("div");
+    wrap.className = "v2-dmatrix-wrap";
+    const table = document.createElement("table");
+    table.className = "v2-dmatrix";
+    const head = document.createElement("tr");
+    [["Source / week", "player"]].concat(METHOD_COLUMNS.map(([, label]) => [label, "num"])).forEach(([text, cls]) => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.className = cls;
+      th.textContent = text;
+      head.appendChild(th);
+    });
+    const thead = document.createElement("thead");
+    thead.appendChild(head);
+    const tbody = document.createElement("tbody");
+    const publishers = Object.keys(PUBLISHERS).filter(pub => view.info.some(item => sourceMeta(item.key).publisher === pub));
+    publishers.forEach(pub => {
+      const tr = document.createElement("tr");
+      const series = Object.fromEntries(view.info.filter(item => sourceMeta(item.key).publisher === pub)
+        .map(item => [sourceMeta(item.key).method, item]));
+      const any = Object.values(series).find(item => item.available) || Object.values(series)[0];
+      const th = document.createElement("th");
+      th.scope = "row";
+      th.className = `player${any?.stale ? " is-older" : ""}`;
+      th.innerHTML = `<span style="color:${PUBLISHERS[pub].color}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
+      th.append(document.createTextNode(`${PUBLISHER_NAMES[pub]}${any?.week ? ` · W${any.week}` : ""}`));
+      const prov = document.createElement("span");
+      prov.className = "th-sub";
+      // Provenance only when it says more than the week already in the label.
+      const provText = any ? withWaiverNote(freshnessText(any), any) : "";
+      prov.textContent = provText === `Week ${any?.week}` ? "" : provText;
+      if (prov.textContent) th.appendChild(prov);
+      tr.appendChild(th);
+      METHOD_COLUMNS.forEach(([method]) => {
+        const td = document.createElement("td");
+        td.className = "num";
+        const item = series[method];
+        if (!item) {
+          const na = missingNode(`${PUBLISHER_NAMES[pub]} has no ${METHOD_LABEL[method]} series`, "no such series");
+          na.querySelector(".why").className = "v2-sr";
+          td.appendChild(na);
+          td.classList.add("is-na");
+        } else if (!item.available) {
+          td.appendChild(missingNode(item.paused ? "Waiting on fresh inputs" : "Not available for this league",
+            item.paused ? "waiting on inputs" : "not for this league"));
+        } else if (view.active.includes(item.key)) {
+          td.dataset.source = item.key;
+          const v = row.values[item.key];
+          if (Number.isFinite(v)) td.textContent = fmt(v);
+          else td.appendChild(missingNode(`No ${seriesName(item.key)} value for ${row.name}`, "not priced"));
+        } else {
+          const add = document.createElement("button");
+          add.type = "button";
+          add.className = `v2-link v2-dadd${item.stale ? " is-older" : ""}`;
+          add.dataset.addSeries = item.key;
+          add.textContent = item.stale ? "Older ↗" : "Available ↗";
+          add.setAttribute("aria-label", `Add ${seriesName(item.key)}${item.stale ? " (older week)" : ""} to the selected sources`);
+          add.addEventListener("click", () => {
+            if (!toggleEngineSource(item.key)) return;
+            refresh();
+            openDrawer(drawerRow);
+          });
+          td.appendChild(add);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+    wrap.appendChild(table);
+    const note = document.createElement("p");
+    note.className = "v2-meta";
+    note.textContent = "Adjusted and Indexed share the trade-value point scale for your league. VORP vs waivers is each source's own unit and is not comparable to them. Available ↗ adds that series to every tab.";
+    section.append(wrap, note);
+    return section;
+  }
+
+  // Frame 13: news and adjustments come from the data's own player context, read only.
+  function drawerContext(row) {
+    const out = [];
+    const stats = drawerSection("Stats & context");
+    const p = document.createElement("p");
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Roster tier: ${tierLabel(row.espnRole)}`
+      + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
+    stats.appendChild(p);
+    out.push(stats);
+    let context = null;
+    try { context = window.TradeValueProductData?.getPlayerContext?.(row.player_key) || null; } catch (error) { context = null; }
+    const asOf = context?.as_of ? ` · as of ${String(context.as_of).slice(0, 10)}` : "";
+    const news = drawerSection("Latest player news");
+    const items = (context?.news || []).slice().sort((a, b) => String(b.published_at).localeCompare(String(a.published_at))).slice(0, 3);
+    if (!items.length) {
+      const none = document.createElement("p");
+      none.className = "v2-meta";
+      none.textContent = "No linked news available.";
+      news.appendChild(none);
+    } else {
+      const ul = document.createElement("ul");
+      ul.className = "v2-dnews";
+      items.forEach(item => {
+        const li = document.createElement("li");
+        const link = document.createElement(item.url ? "a" : "span");
+        if (item.url) { link.href = item.url; link.target = "_blank"; link.rel = "noopener noreferrer"; }
+        link.textContent = item.title || "Untitled";
+        const sub = document.createElement("span");
+        sub.className = "v2-meta";
+        sub.textContent = ` ${item.source || ""}${item.published_at ? ` · ${String(item.published_at).slice(0, 10)}` : ""}`;
+        li.append(link, sub);
+        ul.appendChild(li);
+      });
+      news.appendChild(ul);
+    }
+    out.push(news);
+    const adj = drawerSection("Adjustments applied");
+    const base = document.createElement("p");
+    base.textContent = "Starter / bench utilization weighting · Position-share calibration.";
+    adj.appendChild(base);
+    const notes = context?.adjustments || [];
+    const line = document.createElement("p");
+    line.className = "v2-meta";
+    line.textContent = notes.length
+      ? `News adjustment: ${notes.map(a => [a.kind, a.injury, a.date].filter(Boolean).join(", ")).join("; ")}${asOf}.`
+      : `News adjustment: none for this player${asOf}.`;
+    adj.appendChild(line);
+    out.push(adj);
+    return out;
+  }
+
   function openDrawer(row) {
-    lastFocus = document.activeElement;
+    if ($("v2Drawer").hidden) lastFocus = document.activeElement;
+    drawerRow = row;
     const drawer = $("v2Drawer");
     drawer.replaceChildren();
-    const close = document.createElement("button");
-    close.type = "button";
-    close.className = "v2-btn close";
-    close.textContent = "Close";
-    close.addEventListener("click", closeDrawer);
+    const head = document.createElement("div");
+    head.className = "v2-dhead";
+    const titles = document.createElement("div");
     const title = document.createElement("h2");
     title.id = "v2DrawerTitle";
     title.textContent = row.name;
     const meta = document.createElement("p");
     meta.className = "v2-meta";
-    meta.textContent = `${row.rank ? `#${row.rank} by ${sourceMeta(view.rankKey).short} · ` : ""}${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+    titles.append(title, meta);
+    const close = document.createElement("button");
+    close.type = "button";
+    close.className = "v2-btn close";
+    close.textContent = "✕";
+    close.setAttribute("aria-label", "Close player details");
+    close.addEventListener("click", closeDrawer);
+    head.append(titles, close);
+    drawer.appendChild(head);
     const zeroBadge = espnZeroBadge(row);
-    let zeroNote = null;
     if (zeroBadge) {
-      zeroNote = document.createElement("p");
+      const zeroNote = document.createElement("p");
       zeroNote.className = "v2-espn-zero-note";
       zeroNote.append(zeroBadge, document.createTextNode(` ${zeroBadge.title}`));
       zeroBadge.removeAttribute("title");
+      drawer.appendChild(zeroNote);
     }
-    // Grouped by method (frame 13 / 14): trade-value points first, VORP vs waivers on its own.
-    const groups = [["dda", "Data Driven Adjustments", "Trade-value points"], ["indexed", "Indexed", "Trade-value points"],
-      ["vorp", "VORP vs waivers", "Each source's own scale"]];
-    const sections = groups.map(([method, title, unit]) => {
-      const items = view.info.filter(item => item.available && sourceMeta(item.key).method === method);
-      if (!items.length) return null;
-      const section = document.createElement("section");
-      section.className = "v2-drawer-group";
-      section.dataset.method = method;
-      const h = document.createElement("h3");
-      h.textContent = title;
-      const u = document.createElement("span");
-      u.className = "v2-meta";
-      u.textContent = ` · ${unit}`;
-      h.appendChild(u);
-      const dl = document.createElement("dl");
-      items.forEach(item => {
-        const m = sourceMeta(item.key);
-        const dt = document.createElement("dt");
-        dt.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span>`;
-        dt.append(document.createTextNode(`${PUBLISHER_NAMES[m.publisher] || m.label}${item.week ? ` · W${item.week}` : ""}${view.active.includes(item.key) ? "" : " (not plotted)"}`));
-        const dd = document.createElement("dd");
-        dd.dataset.source = item.key;
-        const v = row.values[item.key];
-        if (Number.isFinite(v)) dd.textContent = fmt(v);
-        else dd.innerHTML = '<span class="missing">— not priced by this source</span>';
-        dl.append(dt, dd);
-      });
-      section.append(h, dl);
-      return section;
-    }).filter(Boolean);
-    const note = document.createElement("p");
-    note.className = "v2-note";
-    note.textContent = "DDA and Index values share the trade-value point scale for your league. VORP vs waivers is its own unit and is not comparable to them.";
-    drawer.append(close, title, meta, tradeActions(row));
-    if (zeroNote) drawer.appendChild(zeroNote);
-    drawer.append(...sections, note);
+    drawer.append(drawerHero(row), drawerMatrix(row), ...drawerContext(row), tradeActions(row));
     $("v2Scrim").hidden = false;
     drawer.hidden = false;
     close.focus();
   }
-  // Player detail → Compare a trade: put the player on one side and open the tab.
+  // Player detail → trade targets or Compare a trade ("Add to trade" chooses Give or Get).
   function tradeActions(row) {
     const key = String(row.player_key);
     const on = ["give", "receive"].find(side => TR[side].some(p => p.key === key));
     const box = document.createElement("div");
     box.className = "v2-drawer-trade";
+    const targets = document.createElement("button");
+    targets.type = "button";
+    targets.className = "v2-btn";
+    targets.textContent = "See trade targets";
+    targets.addEventListener("click", () => {
+      T.search = row.name;
+      $("v2TSearch").value = row.name;
+      closeDrawer();
+      location.hash = "#trade-targets";
+    });
+    box.appendChild(targets);
     if (on) {
       const p = document.createElement("p");
       p.className = "v2-meta";
       p.dataset.tradeOn = on;
-      p.textContent = `✓ On your trade: ${on === "give" ? "you give" : "you get"}.`;
+      p.textContent = `✓ On your trade: ${SIDE_NAME[on].toLowerCase()}.`;
       const open = document.createElement("a");
       open.className = "v2-link";
       open.href = "v2/#compare-trade";
@@ -746,7 +919,15 @@
       box.append(p, open);
       return box;
     }
-    [["give", "↑ Add to You give"], ["receive", "↓ Add to You get"]].forEach(([side, label]) => {
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "v2-btn v2-btn-soft";
+    add.textContent = "Add to trade";
+    add.setAttribute("aria-expanded", "false");
+    const menu = document.createElement("div");
+    menu.className = "v2-dmenu";
+    menu.hidden = true;
+    [["give", "↑ You give"], ["receive", "↓ You receive"]].forEach(([side, label]) => {
       const b = document.createElement("button");
       b.type = "button";
       b.className = "v2-btn";
@@ -758,8 +939,14 @@
         if (currentView() === "compare") renderCompare();
         else location.hash = "#compare-trade";
       });
-      box.appendChild(b);
+      menu.appendChild(b);
     });
+    add.addEventListener("click", () => {
+      menu.hidden = !menu.hidden;
+      add.setAttribute("aria-expanded", String(!menu.hidden));
+      if (!menu.hidden) menu.querySelector("button").focus();
+    });
+    box.append(add, menu);
     return box;
   }
 
@@ -867,6 +1054,20 @@
     });
   }
 
+  // Frame 18: when a league change makes a selected series unavailable, say which one was dropped.
+  let statusTimer = null;
+  function leagueChange(apply) {
+    const before = C.getActiveSources();
+    apply();
+    refresh();
+    const after = new Set(C.getActiveSources());
+    const dropped = before.filter(key => !after.has(key));
+    if (!dropped.length) return;
+    setStatus(`Removed ${dropped.map(key => sourceMeta(key).short).join(", ")}: not available for this league.`);
+    clearTimeout(statusTimer);
+    statusTimer = setTimeout(() => setStatus(""), 6000);
+  }
+
   function openLeague() {
     openPopover($("v2EditLeague"), pop => {
       heading(pop, "League settings", "Values recompute for your scoring, league size and roster.");
@@ -879,7 +1080,7 @@
       [["standard", "Standard"], ["half_ppr", "Half PPR"], ["ppr", "Full PPR"]].forEach(([v, t]) => {
         const o = document.createElement("option"); o.value = v; o.textContent = t; o.selected = v === s.scoring; sSel.appendChild(o);
       });
-      sSel.addEventListener("change", () => { C.setScoring(sSel.value); refresh(); });
+      sSel.addEventListener("change", () => leagueChange(() => C.setScoring(sSel.value)));
       scoring.appendChild(sSel);
       const teams = document.createElement("label");
       teams.textContent = "Teams";
@@ -887,7 +1088,7 @@
       [8, 10, 12, 14].forEach(v => {
         const o = document.createElement("option"); o.value = String(v); o.textContent = `${v} teams`; o.selected = v === s.teams; tSel.appendChild(o);
       });
-      tSel.addEventListener("change", () => { C.setTeams(Number(tSel.value)); refresh(); });
+      tSel.addEventListener("change", () => leagueChange(() => C.setTeams(Number(tSel.value))));
       teams.appendChild(tSel);
       row.append(scoring, teams);
       pop.appendChild(row);
@@ -902,7 +1103,7 @@
         const input = document.createElement("input");
         input.type = "number"; input.min = String(min); input.max = String(max); input.step = "1";
         input.value = String(shape[key]);
-        input.addEventListener("change", () => { C.setRosterSpot(key, input.value); refresh(); input.value = String(C.getRosterShape()[key]); });
+        input.addEventListener("change", () => { leagueChange(() => C.setRosterSpot(key, input.value)); input.value = String(C.getRosterShape()[key]); });
         label.appendChild(input);
         roster.appendChild(label);
       });
@@ -1338,14 +1539,20 @@
     $("v2TShowMore").addEventListener("click", () => { T.shown += TARGETS_PAGE; renderTargets(); });
   }
 
-  // ---------- Compare a trade (frames 07 / 08) ----------
+  // ---------- Compare a trade (frames 07 / 08, 24) ----------
   // Each row is one exact series: sum(receive) − sum(give) in that series'
   // values (app/v2/trade.js). No blended score, no overall verdict (frame 22).
   // The sides are v2 module state, so they survive switching tabs.
-  const TR = {give: [], receive: []};   // [{key, name}]
+  const TR = {give: [], receive: [], shown: null, open: new Set()};   // give/receive: [{key, name}]
   let compareView = null;
-  const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers"},
-    receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers"}};
+  const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
+    receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
+  const SIDE_NAME = {give: "You give", receive: "You receive"};
+
+  function seriesName(key) {
+    const meta = sourceMeta(key);
+    return `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`;
+  }
 
   function collectCompare() {
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
@@ -1358,9 +1565,15 @@
     const pointKeys = usable(view.plotKeys);
     const vorpKeys = usable(view.vorpKeys);
     const unavailable = view.active.filter(key => !view.infoByKey[key]?.available);
+    // "Player values shown": one exact series, the ranking series unless picked.
+    const shownChoices = pointKeys.concat(vorpKeys);
+    if (!shownChoices.includes(TR.shown)) TR.shown = shownChoices.includes(view.rankKey) ? view.rankKey : shownChoices[0] || null;
     const TC = window.TradeValueTrade;
-    compareView = {rowsByKey, giveRows, receiveRows, ready, pointKeys, vorpKeys, unavailable,
-      points: ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [],
+    const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
+    const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
+    compareView = {rowsByKey, giveRows, receiveRows, ready, pointKeys, vorpKeys, unavailable, shownChoices,
+      points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
+      totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp: ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : []};
   }
 
@@ -1373,7 +1586,7 @@
     sym.setAttribute("aria-hidden", "true");
     sym.textContent = `${meta.symbol} `;
     td.appendChild(sym);
-    td.append(document.createTextNode(`${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`));
+    td.append(document.createTextNode(seriesName(key)));
     const sub = document.createElement("span");
     sub.className = "th-sub";
     sub.textContent = item?.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "week unknown";
@@ -1383,15 +1596,60 @@
   function netLabel(net) {
     const text = fmtGap(net);
     if (text === "0.0") return {text, cls: "", label: "= even by this source"};
-    return net > 0 ? {text, cls: "up", label: "▲ you get more by this source"}
+    return net > 0 ? {text, cls: "up", label: "▲ you receive more by this source"}
       : {text, cls: "down", label: "▼ you give more by this source"};
+  }
+
+  // Frame 24 "Expanded result": every player's value in this series, each side's total, then the net.
+  function breakdownRow(result, columns) {
+    const tr = document.createElement("tr");
+    tr.className = "v2-cbreak";
+    tr.dataset.breakdown = result.key;
+    const td = document.createElement("td");
+    td.colSpan = columns;
+    const grid = document.createElement("div");
+    grid.className = "v2-cbreak-grid";
+    [["give", compareView.giveRows, result.give], ["receive", compareView.receiveRows, result.receive]].forEach(([side, rows, total]) => {
+      const col = document.createElement("div");
+      const h = document.createElement("p");
+      h.className = "v2-meta";
+      h.textContent = SIDE_NAME[side];
+      col.appendChild(h);
+      rows.forEach(row => {
+        const v = row.values ? row.values[result.key] : null;
+        const line = document.createElement("p");
+        line.dataset.playerKey = String(row.player_key);
+        line.append(document.createTextNode(`${row.name} `));
+        if (Number.isFinite(v)) {
+          const b = document.createElement("b");
+          b.textContent = fmt(v);
+          line.appendChild(b);
+        } else {
+          line.appendChild(missingNode(`No ${seriesName(result.key)} value for ${row.name}`, "no value"));
+        }
+        col.appendChild(line);
+      });
+      const t = document.createElement("p");
+      t.className = "v2-cbreak-total";
+      t.textContent = total === null ? "Total: incomplete" : `Total ${fmt(total)}`;
+      col.appendChild(t);
+      grid.appendChild(col);
+    });
+    const sum = document.createElement("p");
+    sum.className = `v2-cbreak-net ${result.net === null ? "" : netLabel(result.net).cls}`;
+    sum.textContent = result.net === null
+      ? "Receive − give: incomplete. A missing value is never counted as zero."
+      : `Receive − give = ${fmtGap(result.net)} ${sourceMeta(result.key).method === "vorp" ? "VORP vs waivers points" : "trade-value points"}`;
+    td.append(grid, sum);
+    tr.appendChild(td);
+    return tr;
   }
 
   function renderCompareTable(table, keys, rows) {
     table.replaceChildren();
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    [["Source", "player"], ["You give", "num"], ["You get", "num"], ["Get − give", "num"]].forEach(([text, cls]) => {
+    [["Source", "player"], ["Give", "num"], ["Receive", "num"], ["Less value · More value", "bar"], ["Receive − give", "num"]].forEach(([text, cls]) => {
       const th = document.createElement("th");
       th.scope = "col";
       th.className = cls;
@@ -1400,6 +1658,8 @@
     });
     thead.appendChild(hr);
     const tbody = document.createElement("tbody");
+    // Frame 24: empty or incomplete rows draw no bar; one scale per table.
+    const scale = rows.reduce((max, r) => (r.net === null ? max : Math.max(max, Math.abs(r.net))), 0);
     rows.forEach(result => {
       const tr = document.createElement("tr");
       tr.dataset.source = result.key;
@@ -1407,22 +1667,36 @@
       const source = document.createElement("td");
       source.className = "player";
       sourceCell(source, result.key);
+      const open = TR.open.has(result.key);
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "v2-link v2-cexpand";
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.textContent = open ? "Hide players ▴" : "Show players ▾";
+      toggle.addEventListener("click", () => {
+        if (TR.open.has(result.key)) TR.open.delete(result.key);
+        else TR.open.add(result.key);
+        renderCompare();
+        const again = document.querySelector(`#${table.id} tr[data-source="${result.key}"] .v2-cexpand`);
+        if (again) again.focus();
+      });
+      source.appendChild(toggle);
       tr.appendChild(source);
-      const cell = (label, name) => {
+      const cell = (label, name, cls) => {
         const td = document.createElement("td");
-        td.className = "num";
+        td.className = cls || "num";
         td.dataset.label = label;
         td.dataset.col = name;
         tr.appendChild(td);
         return td;
       };
-      const give = cell("You give", "give");
-      const get = cell("You get", "receive");
-      const net = cell("Get − give", "net");
+      const give = cell("Give", "give");
+      const get = cell("Receive", "receive");
+      const bar = cell("", "bar", "bar");
+      const net = cell("Receive − give", "net");
       if (result.net === null) {
         const names = result.missing.map(m => m.row.name || "a player");
-        const meta = sourceMeta(result.key);
-        const reason = `No ${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]} value for ${names.join(", ")}`;
+        const reason = `No ${seriesName(result.key)} value for ${names.join(", ")}`;
         [give, get].forEach(td => {
           const dash = document.createElement("span");
           dash.className = "missing";
@@ -1430,7 +1704,8 @@
           dash.textContent = "—";
           td.appendChild(dash);
         });
-        net.appendChild(missingNode(reason));
+        const node = missingNode(reason, `Incomplete: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`);
+        net.appendChild(node);
       } else {
         give.textContent = fmt(result.give);
         get.textContent = fmt(result.receive);
@@ -1440,8 +1715,19 @@
         why.className = `delta ${n.cls}`;
         why.textContent = n.label;
         net.appendChild(why);
+        const track = document.createElement("span");
+        track.className = "v2-dbar";
+        track.setAttribute("aria-hidden", "true");
+        const fill = document.createElement("span");
+        fill.className = `v2-dbar-fill ${n.cls}`;
+        const half = scale > 0 ? Math.min(50, (Math.abs(result.net) / scale) * 50) : 0;
+        fill.style.width = `${half}%`;
+        fill.style.left = result.net < 0 ? `${50 - half}%` : "50%";
+        track.appendChild(fill);
+        bar.appendChild(track);
       }
       tbody.appendChild(tr);
+      if (open) tbody.appendChild(breakdownRow(result, 5));
     });
     table.append(thead, tbody);
   }
@@ -1450,6 +1736,7 @@
     const list = $(SIDE_IDS[side].list);
     list.replaceChildren();
     const rows = side === "give" ? compareView.giveRows : compareView.receiveRows;
+    const shown = TR.shown;
     rows.forEach(row => {
       const li = document.createElement("li");
       li.dataset.playerKey = String(row.player_key);
@@ -1468,33 +1755,56 @@
       sub.textContent = row.unpriced ? "No value in any source for this league"
         : `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
       who.append(name, sub);
+      const value = document.createElement("span");
+      value.className = "v2-trade-value";
+      value.dataset.source = shown || "";
+      const v = shown && row.values ? row.values[shown] : null;
+      if (Number.isFinite(v)) value.textContent = fmt(v);
+      else value.appendChild(missingNode(`No ${shown ? seriesName(shown) : ""} value for ${row.name}`, "no value"));
       const remove = document.createElement("button");
       remove.type = "button";
-      remove.className = "v2-link";
-      remove.textContent = "Remove ✕";
+      remove.className = "v2-link v2-remove";
+      remove.textContent = "✕";
       remove.setAttribute("aria-label", `Remove ${row.name}`);
       remove.addEventListener("click", () => {
         TR[side] = TR[side].filter(p => p.key !== String(row.player_key));
         renderCompare();
         $(SIDE_IDS[side].search).focus();
       });
-      li.append(who, remove);
+      li.append(who, value, remove);
       list.appendChild(li);
     });
     if (!rows.length) {
       const li = document.createElement("li");
       li.className = "v2-meta is-empty";
-      li.textContent = "No players yet.";
+      li.textContent = "Search and add a player.";
       list.appendChild(li);
+    }
+    // Frame 07: "<series> total" at the foot of each side.
+    const total = $(SIDE_IDS[side].total);
+    const t = compareView.totals && compareView.totals[side];
+    total.hidden = !rows.length || !t;
+    total.replaceChildren();
+    if (rows.length && t) {
+      const label = document.createElement("span");
+      label.className = "v2-meta";
+      label.textContent = `${seriesName(t.key)} total`;
+      const value = document.createElement("b");
+      value.dataset.total = side;
+      if (t.total === null) {
+        value.appendChild(missingNode(`No ${seriesName(t.key)} value for ${t.missing.map(r => r.name).join(", ")}`, "incomplete"));
+      } else {
+        value.textContent = fmt(t.total);
+      }
+      total.append(label, value);
     }
   }
 
   function searchMatches(needle) {
-    const chosen = new Set(TR.give.concat(TR.receive).map(p => p.key));
     const rankKey = view.rankKey;
     const value = row => (Number.isFinite(row.values[rankKey]) ? row.values[rankKey] : -Infinity);
     return [...compareView.rowsByKey.values()]
-      .filter(row => !chosen.has(String(row.player_key)) && String(row.name || "").toLowerCase().includes(needle))
+      .filter(row => String(row.name || "").toLowerCase().includes(needle))
       .sort((a, b) => value(b) - value(a) || String(a.name).localeCompare(String(b.name)))
       .slice(0, 8);
   }
@@ -1508,53 +1818,121 @@
     input.focus();
   }
 
+  // Frame 24 / 18: results show position, team and the ranking series' value; a player
+  // already on the trade stays listed as "✓ Added" (disabled) instead of vanishing.
   function renderSearch(side) {
     const input = $(SIDE_IDS[side].search);
     const results = $(SIDE_IDS[side].results);
-    const needle = input.value.trim().toLowerCase();
+    const raw = input.value.trim();
+    const needle = raw.toLowerCase();
     results.replaceChildren();
     if (!needle || !compareView) { results.hidden = true; return []; }
+    const where = new Map(["give", "receive"].flatMap(s => TR[s].map(p => [p.key, s])));
     const matches = searchMatches(needle);
+    const addable = [];
     matches.forEach(row => {
+      const key = String(row.player_key);
+      const on = where.get(key);
       const li = document.createElement("li");
       const button = document.createElement("button");
       button.type = "button";
-      button.dataset.playerKey = String(row.player_key);
+      button.dataset.playerKey = key;
       const name = document.createElement("b");
       name.textContent = row.name;
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = ` ${row.pos} · ${row.team || "FA"}`;
+      const v = row.values[view.rankKey];
+      sub.textContent = ` ${row.pos} · ${row.team || "FA"} · ${sourceMeta(view.rankKey).short} ${Number.isFinite(v) ? fmt(v) : "—"}`;
       button.append(name, sub);
-      button.addEventListener("click", () => addToSide(side, row));
+      if (on) {
+        button.disabled = true;
+        button.setAttribute("aria-disabled", "true");
+        const added = document.createElement("span");
+        added.className = "v2-added";
+        added.textContent = on === side ? "✓ Added" : `✓ On ${SIDE_NAME[on]}`;
+        button.appendChild(added);
+      } else {
+        button.addEventListener("click", () => addToSide(side, row));
+        addable.push(row);
+      }
       li.appendChild(button);
       results.appendChild(li);
     });
     if (!matches.length) {
       const li = document.createElement("li");
       li.className = "v2-meta is-empty";
-      li.textContent = "No player matches.";
+      li.append(document.createTextNode(`No player matches “${raw}”. `));
+      const clear = document.createElement("button");
+      clear.type = "button";
+      clear.className = "v2-link";
+      clear.textContent = "Clear search";
+      clear.addEventListener("click", () => { input.value = ""; results.hidden = true; input.focus(); });
+      li.appendChild(clear);
       results.appendChild(li);
     }
     results.hidden = false;
-    return matches;
+    return addable;
+  }
+
+  // Frame 22 #15: copy names the publisher, methods and signed nets from data.
+  function renderStory() {
+    const box = $("v2CStory");
+    const s = compareView.story;
+    box.hidden = !s.kind || s.kind === "single";
+    box.dataset.story = s.kind || "";
+    if (box.hidden) return;
+    const title = $("v2CStoryTitle");
+    const text = $("v2CStoryText");
+    if (s.kind === "contrast") {
+      const name = PUBLISHER_NAMES[s.publisher] || s.publisher;
+      title.textContent = "Same publisher. Different result.";
+      text.textContent = `${name}: the Indexed chart shows ${fmtGap(s.indexed.net)}; Data Driven Adjustments show ${fmtGap(s.dda.net)}. `
+        + "Your league's adjustments reverse the direction. Compare the same publisher before comparing across sources.";
+    } else if (s.kind === "agree") {
+      title.textContent = "Every complete source points the same way.";
+      text.textContent = s.up ? `All ${s.total} complete sources show you receive more value than you give.`
+        : s.down ? `All ${s.total} complete sources show you give more value than you receive.`
+          : `All ${s.total} complete sources show the trade as even.`;
+    } else if (s.kind === "split") {
+      title.textContent = "The sources split.";
+      text.textContent = `${s.up} show you receive more, ${s.down} show you give more${s.even ? `, ${s.even} even` : ""}. `
+        + "A manager who trades off a source that favors their side is the one most likely to accept.";
+    } else {
+      title.textContent = "No complete source yet.";
+      text.textContent = "Every selected source is missing a value for at least one player, so no row has a result. See each row for who is missing.";
+    }
+  }
+
+  function renderShownPicker() {
+    const select = $("v2CShown");
+    select.replaceChildren();
+    compareView.shownChoices.forEach(key => {
+      const option = document.createElement("option");
+      option.value = key;
+      option.textContent = `${sourceMeta(key).symbol} ${sourceMeta(key).short}`;
+      select.appendChild(option);
+    });
+    select.value = TR.shown || "";
+    select.disabled = !compareView.shownChoices.length;
   }
 
   function renderCompare() {
     collect();
     collectCompare();
     renderHeader();
+    renderShownPicker();
     renderSidePlayers("give");
     renderSidePlayers("receive");
     const ready = compareView.ready;
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
-    $("v2CEmpty").textContent = !ready ? "Add at least one player to each side."
+    $("v2CEmpty").textContent = !ready ? "No result until both sides have at least one player."
       : "No trade-value source is selected. Use Edit sources to pick one.";
     const table = $("v2CTable");
     table.hidden = !ready || !compareView.pointKeys.length;
     renderCompareTable(table, compareView.pointKeys, compareView.points);
     $("v2CVorpCard").hidden = !ready || !compareView.vorpKeys.length;
     renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp);
+    renderStory();
     const notes = [];
     if (compareView.unavailable.length) {
       notes.push(`Not compared: ${compareView.unavailable.map(key => sourceMeta(key).short).join(", ")}, not available for this league.`);
@@ -1564,10 +1942,10 @@
     note.textContent = notes.join(" ");
     const count = compareView.giveRows.length + compareView.receiveRows.length;
     $("v2CMeta").textContent = ready
-      ? `${count} player${count === 1 ? "" : "s"} · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · `
-        + "each row is that source's values only. Positive means you get more value than you give by that source."
-      : "Pick the players on both sides to see each source's numbers.";
+      ? `Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, not a blended verdict.`
+      : "Receive − give, one row per source, once both sides have a player.";
     $("v2CClear").hidden = !count;
+    $("v2CSwap").hidden = !count;
     $("v2CShare").hidden = !ready;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
@@ -1625,7 +2003,9 @@
         }
       });
     });
-    $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; renderCompare(); });
+    $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; TR.open.clear(); renderCompare(); });
+    $("v2CSwap").addEventListener("click", () => { [TR.give, TR.receive] = [TR.receive, TR.give]; renderCompare(); });
+    $("v2CShown").addEventListener("change", event => { TR.shown = event.target.value; renderCompare(); });
   }
 
   // ---------- How values work (frames 15 / 16) ----------
@@ -1636,6 +2016,11 @@
     renderHeader();
     $("v2HowLeague").textContent = $("v2LeagueName").textContent;
     $("v2HowRoster").textContent = $("v2RosterLine").textContent;
+    const weights = C.getPositionWeights();
+    $("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]
+      .map(pos => `${pos} ${Number.isFinite(Number(weights[pos])) ? `${(Number(weights[pos]) * 100).toFixed(1)}%` : "—"}`).join(" · ");
+    const bench = C.getBenchShare();
+    $("v2HowBench").textContent = Number.isFinite(bench) ? `${(bench * 100).toFixed(1)}%` : "—";
     document.querySelectorAll("#v2How [data-sources]").forEach(list => {
       const method = list.dataset.sources;
       list.replaceChildren();
@@ -1664,28 +2049,55 @@
   }
 
   // ---------- Risers & fallers (frames 05 / 06) ----------
-  // One exact series at a time: Δ = this week − the engine's recompute of the
-  // prior week at the current setting (app/v2/movers.js). Fails closed on a
-  // series with no prior week: listed disabled with the engine's reason.
-  const RISERS_PAGE = 25;
-  const R = {side: "rise", series: null, search: "", shown: RISERS_PAGE};
+  // One exact series at a time: Δ = later week − earlier week, both recomputed by
+  // the engine at the current setting (app/v2/movers.js does the subtraction).
+  // The served pair uses the engine's rows for "now" and getPriorWeek for the week
+  // before; an earlier pair (frame 19 #05: the N−1 → N control) uses getWeekValues
+  // for both weeks. A series with no prior week is listed disabled with the reason.
+  const RISERS_PAGE = 10;
+  const R = {series: null, week: null, search: "", shown: {rise: RISERS_PAGE, fall: RISERS_PAGE}};
   let risersView = null;
+  const weeksCache = new Map();   // series -> getHistoryWeeks result (the saved weeks do not change)
+  const pairCache = new Map();    // "series:week" -> {prior, after} for an earlier week pair
 
   function priorLabel(key) {
     const meta = sourceMeta(key);
     return `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`;
   }
 
+  // Week pairs the engine can price for a series: every saved week whose week before is
+  // also saved, up to the week served now. Latest first.
+  function weekPairs(key) {
+    const info = weeksCache.get(key);
+    if (!info || !Number.isInteger(info.servedWeek)) return [];
+    const saved = new Set(info.weeks);
+    return info.weeks.filter(week => week <= info.servedWeek && saved.has(week - 1)).reverse();
+  }
+
+  function loadPair(key, week) {
+    const id = `${key}:${week}`;
+    const stamp = priorStamp;
+    return Promise.all([C.getWeekValues(key, week), C.getWeekValues(key, week - 1)])
+      .catch(error => [{available: false, reason: error.message}, {available: false, reason: error.message}])
+      .then(([after, before]) => {
+        if (stamp !== priorStamp) return;
+        const available = after.available && before.available;
+        pairCache.set(id, {after, prior: {available, reason: available ? null : (after.available ? before.reason : after.reason),
+          values: before.values, currentWeek: week, priorWeek: week - 1}});
+      });
+  }
+
   function renderRisers() {
     collect();
     renderHeader();
     const M = window.TradeValueMovers;
+    const loading = text => {
+      $("v2RMeta").textContent = text;
+      ["v2RRise", "v2RFall"].forEach(id => $(id).replaceChildren());
+    };
     const missing = M.SERIES.filter(key => !priorCache.has(key));
     if (missing.length) {
-      $("v2RMeta").textContent = "Recomputing last week for your league…";
-      $("v2RTable").replaceChildren();
-      $("v2RCards").replaceChildren();
-      $("v2REmpty").hidden = true;
+      loading("Recomputing last week for your league…");
       priorsFor(M.SERIES).then(() => { if (currentView() === "risers") renderRisers(); });
       return;
     }
@@ -1699,113 +2111,82 @@
       const option = document.createElement("option");
       option.value = key;
       option.disabled = !prior.available;
-      option.textContent = `${sourceMeta(key).symbol} ${priorLabel(key)}`
-        + (prior.available ? ` · Week ${prior.currentWeek} vs ${prior.priorWeek}` : " — no prior week");
+      option.textContent = `${sourceMeta(key).symbol} ${priorLabel(key)}` + (prior.available ? "" : " — no prior week");
       option.title = prior.available ? "" : prior.reason;
       select.appendChild(option);
     });
     select.value = R.series;
     $("v2RPosition").value = view.state.position;
-    document.querySelectorAll("#v2Risers [data-move]").forEach(button => {
-      const on = button.dataset.move === R.side;
-      button.classList.toggle("is-on", on);
-      button.setAttribute("aria-pressed", String(on));
+    const servedPrior = priorCache.get(R.series);
+    if (servedPrior.available && !weeksCache.has(R.series)) {
+      loading("Reading the saved weeks…");
+      Promise.resolve().then(() => C.getHistoryWeeks(R.series))
+        .catch(error => ({servedWeek: null, weeks: [], reason: error.message}))
+        .then(info => { weeksCache.set(R.series, info); if (currentView() === "risers") renderRisers(); });
+      return;
+    }
+    const pairs = servedPrior.available ? weekPairs(R.series) : [];
+    if (!pairs.includes(R.week)) R.week = servedPrior.available ? servedPrior.currentWeek : null;
+    const weeks = $("v2RWeeks");
+    weeks.replaceChildren();
+    (pairs.length ? pairs : [R.week]).forEach(week => {
+      const option = document.createElement("option");
+      option.value = String(week);
+      option.textContent = Number.isInteger(week) ? `Week ${week - 1} → Week ${week}` : "No week pair";
+      weeks.appendChild(option);
     });
-    const prior = priorCache.get(R.series);
+    weeks.value = String(R.week);
+    weeks.disabled = pairs.length < 2;
+    let prior = servedPrior;
+    let source = C.getRows();
+    if (servedPrior.available && R.week !== servedPrior.currentWeek) {
+      const pair = pairCache.get(`${R.series}:${R.week}`);
+      if (!pair) {
+        loading(`Recomputing Weeks ${R.week - 1} and ${R.week} for your league…`);
+        loadPair(R.series, R.week).then(() => { if (currentView() === "risers") renderRisers(); });
+        return;
+      }
+      prior = pair.prior;
+      const later = pair.after.values || {};
+      source = source.map(row => ({...row, values: {...row.values, [R.series]: later[String(row.player_key)] ?? null}}));
+    }
     const needle = R.search.trim().toLowerCase();
-    const rows = C.getRows().filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
+    const rows = source.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
     risersView = M.buildMovers(rows, R.series, prior);
-    const list = R.side === "rise" ? risersView.risers : risersView.fallers;
     const label = priorLabel(R.series);
-    $("v2RCardTitle").textContent = R.side === "rise" ? `Risers: ${label}` : `Fallers: ${label}`;
-    $("v2RMeta").textContent = risersView.available
-      ? `${list.length} of ${risersView.compared} players · Δ = Week ${risersView.currentWeek} − Week ${risersView.priorWeek}, `
-        + `${R.side === "rise" ? "largest rise" : "largest fall"} first. `
-        + (R.series === "espn" || R.series === "cbsros" || R.series === "razzball"
+    const v = risersView;
+    $("v2RMeta").textContent = v.available
+      ? `${label} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
+        + (sourceMeta(R.series).method === "dda"
           ? "A projection moving is a change in that source's outlook."
-          : (R.side === "rise" ? "Managers who trade off this chart now pay more for these players." : "Managers who trade off this chart now pay less for these players."))
-      : "—";
-    renderMoverTable(list);
-    renderMoverCards(list);
-    const empty = $("v2REmpty");
-    empty.hidden = risersView.available && list.length > 0;
-    empty.textContent = !risersView.available
-      ? `No Δ for ${label}: ${risersView.reason}.`
-      : `No player ${R.side === "rise" ? "rose" : "fell"} in ${label} for this selection.`;
-    $("v2RTable").hidden = !list.length;
+          : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
+      : `No Δ for ${label}: ${v.reason}.`;
+    // One bar scale for both lists, so a bar's length means the same number of points on either side.
+    const shownItems = v.risers.slice(0, R.shown.rise).concat(v.fallers.slice(0, R.shown.fall));
+    const scale = shownItems.reduce((max, item) => Math.max(max, Math.abs(item.delta)), 0);
+    renderMoverList("rise", v.risers, scale);
+    renderMoverList("fall", v.fallers, scale);
+    $("v2RScale").textContent = scale > 0
+      ? `Bars share a scale of ${scale.toFixed(1)} value points (the largest change shown). Δ — for missing history: never a zero change.`
+      : "Δ — for missing history: never a zero change.";
     const notes = [];
-    if (risersView.noPrior) notes.push(`${risersView.noPrior} player${risersView.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${risersView.priorWeek}, so no Δ.`);
-    if (risersView.unchanged) notes.push(`${risersView.unchanged} unchanged (Δ 0.0).`);
+    if (v.noPrior) notes.push(`${v.noPrior} player${v.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${v.priorWeek}, so no Δ.`);
+    if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
+    if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
     if (unavailable.length) notes.push(`No prior week: ${unavailable.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
     const note = $("v2RNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
-    const more = $("v2RShowMore");
-    more.hidden = list.length <= R.shown;
-    more.textContent = `Show more players (${Math.min(R.shown, list.length)} of ${list.length})`;
   }
 
-  function moverDelta(item, tag) {
-    const node = document.createElement(tag || "span");
-    node.className = `delta gap ${item.delta > 0 ? "up" : "down"}`;
-    node.textContent = `${item.delta > 0 ? "▲" : "▼"} ${fmtGap(item.delta)}`;
-    return node;
-  }
-
-  function renderMoverTable(list) {
-    const table = $("v2RTable");
-    table.replaceChildren();
-    if (!risersView.available) return;
-    const thead = document.createElement("thead");
-    const hr = document.createElement("tr");
-    [["Player", "player"], ["Pos", "col-meta"], ["Team", "col-meta"],
-      [`Week ${risersView.currentWeek}`, "num is-rank"], [`Week ${risersView.priorWeek}`, "num"], ["Δ", "num"]].forEach(([text, cls]) => {
-      const th = document.createElement("th");
-      th.scope = "col";
-      th.className = cls;
-      th.textContent = text;
-      hr.appendChild(th);
-    });
-    thead.appendChild(hr);
-    const tbody = document.createElement("tbody");
-    list.slice(0, R.shown).forEach(item => {
-      const row = item.row;
-      const tr = document.createElement("tr");
-      tr.tabIndex = 0;
-      tr.dataset.playerKey = String(row.player_key);
-      tr.addEventListener("click", () => openDrawer(row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
-      const td = (cls, text) => {
-        const cell = document.createElement("td");
-        cell.className = cls;
-        if (text !== undefined) cell.textContent = text;
-        tr.appendChild(cell);
-        return cell;
-      };
-      const name = td("player", row.name);
-      appendEspnZero(name, row);
-      const sub = document.createElement("span");
-      sub.className = "player-sub";
-      sub.textContent = `${row.pos} · ${row.team || "FA"}`;
-      name.appendChild(sub);
-      td("col-meta", row.pos);
-      td("col-meta", row.team || "FA");
-      td("num is-rank", fmt(item.current)).dataset.col = "now";
-      td("num", fmt(item.before)).dataset.col = "before";
-      const d = td("num");
-      d.dataset.col = "delta";
-      d.appendChild(moverDelta(item));
-      tbody.appendChild(tr);
-    });
-    table.append(thead, tbody);
-  }
-
-  function renderMoverCards(list) {
-    const ol = $("v2RCards");
+  function renderMoverList(side, list, scale) {
+    const ids = side === "rise" ? {list: "v2RRise", empty: "v2RRiseEmpty", more: "v2RRiseMore"}
+      : {list: "v2RFall", empty: "v2RFallEmpty", more: "v2RFallMore"};
+    const ol = $(ids.list);
     ol.replaceChildren();
-    if (!risersView.available) return;
-    list.slice(0, R.shown).forEach(item => {
+    const v = risersView;
+    list.slice(0, R.shown[side]).forEach(item => {
       const row = item.row;
       const li = document.createElement("li");
       li.tabIndex = 0;
@@ -1813,7 +2194,7 @@
       li.addEventListener("click", () => openDrawer(row));
       li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
       const top = document.createElement("div");
-      top.className = "top";
+      top.className = "m-top";
       const who = document.createElement("div");
       const name = document.createElement("b");
       name.textContent = row.name;
@@ -1822,37 +2203,54 @@
       sub.className = "v2-meta";
       sub.textContent = `${row.pos} · ${row.team || "FA"}`;
       who.append(name, sub);
-      const big = moverDelta(item, "div");
+      const big = document.createElement("div");
       big.className = `big ${item.delta > 0 ? "up" : "down"}`;
       big.dataset.col = "delta";
+      big.textContent = `${item.delta > 0 ? "▲" : "▼"} ${fmtGap(item.delta)}`;
       top.append(who, big);
-      const vals = document.createElement("div");
-      vals.className = "vals";
-      const now = document.createElement("span");
-      now.className = "ours";
-      now.dataset.col = "now";
-      now.textContent = `Week ${risersView.currentWeek} ${fmt(item.current)}`;
+      const bottom = document.createElement("div");
+      bottom.className = "m-bottom";
+      const vals = document.createElement("span");
+      vals.className = "v2-meta m-vals";
+      vals.title = `Week ${v.priorWeek} → Week ${v.currentWeek}`;
       const before = document.createElement("span");
       before.dataset.col = "before";
-      before.textContent = `Week ${risersView.priorWeek} ${fmt(item.before)}`;
-      vals.append(now, before);
-      li.append(top, vals);
+      before.textContent = fmt(item.before);
+      const now = document.createElement("span");
+      now.dataset.col = "now";
+      now.textContent = fmt(item.current);
+      vals.append(before, document.createTextNode(" → "), now);
+      const bar = document.createElement("span");
+      bar.className = `m-bar ${item.delta > 0 ? "up" : "down"}`;
+      bar.setAttribute("aria-hidden", "true");
+      const fill = document.createElement("span");
+      fill.style.width = `${scale > 0 ? Math.min(100, (Math.abs(item.delta) / scale) * 100) : 0}%`;
+      bar.appendChild(fill);
+      bottom.append(vals, bar);
+      li.append(top, bottom);
       ol.appendChild(li);
     });
+    const empty = $(ids.empty);
+    empty.hidden = v.available && list.length > 0;
+    empty.textContent = !v.available ? "No Δ for this source: see the note above."
+      : `No player ${side === "rise" ? "rose" : "fell"} in ${priorLabel(R.series)} for this selection.`;
+    const more = $(ids.more);
+    more.hidden = list.length <= R.shown[side];
+    more.textContent = `Show more ${side === "rise" ? "risers" : "fallers"} (${Math.min(R.shown[side], list.length)} of ${list.length})`;
   }
 
   function bindRisers() {
     let timer = null;
+    const reset = () => { R.shown = {rise: RISERS_PAGE, fall: RISERS_PAGE}; };
     $("v2RSearch").addEventListener("input", event => {
       clearTimeout(timer);
-      timer = setTimeout(() => { R.search = event.target.value; R.shown = RISERS_PAGE; renderRisers(); }, 120);
+      timer = setTimeout(() => { R.search = event.target.value; reset(); renderRisers(); }, 120);
     });
-    $("v2RPosition").addEventListener("change", event => { C.setPosition(event.target.value); R.shown = RISERS_PAGE; renderRisers(); });
-    $("v2RSeries").addEventListener("change", event => { R.series = event.target.value; R.shown = RISERS_PAGE; renderRisers(); });
-    document.querySelectorAll("#v2Risers [data-move]").forEach(button => {
-      button.addEventListener("click", () => { R.side = button.dataset.move; R.shown = RISERS_PAGE; renderRisers(); });
-    });
-    $("v2RShowMore").addEventListener("click", () => { R.shown += RISERS_PAGE; renderRisers(); });
+    $("v2RPosition").addEventListener("change", event => { C.setPosition(event.target.value); reset(); renderRisers(); });
+    $("v2RSeries").addEventListener("change", event => { R.series = event.target.value; R.week = null; reset(); renderRisers(); });
+    $("v2RWeeks").addEventListener("change", event => { R.week = Number(event.target.value); reset(); renderRisers(); });
+    $("v2RRiseMore").addEventListener("click", () => { R.shown.rise += RISERS_PAGE; renderRisers(); });
+    $("v2RFallMore").addEventListener("click", () => { R.shown.fall += RISERS_PAGE; renderRisers(); });
   }
 
   // ---------- routing ----------
@@ -1871,7 +2269,7 @@
     $("v2Risers").hidden = v !== "risers";
     $("v2How").hidden = v !== "how";
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
-    $("v2Methods").hidden = v === "targets" || v === "how" || v === "risers";
+    $("v2Methods").hidden = v === "targets" || v === "risers";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -1888,6 +2286,7 @@
     collect();
     renderHeader();
     renderEmpty();
+    renderNotice();
     renderCharts();
     renderTable();
   }
@@ -1907,6 +2306,23 @@
     }
     if (view.state.position !== "ALL") why.push(`the position filter is ${view.state.position}`);
     $("v2EmptyText").textContent = why.length ? `With these filters, ${why.join("; ")}.` : "No player is priced for this selection.";
+    const active = {search: Boolean(state.search.trim()), range: state.range.min !== null || state.range.max !== null,
+      position: view.state.position !== "ALL"};
+    document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => { button.hidden = !active[button.dataset.clear]; });
+    $("v2EmptyClear").hidden = Object.values(active).filter(Boolean).length < 2;
+  }
+
+  // Frame 18: "Only one comparable series" and "No current-week sources".
+  function renderNotice() {
+    const keys = view.plotKeys.filter(key => view.infoByKey[key]?.available);
+    let text = "";
+    if (keys.length && keys.every(key => view.infoByKey[key]?.stale)) {
+      text = "No current-week values are selected. The values shown are from an older week and are labeled; choose a current-week source to compare.";
+    } else if (keys.length === 1) {
+      text = `Only one series is selected (${sourceMeta(keys[0]).short}). Choose another source to see where the sources disagree.`;
+    }
+    $("v2Notice").hidden = !text;
+    $("v2NoticeText").textContent = text;
   }
 
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
@@ -1933,6 +2349,17 @@
     });
     $("v2RangeBtn").addEventListener("click", openRange);
     $("v2EmptyClear").addEventListener("click", () => $("v2ClearFilters").click());
+    $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));
+    document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => {
+      button.addEventListener("click", () => {
+        const what = button.dataset.clear;
+        if (what === "search") { state.search = ""; $("v2Search").value = ""; }
+        if (what === "range") state.range = {min: null, max: null};
+        if (what === "position") C.setPosition("ALL");
+        state.shown = PAGE_SIZE;
+        refresh();
+      });
+    });
     $("v2ClearFilters").addEventListener("click", () => {
       state.search = ""; $("v2Search").value = "";
       state.range = {min: null, max: null};
@@ -1944,6 +2371,7 @@
     $("v2EditLeague").addEventListener("click", openLeague);
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
+    $("v2HowWeightsBtn").addEventListener("click", openWeights);
     $("v2ShowMore").addEventListener("click", () => { state.shown += PAGE_SIZE; renderTable(); });
     document.querySelectorAll(".v2-seg button").forEach(button => {
       button.addEventListener("click", () => { state.windowPreset = button.dataset.window; refresh(); });
@@ -1998,6 +2426,7 @@
     // New rows (league, weights, sources): every prior-week recompute is stale.
     window.addEventListener("trade-value-rows-change", () => {
       priorCache.clear();
+      pairCache.clear();
       priorStamp += 1;
       if (!C) return;
       if (currentView() === "risers") renderRisers();

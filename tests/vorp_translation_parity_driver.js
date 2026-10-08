@@ -28,6 +28,7 @@ const results = payload.vectors.map(vector => {
         flexCount: vector.flex_count,
         slots: vector.slots || undefined,
         flexEligible: vector.flex_eligible || undefined,
+        superflexCount: vector.superflex_count === null ? undefined : vector.superflex_count,
       })};
     }
     const toRanked = byPos => {
@@ -61,6 +62,7 @@ const results = payload.vectors.map(vector => {
       slots: vector.slots || undefined,
       flexEligible: vector.flex_eligible || undefined,
       ourMax: vector.our_max || undefined,
+      superflexCount: vector.superflex_count === null ? undefined : vector.superflex_count,
       peers,
     });
     return {version: out.version, positions: out.positions, translated: out.translated};

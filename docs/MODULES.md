@@ -61,6 +61,8 @@
 
 ## Live Dashboard
 
+**Ops dashboard (start here):** https://jb-barrel-droid.github.io/fantasy-tools/modules/status.html -- pipelines, back end, front end and alerts with as-of times (see SYSTEM_MAP.md "Internal Monitoring"). The data monitor below is the drill-down.
+
 **URL:** https://jb-barrel-droid.github.io/fantasy-tools/modules/dashboard.html
 
 Fetches live `comparison-sources-data.json` + `source-import-health.json` via JavaScript.

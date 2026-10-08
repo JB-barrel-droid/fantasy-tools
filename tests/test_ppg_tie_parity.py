@@ -103,8 +103,9 @@ class PpgTieParity(unittest.TestCase):
     def test_bake_keeps_precision(self):
         """Every per-game rate the bake writes rounds to PPG_DECIMALS."""
         src = (ROOT / "pipelines" / "bake_players.py").read_text(encoding="utf-8")
-        for field in ("espn_ppg", "blend_ppg", "pm_ppg", "pm_filled_ppg",
-                      "rz_ppg", "cbsros_ppg"):
+        # pm_ppg / pm_filled_ppg left with the prediction-markets leg
+        # (retired 2026-10-08, GAP-MUSE-OFF-PULLERS).
+        for field in ("espn_ppg", "blend_ppg", "rz_ppg", "cbsros_ppg"):
             line = next(l for l in src.splitlines() if f'row["{field}"] = {{' in l)
             self.assertIn("PPG_DECIMALS", line, f"{field}: {line.strip()}")
         self.assertGreaterEqual(PPG_DECIMALS, 6)

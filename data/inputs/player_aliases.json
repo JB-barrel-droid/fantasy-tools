@@ -1,0 +1,24 @@
+{
+  "schema": "player-aliases-v1",
+  "about": "THE single list of verified player-name aliases. Every name resolver in the repo (reference savers, DDF legs, players.json bake intakes, match_source_snapshot, legacy ESPN pull, layered/Sleeper identity) reads it through pipelines/lib/player_aliases.py; tests/test_player_aliases.py fails if a resolver keeps a private list. An entry says: a source spelling that normalizes (canonical_players.norm_player_name) to the same form as `alias` is the public.players row `player_key`, whose full_name is `full_name`. Add an entry only after checking public.players: exactly one row has that player_key/full_name/position, and no other row's name normalizes to the alias. Exact spellings only; no fuzzy matching. data/inputs/player_identity_map.json alias_to_canonical may hold only mechanical variants (same norm_player_name form), never a curated alias.",
+  "aliases": [
+    {"alias": "Cameron Ward", "player_key": 697, "full_name": "Cam Ward", "pos": "QB",
+     "verified": "2026-09-19; re-checked 2026-10-08 public.players (one row; no 'Cameron Ward' row)"},
+    {"alias": "Cameron Skattebo", "player_key": 3664, "full_name": "Cam Skattebo", "pos": "RB",
+     "verified": "2026-09-19; re-checked 2026-10-08 public.players (one row; no 'Cameron Skattebo' row)"},
+    {"alias": "Travis Etienne Jr.", "player_key": 810, "full_name": "Travis Etienne", "pos": "RB",
+     "verified": "2026-09-19; re-checked 2026-10-08 public.players (one row; Trevor Etienne 3024 is a different player)"},
+    {"alias": "Michael Pittman Jr.", "player_key": 561, "full_name": "Michael Pittman", "pos": "WR",
+     "verified": "2026-09-19; re-checked 2026-10-08 public.players (one row)"},
+    {"alias": "Kenny Gainwell", "player_key": 785, "full_name": "Kenneth Gainwell", "pos": "RB",
+     "verified": "2026-10-07 FantasyPros Week 5 / FantasyCalc review rows; re-checked 2026-10-08 public.players (one row)"},
+    {"alias": "Joshua Palmer", "player_key": 822, "full_name": "Josh Palmer", "pos": "WR",
+     "verified": "2026-10-08 Razzball review row; public.players one row (Trey Palmer 1347, Tejhaun Palmer 3425 are different players)"},
+    {"alias": "Drew Ogletree", "player_key": 920, "full_name": "Andrew Ogletree", "pos": "TE",
+     "verified": "2026-10-08 Razzball review row; public.players one row"},
+    {"alias": "Chigoziem Okonkwo", "player_key": 4247, "full_name": "Chig Okonkwo", "pos": "TE",
+     "verified": "2026-10-08 Razzball / CBS ROS review row; public.players one Okonkwo row"},
+    {"alias": "Mitch Trubisky", "player_key": 4214, "full_name": "Mitchell Trubisky", "pos": "QB",
+     "verified": "2026-10-08 Razzball / CBS ROS review row; public.players one Trubisky row"}
+  ]
+}

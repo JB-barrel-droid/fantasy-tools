@@ -1,139 +1,96 @@
-# Source-pull watchdog
+# Source producers and schedules
 
-**What it is:** the automated fail-checking layer over every pull that feeds
-the trade-value chart. Runs after each pull's expected time, distinguishes
-"the source didn't change" from "the pull failed", and escalates only what a
-worker can't fix.
+Every job that pulls a source and writes it to Supabase, who schedules it, and
+how it proves it ran. Rewritten 2026-10-08 (producers lane); this file used to
+describe the Muse-era source-pull watchdog, which is retired (see the end).
 
-**Health surface:** `ops/watchdog/health.json` (written by the watchdog;
-runtime state, not committed). One JSON object, one source of truth for
-both dashboard display and release blocking.
+Rules that hold for every producer:
 
-**Scope rule (Jeremy 2026-09-22):** the goal-workspace pull scripts
-(`~/workspace/goals/football-signal-database-and-app/lottery/bin/`,
-`football-signal/bin/`) keep running untouched until the repo pipeline
-replaces them. This watchdog only *reads* their outputs (by absolute path,
-same machine) — it never modifies them. New pull logic lives here in
-`ops/watchdog/`; old scripts are replaced, not patched in place.
+- **pg_cron is the only scheduler.** Each producer is a GitHub Actions workflow
+  with no `schedule:`; a Supabase pg_cron job dispatches it through
+  `public.dispatch_gha_workflow(<workflow>, <inputs jsonb>)`. One owner, so a
+  schedule change is one SQL statement.
+- **Producers only write source tables.** Publishing is the rebuild chain's job
+  (`rebuild-chain-live`, every 6 h at :17; `rebuild-chain-bake-live` 11:45 UTC
+  also re-bakes players.json). A producer that misses a day leaves the last good
+  data in place; the chain keeps publishing it under its own vintage.
+- **Every producer records its run** in `monitoring.check_observations` (write
+  mode only). `config/monitoring_coverage.json` maps workflow -> pg_cron job ->
+  check; `tests/test_monitoring_coverage.py` enforces it.
+- **Dry runs are free.** Dispatching any producer without its write input (or
+  pushing to its `*/dry-*` branch) pulls, resolves and validates without writing.
 
-## Components
+Per-source cadence and retry slots are owned by the refresh-cadence lane
+(`feat/refresh-cadence`); the table below is the state on 2026-10-08.
 
-| File | Role |
+## Producer table (live state, read from `cron.job` 2026-10-08)
+
+| Source | pg_cron job | When (UTC) | Workflow (entry point) | Write inputs | Writes | Monitored check |
+|---|---|---|---|---|---|---|
+| ESPN projections | `trigger-espn-sync-live` | daily 11:30 | `espn-supabase-sync.yml` | `{}` (writes unless `dry_run: true`) | ESPN tables | `espn_supabase_sync` |
+| Razzball ROS | `razzball-sync-live` | daily 11:20 | `razzball-supabase-sync.yml` | `{"mode": "write"}` | `public.razzball_projections` | `razzball_projections_sync` |
+| CBS ROS | `trigger-cbsros-sync-live` (+ `trigger-cbsros-sync-retry` 17:00 if no row today) | Wed 11:00 | `cbsros-supabase-sync.yml` | `{}` | `public.cbs_ros_projections` | `cbsros_supabase_sync` |
+| CBS trade chart, USA Today, FantasyPros | `trade-chart-ingest-live` | daily 12:07 | `trade-chart-ingest.yml` (matrix cbs / usatoday / fantasypros) | `{"mode": "write"}`; optional `source` (`cbs`, `usatoday`, `fantasypros`, `both`) and `week` | `public.source_trade_values` (cbs: its table) | `cbs_trade_chart_ingest`, `usatoday_trade_chart_ingest` (FantasyPros not recorded) |
+| FantasyCalc | `trigger-fantasycalc-weekly-save` | Tue + Fri 13:07 | `fantasycalc-weekly-save.yml` | `{"mode": "write"}` | `public.source_trade_values` bake `fcwk<week>_<date>_v1` (12 teams, 1 QB, 3 scorings; `value` reindexed, `native_value` raw) | `fantasycalc_weekly_save` |
+| Sleeper identity | `sleeper-identity-refresh-live` | Tue + Thu 09:17 | `sleeper-identity-refresh.yml` | `{}` | identity base | `sleeper_identity_refresh` |
+
+Downstream, not producers: `rebuild-chain-live` (6-hourly :17),
+`rebuild-chain-bake-live` (11:45), `pages-deploy-live` (11:30),
+`trigger-player-trace-live` (daily 12:47 after
+`producers_schedule_tidy_20261008.sql`; served monitor page),
+`vintage-check-live` (hourly).
+
+Manual only (no pg_cron job): `fantasycalc-drift.yml` (has FantasyCalc moved
+since the last save?), `weekly-dashboard-load.yml` (Weekly Signals, paused,
+JEG-399), `bake-players.yml`, `cbsros-consolidation-load.yml`.
+
+Dispatch by hand (integrator; production writes):
+
+```
+gh workflow run fantasycalc-weekly-save.yml -f mode=write
+gh workflow run trade-chart-ingest.yml -f mode=write -f source=usatoday
+gh workflow run razzball-supabase-sync.yml -f mode=write
+gh workflow run espn-supabase-sync.yml
+gh workflow run cbsros-supabase-sync.yml
+```
+
+## USA Today fetch chain
+
+usatoday.com answers GitHub-hosted runners with HTTP 402 ("Access
+Restricted"); the gannett-cdn sitemaps still answer, so discovery works from
+CI. The article fetch (`ops/watchdog/pull_usatoday.py: fetch_article`) is:
+
+1. **Direct.** Any status other than 401/402/403/429 is returned as is.
+2. **Supabase relay** (primary fallback): Edge Function `usatoday-fetch`,
+   called with the existing `SUPABASE_URL` / `SUPABASE_SERVICE_KEY` secrets.
+   Supabase egress is not walled (Week 5 ingested through it, 2026-10-07).
+3. **Firecrawl** (optional): only when the `FIRECRAWL_API_KEY` repo secret
+   exists; the workflow maps it into the Ingest step. Empty secret = skipped.
+4. **SOURCE_BLOCKED.** A fallback counts only if it returns 200 *with the
+   chart's table markup*; a 200 interstitial falls through to the next one.
+   When none succeeds the run fails with `SOURCE_BLOCKED ... (fallbacks:
+   supabase relay=..., firecrawl=...)`, recorded as error code
+   `SOURCE_BLOCKED` on the warn-level `usatoday_trade_chart_ingest` check. The
+   last good week stays published.
+
+Pinned by `tests/test_trade_chart_ingest_ci.py` (UsatSourceBlockedFallbackTests).
+
+## Failure path
+
+When a producer's check goes red: read the run's annotations (the ingest
+steps surface their log tail as `::notice`/`::error`), check whether the
+source URL or markup changed, run the producer in dry mode on a branch to
+reproduce, fix the pull code, re-run in write mode. Escalate to Jeremy only
+when it cannot be fixed (what broke, what was tried, what is needed).
+
+## Muse-era jobs (disabled 2026-10-06) and what replaced them
+
+| Muse job | Outcome |
 |---|---|
-| `ops/watchdog/pull_watchdog.py` | The checker. Reads pull outputs + the import-health contract, writes `health.json`, exits 1 on failed/stale. |
-| `ops/watchdog/_common.py` | Shared: CT clock, NFL-week calendar, curl fetch, runs-log classification. |
-| `ops/watchdog/pull_usatoday.py` | NEW USA Today pull with sitemap-based auto-discovery (replaces the hardcoded article URL). Dry-run by default; `--write` saves a provisional repo-local pull. |
-| `ops/watchdog/pull_cbs.py` | NEW CBS pull with week-slug auto-discovery + TableBuilder validation. Dry-run by default; `--write` saves a provisional repo-local pull. |
-| `tests/test_pull_watchdog.py` | 34 negative tests (see below). |
-| `output/source-import-health.json` | Stage-1 contract (`trade-value-import-health-v1`) consumed for the "landed in Supabase" check. The watchdog refreshes it via `make import-health NFL_WEEK=<n>` before reading. |
-
-## Per-source checks
-
-For each of the 9 pulls (prediction markets, FP season snapshot, ESPN,
-Razzball, ECR weekly, FP trade chart, FantasyCalc, USA Today, CBS):
-
-1. **Ran on schedule** — today's runs-log line for the scripted pulls;
-   artifact mtime for the browser/weekly ones.
-2. **Content vintage, not pull time** — from the pull's own meta
-   (vintage/hash, article week). A hash-conditional no-op ("source
-   unchanged") is healthy; a missing run is stale.
-3. **Sane row counts** — per-source minimums; zero rows fail closed.
-4. **Clean identity resolution** — no FAILED/Traceback markers in today's
-   log lines; meta n_priced > 0.
-5. **Supabase landed** — the `trade-value-import-health-v1` contract
-   (see `docs/import-health-schema.md`); `ok` and `stale` both count as
-   landed (staleness is about the source's vintage, not the import).
-
-**Fail-closed audit:** a FAILED run must never rewrite its artifact. When
-today's log shows FAILED, the artifact mtime must be older than the failed
-run — otherwise the failure poisoned downstream and the watchdog flags it
-CRITICAL.
-
-**Wednesday rule:** on Wednesdays the FantasyCalc snapshot must be ≤2 days
-old (Wednesday cadence); other days ≤7 days. The check reads the weekly
-`fantasycalc_snapshot.json` manifest (week label + combo list) and the
-representative `fantasycalc_half_12_qb1.json` per-combo cache file — never
-the bare `fantasycalc_half_12.json`, which has been a dead legacy file since
-the 2026-09-16 per-combo cache split (checking it false-alarmed STALE on
-2026-09-22). Zero rows or any missing combo fails closed.
-
-**NFL week convention:** the watchdog passes the pull scripts'
-Thursday-flip `nfl_week()` to `make import-health`. Passing a week whose
-articles don't exist yet would false-alarm STALE_VINTAGE on every source
-(verified 2026-09-22: week-3 CBS slug 404s, no week-3 in the USA Today
-sitemap). Known open question: stage 1's first import-health run used week
-3 per the board-week (Tue–Mon) convention; the watchdog deliberately uses
-the pull-script convention. Revisit if the project standardizes on one.
-
-## Failure path (standing authorization: pull scripts + source discovery only)
-
-When a check fails, the worker:
-
-1. Inspects the runs log + HTTP response.
-2. Checks whether the article URL or page schema changed.
-3. Runs the repo discovery modules (`pull_usatoday.py` / `pull_cbs.py`
-   dry-run) to find the current source.
-4. Repairs only the relevant pull/discovery code, re-runs, and verifies
-   the Supabase landing + downstream safety.
-5. Escalates to Jeremy only if genuinely unfixable, with: what broke,
-   what was tried, and what is needed from him.
-
-Green runs are silent. Repairs that validate cleanly may be committed, pushed,
-and verified without waiting for Jeremy to say the exact word "Push"; stop when
-validation is red or a required approval gate applies.
-
-## USA Today auto-discovery
-
-Article IDs are opaque, so the URL can't be guessed. Discovery reads USA
-Today's own monthly web sitemap (`robots.txt` → `web-sitemap-index.xml` →
-`web-sitemap-YYYY-MM.xml` on gannett-cdn.com) and greps for the week's
-chart slug, newest week first, current + previous month. Raises
-`DiscoveryFailed` (fail closed) when nothing is found — never silently
-reuses a stale pinned URL. `--url` allows an explicit manual override.
-
-## CBS auto-discovery
-
-Dave Richard's weekly slug embeds the week number; discovery tries the
-week-N slugs newest-first and validates the `TableBuilder` markup on each
-(the same markup the parser requires). Fails closed when none resolve.
-
-## Weekly-article cache source (2026-10-01)
-
-`check_weekly_article` reads the newest repo-local pull first
-(`ops/watchdog/pulls/<src>-<date>.json`, written by the ingest wrappers —
-the repo pipeline is the live path), falling back to the legacy
-goal-workspace cache (`lottery/data/sources_cache/usatoday.json` /
-`cbs.json`) when the repo has no pull yet. The legacy cache went stale
-(Sep 21) after the repo ingests replaced the old lottery pullers; reading
-it first false-alarmed STALE on both sources while Supabase already held
-fresh rows.
-
-## Negative tests
-
-`tests/test_pull_watchdog.py` — hermetic (tmp dirs, mocked fetch), no
-network. Each test simulates the historical miss its check must catch:
-
-- failed pull detected; unchanged-source not misread as failed;
-- failed-then-recovered same day reads ok; poisoned artifact flagged
-  CRITICAL; intact artifact after failure reads fail-closed;
-- stale weekly article; missing cache; thin tables; zero rows; zero priced;
-- Wednesday FantasyCalc rule (5-day-old snapshot stale on Wednesday, ok
-  on Tuesday);
-- FantasyCalc dead-legacy-file guard: fresh-but-dead `fantasycalc_half_12.json`
-  does not mask missing real artifacts; stale legacy file does not stale a
-  fresh snapshot; zero rows / missing combos fail closed;
-- USA Today discovery finds the new article; fails closed when the
-  sitemap has nothing; rejects markup mismatches and thin pages;
-- CBS discovery falls back to the latest live week; fails closed when
-  none resolve;
-- import-health consumption: missing file → pending; ok/stale → landed;
-  failed → not landed.
-
-Run: `make test` (or `python3 -m unittest tests.test_pull_watchdog`).
-
-## Schedule
-
-Cron `source-pull-watchdog`, daily 07:05 CT — after the last morning pull
-(ECR 06:35 CT). Runs `python3 ops/watchdog/pull_watchdog.py` from the
-repo. Silent when green (exit 0); the worker follows the failure path on
-exit 1 and escalates only unfixable failures.
+| razzball-projections-pull | Replaced: `razzball-supabase-sync.yml` + `razzball-sync-live`. |
+| cbs / usatoday trade-chart ingest | Replaced: `trade-chart-ingest.yml` + `trade-chart-ingest-live`. |
+| FantasyCalc weekly save | Replaced: `fantasycalc-weekly-save.yml` + `trigger-fantasycalc-weekly-save`. `ops/watchdog/refresh_fantasycalc.py` (24-combo Muse refresher) and `pipelines/refresh_fantasycalc_supabase.py` (wrote raw natives into `value`) deleted 2026-10-08. |
+| prediction-markets-pull | Retired 2026-10-08 with the leg: no page read its fields; input `data/inputs/prediction_markets_season.csv` (frozen 2026-09-22) deleted, `bake_players.py` no longer bakes `pm_*`. |
+| nflverse-weekly-refresh | Retired: only the archived Weekly Vegas / waiver-wire code (`archive/2026-10-07/`) read nflverse; nothing live does. |
+| fantasy-lineup-risk-dial | Retired: no code in this repo references it (Weekly Signals tool, paused). |
+| source-pull-watchdog | Retired 2026-10-08: `ops/watchdog/pull_watchdog.py` graded files on Muse's machine and `make watchdog` is gone. Superseded by `monitoring.check_observations` from each CI producer. Its tests of the live pullers moved to `tests/test_trade_chart_pullers.py`. |

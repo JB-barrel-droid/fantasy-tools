@@ -4,134 +4,658 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="robots" content="noindex">
-<title>Surface Status · Data Driven Football</title>
+<title>Operations Status · Data Driven Football</title>
 <style>
-  :root { --ink:#12202c; --muted:#5c6a76; --paper:#f7f8f5; --line:#dbe0dc;
-          --green:#1f7a4d; --yellow:#a86b00; --red:#b42318; --grey:#7a8590; }
+  :root {
+    --ink:#14212b; --muted:#5b6873; --paper:#f5f6f3; --card:#ffffff; --line:#d9dfdb; --head:#f9faf8;
+    --ok:#1d7a4b; --ok-bg:#e5f3ea; --warn:#9a6200; --warn-bg:#fdf1d8; --bad:#b42318; --bad-bg:#fbe5e3;
+    --unk:#5f6b75; --unk-bg:#eceff1; --link:#1b5fa8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ink:#e6ebef; --muted:#9aa7b1; --paper:#11161a; --card:#192026; --line:#2b353d; --head:#1e262d;
+      --ok:#5fd19a; --ok-bg:#16301f; --warn:#f0b54a; --warn-bg:#352a12; --bad:#ff8a80; --bad-bg:#3a1a18;
+      --unk:#aab6bf; --unk-bg:#252e35; --link:#7db7f5;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ink:#e6ebef; --muted:#9aa7b1; --paper:#11161a; --card:#192026; --line:#2b353d; --head:#1e262d;
+    --ok:#5fd19a; --ok-bg:#16301f; --warn:#f0b54a; --warn-bg:#352a12; --bad:#ff8a80; --bad-bg:#3a1a18;
+    --unk:#aab6bf; --unk-bg:#252e35; --link:#7db7f5;
+  }
   * { box-sizing: border-box; }
-  body { margin:0; font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--paper); }
-  main { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
-  h1 { font-size:22px; margin:0 0 4px; }
-  .sub { color:var(--muted); margin:0 0 18px; }
-  .summary { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-  .pill { border:1px solid var(--line); background:#fff; border-radius:999px; padding:4px 12px; font-weight:600; }
-  .pill.working { color:var(--green); } .pill.degraded { color:var(--yellow); } .pill.broken { color:var(--red); }
-  .wrap { overflow-x:auto; background:#fff; border:1px solid var(--line); border-radius:10px; }
-  table { border-collapse:collapse; width:100%; min-width:760px; }
-  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top; }
-  th { font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:#fbfcfa; }
+  body { margin:0; font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif; color:var(--ink); background:var(--paper); }
+  main { max-width:1280px; margin:0 auto; padding:18px 16px 48px; }
+  a { color:var(--link); }
+  h1 { font-size:20px; margin:0 0 2px; }
+  h2 { font-size:15px; margin:26px 0 8px; padding-bottom:4px; border-bottom:2px solid var(--line); }
+  h3 { font-size:13px; margin:0; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .sub { color:var(--muted); margin:0 0 12px; }
+  nav { display:flex; gap:6px; flex-wrap:wrap; margin:8px 0 0; }
+  nav a { text-decoration:none; border:1px solid var(--line); background:var(--card); border-radius:999px; padding:3px 10px; font-weight:600; }
+  .banner { border-radius:10px; padding:12px 14px; margin:10px 0 6px; border:1px solid var(--line); font-size:15px; font-weight:700; }
+  .banner.ok { background:var(--ok-bg); color:var(--ok); } .banner.warn { background:var(--warn-bg); color:var(--warn); }
+  .banner.bad { background:var(--bad-bg); color:var(--bad); } .banner.unk { background:var(--unk-bg); color:var(--unk); }
+  .banner ul { margin:6px 0 0; padding-left:18px; font-weight:500; font-size:13px; color:var(--ink); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(380px, 1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:10px 12px; min-width:0; }
+  .card.wide { grid-column:1 / -1; }
+  .card[data-status="bad"] { border-left:4px solid var(--bad); } .card[data-status="warn"] { border-left:4px solid var(--warn); }
+  .card[data-status="ok"] { border-left:4px solid var(--ok); } .card[data-status="unk"] { border-left:4px solid var(--unk); }
+  .asof { color:var(--muted); font-size:12px; margin:2px 0 8px; }
+  .pill { display:inline-block; border-radius:999px; padding:1px 8px; font-size:11.5px; font-weight:700; white-space:nowrap; }
+  .pill.ok { background:var(--ok-bg); color:var(--ok); } .pill.warn { background:var(--warn-bg); color:var(--warn); }
+  .pill.bad { background:var(--bad-bg); color:var(--bad); } .pill.unk { background:var(--unk-bg); color:var(--unk); }
+  .wrap { overflow-x:auto; }
+  table { border-collapse:collapse; width:100%; }
+  th, td { text-align:left; padding:5px 7px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); background:var(--head); white-space:nowrap; }
   tr:last-child td { border-bottom:0; }
-  .state { font-weight:700; white-space:nowrap; }
-  .state.working { color:var(--green); } .state.degraded { color:var(--yellow); }
-  .state.broken { color:var(--red); } .state.checking { color:var(--grey); }
-  code { font:12px ui-monospace,Menlo,monospace; color:var(--muted); }
-  .why { color:var(--muted); font-size:13px; }
-  .gap { color:var(--red); font-size:12px; }
-  footer { color:var(--muted); font-size:12px; margin-top:14px; }
+  td.why, .why { color:var(--muted); font-size:12px; }
+  code { font:11.5px ui-monospace,Menlo,monospace; color:var(--muted); word-break:break-all; }
+  .kv { display:grid; grid-template-columns:max-content 1fr; gap:2px 12px; }
+  .kv dt { color:var(--muted); } .kv dd { margin:0; }
+  .matrix td { text-align:center; padding:4px; } .matrix td:first-child { text-align:left; font-weight:600; }
+  .sources { display:flex; flex-wrap:wrap; gap:6px; margin:6px 0 0; }
+  .sources span { border:1px solid var(--line); background:var(--card); border-radius:8px; padding:3px 8px; font-size:12px; }
+  footer { color:var(--muted); font-size:12px; margin-top:20px; }
+  @media (max-width: 640px) { .grid { grid-template-columns:1fr; } main { padding:12px 16px 40px; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Surface status</h1>
-  <p class="sub">Every published data file a Data Driven Football page reads, checked live from this browser.
-    Working means the file loads, has the content its page needs, and is fresh enough.</p>
-  <div class="summary" id="summary"><span class="pill">Checking…</span></div>
-  <div class="wrap">
-    <table>
-      <thead><tr><th>Status</th><th>Surface</th><th>Page</th><th>Backend</th><th>Last data</th><th>Working means</th></tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
-  </div>
-  <footer id="foot"></footer>
+  <h1>Operations status</h1>
+  <p class="sub">Is everything working and fresh? Pipelines, back end and front end in one place. Internal page:
+    every block states its own as-of time and turns amber when stale, red when failed or very stale.</p>
+  <nav>
+    <a href="#alerts">Alerts</a><a href="#pipes">Pipelines</a><a href="#backend">Back end</a><a href="#frontend">Front end</a>
+  </nav>
+  <div id="banner" class="banner unk" data-overall="unk">Checking…</div>
+  <div class="sources" id="feeds" aria-label="Data feeds this page read"></div>
+
+  <h2 id="alerts">Alerts</h2>
+  <div class="grid" id="sec-alerts"></div>
+
+  <h2 id="pipes">Pipelines</h2>
+  <div class="grid" id="sec-pipes"></div>
+
+  <h2 id="backend">Back end</h2>
+  <div class="grid" id="sec-backend"></div>
+
+  <h2 id="frontend">Front end</h2>
+  <div class="grid" id="sec-frontend"></div>
+
+  <footer id="foot">
+    Detail pages: <a href="dashboard.html">data monitor</a> (value lineage, checkpoints, data accuracy) ·
+    <a href="consolidation.html">consolidation watcher</a>. Producers: health-artifacts.yml (monitoring summary,
+    import health, checkpoints, ops-status.json), rebuild-chain.yml (chain status, GitHub Actions), make sync (freshness, week history).
+  </footer>
 </main>
 <script>
-// JEG-424. Spec: modules/surfaces.json (also enforced at build time by
-// tests/test_published_surfaces.py). Paths there are relative to the site root.
-const ROOT = "../";
+// Ops dashboard (ops-dashboard lane, 2026-10-08). Replaces the surface-only
+// status page (JEG-424) in place; the surface table is the "Published files"
+// card below. Static: reads only JSON the pipeline already publishes.
+//
+// Test hooks (tests/test_ops_dashboard.py): ?base=<dir>/ reads the modules
+// files from a fixture directory, ?root=<dir>/ the site root, ?now=<ISO> pins
+// the clock. Only same-origin relative paths are accepted.
+"use strict";
+const params = new URLSearchParams(location.search);
+function relParam(name, dflt) {
+  const v = params.get(name);
+  return v && /^[\w./-]*$/.test(v) && !v.startsWith("/") ? v : dflt;
+}
+const BASE = relParam("base", "");
+const ROOT = relParam("root", "../");
+const NOW = Number.isNaN(Date.parse(params.get("now") || "")) ? Date.now() : Date.parse(params.get("now"));
+
+const RANK = { ok: 0, unk: 1, warn: 2, bad: 3 };
+const LABEL = { ok: "OK", warn: "Attention", bad: "Failed", unk: "Unknown" };
+const worst = (...xs) => xs.flat().filter(Boolean).reduce((a, b) => (RANK[b] > RANK[a] ? b : a), "ok");
+
+// Every feed: where it lives, its timestamp field, and when it is stale.
+// amberH: older than this is amber; redH: older than this is red.
+const FEEDS = {
+  summary:  { url: () => BASE + "monitoring-summary.json", time: "generated_at", amberH: 7, redH: 25, label: "Monitoring summary" },
+  ops:      { url: () => BASE + "ops-status.json", time: "generated_at", amberH: 7, redH: 25, label: "Ops status" },
+  gha:      { url: () => BASE + "github-actions.json", time: "generated_at", amberH: 7, redH: 25, label: "GitHub Actions" },
+  chain:    { url: () => BASE + "comparison-chain-status.json", time: "run_at", amberH: 7, redH: 25, label: "Rebuild chain" },
+  health:   { url: () => BASE + "source-import-health.json", time: "checked_at", amberH: 7, redH: 25, label: "Import health" },
+  cps:      { url: () => BASE + "pipeline-checkpoints.json", time: "generated_at", amberH: 7, redH: 25, label: "Pipeline checkpoints" },
+  surfaces: { url: () => BASE + "surfaces.json", time: null, label: "Surface spec" },
+  fresh:    { url: () => ROOT + "assets/reference-freshness.json", time: "generated_at", amberH: 26, redH: 74, label: "Reader freshness labels" },
+  history:  { url: () => ROOT + "assets/history/index.json", time: "fixture_built_at", amberH: 30, redH: 74, label: "Week history" },
+};
 
 function esc(s) {
-  return String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
-function countAt(doc, path) {
-  const v = path ? doc?.[path] : doc;
-  if (Array.isArray(v)) return v.length;
-  if (v && typeof v === "object") return Object.keys(v).length;
-  return null;
-}
-function ageHours(ts) {
+function ageH(ts) {
   const t = Date.parse(ts);
-  return Number.isNaN(t) ? null : (Date.now() - t) / 3.6e6;
+  return Number.isNaN(t) ? null : (NOW - t) / 3.6e6;
 }
 function fmtAge(h) {
-  if (h == null) return "no timestamp";
-  if (h < 1) return `${Math.max(0, Math.round(h * 60))} min ago`;
+  if (h == null) return "time unknown";
+  if (h < 0) return "in the future";
+  if (h < 1) return `${Math.round(h * 60)} min ago`;
   if (h < 48) return `${h.toFixed(1)} h ago`;
   return `${(h / 24).toFixed(1)} days ago`;
 }
+function fmtIn(ms) {
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `in ${m} min`;
+  if (m < 48 * 60) return `in ${(m / 60).toFixed(1)} h`;
+  return `in ${(m / 1440).toFixed(1)} days`;
+}
+function fmtTime(ts) {
+  const t = Date.parse(ts);
+  if (Number.isNaN(t)) return ts ? esc(ts) : "—";
+  return new Date(t).toISOString().slice(0, 16).replace("T", " ") + " UTC";
+}
+function when(ts) { return ts ? `${fmtTime(ts)} <span class="why">(${fmtAge(ageH(ts))})</span>` : "—"; }
+function pill(status, text) { return `<span class="pill ${status}">${esc(text || LABEL[status])}</span>`; }
+function ageStatus(ts, amberH, redH) {
+  const h = ageH(ts);
+  if (h == null) return "unk";
+  if (h < -0.25) return "warn";            // a timestamp from the future is a producer fault
+  if (h > redH) return "bad";
+  if (h > amberH) return "warn";
+  return "ok";
+}
+function fmtDur(s) { return s == null ? "—" : s < 120 ? `${s}s` : `${Math.round(s / 60)} min`; }
+function shortSha(s) { return s ? String(s).slice(0, 7) : "—"; }
+const MAP_STATUS = { green: "ok", ok: "ok", success: "ok", healthy: "ok", pass: "ok", yellow: "warn", warning: "warn", warn: "warn",
+                     amber: "warn", red: "bad", bad: "bad", error: "bad", failed: "bad", failure: "bad", blocking: "bad", fail: "bad" };
+const norm = (s) => MAP_STATUS[String(s ?? "").toLowerCase()] || "unk";
 
-async function evaluate(s) {
-  let resp;
+const SOURCES = [
+  ["usatoday", "USA Today"], ["fantasycalc", "FantasyCalc"], ["fantasypros", "FantasyPros"], ["cbs", "CBS"],
+  ["espn", "ESPN"], ["cbsros", "CBS ROS"], ["razzball", "Razzball"],
+];
+// The monitoring check that proves each source's ingest ran (config/monitoring_coverage.json).
+const INGEST_CHECKS = {
+  usatoday: ["usatoday_trade_chart_ingest"], cbs: ["cbs_trade_chart_ingest"],
+  fantasypros: ["fantasypros_trade_chart_ingest"], fantasycalc: ["fantasycalc_weekly_save", "fantasycalc_native_drift"],
+  espn: ["espn_supabase_sync"], cbsros: ["cbsros_supabase_sync"], razzball: ["razzball_projections_sync"],
+};
+
+// ---- cron (UTC, 5 fields; standard day-of-month OR day-of-week rule) ----
+function cronField(expr, lo, hi) {
+  const set = new Set();
+  for (const part of expr.split(",")) {
+    const [range, stepS] = part.split("/");
+    const step = stepS ? Number(stepS) : 1;
+    let a = lo, b = hi;
+    if (range !== "*") {
+      const [x, y] = range.split("-").map(Number);
+      a = x; b = y ?? (stepS ? hi : x);
+    }
+    if (![a, b, step].every(Number.isFinite) || step < 1) return null;
+    for (let v = a; v <= b; v += step) set.add(v === 7 && hi === 6 ? 0 : v);
+  }
+  return set;
+}
+function nextCron(expr, fromMs) {
+  const f = String(expr || "").trim().split(/\s+/);
+  if (f.length !== 5) return null;
+  const [mi, ho, dom, mo, dow] = [cronField(f[0], 0, 59), cronField(f[1], 0, 23), cronField(f[2], 1, 31), cronField(f[3], 1, 12), cronField(f[4], 0, 6)];
+  if (![mi, ho, dom, mo, dow].every(Boolean)) return null;
+  const domAny = f[2] === "*", dowAny = f[4] === "*";
+  let t = Math.floor(fromMs / 60000) * 60000 + 60000;
+  for (let i = 0; i < 60 * 24 * 32; i++, t += 60000) {
+    const d = new Date(t);
+    if (!mi.has(d.getUTCMinutes()) || !ho.has(d.getUTCHours()) || !mo.has(d.getUTCMonth() + 1)) continue;
+    const dayOk = domAny && dowAny ? true : domAny ? dow.has(d.getUTCDay()) : dowAny ? dom.has(d.getUTCDate())
+                : dom.has(d.getUTCDate()) || dow.has(d.getUTCDay());
+    if (dayOk) return t;
+  }
+  return null;
+}
+
+// ---- loading ----
+async function loadFeed(key) {
+  const f = FEEDS[key];
+  const out = { key, label: f.label, url: f.url(), doc: null, error: null, status: "unk", asOf: null };
   try {
-    resp = await fetch(ROOT + s.url, { cache: "no-store" });
+    const r = await fetch(out.url, { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    out.doc = await r.json();
   } catch (e) {
-    return { state: "broken", why: `request failed: ${e.message}` };
+    out.error = `${out.url}: ${e.message}`;
+    out.status = "bad";
+    return out;
   }
-  if (!resp.ok) return { state: "broken", why: `HTTP ${resp.status}` };
+  if (!f.time) { out.status = "ok"; return out; }
+  out.asOf = out.doc?.[f.time] ?? null;
+  out.status = out.asOf ? ageStatus(out.asOf, f.amberH, f.redH) : "unk";
+  if (!out.asOf) out.error = `no ${f.time} field`;
+  return out;
+}
+function feedLine(feed) {
+  const f = FEEDS[feed.key];
+  if (feed.error && !feed.doc) return `<div class="asof">${pill("bad", "Not loaded")} ${esc(feed.error)}</div>`;
+  if (!f.time) return "";
+  const stale = feed.status === "ok" ? "" : feed.status === "unk" ? " (no timestamp)" : ` (stale: limit ${f.amberH} h)`;
+  return `<div class="asof">Data as of ${when(feed.asOf)}${esc(stale)} · <code>${esc(feed.url)}</code></div>`;
+}
+
+// ---- cards ----
+const CARDS = [];
+function card(section, id, title, status, body, opts = {}) {
+  CARDS.push({ section, id, title, status });
+  const el = document.createElement("section");
+  el.className = "card" + (opts.wide ? " wide" : "");
+  el.dataset.card = id;
+  el.dataset.status = status;
+  el.innerHTML = `<h3>${pill(status)} ${esc(title)}</h3>${body}`;
+  document.getElementById(`sec-${section}`).appendChild(el);
+  return el;
+}
+function feedsGate(feeds, ...keys) {
+  // Status contribution of the feeds a card is built from: stale feed = amber/red.
+  return worst(keys.map(k => feeds[k].status));
+}
+function table(head, rows) {
+  return `<div class="wrap"><table><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+}
+function missing(feeds, key) {
+  return `<div class="asof">${pill("bad", "Not loaded")} ${esc(feeds[key].error)}</div>`;
+}
+
+function renderAlerts(feeds) {
+  const ops = feeds.ops.doc, alerts = ops?.blocks?.alerts;
+  if (!ops) return card("alerts", "alerts", "Open alert issues", "bad", missing(feeds, "ops"));
+  if (!alerts || alerts.status !== "ok") {
+    return card("alerts", "alerts", "Open alert issues", "unk",
+      feedLine(feeds.ops) + `<p class="why">Alert issues could not be read: ${esc(alerts?.error || "no alerts block")}</p>`);
+  }
+  const open = alerts.open || [];
+  const st = worst(open.length ? "bad" : "ok", feeds.ops.status);
+  const rows = open.map(a => `<tr><td><a href="${esc(a.html_url)}">#${esc(a.number)}</a></td><td>${esc(a.title)}</td>
+    <td><code>${esc(a.key || "—")}</code></td><td>${when(a.created_at)}</td><td>${when(a.updated_at)}</td></tr>`);
+  card("alerts", "alerts", `Open alert issues (label ${alerts.label})`, st,
+    `<div class="asof">Read ${when(alerts.as_of)}</div>` +
+    (open.length ? table(["Issue", "Title", "Key", "Opened", "Updated"], rows) : `<p>No open alert issues.</p>`), { wide: !!open.length });
+
+  const s = feeds.summary.doc;
+  if (!s) return card("alerts", "monitor", "Supabase monitor verdict", "bad", missing(feeds, "summary"));
+  const counts = s.counts || {};
+  const st2 = worst(norm(s.overall), feeds.summary.status, s.read_error ? "bad" : "ok", s.evaluator_stale ? "bad" : "ok");
+  card("alerts", "monitor", "Supabase monitor verdict", st2, feedLine(feeds.summary) +
+    `<p><strong>${esc(s.headline || "—")}</strong></p>` +
+    `<dl class="kv"><dt>Checks</dt><dd>${esc(counts.green ?? "—")} passing · ${esc(counts.yellow ?? "—")} attention · ${esc(counts.red ?? "—")} failing of ${esc(counts.total ?? "—")}</dd>
+     <dt>Evaluator last ran</dt><dd>${when(s.evaluator_last_run)}${s.evaluator_stale ? " " + pill("bad", "Evaluator stale") : ""}</dd>
+     ${s.read_error ? `<dt>Read error</dt><dd>${esc(s.read_error)}</dd>` : ""}</dl>`);
+}
+
+function renderJobs(feeds) {
+  const s = feeds.summary.doc, gha = feeds.gha.doc;
+  if (!s) return card("pipes", "jobs", "Scheduled jobs", "bad", missing(feeds, "summary"), { wide: true });
+  const checks = s.checks || [], crons = s.cron_jobs || [];
+  const wfOfJob = {};
+  for (const c of crons) if (c.dispatches) wfOfJob[c.jobname] = c.dispatches;
+  for (const c of checks) if (c.pg_cron_job && c.workflow && !wfOfJob[c.pg_cron_job]) wfOfJob[c.pg_cron_job] = c.workflow;
+  const groups = new Map();
+  const group = (key) => { if (!groups.has(key)) groups.set(key, { key, slots: [], checks: [] }); return groups.get(key); };
+  for (const c of crons) group(wfOfJob[c.jobname] || `pg_cron:${c.jobname}`).slots.push(c);
+  for (const c of checks) group(c.workflow || (c.pg_cron_job ? `pg_cron:${c.pg_cron_job}` : `check:${c.check_id}`)).checks.push(c);
+  const ghaByFile = {};
+  for (const w of gha?.workflows || []) ghaByFile[String(w.path || "").split("/").pop()] = w;
+
+  const rows = [...groups.values()].sort((a, b) => a.key.localeCompare(b.key)).map(g => {
+    const isWf = !g.key.includes(":");
+    const w = isWf ? ghaByFile[g.key] : null;
+    const why = [];
+    const slotHtml = g.slots.map(c => {
+      const nx = c.active ? nextCron(c.schedule, NOW) : null;
+      const bad = c.last_status && c.last_status !== "succeeded";
+      const dispBad = c.dispatch_outcome && c.dispatch_outcome !== "ok";
+      if (bad) why.push(`${c.jobname}: cron ${c.last_status}`);
+      if (dispBad) why.push(`${c.jobname}: dispatch ${c.dispatch_outcome} ${c.dispatch_http_status ?? ""}`);
+      if (!c.active) why.push(`${c.jobname} inactive`);
+      return `<div><code>${esc(c.jobname)}</code> <code>${esc(c.schedule)}</code> → ${nx ? `next ${fmtIn(nx - NOW)}` : c.active ? "next unknown" : "inactive"}` +
+        `<div class="why">last start ${c.last_start ? fmtAge(ageH(c.last_start)) : "never"}${c.dispatched_at ? ` · dispatched ${fmtAge(ageH(c.dispatched_at))} (${esc(c.dispatch_outcome || "?")})` : ""}</div></div>`;
+    }).join("") || `<span class="why">no pg_cron slot</span>`;
+    const lr = w?.last_run;
+    const runHtml = lr ? `${esc(lr.conclusion || lr.status)} ${when(lr.created_at)}<div class="why">${fmtDur(lr.duration_s)} · ${esc(lr.event || "")}${w.consecutive_failures ? ` · ${w.consecutive_failures} failures in a row` : ""}</div>`
+                       : isWf ? `<span class="why">${gha ? "no run in GitHub Actions status" : "GitHub Actions status not loaded"}</span>` : "—";
+    const checkSt = g.checks.map(c => norm(c.status));
+    for (const c of g.checks) if (norm(c.status) !== "ok") why.push(`${c.check_id}: ${c.reason || c.state}`);
+    let runSt = "ok";
+    if (lr && norm(lr.conclusion) === "bad") { runSt = "bad"; why.push(`last run ${lr.conclusion}`); }
+    const slotSt = g.slots.map(c => (c.last_status && c.last_status !== "succeeded") || (c.dispatch_outcome && c.dispatch_outcome !== "ok") ? "bad" : c.active ? "ok" : "warn");
+    const st = worst(checkSt, runSt, slotSt, g.checks.length || lr || g.slots.length ? "ok" : "unk");
+    return `<tr data-job="${esc(g.key)}" data-status="${st}"><td>${pill(st)}</td><td><strong>${esc(g.key.replace(/^pg_cron:/, ""))}</strong>${isWf ? "" : `<div class="why">database job</div>`}</td>
+      <td>${slotHtml}</td><td>${runHtml}</td><td class="why">${why.length ? esc(why.join(" · ")) : "—"}</td></tr>`;
+  });
+  const st = worst(feeds.summary.status, ...rows.map(r => /data-status="(\w+)"/.exec(r)[1]));
+  card("pipes", "jobs", "Scheduled jobs (pg_cron → GitHub workflow)", st,
+    feedLine(feeds.summary) + feedLine(feeds.gha) +
+    `<p class="why">One row per workflow; each pg_cron slot that dispatches it (retry slots included) with its next run, then the workflow's last run and every monitoring check it owns.</p>` +
+    table(["Status", "Job", "pg_cron slots · next run", "Last run (outcome, duration)", "Why not OK"], rows), { wide: true });
+}
+
+function renderIngest(feeds) {
+  const h = feeds.health.doc, s = feeds.summary.doc, chain = feeds.chain.doc;
+  const identity = feeds.ops.doc?.blocks?.identity;
+  const checks = Object.fromEntries((s?.checks || []).map(c => [c.check_id, c]));
+  const reviewBy = Object.fromEntries((identity?.by_source || []).map(r => [r.source, r]));
+  const rows = SOURCES.map(([key, name]) => {
+    const e = h?.sources?.[key];
+    const chk = (INGEST_CHECKS[key] || []).map(id => checks[id]).find(Boolean);
+    const held = chain?.held_detail?.[key];
+    const why = [];
+    let st = "ok";
+    if (!e) { st = "bad"; why.push(h ? "missing from import health" : "import health not loaded"); }
+    else {
+      const es = e.blocking ? "bad" : norm(e.status === "warning" ? "warn" : e.status);
+      st = worst(st, es);
+      if (e.failure_reason) why.push(e.failure_reason);
+    }
+    if (chk) { st = worst(st, norm(chk.status)); if (norm(chk.status) !== "ok") why.push(`${chk.check_id}: ${chk.reason}`); }
+    else { st = worst(st, "unk"); why.push("no monitoring check records this ingest"); }
+    if (held) { st = worst(st, held.hold_severity === "red" ? "bad" : "warn"); why.push(`chain held: ${held.reason || held.detail || "held"}`); }
+    const rv = reviewBy[key];
+    const review = rv ? `${rv.queued}<div class="why">${rv.review} review · ${rv.unmatched} unmatched</div>`
+                 : identity?.status === "ok" ? `0<div class="why">nothing queued for this source</div>` : `—<div class="why">identity queue not read</div>`;
+    return `<tr data-source="${key}" data-status="${st}"><td>${pill(st)}</td><td><strong>${esc(name)}</strong></td>
+      <td>${chk ? when(chk.last_run_at) : "—"}<div class="why">${chk ? esc(chk.state) : ""}</div></td>
+      <td>${chk ? when(chk.last_ok_at) : "—"}</td>
+      <td>${e ? `${esc(e.content_vintage ?? "—")}<div class="why">week ${esc(e.content_week ?? "—")} · landed ${e.db_latest_arrived_at ? fmtAge(ageH(e.db_latest_arrived_at)) : "—"}</div>` : "—"}</td>
+      <td>${e ? esc((e.row_count ?? "—").toLocaleString?.() ?? e.row_count) : "—"}</td>
+      <td>${review}</td>
+      <td class="why">${why.length ? esc(why.join(" · ")) : "—"}</td></tr>`;
+  });
+  const st = worst(feeds.health.status, feeds.summary.status, ...rows.map(r => /data-status="(\w+)"/.exec(r)[1]));
+  card("pipes", "ingest", "Source ingest", st, feedLine(feeds.health) +
+    `<p class="why">Last attempt and last success come from the source's monitoring check; saved content, rows and blocks from import health and the rebuild chain. Current NFL week: ${esc(h?.nfl_week ?? "—")}.</p>` +
+    table(["Status", "Source", "Last attempt", "Last success", "Content saved", "Rows", "Review rows", "Blocked / why"], rows), { wide: true });
+}
+
+function renderChain(feeds) {
+  const c = feeds.chain.doc;
+  if (!c) return card("backend", "chain", "Rebuild chain", "bad", missing(feeds, "chain"), { wide: true });
+  const outcome = c.outcome || (c.success ? "green" : "failed");
+  let st = outcome === "green" ? "ok" : outcome === "published_with_holds" ? (c.hold_severity === "red" ? "bad" : "warn") : "bad";
+  st = worst(st, feeds.chain.status, c.success === false ? "bad" : "ok");
+  const pv = c.post_rebuild_validation;
+  if (pv && pv.status === "failed") st = "bad";
+  const rows = SOURCES.map(([key, name]) => {
+    const d = c.detail?.[key] || {}, v = c.source_vintages?.[key] || {}, held = c.held_detail?.[key];
+    const s = held ? (held.hold_severity === "red" ? "bad" : "warn") : (c.failed || []).includes(key) ? "bad" : norm(d.status);
+    return `<tr data-status="${s}"><td>${pill(s, held ? "Held" : undefined)}</td><td>${esc(name)}</td><td>${esc(d.stage || "—")}</td>
+      <td>${d.promoted != null ? `${esc(d.promoted)}/${esc(d.sections)}` : "—"}</td><td>${esc(v.content_vintage || "—")}${v.lagging_one_week ? ` ${pill("warn", "One week behind")}` : ""}</td>
+      <td class="why">${esc(held ? `${held.reason || ""} ${held.detail || ""}`.trim() : d.detail || "—")}</td></tr>`;
+  });
+  card("backend", "chain", "Rebuild chain", st, feedLine(feeds.chain) +
+    `<dl class="kv"><dt>Outcome</dt><dd>${esc(outcome)}${c.held?.length ? ` · held: ${esc(c.held.join(", "))} (${esc(c.hold_severity)})` : ""}${c.failed?.length ? ` · failed: ${esc(c.failed.join(", "))}` : ""}</dd>
+     <dt>Fit</dt><dd>${esc(c.fit?.status || "—")} <span class="why">${esc(c.fit?.detail || "")}</span></dd>
+     <dt>Adjusted sections</dt><dd>${esc(c.adjusted_sections?.status || "—")} <span class="why">${esc(c.adjusted_sections?.detail || "")}</span></dd>
+     <dt>Post-rebuild validate</dt><dd>${pv ? `${pill(pv.status === "failed" ? "bad" : "ok", pv.status)} <span class="why">${esc(pv.detail || "")}</span>` : c.success ? "passed (the chain only publishes after make validate passes)" : "—"}</dd>
+     <dt>Runner</dt><dd>${esc(c.runner || "—")} · NFL week ${esc(c.nfl_week ?? "—")}</dd></dl>` +
+    table(["Status", "Source", "Stage", "Promoted", "Content", "Detail"], rows), { wide: true });
+}
+
+function renderCheckpoints(feeds) {
+  const d = feeds.cps.doc;
+  if (!d) return card("backend", "checkpoints", "Pipeline checkpoints", "bad", missing(feeds, "cps"), { wide: true });
+  const keys = (d.checkpoints || []).map(c => c.key);
+  const head = ["Source", ...keys.map(k => k.split("_")[0].toUpperCase())];
+  const cells = [];
+  const rows = Object.entries(d.sources || {}).map(([src, e]) => {
+    return `<tr><td>${esc(e.label || src)}</td>${keys.map(k => {
+      const cp = e.checkpoints?.[k];
+      const s = norm(cp?.status);
+      cells.push(s);
+      return `<td title="${esc(cp?.reason || "")}">${pill(s)}</td>`;
+    }).join("")}</tr>`;
+  });
+  const st = worst(feeds.cps.status, cells);
+  card("backend", "checkpoints", "Pipeline checkpoints (C1 publication → C10 rendered)", st, feedLine(feeds.cps) +
+    `<p class="why">${(d.checkpoints || []).map(c => `${esc(c.key.split("_")[0].toUpperCase())} ${esc(c.label?.split("·").pop()?.trim() || "")}`).join(" · ")}. Hover a cell for its reason; full detail on the data monitor.</p>` +
+    `<div class="wrap"><table class="matrix"><thead><tr>${head.map(h => `<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table></div>`, { wide: true });
+}
+
+function renderBake(feeds) {
+  const b = feeds.ops.doc?.blocks?.players_bake;
+  if (!feeds.ops.doc) return card("backend", "bake", "players.json bake", "bad", missing(feeds, "ops"));
+  if (!b || b.status !== "ok") return card("backend", "bake", "players.json bake", "unk", `<p class="why">${esc(b?.error || "no players_bake block")}</p>`);
+  const st = worst(ageStatus(b.as_of, 36, 24 * 7), feeds.ops.status);
+  const rows = Object.entries(b.snapshots || {}).sort().map(([k, v]) => {
+    const s = /^\d{4}-\d{2}-\d{2}/.test(v) ? "ok" : "unk";
+    return `<tr><td>${esc(k)}</td><td>${esc(v)}</td><td class="why">${s === "ok" ? fmtAge(ageH(v + "T12:00:00Z")) : "no snapshot date"}</td></tr>`;
+  });
+  card("backend", "bake", "players.json bake", st,
+    `<div class="asof">Baked ${when(b.as_of)} (amber after 36 h) · players as of ${esc(b.players_as_of)} · ${esc(b.n_players)} players</div>` +
+    table(["Input", "Snapshot", "Age"], rows));
+}
+
+function renderHistory(feeds) {
+  const d = feeds.history.doc;
+  if (!d) return card("backend", "history", "Week history", "bad", missing(feeds, "history"));
+  const weeks = Object.keys(d.weeks || {}).map(Number).sort((a, b) => a - b);
+  const cur = d.content_week;
+  const why = [];
+  let st = feeds.history.status;
+  if (cur != null && !weeks.includes(cur)) { st = worst(st, "warn"); why.push(`current week ${cur} not captured`); }
+  const rows = weeks.map(w => {
+    const e = d.weeks[w];
+    const srcs = Object.entries(e.sources || {});
+    const incomplete = srcs.filter(([, v]) => !v.complete).map(([k]) => k);
+    if (incomplete.length && w === cur) { st = worst(st, "warn"); why.push(`week ${w} incomplete: ${incomplete.join(", ")}`); }
+    return `<tr><td>Week ${esc(w)}</td><td>${e.frozen ? "frozen" : "open"}</td><td>${srcs.length - incomplete.length}/${srcs.length}</td>
+      <td class="why">${incomplete.length ? "incomplete: " + esc(incomplete.join(", ")) : "all complete"}</td></tr>`;
+  });
+  const served = Object.entries(d.served || {}).map(([k, v]) => `${esc(k)} w${esc(v.week)}`).join(" · ");
+  card("backend", "history", "Week history", st, feedLine(feeds.history) +
+    `<p class="why">Captured weeks ${esc(weeks.join(", ") || "none")} · current content week ${esc(cur ?? "—")}${why.length ? " · " + esc(why.join("; ")) : ""}</p>` +
+    table(["Week", "State", "Sources", "Detail"], rows) + `<p class="why">Served now: ${served || "—"}</p>`);
+}
+
+function renderSecurity(feeds) {
+  const s = feeds.summary.doc;
+  if (!s) return card("backend", "security", "Supabase security posture", "bad", missing(feeds, "summary"));
+  const p = s.security;
+  if (!p) return card("backend", "security", "Supabase security posture", "unk", feedLine(feeds.summary) +
+    `<p class="why">Not reported: the monitoring summary has no security block (needs public.monitoring_security_posture(), monitoring lane).</p>`);
+  if (p.read_error) return card("backend", "security", "Supabase security posture", "unk", feedLine(feeds.summary) +
+    `<p class="why">Posture could not be read: ${esc(p.read_error)}</p>`);
+  // Field names: monitoring lane, public.monitoring_security_posture() (ddf-security-posture-v1).
+  const fields = ["tables_without_rls", "anon_or_auth_write_grants", "public_definer_views",
+                  "mutable_search_path_functions", "anon_executable_definer_functions"];
+  const count = (v) => Array.isArray(v) ? v.length : Number(v ?? 0);
+  const st = worst(p.ok === true ? "ok" : p.ok === false ? "bad" : "unk", feeds.summary.status, ageStatus(p.checked_at, 7, 25));
+  const names = (f) => (p.details?.[f] || []).slice(0, 25).join(", ");
+  card("backend", "security", "Supabase security posture", st,
+    `<div class="asof">Checked ${when(p.checked_at)}</div><dl class="kv">${fields.map(f => `<dt>${esc(f.replace(/_/g, " "))}</dt><dd>${pill(count(p[f]) ? "bad" : "ok", String(count(p[f])))}${names(f) ? ` <span class="why">${esc(names(f))}</span>` : ""}</dd>`).join("")}
+     ${p.api_definer_views_accepted != null ? `<dt>api definer views (accepted, info)</dt><dd>${esc(count(p.api_definer_views_accepted))}</dd>` : ""}</dl>`);
+}
+
+function renderIdentity(feeds) {
+  const b = feeds.ops.doc?.blocks?.identity;
+  if (!feeds.ops.doc) return card("backend", "identity", "Identity review queue", "bad", missing(feeds, "ops"));
+  if (!b || b.status !== "ok") return card("backend", "identity", "Identity review queue", "unk",
+    `<div class="asof">Read ${when(b?.as_of)}</div><p class="why">Queue not read: ${esc(b?.error || "no identity block")}</p>`);
+  const st = worst(b.queue_total > 0 ? "warn" : "ok", feeds.ops.status);
+  const rows = (b.by_source || []).map(r => `<tr><td>${esc(r.source === "*" ? "all sources" : r.source)}</td><td>${esc(r.review)}</td><td>${esc(r.unmatched)}</td><td>${esc(r.provisional)}</td><td>${esc(r.verified)}</td><td class="why">${r.last_seen_at ? fmtAge(ageH(r.last_seen_at)) : "—"}</td></tr>`);
+  card("backend", "identity", `Identity review queue: ${b.queue_total} waiting`, st,
+    `<div class="asof">Read ${when(b.as_of)}</div>` + table(["Source", "Review", "Unmatched", "Provisional", "Verified", "Last seen"], rows));
+}
+
+async function renderDeploy(feeds) {
+  const d = feeds.ops.doc?.blocks?.deploy;
+  if (!feeds.ops.doc) return card("frontend", "deploy", "Deploys", "bad", missing(feeds, "ops"), { wide: true });
+  // Live tag read now, from this browser, off the page readers get.
+  let liveTag = null, liveErr = null;
+  try {
+    const r = await fetch(ROOT + "index.html", { cache: "no-store" });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    liveTag = (/<meta name="trade-chart-build" content="([^"]*)"/.exec(await r.text()) || [])[1] || null;
+    if (!liveTag) liveErr = "no trade-chart-build meta tag";
+  } catch (e) { liveErr = e.message; }
+  if (!d || d.status !== "ok") {
+    return card("frontend", "deploy", "Deploys", liveErr ? "bad" : "unk",
+      `<p class="why">Deploy facts not read: ${esc(d?.error || "no deploy block")}. Live build tag now: ${esc(liveTag || liveErr)}</p>`, { wide: true });
+  }
+  const liveSha = (/^tv-\d{8}-\d{4}-([0-9a-f]+)$/.exec(liveTag || "") || [])[1];
+  let st = "ok", verdict;
+  if (!liveSha) { st = "bad"; verdict = `Live build tag unreadable (${liveErr || liveTag})`; }
+  else if (d.main_sha?.startsWith(liveSha)) verdict = "Live site serves main's HEAD (as of the producer run)";
+  else if (d.last_success_sha?.startsWith(liveSha)) {
+    const lag = ageH(d.main_committed_at);
+    st = lag != null && lag > 0.75 ? "warn" : "ok";
+    verdict = `Live site serves the last successful deploy; main moved ${fmtAge(lag)}${st === "warn" ? " and has not deployed" : " (deploy in flight)"}`;
+  } else {
+    // Main may have moved since the producer ran; a newer live tag than both is still served from main.
+    const newer = (d.pages_runs || []).some(r => r.head_sha?.startsWith(liveSha));
+    st = newer ? "ok" : "warn";
+    verdict = newer ? "Live site serves a deployed main commit" : "Live build is not in the producer's view of main (newer commit since the producer ran?)";
+  }
+  const runs = d.pages_runs || [];
+  const latestDone = runs.find(r => r.status === "completed");
+  if (latestDone && norm(latestDone.conclusion) === "bad") st = worst(st, "bad");
+  st = worst(st, feeds.ops.status);
+  const rows = runs.map(r => `<tr><td>${pill(r.status !== "completed" ? "unk" : norm(r.conclusion) === "unk" ? "warn" : norm(r.conclusion), r.conclusion || r.status)}</td>
+    <td>${when(r.created_at)}</td><td>${esc(r.event)}</td><td>${fmtDur(r.duration_s)}</td><td><code>${esc(shortSha(r.head_sha))}</code></td><td><a href="${esc(r.html_url)}">run</a></td></tr>`);
+  card("frontend", "deploy", "Deploys (pages.yml)", st,
+    `<div class="asof">Deploy facts as of ${when(d.as_of)} · live tag read now from this browser</div>` +
+    `<dl class="kv"><dt>Verdict</dt><dd><strong>${esc(verdict)}</strong></dd>
+      <dt>Live build tag</dt><dd><code>${esc(liveTag || liveErr)}</code></dd>
+      <dt>main HEAD</dt><dd><code>${esc(shortSha(d.main_sha))}</code> committed ${when(d.main_committed_at)}</dd>
+      <dt>Last successful deploy</dt><dd><code>${esc(shortSha(d.last_success_sha))}</code></dd></dl>` +
+    table(["Outcome", "Started", "Trigger", "Duration", "Commit", ""], rows), { wide: true });
+}
+
+function renderSynthetic(feeds) {
+  const b = feeds.ops.doc?.blocks?.synthetic;
+  if (!feeds.ops.doc) return card("frontend", "synthetic", "Live synthetic check", "bad", missing(feeds, "ops"), { wide: true });
+  if (!b || !b.run) return card("frontend", "synthetic", "Live synthetic check", "unk",
+    `<p class="why">No synthetic run read: ${esc(b?.error || "no synthetic block")}</p>`, { wide: true });
+  const rep = b.report;
+  let st = worst(norm(b.run.conclusion), ageStatus(b.run.created_at, 30, 74), feeds.ops.status);
+  const why = [];
+  if (!rep) { st = worst(st, "unk"); why.push(b.error || "no report"); }
+  const pages = rep?.pages || [];
+  if (rep && !rep.passed) st = "bad";
+  if (rep && !pages.length) { st = worst(st, "warn"); why.push("the last report has no per-page results (root build-tag check only)"); }
+  const rows = pages.map(p => {
+    const s = p.passed ? "ok" : "bad";
+    const tabs = (p.tabs || []).map(t => `${esc(t.hash)} ${t.problems?.length ? "✕" : "✓"}`).join(" ");
+    return `<tr data-status="${s}"><td>${pill(s, p.passed ? "Pass" : "Fail")}</td><td><strong>${esc(p.name)}</strong><div class="why"><code>${esc(p.url)}</code></div></td>
+      <td>${esc(p.httpStatus ?? "—")}</td><td>${esc(p.pageErrors?.length ?? 0)}</td><td class="why">${tabs || "—"}</td>
+      <td class="why">${esc([...(p.problems || []), ...(p.pageErrors || [])].join(" · ") || "—")}</td></tr>`;
+  });
+  card("frontend", "synthetic", "Live synthetic check (root, v2 tabs, classic, 404)", st,
+    `<div class="asof">Last run ${when(b.run.created_at)} · ${esc(b.run.conclusion)} · <a href="${esc(b.run.html_url)}">run</a> (amber after 30 h)</div>` +
+    (rep ? `<p class="why">Root: live tag <code>${esc(rep.liveTag)}</code> · ${rep.passed ? "passed" : "failed"} · ${esc(rep.pageErrors?.length ?? 0)} uncaught page errors${rep.problems?.length ? " · " + esc(rep.problems.join(" · ")) : ""}</p>` : "") +
+    (why.length ? `<p class="why">${esc(why.join(" · "))}</p>` : "") +
+    (rows.length ? table(["Result", "Page", "HTTP", "Page errors", "Tabs", "Problems"], rows) : ""), { wide: true });
+}
+
+function warningsAt(doc, path) {
+  if (!path) return [];
+  const v = path.split(".").reduce((o, k) => (o == null ? o : o[k]), doc);
+  const list = Array.isArray(v) ? v : (v && typeof v === "object" ? Object.keys(v) : []);
+  const names = list.map(x => (typeof x === "string" ? x : (x && (x.section || x.key || x.name)) || "item"));
+  return [...new Set(names)];
+}
+
+async function evaluateSurface(s) {
+  let resp;
+  try { resp = await fetch(ROOT + s.url, { cache: "no-store" }); }
+  catch (e) { return { state: "bad", why: `request failed: ${e.message}` }; }
+  if (!resp.ok) return { state: "bad", why: `HTTP ${resp.status}` };
   let doc;
-  try { doc = await resp.json(); } catch (e) { return { state: "broken", why: "not valid JSON" }; }
-  const n = countAt(doc, s.count_path);
-  if (s.min_count != null && (n == null || n < s.min_count)) {
-    return { state: "broken", why: `${s.count_path || "content"}: ${n ?? "missing"} (needs ≥ ${s.min_count})` };
+  try { doc = await resp.json(); } catch (e) { return { state: "bad", why: "not valid JSON" }; }
+  const v = s.count_path ? doc?.[s.count_path] : doc;
+  const n = Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : null;
+  if (s.min_count != null && (n == null || n < s.min_count)) return { state: "bad", why: `${s.count_path || "content"}: ${n ?? "missing"} (needs ${s.min_count})` };
+  // GAP-033/GAP-044: a surface can name a list of warnings inside its file
+  // (warn_path, dotted). A non-empty list shows the surface as amber with the
+  // first few names: stale inputs and derived sections that lag their input
+  // are warnings on this page, never deploy blocks.
+  const warnings = warningsAt(doc, s.warn_path);
+  if (warnings.length) {
+    const shown = warnings.slice(0, 4).join(", ") + (warnings.length > 4 ? ", …" : "");
+    return { state: "warn", why: `${warnings.length} ${s.warn_label || "warnings"}: ${shown}`, ts: s.time_field ? doc?.[s.time_field] : undefined };
   }
-  let last = "—";
   if (s.time_field) {
     const ts = doc?.[s.time_field];
-    const h = ts ? ageHours(ts) : null;
-    last = ts ? `${fmtAge(h)} <code>${esc(ts)}</code>` : "no timestamp";
-    if (h == null) return { state: "degraded", why: `no readable ${s.time_field}`, last };
-    if (s.max_age_hours != null && h > s.max_age_hours) {
-      return { state: "degraded", why: `stale: ${fmtAge(h)} (limit ${s.max_age_hours} h)`, last };
-    }
+    const h = ts ? ageH(ts) : null;
+    if (h == null) return { state: "warn", why: `no readable ${s.time_field}`, ts };
+    if (s.max_age_hours != null && h > s.max_age_hours) return { state: "warn", why: `stale: ${fmtAge(h)} (limit ${s.max_age_hours} h)`, ts };
+    return { state: "ok", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded", ts };
   }
-  return { state: "working", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded", last };
+  return { state: "ok", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded" };
+}
+
+async function renderSurfaces(feeds) {
+  const spec = feeds.surfaces.doc;
+  if (!spec) return card("frontend", "surfaces", "Published files", "bad", missing(feeds, "surfaces"), { wide: true });
+  const list = spec.surfaces || [];
+  const results = await Promise.all(list.map(evaluateSurface));
+  const states = [];
+  const rows = list.map((s, i) => {
+    let r = results[i];
+    // An optional surface with a named gap is amber, not red: it is known and tracked.
+    const st = !s.required && r.state === "bad" ? "warn" : r.state;
+    states.push(st);
+    return `<tr data-surface="${esc(s.id)}" data-status="${st}"><td>${pill(st)}</td><td><strong>${esc(s.label)}</strong><div class="why"><code>${esc(s.url)}</code></div>${s.known_gap ? `<div class="why">Known gap: ${esc(s.known_gap)}</div>` : ""}</td>
+      <td>${esc(s.page)}</td><td>${r.ts ? when(r.ts) : "—"}</td><td class="why">${esc(r.why)}</td></tr>`;
+  });
+  card("frontend", "surfaces", "Published files (fetched now from this browser; a missing file is an asset 404)", worst(states),
+    `<div class="asof">Checked ${fmtTime(new Date(NOW).toISOString())} · ${list.length} files</div>` +
+    table(["Status", "File", "Page", "Last data", "Result"], rows), { wide: true });
+}
+
+function renderFreshness(feeds) {
+  const d = feeds.fresh.doc;
+  if (!d) return card("frontend", "freshness", "Freshness labels readers see", "bad", missing(feeds, "fresh"), { wide: true });
+  const items = d.items || [];
+  const sts = items.map(i => norm(i.color));
+  const rows = items.map((i, k) => `<tr data-status="${sts[k]}"><td>${pill(sts[k], i.color === "green" ? "Fresh" : i.color === "red" ? "Stale" : i.color ? "Aging" : "Unknown")}</td>
+    <td>${esc(i.label)}</td><td>${esc(i.value ?? "—")}</td><td>${esc(i.age_days ?? "—")} d <span class="why">(limit ${esc(i.max_age_days ?? "—")})</span></td><td class="why">${esc(i.note || i.status || "")}</td></tr>`);
+  const st = worst(feeds.fresh.status, sts.map(s => (s === "bad" ? "warn" : s)));
+  card("frontend", "freshness", "Freshness labels readers see", st, feedLine(feeds.fresh) +
+    `<p class="why">From the published reference-freshness file the trade value pages read. A stale label is amber here: it is shown to readers as stale, not hidden.</p>` +
+    table(["Label", "Item", "Value", "Age", "Note"], rows), { wide: true });
+}
+
+function renderFeeds(feeds) {
+  document.getElementById("feeds").innerHTML = Object.values(feeds).map(f =>
+    `<span data-feed="${esc(f.key)}" data-status="${f.status}">${pill(f.status, f.status === "ok" ? "Fresh" : f.status === "warn" ? "Stale" : f.status === "bad" ? (f.doc ? "Very stale" : "Missing") : "Unknown")} ${esc(f.label)} · ${f.asOf ? fmtAge(ageH(f.asOf)) : f.doc ? (FEEDS[f.key].time ? "no timestamp" : "loaded") : "not loaded"}</span>`).join("");
+}
+
+function renderBanner() {
+  const overall = worst(CARDS.map(c => c.status));
+  const el = document.getElementById("banner");
+  el.className = `banner ${overall}`;
+  el.dataset.overall = overall;
+  const bad = CARDS.filter(c => c.status === "bad"), warn = CARDS.filter(c => c.status === "warn"), unk = CARDS.filter(c => c.status === "unk");
+  const head = overall === "ok" ? "Everything is working and fresh"
+    : overall === "bad" ? `${bad.length} failing${warn.length ? `, ${warn.length} need attention` : ""}`
+    : overall === "warn" ? `${warn.length} need attention` : `${unk.length} could not be checked`;
+  const list = [...bad, ...warn, ...unk].map(c => `<li>${pill(c.status)} <a href="#${c.section}">${esc(c.title)}</a></li>`).join("");
+  el.innerHTML = `${LABEL[overall]}: ${esc(head)}${list ? `<ul>${list}</ul>` : ""}`;
 }
 
 async function main() {
-  const tbody = document.getElementById("rows");
-  let spec;
-  try {
-    const r = await fetch("surfaces.json", { cache: "no-store" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    spec = await r.json();
-  } catch (e) {
-    document.getElementById("summary").innerHTML = `<span class="pill broken">Status spec unavailable: ${esc(e.message)}</span>`;
-    return;
+  const keys = Object.keys(FEEDS);
+  const loaded = await Promise.all(keys.map(loadFeed));
+  const feeds = Object.fromEntries(keys.map((k, i) => [k, loaded[i]]));
+  renderFeeds(feeds);
+  const steps = [renderAlerts, renderJobs, renderIngest, renderChain, renderCheckpoints, renderBake, renderHistory,
+                 renderSecurity, renderIdentity, renderDeploy, renderSynthetic, renderSurfaces, renderFreshness];
+  for (const step of steps) {
+    try { await step(feeds); }
+    catch (e) {
+      // A renderer bug must show as a failed card, never as a silently missing one.
+      console.error(e);
+      card("alerts", `render-${step.name}`, `Dashboard error in ${step.name}`, "bad", `<p class="why">${esc(e.message)}</p>`);
+    }
   }
-  const surfaces = spec.surfaces || [];
-  tbody.innerHTML = surfaces.map(s => `
-    <tr data-surface="${esc(s.id)}">
-      <td class="state checking">Checking…</td>
-      <td><strong>${esc(s.label)}</strong><br><code>${esc(s.url)}</code>${s.known_gap ? `<div class="gap">Known gap: ${esc(s.known_gap)}</div>` : ""}</td>
-      <td>${esc(s.page)}</td>
-      <td class="why">${esc(s.backend)}</td>
-      <td class="last">—</td>
-      <td class="why">${esc(s.meaning)}</td>
-    </tr>`).join("");
-  const results = await Promise.all(surfaces.map(evaluate));
-  const counts = { working: 0, degraded: 0, broken: 0 };
-  results.forEach((res, i) => {
-    counts[res.state]++;
-    const row = tbody.children[i];
-    row.dataset.state = res.state;
-    const cell = row.querySelector(".state");
-    cell.className = `state ${res.state}`;
-    cell.innerHTML = `${res.state[0].toUpperCase()}${res.state.slice(1)}<div class="why">${esc(res.why)}</div>`;
-    if (res.last) row.querySelector(".last").innerHTML = res.last;
-  });
-  document.getElementById("summary").innerHTML =
-    ["working", "degraded", "broken"].map(k => `<span class="pill ${k}" data-count="${k}">${counts[k]} ${k}</span>`).join("");
+  renderBanner();
   document.body.dataset.ready = "1";
-  document.getElementById("foot").textContent = `Checked ${new Date().toLocaleString()} · ${surfaces.length} surfaces`;
 }
 main();
 </script>

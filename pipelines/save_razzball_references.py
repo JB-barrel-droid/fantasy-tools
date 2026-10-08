@@ -18,7 +18,7 @@ raw_stats so the importer can rebuild the snapshot row exactly.
 
 Identity (fail closed, same rule as the other savers): numeric player_key only,
 resolved via public.players (full_name is the naming authority) after the
-verified spelling ALIASES. Unmatched or ambiguous names go to the review report,
+verified aliases (data/inputs/player_aliases.json, shared by every resolver). Unmatched or ambiguous names go to the review report,
 never guessed, never zero-filled.
 """
 
@@ -36,7 +36,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+import player_aliases  # noqa: E402 -- the one verified alias list
+from canonical_players import narrow_candidates  # noqa: E402
 from nfl_week import current_nfl_week  # noqa: E402
 
 TABLE = "razzball_projections"  # bare name: PostgREST path is /rest/v1/<table>
@@ -85,7 +87,7 @@ def _sb():
 
 
 def _default_fetch_players() -> list[dict[str, Any]]:
-    rows = _sb().get_all("players", params="?select=player_key,full_name,position")
+    rows = _sb().get_all("players", params="?select=player_key,full_name,position,active")
     if not isinstance(rows, list):
         raise SystemExit("Unexpected Supabase response for players")
     return [r for r in rows if isinstance(r, dict)]
@@ -134,6 +136,7 @@ def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, 
             "player_key": key,
             "full_name": name,
             "position": str(record.get("position") or "").strip().upper() or None,
+            "active": record.get("active"),
         }
         norm = normalize_name(name)
         index.setdefault(norm, []).append(entry)
@@ -149,7 +152,7 @@ def resolve_name(
 ) -> tuple[int | None, str | None]:
     """Return (player_key, reason). Unresolved -> (None, reason).
 
-    Order: exact normalized name, the verified ALIASES, the space-free form, then the
+    Order: the shared verified aliases (lib/player_aliases), the normalized name, the space-free form, then the
     snapshot's own `player_norm` (the join key the DDF leg uses; it catches "David
     Sills V" -> "david sills"). Several players under one form are narrowed by
     position; still more than one is "ambiguous" and goes to review. Nothing is guessed.
@@ -159,20 +162,12 @@ def resolve_name(
         forms.append(normalize_name(norm_hint))
     candidates: list[dict[str, Any]] = []
     for norm in forms:
-        norm = ALIASES.get(norm, norm)
+        norm = normalize_name(player_aliases.canonical_spelling(norm))
         candidates = index.get(norm) or index.get("\0" + compact(norm), [])
         if candidates:
             break
-    if not candidates:
-        return None, "no_match"
-    if len(candidates) == 1:
-        return candidates[0]["player_key"], None
-    wanted = (pos or "").strip().upper()
-    if wanted:
-        filtered = [c for c in candidates if c.get("position") == wanted]
-        if len(filtered) == 1:
-            return filtered[0]["player_key"], None
-    return None, "ambiguous"
+    rec, reason = narrow_candidates(candidates, pos)
+    return (rec["player_key"], None) if rec else (None, reason)
 
 
 def parse_float(raw: Any) -> float | None:

@@ -11,7 +11,9 @@ this module canonicalizes names through its snapshot before any pricing
 math.
 
 Resolution order for a normed key:
-  1. snapshot alias_to_canonical (covers every known variant, incl. ESPN)
+  0. a verified alias (data/inputs/player_aliases.json, the one shared list)
+     is rewritten to its public.players spelling first
+  1. snapshot alias_to_canonical (mechanical spelling variants)
   2. the key itself when it is a known canonical chart key
   3. built-in heuristic (suffix strip/add, nickname table) against chart
      keys - deterministic, single-candidate only, logged to stderr
@@ -35,27 +37,18 @@ _REPO = _PIPELINES.parent                   # repo root
 SNAP = _REPO / "data" / "inputs" / "player_identity_map.json"
 
 SUFFIXES = ("jr", "sr", "ii", "iii", "iv", "v")
-NICKNAMES = {
-    "cam": "cameron", "kenny": "kenneth", "mike": "michael",
-    "alex": "alexander", "ben": "benjamin", "chris": "christopher",
-    "dan": "daniel", "doug": "douglas", "greg": "gregory",
-    "jeff": "jeffrey", "jim": "james", "jimmy": "james", "joe": "joseph",
-    "josh": "joshua", "matt": "matthew", "nate": "nathan",
-    "nick": "nicholas", "rob": "robert", "sam": "samuel",
-    "steve": "steven", "tim": "timothy", "tom": "thomas", "tony": "anthony",
-    "will": "william", "zack": "zachary", "zac": "zachary",
-    "pat": "patrick", "andy": "andrew", "drew": "andrew",
-    "ed": "edward", "ted": "theodore", "rick": "richard",
-    "bill": "william", "bobby": "robert", "bob": "robert",
-    "charlie": "charles", "chuck": "charles", "dave": "david",
-    "don": "donald", "ron": "ronald", "ken": "kenneth",
-    "terry": "terrance",
-    # Monikers consolidated from the old loaders/fantasypros.py private
-    # ALIASES (2026-09-18 canonical migration): "hollywood brown" was mapped
-    # to "marquise brown" there; "scotty miller" to "scott miller".
-    # First-token keyed like the rest of the table.
-    "hollywood": "marquise", "scotty": "scott",
-}
+# One nickname table (lib/nicknames.py) and one verified alias list
+# (lib/player_aliases.py) for every resolver; this module kept private copies
+# before 2026-10-08.
+if str(_LIB) not in sys.path:
+    sys.path.insert(0, str(_LIB))
+from nicknames import NICKNAMES  # noqa: E402
+import player_aliases  # noqa: E402
+
+
+def shared_alias_spelling(name):
+    """The public.players spelling when `name` is a verified alias, else `name`."""
+    return player_aliases.canonical_spelling(name)
 
 
 def norm_name(n):
@@ -103,7 +96,7 @@ class IdentityMap:
 
     def canon(self, key):
         """Normed key -> canonical (chart-key) identity."""
-        key = norm_name(key)
+        key = norm_name(shared_alias_spelling(key))
         hit = self.alias_to_canonical.get(key)
         if hit:
             return hit
