@@ -86,7 +86,7 @@
   <div class="grid" id="sec-frontend"></div>
 
   <footer id="foot">
-    Detail pages: <a href="dashboard.html">data monitor</a> (value lineage, checkpoints, data accuracy) ·
+    Detail pages: <a href="dashboard.html">data monitor</a> (checkpoints, data accuracy) ·
     <a href="consolidation.html">consolidation watcher</a>. Producers: health-artifacts.yml (monitoring summary,
     import health, checkpoints, ops-status.json), rebuild-chain.yml (chain status, GitHub Actions), make sync (freshness, week history).
   </footer>
@@ -129,7 +129,6 @@ const FEEDS = {
   e2e:      { url: () => BASE + "e2e-fidelity.json", time: "generated_at", amberH: 36, redH: 74, label: "End-to-end fidelity" },
   accuracy: { url: () => BASE + "data-accuracy.json", time: "generated_at", amberH: 36, redH: 74, label: "Data accuracy" },
   lineage:  { url: () => BASE + "input-lineage.json", time: "generated_at", amberH: 8, redH: 25, label: "Input lineage" },
-  audit:    { url: () => BASE + "source-value-lineage.json", time: "generated_at", amberH: 48, redH: Infinity, label: "Lineage audit (manual)" },
 };
 // Feeds written by health-artifacts.yml share its cadence. The monitoring
 // summary's own `producer` block says when they stop being trustworthy
@@ -468,8 +467,8 @@ function renderHistory(feeds) {
 
 function renderDerived(feeds) {
   // Freshness lane signals: derived checks rebuilt on every deploy (e2e
-  // fidelity, data accuracy) or chain run (input lineage), and the manual
-  // lineage audit, which is a stale audit after 48 h by design.
+  // fidelity, data accuracy) or chain run (input lineage). The manual
+  // source-value lineage audit was retired 2026-10-08 (chore/retire-extras).
   const rows = [], sts = [];
   const row = (feed, st, detail) => {
     sts.push(st);
@@ -494,12 +493,7 @@ function renderDerived(feeds) {
     let st = gone(f) ? "bad" : d.generated_at ? worst(f.status, lag.length ? "warn" : "ok") : "unk";
     row(f, st, gone(f) || (!d.generated_at ? `not produced yet: ${d.note || "no generated_at"}`
         : lag.length ? `${lag.length} derived sections lag their input: ${lag.join(", ")}` : `${d.checked ?? "—"} sections checked, none lag`)); }
-  { const f = feeds.audit, d = f.doc;
-    const lags = d?.stale_relative_to_fixture === true;
-    const stale = f.status !== "ok" || lags;
-    row(f, gone(f) ? "bad" : stale ? "warn" : "ok",
-        gone(f) || (stale ? `Stale audit: built ${fmtAge(ageH(d.generated_at))}${lags ? ", older than the served fixture" : ""}; not refreshed automatically (make monitor-lineage where data/raw exists)` : "audit current")); }
-  card("backend", "derived", "Derived checks (fidelity, accuracy, input lineage, lineage audit)", worst(sts),
+  card("backend", "derived", "Derived checks (fidelity, accuracy, input lineage)", worst(sts),
     table(["Status", "Check", "Built", "Detail"], rows), { wide: true });
 }
 

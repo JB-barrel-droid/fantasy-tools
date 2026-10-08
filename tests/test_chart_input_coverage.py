@@ -120,7 +120,9 @@ class TestBuilderEmitsRows(unittest.TestCase):
         self.assertIn(
             "app/trade-value-chart/assets/adjustment-inputs.json", names
         )
-        self.assertIn("data/fixtures/current/player-news.json", names)
+        # Retired 2026-10-08 (chore/retire-extras): player-news.json has no
+        # producer and no reader; it must not come back as a monitored input.
+        self.assertNotIn("data/fixtures/current/player-news.json", names)
         self.assertIn(
             "app/trade-value-chart/assets/reference-freshness.json", names
         )

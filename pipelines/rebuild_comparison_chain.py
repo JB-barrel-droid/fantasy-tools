@@ -1319,8 +1319,8 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         # builder needs the gitignored data/raw Week 4 source snapshots and a
         # live-page scrape of the Week 4 article URLs, and the chain never
         # committed its output. It logged a failure every run and changed
-        # nothing. The lineage card is a manual audit (`make monitor-lineage`
-        # on a machine with data/raw); the monitor shows it stale by age.
+        # nothing. The lineage audit itself was then retired the same day
+        # (chore/retire-extras); git history before aefb8f7 keeps it.
 
         print("\n" + "=" * 60)
         print("CHAIN COMPLETE")

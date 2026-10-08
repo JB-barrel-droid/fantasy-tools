@@ -34,9 +34,6 @@ jobs:
       # JEG-133: validate runs on every commit (no path-dependent gating) and
       # is blocking. A red validate blocks the deploy on every push.
       - run: make validate
-      - name: Rebuild source value lineage
-        run: python3 pipelines/build_source_value_lineage.py
-        continue-on-error: true
       # Monitor signals refreshed on every deploy (warnings, never deploy
       # blocks; Jeremy 2026-10-08). GAP-E2E-FIDELITY: the JEG-77 card's only
       # producer. GAP-031: the ESPN-zeroed staleness signal (exits 1 when it
