@@ -3538,6 +3538,21 @@
     const result = await getWeekValues(source, prior);
     return {...result, ...extra};
   }
+  // Read-only: which saved weeks exist for a series, and the week served now.
+  // Lets a page offer week pairs (N−1 → N) without reading the history files itself.
+  async function getHistoryWeeks(source) {
+    let index;
+    try {
+      index = await historyIndex();
+    } catch (error) {
+      return {source, servedWeek: null, weeks: [], reason: `history could not be read: ${error.message}`};
+    }
+    const weeks = Object.keys(index?.weeks || {}).map(Number).filter(week => Number.isInteger(week)
+      && index.weeks[String(week)]?.sources?.[source]).sort((a, b) => a - b);
+    const served = index?.served?.[source];
+    return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks,
+      ...(HISTORY_UNSUPPORTED[source] ? {reason: HISTORY_UNSUPPORTED[source]} : {})};
+  }
 
   window.TradeValueCurveControls = {
     setPosition,
@@ -3576,6 +3591,7 @@
     // Back-end contract: history (read-only; both return Promises).
     getWeekValues,
     getPriorWeek,
+    getHistoryWeeks,
     setRosterSpot,
     setBenchShareFraction,
     getBenchShare: () => benchShare,
