@@ -63,8 +63,9 @@ stale. Headless test with green, stale and failed fixtures that fails on a broke
   to the workflow permissions. Without it the alerts card shows Unknown with the API error; it does
   not show green.
 - The security card reads `monitoring-summary.json` `security`, which comes from the monitoring
-  lane's `public.monitoring_security_posture()`. The shape was taken from that lane's message and
-  not checked against an applied function. Until it is applied the card is Unknown.
+  lane's `public.monitoring_security_posture()`. The field names come from that lane's corrected
+  message (count fields, a `details` name list, and `{read_error}` shown as Unknown). They have not
+  been checked against an applied function. Until it is applied the card is Unknown.
 - The synthetic card's per-page table needs the freshness lane's live.mjs `pages[]` (not merged).
   Until then it shows amber, "root build-tag check only".
 - `fantasypros_trade_chart_ingest` is not a monitoring check today, so FantasyPros ingest shows
