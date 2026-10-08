@@ -533,13 +533,15 @@ class SaveCbsWeekTest(unittest.TestCase):
         self.assertNotIn("week=eq.2", self.count_params_seen[0])
         self.assertEqual(result["vintage"], "Week 3")
 
-    def test_default_week_is_current_nfl_week(self):
+    def test_default_week_is_the_content_week(self):
+        # The saver labels a save with the content week (Tuesday flip), not
+        # the Thursday-flip game week (GAP-WEEK-CALENDARS).
         save_cbs.save_source(
             "cbs", dry_run=False, espn_csv=Path("/dev/null"),
             espn_meta=Path("/dev/null"), cbs_json=self.json_path, week=None,
         )
         table, rows, _ = self.writes[0]
-        self.assertTrue(all(r["week"] == _common.nfl_week() for r in rows))
+        self.assertTrue(all(r["week"] == _common.content_week() for r in rows))
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,7 @@ import json
 import os
 import re
 import subprocess
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 try:
     from zoneinfo import ZoneInfo
@@ -40,22 +40,22 @@ def today_ct():
     return now_ct().date()
 
 
-def nfl_week(asof=None):
-    """Current NFL week. 2026 season: Week 1 kicked off Thu Sep 10; weeks
-    flip Thursday. (Same calendar rule as the pull scripts.)"""
-    asof = asof or today_ct()
-    kickoff = date(2026, 9, 10)
-    wk = (asof - kickoff).days // 7 + 1
-    return max(1, min(22, wk))
+# The week calendar lives in ONE module, pipelines/nfl_week.py (content week =
+# Tuesday flip, for every data label; game week = Thursday flip, only where
+# games matter). These wrappers only default the date to today in Central time.
+import sys as _sys  # noqa: E402
+_sys.path.insert(0, os.path.join(DEFAULT_REPO, "pipelines"))
+import nfl_week as _calendar  # noqa: E402
 
 
 def content_week(asof=None):
-    """Week the trade-chart publishers are on. They post "Week N" charts on
-    Mon/Tue before Thursday's games, so the content week turns over on
-    Tuesday, two days ahead of nfl_week() (same rule as
-    pipelines/nfl_week.current_nfl_week)."""
-    asof = asof or today_ct()
-    return nfl_week(asof + timedelta(days=2))
+    """Content week (Tuesday flip): the week every saved source is labelled with."""
+    return _calendar.content_week(asof or today_ct())
+
+
+def game_week(asof=None):
+    """Game week (Thursday flip): only where the games themselves matter."""
+    return _calendar.game_week(asof or today_ct())
 
 
 def fetch(url, timeout=60):

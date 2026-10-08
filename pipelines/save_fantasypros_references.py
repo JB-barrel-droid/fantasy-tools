@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
 from match_source_snapshot import normalize_name  # noqa: E402
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 from save_espn_cbs_references import (  # noqa: E402
     fetch_players,
     upsert_rows,
@@ -153,7 +153,7 @@ def save_fantasypros(
     bake_id: str | None = None,
     reindex: bool = True,
 ) -> dict[str, Any]:
-    week = week or nfl_week()
+    week = week or content_week()
     today = datetime.now(timezone.utc).date().isoformat()
     bake_id = bake_id or f"fpwk{week}_{today}_v1"
 

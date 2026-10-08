@@ -55,7 +55,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from lib.publication_windows import get_publication_status  # noqa: E402
 # Content-week calendar (flips Tuesday). GAP-WEEK-CALENDARS: never the
 # Thursday-flip ops/watchdog/_common.nfl_week.
-from nfl_week import current_nfl_week  # noqa: E402
+from nfl_week import content_week_or_none, current_nfl_week  # noqa: E402
 
 # Canonical bake-aware selection pattern (JEG-90): a week may hold multiple
 # immutable bakes; never blend them. Imported, not reimplemented -- single
@@ -213,32 +213,10 @@ FAILURE_CODES = (
 DRIFT_WARN_ROW_PCT = 0.02  # row drift within 2% -> warning
 DRIFT_WARN_ROW_ABS = 10     # ...or within 10 rows absolute, whichever is larger
 
-# ---------------------------------------------------------------------------
-# 2026 NFL week calendar (editorial weeks, Tuesday -> Monday, the trade-chart
-# cadence). VERIFIED 2026-09-21 against the published 2026 schedule
-# (sportsnet.ca/nfl/article/nfl-announces-2026-regular-season-schedule,
-# nbc.com/nbc-insider/the-full-2026-2027-nfl-schedule,
-# paramountplus.com/nfl-on-cbs-schedule, si.com/nfl/schedule):
-#   Week 1 games: Wed Sep 9 (NE@SEA kickoff) .. Mon Sep 14
-#   Week 2 games: Thu Sep 17 (DET@BUF) .. Mon Sep 21
-#   Week 3 games: Thu Sep 24 .. Mon Sep 28
-#   Week 4 games: Thu Oct 1 .. Mon Oct 5
-# Editorial week boundaries run Tuesday..Monday (charts publish midweek), so:
-#   Week 1: 2026-09-08 .. 2026-09-14
-#   Week 2: 2026-09-15 .. 2026-09-21
-#   Week 3: 2026-09-22 .. 2026-09-28
-#   Week 4: 2026-09-29 .. 2026-10-05
-# The 7-day cadence is fixed for the 18-week season, so weeks are computed as
-# offsets from the Week 1 start rather than an authored per-week table.
-# ---------------------------------------------------------------------------
-WEEK1_START = date(2026, 9, 8)
-
-
 def nfl_week_for_date(d: date) -> int | None:
-    """Map a calendar date to its 2026 NFL editorial week, or None pre-season."""
-    if d < WEEK1_START:
-        return None
-    return 1 + (d - WEEK1_START).days // 7
+    """Map a calendar date to its 2026 content week, or None pre-season.
+    The calendar is pipelines/nfl_week.py (one week rule; GAP-WEEK-CALENDARS)."""
+    return content_week_or_none(d)
 
 
 def is_ecr_flavored(source_name: Any) -> bool:

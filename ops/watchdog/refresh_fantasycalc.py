@@ -18,7 +18,7 @@ dishonest, and the watchdog would go green on a lie).
 Usage:
   refresh_fantasycalc.py [--week-label "Week 3"] [--dry-run]
 
-The week label defaults to the watchdog's nfl_week() ("Week N").
+The week label defaults to the content week (pipelines/nfl_week.py, Tuesday flip; "Week N").
 
 JEG-87: codify the week honestly per docs/week-coding-rules.md.
 FantasyCalc's API (/values/current) carries no week in the URL and has
@@ -40,7 +40,7 @@ GOAL_BIN = os.path.expanduser(
     "~/workspace/goals/football-signal-database-and-app/lottery/bin")
 sys.path.insert(0, GOAL_BIN)
 
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 import build_sources_dashboard as bsd  # noqa: E402  (read-only use)
 
 MIN_ROWS = 100  # the live representative combo holds ~210 rows
@@ -156,7 +156,7 @@ def main():
     ap.add_argument("--week-label", default=None)
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
-    week_label = args.week_label or ("Week %d" % nfl_week())
+    week_label = args.week_label or ("Week %d" % content_week())
 
     # JEG-87: codify the week, honestly. FantasyCalc's API (/values/current)
     # carries no week in the URL and exposes no week-labeled page title,

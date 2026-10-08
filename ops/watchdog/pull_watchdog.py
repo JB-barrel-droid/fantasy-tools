@@ -35,7 +35,7 @@ import sys
 from datetime import datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import (GOAL, FS, REPO, today_ct, now_ct, nfl_week, read_json,
+from _common import (GOAL, FS, REPO, today_ct, now_ct, content_week, read_json,
                      age_days, todays_run_lines, run_failed_time, CT)
 
 WATCHDIR = os.path.join(REPO, "ops", "watchdog")
@@ -243,18 +243,19 @@ def check_fantasycalc(day, week):
     return v
 
 
-def refresh_import_health(week):
-    """Run the import-stage verifier (make import-health NFL_WEEK=<n>).
+def refresh_import_health():
+    """Run the import-stage verifier (make import-health).
 
     Best-effort: on any failure the watchdog falls back to reading the
     existing output/source-import-health.json, then to 'pending'.
-    NFL_WEEK follows the pull scripts' Thursday-flip nfl_week() — passing a
-    week whose articles don't exist yet would false-alarm STALE_VINTAGE on
-    every source (verified: week-3 CBS slug 404s, no week-3 in the USA Today
-    sitemap as of 2026-09-22)."""
+    No NFL_WEEK is passed: the verifier defaults to the content week
+    (pipelines/nfl_week.py, Tuesday flip), and its publication windows report
+    a not-yet-published new week as AWAITING_PUBLICATION rather than stale.
+    Passing the Thursday-flip game week hid a one-week lag on Tuesdays and
+    Wednesdays (GAP-WATCHDOG-THU-WEEK)."""
     import subprocess as _sp
     try:
-        _sp.run(["make", "import-health", "NFL_WEEK=%d" % week], cwd=REPO,
+        _sp.run(["make", "import-health"], cwd=REPO,
                 capture_output=True, timeout=240)
     except Exception:
         pass
@@ -290,7 +291,7 @@ def main():
     args = ap.parse_args()
 
     day = today_ct()
-    week = nfl_week(day)
+    week = content_week(day)
 
     cfgs = {
         "prediction_markets": {
@@ -335,7 +336,7 @@ def main():
     # FantasyPros trade chart "fantasypros"; the watchdog check is
     # "fantasypros_chart" (ECR is a separate, excluded product).
     REPO_TO_CHECK = {"fantasypros": "fantasypros_chart"}
-    refresh_import_health(week)
+    refresh_import_health()
     for sid in REPO_SOURCES:
         landed, sb_status, vintage, imported_at, failure = supabase_landed(sid)
         key = REPO_TO_CHECK.get(sid, sid)

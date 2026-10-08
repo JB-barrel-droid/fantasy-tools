@@ -78,7 +78,7 @@ from import_source_snapshot import parse_float  # noqa: E402
 # here and in build_ddf_two_tier_leg.py must never diverge.
 from build_ddf_two_tier_leg import ALIASES  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
-from _common import nfl_week  # noqa: E402 -- current week for the CBS save grain
+from _common import content_week  # noqa: E402 -- content week for the CBS save grain
 # Writer audit for Supabase write provenance
 from lib.writer_audit import WriterAudit  # noqa: E402
 
@@ -387,7 +387,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         conflict = ESPN_UPSERT_CONFLICT
         count_params = "?select=player_key&season=eq.2026&week=eq.2"
     else:
-        week = week or nfl_week()
+        week = week or content_week()
         table = "cbs_trade_values"
         clean, review, _pulled_at, _url = build_cbs_rows(cbs_json, week)
         conflict = CBS_UPSERT_CONFLICT
@@ -469,7 +469,7 @@ def main() -> int:
         "--week",
         type=int,
         default=None,
-        help="NFL week for the CBS save grain (default: current week from ops/watchdog/_common.nfl_week). ESPN path ignores this.",
+        help="NFL week for the CBS save grain (default: the content week, pipelines/nfl_week.py). ESPN path ignores this.",
     )
     parser.add_argument(
         "--review-out",

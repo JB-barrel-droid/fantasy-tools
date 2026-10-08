@@ -22,7 +22,7 @@ import sys
 from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from _common import fetch, nfl_week, REPO
+from _common import content_week, fetch, REPO
 
 SLUG = ("https://sportsfly.cbsistatic.com/fantasy/football/news/"
         "dave-richards-week-%d-trade-chart-and-rest-of-season-"
@@ -123,7 +123,7 @@ def validate_week_consistency(url: str, headline: str | None,
 
 
 def candidate_urls(week=None):
-    week = week or nfl_week()
+    week = week or content_week()
     return [SLUG % w for w in (week, week - 1, week - 2) if w >= 1]
 
 
