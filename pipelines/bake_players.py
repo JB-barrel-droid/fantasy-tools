@@ -477,9 +477,18 @@ def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
                 continue
             key = _resolve_csv_row(r.get("player", ""), pos, "espn-zero",
                                    registry)
+            if key is None:
+                # GAP-ESPN-LEG-STATUS-EDGE: the ESPN leg (FixtureIdentity)
+                # takes a unique name whatever position ESPN prints; the
+                # position only splits namesakes. Same rule here, so a
+                # player ESPN files under another position is "ineligible"
+                # (in the leg at 0.0), not "absent".
+                key = resolve_skill(r.get("player", ""), registry=registry)
             if key is None or key in espn_med or key in out:
                 continue
-            out[key] = {"pos": pos, "team": (r.get("team") or "").strip(),
+            reg_pos = (registry.by_key.get(key) or {}).get("position") if registry is not None else None
+            out[key] = {"pos": reg_pos if reg_pos in SKILL_POS else pos,
+                        "team": (r.get("team") or "").strip(),
                         "espn_status": "ineligible"}
     if comparison_fixture and Path(comparison_fixture).exists():
         payload = json.loads(Path(comparison_fixture).read_text(encoding="utf-8"))

@@ -199,7 +199,7 @@ class NoPrivateAliasList(unittest.TestCase):
     def test_only_lib_player_aliases_reads_the_list_and_nobody_reads_alias_to_canonical_privately(self):
         bad = []
         for path in py_files():
-            rel = str(path.relative_to(ROOT))
+            rel = path.relative_to(ROOT).as_posix()  # allowlists use "/" (Windows runs)
             text = path.read_text(encoding="utf-8")
             if rel != "pipelines/lib/player_aliases.py" and any(
                     isinstance(n, ast.Constant) and isinstance(n.value, str)

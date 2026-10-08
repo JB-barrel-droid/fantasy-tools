@@ -424,6 +424,8 @@ test-core:
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_one_name_resolver
+	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change

@@ -88,5 +88,43 @@ class EspnZeroUniverseTest(unittest.TestCase):
         self.assertEqual({2}, set(out))
 
 
+class EspnZeroUniverseMatchesTheLegTest(unittest.TestCase):
+    """GAP-ESPN-LEG-STATUS-EDGE: ESPN lists Jackson Meeks as TE (players: WR)
+    and Riley Nowakowski as RB (players: TE). The ESPN leg (FixtureIdentity)
+    resolves a unique name whatever position the source prints, so both are
+    in the leg at 0.0; the bake demanded the CSV position, missed them, and
+    labelled them "absent". One rule now: a unique name resolves; the
+    position only breaks ties between namesakes."""
+
+    def test_unique_name_at_another_position_is_ineligible_not_absent(self):
+        espn_csv = _csv([{"player": "Deep Bench", "pos": "RB", "team": "PIT", "eligible": "False"}])
+        fixture = _fixture({"deep bench": 3})
+        out = bake_players.espn_zero_universe(espn_csv, fixture, {}, _reg())
+        self.assertEqual("ineligible", out[3]["espn_status"])
+        self.assertEqual("TE", out[3]["pos"])  # the players table's position, not ESPN's
+
+    def test_namesakes_at_two_positions_stay_unresolved(self):
+        # Negative: the position fallback must not pick between namesakes.
+        reg = bake_players.load_registry(rows=[
+            {"player_key": 5, "full_name": "Same Name", "position": "WR", "active": True},
+            {"player_key": 6, "full_name": "Same Name", "position": "TE", "active": True},
+        ])
+        espn_csv = _csv([{"player": "Same Name", "pos": "RB", "eligible": "False"}])
+        self.assertEqual({}, bake_players.espn_zero_universe(espn_csv, None, {}, reg))
+
+    def test_committed_inputs_agree_with_the_fixture_leg(self):
+        root = os.path.join(os.path.dirname(__file__), "..")
+        players = json.load(open(os.path.join(root, "data/fixtures/current/players.json"), encoding="utf-8"))
+        reg = bake_players.load_registry(rows=[
+            {"player_key": p["player_key"], "full_name": p["name"], "position": p["pos"], "active": True}
+            for p in players["players"]])
+        fixture = os.path.join(root, "data/fixtures/current/comparison-sources-data.json")
+        out = bake_players.espn_zero_universe(
+            os.path.join(root, "data/inputs/espn_projections.csv"), fixture, {}, reg)
+        for key in (4000, 3963):  # Jackson Meeks, Riley Nowakowski
+            with self.subTest(player_key=key):
+                self.assertEqual("ineligible", out[key]["espn_status"])
+
+
 if __name__ == "__main__":
     unittest.main()

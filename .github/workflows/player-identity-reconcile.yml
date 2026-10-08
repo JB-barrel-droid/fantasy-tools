@@ -1,0 +1,71 @@
+name: Player identity reconcile
+
+# JEG-438: nightly re-resolution of player names the savers could not match.
+#
+#   pipelines/reconcile_player_identity.py reads the open rows of
+#   public.player_name_aliases (queued by the savers through
+#   pipelines/lib/identity_queue.py), settles exact / alias matches, queues
+#   ambiguous names for review, records fuzzy matches as provisional
+#   proposals only (never written to values), counts open names per source
+#   and records the monitored check `player_identity_reconcile`.
+#   monitor_alerts.py (health-artifacts.yml) alerts per source above the
+#   threshold in pipelines/lib/identity_queue.py.
+#
+# Scheduler owner: Supabase pg_cron `player-identity-reconcile-nightly`
+# (supabase/migrations/jeg438_alias_table_curated.sql), dispatching
+# mode=write. No `schedule:` here.
+#
+#   workflow_dispatch -> dry unless mode=write
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: player-identity-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Reconcile
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          flag=""
+          [ "${{ github.event.inputs.mode }}" = "write" ] && flag="--write"
+          rc=0
+          python3 pipelines/reconcile_player_identity.py $flag > /tmp/reconcile.log 2>&1 || rc=$?
+          cat /tmp/reconcile.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          head -40 /tmp/reconcile.log | cut -c1-900 | sed "s/^/::$level title=identity reconcile::/"
+          exit $rc
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: player-identity-reconcile
+          path: output/player-identity-reconcile.json
+          if-no-files-found: ignore
+          retention-days: 14
