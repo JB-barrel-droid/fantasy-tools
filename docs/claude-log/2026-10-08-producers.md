@@ -28,6 +28,10 @@ mid-session: the refresh-cadence lane owns schedules and retries now.
 - **USA Today chain:** new tests fail on origin/main code (3 failures:
   relay soft wall falls through, all-soft-walled is SOURCE_BLOCKED and named,
   workflow passes FIRECRAWL_API_KEY) and pass on the branch.
+- **USA Today chain on a real runner:** dry dispatch of trade-chart-ingest.yml
+  on fix/producers-tidy (run 37765751173, source=usatoday): "direct fetch
+  blocked (402); fetched via supabase relay", tables QB=36 RB=79 TE=37 WR=109,
+  756 clean / 69 review, no writes.
 - **Stale pin fixed:** `test_migration_dispatches_this_workflow_in_write_mode`
   was red on origin/main (pinned literal `source: [cbs, usatoday]`; the
   matrix gained fantasypros). Rewritten to the rule (every recorded matrix
