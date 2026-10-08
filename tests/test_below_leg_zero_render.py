@@ -10,7 +10,7 @@ engine's raw source maps (TradeValueCurveHarness.sourceMaps, which this rule
 must not touch) and the page's own #players-data projections, a player missing
 from a leg is expected at 0 only when his per-game projection is at or below
 the lowest projection the leg prices at his position. Above that line, or at a
-position the leg prices no one (CBS ROS quarterbacks at 8 teams), he must stay
+position the leg prices no one (a withheld position), he must stay
 missing: zeroing there would invent a value.
 
 Headless against a temp copy of the built dist/ (dist/v2 rebuilt from app/v2):
@@ -19,7 +19,8 @@ Headless against a temp copy of the built dist/ (dist/v2 rebuilt from app/v2):
   * Darren Waller (12-team PPR): engine ESPN 0.0, and on v2 Trade targets
     (ESPN as our value) a sell row with ours 0.0 and gap = chart value for
     every compared chart that pays for him;
-  * CBS ROS quarterbacks at 8 teams stay missing.
+  * if a leg prices no one at a position (CBS ROS quarterbacks at 8 teams
+    until GAP-CBSROS-8T-NO-QB was fixed), its players there stay missing.
 Discrimination: test_guard_fails_on_broken_builds serves the origin/main rule
 (below-leg players missing), a rule that zeroes every projected player missing
 from a leg (no floor).
@@ -46,6 +47,12 @@ PROBE = "Darren Waller"
 SETTINGS = (("ppr", 12), ("ppr", 8))
 
 WIDGET_RULE = "if (ppg !== null && Number.isFinite(floor) && ppg <= floor) return 0;"
+# GAP-CBSROS-8T-NO-QB fix: the upward feasible-share step. Disabling it brings
+# back a leg that prices no one at a position (CBS ROS QBs at 8 teams), the
+# only state in the current data with projected players above a leg's floor
+# that must stay missing -- so the "no floor" mutation is caught only there.
+UPWARD_STEP = "if (/bench rate .* not positive/i.test(reason)) {"
+NO_UPWARD_STEP = "if (false && /bench rate .* not positive/i.test(reason)) {"
 
 
 def players():
@@ -211,10 +218,17 @@ class BelowLegZeroRenderTest(unittest.TestCase):
         mutations = {
             # origin/main before this change: below-leg players are missing.
             "below-leg missing in the engine": {"**/assets/curve-widget.js*": widget.replace(WIDGET_RULE, "", 1)},
-            # Zero every projected player missing from a leg, floor ignored.
+            # Zero every projected player missing from a leg, floor ignored,
+            # on a build where CBS ROS withholds 8-team QBs (upward step off).
             "no floor (zero any projected player)": {"**/assets/curve-widget.js*": widget.replace(
-                WIDGET_RULE, "if (ppg !== null) return 0;", 1)},
+                WIDGET_RULE, "if (ppg !== null) return 0;", 1).replace(UPWARD_STEP, NO_UPWARD_STEP, 1)},
         }
+        # Control: the correct rule on the withheld-QB build passes, so the
+        # mutation above is caught for the floor, not for the withholding.
+        control = widget.replace(UPWARD_STEP, NO_UPWARD_STEP, 1)
+        self.assertNotEqual(control, widget, "upward-step anchor is stale")
+        self.assertEqual(check(collect({"**/assets/curve-widget.js*": control})), [],
+                         "correct rule fails on the withheld-QB build")
         for name, overrides in mutations.items():
             with self.subTest(mutation=name):
                 body = next(iter(overrides.values()))

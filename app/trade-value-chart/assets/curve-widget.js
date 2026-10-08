@@ -523,14 +523,20 @@
     }
 
     // Calibrate one position at the requested share, falling back to the
-    // highest feasible share <= requested when the request breaks the
-    // economics (starter rate must exceed bench rate). Mirrors
-    // pipelines/build_ddf_two_tier_leg.py::calibrate_position_feasible:
-    // 20 bisection iterations on [0.01, requested]. Records bench_share_used
-    // on the returned calibration. Only the economics-break failure falls
-    // back; degenerate exposures or a non-positive pie stay invalid (fail
-    // closed), never guessed. If even 0.01 is infeasible, the original
-    // failure is returned.
+    // nearest feasible share when the request cannot price it. Mirrors the
+    // leg builders (pipelines/build_ddf_two_tier_leg.py::build_leg and
+    // build_cbsros_ddf_leg.py) step for step:
+    //  - bench rate not positive (request BELOW the feasible window, JEG-74):
+    //    step up 0.01 at a time to the first feasible share, then 15
+    //    bisection iterations toward the window's lower edge.
+    //  - economics break (request ABOVE the window): 20 bisection
+    //    iterations on [0.01, requested] for the highest feasible share.
+    // Records bench_share_used on the returned calibration. Degenerate
+    // exposures or a non-positive pie stay invalid (fail closed), never
+    // guessed. If no share is feasible, the original failure is returned.
+    // Without the upward step the browser withheld every CBS ROS QB at 8
+    // teams (2026-10-02 snapshot) while the baked leg priced them
+    // (GAP-CBSROS-8T-NO-QB).
     function calibratePositionFeasible(tier, pie, requestedShare, pos = "?") {
       const first = calibratePosition(tier, pie, requestedShare);
       if (!first || !first.invalid) {
@@ -538,6 +544,26 @@
         return first;
       }
       const reason = String(first.invalidReason || "");
+      if (/bench rate .* not positive/i.test(reason)) {
+        let lo = Number(requestedShare), hi = null, s = lo;
+        while (s < 0.99) {
+          s = Math.min(0.99, s + 0.01);
+          const attempt = calibratePosition(tier, pie, s);
+          if (attempt && !attempt.invalid) { hi = s; break; }
+          lo = s;
+        }
+        if (hi === null) return first;
+        for (let i = 0; i < 15; i++) {
+          const mid = (lo + hi) / 2;
+          const attempt = calibratePosition(tier, pie, mid);
+          if (attempt && !attempt.invalid) hi = mid;
+          else lo = mid;
+        }
+        const best = calibratePosition(tier, pie, hi);
+        if (!best || best.invalid) return first;
+        best.bench_share_used = hi;
+        return best;
+      }
       if (!/does not exceed|economics break/i.test(reason)) return first;
       let lo = 0.01, hi = Number(requestedShare);
       for (let i = 0; i < 20; i++) {

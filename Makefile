@@ -349,6 +349,7 @@ test-core:
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_two_tier_frontend
+	python3 -m unittest tests.test_cbsros_8t_qb
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
