@@ -12,8 +12,8 @@ Grain (upsert key): (player_key, cbs_snapshot_date). Writes are idempotent.
 
 Identity (fail closed, same rule as save_espn_cbs_references.py): numeric
 player_key only, resolved via public.players (full_name is the naming
-authority). The verified spelling ALIASES (shared with
-build_ddf_two_tier_leg.py) are applied before lookup. Unmatched or ambiguous
+authority). The verified aliases (data/inputs/player_aliases.json, the one
+list every resolver shares) are applied before lookup. Unmatched or ambiguous
 names go to the review report -- never guessed, never zero-filled.
 """
 
@@ -31,7 +31,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
-from build_ddf_two_tier_leg import ALIASES  # noqa: E402
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+import player_aliases  # noqa: E402 -- the one verified alias list
+from canonical_players import narrow_candidates  # noqa: E402
 from nfl_week import current_nfl_week  # noqa: E402
 
 
@@ -77,7 +79,7 @@ def _sb():
 
 def _default_fetch_players() -> list[dict[str, Any]]:
     sbclient = _sb()
-    rows = sbclient.get_all("players", params="?select=player_key,full_name,position")
+    rows = sbclient.get_all("players", params="?select=player_key,full_name,position,active")
     if not isinstance(rows, list):
         raise SystemExit("Unexpected Supabase response for players")
     return [r for r in rows if isinstance(r, dict)]
@@ -139,6 +141,7 @@ def build_name_index(players: list[dict[str, Any]]) -> dict[str, list[dict[str, 
                 "player_key": key,
                 "full_name": name,
                 "position": str(record.get("position") or "").strip().upper() or None,
+                "active": record.get("active"),
             }
         )
     return index
@@ -148,19 +151,9 @@ def resolve_name(
     name: str, pos: str | None, index: dict[str, list[dict[str, Any]]]
 ) -> tuple[int | None, str | None]:
     """Return (player_key, reason). Unresolved -> (None, reason)."""
-    norm = normalize_name(name)
-    norm = ALIASES.get(norm, norm)
-    candidates = index.get(norm, [])
-    if not candidates:
-        return None, "no_match"
-    if len(candidates) == 1:
-        return candidates[0]["player_key"], None
-    wanted = (pos or "").strip().upper()
-    if wanted:
-        filtered = [c for c in candidates if c.get("position") == wanted]
-        if len(filtered) == 1:
-            return filtered[0]["player_key"], None
-    return None, "ambiguous"
+    norm = normalize_name(player_aliases.canonical_spelling(name))
+    rec, reason = narrow_candidates(index.get(norm, []), pos)
+    return (rec["player_key"], None) if rec else (None, reason)
 
 
 def parse_float(raw: Any) -> float | None:

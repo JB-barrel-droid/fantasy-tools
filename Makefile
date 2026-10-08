@@ -368,6 +368,8 @@ test-core:
 	python3 -m unittest tests.test_projection_total_only
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
+	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_fc_week4_value_repair_sql

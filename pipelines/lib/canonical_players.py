@@ -17,8 +17,8 @@ Rules (fail-closed):
   - Normalization is the single shared rule: lowercase, strip punctuation and
     generational suffixes, collapse whitespace, expand first-token nicknames
     via the shared NICKNAMES table.
-  - The curated identity snapshot (alias_to_canonical) is applied as an
-    override layer before lookup.
+  - The verified alias list (data/inputs/player_aliases.json, via
+    lib/player_aliases.py) is applied as an override layer before lookup.
   - Active players beat inactive ones with the same normalized name.
   - An optional position filter disambiguates same-name players.
   - Anything still ambiguous -> None, never a guess. Unmatched -> None.
@@ -81,16 +81,20 @@ def norm_player_name(s):
 
 
 def _load_alias_overrides():
-    """alias_to_canonical from the curated identity snapshot, normalized."""
-    try:
-        snap = json.load(open(IDENTITY_SNAPSHOT))
-    except (OSError, ValueError):
-        return {}
+    """Verified aliases (data/inputs/player_aliases.json, the one shared list),
+    as norm_player_name(alias) -> norm_player_name(public.players full_name).
+
+    The curated identity snapshot's alias_to_canonical used to be read here;
+    every one of its entries is a mechanical variant this normalization
+    already collapses, so it added nothing, while the real aliases lived in a
+    second map the bake never saw (GAP-CBSROS-BAKE-IDENTITY).
+    """
+    import player_aliases  # noqa: PLC0415 -- imports this module
     out = {}
-    for alias, canon in snap.get("alias_to_canonical", {}).items():
-        a, c = norm_player_name(alias), norm_player_name(canon)
-        if a != c:
-            out[a] = c
+    for form, e in player_aliases.load().items():
+        target = norm_player_name(e["full_name"])
+        if form != target:
+            out[form] = target
     return out
 
 
@@ -302,3 +306,31 @@ def assert_canonical_names(pairs, registry=None, context=""):
     for key, name in missing[:25]:
         lines.append(f"  key={key}: baked {name!r} has no canonical name")
     raise SystemExit("\n".join(lines))
+
+
+def narrow_candidates(candidates, position=None):
+    """Pick one players-table record from same-name candidates, fail closed.
+
+    Returns (record | None, reason) with reason None | "no_match" | "ambiguous".
+    One candidate -> it. Several -> the caller's position, then the single
+    active one (the rule resolve_with_reason applies: an inactive duplicate
+    row does not make the active player ambiguous; GAP-RAZZBALL-REFRESH-
+    FOLLOWUPS, Audric Estime 4642 active / 1475 "Estimé" inactive). The
+    active step only runs when every candidate states `active` explicitly;
+    two active namesakes in one position stay ambiguous.
+    """
+    if not candidates:
+        return None, "no_match"
+    if len(candidates) == 1:
+        return candidates[0], None
+    wanted = (position or "").strip().upper()
+    pool = list(candidates)
+    if wanted:
+        pool = [c for c in pool if str(c.get("position") or "").upper() == wanted]
+        if len(pool) == 1:
+            return pool[0], None
+    if len(pool) > 1 and all(isinstance(c.get("active"), bool) for c in pool):
+        active = [c for c in pool if c["active"]]
+        if len(active) == 1:
+            return active[0], None
+    return None, "ambiguous"

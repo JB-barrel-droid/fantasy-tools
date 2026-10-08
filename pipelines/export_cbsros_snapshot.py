@@ -14,7 +14,7 @@ per_game_standard / per_game_half_ppr / per_game_ppr.
 
 player_key is the identity. Without it the bake re-resolved the saved
 player_norm by name through the canonical registry, which does not carry the
-verified spelling ALIASES the saver and the legs use: on the 2026-10-08
+verified spelling aliases the saver and the legs use (now one list, data/inputs/player_aliases.json, which the bake reads too): on the 2026-10-08
 snapshot 'chigoziem okonkwo' (4247) and 'mitch trubisky' (4214) were saved
 and priced by the legs but dropped from players.json, and the browser's TE
 waiver line at 14 teams moved by one player (GAP-CBSROS-BAKE-IDENTITY).

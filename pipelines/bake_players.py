@@ -346,7 +346,7 @@ def _intake_cbsros(snapshot_path, registry):
 
     GAP-CBSROS-BAKE-IDENTITY (2026-10-08): re-resolving the saved
     player_norm by name dropped 'chigoziem okonkwo' and 'mitch trubisky'
-    (verified ALIASES the saver and the legs apply, the registry does not),
+    (the saver and the legs applied verified aliases the registry once lacked; it now reads the same list),
     so the browser priced a different TE pool from the section.
     """
     snap = json.loads(Path(snapshot_path).read_text(encoding="utf-8"))

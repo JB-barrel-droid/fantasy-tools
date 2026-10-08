@@ -20,7 +20,7 @@ bench_mix_for_teams). Only the INPUT layer differs:
 
 CBS-purity: every number labeled CBS ROS comes from CBS's ROS projections
 only. Per-game projections are arithmetic on CBS components. Identity is
-numeric player_key via the fixture's player_keys map (same verified ALIASES
+numeric player_key via the fixture's player_keys map (same verified aliases, data/inputs/player_aliases.json
 as the ESPN leg). Unresolvable identities go to review_rows, never guessed.
 
 Output: data/ddf-two-tier/<bake_id>/ddf_leg_cbsros.json
@@ -51,6 +51,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from build_ddf_two_tier_leg import (  # noqa: E402 -- the shared math, not duplicated
     FixtureIdentity,
+    write_leg_json,
     drop_duplicate_keys,
     identity_review_row,
     BENCH_MIX_12,
@@ -90,7 +91,7 @@ def load_cbsros_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
 
     resolved: {pos: [{player_key, player_norm, player, pos, team, x: per-game}]}.
     Identity join is fixture player_keys on the snapshot's normalized name,
-    with the shared verified ALIASES and suffix/nickname normalization
+    with the shared verified aliases (lib/player_aliases) and suffix/nickname normalization
     (build_ddf_two_tier_leg.FixtureIdentity). Unresolvable or ambiguous ->
     review, never guessed.
     """
@@ -260,7 +261,7 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
         "identity": {
             "aliases_used": aliases_used,
             "alias_note": ("Shared verified alias map with the ESPN DDF leg "
-                           "(build_ddf_two_tier_leg.ALIASES); suffix, punctuation "
+                           "(data/inputs/player_aliases.json); suffix, punctuation "
                            "and nickname spellings match through "
                            "norm_player_name (FixtureIdentity). Unresolvable "
                            "identities are excluded, never guessed."),
@@ -298,7 +299,7 @@ def main() -> int:
     out_dir = args.output_dir / leg["bake_id"]
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "ddf_leg_cbsros.json"
-    out_path.write_text(json.dumps(leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    leg = write_leg_json(out_path, leg)
     summary = leg["summary"]
     print(f"Built CBS ROS DDF leg {leg['bake_id']}: {summary['n_values']} values "
           f"({summary['n_starters']} starters / {summary['n_bench']} bench / "
