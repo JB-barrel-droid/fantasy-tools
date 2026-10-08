@@ -1055,7 +1055,9 @@
       const player = canonicalByKey.get(playerKey);
       if (!player?.name || !POSITIONS.includes(player.pos)) return null;
       const values = Object.fromEntries(renderKeys.map(key => [key, sourceValue(key, playerKey)]));
-      const priced = renderKeys.map(key => values[key]).filter(Number.isFinite);
+      // Frame 22: VORP vs waivers columns are a different unit from the
+      // trade-value point scale; the spread covers only the point-scale series.
+      const priced = renderKeys.filter(key => !PURE_VORP_KEYS.includes(key)).map(key => values[key]).filter(Number.isFinite);
       return {...player, espn_role:espnRoleByKey.get(playerKey) || "waiver", ...values, disagreement:priced.length >= 2 ? Math.max(...priced) - Math.min(...priced) : null, newsCount:playerContext(playerKey).length};
     }).filter(Boolean);
   }
