@@ -32,6 +32,17 @@ BYES_PATH = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
 TEAM_ALIASES = {"LAR": "LA", "WSH": "WAS", "JAC": "JAX", "STL": "LA",
                 "OAK": "LV", "SD": "LAC"}
 
+# Decimal places for every per-game rate the bake publishes (espn_ppg,
+# blend_ppg, pm_ppg, rz_ppg, cbsros_ppg ...). These are model INPUTS, not
+# display numbers: the browser ranks players by them to split starters from
+# bench, and the baked legs rank on the unrounded rates. At 2 dp, players
+# the leg tells apart tie in the browser and the browser's id tiebreak can
+# put them in the opposite order (GAP-PPG-TIE-FLIP: Mason/Monangai, 8.6469
+# vs 8.6508, both 8.65; the bias-adjusted value of each moved ~10 points).
+# 6 dp keeps the browser's order identical to the leg's; display rounding
+# happens at render.
+PPG_DECIMALS = 6
+
 _WINDOW_RE = re.compile(r"^\s*(\d{1,2})\s*-\s*(\d{1,2})\s*$")
 
 
