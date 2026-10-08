@@ -4,14 +4,18 @@
 // walking `data.sources[key].combos[comboKey].reindexed[sourceId]`. This is
 // the O(1) lookup described in docs/planning/consolidation-layer-scope.md §5.
 //
-// During the migration the detail fixture still ships and the consolidation
-// artifact is not yet produced (the bake in §4 is pending). To keep the chart
-// working without breaking the existing data path, this module prefers:
-//   1. assets/consolidated-values.json when present (the future state).
-//   2. A index synthesized from `data.sources` (the current state) so the
-//      values match by construction while the bake ships.
-//   3. `lookup()` returns null — the caller falls back to its old deep-path
-//      read. The fallback is logged, never silent (see recordDivergence).
+// The index is synthesized from the detail fixture (`data.sources`), so it
+// matches the chart's values by construction. `lookup()` returns null when a
+// cell is not indexed and the caller falls back to its deep-path read; the
+// fallback is counted, never silent (see recordDivergence).
+//
+// GAP-CONSOLIDATED-PROBE-404 (2026-10-08): this module used to probe
+// assets/consolidated-values.json first. The artifact is published at the
+// site root (consolidated-values.json, a public data surface), never under
+// assets/, so every page load logged a 404 -- and nothing calls lookup(), so
+// fixing the path would only have downloaded ~4 MB the chart never reads.
+// The probe is gone; if a consumer ever needs the published artifact, fetch
+// it from the root path and add a rendered test that it loads.
 //
 // Shadow-compare: each call returns both the consolidated value and the
 // detail-deep-path value when both are available; a divergence is logged via
@@ -21,8 +25,6 @@
   "use strict";
 
   const KEY_DELIM = "\u0001"; // unprintable; safe inside composite keys
-  const ARTIFACT_PATH = "assets/consolidated-values.json";
-  const ARTIFACT_TIMEOUT_MS = 4000;
 
   // Quarterback grain: only fantasycalc / fantasycalc_adjusted emit the
   // `_qbN` combo suffix per sourceComboKey() in value-model.js. Every other
@@ -121,28 +123,8 @@
     return {idx, rowsIndexed: idx.size};
   }
 
-  function buildIndexFromArtifact(artifact) {
-    const idx = new Map();
-    const rows = Array.isArray(artifact?.rows) ? artifact.rows : [];
-    rows.forEach(row => {
-      if (!row || typeof row !== "object") return;
-      const player = String(row.player ?? "");
-      const source = String(row.source ?? "");
-      const scoring = String(row.scoring ?? "");
-      const teams = Number(row.teams);
-      const qb = String(row.qb_variant ?? "");
-      const view = String(row.view ?? "");
-      const value = Number(row.value);
-      if (!player || !source || !scoring || !Number.isFinite(teams) || !Number.isFinite(value)) return;
-      idx.set(compositeKey({player, source, scoring, teams, qb, view}), value);
-    });
-    return {idx, rowsIndexed: idx.size};
-  }
-
-  // Public init: try the artifact first; if missing or malformed, fall back
-  // to synthesizing from the detail fixture. Both branches keep the chart
-  // working during the strangler-fig window — the panel reports which provider
-  // is live. Never throws.
+  // Public init: synthesize the index from the detail fixture. Returns a
+  // Promise for the provider info (callers await it).
   function init(opts) {
     if (state.initialized) return Promise.resolve(providerInfo());
     const detail = (opts && opts.detail) || window.TradeValueComparisonData || null;
@@ -152,60 +134,8 @@
     state.rowsIndexed = fromDetail.rowsIndexed;
     state.bakeId = detail?.bake_id || null;
     state.detailSha256 = detail?.detail_sha256 || null;
-    state.artifactSchema = null;
-    state.bakedFromArtifact = false;
-    // Try to upgrade to the real artifact when it lands.
-    return tryArtifact().then((upgrade) => {
-      if (upgrade && upgrade.idx && upgrade.idx.size) {
-        state.idx = upgrade.idx;
-        state.rowsIndexed = upgrade.idx.size;
-        state.bakeId = upgrade.bakeId || state.bakeId;
-        state.detailSha256 = upgrade.detailSha256 || state.detailSha256;
-        state.artifactSchema = upgrade.schema || null;
-        state.bakedFromArtifact = true;
-      }
-      logProviderOnInit();
-      return providerInfo();
-    }).catch((err) => {
-      state.initError = String(err?.message || err || "init failed");
-      logProviderOnInit();
-      return providerInfo();
-    });
-  }
-
-  function tryArtifact() {
-    return new Promise((resolve) => {
-      if (typeof fetch !== "function") return resolve(null);
-      let settled = false;
-      const finish = (value) => { if (!settled) { settled = true; resolve(value); } };
-      const timer = (typeof AbortController === "function")
-        ? AbortController ? new AbortController() : null
-        : null;
-      const fetchOpts = timer ? {signal: timer.signal} : {};
-      const timeoutId = setTimeout(() => {
-        if (timer) timer.abort();
-        finish(null);
-      }, ARTIFACT_TIMEOUT_MS);
-      fetch(ARTIFACT_PATH, fetchOpts)
-        .then((response) => {
-          if (!response.ok) { finish(null); return null; }
-          return response.json();
-        })
-        .then((payload) => {
-          if (!payload) return;
-          if (payload.schema !== "consolidated-values-v1") { finish(null); return; }
-          const built = buildIndexFromArtifact(payload);
-          finish({
-            idx: built.idx,
-            rowsIndexed: built.rowsIndexed,
-            bakeId: payload.bake_id || null,
-            detailSha256: payload.detail_sha256 || null,
-            schema: payload.schema || null,
-          });
-        })
-        .catch(() => finish(null))
-        .finally(() => clearTimeout(timeoutId));
-    });
+    logProviderOnInit();
+    return Promise.resolve(providerInfo());
   }
 
   function logProviderOnInit() {

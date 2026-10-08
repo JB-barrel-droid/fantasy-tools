@@ -43,8 +43,10 @@ from build_ddf_two_tier_leg import (  # noqa: E402
     REF_BENCH_SLOTS,
     build_leg,
     build_position_tiers,
+    calibrate_feasible,
     calibrate_position,
     check_share,
+    STEP_INSIDE_WINDOW,
     load_espn_lists,
     load_pies,
     price_for_projection,
@@ -92,58 +94,13 @@ def rel_close(a, b, tol=TOL):
 
 
 def feasible_share_for(tier, pie, requested=DEFAULT_BENCH_SHARE):
-    """Mirror build_ddf_two_tier_leg's per-position feasible share logic.
-
-    The requested share (default 0.15) may be infeasible for thin positions;
-    the builder searches for the closest feasible share -- downward for the
-    "too high" modes (highest feasible <= requested), upward for the
-    "not positive" mode (lowest feasible >= requested; JEG-74).
-    Tests must use the same share the builder uses, or parity checks fail
-    on data where 0.15 is infeasible (e.g. TE after IR removals, or QB
-    8-team standard on the 2026-10-02 cbsros snapshot).
-    """
-    try:
-        calibrate_position(tier, pie, requested)
-        return requested
-    except ValueError as e:
-        msg = str(e)
-    if "not positive" in msg:
-        # JEG-74: scan upward for the minimum feasible share >= requested.
-        lo = requested
-        hi = None
-        s = requested
-        while s < 0.99:
-            s = min(0.99, s + 0.01)
-            try:
-                calibrate_position(tier, pie, s)
-                hi = s
-                break
-            except ValueError:
-                lo = s
-        if hi is None:
-            raise AssertionError("no feasible bench share found")
-        for _ in range(15):
-            mid = (lo + hi) / 2
-            try:
-                calibrate_position(tier, pie, mid)
-                hi = mid
-            except ValueError:
-                lo = mid
-        return hi
-    lo, hi = 0.01, requested
-    best = None
-    for _ in range(20):
-        mid = (lo + hi) / 2
-        try:
-            calibrate_position(tier, pie, mid)
-            best = mid
-            lo = mid
-        except ValueError:
-            hi = mid
-    if best is None:
-        raise AssertionError("no feasible bench share found")
-    return best
-
+    """The share build_ddf_two_tier_leg uses for this tier (its own
+    calibrate_feasible, not a re-implementation): the requested share when it
+    calibrates, else the nearest feasible share -- downward for the "too high"
+    modes, upward and then STEP_INSIDE_WINDOW inside the window's lower edge
+    for the "not positive" mode (JEG-74, GAP-STEPUP-EDGE-PB0)."""
+    share, _, _ = calibrate_feasible(tier, pie, requested)
+    return share
 
 
 def _bench_mix_12(pool_lists):
@@ -341,6 +298,72 @@ class TestFailClosed(unittest.TestCase):
         cal = calibrate_position(tier, pie, found)
         self.assertGreater(cal["pb"], 0)
         self.assertGreater(cal["ps"], cal["pb"])
+
+    def test_step_up_lands_inside_the_window_not_on_its_edge(self):
+        # GAP-STEPUP-EDGE-PB0. Same JEG-74 tier: its feasible window starts at
+        # ~0.1619, above the requested 0.15. Stepping up to the window's LOWER
+        # EDGE leaves the bench rate at ~0 (1.5e-6), so every point of the QB
+        # pie goes to starter slices and the top starter's share is inflated.
+        # The rule steps STEP_INSIDE_WINDOW inside the edge instead, and the
+        # browser (TwoTier.calibratePositionFeasible) must pick the same share.
+        tier = {
+            "a_bench": 11.830519510724733, "b_bench": 1.447480489275251,
+            "a_start": 22.849352374207143, "b_start": 7.494647625792851,
+            "surplus": 43.621999999999986, "rw": 18.286, "rs": 21.5355,
+            "tau": 0.30,
+        }
+        pie = tier["surplus"]
+        share, cal, note = calibrate_feasible(tier, pie, 0.15)
+        edge = share - STEP_INSIDE_WINDOW
+        # The edge really is the edge: just below it does not calibrate.
+        with self.assertRaisesRegex(ValueError, "not positive"):
+            calibrate_position(tier, pie, edge - 0.001)
+        edge_cal = calibrate_position(tier, pie, edge)
+
+        def bench_rate_meaningful(c):
+            return c["pb"] / c["ps"] > 0.01
+
+        def top_share(c):
+            return price_for_projection(28.0, c) / pie
+
+        # Guard proves it catches the named bug: the edge (old rule) fails it.
+        self.assertFalse(bench_rate_meaningful(edge_cal), edge_cal["pb"])
+        self.assertTrue(bench_rate_meaningful(cal), (share, cal["pb"], cal["ps"]))
+        self.assertLess(top_share(cal), top_share(edge_cal) - 0.03)
+        self.assertIn("inside its lower edge", note)
+        # Browser parity: the shipped TwoTier picks the identical share/rates.
+        js = run_harness("maxfeasible", {
+            "tier": {"aBench": tier["a_bench"], "bBench": tier["b_bench"],
+                     "aStart": tier["a_start"], "bStart": tier["b_start"],
+                     "surplus": tier["surplus"], "rw": tier["rw"],
+                     "rs": tier["rs"], "tau": tier["tau"]},
+            "pie": pie, "requested": 0.15})
+        self.assertEqual(js["share"], share)
+        self.assertTrue(rel_close(js["pb"], cal["pb"]), (js["pb"], cal["pb"]))
+        self.assertTrue(rel_close(js["ps"], cal["ps"]), (js["ps"], cal["ps"]))
+
+    def test_step_inside_halves_when_the_window_is_narrow(self):
+        # A window narrower than STEP_INSIDE_WINDOW: the step halves until the
+        # share is feasible, so it lands inside the window, never past its
+        # upper edge and never on the lower one. A solver stub stands in for a
+        # tier whose feasible window is only (0.20, 0.204).
+        import build_ddf_two_tier_leg as leg
+        real = leg.calibrate_position
+
+        def stub(tier, pie, share):
+            if share <= 0.20:
+                raise ValueError(f"cannot calibrate QB at bench share {share}: bench rate -1 not positive")
+            if share >= 0.204:
+                raise ValueError(f"cannot calibrate QB at bench share {share}: starter rate 1 does not exceed bench rate 2 -- the economics break")
+            return {"pb": 1.0, "ps": 2.0, "bench_share_used": share}
+        leg.calibrate_position = stub
+        try:
+            share, _, _ = leg.calibrate_feasible({}, 1.0, 0.15)
+        finally:
+            leg.calibrate_position = real
+        self.assertGreater(share, 0.20)
+        self.assertLess(share, 0.204)
+        self.assertGreater(share - 0.20, 0.001)  # stepped in, not on the edge
 
     def test_nonpositive_pie_raises(self):
         _, pool_lists, _ = real_inputs()

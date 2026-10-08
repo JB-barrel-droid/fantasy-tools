@@ -256,5 +256,19 @@ those settings; database writes with nondefault settings fail closed.
 ## Validation Principle
 
 Pie totals alone are insufficient. Curve shape must be checked against what a
-reader actually sees: positional peaks, source-scale agreement, shared-player
-totals, and table/curve consistency.
+reader actually sees: positional peaks (where each position's curve starts),
+shared-player totals, and table/curve consistency. Publisher shape
+disagreement with the ESPN anchor is the product, not a defect: the
+peak-vs-anchor "source-scale agreement" check on the published charts was
+retired 2026-10-08 (GAP-026).
+
+Two two-tier rules the engine and every leg builder share (server/browser
+parity, 2026-10-08):
+
+- The ESPN tier (Starter / Bench / Waiver) shown in every table is the ESPN
+  line's own roster: the two-tier pool for the active scoring and team count.
+  A player tiered Waiver has no ESPN value.
+- When the requested bench share sits below a position's feasible window, the
+  share used is one percentage point inside the window's lower edge (halving
+  if the window is narrower), never the edge itself, where the bench rate is
+  0 and the top starter takes an outsized share of the position pie.

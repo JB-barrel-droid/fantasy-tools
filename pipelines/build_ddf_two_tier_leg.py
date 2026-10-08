@@ -384,6 +384,88 @@ def calibrate_position(tier: dict[str, Any] | None, pie: float,
             "starter_raw": pb * tier["a_start"] + ps * tier["b_start"]}
 
 
+# GAP-STEPUP-EDGE-PB0: when the requested bench share sits BELOW a position's
+# feasible window, the share used is this far inside the window's lower edge,
+# not the edge itself. At the edge the bench rate is exactly 0, so the whole
+# position pie goes to starter slices and concentrates on the top outliers
+# (8-team CBS ROS QB, 8fbddc7 pool: Josh Allen 30.6% of the QB pie at the
+# edge, 28.1% at 0.18). One percentage point = the step the upward scan
+# already uses; if the window is narrower, the step halves until it fits
+# (8 tries), then falls back to the edge. Mirrors
+# curve-widget.js TwoTier.calibratePositionFeasible exactly.
+STEP_INSIDE_WINDOW = 0.01
+
+
+def calibrate_feasible(tier: dict[str, Any] | None, pie: float,
+                       bench_share: float) -> tuple[float, dict[str, Any], str | None]:
+    """Calibrate at the requested share, or at the nearest feasible share.
+
+    Returns (share_used, calibration, note); note is None when the requested
+    share calibrated directly. The one rule every two-tier leg builder uses
+    (ESPN, CBS ROS, Razzball) and the browser mirrors:
+      - bench rate not positive (request BELOW the window, JEG-74): scan up
+        0.01 at a time to the first feasible share, bisect 15 times toward
+        the window's lower edge, then step STEP_INSIDE_WINDOW inside it.
+      - economics break (request ABOVE the window): 20 bisections on
+        [0.01, requested] for the highest feasible share.
+    Anything else (degenerate exposures, non-positive pie) raises.
+    """
+    try:
+        return bench_share, calibrate_position(tier, pie, bench_share), None
+    except ValueError as e:
+        msg = str(e)
+    if "not positive" in msg:
+        lo = bench_share  # last infeasible
+        hi = None         # first feasible
+        s = bench_share
+        while s < 0.99:
+            s = min(0.99, s + 0.01)
+            try:
+                calibrate_position(tier, pie, s)
+                hi = s
+                break
+            except ValueError:
+                lo = s
+        if hi is None:
+            raise ValueError(msg)
+        for _ in range(15):  # refine to ~0.0003 precision
+            mid = (lo + hi) / 2
+            try:
+                calibrate_position(tier, pie, mid)
+                hi = mid
+            except ValueError:
+                lo = mid
+        # hi is now the window's lower edge (bench rate ~0): step inside.
+        step = STEP_INSIDE_WINDOW
+        chosen = None
+        for _ in range(8):
+            try:
+                chosen = (hi + step, calibrate_position(tier, pie, hi + step))
+                break
+            except ValueError:
+                step /= 2
+        if chosen is None:
+            chosen = (hi, calibrate_position(tier, pie, hi))
+        share, cal = chosen
+        return share, cal, (f"bench share {bench_share} below the feasible window; "
+                            f"using {share:.3f} ({share - hi:.4f} inside its lower edge {hi:.4f})")
+    if "economics break" in msg or "does not exceed" in msg:
+        lo, hi = 0.01, bench_share
+        best = None
+        for _ in range(20):  # 20 iterations = high precision
+            mid = (lo + hi) / 2
+            try:
+                best = (mid, calibrate_position(tier, pie, mid))
+                lo = mid  # try higher
+            except ValueError:
+                hi = mid  # try lower
+        if best is None:
+            raise ValueError(msg)
+        share, cal = best
+        return share, cal, f"bench share {bench_share} infeasible, using {share:.3f}"
+    raise ValueError(msg)
+
+
 def price_for_projection(x: float, cal: dict[str, Any]) -> float:
     if not (x > cal["rw"]):
         return 0.0
@@ -560,63 +642,9 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
         # (e.g., TE after IR removals). Like the UI's bounded slider, we use
         # the highest feasible share <= requested. This is not a manual patch —
         # it's the same feasibility logic the UI applies.
-        feasible_share = bench_share
-        try:
-            calibration[pos] = calibrate_position(tier, pie, feasible_share)
-        except ValueError as e:
-            msg = str(e)
-            if "not positive" in msg:
-                # JEG-74: requested bench share is BELOW this tier's feasible
-                # window (bench rate went negative). Scan UPWARD for the
-                # minimum feasible share >= requested, then refine.
-                # (cbsros 2026-10-02 QB 8-team standard: feasible window sits
-                # just above 0.15; 0.20 calibrates cleanly.)
-                best = None
-                lo = bench_share  # last infeasible
-                hi = None  # first feasible
-                s = bench_share
-                while s < 0.99:
-                    s = min(0.99, s + 0.01)
-                    try:
-                        test_cal = calibrate_position(tier, pie, s)
-                        hi = s
-                        best = (s, test_cal)
-                        break
-                    except ValueError:
-                        lo = s
-                if best is not None:
-                    for _ in range(15):  # refine to ~0.0003 precision
-                        mid = (lo + hi) / 2
-                        try:
-                            test_cal = calibrate_position(tier, pie, mid)
-                            best = (mid, test_cal)
-                            hi = mid
-                        except ValueError:
-                            lo = mid
-                    feasible_share, calibration[pos] = best
-                    calibration_notes.append(f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
-                else:
-                    raise
-            elif "economics break" in msg or "does not exceed" in msg:
-                # Binary search for max feasible share
-                lo, hi = 0.01, bench_share
-                best = None
-                for _ in range(20):  # 20 iterations = high precision
-                    mid = (lo + hi) / 2
-                    try:
-                        test_cal = calibrate_position(tier, pie, mid)
-                        best = (mid, test_cal)
-                        lo = mid  # try higher
-                    except ValueError:
-                        hi = mid  # try lower
-                if best:
-                    feasible_share, calibration[pos] = best
-                    # Record the adjustment in notes
-                    calibration_notes.append(f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
-                else:
-                    raise
-            else:
-                raise
+        feasible_share, calibration[pos], note = calibrate_feasible(tier, pie, bench_share)
+        if note:
+            calibration_notes.append(f"{pos}: {note}")
 
     # Full-precision raw values; the single 70/max multiplier applies BEFORE
     # any rounding (rounding is display-only and never enters this artifact).
