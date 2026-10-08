@@ -75,7 +75,10 @@ def render_status(status_html: str, surfaces: list, files: dict) -> dict:
     """Serve a synthetic site (modules/status.html + surfaces + files) and
     return {surface_id: (status, why)} as the page's Published files card
     renders it (status: ok / warn / bad / unk)."""
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
     from test_launch_front_door import _pages_server
     with tempfile.TemporaryDirectory() as tmp:
         site = Path(tmp)
@@ -154,7 +157,10 @@ class LineageCardStaleNoteTest(unittest.TestCase):
         RenderedStatusWarningsTest.setUpClass()
 
     def render(self, dashboard_html, lineage):
-        from playwright.sync_api import sync_playwright
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
         from test_launch_front_door import _pages_server
         if not (ROOT / "dist" / "modules" / "dashboard.html").exists():
             self.skipTest("needs make sync (dist/modules)")

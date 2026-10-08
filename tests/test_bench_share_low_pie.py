@@ -139,7 +139,10 @@ def with_hook(widget: bytes) -> bytes:
 
 
 def run(widget: bytes, script: str, arg=None):
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
     with sync_playwright() as p:
         exe = chromium_executable(p)
         if exe is None:
