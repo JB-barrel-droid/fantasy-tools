@@ -577,6 +577,196 @@ consistent?
 
 ---
 
+## From views-audit
+
+Lane 12 (branch `fix/views-invariants`), 2026-10-08. Under the review rule
+this branch changes **no values**. It measures every view against Jeremy's
+three invariants and gates only what already holds. Every number below comes
+from one build: `origin/main` fcf7da6 (Week 5 fixture), `make sync`, measured
+headless on the live page at the 12 combos (3 scorings x 8/10/12/14 teams),
+a custom roster (RB 3, FLEX 2, BENCH 8, Full PPR 12), and bench shares of 30%
+(Full PPR 12) and 5% (Half PPR 10). The basis is the players the source and
+the ESPN anchor both price (QB/RB/WR/TE), which is MR-01 option (a). The page
+publishes the same numbers as `TradeValueCurveDiagnostics.viewInvariants`
+(field list at the end). They agree with the math inspector to the 0.1%
+(Full PPR 12: USA Today +5.2%, FantasyCalc -23.0%, FantasyPros +22.4%,
+CBS -11.9%).
+
+### VA-1 - Where each invariant holds today (all 15 settings)
+
+| View | Source | Ratio to the anchor (min - max) | Holds? |
+| --- | --- | --- | --- |
+| Indexed | CBS ROS, Razzball, 4 x `*_adjusted`, 3 x raw value above waivers | 1.000000 | yes (now gated) |
+| Indexed | USA Today | 0.897 (Full 12, bench 30%) - 1.693 (Half 10, bench 5%) | no |
+| Indexed | FantasyCalc | 0.658 - 1.280 | no |
+| Indexed | FantasyPros | 1.041 - 1.823 | no |
+| Indexed | CBS | 0.766 - 1.341 | no |
+| VORP vs waivers | raw ESPN / CBS ROS / Razzball | 1.000000 | yes (now gated) |
+| VORP vs waivers | USA Today / FantasyCalc / FantasyPros | 0.712 - 0.995 | no: 0.98-0.995 at derived settings, 0.71-0.73 at Full 12 standard roster (saved views, VA-3) and with the bench share moved (VA-4) |
+| VORP vs waivers | CBS | 0.988 - 1.000 | no (different basis, VA-2) |
+| Adjusted | 4 published charts | group spread 1.00 - 6.7 (inf where a group's shared players are all 0); level 0.62 - 1.10 | no (VA-5) |
+
+"Own split" (Indexed, "positions and bench/starter have different weights"):
+every published chart's position x starter/bench shares differ from the
+anchor's by 1.4-13.3 percentage points, so that half of the Indexed invariant
+holds. CBS ROS 2.1-7.2pp, Razzball 0.5-3.3pp.
+
+**Why `fixedPieIndexed` is green while the published totals are off.**
+`fixedPieDiagnostics` skipped every published chart with `{basis:"pipeline",
+ok:true}` and no total. The note said the pipeline indexes them to the anchor
+(`proportional_scaling_vorp_overlap`). That stopped being true when the saved
+values became the `translate_ranked` output (JEG-64). That output puts each
+position's top at `OUR_MAX` / `positionalMaxForSetup` and never matches a
+total. This branch fixes the guard's honesty only: the published rows now carry
+the measured shared total, target and delta, labelled "not gated (published)",
+still `ok:true`. The Chart Health note no longer says they are checked
+upstream.
+
+### VA-2 - Two bases in use for "the anchor's total"
+
+CBS ROS, Razzball, the `*_adjusted` and raw series, and the fixed-pie guard
+use shared/shared (`sharedPieBasis`): source total over shared players = anchor
+total over shared players. The derived VORP vs waivers view uses the chart's
+total over **all** its translated players = the anchor's starter + bench group
+totals over the chart's players (`derivePublishedViews`). The second basis
+leaves the shared ratio at 0.98-0.995 and leaves out about 2.7 points of anchor
+value held by its waiver-role players. Pick one basis for every view (MR-01).
+
+### VA-3 - Saved `vorp_views` are a different vintage
+
+At Full PPR, 12 teams, standard roster, the VORP vs waivers and Adjusted tabs
+draw the saved `vorp_views` (generated 2026-10-03) for FantasyCalc, FantasyPros
+and USA Today. The Indexed tab beside them uses the Week 5 natives. Top native
+values: FantasyCalc saved 10,825 vs current 10,696 (Gibbs); USA Today saved 72
+vs current 77 (Gibbs). USA Today also has a different top 3 (saved: Gibbs,
+Smith-Njigba, St. Brown; current: Gibbs, Smith-Njigba, Robinson). FantasyCalc's
+saved view lists 199 players against 196 now. Every other setting derives the
+views from the current natives. Options: (a) derive at every setting (what
+option A below does); (b) keep the saved views but rebuild them every week with
+the natives; (c) as now. MR-04 option (c) covers the same point.
+
+### VA-4 - The bench-share slider moves the anchor but not the published charts
+
+The ESPN anchor re-prices on the bench-share slider. The published charts do
+not. So every published total ratio swings with the slider: FantasyPros Indexed
+1.22 at 15% vs 1.82 at Half 10 / 5%; VORP vs waivers 0.71-0.73 at 30%.
+Whatever MR-01 and MR-11 decide, the published charts are scaled to the anchor
+at 15% only, unless a total factor is applied live (option A does that).
+
+### VA-5 - Adjusted values: proportional, but not equal, to the DDF weights
+
+Derived Adjusted groups get the anchor's group budget over the chart's players
+(anchor roles), shared in proportion to value above waivers inside the
+chart's own group (chart roles). Then one batch factor puts the top player at
+70. Measured on the shared basis against the anchor's group totals, the group
+ratios agree with each other only for CBS at Standard 14 (spread 1.000).
+Elsewhere the spread is 1.08-6.7 and the level (pie) is 0.62-1.10 of the anchor's.
+Two reasons: the 70 factor, and budgets spread over chart players the anchor
+does not price. Unfunded groups (a group the anchor funds where the chart has
+nobody): CBS QB bench at every 12- and 14-team setting, plus WR bench at 14
+and RB/WR bench on the custom roster; FantasyPros QB bench at 14 teams.
+Covered by MR-05.
+
+### VA-6 - CBS ROS and Razzball in the Adjusted tab
+
+They show the same values in every tab (option C, total only). Their own split
+differs from the DDF weights by 2.1-7.2pp (CBS ROS) and 0.5-3.3pp (Razzball).
+So in the Adjusted tab they are the only curves whose weights are not
+normalised. Options: (a) leave them (option C everywhere); (b) in the Adjusted
+tab, re-weight their raw value above waivers to the anchor's eight group
+totals, as for the published charts. Option (b) is not measured. Depends on
+MR-05 and MR-10.
+
+### VA-7 - The CBS ROS fixed-pie direction and markup checks (Chart Health FAIL)
+
+Week 5 data, live page: `CBS ROS fixed-pie direction` FAILs at Full PPR / 8
+teams (raw starter share 86.8% vs 85% + 1pp) and Standard / 10 (86.1%).
+`CBS ROS starter markup ratio sane` FAILs at Full PPR / 8 (0.979, band
+0.98-1.6). `tests.test_jeg69_direction_check.test_cbsros_passes_all_twelve_shapes`
+and `test_knife_edge_shape_pinned` (share pinned at 0.8534; Week 5 gives
+0.8452) are red in `test-unit`.
+
+Measured raw starter share by shape (`tests/jeg68_markup_harness.cjs`):
+- ESPN: 80.5-84.6%
+- Razzball: 81.4-83.9%
+- CBS ROS: 83.4-86.8%, not monotone in team count (Standard 8: 83.4%;
+  Standard 10: 86.1%)
+- The simulated pre-valued-inputs defect the check exists for: 88.2%.
+
+So genuine data now sits 1.4pp from the defect signature.
+
+What the checks judge: the starter/bench scales in `buildVorpRows`. For CBS ROS
+and Razzball those scales price **nothing displayed**. The CBS ROS line is its
+own two-tier leg (`ddfTwoTierValuesForSource`), total-matched under option C.
+Its raw curve is `pure`, one factor. Only ESPN's fall-back leg uses the
+`adjusted` field, and only when the built leg is missing; for ESPN the check
+already warns instead of failing.
+
+Options:
+- (a) Make the two checks informational (warn) for CBS ROS and Razzball, like
+  ESPN's undisplayed fall-back. Implemented and tested in option A (below).
+- (b) Keep FAIL and widen the band. The band then stops separating genuine
+  data from the defect (86.8% vs 88.2%).
+- (c) Replace them with a source-purity check on the inputs (per-game
+  projections, not trade values).
+
+Under Jeremy's Adjusted wording, a starter markdown below 1.0 is legitimate
+weight normalisation. That argues against these checks encoding an invariant.
+
+### Option A: one coherent implementation, ready for the review
+
+Branch `review/views-option-a`, pushed and not for merge before the review. It
+implements MR-01 (a), MR-03 (a), MR-04 (a) + VA-3 (a), MR-05 (no 70 factor,
+eight group factors on the shared basis, chart roles, unfunded groups
+reported) and VA-7 (a).
+
+Every invariant then holds exactly at all 15 settings: ratio 1.000000, groups
+to 1e-6. The check recomputes them independently from `unified.translate_ranked`,
+and four broken engines are caught: Indexed unscaled, VORP on the old basis,
+Adjusted capped at 70, Adjusted with one factor.
+
+12-combo sweep, origin/main vs option A. Only the four published charts move;
+every other series and `fixedPieIndexed` is unchanged.
+
+- Indexed: one factor per chart per setting, 0.77-1.45. The published curves'
+  starts stop being identical (QB 25 / RB 70 / WR 55 / TE 30 at 12 teams).
+  The top RB becomes FantasyCalc 72-102, FantasyPros 54-67, USA Today 58-72
+  and CBS 68-86.
+- VORP vs waivers: x1.001-1.041 at derived settings. At Full PPR 12 the saved
+  views are replaced: per-player ratios 0.005-4.9, because the vintage changes
+  (VA-3).
+- Adjusted: the level rises x1.11-1.53 at derived settings (Full PPR 8: x0.92-1.22)
+  without the 70 factor. Peaks become 58-107.
+- v2 Trade targets, the comparison table and the disagreement spread follow,
+  since they read the engine's rows.
+
+Option B for MR-03 (c), natives x one factor, at Full PPR 12, shown as top QB /
+RB / WR / TE:
+
+| Chart | Option A | Option B |
+| --- | --- | --- |
+| CBS | 28.4 / 79.5 / 62.4 / 34.1 | 27.9 / 64.3 / 63.1 / 40.1 |
+| FantasyPros | 20.4 / 57.2 / 45.0 / 24.5 | 22.0 / 56.7 / 43.1 / 21.1 |
+| USA Today | 23.8 / 66.5 / 52.3 / 28.5 | 22.8 / 48.8 / 48.2 / 40.6 |
+| FantasyCalc | 32.5 / 91.0 / 71.5 / 39.0 | 44.3 / 79.6 / 71.4 / 43.4 |
+
+Under option B, players below waivers keep a native value (CBS's lowest is
+6.1). The anchor starts at 29.5 / 70.0 / 47.8 / 29.2.
+
+### `TradeValueCurveDiagnostics.viewInvariants` (read-only, for the math inspector)
+
+`{version: "views-audit/1", informational: true, tolerance, basis, gatedHold,
+indexed: {holds, gatedHold, sources: {key: {shared, total, target, ratio,
+holds, maxShareDiff, gated}}}, vorp: {holds, gatedHold, sources: {key: {shared,
+total, target, ratio, holds, gated, mode?}}}, adjusted: {holds, gatedHold,
+sources: {key: {groups: {"POS|role": {total, anchor, players, ratio,
+unfunded}}, spread, level, holds, gated, mode}}, notReweighted: {cbsros|razzball:
+{reason, maxShareDiff}}}}`. All three views are measured on every rebuild,
+whichever tab is open. Published Indexed rows also appear in
+`fixedPie.checks` with basis "not gated (published)".
+
+---
+
 ## Outside this review
 
 - K/DST: being removed from the pipeline (kdst lane, Jeremy's decision).

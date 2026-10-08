@@ -385,6 +385,7 @@ test-core:
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_math_inspector
+	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_espn_tier_matches_leg
