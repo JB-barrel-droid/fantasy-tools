@@ -21,9 +21,9 @@ began Thursday 2026-09-10. `expected = 1 + floor((today - 2026-09-10) / 7)`.
 Monday/Tuesday tolerate `expected - 1` (Monday-night games may just have
 concluded); from Wednesday the current week must be published.
 
-**Annual maintenance (owner: Roman, every August):** bump `SEASON` and
-`WEEK1_THURSDAY` in `scripts/check_weekly_freshness.py` to the new season's
-week-1 Thursday. Without the bump, S2 fires false positives all season.
+**Annual maintenance (every August):** bump `SEASON`, `CONTENT_WEEK_1_START`
+and `GAME_WEEK_1_START` in `pipelines/nfl_week.py` (the one week calendar;
+this check uses its game week). Without the bump, S2 fires false positives all season.
 
 ## Where checks run
 - **GitHub Actions (live now):** the `weekly-dashboard-load` workflow runs

@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any
 
 # Import existing modules (read-only consumers)
-from pipelines.nfl_week import current_nfl_week
+from pipelines.nfl_week import content_week_start as _content_week_start, current_nfl_week
 from pipelines.lib.publication_windows import (
     PUBLICATION_SCHEDULES,
     DEFAULT_SLIP_MINUTES,
@@ -280,7 +280,7 @@ def determine_source_state(
     # (nfl_week - 1) weeks lands exactly on the Tuesday of the given NFL week.
     # Use it directly: subtracting days_since_tuesday would shift the expected
     # publish date back to the wrong week on any day after Tuesday.
-    content_week_start = date(2026, 9, 8) + timedelta(weeks=nfl_week - 1)
+    content_week_start = _content_week_start(nfl_week)
     this_week_tuesday = content_week_start
 
     # Expected publish time is the Tuesday of the content week at some hour

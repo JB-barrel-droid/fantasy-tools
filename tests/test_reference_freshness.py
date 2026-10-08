@@ -176,6 +176,43 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertEqual("stale", item["l1_status"])
             self.assertFalse(item["freshness_ok"])
 
+    def test_fresh_built_at_does_not_hide_a_stale_source(self):
+        """GAP-034: built_at is reset by any one promotion, so a fixture
+        rebuilt today can still serve a source weeks old. Each source gets a
+        published/saved week row; the summary names the sources behind and
+        those saved but not yet published (GAP-FRESH-SAVED-VS-PUBLISHED)."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("crf", ROOT / "pipelines" / "check_reference_freshness.py")
+        crf = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(crf)
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "fixtures"
+            self.write_fixtures(root, "2026-10-08")
+            comparison = json.loads((root / "comparison-sources-data.json").read_text())
+            comparison["sources"] = {"usatoday": {"week_designated": "Week 5"},
+                                     "cbs": {"week_designated": "Week 3"},
+                                     "fantasycalc": {"week_designated": "Week 4"}}
+            (root / "comparison-sources-data.json").write_text(json.dumps(comparison))
+            health = root / "source-import-health.json"
+            health.write_text(json.dumps({"schema": "trade-value-import-health-v1", "checked_at": "2026-10-08T10:00:00Z",
+                                          "sources": {"fantasycalc": {"content_vintage": "Week 5", "status": "ok"},
+                                                      "cbs": {"content_vintage": "Week 3", "status": "ok"}}}))
+            from datetime import date
+            report = crf.build_report(root, Path(tmp) / "out.json", date(2026, 10, 8), import_health_path=health)
+        built = next(i for i in report["items"] if i["key"] == "comparison.built_at")
+        self.assertTrue(built["freshness_ok"])  # the build time alone says "fresh"
+        rows = {i["key"]: i for i in report["items"] if i["key"].startswith("comparison.source.")}
+        self.assertEqual(rows["comparison.source.cbs"]["status"], "stale")
+        self.assertEqual(rows["comparison.source.cbs"]["weeks_behind"], 2)
+        self.assertEqual(rows["comparison.source.fantasycalc"]["saved_week"], 5)
+        self.assertTrue(rows["comparison.source.fantasycalc"]["pending_promotion"])
+        self.assertFalse(any(i["enforced"] for i in rows.values()))  # warn, never block
+        summary = report["summary"]
+        self.assertEqual(summary["comparison_oldest_published_week"], 3)
+        self.assertEqual(summary["comparison_sources_behind"], ["cbs", "fantasycalc"])
+        self.assertEqual(summary["comparison_sources_pending_promotion"], ["fantasycalc"])
+        self.assertEqual(summary["enforced_expired_count"], 0)
+
     def test_jeg_407_no_ecr_content_date_in_players_meta(self):
         """JEG-407: Ensure ecr_content_date is not read from players meta and content_vintage is used instead."""
         with TemporaryDirectory() as tmp:

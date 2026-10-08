@@ -13,8 +13,10 @@ Tables (grain = upsert key; writes are idempotent on the grain):
     espn_snapshot_date (the CSV's unanimous vintage = source-content vintage,
     never pull time), pulled_at=now, player_norm as join label.
   CBS  -> public.cbs_trade_values (source, variant, scoring, league_teams,
-    qb_slots, season, week, player_key):
-    source='cbs', variant='as_published', season=2026, week=2,
+    qb_slots, season, week, player_key, bake_id):
+    source='cbs', variant='as_published', season=2026, week=<content week>,
+    bake_id=cbswk<week>_<date>t<HHMM>_v<n> (one immutable version per revision),
+    source_url=the article URL,
     league_teams=12, qb_slots=1, scoring from the non / 0.5 / PPR columns,
     value + native_value (same scale for CBS), position/team from the cache,
     source_content_date=NULL (article date unknown; vintage carried by week),
@@ -77,7 +79,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import player_aliases  # noqa: E402 -- the one verified alias list
 from canonical_players import narrow_candidates  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
-from _common import nfl_week  # noqa: E402 -- current week for the CBS save grain
+from _common import content_week  # noqa: E402 -- content week for the CBS save grain
 # Writer audit for Supabase write provenance
 from lib.writer_audit import WriterAudit  # noqa: E402
 
@@ -287,8 +289,24 @@ CBS_QB_SPLIT_NOTE = (
 )
 
 
-def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
+def cbs_bake_id(week: int, seq: int = 1, stamp: str | None = None) -> str:
+    """cbswk<week>_<YYYY-MM-DD>t<HHMM>_v<seq> (UTC minute): one immutable
+    version per same-week revision (GAP-CBS-WEEK-OVERWRITE). The minute stamp
+    keeps two revisions saved on one day apart (a CI runner has no state to
+    bump seq; same convention as the FantasyCalc saver's fcwk bakes)."""
+    stamp = stamp or datetime.now(timezone.utc).strftime("%Y-%m-%dt%H%M")
+    return f"cbswk{week}_{stamp}_v{seq}"
+
+
+def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
+                   ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str, str]:
     payload = json.loads(json_path.read_text(encoding="utf-8"))
+    bake_id = bake_id or cbs_bake_id(week)
+    # GAP-SOURCE-URL-WEEK2: the reader-facing article URL. The puller fetches
+    # the sportsfly.cbsistatic.com mirror; the same path on www.cbssports.com
+    # is the article readers can open.
+    source_url = str(payload.get("url") or "").replace(
+        "://sportsfly.cbsistatic.com/", "://www.cbssports.com/") or None
     index = build_name_index(fetch_players())
     clean: list[dict[str, Any]] = []
     review: list[dict[str, Any]] = []
@@ -354,6 +372,8 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
                         "native_value": value,  # same scale for CBS
                         "source_content_date": None,  # article date unknown; vintage = week
                         "pulled_at": pulled_at,
+                        "bake_id": bake_id,
+                        "source_url": source_url,
                     }
                 )
     return clean, review, pulled_at, str(payload.get("url") or "")
@@ -364,11 +384,17 @@ def build_cbs_rows(json_path: Path, week: int) -> tuple[list[dict[str, Any]], li
 # ---------------------------------------------------------------------------
 
 ESPN_UPSERT_CONFLICT = "season,week,player_key"
-CBS_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key"
+# GAP-CBS-WEEK-OVERWRITE (2026-10-08): the CBS grain is versioned like USA
+# Today -- bake_id is part of the key, so a same-week CBS revision is written
+# as a new immutable bake instead of overwriting the week in place. Readers
+# select the latest bake (import_supabase_references._select_latest_bake).
+# Needs supabase/migrations/cbs_bakes_source_urls_20261008.sql.
+CBS_UPSERT_CONFLICT = "source,variant,scoring,league_teams,qb_slots,season,week,player_key,bake_id"
 
 
 def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
-                cbs_json: Path, week: int | None = None) -> dict[str, Any]:
+                cbs_json: Path, week: int | None = None,
+                bake_id: str | None = None) -> dict[str, Any]:
     name = str(source or "").strip().lower()
     if name not in ("espn", "cbs"):
         raise SystemExit(f"Unknown source '{source}': save_espn_cbs_references.py handles espn|cbs only.")
@@ -379,12 +405,13 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         conflict = ESPN_UPSERT_CONFLICT
         count_params = "?select=player_key&season=eq.2026&week=eq.2"
     else:
-        week = week or nfl_week()
+        week = week or content_week()
+        bake_id = bake_id or cbs_bake_id(week)
         table = "cbs_trade_values"
-        clean, review, _pulled_at, _url = build_cbs_rows(cbs_json, week)
+        clean, review, _pulled_at, _url = build_cbs_rows(cbs_json, week, bake_id)
         conflict = CBS_UPSERT_CONFLICT
         count_params = ("?select=player_key&source=eq.cbs&variant=eq.as_published"
-                        f"&season=eq.2026&week=eq.{week}")
+                        f"&season=eq.2026&week=eq.{week}&bake_id=eq.{bake_id}")
 
     if not clean:
         raise SystemExit(f"Fail closed: source '{name}' resolved to zero clean rows. Never writing an empty save.")
@@ -443,6 +470,7 @@ def save_source(source: str, *, dry_run: bool, espn_csv: Path, espn_meta: Path,
         "review": review,
         "vintage": vintage_label,
         "run_id": audit.run_id if audit else None,
+        **({"bake_id": bake_id} if name == "cbs" else {}),
     }
 
 
@@ -461,7 +489,7 @@ def main() -> int:
         "--week",
         type=int,
         default=None,
-        help="NFL week for the CBS save grain (default: current week from ops/watchdog/_common.nfl_week). ESPN path ignores this.",
+        help="NFL week for the CBS save grain (default: the content week, pipelines/nfl_week.py). ESPN path ignores this.",
     )
     parser.add_argument(
         "--review-out",

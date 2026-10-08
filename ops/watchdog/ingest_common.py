@@ -202,18 +202,32 @@ class Db:
 
     def grain_native_values(self, table: str, source: str, variant: str,
                             season: int, week: int) -> dict[tuple[int, str], float]:
-        """{(player_key, scoring): native_value} for the weekly grain.
+        """{(player_key, scoring): native_value} for the weekly grain's
+        LATEST bake (the version readers serve).
 
-        Used by the USA Today same-week guard to compare published content
-        without trusting bake ids. Rows with missing/unparseable fields are
-        skipped (fail-closed comparison treats them as a key-set difference
-        at the guard, never as equal).
+        Used by the same-week guards to compare published content. A week
+        may hold several immutable bakes; blending them would let an older
+        version's values shadow the current one (one (key, scoring) slot per
+        bake), so the read is scoped with the importer's own latest-bake rule
+        (import_supabase_references._select_latest_bake). Rows with
+        missing/unparseable fields are skipped (fail-closed comparison treats
+        them as a key-set difference at the guard, never as equal).
         """
-        params = ("?select=player_key,scoring,native_value"
+        import sys as _sys
+        _pipelines = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__)))), "pipelines")
+        if _pipelines not in _sys.path:
+            _sys.path.insert(0, _pipelines)
+        from import_supabase_references import _select_latest_bake
+
+        params = ("?select=player_key,scoring,native_value,bake_id,created_at"
                   f"&source=eq.{source}&variant=eq.{variant}"
                   f"&season=eq.{season}&week=eq.{week}")
+        rows = list(self.rows_fn(table, params))
+        if rows:
+            rows, _bake = _select_latest_bake(rows)
         out: dict[tuple[int, str], float] = {}
-        for r in self.rows_fn(table, params):
+        for r in rows:
             try:
                 out[(int(r["player_key"]), str(r["scoring"]))] = float(
                     r["native_value"])

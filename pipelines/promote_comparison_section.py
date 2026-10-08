@@ -470,6 +470,12 @@ def promote(review_path, approve, fixture_path=None, record_dir=None,
         new_section["week_designated"] = f"Week {prov_week}"
     elif vintage_week:
         new_section["week_designated"] = f"Week {int(vintage_week.group(1))}"
+    # GAP-SOURCE-URL-WEEK2: the section's article link travels with the
+    # values too -- the URL of the article this week's natives were priced
+    # from. A source without an article URL keeps its section url.
+    prov_url = prov.get("source_url") if isinstance(prov, dict) else None
+    if isinstance(prov_url, str) and prov_url.startswith("https://"):
+        new_section["url"] = prov_url
     promoted_vintage = {k: new_section.get(k) for k in ("week_designated", "content_vintage")
                         if new_section.get(k) is not None}
     for combo_name in section_with_gate["combos"]:
