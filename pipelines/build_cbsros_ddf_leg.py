@@ -50,7 +50,9 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from build_ddf_two_tier_leg import (  # noqa: E402 -- the shared math, not duplicated
-    ALIASES,
+    FixtureIdentity,
+    drop_duplicate_keys,
+    identity_review_row,
     BENCH_MIX_12,
     DEFAULT_BENCH_SHARE,
     POSITIONS,
@@ -87,7 +89,9 @@ def load_cbsros_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
 
     resolved: {pos: [{player_key, player_norm, player, pos, team, x: per-game}]}.
     Identity join is fixture player_keys on the snapshot's normalized name,
-    with the shared verified ALIASES. Unresolvable -> review, never guessed.
+    with the shared verified ALIASES and suffix/nickname normalization
+    (build_ddf_two_tier_leg.FixtureIdentity). Unresolvable or ambiguous ->
+    review, never guessed.
     """
     if scoring not in SCORING_PG:
         raise SystemExit(f"Unknown scoring '{scoring}'")
@@ -96,8 +100,7 @@ def load_cbsros_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
     if not vintage:
         raise SystemExit("Fail closed: CBS ROS snapshot has no vintage_date.")
     pg_key = SCORING_PG[scoring]
-    fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
-    player_keys = fixture.get("player_keys") or {}
+    ident = FixtureIdentity.from_fixture(fixture_path)
 
     resolved: dict[str, list[dict[str, Any]]] = {pos: [] for pos in POSITIONS}
     review: list[dict[str, Any]] = []
@@ -116,27 +119,26 @@ def load_cbsros_lists(snapshot_path: Path, scoring: str, fixture_path: Path):
         if not isinstance(x, (int, float)) or not math.isfinite(x):
             review.append({"reason": "missing_per_game", "player": name, "pos": pos})
             continue
-        key = player_keys.get(norm)
-        alias = None
-        if key is None and norm in ALIASES:
-            alias = ALIASES[norm]
-            key = player_keys.get(alias)
-        if not isinstance(key, int):
-            review.append({"reason": "unresolved_identity", "player": name,
-                           "player_norm": norm, "pos": pos})
+        key, how, alias = ident.resolve(norm, pos)
+        if key is None:
+            review.append(identity_review_row(how, name, norm, pos))
             continue
         if alias:
             aliases_used.append({"cbsros_norm": norm, "canonical_id": alias,
                                  "player_key": key})
         resolved[pos].append({
             "player_key": key,
-            "player_norm": norm,
+            # The fixture slug for the resolved key, so sections and leg checks
+            # join on the canonical id; the source's own spelling is kept.
+            "player_norm": ident.slug_for(key),
+            "source_norm": norm,
             "player": name,
             "pos": pos,
             "team": str(row.get("team") or "").strip() or None,
             "gp": row.get("gp"),
             "x": float(x),
         })
+    drop_duplicate_keys(resolved, review, "player")
     meta = {"cbsros_vintage_date": vintage,
             "snapshot_rows": len(snap.get("rows", [])),
             "snapshot_review_rows": len(snap.get("review_rows", []))}
@@ -306,7 +308,9 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
         "identity": {
             "aliases_used": aliases_used,
             "alias_note": ("Shared verified alias map with the ESPN DDF leg "
-                           "(build_ddf_two_tier_leg.ALIASES). Unresolvable "
+                           "(build_ddf_two_tier_leg.ALIASES); suffix, punctuation "
+                           "and nickname spellings match through "
+                           "norm_player_name (FixtureIdentity). Unresolvable "
                            "identities are excluded, never guessed."),
         },
         "values": values,
