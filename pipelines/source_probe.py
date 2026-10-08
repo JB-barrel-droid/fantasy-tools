@@ -272,9 +272,34 @@ def tables_text(page: str) -> str:
     return "\n".join(parts)
 
 
+ROW_RE = re.compile(r"<tr\b.*?</tr>", re.S | re.I)
+
+
+def table_rows(page: str) -> list[list[str]]:
+    """Per table, the visible text of each row, rows sorted.
+
+    Sorting makes the hash order-insensitive: CBS's rest-of-season pages list
+    players tied on fantasy points in a different order on every few requests
+    (measured 2026-10-08: three table hashes in 25 minutes, no value moved),
+    and row order never changes a value we read (rows are keyed by player)."""
+    out = []
+    for block in TABLE_RE.findall(page or ""):
+        rows = []
+        for tr in ROW_RE.findall(block):
+            txt = WS_RE.sub(" ", htmllib.unescape(TAG_RE.sub(" ", tr))).strip()
+            if txt:
+                rows.append(txt)
+        if not rows:
+            txt = WS_RE.sub(" ", htmllib.unescape(TAG_RE.sub(" ", block))).strip()
+            rows = [txt] if txt else []
+        if rows:
+            out.append(sorted(rows))
+    return out
+
+
 def tables_hash(page: str) -> str | None:
-    text = tables_text(page)
-    return hashlib.sha256(text.encode()).hexdigest()[:24] if text else None
+    rows = table_rows(page)
+    return digest(rows) if rows else None
 
 
 DATE_MODIFIED_RE = re.compile(r'"dateModified"\s*:\s*"([^"]+)"')

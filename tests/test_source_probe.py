@@ -483,3 +483,15 @@ class RevisionSaveTest(unittest.TestCase):
         self.assertEqual(ingest_usatoday.bake_id_fn(5, {}, t1), "usatwk5_2026-10-07t0935_v1")
         self.assertNotEqual(fp.pull_bake_id(5, t1), fp.pull_bake_id(5, t2))
         self.assertTrue(fp.pull_bake_id(5, t1).startswith("fpwk5_2026-10-07t"))
+
+
+class RowOrderTest(unittest.TestCase):
+    def test_tied_rows_reordered_do_not_move_the_hash_values_do(self):
+        # CBS rest-of-season pages reorder players tied on points between requests.
+        a = "<table><tr><td>Davis Mills 11.4</td></tr><tr><td>Mac Jones 11.4</td></tr></table>"
+        b = "<table><tr><td>Mac Jones 11.4</td></tr><tr><td>Davis Mills 11.4</td></tr></table>"
+        c = "<table><tr><td>Mac Jones 11.6</td></tr><tr><td>Davis Mills 11.4</td></tr></table>"
+        self.assertEqual(sp.tables_hash(a), sp.tables_hash(b))
+        self.assertNotEqual(sp.tables_hash(a), sp.tables_hash(c))
+        # Broken variant: an order-sensitive text hash reports a change.
+        self.assertNotEqual(sp.digest(sp.tables_text(a)), sp.digest(sp.tables_text(b)))
