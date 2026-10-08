@@ -5,8 +5,9 @@ The v2 layout (app/v2/) does no value math. It runs the current chart engine
 off-screen container and renders the new design from the engine's own rows,
 so every number on v2 is the number the chart dashboard computes.
 
-Input is the already-synced chart dashboard, dist/classic/index.html (data
-islands and build tag included). Since launch (2026-10-08, Jeremy) v2 is the
+Input is the already-synced engine page, build/engine/index.html (the old
+chart dashboard, data islands and build tag included; build-only since
+JEG-453, never published). Since launch (2026-10-08, Jeremy) v2 is the
 site's front door, so it is written twice from that one input:
 
 - dist/index.html: the root page. No <base>; the shell's "v2/#view" links
@@ -26,7 +27,9 @@ APP_V2 = ROOT / "app" / "v2"
 DIST = ROOT / "dist"
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
-CLASSIC_INPUT = Path("classic") / "index.html"
+# The engine page sync_dashboard_artifacts writes. Outside dist/, so Pages never
+# serves it (JEG-453); /classic/ in dist/ is a redirect to the root.
+ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
 TITLE = "Data Driven Football"   # brand only (Jeremy, 2026-10-08)
 DESCRIPTION = ("Rest-of-season fantasy football trade values for your league settings, "
                "trade targets where the published charts disagree with our values, "
@@ -155,9 +158,9 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False) -> st
     return html
 
 
-def build(dist: Path = DIST) -> Path:
+def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE) -> Path:
     """Write dist/index.html (root) and dist/v2/index.html; return the /v2/ page."""
-    index_html = (dist / CLASSIC_INPUT).read_text(encoding="utf-8")
+    index_html = engine_page.read_text(encoding="utf-8")
     shell_html = (APP_V2 / "shell.html").read_text(encoding="utf-8")
     out_dir = dist / "v2"
     out_dir.mkdir(parents=True, exist_ok=True)

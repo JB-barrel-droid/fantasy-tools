@@ -2,7 +2,7 @@
 
 consolidation-index.js probed assets/consolidated-values.json on every load.
 The artifact is published at the site root, never under assets/, so every load
-of /, /classic/ and /v2/ logged a 404, for data nothing reads (no caller of
+of /, /classic/ (the engine page; JEG-453) and /v2/ logged a 404, for data nothing reads (no caller of
 ConsolidationIndex.lookup()). The probe is removed.
 
 This test loads each page of the built dist/ and requires zero 4xx/5xx
@@ -15,7 +15,7 @@ from __future__ import annotations
 import subprocess
 import unittest
 
-from tests._dist_server import DIST, ROOT, chromium_executable, serve
+from tests._dist_server import DIST, ENGINE_PAGE, ROOT, chromium_executable, serve
 from tests import _render_env  # noqa: E402
 
 
@@ -58,7 +58,7 @@ def failed_requests(overrides=None):
 class PageLoadNo404Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not (DIST / "classic" / "index.html").exists():
+        if not ENGINE_PAGE.exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_no_failed_requests(self):

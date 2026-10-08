@@ -45,6 +45,7 @@ import time
 import unittest
 from pathlib import Path
 from tests import _render_env  # noqa: E402
+from tests._dist_server import engine_path  # noqa: E402
 
 
 def setUpModule():
@@ -102,6 +103,10 @@ def _server(delays):
     class Handler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, format, *args):
             pass
+
+        def translate_path(self, path):
+            # JEG-453: /classic/ is the build-only engine page here.
+            return engine_path(path) or super().translate_path(path)
 
         def do_GET(self):
             name = self.path.split("?")[0].rsplit("/", 1)[-1]

@@ -7,7 +7,8 @@ name: Live page synthetic gate
 # pipeline rebuilds dist/ in CI and never commits it back -- the committed
 # copy's tag is stale by construction, so the gate failed on every run.
 # GAP-038 (2026-10-08): live.mjs also renders every v2 tab on the root, the
-# /v2/ copy, /classic/ and the 404 page; any failing page fails the run.
+# /v2/ copy, /classic/ (a redirect to the root since JEG-453) and the 404
+# page; any failing page fails the run.
 # Scheduler owner: Supabase pg_cron `live-page-synthetic-live` (daily 12:15 UTC,
 # 45 minutes after the daily pg_cron Pages deploy), dispatching this workflow. No `schedule:` here, so there is one owner. (The
 # job used to call the live-page-synthetic edge function, which answered 401 on

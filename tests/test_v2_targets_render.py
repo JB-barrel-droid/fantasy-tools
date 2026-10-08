@@ -40,6 +40,7 @@ import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._dist_server import engine_path  # noqa: E402
 
 
 def setUpModule():
@@ -185,6 +186,11 @@ def _built_dist():
         class QuietHandler(http.server.SimpleHTTPRequestHandler):
             def log_message(self, format, *args):
                 pass
+
+            def translate_path(self, path):
+                # JEG-453: /classic/ is the build-only engine page (tests that
+                # import _built_dist drive the engine's own controls there).
+                return engine_path(path) or super().translate_path(path)
         handler = functools.partial(QuietHandler, directory=str(dist))
         with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
             server.daemon_threads = True

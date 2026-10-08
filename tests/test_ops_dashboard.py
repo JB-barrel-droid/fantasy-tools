@@ -111,7 +111,7 @@ def green_site() -> dict:
                       "report": {"passed": True, "liveTag": TAG, "problems": [], "pageErrors": [], "pages": [
                           {"name": n, "url": f"https://example.invalid/{n}", "httpStatus": 404 if n == "not-found" else 200,
                            "passed": True, "problems": [], "pageErrors": [], "tabs": []}
-                          for n in ("root", "v2", "classic", "not-found")]}},
+                          for n in ("root", "v2", "classic-redirect", "not-found")]}},
         "alerts": {"status": "ok", "as_of": ago(1), "label": "ops-alert", "open": []},
         "identity": {"status": "ok", "as_of": ago(1), "queue_total": 0,
                      "by_source": [{"source": "*", "review": 0, "unmatched": 0, "provisional": 0, "verified": 500,

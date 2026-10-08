@@ -47,6 +47,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 import build_week_history as H  # noqa: E402
+from tests._dist_server import engine_path  # noqa: E402
 from tests import _render_env  # noqa: E402
 
 
@@ -478,6 +479,10 @@ def _server(overrides):
     class Handler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
+
+        def translate_path(self, path):
+            # JEG-453: /classic/ is the build-only engine page here.
+            return engine_path(path) or super().translate_path(path)
 
         def do_GET(self):
             path = self.path.split("?")[0].lstrip("/")

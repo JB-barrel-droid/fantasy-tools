@@ -5,7 +5,7 @@ A position share scales that position's calibration pie (activePies); the
 live DDF calibration, the ESPN anchor fitted to it and the *_adjusted series
 follow. Defaults are the shares derived from the calibration pies.
 
-Checks, on the built dist/ classic page:
+Checks, on the build-only engine page (the old chart dashboard, served at /classic/ by the test server; JEG-453):
 1. Defaults unchanged. Across the 12 league combos (3 scorings x 8/10/12/14
    teams) and all three views, every getAllRows value is the same at load,
    after setting the derived defaults back, and after a custom share followed
@@ -28,7 +28,7 @@ from __future__ import annotations
 import json
 import unittest
 
-from tests._dist_server import DIST, serve
+from tests._dist_server import DIST, ENGINE_PAGE, serve
 from tests import _render_env  # noqa: E402
 
 
@@ -184,7 +184,7 @@ def run(script: str, arg=None):
 class PositionWeightsSetterTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not (DIST / "classic" / "index.html").exists():
+        if not ENGINE_PAGE.exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_defaults_unchanged_and_reset_restores(self):
