@@ -548,7 +548,12 @@ class StaticExportTest(unittest.TestCase):
             # line. With them resolved, the same 2026-10-02 snapshot gives
             # 20.3, which is what the browser's live CBS ROS path already
             # showed (tests/cbsros_live_section_harness.js: live 20.29).
-            ("cbsros", "full_12"): 20.3,
+            # 2026-10-08: the cbsros pin is retired, like ESPN's. CBS ROS is
+            # re-scraped weekly and the 10-08 snapshot moved Allen 20.3 -> 23.5,
+            # so a hand pin failed validate on every refresh (GAP-DATA-SNAPSHOT-PINS).
+            # tests/test_suffix_identity.py recomputes every CBS ROS combo live
+            # through the browser engine and requires the section to match
+            # within 0.21, which catches a wrong section value; a pin did not.
             # 2026-10-02 (JEG-88): VORP translation extended to Full PPR combos.
             # Josh Allen's adjusted value moves 26.3 -> 25.8 on the fresh
             # VORP-translated inputs.
