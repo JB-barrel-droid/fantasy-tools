@@ -135,6 +135,23 @@ class WireFake:
             fpath.write_text(json.dumps(fixture))
             return True, ""
 
+        if script == "build_razzball_ddf_leg.py":
+            return True, ""
+
+        if script == "build_razzball_section_from_ddf_leg.py":
+            # Razzball runs the cbsros DDF-leg path; merge into the fixture
+            # (it runs after the other sources have written theirs).
+            combos = {f"{s}_{t}": {"values": {"jahmyr gibbs": 70.0, "aaron rodgers": 0.0},
+                                   "native": {"jahmyr gibbs": 21.0, "aaron rodgers": 13.9}}
+                      for s in ("full", "half", "standard") for t in (8, 10, 12, 14)}
+            fpath = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
+            fpath.parent.mkdir(parents=True, exist_ok=True)
+            existing = json.loads(fpath.read_text()) if fpath.is_file() else {}
+            existing.setdefault("sources", {})["razzball"] = {
+                "combos": combos, "vintage": "2026-09-29"}
+            fpath.write_text(json.dumps(existing))
+            return True, ""
+
         if script == "build_adjustment_inputs.py":
             live = (repo / "app" / "trade-value-chart" / "assets"
                     / "adjustment-inputs.json")
@@ -192,6 +209,14 @@ def make_repo(tmp, sources):
         snap_dir = repo / "data" / "raw" / "sources" / source / "2026-09-29"
         snap_dir.mkdir(parents=True, exist_ok=True)
         (snap_dir / "snapshot.json").write_text(json.dumps({"tables": []}))
+    if "razzball" in sources:
+        # The razzball chain only moves its section to the vintage players.json
+        # was baked from (rebuild_comparison_chain.razzball_bake_mismatch).
+        snap = repo / "data" / "raw" / "sources" / "razzball" / "2026-09-29" / "snapshot.json"
+        snap.write_text(json.dumps({"vintage_date": "2026-09-29", "rows": []}))
+        players = repo / "data" / "fixtures" / "current" / "players.json"
+        players.parent.mkdir(parents=True, exist_ok=True)
+        players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-09-29"}, "players": []}))
     return repo
 
 

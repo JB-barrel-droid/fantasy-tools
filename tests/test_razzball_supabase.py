@@ -159,9 +159,26 @@ class IdentityResolutionTest(unittest.TestCase):
         self.assertEqual((7, None), self.resolve("Pat Twin", "TE"))
 
     def test_nicknames_are_not_guessed(self):
-        # "Joshua Palmer" vs "Josh Palmer" needs a verified alias, not a heuristic.
-        self.assertEqual((None, "no_match"), self.resolve("Joshua Palmer", "WR", "joshua palmer"))
+        # A long-form first name needs a verified alias, not a heuristic.
+        # (This used "Joshua Palmer" until 2026-10-08, when that spelling got
+        # a verified alias in build_ddf_two_tier_leg.ALIASES; see below.)
+        self.assertEqual((None, "no_match"), self.resolve("Patrick Twin", "WR", "patrick twin"))
         self.assertEqual((None, "no_match"), self.resolve("Nobody Real", "WR", "nobody real"))
+
+    def test_verified_nickname_aliases_resolve(self):
+        # GAP-RAZZBALL-SUFFIX-POOL: Razzball's 2026-10-06 save sent these to
+        # review; each alias target is the single public.players row.
+        players = self.PLAYERS + [
+            {"player_key": 920, "full_name": "Andrew Ogletree", "position": "TE"},
+            {"player_key": 4247, "full_name": "Chig Okonkwo", "position": "TE"},
+            {"player_key": 4214, "full_name": "Mitchell Trubisky", "position": "QB"},
+            {"player_key": 785, "full_name": "Kenneth Gainwell", "position": "RB"},
+        ]
+        index = saver.build_name_index(players)
+        for name, pos, key in (("Joshua Palmer", "WR", 8), ("Drew Ogletree", "TE", 920),
+                               ("Chigoziem Okonkwo", "TE", 4247),
+                               ("Mitch Trubisky", "QB", 4214), ("Kenny Gainwell", "RB", 785)):
+            self.assertEqual((key, None), saver.resolve_name(name, pos, index, name.lower()), name)
 
 
 class SaverTest(unittest.TestCase):
@@ -312,7 +329,12 @@ class ImporterTest(unittest.TestCase):
         rebuilt = {r["player_name"]: r for r in snapshot["rows"]}
         self.assertEqual(set(original), set(rebuilt))
         for name, row in original.items():
-            self.assertEqual(row, rebuilt[name], name)
+            # The DB-rebuilt row also carries the saver's verified player_key
+            # (bake_players.py prices the browser's rz_ppg by it); every
+            # file field survives unchanged.
+            got = dict(rebuilt[name])
+            self.assertEqual({"Josh Allen": 869, "Jahmyr Gibbs": 2227}[name], got.pop("player_key"), name)
+            self.assertEqual(row, got, name)
 
     def test_the_real_leg_builder_reads_the_rebuilt_snapshot_and_gets_the_same_numbers(self):
         result = self.import_rows(self.table_rows())

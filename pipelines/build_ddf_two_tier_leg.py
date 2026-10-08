@@ -106,6 +106,16 @@ ALIASES = {
     # FantasyPros Week 5 chart spells him "Kenny Gainwell"; players table has a
     # single "Kenneth Gainwell" (player_key 785, RB), verified 2026-10-07.
     "kenny gainwell": "kenneth gainwell",
+    # Razzball ROS spellings (2026-10-06 save review rows). Each target is the
+    # only public.players row of that surname at that position (exact
+    # full_name check, read-only, 2026-10-08) and is the fixture slug:
+    # Josh Palmer 822 WR, Andrew Ogletree 920 TE, Chig Okonkwo 4247 TE,
+    # Mitchell Trubisky 4214 QB. No Joshua Palmer / Drew Ogletree /
+    # Chigoziem Okonkwo / Mitch Trubisky row exists.
+    "joshua palmer": "josh palmer",
+    "drew ogletree": "andrew ogletree",
+    "chigoziem okonkwo": "chig okonkwo",
+    "mitch trubisky": "mitchell trubisky",
 }
 
 
