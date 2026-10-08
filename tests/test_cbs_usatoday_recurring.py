@@ -790,6 +790,11 @@ class CbsVersionedBakeTest(unittest.TestCase):
         self.assertNotEqual(a, b)
         self.assertRegex(save_cbs.cbs_bake_id(4), r"^cbswk4_\d{4}-\d{2}-\d{2}t\d{4}_v1$")
 
+    def test_usatoday_bake_ids_carry_the_minute(self):
+        # USAT-BAKE-SAMEDAY: a date-only id let a second same-day revision
+        # overwrite the first on a stateless runner.
+        self.assertRegex(ingest_usat.bake_id_fn(5, {}), r"^usatwk5_\d{4}-\d{2}-\d{2}t\d{4}_v1$")
+
     def test_saver_keys_the_upsert_on_bake_id(self):
         # The broken state: the week-grain conflict key overwrote the week.
         self.assertIn("bake_id", save_cbs.CBS_UPSERT_CONFLICT.split(","))

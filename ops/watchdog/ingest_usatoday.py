@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import date
+from datetime import datetime, timezone
 from typing import Any, Callable
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -65,12 +65,15 @@ def _save_fn(json_path: str, dry_run: bool, week: int, bake_id: str | None):
 
 
 def bake_id_fn(week: int, state: dict[str, Any]) -> str:
-    """usatwk<week>_<exec-date>_v<seq>; seq bumps only on re-ingest of the
-    same week (new fingerprint)."""
+    """usatwk<week>_<YYYY-MM-DD>t<HHMM>_v<seq> (UTC minute). seq bumps on a
+    re-ingest of the same week when a state file exists; the minute stamp
+    keeps two same-day revisions apart on a stateless CI runner
+    (USAT-BAKE-SAMEDAY)."""
     seq = 1
     if state.get("week") == week:
         seq = int(state.get("bake_seq", 0)) + 1
-    return f"usatwk{week}_{date.today().isoformat()}_v{seq}"
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dt%H%M")
+    return f"usatwk{week}_{stamp}_v{seq}"
 
 
 def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
