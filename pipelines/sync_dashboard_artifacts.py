@@ -549,6 +549,11 @@ def main() -> int:
     from build_v2_page import build as build_v2_page
     build_v2_page(DIST)
 
+    # Internal math inspector (noindex, linked from no public page): the same
+    # engine off-screen, every input and intermediate of the value math shown.
+    from build_inspector_page import build as build_inspector_page
+    build_inspector_page(DIST)
+
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0
 

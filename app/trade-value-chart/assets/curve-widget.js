@@ -1186,13 +1186,9 @@
     return parts.length ? parts.join("; ") : null;
   }
 
-  function derivedPublishedSourceMap(key) {
-    const cacheKey = `${key}|${scoring}|${teams}|${rosterSignature()}`;
-    if (derivedPublishedCache.has(cacheKey)) {
-      const hit = derivedPublishedCache.get(cacheKey);
-      lastPublishedDerivation[key] = hit.info;
-      return new Map(hit.values);
-    }
+  // The derivation of one published chart at the active setting (pure; the
+  // math inspector calls it too, at the saved setup as well).
+  function derivePublishedFor(key) {
     const savedRow = savedPublishedRow(key, "combo_reindexed");
     const nativeRow = savedPublishedRow(key, "native");
     const saved = new Map();
@@ -1205,22 +1201,34 @@
       const value = Number(rawValue);
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
+    if (!saved.size || !native.size) return {saved, native, derived: null};
+    // JEG332-DERIVED-PEAKS: our ESPN projections let the positional maxes
+    // follow the league (ValueModel.positionalMaxForSetup).
+    const field = scoringField();
+    const projection = new Map();
+    canonicalByKey.forEach((player, playerKey) => {
+      const ppg = player.espn_ppg?.[field];
+      if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
+    });
+    const derived = ValueModel.derivePublishedSetup({
+      native, saved, indexTotal: savedRow.index_total,
+      posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
+      teams, shape: rosterShape, projection, peers: publishedPeers(key)
+    });
+    return {saved, native, derived};
+  }
+
+  function derivedPublishedSourceMap(key) {
+    const cacheKey = `${key}|${scoring}|${teams}|${rosterSignature()}`;
+    if (derivedPublishedCache.has(cacheKey)) {
+      const hit = derivedPublishedCache.get(cacheKey);
+      lastPublishedDerivation[key] = hit.info;
+      return new Map(hit.values);
+    }
+    const {derived} = derivePublishedFor(key);
     let values = new Map();
     let info = {mode: "unavailable", reason: "no saved 12-team setup for this scoring"};
-    if (saved.size && native.size) {
-      // JEG332-DERIVED-PEAKS: our ESPN projections let the positional maxes
-      // follow the league (ValueModel.positionalMaxForSetup).
-      const field = scoringField();
-      const projection = new Map();
-      canonicalByKey.forEach((player, playerKey) => {
-        const ppg = player.espn_ppg?.[field];
-        if (typeof ppg === "number" && Number.isFinite(ppg)) projection.set(playerKey, ppg);
-      });
-      const derived = ValueModel.derivePublishedSetup({
-        native, saved, indexTotal: savedRow.index_total,
-        posOf: playerKey => canonicalByKey.get(playerKey)?.pos,
-        teams, shape: rosterShape, projection, peers: publishedPeers(key)
-      });
+    if (derived) {
       values = derived.values;
       info = {mode: "derived", version: derived.version,
         positionalMax: derived.positionalMax, ourMax: derived.ourMax,
@@ -3525,6 +3533,97 @@
       ...(HISTORY_UNSUPPORTED[source] ? {reason: HISTORY_UNSUPPORTED[source]} : {})};
   }
 
+  // Math inspector (internal page, read-only). Every input and intermediate
+  // the chart uses at the active setting, read from the same maps and the
+  // same pure ValueModel calls the chart makes. Nothing here prices a player
+  // differently from the chart. The two diagnostic records publishedViewMap /
+  // buildPublishedSourceMap write (lastPublishedView, lastPublishedDerivation)
+  // are swapped for copies and restored, so reading leaves no trace.
+  const mapToObject = map => {
+    const out = {};
+    map?.forEach((value, key) => { out[key] = value; });
+    return out;
+  };
+  function getInspection() {
+    const keptView = lastPublishedView;
+    const keptDerivation = lastPublishedDerivation;
+    lastPublishedView = {...keptView};
+    lastPublishedDerivation = {...keptDerivation};
+    try {
+      const anchor = sourceMaps.get("espn") || new Map();
+      const playerOf = playerKey => canonicalByKey.get(playerKey);
+      const anchorRoles = ValueModel.roleMap({values: anchor, playerOf, teams, shape: rosterShape});
+      const batch = derivedViewBatch();
+      const published = {};
+      [...AS_PUBLISHED_KEYS].forEach(key => {
+        const {saved, native, derived} = derivePublishedFor(key);
+        const indexed = buildPublishedSourceMap(key);
+        const indexedInfo = lastPublishedDerivation[key] || null;
+        const vorp = publishedViewMap(key, "vorp");
+        const vorpInfo = lastPublishedView[key] || null;
+        const adj = publishedViewMap(key, "adj_values");
+        const adjInfo = lastPublishedView[key] || null;
+        const views = batch.sources?.[key];
+        published[key] = {
+          native: mapToObject(native),
+          saved12: mapToObject(saved),
+          savedIndexTotal: savedPublishedRow(key, "combo_reindexed")?.index_total || null,
+          peers: Object.keys(publishedPeers(key)).sort(),
+          derivation: derived ? {
+            version: derived.version, positionalMax: derived.positionalMax, ourMax: derived.ourMax,
+            translated: derived.translated, belowWaiver: derived.belowWaiver, waiver: derived.waiver,
+            translation: derived.translation, values: mapToObject(derived.values)
+          } : null,
+          indexed: {mode: indexedInfo?.mode || null, info: indexedInfo, values: mapToObject(indexed)},
+          vorp: {mode: vorpInfo?.mode || null, values: mapToObject(vorp)},
+          adj: {mode: adjInfo?.mode || null, values: mapToObject(adj)},
+          views: views ? {
+            total: views.total, vorpScale: views.vorpScale, groups: views.groups,
+            budgets: views.budgets, roles: mapToObject(views.roles), translation: views.translation,
+            vorp: mapToObject(views.vorp), adj: mapToObject(views.adj)
+          } : null
+        };
+      });
+      // What the chart shows for every series in the Indexed view: the
+      // published charts' Indexed maps above; every other series straight
+      // from the chart's own rows (they do not change with the view).
+      const series = {};
+      visibleSourceKeys().forEach(key => {
+        if (AS_PUBLISHED_KEYS.has(key)) {
+          series[key] = published[key].indexed.values;
+          return;
+        }
+        const out = {};
+        universe.forEach(row => {
+          const value = row.values[key];
+          if (value !== null && value !== undefined) out[row.player_key] = value;
+        });
+        series[key] = out;
+      });
+      return {
+        setting: {scoring, scoringField: scoringField(), teams, roster: {...rosterShape}, benchShare,
+          viewMode, savedSetup: onSavedSetup(), displayShare: lastDisplayShare,
+          flexEligible: flexEligiblePositions()},
+        versions: {derivation: ValueModel.PUBLISHED_DERIVATION_VERSION, views: ValueModel.PUBLISHED_VIEWS_VERSION,
+          translation: ValueModel.VORP_TRANSLATION_VERSION, imputation: ValueModel.IMPUTATION_VERSION,
+          positionalMax: ValueModel.POSITIONAL_MAX_VERSION},
+        positions: [...POSITION_ORDER],
+        publishedKeys: [...AS_PUBLISHED_KEYS],
+        seriesKeys: visibleSourceKeys(),
+        labels: Object.fromEntries(visibleSourceKeys().map(key => [key, sourceLabel(key)])),
+        anchor: {key: "espn", values: mapToObject(anchor), roles: mapToObject(anchorRoles)},
+        espnRoles: mapToObject(espnRoleByKey),
+        batch: {version: batch.version, batchMax: batch.batchMax, adjScale: batch.adjScale},
+        published,
+        series,
+        fixedPie: fixedPieDiagnostics()
+      };
+    } finally {
+      lastPublishedView = keptView;
+      lastPublishedDerivation = keptDerivation;
+    }
+  }
+
   window.TradeValueCurveControls = {
     setPosition,
     setScoring,
@@ -3589,7 +3688,9 @@
       waiver: publishedWaiver(key)
     })),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
-    getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value]))
+    getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value])),
+    // Internal math inspector (read-only): see getInspection above.
+    getInspection
   };
 
   function fullRankMax() {

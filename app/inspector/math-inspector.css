@@ -1,0 +1,44 @@
+/* Math inspector (internal). The chart engine runs off-screen; only .mi-app is visible. */
+:root { --mi-bg: #f7f8fa; --mi-fg: #17202a; --mi-muted: #5b6672; --mi-line: #d9dee4; --mi-head: #eef1f5;
+  --mi-ok: #1d7a46; --mi-bad: #b3261e; --mi-accent: #17364c; }
+@media (prefers-color-scheme: dark) {
+  :root { --mi-bg: #12161b; --mi-fg: #e6eaef; --mi-muted: #9aa5b1; --mi-line: #2b333c; --mi-head: #1b2129;
+    --mi-ok: #6fcf97; --mi-bad: #ff8a80; --mi-accent: #8cc4e8; }
+}
+body.inspector { background: var(--mi-bg) !important; color: var(--mi-fg); margin: 0; }
+body.inspector > :not(.mi-app):not(script):not(.inspector-engine) { display: none !important; }
+.inspector-engine { position: absolute !important; left: -20000px !important; top: 0 !important; width: 1200px !important;
+  visibility: hidden; pointer-events: none; }
+.mi-app { font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; padding: 16px; max-width: 100%; box-sizing: border-box; }
+.mi-app * { box-sizing: border-box; letter-spacing: normal; text-transform: none; }
+.mi-app h1 { font-size: 22px; margin: 0 0 4px; color: var(--mi-fg); }
+.mi-app h2 { font-size: 17px; margin: 0 0 8px; color: var(--mi-accent); }
+.mi-app h3 { font-size: 14px; margin: 0; color: var(--mi-fg); }
+.mi-header { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: flex-start; }
+.mi-sub, .mi-note { color: var(--mi-muted); margin: 4px 0 8px; max-width: 110ch; }
+.mi-status { padding: 6px 10px; border: 1px solid var(--mi-line); border-radius: 6px; }
+.mi-ok { color: var(--mi-ok); } .mi-bad { color: var(--mi-bad); }
+.mi-controls { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--mi-line);
+  position: sticky; top: 0; background: var(--mi-bg); z-index: 2; }
+.mi-controls label, .mi-roster label { display: inline-flex; gap: 4px; align-items: center; color: var(--mi-muted); }
+.mi-roster { display: inline-flex; flex-wrap: wrap; gap: 8px; }
+.mi-controls input[type=number] { width: 4.5em; }
+.mi-controls input, .mi-controls select, .mi-app input[type=search], .mi-app button {
+  font: inherit; color: var(--mi-fg); background: var(--mi-head); border: 1px solid var(--mi-line); border-radius: 4px; padding: 2px 6px; }
+.mi-app button { cursor: pointer; }
+.mi-setting { color: var(--mi-muted); font-size: 12px; }
+.mi-nav { display: flex; flex-wrap: wrap; gap: 12px; padding: 8px 0; align-items: center; }
+.mi-nav a { color: var(--mi-accent); }
+.mi-section { padding: 12px 0 18px; border-bottom: 1px solid var(--mi-line); }
+.mi-table-wrap { margin: 10px 0 16px; }
+.mi-table-head { display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; margin-bottom: 4px; }
+.mi-count { color: var(--mi-muted); font-size: 12px; }
+.mi-scroll { overflow: auto; max-height: 560px; border: 1px solid var(--mi-line); border-radius: 4px; }
+.mi-table { border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; width: max-content; min-width: 100%; }
+.mi-table th { position: sticky; top: 0; background: var(--mi-head); cursor: pointer; text-align: left; font-weight: 600;
+  padding: 4px 6px; border-bottom: 1px solid var(--mi-line); max-width: 14em; white-space: normal; vertical-align: bottom; color: var(--mi-fg); }
+.mi-table td { padding: 2px 6px; border-bottom: 1px solid var(--mi-line); white-space: nowrap; color: var(--mi-fg); background: transparent; }
+.mi-table .num { text-align: right; }
+.mi-table tr.mi-total td { font-weight: 700; }
+.mi-player-pick input { width: 22em; }
+@media (max-width: 640px) { .mi-app { padding: 8px 16px; } .mi-player-pick input { width: 100%; } }
