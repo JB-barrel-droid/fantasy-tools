@@ -68,6 +68,8 @@ def green_site() -> dict:
             {"jobname": "monitoring-evaluator-5min", "schedule": "*/5 * * * *", "active": True, "dispatches": None,
              "last_start": ago(0.05), "last_status": "succeeded"},
         ],
+        "producer": {"workflow": "health-artifacts.yml", "pg_cron_job": "health-artifacts-live",
+                     "cadence_minutes": 360, "stale_after_minutes": 720},
         "security": {"schema": "ddf-security-posture-v1", "checked_at": ago(1), "ok": True,
                      "tables_without_rls": 0, "anon_or_auth_write_grants": 0, "public_definer_views": 0,
                      "mutable_search_path_functions": 0, "anon_executable_definer_functions": 0,
@@ -126,6 +128,13 @@ def green_site() -> dict:
         "modules/comparison-chain-status.json": chain, "modules/source-import-health.json": health,
         "modules/pipeline-checkpoints.json": cps, "modules/ops-status.json": ops, "modules/surfaces.json": surfaces,
         "assets/reference-freshness.json": fresh, "assets/history/index.json": history,
+        "modules/e2e-fidelity.json": {"generated_at": ago(4), "summary": {"status": "ok", "n_failures": 0},
+                                      "sources": {s: {"status": "ok"} for s in ("fantasycalc", "usatoday", "fantasypros", "cbs")}},
+        "modules/data-accuracy.json": {"generated_at": ago(4), "status": "ok", "violations": [],
+                                       "checks": [{"name": "espn_ineligible_cross_check", "status": "ok"},
+                                                  {"name": "espn_zeroed_staleness", "status": "ok"}]},
+        "modules/input-lineage.json": {"generated_at": ago(2), "checked": 12, "mismatches": []},
+        "modules/source-value-lineage.json": {"generated_at": ago(20), "sources": {"cbs": {}}},
     }
 
 
@@ -135,6 +144,8 @@ def stale_site() -> dict:
     site["modules/comparison-chain-status.json"]["run_at"] = ago(10)
     site["modules/source-import-health.json"]["checked_at"] = ago(10)
     site["modules/ops-status.json"]["blocks"]["synthetic"]["run"]["created_at"] = ago(40)
+    site["modules/source-value-lineage.json"]["generated_at"] = ago(60)          # a stale manual audit
+    site["modules/input-lineage.json"]["mismatches"] = [{"section": "cbsros", "reason": "lineage_raw_vintage_mismatch"}]
     return site
 
 
@@ -155,16 +166,17 @@ def failed_site() -> dict:
     ops["synthetic"]["report"]["passed"] = False
     ops["synthetic"]["report"]["pages"][2].update(passed=False, problems=["#weightsReadout is empty"])
     del site["assets/reference-freshness.json"]   # a missing published file: asset 404
+    site["modules/data-accuracy.json"].update(status="bad", violations=[{"check": "espn_zeroed_staleness"}])
     return site
 
 
 # Expected card statuses per scenario (cards not listed must be "ok").
 EXPECT = {
     "green": {"__banner__": "ok"},
-    "stale": {"__banner__": "warn", "chain": "warn", "ingest": "warn", "synthetic": "warn"},
+    "stale": {"__banner__": "warn", "chain": "warn", "ingest": "warn", "synthetic": "warn", "derived": "warn"},
     "failed": {"__banner__": "bad", "chain": "bad", "jobs": "bad", "ingest": "bad", "deploy": "bad",
                "alerts": "bad", "monitor": "bad", "synthetic": "bad", "surfaces": "bad", "freshness": "bad",
-               "security": "bad"},
+               "security": "bad", "derived": "bad"},
 }
 SCENARIOS = {"green": green_site, "stale": stale_site, "failed": failed_site}
 
@@ -273,7 +285,9 @@ class OpsDashboardRenderTests(unittest.TestCase):
 
     def test_very_stale_and_missing_feeds_turn_red(self):
         site = green_site()
-        site["modules/monitoring-summary.json"]["generated_at"] = ago(30)   # past the 25 h red limit
+        # 13 h: past the producer's own stale_after_minutes (720), so red even
+        # though the page's default limit for this feed is 25 h.
+        site["modules/monitoring-summary.json"]["generated_at"] = ago(13)
         del site["modules/comparison-chain-status.json"]
         site["modules/monitoring-summary.json"]["security"] = {"read_error": "permission denied"}
         result = render(self.browser, site, self.html)

@@ -1,8 +1,10 @@
 """GAP-033 / GAP-044: freshness and lineage warnings show on the status page.
 
-modules/status.html reads modules/surfaces.json. A surface may name a list of
-warnings inside its file (`warn_path`, dotted); a non-empty list turns the
-surface "degraded" and names the first few entries. Two surfaces use it:
+modules/status.html (the ops dashboard since 2026-10-08) reads
+modules/surfaces.json for its "Published files" card. A surface may name a list
+of warnings inside its file (`warn_path`, dotted); a non-empty list turns the
+surface amber ("Attention", data-status="warn") and names the first few
+entries. Two surfaces use it:
 
 - reference-freshness: `summary.expired_keys`, every input past its window
   (pipelines/check_reference_freshness.py), so a stale input is a visible
@@ -55,12 +57,15 @@ class SpecTests(unittest.TestCase):
     def test_reference_freshness_lists_expired_keys(self):
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp, True)
+        # players.pm_snapshot was the stale example until the producers lane
+        # retired the prediction-markets item (9afaede); espn_snapshot keeps the
+        # same intent: an input past its window is listed.
         (tmp / "players.json").write_text(json.dumps({"meta": {"as_of": "2026-10-08",
-                                                               "pm_snapshot": "2026-09-22"}}))
+                                                               "espn_snapshot": "2026-09-22"}}))
         (tmp / "comparison-sources-data.json").write_text(json.dumps({"built_at": "2026-10-08T01:00:00Z"}))
         report = build_report(tmp, tmp / "out.json", date(2026, 10, 8))
         keys = report["summary"]["expired_keys"]
-        self.assertIn("players.pm_snapshot", keys)
+        self.assertIn("players.espn_snapshot", keys)
         self.assertNotIn("players.as_of", keys)
         self.assertNotIn("comparison.built_at", keys)
         self.assertEqual(len(keys), report["summary"]["expired_count"])
@@ -68,7 +73,8 @@ class SpecTests(unittest.TestCase):
 
 def render_status(status_html: str, surfaces: list, files: dict) -> dict:
     """Serve a synthetic site (modules/status.html + surfaces + files) and
-    return {surface_id: (state, why)} as the page renders it."""
+    return {surface_id: (status, why)} as the page's Published files card
+    renders it (status: ok / warn / bad / unk)."""
     from playwright.sync_api import sync_playwright
     from test_launch_front_door import _pages_server
     with tempfile.TemporaryDirectory() as tmp:
@@ -87,7 +93,7 @@ def render_status(status_html: str, surfaces: list, files: dict) -> dict:
             page.wait_for_selector("body[data-ready='1']", timeout=20000)
             rows = page.eval_on_selector_all(
                 "tr[data-surface]",
-                "rs => rs.map(r => [r.dataset.surface, r.dataset.state, r.querySelector('.state').innerText])")
+                "rs => rs.map(r => [r.dataset.surface, r.dataset.status, r.lastElementChild.innerText])")
             browser.close()
     return {sid: (state, why) for sid, state, why in rows}
 
@@ -124,19 +130,19 @@ class RenderedStatusWarningsTest(unittest.TestCase):
 
     def test_warnings_degrade_the_surface_and_name_it(self):
         got = render_status(STATUS_HTML, self.SURFACES, self.files())
-        self.assertEqual(got["fresh"][0], "working", got)
+        self.assertEqual(got["fresh"][0], "ok", got)
         state, why = got["lagging"]
-        self.assertEqual(state, "degraded", got)
+        self.assertEqual(state, "warn", got)
         self.assertIn("2 derived sections lag their input: cbsros, razzball", why)
 
     def test_pre_fix_status_page_misses_the_warning(self):
         """Negative: the status page before GAP-033/044 ignored warn_path, so
         a lagging section showed as working."""
-        start = STATUS_HTML.index("  // GAP-033/GAP-044: a surface can name a list of warnings")
-        end = STATUS_HTML.index("  return { state: \"working\"", start)
+        start = STATUS_HTML.index("  const warnings = warningsAt(doc, s.warn_path);")
+        end = STATUS_HTML.index("  const ts = s.time_field", start)
         old = STATUS_HTML[:start] + STATUS_HTML[end:]
         got = render_status(old, self.SURFACES, self.files())
-        self.assertEqual(got["lagging"][0], "working", got)
+        self.assertEqual(got["lagging"][0], "ok", got)
 
 
 class LineageCardStaleNoteTest(unittest.TestCase):
