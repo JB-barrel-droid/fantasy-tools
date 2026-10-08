@@ -765,3 +765,52 @@ no blended score, but one series now gives a verdict.
 - Tests: tests/test_v2_targets_render.py (numbers for both lists, opened rows and cards; layout,
   fold, paging, popover, simulated prior week; 12 broken-build mutations) and tests/test_v2_targets.py
   (prior-week charts compared and flagged).
+
+## Player values: toolbar, brushes, table fit (JEG-470/472/473/475)
+
+Supersedes the Player values parts of "Chart options (21)" and "Navigator and value range (24)" above.
+
+- **One toolbar (JEG-475).** Search · Position · Show · Rank by · Δ Prior week · More · Reset, in that order,
+  sticky at 768 px and up. "Show" is one range control (All / Top 25 / 50 / 100 / Starters / Bench / Waiver;
+  the last three are the engine's `getZones()` boundaries as before). A brush drag, zoom or exact ranks turn it
+  into "Custom lo–hi" (the ranks actually shown). More holds only exact From / To ranks. Reset clears search,
+  position, Show (back to Top 100), value range, sort and Δ; rank by, sources, columns and league stay (they are
+  selections, not filters). Removed: the chart-card rank-window buttons, the Chart options button and panel,
+  Reset to all, Reset zoom, Clear filters and the Value range button. Y-axis custom bounds and Hide zero-value
+  tail were dropped (the Y brush covers the first; nothing used the second). The empty state keeps its per-filter
+  buttons; "Clear all filters" there runs Reset.
+- **Show drives the chart and the table.** Shown players = rank window ∩ value range. Before, the window was
+  chart-only and the table listed everyone; the table now lists the shown players (Show more pages by 50).
+- **Y value brush (JEG-472).** A vertical brush beside the plot, styled like the X brush, over the ranking
+  series' full spread for the listed players, with a value histogram (square-root scaled) as its overview and
+  labels at the thumbs. Two `input[type=range]` with `aria-orientation="vertical"` and `aria-valuetext`
+  "Value 12.5"; arrows step 0.5, PageUp / PageDown jump a tenth of the scale; the track ends mean open ended.
+  It writes the same `state.range` as "Set exact values" (the frame 24 popover, now a small link in the plot's
+  corner under the brush). Below 768 px the brush is hidden and the link is the control. The "N players
+  omitted: no … value" count still shows.
+- **Inside the chart** only direct manipulation: Y brush, X brush (labels at its thumbs) and zoom − / + as 44 px
+  overlay buttons in the plot corner. The legend sits inline after the chart title; it names publishers (the line
+  style carries the method) and ends with the line-style key for the styles drawn ("Solid = our value · Dashed =
+  published chart"; short forms below 768).
+- **Table (JEG-473).** A grouped top row by each series' existing method (Projections = DDA of a projection
+  publisher in `KIND`; Trade charts adjusted = other DDA; Trade charts as published = Indexed; VORP vs waivers;
+  Spread) plus "Ranking" over the ranking column. Headers: publisher on line 1, method in small caps on line 2
+  (week only for an older series); sort arrows show on the sorted column and on hover. Pos / Team / Tier fold into
+  the player sub-line below 1600 px; at 1600 px and up they get columns only while the table still fits (otherwise
+  they stay folded, so the table never scrolls sideways). Numbers 13 px tabular, right, one decimal, 6–8 px padding;
+  rows about 34 px. Sticky header rows and sticky # / Player columns inside the table's own scroll box. Heat tint:
+  three pale steps above (green) or below (red) the same row's ranking value (5 / 15 / 30 % apart), DDA and Indexed
+  only, never against VORP; colour only, and every cell's title and screen-reader text says above / below /
+  about level. Missing = "—" with the reason in its title. Columns menu: hide value groups (never the ranking
+  series) and Position / Team / Tier.
+- **Above the fold (JEG-470).** From 1280 px the chart card and the table card sit side by side
+  (`minmax(420px, 1fr) fit-content(64%)`); the table card takes the chart card's height and scrolls inside. Below
+  1280 they stack and the table box is capped at the viewport. Measured (default selection): 1440 × 900 chart card
+  ends at 817 px with 9 rows visible; 1366 × 768 ends at 761 px with 6 rows; 1280 × 800 no sideways scroll.
+  H1 26–28 px; the slogan is "Trade values for every player, tuned to your league · Week N" (week from the
+  freshness data, else `getReferenceWeek()`).
+- **Density tokens** in `:root` for every tab: `--v2-pad-card`, `--v2-pad-card-x`, `--v2-pad-section`, `--v2-gap`,
+  `--v2-title-1`, `--v2-title-2`, `--v2-row-h`, `--v2-cell-pad-x`, `--v2-group-h`, `--v2-chart-h`, plus
+  `--v2-heat-*` (light and dark). `--v2-chart-h` = `clamp(280px, calc(100vh - 490px), 42vh)`: the 490 px is the
+  shared header plus the toolbar at 1366 × 768; if the Methods bar merge makes the header shorter, the chart
+  simply grows. Stacked layouts (768–1279) use `clamp(280px, 36vh, 400px)`.

@@ -54,12 +54,13 @@
   </div>
 
   <main class="v2-wrap v2-main" id="v2Main" hidden>
-    <div class="v2-title">
+    <div class="v2-title v2-title-row">
       <h1>Every value. Your league.</h1>
-      <p>Compare the sources. Keep the context.</p>
+      <p id="v2ValueLine">Trade values for every player, tuned to your league</p>
     </div>
 
-    <div class="v2-filters" role="search">
+    <!-- JEG-475: one toolbar for every Player values control, sticky above the chart. -->
+    <div class="v2-filters v2-toolbar" id="v2Toolbar" role="search" aria-label="Player values controls">
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2Search" placeholder="Search players…" autocomplete="off">
       </label>
@@ -71,12 +72,24 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
-      <button type="button" class="v2-select" id="v2RangeBtn" aria-haspopup="dialog">Value range</button>
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank / range by:</span>
+      <label class="v2-field v2-field-show"><span class="v2-field-label">Show</span>
+        <select id="v2Show">
+          <option value="all">All</option>
+          <option value="25">Top 25</option>
+          <option value="50">Top 50</option>
+          <option value="100">Top 100</option>
+          <option value="starter">Starters</option>
+          <option value="bench">Bench</option>
+          <option value="waiver">Waiver</option>
+          <option value="custom" id="v2ShowCustom" hidden>Custom</option>
+        </select>
+      </label>
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank by</span>
         <select id="v2RankBy"></select>
       </label>
       <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Δ Prior week · Off</button>
-      <button type="button" class="v2-link" id="v2ClearFilters">Clear filters</button>
+      <button type="button" class="v2-select" id="v2More" aria-haspopup="dialog" aria-expanded="false">More</button>
+      <button type="button" class="v2-btn v2-reset" id="v2Reset">Reset</button>
     </div>
     <p class="v2-filter-note" id="v2FilterNote" hidden></p>
     <div class="v2-notice" id="v2Notice" role="status" hidden>
@@ -84,22 +97,11 @@
       <button type="button" class="v2-btn" id="v2NoticeBtn">Choose sources</button>
     </div>
 
+    <div class="v2-values-grid">
     <section class="v2-card v2-chart-card" aria-labelledby="v2ChartTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2ChartTitle">Trade value by player rank</h2>
-          <div class="v2-legend" id="v2Legend"></div>
-        </div>
-        <div class="v2-card-tools">
-          <div class="v2-seg" role="group" aria-label="Rank window">
-            <button type="button" data-window="all">All</button>
-            <button type="button" data-window="100" class="is-on">Top 100</button>
-            <button type="button" data-window="50">Top 50</button>
-            <button type="button" data-window="25">Top 25</button>
-            <button type="button" class="v2-chart-options" id="v2ChartOptions" aria-haspopup="dialog" aria-label="Chart options"><span class="v2-wide">Chart options ⌄</span><span class="v2-narrow" aria-hidden="true">···</span></button>
-          </div>
-          <span class="v2-meta"><span class="v2-wide">Solid = our value · Dashed = published chart</span><span class="v2-narrow">Solid = DDA · Dashed = Indexed</span></span>
-        </div>
+      <div class="v2-card-head v2-chart-head">
+        <h2 id="v2ChartTitle">Trade value by player rank</h2>
+        <div class="v2-legend" id="v2Legend"></div>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
         <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
@@ -112,26 +114,51 @@
         </div>
         <p class="v2-meta">Source selections, weights and league settings stay as they are.</p>
       </div>
-      <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
-      <div class="v2-brush">
-        <div class="v2-brush-labels"><span id="v2RangeLabel">Ranks —</span>
-          <span><button type="button" class="v2-link" id="v2ZoomOut" aria-label="Zoom out">−</button>
-          <button type="button" class="v2-link" id="v2ZoomIn" aria-label="Zoom in">+</button>
-          <button type="button" class="v2-link" id="v2ZoomReset">Reset zoom ↺</button></span>
+      <!-- Inside the plot: direct manipulation only. Y value brush (JEG-472), the plot, zoom, X rank brush. -->
+      <div class="v2-plot" id="v2Plot">
+        <div class="v2-ybrush" id="v2YBrush">
+          <svg class="v2-ybrush-overview" id="v2YBrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
+          <div class="v2-ybrush-fill" id="v2YBrushFill"></div>
+          <span class="v2-thumb-label v2-ylabel" id="v2YHiLabel" aria-hidden="true"></span>
+          <span class="v2-thumb-label v2-ylabel" id="v2YLoLabel" aria-hidden="true"></span>
+          <input type="range" id="v2YBrushHi" aria-label="Highest value shown" aria-orientation="vertical" min="0" max="100" step="0.5" value="100">
+          <input type="range" id="v2YBrushLo" aria-label="Lowest value shown" aria-orientation="vertical" min="0" max="100" step="0.5" value="0">
         </div>
-        <div class="v2-brush-track" id="v2Brush">
-          <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
-          <div class="v2-brush-fill" id="v2BrushFill"></div>
-          <input type="range" id="v2BrushLo" aria-label="First rank shown" min="1" max="100" value="1">
-          <input type="range" id="v2BrushHi" aria-label="Last rank shown" min="1" max="100" value="100">
+        <div class="v2-plot-main">
+          <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
+          <div class="v2-zoom" role="group" aria-label="Zoom">
+            <button type="button" id="v2ZoomOut" aria-label="Zoom out">−</button>
+            <button type="button" id="v2ZoomIn" aria-label="Zoom in">+</button>
+          </div>
         </div>
-        <div class="v2-brush-bounds">
-          <label>From <input type="number" id="v2FromRank" min="1" step="1" inputmode="numeric"></label>
-          <label>To <input type="number" id="v2ToRank" min="1" step="1" inputmode="numeric"></label>
-          <button type="button" class="v2-btn" id="v2ResetAll">Reset to all</button>
+        <button type="button" class="v2-link v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
+        <div class="v2-brush">
+          <div class="v2-brush-track" id="v2Brush">
+            <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
+            <div class="v2-brush-fill" id="v2BrushFill"></div>
+            <span class="v2-thumb-label" id="v2XLoLabel" aria-hidden="true"></span>
+            <span class="v2-thumb-label" id="v2XHiLabel" aria-hidden="true"></span>
+            <input type="range" id="v2BrushLo" aria-label="First rank shown" min="1" max="100" value="1">
+            <input type="range" id="v2BrushHi" aria-label="Last rank shown" min="1" max="100" value="100">
+          </div>
         </div>
       </div>
     </section>
+
+    <section class="v2-card v2-table-card" id="v2TableCard" aria-labelledby="v2TableTitle">
+      <div class="v2-card-head v2-table-head">
+        <h2 id="v2TableTitle">All selected values</h2>
+        <p class="v2-meta" id="v2TableMeta">—</p>
+        <button type="button" class="v2-select" id="v2Columns" aria-haspopup="dialog" aria-expanded="false">Columns</button>
+      </div>
+      <div class="v2-table-wrap" id="v2TableWrap">
+        <table class="v2-table v2-vtable" id="v2Table"></table>
+        <div class="v2-table-foot">
+          <button type="button" class="v2-btn" id="v2ShowMore" hidden>Show more players</button>
+        </div>
+      </div>
+    </section>
+    </div>
 
     <section class="v2-card v2-vorp-card" id="v2VorpCard" hidden aria-labelledby="v2VorpTitle">
       <div class="v2-card-head">
@@ -141,21 +168,6 @@
         </div>
       </div>
       <div class="v2-chart v2-chart-small" id="v2VorpChart"></div>
-    </section>
-
-    <section class="v2-card v2-table-card" aria-labelledby="v2TableTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2TableTitle">All selected values</h2>
-          <p class="v2-meta" id="v2TableMeta">—</p>
-        </div>
-      </div>
-      <div class="v2-table-wrap">
-        <table class="v2-table" id="v2Table"></table>
-      </div>
-      <div class="v2-table-foot">
-        <button type="button" class="v2-btn" id="v2ShowMore" hidden>Show more players</button>
-      </div>
     </section>
 
     <p class="v2-footnote">Values keep each source's identity. No blended or consensus score is shown. A missing value shows —, never zero.</p>

@@ -23,6 +23,21 @@
   --v2-brush-fill: #D7EEE3;
   --v2-radius-card: 12px;
   --v2-radius-btn: 8px;
+  /* Compact density tokens (JEG-470), shared by every tab. Fluid between phone and 1440 px. */
+  --v2-pad-card: clamp(8px, 0.4vw + 4px, 14px);        /* card padding, block */
+  --v2-pad-card-x: clamp(14px, 0.8vw + 6px, 20px);     /* card padding, inline */
+  --v2-pad-section: clamp(24px, 2vw + 12px, 48px);     /* space under a tab's last block */
+  --v2-gap: clamp(8px, 0.5vw + 4px, 12px);             /* between cards and toolbar rows */
+  --v2-title-1: clamp(22px, 1vw + 13px, 28px);         /* page title (h1): 26–28 px at desktop */
+  --v2-title-2: clamp(16px, 0.3vw + 13px, 18px);       /* card title (h2) */
+  --v2-row-h: clamp(32px, 0.4vw + 26px, 34px);         /* compact table row */
+  --v2-cell-pad-x: clamp(6px, 0.2vw + 4px, 8px);       /* table cell padding, inline */
+  --v2-group-h: 22px;                                  /* grouped table header row */
+  /* Main chart, brushes included: the viewport under the shared header and the toolbar, 280 px to 42vh. */
+  --v2-chart-h: clamp(280px, calc(100vh - 490px), 42vh);
+  /* Heatmap tint (Player values table): pale enough that ink keeps AA on every step. */
+  --v2-heat-up-1: #F1F8F4; --v2-heat-up-2: #E3F2EA; --v2-heat-up-3: #D2EADF;
+  --v2-heat-down-1: #FBF3F4; --v2-heat-down-2: #F7E6E9; --v2-heat-down-3: #F1D6DB;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -31,6 +46,8 @@
     --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
     --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
+    --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
+    --v2-heat-down-1: #261C20; --v2-heat-down-2: #302127; --v2-heat-down-3: #3A262D;
   }
 }
 :root[data-theme="dark"] {
@@ -39,6 +56,8 @@
   --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
     --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
+    --v2-heat-up-1: #172720; --v2-heat-up-2: #1B3127; --v2-heat-up-3: #213B2F;
+    --v2-heat-down-1: #261C20; --v2-heat-down-2: #302127; --v2-heat-down-3: #3A262D;
 }
 
 body.v2 { margin: 0; background: var(--v2-canvas); color: var(--v2-ink); }
@@ -145,7 +164,6 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-chart .name-label { font-size: 10px; fill: var(--v2-muted); }
 
 .v2-brush { margin-top: 4px; }
-.v2-brush-labels { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--v2-muted); }
 .v2-brush-track { position: relative; height: 44px; }
 .v2-brush-track::before { content: ""; position: absolute; left: 0; right: 0; top: 14px; height: 16px; background: var(--v2-canvas); border: 1px solid var(--v2-border); border-radius: 4px; }
 .v2-brush-fill { position: absolute; top: 14px; height: 16px; background: var(--v2-brush-fill); border: 1px solid var(--v2-action); border-radius: 4px; }
@@ -467,7 +485,6 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* UX pass (2026-10-08): touch targets, tablet navigation. Frame 17: every action has a 44 × 44 px
    hit area. Compact chips and sort buttons keep their look; an invisible box grows the hit area. */
 .v2-tab { min-height: 44px; }
-#v2ZoomIn, #v2ZoomOut { min-width: 44px; }
 .v2-chip, .v2-table th button { position: relative; }
 .v2-chip::after, .v2-table th button::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 .v2-trade-players .v2-trade-name { min-height: 44px; display: inline-flex; align-items: center; }
@@ -480,7 +497,6 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 }
 .v2-chip-row { row-gap: 12px; }
 .v2-seg button { min-height: 44px; }
-.v2-brush-labels { min-height: 44px; align-items: center; }
 /* Tablet: the source chips get their own full row instead of a one-chip-wide column. */
 @media (max-width: 1023px) {
   .v2-source-chips { flex-basis: 100%; order: 2; }
@@ -669,14 +685,9 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-pseg button { min-width: 0; }
 }
 
-/* Rank navigator (frame 24): overview line under the handles, numeric bounds, reset. */
+/* Rank navigator (frame 24): overview line under the handles. Exact ranks moved to More (JEG-475). */
 .v2-brush-overview { position: absolute; left: 0; right: 0; top: 14px; width: 100%; height: 16px; overflow: visible; }
 .v2-brush-overview .overview { fill: none; stroke-width: 1.5; opacity: .8; }
-.v2-brush-bounds { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 6px; font-size: 13px; color: var(--v2-muted); }
-.v2-brush-bounds label { display: inline-flex; gap: 6px; align-items: center; }
-.v2-brush-bounds input { width: 84px; min-height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 8px 10px; background: var(--v2-surface); color: var(--v2-ink); }
-.v2-brush-bounds .v2-btn { margin-left: auto; }
-.v2-seg .v2-chart-options { min-width: 44px; }
 .v2-popover .row2[hidden] { display: none; }
 
 /* UX pass 2 (2026-10-08): action text on tints uses the stronger green (4.5:1 in both themes). */
@@ -811,4 +822,166 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   #v2Compare .v2-trade-side > .v2-trade-players, #v2Compare .v2-trade-side > .v2-side-total { grid-column: 1 / -1; align-self: start; }
   #v2Compare .v2-trade-side > .v2-side-total { align-self: end; }
   #v2Compare .v2-trade-results { top: 52px; }
+}
+
+/* Player values: toolbar, brushes, table fit (JEG-470 / 472 / 473 / 475).
+   Density comes from the shared tokens in :root; other tabs can adopt them the same way. */
+#v2Main { padding-top: 8px; padding-bottom: var(--v2-pad-section); }
+#v2Main .v2-card { padding: var(--v2-pad-card) var(--v2-pad-card-x); margin-top: var(--v2-gap); }
+#v2Main .v2-card-head h2 { font-size: var(--v2-title-2); }
+.v2-title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 16px; }
+#v2Main .v2-title h1 { font-size: var(--v2-title-1); line-height: 1.2; }
+#v2Main .v2-title p { margin: 0; font-size: 14px; }
+
+/* One toolbar, sticky while the page scrolls into the table (768 px and up). */
+#v2Main .v2-toolbar { margin: var(--v2-gap) 0 0; gap: 8px; align-items: center; }
+.v2-toolbar .v2-search { flex: 1 1 150px; max-width: 260px; }
+.v2-toolbar .v2-field-label { margin-right: 2px; }
+.v2-field-show { background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding-left: 12px; color: var(--v2-muted); }
+.v2-field-show select { border: 0; background: transparent; color: var(--v2-ink); font-weight: 600; padding-left: 6px; }
+.v2-toolbar .v2-field-rank select { padding-left: 6px; max-width: 240px; }
+.v2-app .v2-reset { margin-left: auto; padding: 10px 14px; }
+#v2More[aria-expanded="true"], #v2Columns[aria-expanded="true"] { border-color: var(--v2-action); }
+@media (min-width: 768px) {
+  #v2Main .v2-toolbar { position: sticky; top: 0; z-index: 25; background: var(--v2-canvas); padding: 4px 0; margin-top: 2px; }
+}
+
+/* Chart card: title and legend on one line, the line-style key inside the legend. */
+.v2-chart-head { align-items: center; justify-content: flex-start; gap: 0 14px; flex-wrap: wrap; }
+/* The legend items flow on after the title; "Set exact values" ends the last line. */
+.v2-chart-head h2 { line-height: 22px; margin-right: 4px; }
+.v2-chart-head .v2-legend { display: contents; }
+.v2-chart-head .v2-legend > span { font-size: 12px; color: var(--v2-muted); line-height: 22px; }
+.v2-chart-head .v2-legend svg { width: 16px; }
+
+.v2-legend .v2-legend-key { color: var(--v2-muted); }
+/* "Set exact values": a small link in the plot's corner, under the Y brush, with a 44 px hit area. */
+.v2-app .v2-yexact { grid-column: 1; grid-row: 2; align-self: center; position: relative; min-height: 30px; min-width: 44px;
+  padding: 0 2px; font-size: 10px; line-height: 1.15; text-align: left; white-space: normal; }
+.v2-yexact::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+
+/* The plot: Y value brush | chart, X rank brush underneath. Height includes both brushes. */
+.v2-plot { display: grid; grid-template-columns: 56px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 44px;
+  height: var(--v2-chart-h); margin-top: 6px; }
+.v2-plot[hidden] { display: none; }
+.v2-plot-main { grid-column: 2; grid-row: 1; position: relative; min-height: 0; }
+#v2Main .v2-plot-main .v2-chart { height: 100%; margin: 0; }
+#v2Main .v2-plot .v2-brush { grid-column: 2; grid-row: 2; margin: 0; }
+.v2-zoom { position: absolute; top: 2px; right: 2px; display: flex; gap: 4px; }
+.v2-zoom button { width: 44px; height: 44px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn);
+  background: var(--v2-surface); color: var(--v2-ink); font-size: 18px; line-height: 1; cursor: pointer; opacity: .92; }
+.v2-zoom button:hover { border-color: var(--v2-action); opacity: 1; }
+
+/* Thumb labels: small pills beside each handle. */
+.v2-thumb-label { position: absolute; pointer-events: none; font-size: 10px; font-weight: 700; line-height: 1;
+  padding: 2px 4px; border-radius: 4px; background: var(--v2-surface); border: 1px solid var(--v2-border); color: var(--v2-ink);
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+#v2XLoLabel { top: 14px; margin-left: 10px; }
+#v2XHiLabel { top: 14px; transform: translateX(calc(-100% - 10px)); }
+
+/* JEG-472 Y value brush: mirrors the X brush (track, fill, thumbs, overview), vertical. */
+.v2-ybrush { grid-column: 1; grid-row: 1; position: relative; margin: 12px 0 var(--v2-plot-pad-b, 46px); }
+.v2-ybrush::before { content: ""; position: absolute; top: 0; bottom: 0; left: 29px; width: 16px; background: var(--v2-canvas);
+  border: 1px solid var(--v2-border); border-radius: 4px; }
+.v2-ybrush-overview { position: absolute; top: 0; bottom: 0; left: 29px; width: 16px; height: 100%; overflow: visible; }
+.v2-ybrush-overview .overview-bar { opacity: .6; }
+/* Both brushes: overview above the fill, handles above the overview, labels on top. */
+.v2-ybrush-overview, #v2Main .v2-brush-overview { z-index: 1; }
+.v2-ybrush input[type=range], #v2Main .v2-brush-track input[type=range] { z-index: 2; }
+.v2-thumb-label { z-index: 3; }
+.v2-ybrush-fill { position: absolute; left: 29px; width: 16px; background: var(--v2-brush-fill); border: 1px solid var(--v2-action); border-radius: 4px; opacity: .8; }
+.v2-ybrush .v2-ylabel { left: 0; max-width: 28px; transform: translateY(-50%); padding: 2px 2px; letter-spacing: -.02em; }
+.v2-ybrush input[type=range] { position: absolute; top: 0; left: 15px; width: 44px; height: 100%; margin: 0; padding: 0;
+  writing-mode: vertical-lr; direction: rtl; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
+.v2-ybrush input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 30px; height: 14px;
+  border-radius: 4px; background: var(--v2-action); border: 2px solid var(--v2-surface); cursor: ns-resize; }
+.v2-ybrush input[type=range]::-moz-range-thumb { pointer-events: auto; width: 28px; height: 12px; border-radius: 4px;
+  background: var(--v2-action); border: 2px solid var(--v2-surface); cursor: ns-resize; }
+.v2-ybrush input[type=range]::-webkit-slider-runnable-track { background: none; }
+.v2-ybrush input[type=range]::-moz-range-track { background: none; }
+
+/* Layout: chart left, table right from 1280 px, so both are above the fold at 1366 × 768 and 1440 × 900. */
+@media (min-width: 1280px) {
+  .v2-values-grid { display: grid; grid-template-columns: minmax(420px, 1fr) fit-content(64%); gap: var(--v2-gap);
+    align-items: stretch; margin-top: 6px; }
+  #v2Main .v2-values-grid > .v2-card { margin-top: 0; min-width: 0; }
+  /* The table card takes the chart card's height (it adds nothing to the row) and scrolls inside. */
+  .v2-values-grid > .v2-table-card { height: 0; min-height: 100%; display: flex; flex-direction: column; }
+  .v2-values-grid > .v2-table-card .v2-table-wrap { flex: 1 1 0; min-height: 0; }
+  .v2-values-grid > .v2-table-card[hidden] { display: none; }
+}
+
+/* JEG-473 table fit. */
+.v2-table-head { align-items: center; flex-wrap: nowrap; gap: 4px 12px; }
+.v2-table-head h2 { flex: none; line-height: 1.3; }
+.v2-table-head .v2-meta { flex: 1 1 auto; min-width: 0; }
+.v2-app #v2Columns { flex: none; position: relative; min-height: 30px; min-width: 44px; padding: 4px 12px; font-size: 13px; }
+#v2Columns::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+#v2Main .v2-table-foot { position: sticky; left: 0; padding: 8px 0; margin: 0; }
+#v2Main .v2-table-foot:has(> [hidden]) { display: none; }
+.v2-heat-key { margin-top: 6px !important; font-size: 11px; }
+#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: auto; }   /* contains the screen-reader spans */
+@media (min-width: 768px) and (max-width: 1279px) {
+  #v2Main .v2-table-wrap { max-height: calc(100vh - 120px); }
+  #v2Main { --v2-chart-h: clamp(280px, 36vh, 400px); }   /* stacked: the table follows under the chart */
+}
+.v2-vtable th, .v2-vtable td { padding: 4px var(--v2-cell-pad-x); }
+.v2-vtable td { height: var(--v2-row-h); vertical-align: middle; }
+.v2-vtable .num { font-size: 13px; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+.v2-vtable td.player { font-size: 13px; line-height: 1.25; padding-top: 2px; padding-bottom: 2px; }
+.v2-vtable .player-sub { display: block; margin-top: 0; font-size: 11px; line-height: 1.2; }
+.v2-vtable .rank { width: 34px; min-width: 34px; font-size: 12px; }
+.v2-vtable .delta { font-size: 10px; line-height: 1.2; }
+.v2-vtable .v2-espn-zero { margin-left: 4px; padding: 0 4px; font-size: 10px; }
+/* Two-line headers: publisher, then the method in small caps. Sort arrow on line 1. */
+.v2-vtable th { vertical-align: bottom; line-height: 1.2; }
+.v2-vtable th button { display: inline-flex; flex-direction: column; align-items: flex-start; text-align: left; min-height: 32px; min-width: 44px; justify-content: flex-end; }
+.v2-vtable th.num button { align-items: flex-end; text-align: right; }
+.v2-vtable th button::after, .v2-vtable th[aria-sort] button::after { content: none; }
+.v2-vtable .th-1 { white-space: nowrap; font-size: 12px; }
+/* Unsorted columns show their sort arrow on hover or focus only, so headers stay narrow. */
+.v2-vtable .th-1::after { content: ""; font-size: 10px; }
+.v2-vtable th button:hover .th-1::after, .v2-vtable th button:focus-visible .th-1::after { content: " ↕"; opacity: .45; }
+.v2-vtable th[aria-sort="descending"] .th-1::after { content: " ↓"; opacity: 1; }
+.v2-vtable th[aria-sort="ascending"] .th-1::after { content: " ↑"; opacity: 1; }
+.v2-vtable .th-2 { font-size: 11px; font-weight: 500; font-variant-caps: all-small-caps; letter-spacing: .02em; white-space: nowrap; }
+.v2-vtable .th-2 .is-older { color: var(--v2-older); }
+/* Grouped top row. */
+.v2-vtable .v2-group-row th { height: var(--v2-group-h); padding: 2px var(--v2-cell-pad-x); font-size: 10px; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; text-align: center; border-bottom: 1px solid var(--v2-border); white-space: nowrap; }
+.v2-vtable .v2-group-row th + th { box-shadow: inset 1px 0 0 var(--v2-border); }
+.v2-vtable .v2-group-row th.is-rank { color: var(--v2-action-strong); }
+/* Sticky header rows and Player column (768 px and up; mobile keeps its own sticky Player column). */
+@media (min-width: 768px) {
+  .v2-vtable thead th { position: sticky; z-index: 3; background: var(--v2-surface); }
+  .v2-vtable .v2-group-row th { top: 0; }
+  .v2-vtable .v2-head-row th { top: var(--v2-group-h); box-shadow: 0 1px 0 var(--v2-border); }
+  .v2-vtable .v2-head-row th.is-rank, .v2-vtable .v2-group-row th.is-rank { background: var(--v2-rank-tint); }
+  .v2-vtable td.rank, .v2-vtable td.player { position: sticky; z-index: 1; background: var(--v2-surface); }
+  .v2-vtable td.rank, .v2-vtable .v2-head-row th.rank { left: 0; }
+  .v2-vtable td.player, .v2-vtable .v2-head-row th.player { left: 34px; box-shadow: 1px 0 0 var(--v2-border); }
+  .v2-vtable .v2-head-row th.rank, .v2-vtable .v2-head-row th.player { position: sticky; z-index: 4; }
+  .v2-vtable td.player { max-width: 172px; overflow: hidden; text-overflow: ellipsis; }
+}
+@media (max-width: 767px) {
+  .v2-vtable .v2-group-row { display: none; }
+}
+/* Heatmap tint against the row's ranking value: colour only, the direction is in each cell's title too. */
+.v2-vtable td.heat-up-1 { background: var(--v2-heat-up-1); }
+.v2-vtable td.heat-up-2 { background: var(--v2-heat-up-2); }
+.v2-vtable td.heat-up-3 { background: var(--v2-heat-up-3); }
+.v2-vtable td.heat-down-1 { background: var(--v2-heat-down-1); }
+.v2-vtable td.heat-down-2 { background: var(--v2-heat-down-2); }
+.v2-vtable td.heat-down-3 { background: var(--v2-heat-down-3); }
+.v2-vtable .missing { cursor: help; }
+
+/* Below 768 px: the numeric value range ("Set exact values") replaces the Y brush; the rest stays as before. */
+@media (max-width: 767px) {
+  .v2-plot { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .v2-ybrush { display: none; }
+  .v2-plot-main, #v2Main .v2-plot .v2-brush { grid-column: 1; }
+  .v2-plot-main { height: 260px; }
+  .v2-app .v2-yexact { grid-column: 1; grid-row: 3; justify-self: start; font-size: 12px; min-height: 44px; }
+  .v2-toolbar .v2-search { max-width: none; }
+  .v2-app .v2-reset { margin-left: 0; }
 }

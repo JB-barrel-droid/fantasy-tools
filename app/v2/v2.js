@@ -38,6 +38,9 @@
   const PLAIN_NAMES = {espn: "ESPN", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", usatoday: "USA Today",
     cbs: "CBS Sports", cbsros: "CBS rest of season", razzball: "Razzball"};
   const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
+  const metaWideQuery = window.matchMedia ? window.matchMedia("(min-width: 1600px)") : null;   // JEG-473
+  let metaNoRoom = false;   // set when the expanded columns would make the table scroll sideways
+  const metaColumnsShown = () => Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom;
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
@@ -60,19 +63,19 @@
       short: isNarrow() ? `${pub.label} · ${SHORT_METHOD[method]}` : plainSeries(publisher, method)};
   }
 
+  const SHOW_DEFAULT = "100";
   const state = {
     search: "",
     range: {min: null, max: null},
     delta: false,
-    window: null,          // [lo, hi] 1-based rank window for the chart
-    windowPreset: "100",
+    window: null,          // [lo, hi] 1-based rank window (chart and table)
+    windowPreset: SHOW_DEFAULT,   // the toolbar's "Show" (JEG-475); "custom" after a brush, zoom or exact ranks
     sort: null,            // {key, dir}; null = rank-series order
     shown: PAGE_SIZE,
     hoverIndex: null,
     focusIndex: 0,
-    hideZeroTail: false,   // frame 21: chart only
-    yBounds: null,         // frame 21: {lo, hi} custom Y axis, null = auto
-    metaCols: {pos: true, team: true, tier: true}
+    metaCols: {pos: true, team: true, tier: true},
+    hiddenGroups: new Set()   // JEG-473 Columns menu: method groups the reader hid
   };
   let C = null;            // TradeValueCurveControls
   let view = null;         // derived snapshot for rendering
@@ -177,38 +180,36 @@
     const allRows = C.getRows();
     allRows.forEach((row, index) => { row.fullRank = index + 1; });
     const needle = state.search.trim().toLowerCase();
-    const {min, max} = state.range;
-    let omittedMissing = 0;
-    const rows = allRows.filter(row => {
-      if (needle && !String(row.name || "").toLowerCase().includes(needle)) return false;
-      if (min !== null || max !== null) {
-        const v = row.values[rankKey];
-        if (!Number.isFinite(v)) { omittedMissing += 1; return false; }
-        if (min !== null && v < min) return false;
-        if (max !== null && v > max) return false;
-      }
-      return true;
-    });
+    // Search narrows the list and renumbers it; the rank window (Show / X brush) and the value range
+    // (Y brush) then compose: shown = ranks lo..hi ∩ ranking-series value in [min, max] (JEG-472).
+    const rows = needle ? allRows.filter(row => String(row.name || "").toLowerCase().includes(needle)) : allRows;
     rows.forEach((row, index) => { row.rank = index + 1; });
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
-    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, totalRows: allRows.length, omittedMissing,
-      refWeek, state: C.getState(), roster: C.getRosterShape()};
     const n = rows.length;
-    // Frame 21 "Hide zero-value tail": the chart stops at the last player with a ranking value above 0.
-    let last = n;
-    if (state.hideZeroTail) {
-      while (last > 1 && !(rows[last - 1].values[rankKey] > 0)) last -= 1;
-    }
     const zone = zoneWindow(rows, state.windowPreset);
     if (zone) {
-      state.window = [Math.min(zone[0], last), Math.max(1, Math.min(zone[1], last))];
+      state.window = [Math.min(zone[0], Math.max(1, n)), Math.max(1, Math.min(zone[1], n))];
     } else if (!state.window || state.windowPreset !== "custom") {
-      const hi = state.windowPreset === "all" ? last : Number(state.windowPreset) || last;
-      state.window = [1, Math.max(1, Math.min(last, hi))];
+      const hi = state.windowPreset === "all" ? n : Number(state.windowPreset) || n;
+      state.window = [1, Math.max(1, Math.min(n, hi))];
     } else {
       state.window = [Math.max(1, Math.min(state.window[0], n)), Math.max(1, Math.min(state.window[1], n))];
     }
+    const {min, max} = state.range;
+    const rangeOn = min !== null || max !== null;
+    let omittedMissing = 0;
+    const visible = rows.slice(state.window[0] - 1, state.window[1]).filter(row => {
+      if (!rangeOn) return true;
+      const v = row.values[rankKey];
+      if (!Number.isFinite(v)) { omittedMissing += 1; return false; }
+      return (min === null || v >= min) && (max === null || v <= max);
+    });
+    // The Y brush's scale: the ranking series' own spread over the listed players (display only).
+    const rankValues = rows.map(row => row.values[rankKey]).filter(Number.isFinite);
+    const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
+    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible, totalRows: allRows.length, omittedMissing,
+      rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape()};
   }
 
   // Frame 21 Starter / Bench / Waiver: the engine's roster boundaries (getZones, in
@@ -248,6 +249,18 @@
     const item = view.infoByKey[key];
     const week = item && item.week ? (isNarrow() ? ` · W${item.week}` : ` · Week ${item.week}`) : "";
     return `${meta.short}${week}`;
+  }
+
+  // JEG-475 "Show": one range control. A brush, zoom or exact ranks make it "Custom 12–48", naming the
+  // ranks actually shown (rank window ∩ value range).
+  function renderShow() {
+    const custom = $("v2ShowCustom");
+    const isCustom = state.windowPreset === "custom";
+    custom.hidden = !isCustom;
+    const first = view.visible[0];
+    const last = view.visible[view.visible.length - 1];
+    custom.textContent = first ? `Custom ${first.rank}–${last.rank}` : `Custom ${state.window[0]}–${state.window[1]}`;
+    $("v2Show").value = state.windowPreset;
   }
 
   // ---------- header, league, methods ----------
@@ -308,15 +321,13 @@
     });
 
     $("v2Position").value = view.state.position;
-    const rangeOn = state.range.min !== null || state.range.max !== null;
-    $("v2RangeBtn").textContent = rangeOn
-      ? `Value ${state.range.min ?? "…"}–${state.range.max ?? "…"}`
-      : "Value range";
+    renderShow();
+    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${view.refWeek ? ` · Week ${view.refWeek}` : ""}`;
     $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
     const notes = [];
-    if (rangeOn && view.omittedMissing) {
+    if (view.rangeOn && view.omittedMissing) {
       notes.push(`${view.omittedMissing} player${view.omittedMissing === 1 ? "" : "s"} omitted: no ${sourceMeta(view.rankKey).short} value to compare against the range.`);
     }
     if (state.delta) {
@@ -349,16 +360,27 @@
   function renderLegend() {
     const legend = $("v2Legend");
     legend.replaceChildren();
-    view.plotKeys.concat(view.vorpKeys).forEach(key => {
+    const keys = view.plotKeys.concat(view.vorpKeys);
+    keys.forEach(key => {
       const meta = sourceMeta(key);
       const span = document.createElement("span");
       const swatch = el("svg", {width: 22, height: 8, "aria-hidden": "true"});
       el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": 2,
         "stroke-dasharray": meta.method === "indexed" ? "6 4" : meta.method === "vorp" ? "1.5 4" : ""}, swatch);
       span.appendChild(swatch);
-      span.append(document.createTextNode(`${meta.symbol} ${meta.short}`));
+      const twice = keys.filter(k => sourceMeta(k).publisher === meta.publisher).length > 1;
+      const name = meta.method === "vorp" || twice || isNarrow() ? meta.short : (PLAIN_NAMES[meta.publisher] || meta.label);
+      span.append(document.createTextNode(`${meta.symbol} ${name}`));
+      span.title = plainSeries(meta.publisher, meta.method);
       legend.appendChild(span);
     });
+    // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
+    const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = Indexed"} : {dda: "Solid = our value", indexed: "Dashed = published chart"};
+    const key = document.createElement("span");
+    key.className = "v2-legend-key";
+    key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
+    if (key.textContent) legend.appendChild(key);
   }
 
   function drawSeriesChart(container, keys, opts) {
@@ -366,10 +388,14 @@
     const rect = container.getBoundingClientRect();
     const width = Math.max(280, rect.width);
     const height = Math.max(160, rect.height);
-    const pad = {l: 40, r: 12, t: 12, b: opts.names ? 46 : 30};
-    const [lo, hi] = state.window;
-    const slice = view.rows.slice(lo - 1, hi);
+    // The rows shown: rank window ∩ value range (collect). X labels are each player's rank.
+    const slice = view.visible;
     const n = slice.length;
+    const names = opts.names && (n > 1 ? (width - 52) / (n - 1) : width) >= 64;
+    const pad = {l: 40, r: 12, t: 12, b: names ? 46 : 30};
+    if (opts.plot) opts.plot.style.setProperty("--v2-plot-pad-b", `${pad.b}px`);   // the Y brush lines up with the axis
+    const lo = n ? slice[0].rank : state.window[0];
+    const hi = n ? slice[n - 1].rank : state.window[1];
     const svg = el("svg", {viewBox: `0 0 ${width} ${height}`, role: "img",
       "aria-label": `${opts.label}: ranks ${lo} to ${hi}`}, container);
     let vmax = 0;
@@ -377,13 +403,8 @@
       const v = row.values[key];
       if (Number.isFinite(v) && v > vmax) vmax = v;
     }));
-    let {max: ymax, step: ystep} = niceScale(vmax);
-    let ymin = 0;
-    if (opts.yBounds) {
-      ymin = Number.isFinite(opts.yBounds.lo) ? opts.yBounds.lo : 0;
-      if (Number.isFinite(opts.yBounds.hi)) ymax = opts.yBounds.hi;
-      ystep = niceScale(ymax - ymin).step;
-    }
+    const {max: ymax, step: ystep} = niceScale(vmax);
+    const ymin = 0;
     const x = i => pad.l + (n <= 1 ? (width - pad.l - pad.r) / 2 : (i / (n - 1)) * (width - pad.l - pad.r));
     const y = v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
     const grid = el("g", {class: "grid"}, svg);
@@ -396,12 +417,11 @@
     const xTicks = Math.min(5, n);
     for (let t = 0; t < xTicks; t += 1) {
       const i = xTicks === 1 ? 0 : Math.round((t / (xTicks - 1)) * (n - 1));
-      const label = el("text", {x: x(i), y: height - (opts.names ? 30 : 10), "text-anchor": "middle"}, axis);
-      label.textContent = lo + i;
+      const label = el("text", {x: x(i), y: height - (names ? 30 : 10), "text-anchor": "middle"}, axis);
+      label.textContent = slice[i].rank;
     }
-    if (opts.names) {
-      const pxPer = n > 1 ? (width - pad.l - pad.r) / (n - 1) : width;
-      if (pxPer >= 64) {
+    if (names) {
+      {
         slice.forEach((row, i) => {
           const label = el("text", {x: x(i), y: height - 8, "text-anchor": "middle", class: "name-label"}, svg);
           const last = String(row.name || "").split(" ").slice(-1)[0];
@@ -435,30 +455,75 @@
 
   function renderCharts() {
     renderLegend();
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, yBounds: state.yBounds});
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot")});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
       ? drawSeriesChart($("v2VorpChart"), view.vorpKeys, {label: "VORP vs waivers by player rank"})
       : null;
     const [lo, hi] = state.window;
-    $("v2RangeLabel").textContent = `Ranks ${lo}–${hi} of ${view.rows.length}`;
     const n = Math.max(1, view.rows.length);
+    // X rank brush: the whole list under two handles, an overview line, labels at the thumbs.
     ["v2BrushLo", "v2BrushHi"].forEach(id => { $(id).max = String(n); });
     $("v2BrushLo").value = String(lo);
     $("v2BrushHi").value = String(hi);
+    const xAt = v => ((v - 1) / Math.max(1, n - 1)) * 100;
     const fill = $("v2BrushFill");
-    fill.style.left = `${((lo - 1) / Math.max(1, n - 1)) * 100}%`;
-    fill.style.width = `${((hi - lo) / Math.max(1, n - 1)) * 100}%`;
-    // Frame 24: numeric bounds and an overview line of the ranking series under the handles.
-    ["v2FromRank", "v2ToRank"].forEach(id => { $(id).max = String(n); });
-    if (document.activeElement !== $("v2FromRank")) $("v2FromRank").value = String(lo);
-    if (document.activeElement !== $("v2ToRank")) $("v2ToRank").value = String(hi);
+    fill.style.left = `${xAt(lo)}%`;
+    fill.style.width = `${xAt(hi) - xAt(lo)}%`;
+    $("v2XLoLabel").textContent = String(lo);
+    $("v2XHiLabel").textContent = String(hi);
+    $("v2XLoLabel").style.left = `${xAt(lo)}%`;
+    $("v2XHiLabel").style.left = `${xAt(hi)}%`;
+    $("v2BrushLo").setAttribute("aria-valuetext", `Rank ${lo}`);
+    $("v2BrushHi").setAttribute("aria-valuetext", `Rank ${hi}`);
     drawOverview();
-    document.querySelectorAll("#v2Main .v2-seg button[data-window]").forEach(button => {
-      button.classList.toggle("is-on", button.dataset.window === state.windowPreset);
-    });
+    renderYBrush();
     drawHover();
+  }
+
+  // JEG-472 Y value brush: the ranking series' values on a vertical track beside the plot. The
+  // handles set state.range (the same filter as "Set exact values"); full extent = no filter.
+  function renderYBrush() {
+    const {lo: ylo, hi: yhi} = view.yScale;
+    const loV = Math.max(ylo, Math.min(yhi, state.range.min ?? ylo));
+    const hiV = Math.max(ylo, Math.min(yhi, state.range.max ?? yhi));
+    const yAt = v => (1 - (v - ylo) / Math.max(1e-9, yhi - ylo)) * 100;
+    ["v2YBrushLo", "v2YBrushHi"].forEach(id => { $(id).min = String(ylo); $(id).max = String(yhi); });
+    if (document.activeElement !== $("v2YBrushLo")) $("v2YBrushLo").value = String(loV);
+    if (document.activeElement !== $("v2YBrushHi")) $("v2YBrushHi").value = String(hiV);
+    $("v2YBrushLo").setAttribute("aria-valuetext", `Value ${fmt(loV)}`);
+    $("v2YBrushHi").setAttribute("aria-valuetext", `Value ${fmt(hiV)}`);
+    const fill = $("v2YBrushFill");
+    fill.style.top = `${yAt(hiV)}%`;
+    fill.style.height = `${yAt(loV) - yAt(hiV)}%`;
+    $("v2YHiLabel").textContent = fmt(hiV);
+    $("v2YLoLabel").textContent = fmt(loV);
+    $("v2YHiLabel").style.top = `${yAt(hiV)}%`;
+    $("v2YLoLabel").style.top = `${yAt(loV)}%`;
+    $("v2YBrush").classList.toggle("is-on", view.rangeOn);
+    drawYOverview();
+  }
+
+  // Mini overview of the Y brush: how many listed players sit at each value (ranking series).
+  function drawYOverview() {
+    const svg = $("v2YBrushOverview");
+    svg.replaceChildren();
+    const {lo: ylo, hi: yhi} = view.yScale;
+    const bins = 24;
+    const counts = new Array(bins).fill(0);
+    view.rankValues.forEach(v => {
+      const b = Math.min(bins - 1, Math.max(0, Math.floor(((v - ylo) / Math.max(1e-9, yhi - ylo)) * bins)));
+      counts[b] += 1;
+    });
+    const most = Math.max(1, ...counts);
+    svg.setAttribute("viewBox", `0 0 100 ${bins}`);
+    counts.forEach((count, b) => {
+      if (!count) return;
+      const w = Math.max(14, Math.sqrt(count / most) * 100);   // square root: the long tail near zero stays readable
+      el("rect", {x: 100 - w, y: bins - b - 1 + 0.12, width: w, height: 0.76, class: "overview-bar",
+        fill: sourceMeta(view.rankKey).color}, svg);
+    });
   }
 
   function drawOverview() {
@@ -625,20 +690,36 @@
   }
 
   // ---------- table ----------
+  // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
+  // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
+  const TABLE_GROUPS = [["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+    ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
+  function tableGroup(key) {
+    const meta = sourceMeta(key);
+    if (meta.method === "vorp") return "vorp";
+    if (meta.method === "indexed") return "published";
+    return KIND[meta.publisher] === "Projection-based" ? "projections" : "adjusted";
+  }
+  const groupOrder = id => TABLE_GROUPS.findIndex(([g]) => g === id);
+
   function tableColumns() {
-    const valueKeys = view.plotKeys.concat(view.vorpKeys);
+    const valueKeys = view.plotKeys.concat(view.vorpKeys)
+      .filter(key => key === view.rankKey || !state.hiddenGroups.has(tableGroup(key)));
     const cols = [
       {id: "rank", label: "#", cls: "rank", get: row => row.rank},
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
       {id: "tier", label: "Tier", cls: "col-meta", get: row => tierLabel(row.espnRole), text: true}
-    ].filter(col => state.metaCols[col.id] !== false);
-    valueKeys.forEach(key => cols.push({id: key, label: sourceLabelFor(key), source: key, cls: "num",
-      get: row => row.values[key]}));
+    ].filter(col => state.metaCols[col.id] !== false)
+      .filter(col => col.cls !== "col-meta" || metaColumnsShown());
+    // Ranking series first (it is the sort basis), then the groups in their fixed order.
+    valueKeys.slice().sort((a, b) => (b === view.rankKey) - (a === view.rankKey) || groupOrder(tableGroup(a)) - groupOrder(tableGroup(b)))
+      .forEach(key => cols.push({id: key, label: sourceLabelFor(key), source: key, cls: "num", group: tableGroup(key),
+        get: row => row.values[key]}));
     const ddaKeys = view.plotKeys.filter(key => sourceMeta(key).method === "dda");
-    if (ddaKeys.length >= 2) {
-      cols.push({id: "spread", label: isNarrow() ? "DDA spread" : "Spread of our values", cls: "num", get: row => {
+    if (ddaKeys.length >= 2 && !state.hiddenGroups.has("spread")) {
+      cols.push({id: "spread", label: isNarrow() ? "DDA spread" : "Spread of our values", cls: "num", group: "spread", get: row => {
         const values = ddaKeys.map(key => row.values[key]).filter(Number.isFinite);
         return values.length >= 2 ? Math.max(...values) - Math.min(...values) : null;
       }});
@@ -647,7 +728,7 @@
   }
 
   function sortedRows(cols) {
-    const rows = view.rows.slice();
+    const rows = view.visible.slice();
     if (!state.sort) return rows;
     const col = cols.find(c => c.id === state.sort.key);
     if (!col) return rows;
@@ -665,15 +746,88 @@
     });
   }
 
-  function renderTable() {
+  // Two-line header: publisher on line 1, method in small caps on line 2 (week only when older).
+  function headerLabel(button, col) {
+    const line1 = document.createElement("span");
+    line1.className = "th-1";
+    const line2 = document.createElement("span");
+    line2.className = "th-2";
+    if (col.source) {
+      const meta = sourceMeta(col.source);
+      const item = view.infoByKey[col.source];
+      line1.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+      line1.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
+      line2.textContent = METHOD_LABEL[meta.method];
+      if (item?.stale && item.week) {
+        const older = document.createElement("span");
+        older.className = "is-older";
+        older.textContent = ` · Week ${item.week}`;
+        line2.appendChild(older);
+      }
+      button.title = `${plainSeries(meta.publisher, meta.method)}${item?.week ? ` · Week ${item.week}` : ""}`;
+    } else if (col.id === "spread") {
+      line1.textContent = "Spread";
+      line2.textContent = isNarrow() ? "DDA" : "of our values";
+    } else {
+      line1.textContent = col.label;
+    }
+    button.append(line1);
+    if (line2.textContent) button.append(line2);
+  }
+
+  // Heatmap tint (presentational): a cell against the same row's ranking-series value, both shown in
+  // the row. Colour only, never a number; the direction is also in the cell's title and screen-reader text.
+  function heatFor(row, key) {
+    if (key === view.rankKey || sourceMeta(key).method === "vorp" || sourceMeta(view.rankKey).method === "vorp") return null;
+    const v = row.values[key];
+    const r = row.values[view.rankKey];
+    if (!Number.isFinite(v) || !Number.isFinite(r)) return null;
+    const ratio = Math.abs(v - r) / Math.max(Math.abs(r), 1);
+    const level = ratio >= 0.3 ? 3 : ratio >= 0.15 ? 2 : ratio >= 0.05 ? 1 : 0;
+    return {dir: level === 0 ? "same" : v > r ? "above" : "below", level, rankValue: r};
+  }
+  const HEAT_WORDS = {above: "above", below: "below", same: "about level with"};
+
+  function missingReason(key) {
+    const item = view.infoByKey[key];
+    const name = sourceMeta(key).short;
+    if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
+    return `${name} has no value for this player`;
+  }
+
+  function renderTable(retry) {
+    if (!retry) metaNoRoom = false;
     const cols = tableColumns();
     const table = $("v2Table");
     table.replaceChildren();
     const thead = document.createElement("thead");
+    // Grouped top row (JEG-473): one cell per run of columns in the same group.
+    const gr = document.createElement("tr");
+    gr.className = "v2-group-row";
+    const runs = [];
+    cols.forEach(col => {
+      const id = col.source === view.rankKey ? "rank-series" : col.group || "";
+      const last = runs[runs.length - 1];
+      if (last && last.id === id) last.span += 1;
+      else runs.push({id, span: 1});
+    });
+    runs.forEach(run => {
+      const th = document.createElement("th");
+      th.scope = "colgroup";
+      th.colSpan = run.span;
+      th.className = run.id ? `grp grp-${run.id}` : "grp";
+      if (run.id) th.dataset.group = run.id;
+      if (run.id === "rank-series") { th.textContent = "Ranking"; th.classList.add("is-rank"); }
+      else if (run.id) th.textContent = TABLE_GROUPS.find(([g]) => g === run.id)[1];
+      gr.appendChild(th);
+    });
     const hr = document.createElement("tr");
+    hr.className = "v2-head-row";
     cols.forEach(col => {
       const th = document.createElement("th");
       th.scope = "col";
+      th.dataset.col = col.id;
+      if (col.group) th.dataset.group = col.group;
       if (col.cls) th.className = col.cls;
       if (col.source === view.rankKey) th.classList.add("is-rank");
       const sortKey = state.sort ? state.sort.key : view.rankKey;
@@ -682,11 +836,7 @@
       else {
         const button = document.createElement("button");
         button.type = "button";
-        if (col.source) {
-          const meta = sourceMeta(col.source);
-          button.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
-        }
-        button.append(document.createTextNode(col.label));
+        headerLabel(button, col);
         button.addEventListener("click", () => {
           const current = state.sort ? state.sort.key : view.rankKey;
           const dir = current === col.id && (!state.sort || state.sort.dir === "desc") ? "asc" : "desc";
@@ -697,22 +847,35 @@
       }
       hr.appendChild(th);
     });
-    thead.appendChild(hr);
+    thead.append(gr, hr);
     const tbody = document.createElement("tbody");
     const rows = sortedRows(cols);
+    const rankName = sourceMeta(view.rankKey).short;
     rows.slice(0, state.shown).forEach(row => {
       const tr = document.createElement("tr");
       tr.tabIndex = 0;
+      tr.dataset.playerKey = String(row.player_key);
       tr.addEventListener("click", () => openDrawer(row));
       tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
       cols.forEach(col => {
         const td = document.createElement("td");
         if (col.cls) td.className = col.cls;
         if (col.source === view.rankKey) td.classList.add("is-rank");
+        if (col.source) td.dataset.source = col.source;
         const v = col.get(row);
         if (col.cls === "num") {
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
+            const heat = col.source ? heatFor(row, col.source) : null;
+            if (heat) {
+              if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
+              td.dataset.vs = heat.dir;
+              td.title = `${fmt(v)}: ${HEAT_WORDS[heat.dir]} the ranking value (${rankName} ${fmt(heat.rankValue)})`;
+              const sr = document.createElement("span");
+              sr.className = "v2-sr";
+              sr.textContent = `, ${HEAT_WORDS[heat.dir]} the ranking value`;
+              td.appendChild(sr);
+            }
             if (state.delta && col.source) {
               const info = deltaInfo(row, col.source);
               const d = document.createElement("span");
@@ -723,16 +886,30 @@
               td.appendChild(d);
             }
           } else {
-            td.innerHTML = '<span class="missing" title="No value from this source for this player">—</span>';
+            const reason = col.source ? missingReason(col.source) : "Needs at least two of our values for this player";
+            const dash = document.createElement("span");
+            dash.className = "missing";
+            dash.title = reason;
+            dash.textContent = "—";
+            const sr = document.createElement("span");
+            sr.className = "v2-sr";
+            sr.textContent = `: ${reason}`;
+            dash.appendChild(sr);
+            td.appendChild(dash);
           }
         } else {
           td.textContent = v;
           if (col.id === "name") {
             appendEspnZero(td, row);
-            const sub = document.createElement("span");
-            sub.className = "player-sub";
-            sub.textContent = `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
-            td.appendChild(sub);
+            // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
+            const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
+              state.metaCols.tier !== false && tierLabel(row.espnRole)].filter(Boolean);
+            if (parts.length) {
+              const sub = document.createElement("span");
+              sub.className = "player-sub";
+              sub.textContent = parts.join(" · ");
+              td.appendChild(sub);
+            }
           }
         }
         tr.appendChild(td);
@@ -740,10 +917,21 @@
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
+    if (metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
+      const wrap = $("v2TableWrap");
+      if (wrap.scrollWidth > wrap.clientWidth + 1) { metaNoRoom = true; renderTable(true); return; }
+    }
     const more = $("v2ShowMore");
     more.hidden = rows.length <= state.shown;
     more.textContent = `Show more players (${Math.min(state.shown, rows.length)} of ${rows.length})`;
-    $("v2TableMeta").textContent = `${rows.length} players · ranked by ${sourceMeta(view.rankKey).short}. Every plotted series has a sortable column; the ranking series is highlighted.`;
+    const weeks = [...new Set(cols.filter(col => col.source && !view.infoByKey[col.source]?.stale)
+      .map(col => view.infoByKey[col.source]?.week).filter(Boolean))];
+    const hidden = TABLE_GROUPS.filter(([g]) => state.hiddenGroups.has(g)).length;
+    const [lo, hi] = state.window;
+    const valueText = view.rangeOn ? ` · values ${fmt(state.range.min ?? view.yScale.lo)}–${fmt(state.range.max ?? view.yScale.hi)}` : "";
+    $("v2TableMeta").textContent = `${rows.length} of ${view.rows.length} players · ranks ${lo}–${hi}${valueText}`
+      + `${weeks.length === 1 ? ` · Week ${weeks[0]}` : ""}${hidden ? ` · ${hidden} column group${hidden === 1 ? "" : "s"} hidden` : ""}`
+      + " · tint = above or below the ranking value";
   }
 
   // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
@@ -1605,7 +1793,7 @@
     const values = C.getRows().map(row => row.values[key]).filter(Number.isFinite);
     const lo = values.length ? Math.floor(Math.min(...values)) : 0;
     const hi = values.length ? Math.ceil(Math.max(...values)) : 100;
-    openPanel($("v2RangeBtn"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
+    openPanel($("v2YExact"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
       const body = panelBody(pop);
       const lead = document.createElement("p");
       lead.textContent = "Keep players with values between";
@@ -1648,7 +1836,7 @@
       err.textContent = "Inclusive. Blank = open ended. Missing values are excluded with a visible count.";
       body.appendChild(err);
       panelActions(pop, [
-        ["Clear range", false, () => { state.range = {min: null, max: null}; closePopover(); refresh(); }],
+        ["Clear range", false, () => { setRange({min: null, max: null}); closePopover(); }],
         ["Apply", true, () => {
           const min = minI.value === "" ? null : Number(minI.value);
           const max = maxI.value === "" ? null : Number(maxI.value);
@@ -1657,88 +1845,121 @@
             err.classList.add("v2-perror");
             return;
           }
-          state.range = {min, max};
-          state.windowPreset = "100";
           closePopover();
-          refresh();
+          setRange({min, max});
         }, {"data-apply": "range"}]
       ]);
     });
   }
 
-  // ---------- 21 Chart options ----------
-  function openChartOptions() {
-    const draft = {preset: state.windowPreset, hideZeroTail: state.hideZeroTail, y: state.yBounds ? {...state.yBounds} : null,
-      meta: {...state.metaCols}};
-    openPanel($("v2ChartOptions"), "Chart options", "Player range, axis and table columns for Player values.", pop => {
-      const body = panelBody(pop);
-      eyebrow(body, "Player range");
-      body.appendChild(segmented("Player range", [["all", "Full"], ["100", "Top 100"], ["50", "Top 50"], ["25", "Top 25"],
-        ["starter", "Starter"], ["bench", "Bench"], ["waiver", "Waiver"]], draft.preset, v => { draft.preset = v; }));
-      const tail = document.createElement("label");
-      tail.className = "v2-check";
-      const tailBox = document.createElement("input");
-      tailBox.type = "checkbox";
-      tailBox.checked = draft.hideZeroTail;
-      tailBox.addEventListener("change", () => { draft.hideZeroTail = tailBox.checked; });
-      tail.append(tailBox, document.createTextNode(" Hide zero-value tail"));
-      body.appendChild(tail);
-      eyebrow(body, "Y axis");
-      const yRow = document.createElement("div");
-      yRow.className = "row2";
-      const mk = (text, value) => {
+  // ---------- JEG-475 "More": exact From / To ranks ----------
+  function setExpanded(id, open) { $(id).setAttribute("aria-expanded", String(open)); }
+  function openMore() {
+    const button = $("v2More");
+    if (!$("v2Popover").hidden && popoverAnchor === button) { closePopover(); return; }
+    openPopover(button, pop => {
+      pop.classList.remove("is-panel");
+      pop.setAttribute("aria-label", "Exact ranks");
+      pop.setAttribute("aria-modal", "false");
+      pop.removeAttribute("aria-labelledby");
+      const h = document.createElement("h2");
+      h.textContent = "Exact ranks";
+      pop.appendChild(h);
+      const lead = document.createElement("p");
+      lead.className = "v2-meta";
+      lead.textContent = `Show players ranked between (1–${view.rows.length}). Arrow keys on the rank brush move one rank.`;
+      pop.appendChild(lead);
+      const row = document.createElement("div");
+      row.className = "row2";
+      const mk = (text, id, value) => {
         const label = document.createElement("label");
         label.textContent = text;
         const input = document.createElement("input");
-        input.type = "number"; input.step = "1";
-        input.value = value === null || value === undefined ? "" : String(value);
+        input.type = "number"; input.id = id; input.min = "1"; input.max = String(view.rows.length); input.step = "1";
+        input.inputMode = "numeric";
+        input.value = String(value);
         label.appendChild(input);
-        yRow.appendChild(label);
+        row.appendChild(label);
         return input;
       };
-      body.appendChild(segmented("Y axis", [["auto", "Auto"], ["custom", "Custom bounds"]], draft.y ? "custom" : "auto", v => {
-        draft.y = v === "custom" ? (draft.y || {lo: 0, hi: null}) : null;
-        yRow.hidden = !draft.y;
-      }));
-      const yLo = mk("Lower value", draft.y?.lo ?? 0);
-      const yHi = mk("Upper value", draft.y?.hi ?? "");
-      yRow.hidden = !draft.y;
-      body.appendChild(yRow);
-      eyebrow(body, "Table metadata");
-      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, text]) => {
-        const label = document.createElement("label");
-        label.className = "v2-check v2-pcheck";
-        const box = document.createElement("input");
-        box.type = "checkbox";
-        box.checked = draft.meta[id];
-        box.dataset.meta = id;
-        box.addEventListener("change", () => { draft.meta[id] = box.checked; });
-        label.append(box, document.createTextNode(` ${text}`));
-        body.appendChild(label);
-      });
-      const notes = document.createElement("p");
-      notes.className = "v2-meta";
-      notes.textContent = "Presets use the chosen ranking source. Starter / Bench / Waiver use your league's roster boundaries. These options affect this chart and table only; value filters affect the player list.";
-      body.appendChild(notes);
-      const err = document.createElement("p");
-      err.className = "v2-perror";
-      err.hidden = true;
-      body.appendChild(err);
-      panelActions(pop, [["Cancel", false, closePopover], ["Apply chart options", true, () => {
-        if (draft.y) {
-          const lo = yLo.value === "" ? 0 : Number(yLo.value);
-          const hi = yHi.value === "" ? null : Number(yHi.value);
-          if (hi !== null && !(hi > lo)) { err.hidden = false; err.textContent = "The upper value must be above the lower value."; return; }
-          draft.y = {lo, hi};
-        }
-        state.windowPreset = draft.preset;
-        state.hideZeroTail = draft.hideZeroTail;
-        state.yBounds = draft.y;
-        state.metaCols = draft.meta;
-        closePopover();
-        refresh();
-      }, {"data-apply": "chart"}]]);
+      const from = mk("From", "v2FromRank", state.window[0]);
+      const to = mk("To", "v2ToRank", state.window[1]);
+      pop.appendChild(row);
+      const onBounds = () => {
+        const n = view.rows.length;
+        let lo = Math.round(Number(from.value));
+        let hi = Math.round(Number(to.value));
+        if (!Number.isFinite(lo) || !Number.isFinite(hi) || from.value === "" || to.value === "") return;
+        lo = Math.max(1, Math.min(n, lo));
+        hi = Math.max(1, Math.min(n, hi));
+        if (lo > hi) [lo, hi] = [hi, lo];
+        setWindow([lo, hi]);
+      };
+      from.addEventListener("change", onBounds);
+      to.addEventListener("change", onBounds);
+      const done = document.createElement("div");
+      done.className = "actions";
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "v2-btn";
+      doneBtn.textContent = "Done";
+      doneBtn.addEventListener("click", closePopover);
+      done.appendChild(doneBtn);
+      pop.appendChild(done);
     });
+    setExpanded("v2More", true);
+  }
+
+  // ---------- JEG-473 "Columns": hide method groups (and Pos / Team / Tier) ----------
+  function openColumns() {
+    const button = $("v2Columns");
+    if (!$("v2Popover").hidden && popoverAnchor === button) { closePopover(); return; }
+    openPopover(button, pop => {
+      pop.classList.remove("is-panel");
+      pop.setAttribute("aria-label", "Table columns");
+      pop.setAttribute("aria-modal", "false");
+      pop.removeAttribute("aria-labelledby");
+      const h = document.createElement("h2");
+      h.textContent = "Table columns";
+      pop.appendChild(h);
+      const present = new Set(view.plotKeys.concat(view.vorpKeys).map(tableGroup));
+      if (view.plotKeys.filter(key => sourceMeta(key).method === "dda").length >= 2) present.add("spread");
+      const box = (label, checked, attrs, onChange) => {
+        const wrap = document.createElement("label");
+        wrap.className = "v2-check v2-pcheck";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = checked;
+        Object.entries(attrs).forEach(([k, v]) => { input.dataset[k] = v; });
+        input.addEventListener("change", () => { onChange(input.checked); renderTable(); });
+        wrap.append(input, document.createTextNode(` ${label}`));
+        pop.appendChild(wrap);
+      };
+      eyebrow(pop, "Value groups");
+      TABLE_GROUPS.filter(([g]) => present.has(g)).forEach(([g, label]) => {
+        box(g === "spread" ? "Spread of our values" : label, !state.hiddenGroups.has(g), {group: g}, on => {
+          if (on) state.hiddenGroups.delete(g); else state.hiddenGroups.add(g);
+        });
+      });
+      const note = document.createElement("p");
+      note.className = "v2-meta";
+      note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
+      pop.appendChild(note);
+      eyebrow(pop, "Player details");
+      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
+        box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
+      });
+      const done = document.createElement("div");
+      done.className = "actions";
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "v2-btn";
+      doneBtn.textContent = "Done";
+      doneBtn.addEventListener("click", closePopover);
+      done.appendChild(doneBtn);
+      pop.appendChild(done);
+    });
+    setExpanded("v2Columns", true);
   }
 
   // ---------- trade targets (frames 03 / 04) ----------
@@ -3384,17 +3605,17 @@
     renderHeader();
     renderEmpty();
     renderNotice();
-    renderCharts();
     renderTable();
+    renderCharts();
   }
 
   // Frame 18: filters that leave no player say which filter did it.
   function renderEmpty() {
-    const empty = !view.rows.length;
+    const empty = !view.visible.length;
     $("v2Empty").hidden = !empty;
+    $("v2Plot").hidden = empty;
     $("v2Chart").hidden = empty;
-    document.querySelector("#v2Main .v2-brush").hidden = empty;
-    document.querySelector("#v2Main .v2-table-card").hidden = empty;
+    $("v2TableCard").hidden = empty;
     if (!empty) return;
     const why = [];
     if (state.search.trim()) why.push(`no player name contains “${state.search.trim()}”`);
@@ -3402,6 +3623,7 @@
       why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);
     }
     if (view.state.position !== "ALL") why.push(`the position filter is ${view.state.position}`);
+    if (view.rows.length && state.windowPreset !== SHOW_DEFAULT) why.push(`Show is set to ${$("v2Show").selectedOptions[0]?.textContent || state.windowPreset}`);
     $("v2EmptyText").textContent = why.length ? `With these filters, ${why.join("; ")}.` : "No player is priced for this selection.";
     const active = {search: Boolean(state.search.trim()), range: state.range.min !== null || state.range.max !== null,
       position: view.state.position !== "ALL"};
@@ -3431,21 +3653,61 @@
     else refreshValues();
   }
 
+  // Brushes and drags redraw once per frame.
+  let valuesFrame = 0;
+  function scheduleValues() {
+    if (valuesFrame) return;
+    valuesFrame = requestAnimationFrame(() => { valuesFrame = 0; if (currentView() === "values") refreshValues(); });
+  }
+  // A brush, zoom or exact ranks: Show becomes "Custom lo–hi".
+  function setWindow(win) {
+    state.window = win;
+    state.windowPreset = "custom";
+    state.shown = PAGE_SIZE;
+    scheduleValues();
+  }
+  // The value range (Y brush or "Set exact values") composes with the rank window; Show reads Custom.
+  function setRange(range) {
+    state.range = range;
+    if (range.min !== null || range.max !== null) state.windowPreset = "custom";
+    state.shown = PAGE_SIZE;
+    scheduleValues();
+  }
+  // JEG-475: one Reset for search, position, Show, value range, sort and Δ. Rank by, sources,
+  // columns and league settings are selections, not filters, and stay.
+  function resetValues() {
+    state.search = ""; $("v2Search").value = "";
+    state.range = {min: null, max: null};
+    state.windowPreset = SHOW_DEFAULT; state.window = null;
+    state.sort = null; state.shown = PAGE_SIZE; state.delta = false;
+    if (view && view.state.position !== "ALL") C.setPosition("ALL");
+    refresh();
+  }
+
   function bind() {
     let searchTimer = null;
     $("v2Search").addEventListener("input", event => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => { state.search = event.target.value; state.shown = PAGE_SIZE; refresh(); }, 120);
     });
-    $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); state.windowPreset = "100"; refresh(); });
+    $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); refresh(); });
     $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; refresh(); });
     $("v2DeltaBtn").addEventListener("click", () => {
       state.delta = !state.delta;
       refresh();
       if (state.delta) priorsFor(view.plotKeys.concat(view.vorpKeys)).then(() => { if (state.delta) refresh(); });
     });
-    $("v2RangeBtn").addEventListener("click", openRange);
-    $("v2EmptyClear").addEventListener("click", () => $("v2ClearFilters").click());
+    $("v2Show").addEventListener("change", event => {
+      if (event.target.value === "custom") return;
+      state.windowPreset = event.target.value;
+      state.shown = PAGE_SIZE;
+      refresh();
+    });
+    $("v2More").addEventListener("click", openMore);
+    $("v2Columns").addEventListener("click", openColumns);
+    $("v2YExact").addEventListener("click", openRange);
+    $("v2Reset").addEventListener("click", resetValues);
+    $("v2EmptyClear").addEventListener("click", resetValues);
     $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));
     document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => {
       button.addEventListener("click", () => {
@@ -3456,13 +3718,6 @@
         state.shown = PAGE_SIZE;
         refresh();
       });
-    });
-    $("v2ClearFilters").addEventListener("click", () => {
-      state.search = ""; $("v2Search").value = "";
-      state.range = {min: null, max: null};
-      state.sort = null; state.windowPreset = "100"; state.shown = PAGE_SIZE;
-      if (view.state.position !== "ALL") C.setPosition("ALL");
-      refresh();
     });
     $("v2EditSources").addEventListener("click", event => openSources(event.currentTarget));
     $("v2EditLeague").addEventListener("click", openLeague);
@@ -3477,49 +3732,50 @@
       main.focus();
     });
     $("v2ShowMore").addEventListener("click", () => { state.shown += PAGE_SIZE; renderTable(); });
-    document.querySelectorAll(".v2-seg button[data-window]").forEach(button => {
-      button.addEventListener("click", () => { state.windowPreset = button.dataset.window; refresh(); });
-    });
+    // X rank brush: dragging sets Show to "Custom lo–hi" (JEG-475).
     const onBrush = () => {
       let lo = Number($("v2BrushLo").value);
       let hi = Number($("v2BrushHi").value);
       if (lo > hi) [lo, hi] = [hi, lo];
-      state.window = [lo, hi];
-      state.windowPreset = "custom";
-      renderCharts();
+      setWindow([lo, hi]);
     };
     $("v2BrushLo").addEventListener("input", onBrush);
     $("v2BrushHi").addEventListener("input", onBrush);
+    // Y value brush (JEG-472): live filter on the ranking series; the ends of the track mean open ended.
+    const onYBrush = event => {
+      const {lo: ylo, hi: yhi} = view.yScale;
+      let lo = Number($("v2YBrushLo").value);
+      let hi = Number($("v2YBrushHi").value);
+      if (lo > hi) {
+        if (event.target.id === "v2YBrushLo") lo = hi; else hi = lo;
+        event.target.value = String(event.target.id === "v2YBrushLo" ? lo : hi);
+      }
+      setRange({min: lo <= ylo ? null : lo, max: hi >= yhi ? null : hi});
+    };
+    ["v2YBrushLo", "v2YBrushHi"].forEach(id => {
+      $(id).addEventListener("input", onYBrush);
+      // PageUp / PageDown jump a tenth of the scale; arrows step 0.5 (native).
+      $(id).addEventListener("keydown", event => {
+        if (event.key !== "PageUp" && event.key !== "PageDown") return;
+        event.preventDefault();
+        const input = event.currentTarget;
+        const {lo: ylo, hi: yhi} = view.yScale;
+        const jump = Math.max(0.5, Math.round((yhi - ylo) / 10 * 2) / 2);
+        input.value = String(Math.max(ylo, Math.min(yhi, Number(input.value) + (event.key === "PageUp" ? jump : -jump))));
+        onYBrush({target: input});
+      });
+    });
     const zoom = factor => {
       const n = view.rows.length;
       const [lo, hi] = state.window;
-      const center = state.hoverIndex !== null ? lo + state.hoverIndex : (lo + hi) / 2;
+      const center = state.hoverIndex !== null && view.visible[state.hoverIndex] ? view.visible[state.hoverIndex].rank : (lo + hi) / 2;
       const span = Math.max(5, Math.min(n, Math.round((hi - lo + 1) * factor)));
       let nlo = Math.round(center - span / 2);
       nlo = Math.max(1, Math.min(n - span + 1, nlo));
-      state.window = [nlo, Math.min(n, nlo + span - 1)];
-      state.windowPreset = "custom";
-      renderCharts();
+      setWindow([nlo, Math.min(n, nlo + span - 1)]);
     };
     $("v2ZoomIn").addEventListener("click", () => zoom(0.5));
     $("v2ZoomOut").addEventListener("click", () => zoom(2));
-    $("v2ZoomReset").addEventListener("click", () => { state.windowPreset = "100"; refresh(); });
-    $("v2ResetAll").addEventListener("click", () => { state.windowPreset = "all"; refresh(); });
-    const onBounds = () => {
-      const n = view.rows.length;
-      let lo = Math.round(Number($("v2FromRank").value));
-      let hi = Math.round(Number($("v2ToRank").value));
-      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return;
-      lo = Math.max(1, Math.min(n, lo));
-      hi = Math.max(1, Math.min(n, hi));
-      if (lo > hi) [lo, hi] = [hi, lo];
-      state.window = [lo, hi];
-      state.windowPreset = "custom";
-      renderCharts();
-    };
-    $("v2FromRank").addEventListener("change", onBounds);
-    $("v2ToRank").addEventListener("change", onBounds);
-    $("v2ChartOptions").addEventListener("click", openChartOptions);
     bindChart("v2Chart", () => mainChart);
     bindChart("v2VorpChart", () => vorpChart);
     bindChartKeys();
@@ -3555,6 +3811,7 @@
     window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", () => { if (C) refresh(); });
+    if (metaWideQuery && metaWideQuery.addEventListener) metaWideQuery.addEventListener("change", () => { if (C && currentView() === "values") renderTable(); });
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });

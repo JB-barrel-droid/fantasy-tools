@@ -12,7 +12,7 @@ headless at 390 (phone), 820 (tablet) and 1440 (desktop), then checks:
     and the status toast's text contrasts with its background.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.css without the
-tablet navigation rule, without the 44 px rank-window buttons, and with the
+tablet navigation rule, with 40 px chart zoom buttons, and with the
 light hover colour back in dark mode, and requires the checks to fail on each.
 """
 from __future__ import annotations
@@ -151,7 +151,8 @@ class UxRenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
             "no tablet navigation": css.replace(TABLET_NAV, "@media (min-width: 9999px) {\n  .v2-nav-inner", 1),
-            "40 px rank-window buttons": css.replace(".v2-seg button { min-height: 44px; }", "", 1),
+            # JEG-475 removed the rank-window buttons; the zoom buttons inside the plot carry the 44 px rule now.
+            "40 px zoom buttons": css.replace(".v2-zoom button { width: 44px; height: 44px;", ".v2-zoom button { width: 40px; height: 40px;", 1),
             "light hover in dark mode": css + "\n.v2-table tbody tr:hover td { background: #F7FAF9; }\n",
         }
         for name, body in broken.items():
