@@ -1,12 +1,12 @@
 {
-  "run_at": "2026-10-08T11:00:49.299292+00:00",
+  "run_at": "2026-10-08T11:45:42.003562+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
-    "cbs": "promoted 3/3",
+    "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 4); candidate not promoted: cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 82/109 values moved > 0.05 (live verification skipped); coverage:full_12/TE:fail -- candidate priced 15 < fixture 17 (dropped: dalton schultz, darren waller, kyle pitts; added: mark andrews) -- live verification skipped; 3 dropped player(s) were not tail-of-list (dalton schultz, darren waller, kyle pitts; native >= 10% of the position top 33). A hold means a human must review first; the chain will not override it.",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
@@ -14,10 +14,27 @@
     "post_rebuild_validation"
   ],
   "success": false,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
-  "held_detail": {},
+  "outcome": "published_with_holds",
+  "held": [
+    "cbs"
+  ],
+  "hold_severity": "amber",
+  "held_detail": {
+    "cbs": {
+      "detail": "cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 82/109 values moved > 0.05 (live verification skipped); coverage:full_12/TE:fail -- candidate priced 15 < fixture 17 (dropped: dalton schultz, darren waller, kyle pitts; added: mark andrews) -- live verification skipped; 3 dropped player(s) were not tail-of-list (dalton schultz, darren waller, kyle pitts; native >= 10% of the position top 33). A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 4",
+        "content_vintage": "Week 4",
+        "content_week": 4
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -48,17 +65,30 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (5916 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (5952 values)",
       "promoted": 1,
       "sections": 1
     },
     "cbs": {
       "source": "cbs",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12:fail -- 82/109 values moved > 0.05 (live verification skipped); coverage:full_12/TE:fail -- candidate priced 15 < fixture 17 (dropped: dalton schultz, darren waller, kyle pitts; added: mark andrews) -- live verification skipped; 3 dropped player(s) were not tail-of-list (dalton schultz, darren waller, kyle pitts; native >= 10% of the position top 33). A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 4",
+        "content_vintage": "Week 4",
+        "content_week": 4
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "cbsros": {
       "source": "cbsros",
@@ -72,7 +102,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-07 -> 12 DDF legs -> section; review passed (5988 values)",
+      "detail": "snapshot 2026-10-07 -> 12 DDF legs -> section; review passed (6036 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -105,16 +135,16 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-07",
+      "content_vintage": "2026-10-08",
       "content_week": 5,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "cbs": {
-      "content_vintage": "Week 4",
-      "content_week": 4,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "Week 5",
+      "content_week": 5,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "cbsros": {
       "content_vintage": "2026-10-08",
@@ -140,9 +170,9 @@
       "ModuleNotFoundError: No module named 'playwright'"
     ],
     "make_targets": [
-      "Makefile:379: test-core"
+      "Makefile:391: test-core"
     ],
     "detail": "ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_guard_fails_on_pre_fix_widget; ERROR tests.test_espn_tier_matches_leg.EspnTierMatchesLegTest.test_tier_matches_server_pool_and_espn_value; ModuleNotFoundError: No module named 'playwright'",
-    "recorded_at": "2026-10-08T11:01:01.625512+00:00"
+    "recorded_at": "2026-10-08T11:45:58.330427+00:00"
   }
 }
