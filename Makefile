@@ -365,6 +365,7 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
+	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
 
 test-all: naming naming-convention test-unit

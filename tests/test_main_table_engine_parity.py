@@ -120,7 +120,7 @@ def _server(delays):
         server.daemon_threads = True
         threading.Thread(target=server.serve_forever, daemon=True).start()
         try:
-            yield f"http://127.0.0.1:{server.server_address[1]}/index.html"
+            yield f"http://127.0.0.1:{server.server_address[1]}/classic/"
         finally:
             server.shutdown()
 

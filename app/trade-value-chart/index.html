@@ -13,7 +13,7 @@
   <meta property="og:image" content="https://jb-barrel-droid.github.io/fantasy-tools/icon.jpg" />
   <meta name="twitter:card" content="summary" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317364c'/%3E%3Cpath fill='%23e96528' d='M13 11h19c14 0 23 8 23 21S46 53 32 53H13V11zm11 10v22h8c8 0 13-4 13-11s-5-11-13-11h-8z'/%3E%3C/svg%3E" />
-  <title>Trade Value Dashboard</title>
+  <title>Trade Value · Data Driven Football</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -156,6 +156,7 @@
     .vintage-item > span { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
     .vintage-item strong { color: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 11px; }
     .health-cluster { border: 1px solid var(--line-strong); background: #fbfcfa; padding: 8px 10px; max-width: 460px; }
+    .health-cluster[hidden] { display: none !important; }
     .health-cluster-label { display: block; color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px; }
     .health-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
     .health-mini { border: 1px solid var(--line-strong); background: var(--white); border-radius: 8px; cursor: pointer; padding: 7px 9px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font: inherit; text-align: left; }
@@ -1586,22 +1587,21 @@
 <body>
   <div class="app-shell">
     <header class="topbar">
-      <div class="brand-lockup" aria-label="Trade Value Dashboard">
+      <div class="brand-lockup" aria-label="Trade Value · Data Driven Football">
         <span class="brand-mark" aria-hidden="true"></span>
         <span class="brand-wordmark"><strong>Trade Value</strong><span>Dashboard</span></span>
       </div>
-      <div class="health-cluster" aria-label="Dashboard health">
+      <div class="vintage-item vintage-expert" id="expertVintage">
+        <span id="expertVintageLabel">ECR expert content</span>
+        <strong id="ecrContentDate">—</strong>
+        <em class="vintage-status" id="ecrFreshnessBadge" aria-live="polite">Checking freshness</em>
+      </div>
+      <!-- Launch 2026-10-08 (Jeremy): the health box is internal. It stays in
+           the DOM, hidden, so its checks keep running and tests/diagnostics
+           can read them; it is just not shown on the public page. -->
+      <div class="health-cluster" id="healthCluster" aria-label="Dashboard health" hidden>
         <span class="health-cluster-label">Dashboard health</span>
         <div class="health-boxes">
-          <div class="vintage-item">
-            <span>Chart build</span>
-            <strong id="asOfDate">—</strong>
-          </div>
-          <div class="vintage-item vintage-expert" id="expertVintage">
-            <span id="expertVintageLabel">ECR expert content</span>
-            <strong id="ecrContentDate">—</strong>
-            <em class="vintage-status" id="ecrFreshnessBadge" aria-live="polite">Checking freshness</em>
-          </div>
           <button type="button" class="health-mini" id="chartHealthBtn" aria-haspopup="dialog">
             <span class="health-mini-title">Chart health</span> <span class="health-badge" id="chartHealthBadge" data-status="ok">Health: OK</span>
           </button>
@@ -2355,7 +2355,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span id="buildStamp">Build tv-20261007-2301-ae29f55</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261007-2301-ae29f55</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug

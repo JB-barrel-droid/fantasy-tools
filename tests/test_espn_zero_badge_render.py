@@ -110,7 +110,7 @@ def collect(overrides=None):
                 return page, errors
 
             # ---- main page ----
-            page, errors = open_page(f"{base}/index.html")
+            page, errors = open_page(f"{base}/classic/")
             rows = page.evaluate("() => window.TradeValueCurveControls.getRows()")
             by_key = {r["player_key"]: r for r in rows}
             paid = [r for r in rows if r["player_key"] in zero

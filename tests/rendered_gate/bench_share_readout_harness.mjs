@@ -105,7 +105,7 @@ async function main() {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
     const pageErrors = [];
     page.on("pageerror", e => pageErrors.push(String(e).slice(0, 240)));
-    await page.goto(`http://127.0.0.1:${server.address().port}/`, { waitUntil: "networkidle" });
+    await page.goto(`http://127.0.0.1:${server.address().port}/classic/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1500);
 
     const moves = [0.18, 0.10, 0.20, 0.07];
