@@ -244,6 +244,16 @@ legitimately round to identical allocations; they are never forced apart.
 Custom bench/flex settings are calculation-only until storage grain includes
 those settings; database writes with nondefault settings fail closed.
 
+## Week-Over-Week Snapshots (2026-10-08)
+
+Weeks are content weeks (Tuesday flip, `pipelines/nfl_week.py`); game weeks (Thursday flip) are
+used only where games matter. For week-over-week comparisons each source has exactly one
+snapshot per content week: trade-chart articles use the latest revision of that week's article
+saved before the week closes; FantasyCalc uses the first pull at or after Tuesday 12:00 UTC of
+the week; projection sources use the newest snapshot dated in the week. A closed week's snapshot
+never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
+"Back-end contract: history".
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,

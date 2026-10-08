@@ -317,6 +317,31 @@ pull must have been made in that week. `build_week_history.validate_week_doc` re
 whose evidence gives a different week than its file, so a Week 4 file cannot carry Week 3
 content. `make sync` validates every file and stops on a bad one.
 
+### Which snapshot is a source's week (week-over-week rule, 2026-10-08)
+
+Sources save many versions: article revisions, daily projection snapshots, repeated FantasyCalc
+pulls (and, with the refresh-cadence lane, hourly ones). For each source and content week N
+exactly one saved version is **the week-N snapshot**; Δ and Risers & fallers compare against it.
+`pipelines/build_week_history.py` (`select_week_snapshot`) implements this; the content
+calendar is `pipelines/nfl_week.py` (Tuesday flip).
+
+| Source | Week N is | Week-N snapshot (one of many) |
+| --- | --- | --- |
+| USA Today, FantasyPros, CBS (articles) | the article for Week N (content date, or CBS's article week) | the **latest revision** of that article saved before week N freezes (the first capture after the Tuesday turnover to N+1) |
+| FantasyCalc (continuous crowd value) | pulls made during content week N | the **first pull at or after Tuesday 12:00 UTC** of week N (the cut: after Monday-night reaction, when the Week-N articles are out). No pull after the cut in week N: the week's latest pull, flagged `cut: "missed"` |
+| ESPN, CBS ROS, Razzball (projections) | snapshots dated in week N | the **newest snapshot dated in week N**, i.e. the last one before the Tuesday turnover |
+
+- While week N is open, its snapshot is provisional and follows the rule as new versions arrive
+  (articles and projections: newest; FantasyCalc: the cut pull once one exists, then fixed).
+- Once week N freezes, its snapshot never changes. A revision of the Week-N article saved later
+  is kept as a late version, never swapped in, so a published Δ cannot change after the fact.
+- Every other saved version of the week is kept in `data/history/superseded/week-<N>.json`
+  (not served; not read by the engine). A mid-week replacement therefore keeps both.
+- "This week" in Δ is what the page serves now (matched by content fingerprint to a saved
+  version of week N, selected or superseded); "last week" is week N−1's snapshot.
+- Review drift (`review_comparison_candidate.native_drift`) compares a candidate with what is
+  served, not with this rule: it guards the promotion, not the week-over-week reading.
+
 ### Append-only
 
 A week freezes once the calendar has moved past it. A frozen entry is never replaced by different content: a different
