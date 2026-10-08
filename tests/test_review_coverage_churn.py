@@ -332,3 +332,50 @@ class CoverageChurnTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class FlooredScaleTailTest(unittest.TestCase):
+    """CBS Week 5 (2026-10-08): CBS's chart is floored at ~5 (a ~5-47 scale),
+    so against a zero floor its LAST-listed TE (5 of top 33 = 15%) could never
+    be "tail" and every list trim held the chain. Tail is now measured within
+    the list's own [floor, top] range. Natives below are the real CBS Week 4
+    PPR TE list (public.cbs_trade_values week=4); Week 5 dropped Kyle Pitts,
+    Darren Waller and Dalton Schultz and added Mark Andrews.
+    """
+    WEEK4_TE = {"trey mcbride": 33, "brock bowers": 31, "george kittle": 15,
+                "tyler warren": 13, "dalton kincaid": 13, "sam laporta": 11,
+                "travis kelce": 10, "juwan johnson": 9, "isaiah likely": 9,
+                "dallas goedert": 9, "kyle pitts": 7, "tucker kraft": 7,
+                "harold fannin jr": 7, "kenyon sadiq": 7, "darren waller": 6,
+                "colston loveland": 6, "dalton schultz": 5}
+
+    def _churn(self, dropped, added=("mark andrews",)):
+        fx = {s: float(v) for s, v in self.WEEK4_TE.items()}
+        cand = {s: v for s, v in fx.items() if s not in dropped}
+        for s in added:
+            cand[s] = 5.0
+        return r.coverage_drop_is_tail_churn(
+            len(fx), len(fx) - len(dropped) + len(added), sorted(dropped), fx,
+            set(fx), cand)
+
+    def test_cbs_week5_te_trim_is_tail_churn(self):
+        ok, detail = self._churn(("kyle pitts", "darren waller", "dalton schultz"))
+        self.assertTrue(ok, detail)
+        self.assertIn("tail churn tolerated", detail)
+
+    def test_floored_scale_non_tail_drop_still_holds(self):
+        # Dalton Kincaid (13 of 33, 29% of the 5..33 range) is mid-list.
+        ok, detail = self._churn(("dalton kincaid",), added=())
+        self.assertFalse(ok)
+        self.assertIn("not tail-of-list", detail)
+        self.assertIn("floor 5", detail)
+
+    def test_zero_floored_scale_is_unchanged(self):
+        # Sources that store the tail at 0: floor 0, same test as before.
+        fx = {"a": 100.0, "b": 50.0, "c": 9.0, "d": 0.0}
+        ok, _ = r.coverage_drop_is_tail_churn(4, 3, ["c"], fx, set(fx),
+                                              {k: v for k, v in fx.items() if k != "c"})
+        self.assertTrue(ok)
+        ok, detail = r.coverage_drop_is_tail_churn(4, 3, ["b"], fx, set(fx),
+                                                   {k: v for k, v in fx.items() if k != "b"})
+        self.assertFalse(ok, detail)
