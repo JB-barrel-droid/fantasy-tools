@@ -84,3 +84,25 @@ last-touching commits: `ingest_player_news.py` / `player-news.json` 6cbf22b,
 - The status page's "Freshness labels" card now shows Unknown instead of
   Attention locally: with the red news rows gone, its worst item is the
   `players.kdst_snapshot` unknown row (kdst lane is removing K/DST).
+
+### Follow-up: merge with origin/main (fix/kdst-daily) and drop migration
+- Merged origin/main; kept both lanes' removals. `player-news.json` stays
+  deleted; `DEFAULT_CHART_INPUT_KEYS` is now just `players.as_of`;
+  `test_reference_freshness` expired counts recomputed to 3 and 2 (pm_snapshot,
+  kdst_snapshot and both news rows gone) and chart inputs to 1. The kdst lane's
+  rewrite of the news fixture test was dropped with the news tests.
+- Verified (after merge): 12-combo sweep of `make sync` builds of the new
+  origin/main vs this branch, root + classic: zero fixedPieIndexed /
+  sourceScaleAgreement / sourcePeaks / getAllRows diffs, table text identical
+  (whitespace-normalised), no errors or 404s. `make sync` + `make validate`
+  exit 0.
+- Added `supabase/migrations/retire_player_context_20261008.sql` (NOT applied).
+  It aborts if any of public.player_news / player_adjustments / player_review
+  has rows, redefines `api.gate_context_valid_fresh` without table reads (the
+  live function reads public.player_news unconditionally and is called by
+  `api.run_publish_gate` on every bake, so dropping the tables alone would
+  break the publish gate), then drops `api.player_context` and the three
+  tables without CASCADE. Verified read-only: 0 live rows in each table; only
+  `api.player_context` (view) and `api.gate_context_valid_fresh` reference them;
+  only `api.run_publish_gate` calls that function; no repo code writes them.
+  Claimed, not confirmed: the migration itself has not been executed anywhere.
