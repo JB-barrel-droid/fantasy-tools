@@ -5,8 +5,9 @@ Jeremy 2026-09-29: "How the fuck are we not checking if the data is accurate?"
 The monitor checked pipeline health (did jobs run, are files fresh) but never
 validated that the NUMBERS are correct. This script adds accuracy checks:
 
-1. IR cross-check: Players on IR/out-for-season must have ~0 trade value.
-   Uses the ESPN projections CSV (has eligible flag) as the IR source.
+1. ESPN-ineligible cross-check: players ESPN marks eligible=False must have ~0
+   ESPN value. ESPN's flag does not say why (IR, out, released), so this is
+   named for the flag, not "IR" (GAP-031, 2026-10-08; was `ir_cross_check`).
 
 2. Week-over-week sanity: Flags players whose value changed dramatically
    without explanation.
@@ -15,7 +16,7 @@ validated that the NUMBERS are correct. This script adds accuracy checks:
    with the consensus.
 
 Output: output/data-accuracy.json with {status, checks[], violations[]}
-Status: ok (no violations), warn (minor), bad (IR player with value > threshold)
+Status: ok (no violations), warn (minor), bad (ESPN-ineligible player with value > threshold, or a source still pricing an ESPN-zeroed player)
 """
 
 import csv
@@ -25,21 +26,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-IR_VALUE_THRESHOLD = 5.0  # IR player with value > this is a violation
+IR_VALUE_THRESHOLD = 5.0  # ESPN-ineligible player with ESPN value > this is a violation
 WOW_CHANGE_THRESHOLD = 0.50  # 50% week-over-week change flags for review
 OUTLIER_STD_THRESHOLD = 3.0  # 3+ std devs from source consensus
 
 
 def load_ir_players():
-    """Load players marked ineligible (IR/out) from ESPN CSV.
-    
-    Uses the latest ESPN CSV from the goals directory (Sept 29) for IR status,
-    since the pipeline's data/inputs copy may be pinned to an older vintage
-    for calibration stability. IR status should always come from the freshest data.
+    """Load players ESPN marks ineligible (eligible=False) from the ESPN CSV.
+
+    data/inputs/espn_projections.csv is re-baked by the rebuild chain, so it
+    is the freshest copy CI has. (A machine-local path that only existed on
+    one workstation was dropped 2026-10-08.)
     """
-    # Prefer the freshest ESPN CSV for IR status
     candidates = [
-        Path("/home/hatch/workspace/goals/football-signal-database-and-app/files/espn_projections.csv"),
         REPO / "data" / "inputs" / "espn_projections.csv",
     ]
     csv_path = None
@@ -72,7 +71,7 @@ def load_ir_players():
 
 
 def check_ir_values(ir_players):
-    """Check that IR players have ~0 value in players.json."""
+    """Check that ESPN-ineligible players have ~0 ESPN value in players.json."""
     violations = []
     players_path = REPO / "data" / "fixtures" / "current" / "players.json"
     
@@ -102,7 +101,7 @@ def check_ir_values(ir_players):
                     "team": p.get("team"),
                     "espn_ppg_max": max_val,
                     "threshold": IR_VALUE_THRESHOLD,
-                    "reason": f"On IR (ineligible) but ESPN PPG = {max_val:.1f} > {IR_VALUE_THRESHOLD}",
+                    "reason": f"ESPN marks ineligible but ESPN PPG = {max_val:.1f} > {IR_VALUE_THRESHOLD}",
                 })
     
     return violations, None
@@ -176,11 +175,11 @@ def main():
         "status": "ok",
     }
     
-    # Check 1: IR cross-check
+    # Check 1: ESPN-ineligible cross-check
     ir_players, err = load_ir_players()
     if err:
         output["checks"].append({
-            "name": "ir_cross_check",
+            "name": "espn_ineligible_cross_check",
             "status": "unk",
             "reason": err,
         })
@@ -188,7 +187,7 @@ def main():
         violations, verr = check_ir_values(ir_players)
         if verr:
             output["checks"].append({
-                "name": "ir_cross_check",
+                "name": "espn_ineligible_cross_check",
                 "status": "unk",
                 "reason": verr,
             })
@@ -196,19 +195,19 @@ def main():
             output["status"] = "bad"
             output["violations"].extend(violations)
             output["checks"].append({
-                "name": "ir_cross_check",
+                "name": "espn_ineligible_cross_check",
                 "status": "bad",
-                "reason": f"{len(violations)} IR player(s) with value > {IR_VALUE_THRESHOLD}: " +
+                "reason": f"{len(violations)} ESPN-ineligible player(s) with ESPN value > {IR_VALUE_THRESHOLD}: " +
                          ", ".join(v["player"] for v in violations),
-                "n_ir_players": len(ir_players),
+                "n_ineligible_players": len(ir_players),
                 "n_violations": len(violations),
             })
         else:
             output["checks"].append({
-                "name": "ir_cross_check",
+                "name": "espn_ineligible_cross_check",
                 "status": "ok",
-                "reason": f"All {len(ir_players)} IR players have value <= {IR_VALUE_THRESHOLD}",
-                "n_ir_players": len(ir_players),
+                "reason": f"All {len(ir_players)} ESPN-ineligible players have ESPN value <= {IR_VALUE_THRESHOLD}",
+                "n_ineligible_players": len(ir_players),
             })
 
     # Check 2: JEG-51 — ESPN-zeroed staleness signal

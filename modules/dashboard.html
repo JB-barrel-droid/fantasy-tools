@@ -1202,6 +1202,18 @@ async function main(){
     renderLineageIndicator("VORP", "vorp-view.json"),
     renderLineageIndicator("Adj", "adj-view.json"),
   ]);
+  // GAP-LIVE-SCRAPE-STALE (2026-10-08): the lineage card is a manual audit
+  // (`make monitor-lineage` on a machine with data/raw), not a feed. Say how
+  // old it is and whether it lags the served fixture, in a warning colour.
+  function lineageStaleNote(lin) {
+    const ageH = lin.generated_at ? (Date.now() - Date.parse(lin.generated_at)) / 3.6e6 : null;
+    const lags = lin.stale_relative_to_fixture === true;
+    if (!(lags || ageH == null || ageH > 48)) return "";
+    const age = ageH == null ? "unknown age" : `${(ageH / 24).toFixed(1)} days old`;
+    return `<div class="lineage-stale" style="margin-top:10px;padding:10px 14px;border-radius:8px;background:var(--yellow-bg);color:var(--yellow);font-size:12.5px">`
+      + `Stale audit: built ${shortTs(lin.generated_at)} (${age})${lags ? ", older than the served fixture" : ""}; `
+      + `live pages scraped ${shortTs(lin.live_scraped_at)}. Not refreshed automatically: run <code>make monitor-lineage</code> where data/raw exists.</div>`;
+  }
   try {
     const linResp = await fetch("source-value-lineage.json", {cache:"no-store"});
     if(linResp.ok){
@@ -1251,7 +1263,7 @@ async function main(){
         <div><span style="font-size:24px;font-weight:800;color:var(--blue)">${tracedPlayers}</span><span style="color:var(--dim);font-size:13px"> players traced</span></div>
         <div><span style="font-size:24px;font-weight:800;color:${liveMismatches > 0 ? 'var(--red)' : 'var(--green)'}">${liveMismatches}</span><span style="color:var(--dim);font-size:13px"> live mismatches</span></div>
         <div style="font-size:12.5px;color:var(--dim)">12-team Half PPR · Legacy top 25 per source by stored chart estimate<br>Generated: ${shortTs(linData.generated_at)} · Live checked: ${liveChecked} rows</div>
-      </div>`;
+      </div>${lineageStaleNote(linData)}`;
 
       lineageHost.innerHTML = order.map(srcKey => {
         const s = linSources[srcKey];

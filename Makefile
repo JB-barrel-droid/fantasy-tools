@@ -249,6 +249,10 @@ test-unit:
 	python3 -m unittest tests.test_rebuild_chain_workflow
 	python3 -m unittest tests.test_workflow_dispatch_permissions
 	python3 -m unittest tests.test_live_page_synthetic_workflow
+	python3 -m unittest tests.test_live_page_synthetic
+	python3 -m unittest tests.test_lineage_stage_retired
+	python3 -m unittest tests.test_status_warnings
+	python3 -m unittest tests.test_import_health_schema_doc
 	python3 -m unittest tests.test_player_identity_guard
 	python3 -m unittest tests.test_espn_ci_workflow
 	python3 -m unittest tests.test_cbsros_sync_workflow

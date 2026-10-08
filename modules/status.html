@@ -552,6 +552,14 @@ function renderSynthetic(feeds) {
     (rows.length ? table(["Result", "Page", "HTTP", "Page errors", "Tabs", "Problems"], rows) : ""), { wide: true });
 }
 
+function warningsAt(doc, path) {
+  if (!path) return [];
+  const v = path.split(".").reduce((o, k) => (o == null ? o : o[k]), doc);
+  const list = Array.isArray(v) ? v : (v && typeof v === "object" ? Object.keys(v) : []);
+  const names = list.map(x => (typeof x === "string" ? x : (x && (x.section || x.key || x.name)) || "item"));
+  return [...new Set(names)];
+}
+
 async function evaluateSurface(s) {
   let resp;
   try { resp = await fetch(ROOT + s.url, { cache: "no-store" }); }
@@ -562,6 +570,15 @@ async function evaluateSurface(s) {
   const v = s.count_path ? doc?.[s.count_path] : doc;
   const n = Array.isArray(v) ? v.length : v && typeof v === "object" ? Object.keys(v).length : null;
   if (s.min_count != null && (n == null || n < s.min_count)) return { state: "bad", why: `${s.count_path || "content"}: ${n ?? "missing"} (needs ${s.min_count})` };
+  // GAP-033/GAP-044: a surface can name a list of warnings inside its file
+  // (warn_path, dotted). A non-empty list shows the surface as amber with the
+  // first few names: stale inputs and derived sections that lag their input
+  // are warnings on this page, never deploy blocks.
+  const warnings = warningsAt(doc, s.warn_path);
+  if (warnings.length) {
+    const shown = warnings.slice(0, 4).join(", ") + (warnings.length > 4 ? ", …" : "");
+    return { state: "warn", why: `${warnings.length} ${s.warn_label || "warnings"}: ${shown}`, ts: s.time_field ? doc?.[s.time_field] : undefined };
+  }
   if (s.time_field) {
     const ts = doc?.[s.time_field];
     const h = ts ? ageH(ts) : null;

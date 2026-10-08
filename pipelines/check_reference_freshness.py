@@ -259,6 +259,9 @@ def build_report(
             "unknown_count": len(unknown),
             "expired_count": len(expired),
             "enforced_expired_count": len(enforced_expired),
+            # GAP-033: the keys past the freshness window, so the status page
+            # (modules/surfaces.json warn_path) shows each one as a warning.
+            "expired_keys": [item["key"] for item in expired],
             "l1_unhealthy_count": len(l1_unhealthy),
             "unchanged_count": sum(1 for item in items if not item["changed_since_prior_report"]),
             "max_age_days": max_age_days,
