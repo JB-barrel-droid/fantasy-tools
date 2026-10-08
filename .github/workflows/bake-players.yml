@@ -2,9 +2,12 @@ name: Bake players.json (non-Mac producer)
 
 # JEG-392 / ARCH-013: rebuild data/fixtures/current/players.json without the
 # Mac. Every bake input is either committed (data/inputs/*) or read from
-# Supabase, the system of record: the CBS ROS snapshot is re-exported from
-# public.cbs_ros_projections (pipelines/export_cbsros_snapshot.py) instead of
-# the Mac-only data/raw copy.
+# Supabase, the system of record. CBS ROS and Razzball come through the same
+# path as the chain's bake (rebuild-chain.yml): import_supabase_references.py
+# writes the latest snapshot and projection_identity.py picks the file the
+# chain builds from. A bake from any other file (the old
+# separate CBS ROS re-export from Supabase) carries a different cbsros_snapshot_id,
+# so the next chain run would hold CBS ROS and re-bake (GAP-BAKE-ON-CHANGE).
 #
 # Trigger: push to a bake/** branch (the result is committed back to that
 # branch for review and merges through the normal gated path), or manual
@@ -24,11 +27,6 @@ on:
       - "data/fixtures/current/players.json"
       - "data/fixtures/current/players.naming-manifest.json"
   workflow_dispatch:
-    inputs:
-      cbsros_date:
-        description: "cbs_snapshot_date to export (blank = latest saved)"
-        required: false
-        default: ""
 
 permissions:
   contents: write
@@ -61,29 +59,30 @@ jobs:
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
-      - name: Export CBS ROS snapshot from Supabase
-        id: cbs
+      # Same inputs as the chain's bake: the snapshots the importer writes
+      # (latest saved vintage) and the committed ESPN anchor, chosen by
+      # projection_identity.py decide (forced: this workflow always bakes).
+      - name: Import CBS ROS and Razzball snapshots from Supabase
+        id: inputs
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          date_arg=""
-          if [ -n "${{ github.event.inputs.cbsros_date }}" ]; then date_arg="--date ${{ github.event.inputs.cbsros_date }}"; fi
-          if [ -f data/fixtures/current/.bake-cbsros-date ]; then date_arg="--date $(cat data/fixtures/current/.bake-cbsros-date)"; fi
-          python3 pipelines/export_cbsros_snapshot.py $date_arg | tee /tmp/cbs.log
-          snap=$(ls -d data/raw/sources/cbsros/*/snapshot.json | sort | tail -1)
-          echo "snapshot=$snap" >> $GITHUB_OUTPUT
+          set -euo pipefail
+          python3 pipelines/import_supabase_references.py --source cbsros
+          python3 pipelines/import_supabase_references.py --source razzball
+          python3 pipelines/projection_identity.py decide --force true --espn-csv data/inputs/espn_projections.csv | tee /tmp/decide.log
 
       - name: Bake players.json
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          CBSROS_SNAPSHOT: ${{ steps.inputs.outputs.cbsros_snapshot }}
+          RAZZBALL_SNAPSHOT: ${{ steps.inputs.outputs.razzball_snapshot }}
         run: |
-          # Razzball from the latest public.razzball_projections vintage
-          # (GAP-RAZZBALL-SUFFIX-POOL), the vintage the chain's section uses.
-          python3 pipelines/import_supabase_references.py --source razzball
-          rz=$(ls -d data/raw/sources/razzball/*/snapshot.json | sort | tail -1)
-          python3 pipelines/bake_players.py --cbsros-snapshot "${{ steps.cbs.outputs.snapshot }}" --razzball-snapshot "$rz" | tee /tmp/bake.log
+          set -euo pipefail
+          test -n "$CBSROS_SNAPSHOT" && test -n "$RAZZBALL_SNAPSHOT"
+          python3 pipelines/bake_players.py --cbsros-snapshot "$CBSROS_SNAPSHOT" --razzball-snapshot "$RAZZBALL_SNAPSHOT" | tee /tmp/bake.log
           python3 pipelines/pin_naming_manifest.py --source-label "supabase:players"
           make sync
 
