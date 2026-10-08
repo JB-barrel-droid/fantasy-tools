@@ -20,9 +20,10 @@ Conventions (mirror pipelines/bake_players.py meta):
   present and sane or the builder raises. Per-dataset side inputs degrade
   to explicit "unavailable" entries — loud in the UI, never silent.
 
-The full source taxonomy (11 entries) is preserved: our_value, espn,
+The full source taxonomy (10 entries) is preserved: our_value, espn,
 prediction_markets, fantasycalc, usatoday, fantasypros, fantasycalc_adjusted,
-usatoday_adjusted, fantasypros_adjusted, razzball, kdst. Nothing may be
+usatoday_adjusted, fantasypros_adjusted, razzball (kdst removed with K/DST,
+GAP-029 2026-10-08). Nothing may be
 dropped — a missing side input degrades its entry to explicit "unavailable",
 never to omission.
 
@@ -47,8 +48,6 @@ Repo-port changes vs the original:
 - All hardcoded ~/workspace paths removed; side inputs are optional
   parameters that degrade to explicit "unavailable" when absent.
 - UNIVERSE is derived from the baked player list, not hardcoded 596.
-- K/DST entry reflects the 2026-09-21 ESPN-purity directive: K/DST price
-  from ESPN projections (no expert blend).
 - Razzball entry reflects the leg being baked (status live once the bake
   emits rz_* fields).
 """
@@ -292,8 +291,8 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     if not isinstance(meta, dict) or not meta.get("as_of"):
         raise ValueError("dataset_status: players.json meta missing as_of")
     # JEG-ECR-EXIT (2026-10-05): the chart universe is now ESPN's priced
-    # set (~348 skill) + K/DST (~77) ~= 425, down from the 610-player ECR
-    # universe. The floor guards against a broken/empty bake, not an exact
+    # set of skill players (K/DST are not carried, GAP-029), down from the
+    # 610-player ECR universe. The floor guards against a broken/empty bake, not an exact
     # size; 400 sits below the healthy ESPN-primary universe with headroom
     # for normal input fluctuation.
     if not players or len(players) < 400:
@@ -396,8 +395,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
             "note": ("Pure read over priced components only — missing "
                      "components default to 0.0 in the primary leg "
                      "(fantasy_points treats 0 identically to 'missing'). "
-                     "No expert blend fills the gap; ESPN-purity now covers "
-                     "skill players as well as K/DST.")},
+                     "No expert blend fills the gap.")},
         "freshness": {
             "snapshot_date": espn_snapshot, "content_date": espn_snapshot,
             "note": ("Daily morning pull. Content change vs the prior pull is "
@@ -493,41 +491,6 @@ def build_dataset_status(meta, players, snapshot_dir=None,
                    else "Will appear as a curve-widget source toggle (off by default) once baked.",
     }
 
-    # ---- Kickers & defenses -----------------------------------------------------
-    # 2026-09-21 ESPN-purity directive: K/DST price from ESPN projections
-    # only — no expert blend.
-    n_k = meta.get("n_k")
-    n_dst = meta.get("n_dst")
-    kdst_snapshot = str(meta.get("kdst_snapshot") or "?")
-    kdst_entry = {
-        "key": "kdst",
-        "name": "Kickers & defenses",
-        "role": "K/DST values price from ESPN projections only — no expert numbers anywhere in the K/DST leg (ESPN-purity directive, 2026-09-21).",
-        "method": _METHOD_TV[0],
-        "method_group": _METHOD_TV[1],
-        "method_description": (
-            "ESPN's K/DST season stat projections translated to fantasy "
-            "points, then run through the current value-above-waivers "
-            "methodology — the same math as the chart's primary value. "
-            "No expert input enters K/DST pricing (JEG-ECR-EXIT 2026-10-05: "
-            "ECR fully removed; ESPN is primary for every charted position)."),
-        "status": "live",
-        "shown_in_ui": True,
-        "completeness": {
-            "priced": (n_k or 0) + (n_dst or 0), "universe": None,
-            "note": (f"{n_k} kickers + {n_dst} defenses. Scoring-invariant: one "
-                     "number serves standard/half/full.")},
-        "freshness": {
-            "snapshot_date": kdst_snapshot, "content_date": kdst_snapshot,
-            "note": ("ESPN K/DST projection files; K season stats update "
-                     "weekly, DST ROS refreshes on the morning pull.")},
-        "prior": {"available": False, "prior_date": None,
-                  "delta_summary": "No verified prior delta."},
-        "stale": False,
-        "stale_reason": None,
-        "caveat": None,
-        "ui_note": "Shown in the main board like any other position.",
-    }
 
     # ---- Comparison sources (optional side input) ------------------------------
     # FantasyCalc / USA Today / FantasyPros (as published, reindexed) and
@@ -627,7 +590,7 @@ def build_dataset_status(meta, players, snapshot_dir=None,
     datasets = [ddf_entry, espn_entry, pm_entry,
                 fc_entry, usatoday_entry, fantasypros_entry,
                 fc_adj_entry, usat_adj_entry, fp_adj_entry,
-                rz_entry, kdst_entry]
+                rz_entry]
     summary = {
         "live": sum(1 for d in datasets if d["status"] == "live"),
         "stale": sum(1 for d in datasets if d["status"] == "stale"),

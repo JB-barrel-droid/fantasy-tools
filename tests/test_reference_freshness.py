@@ -19,7 +19,6 @@ class ReferenceFreshnessTest(unittest.TestCase):
                         "as_of": value_date,
                         "espn_snapshot": value_date,
                         "pm_snapshot": value_date,
-                        "kdst_snapshot": value_date,
                     },
                     "players": [],
                 }
@@ -71,7 +70,9 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Freshness gate failed", result.stdout)
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(7, payload["summary"]["expired_count"])
+            # 6, was 7: players.kdst_snapshot is no longer a freshness row
+            # (K/DST not carried, GAP-029 2026-10-08).
+            self.assertEqual(6, payload["summary"]["expired_count"])
             self.assertEqual(1, payload["summary"]["enforced_expired_count"])
 
     def test_freshness_gate_passes_for_current_reference_dates(self):
@@ -131,7 +132,8 @@ class ReferenceFreshnessTest(unittest.TestCase):
             )
 
             payload = json.loads(output.read_text(encoding="utf-8"))
-            self.assertEqual(6, payload["summary"]["expired_count"])
+            # 5, was 6: the players.kdst_snapshot row is gone (GAP-029).
+            self.assertEqual(5, payload["summary"]["expired_count"])
             self.assertEqual(0, payload["summary"]["enforced_expired_count"])
 
     def test_l1_import_health_is_reported_as_source_freshness(self):
@@ -278,9 +280,11 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             payload = json.loads(output.read_text(encoding="utf-8"))
             chart_inputs = payload.get("chart_inputs") or []
-            self.assertEqual(3, payload["summary"]["chart_input_count"])
+            # GAP-029 (2026-10-08): K/DST are no longer carried, so
+            # players.kdst_snapshot is no longer a chart input.
+            self.assertEqual(2, payload["summary"]["chart_input_count"])
             self.assertEqual(
-                ["players.as_of", "players.kdst_snapshot", "news.generated_at"],
+                ["players.as_of", "news.generated_at"],
                 payload["summary"]["chart_input_keys"],
             )
             as_of = next(
@@ -298,7 +302,7 @@ class ReferenceFreshnessTest(unittest.TestCase):
     def test_chart_input_color_classification_covers_yellow_and_unknown(self):
         """JEG-316: assert every age band the dashboard relies on actually
         fires. Negative test for the color helper: a 3-day-old players.as_of
-        (warning band) must paint yellow, and a '?' kdst_snapshot must paint
+        (warning band) must paint yellow, and a missing date must paint
         unknown. Catches a regression where the band thresholds drift or
         unknown is mis-bucketed as red.
         """
@@ -319,8 +323,8 @@ class ReferenceFreshnessTest(unittest.TestCase):
         # Past the window: red
         self.assertEqual("red", color_for(5, 2))
         self.assertEqual("red", color_for(10, 2))
-        # Missing date: unknown (must NOT be red; otherwise the K/DST gap
-        # would look like an emergency).
+        # Missing date: unknown (must NOT be red; an undated input is
+        # unknown, not an emergency).
         self.assertEqual("unknown", color_for(None, 2))
         # Future-dated or negative ages are also unknown.
         self.assertEqual("unknown", color_for(-1, 2))

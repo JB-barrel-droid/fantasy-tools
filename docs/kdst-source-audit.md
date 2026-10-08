@@ -1,5 +1,7 @@
 # Kicker and defense (K/DST) values on the trade value chart: source audit and recommendation
 
+> **Superseded 2026-10-08 (GAP-029).** Jeremy reconfirmed JEG-211 and chose to stop carrying K/DST anywhere in the pipeline. Kept as the historical record; the code it describes was removed (revival point: commit dac0ff2).
+
 JEG-19, diagnosis only. Nothing was implemented. Evidence gathered 2026-10-01 from the checked-in fixtures and inputs.
 
 ## Source audit
