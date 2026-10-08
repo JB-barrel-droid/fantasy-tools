@@ -280,6 +280,26 @@ class FingerprintTest(unittest.TestCase):
         self.assertIn("_watchdog_module(module).discover_url", src)
         self.assertFalse(hasattr(sp, "CBS_SLUG") or hasattr(sp, "FP_SLUG"))
 
+    def test_week_not_out_yet_falls_back_to_last_week(self):
+        class NotOut(RuntimeError):
+            quiet = True
+
+        class Unreadable(RuntimeError):
+            quiet = False
+
+        def discover_for(exc):
+            def discover(wk, fetch_fn):
+                if wk == 5:
+                    raise exc("week 5 not published")
+                fetch_fn("https://example.test/week-4/")
+                return "https://example.test/week-4/"
+            return discover
+        pages = FakeFetch({"week-4": article("x", title="Week 4 trade chart")})
+        r = sp.probe_cbs(pages, 5, discover=discover_for(NotOut))
+        self.assertEqual(r["signals"]["week"], 4)
+        with self.assertRaises(sp.ProbeError):  # listing unreadable: a real failure
+            sp.probe_cbs(pages, 5, discover=discover_for(Unreadable))
+
     def test_discovery_failure_is_a_failed_probe(self):
         self.assertFalse(self.article_probe("fantasypros", {})["ok"])
 

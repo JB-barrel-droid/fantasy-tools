@@ -459,7 +459,15 @@ def _article_probe(source: str, module: str, fetch: "Fetch", week: int,
     ad = _DiscoveryFetch(fetch, headers)
     discover = discover or _watchdog_module(module).discover_url
     try:
-        url = discover(week, fetch_fn=ad)
+        try:
+            url = discover(week, fetch_fn=ad)
+        except Exception as e:  # noqa: BLE001
+            # A quiet DiscoveryFailed means "week N is not out yet" (CBS returns
+            # only the exact week): fingerprint last week's article instead, so
+            # the probe reads as unchanged rather than failing every slot.
+            if not getattr(e, "quiet", False) or week <= 1:
+                raise
+            url = discover(week - 1, fetch_fn=ad)
     except Exception as e:  # noqa: BLE001  DiscoveryFailed / RuntimeError / network
         raise ProbeError(f"{source} discovery: {e}") from e
     r = ad.resp(url)
