@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-08T08:00:43.670387+00:00",
+  "run_at": "2026-10-08T08:39:24.702394+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -7,7 +7,8 @@
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
-    "cbsros": "promoted 1/1"
+    "cbsros": "promoted 1/1",
+    "razzball": "promoted 1/1"
   },
   "failed": [],
   "success": true,
@@ -64,6 +65,14 @@
       "detail": "snapshot 2026-10-02 -> 12 DDF legs -> section; review passed (4188 values)",
       "promoted": 1,
       "sections": 1
+    },
+    "razzball": {
+      "source": "razzball",
+      "status": "ok",
+      "stage": "complete",
+      "detail": "snapshot 2026-10-07 -> 12 DDF legs -> section; review passed (5988 values)",
+      "promoted": 1,
+      "sections": 1
     }
   },
   "fit": {
@@ -110,6 +119,12 @@
       "content_week": 4,
       "health_status": "warning",
       "lagging_one_week": true
+    },
+    "razzball": {
+      "content_vintage": "2026-10-07",
+      "content_week": 5,
+      "health_status": "ok",
+      "lagging_one_week": false
     }
   }
 }
