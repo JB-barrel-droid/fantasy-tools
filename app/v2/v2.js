@@ -80,7 +80,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2How", "v2Methods"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -263,7 +263,13 @@
       notes.push(`${view.omittedMissing} player${view.omittedMissing === 1 ? "" : "s"} omitted: no ${sourceMeta(view.rankKey).short} value to compare against the range.`);
     }
     if (state.delta) {
-      notes.push("Δ prior week: no prior-week values are saved yet, so every change shows Δ — instead of a number, never zero.");
+      const keys = view.plotKeys.concat(view.vorpKeys);
+      const loaded = keys.filter(key => priorCache.has(key));
+      const parts = loaded.map(key => {
+        const prior = priorCache.get(key);
+        return prior.available ? `${sourceMeta(key).short} vs Week ${prior.priorWeek}` : `${sourceMeta(key).short}: Δ —, ${prior.reason}`;
+      });
+      notes.push(`Δ = prior-week change for the same source at your league settings; a player with no prior value shows Δ —, never zero.${parts.length ? ` ${parts.join(". ")}.` : " Recomputing last week…"}`);
     }
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
@@ -411,8 +417,29 @@
     return mainChart.slice[state.hoverIndex] || null;
   }
 
-  function deltaText() {
-    return "Δ —";
+  // Prior-week values come from the engine (getPriorWeek, recomputed at the
+  // current setting). Cached per series; cleared whenever the engine's rows change.
+  const priorCache = new Map();
+  let priorStamp = 0;
+  function priorsFor(keys) {
+    const stamp = priorStamp;
+    const todo = [...new Set(keys)].filter(key => !priorCache.has(key));
+    return Promise.all(todo.map(key => Promise.resolve()
+      .then(() => C.getPriorWeek(key))
+      .catch(error => ({available: false, reason: `could not recompute the prior week: ${error.message}`}))
+      .then(result => { if (stamp === priorStamp) priorCache.set(key, result || {available: false, reason: "no prior week"}); })));
+  }
+  // Δ for one cell: {text, cls, title}. "Δ —" plus a reason when there is no exact pair.
+  function deltaInfo(row, key) {
+    const prior = priorCache.get(key);
+    if (!prior) return {text: "Δ …", cls: "", title: "Recomputing last week for your league…"};
+    const d = window.TradeValueMovers.deltaFor(row.values[key], prior, String(row.player_key));
+    if (d.delta === null) return {text: "Δ —", cls: "", title: d.reason};
+    const text = fmtGap(d.delta);
+    return {text: `Δ ${text}`, cls: text === "0.0" ? "" : d.delta > 0 ? "up" : "down", title: `vs Week ${prior.priorWeek}: ${fmt(d.before)}`};
+  }
+  function deltaText(row, key) {
+    return deltaInfo(row, key).text;
   }
 
   function showTip() {
@@ -439,7 +466,7 @@
       line.append(document.createTextNode(m.short));
       const val = document.createElement("span");
       val.className = "val";
-      val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText()}` : "") : "—";
+      val.textContent = Number.isFinite(v) ? fmt(v) + (state.delta ? `  ${deltaText(row, key)}` : "") : "—";
       line.appendChild(val);
       tip.appendChild(line);
     });
@@ -602,10 +629,12 @@
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             if (state.delta && col.source) {
+              const info = deltaInfo(row, col.source);
               const d = document.createElement("span");
-              d.className = "delta";
-              d.textContent = deltaText();
-              d.title = "No prior-week snapshot is saved for this source yet, so there is nothing to compare. Shown as —, never zero.";
+              d.className = `delta ${info.cls}`;
+              d.dataset.source = col.source;
+              d.textContent = info.text;
+              d.title = info.title;
               td.appendChild(d);
             }
           } else {
@@ -1593,8 +1622,201 @@
     });
   }
 
+  // ---------- Risers & fallers (frames 05 / 06) ----------
+  // One exact series at a time: Δ = this week − the engine's recompute of the
+  // prior week at the current setting (app/v2/movers.js). Fails closed on a
+  // series with no prior week: listed disabled with the engine's reason.
+  const RISERS_PAGE = 25;
+  const R = {side: "rise", series: null, search: "", shown: RISERS_PAGE};
+  let risersView = null;
+
+  function priorLabel(key) {
+    const meta = sourceMeta(key);
+    return `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`;
+  }
+
+  function renderRisers() {
+    collect();
+    renderHeader();
+    const M = window.TradeValueMovers;
+    const missing = M.SERIES.filter(key => !priorCache.has(key));
+    if (missing.length) {
+      $("v2RMeta").textContent = "Recomputing last week for your league…";
+      $("v2RTable").replaceChildren();
+      $("v2RCards").replaceChildren();
+      $("v2REmpty").hidden = true;
+      priorsFor(M.SERIES).then(() => { if (currentView() === "risers") renderRisers(); });
+      return;
+    }
+    const choices = M.SERIES.map(key => ({key, prior: priorCache.get(key)}));
+    if (!R.series || !choices.some(c => c.key === R.series)) {
+      R.series = (choices.find(c => c.prior.available) || choices[0]).key;
+    }
+    const select = $("v2RSeries");
+    select.replaceChildren();
+    choices.forEach(({key, prior}) => {
+      const option = document.createElement("option");
+      option.value = key;
+      option.disabled = !prior.available;
+      option.textContent = `${sourceMeta(key).symbol} ${priorLabel(key)}`
+        + (prior.available ? ` · Week ${prior.currentWeek} vs ${prior.priorWeek}` : " — no prior week");
+      option.title = prior.available ? "" : prior.reason;
+      select.appendChild(option);
+    });
+    select.value = R.series;
+    $("v2RPosition").value = view.state.position;
+    document.querySelectorAll("#v2Risers [data-move]").forEach(button => {
+      const on = button.dataset.move === R.side;
+      button.classList.toggle("is-on", on);
+      button.setAttribute("aria-pressed", String(on));
+    });
+    const prior = priorCache.get(R.series);
+    const needle = R.search.trim().toLowerCase();
+    const rows = C.getRows().filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
+    risersView = M.buildMovers(rows, R.series, prior);
+    const list = R.side === "rise" ? risersView.risers : risersView.fallers;
+    const label = priorLabel(R.series);
+    $("v2RCardTitle").textContent = R.side === "rise" ? `Risers: ${label}` : `Fallers: ${label}`;
+    $("v2RMeta").textContent = risersView.available
+      ? `${list.length} of ${risersView.compared} players · Δ = Week ${risersView.currentWeek} − Week ${risersView.priorWeek}, `
+        + `${R.side === "rise" ? "largest rise" : "largest fall"} first. `
+        + (R.series === "espn" || R.series === "cbsros" || R.series === "razzball"
+          ? "A projection moving is a change in that source's outlook."
+          : (R.side === "rise" ? "Managers who trade off this chart now pay more for these players." : "Managers who trade off this chart now pay less for these players."))
+      : "—";
+    renderMoverTable(list);
+    renderMoverCards(list);
+    const empty = $("v2REmpty");
+    empty.hidden = risersView.available && list.length > 0;
+    empty.textContent = !risersView.available
+      ? `No Δ for ${label}: ${risersView.reason}.`
+      : `No player ${R.side === "rise" ? "rose" : "fell"} in ${label} for this selection.`;
+    $("v2RTable").hidden = !list.length;
+    const notes = [];
+    if (risersView.noPrior) notes.push(`${risersView.noPrior} player${risersView.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${risersView.priorWeek}, so no Δ.`);
+    if (risersView.unchanged) notes.push(`${risersView.unchanged} unchanged (Δ 0.0).`);
+    const unavailable = choices.filter(c => !c.prior.available);
+    if (unavailable.length) notes.push(`No prior week: ${unavailable.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
+    const note = $("v2RNote");
+    note.hidden = !notes.length;
+    note.textContent = notes.join(" ");
+    const more = $("v2RShowMore");
+    more.hidden = list.length <= R.shown;
+    more.textContent = `Show more players (${Math.min(R.shown, list.length)} of ${list.length})`;
+  }
+
+  function moverDelta(item, tag) {
+    const node = document.createElement(tag || "span");
+    node.className = `delta gap ${item.delta > 0 ? "up" : "down"}`;
+    node.textContent = `${item.delta > 0 ? "▲" : "▼"} ${fmtGap(item.delta)}`;
+    return node;
+  }
+
+  function renderMoverTable(list) {
+    const table = $("v2RTable");
+    table.replaceChildren();
+    if (!risersView.available) return;
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    [["Player", "player"], ["Pos", "col-meta"], ["Team", "col-meta"],
+      [`Week ${risersView.currentWeek}`, "num is-rank"], [`Week ${risersView.priorWeek}`, "num"], ["Δ", "num"]].forEach(([text, cls]) => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.className = cls;
+      th.textContent = text;
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    list.slice(0, R.shown).forEach(item => {
+      const row = item.row;
+      const tr = document.createElement("tr");
+      tr.tabIndex = 0;
+      tr.dataset.playerKey = String(row.player_key);
+      tr.addEventListener("click", () => openDrawer(row));
+      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+      const td = (cls, text) => {
+        const cell = document.createElement("td");
+        cell.className = cls;
+        if (text !== undefined) cell.textContent = text;
+        tr.appendChild(cell);
+        return cell;
+      };
+      const name = td("player", row.name);
+      appendEspnZero(name, row);
+      const sub = document.createElement("span");
+      sub.className = "player-sub";
+      sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+      name.appendChild(sub);
+      td("col-meta", row.pos);
+      td("col-meta", row.team || "FA");
+      td("num is-rank", fmt(item.current)).dataset.col = "now";
+      td("num", fmt(item.before)).dataset.col = "before";
+      const d = td("num");
+      d.dataset.col = "delta";
+      d.appendChild(moverDelta(item));
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+  }
+
+  function renderMoverCards(list) {
+    const ol = $("v2RCards");
+    ol.replaceChildren();
+    if (!risersView.available) return;
+    list.slice(0, R.shown).forEach(item => {
+      const row = item.row;
+      const li = document.createElement("li");
+      li.tabIndex = 0;
+      li.dataset.playerKey = String(row.player_key);
+      li.addEventListener("click", () => openDrawer(row));
+      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
+      const top = document.createElement("div");
+      top.className = "top";
+      const who = document.createElement("div");
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      appendEspnZero(name, row);
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+      who.append(name, sub);
+      const big = moverDelta(item, "div");
+      big.className = `big ${item.delta > 0 ? "up" : "down"}`;
+      big.dataset.col = "delta";
+      top.append(who, big);
+      const vals = document.createElement("div");
+      vals.className = "vals";
+      const now = document.createElement("span");
+      now.className = "ours";
+      now.dataset.col = "now";
+      now.textContent = `Week ${risersView.currentWeek} ${fmt(item.current)}`;
+      const before = document.createElement("span");
+      before.dataset.col = "before";
+      before.textContent = `Week ${risersView.priorWeek} ${fmt(item.before)}`;
+      vals.append(now, before);
+      li.append(top, vals);
+      ol.appendChild(li);
+    });
+  }
+
+  function bindRisers() {
+    let timer = null;
+    $("v2RSearch").addEventListener("input", event => {
+      clearTimeout(timer);
+      timer = setTimeout(() => { R.search = event.target.value; R.shown = RISERS_PAGE; renderRisers(); }, 120);
+    });
+    $("v2RPosition").addEventListener("change", event => { C.setPosition(event.target.value); R.shown = RISERS_PAGE; renderRisers(); });
+    $("v2RSeries").addEventListener("change", event => { R.series = event.target.value; R.shown = RISERS_PAGE; renderRisers(); });
+    document.querySelectorAll("#v2Risers [data-move]").forEach(button => {
+      button.addEventListener("click", () => { R.side = button.dataset.move; R.shown = RISERS_PAGE; renderRisers(); });
+    });
+    $("v2RShowMore").addEventListener("click", () => { R.shown += RISERS_PAGE; renderRisers(); });
+  }
+
   // ---------- routing ----------
   const currentView = () => (location.hash === "#trade-targets" ? "targets"
+    : location.hash === "#risers-fallers" ? "risers"
     : location.hash === "#compare-trade" ? "compare"
     : location.hash === "#how-values" ? "how" : "values");
 
@@ -1603,9 +1825,10 @@
     $("v2Main").hidden = v !== "values";
     $("v2Targets").hidden = v !== "targets";
     $("v2Compare").hidden = v !== "compare";
+    $("v2Risers").hidden = v !== "risers";
     $("v2How").hidden = v !== "how";
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
-    $("v2Methods").hidden = v === "targets" || v === "how";
+    $("v2Methods").hidden = v === "targets" || v === "how" || v === "risers";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -1646,6 +1869,7 @@
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
   function refresh() {
     if (currentView() === "targets") renderTargets();
+    else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
     else refreshValues();
@@ -1659,7 +1883,11 @@
     });
     $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); state.windowPreset = "100"; refresh(); });
     $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; refresh(); });
-    $("v2DeltaBtn").addEventListener("click", () => { state.delta = !state.delta; refresh(); });
+    $("v2DeltaBtn").addEventListener("click", () => {
+      state.delta = !state.delta;
+      refresh();
+      if (state.delta) priorsFor(view.plotKeys.concat(view.vorpKeys)).then(() => { if (state.delta) refresh(); });
+    });
     $("v2RangeBtn").addEventListener("click", openRange);
     $("v2EmptyClear").addEventListener("click", () => $("v2ClearFilters").click());
     $("v2ClearFilters").addEventListener("click", () => {
@@ -1724,6 +1952,18 @@
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
+    // New rows (league, weights, sources): every prior-week recompute is stale.
+    window.addEventListener("trade-value-rows-change", () => {
+      priorCache.clear();
+      priorStamp += 1;
+      if (!C) return;
+      if (currentView() === "risers") renderRisers();
+      else if (state.delta && currentView() === "values") {
+        refresh();
+        priorsFor(view.plotKeys.concat(view.vorpKeys)).then(() => { if (state.delta) refresh(); });
+      }
+    });
+    bindRisers();
   }
 
   async function start() {
@@ -1739,7 +1979,8 @@
     applyRoute();
     setStatus("");
     window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
-      compare: () => compareView, tradeState: TR};
+      compare: () => compareView, tradeState: TR,
+      risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache)};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

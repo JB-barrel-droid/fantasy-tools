@@ -136,6 +136,7 @@ test-unit:
 	python3 -m unittest tests.test_v2_states_render
 	python3 -m unittest tests.test_v2_nav_render
 	python3 -m unittest tests.test_v2_ux_render
+	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs
@@ -365,6 +366,7 @@ test-core:
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_targets
 	python3 -m unittest tests.test_v2_compare
+	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_week_history
