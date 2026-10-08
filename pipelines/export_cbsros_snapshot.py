@@ -8,8 +8,16 @@ by save_cbsros_references.py, so a non-Mac producer (GitHub Actions) can
 rebuild the identical bake input from Supabase instead of re-scraping.
 
 Output rows carry exactly the fields _intake_cbsros() consumes:
-player_name (the saved player_norm), pos (canonical registry position for
-the saved player_key), per_game_standard / per_game_half_ppr / per_game_ppr.
+player_key (the saver's verified key), player_name (the saved player_norm),
+pos (canonical registry position for the saved player_key),
+per_game_standard / per_game_half_ppr / per_game_ppr.
+
+player_key is the identity. Without it the bake re-resolved the saved
+player_norm by name through the canonical registry, which does not carry the
+verified spelling ALIASES the saver and the legs use: on the 2026-10-08
+snapshot 'chigoziem okonkwo' (4247) and 'mitch trubisky' (4214) were saved
+and priced by the legs but dropped from players.json, and the browser's TE
+waiver line at 14 teams moved by one player (GAP-CBSROS-BAKE-IDENTITY).
 Fail-closed: no rows for the requested date, or a saved player_key missing
 from the canonical registry, exits non-zero.
 """
@@ -49,6 +57,7 @@ def build_snapshot(rows, registry, vintage):
             missing.append(key)
             continue
         out.append({
+            "player_key": int(key),
             "player_name": r["player_norm"],
             "player_norm": r["player_norm"],
             "pos": entry["position"],

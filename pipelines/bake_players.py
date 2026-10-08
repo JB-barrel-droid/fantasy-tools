@@ -380,8 +380,16 @@ def _intake_cbsros(snapshot_path, registry):
 
     The snapshot carries pre-computed per-game rates (per_game_standard /
     per_game_half_ppr / per_game_ppr = ROS totals / gp). Only rows with all
-    three scorings finite are priced (never partially); identity resolves
-    through the canonical naming table, fail-closed. Returns (med, vintage).
+    three scorings finite are priced (never partially). Identity is the
+    row's player_key (the saver's verified key, carried by
+    export_cbsros_snapshot.py and the Supabase import); a row without one
+    (a file-built snapshot) resolves by name through the canonical naming
+    table, fail-closed. Returns (med, vintage).
+
+    GAP-CBSROS-BAKE-IDENTITY (2026-10-08): re-resolving the saved
+    player_norm by name dropped 'chigoziem okonkwo' and 'mitch trubisky'
+    (verified ALIASES the saver and the legs apply, the registry does not),
+    so the browser priced a different TE pool from the section.
     """
     snap = json.loads(Path(snapshot_path).read_text(encoding="utf-8"))
     vintage = snap.get("vintage_date")
@@ -391,9 +399,11 @@ def _intake_cbsros(snapshot_path, registry):
     n_rows = n_unres = n_incomplete = 0
     for r in snap.get("rows", []):
         n_rows += 1
-        key = _resolve_csv_row(r.get("player_name", ""),
-                               (r.get("pos") or "").strip(),
-                               "cbsros", registry)
+        key = r.get("player_key")
+        if not isinstance(key, int) or isinstance(key, bool):
+            key = _resolve_csv_row(r.get("player_name", ""),
+                                   (r.get("pos") or "").strip(),
+                                   "cbsros", registry)
         if key is None:
             n_unres += 1
             continue
