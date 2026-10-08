@@ -33,6 +33,8 @@ WORKFLOW = (ROOT / ".github/workflows/rebuild-chain.yml").read_text()
 ESPN_WORKFLOW = (ROOT / ".github/workflows/espn-supabase-sync.yml").read_text()
 
 BAKE = "Refresh ESPN anchor and bake players.json"
+DECIDE = "Decide whether to bake players.json"
+IMPORT = "Import fresh snapshots from Supabase"
 RESTORE = "Restore committed ESPN anchor (bake failed)"
 UPLOAD = "Upload saved ESPN CSV for the anchor bake"
 CSV = "data/inputs/espn_projections.csv"
@@ -50,8 +52,22 @@ def static_problems(text, espn_text=ESPN_WORKFLOW):
     bake = find_step(text, BAKE)
     if bake is None:
         return problems + ["bake step missing"]
-    if "if: github.event.inputs.bake_players == 'true'" not in bake:
-        problems.append("bake step must run only when bake_players == 'true'")
+    # GAP-BAKE-ON-CHANGE (2026-10-08): the rule changed from "only when
+    # bake_players == 'true'" to "when the decide step says so", which is
+    # bake_players == 'true' OR a projection input that differs from the one
+    # players.json was baked from (pipelines/projection_identity.py decide).
+    if "if: steps.decide.outputs.bake == 'true'" not in bake:
+        problems.append("bake step must run only when the decide step says bake")
+    decide = find_step(text, DECIDE)
+    decide_script = script_of(decide or "") or ""
+    if decide is None or "id: decide" not in decide:
+        problems.append("decide step missing (id: decide)")
+    elif "projection_identity.py decide" not in decide_script:
+        problems.append("decide step does not run projection_identity.py decide")
+    elif "--force" not in decide_script or "github.event.inputs.bake_players" not in decide:
+        problems.append("decide step ignores bake_players (the daily forced bake)")
+    if "check_espn_bake_csv.py" not in decide_script:
+        problems.append("decide step does not check the ESPN scrape CSV (check_espn_bake_csv.py)")
     if "id: bake" not in bake:
         problems.append("bake step must have id: bake (restore and commit read its outcome)")
     script = script_of(bake) or ""
@@ -59,7 +75,8 @@ def static_problems(text, espn_text=ESPN_WORKFLOW):
         if forbidden in script:
             problems.append(f"bake step runs `{forbidden}`: baked files must reach main "
                             "only through the commit step, after validate")
-    for needed in ("check_espn_bake_csv.py", "bake_players.py", "pin_naming_manifest.py"):
+    for needed in ("bake_players.py", "pin_naming_manifest.py",
+                   "--cbsros-snapshot", "--razzball-snapshot"):
         if needed not in script:
             problems.append(f"bake step does not run {needed}")
     restore = find_step(text, RESTORE)
@@ -68,9 +85,9 @@ def static_problems(text, espn_text=ESPN_WORKFLOW):
     chain = find_step(text, CHAIN) or ""
     if "make validate" not in (script_of(chain) or ""):
         problems.append("chain step no longer runs make validate before the commit")
-    order = [text.find(f"name: {n}") for n in (BAKE, RESTORE, CHAIN, COMMIT)]
+    order = [text.find(f"name: {n}") for n in (IMPORT, DECIDE, BAKE, RESTORE, CHAIN, COMMIT)]
     if -1 in order or order != sorted(order):
-        problems.append("steps are not in the order bake, restore, chain, commit")
+        problems.append("steps are not in the order import, decide, bake, restore, chain, commit")
     upload = find_step(espn_text, UPLOAD)
     if upload is None or "name: espn-projections" not in upload \
             or "/tmp/espn_projections.csv" not in upload:
@@ -197,9 +214,23 @@ class RebuildChainBakeTest(unittest.TestCase):
 
     def test_catches_unconditional_bake(self):
         broken = WORKFLOW.replace(
-            "        if: github.event.inputs.bake_players == 'true'\n", "", 1)
+            "        if: steps.decide.outputs.bake == 'true'\n", "", 1)
         self.assertNotEqual(broken, WORKFLOW)
-        self.assertTrue(any("bake_players == 'true'" in p for p in static_problems(broken)))
+        self.assertTrue(any("decide step says bake" in p for p in static_problems(broken)))
+
+    def test_catches_bake_that_ignores_the_daily_forced_input(self):
+        broken = WORKFLOW.replace('decide --force "${FORCE:-false}"', "decide", 1)
+        self.assertNotEqual(broken, WORKFLOW)
+        self.assertTrue(any("ignores bake_players" in p for p in static_problems(broken)))
+
+    def test_catches_bake_before_the_import(self):
+        # The bake must read the snapshots the import step just wrote (the
+        # ones the chain builds the sections from), so it runs after it.
+        imp = find_step(WORKFLOW, IMPORT)
+        moved = WORKFLOW.replace(imp + "\n", "", 1)
+        commit = find_step(moved, COMMIT)
+        moved = moved.replace(commit, imp + "\n" + commit, 1)
+        self.assertTrue(any("order" in p for p in static_problems(moved)))
 
     def test_catches_missing_espn_artifact_upload(self):
         broken_espn = ESPN_WORKFLOW.replace("name: espn-projections", "name: something-else", 1)

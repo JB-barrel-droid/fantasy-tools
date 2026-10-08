@@ -104,6 +104,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
     values_by_combo = {}
     vintage = None
     # JEG-132 R5a: gather raw leg triples + provenance across all combos.
+    snapshot_ids = set()
     leg_triples: list = []
     leg_built_at = None
     leg_content_vintage = None
@@ -143,6 +144,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
             "index_total": index_total,
         }
         vintage = vintage or rz_leg.get("inputs", {}).get("razzball_snapshot_date")
+        snapshot_ids.add((rz_leg.get("inputs") or {}).get("razzball_snapshot_id"))
         # First leg wins; all legs in one run should share vintage + built_at.
         if not leg_triples:
             leg_triples = collect_leg_triples(rz_leg)
@@ -151,6 +153,12 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
             leg_content_vintage = inputs_block.get("content_vintage")
             leg_legacy_vintage = inputs_block.get("razzball_snapshot_date")
             leg_fetched_at = rz_leg.get("fetched_at")
+    # GAP-BAKE-ON-CHANGE: one section = one snapshot. The id is what the chain
+    # compares with players.json rz_snapshot_id (the browser's copy).
+    if len(snapshot_ids) != 1 or None in snapshot_ids:
+        raise SystemExit(f"Fail closed: razzball legs disagree on snapshot id: "
+                         f"{sorted(str(i) for i in snapshot_ids)}; rebuild all 12 legs from one snapshot.")
+    snapshot_id = snapshot_ids.pop()
     raw_vintage, vintage_source = resolve_raw_vintage(
         content_vintage=leg_content_vintage,
         vintage=leg_legacy_vintage,
@@ -177,6 +185,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
         "method_group": "ddf-methodology",
         "combos": values_by_combo,
         "vintage": vintage,
+        "snapshot_id": snapshot_id,
         "lineage": lineage,
     }
 

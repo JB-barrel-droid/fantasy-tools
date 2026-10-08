@@ -86,6 +86,8 @@ from games_remaining import (  # noqa: E402
 from preseason_ecr import (  # noqa: E402
     load_preseason_ecr_ranks, annotate_rows, provenance_note as pecr_note,
 )
+sys.path.insert(0, str(ROOT / "pipelines"))
+import projection_identity  # noqa: E402
 
 SKILL_BIN = os.environ.get(
     "SUPABASE_FOOTBALL_SIGNAL_BIN",
@@ -797,6 +799,14 @@ def bake(args):
         "espn_snapshot": str(espn_snapshot_date),
         "rz_snapshot": str(rz_snapshot_date),
         "cbsros_snapshot": str(cbsros_snapshot_date),
+        # GAP-BAKE-ON-CHANGE: content identity of each projection input (a
+        # date cannot tell two same-day saves apart). The chain builds a
+        # section only from the input with this exact id
+        # (pipelines/projection_identity.py).
+        "espn_snapshot_id": projection_identity.file_id(args.espn_csv),
+        "cbsros_snapshot_id": projection_identity.file_id(cbsros_snapshot),
+        "rz_snapshot_id": (projection_identity.file_id(args.razzball_snapshot)
+                           if getattr(args, "razzball_snapshot", None) else None),
         "n_players": len(players),
         "n_espn_complete": sum(1 for p in players if p["espn_complete"]),
         "n_rz_complete": sum(1 for p in players if p["rz_complete"]),

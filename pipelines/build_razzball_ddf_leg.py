@@ -46,6 +46,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
+import projection_identity  # noqa: E402
 from build_ddf_two_tier_leg import (  # noqa: E402 -- the shared math, not duplicated
     FixtureIdentity,
     write_leg_json,
@@ -223,6 +224,9 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
         "inputs": {
             "razzball_snapshot": str(snapshot_path),
             "razzball_snapshot_sha256": sha256_file(snapshot_path),
+            # GAP-BAKE-ON-CHANGE: the id players.json records for the same
+            # input (pipelines/projection_identity.py); the section carries it.
+            "razzball_snapshot_id": projection_identity.file_id(snapshot_path),
             "razzball_snapshot_date": snap_meta["razzball_vintage_date"],
             "razzball_snapshot_rows": snap_meta["snapshot_rows"],
             "per_game_note": ("per-game = Razzball's published PPG columns "

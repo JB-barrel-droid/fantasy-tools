@@ -389,6 +389,10 @@ class TestDdfLegSectionLineage(unittest.TestCase):
                 "espn_snapshot_date": snapshot_date,
                 "cbsros_snapshot_date": snapshot_date,
                 "razzball_snapshot_date": snapshot_date,
+                # GAP-BAKE-ON-CHANGE: real legs record their input's id.
+                "espn_csv_sha256": "0" * 64,
+                "cbsros_snapshot_id": "sha256:" + "0" * 64,
+                "razzball_snapshot_id": "sha256:" + "0" * 64,
             },
         }
         if content_vintage is not None:
@@ -483,6 +487,7 @@ class TestDdfLegSectionLineage(unittest.TestCase):
                     ],
                     "inputs": {"scoring": scoring, "teams": teams,
                                "cbsros_snapshot_date": "2026-10-02",
+                               "cbsros_snapshot_id": "sha256:" + "0" * 64,
                                "content_vintage": "Week 4"},
                 }
                 d.mkdir(parents=True, exist_ok=True)
@@ -528,7 +533,8 @@ class TestDdfLegSectionLineage(unittest.TestCase):
                         for i in range(4)
                     ],
                     "inputs": {"scoring": scoring, "teams": teams,
-                               "cbsros_snapshot_date": "2026-10-01"
+                               "cbsros_snapshot_date": "2026-10-01",
+                               "cbsros_snapshot_id": "sha256:" + "0" * 64,
                                # no content_vintage -> legacy_fallback
                                },
                 }
@@ -570,6 +576,7 @@ class TestDdfLegSectionLineage(unittest.TestCase):
                 "values": leg_values,
                 "inputs": {"scoring": "ppr", "teams": 12,
                            "cbsros_snapshot_date": "2026-10-02",
+                           "cbsros_snapshot_id": "sha256:" + "0" * 64,
                            "content_vintage": "Week 4"},
             }))
             fx_path, players_path = self._setup_fixture(tmp, fkeys=fkeys)

@@ -107,6 +107,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
     # combos so the derived section can carry an immutable lineage block.
     # The CBS ROS leg has no player_keys in combos (it's leg.values[]), so
     # we collect triples from the leg itself, not from any fixture section.
+    snapshot_ids = set()
     leg_triples: list = []
     leg_built_at = None
     leg_content_vintage = None
@@ -145,6 +146,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
             "index_total": index_total,
         }
         vintage = vintage or cbs_leg.get("inputs", {}).get("cbsros_snapshot_date")
+        snapshot_ids.add((cbs_leg.get("inputs") or {}).get("cbsros_snapshot_id"))
         # First leg wins (all legs in one build should share vintage + built_at;
         # the build_*.py callers already fail closed if vintages disagree).
         if not leg_triples:
@@ -154,6 +156,12 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
             leg_content_vintage = inputs_block.get("content_vintage")
             leg_legacy_vintage = inputs_block.get("cbsros_snapshot_date")
             leg_fetched_at = cbs_leg.get("fetched_at")
+    # GAP-BAKE-ON-CHANGE: one section = one snapshot. The id is what the chain
+    # compares with players.json cbsros_snapshot_id (the browser's copy).
+    if len(snapshot_ids) != 1 or None in snapshot_ids:
+        raise SystemExit(f"Fail closed: cbsros legs disagree on snapshot id: "
+                         f"{sorted(str(i) for i in snapshot_ids)}; rebuild all 12 legs from one snapshot.")
+    snapshot_id = snapshot_ids.pop()
     raw_vintage, vintage_source = resolve_raw_vintage(
         content_vintage=leg_content_vintage,
         vintage=leg_legacy_vintage,
@@ -180,6 +188,7 @@ def section_from_leg(fixture: dict, source_url: str, combo_keys: list[str]) -> d
         "method_group": "ddf-methodology",
         "combos": values_by_combo,
         "vintage": vintage,
+        "snapshot_id": snapshot_id,
         "lineage": lineage,
     }
 

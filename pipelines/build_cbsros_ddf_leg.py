@@ -49,6 +49,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
+import projection_identity  # noqa: E402
 from build_ddf_two_tier_leg import (  # noqa: E402 -- the shared math, not duplicated
     FixtureIdentity,
     write_leg_json,
@@ -225,6 +226,9 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
         "inputs": {
             "cbsros_snapshot": str(snapshot_path),
             "cbsros_snapshot_sha256": sha256_file(snapshot_path),
+            # GAP-BAKE-ON-CHANGE: the id players.json records for the same
+            # input (pipelines/projection_identity.py); the section carries it.
+            "cbsros_snapshot_id": projection_identity.file_id(snapshot_path),
             "cbsros_snapshot_date": snap_meta["cbsros_vintage_date"],
             "cbsros_snapshot_rows": snap_meta["snapshot_rows"],
             "per_game_note": ("per-game = CBS ROS total / gp (per-player games). "

@@ -153,6 +153,7 @@ def main() -> int:
     legs = {}
     leg_ppgs = {}
     vintages = set()
+    csv_shas = set()
     # JEG-132 R5a: gather raw leg triples + provenance across the three
     # scorings. All three legs must share a vintage (asserted below), so
     # one set of triples / built_at / content_vintage describes the raw
@@ -168,6 +169,7 @@ def main() -> int:
         legs[scoring] = load_leg_values(leg_path)
         leg_ppgs[scoring] = load_leg_ppg(leg_path)
         vintages.add(leg.get("inputs", {}).get("espn_snapshot_date"))
+        csv_shas.add(leg.get("inputs", {}).get("espn_csv_sha256"))
         print(f"  {scoring}: {leg.get('bake_id')} ({len(legs[scoring])} values)")
         # First leg's provenance wins (all three share vintage by assertion).
         if not leg_triples:
@@ -180,6 +182,11 @@ def main() -> int:
     if len(vintages) != 1:
         raise SystemExit(f"Leg vintages disagree: {sorted(vintages)}; refusing to mix.")
     vintage = vintages.pop()
+    # GAP-BAKE-ON-CHANGE: the CSV identity players.json records as
+    # espn_snapshot_id; the chain holds ESPN when the two differ.
+    if len(csv_shas) != 1 or None in csv_shas:
+        raise SystemExit(f"Leg ESPN CSVs disagree: {sorted(str(x) for x in csv_shas)}; refusing to mix.")
+    snapshot_id = "sha256:" + csv_shas.pop()
     print(f"  vintage: {vintage}")
 
     new_section = copy.deepcopy(espn_section)
@@ -245,6 +252,7 @@ def main() -> int:
             combo["index_total"] = index_total
 
     new_section["espn_snapshot"] = vintage
+    new_section["snapshot_id"] = snapshot_id
     new_section["espn_status"] = {
         "stale": False,
         "vintage": vintage,

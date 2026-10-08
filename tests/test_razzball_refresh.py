@@ -28,7 +28,8 @@ sys.path.insert(0, str(ROOT / "tests"))
 
 import rebuild_comparison_chain as chain  # noqa: E402
 import bake_players  # noqa: E402
-from test_rebuild_chain_failclosed import WireFake as _WireFake, make_repo  # noqa: E402
+from test_rebuild_chain_failclosed import WireFake as _WireFake, make_repo, simulate_bake  # noqa: E402
+import projection_identity  # noqa: E402
 
 
 class WireFake(_WireFake):
@@ -142,8 +143,10 @@ class ChainRebuildsRazzball(unittest.TestCase):
 
     def test_unbaked_vintage_holds_razzball_and_keeps_its_section(self):
         def newer_than_bake(repo):
-            players = repo / "data" / "fixtures" / "current" / "players.json"
-            players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-09-22"}, "players": []}))
+            # players.json baked from another Razzball snapshot (GAP-BAKE-ON-
+            # CHANGE: identity is the content id, so even a same-date resave
+            # with other numbers holds the section).
+            simulate_bake(repo, razzball="sha256:" + "0" * 64)
         status, fixture, fake, kept = self._held_run("unbaked", newer_than_bake)
         self.assertEqual(["razzball"], status["held"])
         self.assertTrue(status["success"], status["failed"])
@@ -168,16 +171,29 @@ class ChainRebuildsRazzball(unittest.TestCase):
         self.assertEqual(kept, json.loads(fpath.read_text())["sources"]["razzball"])
 
     def test_bake_gate_reasons(self):
+        # Since GAP-BAKE-ON-CHANGE (2026-10-08) the gate compares the
+        # snapshot's content id with players.json rz_snapshot_id; the old
+        # date compare passed two same-date snapshots with different numbers.
         repo = Path(self.tmp.name) / "gate"
         snap = repo / "snap.json"
         snap.parent.mkdir(parents=True)
-        snap.write_text(json.dumps({"vintage_date": "2026-10-06"}))
+        rows = [{"player_key": 1, "rz_ppr_ppg": 10.0}, {"player_key": 2, "rz_ppr_ppg": 9.0}]
+        snap.write_text(json.dumps({"vintage_date": "2026-10-06", "rows": rows}))
+        sid = projection_identity.file_id(snap)
         players = repo / chain.PLAYERS_REL
         players.parent.mkdir(parents=True)
-        players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-10-06"}}))
+        players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-10-06",
+                                                "rz_snapshot_id": sid}}))
         self.assertIsNone(chain.razzball_bake_mismatch(repo, snap))
-        players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-09-22"}}))
+        # Same date, one changed value: the date gate passed this.
+        snap.write_text(json.dumps({"vintage_date": "2026-10-06",
+                                    "rows": [{"player_key": 1, "rz_ppr_ppg": 11.0}, rows[1]]}))
         self.assertIn("awaiting players bake", chain.razzball_bake_mismatch(repo, snap))
+        # Row order alone is not a different snapshot.
+        snap.write_text(json.dumps({"vintage_date": "2026-10-06", "rows": rows[::-1]}))
+        self.assertIsNone(chain.razzball_bake_mismatch(repo, snap))
+        players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-10-06"}}))
+        self.assertIn("no rz_snapshot_id", chain.razzball_bake_mismatch(repo, snap))
         players.unlink()
         self.assertIn("players.json", chain.razzball_bake_mismatch(repo, snap))
 
