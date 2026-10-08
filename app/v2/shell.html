@@ -95,6 +95,7 @@
             <button type="button" data-window="100" class="is-on">Top 100</button>
             <button type="button" data-window="50">Top 50</button>
             <button type="button" data-window="25">Top 25</button>
+            <button type="button" class="v2-chart-options" id="v2ChartOptions" aria-haspopup="dialog" aria-label="Chart options"><span class="v2-wide">Chart options ⌄</span><span class="v2-narrow" aria-hidden="true">···</span></button>
           </div>
           <span class="v2-meta">Solid = DDA · Dashed = Indexed</span>
         </div>
@@ -118,9 +119,15 @@
           <button type="button" class="v2-link" id="v2ZoomReset">Reset zoom ↺</button></span>
         </div>
         <div class="v2-brush-track" id="v2Brush">
+          <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
           <div class="v2-brush-fill" id="v2BrushFill"></div>
           <input type="range" id="v2BrushLo" aria-label="First rank shown" min="1" max="100" value="1">
           <input type="range" id="v2BrushHi" aria-label="Last rank shown" min="1" max="100" value="100">
+        </div>
+        <div class="v2-brush-bounds">
+          <label>From <input type="number" id="v2FromRank" min="1" step="1" inputmode="numeric"></label>
+          <label>To <input type="number" id="v2ToRank" min="1" step="1" inputmode="numeric"></label>
+          <button type="button" class="v2-btn" id="v2ResetAll">Reset to all</button>
         </div>
       </div>
     </section>
