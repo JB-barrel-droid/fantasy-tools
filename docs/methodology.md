@@ -26,6 +26,10 @@ The stable rules are:
   gap (Jeremy, 2026-10-07). The zero is shown, not added to the anchor: the pie
   every chart is indexed against is unchanged. A player with no ESPN row is
   missing, not 0.
+- The same holds below a leg's pricing line: a player ESPN, CBS ROS or Razzball
+  projects at or below the lowest projection that leg prices at his position is
+  0.0 on that leg, not missing (Jeremy, 2026-10-07); display only, like the
+  injured case. A player above that line whom the leg lacks stays missing.
 - Published/direct charts are compared against the built ESPN indexed leg.
 - Raw ESPN value above waivers is a separate comparison mode, not the indexed
   trade-value anchor.
