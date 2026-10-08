@@ -76,6 +76,10 @@
   // Pure VORP keys (browser-computed from per-game projections).
   const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
 
+  // The anchor every other curve is indexed to; the only section whose absence
+  // refuses the render (GAP-MISSING-SECTION-REFUSES-RENDER).
+  const ANCHOR_SOURCE_KEY = "espn";
+
   // As-published sources (singleScale: true in normalizeToFixedPie).
   const AS_PUBLISHED_KEYS = Object.freeze(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
 
@@ -95,6 +99,7 @@
     playerByKey: new Map(),  // player_key -> player record
     playerKeysBySourceId: new Map(), // sourceId -> playerKey (legacy fixture)
     consolidation: null,     // reference to window.TradeValueConsolidation
+    missingSources: Object.freeze([]), // source sections absent from the fixture (dropped, not fatal)
     snapshot: null,          // contract-shaped api.product_snapshot
     options: null,           // contract-shaped api.product_options
     activeSnapshotId: null,
@@ -888,17 +893,27 @@
     state.freshness = Object.freeze(buildSourceFreshness(state.snapshot.sources, {}));
     state.activeSnapshotId = state.snapshot.snapshot_id;
 
-    // Source map coverage: every key in api.product_options.source_keys must
-    // have a snapshot entry. cbs_adjusted is a derived column on cbs.
+    // Source map coverage (GAP-MISSING-SECTION-REFUSES-RENDER). The ESPN
+    // anchor is required: every other curve is indexed to it, so without it
+    // there is nothing honest to draw and the render is refused. Any other
+    // source whose section is absent is DROPPED, not fatal: its series reads
+    // as unavailable (no values, never zeros) and the rest of the chart
+    // renders. The dropped keys are exposed as getMissingSources() so the
+    // page can say which source is unavailable.
+    // cbs_adjusted is a derived column on cbs.
     const sourcesMap = state.snapshot.sources || {};
     const missing = SOURCE_KEYS.filter(k => {
       if (PURE_VORP_KEYS.includes(k)) return false; // pure VORP has no fixture entry
       if (k === "cbs_adjusted") return !sourcesMap.cbs;
       return !sourcesMap[k];
     });
-    if (missing.length) {
-      throw new Error(`sourceMapCoverage failed: missing ${missing.join(", ")}. Render refused.`);
+    if (missing.includes(ANCHOR_SOURCE_KEY)) {
+      throw new Error(`sourceMapCoverage failed: the ${ANCHOR_SOURCE_KEY} anchor section is missing. Render refused.`);
     }
+    if (missing.length) {
+      console.warn(`[product-data] sourceMapCoverage: ${missing.join(", ")} missing from the fixture; shown as unavailable, the rest renders.`);
+    }
+    state.missingSources = Object.freeze([...missing]);
 
     // Wire up the consolidation index (JEG-325 bridge) for per-cell O(1) lookups.
     // We pass the already-fetched detail so it does not refetch.
@@ -914,6 +929,13 @@
     state.initialized = true;
     console.info(`[product-data] ready contract=${CONTRACT_VERSION} bake=${state.snapshot.bake_id || "n/a"} players=${state.players.length}`);
     return publicHandle;
+  }
+
+  // Source sections absent from the fixture, dropped from the chart rather than
+  // refusing the render (the ESPN anchor is never in this list: its absence
+  // refuses the render instead).
+  function getMissingSources() {
+    return [...state.missingSources];
   }
 
   // ---------- Public handle (frozen) ----------
@@ -935,6 +957,7 @@
     getPlayerByKey,
     getPlayerKeysBySourceId,
     getProviderInfo,
+    getMissingSources,
     // Constants exported so consumers stop redefining them locally.
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,
@@ -971,6 +994,7 @@
     getPlayerByKey,
     getPlayerKeysBySourceId,
     getProviderInfo,
+    getMissingSources,
     handle: () => publicHandle,
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,
