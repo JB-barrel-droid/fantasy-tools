@@ -12,29 +12,44 @@
 // it pays less (a buy target). VORP vs waivers is a different unit and is never
 // paired with anything here. A missing value on either side gives no gap
 // (null plus a reason), never zero.
+//
+// Our value is one of the engine's projection-derived DDF series (Jeremy,
+// 2026-10-07): ESPN (default), CBS rest-of-season or Razzball. Never a blend.
+//
+// Waiver line (Jeremy, 2026-10-07: "It's illogical that 0 value players would
+// be on a buy list."). Every series here is value above waivers for the user's
+// league: 0 means at or below that series' waiver line. A chart value at or
+// below 0 is shown, but it is never a buy (or sell) target and gets no gap.
 (function (root) {
   "use strict";
 
-  const OUR_KEY = "espn";
+  const OUR_KEYS = ["espn", "cbsros", "razzball"];
+  const OUR_KEY = OUR_KEYS[0];   // default
+  const OUR_NAMES = {espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections"};
+  const OUR_SHORT = {espn: "ESPN · DDA", cbsros: "CBS ROS · DDA", razzball: "Razzball · DDA"};
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const CHART_NAMES = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 
   const finite = value => typeof value === "number" && Number.isFinite(value);
 
   // charts: the chart keys to compare (already filtered for availability and week).
-  function buildTargets(rows, charts) {
+  // opts.ours: which engine series is our value (default ESPN).
+  function buildTargets(rows, charts, opts) {
+    const ourKey = (opts && opts.ours) || OUR_KEY;
+    if (!OUR_KEYS.includes(ourKey)) throw new Error(`not a projection-derived series: ${ourKey}`);
     const players = [];
     let omittedNoOurs = 0;
+    let atWaiverCells = 0;
     // GAP-025: players ESPN projects at 0 (injured/out) have no ESPN · DDA
     // value in the engine, so they get no gap. A published chart that still
     // pays for one is the plainest sell there is; list them with the chart's
-    // value as published, and no invented gap.
+    // value as published, and no invented gap. Only when ESPN is our value.
     const espnZeroPaid = [];
     rows.forEach((row, index) => {
-      const ours = row.values ? row.values[OUR_KEY] : null;
+      const ours = row.values ? row.values[ourKey] : null;
       if (!finite(ours)) {
         omittedNoOurs += 1;
-        if (row.espnProjectsZero) {
+        if (ourKey === "espn" && row.espnProjectsZero) {
           const paid = charts.filter(chart => finite(row.values && row.values[chart]) && row.values[chart] > 0)
             .map(chart => ({chart, value: row.values[chart]}))
             .sort((a, b) => b.value - a.value);
@@ -51,6 +66,11 @@
           cells[chart] = {value: null, gap: null, reason: `Not on ${CHART_NAMES[chart] || chart}'s chart`};
           return;
         }
+        if (value <= 0) {
+          atWaiverCells += 1;
+          cells[chart] = {value, gap: null, atWaiver: true, reason: `At ${CHART_NAMES[chart] || chart}'s waiver line for your league`};
+          return;
+        }
         const gap = value - ours;
         cells[chart] = {value, gap, reason: null};
         if (gap > 0 && (!bestSell || gap > bestSell.gap)) bestSell = {chart, gap};
@@ -63,7 +83,7 @@
     const buy = players.filter(p => p.bestBuy)
       .sort((a, b) => a.bestBuy.gap - b.bestBuy.gap || a.order - b.order);
     espnZeroPaid.sort((a, b) => b.paid[0].value - a.paid[0].value || a.order - b.order);
-    return {sell, buy, compared: players.length, omittedNoOurs, espnZeroPaid};
+    return {ours: ourKey, sell, buy, compared: players.length, omittedNoOurs, atWaiverCells, espnZeroPaid};
   }
 
   // Chart columns to compare: available published charts; older-week charts
@@ -84,7 +104,18 @@
     return {used, skipped};
   }
 
-  const api = {OUR_KEY, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare};
+  // Our-value choices at this league setting: unavailable ones carry a reason.
+  function ourChoices(sourceInfo) {
+    const byKey = Object.fromEntries((sourceInfo || []).map(item => [item.key, item]));
+    return OUR_KEYS.map(key => {
+      const item = byKey[key];
+      const available = Boolean(item && item.available);
+      return {key, available, reason: available ? null
+        : item && item.paused ? "waiting on fresh inputs" : "not available for this league"};
+    });
+  }
+
+  const api = {OUR_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, buildTargets, chartsToCompare, ourChoices};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTargets = api;
 })(typeof window !== "undefined" ? window : globalThis);

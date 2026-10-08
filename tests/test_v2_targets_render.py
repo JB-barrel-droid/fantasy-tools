@@ -4,16 +4,21 @@ Builds dist/v2 into a temp copy of the built dist/, loads /v2/#trade-targets
 headless (desktop 1440 and mobile 390), and for every rendered row checks,
 against window.TradeValueCurveControls.getRows() for the same player:
 
-  * "Our value" shows the engine's ESPN DDA value;
+  * "Our value" shows the engine's value for the series picked in "Our value"
+    (ESPN by default, then CBS rest-of-season and Razzball through the picker);
   * each chart cell shows the engine's value for that chart, and its gap is
     exactly chart − ours with the right sign; a value the engine does not have
     shows — plus a reason, never 0.0;
+  * a chart value at or below its waiver line (0) shows "waiver line" and no
+    gap, and no buy target comes from one (Jeremy, 2026-10-07);
   * sell rows are ordered largest positive gap first, buy rows most negative first;
+  * the picked series survives a round trip to Player values; the Methods row
+    stays hidden on this tab;
   * no page errors and no horizontal overflow at 390 px.
 
 Discrimination: test_guard_fails_on_broken_builds serves targets.js with the
-gap sign flipped and with missing values read as 0, and requires the checks to
-fail on both.
+gap sign flipped, missing values read as 0, the waiver rule removed and the
+picked series ignored, and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -36,8 +41,9 @@ import build_v2_page  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
+OURS = ("espn", "cbsros", "razzball")
 
-READ = """(side) => {
+READ = """([side, ours]) => {
   const rows = window.TradeValueCurveControls.getRows();
   const engine = Object.fromEntries(rows.map(r => [String(r.player_key), r.values]));
   const text = node => (node ? node.childNodes[0]?.textContent || "" : null);
@@ -48,6 +54,7 @@ READ = """(side) => {
     bestChart: tr.querySelector('td.best').dataset.best,
     cells: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, {
       value: text(td), gap: td.querySelector('.gap')?.textContent ?? null,
+      atWaiver: Boolean(td.querySelector('.at-waiver')),
       missing: Boolean(td.querySelector('.missing')), why: td.querySelector('.missing .why')?.textContent ?? null}]))
   }));
   const cards = [...document.querySelectorAll('#v2TCards li')].map(li => ({
@@ -55,9 +62,14 @@ READ = """(side) => {
     ours: li.querySelector('.ours').textContent,
     cells: Object.fromEntries([...li.querySelectorAll('[data-chart]')].map(span => [span.dataset.chart, {
       value: span.childNodes[1]?.textContent ?? null, gap: span.querySelector('.gap')?.textContent ?? null,
+      atWaiver: Boolean(span.querySelector('.at-waiver')),
       missing: Boolean(span.querySelector('.missing'))}]))
   }));
-  return {side, engine, table, cards, used: window.TradeValueV2.targets().used,
+  return {side, ours, engine, table, cards, used: window.TradeValueV2.targets().used,
+    picker: document.getElementById('v2TOurs').value,
+    // Every target on this side, not only the rendered page.
+    allBest: window.TradeValueV2.targets()[side].map(p => [String(p.row.player_key), (side === 'sell' ? p.bestSell : p.bestBuy).chart]),
+    methodsHidden: document.getElementById('v2Methods').hidden,
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 
@@ -80,20 +92,29 @@ def finite(value):
 def check(snapshot) -> list[str]:
     errors = []
     side = snapshot["side"]
+    our_key = snapshot["ours"]
     engine = snapshot["engine"]
+    if snapshot["picker"] != our_key:
+        errors.append(f"picker shows {snapshot['picker']!r}, expected {our_key!r}")
+    if not snapshot["methodsHidden"]:
+        errors.append("the Methods row must stay hidden on Trade targets")
     if not snapshot["used"]:
         errors.append("no published chart compared")
     if not snapshot["table"]:
         errors.append(f"no {side} rows rendered")
+    for key, chart in snapshot["allBest"]:
+        value = (engine.get(key) or {}).get(chart)
+        if not finite(value) or value <= 0:
+            errors.append(f"{key}: {side} target from {chart} at {value!r}, at or below that chart's waiver line")
     best_gaps = []
     for row in snapshot["table"]:
         values = engine.get(row["key"])
         if values is None:
             errors.append(f"row {row['key']} is not an engine row")
             continue
-        ours = values.get("espn")
+        ours = values.get(our_key)
         if not finite(ours) or row["ours"] != fmt(ours):
-            errors.append(f"{row['key']}: ours {row['ours']!r} != engine espn {ours!r}")
+            errors.append(f"{row['key']}: ours {row['ours']!r} != engine {our_key} {ours!r}")
             continue
         gaps = {}
         for chart, cell in row["cells"].items():
@@ -104,12 +125,20 @@ def check(snapshot) -> list[str]:
                 continue
             if cell["missing"] or cell["value"] != fmt(value):
                 errors.append(f"{row['key']}/{chart}: shows {cell['value']!r}, engine {value!r}")
+            if value <= 0:
+                # At this chart's waiver line: never a target, no gap.
+                if cell["gap"] is not None or not cell["atWaiver"]:
+                    errors.append(f"{row['key']}/{chart}: chart value {value} is at the waiver line but shows {cell}")
+                continue
             gap = value - ours
             gaps[chart] = gap
             if cell["gap"] != fmt_gap(gap):
                 errors.append(f"{row['key']}/{chart}: gap {cell['gap']!r}, expected {fmt_gap(gap)!r} (chart − ours)")
+        if not gaps:
+            errors.append(f"{row['key']}: listed as {side} target with no chart above its waiver line")
+            continue
         pick = max(gaps, key=gaps.get) if side == "sell" else min(gaps, key=gaps.get)
-        if not gaps or (side == "sell" and gaps[pick] <= 0) or (side == "buy" and gaps[pick] >= 0):
+        if (side == "sell" and gaps[pick] <= 0) or (side == "buy" and gaps[pick] >= 0):
             errors.append(f"{row['key']}: listed as {side} target with gaps {gaps}")
             continue
         if row["bestChart"] != pick or row["best"] != fmt_gap(gaps[pick]):
@@ -120,15 +149,18 @@ def check(snapshot) -> list[str]:
         errors.append(f"{side} rows are not ordered by largest gap")
     for card in snapshot["cards"]:
         values = engine.get(card["key"], {})
-        if not finite(values.get("espn")) or card["ours"] != f"Ours {fmt(values['espn'])}":
-            errors.append(f"card {card['key']}: {card['ours']!r} vs engine espn {values.get('espn')!r}")
+        if not finite(values.get(our_key)) or card["ours"] != f"Ours {fmt(values[our_key])}":
+            errors.append(f"card {card['key']}: {card['ours']!r} vs engine {our_key} {values.get(our_key)!r}")
             continue
         for chart, cell in card["cells"].items():
             value = values.get(chart)
             if not finite(value):
                 if not cell["missing"]:
                     errors.append(f"card {card['key']}/{chart}: engine has no value but card shows {cell}")
-            elif cell["value"] != fmt(value) or cell["gap"] != fmt_gap(value - values["espn"]):
+            elif value <= 0:
+                if cell["value"] != fmt(value) or cell["gap"] is not None or not cell["atWaiver"]:
+                    errors.append(f"card {card['key']}/{chart}: chart value {value} is at the waiver line but shows {cell}")
+            elif cell["value"] != fmt(value) or cell["gap"] != fmt_gap(value - values[our_key]):
                 errors.append(f"card {card['key']}/{chart}: {cell} vs engine {value}")
     return errors
 
@@ -179,12 +211,20 @@ def collect(targets_body=None, viewports=((1440, 1000), (390, 844))):
                         status=200, content_type="text/javascript", body=targets_body))
                 page.goto(url, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
-                for side in ("sell", "buy"):
-                    page.click(f"#v2Targets [data-side={side}]")
-                    snap = page.evaluate(READ, side)
-                    snap["width"] = width
-                    snap["pageErrors"] = list(errors)
-                    snapshots.append(snap)
+                for ours in OURS:
+                    if ours != "espn":
+                        page.select_option("#v2TOurs", ours)
+                        # The pick must survive a trip to Player values and back.
+                        page.evaluate("() => { location.hash = '#player-values'; }")
+                        page.wait_for_function("() => !document.getElementById('v2Main').hidden")
+                        page.evaluate("() => { location.hash = '#trade-targets'; }")
+                        page.wait_for_function("() => !document.getElementById('v2Targets').hidden")
+                    for side in ("sell", "buy"):
+                        page.click(f"#v2Targets [data-side={side}]")
+                        snap = page.evaluate(READ, [side, ours])
+                        snap["width"] = width
+                        snap["pageErrors"] = list(errors)
+                        snapshots.append(snap)
                 page.close()
         finally:
             browser.close()
@@ -194,7 +234,7 @@ def collect(targets_body=None, viewports=((1440, 1000), (390, 844))):
 def check_all(snapshots) -> list[str]:
     errors = []
     for snap in snapshots:
-        prefix = f"[{snap['width']}px {snap['side']}] "
+        prefix = f"[{snap['width']}px {snap['ours']} {snap['side']}] "
         errors += [prefix + e for e in check(snap)]
         if snap["pageErrors"]:
             errors.append(prefix + f"page errors: {snap['pageErrors']}")
@@ -216,6 +256,9 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "sign flipped": source.replace("const gap = value - ours;", "const gap = ours - value;", 1),
             "missing read as zero": source.replace("const value = row.values[chart];",
                                                    "const value = row.values[chart] ?? 0;", 1),
+            "waiver rule removed": source.replace("if (value <= 0) {", "if (false) {", 1),
+            "picked series ignored": source.replace("const ourKey = (opts && opts.ours) || OUR_KEY;",
+                                                    "const ourKey = OUR_KEY;", 1),
         }
         for name, body in broken.items():
             with self.subTest(mutation=name):

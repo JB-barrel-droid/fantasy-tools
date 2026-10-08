@@ -78,7 +78,11 @@ managers will accept. Sell where a public chart pays more than we would, buy whe
 It keeps the frame's layout (table on desktop, cards below 768 px), but the comparison is one exact
 pair per column, not a spread across sources:
 
-- Our value = the engine's `espn` series (ESPN projections, Data Driven Adjustments).
+- Our value = one engine projection-derived DDF series, picked in "Our value" (Jeremy,
+  2026-10-07): `espn` (ESPN, default), `cbsros` (CBS rest-of-season) or `razzball`. One series at a
+  time, never a blend. A series unavailable at the current setting is listed disabled with its
+  reason; if the picked one becomes unavailable the tab fails closed rather than swapping. The pick
+  is v2 module state, so it survives switching tabs (no storage, like the other v2 selections).
 - Each published chart = the engine's Indexed series (`usatoday`, `fantasycalc`, `fantasypros`,
   `cbs`), which the engine puts on the same trade-value point scale. VORP vs waivers is never
   paired with anything.
@@ -86,10 +90,15 @@ pair per column, not a spread across sources:
   players with a positive gap, largest first; buy list = negative, most negative first. The
   "Largest gap" column names the chart it came from.
 - Missing chart value: "—" plus "not on chart", no gap. Players without our value are left out
-  and counted. A chart value of 0.0 is real: the indexing puts a low published value at that
-  chart's waiver line.
+  and counted. A chart value of 0.0 is real: it is at or below that chart's waiver line for the
+  league. Such a cell shows "0.0 · waiver line" with no gap, and is never a buy (Jeremy,
+  2026-10-07: "It's illogical that 0 value players would be on a buy list"). Buying also needs our
+  value above 0, which holds automatically (ours > chart > 0). The ESPN tier column is not used
+  to filter: it comes from a different roster model than the ESPN line (risk row
+  V2-TIER-VS-ESPN-LEG).
+- Methods row stays hidden on this tab.
 - Default charts: available, current-week ones. Older-week charts are listed as not compared until
   "Include older-week charts" is ticked. Position is the engine's shared setting, so it carries
   across tabs.
-- Fails closed if our series is unavailable, or if the engine is not in its Indexed view (where the
+- Fails closed if the picked series is unavailable, or if the engine is not in its Indexed view (where the
   published series would be in a different unit).

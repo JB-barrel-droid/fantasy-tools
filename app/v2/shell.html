@@ -146,6 +146,9 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
+      <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">Our value:</span>
+        <select id="v2TOurs"></select>
+      </label>
       <label class="v2-field v2-field-rank"><span class="v2-field-label">Compare against:</span>
         <select id="v2TChart"></select>
       </label>
@@ -176,7 +179,7 @@
       <ul class="v2-espn-zero-list" id="v2TEspnZeroList"></ul>
     </section>
 
-    <p class="v2-footnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is ESPN projections with Data Driven Adjustments; each published chart is indexed to the same point scale. VORP vs waivers is a different unit and is never mixed in. A missing value shows —, never zero.</p>
+    <p class="v2-footnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
