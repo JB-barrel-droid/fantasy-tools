@@ -21,6 +21,11 @@ The stable rules are:
 - Source values stay native until the reference-compute step reindexes them.
 - Missing source values stay absent/null and display as unavailable.
 - Genuine source zeros stay zero.
+- A player ESPN lists but projects at 0 (injured or out) is a genuine ESPN zero:
+  0.0 on the ESPN series, with a badge, so a chart still paying for him shows a
+  gap (Jeremy, 2026-10-07). The zero is shown, not added to the anchor: the pie
+  every chart is indexed against is unchanged. A player with no ESPN row is
+  missing, not 0.
 - Published/direct charts are compared against the built ESPN indexed leg.
 - Raw ESPN value above waivers is a separate comparison mode, not the indexed
   trade-value anchor.

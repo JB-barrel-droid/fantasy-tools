@@ -818,9 +818,15 @@
     return cols.length ? cols : defaults;
   }
 
+  // GAP-025 (Jeremy, 2026-10-07: "Yes, use 0"): same rule as the curve
+  // widget's rowValue. A player ESPN projects at 0 (injured/out) shows 0.0 on
+  // the ESPN series; sourceMaps (the anchor) are untouched; no ESPN row = —.
+  const ESPN_ZERO_VALUE_KEYS = new Set(["espn", "espn_vorp"]);
   function sourceValue(key, playerKey) {
     if (!sourceAvailable(key)) return null;
-    return sourceMaps.get(key)?.has(playerKey) ? sourceMaps.get(key).get(playerKey) : null;
+    const map = sourceMaps.get(key);
+    if (map?.has(playerKey)) return map.get(playerKey);
+    return ESPN_ZERO_VALUE_KEYS.has(key) && map?.size && canonicalByKey.get(playerKey)?.espn_projects_zero ? 0 : null;
   }
 
   // Content week from the freshness record; adjusted series add their fit date.

@@ -218,7 +218,9 @@
   // canonical_name + kdst_excluded_from_chart + ir_zeroed so the cutover
   // does not change downstream semantics.
   // GAP-025 (Jeremy, 2026-10-07): published charts keep their values as
-  // published; players ESPN projects at 0 get a visible badge instead. The
+  // published; players ESPN projects at 0 get a visible badge, and (second
+  // decision, same day: "Yes, use 0") an ESPN value of 0.0 rather than none --
+  // see rowValue in curve-widget.js and sourceValue in comparison-dashboard.js. The
   // flag reads the bake's own ESPN fields: espn_status "ineligible" means ESPN
   // lists the player with a zero projection (injured or out), and an ESPN row
   // whose per-game projection is 0 in every scoring is the same thing.
@@ -227,7 +229,7 @@
   const ESPN_ZERO_BADGE = Object.freeze({
     label: "ESPN: 0 (out)",
     symbol: "\u2298",
-    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out). Published charts are shown as published, so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
+    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out), so our ESPN value for him is 0.0. Published charts are shown as published, so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
   });
   function espnProjectsZero(player) {
     if (player?.espn_status === "ineligible") return true;
