@@ -228,6 +228,21 @@ jobs:
             exit 1
           fi
 
+      # Capture again AFTER promotion (weeks lane, 2026-10-08): the first
+      # capture ran before the chain, so a source the chain just promoted was
+      # indexed against the old fixture. This one indexes the saved weeks
+      # against the fixture being committed. Append-only and validated before
+      # it writes; a failure keeps the pre-chain capture (warning only).
+      - name: Capture week history after promotion
+        if: steps.chain.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/build_week_history.py --supabase \
+            || echo "::warning title=week-history::post-promotion capture failed; the pre-chain capture is kept"
+
       - name: Sync rebuilt fixture into dist (chain succeeded)
         if: steps.chain.outcome == 'success'
         run: |

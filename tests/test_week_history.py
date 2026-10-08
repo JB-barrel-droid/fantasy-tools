@@ -311,6 +311,19 @@ class WeekSnapshotRuleTest(unittest.TestCase):
         self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["usatoday"]["week"])
 
 
+class ChainCaptureOrderTest(unittest.TestCase):
+    def test_history_is_captured_after_promotion_and_before_the_commit(self):
+        # 2026-10-08: CBS Week 5 promoted at 12:11 while the only capture ran
+        # before the chain, so the committed index was built against the old
+        # fixture. A capture after the chain step must exist.
+        text = (ROOT / ".github/workflows/rebuild-chain.yml").read_text()
+        names = [line.split("- name:", 1)[1].strip() for line in text.splitlines() if "- name:" in line]
+        chain = names.index("Rebuild comparison chain (if fixture stale)")
+        commit = names.index("Commit and push if changed")
+        after = [i for i, n in enumerate(names) if n.startswith("Capture week history") and chain < i < commit]
+        self.assertTrue(after, "no week-history capture between the chain and the commit")
+
+
 class EspnPriorLegTest(unittest.TestCase):
     """HISTORY-ESPN-PRIOR: a saved ESPN week's leg is rebuilt with the
     pipeline's leg code. Proof it is the pipeline's leg: the SERVED week's
