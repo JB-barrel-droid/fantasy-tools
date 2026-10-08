@@ -798,6 +798,29 @@ def run_espn_source(source="espn", nfl_week=None, repo=REPO, run_fn=run):
     return result
 
 
+def run_retranslate(repo, run_fn, nfl_week=None):
+    """Stage 6b (V2-WAIVER-COVERAGE): re-translate every published chart in
+    the promoted fixture. Raises ChainHalt on failure.
+
+    A short chart's waiver line is extrapolated from the OTHER published
+    charts' saved natives, so promoting one chart can move another chart's
+    saved values. Each section was translated against the fixture as it stood
+    when that section ran; this pass makes every saved 12-team value the
+    translation of the fixture the site will show (the stored-drift parity
+    check, tests/test_vorp_translation_js_parity.py, requires it). Natives
+    are not touched; a chart whose peers did not change gets the same values.
+    """
+    cmd = ["python3", "pipelines/translate_via_vorp.py",
+           "--fixture", str(repo / "data/fixtures/current/comparison-sources-data.json"),
+           "--translation", "natives"]
+    if nfl_week is not None:
+        cmd += ["--week", str(nfl_week)]
+    ok, out = run_fn(cmd)
+    if not ok:
+        raise ChainHalt("retranslate", f"fixture re-translation failed: {out[-500:]}")
+    print("  ✓ Published charts re-translated against the promoted fixture")
+
+
 def run_fit(repo, run_fn):
     """Stage 7: bias-correction fit. Raises ChainHalt on failure.
 
@@ -1122,6 +1145,7 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             print("STAGE 7: BIAS-CORRECTION FIT")
             print("=" * 60)
             try:
+                run_retranslate(repo, run_fn, nfl_week)
                 run_fit(repo, run_fn)
                 fit_result = {"status": "ok", "detail": "fit complete"}
             except ChainHalt as h:

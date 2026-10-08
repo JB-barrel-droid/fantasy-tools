@@ -168,6 +168,20 @@ def apply_combo(source, combo_name, combo, translated, fixture_keys, name_keys,
     if natives_run is not None and report["method"] == "vorp-supabase":
         combo["translation"]["translated_from"] = "combo-natives"
         combo["translation"]["n_below_waiver"] = report["n_below_waiver"]
+        # V2-WAIVER-COVERAGE: how each position's waiver line was set. A
+        # position whose method is imputed_from_other_charts lists fewer
+        # players than the league rosters; its line was extrapolated from
+        # the peers (never shown as this chart's values).
+        unified = _unified()
+        combo["translation"]["waiver"] = unified.waiver_summary(natives_run["positions"])
+        combo["translation"]["waiver_imputation"] = {
+            "version": unified.IMPUTATION_VERSION,
+            "peers": natives_run.get("peers") or [],
+            "imputed_positions": [pos for pos, p in natives_run["positions"].items()
+                                  if p["waiver_method"] == unified.WAIVER_IMPUTED],
+            "short_positions": [pos for pos, p in natives_run["positions"].items()
+                                if p["waiver_method"] == "insufficient_coverage"],
+        }
         combo["translation"]["note"] = (
             "JEG-62 value-above-waivers translation computed in-process "
             "(unified.translate_natives) from this combo's own native values "
@@ -237,16 +251,45 @@ def _qb_divergent_siblings(source, sdata):
 _REGISTRY = None
 
 
-def _natives_run(combo, teams):
-    """unified.translate_natives on one combo's natives (marked for apply_combo)."""
-    global _REGISTRY
+def _unified():
     sys.path.insert(0, str(REPO))
     from pipelines.vorp_translation import unified
+    return unified
+
+
+def _natives_run(combo, teams, peers=None):
+    """unified.translate_natives on one combo's natives (marked for apply_combo).
+
+    peers (V2-WAIVER-COVERAGE): {peer_source: {slug: native}} -- the other
+    published charts' saved 12-team natives at this combo's scoring; a short
+    position's waiver line is extrapolated from them.
+    """
+    global _REGISTRY
+    unified = _unified()
     if _REGISTRY is None:
         _REGISTRY = unified.naming_registry()
-    run = unified.translate_natives(combo.get("native") or {}, teams, reg=_REGISTRY)
+    run = unified.translate_natives(combo.get("native") or {}, teams, reg=_REGISTRY,
+                                    peers=peers)
     run["__natives_run__"] = True
     return run
+
+
+def _peer_fixture(doc):
+    """The fixture whose OTHER published charts supply the peers.
+
+    Fixture mode: the document itself. Section mode (the chain): the current
+    fixture -- the natives the site shows for every other chart. The chain
+    re-translates the whole fixture after promotion (rebuild_comparison_chain
+    stage 'retranslate'), so a peer refreshed later in the same run is picked
+    up there.
+    """
+    if "sources" in doc:
+        return doc
+    try:
+        return json.loads((REPO / "data" / "fixtures" / "current"
+                           / "comparison-sources-data.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"sources": {}}
 
 
 def _provenance(report, grain):
@@ -293,6 +336,7 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False,
 
     jobs = []  # (source, combo_name, combo, translated_or_error)
     reports = []
+    peer_doc = None
     sources = doc["sources"] if "sources" in doc else {doc.get("source_key"): doc}
     for source, sdata in (sources or {}).items():
         if source not in AS_PUBLISHED_SOURCES or not isinstance(sdata, dict):
@@ -322,7 +366,10 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False,
                 continue
             scoring, teams = grain
             if translation == "natives":
-                run = _natives_run(combo, teams)
+                if peer_doc is None:
+                    peer_doc = _peer_fixture(doc)
+                peers = _unified().peer_natives(peer_doc, source, scoring)
+                run = _natives_run(combo, teams, peers=peers)
                 jobs.append((source, combo_name, combo, run))
                 continue
             try:

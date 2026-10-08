@@ -32,7 +32,7 @@ from pathlib import Path
 
 from tests.test_published_league_settings_engine import (
     DRIVER, FIXTURE, POSITIONS, SCORINGS, SHAPES, SOURCES, VALUE_MODEL,
-    _cases, browser_inputs, browser_players, run_js,
+    _cases, browser_inputs, browser_players, peers_ranked, run_js,
 )
 from pipelines.vorp_translation import unified
 
@@ -65,8 +65,10 @@ def expected_views(inputs, teams, shape, pos_of):
             ranked[pos_of[key]].append((str(key), str(key), float(value)))
         for p in POSITIONS:
             ranked[p].sort(key=lambda r: -r[2])  # stable, like the JS
+        # V2-WAIVER-COVERAGE: each chart's peers are the other charts in the batch.
+        peers = peers_ranked({other: inputs[other][0] for other in inputs if other != src}, pos_of)
         at = unified.translate_ranked(ranked, teams, shape["BENCH"], shape["FLEX"],
-                                      slots=slots, flex_eligible=elig)
+                                      slots=slots, flex_eligible=elig, peers=peers)
         info, groups, vorp_sum = {}, {p: {"starter": 0.0, "bench": 0.0} for p in POSITIONS}, 0.0
         for p in POSITIONS:
             pinfo = at["positions"].get(p)
@@ -102,7 +104,7 @@ def expected_views(inputs, teams, shape, pos_of):
 INDEXED_PRECISION = 0.1  # translate_ranked rounds `translated` to 1 decimal
 
 
-def rounding_band_violations(native, keys, teams, shape, pos_of, our_max):
+def rounding_band_violations(native, keys, teams, shape, pos_of, our_max, peers=None):
     """Players in `keys` (Indexed 0, views non-zero) that are NOT explained by
     the Indexed engine's 0.1 rounding. A key is explained only if the server's
     own translation, at this setting and on the Indexed engine's own positional
@@ -124,7 +126,8 @@ def rounding_band_violations(native, keys, teams, shape, pos_of, our_max):
     elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
     at = unified.translate_ranked(ranked, teams, shape["BENCH"], shape["FLEX"],
                                   slots={p: shape[p] for p in POSITIONS}, flex_eligible=elig,
-                                  our_max={p: float(our_max[p]) * boost for p in POSITIONS})
+                                  our_max={p: float(our_max[p]) * boost for p in POSITIONS},
+                                  peers=peers_ranked(peers or {}, pos_of))
     out = []
     for key in sorted(keys, key=str):
         t = at["translated"].get(str(key))
@@ -163,13 +166,21 @@ def zero_set_failures(model_path=VALUE_MODEL, settings=READER_SETTINGS):
             zero_indexed = {k for k, v in idx["values"].items() if v == 0}
             if zero_views != {k for k, v in adj.items() if v == 0}:
                 failures.append(f"{tag}: VORP and Adjusted views disagree on who is 0")
-            if not zero_views:
+            # V2-WAIVER-COVERAGE (Jeremy 2026-10-07): a short chart whose
+            # waiver line is extrapolated past its list at EVERY position can
+            # legitimately have nobody at 0 (CBS lists ~115 players). Any other
+            # chart must still have players at 0 (the waiver line applied).
+            waiver = res["sources"][src].get("waiver") or {}
+            all_imputed = bool(waiver.get("positions")) and all(
+                w["method"] == "imputed_from_other_charts" for w in waiver["positions"].values())
+            if not zero_views and not all_imputed:
                 failures.append(f"{tag}: nobody is 0 in the views")
             extra = zero_views - zero_indexed
             if extra:
                 failures.append(f"{tag}: {len(extra)} players 0 in the views but priced in Indexed")
             failures += [f"{tag} {msg}" for msg in rounding_band_violations(
-                inputs[src][0], zero_indexed - zero_views, teams, shape, pos_of, idx["ourMax"])]
+                inputs[src][0], zero_indexed - zero_views, teams, shape, pos_of, idx["ourMax"],
+                {other: inputs[other][0] for other in inputs if other != src})]
     return failures
 
 
@@ -239,7 +250,7 @@ class PublishedViewsEngine(unittest.TestCase):
               f"max_abs_diff={max_diff} failures={len(failures)}")
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertGreater(n, 30000)
-        self.assertEqual({r["version"] for r in results}, {"published-views-001/1"})
+        self.assertEqual({r["version"] for r in results}, {"published-views-001/2"})
 
     def test_reader_invariants(self):
         """VORP-vs-waivers totals are the anchor's and keep the publisher's own
@@ -330,8 +341,8 @@ class PublishedViewsEngine(unittest.TestCase):
                 "          if (!t) { if (i !== p.n_rostered) return; t = {vorp: 0.1}; }"),
             # the views use a waiver line one bench slot deeper than Indexed
             "views-waiver-deeper": (
-                "var at = translatePublishedVorp(Object.assign({ranked: ranked}, setting));",
-                "var at = translatePublishedVorp(Object.assign({ranked: ranked}, setting, "
+                "peers: peersByPosition(peers, posOf)}, setting));",
+                "peers: peersByPosition(peers, posOf)}, setting, "
                 "{benchPerTeam: setting.benchPerTeam + 1}));"),
             # Indexed zeroes above-waiver players worth a real (visible) amount
             "indexed-drops-small": (

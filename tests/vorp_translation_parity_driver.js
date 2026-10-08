@@ -30,10 +30,29 @@ const results = payload.vectors.map(vector => {
         flexEligible: vector.flex_eligible || undefined,
       })};
     }
-    const ranked = {};
-    Object.entries(vector.ranked).forEach(([pos, rows]) => {
-      ranked[pos] = rows.map(([key, value]) => ({key, value}));
-    });
+    const toRanked = byPos => {
+      const out = {};
+      Object.entries(byPos || {}).forEach(([pos, rows]) => {
+        out[pos] = rows.map(([key, value]) => ({key, value}));
+      });
+      return out;
+    };
+    const ranked = toRanked(vector.ranked);
+    // V2-WAIVER-COVERAGE: the other published charts (peers).
+    let peers;
+    if (vector.peers) {
+      peers = {};
+      Object.entries(vector.peers).forEach(([src, byPos]) => { peers[src] = toRanked(byPos); });
+    }
+    if (vector.kind === "impute") {
+      const sorted = {};
+      Object.entries(ranked).forEach(([pos, rows]) => {
+        sorted[pos] = rows.slice().sort((a, b) => b.value - a.value);
+      });
+      const ext = ValueModel.imputeExtension(sorted, peers);
+      return {extension: Object.fromEntries(Object.entries(ext).map(([pos, rows]) =>
+        [pos, rows.map(r => [String(r.key), r.value])]))};
+    }
     const out = ValueModel.translatePublishedVorp({
       ranked,
       teams: vector.teams,
@@ -42,6 +61,7 @@ const results = payload.vectors.map(vector => {
       slots: vector.slots || undefined,
       flexEligible: vector.flex_eligible || undefined,
       ourMax: vector.our_max || undefined,
+      peers,
     });
     return {version: out.version, positions: out.positions, translated: out.translated};
   } catch (error) {

@@ -123,6 +123,33 @@ def browser_inputs(fixture, pos_of, source, scoring):
     return native, saved, combo.get("index_total") or {}
 
 
+def browser_peers(fixture, pos_of, source, scoring):
+    """V2-WAIVER-COVERAGE: the OTHER published charts' saved 12-team natives,
+    browser-mapped ({peer: [(key, value)]}), as the widget passes them."""
+    return {peer: browser_inputs(fixture, pos_of, peer, scoring)[0]
+            for peer in SOURCES if peer != source
+            and _has_combo(fixture, peer, scoring)}
+
+
+def _has_combo(fixture, source, scoring):
+    try:
+        unified.resolve_combo_key(fixture["sources"][source], scoring, 12)
+        return True
+    except SystemExit:
+        return False
+
+
+def peers_ranked(peers, pos_of):
+    """{peer: [(key, value)]} -> translate_ranked's peers argument."""
+    out = {}
+    for peer, native in peers.items():
+        by_pos = {p: [] for p in POSITIONS}
+        for key, value in native:
+            by_pos[pos_of[key]].append((str(key), float(value)))
+        out[peer] = by_pos
+    return out
+
+
 def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     """Independent reference for the derived published chart (key -> value)."""
     fixture = fixture or json.loads(FIXTURE.read_text())
@@ -137,7 +164,9 @@ def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
     at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots,
                                   flex_eligible=elig,
-                                  our_max=expected_max(scoring, teams, shape, pos_of))
+                                  our_max=expected_max(scoring, teams, shape, pos_of),
+                                  peers=peers_ranked(browser_peers(fixture, pos_of, source, scoring),
+                                                     pos_of))
     out = {}
     for key, _value in saved:
         t = at["translated"].get(str(key))
@@ -152,7 +181,9 @@ def saved_setup_translated_keys(source, scoring):
     ranked, key_by_name = unified.load_native_values(source, scoring, 12)
     ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
                     for pos, rows in ranked.items()}
-    return frozenset(unified.translate_ranked(ranked_keyed, 12)["translated"])
+    peers = peers_ranked(browser_peers(json.loads(FIXTURE.read_text()), browser_players(),
+                                       source, scoring), browser_players())
+    return frozenset(unified.translate_ranked(ranked_keyed, 12, peers=peers)["translated"])
 
 
 def _cases(fixture, pos_of, settings):
@@ -160,10 +191,12 @@ def _cases(fixture, pos_of, settings):
     for source, scoring, teams, label, shape in settings:
         native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring)
         projection = sorted(browser_projection(scoring).items())
+        peers = browser_peers(fixture, pos_of, source, scoring)
+        peer_rows = [row for rows in peers.values() for row in rows]
         cases.append({"source": source, "scoring": scoring, "teams": teams, "label": label,
                       "shape": shape, "native": native, "saved": saved,
-                      "index_total": index_total, "projection": projection,
-                      "pos": {str(k): pos_of[k] for k, _ in native + saved + projection}})
+                      "index_total": index_total, "projection": projection, "peers": peers,
+                      "pos": {str(k): pos_of[k] for k, _ in native + saved + projection + peer_rows}})
     return cases
 
 
@@ -240,7 +273,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertLessEqual(max_diff, TOL)
         self.assertGreater(n, 20000)
-        self.assertEqual({r["version"] for r in results}, {"league-settings-001/3"})
+        self.assertEqual({r["version"] for r in results}, {"league-settings-001/4"})
         self.assertEqual({r["positionalMax"] for r in results}, {unified.POSITIONAL_MAX_VERSION})
         # Every value the chart would plot is finite and non-negative.
         for r in results:

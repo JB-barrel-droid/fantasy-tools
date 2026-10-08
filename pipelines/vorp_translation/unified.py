@@ -180,7 +180,52 @@ def rank_natives(native: dict, reg: Optional[Registry] = None
     return by_pos, key_by_name
 
 
-def translate_natives(native: dict, teams: int, reg: Optional[Registry] = None) -> dict:
+def keyed_ranked(native: dict, reg: Optional[Registry] = None) -> dict:
+    """{pos: [(player_key, slug, value)]} sorted descending (rank_natives, keyed)."""
+    by_pos, key_by_name = rank_natives(native, reg)
+    return {pos: [(key_by_name[norm_player_name(n)], n, v) for n, v in rows]
+            for pos, rows in by_pos.items() if rows}
+
+
+AS_PUBLISHED = ("cbs", "fantasycalc", "fantasypros", "usatoday")
+
+
+def peer_natives(fixture: dict, source: str, scoring: str) -> dict:
+    """The OTHER published charts' saved 12-team natives at this scoring.
+
+    {peer_source: {slug: native}}; a peer with no saved combo for the scoring
+    is left out (it borrows nothing). The browser reads the same combos
+    (product-data view=native, teams=12, qb1).
+    """
+    out = {}
+    for peer in AS_PUBLISHED:
+        if peer == source:
+            continue
+        sdata = (fixture.get("sources") or {}).get(peer) or {}
+        try:
+            combo_key = resolve_combo_key(sdata, scoring, SAVED_SETUP_TEAMS)
+        except SystemExit:
+            continue
+        native = (sdata["combos"][combo_key] or {}).get("native") or {}
+        if native:
+            out[peer] = native
+    return out
+
+
+def peers_ranked(peer_native_docs: Optional[dict], reg: Optional[Registry] = None) -> dict:
+    """{peer: {slug: native}} -> {peer: {pos: [(key, slug, value)]}}."""
+    return {peer: keyed_ranked(native, reg) for peer, native in (peer_native_docs or {}).items()}
+
+
+def waiver_summary(positions: dict) -> dict:
+    """Per-position waiver provenance for a translation (the denotation)."""
+    return {pos: {"method": p["waiver_method"], "n_listed": p["n_listed"],
+                  "n_rostered": p["n_rostered"], "n_imputed": p["n_imputed"]}
+            for pos, p in positions.items()}
+
+
+def translate_natives(native: dict, teams: int, reg: Optional[Registry] = None,
+                      peers: Optional[dict] = None) -> dict:
     """Translate ONE combo's own native values at the default roster.
 
     JEG332-STORED-DRIFT (2026-10-07): the comparison chain's translate stage
@@ -198,7 +243,7 @@ def translate_natives(native: dict, teams: int, reg: Optional[Registry] = None) 
     by_pos, key_by_name = rank_natives(native, reg)
     ranked_keyed = {pos: [(key_by_name[norm_player_name(n)], n, v) for n, v in rows]
                     for pos, rows in by_pos.items() if rows}
-    core = translate_ranked(ranked_keyed, teams)
+    core = translate_ranked(ranked_keyed, teams, peers=peers_ranked(peers, reg))
     slug_keys = {n: key_by_name[norm_player_name(n)]
                  for rows in by_pos.values() for n, _v in rows}
     return {
@@ -206,13 +251,15 @@ def translate_natives(native: dict, teams: int, reg: Optional[Registry] = None) 
         "evaluated": set(slug_keys.values()),
         "translated": {k: t["translated"] for k, t in core["translated"].items()},
         "positions": core["positions"],
+        "peers": sorted(peers or {}),
     }
 
 
 def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
                      week: int = 4, bench_per_team: float = 6.0,
                      write_supabase: bool = False,
-                     flex_count: Optional[int] = None) -> dict:
+                     flex_count: Optional[int] = None,
+                     impute: bool = True) -> dict:
     """Unified VORP translation for any as-published source.
     
     Args:
@@ -244,6 +291,12 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
                            flex_count not in (None, REF_FLEX_COUNT)):
         raise SystemExit("custom roster settings cannot overwrite default-grain VORP rows")
     ranked, key_by_name = load_native_values(source, scoring, teams)
+    # V2-WAIVER-COVERAGE: the other published charts' saved natives, so a
+    # short position's waiver line is extrapolated exactly as the chain and
+    # the browser do it.
+    fixture = json.loads((REPO / "data" / "fixtures" / "current"
+                          / "comparison-sources-data.json").read_text())
+    peers = peers_ranked(peer_natives(fixture, source, scoring)) if impute else None
 
     result = {
         'source': source,
@@ -272,7 +325,7 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
             ranked_keyed.append((pkey, name, val))
         result['ranked'][pos] = ranked_keyed
 
-    core = translate_ranked(result['ranked'], teams, bench_per_team, flex_count)
+    core = translate_ranked(result['ranked'], teams, bench_per_team, flex_count, peers=peers)
     result['positions'] = core['positions']
     result['translated'] = core['translated']
 
@@ -282,15 +335,107 @@ def translate_source(source: str, scoring: str = "half_ppr", teams: int = 12,
     return result
 
 
+# V2-WAIVER-COVERAGE (Jeremy 2026-10-07: "If needed for computations, cover
+# them by extrapolating from the average of other charts. Denote them. Where
+# it's not needed, hide those values.")
+#
+# When a chart lists fewer players at a position than the league rosters, its
+# waiver line used to fall back to its LAST listed value, so the bottom of a
+# short chart was 0 only because the list ended. Now the chart is extended past
+# its own list with IMPUTED native values for players it does not list, taken
+# from the other published charts (impute_extension), and the waiver line is
+# the value at the rostered count of that extended list. Imputed players exist
+# only for this computation: they never receive a translated value.
+#
+# Mapping (per position, per other chart O): k_O = sum(this chart's natives) /
+# sum(O's natives) over the players both list among the BOTTOM HALF of this
+# chart's list (value <= its median listed value, ties included, so input
+# order never matters; at least IMPUTE_MIN_FIT of them, else O is not used). An
+# unlisted player's imputed native is the mean over the usable charts that
+# list him of k_O x O's native, capped at this chart's last listed value (a
+# chart that leaves a player out values him at most at its last listed
+# value). Proportional, so monotone in every other chart's value. The
+# extension is ordered by that imputed value (ties: player key), appended
+# after the chart's own list. Browser port: value-model.js imputeExtension.
+IMPUTATION_VERSION = "other-charts-tail-ratio/1"
+IMPUTE_MIN_FIT = 3
+WAIVER_IMPUTED = "imputed_from_other_charts"
+
+
+def _pairs(rows) -> list:
+    """(key, value) pairs from (key, value) or (key, name, value) rows."""
+    return [(str(row[0]), float(row[-1])) for row in rows or []]
+
+
+def impute_extension(ranked: dict, peers: Optional[dict]) -> dict:
+    """Imputed natives for the players this chart does not list, per position.
+
+    ranked: {pos: [(key, value)]} this chart, sorted descending.
+    peers: {source: {pos: [(key, value)]}} the OTHER published charts (same
+    scoring, saved 12-team natives); rows may also be (key, name, value).
+    Returns {pos: [(key, imputed_value)]} sorted by value desc, key asc; a
+    position with nothing to impute is absent. Arithmetic order is fixed
+    (peers by sorted source name, players by sorted key string) so the
+    browser port reproduces every float bit for bit.
+    """
+    out: dict[str, list] = {}
+    if not peers:
+        return out
+    for pos in POSITIONS:
+        listed = _pairs(ranked.get(pos))
+        if not listed:
+            continue
+        mine = dict(listed)
+        last = listed[-1][1]
+        median = listed[len(listed) // 2][1]
+        tail = sorted(k for k, v in listed if v <= median)
+        acc: dict[str, list] = {}
+        for source in sorted(peers):
+            theirs = dict(_pairs((peers[source] or {}).get(pos)))
+            shared = [k for k in tail if k in theirs]
+            if len(shared) < IMPUTE_MIN_FIT:
+                continue
+            num = 0.0
+            den = 0.0
+            for k in shared:
+                num += mine[k]
+                den += theirs[k]
+            if not den > 0:
+                continue
+            ratio = num / den
+            for k in sorted(theirs):
+                if k in mine:
+                    continue
+                slot = acc.setdefault(k, [0.0, 0])
+                slot[0] += ratio * theirs[k]
+                slot[1] += 1
+        ext = [(k, min(last, total / count)) for k, (total, count) in acc.items()]
+        if ext:
+            ext.sort(key=lambda row: (-row[1], row[0]))
+            out[pos] = ext
+    return out
+
+
 def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0,
                      flex_count: Optional[int] = None,
                      slots: Optional[dict] = None,
                      flex_eligible: Optional[list] = None,
-                     our_max: Optional[dict] = None) -> dict:
+                     our_max: Optional[dict] = None,
+                     peers: Optional[dict] = None) -> dict:
     """Pure core of translate_source: no fixture, no naming table, no I/O.
 
     our_max: positional maxes to translate onto (default OUR_MAX, today's
     fixed anchors). positional_max_for_setup supplies league-following maxes.
+
+    peers: the other published charts' natives ({source: {pos: [(key,
+    value)]}}). When given, a position where this chart lists no more players
+    than the league rosters is extended with impute_extension's values and
+    its waiver line is read from the extended list (waiver_method
+    'imputed_from_other_charts'). Extension is applied only to such short
+    positions (re-checked after the roster allocation moves, at most once per
+    position), so a chart that is never short translates exactly as before.
+    If the extended list is still too short, the old fallback applies (last
+    LISTED value, 'insufficient_coverage').
 
     ranked_keyed: {pos: [(player_key, name, native), ...]} sorted descending.
     Returns {'positions': {...}, 'translated': {...}} exactly as
@@ -306,8 +451,19 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
         our_max = OUR_MAX
     ranked = {pos: [(pkey, val) for pkey, _name, val in rows]
               for pos, rows in ranked_keyed.items()}
-    roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked,
-                                slots=slots, flex_eligible=flex_eligible)
+    extension = impute_extension(ranked, peers) if peers else {}
+    extended: set = set()
+    while True:
+        work = {pos: rows + (extension[pos] if pos in extended else [])
+                for pos, rows in ranked.items()}
+        roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=work,
+                                    slots=slots, flex_eligible=flex_eligible)
+        short = [pos for pos in POSITIONS
+                 if pos not in extended and pos in extension and ranked.get(pos)
+                 and len(ranked[pos]) <= roster[pos]['rostered']]
+        if not short:
+            break
+        extended.update(short)
     result = {'positions': {}, 'translated': {}}
 
     for pos in POSITIONS:
@@ -315,13 +471,20 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
         if not ranked_rows:
             continue
         players = [(name, val) for _pkey, name, val in ranked_rows]
+        line = work[pos]
         r = roster[pos]
         n_rostered = r['rostered']
+        n_imputed = 0
 
-        # Waiver line = first non-rostered
-        if len(players) > n_rostered:
-            waiver_val = players[n_rostered][1]
-            method = 'roster_determined'
+        # Waiver line = first non-rostered (of the extended list when the
+        # chart is short and other charts cover it).
+        if len(line) > n_rostered:
+            waiver_val = line[n_rostered][1]
+            if n_rostered < len(players):
+                method = 'roster_determined'
+            else:
+                method = WAIVER_IMPUTED
+                n_imputed = n_rostered - len(players) + 1
         elif players:
             waiver_val = players[-1][1]
             method = 'insufficient_coverage'
@@ -352,6 +515,8 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
             'n_flex': r['flex'],
             'n_bench': r['bench'],
             'n_rostered': n_rostered,
+            'n_listed': len(players),
+            'n_imputed': n_imputed,
             'waiver_line_value': round(waiver_val, 2),
             'waiver_method': method,
             'max_vorp': round(max_vorp, 1),
