@@ -15,8 +15,6 @@
      "records": [{"check_id": "espn_supabase_sync", "file": ".github/workflows/espn-supabase-sync.yml", "contains": "--check-id espn_supabase_sync --owner espn-supabase-sync.yml"}]},
     {"workflow": "cbsros-supabase-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-cbsros-sync-live",
      "records": [{"check_id": "cbsros_supabase_sync", "file": ".github/workflows/cbsros-supabase-sync.yml", "contains": "--check-id cbsros_supabase_sync --owner cbsros-supabase-sync.yml"}]},
-    {"workflow": "fantasycalc-drift.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-fantasycalc-drift-live",
-     "records": [{"check_id": "fantasycalc_native_drift", "file": ".github/workflows/fantasycalc-drift.yml", "contains": "\"p_check_id\": \"fantasycalc_native_drift\""}]},
     {"workflow": "fantasycalc-weekly-save.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-fantasycalc-weekly-save",
      "records": [{"check_id": "fantasycalc_weekly_save", "file": ".github/workflows/fantasycalc-weekly-save.yml", "contains": "\"p_check_id\": \"fantasycalc_weekly_save\""}]},
     {"workflow": "health-artifacts.yml", "scheduler": "pg_cron", "pg_cron_job": "health-artifacts-live",
@@ -35,9 +33,6 @@
     {"workflow": "pages.yml", "scheduler": "github_schedule", "pg_cron_job": null,
      "gap": "GAP-GHA-SCHEDULES: deploys on every push to main plus its own GitHub cron (11:30 UTC); not dispatched from pg_cron",
      "records": [{"check_id": "site_deploy", "file": ".github/workflows/record-pages-deploy.yml", "contains": "--check-id site_deploy --owner pages.yml"}]},
-    {"workflow": "weekly-dashboard-load.yml", "scheduler": "github_schedule", "pg_cron_job": null,
-     "gap": "GAP-GHA-SCHEDULES: GitHub cron only (16:07 UTC); exits 2 daily until weekly production resumes (JEG-399)",
-     "records": [{"check_id": "weekly_dashboard_load", "file": ".github/workflows/weekly-dashboard-load.yml", "contains": "--check-id weekly_dashboard_load --owner weekly-dashboard-load.yml"}]},
     {"workflow": "sleeper-identity-refresh.yml", "scheduler": "github_schedule", "pg_cron_job": null,
      "gap": "GAP-GHA-SCHEDULES: GitHub cron only (Tue + Thu 09:17 UTC)",
      "records": [{"check_id": "sleeper_identity_refresh", "file": ".github/workflows/sleeper-identity-refresh.yml", "contains": "--check-id sleeper_identity_refresh --owner sleeper-identity-refresh.yml"}]},
@@ -56,6 +51,8 @@
     "record-pages-deploy.yml": "event-driven recorder for pages.yml (workflow_run); it is the evidence for check site_deploy, not a pipeline",
     "loader-dry-run.yml": "push/manual dry run of the loader; no schedule",
     "bake-players.yml": "push/manual producer; no schedule",
-    "cbsros-consolidation-load.yml": "push/manual load; no schedule"
+    "cbsros-consolidation-load.yml": "push/manual load; no schedule",
+    "fantasycalc-drift.yml": "manual only since 2026-10-08: pg_cron trigger-fantasycalc-drift-live and check fantasycalc_native_drift retired (the Tue + Fri weekly save supersedes it); producers_schedule_tidy_20261008.sql",
+    "weekly-dashboard-load.yml": "manual only since 2026-10-08: weekly production paused (JEG-399), no reader on the site; GitHub cron, pg_cron weekly-dashboard-load-live and check weekly_dashboard_load retired; producers_schedule_tidy_20261008.sql"
   }
 }
