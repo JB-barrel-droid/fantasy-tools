@@ -60,7 +60,7 @@ when the hourly vintage check sees a new content date, and daily at 11:45 (bake 
   - All 7 sources ok.
   - With the merged multi-path discovery: CBS → Week 5 (`dave-richards-2026-week-5-trade-chart`,
     dateModified 2026-10-07T17:44) and FantasyPros → Week 5.
-- **Tests**: `tests/test_source_probe.py` (41 tests), each guard paired with a broken variant.
+- **Tests**: `tests/test_source_probe.py` (46 tests), each guard paired with a broken variant.
   Broken variants covered:
   - a rule that ignores max age;
   - a rule that skips on probe failure;
@@ -68,12 +68,19 @@ when the hourly vintage check sees a new content date, and daily at 11:45 (bake 
   - a whole-page hash, an order-sensitive hash, and a cutoff-tie-sensitive hash;
   - slug-guessing discovery;
   - schema-qualified vintage table names;
+  - a chain dispatch that ignores a waiting run (the burst test queues exactly one extra run);
   - comparing a FantasyPros pull against an older bake.
 - **Gate**:
-  - `make sync` passed on 2afa576 and 97820f5. `make validate` exited 0 on both.
-  - On 0caa209 the run with playwright unimportable exited 0. The normal run failed only on
-    `test_week_history.DeltaRecomputeTest`, which also fails on clean origin/main 59999c6 (CBS
-    Week 5 promoted without a history entry; integrator routed it to the weeks lane).
+  - Final branch state 35d8651 (merged origin/main with weeks-tidy, superflex and CBS
+    versioning): `make sync` exited 0.
+  - `make validate` with playwright unimportable
+    (PYTHONPATH=scratchpad/noplaywright) exited 0.
+  - Normal `make validate` fails only on `test_week_history.DeltaRecomputeTest`. It fails the
+    same way on clean origin/main 59999c6: CBS Week 5 was promoted without a history entry. The
+    integrator marked it known-red and it skips in CI.
+  - `make test-unit`: `test_source_probe` passed 46/46. The run then stops at
+    `test_adjustment_inputs` with "versioned adjustment-inputs missing:
+    data/adjustment-inputs/ddf-20261008-..." — a main data artifact, not touched here.
   - No sweep: no change moves chart numbers. Probes, schedules and acks only. The CBS host change
     returns identical tables, and bake-id formats are not read by the importer, which selects by
     created_at.
