@@ -710,6 +710,7 @@
   // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
   const TABLE_GROUPS = [["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
     ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
+  const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
   function tableGroup(key) {
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
