@@ -137,9 +137,14 @@ def check_source(source: str) -> str:
 def _default_supabase_rows(table: str, params: str) -> list[dict[str, Any]]:
     if SUPABASE_SKILL_BIN not in sys.path:
         sys.path.insert(0, SUPABASE_SKILL_BIN)
-    from sbclient import get_all  # noqa: E402
+    from sbclient import get, get_all  # noqa: E402
 
-    rows = get_all(table, params=params)
+    # A read that names its own limit= is one page (get_all drops limit= and
+    # pages through everything); the latest-week lookup relies on this.
+    if "limit=" in params:
+        rows = get(table, params)
+    else:
+        rows = get_all(table, params=params)
     if not isinstance(rows, list):
         raise SystemExit(f"Unexpected Supabase response for {table}: {type(rows)}")
     return [row for row in rows if isinstance(row, dict)]
@@ -310,6 +315,30 @@ def derive_db_vintage(rows: list[dict[str, Any]], *, date_column: str = "source_
         "(source_content_date is NULL and no week/file vintage available). "
         "A vintage-less snapshot would reset freshness; refusing to write one."
     )
+
+
+def latest_week_param(table: str, params: str) -> str:
+    """`&week=eq.<N>` for the newest 1-QB week of this read, looked up server-side.
+
+    GAP-IMPORTER-ALL-WEEKS (2026-10-08): the weekly tables keep every week and
+    every bake, so an unscoped read grows all season (FantasyCalc bakes ~585
+    rows per pull, up to ~4 a day). One `limit=1` row picks the week, and the
+    full read is filtered to it. _select_latest_week still runs on the result,
+    so the selection is unchanged. Superflex rows (qb_slots = 2) never pick
+    the week (split_qb_slots: NULL counts as 1). Returns "" when no row
+    carries a week (the unscoped read and its fail-closed paths are kept).
+    """
+    probe = params.replace("select=*", "select=week,qb_slots", 1)
+    top = fetch_supabase_rows(
+        table,
+        f"{probe}&week=not.is.null&or=(qb_slots.is.null,qb_slots.eq.1)"
+        "&order=week.desc&limit=1",
+    )
+    weeks = [
+        r.get("week") for r in top
+        if r.get("week") is not None and parse_int(r.get("qb_slots")) in (None, 1)
+    ]
+    return f"&week=eq.{max(weeks)}" if weeks else ""
 
 
 def _select_latest_week(
@@ -489,6 +518,7 @@ def build_db_snapshot(source: str) -> tuple[dict[str, Any], dict[str, Any]]:
 def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """The big three: public.source_trade_values, variant='as_published' only."""
     params = f"?select=*&source=eq.{source}&variant=eq.as_published"
+    params += latest_week_param("source_trade_values", params)
     raw_rows = fetch_supabase_rows("source_trade_values", params)
 
     # ECR backstop: the SQL filter names the source, but even if it is widened
@@ -722,6 +752,7 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
     combos exactly like the live fixture's cbs section.
     """
     params = "?select=*&source=eq.cbs&variant=eq.as_published"
+    params += latest_week_param("cbs_trade_values", params)
     rows = fetch_supabase_rows("cbs_trade_values", params)
     ecr_dropped = [r for r in rows if is_ecr_flavored(r.get("source"))]
     rows = [r for r in rows if not is_ecr_flavored(r.get("source"))]
