@@ -13,7 +13,9 @@ cbsros (CBS rest-of-season projections) runs its own stage path instead:
 The generic path's quantile-reindex stage always maps to the ESPN anchor,
 which would transform cbsros's deliberate DDF-direct values (factor 1.0);
 its chain mirrors its production pipeline and its review stage verifies
-the rebuilt fixture section fail-closed.
+the rebuilt fixture section fail-closed. razzball (Razzball rest-of-season
+projections) runs the same path; a razzball failure keeps its last promoted
+section (isolated, like a review hold) instead of failing the chain.
 
 Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
 - Review verdicts are NEVER modified by this chain. A 'hold' stays a 'hold'.
@@ -79,7 +81,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs", "cbsros"]
+# razzball (GAP-RAZZBALL-SUFFIX-POOL, 2026-10-08): the workflow imported the
+# razzball snapshot every run, but nothing rebuilt its legs or section, so the
+# published section stayed on the vintage of its last hand build.
+SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs", "cbsros", "razzball"]
 
 # Per-source isolation (per-source-promotion-001): only these sources' review
 # holds are isolated. They are the generic published-chart sources whose
@@ -114,6 +119,15 @@ CBSROS_LEG_SCORINGS = ("standard", "half_ppr", "ppr")
 CBSROS_LEG_TEAMS = (8, 10, 12, 14)
 CBSROS_COMBO_KEYS = [f"{s}_{t}" for s in ("full", "half", "standard")
                      for t in CBSROS_LEG_TEAMS]
+
+# Projection sources priced through their own DDF leg (snapshot -> 12 legs ->
+# section), never the quantile-reindex path. Same 12-combo matrix as cbsros.
+LEG_SECTION_SCRIPTS = {
+    "cbsros": ("pipelines/build_cbsros_ddf_leg.py",
+               "pipelines/build_cbsros_section_from_ddf_leg.py"),
+    "razzball": ("pipelines/build_razzball_ddf_leg.py",
+                 "pipelines/build_razzball_section_from_ddf_leg.py"),
+}
 
 # Stage names in strict execution order (fit runs last, gated on all sources).
 STAGE_ORDER = ["match", "reference", "section", "reindex", "review", "promote", "fit"]
@@ -588,8 +602,8 @@ def isolate_hold(repo, source, before, result, nfl_week=None):
     return result
 
 
-def _verify_cbsros_section(repo, snapshot_vintage):
-    """Review GATE for the cbsros chain (not a bypass).
+def _verify_cbsros_section(repo, snapshot_vintage, source="cbsros"):
+    """Review GATE for the cbsros (and razzball) chain (not a bypass).
 
     The section builder writes sources.cbsros directly to the fixture, so
     there is no candidate-vs-fixture review artifact. This verification is
@@ -602,13 +616,13 @@ def _verify_cbsros_section(repo, snapshot_vintage):
         fixture = json.loads(fixture_path.read_text(encoding="utf-8"))
     except (OSError, ValueError) as exc:
         raise ChainHalt("review", f"cannot read fixture for review: {exc}")
-    section = (fixture.get("sources") or {}).get("cbsros")
+    section = (fixture.get("sources") or {}).get(source)
     if not isinstance(section, dict):
-        raise ChainHalt("review", "sources.cbsros missing from fixture after section build")
+        raise ChainHalt("review", f"sources.{source} missing from fixture after section build")
     combos = section.get("combos") or {}
     missing = [k for k in CBSROS_COMBO_KEYS if k not in combos]
     if missing:
-        raise ChainHalt("review", f"cbsros section missing combos: {missing}")
+        raise ChainHalt("review", f"{source} section missing combos: {missing}")
     bad = []
     n_values = 0
     for key in CBSROS_COMBO_KEYS:
@@ -634,12 +648,12 @@ def _verify_cbsros_section(repo, snapshot_vintage):
                 break
         n_values += len(values)
     if bad:
-        raise ChainHalt("review", f"cbsros section malformed: {bad[:5]}")
+        raise ChainHalt("review", f"{source} section malformed: {bad[:5]}")
     vintage = section.get("vintage")
     if snapshot_vintage and vintage != snapshot_vintage:
         raise ChainHalt(
             "review",
-            f"cbsros section vintage {vintage!r} != snapshot vintage {snapshot_vintage!r}",
+            f"{source} section vintage {vintage!r} != snapshot vintage {snapshot_vintage!r}",
         )
     print(f"  ✓ review: 12 combos, {n_values} values, vintage {vintage}")
     return n_values
@@ -681,9 +695,10 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
 
         # 2. DDF leg: rebuild all 12 legs from the snapshot (3 scorings x 4 team counts)
         result["stage"] = "leg"
+        leg_script, section_script = LEG_SECTION_SCRIPTS[source]
         for scoring, teams in ((s, t) for s in CBSROS_LEG_SCORINGS for t in CBSROS_LEG_TEAMS):
             ok, out = run_fn([
-                "python3", "pipelines/build_cbsros_ddf_leg.py",
+                "python3", leg_script,
                 "--snapshot", str(snapshot),
                 "--scoring", scoring,
                 "--teams", str(teams),
@@ -694,14 +709,14 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
 
         # 3. Section: build the fixture section from the fresh legs
         result["stage"] = "section"
-        ok, out = run_fn(["python3", "pipelines/build_cbsros_section_from_ddf_leg.py"])
+        ok, out = run_fn(["python3", section_script])
         if not ok:
-            raise ChainHalt("section", f"cbsros section build failed: {out[-500:]}")
-        print("  ✓ cbsros fixture section rebuilt")
+            raise ChainHalt("section", f"{source} section build failed: {out[-500:]}")
+        print(f"  ✓ {source} fixture section rebuilt")
 
         # 4. Review gate: verify the rebuilt section (halts fail-closed)
         result["stage"] = "review"
-        n_values = _verify_cbsros_section(repo, snapshot_vintage)
+        n_values = _verify_cbsros_section(repo, snapshot_vintage, source)
 
         result["status"] = "ok"
         result["stage"] = "complete"
@@ -710,7 +725,7 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
             f"snapshot {snapshot_vintage} -> 12 DDF legs -> section; "
             f"review passed ({n_values} values)"
         )
-        print(f"  ✓ cbsros chain complete: {result['detail']}")
+        print(f"  ✓ {source} chain complete: {result['detail']}")
 
     except ChainHalt as h:
         result["stage"] = h.stage
@@ -722,6 +737,56 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
         print(f"  ✗ ERROR: {e}")
 
     return result
+
+
+PLAYERS_REL = Path("data") / "fixtures" / "current" / "players.json"
+
+
+def razzball_bake_mismatch(repo, snapshot):
+    """Why the Razzball section must not move to this snapshot, or None.
+
+    The browser prices Razzball from players.json rz_ppg (baked by
+    bake_players.py) and the main table reads the chain's Razzball section.
+    Both must be one vintage (GAP-RAZZBALL-SUFFIX-POOL: the section said
+    2026-10-01 while the browser priced a 2026-09-22 file). The section only
+    moves to the vintage players.json was baked from; a newer Supabase
+    vintage waits for the daily bake (rebuild-chain bake_players=true, which
+    bakes from this same imported snapshot before the chain runs).
+    """
+    try:
+        vintage = json.loads(Path(snapshot).read_text(encoding="utf-8")).get("vintage_date")
+    except (OSError, ValueError) as exc:
+        return f"unreadable razzball snapshot: {exc}"
+    try:
+        players = json.loads((Path(repo) / PLAYERS_REL).read_text(encoding="utf-8"))
+        baked = (players.get("meta") or {}).get("rz_snapshot")
+    except (OSError, ValueError) as exc:
+        return f"cannot read players.json rz_snapshot: {exc}"
+    if not vintage:
+        return "razzball snapshot has no vintage_date"
+    if baked != vintage:
+        return (f"awaiting players bake: snapshot vintage {vintage} != players.json "
+                f"rz_snapshot {baked}; keeping the section on the baked vintage")
+    return None
+
+
+def run_razzball_source(source="razzball", nfl_week=None, repo=REPO, run_fn=run):
+    """Rebuild the razzball chain: snapshot -> 12 DDF legs -> section -> review.
+
+    Same pipeline and gate as cbsros (run_cbsros_source); the snapshot is the
+    one import_supabase_references.py wrote from public.razzball_projections.
+    It first requires players.json to be baked from the same vintage
+    (razzball_bake_mismatch). Unlike cbsros, a razzball failure is isolated
+    by execute_chain: the site keeps the last promoted razzball section and
+    the other sources publish.
+    """
+    snapshot = find_latest_snapshot(Path(repo), source)
+    reason = razzball_bake_mismatch(repo, snapshot) if snapshot else None
+    if reason:
+        print(f"  ✗ HALT at stage 'snapshot': {reason}")
+        return {"source": source, "status": "failed", "stage": "snapshot",
+                "detail": reason, "promoted": 0, "sections": 1}
+    return run_cbsros_source(source, nfl_week, repo, run_fn)
 
 
 ESPN_LEG_SCORINGS = ("standard", "half_ppr", "ppr")
@@ -1213,6 +1278,9 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             # published-chart path (which would take raw ROS totals).
             elif source == "espn":
                 results[source] = run_espn_source(source, nfl_week, repo, run_fn)
+            # razzball: the cbsros DDF-leg pipeline (isolated below on failure).
+            elif source == "razzball":
+                results[source] = run_razzball_source(source, nfl_week, repo, run_fn)
             else:
                 results[source] = run_source(source, nfl_week, repo, run_fn)
             # source-resiliency-001: any failure in an isolated source (and a

@@ -954,6 +954,10 @@ def build_razzball_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         clean_rows.append(
             {
                 **raw_stats,
+                # The saver's verified identity: bake_players.py prices the
+                # browser's Razzball (rz_ppg) by this key, never re-resolving
+                # the name (GAP-RAZZBALL-SUFFIX-POOL).
+                "player_key": key,
                 "player_name": name,
                 "player_norm": row.get("player_norm"),
                 "pos": pos,

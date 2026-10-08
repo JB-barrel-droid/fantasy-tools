@@ -184,6 +184,7 @@ CBSROS_LEGS = (("per_game_standard", "standard"),
                ("per_game_ppr", "ppr"))
 
 CBSROS_SNAPSHOT_DIR = ROOT / "data" / "raw" / "sources" / "cbsros"
+RAZZBALL_SNAPSHOT_DIR = ROOT / "data" / "raw" / "sources" / "razzball"
 
 SCORINGS = ("standard", "half_ppr", "ppr")
 
@@ -276,6 +277,79 @@ def _intake_razzball(path, registry):
           f"({n_rows} rows, {n_incomplete} partial-ppg excluded), "
           f"snapshot {snap}, {n_unres} unresolved")
     return med, snap
+
+
+def _latest_razzball_snapshot():
+    """Newest data/raw/sources/razzball/<date>/snapshot.json by vintage_date.
+
+    import_supabase_references.py --source razzball writes it from the latest
+    public.razzball_projections vintage. None when there is none.
+    """
+    best, best_vintage = None, ""
+    for p in sorted(RAZZBALL_SNAPSHOT_DIR.glob("*/snapshot.json")):
+        try:
+            v = str(json.loads(p.read_text(encoding="utf-8")).get("vintage_date") or "")
+        except Exception:  # noqa: BLE001 - unparseable snapshot is skipped
+            continue
+        if v and (v, p.parent.name) > (best_vintage, best.parent.name if best else ""):
+            best, best_vintage = p, v
+    return best
+
+
+def _intake_razzball_snapshot(snapshot_path, registry):
+    """Razzball snapshot (Supabase import) intake -> {player_key: {scoring: ppg}}.
+
+    GAP-RAZZBALL-SUFFIX-POOL (2026-10-08): the browser's Razzball (rz_ppg)
+    was baked from data/inputs/razzball_projections.csv, a 2026-09-22 file
+    nothing refreshed, while the chain's Razzball section moved on. This
+    reads the snapshot the chain's Razzball legs read, so both price one
+    vintage. Identity is the row's player_key (the saver's verified key);
+    a row without one (a file-built snapshot) resolves by name, fail-closed.
+    Only rows with all three published per-game columns are priced.
+    """
+    snap = json.loads(Path(snapshot_path).read_text(encoding="utf-8"))
+    vintage = snap.get("vintage_date")
+    if not vintage:
+        raise SystemExit("FAIL-CLOSED: Razzball snapshot has no vintage_date.")
+    med = {}
+    n_rows = n_unres = n_incomplete = 0
+    for r in snap.get("rows", []):
+        n_rows += 1
+        key = r.get("player_key")
+        if not isinstance(key, int) or isinstance(key, bool):
+            key = _resolve_csv_row(r.get("player_name", ""), (r.get("pos") or "").strip(),
+                                   "razzball", registry)
+        if key is None:
+            n_unres += 1
+            continue
+        ppg = {}
+        for col, s in RZ_LEGS:
+            v = r.get(col)
+            if isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v):
+                ppg[s] = float(v)
+        if len(ppg) == 3:
+            if key in med:
+                print(f"razzball intake WARNING: duplicate key: {key} "
+                      f"({r.get('player_name')})")
+            med[key] = ppg
+        else:
+            n_incomplete += 1
+    print(f"razzball intake: {len(med)} priced players "
+          f"({n_rows} rows, {n_incomplete} partial-ppg excluded), "
+          f"snapshot {vintage} ({snapshot_path}), {n_unres} unresolved")
+    return med, vintage
+
+
+def razzball_intake(args, registry):
+    """The browser's Razzball: the imported snapshot, else the legacy CSV."""
+    rz_snapshot = getattr(args, "razzball_snapshot", None)
+    if rz_snapshot:
+        return _intake_razzball_snapshot(rz_snapshot, registry)
+    print("razzball intake WARNING: no Razzball snapshot; reading the "
+          f"committed CSV {args.razzball_csv}. players.json rz_snapshot must "
+          "match the Razzball section vintage or validate fails "
+          "(tests/test_razzball_refresh.py).")
+    return _intake_razzball(args.razzball_csv, registry)
 
 
 def _latest_cbsros_snapshot():
@@ -491,7 +565,7 @@ def bake(args):
     # ---- Other comparison intakes (unchanged) --------------------------------
     pm_med, pm_snapshot_date = _intake_csv(
         args.pm_csv, PM_COMPS, "has_prediction_market_line", "pm", registry)
-    rz_med, rz_snapshot_date = _intake_razzball(args.razzball_csv, registry)
+    rz_med, rz_snapshot_date = razzball_intake(args, registry)
     cbsros_snapshot = args.cbsros_snapshot or _latest_cbsros_snapshot()
     cbsros_med, cbsros_snapshot_date = _intake_cbsros(cbsros_snapshot,
                                                       registry)
@@ -927,7 +1001,10 @@ def bake(args):
                     "independent third projection source 2026-09-17 (rank corr "
                     "vs ECR 0.78-0.91, never 0.99+; deviations largely "
                     "independent of ESPN). K/DST have no Razzball projections "
-                    "(ESPN-priced)."),
+                    "(ESPN-priced). Source: the Razzball snapshot imported from "
+                    "public.razzball_projections (the same vintage the "
+                    "comparison chain's Razzball section is built from); "
+                    "rz_snapshot is its vintage."),
         "cbsros_note": ("cbsros_ppg = pure CBS rest-of-season per-game "
                         "projection read (per_game_standard / per_game_half_ppr "
                         "/ per_game_ppr from the CBS ROS snapshot = ROS totals "
@@ -1012,7 +1089,13 @@ def main():
     ap = argparse.ArgumentParser(description="Repo-owned players.json bake")
     ap.add_argument("--espn-csv", default=str(INPUTS_DIR / "espn_projections.csv"))
     ap.add_argument("--pm-csv", default=str(INPUTS_DIR / "prediction_markets_season.csv"))
-    ap.add_argument("--razzball-csv", default=str(INPUTS_DIR / "razzball_projections.csv"))
+    ap.add_argument("--razzball-snapshot", default=None,
+                    help="Razzball snapshot.json (import_supabase_references.py "
+                         "--source razzball); default: latest under "
+                         "data/raw/sources/razzball/, else --razzball-csv")
+    ap.add_argument("--razzball-csv", default=None,
+                    help="legacy Razzball CSV; used only when no snapshot "
+                         "exists (or when given explicitly)")
     ap.add_argument("--cbsros-snapshot", default=None,
                     help="CBS ROS snapshot.json path; default: latest dated "
                          "snapshot under data/raw/sources/cbsros/")
@@ -1023,6 +1106,11 @@ def main():
     ap.add_argument("--k-json", default=str(INPUTS_DIR / "espn_k_ppg_2026-09-21.json"))
     ap.add_argument("--dst-json", default=str(INPUTS_DIR / "espn_dst_ros_2026-09-21.json"))
     args = ap.parse_args()
+    if args.razzball_snapshot is None and args.razzball_csv is None:
+        latest = _latest_razzball_snapshot()
+        args.razzball_snapshot = str(latest) if latest else None
+    if args.razzball_csv is None:
+        args.razzball_csv = str(INPUTS_DIR / "razzball_projections.csv")
     result = bake(args)
     print(json.dumps({k: v for k, v in result["meta"].items()
                       if k in ("as_of", "prior_blend_snapshot",

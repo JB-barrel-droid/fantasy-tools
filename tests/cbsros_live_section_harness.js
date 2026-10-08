@@ -12,6 +12,10 @@
 // pool does not -- GAP-CBSROS-LIVE-POOL).
 // Since fix/suffix-names the leg resolves suffix spellings, so browser-pool
 // and section-pool price the same players (nLive == nSection == n).
+// Source option: argv[3] (default "cbsros") picks the series: "cbsros"
+// reprices players.json cbsros_ppg against sources.cbsros; "razzball"
+// reprices rz_ppg (curve-widget's razzball_vorp ppgField) against
+// sources.razzball (GAP-RAZZBALL-SUFFIX-POOL).
 // Prints one JSON object: {combo: {withheld, shares, stats: {pos: {n, nSection, nLive, maxErr, top}}}}.
 "use strict";
 const fs = require("fs");
@@ -26,18 +30,21 @@ const players = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "fixtures", "
 const fixture = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "fixtures", "current", "comparison-sources-data.json"), "utf8"));
 const slugToKey = fixture.player_keys || {};
 const SECTION_POOL = process.argv[2] === "section-pool";
+const SOURCE = process.argv[3] || "cbsros";
+const PPG_FIELD = {cbsros: "cbsros_ppg", razzball: "rz_ppg"}[SOURCE];
+if (!PPG_FIELD) throw new Error(`unknown source ${SOURCE}`);
 const SCORINGS = {full: "ppr", half: "half_ppr", standard: "standard"};
 const out = {};
 
 for (const [prefix, field] of Object.entries(SCORINGS)) {
   for (const teams of [8, 10, 12, 14]) {
     const combo = `${prefix}_${teams}`;
-    const section = fixture.sources?.cbsros?.combos?.[combo]?.values || {};
+    const section = fixture.sources?.[SOURCE]?.combos?.[combo]?.values || {};
     const sectionKeys = new Set(Object.keys(section).map(slug => slugToKey[slug]));
     const lists = {QB: [], RB: [], WR: [], TE: []};
     const posOf = new Map();
     players.forEach(p => {
-      const x = Number(p.cbsros_ppg?.[field]);
+      const x = Number(p[PPG_FIELD]?.[field]);
       if (!T.POSITIONS.includes(p.pos) || !Number.isFinite(x)) return;
       if (SECTION_POOL && !sectionKeys.has(Number(p.player_key))) return;
       const id = Number(p.player_key);

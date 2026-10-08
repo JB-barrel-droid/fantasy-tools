@@ -70,7 +70,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          python3 pipelines/bake_players.py --cbsros-snapshot "${{ steps.cbs.outputs.snapshot }}" | tee /tmp/bake.log
+          # Razzball from the latest public.razzball_projections vintage
+          # (GAP-RAZZBALL-SUFFIX-POOL), the vintage the chain's section uses.
+          python3 pipelines/import_supabase_references.py --source razzball
+          rz=$(ls -d data/raw/sources/razzball/*/snapshot.json | sort | tail -1)
+          python3 pipelines/bake_players.py --cbsros-snapshot "${{ steps.cbs.outputs.snapshot }}" --razzball-snapshot "$rz" | tee /tmp/bake.log
           python3 pipelines/pin_naming_manifest.py --source-label "supabase:players"
           make sync
 

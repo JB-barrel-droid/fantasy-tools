@@ -120,7 +120,11 @@ jobs:
           rm -rf /tmp/bake-cbsros
           python3 pipelines/export_cbsros_snapshot.py --out-dir /tmp/bake-cbsros
           snap=$(ls -d /tmp/bake-cbsros/*/snapshot.json | sort | tail -1)
-          python3 pipelines/bake_players.py --cbsros-snapshot "$snap" | tee /tmp/bake.log
+          # Razzball from the snapshot the import step wrote from Supabase (the
+          # one the chain's Razzball section is built from), never the stale
+          # committed CSV (GAP-RAZZBALL-SUFFIX-POOL).
+          rz=$(ls -d data/raw/sources/razzball/*/snapshot.json | sort | tail -1)
+          python3 pipelines/bake_players.py --cbsros-snapshot "$snap" --razzball-snapshot "$rz" | tee /tmp/bake.log
           python3 pipelines/pin_naming_manifest.py --source-label "supabase:players"
           { echo "## ESPN anchor bake (run $run_id)"; tail -12 /tmp/bake.log; } >> "$GITHUB_STEP_SUMMARY"
 
