@@ -44,7 +44,10 @@ live.
 
 ## Copy rules (user-facing text)
 
-- The market side is always **"Vegas"**, never "the market".
+- Do not reference "Vegas" (Jeremy, 2026-09-30). The public charts are named by
+  publisher (USA Today, FantasyCalc, FantasyPros, CBS). Frame comparisons as
+  trade targets (sell where a chart pays more than we would, buy where less).
+- No abbreviations in titles or headlines (PPR, FC, USAT, FP, Wk).
 - The brand is **Data Driven Football** only. No FantasyPros, Muse, or Meta
   branding anywhere user-facing.
 - The only allowed user-facing use of "VORP" is the exact phrase **"VORP vs
