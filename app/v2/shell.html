@@ -3,11 +3,11 @@
     <div class="v2-nav-inner">
       <a class="v2-brand" href="v2/#player-values">Trade Value</a>
       <nav class="v2-tabs" aria-label="Views">
-        <a class="v2-tab is-active" href="v2/#player-values" data-view="values" aria-current="page">Player values</a>
-        <a class="v2-tab" href="v2/#trade-targets" data-view="targets">Trade targets</a>
-        <a class="v2-tab" href="v2/#risers-fallers" data-view="risers">Risers &amp; fallers</a>
-        <a class="v2-tab" href="v2/#compare-trade" data-view="compare">Compare a trade</a>
-        <a class="v2-tab" href="v2/#how-values" data-view="how">How values work</a>
+        <a class="v2-tab is-active" href="v2/#player-values" data-view="values" aria-current="page" data-short="Values"><span class="v2-tab-full">Player values</span></a>
+        <a class="v2-tab" href="v2/#trade-targets" data-view="targets" data-short="Targets"><span class="v2-tab-full">Trade targets</span></a>
+        <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-short="Movers"><span class="v2-tab-full">Risers &amp; fallers</span></a>
+        <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-short="Trade"><span class="v2-tab-full">Compare a trade</span></a>
+        <a class="v2-tab" href="v2/#how-values" data-view="how" data-short="How"><span class="v2-tab-full">How values work</span></a>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
@@ -40,10 +40,15 @@
     <section class="v2-card v2-state" data-state="loading" aria-labelledby="v2StateTitle" aria-live="polite">
       <span class="v2-state-sym" id="v2StateSym" aria-hidden="true">◌</span>
       <div>
-        <h2 id="v2StateTitle">Loading values for your league…</h2>
+        <h2 id="v2StateTitle">Loading current values…</h2>
         <p class="v2-meta" id="v2StateText">Pricing every source for your league settings. This takes a few seconds.</p>
         <button type="button" class="v2-btn v2-btn-primary" id="v2StateRetry" hidden>Try again</button>
       </div>
+    </section>
+    <section class="v2-card v2-skel" aria-hidden="true">
+      <span class="v2-skel-bar is-title"></span>
+      <span class="v2-skel-chart"></span>
+      <span class="v2-skel-bar"></span><span class="v2-skel-bar"></span><span class="v2-skel-bar"></span><span class="v2-skel-bar"></span>
     </section>
   </div>
 
@@ -73,6 +78,10 @@
       <button type="button" class="v2-link" id="v2ClearFilters">Clear filters</button>
     </div>
     <p class="v2-filter-note" id="v2FilterNote" hidden></p>
+    <div class="v2-notice" id="v2Notice" role="status" hidden>
+      <p id="v2NoticeText"></p>
+      <button type="button" class="v2-btn" id="v2NoticeBtn">Choose sources</button>
+    </div>
 
     <section class="v2-card v2-chart-card" aria-labelledby="v2ChartTitle">
       <div class="v2-card-head">
@@ -93,7 +102,13 @@
       <div class="v2-empty" id="v2Empty" hidden>
         <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
         <p class="v2-meta" id="v2EmptyText"></p>
-        <button type="button" class="v2-btn" id="v2EmptyClear">Clear filters</button>
+        <div class="v2-empty-actions" id="v2EmptyActions">
+          <button type="button" class="v2-btn" data-clear="search">Clear search</button>
+          <button type="button" class="v2-btn" data-clear="range">Clear value range</button>
+          <button type="button" class="v2-btn" data-clear="position">Reset position</button>
+          <button type="button" class="v2-btn" id="v2EmptyClear">Clear all filters</button>
+        </div>
+        <p class="v2-meta">Source selections, weights and league settings stay as they are.</p>
       </div>
       <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
       <div class="v2-brush">
@@ -195,15 +210,11 @@
 
   <main class="v2-wrap v2-main" id="v2Risers" hidden aria-labelledby="v2RisersTitle">
     <div class="v2-title">
-      <h1 id="v2RisersTitle">Who moved since last week.</h1>
-      <p>One source at a time: this week's value minus last week's, both priced for your league.</p>
+      <h1 id="v2RisersTitle">Risers &amp; fallers.</h1>
+      <p>Value-point changes. One source. Two snapshots.</p>
     </div>
 
     <div class="v2-filters" role="search">
-      <div class="v2-seg" role="group" aria-label="Direction">
-        <button type="button" data-move="rise" class="is-on" aria-pressed="true">▲ Risers</button>
-        <button type="button" data-move="fall" aria-pressed="false">▼ Fallers</button>
-      </div>
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2RSearch" placeholder="Search players…" autocomplete="off">
       </label>
@@ -215,72 +226,93 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Source:</span>
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Movement:</span>
         <select id="v2RSeries"></select>
+      </label>
+      <label class="v2-field"><span class="v2-sr">Weeks compared</span>
+        <select id="v2RWeeks"></select>
       </label>
     </div>
     <p class="v2-filter-note" id="v2RNote" hidden></p>
+    <p class="v2-meta v2-rmeta" id="v2RMeta" aria-live="polite">—</p>
 
-    <section class="v2-card v2-table-card" aria-labelledby="v2RCardTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2RCardTitle">Risers</h2>
-          <p class="v2-meta" id="v2RMeta">—</p>
-        </div>
-      </div>
-      <div class="v2-table-wrap v2-t-desktop">
-        <table class="v2-table v2-rtable" id="v2RTable"></table>
-      </div>
-      <ol class="v2-tcards" id="v2RCards"></ol>
-      <p class="v2-meta v2-t-empty" id="v2REmpty" hidden></p>
-      <div class="v2-table-foot">
-        <button type="button" class="v2-btn" id="v2RShowMore" hidden>Show more players</button>
-      </div>
-    </section>
+    <div class="v2-movers">
+      <section class="v2-card" aria-labelledby="v2RRiseTitle">
+        <h2 id="v2RRiseTitle" class="v2-mhead up"><span aria-hidden="true">↑</span> Risers</h2>
+        <p class="v2-meta">Largest gains first</p>
+        <ol class="v2-mlist" id="v2RRise" aria-labelledby="v2RRiseTitle"></ol>
+        <p class="v2-meta v2-t-empty" id="v2RRiseEmpty" hidden></p>
+        <div class="v2-table-foot"><button type="button" class="v2-btn" id="v2RRiseMore" hidden>Show more risers</button></div>
+      </section>
+      <section class="v2-card" aria-labelledby="v2RFallTitle">
+        <h2 id="v2RFallTitle" class="v2-mhead down"><span aria-hidden="true">↓</span> Fallers</h2>
+        <p class="v2-meta">Largest declines first</p>
+        <ol class="v2-mlist" id="v2RFall" aria-labelledby="v2RFallTitle"></ol>
+        <p class="v2-meta v2-t-empty" id="v2RFallEmpty" hidden></p>
+        <div class="v2-table-foot"><button type="button" class="v2-btn" id="v2RFallMore" hidden>Show more fallers</button></div>
+      </section>
+    </div>
 
-    <p class="v2-footnote">Δ = this week's value − last week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price last week has no Δ and is left out, never shown as zero.</p>
+    <p class="v2-footnote" id="v2RScale"></p>
+    <p class="v2-footnote">Δ = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no Δ and is left out, never shown as zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
   <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
     <div class="v2-title">
-      <h1 id="v2CompareTitle">Weigh a trade, source by source.</h1>
-      <p>Add what you give and what you get. Each row is one source's values: what you get minus what you give.</p>
+      <h1 id="v2CompareTitle">Build a better offer.</h1>
+      <p>See the deal through every selected source.</p>
+    </div>
+
+    <div class="v2-ctoolbar">
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Player values shown:</span>
+        <select id="v2CShown"></select>
+      </label>
+      <div class="v2-ctools">
+        <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
+        <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+      </div>
     </div>
 
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
-        <h2 id="v2GiveTitle"><span aria-hidden="true">↑</span> You give</h2>
-        <label class="v2-search"><span class="v2-sr">Add a player you give</span>
-          <input type="search" id="v2GiveSearch" placeholder="Add a player…" autocomplete="off" aria-controls="v2GiveResults">
+        <h2 id="v2GiveTitle">You give</h2>
+        <label class="v2-search"><span class="v2-sr">Search and add a player you give</span>
+          <input type="search" id="v2GiveSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GiveResults">
         </label>
         <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
         <ul class="v2-trade-players" id="v2GivePlayers"></ul>
+        <p class="v2-side-total" id="v2GiveTotal" hidden></p>
       </section>
       <section class="v2-card v2-trade-side" data-trade-side="receive" aria-labelledby="v2GetTitle">
-        <h2 id="v2GetTitle"><span aria-hidden="true">↓</span> You get</h2>
-        <label class="v2-search"><span class="v2-sr">Add a player you get</span>
-          <input type="search" id="v2GetSearch" placeholder="Add a player…" autocomplete="off" aria-controls="v2GetResults">
+        <h2 id="v2GetTitle">You receive</h2>
+        <label class="v2-search"><span class="v2-sr">Search and add a player you receive</span>
+          <input type="search" id="v2GetSearch" placeholder="Search and add a player…" autocomplete="off" aria-controls="v2GetResults">
         </label>
         <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
+        <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
     </div>
     <p class="v2-filter-note" id="v2CNote" hidden></p>
 
+    <section class="v2-card v2-cstory" id="v2CStory" hidden aria-labelledby="v2CStoryTitle" aria-live="polite">
+      <h2 id="v2CStoryTitle"></h2>
+      <p id="v2CStoryText"></p>
+    </section>
+
     <section class="v2-card v2-table-card" aria-labelledby="v2CResultTitle">
       <div class="v2-card-head">
         <div>
-          <h2 id="v2CResultTitle">The trade by each source</h2>
+          <h2 id="v2CResultTitle">Difference by source &amp; method</h2>
           <p class="v2-meta" id="v2CMeta">—</p>
         </div>
         <div class="v2-ctools">
           <button type="button" class="v2-btn" id="v2CShare" hidden>Copy link to this trade</button>
-          <button type="button" class="v2-link" id="v2CClear">Clear trade</button>
         </div>
       </div>
       <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
-      <p class="v2-meta v2-t-empty" id="v2CEmpty">Add at least one player to each side.</p>
+      <p class="v2-meta v2-t-empty" id="v2CEmpty">No result until both sides have at least one player.</p>
       <div class="v2-table-wrap">
         <table class="v2-table v2-ctable" id="v2CTable" hidden></table>
       </div>
@@ -298,59 +330,62 @@
       </div>
     </section>
 
-    <p class="v2-footnote">Each row uses one source only: the sum of what you get minus the sum of what you give, in that source's values for your league. Rows are never combined into one score, and there is no overall verdict: where the sources disagree, that is the trade target. If a player has no value in a source, that row shows —, never zero.</p>
+    <p class="v2-footnote">Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league. Rows are never combined into one score, and there is no overall verdict: where the sources disagree, that is the trade target. If a player has no value in a source, that row is incomplete and shows —, never zero. Open a row for the player-by-player arithmetic.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
   <main class="v2-wrap v2-main" id="v2How" hidden aria-labelledby="v2HowTitle">
     <div class="v2-title">
-      <h1 id="v2HowTitle">How values work</h1>
-      <p>Three ways to read a player's value. Every one follows your league's settings.</p>
+      <h1 id="v2HowTitle"><span class="v2-wide">Know what the numbers mean.</span><span class="v2-narrow">Know your values.</span></h1>
+      <p><span class="v2-wide">Three methods. Visible source context. Your league settings.</span><span class="v2-narrow">Three methods. One clear comparison.</span></p>
     </div>
 
-    <section class="v2-card v2-how-league" aria-labelledby="v2HowLeagueTitle">
-      <h2 id="v2HowLeagueTitle">Your league</h2>
-      <p><strong data-engine="league" id="v2HowLeague">—</strong> <span class="v2-meta" data-engine="roster" id="v2HowRoster">—</span></p>
-      <p class="v2-meta">Scoring, team count and roster decide where the waiver line sits and how many starters and bench players each position gets. Change them with Edit league; every view below updates.</p>
-    </section>
-
     <ol class="v2-how-views">
-      <li class="v2-card" data-view-method="vorp">
-        <span class="v2-how-step" data-step aria-hidden="true">1</span>
-        <h2>VORP vs waivers</h2>
-        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 4"/></svg> Dotted line</p>
-        <p>Each source's value above a waiver-level player. Projections and published trade charts alike are translated the same way: start from the roster the publisher assumes (standard league settings unless its own materials say otherwise), read the positional weights its values imply for starters and bench, flex included, then measure each player against the waiver line.</p>
-        <p class="v2-meta">Each source keeps its own scale here, so these values are shown in their own panel and never compared with trade-value points.</p>
-        <h3>Sources</h3>
-        <ul class="v2-how-sources" data-sources="vorp"></ul>
-      </li>
       <li class="v2-card" data-view-method="dda">
-        <span class="v2-how-step" data-step aria-hidden="true">2</span>
+        <span class="v2-pill">DDA</span>
         <h2>Data Driven Adjustments</h2>
         <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2"/></svg> Solid line</p>
-        <p>Our value. Every source's value above waivers is re-weighted to Data Driven Football's weights by position and by starter or bench group, on the trade-value point scale for your league. ESPN, CBS rest-of-season and Razzball are priced this way straight from each publisher's own projections, never from another source's.</p>
-        <p class="v2-meta">Use these to rank players and to weigh a trade, one source at a time.</p>
+        <p>Redistributes each source's values into your league's value budget. Weights and bench allocation change the result.</p>
+        <p class="v2-meta">Our value. ESPN, CBS rest-of-season and Razzball are priced straight from each publisher's own projections, never from another source's. Use these to rank players and weigh a trade, one source at a time.</p>
         <h3>Sources</h3>
         <ul class="v2-how-sources" data-sources="dda"></ul>
       </li>
       <li class="v2-card" data-view-method="indexed">
-        <span class="v2-how-step" data-step aria-hidden="true">3</span>
-        <h2>Indexed</h2>
+        <span class="v2-pill is-indexed">Indexed</span>
+        <h2>Source-relative index</h2>
         <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg> Dashed line</p>
-        <p>The published trade charts as their publishers rank them, indexed to match the value range of the other charts. The order and the shape are the publisher's own; only the scale moves.</p>
+        <p>Preserves the selected publisher's relative value shape. Compare normalized points, keeping the source visible.</p>
         <p class="v2-meta">This is what a manager trading off that chart expects. Where a chart pays more than our value, sell; where it pays less, buy.</p>
         <h3>Sources</h3>
         <ul class="v2-how-sources" data-sources="indexed"></ul>
       </li>
+      <li class="v2-card" data-view-method="vorp">
+        <span class="v2-pill is-vorp">VORP vs waivers</span>
+        <h2>Value over a waiver player</h2>
+        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 4"/></svg> Dotted line</p>
+        <p>Available for projection sources with compatible inputs. Each source keeps its own scale, so these values sit in their own panel.</p>
+        <p class="v2-meta">Never compared with trade-value points, and never added up across sources.</p>
+        <h3>Sources</h3>
+        <ul class="v2-how-sources" data-sources="vorp"></ul>
+      </li>
     </ol>
 
-    <section class="v2-card" aria-labelledby="v2HowRulesTitle">
-      <h2 id="v2HowRulesTitle">Reading the numbers</h2>
+    <section class="v2-card v2-how-league" aria-labelledby="v2HowLeagueTitle">
+      <h2 id="v2HowLeagueTitle">Your league shapes the comparison</h2>
+      <p><strong data-engine="league" id="v2HowLeague">—</strong> <span class="v2-meta" data-engine="roster" id="v2HowRoster">—</span></p>
+      <p>Position weights <span data-engine="weights" id="v2HowWeights">—</span></p>
+      <p>Bench allocation <span data-engine="bench" id="v2HowBench">—</span> · Adjust from Weights &amp; bench.</p>
+      <button type="button" class="v2-btn v2-btn-primary" id="v2HowWeightsBtn" aria-haspopup="dialog">Weights &amp; bench</button>
+    </section>
+
+    <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">
+      <h2 id="v2HowRulesTitle">Read the evidence, then make the call.</h2>
       <ul class="v2-how-rules">
-        <li><b>— means missing.</b> A source that has no value for a player shows — with the reason, never zero.</li>
+        <li><b>Methods can disagree.</b> The same player can gain under Data Driven Adjustments and lose under Indexed.</li>
+        <li><b>— means missing.</b> A missing value is unavailable and shows — with the reason, never zero.</li>
         <li><b>Zero is real.</b> A value of zero means the player sits at or below that source's waiver line for your league.</li>
-        <li><b>One source at a time.</b> Sources are never blended into one score. Every comparison pairs one exact source and method with another.</li>
-        <li><b>Older weeks are labeled.</b> A source whose latest values are from an earlier week is marked as an older week, and only current-week sources are selected at first.</li>
+        <li><b>Older weeks are opt-in.</b> Only current-week sources are selected at first; an older week is labeled wherever it appears.</li>
+        <li><b>Week changes compare one source.</b> Risers and fallers compare the same source and method across two snapshots.</li>
         <li><b>Label and symbol.</b> Each publisher keeps one color, one symbol and its name everywhere, so color is never the only cue.</li>
       </ul>
       <p class="v2-how-links"><a class="v2-link" href="v2/#player-values">See every value ↗</a> <a class="v2-link" href="v2/#trade-targets">Find trade targets ↗</a> <a class="v2-link" href="v2/#compare-trade">Compare a trade ↗</a></p>
