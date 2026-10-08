@@ -170,23 +170,14 @@ switch (cmd) {
     break;
   }
   case "maxfeasible": {
-    // Production per-position fallback (pipelines/build_ddf_two_tier_leg.py):
-    // the highest feasible bench share <= requested (default 0.15).
-    // Returns {share, cal} or {share: null} if nothing in (0, requested] works.
-    const requested = input.requested === undefined ? T.DEFAULT_BENCH_SHARE_TT : input.requested;
-    let best = null;
-    let lo = 0.01, hi = requested;
-    for (let i = 0; i < 20; i++) {
-      const mid = (lo + hi) / 2;
-      const cal = T.calibratePosition(input.tier, input.pie, mid);
-      if (cal && !cal.invalid) {
-        best = {share: mid, pb: cal.pb, ps: cal.ps};
-        lo = mid;
-      } else {
-        hi = mid;
-      }
-    }
-    out = best ? {share: best.share, pb: best.pb, ps: best.ps} : {share: null};
+    // Production per-position fallback, called directly (no re-implementation):
+    // TwoTier.calibratePositionFeasible tries the requested share first and
+    // bisects downward only when the request breaks the economics.
+    const requested = input.requested === undefined ? T.DEFAULT_BENCH_SHARE : input.requested;
+    const cal = T.calibratePositionFeasible(input.tier, input.pie, requested);
+    out = cal && !cal.invalid
+      ? {share: cal.bench_share_used, pb: cal.pb, ps: cal.ps}
+      : {share: null};
     break;
   }
   case "pause": {
