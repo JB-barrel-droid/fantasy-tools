@@ -75,6 +75,19 @@ jobs:
             --espn-csv /tmp/espn_projections.csv \
             --espn-meta /tmp/espn_meta.json
 
+      # The daily ESPN anchor bake (rebuild-chain.yml, bake_players=true)
+      # takes this exact CSV: the table drops columns the bake needs (ESPN's
+      # team, the eligible flag, display name), so it cannot be rebuilt from
+      # Supabase alone. tests/test_rebuild_chain_bake.py pins this step.
+      - name: Upload saved ESPN CSV for the anchor bake
+        if: github.event.inputs.dry_run != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: espn-projections
+          path: /tmp/espn_projections.csv
+          if-no-files-found: error
+          retention-days: 7
+
       # JEG-137 R10: record started_at and cron_at for the deadline checker.
       - name: Record workflow run (JEG-137 R10)
         if: always()

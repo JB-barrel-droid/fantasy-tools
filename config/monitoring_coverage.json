@@ -7,6 +7,8 @@
                  {"check_id": "rebuild_chain_source_held", "file": ".github/workflows/rebuild-chain.yml", "contains": "pipelines/record_chain_holds.py --owner rebuild-chain.yml"},
                  {"check_id": "rebuild_chain_source_held_stale", "file": ".github/workflows/rebuild-chain.yml", "contains": "pipelines/record_chain_holds.py --owner rebuild-chain.yml"},
                  {"check_id": "consolidated_values_write", "file": ".github/workflows/rebuild-chain.yml", "contains": "--check-id consolidated_values_write --owner rebuild-chain.yml --outcome \"${{ steps.consolidate.outcome }}\""}]},
+    {"workflow": "rebuild-chain.yml", "scheduler": "pg_cron", "pg_cron_job": "rebuild-chain-bake-live",
+     "records": [{"check_id": "rebuild_chain", "file": ".github/workflows/rebuild-chain.yml", "contains": "--check-id rebuild_chain --owner rebuild-chain.yml"}]},
     {"workflow": "player-trace-rebuild.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-player-trace-live",
      "records": [{"check_id": "player_trace_rebuild", "file": ".github/workflows/player-trace-rebuild.yml", "contains": "--check-id player_trace_rebuild --owner player-trace-rebuild.yml"}]},
     {"workflow": "espn-supabase-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "trigger-espn-sync-live",

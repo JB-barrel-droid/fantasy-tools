@@ -24,6 +24,15 @@ on:
         description: "Which dispatcher triggered this run (provenance)"
         required: false
         default: "manual"
+      # Daily ESPN anchor refresh (pg_cron rebuild-chain-bake-live). When
+      # "true", the run takes the ESPN CSV the latest scrape saved to
+      # Supabase, re-bakes players.json, and only then runs the chain, so the
+      # chain's `make validate` gates the new anchor and every section indexed
+      # to it together, and the commit step pushes them in one commit.
+      bake_players:
+        description: "Refresh the ESPN anchor and re-bake players.json before the chain"
+        required: false
+        default: "false"
 
 permissions:
   contents: write  # needed to commit and push the rebuilt fixture
@@ -69,6 +78,50 @@ jobs:
           for src in fantasycalc usatoday fantasypros espn cbs cbsros razzball; do
             python3 pipelines/import_supabase_references.py --source "$src"
           done
+
+      # The ESPN anchor (data/inputs/espn_projections.csv) feeds both
+      # bake_players.py and the chain's 12 ESPN DDF legs. The scrape saves to
+      # Supabase daily but never updated the committed CSV, so the anchor only
+      # moved on a manual refresh. Non-blocking: a failed bake restores the
+      # committed anchor below and the chain runs on it (staleness is a
+      # warning). Nothing here commits; the commit step pushes the baked files
+      # only after the chain and its `make validate` pass.
+      - name: Refresh ESPN anchor and bake players.json
+        id: bake
+        if: github.event.inputs.bake_players == 'true'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # The exact CSV the latest ESPN scrape on main saved to Supabase
+          # (espn-supabase-sync.yml uploads it as the espn-projections artifact).
+          run_id=$(gh api "repos/$GITHUB_REPOSITORY/actions/artifacts?name=espn-projections&per_page=20" \
+            --jq '[.artifacts[] | select(.expired | not) | select(.workflow_run.head_branch == "main")][0].workflow_run.id')
+          if [ -z "$run_id" ] || [ "$run_id" = "null" ]; then echo "::error::no espn-projections artifact from main"; exit 1; fi
+          rm -rf /tmp/espn-artifact
+          gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name espn-projections --dir /tmp/espn-artifact
+          # Fail closed unless the CSV is the snapshot Supabase holds as latest.
+          python3 pipelines/check_espn_bake_csv.py /tmp/espn-artifact/espn_projections.csv
+          cp /tmp/espn-artifact/espn_projections.csv data/inputs/espn_projections.csv
+          # CBS ROS from Supabase into a scratch dir, apart from the importer's
+          # data/raw snapshot.
+          rm -rf /tmp/bake-cbsros
+          python3 pipelines/export_cbsros_snapshot.py --out-dir /tmp/bake-cbsros
+          snap=$(ls -d /tmp/bake-cbsros/*/snapshot.json | sort | tail -1)
+          python3 pipelines/bake_players.py --cbsros-snapshot "$snap" | tee /tmp/bake.log
+          python3 pipelines/pin_naming_manifest.py --source-label "supabase:players"
+          { echo "## ESPN anchor bake (run $run_id)"; tail -12 /tmp/bake.log; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Restore committed ESPN anchor (bake failed)
+        if: steps.bake.outcome == 'failure'
+        run: |
+          echo "::warning title=bake-players::bake failed; the chain runs on the committed ESPN anchor and players.json"
+          git checkout -- data/inputs/espn_projections.csv \
+                          data/fixtures/current/players.json \
+                          data/fixtures/current/players.naming-manifest.json
 
       - name: Run import health check
         env:
@@ -202,6 +255,7 @@ jobs:
         if: always()
         env:
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
+          BAKE_OUTCOME: ${{ steps.bake.outcome }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -215,7 +269,14 @@ jobs:
                     app/trade-value-chart/assets/adjustment-inputs.json \
                     output/source-import-health.json \
                     output/comparison-chain-status.json || true
+            # The baked ESPN anchor ships only here: after the chain and its
+            # `make validate` passed on it. Unchanged when no bake ran (or a
+            # failed bake was restored), so these adds are then no-ops.
+            git add data/inputs/espn_projections.csv \
+                    data/fixtures/current/players.json \
+                    data/fixtures/current/players.naming-manifest.json || true
             MESSAGE="Automated comparison rebuild (GitHub Actions)"
+            if [ "${BAKE_OUTCOME:-}" = "success" ]; then MESSAGE="$MESSAGE + ESPN anchor bake"; fi
           else
             # Chain failed: stage ONLY the status and health files, never the fixture.
             git add dist/modules/source-import-health.json \

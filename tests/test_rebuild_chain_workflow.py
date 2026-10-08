@@ -483,7 +483,13 @@ class RebuildChainWorkflowTest(unittest.TestCase):
         self.assertCaught(mutated, "did not publish its status")
 
     def test_losing_continue_on_error_is_caught(self):
-        mutated = WORKFLOW.replace("        continue-on-error: true\n", "", 1)
+        # Target the chain step itself: other steps (the ESPN anchor bake)
+        # carry continue-on-error too, so a bare first-match replace would
+        # mutate the wrong step.
+        chain = find_step(WORKFLOW, CHAIN)
+        mutated = WORKFLOW.replace(
+            chain, chain.replace("        continue-on-error: true\n", "", 1), 1)
+        self.assertNotEqual(mutated, WORKFLOW)
         self.assertCaught(mutated, "continue-on-error")
 
     def test_a_job_that_stays_green_after_a_failed_chain_is_caught(self):
