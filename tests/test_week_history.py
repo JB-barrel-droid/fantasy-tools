@@ -274,6 +274,21 @@ class WeekSnapshotRuleTest(unittest.TestCase):
         self.assertEqual(sorted(before[0]["natives"]["ppr"]), ["1", "217"])
         self.assertEqual(H.fingerprint(before[0]), H.fingerprint(after[0]))
 
+    def test_served_match_ignores_players_outside_the_page_universe(self):
+        # CBS Week 5 (2026-10-08) saved Tyreek Hill (3081), whom the page's
+        # universe lacks; the served section is the same content without him.
+        saved = self._chart("cbs", 5, 47.0, "2026-10-08 11:36:55+00")
+        for sc in H.SCORINGS:
+            saved["natives"][sc]["3081"] = 7.0
+        docs = H.merge({}, [saved], content_week=5, log=self.quiet)
+        fixture = {"player_keys": {"bijan": 217}, "sources": {"cbs": {"week_designated": "Week 5", "combos": {
+            c: {"native": {"bijan": 47.0}} for c in H.FIXTURE_COMBO.values()}}}}
+        index = H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)
+        self.assertEqual(index["served"]["cbs"]["week"], 5)
+        # A real difference among universe players still matches nothing.
+        fixture["sources"]["cbs"]["combos"]["full_12"]["native"]["bijan"] = 46.0
+        self.assertIsNone(H.build_index(docs, fixture, {"players": [], "meta": {}}, 5)["served"]["cbs"]["week"])
+
     def test_timestamp_formats_compare_as_times(self):
         # The base tables return ISO 'T' timestamps, the old view a space: a
         # raw string compare ranks any 'T' stamp above any same-day space one.

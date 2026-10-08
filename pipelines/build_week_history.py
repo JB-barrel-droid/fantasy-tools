@@ -672,16 +672,32 @@ def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_wee
     served = {}
     fps = served_fingerprints(fixture, players)
     superseded = superseded or {}
+    # A saved chart can price a player the page's universe does not have (CBS
+    # Week 5 lists Tyreek Hill, who is not in players.json / player_keys, so
+    # the section drops him). Match the served inputs against each saved
+    # version restricted to the players the page can show, as the engine
+    # does when it reads a saved week (curve-widget historyNatives).
+    universe = {str(int(k)) for k in (fixture.get("player_keys") or {}).values()}
+
+    def entry_fp(entry, source):
+        if not entry:
+            return None
+        if source in PUBLISHED and universe:
+            natives = {sc: {k: v for k, v in cells.items() if k in universe}
+                       for sc, cells in (entry.get("natives") or {}).items()}
+            return fingerprint({"kind": "published_chart", "natives": {sc: c for sc, c in natives.items() if c}})
+        return entry.get("fingerprint")
+
     for source in (*PUBLISHED, *PROJECTION_FIELDS):
         fp = fps.get(source)
         matches = [w for w, d in sorted(docs.items())
-                   if (d["sources"].get(source) or {}).get("fingerprint") == fp]
+                   if entry_fp(d["sources"].get(source), source) == fp]
         # The page may serve a version that is not its week's snapshot (an
         # older revision still in the fixture, or a FantasyCalc pull other
         # than the cut): it is still that week's content, so Δ pairs it with
         # the week before (version: "superseded").
         other = [w for w, d in sorted(superseded.items())
-                 if any(v.get("fingerprint") == fp for v in (d.get("versions") or {}).get(source, []))]
+                 if any(entry_fp(v, source) == fp for v in (d.get("versions") or {}).get(source, []))]
         label = label_week(fixture, source)
         rec = {"label_week": label, "fingerprint": fp}
         if not fp:
