@@ -129,6 +129,7 @@ test-unit:
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
 	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
+	python3 -m unittest tests.test_ops_dashboard
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_targets_render

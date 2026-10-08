@@ -230,3 +230,40 @@ jobs:
             output/pipeline-checkpoints.json
           if-no-files-found: warn
           retention-days: 7
+
+      # Ops dashboard (modules/status.html, ops-dashboard lane 2026-10-08):
+      # publish the facts no other producer carries -- pages.yml runs with
+      # head_sha, main HEAD vs the live build tag, the last live-page-synthetic
+      # report (only uploaded as a run artifact), open ops-alert issues, the
+      # identity review queue and players.json snapshot dates. Every block
+      # records its own error instead of failing; the step never blocks.
+      # Runs last and always so the earlier steps' publish rules are untouched.
+      - name: Build and publish ops status
+        if: always() && github.ref == 'refs/heads/main'
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          git pull --rebase --autostash origin main || true
+          python3 pipelines/build_ops_status.py --out output/ops-status.json
+          cp output/ops-status.json dist/modules/ops-status.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/modules/ops-status.json
+          git diff --cached --quiet && exit 0
+          git commit -m "Ops status (CI)"
+          pushed=false
+          for attempt in 1 2 3; do
+            if git pull --rebase --autostash origin main && git push; then pushed=true; break; fi
+            git rebase --abort 2>/dev/null || true
+            sleep 10
+          done
+          [ "$pushed" = true ] || { echo "::error::could not push ops status after 3 attempts"; exit 1; }
+          code=$(curl -s -o /tmp/d3.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}')
+          echo "pages dispatch HTTP $code"
+          [ "$code" = "204" ]
