@@ -8,7 +8,7 @@ import re
 import shutil
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from check_reference_freshness import build_report
@@ -394,7 +394,11 @@ def sync_week_history(target: Path) -> None:
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
-    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, date.today(), import_health_path=import_health)
+    # UTC, like every timestamp the report reads: a local date ran a day
+    # behind them each evening in Chicago, so fresh inputs read as -1 days
+    # old ("unknown") on a locally built monitor.
+    freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, datetime.now(timezone.utc).date(),
+                             import_health_path=import_health)
     REFERENCE_FRESHNESS.parent.mkdir(parents=True, exist_ok=True)
     REFERENCE_FRESHNESS.write_text(json.dumps(freshness, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 

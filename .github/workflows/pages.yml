@@ -36,6 +36,16 @@ jobs:
       - name: Rebuild source value lineage
         run: python3 pipelines/build_source_value_lineage.py
         continue-on-error: true
+      # Monitor signals refreshed on every deploy (warnings, never deploy
+      # blocks; Jeremy 2026-10-08). GAP-E2E-FIDELITY: the JEG-77 card's only
+      # producer. GAP-031: the ESPN-zeroed staleness signal (exits 1 when it
+      # finds stale sources; that is the signal, not a build failure).
+      - name: Build end-to-end fidelity card
+        run: python3 pipelines/build_e2e_fidelity.py
+        continue-on-error: true
+      - name: Refresh data accuracy signals
+        run: python3 pipelines/check_data_accuracy.py
+        continue-on-error: true
       # JEG-133: the rendered gate runs on every path that can reach
       # production, not only on PRs. Same invocation as preview.yml so a
       # direct push to main is gated identically to a PR. The step's

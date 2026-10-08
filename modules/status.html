@@ -93,7 +93,23 @@ async function evaluate(s) {
       return { state: "degraded", why: `stale: ${fmtAge(h)} (limit ${s.max_age_hours} h)`, last };
     }
   }
+  // GAP-033/GAP-044: a surface can name a list of warnings inside its file
+  // (warn_path, dotted). A non-empty list shows the surface as degraded with
+  // the first few names: stale inputs and derived sections that lag their
+  // input are warnings on this page, never deploy blocks.
+  const warnings = warningsAt(doc, s.warn_path);
+  if (warnings.length) {
+    const shown = warnings.slice(0, 4).join(", ") + (warnings.length > 4 ? ", …" : "");
+    return { state: "degraded", why: `${warnings.length} ${s.warn_label || "warnings"}: ${shown}`, last };
+  }
   return { state: "working", why: n != null ? `${n.toLocaleString()} ${s.count_path || "items"}` : "loaded", last };
+}
+function warningsAt(doc, path) {
+  if (!path) return [];
+  const v = path.split(".").reduce((o, k) => (o == null ? o : o[k]), doc);
+  const list = Array.isArray(v) ? v : (v && typeof v === "object" ? Object.keys(v) : []);
+  const names = list.map(x => (typeof x === "string" ? x : (x && (x.section || x.key || x.name)) || "item"));
+  return [...new Set(names)];
 }
 
 async function main() {
