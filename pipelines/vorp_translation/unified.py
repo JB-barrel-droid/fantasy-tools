@@ -421,11 +421,16 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
                      slots: Optional[dict] = None,
                      flex_eligible: Optional[list] = None,
                      our_max: Optional[dict] = None,
-                     peers: Optional[dict] = None) -> dict:
+                     peers: Optional[dict] = None,
+                     superflex_count: int = 0) -> dict:
     """Pure core of translate_source: no fixture, no naming table, no I/O.
 
     our_max: positional maxes to translate onto (default OUR_MAX, today's
     fixed anchors). positional_max_for_setup supplies league-following maxes.
+
+    superflex_count: dedicated superflex slots per team (JEG332-SUPERFLEX-FLEX
+    option A; vorp_via_roster.allocate_superflex). Default 0 = unchanged
+    output; when > 0 each position also reports n_superflex.
 
     peers: the other published charts' natives ({source: {pos: [(key,
     value)]}}). When given, a position where this chart lists no more players
@@ -457,7 +462,8 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
         work = {pos: rows + (extension[pos] if pos in extended else [])
                 for pos, rows in ranked.items()}
         roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=work,
-                                    slots=slots, flex_eligible=flex_eligible)
+                                    slots=slots, flex_eligible=flex_eligible,
+                                    superflex_count=superflex_count)
         short = [pos for pos in POSITIONS
                  if pos not in extended and pos in extension and ranked.get(pos)
                  and len(ranked[pos]) <= roster[pos]['rostered']]
@@ -523,6 +529,8 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
             'total_vorp': round(total_vorp, 1),
             'scale_factor': round(scale, 3),
         }
+        if superflex_count:
+            result['positions'][pos]['n_superflex'] = r['superflex']
     
     # Implied weights
     total = sum(p['total_vorp'] for p in result['positions'].values())
@@ -535,7 +543,8 @@ def translate_ranked(ranked_keyed: dict, teams: int, bench_per_team: float = 6.0
 
 def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: float = 6.0,
                         flex_count: Optional[int] = None, slots: Optional[dict] = None,
-                        flex_eligible: Optional[list] = None) -> dict[str, float]:
+                        flex_eligible: Optional[list] = None,
+                        superflex_count: int = 0) -> dict[str, float]:
     """Top player's value above waivers per position, unrounded.
 
     projection_ranked: {pos: [(player_key, name, per_game_points), ...]}
@@ -546,7 +555,8 @@ def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: flo
     ranked = {pos: [(pkey, float(val)) for pkey, _name, val in rows]
               for pos, rows in projection_ranked.items()}
     roster = rostered_for_teams(teams, bench_per_team, flex_count, ranked=ranked,
-                                slots=slots, flex_eligible=flex_eligible)
+                                slots=slots, flex_eligible=flex_eligible,
+                                superflex_count=superflex_count)
     out = {}
     for pos in POSITIONS:
         rows = ranked.get(pos) or []
@@ -560,7 +570,8 @@ def projection_max_vorp(projection_ranked: dict, teams: int, bench_per_team: flo
 
 def positional_max_for_setup(projection_ranked: dict, teams: int, bench_per_team: float = 6.0,
                              flex_count: Optional[int] = None, slots: Optional[dict] = None,
-                             flex_eligible: Optional[list] = None) -> dict[str, float]:
+                             flex_eligible: Optional[list] = None,
+                             superflex_count: int = 0) -> dict[str, float]:
     """League-following positional maxes (JEG332-DERIVED-PEAKS rule).
 
     raw[pos] = OUR_MAX[pos] * M_pos(setting) / M_pos(saved setup), where M is
@@ -571,7 +582,8 @@ def positional_max_for_setup(projection_ranked: dict, teams: int, bench_per_team
     """
     ref = projection_max_vorp(projection_ranked, SAVED_SETUP_TEAMS)
     at = projection_max_vorp(projection_ranked, teams, bench_per_team, flex_count,
-                             slots=slots, flex_eligible=flex_eligible)
+                             slots=slots, flex_eligible=flex_eligible,
+                             superflex_count=superflex_count)
     raw = {}
     for pos in POSITIONS:
         r = ref.get(pos, 0.0)

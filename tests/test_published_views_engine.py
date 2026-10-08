@@ -56,7 +56,6 @@ def expected_views(inputs, teams, shape, pos_of):
     """Independent reference: {src: {"vorp": {key: v}, "adj": {key: v}}}.
     inputs: {src: (native [(key, value)], keys [key], budgets)}."""
     slots = {p: shape[p] for p in POSITIONS}
-    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
     vorp_out, adj_raw, batch_max = {}, {}, 0.0
     for src, (native, keys, budgets) in inputs.items():
         total = sum(b for g in budgets.values() for b in g.values() if b > 0)
@@ -68,13 +67,14 @@ def expected_views(inputs, teams, shape, pos_of):
         # V2-WAIVER-COVERAGE: each chart's peers are the other charts in the batch.
         peers = peers_ranked({other: inputs[other][0] for other in inputs if other != src}, pos_of)
         at = unified.translate_ranked(ranked, teams, shape["BENCH"], shape["FLEX"],
-                                      slots=slots, flex_eligible=elig, peers=peers)
+                                      slots=slots, peers=peers,
+                                      superflex_count=shape.get("SUPERFLEX", 0))
         info, groups, vorp_sum = {}, {p: {"starter": 0.0, "bench": 0.0} for p in POSITIONS}, 0.0
         for p in POSITIONS:
             pinfo = at["positions"].get(p)
             if not pinfo:
                 continue
-            n_start = pinfo["n_dedicated"] + pinfo["n_flex"]
+            n_start = pinfo["n_dedicated"] + pinfo.get("n_superflex", 0) + pinfo["n_flex"]
             for i, (pkey, _name, _val) in enumerate(ranked[p]):
                 t = at["translated"].get(pkey)
                 if t is None:
@@ -123,9 +123,9 @@ def rounding_band_violations(native, keys, teams, shape, pos_of, our_max, peers=
         ranked[pos_of[key]].append((str(key), str(key), float(value)))
     for p in POSITIONS:
         ranked[p].sort(key=lambda r: -r[2])
-    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
     at = unified.translate_ranked(ranked, teams, shape["BENCH"], shape["FLEX"],
-                                  slots={p: shape[p] for p in POSITIONS}, flex_eligible=elig,
+                                  slots={p: shape[p] for p in POSITIONS},
+                                  superflex_count=shape.get("SUPERFLEX", 0),
                                   our_max={p: float(our_max[p]) * boost for p in POSITIONS},
                                   peers=peers_ranked(peers or {}, pos_of))
     out = []
@@ -250,7 +250,7 @@ class PublishedViewsEngine(unittest.TestCase):
               f"max_abs_diff={max_diff} failures={len(failures)}")
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertGreater(n, 30000)
-        self.assertEqual({r["version"] for r in results}, {"published-views-001/2"})
+        self.assertEqual({r["version"] for r in results}, {"published-views-001/3"})
 
     def test_reader_invariants(self):
         """VORP-vs-waivers totals are the anchor's and keep the publisher's own
@@ -298,7 +298,11 @@ class PublishedViewsEngine(unittest.TestCase):
             "weight-native": ("info.set(String(row.key), {pos: pos, role: role, vorp: t.vorp});",
                               "info.set(String(row.key), {pos: pos, role: role, vorp: t.native});"),
             # flex starters counted as bench
-            "flex-as-bench": ("var nStart = p.n_dedicated + p.n_flex;", "var nStart = p.n_dedicated;"),
+            "flex-as-bench": ("var nStart = p.n_dedicated + (p.n_superflex || 0) + p.n_flex;",
+                              "var nStart = p.n_dedicated + (p.n_superflex || 0);"),
+            # JEG332-SUPERFLEX-FLEX: superflex starters counted as bench
+            "superflex-as-bench": ("var nStart = p.n_dedicated + (p.n_superflex || 0) + p.n_flex;",
+                                   "var nStart = p.n_dedicated + p.n_flex;"),
             # adjusted: anchor group budgets ignored (raw value above waivers)
             "budget-ignored": ("w = groupTotal > 0 && isFinite(budget) && budget > 0 ? budget * row.vorp / groupTotal : 0;",
                                "w = row.vorp;"),
