@@ -58,17 +58,18 @@ def _test_registry():
 
 def _espn_csv(tmpdir):
     """A minimal ESPN projections CSV that prices one QB + one RB."""
+    # weeks_covered: ESPN's ROS window, required since GAP-GAMES-REMAINING-STALE.
     cols = ["player", "pos", "team", "eligible", "espn_snapshot_date",
             "r_pass_yds", "r_pass_tds", "r_rush_yds", "r_rush_tds",
-            "r_receptions", "r_rec_yds", "r_rec_tds"]
+            "r_receptions", "r_rec_yds", "r_rec_tds", "weeks_covered"]
     today = _real_date.today().isoformat()
     rows = [
-        {"player": "Test Player", "pos": "QB", "team": "BUF",
+        {"weeks_covered": "5-18", "player": "Test Player", "pos": "QB", "team": "BUF",
          "eligible": "True", "espn_snapshot_date": today,
          "r_pass_yds": "3163.3", "r_pass_tds": "20.7",
          "r_rush_yds": "", "r_rush_tds": "",
          "r_receptions": "", "r_rec_yds": "", "r_rec_tds": ""},
-        {"player": "Other Player", "pos": "RB", "team": "LA",
+        {"weeks_covered": "5-18", "player": "Other Player", "pos": "RB", "team": "LA",
          "eligible": "True", "espn_snapshot_date": today,
          "r_pass_yds": "", "r_pass_tds": "",
          "r_rush_yds": "800.0", "r_rush_tds": "6.0",
@@ -150,20 +151,32 @@ def _stub_dataset_status(meta, players, **kwargs):
     return {"stubbed": True, "n_players": len(players or [])}
 
 
+def _schedule_from_bye_table():
+    """A full season schedule consistent with data/inputs/nfl_byes_2026.json.
+
+    bake() cross-checks the bye table against the Supabase schedule and fails
+    closed on any disagreement (GAP-GAMES-REMAINING-STALE, 2026-10-08). The
+    old two-row games stub predates that check and made every bake here abort,
+    so the stub now plays every team once in each of its non-bye weeks."""
+    byes, (first, last) = bake_players.load_byes()
+    teams = sorted(byes)
+    ids = {abbr: 100 + i for i, abbr in enumerate(teams)}
+    rows = []
+    for week in range(first, last + 1):
+        playing = [t for t in teams if byes[t] != week]
+        assert len(playing) % 2 == 0, f"odd team count in week {week}"
+        for home, away in zip(playing[0::2], playing[1::2]):
+            rows.append({"week": week, "home_team_id": ids[home], "away_team_id": ids[away]})
+    return [{"id": i, "abbreviation": a} for a, i in ids.items()], rows
+
+
 def _fake_query_all(table, params):
-    """Stub Supabase query_all() — no teams / games lookups in the test."""
+    """Stub Supabase query_all(): teams and a bye-consistent schedule."""
+    teams, games = _schedule_from_bye_table()
     if table == "teams":
-        # team_id 10 -> BUF (per test registry), team_id 20 -> LA
-        return [
-            {"id": 10, "abbreviation": "BUF"},
-            {"id": 20, "abbreviation": "LA"},
-        ]
+        return teams
     if table == "games":
-        # Two games remaining for each team so blend_ppg populates.
-        return [
-            {"home_team_id": 10, "away_team_id": 20, "status": "scheduled"},
-            {"home_team_id": 10, "away_team_id": 20, "status": "scheduled"},
-        ]
+        return games
     return []
 
 

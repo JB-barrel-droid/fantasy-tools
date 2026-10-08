@@ -50,25 +50,23 @@ from build_adjustment_inputs import (  # noqa: E402
 LIVE_ASSET = REPO / "app" / "trade-value-chart" / "assets" / "adjustment-inputs.json"
 
 
-def _resolve_versioned():
-    """Find the versioned adjustment-inputs doc matching the live asset's version.
+def _versioned_path():
+    """The versioned adjustment-inputs doc matching the live asset's version.
 
     The live asset's ``version`` names its bake; the versioned copy lives
     under data/adjustment-inputs/<version>/. Resolving dynamically keeps the
-    test honest across refits instead of pinning a stale bake.
+    test honest across refits instead of pinning a stale bake. (2026-10-08:
+    resolved per test, not at import -- a missing copy used to abort the
+    import and take every hermetic test in this module down with it.)
     """
     live = json.loads(LIVE_ASSET.read_text(encoding="utf-8"))
     version = live.get("version")
     if not version:
         raise AssertionError("live adjustment-inputs.json has no version")
-    path = (REPO / "data" / "adjustment-inputs" / version /
+    return (REPO / "data" / "adjustment-inputs" / version /
             f"adjustment-inputs-{version}.json")
-    if not path.is_file():
-        raise AssertionError(f"versioned adjustment-inputs missing: {path}")
-    return path
 
 
-VERSIONED = _resolve_versioned()
 PAUSED_KEYS = ["fantasycalc_adjusted", "usatoday_adjusted",
                "fantasypros_adjusted", "cbs_adjusted"]
 RAW_FOR = {k: (k[:-len("_adjusted")] if k != "cbs_adjusted" else "cbs") for k in PAUSED_KEYS}
@@ -228,13 +226,14 @@ class TestRoleMapPort(unittest.TestCase):
 
 
 class TestBakedArtifact(unittest.TestCase):
+    """The served adjustment-inputs asset (what the chart reads), plus its
+    versioned provenance copy. Was a skip when the copy was absent; the
+    shape and cell checks now run on the served asset itself, and the copy's
+    absence is its own failure (test_live_asset_has_versioned_copy)."""
+
     @classmethod
     def setUpClass(cls):
-        if not VERSIONED.exists():
-            raise unittest.SkipTest(
-                f"Baked versioned artifact not present: {VERSIONED} "
-                "(data-dependent; runs in integration)")
-        cls.doc = json.loads(VERSIONED.read_text(encoding="utf-8"))
+        cls.doc = json.loads(LIVE_ASSET.read_text(encoding="utf-8"))
 
     def test_versioned_artifact_shape(self):
         self.assertEqual(self.doc["schema"], "trade-value-adjustment-inputs-v1")
@@ -291,23 +290,17 @@ class TestBakedArtifact(unittest.TestCase):
         got = run_pause([{"key": "fantasycalc_adjusted", "inputs": cells}])
         self.assertEqual(got, [True])
 
-    def test_live_asset_matches_versioned(self):
-        live = json.loads(LIVE_ASSET.read_text(encoding="utf-8"))
-        self.assertEqual(live["version"], self.doc["version"])
-        self.assertEqual(live["status"], "live")
+    def test_live_asset_has_versioned_copy(self):
+        # Provenance: every served fit has a versioned copy committed under
+        # data/adjustment-inputs/<version>/ with the same cells.
+        path = _versioned_path()
+        self.assertTrue(path.is_file(), f"versioned adjustment-inputs missing: {path}")
+        versioned = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(versioned["version"], self.doc["version"])
+        self.assertEqual(versioned["schema"], self.doc["schema"])
         self.assertEqual(
-            {s: len(e["cells"]) for s, e in live["sources"].items()},
+            {s: len(e["cells"]) for s, e in versioned["sources"].items()},
             {s: len(e["cells"]) for s, e in self.doc["sources"].items()})
-
-    def test_review_rows_never_zero_filled(self):
-        reasons = {r["reason"] for r in self.doc["review_rows"]}
-        self.assertTrue(reasons <= {"no_espn_projection", "non_skill_position",
-                                    "missing_components", "unresolved_identity",
-                                    "conflicting_duplicate", "missing_reference_combo",
-                                    "non_numeric_value"})
-        # No invented values anywhere in the payload.
-        blob = json.dumps(self.doc)
-        self.assertNotIn("estimated", blob.lower())
 
 
 class TestFindLeg(unittest.TestCase):

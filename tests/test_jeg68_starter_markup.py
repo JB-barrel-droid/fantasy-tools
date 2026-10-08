@@ -65,6 +65,28 @@ def _node_eval_predicate(values):
     return json.loads(proc.stdout)
 
 
+def _fixture_pool_size(ppg_field, scoring):
+    """Count the players the chart prices for a source: integer key, an
+    offensive position, and a finite per-game projection for the scoring."""
+    import math
+    payload = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    n = 0
+    for p in payload.get("players") or []:
+        try:
+            int(p.get("player_key"))
+        except (TypeError, ValueError):
+            continue
+        if p.get("pos") not in ("QB", "RB", "WR", "TE"):
+            continue
+        ppg = (p.get(ppg_field) or {}).get(scoring)
+        try:
+            if math.isfinite(float(ppg)):
+                n += 1
+        except (TypeError, ValueError):
+            continue
+    return n
+
+
 def _harness(*args):
     proc = subprocess.run(
         ["node", str(HARNESS), "--fixture", str(FIXTURE), *args],
@@ -125,11 +147,20 @@ class StarterMarkupWiringTest(unittest.TestCase):
 
 class StarterMarkupFixtureTest(unittest.TestCase):
     def test_cbsros_fixture_markup_is_sane(self):
+        # Recompute-based, not pinned (2026-10-08): the n=349 / markup
+        # 1.000441 / share 0.849625 pins were snapshot values that went red
+        # on the first CBS ROS refresh (350 players). What must hold on any
+        # correct build: the harness prices exactly the fixture's CBS ROS
+        # pool, the markup is the deterministic target/raw-share ratio, and
+        # it sits in the sane band at the default shape.
         out = _harness("--ppg-field", "cbsros_ppg", "--scoring", "ppr",
                        "--teams", "12")
-        self.assertEqual(out["n"], 349)
-        self.assertAlmostEqual(out["markup"], GENUINE_CBSROS_MARKUP, places=4)
-        self.assertAlmostEqual(out["rawStarterShare"], 0.849625, places=4)
+        self.assertEqual(out["n"], _fixture_pool_size("cbsros_ppg", "ppr"))
+        self.assertAlmostEqual(
+            out["rawStarterShare"],
+            out["starterRaw"] / (out["starterRaw"] + out["benchRaw"]), places=4)
+        self.assertAlmostEqual(
+            out["markup"], 0.85 / out["rawStarterShare"], places=4)
         self.assertTrue(out["sane"], f"harness: {out}")
 
     def test_espn_and_razzball_still_sane(self):

@@ -1,13 +1,9 @@
-import json
-import shutil
 import subprocess
-import tempfile
 import unittest
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-FIXTURE_DIR = ROOT / "data" / "fixtures" / "current"
 HARNESS = ROOT / "tools" / "guard_harness.mjs"
 
 
@@ -32,32 +28,32 @@ class GuardHarnessRecordedTest(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_jeg5_recorded_assertion_rejects_perturbed_fixture(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            tmp_dir = Path(tmp)
-            for name in ("players.json", "comparison-sources-data.json"):
-                shutil.copy2(FIXTURE_DIR / name, tmp_dir / name)
+    # Until 2026-10-08 the harness pinned the simulated total/target/delta
+    # and this test perturbed the fixture to show the pin moved. The pin went
+    # red on every refresh, so the assertion is now recompute-based (see
+    # EXPECTED_JEG5 in tools/guard_harness.mjs). These prove it still fails
+    # in the states it exists to catch.
 
-            comparison_path = tmp_dir / "comparison-sources-data.json"
-            payload = json.loads(comparison_path.read_text())
-            # JEG-392: the simulation runs on the CBS adjusted map (see
-            # EXPECTED_JEG5 in tools/guard_harness.mjs), so perturb CBS.
-            for field in ("native", "reindexed"):
-                values = payload["sources"]["cbs"]["combos"]["full_12"][field]
-                values["aj brown"] += 5.0
-            comparison_path.write_text(json.dumps(payload, separators=(",", ":")))
+    def test_rejects_simulation_that_no_longer_misses_the_pie(self):
+        # The JEG-392 failure mode: on ESPN (the primary leg) the published
+        # and training tiers coincide, so the simulated bug moves the pie by
+        # ~1.3, inside the tolerance -- the guard could no longer fail.
+        result = run_harness(
+            "--source", "espn", "--simulate", "tier-mismatch",
+            "--assert-jeg5-recorded",
+        )
+        self.assertNotEqual(result.returncode, 0, result.stdout[-400:])
+        self.assertIn("expected simulated JEG-5 state to fail fixedPieIndexed", result.stderr)
 
-            result = run_harness(
-                "--fixture-dir",
-                str(tmp_dir),
-                "--simulate",
-                "tier-mismatch",
-                "--assert-bad",
-                "--assert-jeg5-recorded",
-            )
-
-        self.assertNotEqual(result.returncode, 0, result.stdout)
-        self.assertIn("simulated JEG-5 numbers drifted", result.stderr)
+    def test_rejects_simulation_inside_the_required_margin(self):
+        # A simulated miss smaller than the required margin must fail. The
+        # current CBS miss (~60) is under 100x the tolerance of 2.
+        result = run_harness(
+            "--simulate", "tier-mismatch", "--assert-jeg5-recorded",
+            "--min-miss-tolerances", "100",
+        )
+        self.assertNotEqual(result.returncode, 0, result.stdout[-400:])
+        self.assertIn("simulated miss", result.stderr)
 
 
 if __name__ == "__main__":

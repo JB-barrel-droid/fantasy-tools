@@ -1,13 +1,18 @@
 """Two-tier frontend port tests: curve-widget.js <-> starter_model.py.
 
 The widget's pure two-tier helpers (globalThis.TradeValueTwoTier) are loaded
-in Node with no DOM. Pinned vectors come from the shared golden file
-(tests/golden/two_tier_vectors.json in the football-signal repo); hand-
-computed vectors are vendored here so the core parity tests stand alone.
+in Node with no DOM. Pinned vectors are hand-computed and vendored here.
+
+2026-10-08: the *_golden variants were removed. They read
+~/workspace/goals/football-signal-database-and-app/tests/golden/two_tier_vectors.json,
+a file in another repo that exists on no machine or CI runner this suite runs
+on, so they skipped every time and tested nothing. The hand vectors cover the
+same functions. The skipped positional-peak agreement test was removed too:
+it was skipped since 2026-09-30, and the published scale-agreement check it
+mirrored was retired (tests/test_source_scale_agreement_retired.py).
 """
 import json
 import math
-import os
 import re
 import subprocess
 import unittest
@@ -16,15 +21,13 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 WIDGET = REPO / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
 HARNESS = Path(__file__).resolve().parent / "two_tier_harness.js"
-GOLDEN = Path(os.path.expanduser(
-    "~/workspace/goals/football-signal-database-and-app/tests/golden/two_tier_vectors.json"))
 PLAYERS = REPO / "data" / "fixtures" / "current" / "players.json"
 APP = REPO / "app" / "trade-value-chart"
 COMPARE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 
 TOL = 1e-9
 
-# Hand-computed pinned vectors (vendored; also present in the golden file).
+# Hand-computed pinned vectors (vendored).
 HAND_SOLVE = [
     {"pos": "QB", "bench_share": 0.15,
      "exposures": {"a_b": 10.0, "b_b": 0.0, "a_s": 0.0, "b_s": 10.0, "pie": 100.0},
@@ -68,12 +71,6 @@ def run_harness(cmd, payload):
     return json.loads(proc.stdout)
 
 
-def load_golden():
-    if not GOLDEN.exists():
-        return None
-    return json.loads(GOLDEN.read_text())
-
-
 def extract_function(text, name):
     """Extract a top-level `function name(...) {...}` body by brace matching."""
     m = re.search(r"function %s\(.*?\) \{" % re.escape(name), text)
@@ -92,10 +89,6 @@ def extract_function(text, name):
 
 
 class TestTwoTierPort(unittest.TestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.golden = load_golden()
-
     def assertSolveMatches(self, vec):
         e = vec["exposures"]
         got = run_harness("solve", {"vectors": [{
@@ -110,26 +103,12 @@ class TestTwoTierPort(unittest.TestCase):
         for vec in HAND_SOLVE:
             self.assertSolveMatches(vec)
 
-    def test_pinned_solve_vectors_golden(self):
-        if self.golden is None:
-            self.skipTest("golden vectors file absent")
-        for vec in self.golden["solve"]:
-            self.assertSolveMatches(vec)
-
     def test_pinned_solve_infeasible(self):
         e = HAND_SOLVE[0]["exposures"]
         vectors = [{"a_b": e["a_b"], "b_b": e["b_b"], "a_s": e["a_s"],
                     "b_s": e["b_s"], "pie": e["pie"], "pos": "QB",
                     "bench_share": s} for s in HAND_SOLVE_INFEASIBLE_SHARES]
         for got in run_harness("solve", {"vectors": vectors}):
-            self.assertIn("error", got)
-        if self.golden is None:
-            self.skipTest("golden vectors file absent")
-        gv = [{"a_b": v["exposures"]["a_b"], "b_b": v["exposures"]["b_b"],
-               "a_s": v["exposures"]["a_s"], "b_s": v["exposures"]["b_s"],
-               "pie": v["exposures"]["pie"], "pos": v["pos"],
-               "bench_share": v["bench_share"]} for v in self.golden["solve_infeasible"]]
-        for got in run_harness("solve", {"vectors": gv}):
             self.assertIn("error", got)
 
     def assertSliceMatches(self, vec):
@@ -139,12 +118,6 @@ class TestTwoTierPort(unittest.TestCase):
 
     def test_pinned_slice_vectors_hand(self):
         for vec in HAND_SLICE:
-            self.assertSliceMatches(vec)
-
-    def test_pinned_slice_vectors_golden(self):
-        if self.golden is None:
-            self.skipTest("golden vectors file absent")
-        for vec in self.golden["slice_exposures"]:
             self.assertSliceMatches(vec)
 
     def assertIntervalMatches(self, vec):
@@ -160,12 +133,6 @@ class TestTwoTierPort(unittest.TestCase):
     def test_pinned_feasible_intervals_hand(self):
         self.assertIntervalMatches(HAND_INTERVAL)
 
-    def test_pinned_feasible_intervals_golden(self):
-        if self.golden is None:
-            self.skipTest("golden vectors file absent")
-        for vec in self.golden["feasible_intervals"]:
-            self.assertIntervalMatches(vec)
-
     def test_pinned_slider_bounds_hand(self):
         got = run_harness("slider", {"intervals": HAND_SLIDER["intervals"]})
         self.assertIsNotNone(got)
@@ -174,29 +141,11 @@ class TestTwoTierPort(unittest.TestCase):
         empty = run_harness("slider", {"intervals": {"QB": [0.4, 0.5], "RB": [0.1, 0.2]}})
         self.assertIsNone(empty)
 
-    def test_pinned_slider_bounds_golden(self):
-        if self.golden is None:
-            self.skipTest("golden vectors file absent")
-        got = run_harness("slider", {"intervals": self.golden["slider_bounds"]["intervals"]})
-        exp = self.golden["slider_bounds"]["expected"]
-        self.assertLess(abs(got[0] - exp["lo"]), TOL)
-        self.assertLess(abs(got[1] - exp["hi"]), TOL)
-
     def test_pinned_display_hand(self):
         got = run_harness("display", {"raw": HAND_DISPLAY["raw"]})
         exp = HAND_DISPLAY["expected"]
         self.assertEqual(got["values"], exp["values"])
         self.assertLess(abs(got["scale"] - exp["scale"]), TOL)
-
-    def test_pinned_display_golden(self):
-        if self.golden is None:
-            self.skipTest("golden vectors file absent")
-        d = self.golden["display"]
-        got = run_harness("display", {"raw": d["raw"]})
-        self.assertEqual(got["values"], d["expected"]["values"])
-        self.assertLess(abs(got["scale"] - d["expected"]["scale"]), TOL)
-        self.assertTrue(d["expected"]["top_is_70"])
-        self.assertTrue(d["expected"]["order_preserved"])
 
     def test_normalize_then_round_negative(self):
         # The named defect: rounding raw values FIRST, then scaling. On a
@@ -895,76 +844,6 @@ class EspnAnchorIsTheBuiltLegTest(unittest.TestCase):
             self.assertIsNotNone(body)
             self.assertNotIn('key === "espn"', body,
                              "%s: the ESPN anchor must not be exempt from roster shaping" % name)
-
-    def test_built_leg_positional_peaks_agree_across_the_shipped_sources(self):
-        """The invariant on real data: every direct source's positional peak
-        sits inside the agreement band of the ESPN leg's, in the fixture as
-        shipped. This is what the runtime guard checks; pinning it here means
-        a bad promotion fails the build rather than the page.
-
-        2026-09-30: SKIPPED. Fresh ESPN data (2026-09-29, Mike Clay) reveals
-        genuine source disagreements that were masked by stale data:
-        - QB: ESPN 27.2 vs FantasyCalc 17.2 (0.63x), both fresh
-        - WR: ESPN 38.2 vs FantasyCalc 57.4 (1.50x), both fresh
-        - USA Today is stale (2026-09-15, Week 2 vs current Week 4)
-        The 0.8-1.25x band assumption does not hold for current fresh data.
-        TODO: Investigate whether these are real projection disagreements or
-        DDF methodology issues. Re-enable only after resolving the underlying
-        cause. Do not re-enable by widening the band without investigation.
-        """
-        self.skipTest("Skipped 2026-09-30: genuine source disagreements revealed by fresh ESPN data; see docstring")
-        comparison = json.loads(COMPARE.read_text(encoding="utf-8"))
-        players = json.loads(PLAYERS.read_text(encoding="utf-8"))["players"]
-        pos_by_key = {int(p["player_key"]): p["pos"] for p in players}
-        key_by_slug = {str(k): int(v) for k, v in comparison["player_keys"].items()}
-        positions = ("QB", "RB", "WR", "TE")
-
-        def peaks(source_key):
-            combos = comparison["sources"][source_key].get("combos") or {}
-            combo = combos.get("full_12") or combos.get("full_12_qb1")
-            if not combo:
-                return None
-            values = combo.get("values") or combo.get("reindexed") or {}
-            out = {pos: 0.0 for pos in positions}
-            for slug, raw in values.items():
-                key = key_by_slug.get(slug)
-                pos = pos_by_key.get(key) if key is not None else None
-                if pos in out:
-                    out[pos] = max(out[pos], float(raw))
-            return out
-
-        anchor = peaks("espn")
-        self.assertIsNotNone(anchor, "no ESPN leg in the shipped fixture")
-        band = run_harness("peakagreement", {"cases": [{"anchorPeaks": anchor, "sources": {}}]})["band"]
-        low, high = band
-        # 2026-09-30: usatoday excluded from peak agreement guard.
-        # USA Today data is stale (published 2026-09-15, Week 2; current is Week 4).
-        # The guard correctly catches the stale-vs-fresh disagreement (0.67x on QB).
-        # TODO: Re-enable usatoday in this guard after its data is refreshed.
-        # Do not re-add without verifying the vintage is current.
-        # 2026-09-30: QB excluded from peak agreement guard.
-        # Fresh ESPN (Mike Clay) QB projections genuinely disagree with peers:
-        # ESPN QB peak 27.2 vs FantasyCalc 17.2 (0.63x), both fresh (2026-09-29).
-        # This is a real source disagreement, not staleness or a DDF bug.
-        # The guard correctly catches it. TODO: Investigate the underlying
-        # projection disagreement. Do not re-add QB without resolving it.
-        # RB/WR/TE peaks still guarded.
-        for key in ("fantasycalc", "fantasypros", "cbs"):
-            source = peaks(key)
-            if not source:
-                continue
-            for pos in [p for p in positions if p != "QB"]:
-                if not (anchor[pos] > 0 and source[pos] > 0):
-                    continue
-                ratio = source[pos] / anchor[pos]
-                self.assertTrue(
-                    low <= ratio <= high,
-                    f"{key} {pos} peaks {source[pos]:.1f} against the ESPN leg's "
-                    f"{anchor[pos]:.1f} ({ratio:.2f}x), outside {low}-{high}x")
-
-
-class PeakAgreementGuardTest(unittest.TestCase):
-    """Negative-tested 2026-09-22 against the numbers the defect produced."""
 
     def agree(self, cases):
         return run_harness("peakagreement", {"cases": cases})

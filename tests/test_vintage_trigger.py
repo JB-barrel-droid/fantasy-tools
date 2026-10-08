@@ -188,16 +188,47 @@ class VintageWorkflowContractTests(unittest.TestCase):
         self.assertIn("changed", cond)
         self.assertIn("code_changed", cond)
 
+    @classmethod
+    def _run_check_step(cls, stub_exit, stub_json):
+        """Run the check step's script under `bash -e` (the Actions default)
+        with check_source_vintage.py replaced by a stub. Returns (rc, outputs)."""
+        import subprocess
+        import textwrap
+        block = cls._step_block("Check source vintage")
+        body = block.split("run: |", 1)[1]
+        script = textwrap.dedent(body)
+        target = "python3 pipelines/check_source_vintage.py --json"
+        assert target in script, "script invocation not found in check step"
+        with tempfile.TemporaryDirectory() as tmp:
+            stub = Path(tmp) / "stub.sh"
+            stub.write_text(f"#!/bin/bash\necho '{stub_json}'\nexit {stub_exit}\n")
+            stub.chmod(0o755)
+            script = script.replace(target, str(stub)).replace("/tmp/vintage-check.json",
+                                                              str(Path(tmp) / "out.json"))
+            out = Path(tmp) / "gh_output"
+            env = {"PATH": "/usr/bin:/bin:/usr/local/bin:/opt/homebrew/bin",
+                   "GITHUB_OUTPUT": str(out), "GITHUB_STEP_SUMMARY": str(Path(tmp) / "summary")}
+            proc = subprocess.run(["bash", "-e", "-c", script], env=env,
+                                  capture_output=True, text=True, timeout=60)
+            outputs = out.read_text() if out.exists() else ""
+        return proc.returncode, outputs
+
     def test_check_step_survives_script_exit_1(self):
         # Regression (JEG-268): the script exits 1 on every change detection
-        # (fail-closed). Without `|| true`, bash -e fails the check step
-        # before outputs are parsed and the dispatch never fires -- the hourly
-        # trigger was dead on its primary path (both scheduled runs failed at
-        # this step). The invocation must tolerate exit 1.
-        block = self._step_block("Check source vintage")
-        m = re.search(r"check_source_vintage\.py --json[^\n]*", block)
-        assert m, "script invocation not found in check step"
-        self.assertIn("|| true", m.group(0))
+        # (fail-closed). If bash -e fails the check step on that, outputs are
+        # never parsed and the dispatch never fires -- the hourly trigger was
+        # dead on its primary path. 2026-10-08: run the step instead of
+        # pinning the `|| true` literal, which test_no_failopen_workflows
+        # forbids on pull steps; the step now captures the exit code.
+        rc, outputs = self._run_check_step(1, '{"changed": true, "code_changed": false, "code_hash": "abc"}')
+        self.assertEqual(rc, 0)
+        self.assertIn("changed=True", outputs)
+
+    def test_check_step_fails_on_a_crash(self):
+        # The other half: a crash (exit code other than 0/1) must fail the
+        # step, not be swallowed.
+        rc, _ = self._run_check_step(2, "{}")
+        self.assertNotEqual(rc, 0)
 
 
 class DispatchInputContractTests(unittest.TestCase):

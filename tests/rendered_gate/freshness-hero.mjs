@@ -1,9 +1,11 @@
 // JEG-310 regression guard: the dashboard hero must show a freshness
 // indicator colored by the age of pipeline-checkpoints.json's generated_at.
 // Synthetic inputs prove each branch:
-//   *  5 min ago  -> default color (var(--dim))
-//   * 90 min ago  -> amber    (var(--yellow))
-//   * 150 min ago -> red      (var(--red))
+//   *   5 min ago -> default color (var(--dim))
+//   * 400 min ago -> amber    (var(--yellow))
+//   * 800 min ago -> red      (var(--red))
+// 2026-10-08: thresholds follow the 6-hourly monitor (cd8f794 moved the page
+// from 60/120 min to 360/720 min); the old 90/150 cases went red there.
 //
 // Usage: node freshness-hero.mjs <dist-dir>
 // Output JSON (process exit 1 on failure):
@@ -174,7 +176,10 @@ async function main() {
   }
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox",
+      // Hermetic (2026-10-08): no request leaves the machine; external
+      // fonts made networkidle waits flaky.
+      "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost"],
   });
   const report = { ok: true, cases: [], mismatches: [] };
   try {
@@ -192,8 +197,8 @@ async function main() {
 
     const cases = [
       { name: "fresh", ageMin: 5,   expected: "--dim" },
-      { name: "amber", ageMin: 90,  expected: "--yellow" },
-      { name: "red",   ageMin: 150, expected: "--red" },
+      { name: "amber", ageMin: 400, expected: "--yellow" },
+      { name: "red",   ageMin: 800, expected: "--red" },
     ];
     for (const c of cases) {
       const r = await runCase(browser, c.name, c.ageMin, c.expected, slotRgb);

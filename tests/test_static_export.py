@@ -28,6 +28,23 @@ def load_json(path):
 # hand edit) fails; a refit does not need a re-pin.
 ADJ_POSITIONS = ("QB", "RB", "WR", "TE")
 ADJUSTED_RAW_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "cbs")
+# Every source the fixture may carry. ESPN is the anchor and must be present;
+# any other source may be absent (the page drops a missing non-ESPN section,
+# so a fixture without one must not fail validate), but a section that IS
+# present is checked in full (2026-10-08).
+ANCHOR_SOURCE = "espn"
+KNOWN_SOURCES = (
+    "usatoday", "fantasycalc", "fantasypros", "cbs", "cbsros", "razzball", "espn",
+    "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted",
+)
+
+
+def present_sources(comparison, candidates):
+    """The candidates the fixture carries. Fails if the ESPN anchor is gone."""
+    sources = comparison.get("sources") or {}
+    if ANCHOR_SOURCE not in sources:
+        raise AssertionError("the ESPN anchor section is missing from the fixture")
+    return [source for source in candidates if source in sources]
 
 def recompute_adjusted_combo(fixture, inputs, players, source, combo_name):
     roster = json.loads((ROOT / "config" / "roster.json").read_text())
@@ -112,12 +129,48 @@ def recompute_adjusted_combo(fixture, inputs, players, source, combo_name):
     return out
 
 
+PUBLISHED_TOP_QB_COMBOS = {"usatoday": "full_12", "fantasycalc": "full_12_qb1",
+                           "fantasypros": "full_12", "cbs": "full_12"}
+
+
+def top_qb_problems(comparison, players):
+    """Each present published chart's top-native QB holds its top QB value,
+    and all of them share one top QB value (the translated QB maximum)."""
+    pos = {p["player_key"]: p.get("pos") for p in players["players"]}
+    keys = comparison.get("player_keys") or {}
+    problems, tops = [], {}
+    for source in present_sources(comparison, PUBLISHED_TOP_QB_COMBOS):
+        combo = comparison["sources"][source]["combos"].get(PUBLISHED_TOP_QB_COMBOS[source])
+        if combo is None:
+            problems.append(f"{source}: {PUBLISHED_TOP_QB_COMBOS[source]} combo missing")
+            continue
+        values = combo.get("values") or combo.get("reindexed") or {}
+        native = combo.get("native") or {}
+        qbs = [slug for slug in values if pos.get(keys.get(slug)) == "QB"
+               and isinstance(values[slug], (int, float)) and isinstance(native.get(slug), (int, float))]
+        if not qbs:
+            problems.append(f"{source}: no priced QBs")
+            continue
+        top_native = max(native[slug] for slug in qbs)
+        top_value = max(values[slug] for slug in qbs)
+        leaders = [slug for slug in qbs if native[slug] == top_native]
+        if not any(values[slug] == top_value for slug in leaders):
+            problems.append(f"{source}: top-native QB {leaders} is not at the top QB value {top_value}")
+        tops[source] = top_value
+    if len(set(tops.values())) > 1:
+        problems.append(f"published charts disagree on the top QB value: {tops}")
+    return problems
+
+
 def adjusted_recompute_problems(fixture, inputs, players):
     problems = []
     for source in ADJUSTED_RAW_SOURCES:
         section = fixture["sources"].get(f"{source}_adjusted")
         if section is None:
-            problems.append(f"{source}_adjusted section missing")
+            # Absent with its raw chart: the source is not on the site.
+            # Absent while the raw chart is present: the fit stage dropped it.
+            if source in fixture["sources"]:
+                problems.append(f"{source}_adjusted section missing")
             continue
         for combo_name, combo in section["combos"].items():
             expected = recompute_adjusted_combo(fixture, inputs, players, source, combo_name)
@@ -136,10 +189,11 @@ def adjusted_recompute_problems(fixture, inputs, players):
 # internal code comment ("the DDF-native ESPN anchor") blocked a deploy. It now scans
 # code with comments removed and only flags what a user could actually see.
 #
-# "DDF methodology" is the one approved visible phrase: it is the source badge and the
-# health-panel role text, pinned by tests/test_razzball_production_followups.py. The
-# old blanket ban contradicted those tests. Any OTHER visible "DDF" still fails.
-APPROVED_VISIBLE_PHRASES = ("DDF methodology",)
+# GAP-020 (2026-10-08): "DDF methodology" used to be allowed as the source badge and
+# health-panel role text. The copy rules name the brand Data Driven Football only and
+# allow no abbreviations in user-facing copy, so the label now reads "Data Driven
+# Football methodology" and no visible "DDF" is allowed at all.
+APPROVED_VISIBLE_PHRASES = ()
 
 _REGEX_PRECEDERS = set("(,=:[!&|?{};+-*%<>~^")
 _REGEX_KEYWORDS = {"return", "typeof", "case", "do", "else", "in", "of", "void",
@@ -377,14 +431,11 @@ class StaticExportTest(unittest.TestCase):
             # (146) and comparison-keyed ESPN-absent (42) skill players at
             # ESPN 0 -> 613. Verified from the GitHub Actions bake
             # (bake-players.yml); the 425 priced rows are byte-identical.
-            # GAP-029 (2026-10-08): K/DST are no longer carried (613 -> 536).
-            # The count follows the fixture rather than pinning a snapshot
-            # size (the 2026-10-07 note below: size pins block refreshes).
-            self.assertEqual(len(self.players["players"]),
-                             report["players"]["player_count"])
-            # 11 sources: the 10 established plus razzball (Razzball
-            # rest-of-season projections leg, added 2026-10-01).
-            self.assertEqual(11, report["comparison"]["source_count"])
+            # 2026-10-08: the 613-player / 11-source pins are recomputed from
+            # the committed fixtures (GAP-DATA-SNAPSHOT-PINS): the report must
+            # describe exactly the artifacts it validated.
+            self.assertEqual(len(self.players["players"]), report["players"]["player_count"])
+            self.assertEqual(len(self.comparison["sources"]), report["comparison"]["source_count"])
             self.assertIn("artifact_hashes", report)
 
     def test_expected_player_universe_and_identity(self):
@@ -430,172 +481,49 @@ class StaticExportTest(unittest.TestCase):
         self.assertIsNone(by_name["Kyle Juszczyk"].get("pm_ros"))
 
     def test_comparison_sources_contract(self):
-        expected_sources = {
-            "usatoday",
-            "fantasycalc",
-            "fantasypros",
-            "cbs",
-            "cbsros",
-            "razzball",
-            "espn",
-            "fantasycalc_adjusted",
-            "usatoday_adjusted",
-            "fantasypros_adjusted",
-            "cbs_adjusted",
-        }
-        self.assertEqual(expected_sources, set(self.comparison["sources"]))
-        for source in expected_sources:
+        # Only known sources; ESPN required; any other may be absent, and
+        # every present one must validate live.
+        present = present_sources(self.comparison, KNOWN_SOURCES)
+        self.assertEqual(set(present), set(self.comparison["sources"]),
+                         "fixture carries a source this contract does not know")
+        for source in present:
             self.assertEqual("live", self.comparison["source_validation"][source])
         self.assertEqual("stale", self.comparison["source_validation"]["ecr"])
 
     def test_known_full_ppr_12_team_source_values(self):
-        sources = self.comparison["sources"]
+        # 2026-10-08: recompute-based, and tolerant of an absent chart.
+        # This pinned Josh Allen at 25.0 in each published chart's Full PPR
+        # 12-team combo (and before that at a new hand value after every
+        # refresh -- the history is in git). The rule those pins stood for:
+        # a published chart's top QB by its own native value takes the top
+        # QB value, and every published chart lands its top QB on the same
+        # translated QB maximum. The values themselves are re-derived from the
+        # saved natives by stored_drift_problems
+        # (tests/test_vorp_translation_js_parity.py, in make validate); the
+        # ESPN and CBS ROS values by test_espn_anchor_* and
+        # tests/test_suffix_identity.py; the _adjusted values by
+        # test_adjusted_sections_recompute_from_fit_cells.
+        self.assertEqual([], top_qb_problems(self.comparison, self.players))
 
-        def value(source, combo):
-            combo_data = sources[source]["combos"][combo]
-            values = combo_data.get("values") or combo_data.get("reindexed")
-            return values["josh allen"]
+    def test_top_qb_check_catches_a_broken_chart(self):
+        broken = copy.deepcopy(self.comparison)
+        source = present_sources(broken, PUBLISHED_TOP_QB_COMBOS)[0]
+        combo = broken["sources"][source]["combos"][PUBLISHED_TOP_QB_COMBOS[source]]
+        values = combo.get("values") or combo.get("reindexed")
+        native = combo.get("native") or {}
+        pos = {p["player_key"]: p.get("pos") for p in self.players["players"]}
+        qbs = [slug for slug in values if pos.get(broken["player_keys"].get(slug)) == "QB"
+               and isinstance(native.get(slug), (int, float)) and isinstance(values[slug], (int, float))]
+        top = max(qbs, key=lambda slug: native[slug])
+        values[top] = round(values[top] - 1.0, 1)  # an export bug on the chart's QB1
+        problems = top_qb_problems(broken, self.players)
+        self.assertTrue(any(source in p for p in problems), problems)
 
-        expected = {
-            # usatoday re-anchored from the retired Monday rail to the fixture
-            # ESPN leg (promotion 2026-09-21); the old pin 22.3 was the
-            # Monday-rail value. Allen is the #1 QB in both, so he takes the
-            # anchor's top value.
-            # fantasycalc, fantasypros re-anchored the same way (promotions
-            # 2026-09-22); their old pins (24.0, 26.0) were Monday-rail
-            # values. CBS reindexed 2026-09-30 PM with
-            # proportional_scaling_vorp_overlap, replacing per-position
-            # isotonic PAVA (Jeremy directive, off-scale Gibbs 95.7 -> 57.5).
-            # Allen native 23.0 x VORP>0-overlap scale 1.0857740585774058
-            # (anchor=espn_leg, n_overlap=113) = 24.972803347280333, verified
-            # independently against the fixture's fit metadata.
-            # usatoday's fit lands at 26.8 (re-anchored 2026-09-30 PM to the
-            # pure-ESPN leg; was 18.3 on the stale leg). The 26.8 tracks the
-            # ESPN leg's 26.9 closely, as expected for the #1 QB anchor.
-            # 2026-10-01: USA Today migrated from isotonic_pava to
-            # proportional_scaling_vorp_overlap (methodology consistency).
-            # Allen's new value 13.008566325702224 reflects USA Today's
-            # native 17.3 x scale 0.751940250040591. The proportional method
-            # preserves the source's relative distinctions instead of forcing
-            # values into ESPN's pie shape (isotonic was masking USA Today's
-            # lower QB valuation).
-            # _adjusted pins are bias-corrected then pie-rescaled (2026-09-30
-            # fix): they track the ESPN leg within the 22% tolerance.
-            # Updated 2026-09-30 PM with fresh 09-30 adjustment inputs
-            # (ddf-20260930-espn-standard-12t-0p15).
-            # 2026-10-02 (JEG-64): USA Today migrated to VORP-translated values.
-            # Allen's value is the Supabase translated value (25.0) for the
-            # usatoday/ppr/12/wk4 grain -- the quantile bucket pin
-            # 22.530973451327434 is retired with the reindex path. Verified:
-            # fixture reindexed value == publisher_translated_values grain.
-            ("usatoday", "full_12"): 25.0,
-            # 2026-10-02 (JEG-64): FantasyCalc migrated to VORP-translated
-            # values. Allen's value is the Supabase translated value (25.0,
-            # the QB anchor max) for the fantasycalc/ppr/12/wk4 grain -- the
-            # quantile bucket pin 29.774792885916245 is retired with the
-            # reindex path. Fixture == grain, verified.
-            # 2026-10-04: FantasyCalc snapshot refreshed from the live API
-            # (Jeremy-approved acceptance; native drift live-verified
-            # 25/25). The vorp-supabase translation re-derived from the new
-            # natives (n_translated=176): Allen 6331.0 native ->
-            # 29.061033662019717. Verified: the pin is the pipeline-built
-            # fixture value for the fantasycalc/ppr/12/wk4 grain, not a
-            # hand edit; the 25.0 pin was the pre-refresh translation.
-            # 2026-10-07 (JEG332-STORED-DRIFT): the comment above was wrong.
-            # 29.061... was the quantile PIE value (899f23b rewrote reindexed
-            # with the pie but kept the vorp-supabase block); this pin froze
-            # the drift. Re-translated from the saved natives
-            # (translate_via_vorp --translation natives), Allen is FantasyCalc's
-            # top QB, so he takes the QB max exactly: 25.0, like every other
-            # published chart. Checked by stored_drift_problems.
-            ("fantasycalc", "full_12_qb1"): 25.0,
-            # 2026-10-02 (JEG-64): FantasyPros migrated to VORP-translated
-            # values. Allen's value is the Supabase translated value (25.0,
-            # the QB anchor max) for the fantasypros/ppr/12/wk4 grain -- the
-            # quantile bucket pin 19.841601255886975 is retired with the
-            # reindex path. Fixture == grain, verified.
-            ("fantasypros", "full_12"): 25.0,
-            # 2026-10-02 (JEG-64): CBS migrated to VORP-translated values.
-            # Allen's value is the Supabase translated value (25.0, the QB
-            # anchor max) for the cbs/ppr/12/wk4 grain -- the quantile bucket
-            # pin 23.8464 is retired with the reindex path. Fixture == grain,
-            # verified.
-            ("cbs", "full_12"): 25.0,
-            # 2026-10-01 (JEG-13): ESPN rebuilt with explicit zeros
-            # (ddf-20260930-espn-*12t legs, 492 players). Allen's leg value
-            # 26.913... lands in the fixture as 26.9. The old 36.8 pin was the
-            # stale-pie value the old builder rescaled fresh leg values to
-            # (fresh stamp, old-level numbers -- the stale-pie class). The
-            # rebuild now writes fresh-leg values directly.
-            # 2026-10-03: ESPN input refreshed to 2026-10-03 projections
-            # (ddf-20261003-espn-*12t legs, 493 players). Allen's leg value
-            # 26.6985... lands in the fixture as 26.7 -- genuine data move
-            # (Allen ppg 21.15 -> 19.65 on the fresh ESPN pull), verified
-            # against the rebuilt leg.
-            # 2026-10-07: the ESPN pin (26.7) is retired. The ESPN anchor is
-            # now refreshed daily (rebuild-chain.yml bake_players), and the
-            # first fresh pull moved Allen to 29.5 (Lamar Jackson's ESPN ROS
-            # fell 280 -> 257, widening Allen's QB1 margin): a hand pin
-            # failed validate on every refresh. test_espn_anchor_* recompute
-            # the section's natives from the committed CSV and require one
-            # vintage across CSV, players.json and the section.
-            # cbsros (CBS rest-of-season projections through the DDF two-tier
-            # leg): Allen's CBS ROS per-game is 24.357 vs ESPN's 21.15, yet
-            # his indexed value is 20.8 vs ESPN's 26.9 -- the two-tier leg
-            # measures positional pies from each source's own pool, so
-            # per-game rank does not transfer directly.
-            # 2026-10-02: Josh Allen's cbsros full_12 value moved 20.0 -> 20.8
-            # on the first real CBS ROS production run (JEG-134; fixture
-            # vintage 2026-10-02 vs the old 2026-09-30 snapshot) -- 176
-            # players moved, broad fresh-data refresh, verified against fixture.
-            # 2026-10-08 (GAP-CBSROS-LIVE-POOL, fix/suffix-names): 20.8 -> 20.3.
-            # The 20.8 pin was wrong: the leg had dropped 16 suffix-name
-            # players (Kenneth Walker III, Michael Penix Jr., ...) as
-            # unresolved identities, which moved every waiver and starter
-            # line. With them resolved, the same 2026-10-02 snapshot gives
-            # 20.3, which is what the browser's live CBS ROS path already
-            # showed (tests/cbsros_live_section_harness.js: live 20.29).
-            # 2026-10-08: the cbsros pin is retired, like ESPN's. CBS ROS is
-            # re-scraped weekly and the 10-08 snapshot moved Allen 20.3 -> 23.5,
-            # so a hand pin failed validate on every refresh (GAP-DATA-SNAPSHOT-PINS).
-            # tests/test_suffix_identity.py recomputes every CBS ROS combo live
-            # through the browser engine and requires the section to match
-            # within 0.21, which catches a wrong section value; a pin did not.
-            # 2026-10-02 (JEG-88): VORP translation extended to Full PPR combos.
-            # Josh Allen's adjusted value moves 26.3 -> 25.8 on the fresh
-            # VORP-translated inputs.
-            # 2026-10-02 16:21 rebuild: Stage 9 VORP refresh landed fresh
-            # translated values (159/197 players moved) -- Allen 25.8 -> 26.2,
-            # verified against fixture.
-            # 2026-10-03 17:00 CDT automated rebuild refit against the 2026-10-03
-            # ESPN anchor; Allen 28.0 -> 25.4 is the fresh refit, verified
-            # against the rebuilt fixture.
-            # 2026-10-07 (JEG332-STORED-DRIFT): refit (build_adjustment_inputs
-            # + build_adjusted_fixture_sections, the chain's stages 7-8) on the
-            # re-translated raw values -- FantasyCalc translated instead of pie,
-            # every chart's at/below-waiver players 0 instead of the pie value.
-            # 25.4 -> 25.5; USA Today 23.8 -> 24.6; FantasyPros 17.4 -> 21.1.
-            # Verified against the rebuilt fixture.
-            # 2026-10-07 (GAP-MAIN-STATIC-PIN): the automated rebuild 0b0ddee
-            # (run 37641559947, FantasyCalc Week 5) refit the cells and moved
-            # Allen 25.5 -> 25.3, turning main red. Verified independently:
-            # QB/starter cell alpha 1.5494364535 + beta 0.9790246071 x raw
-            # 25.0 = 26.025 -> 26.0; the 33 priced QBs sum to 153.8 against
-            # the pie target 149.1 (factor 0.969441), so Allen rescales to
-            # 25.205 -> 25.2; the +0.3 rounding residual is apportioned in
-            # 0.1 steps from the largest value down, giving Allen +0.1 =
-            # 25.3. All 33 QB values match the fixture. The last hand pins
-            # were usatoday_adjusted full_12 24.6 and fantasypros_adjusted
-            # full_12 21.1; both still match this fixture.
-            # The _adjusted values are refit on every legitimate rebuild, so
-            # they are no longer hand-pinned here: every _adjusted combo is
-            # recomputed from the raw section + adjustment-inputs.json cells
-            # in test_adjusted_sections_recompute_from_fit_cells, which fails
-            # on a builder (export) bug and needs no re-pin on a refresh.
-        }
-        for key, expected_value in expected.items():
-            self.assertEqual(expected_value, value(*key),
-                             msg=f"pinned value for {key} (josh allen)")
+    def test_missing_espn_section_fails(self):
+        broken = copy.deepcopy(self.comparison)
+        del broken["sources"]["espn"]
+        with self.assertRaisesRegex(AssertionError, "ESPN anchor section is missing"):
+            top_qb_problems(broken, self.players)
 
     def test_espn_anchor_matches_committed_inputs(self):
         self.assertEqual([], espn_anchor_problems(
@@ -926,8 +854,10 @@ class StaticExportTest(unittest.TestCase):
         espn = split_to_fixed_pie(source_values("espn"), espn_projection_roles())
         peers = {
             source: split_to_fixed_pie(source_values(source), roles_from_values(source_values(source)))
-            for source in ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"]
+            for source in present_sources(
+                self.comparison, ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted"])
         }
+        self.assertTrue(peers, "no adjusted peer chart to compare ESPN against")
 
         # 2026-09-30: Josh Allen excluded from peer-tracking guard.
         # Fresh ESPN data reveals a genuine ESPN-vs-peers disagreement on Allen
@@ -1019,9 +949,16 @@ class StaticExportTest(unittest.TestCase):
         self.assertNotIn("Trade Value Dashboard</title>", html)
         self.assertNotIn("legacy model", html.lower())
         self.assertNotIn('"key":"ddf"', html)
+        # The page itself too (its inline scripts and markup), minus HTML
+        # comments and the embedded players-data JSON, which is data the page
+        # never prints (its meta.method_note is not rendered).
+        page = re.sub(r"<!--.*?-->", "", html, flags=re.S)
+        page = re.sub(r'(<script id="players-data" type="application/json">).*?(</script>)',
+                      r"\1\2", page, flags=re.S)
+        sources["index.html"] = page
         for name, text in sources.items():
-            self.assertEqual([], visible_ddf_lines(name, text),
-                             f"user-visible 'DDF' in {name} (comments and 'DDF methodology' are allowed)")
+            self.assertEqual([], visible_ddf_lines(name if name != "index.html" else "index.js", text),
+                             f"user-visible 'DDF' in {name} (only comments may say DDF)")
         self.assertNotIn("sourcePicker", "\n".join(sources.values()))
 
     def test_source_compatibility_uses_selected_league_shape(self):
@@ -1078,9 +1015,12 @@ class StaticExportTest(unittest.TestCase):
             if not combo:
                 continue
             values = combo.get("values") or combo.get("reindexed") or {}
-            value = values.get("jahmyr gibbs")
-            if isinstance(value, (int, float)):
-                gibbs_values.append(value)
+            # 2026-10-08: each chart's top value, not Jahmyr Gibbs's -- the
+            # test is about the index scale, and pinning one player made it
+            # fail whenever his projection moved (GAP-DATA-SNAPSHOT-PINS).
+            priced = [v for v in values.values() if isinstance(v, (int, float))]
+            if priced:
+                gibbs_values.append(max(priced))
         # 2026-09-30: thresholds updated for fresh ESPN pie (stale-pie inflation removed).
         # Fresh Gibbs is 70.0; the old 78/81 encoded the stale inflated scale.
         # 2026-09-30 PM2: min threshold 65 -> 50. The usatoday_adjusted
@@ -1143,7 +1083,7 @@ class StaticExportTest(unittest.TestCase):
             if player.get("pos") in {"QB", "RB", "WR", "TE"}
         }
         sources = self.comparison["sources"]
-        source_keys = [
+        source_keys = present_sources(self.comparison, [
             "usatoday",
             "fantasycalc",
             "fantasypros",
@@ -1152,7 +1092,7 @@ class StaticExportTest(unittest.TestCase):
             "fantasycalc_adjusted",
             "usatoday_adjusted",
             "fantasypros_adjusted",
-        ]
+        ])
 
         def combo_key(source):
             return "full_12_qb1" if source in {"fantasycalc", "fantasycalc_adjusted"} else "full_12"
@@ -1208,8 +1148,15 @@ class StaticExportTest(unittest.TestCase):
         # FantasyCalc 0.23, Tyson Bagent FantasyCalc 0.014), so the last
         # positive QB is #35 Deshaun Watson (ESPN 0.6). Verified against the
         # rebuilt fixture and the pre-fix fixture.
-        self.assertEqual(35, last_positive)
-        self.assertEqual(36, last_positive + 1)
+        # 2026-10-08: the boundary pin (35, re-pinned six times as data
+        # moved) is retired (GAP-DATA-SNAPSHOT-PINS). The rule behind it --
+        # a chart pays 0 at or below its waiver line, never a pie fallback --
+        # is recomputed per chart from the saved natives by
+        # stored_drift_problems (tests/test_vorp_translation_js_parity.py)
+        # and tests/test_short_chart_waiver.py, both in make validate. What
+        # stays here: the default QB list does reach zero-value rows.
+        self.assertGreater(last_positive, 0, "no positive QB on the default board")
+        self.assertLess(last_positive, len(rows), "every QB is positive: no waiver transition")
 
 
 class BrandingScanTest(unittest.TestCase):
@@ -1228,9 +1175,10 @@ class BrandingScanTest(unittest.TestCase):
     def test_a_visible_ddf_string_is_caught(self):
         self.assertEqual(1, len(self.hits('const label = "DDF Rankings";\n')))
 
-    def test_the_approved_label_is_allowed_but_other_ddf_beside_it_is_not(self):
-        self.assertEqual([], self.hits('return "DDF methodology";\n'))
-        self.assertEqual(1, len(self.hits('return "DDF methodology \u00b7 DDF Rankings";\n')))
+    def test_the_old_methodology_label_is_caught(self):
+        # GAP-020: the abbreviation is not allowed even in the methodology label.
+        self.assertEqual(1, len(self.hits('return "DDF methodology";\n')))
+        self.assertEqual([], self.hits('return "Data Driven Football methodology";\n'))
 
     def test_slashes_inside_a_string_do_not_hide_a_visible_ddf(self):
         src = 'const u = "https://x.test/a"; const l = "DDF Rankings";\n'

@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import unittest
+import unittest.mock
 from contextlib import redirect_stdout
 from datetime import datetime, timezone
 
@@ -865,7 +866,12 @@ class TestMainArgparse(unittest.TestCase):
         # Run main() with --live against the synthetic pull and a fixture
         # whose Puka is 60.0. Puka drifts on live -> exit 1.
         fixture = make_fixture({"puka nacua": 60.0, "jaxon smithnjigba": 73.0})
-        with csf._patch_fixture(fixture):
+        # main() searches for the current NFL week's article; the synthetic
+        # sitemap is the Week 4 chart, so pin the week (2026-10-08: this went
+        # red when the real calendar reached Week 5).
+        import nfl_week
+        with csf._patch_fixture(fixture), \
+                unittest.mock.patch.object(nfl_week, "current_nfl_week", lambda *a, **k: 4):
             fetch = FakeFetch({
                 csf.LIVE_SITEMAP_MONTH
                     % (datetime.now(timezone.utc).year,

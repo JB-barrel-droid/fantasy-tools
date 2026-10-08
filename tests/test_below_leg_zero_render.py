@@ -38,6 +38,14 @@ from pathlib import Path
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests.test_v2_targets_render import DIST, _built_dist  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 ROOT = Path(__file__).resolve().parents[1]
 WIDGET_JS = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
@@ -47,12 +55,35 @@ PROBE = "Darren Waller"
 SETTINGS = (("ppr", 12), ("ppr", 8))
 
 WIDGET_RULE = "if (ppg !== null && Number.isFinite(floor) && ppg <= floor) return 0;"
-# GAP-CBSROS-8T-NO-QB fix: the upward feasible-share step. Disabling it brings
-# back a leg that prices no one at a position (CBS ROS QBs at 8 teams), the
-# only state in the current data with projected players above a leg's floor
-# that must stay missing -- so the "no floor" mutation is caught only there.
-UPWARD_STEP = "if (/bench rate .* not positive/i.test(reason)) {"
-NO_UPWARD_STEP = "if (false && /bench rate .* not positive/i.test(reason)) {"
+# The "no floor" mutation is only caught where a leg prices no one at a
+# position: players projected above any floor must then stay missing. Until
+# 2026-10-08 that state came from disabling the GAP-CBSROS-8T-NO-QB upward
+# step (CBS ROS priced no 8-team quarterbacks without it), but with fresh CBS
+# ROS data the leg prices them anyway, the mutation went uncaught and this
+# test went red. The withheld position is now forced, independent of the
+# week's data: the display path (row values, leg floors, and the harness view
+# this test reads) sees a CBS ROS leg with no quarterbacks. The pricing and
+# fixed-pie guards keep the real map, so the page still initialises.
+WITHHOLD_VIEW = (
+    'const withheldView = (key, map) => key === "cbsros" && map ? new Map([...map]'
+    '.filter(([k]) => canonicalByKey.get(k)?.pos !== "QB")) : map;\n  ')
+WITHHOLD_ANCHORS = (
+    ("  function buildLegFloors() {", WITHHOLD_VIEW + "function buildLegFloors() {"),
+    ("legFloorsOf(sourceMaps.get(key),", "legFloorsOf(withheldView(key, sourceMaps.get(key)),"),
+    ("    const map = sourceMaps.get(key);\n    if (map?.has(player.player_key))",
+     "    const map = withheldView(key, sourceMaps.get(key));\n    if (map?.has(player.player_key))"),
+    ("sourceMaps: () => new Map(sourceMaps),",
+     "sourceMaps: () => new Map([...sourceMaps].map(([k, m]) => [k, withheldView(k, m)])),"),
+)
+
+
+def withhold_qbs(widget: str) -> str:
+    """The widget's display path with the CBS ROS leg pricing no quarterbacks."""
+    for anchor, repl in WITHHOLD_ANCHORS:
+        if widget.count(anchor) != 1:
+            raise AssertionError(f"mutation anchor is stale: {anchor!r}")
+        widget = widget.replace(anchor, repl, 1)
+    return widget
 
 
 def players():
@@ -95,14 +126,14 @@ def collect(overrides=None):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out = {"settings": {}}
     with _built_dist() as v2_url, sync_playwright() as playwright:
         base = v2_url.split("/v2/")[0]
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             def open_page(url):
                 page = browser.new_page(viewport={"width": 1440, "height": 1000})
@@ -220,13 +251,13 @@ class BelowLegZeroRenderTest(unittest.TestCase):
             "below-leg missing in the engine": {"**/assets/curve-widget.js*": widget.replace(WIDGET_RULE, "", 1)},
             # Zero every projected player missing from a leg, floor ignored,
             # on a build where CBS ROS withholds 8-team QBs (upward step off).
-            "no floor (zero any projected player)": {"**/assets/curve-widget.js*": widget.replace(
-                WIDGET_RULE, "if (ppg !== null) return 0;", 1).replace(UPWARD_STEP, NO_UPWARD_STEP, 1)},
+            "no floor (zero any projected player)": {"**/assets/curve-widget.js*": withhold_qbs(widget.replace(
+                WIDGET_RULE, "if (ppg !== null) return 0;", 1))},
         }
         # Control: the correct rule on the withheld-QB build passes, so the
         # mutation above is caught for the floor, not for the withholding.
-        control = widget.replace(UPWARD_STEP, NO_UPWARD_STEP, 1)
-        self.assertNotEqual(control, widget, "upward-step anchor is stale")
+        control = withhold_qbs(widget)
+        self.assertNotEqual(control, widget, "leg-map anchor is stale")
         self.assertEqual(check(collect({"**/assets/curve-widget.js*": control})), [],
                          "correct rule fails on the withheld-QB build")
         for name, overrides in mutations.items():

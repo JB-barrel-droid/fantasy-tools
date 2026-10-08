@@ -44,6 +44,14 @@ ROOT = Path(__file__).resolve().parents[1]
 SERVE = ROOT / "app" / "trade-value-chart"
 sys.path.insert(0, str(ROOT / "pipelines"))
 from nfl_week import current_nfl_week  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 CARD_KEYS = {
     "USA Today": "usatoday", "FantasyCalc": "fantasycalc", "FantasyPros": "fantasypros",
@@ -153,13 +161,7 @@ READ_STATE = """() => ({
 
 
 def _chromium_executable(playwright):
-    candidates = [Path(playwright.chromium.executable_path),
-                  Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")]
-    for name in ("chromium", "chromium-browser", "google-chrome"):
-        found = shutil.which(name)
-        if found:
-            candidates.append(Path(found))
-    return next((str(c) for c in candidates if c.exists()), None)
+    return _render_env.chromium_executable(playwright)
 
 
 @contextlib.contextmanager
@@ -169,7 +171,7 @@ def rendered_state(sources_edit=None, text_mutations=None):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
 
     class Quiet(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
@@ -187,9 +189,9 @@ def rendered_state(sources_edit=None, text_mutations=None):
             url = f"http://127.0.0.1:{server.server_address[1]}/"
             with sync_playwright() as playwright:
                 try:
-                    browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+                    browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
                 except PlaywrightError as exc:
-                    raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+                    raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
                 try:
                     page = browser.new_page()
                     page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
@@ -243,10 +245,16 @@ class FreshnessDisplayRenderTest(unittest.TestCase):
                             "a constant 'Live' badge must not pass the freshness check")
 
     def test_negative_label_ignoring_source_week_is_caught(self):
-        with rendered_state(text_mutations=IGNORES_SOURCE_WEEK) as (state, sources, today):
+        # CBS is put on Week 3 explicitly (2026-10-08): the test relied on the
+        # fixture's CBS still being on Week 4, and once CBS Week 5 was promoted
+        # the mutation (every source labelled Week 5) changed nothing for CBS.
+        def cbs_week_3(sources):
+            sources["cbs"]["week_designated"] = "Week 3"
+            sources["cbs"]["content_vintage"] = "Week 3"
+        with rendered_state(cbs_week_3, text_mutations=IGNORES_SOURCE_WEEK) as (state, sources, today):
             problems = violations(state, sources, today)
             self.assertTrue(any("CBS" in p for p in problems),
-                            f"CBS Week 4 rendered as Week 5 must be caught: {problems}")
+                            f"CBS Week 3 rendered as Week 5 must be caught: {problems}")
 
 
 if __name__ == "__main__":

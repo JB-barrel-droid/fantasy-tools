@@ -30,6 +30,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # The headless render tests in `make validate` need a browser. Without
+      # one they skipped and validate passed with them unrun (until
+      # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
+      # an error for every later step instead of a silent skip.
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make sync
       # JEG-133: validate runs on every commit (no path-dependent gating) and
       # is blocking. A red validate blocks the deploy on every push.
@@ -65,7 +74,9 @@ jobs:
           echo "pie_bad=$(python3 -c "import json; d=json.load(open('rendered-gate.json')); print(len(d['pieBad']), 'of', len(d['pie']))")" >> "$GITHUB_OUTPUT"
           if [ $rc2 -ne 0 ]; then echo "JEG-103 bench-share readout guard failed"; fi
           if [ $rc3 -ne 0 ]; then echo "JEG-135 rendered input sweep failed"; fi
-          exit $rc
+          # Every harness in this step blocks (2026-10-08): the bench-share
+          # readout and the input sweep used to print and pass.
+          if [ $rc -ne 0 ] || [ $rc2 -ne 0 ] || [ $rc3 -ne 0 ]; then exit 1; fi
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

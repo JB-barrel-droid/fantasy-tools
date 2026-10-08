@@ -38,6 +38,14 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 import build_v2_page  # noqa: E402
 
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 TRADE_JS = ROOT / "app" / "v2" / "trade.js"
 V2_JS = ROOT / "app" / "v2" / "v2.js"
@@ -140,7 +148,7 @@ def _serve(body, route, *_):
 @contextlib.contextmanager
 def _built_dist():
     if not (DIST / "index.html").exists():
-        raise unittest.SkipTest("dist/index.html is not built")
+        raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
@@ -164,13 +172,13 @@ def collect(overrides=None, viewports=((1440, 1000), (390, 844))):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     snapshots = []
     with _built_dist() as url, sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             for width, height in viewports:
                 page = browser.new_page(viewport={"width": width, "height": height})

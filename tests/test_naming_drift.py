@@ -21,14 +21,14 @@ def player_row(key, name, pos="QB", team="BUF"):
 
 
 class NamingDriftTest(unittest.TestCase):
-    def run(self, script, *args):
+    def run_script(self, script, *args):
         return subprocess.run(
             ["python3", f"pipelines/{script}", *args],
             cwd=ROOT, capture_output=True, text=True,
         )
 
     def pin(self, players_path: Path, manifest_path: Path, label="supabase:players"):
-        result = self.run("pin_naming_manifest.py",
+        result = self.run_script("pin_naming_manifest.py",
                           "--players", str(players_path), "--manifest", str(manifest_path),
                           "--source-label", label)
         self.assertEqual(0, result.returncode, msg=f"pin failed:\n{result.stderr}")
@@ -41,7 +41,7 @@ class NamingDriftTest(unittest.TestCase):
             write_json(players, players_payload([player_row(869, "Josh Allen"), player_row(101, "Bijan Robinson", "RB", "ATL")]))
             self.pin(players, manifest)
 
-            result = self.run("check_naming_drift.py", "--players", str(players), "--manifest", str(manifest))
+            result = self.run_script("check_naming_drift.py", "--players", str(players), "--manifest", str(manifest))
             self.assertEqual(0, result.returncode, msg=f"check failed:\n{result.stderr}")
             self.assertIn("Naming manifest OK", result.stdout)
 
@@ -55,7 +55,7 @@ class NamingDriftTest(unittest.TestCase):
 
             # Simulate a hand-edit or out-of-band regeneration.
             write_json(players, players_payload([player_row(869, "Joshua Allen")]))
-            result = self.run("check_naming_drift.py", "--players", str(players), "--manifest", str(manifest))
+            result = self.run_script("check_naming_drift.py", "--players", str(players), "--manifest", str(manifest))
             self.assertNotEqual(0, result.returncode)
             self.assertIn("NAMING DRIFT DETECTED", result.stderr)
 
@@ -68,7 +68,7 @@ class NamingDriftTest(unittest.TestCase):
             self.pin(players, manifest)
 
             write_json(players, players_payload([player_row(869, "Josh Allen"), player_row(101, "Bijan Robinson", "RB", "ATL")]))
-            result = self.run("check_naming_drift.py", "--players", str(players), "--manifest", str(manifest))
+            result = self.run_script("check_naming_drift.py", "--players", str(players), "--manifest", str(manifest))
             self.assertNotEqual(0, result.returncode)
             self.assertIn("NAMING DRIFT DETECTED", result.stderr)
 
@@ -78,7 +78,7 @@ class NamingDriftTest(unittest.TestCase):
             players = tmp / "players.json"
             write_json(players, players_payload([player_row(869, "Josh Allen")]))
 
-            result = self.run("check_naming_drift.py",
+            result = self.run_script("check_naming_drift.py",
                               "--players", str(players),
                               "--manifest", str(tmp / "nope.json"))
             self.assertNotEqual(0, result.returncode)

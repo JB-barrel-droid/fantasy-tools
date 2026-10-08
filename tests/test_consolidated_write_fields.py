@@ -155,7 +155,9 @@ class SourceGeneratedAtTest(unittest.TestCase):
     def test_content_vintage_per_source(self):
         d = load_detail()["sources"]
         got = {s: bcv.source_generated_at_for(s, d[s]) for s in d}
-        self.assertEqual(got["cbsros"], ("2026-10-02T00:00:00+00:00", "vintage"))
+        # The section's own vintage date, as an instant (2026-10-08: was a
+        # hand pin of 2026-10-02 that went red on the next CBS ROS refresh).
+        self.assertEqual(got["cbsros"], (f"{d['cbsros']['vintage'][:10]}T00:00:00+00:00", "vintage"))
         self.assertEqual(got["espn"][1], "espn_snapshot")
         self.assertEqual(got["fantasypros"][1], "source_provenance.content_vintage")
         self.assertEqual(got["usatoday_adjusted"][1], "lineage.raw_vintage")

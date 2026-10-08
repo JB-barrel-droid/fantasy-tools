@@ -43,6 +43,14 @@ from tests.test_published_league_settings_engine import (  # noqa: E402
     FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, _cases, browser_players,
     compare_maps, expected_derived, run_js,
 )
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 APP = ROOT / "app" / "trade-value-chart"
 SF_SHAPE = {**SAVED_SHAPE, "SUPERFLEX": 1}
@@ -199,10 +207,10 @@ def collect_page(widget_override=None):
     try:
         from playwright.sync_api import sync_playwright
     except Exception as exc:  # pragma: no cover
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out = {}
     with _server() as url, sync_playwright() as playwright:
-        browser = playwright.chromium.launch(executable_path=_chromium_executable(playwright))
+        browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         try:
             page = browser.new_page()
             errors = []

@@ -2286,7 +2286,7 @@
           // labeled "VORP-translated"; combos still on the quantile reindex
           // (fallback provenance) keep the "reindexed" label.
           const translated=combo.translation&&combo.translation.method==="vorp-supabase";
-          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "DDF methodology · common scale" : (translated ? "As published · VORP-translated" : "As published · reindexed"));
+          const role=key === "espn" ? "Projection-derived · common scale" : key==="cbs_adjusted" ? "Derived adjusted curve · common scale" : key.endsWith("_adjusted") ? "Bias-corrected best estimate" : (source.method_group==="ddf-methodology" ? "Data Driven Football methodology · common scale" : (translated ? "As published · VORP-translated" : "As published · reindexed"));
           return `<article class="dataset-card ${fresh.status==="current"?"status-live":"status-caution"}" data-source-key="${esc(key)}" data-freshness="${esc(fresh.status)}"><div class="dataset-card-head"><h3>${esc(labels[key])}</h3><span class="dataset-badge">${esc(badgeText[fresh.status])}</span></div><p class="dataset-role">${esc(role)}</p><dl class="dataset-facts"><div><dt>Coverage</dt><dd>${coverage}/${universe}</dd></div><div><dt>Content week</dt><dd class="source-freshness">${esc(fresh.text)}</dd></div>${fit}</dl></article>`;
         });
         if(freshness){

@@ -16,6 +16,14 @@ import subprocess
 import unittest
 
 from tests._dist_server import DIST, ROOT, chromium_executable, serve
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 PRE_FIX_COMMIT = "dac0ff2"
 PAGES = ("/", "/classic/", "/v2/")
@@ -25,13 +33,13 @@ def failed_requests(overrides=None):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     bad = []
     with sync_playwright() as p:
         exe = chromium_executable(p)
         if exe is None:
-            raise unittest.SkipTest("no Chromium available")
-        browser = p.chromium.launch(executable_path=exe)
+            raise _render_env.unavailable("no Chromium available")
+        browser = p.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=exe)
         try:
             with serve(DIST, overrides) as base:
                 for path in PAGES:
@@ -51,7 +59,7 @@ class PageLoadNo404Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         if not (DIST / "classic" / "index.html").exists():
-            raise unittest.SkipTest("dist/ not built (run make sync)")
+            raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_no_failed_requests(self):
         self.assertEqual(failed_requests(), [])

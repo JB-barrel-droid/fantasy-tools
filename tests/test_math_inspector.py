@@ -45,6 +45,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 import build_inspector_page  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 DIST = ROOT / "dist"
 PAGE = "modules/math-inspector.html"
@@ -175,18 +183,18 @@ def collect(overrides=None, settings=SETTINGS):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     if not (DIST / PAGE).exists():
-        raise unittest.SkipTest(f"dist/{PAGE} is not built (run make sync)")
+        raise _render_env.unavailable(f"dist/{PAGE} is not built (run make sync)")
     results = {}
     with _server(dict(overrides or {})) as url, sync_playwright() as playwright:
         executable = _chromium_executable(playwright)
         if not executable:
-            raise unittest.SkipTest("Chromium is not available")
+            raise _render_env.unavailable("Chromium is not available")
         try:
-            browser = playwright.chromium.launch(executable_path=executable)
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=executable)
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             for name, (apply, saved) in settings.items():
                 page = browser.new_page(viewport={"width": 1440, "height": 1000})
@@ -245,7 +253,7 @@ class InspectorBuildTests(unittest.TestCase):
     def test_built_page_is_internal(self):
         built = DIST / PAGE
         if not built.exists():
-            self.skipTest("dist/modules/math-inspector.html is not built (run make sync)")
+            raise _render_env.unavailable("dist/modules/math-inspector.html is not built (run make sync)")
         html = built.read_text(encoding="utf-8")
         self.assertIn('<meta name="robots" content="noindex, nofollow">', html[:html.index("</head>")])
         for public in (DIST / "index.html", DIST / "v2" / "index.html", DIST / "classic" / "index.html"):

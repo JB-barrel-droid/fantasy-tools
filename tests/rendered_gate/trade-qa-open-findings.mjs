@@ -74,7 +74,10 @@ async function run() {
   const server = await serve(DIST);
   const browser = await chromium.launch({
     executablePath: process.env.CHROMIUM_PATH || undefined,
-    args: ["--no-sandbox"],
+    args: ["--no-sandbox",
+      // Hermetic (2026-10-08): no request leaves the machine; external
+      // fonts made networkidle waits flaky.
+      "--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1, EXCLUDE localhost"],
   });
   const report = {
     subRowPresent: false,

@@ -40,6 +40,14 @@ from tests.test_published_league_settings_engine import (
     POSITIONS, browser_players,
 )
 from tests.test_published_league_settings_render import APP, _server
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 PUBLISHED = ("cbs", "fantasypros", "usatoday", "fantasycalc")
 RAW_VORP = ("espn_vorp", "cbsros_vorp", "razzball_vorp")
@@ -88,13 +96,13 @@ def _sweep(settings, overrides=None, views=("indexed", "vorp", "adj")):
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
-        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out, errors = {}, []
     with _server() as url, sync_playwright() as playwright:
         try:
-            browser = playwright.chromium.launch(executable_path=_chromium(playwright))
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium(playwright))
         except PlaywrightError as exc:
-            raise unittest.SkipTest(f"Chromium is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             for scoring, teams, roster, share in settings:
                 page = browser.new_page()

@@ -30,6 +30,14 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 import build_v2_page  # noqa: E402
+from tests import _render_env  # noqa: E402
+
+
+def setUpModule():
+    # Build app/ and dist/ from the committed fixtures first, so the
+    # test never reads a stale committed build (GAP-APP-ASSETS-LAG).
+    _render_env.ensure_built()
+
 
 APP = ROOT / "app" / "trade-value-chart"
 DIST = ROOT / "dist"
@@ -130,11 +138,7 @@ class FrontDoorBuildTests(unittest.TestCase):
 
 
 def _chromium_executable(playwright):
-    candidates = [os.environ.get("CHROMIUM_PATH"), playwright.chromium.executable_path, shutil.which("chromium")]
-    for candidate in candidates:
-        if candidate and Path(candidate).exists():
-            return str(candidate)
-    return None
+    return _render_env.chromium_executable(playwright)
 
 
 @contextlib.contextmanager
@@ -178,16 +182,16 @@ ROWS_JS = """() => window.TradeValueCurveControls.getAllRows()
 class FrontDoorRenderedTests(unittest.TestCase):
     def test_rendered_front_door(self):
         if not (DIST / "classic" / "index.html").exists():
-            raise unittest.SkipTest("dist/classic/index.html is not built (run make sync)")
+            raise _render_env.unavailable("dist/classic/index.html is not built (run make sync)")
         try:
             from playwright.sync_api import sync_playwright
         except Exception as exc:
-            raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
+            raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
         with _pages_server(DIST) as base, sync_playwright() as playwright:
             executable = _chromium_executable(playwright)
             if not executable:
-                raise unittest.SkipTest("Chromium is not available")
-            browser = playwright.chromium.launch(executable_path=executable)
+                raise _render_env.unavailable("Chromium is not available")
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=executable)
             try:
                 def open_page(url):
                     page = browser.new_page(viewport={"width": 1440, "height": 1000})

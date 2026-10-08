@@ -72,13 +72,17 @@ def find_latest_snapshot(src):
     return None
 
 def load_razzball_leg_natives():
-    """Load Razzball per-game natives from committed 12-team DDF legs."""
+    """Load Razzball per-game natives from the newest committed 12-team DDF legs.
+
+    Only legs of the newest razzball_snapshot_date are read: older legs stay
+    committed beside newer ones, and merging them let an older leg's value
+    (or a player the newer snapshot dropped) through, depending on glob order.
+    """
     leg_dir = REPO / "data" / "ddf-two-tier"
-    out = {}
-    vintages = []
     if not leg_dir.exists():
-        return out, None
-    for leg_path in leg_dir.glob("*/ddf_leg_razzball.json"):
+        return {}, None
+    legs = []
+    for leg_path in sorted(leg_dir.glob("*/ddf_leg_razzball.json")):
         try:
             leg = json.loads(leg_path.read_text())
         except (json.JSONDecodeError, OSError):
@@ -89,15 +93,19 @@ def load_razzball_leg_natives():
         scoring = inputs.get("scoring")
         if scoring not in {"ppr", "half_ppr", "standard"}:
             continue
-        vintage = inputs.get("razzball_snapshot_date")
-        if vintage:
-            vintages.append(vintage)
+        legs.append((inputs.get("razzball_snapshot_date"), scoring, leg))
+    vintages = [vintage for vintage, _, _ in legs if vintage]
+    newest = max(vintages) if vintages else None
+    out = {}
+    for vintage, scoring, leg in legs:
+        if vintage != newest:
+            continue
         for row in leg.get("values", []):
             norm = str(row.get("player_norm", "")).strip()
             ppg = row.get("ppg")
             if norm and isinstance(ppg, (int, float)):
                 out[(norm, scoring)] = float(ppg)
-    return out, max(vintages) if vintages else None
+    return out, newest
 
 def _cbsros_sbclient():
     """Import the repo's Supabase client (same one the cbsros saver uses).
