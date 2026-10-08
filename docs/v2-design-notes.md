@@ -637,6 +637,45 @@ Cadence"):
 - Projections (ESPN, CBS ROS, Razzball): probed every 4 h with the last slot at 23:25 UTC, so a
   Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
 
+## Back-end contract: DDF Value (JEG-471 part 1, 2026-10-08)
+
+The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
+key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven adjusted series
+`espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted, cbs_adjusted`.
+
+- **Rows.** Every `getRows()` / `getAllRows()` row has `values.ddf_value` (number, or `null` when no
+  included input prices the player), `ddfCount` (inputs averaged), `ddfSources` (their keys) and
+  `ddfTier` (`"starter" | "bench" | "waiver"`, `null` with no DDF Value). `getPlayerValues()` also
+  carries `values.ddf_value`.
+- **Rank and zones.** `setLockOrder("ddf_value")` ranks by it and `getRankSource()` returns
+  `"ddf_value"`; the lock survives scoring and team changes. `getZones()` then sits at the DDF
+  tier counts in a position view (All: teams × slots, as for every series).
+- **Source info.** `getSourceInfo()` is unchanged (plotted series only).
+  `getSourceInfo({includeComposite: true})` appends `{key: "ddf_value", label: "DDF Value",
+  longLabel: "DDF Composite Value", composite: true, inputs, isDefault, week, stale, available,
+  active: false, ...}`. It is never in `getActiveSources()` and is not drawn on the chart.
+- **Inputs.** `getCompositeInputs()` → `{inputs, requested, isDefault, defaults, allowed, excluded:
+  [{key, reason}]}`; `inputs` are the series averaged at this setting. `setCompositeInputs(keys,
+  publish = true)`: `keys` is an array of the seven keys (order and duplicates ignored), `null` or
+  `"default"` restores the defaults (choosing exactly the defaults is the default). Returns `{ok:
+  true, ...getCompositeInputs()}`; an empty array, an unknown key, a non-array or a set with no
+  input available at this setting returns `{ok: false, error}` and changes nothing. It recomputes
+  only the DDF fields, redraws, fires `trade-value-rows-change`, and (unless `publish` is false)
+  `trade-value-shared-change` whose detail carries `compositeInputs` (`null` = defaults).
+  `resetCompositeInputs(publish = true)` = `setCompositeInputs(null)`. Chosen inputs persist
+  across league changes; one unavailable at a setting is skipped there.
+- **Recompute.** Every rebuild (scoring, teams, roster, bench share, position shares, position
+  tab, view) recomputes it from the rebuilt series.
+- **History.** `getPriorWeek("ddf_value"[, week])` resolves to `{source, week, available, reason?,
+  values, counts, currentValues, currentCounts, sources, dropped: [{source, reason}], inputs,
+  currentWeek, priorWeek, setting, method}`. The pair is the newest served week among the inputs
+  (`currentWeek`) and the week before (`priorWeek`). `sources` are the inputs that have that pair;
+  the rest are in `dropped`. Both sides average exactly `sources`, so
+  **Δ = `currentValues[pk]` − `values[pk]`** (not `row.values.ddf_value`, which may average more
+  inputs). Label it e.g. "DDF Value · 5 of 7 sources have a prior week" from `sources.length` and
+  `inputs.length`. `getWeekValues("ddf_value", week)` gives `{values, counts, sources, dropped, ...}`
+  for any saved week; `getHistoryWeeks("ddf_value")` the saved weeks any input has.
+
 ## Multi-device pass (2026-10-08)
 
 Swept every tab at 390, 768, 820, 1024 and 1440 in light and dark (`tests/test_v2_ux_render.py`).
