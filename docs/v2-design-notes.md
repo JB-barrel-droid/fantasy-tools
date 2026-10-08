@@ -295,3 +295,15 @@ value.
 | ESPN | 09-17 | 09-22 | 10-03 | 10-07 | W5 (prior not recomputed) |
 | CBS ROS | — | — | 10-02 | — | W4 → no W3 saved |
 | Razzball | — | 09-22 | 10-01 | 10-06 | W3 (labelled W4) → no W2 saved |
+
+## Multi-device pass (2026-10-08)
+
+Swept every tab at 390, 768, 820, 1024 and 1440 in light and dark (`tests/test_v2_ux_render.py`).
+
+- Tablet (768–1023): the tabs were off screen past "Trade targets"; they now sit on their own row.
+  The Methods row's source chips were squeezed into a one-chip column; they now take a full row.
+- 44 × 44 hit areas (frame 17): tabs, zoom −/+, rank-window buttons and the brand link were 32–40 px.
+  Chips and sort headers keep their compact look with an invisible 44 px hit box; chip rows have
+  12 px between rows so neighbouring hit boxes do not overlap.
+- Dark mode: hovered table rows, the status toast and the "Indexed" chip used light-only colours (a
+  hovered row went near-white under light text). They now use tokens with dark values.

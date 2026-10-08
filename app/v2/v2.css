@@ -13,6 +13,11 @@
   --v2-nav: #142B25;
   --v2-rank-tint: #EEF6F2;
   --v2-focus: #087F5B;
+  --v2-hover: #F7FAF9;
+  --v2-hover-rank: #E3F1EA;
+  --v2-index-bg: #EAF1FB;
+  --v2-index-border: #C9D9F1;
+  --v2-index-ink: #1F5FBF;
   --v2-radius-card: 12px;
   --v2-radius-btn: 8px;
 }
@@ -21,12 +26,14 @@
     --v2-canvas: #0E1714; --v2-surface: #15211D; --v2-ink: #E4EEEA; --v2-muted: #93A39E;
     --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
     --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
+    --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
   }
 }
 :root[data-theme="dark"] {
   --v2-canvas: #0E1714; --v2-surface: #15211D; --v2-ink: #E4EEEA; --v2-muted: #93A39E;
   --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
   --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
+    --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
 }
 
 body.v2 { margin: 0; background: var(--v2-canvas); color: var(--v2-ink); }
@@ -92,7 +99,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-source-chips { flex: 1; }
 .v2-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: 999px; padding: 5px 14px; font-size: 12px; min-height: 32px; cursor: pointer; white-space: nowrap; }
 .v2-chip.is-on { background: var(--v2-positive); border-color: #BFDFCF; color: var(--v2-action); }
-.v2-chip.is-indexed.is-on { background: #EAF1FB; border-color: #C9D9F1; color: #1F5FBF; }
+.v2-chip.is-indexed.is-on { background: var(--v2-index-bg); border-color: var(--v2-index-border); color: var(--v2-index-ink); }
 .v2-chip.is-older { border-color: var(--v2-older); color: var(--v2-older); }
 .v2-chip[disabled] { opacity: .5; cursor: not-allowed; }
 .v2-hint { color: var(--v2-muted); font-size: 11px; margin-top: 8px !important; }
@@ -152,8 +159,8 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-table th[aria-sort="ascending"] button::after { content: " ↑"; opacity: 1; }
 .v2-table td { padding: 12px; border-bottom: 1px solid var(--v2-border); vertical-align: top; white-space: nowrap; }
 .v2-table tr { cursor: pointer; }
-.v2-table tbody tr:hover td { background: #F7FAF9; }
-.v2-table tbody tr:hover td.is-rank { background: #E3F1EA; }
+.v2-table tbody tr:hover td { background: var(--v2-hover); }
+.v2-table tbody tr:hover td.is-rank { background: var(--v2-hover-rank); }
 .v2-table .num { text-align: right; font-weight: 700; font-size: 15px; }
 .v2-table th.num { text-align: right; }
 .v2-table .is-rank { background: var(--v2-rank-tint); color: var(--v2-action); }
@@ -204,7 +211,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-popover .weights div { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 8px 10px; }
 .v2-popover .weights b { display: block; font-size: 16px; }
 
-.v2-status { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--v2-ink); color: #fff; padding: 10px 18px; border-radius: 999px; font-size: 13px; z-index: 70; }
+.v2-status { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--v2-ink); color: var(--v2-canvas); padding: 10px 18px; border-radius: 999px; font-size: 13px; z-index: 70; }
 .v2-status[hidden] { display: none; }
 .v2-status.is-error { background: var(--v2-negative); }
 
@@ -362,4 +369,27 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 @media (max-width: 767px) {
   .v2-tabs { flex-wrap: wrap; overflow: visible; gap: 4px; padding-bottom: 8px; }
   .v2-tab { min-height: 44px; }
+}
+
+/* UX pass (2026-10-08): touch targets, tablet navigation. Frame 17: every action has a 44 × 44 px
+   hit area. Compact chips and sort buttons keep their look; an invisible box grows the hit area. */
+.v2-tab { min-height: 44px; }
+#v2ZoomIn, #v2ZoomOut { min-width: 44px; }
+.v2-chip, .v2-table th button { position: relative; }
+.v2-chip::after, .v2-table th button::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
+.v2-trade-players .v2-trade-name { min-height: 44px; display: inline-flex; align-items: center; }
+.v2-brand { min-height: 44px; display: inline-flex; align-items: center; }
+/* Tablet (768–1023 px): the tabs move to their own row instead of running off screen. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .v2-nav-inner { flex-wrap: wrap; gap: 0 24px; padding-top: 8px; }
+  .v2-tabs { order: 3; flex-basis: 100%; flex-wrap: wrap; overflow: visible; padding-bottom: 8px; }
+  .v2-freshness { margin-left: auto; }
+}
+.v2-chip-row { row-gap: 12px; }
+.v2-seg button { min-height: 44px; }
+.v2-brush-labels { min-height: 44px; align-items: center; }
+/* Tablet: the source chips get their own full row instead of a one-chip-wide column. */
+@media (max-width: 1023px) {
+  .v2-source-chips { flex-basis: 100%; order: 2; }
+  .v2-methods-row #v2EditSources { order: 3; }
 }
