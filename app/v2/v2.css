@@ -233,6 +233,15 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-tcards .missing { color: var(--v2-muted); display: inline-flex; gap: 4px; }
 .v2-tcards .missing .why { display: inline; }
 .v2-t-empty { margin-top: 12px !important; }
+/* GAP-025: ESPN projects 0 (injured/out). Label + symbol, not color alone. */
+.v2-espn-zero { display: inline-flex; gap: 4px; align-items: center; margin-left: 8px; padding: 1px 6px; border: 1px solid var(--v2-negative); border-radius: 4px; color: var(--v2-negative); background: var(--v2-surface); font-size: 11px; font-weight: 700; line-height: 1.4; white-space: nowrap; vertical-align: middle; }
+.v2-espn-zero-note { font-size: 12px; color: var(--v2-muted); margin: 12px 0 0; }
+.v2-espn-zero-note .v2-espn-zero { margin-left: 0; margin-right: 4px; }
+.v2-espn-zero-card { margin-top: 16px; }
+.v2-espn-zero-card h2 { font-size: 20px; }
+.v2-espn-zero-list { list-style: none; margin: 12px 0 0; padding: 0; }
+.v2-espn-zero-list li { border-top: 1px solid var(--v2-border); padding: 10px 0; cursor: pointer; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.v2-espn-zero-list .paid { margin-left: auto; display: inline-flex; flex-wrap: wrap; gap: 4px 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
 @media (max-width: 767px) {
   .v2-t-desktop { display: none; }
   .v2-tcards { display: block; }

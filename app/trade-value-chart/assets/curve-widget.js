@@ -956,7 +956,9 @@
         espn_ppg: player.espn_ppg || null,
         rz_ppg: player.rz_ppg || null,
         cbsros_ppg: player.cbsros_ppg || null,
-        projectionSource: player.espn_ppg ? "ESPN" : null
+        projectionSource: player.espn_ppg ? "ESPN" : null,
+        // GAP-025: ESPN projects 0 (injured/out); not set when ESPN has no row.
+        espnProjectsZero: player.espn_projects_zero === true
       });
     });
     return map;
@@ -3686,7 +3688,9 @@
     if (!row) return "";
     const rankLabel = `${lockLabel(lockOrder)} rank ${rank}`;
     const values = activeSourceKeys().map(key => `<span class="tip-source"><i style="background:${SOURCE_STYLES[key].color}"></i>${sourceLabel(key)}</span><b>${Number.isFinite(row.values[key]) ? Number(row.values[key]).toFixed(1) : "—"}</b>`).join("");
-    return `<strong>${rank}. ${row.name}</strong><span class="tip-meta">${row.pos} · ${row.team} · ESPN ${row.espnRole} · ${rankLabel}</span><span class="tip-grid">${values}</span>`;
+    const zero = row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
+    const zeroBadge = zero ? `<span class="tip-espn-zero" data-espn-zero title="${zero.title}"><span aria-hidden="true">${zero.symbol}</span> ${zero.label}</span>` : "";
+    return `<strong>${rank}. ${row.name}</strong>${zeroBadge}<span class="tip-meta">${row.pos} · ${row.team} · ESPN ${row.espnRole} · ${rankLabel}</span><span class="tip-grid">${values}</span>`;
   }
 
   function showTooltip(rank, clientX, clientY, above) {

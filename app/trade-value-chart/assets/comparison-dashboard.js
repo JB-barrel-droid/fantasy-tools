@@ -353,7 +353,8 @@
         name,
         pos:player.pos,
         team:String(player.team || "—"),
-        espn_ppg:player.espn_ppg || null
+        espn_ppg:player.espn_ppg || null,
+        espn_projects_zero:player.espn_projects_zero === true
       });
     });
     return next;
@@ -1156,9 +1157,11 @@
       const open = state.expanded.has(row.player_key);
       // JEG-41: only expandable when the player has relevant news/adjustments.
       const hasContext = playerContext(row.player_key).length > 0;
-      // JEG-50: badge players ESPN has explicitly zeroed (season-ending IR).
-      const isEspnZeroed = window.TradeValueComparisonData?.espn_zeroed?.includes(Number(row.player_key));
-      const zeroBadge = isEspnZeroed ? ` <span class="espn-zero-badge" title="ESPN projects 0.0 PPG — likely season-ending IR">ESPN Out</span>` : "";
+      // GAP-025 (was JEG-50): badge players ESPN projects at 0 (injured/out),
+      // from the player's own ESPN fields; published values stay as published.
+      // A player ESPN has no row for is missing, not 0, and gets no badge.
+      const zero = row.espn_projects_zero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
+      const zeroBadge = zero ? ` <span class="espn-zero-badge" data-espn-zero title="${esc(zero.title)}"><span aria-hidden="true">${zero.symbol}</span> ${esc(zero.label)}</span>` : "";
       const nameCell = hasContext
         ? `<button class="player-button" type="button" aria-expanded="${String(open)}" aria-controls="player-detail-${row.player_key}" data-expand="${row.player_key}"><strong>${esc(row.name)}</strong>${zeroBadge}</button>`
         : `<strong>${esc(row.name)}</strong>${zeroBadge}`;
