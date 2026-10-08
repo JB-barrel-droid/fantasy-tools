@@ -460,18 +460,18 @@ function sysEvaluate(p, nowMs){
 
 <!-- JEG-316: Chart inputs at risk — reference-freshness panel region (start).
      This is the only region of modules/dashboard.html touched by JEG-316.
-     Surfaces players.as_of / players.kdst_snapshot / news.generated_at
-     (the three inputs that feed the trade-value chart directly) with their
+     Surfaces players.as_of / news.generated_at
+     (the two inputs that feed the trade-value chart directly) with their
      age-band color from pipelines/check_reference_freshness.py. -->
 <section class="card" id="chartInputsRiskCard" data-jeg-316="chart-inputs-risk">
   <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Chart inputs at risk — reference freshness</h2>
   <div class="desc">
-    The trade-value chart is built from <b>players.json</b> (as_of + kdst_snapshot)
+    The trade-value chart is built from <b>players.json</b> (as_of)
     and <b>player-news.json</b> (generated_at). Each row below carries the age-band
     color from the reference-freshness pipeline: <span style="color:var(--green)">green</span>
     within the freshness window, <span style="color:var(--yellow)">yellow</span> in the warning band
     (2× the window), <span style="color:var(--red)">red</span> past it,
-    <span style="color:var(--grey)">grey</span> when no date is recorded (e.g. K/DST <code>?</code>).
+    <span style="color:var(--grey)">grey</span> when no date is recorded.
     Surface only — data lane owns the underlying sources.
   </div>
   <div id="chartInputsRiskSummary" style="margin-bottom:12px"></div>

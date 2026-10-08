@@ -380,7 +380,11 @@ class StaticExportTest(unittest.TestCase):
             # (146) and comparison-keyed ESPN-absent (42) skill players at
             # ESPN 0 -> 613. Verified from the GitHub Actions bake
             # (bake-players.yml); the 425 priced rows are byte-identical.
-            self.assertEqual(613, report["players"]["player_count"])
+            # GAP-029 (2026-10-08): K/DST are no longer carried (613 -> 536).
+            # The count follows the fixture rather than pinning a snapshot
+            # size (the 2026-10-07 note below: size pins block refreshes).
+            self.assertEqual(len(self.players["players"]),
+                             report["players"]["player_count"])
             # 11 sources: the 10 established plus razzball (Razzball
             # rest-of-season projections leg, added 2026-10-01).
             self.assertEqual(11, report["comparison"]["source_count"])
@@ -1036,17 +1040,13 @@ class StaticExportTest(unittest.TestCase):
         self.assertIn("sourceIsStale", comparison)
         self.assertIn("stale", comparison)
 
-    def test_kdst_honestly_excluded_from_chart_but_kept_as_evidence(self):
-        # JEG-211 (Jeremy 2026-10-03): K/DST are honestly excluded from the
-        # chart; the computed values remain as internal evidence only.
+    def test_kdst_not_carried_and_excluded_from_chart(self):
+        # JEG-211 (Jeremy 2026-10-03) excluded K/DST from the chart; GAP-029
+        # (Jeremy 2026-10-08) stopped carrying them at all: no K/DST rows.
         text = (APP / "assets" / "curve-widget.js").read_text(encoding="utf-8")
         players = load_json(FIXTURES / "players.json")["players"]
-        specialists = [player for player in players if player.get("pos") in {"K", "DST"}]
-        self.assertTrue(specialists)
-        # K/DST are espn_only per the 2026-09-21 ESPN-purity directive:
-        # their numbers come from ESPN projections, never experts.
-        self.assertTrue(all(player.get("pricing") == "espn_only" for player in specialists))
-        self.assertTrue(any(max((value for value in (player.get("espn_ppg") or {}).values() if isinstance(value, (int, float))), default=0) > 0 for player in specialists))
+        specialists = [player["name"] for player in players if player.get("pos") in {"K", "DST"}]
+        self.assertEqual([], specialists[:5])
         # Chart surfaces exclude K/DST: CHART_POSITIONS is the skill-position
         # order only, and rows outside it are dropped before render.
         self.assertIn("const CHART_POSITIONS = [...POSITION_ORDER];", text)
@@ -1134,7 +1134,11 @@ class StaticExportTest(unittest.TestCase):
     def test_player_news_fixture_schema_supports_muse_review_layer(self):
         self.assertEqual("player-news-v2", self.news["meta"]["schema"])
         self.assertIsNotNone(self.news["meta"]["generated_at"])
-        self.assertEqual(544, self.news["meta"]["matched_item_count"])
+        # GAP-029 (2026-10-08): 544 -> 505 when the 39 K/DST news matches
+        # left with the K/DST rows. Pin the invariant the count stands for
+        # (one per player match) instead of a snapshot number.
+        self.assertEqual(sum(len(items) for items in self.news["news_by_player_key"].values()),
+                         self.news["meta"]["matched_item_count"])
         self.assertEqual(16, self.news["meta"]["adjustment_count"])
         self.assertEqual(4, self.news["meta"]["checked_but_not_adjusted_count"])
         self.assertEqual(138, self.news["meta"]["review_queue_count"])

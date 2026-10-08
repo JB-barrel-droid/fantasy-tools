@@ -487,32 +487,6 @@ def main() -> int:
         # a leg to read.
         print(f"WARNING: skipping ddf-group-vorps.json rebuild: {e}", file=sys.stderr)
 
-    # JEG-211: 4-group K/DST VORP totals rewritten on every sync from the
-    # freshest K/DST DDF leg. K/DST are SEPARATE and OPTIONAL from the
-    # 8 skill-position groups per docs/kdst-group-contract.md. The artifact
-    # is marked display_status=computed_not_displayed; the chart UI
-    # (app/trade-value-chart/) never reads it. Fails closed (SystemExit) if
-    # the leg is missing or the 4 groups do not sum to the overall pie.
-    from build_ddf_kdst_groups import (
-        build_groups_from_leg as build_kdst_groups,
-        find_latest_leg as find_latest_kdst_leg,
-    )
-    try:
-        kdst_groups_artifact = build_kdst_groups(
-            find_latest_kdst_leg(), dist_modules / "ddf-kdst-group-vorps.json")
-        print(f"Wrote K/DST 4-group VORP totals -> "
-              f"{dist_modules / 'ddf-kdst-group-vorps.json'} "
-              f"(total_vorp={kdst_groups_artifact['totals']['total_vorp']}, "
-              f"display_status={kdst_groups_artifact['display_status']})")
-    except SystemExit as e:
-        # No K/DST leg yet. The K/DST leg is built only when espn_k_ppg /
-        # espn_dst_ros inputs exist and have a current snapshot date; if the
-        # pull is missing or stale, this skip fires. Same warning behavior
-        # as the 8-group step -- the module is regenerated on the next sync
-        # that has a leg to read.
-        print(f"WARNING: skipping ddf-kdst-group-vorps.json rebuild: {e}",
-              file=sys.stderr)
-
     # JEG-265: per-view addressable artifacts (vorp-view.json, adj-view.json).
     # Reads dist/modules/source-value-lineage.json and writes a slim per-view
     # JSON for the dashboard's VORP / Adj cards. Skip with a warning when the

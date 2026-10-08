@@ -1,5 +1,7 @@
 # K/DST VORP group contract (DRAFT for Jeremy's design decision)
 
+> **Superseded 2026-10-08 (GAP-029).** Jeremy reconfirmed JEG-211 and chose to stop carrying K/DST anywhere in the pipeline. Kept as the historical record; the code it describes was removed (revival point: commit dac0ff2).
+
 JEG-211. This records the group definitions, units, source availability and
 role/cutoff rules that any K/DST work must follow. Nothing here approves a
 build or a render change — the three-view chart ships without K/DST until the
