@@ -2053,10 +2053,14 @@
 
   // ---------- Compare a trade (frames 07 / 08, 24) ----------
   // Each row is one exact series: sum(receive) − sum(give) in that series'
-  // values (app/v2/trade.js). No blended score, no overall verdict (frame 22).
-  // The sides are v2 module state, so they survive switching tabs.
+  // values (app/v2/trade.js). No blended score (frame 22); the verdict reads one
+  // series (JEG-469). The sides are v2 module state, so they survive switching tabs.
   const TR = {give: [], receive: [], shown: null, open: new Set()};   // give/receive: [{key, name}]
   let compareView = null;
+  // JEG-469: the series the verdict reads. "Player values shown" for now; swap this one
+  // line to the DDF Value series key once the engine exposes it.
+  const verdictKey = () => TR.shown;
+  let exampleCache = null;   // {signature, pick}: the empty-state sample trade
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
@@ -2070,9 +2074,6 @@
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
-    const giveRows = resolve(TR.give);
-    const receiveRows = resolve(TR.receive);
-    const ready = giveRows.length > 0 && receiveRows.length > 0;
     const usable = keys => keys.filter(key => view.infoByKey[key]?.available);
     const pointKeys = usable(view.plotKeys);
     const vorpKeys = usable(view.vorpKeys);
@@ -2081,12 +2082,35 @@
     const shownChoices = pointKeys.concat(vorpKeys);
     if (!shownChoices.includes(TR.shown)) TR.shown = shownChoices.includes(view.rankKey) ? view.rankKey : shownChoices[0] || null;
     const TC = window.TradeValueTrade;
+    // JEG-469 empty state: before any player is added, a sample trade marked "Example".
+    const example = !TR.give.length && !TR.receive.length && verdictKey() ? exampleTrade(pointKeys) : null;
+    const giveRows = example ? example.give : resolve(TR.give);
+    const receiveRows = example ? example.receive : resolve(TR.receive);
+    const ready = giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
+    const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
-    compareView = {rowsByKey, giveRows, receiveRows, ready, pointKeys, vorpKeys, unavailable, shownChoices,
+    // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
+    // series keeps its own (those scales are not comparable).
+    const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
+    const pointFalls = falls(pointKeys);
+    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
+      verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
-      vorp: ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : []};
+      vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
+  }
+
+  // The example trade, recomputed only when the series or the values change.
+  function exampleTrade(pointKeys) {
+    const key = verdictKey();
+    const rows = C.getAllRows();
+    const keys = pointKeys.concat(key);
+    const signature = `${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
+    if (!exampleCache || exampleCache.signature !== signature) {
+      exampleCache = {signature, pick: window.TradeValueTrade.pickExample(rows, pointKeys, key)};
+    }
+    return exampleCache.pick;
   }
 
   function sourceCell(td, key) {
@@ -2102,6 +2126,7 @@
     const sub = document.createElement("span");
     sub.className = "th-sub";
     sub.textContent = item?.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "week unknown";
+    td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
 
@@ -2157,11 +2182,160 @@
     return tr;
   }
 
-  function renderCompareTable(table, keys, rows) {
+  // JEG-468: short names for the step labels; a shared last name gets an initial.
+  function shortNames(rows) {
+    const suffix = /^(jr\.?|sr\.?|ii|iii|iv|v)$/i;
+    const last = row => {
+      const parts = String(row.name || "").split(/\s+/).filter(Boolean);
+      while (parts.length > 1 && suffix.test(parts[parts.length - 1])) parts.pop();
+      return {first: parts[0] || "", last: parts[parts.length - 1] || String(row.name || "Player")};
+    };
+    const names = rows.map(last);
+    const count = new Map();
+    names.forEach(n => count.set(n.last, (count.get(n.last) || 0) + 1));
+    return new Map(rows.map((row, i) => [String(row.player_key),
+      count.get(names[i].last) > 1 && names[i].first !== names[i].last ? `${names[i].first.charAt(0)}. ${names[i].last}` : names[i].last]));
+  }
+
+  // JEG-468 waterfall: 0 → a step down per player given → a step up per player received →
+  // a landing bar from 0 to the net. Three lanes (give, receive, result) on the table's
+  // scale. Each step is focusable, with a text alternative and the shared tooltip.
+  function renderWaterfall(cell, fall, scale) {
+    const name = seriesName(fall.key);
+    const span = scale.hi - scale.lo;
+    const x = v => Math.max(0, Math.min(100, ((v - scale.lo) / span) * 100));
+    const short = shortNames(compareView.giveRows.concat(compareView.receiveRows));
+    const box = document.createElement("div");
+    box.className = "v2-wf";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", `${name}, step by step from 0`);
+    box.dataset.lo = String(scale.lo);
+    box.dataset.hi = String(scale.hi);
+    const zero = document.createElement("span");
+    zero.className = "v2-wf-zero";
+    zero.setAttribute("aria-hidden", "true");
+    zero.style.left = `${x(0)}%`;
+    box.appendChild(zero);
+    const lanes = {};
+    ["give", "receive", "net"].forEach(lane => {
+      const div = document.createElement("div");
+      div.className = "v2-wf-lane";
+      div.dataset.lane = lane;
+      lanes[lane] = div;
+      box.appendChild(div);
+    });
+    const runningText = step => (step.partial ? `running ${fmtGap(step.running)} so far, row incomplete` : `running ${fmtGap(step.running)}`);
+    fall.steps.forEach(step => {
+      const who = short.get(String(step.row.player_key)) || step.row.name;
+      const verb = step.side === "give" ? "Give" : "Receive";
+      const el = document.createElement("span");
+      el.className = `v2-wf-step ${step.side}${step.missing ? " is-missing" : ""}`;
+      el.tabIndex = 0;
+      el.setAttribute("role", "img");
+      el.dataset.playerKey = String(step.row.player_key);
+      el.dataset.side = step.side;
+      if (step.missing) {
+        const reason = `No ${name} value for ${step.row.name}`;
+        const w = 14;
+        const at = x(step.start);
+        const left = step.side === "give" ? Math.max(0, at - w) : Math.min(at, 100 - w);
+        el.style.left = `${left}%`;
+        el.style.width = `${w}%`;
+        el.dataset.missing = "true";
+        el.setAttribute("aria-label", `${verb} ${who}: no value. ${reason}; this row is incomplete and has no result`);
+        const label = document.createElement("span");
+        label.className = "v2-wf-label";
+        label.setAttribute("aria-hidden", "true");
+        label.textContent = `— ${who}`;
+        el.appendChild(label);
+        el._tip = {title: step.row.name, lines: [name, `${verb}: — no value`, reason, "Row incomplete: a missing value is never counted as zero"]};
+      } else {
+        const from = Math.min(x(step.start), x(step.end));
+        const width = Math.abs(x(step.end) - x(step.start));
+        el.style.left = `${from}%`;
+        el.style.width = `${width}%`;
+        el.dataset.value = fmtGap(step.delta);
+        el.dataset.running = fmtGap(step.running);
+        el.setAttribute("aria-label", `${verb} ${who} ${fmtGap(step.delta)}, ${runningText(step)}`);
+        const label = document.createElement("span");
+        label.className = "v2-wf-label";
+        label.setAttribute("aria-hidden", "true");
+        label.textContent = width >= 16 ? `${who} ${fmtGap(step.delta)}` : width >= 7 ? fmtGap(step.delta) : "";
+        el.appendChild(label);
+        el._tip = {title: step.row.name, lines: [name, `${verb} ${fmtGap(step.delta)}`, runningText(step).replace(/^running/, "Running total")]};
+      }
+      lanes[step.side].appendChild(el);
+    });
+    // A dashed link where the give steps end and the receive steps start.
+    const turn = fall.steps.filter(st => st.side === "give").pop();
+    if (turn) {
+      const link = document.createElement("span");
+      link.className = "v2-wf-link";
+      link.setAttribute("aria-hidden", "true");
+      link.style.left = `${x(turn.end)}%`;
+      box.appendChild(link);
+    }
+    if (fall.complete) {
+      const n = netLabel(fall.net);
+      const land = document.createElement("span");
+      land.className = `v2-wf-land ${n.cls}`;
+      land.tabIndex = 0;
+      land.setAttribute("role", "img");
+      land.dataset.net = n.text;
+      land.setAttribute("aria-label", `Result ${n.text}: ${n.label.replace(/^[▲▼=] /, "")}`);
+      const a = x(0);
+      const b = x(fall.net);
+      land.style.left = `${Math.min(a, b)}%`;
+      land.style.width = `${Math.abs(b - a)}%`;
+      land._tip = {title: `${name}: Receive − give`, lines: [`${fmt(fall.receive)} receive − ${fmt(fall.give)} give`, `= ${n.text}`, n.label]};
+      const tag = document.createElement("span");
+      tag.className = `v2-wf-net ${n.cls}`;
+      tag.setAttribute("aria-hidden", "true");
+      tag.textContent = `${n.cls === "up" ? "▲" : n.cls === "down" ? "▼" : "="} ${n.text}`;
+      // Beside the bar's far end, or on the other side of 0 when the end is near the edge.
+      if (fall.net >= 0) {
+        if (b < 84) tag.style.left = `calc(${b}% + 6px)`;
+        else tag.style.right = `calc(${100 - a}% + 6px)`;
+      } else if (b > 16) tag.style.right = `calc(${100 - b}% + 6px)`;
+      else tag.style.left = `calc(${a}% + 6px)`;
+      lanes.net.append(land, tag);
+    } else {
+      const none = document.createElement("span");
+      none.className = "v2-wf-none";
+      none.textContent = "No result: a value is missing";
+      lanes.net.appendChild(none);
+    }
+    cell.appendChild(box);
+  }
+
+  function showStepTip(el) {
+    const tip = $("v2Tip");
+    if (!el || !el._tip) { tip.hidden = true; return; }
+    tip.replaceChildren();
+    const h = document.createElement("h3");
+    h.textContent = el._tip.title;
+    tip.appendChild(h);
+    el._tip.lines.forEach((text, i) => {
+      const line = document.createElement(i === 0 ? "span" : "div");
+      line.className = i === 0 ? "v2-meta" : "row";
+      line.textContent = text;
+      tip.appendChild(line);
+    });
+    tip.hidden = false;
+    const box = el.getBoundingClientRect();
+    const tipBox = tip.getBoundingClientRect();
+    const left = Math.min(box.left, window.innerWidth - tipBox.width - 8);
+    let top = box.bottom + 8;
+    if (top + tipBox.height > window.innerHeight - 8) top = box.top - tipBox.height - 8;
+    tip.style.left = `${Math.max(8, left)}px`;
+    tip.style.top = `${Math.max(8, top)}px`;
+  }
+
+  function renderCompareTable(table, keys, rows, falls, sharedScale) {
     table.replaceChildren();
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    [["Source", "player"], ["Give", "num"], ["Receive", "num"], ["Less value · More value", "bar"], ["Receive − give", "num"]].forEach(([text, cls]) => {
+    [["Source", "player"], ["Give", "num"], ["Receive", "num"], ["From 0: give ↓ · receive ↑ · result", "bar"], ["Receive − give", "num"]].forEach(([text, cls]) => {
       const th = document.createElement("th");
       th.scope = "col";
       th.className = cls;
@@ -2170,8 +2344,7 @@
     });
     thead.appendChild(hr);
     const tbody = document.createElement("tbody");
-    // Frame 24: empty or incomplete rows draw no bar; one scale per table.
-    const scale = rows.reduce((max, r) => (r.net === null ? max : Math.max(max, Math.abs(r.net))), 0);
+    const fallByKey = new Map((falls || []).map(f => [f.key, f]));
     rows.forEach(result => {
       const tr = document.createElement("tr");
       tr.dataset.source = result.key;
@@ -2227,17 +2400,10 @@
         why.className = `delta ${n.cls}`;
         why.textContent = n.label;
         net.appendChild(why);
-        const track = document.createElement("span");
-        track.className = "v2-dbar";
-        track.setAttribute("aria-hidden", "true");
-        const fill = document.createElement("span");
-        fill.className = `v2-dbar-fill ${n.cls}`;
-        const half = scale > 0 ? Math.min(50, (Math.abs(result.net) / scale) * 50) : 0;
-        fill.style.width = `${half}%`;
-        fill.style.left = result.net < 0 ? `${50 - half}%` : "50%";
-        track.appendChild(fill);
-        bar.appendChild(track);
       }
+      // JEG-468: incomplete rows draw their steps too (hatched "no value"), but no landing.
+      const fall = fallByKey.get(result.key);
+      if (fall) renderWaterfall(bar, fall, sharedScale || window.TradeValueTrade.waterfallScale([fall]));
       tbody.appendChild(tr);
       if (open) tbody.appendChild(breakdownRow(result, 5));
     });
@@ -2273,6 +2439,12 @@
       const v = shown && row.values ? row.values[shown] : null;
       if (Number.isFinite(v)) value.textContent = fmt(v);
       else value.appendChild(missingNode(`No ${shown ? seriesName(shown) : ""} value for ${row.name}`, "no value"));
+      if (compareView.example) {
+        li.classList.add("is-example");
+        li.append(who, value, document.createElement("span"));
+        list.appendChild(li);
+        return;
+      }
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "v2-link v2-remove";
@@ -2398,6 +2570,9 @@
     const box = $("v2CStory");
     const s = compareView.story;
     box.hidden = !s.kind || s.kind === "single";
+    // Folded into the verdict card (JEG-469): open for a same-publisher contrast, which the
+    // verdict does not say; otherwise one click away. A reader's own toggle is kept.
+    if (box.dataset.story !== (s.kind || "")) box.open = s.kind === "contrast";
     box.dataset.story = s.kind || "";
     if (box.hidden) return;
     const title = $("v2CStoryTitle");
@@ -2428,6 +2603,99 @@
     }
   }
 
+  // JEG-469 verdict (Jeremy, 2026-10-08): "Primary thing that matters is that DDF thinks you
+  // win, and it can be better if the other sources DON'T agree." One series decides (verdictKey);
+  // the complete series that see it the other way are named as the selling point.
+  function verdictCopy() {
+    const v = compareView.verdict;
+    const key = v.key || verdictKey();
+    const name = key ? seriesName(key) : "";
+    const thinks = keys => (keys.length === 1 ? "thinks" : "think");
+    if (!key) return {kind: "none", title: "No verdict yet", text: "Pick a series in Player values shown."};
+    if (!compareView.ready || !v.kind) {
+      return {kind: "none", title: "No verdict yet", text: `Add a player to both sides. The verdict reads ${name}, then names the sources that see it the other way.`};
+    }
+    const notCounted = v.incompleteKeys.length
+      ? ` Not counted, a value is missing: ${listSeries(v.incompleteKeys)}.` : "";
+    if (v.kind === "incomplete") {
+      const names = v.missing.map(m => m.row.name || "a player").join(", ");
+      return {kind: v.kind, title: `${name}: no verdict yet`,
+        text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). Pick another series in Player values shown.`};
+    }
+    const net = fmtGap(v.net);
+    if (v.kind === "win") {
+      let text;
+      if (v.againstKeys.length) {
+        text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade. A manager who trades off ${listSeries(v.againstKeys, "or")} is the likeliest to accept.`;
+        if (v.evenKeys.length) text += ` Even by ${listSeries(v.evenKeys)}.`;
+      } else if (!v.others) {
+        text = "No other complete source to compare with yet.";
+      } else if (v.allAgree) {
+        text = `Every source agrees you win: ${listSeries(v.agreeKeys)}. A fair-looking deal to them, so harder to get accepted.`;
+      } else {
+        text = `No source thinks you lose. ${v.agreeKeys.length ? `${listSeries(v.agreeKeys)} also ${thinks(v.agreeKeys)} you win; ` : ""}even by ${listSeries(v.evenKeys)}.`;
+      }
+      return {kind: v.kind, sym: "▲", title: `${name}: you win by ${net}`, text: text + notCounted};
+    }
+    if (v.kind === "lose") {
+      const text = v.againstKeys.length
+        ? `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you win, but ${name} has you giving more value than you get. Rework the offer before you send it.`
+        : !v.others ? "No other complete source to compare with yet."
+          : `Every complete source agrees you lose: ${listSeries(v.agreeKeys.concat(v.evenKeys))}.`;
+      return {kind: v.kind, sym: "▼", title: `${name}: you lose by ${net}`, text: text + notCounted};
+    }
+    const parts = [];
+    if (v.upKeys.length) parts.push(`${listSeries(v.upKeys)} ${thinks(v.upKeys)} you win.`);
+    if (v.downKeys.length) parts.push(`${listSeries(v.downKeys)} ${thinks(v.downKeys)} you lose.`);
+    if (!parts.length) parts.push(v.others ? "Every complete source calls it even too." : "No other complete source to compare with yet.");
+    return {kind: v.kind, sym: "=", title: `${name}: an even trade, 0.0`, text: parts.join(" ") + notCounted};
+  }
+
+  function renderVerdict() {
+    const copy = verdictCopy();
+    const card = $("v2CVerdict");
+    card.dataset.verdict = copy.kind;
+    card.classList.toggle("is-example", compareView.example);
+    $("v2CVerdictEyebrow").textContent = compareView.example ? "Example · Verdict" : "Verdict";
+    const title = $("v2CVerdictTitle");
+    title.replaceChildren();
+    if (copy.sym) {
+      const sym = document.createElement("span");
+      sym.className = "v2-cverdict-sym";
+      sym.setAttribute("aria-hidden", "true");
+      sym.textContent = `${copy.sym} `;
+      title.appendChild(sym);
+    }
+    title.append(document.createTextNode(copy.title));
+    $("v2CVerdictText").textContent = copy.text;
+    // JEG-468/469: the verdict series' own waterfall, on the table's shared scale, above the fold.
+    const holder = $("v2CVerdictFall");
+    holder.querySelectorAll(".v2-wf").forEach(node => node.remove());
+    const key = verdictKey();
+    const isPoint = compareView.pointKeys.includes(key);
+    const fall = (isPoint ? compareView.falls.points : compareView.falls.vorp).find(f => f.key === key);
+    holder.hidden = !compareView.ready || !fall;
+    if (fall) {
+      $("v2CVerdictFallNote").textContent = "From 0: down by each player you give, up by each you receive, then the result"
+        + (isPoint ? " · same scale as the table below." : " · this series' own scale.");
+      renderWaterfall(holder, fall, isPoint ? compareView.scale : window.TradeValueTrade.waterfallScale([fall]));
+    }
+    // Phone: once both sides have a player, the verdict headline stays at the bottom.
+    const bar = $("v2CVerdictBar");
+    bar.dataset.verdict = copy.kind;
+    bar.textContent = `${copy.sym ? `${copy.sym} ` : ""}${copy.title}`;
+    bar.setAttribute("aria-label", `${copy.title}. Show the verdict`);
+    TR.barWanted = compareView.ready && !compareView.example && copy.kind !== "none";
+    syncVerdictBar();
+  }
+
+  function syncVerdictBar() {
+    const bar = $("v2CVerdictBar");
+    const show = Boolean(TR.barWanted) && isNarrow() && !TR.verdictInView && currentView() === "compare";
+    bar.hidden = !show;
+    $("v2Compare").classList.toggle("has-verdict-bar", Boolean(TR.barWanted) && isNarrow());
+  }
+
   function renderShownPicker() {
     const select = $("v2CShown");
     select.replaceChildren();
@@ -2449,14 +2717,18 @@
     renderSidePlayers("give");
     renderSidePlayers("receive");
     const ready = compareView.ready;
+    renderVerdict();
+    $("v2CExample").hidden = !compareView.example;
+    $("v2Compare").classList.toggle("has-trade", Boolean(TR.give.length || TR.receive.length));
+    $("v2Compare").classList.toggle("is-example", compareView.example);
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
     $("v2CEmpty").textContent = !ready ? "No result until both sides have at least one player."
       : "No trade-value source is selected. Use Edit sources to pick one.";
     const table = $("v2CTable");
     table.hidden = !ready || !compareView.pointKeys.length;
-    renderCompareTable(table, compareView.pointKeys, compareView.points);
+    renderCompareTable(table, compareView.pointKeys, compareView.points, compareView.falls.points, compareView.scale);
     $("v2CVorpCard").hidden = !ready || !compareView.vorpKeys.length;
-    renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp);
+    renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp, compareView.falls.vorp, null);
     renderStory();
     const notes = [];
     if (compareView.unavailable.length) {
@@ -2466,12 +2738,14 @@
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
     const count = compareView.giveRows.length + compareView.receiveRows.length;
+    const sc = compareView.scale;
     $("v2CMeta").textContent = ready
-      ? `Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, not a blended verdict.`
+      ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, never blended. `
+        + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
     $("v2CClear").hidden = !count;
     $("v2CSwap").hidden = !count;
-    $("v2CShare").hidden = !ready;
+    $("v2CShare").hidden = !ready || compareView.example;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
   }
@@ -2568,6 +2842,35 @@
 
   function bindCompare() {
     $("v2CShare").addEventListener("click", copyTradeLink);
+    // JEG-468: hover / focus tooltip for every waterfall step.
+    const compare = $("v2Compare");
+    const stepOf = event => event.target.closest && event.target.closest(".v2-wf-step, .v2-wf-land");
+    compare.addEventListener("mouseover", event => { const el = stepOf(event); if (el) showStepTip(el); });
+    compare.addEventListener("mouseout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
+    compare.addEventListener("focusin", event => { const el = stepOf(event); if (el) showStepTip(el); });
+    compare.addEventListener("focusout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
+    compare.addEventListener("keydown", event => { if (event.key === "Escape" && stepOf(event)) $("v2Tip").hidden = true; });
+    $("v2CUseExample").addEventListener("click", () => {
+      if (!compareView || !compareView.example) return;
+      const pick = list => list.map(row => ({key: String(row.player_key), name: row.name}));
+      TR.give = pick(compareView.giveRows);
+      TR.receive = pick(compareView.receiveRows);
+      renderCompare();
+      $("v2GiveSearch").focus();
+    });
+    $("v2CVerdictBar").addEventListener("click", () => {
+      const card = $("v2CVerdict");
+      card.scrollIntoView({block: "center"});
+      card.setAttribute("tabindex", "-1");
+      card.focus({preventScroll: true});
+    });
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(entries => {
+        TR.verdictInView = entries[entries.length - 1].isIntersecting;
+        syncVerdictBar();
+      }).observe($("v2CVerdict"));
+    }
+    if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", syncVerdictBar);
     ["give", "receive"].forEach(side => {
       const input = $(SIDE_IDS[side].search);
       input.addEventListener("input", () => renderSearch(side));

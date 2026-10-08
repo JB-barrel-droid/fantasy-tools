@@ -143,6 +143,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
 	python3 -m unittest tests.test_v2_offer_render
+	python3 -m unittest tests.test_v2_waterfall_render
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render
 	python3 -m unittest tests.test_v2_weight_render
@@ -447,6 +448,7 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
+	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_math_inspector

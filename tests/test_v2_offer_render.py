@@ -81,7 +81,7 @@ READ = """() => {
   const rows = [...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr => ({key: tr.dataset.source,
     net: tr.querySelector('td[data-col="net"]').childNodes[0]?.textContent ?? null,
     missing: Boolean(tr.querySelector('td[data-col="net"] .missing')),
-    bar: Boolean(tr.querySelector('.v2-dbar'))}));
+    bar: Boolean(tr.querySelector('.v2-wf-land'))}));
   return {engine, info, shown: document.getElementById('v2CShown').value,
     give: side('v2GivePlayers'), receive: side('v2GetPlayers'),
     giveTotal: total('v2GiveTotal'), getTotal: total('v2GetTotal'), rows,

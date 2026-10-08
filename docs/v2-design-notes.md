@@ -677,3 +677,51 @@ with frames 05/06 (see "Aligned with the frames" below; the table became two car
   listed and turns every row it touches into —; a repeated key is read once.
 - `build_v2_page.py` sets `color-scheme: light dark` (v1's `light` kept selects light inside v2's dark
   theme) and the v2 nav colour as `theme-color`.
+
+## Compare a trade: waterfall and verdict (JEG-468/469)
+
+Built 2026-10-08. Supersedes the "no overall verdict" line of the frame 07/08 section: there is still
+no blended score, but one series now gives a verdict.
+
+- **Verdict (Jeremy, 2026-10-08).** "Primary thing that matters is that DDF thinks you win, and it can
+  be better if the other sources DON'T agree." The card reads ONE series, `verdictKey()` in v2.js,
+  which is "Player values shown" (`TR.shown`) until the engine exposes DDF Value; swapping that one
+  line is the whole change. Headline: "<series>: you win by +6.2" / "you lose by −3.1" / "an even
+  trade, 0.0", with ▲ / ▼ / = and the card edge colour. Text: on a win, the complete series that call
+  it a loss, as the selling point ("A and B think you lose this trade. A manager who trades off A or B
+  is the likeliest to accept."); every source agreeing is said as harder to get accepted; on a loss,
+  the sources that think you win are named and the reader is told to rework the offer. Incomplete
+  rows never count and are listed as not counted. Logic: `TradeValueTrade.tradeVerdict` (pure, in
+  trade.js, `tests/test_v2_waterfall.py`).
+- **Story card** (`tradeStory`) is folded into the verdict card as a disclosure, open by default only
+  for the same-publisher contrast (the one thing the verdict does not say). Same ids and logic.
+- **Waterfall (JEG-468).** Each row of "Difference by source & method" replaces the diverging net bar
+  with three lanes on one shared scale: give steps (largest first, "Henry −47.5", give colour) down
+  from 0; receive steps (largest first, "+55.1", receive colour) up from where the give steps ended
+  (a dashed link marks the turn); a landing bar from 0 to the net, coloured by sign with ▲ / ▼ and
+  the signed net. A 2px tick marks 0. The scale is the largest cumulative extent across rows (0
+  included), so a big 2-for-2 with a small net reads as a small net. A player without a value is a
+  hatched "— Name" step that moves nothing, later steps are partial, and the row has no landing
+  ("No result: a value is missing"). Every step is focusable (`role="img"`, aria-label "Give Henry
+  −47.5, running −47.5") and shows the shared tooltip on hover or focus (player, series, value,
+  running total). Labels shorten to the value, then to nothing, on narrow steps; the tooltip and
+  text alternative always carry everything. Steps come from `TradeValueTrade.waterfall` /
+  `waterfallScale` (pure). VORP vs waivers rows get the same waterfall, each on its own scale (those
+  scales are not comparable). "Show players ▾" is kept as the table fallback.
+- **Verdict waterfall.** The verdict card repeats the verdict series' waterfall on the table's scale,
+  so the deciding series' steps are above the fold at 1366×768 even though the table starts below.
+- **Layout (JEG-469).** ≥1280: You give | You receive | Verdict. 768–1279: two input columns, verdict
+  as a full-width strip under them. <768: stacked; once both sides have a player, a fixed bar at the
+  bottom carries the verdict headline (hidden while the verdict card itself is on screen; tapping it
+  scrolls to the card). Header: H1 27px, subtitle one line and dropped once a player is added; picker
+  and Swap / Clear inline in the header row; `#v2Compare` padding-top 16px (scoped, other tabs keep
+  28px). Cards: padding clamp(14–16px), h2 16px, title and search on one row from 1024, 36px inputs
+  (44px hit area through the label), side total pinned to the card foot. Spacing uses
+  clamp(10px, 1.1vw, 16px).
+- **Deviation:** player rows are 44px, not ~36px: the 44 px target rule wins over the ticket's ~36.
+- **Example empty state.** With no player added, `TradeValueTrade.pickExample` picks a 2-for-2 from
+  the top 12 players by the verdict series that every selected series prices, preferring one the
+  verdict series calls a win and the most other series call a loss (then the smallest such win).
+  Marked "Example" in a banner, the verdict eyebrow and the table meta; side cards dashed; no remove
+  buttons, no share link, nothing in the address. "Use this example" copies it onto the sides.
+- **Not done:** switching the verdict to DDF Value (waits for the engine series).

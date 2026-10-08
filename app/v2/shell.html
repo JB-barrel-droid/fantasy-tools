@@ -267,20 +267,22 @@
   </main>
 
   <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
-    <div class="v2-title">
-      <h1 id="v2CompareTitle">Build a better offer.</h1>
-      <p>See the deal through every selected source.</p>
-    </div>
-
-    <div class="v2-ctoolbar">
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Player values shown:</span>
-        <select id="v2CShown"></select>
-      </label>
-      <div class="v2-ctools">
-        <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
-        <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+    <div class="v2-chead">
+      <div class="v2-title">
+        <h1 id="v2CompareTitle">Build a better offer.</h1>
+        <p id="v2CSub">See the deal through every selected source.</p>
+      </div>
+      <div class="v2-ctoolbar">
+        <label class="v2-field v2-field-rank"><span class="v2-field-label">Player values shown:</span>
+          <select id="v2CShown"></select>
+        </label>
+        <div class="v2-ctools">
+          <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
+          <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+        </div>
       </div>
     </div>
+    <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values, so you can see how the page reads it. Search either side to start your own.</span> <button type="button" class="v2-link" id="v2CUseExample">Use this example</button></p>
 
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
@@ -301,13 +303,23 @@
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
+      <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
+        <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
+        <div aria-live="polite">
+          <h2 id="v2CVerdictTitle">No verdict yet</h2>
+          <p id="v2CVerdictText"></p>
+        </div>
+        <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
+          <p class="v2-meta" id="v2CVerdictFallNote"></p>
+        </div>
+        <details class="v2-cstory" id="v2CStory" hidden>
+          <summary id="v2CStoryTitle"></summary>
+          <p id="v2CStoryText"></p>
+        </details>
+      </section>
     </div>
+    <button type="button" class="v2-cverdict-bar" id="v2CVerdictBar" hidden></button>
     <p class="v2-filter-note" id="v2CNote" hidden></p>
-
-    <section class="v2-card v2-cstory" id="v2CStory" hidden aria-labelledby="v2CStoryTitle" aria-live="polite">
-      <h2 id="v2CStoryTitle"></h2>
-      <p id="v2CStoryText"></p>
-    </section>
 
     <section class="v2-card v2-table-card" aria-labelledby="v2CResultTitle">
       <div class="v2-card-head">
@@ -330,7 +342,7 @@
       <div class="v2-card-head">
         <div>
           <h2 id="v2CVorpTitle">VORP vs waivers</h2>
-          <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other.</p>
+          <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other. Each row's steps are drawn on that source's own scale.</p>
         </div>
       </div>
       <div class="v2-table-wrap">
@@ -338,7 +350,7 @@
       </div>
     </section>
 
-    <p class="v2-footnote">Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league. Rows are never combined into one score, and there is no overall verdict: where the sources disagree, that is the trade target. If a player has no value in a source, that row is incomplete and shows —, never zero. Open a row for the player-by-player arithmetic.</p>
+    <p class="v2-footnote">Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league. Rows are never combined into one score. The verdict reads one series, the one in Player values shown, and names the sources that see the trade the other way: where the sources disagree, that is the trade target. The steps in each row go from 0 down by each player you give (largest first), then up by each player you receive, and land on Receive − give; every row shares one scale. If a player has no value in a source, that row is incomplete and shows —, never zero. Open a row for the player-by-player arithmetic.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
