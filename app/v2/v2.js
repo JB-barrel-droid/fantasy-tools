@@ -100,7 +100,8 @@
 
   // GAP-025: a label + symbol badge for players ESPN projects at 0
   // (injured/out). The engine flags them from ESPN's own row; a player ESPN has
-  // no row for is missing, not 0, and gets nothing. Values stay as published.
+  // no row for is missing, not 0, and gets nothing. Published values stay as
+  // published; the engine gives the player an ESPN value of 0.0.
   function espnZeroBadge(row) {
     const copy = row && row.espnProjectsZero ? window.TradeValueProductData?.ESPN_ZERO_BADGE : null;
     if (!copy) return null;
@@ -1175,40 +1176,6 @@
     });
   }
 
-  // GAP-025: players ESPN projects at 0 whom a compared chart still pays for.
-  // No gap is computed (the engine has no ESPN · DDA value for them); the
-  // chart's value is shown as the engine has it.
-  function renderEspnZeroPaid() {
-    const box = $("v2TEspnZero");
-    const list = $("v2TEspnZeroList");
-    const items = T.side === "sell" && !targetsView.blocked && targetsView.ours === "espn" ? (targetsView.espnZeroPaid || []) : [];
-    list.replaceChildren();
-    items.forEach(item => {
-      const li = document.createElement("li");
-      li.tabIndex = 0;
-      li.dataset.playerKey = String(item.row.player_key);
-      li.addEventListener("click", () => openDrawer(item.row));
-      li.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(item.row); });
-      const name = document.createElement("b");
-      name.textContent = item.row.name;
-      appendEspnZero(name, item.row);
-      const sub = document.createElement("span");
-      sub.className = "v2-meta";
-      sub.textContent = ` ${item.row.pos} · ${item.row.team || "FA"}`;
-      const paid = document.createElement("span");
-      paid.className = "paid";
-      item.paid.forEach(cell => {
-        const span = document.createElement("span");
-        span.dataset.chart = cell.chart;
-        span.textContent = `${PUBLISHER_NAMES[cell.chart] || cell.chart} ${fmt(cell.value)}`;
-        paid.appendChild(span);
-      });
-      li.append(name, sub, paid);
-      list.appendChild(li);
-    });
-    box.hidden = !items.length;
-  }
-
   function renderTargets() {
     collect();
     collectTargets();
@@ -1217,7 +1184,6 @@
     const list = T.side === "sell" ? targetsView.sell : targetsView.buy;
     renderTargetTable(list);
     renderTargetCards(list);
-    renderEspnZeroPaid();
     const empty = $("v2TEmpty");
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;

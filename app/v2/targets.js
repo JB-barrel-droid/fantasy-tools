@@ -13,6 +13,11 @@
 // paired with anything here. A missing value on either side gives no gap
 // (null plus a reason), never zero.
 //
+// GAP-025 (Jeremy, 2026-10-07: "Yes, use 0"): a player ESPN lists but projects
+// at 0 (injured/out) has an ESPN · DDA value of 0.0 in the engine rows, not a
+// missing one, so a chart that still pays for him is an ordinary sell target
+// with gap = chart value. A player with no ESPN row is still missing.
+//
 // Our value is one of the engine's projection-derived DDF series (Jeremy,
 // 2026-10-07): ESPN (default), CBS rest-of-season or Razzball. Never a blend.
 //
@@ -40,21 +45,10 @@
     const players = [];
     let omittedNoOurs = 0;
     let atWaiverCells = 0;
-    // GAP-025: players ESPN projects at 0 (injured/out) have no ESPN · DDA
-    // value in the engine, so they get no gap. A published chart that still
-    // pays for one is the plainest sell there is; list them with the chart's
-    // value as published, and no invented gap. Only when ESPN is our value.
-    const espnZeroPaid = [];
     rows.forEach((row, index) => {
       const ours = row.values ? row.values[ourKey] : null;
       if (!finite(ours)) {
         omittedNoOurs += 1;
-        if (ourKey === "espn" && row.espnProjectsZero) {
-          const paid = charts.filter(chart => finite(row.values && row.values[chart]) && row.values[chart] > 0)
-            .map(chart => ({chart, value: row.values[chart]}))
-            .sort((a, b) => b.value - a.value);
-          if (paid.length) espnZeroPaid.push({row, order: index + 1, paid});
-        }
         return;
       }
       const cells = {};
@@ -82,8 +76,7 @@
       .sort((a, b) => b.bestSell.gap - a.bestSell.gap || a.order - b.order);
     const buy = players.filter(p => p.bestBuy)
       .sort((a, b) => a.bestBuy.gap - b.bestBuy.gap || a.order - b.order);
-    espnZeroPaid.sort((a, b) => b.paid[0].value - a.paid[0].value || a.order - b.order);
-    return {ours: ourKey, sell, buy, compared: players.length, omittedNoOurs, atWaiverCells, espnZeroPaid};
+    return {ours: ourKey, sell, buy, compared: players.length, omittedNoOurs, atWaiverCells};
   }
 
   // Chart columns to compare: available published charts; older-week charts

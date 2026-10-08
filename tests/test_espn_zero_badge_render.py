@@ -1,8 +1,10 @@
-"""GAP-025: players ESPN projects at 0 carry a visible badge; published values stay.
+"""GAP-025: players ESPN projects at 0 carry a badge and an ESPN value of 0.0.
 
-Jeremy's decision (2026-10-07): show each publisher's value as published and
-add a badge saying ESPN projects 0 for the player (injured/out). A player ESPN
-has no row for is missing, not 0, and must not get the badge.
+Jeremy's decisions (2026-10-07): show each publisher's value as published and
+add a badge saying ESPN projects 0 for the player (injured/out); and ("Yes, use
+0") our ESPN value for such a player is 0.0, not missing, so a chart that still
+pays for him is an ordinary sell target with gap = chart value. A player ESPN
+has no row for is missing, not 0: no badge, and his ESPN value stays — .
 
 Expected sets come from the built page's own #players-data island, read here in
 Python, not from the code under test:
@@ -15,15 +17,19 @@ Headless against a temp copy of the built dist/ (with dist/v2 rebuilt from
 app/v2), for a real ESPN-0 player a published chart still pays for, and a real
 no-ESPN-row player, it checks:
 
-  * main page: the comparison table row and the chart tooltip;
-  * /v2/: the Player values table row and tooltip, the player drawer, and the
-    Trade targets "ESPN projects 0, but a chart still pays" list (sell side),
-    whose chart values must equal the engine's;
+  * engine rows (getRows): every ESPN-0 row has espn = espn_vorp = 0, every
+    no-ESPN-row player has espn = null;
+  * main page: the comparison table row (badge, ESPN column 0.0 or —) and the
+    chart tooltip;
+  * /v2/: the Player values table row and the player drawer; Trade targets
+    (sell side, ESPN as our value) lists every ESPN-0 player a compared chart
+    pays for, with our value 0.0 and each chart's gap equal to its value, and
+    never lists a no-ESPN-row player; the retired separate ESPN-0 list is gone;
   * the badge has a text label and a symbol, not color alone.
 
-Discrimination: test_guard_fails_on_broken_builds serves the origin/main-era
-behaviour (no badge flag) and a variant that labels "no ESPN row" as 0, and
-requires the checks to fail on both.
+Discrimination: test_guard_fails_on_broken_builds serves an engine without the
+0.0 rule (the previous behaviour: ESPN-0 = missing), one without the badge flag,
+and one that reads "no ESPN row" as 0, and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -37,6 +43,8 @@ from tests.test_v2_targets_render import DIST, _built_dist  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 PRODUCT_DATA_JS = ROOT / "app" / "trade-value-chart" / "assets" / "product-data.js"
+CURVE_WIDGET_JS = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
+DASHBOARD_JS = ROOT / "app" / "trade-value-chart" / "assets" / "comparison-dashboard.js"
 CHARTS = ("usatoday", "fantasycalc", "fantasypros", "cbs")
 LABEL = "ESPN: 0 (out)"
 SYMBOL = "⊘"
@@ -112,6 +120,8 @@ def collect(overrides=None):
             out["paid"] = [{"key": r["player_key"], "name": r["name"],
                             "charts": {c: r["values"].get(c) for c in CHARTS if isinstance(r["values"].get(c), (int, float)) and r["values"][c] > 0}}
                            for r in paid]
+            out["engine_values"] = {str(r["player_key"]): {"espn": r["values"].get("espn"), "espn_vorp": r["values"].get("espn_vorp")}
+                                    for r in rows if r["player_key"] in zero or r["player_key"] in absent}
             out["engine_flag"] = {"zero": sorted(r["player_key"] for r in rows if r.get("espnProjectsZero")),
                                   "rows_zero": sorted(k for k in by_key if k in zero),
                                   "rows_absent": sorted(r["player_key"] for r in absent_rows)}
@@ -124,7 +134,8 @@ def collect(overrides=None):
                 return page.evaluate("""(key) => {
                   const tr = document.querySelector(`#tableWrap tr.row-main[data-player-key="${key}"]`);
                   if (!tr) return {present: false, badge: null};
-                  return {present: true, badge: tr.querySelector('[data-espn-zero]')?.textContent || null};
+                  return {present: true, badge: tr.querySelector('[data-espn-zero]')?.textContent || null,
+                          espn: tr.querySelector('td[data-label="ESPN adjusted"]')?.textContent ?? null};
                 }""", row["player_key"])
 
             main = {}
@@ -167,18 +178,24 @@ def collect(overrides=None):
             page.evaluate("() => { location.hash = '#trade-targets'; }")
             page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.targets()", timeout=30000)
             page.click("#v2Targets [data-side=sell]")
+            page.wait_for_function("() => document.getElementById('v2TOurs').value === 'espn'")
             out["targets"] = page.evaluate("""() => {
-              const box = document.getElementById('v2TEspnZero');
-              const rows = window.TradeValueCurveControls.getRows();
-              const engine = Object.fromEntries(rows.map(r => [String(r.player_key), r.values]));
-              return {hidden: box ? box.hidden : null, used: window.TradeValueV2.targets().used, engine,
-                items: [...document.querySelectorAll('#v2TEspnZeroList li')].map(li => ({
-                  key: Number(li.dataset.playerKey), badge: li.querySelector('[data-espn-zero]')?.textContent || null,
-                  cells: Object.fromEntries([...li.querySelectorAll('[data-chart]')].map(s => [s.dataset.chart, s.textContent]))})),
-                tableBadged: [...document.querySelectorAll('#v2TTable tbody tr')].filter(tr => tr.querySelector('[data-espn-zero]')).map(tr => Number(tr.dataset.playerKey))};
+              const t = window.TradeValueV2.targets();
+              return {used: t.used, ours: t.ours, retiredList: Boolean(document.getElementById('v2TEspnZero')),
+                sell: t.sell.map(p => ({key: p.row.player_key, ours: p.ours,
+                  cells: Object.fromEntries(Object.entries(p.cells).map(([c, v]) => [c, {value: v.value, gap: v.gap}]))}))};
             }""")
-            page.click("#v2Targets [data-side=buy]")
-            out["targets_buy_hidden"] = page.evaluate("() => document.getElementById('v2TEspnZero')?.hidden")
+            # The probe's rendered row in the sell table.
+            if probe_zero:
+                page.fill("#v2TSearch", probe_zero["name"])
+                page.wait_for_timeout(400)
+                out["targets_row"] = page.evaluate("""(key) => {
+                  const tr = document.querySelector(`#v2TTable tbody tr[data-player-key="${key}"]`);
+                  if (!tr) return null;
+                  return {ours: tr.querySelector('[data-ours]').textContent,
+                    badge: tr.querySelector('[data-espn-zero]')?.textContent || null,
+                    gaps: Object.fromEntries([...tr.querySelectorAll('td[data-chart]')].map(td => [td.dataset.chart, td.querySelector('.gap')?.textContent ?? null]))};
+                }""", probe_zero["player_key"])
             out["v2_errors"] = list(errors)
             page.close()
         finally:
@@ -186,7 +203,6 @@ def collect(overrides=None):
     return out
 
 
-PUB_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 
 
 def check(out) -> list[str]:
@@ -233,41 +249,79 @@ def check(out) -> list[str]:
             errors.append(f"v2 table: no-ESPN-row player {out['probe']['absent']} labeled ESPN 0")
         if v2["absent"]["drawer"] and v2["absent"]["drawer"]["note"]:
             errors.append("v2 drawer: no-ESPN-row player has the ESPN-0 note")
+    values = out["engine_values"]
+    wrong_zero = [k for k in zero if str(k) in values
+                  and (values[str(k)]["espn"] != 0 or values[str(k)]["espn_vorp"] != 0)]
+    if wrong_zero:
+        errors.append(f"engine: {len(wrong_zero)} ESPN-0 rows without an ESPN value of 0.0, e.g. "
+                      f"{wrong_zero[0]}: {values[str(wrong_zero[0])]}")
+    wrong_absent = [k for k in absent if str(k) in values and values[str(k)]["espn"] is not None]
+    if wrong_absent:
+        errors.append(f"engine: no-ESPN-row players with an ESPN value: {wrong_absent[:5]}")
+    if "zero" in main and main["zero"]["table"].get("espn") != "0.0":
+        errors.append(f"main table: ESPN column for {out['probe']['zero']} shows {main['zero']['table'].get('espn')!r}, expected 0.0")
+    if "absent" in main and main["absent"]["table"].get("espn") not in ("—", None):
+        errors.append(f"main table: ESPN column for no-ESPN-row {out['probe']['absent']} shows {main['absent']['table'].get('espn')!r}, expected —")
     t = out["targets"]
     used = set(t["used"])
-    expected_items = [p for p in out["paid"] if set(p["charts"]) & used]
-    got = {item["key"]: item for item in t["items"]}
-    if expected_items and (t["hidden"] or not got):
-        errors.append("Trade targets: ESPN-0 players a chart still pays for are not listed")
-    for p in expected_items:
-        item = got.get(p["key"])
-        if not item:
-            errors.append(f"Trade targets: {p['name']} missing from the ESPN-0 list")
+    if t["retiredList"]:
+        errors.append("Trade targets: the separate ESPN-0 list should be retired (they are in the sell list)")
+    sell = {item["key"]: item for item in t["sell"]}
+    for p in out["paid"]:
+        paid_used = {c: v for c, v in p["charts"].items() if c in used}
+        if not paid_used:
             continue
-        if not badge_ok(item["badge"]):
-            errors.append(f"Trade targets: {p['name']} listed without the badge")
-        for chart, value in p["charts"].items():
-            if chart in used and item["cells"].get(chart) != f"{PUB_NAMES[chart]} {value:.1f}":
-                errors.append(f"Trade targets: {p['name']} {chart} shows {item['cells'].get(chart)!r}, engine {value:.1f}")
-    for key in got:
-        if key not in zero:
-            errors.append(f"Trade targets: player {key} listed as ESPN 0 but is not")
-    if t["tableBadged"] and any(k not in zero for k in t["tableBadged"]):
-        errors.append("Trade targets table badges a player ESPN does not project at 0")
-    if not out["targets_buy_hidden"]:
-        errors.append("Trade targets: the ESPN-0 sell list shows on the buy side")
+        item = sell.get(p["key"])
+        if not item:
+            errors.append(f"Trade targets: {p['name']} (ESPN 0, paid {paid_used}) is not in the sell list")
+            continue
+        if item["ours"] != 0:
+            errors.append(f"Trade targets: {p['name']} our value {item['ours']!r}, expected 0")
+        for chart, value in paid_used.items():
+            cell = item["cells"].get(chart) or {}
+            if cell.get("gap") != value:
+                errors.append(f"Trade targets: {p['name']} {chart} gap {cell.get('gap')!r}, expected chart value {value!r}")
+    for key in sell:
+        if key in absent:
+            errors.append(f"Trade targets: no-ESPN-row player {key} is in the sell list")
+    row = out.get("targets_row")
+    if out["paid"] and any(set(p["charts"]) & used for p in out["paid"][:1]):
+        if not row:
+            errors.append(f"Trade targets: {out['probe']['zero']} not rendered in the sell table")
+        else:
+            if row["ours"] != "0.0" or not badge_ok(row["badge"]):
+                errors.append(f"Trade targets: {out['probe']['zero']} row shows ours {row['ours']!r}, badge {row['badge']!r}")
+            for chart, value in out["paid"][0]["charts"].items():
+                if chart in used and row["gaps"].get(chart) != f"+{value:.1f}":
+                    errors.append(f"Trade targets: {out['probe']['zero']} {chart} gap {row['gaps'].get(chart)!r}, expected +{value:.1f}")
     if out["main_errors"] or out["v2_errors"]:
         errors.append(f"page errors: {out['main_errors'] + out['v2_errors']}")
     return errors
 
 
 class EspnZeroBadgeRenderTest(unittest.TestCase):
-    def test_badge_on_espn_zero_not_on_missing(self):
+    def test_espn_zero_is_badged_and_valued_zero_missing_is_not(self):
         out = collect()
         self.assertEqual(check(out), [], json.dumps({k: out[k] for k in ("probe", "paid")}))
 
     def test_guard_fails_on_broken_builds(self):
         source = PRODUCT_DATA_JS.read_text(encoding="utf-8")
+        widget = CURVE_WIDGET_JS.read_text(encoding="utf-8")
+        dashboard = DASHBOARD_JS.read_text(encoding="utf-8")
+        # The engine before "Yes, use 0": an ESPN-0 player is missing (—).
+        no_zero_widget = widget.replace(
+            "return ESPN_ZERO_VALUE_KEYS.has(key) && player.espnProjectsZero && map?.size ? 0 : null;", "return null;", 1)
+        no_zero_dashboard = dashboard.replace(
+            "return ESPN_ZERO_VALUE_KEYS.has(key) && map?.size && canonicalByKey.get(playerKey)?.espn_projects_zero ? 0 : null;",
+            "return null;", 1)
+        self.assertNotEqual(no_zero_widget, widget, "mutation anchor for the engine 0.0 rule is stale")
+        self.assertNotEqual(no_zero_dashboard, dashboard, "mutation anchor for the table 0.0 rule is stale")
+        for name, overrides in {
+            "ESPN-0 missing in the engine": {"**/assets/curve-widget.js*": no_zero_widget},
+            "ESPN-0 missing in the main table": {"**/assets/comparison-dashboard.js*": no_zero_dashboard},
+        }.items():
+            with self.subTest(mutation=name):
+                self.assertNotEqual(check(collect(overrides)), [], f"render checks did not catch: {name}")
         broken = {
             # The flag the page had before GAP-025: none.
             "no ESPN-0 flag": source.replace("espn_projects_zero: espnProjectsZero(player),",
