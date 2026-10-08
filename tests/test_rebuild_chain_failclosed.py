@@ -22,6 +22,33 @@ from pathlib import Path
 PIPELINES = Path(__file__).resolve().parent.parent / "pipelines"
 sys.path.insert(0, str(PIPELINES))
 import rebuild_comparison_chain as chain  # noqa: E402
+import projection_identity  # noqa: E402
+
+
+def input_ids(repo):
+    """{source: id} of the inputs a real bake / section build would read."""
+    repo = Path(repo)
+    ids = {}
+    csv = repo / chain.ESPN_CSV_REL
+    if csv.is_file():
+        ids["espn"] = projection_identity.file_id(csv)
+    for source in ("cbsros", "razzball"):
+        snap = chain.find_latest_snapshot(repo, source)
+        if snap:
+            ids[source] = projection_identity.file_id(snap)
+    return ids
+
+
+def simulate_bake(repo, **overrides):
+    """players.json meta as bake_players.py writes it from the repo's inputs
+    (GAP-BAKE-ON-CHANGE snapshot ids); overrides replace single ids."""
+    players = Path(repo) / chain.PLAYERS_REL
+    doc = json.loads(players.read_text()) if players.is_file() else {"players": []}
+    meta = doc.setdefault("meta", {})
+    for source, sid in {**input_ids(repo), **overrides}.items():
+        meta[projection_identity.META_KEYS[source]] = sid
+    players.parent.mkdir(parents=True, exist_ok=True)
+    players.write_text(json.dumps(doc))
 
 
 class WireFake:
@@ -129,6 +156,7 @@ class WireFake:
             fixture = {"sources": {"cbsros": {
                 "combos": combos,
                 "vintage": "2026-09-29",
+                "snapshot_id": input_ids(repo).get("cbsros"),
             }}}
             fpath = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
             fpath.parent.mkdir(parents=True, exist_ok=True)
@@ -148,7 +176,8 @@ class WireFake:
             fpath.parent.mkdir(parents=True, exist_ok=True)
             existing = json.loads(fpath.read_text()) if fpath.is_file() else {}
             existing.setdefault("sources", {})["razzball"] = {
-                "combos": combos, "vintage": "2026-09-29"}
+                "combos": combos, "vintage": "2026-09-29",
+                "snapshot_id": input_ids(repo).get("razzball")}
             fpath.write_text(json.dumps(existing))
             return True, ""
 
@@ -188,6 +217,7 @@ class WireFake:
                 "combos": combos,
                 "espn_snapshot": "2026-09-29",
                 "value_provenance": "modeled",
+                "snapshot_id": input_ids(repo).get("espn"),
             }}}
             fpath = repo / "data" / "fixtures" / "current" / "comparison-sources-data.json"
             fpath.parent.mkdir(parents=True, exist_ok=True)
@@ -217,6 +247,12 @@ def make_repo(tmp, sources):
         players = repo / "data" / "fixtures" / "current" / "players.json"
         players.parent.mkdir(parents=True, exist_ok=True)
         players.write_text(json.dumps({"meta": {"rz_snapshot": "2026-09-29"}, "players": []}))
+    if "espn" in sources:
+        csv = repo / chain.ESPN_CSV_REL
+        csv.parent.mkdir(parents=True, exist_ok=True)
+        csv.write_text("player,espn_snapshot_date\nx,2026-09-29\n")
+    # players.json baked from exactly these inputs (GAP-BAKE-ON-CHANGE).
+    simulate_bake(repo)
     return repo
 
 

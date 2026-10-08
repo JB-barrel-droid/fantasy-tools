@@ -27,6 +27,9 @@ def _fake_leg(tmp: Path, scoring: str, teams: int) -> None:
             "scoring": scoring,
             "teams": teams,
             "cbsros_snapshot_date": "2026-09-30",
+            # Every leg records its snapshot id (GAP-BAKE-ON-CHANGE); the
+            # section builder refuses legs without one.
+            "cbsros_snapshot_id": "sha256:" + "0" * 64,
         },
         "values": [
             {"player_norm": "jahmyr gibbs", "value": 60.0, "ppg": 20.0},

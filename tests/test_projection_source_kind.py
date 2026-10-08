@@ -18,7 +18,8 @@ class ProjectionSourceKindTest(unittest.TestCase):
             with self.subTest(source=builder.SOURCE_KEY):
                 leg = Mock()
                 leg.read_text.return_value = json.dumps({
-                    "inputs": {f"{builder.SOURCE_KEY}_snapshot_date": "2026-10-01"},
+                    "inputs": {f"{builder.SOURCE_KEY}_snapshot_date": "2026-10-01",
+                               f"{builder.SOURCE_KEY}_snapshot_id": "sha256:" + "0" * 64},
                     "values": [{"player_norm": "test player", "value": 5.0, "ppg": 12.0}],
                 })
                 with patch.object(builder, "find_fresh_leg", return_value=leg), \

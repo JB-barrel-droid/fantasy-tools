@@ -80,6 +80,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import projection_identity  # noqa: E402
+
 REPO = Path(__file__).resolve().parent.parent
 # razzball (GAP-RAZZBALL-SUFFIX-POOL, 2026-10-08): the workflow imported the
 # razzball snapshot every run, but nothing rebuilt its legs or section, so the
@@ -690,6 +693,11 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
             snapshot_vintage = json.loads(snapshot.read_text(encoding="utf-8")).get("vintage_date")
         except (OSError, ValueError):
             snapshot_vintage = None
+        # GAP-BAKE-ON-CHANGE: never build a section players.json was not
+        # baked from (razzball checks this in run_razzball_source).
+        reason = bake_identity_mismatch(repo, source, snapshot)
+        if reason:
+            raise ChainHalt("snapshot", reason)
 
         # 2. DDF leg: rebuild all 12 legs from the snapshot (3 scorings x 4 team counts)
         result["stage"] = "leg"
@@ -715,6 +723,9 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
         # 4. Review gate: verify the rebuilt section (halts fail-closed)
         result["stage"] = "review"
         n_values = _verify_cbsros_section(repo, snapshot_vintage, source)
+        reason = section_identity_mismatch(repo, source)
+        if reason:
+            raise ChainHalt("review", reason)
 
         result["status"] = "ok"
         result["stage"] = "complete"
@@ -738,6 +749,37 @@ def run_cbsros_source(source="cbsros", nfl_week=None, repo=REPO, run_fn=run):
 
 
 PLAYERS_REL = Path("data") / "fixtures" / "current" / "players.json"
+ESPN_CSV_REL = Path("data") / "inputs" / "espn_projections.csv"
+
+
+def bake_identity_mismatch(repo, source, input_path):
+    """Why `source`'s section must not be built from `input_path`, or None.
+
+    GAP-BAKE-ON-CHANGE (2026-10-08): the browser prices ESPN, CBS ROS and
+    Razzball from players.json; the main table and chart read the chain's
+    sections. They must be built from the same snapshot, and a date cannot
+    tell two same-day saves apart (CBS ROS 08:48 vs 13:54 on 2026-10-08), so
+    the check is the content id (pipelines/projection_identity.py). A
+    mismatch holds the source (isolated: its last good section and legs are
+    kept, every other source publishes) until a bake from this snapshot.
+    """
+    try:
+        current = projection_identity.file_id(input_path)
+    except (OSError, ValueError) as exc:
+        return f"unreadable {source} input {input_path}: {exc}"
+    reason = projection_identity.mismatch(source, current, Path(repo) / PLAYERS_REL)
+    return f"awaiting players bake: {reason}" if reason else None
+
+
+def section_identity_mismatch(repo, source):
+    """Why the built `source` section disagrees with players.json, or None."""
+    try:
+        section = (_read_fixture(repo).get("sources") or {}).get(source) or {}
+    except (OSError, ValueError) as exc:
+        return f"cannot read fixture: {exc}"
+    reason = projection_identity.mismatch(source, section.get("snapshot_id"),
+                                          Path(repo) / PLAYERS_REL)
+    return f"section vs players.json: {reason}" if reason else None
 
 
 def razzball_bake_mismatch(repo, snapshot):
@@ -745,27 +787,11 @@ def razzball_bake_mismatch(repo, snapshot):
 
     The browser prices Razzball from players.json rz_ppg (baked by
     bake_players.py) and the main table reads the chain's Razzball section.
-    Both must be one vintage (GAP-RAZZBALL-SUFFIX-POOL: the section said
-    2026-10-01 while the browser priced a 2026-09-22 file). The section only
-    moves to the vintage players.json was baked from; a newer Supabase
-    vintage waits for the daily bake (rebuild-chain bake_players=true, which
-    bakes from this same imported snapshot before the chain runs).
+    Both must be one snapshot (GAP-RAZZBALL-SUFFIX-POOL: the section said
+    2026-10-01 while the browser priced a 2026-09-22 file). Since
+    GAP-BAKE-ON-CHANGE the test is the snapshot's content id, not its date.
     """
-    try:
-        vintage = json.loads(Path(snapshot).read_text(encoding="utf-8")).get("vintage_date")
-    except (OSError, ValueError) as exc:
-        return f"unreadable razzball snapshot: {exc}"
-    try:
-        players = json.loads((Path(repo) / PLAYERS_REL).read_text(encoding="utf-8"))
-        baked = (players.get("meta") or {}).get("rz_snapshot")
-    except (OSError, ValueError) as exc:
-        return f"cannot read players.json rz_snapshot: {exc}"
-    if not vintage:
-        return "razzball snapshot has no vintage_date"
-    if baked != vintage:
-        return (f"awaiting players bake: snapshot vintage {vintage} != players.json "
-                f"rz_snapshot {baked}; keeping the section on the baked vintage")
-    return None
+    return bake_identity_mismatch(repo, "razzball", snapshot)
 
 
 def run_razzball_source(source="razzball", nfl_week=None, repo=REPO, run_fn=run):
@@ -905,6 +931,12 @@ def run_espn_source(source="espn", nfl_week=None, repo=REPO, run_fn=run):
         except (OSError, ValueError):
             snapshot_vintage = None
 
+        # GAP-BAKE-ON-CHANGE: the legs read the ESPN CSV; players.json must
+        # have been baked from that exact file.
+        reason = bake_identity_mismatch(repo, "espn", repo / ESPN_CSV_REL)
+        if reason:
+            raise ChainHalt("snapshot", reason)
+
         # 2. DDF leg: rebuild all 12 legs from the ESPN CSV (3 scorings x 4 team counts)
         result["stage"] = "leg"
         for scoring, teams in ((s, t) for s in ESPN_LEG_SCORINGS for t in ESPN_LEG_TEAMS):
@@ -927,6 +959,9 @@ def run_espn_source(source="espn", nfl_week=None, repo=REPO, run_fn=run):
         # 4. Review gate: verify the rebuilt section (halts fail-closed)
         result["stage"] = "review"
         n_values = _verify_espn_section(repo, snapshot_vintage)
+        reason = section_identity_mismatch(repo, "espn")
+        if reason:
+            raise ChainHalt("review", reason)
 
         result["status"] = "ok"
         result["stage"] = "complete"
