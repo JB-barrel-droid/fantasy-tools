@@ -37,6 +37,19 @@ Hard rules (Jeremy 2026-09-29; hardened after the validation-bypass repair):
   cbsros failure (ESPN is the reindex anchor and the fit target; both write
   the fixture before their review gate), a restore that cannot be verified,
   and a run in which EVERY review-gated source held (nothing new to publish).
+- Source resiliency (Jeremy 2026-10-08, decision source-resiliency-001):
+  the isolation above now covers ANY single-source failure, not only a
+  review hold. A source whose import left no snapshot, whose match,
+  reference, section, reindex, review or promote stage failed, whose review
+  returned a malformed or non-'ready' verdict, or whose stage script
+  crashed keeps its last promoted fixture section byte-for-byte (the whole
+  fixture is restored to its state just before that source ran), and the
+  other sources publish. ESPN and cbsros are covered too: their DDF legs
+  under data/ddf-two-tier are restored with the section, so a failed ESPN
+  refresh leaves the last good anchor in place and every other source is
+  reindexed against it. Still fail-closed: a restore that cannot be
+  verified, a run in which every review-gated source held or failed, and
+  any failure in the shared stages (re-translate, fit, _adjusted).
 - The fit and _adjusted sections run on the resulting fixture whenever the
   run is publishable, so a held source's _adjusted section is rebuilt from
   its kept (older) raw section, never left half-updated.
@@ -78,6 +91,19 @@ SOURCES = ["usatoday", "fantasycalc", "fantasypros", "espn", "cbs", "cbsros"]
 # failure means a malformed section, not a judgement call. Any failure there
 # fails the whole chain closed, as before.
 HOLD_ISOLATED_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs")
+
+# source-resiliency-001 (Jeremy 2026-10-08): ANY failure in one of these
+# sources is isolated -- the source keeps its last promoted section, the
+# others publish. HOLD_ISOLATED_SOURCES above stays the review-gated set
+# (the "every review-gated source held or failed" rule reads it).
+FAILURE_ISOLATED_SOURCES = tuple(SOURCES)
+
+# Sources whose stages also write DDF legs under data/ddf-two-tier that later
+# stages read (the fit reads the newest ESPN leg). A failed run of these
+# sources restores its legs together with its fixture section.
+LEG_FILES = {"espn": "ddf_leg.json", "cbsros": "ddf_leg_cbsros.json",
+             "razzball": "ddf_leg_razzball.json"}
+LEG_ROOT_REL = Path("data") / "ddf-two-tier"
 
 FIXTURE_REL = Path("data") / "fixtures" / "current" / "comparison-sources-data.json"
 PROMOTIONS_REL = Path("output") / "comparison-promotions"
@@ -139,9 +165,18 @@ def find_latest_snapshot(repo, source):
             candidates.append(child)
     if not candidates:
         return None
-    # Sort by name (dates and week-N both sort chronologically)
-    candidates.sort(key=lambda p: p.name)
+    # Sort chronologically. A plain name sort put "week-10" before "week-4"
+    # (and before the committed week-4 fantasycalc snapshot in CI), so from
+    # Week 10 the chain would have rebuilt FantasyCalc and CBS from an old
+    # week. Dates (YYYY-MM-DD) and week-N both order by their numbers.
+    candidates.sort(key=snapshot_sort_key)
     return candidates[-1] / "snapshot.json"
+
+
+def snapshot_sort_key(path):
+    """Chronological key for a snapshot directory name (week-N or a date)."""
+    import re
+    return (tuple(int(n) for n in re.findall(r"\d+", path.name)), path.name)
 
 
 def newest_file(directory, pattern):
@@ -394,13 +429,60 @@ def snapshot_source_state(repo, source):
     promo_dir = Path(repo) / PROMOTIONS_REL
     records = ({p.name for p in promo_dir.glob(f"{source}-*-promotion.json")}
                if promo_dir.is_dir() else set())
+    try:
+        fixture_bytes = (Path(repo) / FIXTURE_REL).read_bytes()
+    except OSError:
+        return None
     return {
         "present": source in sources,
         "section": copy.deepcopy(sources.get(source)),
         "sha": _canonical_sha(sources.get(source)),
         "built_at": fixture.get("built_at"),
         "promotion_records": records,
+        # source-resiliency-001: the whole fixture as it was just before this
+        # source ran. Only this source's stages write the fixture during its
+        # run, so restoring these bytes undoes exactly that source's writes
+        # (section, built_at, source_validation, anything else its builder
+        # touched) and nothing of the sources that ran before it.
+        "fixture_bytes": fixture_bytes,
+        "fixture_sha": _canonical_sha(fixture),
+        "legs": _leg_files(repo, source),
     }
+
+
+def _leg_paths(repo, source):
+    name = LEG_FILES.get(source)
+    root = Path(repo) / LEG_ROOT_REL
+    if not name or not root.is_dir():
+        return []
+    return sorted(p for p in root.rglob(name)
+                  if f"-{source}-" in str(p.relative_to(root)))
+
+
+def _leg_files(repo, source):
+    """{relative path: bytes} of a source's DDF legs (empty for chart sources)."""
+    return {str(p.relative_to(repo)): p.read_bytes() for p in _leg_paths(repo, source)}
+
+
+def _restore_legs(repo, source, before_legs):
+    """Put a source's DDF legs back exactly as they were before its run."""
+    repo = Path(repo)
+    root = repo / LEG_ROOT_REL
+    for p in _leg_paths(repo, source):
+        rel = str(p.relative_to(repo))
+        if rel not in before_legs:
+            p.unlink()
+            parent = p.parent
+            while parent != root and parent.is_dir() and not any(parent.iterdir()):
+                parent.rmdir()
+                parent = parent.parent
+    for rel, data in before_legs.items():
+        path = repo / rel
+        if not path.is_file() or path.read_bytes() != data:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(data)
+    if _leg_files(repo, source) != before_legs:
+        raise ValueError(f"{source} DDF legs do not match the pre-run legs")
 
 
 def section_week(section):
@@ -428,39 +510,43 @@ def section_week(section):
 
 
 def isolate_hold(repo, source, before, result, nfl_week=None):
-    """Restore a held source's pre-run fixture section; mark it held.
+    """Restore a failed or held source's pre-run state; mark it held.
+
+    Covers a review hold (per-source-promotion-001) and, since
+    source-resiliency-001, any other failure of that one source. The whole
+    fixture goes back to its bytes from just before this source ran, and a
+    DDF-leg source (espn, cbsros) gets its legs back too.
 
     Fail-closed: when the pre-run state is unknown, or the restore cannot be
-    verified byte-for-byte (canonical sha of the section), the result stays
-    'failed' and the chain fails. Promotion records written for sections
-    that were rolled back are renamed so no monitor reads them as promoted.
+    verified (canonical sha of the whole fixture, and of the section), the
+    result stays 'failed' and the chain fails. Promotion records written for
+    sections that were rolled back are renamed so no monitor reads them as
+    promoted.
     """
+    failed_stage = result.get("stage")
+    reason = ("review hold" if result.get("held")
+              else f"failed at stage '{failed_stage}'")
     if before is None:
-        result["detail"] += " | hold NOT isolated: pre-run fixture state unknown"
+        result["detail"] += " | NOT isolated: pre-run fixture state unknown"
         return result
     fixture_path = Path(repo) / FIXTURE_REL
     try:
-        fixture = _read_fixture(repo)
-        sources = fixture["sources"]
-        if _canonical_sha(sources.get(source)) != before["sha"] or (source in sources) != before["present"]:
-            if before["present"]:
-                sources[source] = copy.deepcopy(before["section"])
-            else:
-                sources.pop(source, None)
-            # This source's promotions bumped built_at; earlier sources' bumps
-            # are already in `before` (snapshot taken just before this source).
-            if before["built_at"] is None:
-                fixture.pop("built_at", None)
-            else:
-                fixture["built_at"] = before["built_at"]
-            # Same serialisation as promote_comparison_section.py.
-            fixture_path.write_text(json.dumps(fixture, separators=(",", ":")))
-        after = _read_fixture(repo)["sources"]
+        try:
+            current = _read_fixture(repo)
+        except (OSError, ValueError):
+            current = None  # a crashed builder may leave it unreadable
+        if current is None or _canonical_sha(current) != before["fixture_sha"]:
+            fixture_path.write_bytes(before["fixture_bytes"])
+        restored = _read_fixture(repo)
+        if _canonical_sha(restored) != before["fixture_sha"]:
+            raise ValueError("restored fixture does not match the pre-run fixture")
+        after = restored["sources"]
         if _canonical_sha(after.get(source)) != before["sha"] or (source in after) != before["present"]:
             raise ValueError("restored section does not match the pre-run section")
+        _restore_legs(repo, source, before.get("legs") or {})
     except (OSError, ValueError, KeyError, TypeError) as exc:
         result["stage"] = "restore"
-        result["detail"] += f" | hold NOT isolated: restore failed: {exc}"
+        result["detail"] += f" | NOT isolated: restore failed: {exc}"
         result["held"] = False
         return result
 
@@ -482,6 +568,8 @@ def isolate_hold(repo, source, before, result, nfl_week=None):
     severity = "amber" if (weeks_behind is not None and weeks_behind <= 1) else "red"
     result.update({
         "status": "held",
+        "held_reason": reason,
+        "failed_stage": failed_stage,
         "rolled_back": result.get("promoted", 0),
         "promoted": 0,
         "rolled_back_records": rolled_back_records,
@@ -494,7 +582,7 @@ def isolate_hold(repo, source, before, result, nfl_week=None):
         "weeks_behind": weeks_behind,
         "hold_severity": severity,
     })
-    print(f"  ⚠ HELD (isolated): kept last promoted {source} section "
+    print(f"  ⚠ HELD (isolated, {reason}): kept last promoted {source} section "
           f"(week {kept_week}, {weeks_behind} week(s) behind -> {severity}); "
           f"rolled back {result['rolled_back']} section(s) promoted this run")
     return result
@@ -966,8 +1054,10 @@ def describe_result(result):
     if result["status"] == "held":
         kept = result.get("kept_section") or {}
         label = kept.get("week_designated") or kept.get("content_vintage") or "no prior section"
-        return (f"HELD at stage 'review' ({result.get('hold_severity')}): kept last promoted "
-                f"section ({label}); held candidate not promoted: {result.get('detail', '')}")
+        return (f"HELD at stage '{result.get('failed_stage') or 'review'}' "
+                f"({result.get('hold_severity')}, {result.get('held_reason') or 'review hold'}): "
+                f"kept last promoted section ({label}); candidate not promoted: "
+                f"{result.get('detail', '')}")
     stage = result.get("stage") or "unknown"
     return f"FAILED at stage '{stage}': {result.get('detail', '')}"
 
@@ -1039,6 +1129,8 @@ def write_chain_status(repo, results, fit_result, adjusted_result, nfl_week, run
         "hold_severity": hold_severity,
         "held_detail": {s: {
             "detail": results[s].get("detail"),
+            "reason": results[s].get("held_reason"),
+            "stage": results[s].get("failed_stage"),
             "kept_section": results[s].get("kept_section"),
             "weeks_behind": results[s].get("weeks_behind"),
             "hold_severity": results[s].get("hold_severity"),
@@ -1110,6 +1202,8 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     try:
         for source in SOURCES:
             print(f"\n[{source}] Starting chain...")
+            isolatable = source in FAILURE_ISOLATED_SOURCES or source in HOLD_ISOLATED_SOURCES
+            before = snapshot_source_state(repo, source) if isolatable else None
             # cbsros has its own DDF-leg pipeline (not the quantile-reindex
             # path); its chain mirrors that pipeline.
             if source == "cbsros":
@@ -1120,11 +1214,15 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             elif source == "espn":
                 results[source] = run_espn_source(source, nfl_week, repo, run_fn)
             else:
-                before = (snapshot_source_state(repo, source)
-                          if source in HOLD_ISOLATED_SOURCES else None)
                 results[source] = run_source(source, nfl_week, repo, run_fn)
-                if source in HOLD_ISOLATED_SOURCES and results[source].get("held"):
-                    isolate_hold(repo, source, before, results[source], nfl_week)
+            # source-resiliency-001: any failure in an isolated source (and a
+            # review hold in a review-gated one) keeps that source's last
+            # promoted section; the other sources still publish.
+            res = results[source]
+            if res["status"] != "ok" and (
+                    source in FAILURE_ISOLATED_SOURCES
+                    or (source in HOLD_ISOLATED_SOURCES and res.get("held"))):
+                isolate_hold(repo, source, before, res, nfl_week)
 
         failed_sources = [s for s, r in results.items() if r["status"] not in ("ok", "held")]
         if not failed_sources and all_review_gated_held(results):

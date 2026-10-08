@@ -191,24 +191,30 @@ class PerSourceHoldTest(unittest.TestCase):
         check_fails_closed(status)
         self.assertIn("all_review_gated_sources_held", status["failed"])
 
-    def test_non_hold_failure_still_fails_closed(self):
-        """A garbage verdict (not 'hold') in one source fails the chain."""
-        status, *_ = run_chain(self.tmp / "garbage", {"usatoday-a-reference-section": "banana"})
-        check_fails_closed(status)
-        self.assertIn("usatoday", status["failed"])
-        self.assertEqual(status["held"], [])
+    # Rule changed by Jeremy 2026-10-08 (source-resiliency-001): a non-hold
+    # failure in one source, and an ESPN failure, are now isolated like a
+    # hold (they used to fail the whole chain). Full coverage, with the
+    # negative tests, is in tests/test_rebuild_chain_source_resiliency.py.
+    def test_non_hold_failure_is_isolated(self):
+        """A garbage verdict (not 'hold') in one source keeps its last section."""
+        status, before, after, *_ = run_chain(
+            self.tmp / "garbage", {"usatoday-a-reference-section": "banana"})
+        self.assertTrue(status["success"], status["failed"])
+        self.assertIn("usatoday", status["held"])
+        check_held_section_kept_exactly(before, after, "usatoday")
 
-    def test_espn_failure_still_fails_closed_with_a_hold(self):
+    def test_espn_failure_is_isolated_alongside_a_hold(self):
         def wrap(fake):
             def run_fn(cmd, **kw):
                 if Path(cmd[1]).name == "build_espn_section_from_ddf_leg.py":
                     return False, "espn section exploded"
                 return fake(cmd, **kw)
             return run_fn
-        status, *_ = run_chain(self.tmp / "espn", {"fantasycalc-b-reference-section": "hold"},
-                               run_fn_wrap=wrap)
-        check_fails_closed(status)
-        self.assertIn("espn", status["failed"])
+        status, before, after, *_ = run_chain(
+            self.tmp / "espn", {"fantasycalc-b-reference-section": "hold"}, run_fn_wrap=wrap)
+        self.assertTrue(status["success"], status["failed"])
+        self.assertEqual(status["held"], ["espn", "fantasycalc"])
+        check_held_section_kept_exactly(before, after)
 
     def test_unverifiable_restore_fails_closed(self):
         real_read = chain._read_fixture
@@ -245,7 +251,8 @@ class PerSourceHoldTest(unittest.TestCase):
     # --- negative tests: each guard catches the broken state it names --------
     def test_all_or_nothing_chain_is_caught(self):
         """Reverting to all-or-nothing (no isolated sources) fails the guard."""
-        with mock.patch.object(chain, "HOLD_ISOLATED_SOURCES", ()):
+        with mock.patch.object(chain, "HOLD_ISOLATED_SOURCES", ()), \
+                mock.patch.object(chain, "FAILURE_ISOLATED_SOURCES", ()):
             status, before, after, *_ = self._hold_fc_second_section()
         with self.assertRaises(AssertionError):
             check_others_publish_despite_hold(status, after)
@@ -281,14 +288,6 @@ class PerSourceHoldTest(unittest.TestCase):
     def test_publishing_an_all_held_run_is_caught(self):
         with mock.patch.object(chain, "all_review_gated_held", return_value=False):
             status, *_ = run_chain(self.tmp / "allneg", {"*": "hold"})
-        with self.assertRaises(AssertionError):
-            check_fails_closed(status)
-
-    def test_isolating_a_non_hold_failure_is_caught(self):
-        """If every halt were treated as a hold, a garbage verdict would
-        publish. The fail-closed check catches that."""
-        with mock.patch.object(chain, "ReviewHold", chain.ChainHalt):
-            status, *_ = run_chain(self.tmp / "garbneg", {"usatoday-a-reference-section": "banana"})
         with self.assertRaises(AssertionError):
             check_fails_closed(status)
 

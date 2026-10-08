@@ -3066,11 +3066,11 @@
     } else if (defaultAvailableAdjustedKeys.length) {
       const liveCount = defaultAvailableAdjustedKeys.length === ADJUSTED_INDEXED_KEYS.length ? "four" : String(defaultAvailableAdjustedKeys.length);
       const projectionNoun = defaultAvailableAdjustedKeys.length === 1 ? "projection is" : "projections are";
-      adjustedStatus = `ESPN live plus ${liveCount} adjusted source ${projectionNoun} shown by default.${olderWeekNote}`;
+      adjustedStatus = `ESPN adjusted plus ${liveCount} adjusted source ${projectionNoun} shown by default.${olderWeekNote}`;
     } else if (olderWeekKeys.length) {
-      adjustedStatus = `ESPN live is shown by default.${olderWeekNote}`;
+      adjustedStatus = `ESPN adjusted is shown by default.${olderWeekNote}`;
     } else {
-      adjustedStatus = "ESPN live is shown by default. Adjusted source projections are live for supported league setups, but this setup has no matching source combo.";
+      adjustedStatus = "ESPN adjusted is shown by default. Adjusted source projections are available for supported league setups, but this setup has no matching source combo.";
     }
     status.innerHTML = `<strong>Validated:</strong> ${adjustedStatus} Direct published charts are available but off by default. Raw ESPN VORP vs waivers can be enabled on the same chart.`;
     activeNotices.forEach(note => status.appendChild(note));

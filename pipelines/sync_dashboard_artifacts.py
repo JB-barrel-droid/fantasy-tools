@@ -397,7 +397,7 @@ def main() -> int:
     # dist/server/index.js (a Cloudflare-style worker stub that Pages never
     # executes). Both were Muse hosting leftovers, as was space.json.
     DIST.mkdir(parents=True, exist_ok=True)
-    for name in ("index.html", "icon.jpg"):
+    for name in ("index.html", "icon.jpg", "404.html"):
         shutil.copy2(APP / name, DIST / name)
     copy_tree(APP / "assets", DIST / "assets")
 

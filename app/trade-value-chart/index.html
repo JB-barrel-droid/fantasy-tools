@@ -6,7 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light" />
   <meta name="theme-color" content="#17364c" />
-  <meta name="description" content="A fantasy-football source comparison with five independent series and three bias-corrected best-estimate series." />
+  <meta name="description" content="Fantasy football rest-of-season trade values for your league settings: ESPN, CBS and Razzball projections and the published USA Today, FantasyCalc, FantasyPros and CBS trade charts on one scale, with trade targets where they disagree." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Fantasy trade values, every source on one scale" />
+  <meta property="og:description" content="Rest-of-season trade values for your league settings, with trade targets where the published charts disagree with our value." />
+  <meta property="og:image" content="https://jb-barrel-droid.github.io/fantasy-tools/icon.jpg" />
+  <meta name="twitter:card" content="summary" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317364c'/%3E%3Cpath fill='%23e96528' d='M13 11h19c14 0 23 8 23 21S46 53 32 53H13V11zm11 10v22h8c8 0 13-4 13-11s-5-11-13-11h-8z'/%3E%3C/svg%3E" />
   <title>Trade Value Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -1635,7 +1640,7 @@
         <h1 id="page-title">Fantasy trade values, every source on one scale.</h1>
       </div>
       <div class="hero-support">
-        <p class="hero-copy" id="page-intro">A source comparison with adjusted best-estimate series, all on one trade-value scale. FC Adjusted, USAT Adjusted, and FP Adjusted shift the weighting to our view of value; they are not a median or blended composite. The signal is where the sources disagree.</p>
+        <p class="hero-copy" id="page-intro">A source comparison with adjusted best-estimate series, all on one trade-value scale. The adjusted FantasyCalc, USA Today and FantasyPros series shift each chart&rsquo;s weighting to our view of value; they are not a median or blended composite. The signal is where the sources disagree.</p>
         <div class="info-wrap">
           <button class="info-button" type="button" aria-label="How adjusted curves work">i</button>
           <div class="info-popover" role="tooltip">
@@ -1879,10 +1884,10 @@
       <details class="notes-details">
         <summary><h2>Notes &amp; source definitions</h2></summary>
         <ol class="notes-list">
-          <li><strong>Scale and missing values.</strong> Values measure VORP vs waivers on a shared scale whose true top is 87 in Standard, 86 in Half PPR, and 84 in Full PPR. Missing or unpriced values remain blank and are never converted to zero.</li>
-          <li><strong>Series taxonomy.</strong> As-published values are reindexed only onto the common scoring-specific scale. FC Adjusted, USAT Adjusted, FP Adjusted, and CBS Adjusted are adjusted best-estimate values that shift the weighting to our view of value; missing adjusted values stay blank.</li>
-          <li><strong>Sources.</strong> <a href="https://www.usatoday.com/story/sports/fantasy/football/2026/09/15/fantasy-football-trade-value-chart-week-2-ros-rankings/91770884007/" target="_blank" rel="noopener noreferrer">USA Today</a> is an editorial chart; <a href="https://fantasycalc.com" target="_blank" rel="noopener noreferrer">FantasyCalc</a> reflects completed fantasy trades; <a href="https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-2-2026/" target="_blank" rel="noopener noreferrer">FantasyPros</a> is an analyst-consensus chart; <a href="https://sportsfly.cbsistatic.com/fantasy/football/news/dave-richards-week-2-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/" target="_blank" rel="noopener noreferrer">CBS</a> is an editorial chart; ESPN uses its season projections translated to the same scale.</li>
-          <li><strong>Freshness.</strong> Content date is when a source's published numbers last changed; fit date identifies the bias-adjustment bake. Week-specific references disable after the weekend rollover until the next week's artifact is present. ESPN remains live.</li>
+          <li><strong>Scale and missing values.</strong> Every series is put on one shared trade-value scale for your league settings. A missing or unpriced value shows as — and is never converted to zero; a value of 0 means the player is at or below that source&rsquo;s waiver line.</li>
+          <li><strong>Series taxonomy.</strong> As-published values are reindexed only onto the common scoring-specific scale. FC Adjusted, USAT Adjusted, FP Adjusted, and CBS Adjusted are adjusted best-estimate values that shift the weighting to our view of value; a missing adjusted value shows as —.</li>
+          <li><strong>Sources.</strong> USA Today is an editorial chart; <a href="https://fantasycalc.com" target="_blank" rel="noopener noreferrer">FantasyCalc</a> reflects completed fantasy trades; FantasyPros is an analyst-consensus chart; CBS is an editorial chart; ESPN uses its season projections translated to the same scale.</li>
+          <li><strong>Freshness.</strong> Content date is when a source's published numbers last changed; fit date identifies the bias-adjustment bake. Each published chart is labeled with the week it covers, and a chart from an older week is marked and starts switched off. ESPN projections are pulled daily.</li>
         </ol>
       </details>
     </section>

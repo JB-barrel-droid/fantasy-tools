@@ -655,7 +655,7 @@
     const list = filteredRows();
     if ($("#boardTitle")) $("#boardTitle").textContent = "Compare player values";
     if ($("#boardDescription")) $("#boardDescription").textContent = "Search, sort, and expand players using the graph's league settings.";
-    if ($("#consensusNote")) $("#consensusNote").textContent = "Missing source values stay blank.";
+    if ($("#consensusNote")) $("#consensusNote").textContent = "Missing source values show —, never zero.";
     if ($("#resultCount")) $("#resultCount").textContent = `${list.length} player${list.length === 1 ? "" : "s"}`;
     if ($("#sortNote")) {
       $("#sortNote").textContent = state.sort.column === "disagreement"

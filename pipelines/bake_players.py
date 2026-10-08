@@ -84,7 +84,7 @@ from scoring import fantasy_points  # noqa: E402
 from dataset_status import build_dataset_status  # noqa: E402
 from games_remaining import (  # noqa: E402
     load_byes, schedule_problems, window_from_csv, games_by_team,
-    canonical_team,
+    canonical_team, PPG_DECIMALS,
 )
 from preseason_ecr import (  # noqa: E402
     load_preseason_ecr_ranks, annotate_rows, provenance_note as pecr_note,
@@ -615,13 +615,13 @@ def bake(args):
         has_espn = not espn_status
         if gr:
             if has_espn:
-                row["blend_ppg"] = {s: round(v / gr, 2) for s, v in row["blend_ros"].items()}
-                row["espn_ppg"] = {s: round(v / gr, 2) for s, v in row["espn_ros"].items()}
+                row["blend_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["blend_ros"].items()}
+                row["espn_ppg"] = {s: round(v / gr, PPG_DECIMALS) for s, v in row["espn_ros"].items()}
             if pm_ros is not None:
-                row["pm_ppg"] = {s: round(row["pm_ros"][s] / gr, 2)
+                row["pm_ppg"] = {s: round(row["pm_ros"][s] / gr, PPG_DECIMALS)
                                  for s in SCORINGS}
             if pm_complete:
-                row["pm_filled_ppg"] = {s: round(pm_filled_ros[s] / gr, 2)
+                row["pm_filled_ppg"] = {s: round(pm_filled_ros[s] / gr, PPG_DECIMALS)
                                         for s in SCORINGS}
                 if has_espn:
                     row["delta_pm_espn_ppg"] = round(
@@ -631,7 +631,7 @@ def bake(args):
             # and are NEVER used. The source-accounting audit below fails the
             # build if rz_filled_ros != rz_ppg x games_remaining.
             if rz_complete:
-                row["rz_ppg"] = {s: round(z[s], 2) for s in SCORINGS}
+                row["rz_ppg"] = {s: round(z[s], PPG_DECIMALS) for s in SCORINGS}
                 row["rz_ros"] = {s: round(z[s] * gr, 2) for s in SCORINGS}
                 row["rz_filled_ppg"] = dict(row["rz_ppg"])
                 row["rz_filled_ros"] = dict(row["rz_ros"])
@@ -646,7 +646,7 @@ def bake(args):
             # two-tier math (JEG-33); the comparison dashboard reads the
             # baked cbsros DDF leg.
             if cbsros_complete:
-                row["cbsros_ppg"] = {s: round(c[s], 2) for s in SCORINGS}
+                row["cbsros_ppg"] = {s: round(c[s], PPG_DECIMALS) for s in SCORINGS}
         players.append(row)
 
     # ---- Kickers & team defenses: ESPN projections only ----------------------
@@ -661,12 +661,27 @@ def bake(args):
     kdst_snapshot = str(k_data.get("snapshot_date") or dst_data.get("snapshot_date")
                         or "?")
     kdst_unresolved = []
+    window_len = ros_window[1] - ros_window[0] + 1
+
+    def kdst_games(team, required=False):
+        games = games_left.get(canonical_team(team)) if team else None
+        if games:
+            return games
+        if required:
+            raise SystemExit(f"FAIL-CLOSED: no games remaining for K/DST team {team!r}.")
+        return window_len
+
     for name, ppg in sorted(k_ppg.items(), key=lambda kv: -kv[1]):
         kk = resolve(name, position="K", registry=registry)
         if kk is None:
             kdst_unresolved.append(("K", name))
             continue
-        gr = 16  # kickers: ROS weeks 3-18
+        # GAP-KDST-GAMES-FIXED: the kicker's team's games inside ESPN's ROS
+        # window, the same count skill players use (was a fixed 16). The K
+        # input carries no team abbreviation, so the team comes from the
+        # canonical registry; a kicker with no team divides by the window
+        # length, as the leg does for teamless rows.
+        gr = kdst_games(_resolve_team_abbr(None, kk, registry, team_abbr))
         ros = round(ppg * gr, 2)
         same3 = {"standard": ros, "half_ppr": ros, "ppr": ros}
         ppg3 = {"standard": ppg, "half_ppr": ppg, "ppr": ppg}
@@ -691,7 +706,9 @@ def bake(args):
         if kk is None:
             kdst_unresolved.append(("DST", abbr))
             continue
-        gr = 15  # DST: 15 games remaining (all byes in weeks 3-18)
+        # GAP-KDST-GAMES-FIXED: games inside ESPN's ROS window (was a fixed
+        # 15). A defense's team is always known; fail closed if it is not.
+        gr = kdst_games(_TEAM_ABBR_FIX.get(abbr, abbr), required=True)
         ros = round(ppg * gr, 2)
         same3 = {"standard": ros, "half_ppr": ros, "ppr": ros}
         ppg3 = {"standard": ppg, "half_ppr": ppg, "ppr": ppg}
@@ -869,10 +886,11 @@ def bake(args):
         "kdst_snapshot": kdst_snapshot,
         "kdst_note": ("Kickers and team defenses price from ESPN projections "
                       "only (ESPN-purity directive, 2026-09-21): no expert/ECR "
-                      "data anywhere in the K/DST leg. K ROS = ESPN per-game "
-                      "rates x 16 (weeks 3-18); DST ROS = ESPN per-game rates "
-                      "x 15 (all byes in weeks 3-18). Scoring-invariant: one "
-                      "number serves standard/half/full."),
+                      "data anywhere in the K/DST leg. K and DST ROS = ESPN "
+                      "per-game rate x the team's games inside ESPN's ROS "
+                      "window (same count as skill players; a kicker with no "
+                      "registry team uses the window length). Scoring-"
+                      "invariant: one number serves standard/half/full."),
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
         "ppg_note": ("Per-game points = ROS fantasy points / the games the "
                      "team plays inside ESPN's ROS window (weeks_covered "

@@ -75,9 +75,18 @@ jobs:
         run: |
           # import_supabase_references.py takes --source (one of the six),
           # not --nfl-week. Import each source explicitly.
+          # source-resiliency-001: one source's failed import (publisher page
+          # down, empty table, Supabase read error) must not end the job.
+          # That source gets no fresh snapshot, so the chain keeps its last
+          # promoted section (older-week label) and the others publish.
+          failed_imports=""
           for src in fantasycalc usatoday fantasypros espn cbs cbsros razzball; do
-            python3 pipelines/import_supabase_references.py --source "$src"
+            if ! python3 pipelines/import_supabase_references.py --source "$src"; then
+              echo "::warning title=import ($src)::import failed; $src keeps its last promoted section"
+              failed_imports="$failed_imports $src"
+            fi
           done
+          if [ -n "$failed_imports" ]; then echo "Imports failed:$failed_imports"; fi
 
       # The ESPN anchor (data/inputs/espn_projections.csv) feeds both
       # bake_players.py and the chain's 12 ESPN DDF legs. The scrape saves to
@@ -173,13 +182,16 @@ jobs:
         # in one source is isolated (per-source-promotion-001): that source
         # keeps its last promoted section, the others publish, and the chain
         # exits 0 with the hold in comparison-chain-status.json `held` (and the
-        # rebuild_chain_source_held* checks below). Do not stop the job here,
+        # rebuild_chain_source_held* checks below). Since source-resiliency-001
+        # any single-source failure (not only a hold) is isolated the same way.
+        # Do not stop the job here,
         # because the chain status must still reach the monitor when it is red
         # (JEG-8). The job is failed explicitly by the last step.
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BAKE_OUTCOME: ${{ steps.bake.outcome }}
         # GAP-MAIN-STATIC-PIN (2026-10-07): the rebuilt fixture must pass
         # `make validate` (the Pages deploy's own gate) BEFORE it can be
         # committed. 0b0ddee pushed a fixture that failed
@@ -189,6 +201,15 @@ jobs:
         # fixture. Supabase secrets are stripped: validation is offline.
         run: |
           python3 pipelines/rebuild_comparison_chain.py --nfl-week ${{ steps.week.outputs.nfl_week }}
+          # source-resiliency-001: a failed ESPN chain keeps the last good ESPN
+          # section and legs (the chain restores them). A fresh bake must not
+          # ship beside that kept section: put the committed anchor back.
+          if [ "${BAKE_OUTCOME:-}" = "success" ] && python3 -c 'import json,sys; s=json.load(open("output/comparison-chain-status.json")); sys.exit(0 if "espn" in (s.get("held") or []) else 1)'; then
+            echo "::warning title=bake-players::ESPN chain failed; keeping the committed ESPN anchor and players.json"
+            git checkout -- data/inputs/espn_projections.csv \
+                            data/fixtures/current/players.json \
+                            data/fixtures/current/players.naming-manifest.json
+          fi
           mkdir -p output
           set +e
           env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
