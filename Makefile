@@ -374,6 +374,10 @@ test-core:
 	python3 -m unittest tests.test_main_table_engine_parity
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
+	python3 -m unittest tests.test_espn_tier_matches_leg
+	python3 -m unittest tests.test_page_load_no_404
+	python3 -m unittest tests.test_missing_section_render
+	python3 -m unittest tests.test_source_scale_agreement_retired
 
 test-all: naming naming-convention test-unit
 

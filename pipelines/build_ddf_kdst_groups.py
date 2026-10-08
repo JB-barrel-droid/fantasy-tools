@@ -30,7 +30,7 @@ Display marker (per docs/kdst-group-contract.md, "Display contract"):
   display_status = "computed_not_displayed"
   display_status_reason cites the contract and notes the chart
     exclude.
-  excluded_from_guards = ["fixedPieIndexed", "sourceScaleAgreement"]
+  excluded_from_guards = ["fixedPieIndexed"]
     (K/DST must not move skill guards).
   source_note carries the "ESPN only; no peer" caveat.
 
@@ -245,7 +245,7 @@ def compute_groups(leg: dict[str, Any]) -> dict[str, Any]:
             "8-group artifact at ddf-group-vorps.json is untouched. "
             "Surface requires Jeremy's separate display design decision."
         ),
-        "excluded_from_guards": ["fixedPieIndexed", "sourceScaleAgreement"],
+        "excluded_from_guards": ["fixedPieIndexed"],
         "source_note": (
             "ESPN projections only (no peer source to compare against; "
             "see docs/kdst-source-audit.md). K = mean weekly appliedTotal "

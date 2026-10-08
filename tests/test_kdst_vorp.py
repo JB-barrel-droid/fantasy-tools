@@ -203,7 +203,9 @@ class DisplayMarkerTests(unittest.TestCase):
         self.assertIsInstance(art["display_status_reason"], str)
         self.assertIn("kdst-group-contract", art["display_status_reason"].lower())
         self.assertIn("fixedPieIndexed", art["excluded_from_guards"])
-        self.assertIn("sourceScaleAgreement", art["excluded_from_guards"])
+        # sourceScaleAgreement was retired 2026-10-08 (GAP-026); a guard that
+        # no longer exists must not be listed.
+        self.assertNotIn("sourceScaleAgreement", art["excluded_from_guards"])
         self.assertIn("ESPN", art["source_note"])
         self.assertIn("no peer", art["source_note"].lower())
 

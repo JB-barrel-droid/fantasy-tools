@@ -61,6 +61,7 @@ from build_ddf_two_tier_leg import (  # noqa: E402 -- the shared math, not dupli
     REF_SLOTS,
     bench_mix_for_teams,
     build_position_tiers,
+    calibrate_feasible,
     calibrate_position,
     price_for_projection,
 )
@@ -169,61 +170,12 @@ def build_leg(snapshot_path: Path, fixture_path: Path,
         # Pies are measured from the current CBS data (tier surplus), never a
         # stale file. The surplus IS the CBS-measured pie for this dataset.
         pie = tier["surplus"] if tier else 0
-        feasible_share = bench_share
-        try:
-            calibration[pos] = calibrate_position(tier, pie, feasible_share)
-        except ValueError as e:
-            msg = str(e)
-            if "not positive" in msg:
-                # JEG-74: requested bench share is BELOW this tier's feasible
-                # window (bench rate went negative). Scan UPWARD for the
-                # minimum feasible share >= requested, then refine.
-                best = None
-                lo = bench_share  # last infeasible
-                hi = None  # first feasible
-                s = bench_share
-                while s < 0.99:
-                    s = min(0.99, s + 0.01)
-                    try:
-                        test_cal = calibrate_position(tier, pie, s)
-                        hi = s
-                        best = (s, test_cal)
-                        break
-                    except ValueError:
-                        lo = s
-                if best is not None:
-                    for _ in range(15):  # refine to ~0.0003 precision
-                        mid = (lo + hi) / 2
-                        try:
-                            test_cal = calibrate_position(tier, pie, mid)
-                            best = (mid, test_cal)
-                            hi = mid
-                        except ValueError:
-                            lo = mid
-                    feasible_share, calibration[pos] = best
-                    calibration_notes.append(
-                        f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
-                else:
-                    raise
-            elif "economics break" in msg or "does not exceed" in msg:
-                lo, hi = 0.01, bench_share
-                best = None
-                for _ in range(20):
-                    mid = (lo + hi) / 2
-                    try:
-                        test_cal = calibrate_position(tier, pie, mid)
-                        best = (mid, test_cal)
-                        lo = mid
-                    except ValueError:
-                        hi = mid
-                if best:
-                    feasible_share, calibration[pos] = best
-                    calibration_notes.append(
-                        f"{pos}: bench share {bench_share} infeasible, using {feasible_share:.3f}")
-                else:
-                    raise
-            else:
-                raise
+        # One rule for every leg (and the browser): calibrate_feasible in
+        # build_ddf_two_tier_leg.py, incl. GAP-STEPUP-EDGE-PB0's step inside
+        # the window when the request sits below it.
+        feasible_share, calibration[pos], note = calibrate_feasible(tier, pie, bench_share)
+        if note:
+            calibration_notes.append(f"{pos}: {note}")
 
     raw: dict[int, float] = {}
     for pos in POSITIONS:

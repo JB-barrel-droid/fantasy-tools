@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,9 @@ REQUIRED_LIVE_SOURCES = (
     "usatoday_adjusted",
     "fantasypros_adjusted",
 )
+# The only sections whose absence fails the build (the anchor every curve is
+# indexed to). Other REQUIRED_LIVE_SOURCES must be live when present.
+ANCHOR_SOURCES = ("espn",)
 
 
 def load_json(path: Path) -> Any:
@@ -77,9 +81,22 @@ def validate_comparison(payload: dict[str, Any], player_keys: set[int]) -> dict[
     source_validation = payload.get("source_validation", {})
     source_player_keys = payload.get("player_keys", {})
     require(isinstance(sources, dict) and sources, "comparison-sources-data.json must contain sources{}")
-    missing = [source for source in REQUIRED_LIVE_SOURCES if source not in sources]
-    require(not missing, f"comparison artifact is missing sources: {', '.join(missing)}")
-    not_live = [source for source in REQUIRED_LIVE_SOURCES if source_validation.get(source) != "live"]
+    # GAP-MISSING-SECTION-REFUSES-RENDER: only the anchor's absence stops the
+    # build. Every curve is indexed to ESPN, so without it there is nothing
+    # honest to publish. Any other expected section that is missing is
+    # DROPPED: the page shows that source as unavailable and renders the rest
+    # (product-data.js getMissingSources), so holding the whole deploy on it
+    # would only keep the site on an older build. A section that IS present
+    # must still be live.
+    missing_anchor = [source for source in ANCHOR_SOURCES if source not in sources]
+    require(not missing_anchor,
+            f"comparison artifact is missing the anchor section: {', '.join(missing_anchor)}")
+    dropped = [source for source in REQUIRED_LIVE_SOURCES if source not in sources]
+    if dropped:
+        print(f"WARNING: comparison artifact is missing sources {', '.join(dropped)}; "
+              "the page shows them as unavailable and renders the rest.", file=sys.stderr)
+    not_live = [source for source in REQUIRED_LIVE_SOURCES
+                if source in sources and source_validation.get(source) != "live"]
     require(not not_live, f"required sources are not live: {', '.join(not_live)}")
     require(isinstance(source_player_keys, dict) and source_player_keys, "comparison artifact must contain player_keys{}")
     orphaned = sorted(
@@ -91,6 +108,8 @@ def validate_comparison(payload: dict[str, Any], player_keys: set[int]) -> dict[
         "built_at": payload.get("built_at"),
         "source_count": len(sources),
         "required_live_sources": list(REQUIRED_LIVE_SOURCES),
+        "anchor_sources": list(ANCHOR_SOURCES),
+        "dropped_sources": dropped,
         "source_validation": source_validation,
     }
 
