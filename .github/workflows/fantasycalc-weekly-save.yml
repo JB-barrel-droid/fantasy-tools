@@ -23,11 +23,16 @@ on:
         description: "dry or write"
         required: false
         default: "dry"
+      probe_fp:
+        description: "Set by source-probe.yml: the fingerprint to acknowledge on success (blank = manual run)"
+        required: false
+        default: ""
   push:
     branches: ["fcsave/dry-*", "fcsave/write-*"]
 
 permissions:
   contents: read
+  actions: write  # dispatch the rebuild chain after a probe-driven change
 
 concurrency:
   group: fantasycalc-weekly-save
@@ -73,7 +78,12 @@ jobs:
         run: |
           set -o pipefail
           flag="--dry-run"; [ "${{ steps.cfg.outputs.mode }}" = "write" ] && flag=""
+          # One bake per pull (UTC minute), not per day: probe-driven saves can
+          # run several times a day, and a date-only bake_id would overwrite
+          # the Tuesday 12:00 UTC cut pull that week history selects.
+          bake="fcwk${{ steps.cfg.outputs.week }}_$(date -u +%Y-%m-%dt%H%M)_v1"
           python3 pipelines/save_fantasycalc_references.py --cache-dir /tmp/fc_cache --week ${{ steps.cfg.outputs.week }} $flag \
+            --bake-id "$bake" \
             --review-out /tmp/fc_review.json 2>&1 | tee /tmp/fc_save.log
           tail -3 /tmp/fc_save.log | sed "s/^/::notice title=fc-save::/"
           if [ -s /tmp/fc_review.json ]; then
@@ -98,3 +108,23 @@ jobs:
           })
           print(f"recorded fantasycalc_weekly_save ok={ok}")
           EOF
+
+      # Refresh cadence (source-probe.yml, pipelines/source_probe.py): acknowledge
+      # the probe fingerprint this run was dispatched for, so the probe stops
+      # re-dispatching it, and run the rebuild chain when the content is new.
+      # After the monitored-check step on purpose: an ack failure must not
+      # record the ingest itself as failed.
+      - name: Acknowledge probe fingerprint
+        id: ack
+        if: success() && github.event.inputs.probe_fp != '' && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PROBE_FP: ${{ github.event.inputs.probe_fp }}
+        run: python3 pipelines/source_probe.py ack --supabase --source fantasycalc --fingerprint "$PROBE_FP"
+
+      - name: Dispatch the rebuild chain on new content
+        if: success() && steps.ack.outputs.new_content == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run rebuild-chain.yml -f source="source-probe-fantasycalc"

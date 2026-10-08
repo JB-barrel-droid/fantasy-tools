@@ -24,7 +24,12 @@ from datetime import date
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from _common import fetch, nfl_week, REPO
 
-SLUG = ("https://sportsfly.cbsistatic.com/fantasy/football/news/"
+# www.cbssports.com (Cache-Control: private, max-age=0), not the
+# sportsfly.cbsistatic.com mirror used until 2026-10-08: that CDN caches for 60
+# days per encoding variant, and on 2026-10-08 its gzip variant still served the
+# Week-4 tables of 2026-09-29 while www had the 2026-09-30 revision (refresh-
+# cadence lane; tests/test_source_probe.py pins the host).
+SLUG = ("https://www.cbssports.com/fantasy/football/news/"
         "dave-richards-week-%d-trade-chart-and-rest-of-season-"
         "fantasy-football-rankings-help-you-win-now/")
 TABLE_MARK = 'class="TableBuilder"'

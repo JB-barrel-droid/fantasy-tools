@@ -34,6 +34,15 @@ on:
         required: false
         default: "false"
 
+# Change-driven dispatches (refresh-cadence, 2026-10-08): each probe-driven
+# ingest that saved new content dispatches this workflow, so several can land
+# together. One run at a time per kind; GitHub keeps only the newest pending
+# run, which reads the latest database state anyway. The daily bake run has its
+# own group so a change-driven dispatch can never cancel a pending bake.
+concurrency:
+  group: rebuild-chain-bake-${{ github.event.inputs.bake_players || 'false' }}
+  cancel-in-progress: false
+
 permissions:
   contents: write  # needed to commit and push the rebuilt fixture
   actions: write  # needed to dispatch pages.yml via API (JEG-274)

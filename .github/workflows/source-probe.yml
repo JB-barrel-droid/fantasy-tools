@@ -1,0 +1,103 @@
+name: Source change probes
+
+# Cheap per-source change detection before a full scrape (refresh-cadence
+# lane, 2026-10-08). pipelines/source_probe.py fingerprints each requested
+# source (API hash, sitemap <lastmod>, article dateModified + tables hash,
+# page "Updated:" stamps), compares it with the fingerprint the last
+# successful ingest acknowledged (public.source_probe_state), and dispatches
+# the source's full ingest only when it changed, the last ingest is older than
+# the source's max age, or the probe could not read the source. The ingest
+# acknowledges on success and, when the content was new, dispatches the
+# rebuild chain.
+#
+# Scheduler owner: Supabase pg_cron (supabase/migrations/source_probe_cadence_20261008.sql):
+#   source-probe-fantasycalc           hourly at :05          sources=fantasycalc
+#   source-probe-projections           03:25-23:25 every 4 h  sources=espn,cbsros,razzball
+#   source-probe-trade-charts          every 3 h Mon-Thu :35  sources=cbs,usatoday,fantasypros
+#   source-probe-trade-charts-weekend  00:35 + 12:35 Fri-Sun  (same sources)
+# No `schedule:` here, so there is one owner.
+#
+#   workflow_dispatch dry=true -> probe and decide, write and dispatch nothing
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "comma-separated: fantasycalc,usatoday,fantasypros,cbs,espn,cbsros,razzball (blank = all)"
+        required: false
+        default: ""
+      dry:
+        description: "true = probe and decide only (no state write, no dispatch)"
+        required: false
+        default: "false"
+
+permissions:
+  contents: read
+  actions: write  # dispatch the ingest workflows
+
+concurrency:
+  group: source-probe-${{ github.event.inputs.sources }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Probe sources
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SOURCES: ${{ github.event.inputs.sources }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: |
+          set -euo pipefail
+          args="--supabase --dispatch-out /tmp/dispatches.jsonl"
+          [ "$DRY" = "true" ] && args="$args --dry-run"
+          python3 pipelines/source_probe.py probe --sources "$SOURCES" $args | tee /tmp/probe.jsonl
+          python3 - <<'PY'
+          import json
+          for line in open("/tmp/probe.jsonl"):
+              r = json.loads(line)
+              lvl = "warning" if (not r["ok"] or r["reason"].startswith("gave_up")) else "notice"
+              print(f"::{lvl} title=probe {r['source']}::{r['action']} ({r['reason']}) fp={r['fingerprint']} {r.get('error') or ''}"[:900])
+          PY
+
+      - name: Dispatch full ingests
+        if: github.event.inputs.dry != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          touch /tmp/dispatches.jsonl
+          python3 - <<'PY'
+          import json, subprocess, sys
+          bad = 0
+          for line in open("/tmp/dispatches.jsonl"):
+              argv = json.loads(line)
+              print("gh " + " ".join(argv))
+              rc = subprocess.run(["gh", *argv]).returncode
+              bad += rc != 0
+          sys.exit(1 if bad else 0)
+          PY
+
+      # Monitoring: record this run in Supabase monitoring.check_observations,
+      # red or green. A run that never happens is flagged `missed` by the
+      # evaluator. Never fails the job. Declared in config/monitoring_coverage.json.
+      - name: Record monitored check
+        if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') && github.event.inputs.dry != 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id source_probe --owner source-probe.yml --outcome "${{ job.status }}"

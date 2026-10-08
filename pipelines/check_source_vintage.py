@@ -25,14 +25,19 @@ SUPABASE_SKILL_BIN = os.environ.get(
 
 CHAIN_SOURCES = ("fantasycalc", "usatoday", "fantasypros", "espn", "cbs", "cbsros", "razzball")
 
+# Bare PostgREST table names: the client builds /rest/v1/<table>. The
+# "public." prefixes used from 2026-10-02 made every read 404 in CI
+# ("public.public.source_trade_values"), so every hourly run failed safe to
+# changed=True and dispatched the rebuild chain blindly every hour
+# (refresh-cadence lane, 2026-10-08; tests/test_source_probe.py pins this).
 SOURCE_TABLES = {
-    "fantasycalc": "public.source_trade_values",
-    "usatoday": "public.source_trade_values",
-    "fantasypros": "public.source_trade_values",
-    "espn": "public.espn_season_projections",
-    "cbs": "public.cbs_trade_values",
-    "cbsros": "public.cbs_ros_projections",
-    "razzball": "public.razzball_projections",
+    "fantasycalc": "source_trade_values",
+    "usatoday": "source_trade_values",
+    "fantasypros": "source_trade_values",
+    "espn": "espn_season_projections",
+    "cbs": "cbs_trade_values",
+    "cbsros": "cbs_ros_projections",
+    "razzball": "razzball_projections",
 }
 
 
@@ -45,6 +50,30 @@ def _get_supabase_rows(table: str, params: str) -> list[dict[str, Any]]:
     if not isinstance(rows, list):
         raise SystemExit(f"Unexpected Supabase response for {table}: {type(rows)}")
     return [row for row in rows if isinstance(row, dict)]
+
+
+def _get_supabase_page(table: str, params: str) -> list[dict[str, Any]]:
+    """One unpaginated PostgREST read (honours limit=)."""
+    if SUPABASE_SKILL_BIN not in sys.path:
+        sys.path.insert(0, SUPABASE_SKILL_BIN)
+    from sbclient import get
+
+    rows = get(table, params)
+    return [row for row in rows or [] if isinstance(row, dict)]
+
+
+def _latest_week_param(table: str, params: str) -> str:
+    """`&week=eq.<N>` for the newest week present, read server-side.
+
+    Same selection as _select_latest_week (null weeks never win), but the
+    hourly check no longer pages through every week's rows: with probe-driven
+    saves FantasyCalc keeps several bakes per week (refresh-cadence,
+    2026-10-08), so the all-weeks read would grow by ~585 rows per save all
+    season. Returns "" when no row carries a week (behaviour unchanged).
+    """
+    base = params.replace("select=*", "select=week", 1)
+    top = _get_supabase_page(table, f"{base}&week=not.is.null&order=week.desc&limit=1")
+    return f"&week=eq.{top[0]['week']}" if top else ""
 
 
 def _select_latest_week(rows):
@@ -99,6 +128,7 @@ def get_current_vintage(source):
     if source in ("fantasycalc", "usatoday", "fantasypros"):
         # These use source_trade_values with source + variant filters, plus week + bake scoping
         params = f"{base_params}&source=eq.{source}&variant=eq.as_published"
+        params += _latest_week_param(table, params)
         rows = _get_supabase_rows(table, params)
         if not rows:
             raise SystemExit(f"Fail closed: source {source} returned zero rows")
@@ -115,6 +145,7 @@ def get_current_vintage(source):
         # CBS: source=eq.cbs&variant=eq.as_published plus latest-week + latest-bake scoping
         # Matches canonical logic from import_supabase_references.py lines 628-648
         params = f"{base_params}&source=eq.cbs&variant=eq.as_published"
+        params += _latest_week_param(table, params)
         rows = _get_supabase_rows(table, params)
         if not rows:
             raise SystemExit(f"Fail closed: source {source} returned zero rows")
