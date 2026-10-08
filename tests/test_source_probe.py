@@ -21,7 +21,8 @@ import source_probe as sp  # noqa: E402
 import check_source_vintage as csv_mod  # noqa: E402
 
 WF = ROOT / ".github" / "workflows"
-MIGRATION = ROOT / "supabase" / "migrations" / "source_probe_cadence_20261008.sql"
+MIGRATION = ROOT / "supabase" / "migrations" / "source_probe_schedules_20261008.sql"
+TABLES_MIGRATION = ROOT / "supabase" / "migrations" / "source_probe_tables_20261008.sql"
 NOW = datetime(2026, 10, 8, 12, 0, tzinfo=timezone.utc)
 H = timedelta(hours=1)
 DAILY = sp.Policy(max_age=20 * H)
@@ -657,3 +658,61 @@ class ChainConcurrencyTest(unittest.TestCase):
         run2, calls2 = self.fake_gh(["pending"])
         sp.dispatch_chain("x", run2)
         self.assertFalse([c for c in calls2 if c[:3] == ["gh", "workflow", "run"]])
+
+
+class ProbeOutputTest(unittest.TestCase):
+    """The first dry run on main (2026-10-08) failed: CBS discovery printed
+    "[cbs] discovered week 5 chart: ..." to stdout between the JSON lines and
+    the workflow's summary step hit json "Expecting value"."""
+
+    def run_cli(self, probe_fn):
+        import contextlib
+        import io
+        import tempfile
+        saved = dict(sp.PROBES)
+        sp.PROBES["cbs"] = probe_fn
+        out = io.StringIO()
+        try:
+            with tempfile.TemporaryDirectory() as d, contextlib.redirect_stdout(out):
+                sp.main(["probe", "--sources", "cbs", "--dry-run",
+                         "--state-file", f"{d}/state.json", "--out", f"{d}/probe.jsonl"])
+                written = Path(f"{d}/probe.jsonl").read_text()
+        finally:
+            sp.PROBES.clear()
+            sp.PROBES.update(saved)
+        return out.getvalue(), written
+
+    @staticmethod
+    def chatty_probe(fetch, week):
+        print("[cbs] discovered week 5 chart: https://example.test/week-5/")
+        return {"fingerprint": "fp", "signals": {"week": 5}}
+
+    def test_stray_discovery_output_cannot_break_the_results(self):
+        stdout, written = self.run_cli(self.chatty_probe)
+        for text in (stdout, written):
+            rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+            self.assertEqual([(r["source"], r["ok"]) for r in rows], [("cbs", True)])
+
+    def test_the_workflow_reads_the_results_file_not_stdout(self):
+        text = (WF / "source-probe.yml").read_text()
+        self.assertIn("--out /tmp/probe.jsonl", text)
+        self.assertNotIn("| tee /tmp/probe.jsonl", text)
+
+    def test_without_the_redirect_the_stray_line_reaches_stdout(self):
+        # Broken variant: calling the probe without run_probe's redirect.
+        import contextlib
+        import io
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.chatty_probe(None, 5)
+        with self.assertRaises(ValueError):
+            json.loads(out.getvalue().splitlines()[0])
+
+
+class MigrationSplitTest(unittest.TestCase):
+    def test_tables_and_schedules_are_separate(self):
+        tables, sched = TABLES_MIGRATION.read_text(), MIGRATION.read_text()
+        self.assertIn("create table if not exists public.source_probe_state", tables)
+        self.assertNotIn("cron.", tables)
+        self.assertNotIn("create table", sched)
+        self.assertFalse((ROOT / "supabase" / "migrations" / "source_probe_cadence_20261008.sql").exists())

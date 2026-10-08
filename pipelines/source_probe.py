@@ -60,6 +60,7 @@ the ``gh workflow run`` argument lists for the sources to ingest.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gzip
 import hashlib
 import html as htmllib
@@ -622,7 +623,10 @@ PROBES: dict[str, Callable[[Fetch, int], dict[str, Any]]] = {
 def run_probe(source: str, fetch: Fetch = http_get, week: int | None = None) -> dict[str, Any]:
     week = week or content_week(datetime.now(timezone.utc).date())
     try:
-        out = PROBES[source](fetch, week)
+        # Discovery code logs progress to stdout ("[cbs] discovered week 5
+        # chart: ..."); stdout carries only this tool's JSON lines.
+        with contextlib.redirect_stdout(sys.stderr):
+            out = PROBES[source](fetch, week)
         return {"source": source, "ok": True, "fingerprint": out["fingerprint"],
                 "signals": out["signals"], "error": None}
     except ProbeError as e:
@@ -726,14 +730,16 @@ def cmd_probe(args) -> int:
     state = store.load()
     now = datetime.now(timezone.utc)
     sources = [s.strip() for s in args.sources.split(",")] if args.sources else list(SOURCES)
-    dispatches = []
+    dispatches, results = [], []
     for src in sources:
         if src not in PROBES:
             raise SystemExit(f"unknown source {src!r}")
         probe = run_probe(src)
         decision = decide(state.get(src), probe, now, POLICIES[src])
         entry = {**probe, "probed_at": now.isoformat(), **decision}
-        print(json.dumps(entry, sort_keys=True))
+        line = json.dumps(entry, sort_keys=True)
+        print(line)
+        results.append(line)
         if args.dry_run:
             continue
         store.log(entry)
@@ -742,6 +748,8 @@ def cmd_probe(args) -> int:
             dispatches.append(dispatch_args(src, probe.get("fingerprint") or UNPROBED))
     if not args.dry_run:
         store.prune(now)
+    if args.out:
+        Path(args.out).write_text("".join(r + "\n" for r in results))
     if args.dispatch_out:
         Path(args.dispatch_out).write_text(
             "".join(json.dumps(d) + "\n" for d in dispatches))
@@ -823,6 +831,8 @@ def main(argv: list[str] | None = None) -> int:
         if name == "probe":
             p.add_argument("--sources", default="")
             p.add_argument("--dispatch-out", default="")
+            p.add_argument("--out", default="",
+                           help="write the JSON result lines here (stdout may carry other text)")
             p.add_argument("--dry-run", action="store_true",
                            help="probe and decide, write nothing")
         if name == "ack":

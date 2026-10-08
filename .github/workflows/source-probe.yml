@@ -10,7 +10,7 @@ name: Source change probes
 # acknowledges on success and, when the content was new, dispatches the
 # rebuild chain.
 #
-# Scheduler owner: Supabase pg_cron (supabase/migrations/source_probe_cadence_20261008.sql):
+# Scheduler owner: Supabase pg_cron (supabase/migrations/source_probe_schedules_20261008.sql):
 #   source-probe-fantasycalc           hourly at :05          sources=fantasycalc
 #   source-probe-projections           03:25-23:25 every 4 h  sources=espn,cbsros,razzball
 #   source-probe-trade-charts          every 3 h Mon-Thu :35  sources=cbs,usatoday,fantasypros
@@ -65,7 +65,8 @@ jobs:
           set -euo pipefail
           args="--supabase --dispatch-out /tmp/dispatches.jsonl"
           [ "$DRY" = "true" ] && args="$args --dry-run"
-          python3 pipelines/source_probe.py probe --sources "$SOURCES" $args | tee /tmp/probe.jsonl
+          # Results go to their own file: stdout can also carry discovery logs.
+          python3 pipelines/source_probe.py probe --sources "$SOURCES" $args --out /tmp/probe.jsonl
           python3 - <<'PY'
           import json
           for line in open("/tmp/probe.jsonl"):

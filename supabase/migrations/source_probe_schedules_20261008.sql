@@ -1,4 +1,7 @@
--- Refresh cadence by source update frequency (refresh-cadence lane, 2026-10-08).
+-- Refresh cadence, part 2 of 2: probe schedules, retired blind timers,
+-- monitored checks (refresh-cadence lane, 2026-10-08). Needs part 1
+-- (source_probe_tables_20261008.sql, applied 2026-10-08) and a green
+-- source-probe.yml run on main.
 -- Applied by the integrator, not by the lane. Pinned by
 -- tests/test_source_probe.py::CadenceMigrationTest. Idempotent: re-running it
 -- leaves the same state (cron.schedule upserts by name; unschedule is guarded).
@@ -15,43 +18,8 @@
 -- acknowledges is re-dispatched on the next slot after 50 min, up to 4 times
 -- per fingerprint (source_probe.decide).
 
+
 begin;
-
--- 1. Probe state (one row per source) and probe log (one row per probe).
-create table if not exists public.source_probe_state (
-    source         text primary key,
-    last_probe_at  timestamptz,
-    last_ok        boolean,
-    last_fp        text,
-    last_signals   jsonb not null default '{}'::jsonb,
-    last_error     text,
-    last_action    text,
-    last_reason    text,
-    acked_fp       text,
-    acked_at       timestamptz,
-    dispatched_fp  text,
-    dispatched_at  timestamptz,
-    attempts       integer not null default 0,
-    updated_at     timestamptz not null default now()
-);
-alter table public.source_probe_state enable row level security;
-revoke all on public.source_probe_state from anon, authenticated;
-
-create table if not exists public.source_probe_log (
-    id           bigserial primary key,
-    source       text not null,
-    probed_at    timestamptz not null,
-    ok           boolean not null,
-    fingerprint  text,
-    signals      jsonb not null default '{}'::jsonb,
-    error        text,
-    action       text,
-    reason       text
-);
-create index if not exists source_probe_log_source_idx
-    on public.source_probe_log (source, probed_at desc);
-alter table public.source_probe_log enable row level security;
-revoke all on public.source_probe_log from anon, authenticated;
 
 -- 2. Probe schedules (UTC). Each dispatches source-probe.yml for one group.
 --    FantasyCalc: hourly (API; Cache-Control max-age=1200, no published rate
@@ -140,4 +108,4 @@ commit;
 --      ('trade-chart-ingest-live','trigger-espn-sync-live','trigger-cbsros-sync-live',
 --       'trigger-cbsros-sync-retry','razzball-sync-live','rebuild-chain-live')
 --    order by 1;
---   -- expect the five source-probe jobs active and the six retired jobs absent.
+--   -- expect the four source-probe jobs active and the six retired jobs absent.
