@@ -16,8 +16,10 @@ headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
     an edited share reaches the engine on Apply (setPositionWeights) and the
     shares still total 1; Reset defaults returns them to
     getDefaultPositionWeights(); Apply sets getBenchShare() to the slider;
-  * Source freshness (10): one row per getSourceInfo() series, with
-    "Older" for older-week series and the engine's unavailability;
+  * Source freshness (10, JEG-463): one row per root source (publisher), Prior
+    week where the data's freshness record says so, no pipeline jargon; a
+    failed import in reference-freshness.json shows that source as Not
+    updating and warns on the header chip;
   * toolbar (JEG-475): Search · Position · Show · Rank by · Δ · More · Reset,
     each exactly once, left to right, sticky; the chart-options box, rank
     window buttons, Reset to all / Reset zoom / Clear filters are gone; only
@@ -122,19 +124,19 @@ def check_sources(page, width) -> list[str]:
         errors.append(f"sources panel is not full screen at 390: {box}")
     info = page.evaluate("() => Object.fromEntries(window.TradeValueCurveControls.getSourceInfo().map(i => [i.key, i]))")
     pairs = page.evaluate("""() => [...document.querySelectorAll('#v2Popover [data-series]')].map(b => ({key: b.dataset.series,
-      on: b.getAttribute('aria-pressed') === 'true', disabled: b.disabled}))""")
+      on: b.checked === true || b.getAttribute('aria-pressed') === 'true', disabled: b.disabled}))""")
     for p in pairs:
         if not info[p["key"]]["available"] and not p["disabled"]:
             errors.append(f"sources: unavailable {p['key']} is offered")
         if p["on"] != (p["key"] in before):
             errors.append(f"sources: {p['key']} pressed={p['on']} but engine active={p['key'] in before}")
-    add = next((p["key"] for p in pairs if not p["on"] and not p["disabled"]), None)
+    add = next((p["key"] for p in pairs if not p["on"] and not p["disabled"] and not p["key"].endswith("_vorp")), None)
     if not add:
         return errors + ["sources: no pair to add"]
     page.click(f'#v2Popover [data-series="{add}"]')
     if page.evaluate(ACTIVE) != before:
         errors.append("sources: a toggle reached the engine before Apply")
-    page.click("#v2Popover .v2-panel-foot .v2-btn:not(.v2-btn-primary)")   # Cancel
+    page.click("#v2Popover .v2-panel-foot button:has-text('Cancel')")
     if page.evaluate(ACTIVE) != before:
         errors.append("sources: Cancel changed the selection")
     page.click("#v2EditSources")
@@ -238,21 +240,63 @@ def check_weights(page) -> list[str]:
     return errors
 
 
+ROOTS_JS = """() => { const fresh = window.TradeValueProductData?.getSourceFreshness?.()?.series || {};
+  const pubOf = k => k.replace(/_(vorp|adjusted)$/, '');
+  const out = {};
+  for (const i of window.TradeValueCurveControls.getSourceInfo()) {
+    const stale = typeof fresh[i.key]?.is_older_week === 'boolean' ? fresh[i.key].is_older_week : i.stale;
+    const pub = pubOf(i.key); out[pub] = out[pub] || {prior: false, paused: false};
+    if (i.available && stale) out[pub].prior = true;
+    if (i.paused) out[pub].paused = true;
+  }
+  return out; }"""
+
+
 def check_freshness(page) -> list[str]:
+    """JEG-463: one row per root source; pipeline failures fold into that source as Not updating."""
     errors = []
     page.click("#v2Freshness")
-    rows = page.evaluate("""() => [...document.querySelectorAll('#v2Popover tr[data-series]')].map(tr => ({key: tr.dataset.series,
-      status: tr.lastElementChild.textContent}))""")
-    info = page.evaluate("""() => { const fresh = window.TradeValueProductData?.getSourceFreshness?.()?.series || {};
-      return window.TradeValueCurveControls.getSourceInfo().map(i => ({...i, stale: typeof fresh[i.key]?.is_older_week === 'boolean' ? fresh[i.key].is_older_week : i.stale})); }""")
-    if [r["key"] for r in rows] != [i["key"] for i in info]:
-        errors.append(f"freshness: rows {[r['key'] for r in rows]} != engine {[i['key'] for i in info]}")
-    for r, i in zip(rows, info):
-        if not i["available"] and "vailable" not in r["status"]:
-            errors.append(f"freshness: {r['key']} unavailable but status {r['status']!r}")
-        elif i["available"] and bool(i["stale"]) != ("Older" in r["status"]):
-            errors.append(f"freshness: {r['key']} stale={i['stale']} but status {r['status']!r}")
+    rows = page.evaluate("""() => [...document.querySelectorAll('#v2Popover tr[data-source]')].map(tr => ({pub: tr.dataset.source,
+      status: tr.dataset.status, text: tr.lastElementChild.textContent}))""")
+    roots = page.evaluate(ROOTS_JS)
+    if sorted(r["pub"] for r in rows) != sorted(roots):
+        errors.append(f"freshness: rows {[r['pub'] for r in rows]} != root sources {sorted(roots)}")
+    for r in rows:
+        want = roots.get(r["pub"], {})
+        if want.get("paused") and r["status"] != "stuck":
+            errors.append(f"freshness: {r['pub']} paused but {r['text']!r}")
+        elif not want.get("paused") and want.get("prior") != (r["status"] == "prior"):
+            errors.append(f"freshness: {r['pub']} prior={want.get('prior')} but {r['text']!r}")
+        if any(word in r["text"] for word in ("L1", "fixture", "artifact", "as_of")):
+            errors.append(f"freshness: pipeline jargon in {r['text']!r}")
     page.keyboard.press("Escape")
+    # A failed import shows its source as Not updating, and the header says so.
+    other = page.context.browser.new_page(viewport={"width": 1440, "height": 1000})
+    other.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+    if getattr(page, "v2_js", None) is not None:
+        other.route("**/v2/v2.js*", functools.partial(_serve, page.v2_js))
+
+    def broken(route, *_):
+        response = route.fetch()
+        doc = response.json()
+        for item in doc.get("items", []):
+            if item.get("key") == "source_import.fantasypros":
+                item["freshness_ok"] = False
+                item["value"] = "2026-10-06"
+        route.fulfill(response=response, json=doc)
+    other.route("**/assets/reference-freshness.json*", broken)
+    other.goto(page.url.split("#")[0] + "#player-values", wait_until="networkidle")
+    other.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
+    other.wait_for_timeout(1500)   # the freshness record loads after the engine
+    other.click("#v2Freshness")
+    fp = other.evaluate("""() => { const tr = document.querySelector('#v2Popover tr[data-source="fantasypros"]');
+      return tr ? {status: tr.dataset.status, text: tr.lastElementChild.textContent} : null; }""")
+    label = other.evaluate("() => document.getElementById('v2FreshnessLabel').textContent")
+    if not fp or fp["status"] != "stuck" or "since 2026-10-06" not in fp["text"]:
+        errors.append(f"freshness: failed FantasyPros import not shown as Not updating: {fp}")
+    if "1 source not updating" not in label:
+        errors.append(f"freshness: header chip {label!r} does not warn")
+    other.close()
     return errors
 
 
@@ -628,6 +672,7 @@ def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (39
                     page.route("**/v2/v2.js*", functools.partial(_serve, v2_js))
                 if v2_css is not None:
                     page.route("**/v2/v2.css*", functools.partial(_serve_css, v2_css))
+                page.v2_js = v2_js
                 page.goto(url, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
                 page.wait_for_timeout(150)
@@ -671,8 +716,8 @@ class PanelsRenderTest(unittest.TestCase):
         desktop = ((1440, 900),)
         broken = {
             "pair toggle applied at once": {"v2_js": v2.replace(
-                "              if (draft.has(item.key)) draft.delete(item.key);\n              else draft.add(item.key);",
-                "              if (draft.has(item.key)) draft.delete(item.key);\n              else draft.add(item.key);\n              toggleEngineSource(item.key);", 1)},
+                "          if (box.checked) draft.add(item.key); else draft.delete(item.key);",
+                "          if (box.checked) draft.add(item.key); else draft.delete(item.key);\n          toggleEngineSource(item.key);", 1)},
             "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, state.windowPreset);", "    const zone = null;", 1)},
             "Team box ignored": {"v2_js": v2.replace("state.metaCols.team !== false && (row.team || \"FA\")", "(row.team || \"FA\")", 1)},
             "From / To ignored": {"v2_js": v2.replace(
@@ -694,6 +739,8 @@ class PanelsRenderTest(unittest.TestCase):
                 "    if (false) {", 1)},
             "shares not applied": {"v2_js": v2.replace(
                 "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
+            "pipeline failure ignored": {"v2_js": v2.replace(
+                "find(item => item && item.freshness_ok === false);", "find(item => false);", 1)},
             "league Apply does nothing": {"v2_js": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1)},

@@ -45,6 +45,36 @@
   const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
+  // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
+  const SERIES_GROUPS = [
+    {id: "proj", title: "Projections", one: "projection", many: "projections",
+      note: "What players are projected to score, turned into trade value for your league."},
+    {id: "adj", title: "Trade charts (adjusted)", one: "adjusted trade chart", many: "adjusted trade charts",
+      note: "Published trade charts corrected for each publisher's known bias."},
+    {id: "pub", title: "Trade charts (as published)", one: "trade chart as published", many: "trade charts as published",
+      note: "Each publisher's own numbers, rescaled to our point scale."},
+    {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
+      note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
+  ];
+  function seriesGroup(key) {
+    if (key.endsWith("_vorp")) return "vorp";
+    if (key.endsWith("_adjusted")) return "adj";
+    if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
+    return "pub";
+  }
+  // Prior-week badge (JEG-459 status language): shown only for a series whose week is behind.
+  function weekBadge(key) {
+    const item = view && view.infoByKey[key];
+    const meta = sourceMeta(key);
+    const badge = document.createElement("span");
+    badge.className = "v2-wk";
+    badge.textContent = item?.week ? `Wk ${item.week}` : "prior week";
+    const name = PLAIN_NAMES[meta.publisher] || meta.label;
+    badge.title = view?.refWeek && item?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${item.week}.` : `${name} is from a prior week.`;
+    badge.setAttribute("aria-label", badge.title);
+    return badge;
+  }
+
   // One series in plain words, whatever the width: "ESPN · Our value", "FantasyCalc chart".
   function plainSeries(publisher, method) {
     const name = PLAIN_NAMES[publisher] || PUBLISHER_NAMES[publisher] || publisher;
@@ -272,43 +302,33 @@
     $("v2RosterLine").textContent = `${r.QB} QB · ${r.RB} RB · ${r.WR} WR · ${r.TE} TE · ${r.FLEX} FLEX · `
       + `${r.SUPERFLEX ? `${r.SUPERFLEX} SUPERFLEX · ` : ""}${r.BENCH} BN`;
     const older = view.active.some(key => view.infoByKey[key]?.stale);
-    // Frame 18 "partial source failure": a selected series the engine cannot price right now.
-    const failing = view.active.filter(key => !view.infoByKey[key]?.available);
-    $("v2FreshnessLabel").textContent = `${failing.length ? "⚠ " : ""}${view.refWeek ? `W${view.refWeek} · ` : ""}Freshness ↗`;
-    $("v2Freshness").classList.toggle("is-older", older);
-    $("v2Freshness").classList.toggle("is-failing", failing.length > 0);
-    $("v2Freshness").setAttribute("aria-label", `Source freshness${failing.length ? `: ${failing.length} selected source${failing.length === 1 ? "" : "s"} unavailable` : ""}`);
+    // JEG-463: the header chip summarizes root sources only; pipeline trouble shows as "not updating".
+    const roots = rootFreshness();
+    const stuck = roots.filter(r => r.status === "stuck").length;
+    const behind = roots.filter(r => r.status === "prior").length;
+    const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
+    $("v2FreshnessLabel").textContent = stuck ? `⚠ ${stuck} source${stuck === 1 ? "" : "s"} not updating`
+      : `${weekText}${behind ? `${behind} source${behind === 1 ? "" : "s"} on a prior week` : "all sources current"}`;
+    $("v2Freshness").classList.toggle("is-older", older || behind > 0);
+    $("v2Freshness").classList.toggle("is-failing", stuck > 0);
+    $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
 
-    const methods = $("v2MethodChips");
-    methods.replaceChildren();
-    (isNarrow() ? [["dda", "DDA"], ["indexed", "Indexed"], ["vorp", "VORP vs waivers"]]
-      : [["dda", "Our values"], ["indexed", "Published charts"], ["vorp", "VORP vs waivers"]]).forEach(([method, label]) => {
-      const on = view.active.some(key => sourceMeta(key).method === method);
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = `v2-chip${on ? " is-on" : ""}${method === "indexed" ? " is-indexed" : ""}`;
-      chip.textContent = on ? `✓ ${label}` : `${label} +`;
-      chip.setAttribute("aria-pressed", String(on));
-      chip.addEventListener("click", event => openSources(event.currentTarget, method));
-      methods.appendChild(chip);
-    });
-
-    const chips = $("v2SourceChips");
-    chips.replaceChildren();
+    // JEG-474 / JEG-466: one "Showing: …" line, a compact legend (not buttons) and one Customize control.
+    const counts = SERIES_GROUPS.map(g => ({g, n: view.active.filter(key => seriesGroup(key) === g.id).length})).filter(c => c.n);
+    $("v2ShowingText").textContent = `${counts.map(c => `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`).join(" + ") || "nothing selected"}`
+      + (view.refWeek ? ` · Week ${view.refWeek}` : "");
+    const legend = $("v2ShowingLegend");
+    legend.replaceChildren();
     view.active.forEach(key => {
       const meta = sourceMeta(key);
       const item = view.infoByKey[key];
-      const chip = document.createElement("button");
-      chip.type = "button";
-      chip.className = `v2-chip${item?.stale ? " is-older" : ""}`;
-      chip.style.color = item?.stale ? "" : meta.color;
-      chip.title = `${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}${item?.stale ? " · older week" : ""}`;
-      chip.innerHTML = `<span class="v2-sym" aria-hidden="true">${meta.symbol}</span>`;
-      chip.append(document.createTextNode(sourceLabelFor(key)));
-      chip.addEventListener("click", event => openSources(event.currentTarget));
-      chips.appendChild(chip);
+      const li = document.createElement("li");
+      li.title = seriesName(key);
+      li.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span>`;
+      li.append(document.createTextNode(` ${PLAIN_NAMES[meta.publisher] || meta.label}`));
+      if (item?.stale) li.appendChild(weekBadge(key));
+      legend.appendChild(li);
     });
-    $("v2EditSources").textContent = `Edit sources · ${view.active.length} selected`;
 
     const rankBy = $("v2RankBy");
     rankBy.replaceChildren();
@@ -1362,111 +1382,99 @@
     return h;
   }
 
-  // ---------- 09 / 20 Choose your sources ----------
-  const KIND = {espn: "Projection-based", cbsros: "Projection-based", razzball: "Projection-based"};
-  let includeOlder = false;
+  // ---------- 09 / 20 Customize values (JEG-466, spec JEG-474) ----------
+  // Grouped by type, not publisher; each group explains itself. A draft until Done.
   function openSources(anchor) {
     const draft = new Set(view.active);
-    const publishers = Object.keys(PUBLISHERS).filter(pub => view.info.some(item => sourceMeta(item.key).publisher === pub));
-    const staleWeeks = [...new Set(view.info.filter(item => item.stale && item.week).map(item => item.week))];
-    openPanel(anchor || $("v2EditSources"), "Choose your sources", "Select the source + method pairs you want to compare.", pop => {
+    openPanel(anchor || $("v2EditSources"), "Customize values", "Choose which series appear on every tab.", pop => {
       const body = panelBody(pop);
-      const summary = document.createElement("div");
+      const summary = document.createElement("p");
       summary.className = "v2-psummary";
       summary.setAttribute("role", "status");
       body.appendChild(summary);
-      const blocks = document.createElement("div");
-      body.appendChild(blocks);
+      const groupsBox = document.createElement("div");
+      body.appendChild(groupsBox);
       const err = document.createElement("p");
       err.className = "v2-perror";
       err.hidden = true;
-      err.textContent = "Choose at least one pair. The last one stays selected.";
-      let apply = null;
-      function render() {
-        blocks.replaceChildren();
-        publishers.forEach(pub => {
-          const items = view.info.filter(item => sourceMeta(item.key).publisher === pub)
-            .sort((a, b) => ["dda", "indexed", "vorp"].indexOf(sourceMeta(a.key).method) - ["dda", "indexed", "vorp"].indexOf(sourceMeta(b.key).method));
-          const lead = items.find(item => item.available) || items[0];
-          const block = document.createElement("section");
-          block.className = "v2-pblock";
-          block.dataset.publisher = pub;
-          const top = document.createElement("div");
-          top.className = "v2-pblock-top";
-          const name = document.createElement("h3");
-          name.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
-          name.append(document.createTextNode(PUBLISHER_NAMES[pub]));
-          const kind = document.createElement("span");
-          kind.className = "v2-meta";
-          kind.textContent = KIND[pub] || "Published trade chart";
-          const week = document.createElement("span");
-          week.className = `v2-meta v2-pweek${lead?.stale ? " is-older" : ""}`;
-          week.textContent = lead?.week ? `Week ${lead.week}${lead.stale ? " · older" : ""}` : "week unknown";
-          top.append(name, week, kind);
-          const row = document.createElement("div");
-          row.className = "v2-ppairs";
-          items.forEach(item => {
-            const m = sourceMeta(item.key);
-            const on = draft.has(item.key);
-            const blocked = !item.available || (item.stale && !includeOlder && !on);
-            const b = document.createElement("button");
-            b.type = "button";
-            b.className = `v2-ppair${on ? " is-on" : ""}`;
-            b.dataset.series = item.key;
-            b.setAttribute("aria-pressed", String(on));
-            b.disabled = blocked;
-            b.textContent = `${on ? "✓" : "+"} ${PLAIN_METHOD[m.method]}`;
-            if (!item.available) b.title = item.paused ? "Waiting on fresh inputs" : "Not available for this league";
-            else if (blocked) b.title = "Older week: turn on Include older weeks below";
-            b.addEventListener("click", () => {
-              if (draft.has(item.key)) draft.delete(item.key);
-              else draft.add(item.key);
-              err.hidden = true;
-              render();
-              const again = blocks.querySelector(`[data-series="${item.key}"]`);
-              if (again) again.focus();
-            });
-            row.appendChild(b);
-          });
-          block.append(top, row);
-          const reason = items.find(item => !item.available) ? (lead && !lead.available
-            ? (lead.paused ? "Waiting on fresh inputs." : "Not available for this league.") : "") : "";
-          const note = withWaiverNote("", lead || {}).replace(/^ · /, "");
-          if (reason || note) {
-            const why = document.createElement("p");
-            why.className = "v2-meta";
-            why.textContent = [reason, note].filter(Boolean).join(" ");
-            block.appendChild(why);
-          }
-          blocks.appendChild(block);
-        });
-        summary.innerHTML = "";
-        const count = document.createElement("b");
-        count.textContent = `${draft.size} pair${draft.size === 1 ? "" : "s"} selected`;
-        const unit = document.createElement("span");
-        unit.className = "v2-meta";
-        unit.textContent = "Our values and published charts share trade-value points; VORP vs waivers stays in its own panel.";
-        summary.append(count, unit);
-        if (apply) apply.textContent = `Apply ${draft.size} pair${draft.size === 1 ? "" : "s"}`;
-      }
-      if (staleWeeks.length) {
-        const older = document.createElement("label");
-        older.className = "v2-polder";
+      err.textContent = "Choose at least one series.";
+      function rowFor(item) {
+        const meta = sourceMeta(item.key);
+        const label = document.createElement("label");
+        label.className = `v2-crow${item.available ? "" : " is-disabled"}`;
         const box = document.createElement("input");
         box.type = "checkbox";
-        box.checked = includeOlder;
-        box.addEventListener("change", () => { includeOlder = box.checked; render(); });
-        const text = document.createElement("span");
-        text.innerHTML = "<b>Older snapshots are off by default.</b> ";
-        text.append(document.createTextNode(`Include Week ${staleWeeks.join(", ")}`));
-        older.append(box, text);
-        body.appendChild(older);
+        box.dataset.series = item.key;
+        box.checked = draft.has(item.key);
+        box.disabled = !item.available;
+        box.addEventListener("change", () => {
+          if (box.checked) draft.add(item.key); else draft.delete(item.key);
+          err.hidden = true;
+          render();
+          const again = groupsBox.querySelector(`[data-series="${item.key}"]`);
+          if (again) again.focus();
+        });
+        const name = document.createElement("span");
+        name.className = "v2-crow-name";
+        name.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+        name.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
+        label.append(box, name);
+        if (item.stale) label.appendChild(weekBadge(item.key));
+        if (!item.available) {
+          const why = document.createElement("span");
+          why.className = "v2-meta";
+          why.textContent = item.paused ? "Waiting on fresh inputs" : "Not available for this league";
+          label.appendChild(why);
+        }
+        if (item.waiverNote && item.available) label.title = item.waiverNote;
+        return label;
       }
-      const foot = document.createElement("p");
-      foot.className = "v2-meta";
-      foot.textContent = "Only supported pairs are offered. VORP vs waivers stays in its own panel.";
-      body.append(foot, err);
-      const row = panelActions(pop, [["Cancel", false, closePopover], ["Apply", true, () => {
+      function render() {
+        groupsBox.replaceChildren();
+        SERIES_GROUPS.forEach(g => {
+          const items = view.info.filter(item => seriesGroup(item.key) === g.id);
+          if (!items.length) return;
+          const section = document.createElement(g.id === "vorp" ? "details" : "section");
+          section.className = "v2-cgroup";
+          section.dataset.group = g.id;
+          const head = document.createElement(g.id === "vorp" ? "summary" : "div");
+          head.className = "v2-cgroup-head";
+          const title = document.createElement("h3");
+          title.textContent = g.id === "vorp" ? `Advanced · ${g.title}` : g.title;
+          head.appendChild(title);
+          const selectable = items.filter(item => item.available);
+          const allOn = selectable.length > 0 && selectable.every(item => draft.has(item.key));
+          const all = document.createElement("button");
+          all.type = "button";
+          all.className = "v2-link v2-call";
+          all.textContent = allOn ? "Select none" : "Select all";
+          all.disabled = !selectable.length;
+          all.addEventListener("click", event => {
+            event.preventDefault();
+            selectable.forEach(item => (allOn ? draft.delete(item.key) : draft.add(item.key)));
+            render();
+          });
+          head.appendChild(all);
+          const note = document.createElement("p");
+          note.className = "v2-meta";
+          note.textContent = g.note;
+          section.append(head, note, ...items.map(rowFor));
+          if (g.id === "vorp" && items.some(item => draft.has(item.key))) section.open = true;
+          groupsBox.appendChild(section);
+        });
+        summary.textContent = `${draft.size} series selected · applies to every tab`;
+      }
+      body.appendChild(err);
+      const reset = document.createElement("button");
+      reset.type = "button";
+      reset.className = "v2-btn v2-preset";
+      reset.textContent = "Reset to default";
+      reset.addEventListener("click", () => {
+        draft.clear();
+        (startActive || []).forEach(key => draft.add(key));
+        render();
+      });
+      panelActions(pop, [["Cancel", false, closePopover], ["Done", true, () => {
         if (!draft.size) { err.hidden = false; return; }
         const adds = [...draft].filter(key => !view.active.includes(key));
         const drops = view.active.filter(key => !draft.has(key));
@@ -1474,11 +1482,11 @@
         drops.forEach(toggleEngineSource);
         closePopover();
         refresh();
-      }, {"data-apply": "sources"}]]);
-      apply = row.querySelector("[data-apply]");
+      }, {"data-apply": "sources"}]], reset);
       render();
     });
   }
+  let startActive = null;   // the first-load selection: what "Reset to default" returns to
 
   // Frame 18: when a league change makes a selected series unavailable, say which one was dropped.
   let statusTimer = null;
@@ -1710,80 +1718,87 @@
     });
   }
 
-  // ---------- 10 Source freshness ----------
-  function openFreshness() {
-    const fresh = window.TradeValueProductData?.getSourceFreshness?.() || null;
-    openPanel($("v2Freshness"), "Source freshness",
-      view.refWeek ? `Week ${view.refWeek} board · each source's own week` : "Each source's own week", pop => {
-        const body = panelBody(pop);
-        const older = view.info.filter(item => item.stale && item.available);
-        if (older.length) {
-          const banner = document.createElement("div");
-          banner.className = "v2-pbanner";
-          const b = document.createElement("b");
-          const names = [...new Set(older.map(item => `${PUBLISHER_NAMES[sourceMeta(item.key).publisher]} W${item.week}`))];
-          b.textContent = `${names.length} source${names.length === 1 ? " is" : "s are"} from an earlier week`;
-          const p = document.createElement("span");
-          p.textContent = `${names.join(", ")} ${names.length === 1 ? "is" : "are"} left out of first-use selections unless you choose to include ${names.length === 1 ? "it" : "them"}.`;
-          banner.append(b, p);
-          body.appendChild(banner);
-        }
-        const table = document.createElement("table");
-        table.className = "v2-ptable";
-        table.innerHTML = "<thead><tr><th scope=\"col\">Source</th><th scope=\"col\">Snapshot</th><th scope=\"col\">Status</th></tr></thead>";
-        const tbody = document.createElement("tbody");
-        view.info.forEach(item => {
-          const m = sourceMeta(item.key);
-          const tr = document.createElement("tr");
-          tr.dataset.series = item.key;
-          const name = document.createElement("th");
-          name.scope = "row";
-          name.innerHTML = `<span style="color:${m.color}" aria-hidden="true">${m.symbol}</span> `;
-          name.append(document.createTextNode(seriesName(item.key)));
-          const prov = document.createElement("span");
-          prov.className = "th-sub";
-          const row = fresh?.series?.[item.key];
-          prov.textContent = withWaiverNote(freshnessText(item), item);
-          if (row && (row.published_at || row.fetched_at)) prov.textContent += ` · ${String(row.published_at || row.fetched_at).slice(0, 10)}`;
-          name.appendChild(prov);
-          const snap = document.createElement("td");
-          snap.textContent = item.week ? `Week ${item.week}` : "—";
-          const status = document.createElement("td");
-          const active = view.active.includes(item.key);
-          if (!item.available) {
-            status.className = "is-bad";
-            status.textContent = item.paused ? "⚠ Unavailable · waiting on fresh inputs" : "— Not available for this league";
-          } else if (item.stale) {
-            status.className = "is-older";
-            status.textContent = active ? "Older · selected " : "Older · not selected";
-            if (active) {
-              const remove = document.createElement("button");
-              remove.type = "button";
-              remove.className = "v2-link";
-              remove.dataset.removeSeries = item.key;
-              remove.textContent = "Remove older source";
-              remove.addEventListener("click", () => { toggleEngineSource(item.key); refresh(); openFreshness(); });
-              status.appendChild(remove);
-            }
-          } else {
-            status.className = "is-ok";
-            status.textContent = active ? "✓ Current · selected" : "Current";
-          }
-          tr.append(name, snap, status);
-          tbody.appendChild(tr);
-        });
-        table.appendChild(tbody);
-        const wrap = document.createElement("div");
-        wrap.className = "v2-ptable-wrap";
-        wrap.appendChild(table);
-        body.appendChild(wrap);
-        const manage = document.createElement("button");
-        manage.type = "button";
-        manage.className = "v2-btn v2-btn-soft";
-        manage.textContent = "Manage selected sources";
-        manage.addEventListener("click", () => openSources($("v2EditSources")));
-        panelActions(pop, [["Close", false, closePopover]], manage);
+  // ---------- 10 Source freshness (JEG-463: root sources only) ----------
+  // One row per publisher. Pipeline health (import, fixture rebuild) is folded into that
+  // source's status from assets/reference-freshness.json; users never see pipeline rows.
+  let pipeline = null;          // reference-freshness items by key, once loaded
+  let pipelineLoading = null;
+  function loadPipeline() {
+    if (pipeline || pipelineLoading) return pipelineLoading;
+    pipelineLoading = fetch("assets/reference-freshness.json")
+      .then(r => (r.ok ? r.json() : null))
+      .catch(() => null)
+      .then(doc => {
+        pipeline = Object.fromEntries(((doc && doc.items) || []).filter(item => item && item.key).map(item => [item.key, item]));
+        if (C) renderHeader();
+        return pipeline;
       });
+    return pipelineLoading;
+  }
+  const dayOf = text => (/^\d{4}-\d{2}-\d{2}/.test(String(text || "")) ? String(text).slice(0, 10) : "");
+  function rootFreshness() {
+    const pubs = Object.keys(PUBLISHERS).filter(pub => view.info.some(item => sourceMeta(item.key).publisher === pub));
+    return pubs.map(pub => {
+      const items = view.info.filter(item => sourceMeta(item.key).publisher === pub);
+      const base = items.find(item => item.key === pub) || items[0];
+      const name = PUBLISHER_NAMES[pub] || pub;
+      const p = pipeline || {};
+      const own = p[`comparison.source.${pub}`];
+      const imp = p[`source_import.${pub}`];
+      const failingStep = [imp, own, p["source_import.checked_at"], p["comparison.built_at"]].find(item => item && item.freshness_ok === false);
+      const paused = items.some(item => item.paused);
+      if (failingStep || paused) {
+        const since = dayOf(imp && imp.value) || dayOf(own && own.value);
+        return {pub, name, week: base?.week, status: "stuck",
+          text: "Not updating", reason: `We couldn't refresh ${name}${since ? ` since ${since}` : ""}.`};
+      }
+      const prior = (own && Number(own.weeks_behind) > 0) || items.some(item => item.available && item.stale);
+      return {pub, name, week: base?.week, status: prior ? "prior" : "current",
+        text: prior ? "Prior week" : "Current",
+        reason: prior && view.refWeek && base?.week ? `${name} has not published Week ${view.refWeek} yet; showing Week ${base.week}.` : ""};
+    });
+  }
+  function openFreshness() {
+    openPanel($("v2Freshness"), "Source freshness", view.refWeek ? `Week ${view.refWeek} board · each source's own week` : "Each source's own week", pop => {
+      const body = panelBody(pop);
+      const table = document.createElement("table");
+      table.className = "v2-ptable";
+      table.innerHTML = "<thead><tr><th scope=\"col\">Source</th><th scope=\"col\">Published</th><th scope=\"col\">Status</th></tr></thead>";
+      const tbody = document.createElement("tbody");
+      rootFreshness().forEach(r => {
+        const tr = document.createElement("tr");
+        tr.dataset.source = r.pub;
+        tr.dataset.status = r.status;
+        const name = document.createElement("th");
+        name.scope = "row";
+        name.innerHTML = `<span style="color:${pubColor(r.pub)}" aria-hidden="true">${PUBLISHERS[r.pub]?.symbol || ""}</span> `;
+        name.append(document.createTextNode(r.name));
+        const week = document.createElement("td");
+        week.textContent = r.week ? `Week ${r.week}` : "—";
+        const status = document.createElement("td");
+        status.className = r.status === "stuck" ? "is-bad" : r.status === "prior" ? "is-older" : "is-ok";
+        status.textContent = `${r.status === "stuck" ? "⚠ " : r.status === "current" ? "✓ " : ""}${r.text}`;
+        if (r.reason) {
+          const why = document.createElement("span");
+          why.className = "th-sub";
+          why.textContent = r.reason;
+          status.appendChild(why);
+        }
+        tr.append(name, week, status);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      const wrap = document.createElement("div");
+      wrap.className = "v2-ptable-wrap";
+      wrap.appendChild(table);
+      body.appendChild(wrap);
+      const manage = document.createElement("button");
+      manage.type = "button";
+      manage.className = "v2-btn v2-btn-soft";
+      manage.textContent = "Customize values";
+      manage.addEventListener("click", () => openSources($("v2EditSources")));
+      panelActions(pop, [["Close", false, closePopover]], manage);
+    });
   }
 
   // ---------- 24 Value range ----------
@@ -3839,6 +3854,8 @@
       return;
     }
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
+    startActive = C.getActiveSources().slice();
+    loadPipeline();
     bind();
     setStatus("");
     readTradeHash();   // may set a status: a shared link's league settings were applied

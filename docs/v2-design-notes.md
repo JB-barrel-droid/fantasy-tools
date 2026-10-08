@@ -420,6 +420,29 @@ Jeremy's answers to the follow-up questions:
   differ from the league's defaults, applied after scoring, roster and bench (a league change resets
   shares). A rejected set is ignored.
 
+## Customize, league bar and freshness (2026-10-08, JEG-466 / 462 / 463; spec JEG-474)
+
+Jeremy signed off the source model (JEG-474) on the clickable mock
+https://claude.ai/artifact/TYSXr7Wpg4SPiQpu2MTd56.
+- The Methods bar is one line: "Showing: 1 projection + 4 adjusted trade charts · Week 5", a legend that
+  reads as a legend (symbol + publisher, prior-week badge) and one **Customize** button (`#v2EditSources`).
+  Method chips, series chips and the hint line are gone.
+- Customize groups series by type with a one-line explanation each, in the JEG-474 vocabulary:
+  Projections, Trade charts (adjusted), Trade charts (as published), and Value above waivers folded under
+  Advanced. Each group has Select all/none; prior-week series carry a "Wk N" badge and stay selectable;
+  unavailable ones are disabled with the reason. A draft until Done; Reset to default restores the
+  first-load selection; an empty selection is refused.
+- Still to come with the `ddf_value` engine series: section "What goes into DDF Value", DDF Value as the
+  default shown series alongside the as-published charts, the shared per-tab picker, and saving choices on
+  this device.
+- League bar (JEG-462): "Edit league" and "Weights & bench" are equal secondary buttons; no ↗.
+- Freshness (JEG-463): one row per root source (publisher) with the week it published and a status of
+  Current, Prior week or Not updating. Pipeline steps from `assets/reference-freshness.json`
+  (`comparison.source.<src>`, `source_import.<src>`, `source_import.checked_at`, `comparison.built_at`)
+  fold into that status: any `freshness_ok: false` shows "Not updating" with "We couldn't refresh <source>
+  since <date>". The header chip reads "Week 5 · all sources current", "… N sources on a prior week", or
+  "⚠ N sources not updating"; no ↗.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**

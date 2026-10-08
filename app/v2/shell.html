@@ -20,20 +20,18 @@
     <div class="v2-wrap v2-league-inner">
       <strong id="v2LeagueName">—</strong>
       <span class="v2-meta" id="v2RosterLine">—</span>
-      <button type="button" class="v2-link" id="v2EditLeague" aria-haspopup="dialog">Edit league ↗</button>
-      <button type="button" class="v2-btn v2-btn-primary" id="v2Weights" aria-haspopup="dialog">Weights &amp; bench</button>
+      <div class="v2-league-actions">
+        <button type="button" class="v2-btn v2-btn-adjust" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
+        <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Weights &amp; bench</button>
+      </div>
     </div>
   </section>
 
-  <section class="v2-methods" id="v2Methods" aria-label="Value methods and sources">
-    <div class="v2-wrap">
-      <div class="v2-methods-row">
-        <span class="v2-eyebrow">Methods</span>
-        <div class="v2-chip-row" id="v2MethodChips"></div>
-        <div class="v2-chip-row v2-source-chips" id="v2SourceChips"></div>
-        <button type="button" class="v2-select" id="v2EditSources" aria-haspopup="dialog">Edit sources</button>
-      </div>
-      <p class="v2-hint">Our Data Driven Adjustments · Published charts and projection inputs · Selection applies across tabs</p>
+  <section class="v2-methods" id="v2Methods" aria-label="Values shown">
+    <div class="v2-wrap v2-methods-row">
+      <p class="v2-showing"><b>Showing:</b> <span id="v2ShowingText">—</span></p>
+      <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
+      <button type="button" class="v2-btn v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
     </div>
   </section>
 

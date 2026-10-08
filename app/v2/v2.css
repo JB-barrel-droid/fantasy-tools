@@ -97,7 +97,6 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 /* League bar */
 .v2-league { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
 .v2-league-inner { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
-.v2-league-inner .v2-link { margin-left: auto; }
 
 /* Buttons and fields */
 .v2-app .v2-btn { border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
@@ -129,6 +128,35 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-chip[disabled] { opacity: .5; cursor: not-allowed; }
 .v2-hint { color: var(--v2-muted); font-size: 11px; margin-top: 8px !important; }
 .v2-sym { font-size: 11px; line-height: 1; }
+
+/* League bar actions (JEG-462): two equal secondary buttons for adjustments; no ↗ on in-page dialogs. */
+.v2-league-actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+.v2-app .v2-btn-adjust { background: var(--v2-surface); border: 1px solid var(--v2-border); color: var(--v2-ink); font-weight: 600; min-height: 44px; padding: 8px 16px; }
+.v2-app .v2-btn-adjust:hover { border-color: var(--v2-action); color: var(--v2-action-strong); }
+@media (max-width: 767px) {
+  .v2-league-actions { margin-left: 0; flex-basis: 100%; }
+  .v2-league-actions .v2-btn { flex: 1 1 0; }
+}
+
+/* "Showing" bar (JEG-466 / JEG-474): one line, a legend that reads as a legend, one Customize control. */
+.v2-methods-row { display: flex; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
+.v2-showing { margin: 0; font-size: 13px; }
+.v2-showing-legend { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 12px; flex: 1 1 320px; font-size: 12px; color: var(--v2-muted); }
+.v2-showing-legend li { display: inline-flex; align-items: center; gap: 4px; }
+.v2-methods-row #v2EditSources { margin-left: auto; }
+.v2-wk { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--v2-older); border-radius: 4px; color: var(--v2-older); font-size: 11px; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+/* Customize panel: grouped by type, every group explained. */
+.v2-cgroup { border-top: 1px solid var(--v2-border); padding: 12px 0 6px; }
+.v2-cgroup-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.v2-cgroup-head h3 { margin: 0; font-size: 15px; font-weight: 700; display: inline; }
+details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
+.v2-cgroup > .v2-meta { margin: 2px 0 6px !important; }
+.v2-crow { display: flex; align-items: center; gap: 10px; min-height: 44px; border-bottom: 1px solid var(--v2-border); cursor: pointer; }
+.v2-crow input { width: 18px; height: 18px; accent-color: var(--v2-action); }
+.v2-crow-name { flex: 1; }
+.v2-crow.is-disabled { color: var(--v2-muted); cursor: not-allowed; }
+.v2-app .v2-call { min-height: 32px; padding: 0 4px; font-size: 12px; position: relative; }
+.v2-app .v2-call::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: 44px; transform: translateY(-50%); }
 
 /* Main */
 .v2-main { padding-top: 28px; padding-bottom: 48px; }
@@ -349,7 +377,6 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-tab { padding: 8px 10px; font-size: 13px; }
   .v2-freshness { margin-left: auto; }
   .v2-league-inner { gap: 8px 12px; padding: 10px 16px; }
-  .v2-league-inner .v2-btn-primary { width: 100%; }
   .v2-title h1 { font-size: 28px; }
   .v2-search { max-width: none; flex-basis: 100%; }
   .v2-filters > * { flex: 1 1 calc(50% - 6px); }
