@@ -78,6 +78,29 @@ read-only accessor); `tests/test_math_inspector.py` holds its tables to the
 engine's `getAllRows()` in all three views at three settings. Built by
 `pipelines/build_inspector_page.py` from `app/inspector/` on every `make sync`.
 
+**What the views guarantee today (views-audit, measured 2026-10-08).** Jeremy
+stated the invariants on 2026-10-08. Indexed: "the positions and bench/starter
+have different weights but the total pies are the same". VORP vs waivers:
+"the differences in deconstructed values of each player on the same exact
+scale". Adjusted: "the differences in value of each player, when their
+positional and bench/starter weights have been normalized". They are measured
+on the players a source and the ESPN anchor both price (QB/RB/WR/TE).
+
+What holds and is gated by `make validate` (`tests/test_view_invariants.py`):
+- In every tab, CBS ROS, Razzball, the `*_adjusted` series and the raw
+  value-above-waivers series total exactly the anchor's total.
+- The raw series are therefore on one scale in VORP vs waivers.
+
+What does not hold yet (measured; options on `docs/math-review-agenda.md`,
+"From views-audit" and MR-01/03/04/05; not changed before the review):
+- The published charts' Indexed totals run 0.66-1.82x the anchor's.
+- Their VORP vs waivers totals run 0.71-1.00x.
+- Their Adjusted group totals are not the DDF weights (70 cap, mixed basis).
+
+The page reports all of it as `TradeValueCurveDiagnostics.viewInvariants`.
+`fixedPieIndexed` does not gate published charts. Its rows for them carry the
+measured gap, labelled "not gated (published)".
+
 ## Source Families And Adjustments
 
 The same transformation rules apply to every source within a family:
