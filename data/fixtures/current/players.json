@@ -6,12 +6,12 @@
   "rz_snapshot": "2026-10-08",
   "cbsros_snapshot": "2026-10-08",
   "espn_snapshot_id": "sha256:167a155975c1773cddfe91155a5c8294f29b25781f3042a59032fbe7ea95e00a",
-  "cbsros_snapshot_id": "sha256:8299d292d007d41585d37bdc0dace49fe4c53b409d515db875f66eb1d0f85962",
+  "cbsros_snapshot_id": "sha256:53e0db01aa766d224ed55c7c935f05bee42f900d4157ad0cf4bfe1375e2043cb",
   "rz_snapshot_id": "sha256:7cab3479eb925a9135f9a82a1904add4657beb01264f2be18333df669c15d5db",
   "n_players": 536,
   "n_espn_complete": 339,
   "n_rz_complete": 503,
-  "n_cbsros_complete": 350,
+  "n_cbsros_complete": 352,
   "scoring_note": "No INT/fumble data in season sources; values exclude them.",
   "ppg_note": "Per-game points = ROS fantasy points / the games the team plays inside ESPN's ROS window (weeks_covered minus the bye when it falls inside).",
   "ros_weeks": "5-18",
@@ -36,7 +36,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-08T19:27:45Z",
+   "built_at": "2026-10-08T20:44:19Z",
    "as_of": "2026-10-08",
    "summary": {
     "live": 3,
@@ -24399,9 +24399,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 21.69,
     "half_ppr": 25.54,
@@ -24441,6 +24445,11 @@
    },
    "delta_rz_espn": -18.99,
    "delta_rz_espn_ppg": -1.46,
+   "cbsros_ppg": {
+    "standard": 4.015,
+    "half_ppr": 4.438,
+    "ppr": 4.862
+   },
    "prior_espn_ros": {
     "standard": 29.83,
     "half_ppr": 36.43,
@@ -32610,9 +32619,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -32641,6 +32654,11 @@
     "standard": 2.6,
     "half_ppr": 2.6,
     "ppr": 2.6
+   },
+   "cbsros_ppg": {
+    "standard": 1.054,
+    "half_ppr": 1.131,
+    "ppr": 1.208
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
