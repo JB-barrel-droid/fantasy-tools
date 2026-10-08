@@ -58,7 +58,7 @@ math that is going on."
   same fixture: getAllRows, fixedPieIndexed, sourceScaleAgreement and
   sourcePeaks identical in 36/36 (0 differing). fixedPieIndexed true
   everywhere; sourceScaleAgreement false in 33/36 on BOTH builds
-  (pre-existing, GAP-SCALE-AGREEMENT-RED).
+  (pre-existing; that check was retired on main the same day, GAP-026).
 - `make sync` + `CHROMIUM_PATH=... make validate`: exit 0 (includes
   tests.test_math_inspector).
 
