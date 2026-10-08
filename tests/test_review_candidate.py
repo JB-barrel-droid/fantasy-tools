@@ -308,6 +308,62 @@ class TestReviewStage(unittest.TestCase):
         report = rvw.review_candidate(str(cand), fixture_path=str(fx))
         self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
 
+    # The chain builds sections WITHOUT --week-designated, so a week-coded
+    # source's candidate carries week_designated=None; its week lives only in
+    # source_provenance.week_designated (int) and a "Week N" content_vintage.
+    # CBS Week 5 held on 2026-10-08 (82/109 moved) because the reviewer read
+    # only the top-level field. These are the exact candidate shapes the
+    # chain produced (output/reindexed/cbs-full-12-section-reindexed.json).
+    CBS_FX = {"week_designated": "Week 4", "content_vintage": "Week 4",
+              "source_provenance": {"week_designated": 4, "content_vintage": "Week 4"}}
+
+    def _cbs_cand(self, week):
+        return {"week_designated": None, "content_vintage": f"Week {week}",
+                "source_provenance": {"week_designated": week,
+                                      "content_vintage": f"Week {week}",
+                                      "vintage_kind": "week_designated"}}
+
+    def _cbs_fixture(self, cand_meta):
+        cand, fx = build(self.tmp, source="syn", mutate=self._drift,
+                         cand_meta=cand_meta, fx_meta=self.CBS_FX)
+        doc = json.loads(fx.read_text())
+        doc["sources"]["syn"]["combos"]["full_12"]["vintage"] = {
+            "content_vintage": "Week 4", "week_designated": "Week 4"}
+        fx.write_text(json.dumps(doc))
+        return cand, fx
+
+    def test_chain_shaped_newer_week_candidate_is_source_movement(self):
+        cand, fx = self._cbs_fixture(self._cbs_cand(5))
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        drift = [c for c in report["checks"] if c["name"] == "native_drift:full_12"][0]
+        self.assertEqual(drift["status"], "warn", drift)
+        self.assertIn("Week 5 vs fixture Week 4", drift["detail"])
+        self.assertEqual(report["verdict"], "ready")
+
+    def test_week_n_content_vintage_alone_names_the_week(self):
+        cand, fx = self._cbs_fixture({"week_designated": None, "content_vintage": "Week 5"})
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "warn")
+
+    def test_chain_shaped_same_week_drift_still_fails(self):
+        cand, fx = self._cbs_fixture(self._cbs_cand(4))
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+        self.assertEqual(report["verdict"], "hold")
+
+    def test_chain_shaped_older_week_drift_still_fails(self):
+        cand, fx = self._cbs_fixture(self._cbs_cand(3))
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
+    def test_date_content_vintage_is_never_read_as_a_week(self):
+        # "2026-10-06" must not parse as week 2026 and beat "Week 4".
+        self.assertIsNone(rvw.vintage_week({"content_vintage": "2026-10-06"}))
+        cand, fx = self._cbs_fixture({"week_designated": None,
+                                      "content_vintage": "2026-10-06"})
+        report = rvw.review_candidate(str(cand), fixture_path=str(fx))
+        self.assertEqual(statuses(report)["native_drift:full_12"], "fail")
+
 
 class TestRealFixtureReview(unittest.TestCase):
     def test_usatoday_explicit_zero_anchor_ready(self):
