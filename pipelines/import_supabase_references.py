@@ -798,6 +798,7 @@ def build_cbsros_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             continue
         clean_rows.append(
             {
+                "player_key": key,
                 "player_name": name,
                 "player_norm": row.get("player_norm"),
                 "pos": pos,
