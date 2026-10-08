@@ -273,11 +273,14 @@ class TestLegGuarantees(unittest.TestCase):
         lists_half, _, _ = load_espn_lists(DEFAULT_CSV, "half_ppr")
         ppr = {d["id"]: d["x"] for pos in POSITIONS for d in lists_ppr[pos]}
         half = {d["id"]: d["x"] for pos in POSITIONS for d in lists_half[pos]}
+        games = {d["id"]: d["games"] for pos in POSITIONS for d in lists_ppr[pos]}
         checked = 0
         for norm, row in rows.items():
             if norm not in ppr:
                 continue
-            expected_gap = 0.5 * float(row["r_receptions"]) / 16
+            # Per-team divisor (games in ESPN's ROS window); the scoring gap
+            # is the same reception arithmetic over the same games.
+            expected_gap = 0.5 * float(row["r_receptions"]) / games[norm]
             self.assertTrue(rel_close(ppr[norm] - half[norm], expected_gap), norm)
             checked += 1
         self.assertGreater(checked, 300)

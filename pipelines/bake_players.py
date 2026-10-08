@@ -82,6 +82,10 @@ from canonical_players import (  # noqa: E402
 )
 from scoring import fantasy_points  # noqa: E402
 from dataset_status import build_dataset_status  # noqa: E402
+from games_remaining import (  # noqa: E402
+    load_byes, schedule_problems, window_from_csv, games_by_team,
+    canonical_team,
+)
 from preseason_ecr import (  # noqa: E402
     load_preseason_ecr_ranks, annotate_rows, provenance_note as pecr_note,
 )
@@ -451,6 +455,24 @@ def espn_zero_universe(espn_csv, comparison_fixture, espn_med, registry):
     return out
 
 
+def team_games_remaining(game_rows, team_abbr, espn_csv):
+    """{team: games inside ESPN's ROS window}, (first, last ROS week).
+
+    The window is the ESPN CSV's own weeks_covered (what its ROS totals sum
+    over); byes come from data/inputs/nfl_byes_2026.json, verified against
+    the schedule rows (Supabase public.games: week/home/away) -- fail closed
+    on any disagreement. games.status is deliberately not read: nothing
+    keeps it current (GAP-GAMES-REMAINING-STALE).
+    """
+    byes, season_weeks = load_byes()
+    problems = schedule_problems(byes, season_weeks, game_rows, team_abbr)
+    if problems:
+        raise SystemExit("FAIL-CLOSED: bye table disagrees with the Supabase "
+                         "schedule:\n  " + "\n  ".join(problems))
+    window = window_from_csv(espn_csv)
+    return games_by_team(window, byes), window
+
+
 def bake(args):
     registry = load_registry()
 
@@ -477,16 +499,18 @@ def bake(args):
     # ---- Games remaining -----------------------------------------------------
     team_rows = query_all("teams", "?select=id,abbreviation&abbreviation=not.is.null")
     team_abbr = {r["id"]: r["abbreviation"] for r in team_rows}
+    # GAP-GAMES-REMAINING-STALE (2026-10-08): games remaining = the games each
+    # team plays inside ESPN's own ROS window (the CSV's weeks_covered), from
+    # the season's bye table -- never from games.status, which nothing keeps
+    # current (it stopped at week 2 final, giving 15/16 where the truth was 13).
+    # The bye table is cross-checked against the Supabase schedule; any
+    # disagreement aborts the bake.
     game_rows = query_all(
-        "games", "?select=home_team_id,away_team_id,status&season=eq.2026")
-    games_left = {}
-    for g in game_rows:
-        if g["status"] == "final":
-            continue
-        for tid in (g["home_team_id"], g["away_team_id"]):
-            abbr = team_abbr.get(tid)
-            if abbr:
-                games_left[abbr] = games_left.get(abbr, 0) + 1
+        "games", "?select=week,home_team_id,away_team_id&season=eq.2026")
+    games_left, ros_window = team_games_remaining(game_rows, team_abbr,
+                                                  args.espn_csv)
+    print(f"games remaining: ESPN ROS weeks {ros_window[0]}-{ros_window[1]}, "
+          f"per team {sorted(set(games_left.values()))}")
 
     # ---- Skill-player rows ----------------------------------------------------
     # Iterate over ESPN intake keys (every charted skill player has an
@@ -581,7 +605,7 @@ def bake(args):
 
         # per-game points: ROS fantasy points / team games remaining
         # (team already variant-normalized by _resolve_team_abbr).
-        gr = games_left.get(team)
+        gr = games_left.get(canonical_team(team))
         row["games_remaining"] = gr
         # JEG-392: ESPN-zeroed rows publish no ESPN per-game projection and
         # no ESPN-relative deltas (ESPN has none to compare against), the
@@ -850,8 +874,10 @@ def bake(args):
                       "x 15 (all byes in weeks 3-18). Scoring-invariant: one "
                       "number serves standard/half/full."),
         "scoring_note": "No INT/fumble data in season sources; values exclude them.",
-        "ppg_note": ("Per-game points = ROS fantasy points / team games "
-                     "remaining (final games excluded)."),
+        "ppg_note": ("Per-game points = ROS fantasy points / the games the "
+                     "team plays inside ESPN's ROS window (weeks_covered "
+                     "minus the bye when it falls inside)."),
+        "ros_weeks": f"{ros_window[0]}-{ros_window[1]}",
         "espn_note": ("espn_ros/espn_ppg = ESPN primary leg: pure ESPN read "
                       "over priced components, with missing components "
                       "defaulting to 0 (never zero-filled from another input). "
