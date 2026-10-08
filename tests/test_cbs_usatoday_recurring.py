@@ -782,6 +782,14 @@ class CbsVersionedBakeTest(unittest.TestCase):
         self.assertTrue(res["bake_id"].startswith("cbswk2_"), res["bake_id"])
         self.assertTrue(ingest_cbs.CFG.get("verify_bake_id"))
 
+    def test_two_revisions_on_one_day_get_two_bakes(self):
+        # A CI runner keeps no state, so a date-only id would let the second
+        # same-day revision overwrite the first bake.
+        a = save_cbs.cbs_bake_id(4, stamp="2026-10-07t1207")
+        b = save_cbs.cbs_bake_id(4, stamp="2026-10-07t1507")
+        self.assertNotEqual(a, b)
+        self.assertRegex(save_cbs.cbs_bake_id(4), r"^cbswk4_\d{4}-\d{2}-\d{2}t\d{4}_v1$")
+
     def test_saver_keys_the_upsert_on_bake_id(self):
         # The broken state: the week-grain conflict key overwrote the week.
         self.assertIn("bake_id", save_cbs.CBS_UPSERT_CONFLICT.split(","))

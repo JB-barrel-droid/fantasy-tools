@@ -36,7 +36,7 @@ alter table public.cbs_trade_values add column if not exists source_url text;
 alter table public.source_trade_values add column if not exists source_url text;
 
 comment on column public.cbs_trade_values.bake_id is
-  'Immutable version of a week (cbswk<week>_<date>_v<n>); readers take the latest bake. GAP-CBS-WEEK-OVERWRITE.';
+  'Immutable version of a week (cbswk<week>_<date>t<HHMM>_v<n>); readers take the latest bake. GAP-CBS-WEEK-OVERWRITE.';
 comment on column public.cbs_trade_values.source_url is
   'Article URL these values were priced from (GAP-SOURCE-URL-WEEK2).';
 comment on column public.source_trade_values.source_url is

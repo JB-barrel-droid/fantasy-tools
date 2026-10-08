@@ -15,7 +15,7 @@ Tables (grain = upsert key; writes are idempotent on the grain):
   CBS  -> public.cbs_trade_values (source, variant, scoring, league_teams,
     qb_slots, season, week, player_key, bake_id):
     source='cbs', variant='as_published', season=2026, week=<content week>,
-    bake_id=cbswk<week>_<date>_v<n> (one immutable version per revision),
+    bake_id=cbswk<week>_<date>t<HHMM>_v<n> (one immutable version per revision),
     source_url=the article URL,
     league_teams=12, qb_slots=1, scoring from the non / 0.5 / PPR columns,
     value + native_value (same scale for CBS), position/team from the cache,
@@ -62,7 +62,7 @@ import csv
 import json
 import os
 import sys
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
@@ -297,10 +297,13 @@ CBS_QB_SPLIT_NOTE = (
 )
 
 
-def cbs_bake_id(week: int, seq: int = 1, day: str | None = None) -> str:
-    """cbswk<week>_<date>_v<seq>: one immutable version per same-week revision
-    (GAP-CBS-WEEK-OVERWRITE; the USA Today usatwk* convention)."""
-    return f"cbswk{week}_{day or date.today().isoformat()}_v{seq}"
+def cbs_bake_id(week: int, seq: int = 1, stamp: str | None = None) -> str:
+    """cbswk<week>_<YYYY-MM-DD>t<HHMM>_v<seq> (UTC minute): one immutable
+    version per same-week revision (GAP-CBS-WEEK-OVERWRITE). The minute stamp
+    keeps two revisions saved on one day apart (a CI runner has no state to
+    bump seq; same convention as the FantasyCalc saver's fcwk bakes)."""
+    stamp = stamp or datetime.now(timezone.utc).strftime("%Y-%m-%dt%H%M")
+    return f"cbswk{week}_{stamp}_v{seq}"
 
 
 def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
