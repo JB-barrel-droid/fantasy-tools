@@ -1219,7 +1219,9 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             # review hold in a review-gated one) keeps that source's last
             # promoted section; the other sources still publish.
             res = results[source]
-            if res["status"] != "ok" and (
+            # A runner that already isolated its own failure returns "held";
+            # isolating twice would only overwrite its rolled_back count.
+            if res["status"] not in ("ok", "held") and (
                     source in FAILURE_ISOLATED_SOURCES
                     or (source in HOLD_ISOLATED_SOURCES and res.get("held"))):
                 isolate_hold(repo, source, before, res, nfl_week)
