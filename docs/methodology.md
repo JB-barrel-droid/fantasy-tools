@@ -221,7 +221,8 @@ Indexed, so a player at or below the waiver line is 0 in all three views:
   settings.
 
 Jeremy accepted any working setup ("I'm ok with however you set up values to
-get the tool working"); the recipe awaits his review.
+get the tool working"); the recipe awaits his review (`docs/math-review-agenda.md` MR-04,
+MR-05).
 
 The installed USA Today, FantasyPros, and CBS trade charts have only 12-team
 native inputs. Their ingestion adapters currently assign `league_teams=12`
@@ -326,6 +327,10 @@ JEG332-SUPERFLEX-FLEX.
   dashboard-build -> frontend/site workflow.
 - `docs/risk-register.md` owns known methodology gaps and decisions still
   needing evidence.
+- `docs/math-review-agenda.md` collects every open math and logic question
+  (MR-01...) for the full math review, with dependencies, measured options
+  and the order to decide them. Add new questions there rather than settling
+  them one at a time.
 
 ## Validation Principle
 

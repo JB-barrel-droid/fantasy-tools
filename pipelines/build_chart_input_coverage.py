@@ -66,13 +66,13 @@ def _fixture_exists(rel_path: str) -> bool:
     return os.path.isfile(_resolve(rel_path))
 
 
-def _players_freshness() -> tuple[str | None, str | None]:
-    """Read players.json meta.as_of and meta.kdst_snapshot (best-effort)."""
+def _players_freshness() -> str | None:
+    """Read players.json meta.as_of (best-effort)."""
     players = _load_json(_resolve("data/fixtures/current/players.json"))
     if not players:
-        return None, None
+        return None
     meta = players.get("meta", {}) or {}
-    return meta.get("as_of"), meta.get("kdst_snapshot")
+    return meta.get("as_of")
 
 
 def _reference_freshness_lookup() -> dict[str, str]:
@@ -110,14 +110,10 @@ def build_items(now: str) -> list[dict[str]]:
     rf_generated = rf.get("generated_at") if rf else None
     rf_lookup = _reference_freshness_lookup()
 
-    players_as_of, players_kdst = _players_freshness()
+    players_as_of = _players_freshness()
     players_freshness = players_as_of if players_as_of else "?"
     if players_as_of:
         players_summary = f"meta.as_of={players_as_of}"
-        if players_kdst and players_kdst != "?":
-            players_summary += f"; meta.kdst_snapshot={players_kdst}"
-        elif players_kdst == "?":
-            players_summary += "; meta.kdst_snapshot=unknown"
     else:
         players_summary = "meta.as_of unavailable"
 
@@ -133,7 +129,7 @@ def build_items(now: str) -> list[dict[str]]:
         "last_checked": rf_generated,
     })
 
-    # 2. data/fixtures/current/players.json — meta.as_of + meta.kdst_snapshot, monitored.
+    # 2. data/fixtures/current/players.json — meta.as_of, monitored.
     items.append({
         "name": "data/fixtures/current/players.json",
         "freshness_source": players_summary,
