@@ -1276,7 +1276,27 @@
     return totals;
   }
 
+  // DDF Composite Value (JEG-455 / JEG-471, Jeremy 2026-10-08): the
+  // equal-weight mean of a player's finite values on the included series.
+  // A series that does not price him is left out, never counted as 0; a
+  // real 0 (ESPN lists him at 0, GAP-025) is a finite value and counts.
+  // values: {seriesKey: number|null}; keys: the included series, in order.
+  // Returns {value: mean or null when no included series prices him,
+  // count, used: the keys that went into the mean}.
+  function compositeValue(values, keys) {
+    var used = [];
+    var sum = 0;
+    (keys || []).forEach(function (key) {
+      var v = values ? values[key] : null;
+      if (typeof v !== "number" || !isFinite(v)) return;
+      used.push(key);
+      sum += v;
+    });
+    return { value: used.length ? sum / used.length : null, count: used.length, used: used };
+  }
+
   root.ValueModel = {
+    compositeValue: compositeValue,
     PUBLISHED_DERIVATION_VERSION: PUBLISHED_DERIVATION_VERSION,
     SAVED_SETUP_TEAMS: SAVED_SETUP_TEAMS,
     SAVED_SETUP_SHAPE: SAVED_SETUP_SHAPE,
