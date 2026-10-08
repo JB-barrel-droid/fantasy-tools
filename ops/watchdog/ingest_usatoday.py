@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Callable
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -64,16 +64,19 @@ def _save_fn(json_path: str, dry_run: bool, week: int, bake_id: str | None):
                          bake_id=bake_id)
 
 
-def bake_id_fn(week: int, state: dict[str, Any]) -> str:
-    """usatwk<week>_<YYYY-MM-DD>t<HHMM>_v<seq> (UTC minute). seq bumps on a
-    re-ingest of the same week when a state file exists; the minute stamp
-    keeps two same-day revisions apart on a stateless CI runner
-    (USAT-BAKE-SAMEDAY)."""
+def bake_id_fn(week: int, state: dict[str, Any], now: datetime | None = None) -> str:
+    """usatwk<week>_<UTC date>t<HHMM>_v<seq>; seq bumps only on re-ingest of the
+    same week (new fingerprint).
+
+    The UTC time is in the id because CI runners start with no local state, so
+    seq is always 1 there: with a date-only id a second revision saved on the
+    same day upserted over the first (bake_id is in the unique grain), and
+    probe-driven ingests can save twice a day (refresh-cadence, 2026-10-08)."""
+    now = now or datetime.now(timezone.utc)
     seq = 1
     if state.get("week") == week:
         seq = int(state.get("bake_seq", 0)) + 1
-    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dt%H%M")
-    return f"usatwk{week}_{stamp}_v{seq}"
+    return f"usatwk{week}_{now:%Y-%m-%d}t{now:%H%M}_v{seq}"
 
 
 def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
