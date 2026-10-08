@@ -79,6 +79,18 @@ reader can tell drafts apart from queued entries.
 <!-- New entries go below this line. The validator parses the file from
 top to bottom; do not insert narrative between entries. -->
 
+## source-resiliency-001: Any single source failure keeps that source's last section; the others publish
+- id: source-resiliency-001
+- created: 2026-10-08
+- category: publish
+- outcome: proceeded
+- outcome_date: 2026-10-08
+- recommendation: Extend per-source-promotion-001 from review holds to every single-source failure (failed import, match/reference/section/reindex/promote failure, malformed review, crashed stage script, ESPN or CBS ROS failure). The failed source's fixture is restored byte-for-byte to its pre-run state (and its DDF legs for espn/cbsros/razzball), it is recorded in `held` with `reason`/`stage`, and the page labels it with its own older week. A failed import no longer ends the workflow job. Still fail-closed: an unverifiable restore, every review-gated source held or failed, any shared-stage failure (re-translate, fit, _adjusted), and a red `make validate`.
+
+### Context
+
+Jeremy 2026-10-08: "have resiliency for when some of the sources fail". Pre-launch direction: block only on wrong numbers; staleness is a warning. Before this, only a review hold was isolated; a USA Today 402 (no snapshot), an L1 promote refusal or an ESPN leg crash failed the whole chain and nothing published. Session record: docs/claude-log/2026-10-08-source-resiliency.md.
+
 ## per-source-promotion-001: A held source keeps its last section; the others publish
 - id: per-source-promotion-001
 - created: 2026-10-07

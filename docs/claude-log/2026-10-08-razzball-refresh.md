@@ -122,3 +122,29 @@ verified nickname aliases; prove live-vs-section parity.
   reads the section, unchanged, and was not opened in a browser.
 - Achane / Reed / Dart are absent from Razzball's own pages (inferred from the
   scrape having no truncation code; the live page was not checked).
+
+### Update: merged origin/main fb9ebb2 (value-small 6-decimal per-game rates, K/DST games remaining, source-resiliency incl. 36a0e47)
+Verified (named checks):
+- players.json conflict resolved by re-baking, not by hand: origin/main's code
+  with the same read-only shim reproduces origin/main's committed players.json
+  exactly (613 rows identical; meta differs only in dataset_status.built_at).
+  The merged code with `--razzball-snapshot` (re-imported 2026-10-06 snapshot,
+  rows identical to the first import) changes only the rz_* / delta_rz_*
+  fields; rz_snapshot 2026-09-22 -> 2026-10-06, n_rz_complete 511 -> 499;
+  audit passed.
+- Legs rebuilt from that snapshot: values identical to the committed
+  `ddf-20261006-razzball-*` legs in all 12, so the committed legs were kept and
+  the section rebuilt from them equals the branch's section; every other
+  fixture source equals origin/main's.
+- execute_chain's razzball branch reduced to the dispatch line;
+  source-resiliency's generic block isolates it (FAILURE_ISOLATED_SOURCES,
+  LEG_FILES razzball). test_rebuild_chain_source_resiliency, _failclosed,
+  _per_source_hold, _workflow, _bake, test_razzball_refresh,
+  test_ppg_tie_parity, test_razzball_supabase, test_suffix_identity: OK.
+- Live-vs-section harness (razzball): max 0.0499 (full_14 TE).
+- `make sync`; `CHROMIUM_PATH=<system Chrome> make validate`: exit 0.
+- 12-combo sweep vs origin/main fb9ebb2: fixedPieIndexed, sourceScaleAgreement,
+  sourcePeaks, scaleAgreement identical in every combo; fixedPie moves only in
+  its razzball / razzball_vorp checks; getRows moves only the razzball /
+  razzball_vorp series and rz_ppg (514 -> 508 rows, as before).
+- Razzball served week for the week-history agent: vintage 2026-10-06 (Week 5).
