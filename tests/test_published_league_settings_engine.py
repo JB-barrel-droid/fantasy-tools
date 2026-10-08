@@ -324,7 +324,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         while expected_derived overlaid native_superflex, so every superflex
         setting failed once a rebuild carried publisher superflex values
         (CI run 37834647888). Feeding the 1-QB natives must still fail."""
-        fixture = json.loads(FIXTURE.read_text())
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
         pos_of = browser_players()
         carriers = [s for s in SOURCES
                     if fixture["sources"][s]["combos"][unified.resolve_combo_key(
