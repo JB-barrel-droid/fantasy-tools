@@ -6,7 +6,7 @@
         <a class="v2-tab is-active" href="v2/#player-values" data-view="values" aria-current="page">Player values</a>
         <a class="v2-tab" href="v2/#trade-targets" data-view="targets">Trade targets</a>
         <span class="v2-tab is-soon" aria-disabled="true" title="In build">Risers &amp; fallers</span>
-        <span class="v2-tab is-soon" aria-disabled="true" title="In build">Compare a trade</span>
+        <a class="v2-tab" href="v2/#compare-trade" data-view="compare">Compare a trade</a>
         <span class="v2-tab is-soon" aria-disabled="true" title="In build">How values work</span>
       </nav>
       <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
@@ -174,6 +174,62 @@
     </section>
 
     <p class="v2-footnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
+  <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
+    <div class="v2-title">
+      <h1 id="v2CompareTitle">Weigh a trade, source by source.</h1>
+      <p>Add what you give and what you get. Each row is one source's values: what you get minus what you give.</p>
+    </div>
+
+    <div class="v2-trade-sides">
+      <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
+        <h2 id="v2GiveTitle"><span aria-hidden="true">↑</span> You give</h2>
+        <label class="v2-search"><span class="v2-sr">Add a player you give</span>
+          <input type="search" id="v2GiveSearch" placeholder="Add a player…" autocomplete="off" aria-controls="v2GiveResults">
+        </label>
+        <ul class="v2-trade-results" id="v2GiveResults" hidden></ul>
+        <ul class="v2-trade-players" id="v2GivePlayers"></ul>
+      </section>
+      <section class="v2-card v2-trade-side" data-trade-side="receive" aria-labelledby="v2GetTitle">
+        <h2 id="v2GetTitle"><span aria-hidden="true">↓</span> You get</h2>
+        <label class="v2-search"><span class="v2-sr">Add a player you get</span>
+          <input type="search" id="v2GetSearch" placeholder="Add a player…" autocomplete="off" aria-controls="v2GetResults">
+        </label>
+        <ul class="v2-trade-results" id="v2GetResults" hidden></ul>
+        <ul class="v2-trade-players" id="v2GetPlayers"></ul>
+      </section>
+    </div>
+    <p class="v2-filter-note" id="v2CNote" hidden></p>
+
+    <section class="v2-card v2-table-card" aria-labelledby="v2CResultTitle">
+      <div class="v2-card-head">
+        <div>
+          <h2 id="v2CResultTitle">The trade by each source</h2>
+          <p class="v2-meta" id="v2CMeta">—</p>
+        </div>
+        <button type="button" class="v2-link" id="v2CClear">Clear trade</button>
+      </div>
+      <p class="v2-meta v2-t-empty" id="v2CEmpty">Add at least one player to each side.</p>
+      <div class="v2-table-wrap">
+        <table class="v2-table v2-ctable" id="v2CTable" hidden></table>
+      </div>
+    </section>
+
+    <section class="v2-card v2-table-card" id="v2CVorpCard" hidden aria-labelledby="v2CVorpTitle">
+      <div class="v2-card-head">
+        <div>
+          <h2 id="v2CVorpTitle">VORP vs waivers</h2>
+          <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other.</p>
+        </div>
+      </div>
+      <div class="v2-table-wrap">
+        <table class="v2-table v2-ctable" id="v2CVorpTable"></table>
+      </div>
+    </section>
+
+    <p class="v2-footnote">Each row uses one source only: the sum of what you get minus the sum of what you give, in that source's values for your league. Rows are never combined into one score, and there is no overall verdict: where the sources disagree, that is the trade target. If a player has no value in a source, that row shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 

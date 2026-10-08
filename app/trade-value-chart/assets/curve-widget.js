@@ -3126,6 +3126,9 @@
     // v2 front end (read-only): the ranked rows and source metadata the new
     // layout renders, straight from the same maps this chart draws.
     getRows: () => displayRows().map(row => ({...row, values: {...row.values}})),
+    // Every priced player at every position (Compare a trade), ignoring the
+    // position filter; the same value maps getRows reads.
+    getAllRows: () => universe.map(row => ({...row, values: {...row.values}})),
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),
     getReferenceWeek: () => activeReferenceWeek(),

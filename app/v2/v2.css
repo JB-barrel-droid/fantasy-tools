@@ -272,3 +272,38 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-table td.player { white-space: normal; min-width: 132px; }
   .v2-popover { left: 0 !important; top: 0 !important; width: 100vw; height: 100vh; max-height: none; border-radius: 0; }
 }
+
+/* Compare a trade (frames 07 / 08): two sides, then one row per source. */
+.v2-trade-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+.v2-trade-side { margin-top: 0; position: relative; }
+.v2-trade-side h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px !important; }
+.v2-trade-side .v2-search { display: block; max-width: none; }
+.v2-trade-results { list-style: none; margin: 4px 0 0; padding: 4px; position: absolute; left: 24px; right: 24px; z-index: 20; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); box-shadow: 0 8px 24px rgba(20, 43, 37, .12); }
+.v2-trade-results button { display: block; width: 100%; text-align: left; background: none; border: 0; border-radius: 6px; padding: 10px 12px; min-height: 44px; cursor: pointer; }
+.v2-trade-results button:hover, .v2-trade-results button:focus-visible { background: var(--v2-positive); }
+.v2-trade-results .is-empty { padding: 10px 12px; }
+.v2-trade-players { list-style: none; margin: 12px 0 0; padding: 0; }
+.v2-trade-players li { display: flex; justify-content: space-between; align-items: center; gap: 12px; border-top: 1px solid var(--v2-border); padding: 8px 0; }
+.v2-trade-players li b { display: block; }
+.v2-trade-players li.is-empty { display: block; padding: 12px 0; }
+.v2-ctable tr { cursor: default; }
+.v2-ctable td.player { white-space: normal; }
+.v2-ctable td.player .th-sub { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
+.v2-ctable td[data-col="net"] .missing .why { display: block; font-size: 11px; font-weight: 400; white-space: normal; max-width: 260px; margin-left: auto; }
+@media (max-width: 767px) {
+  .v2-trade-sides { grid-template-columns: 1fr; }
+  .v2-trade-results { left: 16px; right: 16px; }
+  /* Each source becomes a card: name on top, then give / get / net with their labels. */
+  .v2-ctable thead { display: none; }
+  .v2-ctable, .v2-ctable tbody { display: block; }
+  .v2-ctable tr { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1px solid var(--v2-border); padding: 10px 0; }
+  .v2-ctable td { border: 0; padding: 4px 0; white-space: normal; }
+  .v2-ctable td:nth-child(2) { position: static; box-shadow: none; background: transparent; }
+  .v2-ctable td.player { grid-column: 1 / -1; min-width: 0; }
+  .v2-ctable td.num { text-align: left; }
+  .v2-ctable td[data-label]::before { content: attr(data-label); display: block; font-size: 11px; font-weight: 500; color: var(--v2-muted); }
+  .v2-ctable tr.is-rank td { background: transparent; }
+  .v2-ctable td[data-col="net"] .missing .why { margin-left: 0; }
+}
+/* The ranking source keeps its tint, but the net's color comes from its sign, not the tint. */
+.v2-ctable tr.is-rank { color: var(--v2-ink); }

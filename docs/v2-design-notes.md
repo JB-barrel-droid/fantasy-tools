@@ -26,7 +26,9 @@ canvas on 2026-10-07.
 | 22 Review amendments: interactions & source logic | 61-1593 |
 | 24 Navigator, filters & trade detail states | 68-147 |
 
-Not yet mapped: 05/06 Risers & fallers, 07/08 Compare a trade,
+Not yet mapped: 05/06 Risers & fallers, 07/08 Compare a trade (built 2026-10-08 from the frame 22
+rule and frame 17 language: figma.com is blocked by the cloud session's network policy, so the frame
+itself was not opened),
 14 Player detail mobile, 16 How values work mobile, 20 Source selection mobile, 21 Chart options,
 23 Benchmark decisions.
 
@@ -102,3 +104,24 @@ pair per column, not a spread across sources:
   across tabs.
 - Fails closed if the picked series is unavailable, or if the engine is not in its Indexed view (where the
   published series would be in a different unit).
+
+## Compare a trade tab (frames 07 / 08)
+
+Built as **Compare a trade** (`v2/#compare-trade`) on 2026-10-08. Frames 07/08 could not be opened
+from the cloud session (figma.com is blocked by its network policy), so the layout follows the frame 22
+trade-story rule and the frame 17 design language; re-check against the frames when they are mapped.
+
+- Two cards, "You give" and "You get", each with a player search (all positions, from the engine's
+  new read-only `TradeValueCurveControls.getAllRows()`, which ignores the position filter). Search
+  results are ordered by the ranking series' value. A player can be on one side only.
+- "The trade by each source": one row per selected, available series (ranking series first, then
+  DDA, then Indexed). Columns: You give (sum), You get (sum), Get − give. Arithmetic is in
+  `app/v2/trade.js`, the tab's only arithmetic: `net = sum(receive) − sum(give)` per series.
+- No blended score, no overall verdict. Each net carries a label and a symbol for that source only:
+  "▲ you get more by this source", "▼ you give more by this source", "= even by this source".
+- A player with no value in a series: that row shows — in all three cells plus "No <source> value for
+  <player>", never a 0. A real 0 (at the series' waiver line) counts as 0.
+- VORP vs waivers series get their own card and table, never mixed into the trade-value table.
+- The Methods row (source selection) is shown on this tab; the selection is shared across tabs. The
+  sides are v2 module state, so they survive switching tabs (no storage, like the other v2 state).
+- Below 768 px each source row stacks as a card: source name, then give / get / net with labels.

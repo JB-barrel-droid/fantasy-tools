@@ -32,6 +32,7 @@ class BuildV2PageTest(unittest.TestCase):
         self.assertGreater(html.index('<script src="v2/v2.js"'), html.index('comparison-dashboard.js'))
         # The trade-targets helpers load before the view that uses them.
         self.assertGreater(html.index('<script src="v2/v2.js"'), html.index('<script src="v2/targets.js"'))
+        self.assertGreater(html.index('<script src="v2/v2.js"'), html.index('<script src="v2/trade.js"'))
 
     def test_missing_engine_script_fails_closed(self):
         broken = INDEX.replace('<script src="assets/value-model.js?v=x" defer></script>', "")
