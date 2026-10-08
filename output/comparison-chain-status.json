@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-08T08:39:24.702394+00:00",
+  "run_at": "2026-10-08T08:49:30.055225+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,8 +10,10 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
   "outcome": "green",
   "held": [],
   "hold_severity": "none",
@@ -62,7 +64,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-02 -> 12 DDF legs -> section; review passed (4188 values)",
+      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (4200 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -115,10 +117,10 @@
       "lagging_one_week": true
     },
     "cbsros": {
-      "content_vintage": "2026-10-02",
-      "content_week": 4,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "2026-10-08",
+      "content_week": 5,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "razzball": {
       "content_vintage": "2026-10-07",
@@ -126,5 +128,20 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_static_export.StaticExportTest.test_known_full_ppr_12_team_source_values"
+    ],
+    "assertions": [
+      "AssertionError: 20.3 != 23.5 : pinned value for ('cbsros', 'full_12') (josh allen)"
+    ],
+    "make_targets": [
+      "Makefile:352: test-core"
+    ],
+    "detail": "FAIL tests.test_static_export.StaticExportTest.test_known_full_ppr_12_team_source_values; AssertionError: 20.3 != 23.5 : pinned value for ('cbsros', 'full_12') (josh allen)",
+    "recorded_at": "2026-10-08T08:49:32.749022+00:00"
   }
 }
