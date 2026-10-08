@@ -91,7 +91,7 @@
   // comparison column (no leave-one-out). It is a derived series: it lives
   // on the rows (values.ddf_value, ddfCount, ddfSources, ddfTier), never in
   // sourceMaps, so no guard, pie, spread or existing series reads it.
-  const DDF_VALUE_KEY = "ddf_value";
+  const COMPOSITE_KEY = "ddf_value";
   const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball",
     "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const EXTRA_SOURCE_KEYS = [];
@@ -963,7 +963,7 @@
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
-  const isLockKey = key => ["disagreement", DDF_VALUE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
+  const isLockKey = key => ["disagreement", COMPOSITE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
   const sourceValidationStatus = key => {
     // JEG-363: source validation lives on api.product_snapshot.source_validation.
@@ -2082,7 +2082,7 @@
     return null;
   }
 
-  // ---- DDF Composite Value (see DDF_VALUE_KEY) ----
+  // ---- DDF Composite Value (see COMPOSITE_KEY) ----
   // null = the defaults (every usable current-week input, re-evaluated at each
   // setting); otherwise the reader's chosen inputs (setCompositeInputs), kept
   // across league changes. A chosen input that is unusable at a setting is
@@ -2132,7 +2132,7 @@
     compositeMap = new Map();
     rows.forEach(row => {
       const blend = ValueModel.compositeValue(row.values, keys);
-      row.values[DDF_VALUE_KEY] = blend.value;
+      row.values[COMPOSITE_KEY] = blend.value;
       row.ddfCount = blend.count;
       row.ddfSources = blend.used;
       if (blend.value !== null) compositeMap.set(row.player_key, blend.value);
@@ -2140,7 +2140,7 @@
     ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
       teams, shape: rosterShape});
     rows.forEach(row => {
-      row.ddfTier = row.values[DDF_VALUE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
+      row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
     });
   }
   // getSourceInfo({includeComposite: true}) entry. week: the newest week
@@ -2150,8 +2150,8 @@
     const inputs = compositeInputKeys();
     const weeks = inputs.map(weekForSource).filter(Number.isFinite);
     return {
-      key: DDF_VALUE_KEY,
-      label: sourceLabel(DDF_VALUE_KEY),
+      key: COMPOSITE_KEY,
+      label: sourceLabel(COMPOSITE_KEY),
       longLabel: "DDF Composite Value",
       composite: true,
       inputs,
@@ -2167,7 +2167,7 @@
       waiver: null
     };
   }
-  const lockSourceAvailable = key => key === DDF_VALUE_KEY ? compositeAvailable()
+  const lockSourceAvailable = key => key === COMPOSITE_KEY ? compositeAvailable()
     : sourceAvailable(key) && !isAdjustedCurvePaused(key);
   // A copy of an engine row for the read-only accessors.
   const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])]});
@@ -2265,7 +2265,7 @@
   }
 
   function selectedRankSourceKey() {
-    if (lockOrder === DDF_VALUE_KEY && compositeAvailable()) return DDF_VALUE_KEY;
+    if (lockOrder === COMPOSITE_KEY && compositeAvailable()) return COMPOSITE_KEY;
     if (visibleSourceKeys().includes(lockOrder) && sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder)) return lockOrder;
     if (!isAdjustedCurvePaused("fantasycalc_adjusted") && sourceAvailable("fantasycalc_adjusted")) return "fantasycalc_adjusted";
     if (sourceAvailable("espn")) return "espn";
@@ -3369,7 +3369,7 @@
     if (!select) return;
     const options = [
       ["disagreement", "Largest disagreement"],
-      ...(compositeAvailable() ? [[DDF_VALUE_KEY, sourceLabel(DDF_VALUE_KEY)]] : []),
+      ...(compositeAvailable() ? [[COMPOSITE_KEY, sourceLabel(COMPOSITE_KEY)]] : []),
       ...visibleSourceKeys().filter(sourceAvailable).map(key => [key, sourceLabel(key)])
     ];
     select.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
@@ -3383,7 +3383,7 @@
     if (select) select.value = lockOrder;
     const note = $("#curveLockNote");
     if (!note) return;
-    note.textContent = [DDF_VALUE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
+    note.textContent = [COMPOSITE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
       ? `Every curve uses the ${sourceLabel(lockOrder)} player order, so each x-position is the same player across all visible lines.`
       : lockOrder === "disagreement"
         ? `Every curve shares one player axis; cutoff lines use ${sourceLabel(selectedRankSourceKey())} as the roster-rank reference.`
@@ -3870,7 +3870,7 @@
   // (players the saved week does not price are absent), setting, origin,
   // fingerprint, method}.
   async function getWeekValues(source, week) {
-    if (source === DDF_VALUE_KEY) return compositeWeekValues(week);
+    if (source === COMPOSITE_KEY) return compositeWeekValues(week);
     week = Number(week);
     if (!Number.isInteger(week)) return historyUnavailable(source, week, "no week given");
     const base = historyBaseSource(source);
@@ -3927,7 +3927,7 @@
   // The served week comes from the history index, which matches the served
   // inputs to a saved week by content fingerprint, not by the section label.
   async function getPriorWeek(source, week) {
-    if (source === DDF_VALUE_KEY) return compositePriorWeek(week);
+    if (source === COMPOSITE_KEY) return compositePriorWeek(week);
     let index;
     try {
       index = await historyIndex();
@@ -3953,7 +3953,7 @@
   // Read-only: which saved weeks exist for a series, and the week served now.
   // Lets a page offer week pairs (N−1 → N) without reading the history files itself.
   async function getHistoryWeeks(source) {
-    if (source === DDF_VALUE_KEY) return compositeHistoryWeeks();
+    if (source === COMPOSITE_KEY) return compositeHistoryWeeks();
     let index;
     try {
       index = await historyIndex();
@@ -3989,16 +3989,16 @@
   async function compositeWeekValues(week) {
     const inputs = compositeInputKeys();
     week = Number(week);
-    if (!Number.isInteger(week)) return historyUnavailable(DDF_VALUE_KEY, week, "no week given", {inputs});
-    if (!inputs.length) return historyUnavailable(DDF_VALUE_KEY, week, "no DDF Value input is available at this setting", {inputs});
+    if (!Number.isInteger(week)) return historyUnavailable(COMPOSITE_KEY, week, "no week given", {inputs});
+    if (!inputs.length) return historyUnavailable(COMPOSITE_KEY, week, "no DDF Value input is available at this setting", {inputs});
     const results = await Promise.all(inputs.map(key => getWeekValues(key, week)));
     const included = results.filter(result => result.available);
     const dropped = results.filter(result => !result.available).map(result => ({source: result.source, reason: result.reason}));
     if (!included.length) {
-      return historyUnavailable(DDF_VALUE_KEY, week, `no DDF Value input has Week ${week} saved`, {inputs, sources: [], dropped});
+      return historyUnavailable(COMPOSITE_KEY, week, `no DDF Value input has Week ${week} saved`, {inputs, sources: [], dropped});
     }
     const blend = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
-    return {source: DDF_VALUE_KEY, week, available: true, values: blend.values, counts: blend.counts,
+    return {source: COMPOSITE_KEY, week, available: true, values: blend.values, counts: blend.counts,
       inputs, sources: included.map(result => result.source), dropped, setting: historySetting(),
       method: COMPOSITE_HISTORY_METHOD};
   }
@@ -4013,25 +4013,25 @@
   async function compositePriorWeek(week) {
     const inputs = compositeInputKeys();
     const asked = week === undefined || week === null ? null : Number(week);
-    if (!inputs.length) return historyUnavailable(DDF_VALUE_KEY, asked, "no DDF Value input is available at this setting", {inputs});
+    if (!inputs.length) return historyUnavailable(COMPOSITE_KEY, asked, "no DDF Value input is available at this setting", {inputs});
     const results = await Promise.all(inputs.map(key => getPriorWeek(key)));
     const servedWeeks = results.map(result => result.currentWeek).filter(Number.isInteger);
     if (!servedWeeks.length) {
-      return historyUnavailable(DDF_VALUE_KEY, asked, "no DDF Value input matches a saved week", {inputs, sources: [],
+      return historyUnavailable(COMPOSITE_KEY, asked, "no DDF Value input matches a saved week", {inputs, sources: [],
         dropped: results.map(result => ({source: result.source, reason: result.reason}))});
     }
     const currentWeek = Math.max(...servedWeeks);
     const priorWeek = currentWeek - 1;
     const extra = {inputs, currentWeek, priorWeek};
     if (asked !== null && asked !== priorWeek) {
-      return historyUnavailable(DDF_VALUE_KEY, asked, `Week ${week} is not the week before the served Week ${currentWeek}`, extra);
+      return historyUnavailable(COMPOSITE_KEY, asked, `Week ${week} is not the week before the served Week ${currentWeek}`, extra);
     }
     const isIncluded = result => result.available && result.currentWeek === currentWeek;
     const included = results.filter(isIncluded);
     const dropped = results.filter(result => !isIncluded(result)).map(result => ({source: result.source,
       reason: result.available ? `serves Week ${result.currentWeek}, not Week ${currentWeek}` : result.reason}));
     if (!included.length) {
-      return historyUnavailable(DDF_VALUE_KEY, priorWeek, `no DDF Value input has Week ${priorWeek}`, {...extra, sources: [], dropped});
+      return historyUnavailable(COMPOSITE_KEY, priorWeek, `no DDF Value input has Week ${priorWeek}`, {...extra, sources: [], dropped});
     }
     const sources = included.map(result => result.source);
     const prior = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
@@ -4042,7 +4042,7 @@
       currentValues[row.player_key] = blend.value;
       currentCounts[row.player_key] = blend.count;
     });
-    return {source: DDF_VALUE_KEY, week: priorWeek, available: true, values: prior.values, counts: prior.counts,
+    return {source: COMPOSITE_KEY, week: priorWeek, available: true, values: prior.values, counts: prior.counts,
       currentValues, currentCounts, sources, dropped, ...extra, setting: historySetting(), method: COMPOSITE_HISTORY_METHOD};
   }
   // Saved weeks any current input has, and the newest served week among them.
@@ -4051,7 +4051,7 @@
     const results = await Promise.all(inputs.map(key => getHistoryWeeks(historyBaseSource(key))));
     const served = results.map(result => result.servedWeek).filter(Number.isInteger);
     const weeks = [...new Set(results.flatMap(result => result.weeks))].sort((a, b) => a - b);
-    return {source: DDF_VALUE_KEY, servedWeek: served.length ? Math.max(...served) : null, weeks, inputs};
+    return {source: COMPOSITE_KEY, servedWeek: served.length ? Math.max(...served) : null, weeks, inputs};
   }
 
   // Math inspector (internal page, read-only). Every input and intermediate
@@ -4165,7 +4165,7 @@
         team: row.team,
         pos: row.pos,
         espnRole: row.espnRole,
-        values: Object.fromEntries([...visibleSourceKeys(), DDF_VALUE_KEY].map(key => [key, row.values[key] ?? null]))
+        values: Object.fromEntries([...visibleSourceKeys(), COMPOSITE_KEY].map(key => [key, row.values[key] ?? null]))
       }));
     },
     // v2 front end (read-only): the ranked rows and source metadata the new
@@ -4359,7 +4359,7 @@
     // JEG-471: ranked by DDF Value, a position's zones are its DDF tiers
     // (cut at the league's slot counts by DDF Value), so the boundaries and
     // row.ddfTier always agree.
-    if (selectedRankSourceKey() === DDF_VALUE_KEY) {
+    if (selectedRankSourceKey() === COMPOSITE_KEY) {
       const rows = universe.filter(isPosition);
       const starter = rows.filter(row => row.ddfTier === "starter").length;
       return {starter, bench: starter + rows.filter(row => row.ddfTier === "bench").length};
