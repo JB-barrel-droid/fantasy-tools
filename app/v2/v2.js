@@ -1230,14 +1230,260 @@
     $("v2TShowMore").addEventListener("click", () => { T.shown += TARGETS_PAGE; renderTargets(); });
   }
 
+  // ---------- Compare a trade (frames 07 / 08) ----------
+  // Each row is one exact series: sum(receive) − sum(give) in that series'
+  // values (app/v2/trade.js). No blended score, no overall verdict (frame 22).
+  // The sides are v2 module state, so they survive switching tabs.
+  const TR = {give: [], receive: []};   // [{key, name}]
+  let compareView = null;
+  const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers"},
+    receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers"}};
+
+  function collectCompare() {
+    const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
+    // A player the engine no longer has a row for stays listed, missing in every series.
+    const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
+    const giveRows = resolve(TR.give);
+    const receiveRows = resolve(TR.receive);
+    const ready = giveRows.length > 0 && receiveRows.length > 0;
+    const usable = keys => keys.filter(key => view.infoByKey[key]?.available);
+    const pointKeys = usable(view.plotKeys);
+    const vorpKeys = usable(view.vorpKeys);
+    const unavailable = view.active.filter(key => !view.infoByKey[key]?.available);
+    const TC = window.TradeValueTrade;
+    compareView = {rowsByKey, giveRows, receiveRows, ready, pointKeys, vorpKeys, unavailable,
+      points: ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [],
+      vorp: ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : []};
+  }
+
+  function sourceCell(td, key) {
+    const meta = sourceMeta(key);
+    const item = view.infoByKey[key];
+    const sym = document.createElement("span");
+    sym.className = "v2-sym";
+    sym.style.color = meta.color;
+    sym.setAttribute("aria-hidden", "true");
+    sym.textContent = `${meta.symbol} `;
+    td.appendChild(sym);
+    td.append(document.createTextNode(`${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]}`));
+    const sub = document.createElement("span");
+    sub.className = "th-sub";
+    sub.textContent = item?.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "week unknown";
+    td.appendChild(sub);
+  }
+
+  function netLabel(net) {
+    const text = fmtGap(net);
+    if (text === "0.0") return {text, cls: "", label: "= even by this source"};
+    return net > 0 ? {text, cls: "up", label: "▲ you get more by this source"}
+      : {text, cls: "down", label: "▼ you give more by this source"};
+  }
+
+  function renderCompareTable(table, keys, rows) {
+    table.replaceChildren();
+    const thead = document.createElement("thead");
+    const hr = document.createElement("tr");
+    [["Source", "player"], ["You give", "num"], ["You get", "num"], ["Get − give", "num"]].forEach(([text, cls]) => {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.className = cls;
+      th.textContent = text;
+      hr.appendChild(th);
+    });
+    thead.appendChild(hr);
+    const tbody = document.createElement("tbody");
+    rows.forEach(result => {
+      const tr = document.createElement("tr");
+      tr.dataset.source = result.key;
+      if (result.key === view.rankKey) tr.className = "is-rank";
+      const source = document.createElement("td");
+      source.className = "player";
+      sourceCell(source, result.key);
+      tr.appendChild(source);
+      const cell = (label, name) => {
+        const td = document.createElement("td");
+        td.className = "num";
+        td.dataset.label = label;
+        td.dataset.col = name;
+        tr.appendChild(td);
+        return td;
+      };
+      const give = cell("You give", "give");
+      const get = cell("You get", "receive");
+      const net = cell("Get − give", "net");
+      if (result.net === null) {
+        const names = result.missing.map(m => m.row.name || "a player");
+        const meta = sourceMeta(result.key);
+        const reason = `No ${PUBLISHER_NAMES[meta.publisher] || meta.label} · ${METHOD_LABEL[meta.method]} value for ${names.join(", ")}`;
+        [give, get].forEach(td => {
+          const dash = document.createElement("span");
+          dash.className = "missing";
+          dash.title = reason;
+          dash.textContent = "—";
+          td.appendChild(dash);
+        });
+        net.appendChild(missingNode(reason));
+      } else {
+        give.textContent = fmt(result.give);
+        get.textContent = fmt(result.receive);
+        const n = netLabel(result.net);
+        net.append(document.createTextNode(n.text));
+        const why = document.createElement("span");
+        why.className = `delta ${n.cls}`;
+        why.textContent = n.label;
+        net.appendChild(why);
+      }
+      tbody.appendChild(tr);
+    });
+    table.append(thead, tbody);
+  }
+
+  function renderSidePlayers(side) {
+    const list = $(SIDE_IDS[side].list);
+    list.replaceChildren();
+    const rows = side === "give" ? compareView.giveRows : compareView.receiveRows;
+    rows.forEach(row => {
+      const li = document.createElement("li");
+      li.dataset.playerKey = String(row.player_key);
+      const who = document.createElement("div");
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      appendEspnZero(name, row);
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = row.unpriced ? "No value in any source for this league"
+        : `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
+      who.append(name, sub);
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "v2-link";
+      remove.textContent = "Remove ✕";
+      remove.setAttribute("aria-label", `Remove ${row.name}`);
+      remove.addEventListener("click", () => {
+        TR[side] = TR[side].filter(p => p.key !== String(row.player_key));
+        renderCompare();
+        $(SIDE_IDS[side].search).focus();
+      });
+      li.append(who, remove);
+      list.appendChild(li);
+    });
+    if (!rows.length) {
+      const li = document.createElement("li");
+      li.className = "v2-meta is-empty";
+      li.textContent = "No players yet.";
+      list.appendChild(li);
+    }
+  }
+
+  function searchMatches(needle) {
+    const chosen = new Set(TR.give.concat(TR.receive).map(p => p.key));
+    const rankKey = view.rankKey;
+    const value = row => (Number.isFinite(row.values[rankKey]) ? row.values[rankKey] : -Infinity);
+    return [...compareView.rowsByKey.values()]
+      .filter(row => !chosen.has(String(row.player_key)) && String(row.name || "").toLowerCase().includes(needle))
+      .sort((a, b) => value(b) - value(a) || String(a.name).localeCompare(String(b.name)))
+      .slice(0, 8);
+  }
+
+  function addToSide(side, row) {
+    TR[side] = TR[side].concat({key: String(row.player_key), name: row.name});
+    const input = $(SIDE_IDS[side].search);
+    input.value = "";
+    $(SIDE_IDS[side].results).hidden = true;
+    renderCompare();
+    input.focus();
+  }
+
+  function renderSearch(side) {
+    const input = $(SIDE_IDS[side].search);
+    const results = $(SIDE_IDS[side].results);
+    const needle = input.value.trim().toLowerCase();
+    results.replaceChildren();
+    if (!needle || !compareView) { results.hidden = true; return []; }
+    const matches = searchMatches(needle);
+    matches.forEach(row => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.playerKey = String(row.player_key);
+      const name = document.createElement("b");
+      name.textContent = row.name;
+      const sub = document.createElement("span");
+      sub.className = "v2-meta";
+      sub.textContent = ` ${row.pos} · ${row.team || "FA"}`;
+      button.append(name, sub);
+      button.addEventListener("click", () => addToSide(side, row));
+      li.appendChild(button);
+      results.appendChild(li);
+    });
+    if (!matches.length) {
+      const li = document.createElement("li");
+      li.className = "v2-meta is-empty";
+      li.textContent = "No player matches.";
+      results.appendChild(li);
+    }
+    results.hidden = false;
+    return matches;
+  }
+
+  function renderCompare() {
+    collect();
+    collectCompare();
+    renderHeader();
+    renderSidePlayers("give");
+    renderSidePlayers("receive");
+    const ready = compareView.ready;
+    $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
+    $("v2CEmpty").textContent = !ready ? "Add at least one player to each side."
+      : "No trade-value source is selected. Use Edit sources to pick one.";
+    const table = $("v2CTable");
+    table.hidden = !ready || !compareView.pointKeys.length;
+    renderCompareTable(table, compareView.pointKeys, compareView.points);
+    $("v2CVorpCard").hidden = !ready || !compareView.vorpKeys.length;
+    renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp);
+    const notes = [];
+    if (compareView.unavailable.length) {
+      notes.push(`Not compared: ${compareView.unavailable.map(key => sourceMeta(key).short).join(", ")}, not available for this league.`);
+    }
+    const note = $("v2CNote");
+    note.hidden = !notes.length;
+    note.textContent = notes.join(" ");
+    const count = compareView.giveRows.length + compareView.receiveRows.length;
+    $("v2CMeta").textContent = ready
+      ? `${count} player${count === 1 ? "" : "s"} · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · `
+        + "each row is that source's values only. Positive means you get more value than you give by that source."
+      : "Pick the players on both sides to see each source's numbers.";
+    $("v2CClear").hidden = !count;
+  }
+
+  function bindCompare() {
+    ["give", "receive"].forEach(side => {
+      const input = $(SIDE_IDS[side].search);
+      input.addEventListener("input", () => renderSearch(side));
+      input.addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          const first = renderSearch(side)[0];
+          if (first) addToSide(side, first);
+        } else if (event.key === "Escape") {
+          $(SIDE_IDS[side].results).hidden = true;
+        }
+      });
+    });
+    $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; renderCompare(); });
+  }
+
   // ---------- routing ----------
-  const currentView = () => (location.hash === "#trade-targets" ? "targets" : "values");
+  const currentView = () => (location.hash === "#trade-targets" ? "targets"
+    : location.hash === "#compare-trade" ? "compare" : "values");
 
   function applyRoute() {
     const v = currentView();
     $("v2Main").hidden = v !== "values";
     $("v2Targets").hidden = v !== "targets";
-    $("v2Methods").hidden = v !== "values";
+    $("v2Compare").hidden = v !== "compare";
+    // The source selection applies on Compare a trade too; Trade targets has its own pickers.
+    $("v2Methods").hidden = v === "targets";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -1260,6 +1506,7 @@
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
   function refresh() {
     if (currentView() === "targets") renderTargets();
+    else if (currentView() === "compare") renderCompare();
     else refreshValues();
   }
 
@@ -1333,6 +1580,7 @@
     });
     window.addEventListener("hashchange", applyRoute);
     bindTargets();
+    bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
   }
 
@@ -1348,7 +1596,8 @@
     bind();
     applyRoute();
     setStatus("");
-    window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T};
+    window.TradeValueV2 = {state, view: () => view, targets: () => targetsView, targetState: T,
+      compare: () => compareView, tradeState: TR};
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

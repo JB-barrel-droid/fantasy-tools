@@ -46,6 +46,7 @@ def build_v2_html(index_html: str, shell_html: str) -> str:
     last_at = html.index(LAST_ENGINE_SCRIPT)
     line_end = html.index("</script>", last_at) + len("</script>")
     v2_scripts = ('\n  <script src="v2/targets.js" defer></script>'
+                  '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
     return html
@@ -57,7 +58,7 @@ def build(dist: Path = DIST) -> Path:
     out_dir = dist / "v2"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "index.html").write_text(build_v2_html(index_html, shell_html), encoding="utf-8")
-    for name in ("v2.css", "targets.js", "v2.js"):
+    for name in ("v2.css", "targets.js", "trade.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 
