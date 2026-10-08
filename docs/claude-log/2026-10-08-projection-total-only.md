@@ -79,8 +79,8 @@ step-up. Branch `fix/projection-total-only`, not merged.
   share would be 30.0% at 0.165, 28.1% at 0.18 and 19.7% at 0.25. So landing
   on the edge adds a little. Most of the high start comes from the pool: a big
   QB pie relative to RB, plus one clear outlier. The pool changed for 348
-  players between the two builds. The QB tier is less flat now (QB2-QB9
-  23.5-22.4, was 22.9-22.3), so 0.15 is feasible. Logged as GAP-STEPUP-EDGE-PB0
+  players between the two builds. The QB tier is less flat now (QB2-QB8
+  23.5-22.4, was 22.9-22.5), so 0.15 is feasible. Logged as GAP-STEPUP-EDGE-PB0
   (dormant). I did not change it: it is the JEG-74 "nearest feasible share"
   rule, shared with the Python leg builders, and today it changes no value.
 - **No server-side normaliser needed a mirror.** A grep for
