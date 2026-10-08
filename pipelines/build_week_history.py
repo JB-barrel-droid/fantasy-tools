@@ -236,7 +236,12 @@ def published_entries_from_rows(rows: list[dict]) -> list[dict]:
     is one bake's latest pull (every immutable revision the ingests saved);
     which one is the week's snapshot is merge()'s job (select rule)."""
     groups: dict = {}
-    rows = [r for r in rows if r.get("source") in PUBLISHED and r.get("week") is not None]
+    # 12 teams, 1 QB only: superflex / 2-QB rows share a bake (FantasyCalc
+    # saves both since feat/superflex-publisher-values) and must never mix
+    # into the 1-QB natives the engine derives the chart from.
+    rows = [r for r in rows if r.get("source") in PUBLISHED and r.get("week") is not None
+            and int(r.get("qb_slots") or 1) == 1 and int(r.get("league_teams") or 12) == 12
+            and (r.get("variant") or "as_published") == "as_published"]
     for row in _latest_pull_per_bake(rows):
         source = row["source"]
         if int(row.get("season") or SEASON) != SEASON:
@@ -362,7 +367,7 @@ def fetch_supabase() -> tuple[list[dict], list[dict]]:
     # Every saved version (HISTORY-WEEK-CAPTURE): the ingests write each
     # revision as an immutable bake, so reading the base tables (not the
     # latest-pull view) recovers a version replaced between two chain runs.
-    cols = "source,season,week,scoring,player_key,native_value,source_content_date,pulled_at,bake_id"
+    cols = "source,season,week,scoring,player_key,native_value,source_content_date,pulled_at,bake_id,qb_slots,league_teams,variant"
     grain = f"&season=eq.{SEASON}&league_teams=eq.12&qb_slots=eq.1&variant=eq.as_published"
 
     def published_rows(table, source_filter):
@@ -707,6 +712,14 @@ def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_wee
         else:
             rec["week"] = matches[-1] if matches else other[-1]
             rec["version"] = "snapshot" if matches else "superseded"
+            if not matches:
+                # The page serves another kept version of that week (e.g. a
+                # FantasyCalc pull newer than the week's Tuesday cut). Name it
+                # so `make sync` can serve it (assets/history/served.json) and
+                # "this week" is exactly what the chart shows.
+                rec["entry_fingerprint"] = next(
+                    v["fingerprint"] for v in superseded[rec["week"]]["versions"][source]
+                    if entry_fp(v, source) == fp)
             if label is not None and label != rec["week"]:
                 rec["label_mismatch"] = (f"section label says Week {label}; the served inputs are "
                                          f"the saved Week {rec['week']} content")
@@ -722,6 +735,26 @@ def build_index(docs: dict[int, dict], fixture: dict, players: dict, content_wee
                         for s, e in sorted(doc["sources"].items())}}
     return {"schema": INDEX_SCHEMA, "season": SEASON, "content_week": content_week,
             "fixture_built_at": fixture.get("built_at"), "weeks": weeks, "served": served}
+
+
+SERVED_SCHEMA = "week-history-served/1"
+
+
+def write_served_versions(index: dict, superseded: dict[int, dict], target: Path) -> dict:
+    """assets/history/served.json: {source: entry} for every source whose
+    served inputs are a superseded version of their week (index
+    served.version == "superseded"). Derived at `make sync`, not stored."""
+    out = {}
+    for source, rec in (index.get("served") or {}).items():
+        if rec.get("version") != "superseded":
+            continue
+        versions = ((superseded.get(rec["week"]) or {}).get("versions") or {}).get(source, [])
+        entry = next((v for v in versions if v.get("fingerprint") == rec.get("entry_fingerprint")), None)
+        if entry is not None:
+            out[source] = entry
+    doc = {"schema": SERVED_SCHEMA, "season": SEASON, "sources": out}
+    target.write_text(json.dumps(doc, sort_keys=True, separators=(",", ":")) + "\n")
+    return doc
 
 
 def write_index(index: dict, directory: Path = HISTORY_DIR) -> None:

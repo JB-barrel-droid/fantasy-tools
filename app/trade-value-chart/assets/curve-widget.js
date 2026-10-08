@@ -3445,6 +3445,16 @@
     }
     return historyEspnLegsPromise;
   }
+  let historyServedPromise = null;
+  function historyServedVersions() {
+    if (!historyServedPromise) {
+      historyServedPromise = fetchHistoryJson("assets/history/served.json").catch(error => {
+        historyServedPromise = null;
+        throw error;
+      });
+    }
+    return historyServedPromise;
+  }
   function historyWeekDoc(index, week) {
     const file = index?.weeks?.[String(week)]?.file;
     if (!file) return Promise.resolve(null);
@@ -3614,7 +3624,23 @@
     } catch (error) {
       return historyUnavailable(source, week, `history could not be read: ${error.message}`);
     }
-    const entry = doc?.sources?.[base];
+    // The served week may be served from another kept version than the
+    // week's snapshot (index served.version "superseded", e.g. a FantasyCalc
+    // pull after the Tuesday cut): then "this week" is exactly that version.
+    let entry = doc?.sources?.[base];
+    const servedRec = index?.served?.[base];
+    if (servedRec?.week === week && servedRec?.version === "superseded") {
+      try {
+        const served = await historyServedVersions();
+        const version = served?.sources?.[base];
+        if (!version || version.fingerprint !== servedRec.entry_fingerprint) {
+          return historyUnavailable(source, week, `the served ${sourceLabel(base)} version is not saved`);
+        }
+        entry = version;
+      } catch (error) {
+        return historyUnavailable(source, week, `history could not be read: ${error.message}`);
+      }
+    }
     if (!entry) return historyUnavailable(source, week, `no Week ${week} ${sourceLabel(base)} content saved`);
     if (entry.week !== week) return historyUnavailable(source, week, `saved entry is labelled week ${entry.week}`);
     if (AS_PUBLISHED_KEYS.has(base) && viewMode !== "indexed") {
