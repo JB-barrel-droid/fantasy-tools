@@ -34,10 +34,11 @@ Signals per source (measured 2026-10-08, docs/claude-log/2026-10-08-refresh-cade
     usatoday     monthly web sitemap (gannett-cdn, ETag + Last-Modified) ->
                  the week's article URL and its <lastmod>; the article page is
                  never fetched (it 402s plain clients from CI)
-    fantasypros  no ETag/Last-Modified -> the week's article URL, its JSON-LD
-                 dateModified and a hash of its tables
-    cbs          sportsfly article: strong-enough ETag (conditional GET -> 304),
-                 JSON-LD dateModified -> URL + dateModified + tables hash
+    fantasypros  no ETag/Last-Modified -> the article the ingest's own
+                 discover_url finds, its JSON-LD dateModified and a tables hash
+    cbs          as FantasyPros, on www.cbssports.com (the sportsfly mirror's
+                 ETag answers 304, but it is a 60-day CDN that served a stale
+                 revision); the ETag is recorded, not hashed
     espn         JSON API (projection blocks only) -> hash of
                  (player id, period, appliedTotal) for the weekly projection
                  blocks the puller sums (4 requests)
@@ -416,57 +417,95 @@ def probe_usatoday(fetch: Fetch, week: int, today: date | None = None) -> dict[s
     raise ProbeError(f"usatoday: no week {week} or {week - 1} article in the sitemaps")
 
 
-FP_SLUG = "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-%d-2026/"
+# Article discovery is the ingest's own (ops/watchdog/pull_fantasypros.py and
+# pull_cbs.py discover_url): the slugs change from week to week (CBS Week 5 is
+# ".../dave-richards-2026-week-5-trade-chart/", Week 4 was
+# ".../dave-richards-week-4-trade-chart-and-rest-of-season-..."), so a probe
+# guessing slugs would keep fingerprinting last week's article while the new
+# one is up. Sharing the function means the probe and the ingest always look at
+# the same article.
+WATCHDOG = ROOT / "ops" / "watchdog"
+WEEK_RE = re.compile(r"\bweek\s+(\d+)\b", re.I)
+
+
+class _DiscoveryFetch:
+    """(status, body) adapter for the watchdog discover_url(fetch_fn=...) API,
+    remembering each response so the discovered page is not fetched twice."""
+
+    def __init__(self, fetch: "Fetch", headers: dict[str, str] | None = None):
+        self.fetch, self.headers, self.seen = fetch, headers or {}, {}
+
+    def __call__(self, url: str) -> tuple[int | None, str]:
+        if url not in self.seen:
+            self.seen[url] = self.fetch(url, self.headers)
+        r = self.seen[url]
+        return r.status, r.body
+
+    def resp(self, url: str) -> "Resp":
+        self(url)
+        return self.seen[url]
+
+
+def _watchdog_module(name: str):
+    if str(WATCHDOG) not in sys.path:
+        sys.path.insert(0, str(WATCHDOG))
+    import importlib
+    return importlib.import_module(name)
+
+
+def _article_probe(source: str, module: str, fetch: "Fetch", week: int,
+                   discover: Callable[..., str] | None, headers: dict[str, str] | None,
+                   headline: Callable[[str], str | None]) -> dict[str, Any]:
+    ad = _DiscoveryFetch(fetch, headers)
+    discover = discover or _watchdog_module(module).discover_url
+    try:
+        url = discover(week, fetch_fn=ad)
+    except Exception as e:  # noqa: BLE001  DiscoveryFailed / RuntimeError / network
+        raise ProbeError(f"{source} discovery: {e}") from e
+    r = ad.resp(url)
+    if r.status != 200 or not r.body:
+        raise ProbeError(f"{source} {url}: status={r.status}")
+    title = headline(r.body) or ""
+    m = WEEK_RE.search(title)
+    if not m:
+        raise ProbeError(f"{source} {url}: no week in the headline {title[:80]!r}")
+    th = tables_hash(r.body)
+    if not th:
+        raise ProbeError(f"{source} {url}: no tables")
+    sig = {"week": int(m.group(1)), "url": url, "date_modified": date_modified(r.body),
+           "tables": th, "etag": r.header("ETag")}
+    # The ETag is recorded but not hashed: tables + dateModified carry the
+    # content, and a CDN re-encode must not count as a change.
+    return {"fingerprint": digest({k: v for k, v in sig.items() if k != "etag"}),
+            "signals": sig}
+
+
 TITLE_RE = re.compile(r"<title[^>]*>(.*?)</title>", re.S | re.I)
+H1_RE = re.compile(r"<h1[^>]*>(.*?)</h1>", re.S | re.I)
 
 
-def probe_fantasypros(fetch: Fetch, week: int) -> dict[str, Any]:
-    for wk in (week, week - 1):
-        if wk < 1:
-            continue
-        r = fetch(FP_SLUG % wk)
-        if r.status != 200 or not r.body:
-            continue
-        m = TITLE_RE.search(r.body)
-        tw = re.search(r"\bweek\s+(\d+)\b", m.group(1), re.I) if m else None
-        if not tw or int(tw.group(1)) != wk:
-            continue
-        th = tables_hash(r.body)
-        if not th:
-            raise ProbeError(f"fantasypros week {wk}: page has no tables")
-        sig = {"week": wk, "url": FP_SLUG % wk, "date_modified": date_modified(r.body),
-               "tables": th}
-        return {"fingerprint": digest(sig), "signals": sig}
-    raise ProbeError(f"fantasypros: no week {week} or {week - 1} article")
+def _title(page: str) -> str | None:
+    for rx in (TITLE_RE, H1_RE):
+        m = rx.search(page or "")
+        if m and TAG_RE.sub("", m.group(1)).strip():
+            return htmllib.unescape(TAG_RE.sub("", m.group(1)).strip())
+    return None
 
 
-# www.cbssports.com, not the sportsfly.cbsistatic.com mirror the ingest reads:
-# sportsfly is a CDN with max-age=5184000 (60 days) whose gzip variant still
-# served the 2026-09-29 Week-4 tables on 2026-10-08, a day-old revision behind
-# www (dateModified 2026-09-30, Zay Flowers 26 -> 27, Jameis Winston moved).
-# www answers "private, max-age=0", i.e. the current revision.
-CBS_SLUG = ("https://www.cbssports.com/fantasy/football/news/dave-richards-week-%d"
-            "-trade-chart-and-rest-of-season-fantasy-football-rankings-help-you-win-now/")
-CBS_TABLE_MARK = "TableBuilder"
+def probe_fantasypros(fetch: Fetch, week: int, discover=None) -> dict[str, Any]:
+    return _article_probe("fantasypros", "pull_fantasypros", fetch, week, discover, None, _title)
 
 
-def probe_cbs(fetch: Fetch, week: int) -> dict[str, Any]:
-    for wk in (week, week - 1):
-        if wk < 1:
-            continue
-        r = fetch(CBS_SLUG % wk, {"Accept-Encoding": "identity"})
-        if r.status != 200 or not r.body or CBS_TABLE_MARK not in r.body:
-            continue
-        th = tables_hash(r.body)
-        if not th:
-            raise ProbeError(f"cbs week {wk}: no tables")
-        sig = {"week": wk, "url": CBS_SLUG % wk, "date_modified": date_modified(r.body),
-               "tables": th, "etag": r.header("ETag")}
-        # The ETag is recorded but not hashed: tables + dateModified carry the
-        # content, and a CDN re-encode must not count as a change.
-        fp = digest({k: v for k, v in sig.items() if k != "etag"})
-        return {"fingerprint": fp, "signals": sig}
-    raise ProbeError(f"cbs: no week {week} or {week - 1} article")
+def probe_cbs(fetch: Fetch, week: int, discover=None) -> dict[str, Any]:
+    # Identity encoding, as the ingest's curl asks: the sportsfly mirror's gzip
+    # variant served a day-old revision on 2026-10-08.
+    def headline(page: str) -> str | None:
+        try:
+            return _watchdog_module("pull_cbs").extract_page_headline(page) or _title(page)
+        except Exception:  # noqa: BLE001
+            return _title(page)
+    return _article_probe("cbs", "pull_cbs", fetch, week, discover,
+                          {"Accept-Encoding": "identity"}, headline)
 
 
 ESPN_API = ("https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/"

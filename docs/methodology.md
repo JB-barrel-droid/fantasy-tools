@@ -361,8 +361,8 @@ ingest and the rebuild chain's review and `make validate`.
 | --- | --- | --- | --- |
 | FantasyCalc | hash of the three 12-team 1-QB lists (API has no ETag) | hourly | changed and ≥ 6 h since the last save, or 24 h; plus fixed Tue + Fri 13:07 saves |
 | USA Today | the week's article and its `<lastmod>` in USA Today's monthly sitemap | every 3 h Mon–Thu, 00:35 + 12:35 Fri–Sun | changed, or 20 h |
-| FantasyPros | the week's article: JSON-LD `dateModified` + tables hash | as USA Today | changed, or 20 h |
-| CBS | the week's article on www.cbssports.com: `dateModified` + tables hash | as USA Today | changed, or 20 h |
+| FantasyPros | the week's article, found by the ingest's own discovery: JSON-LD `dateModified` + tables hash | as USA Today | changed, or 20 h |
+| CBS | the week's article, found by the ingest's own discovery, on www.cbssports.com: `dateModified` + tables hash | as USA Today | changed, or 20 h |
 | ESPN | hash of the weekly projection blocks the puller sums | every 4 h, 03:25–23:25 | changed, or 20 h |
 | CBS rest of season | tables hash of the four stats pages | every 4 h | changed, or 20 h |
 | Razzball | the four pages' own "Updated:" stamps + tables hash | every 4 h | changed, or 20 h |

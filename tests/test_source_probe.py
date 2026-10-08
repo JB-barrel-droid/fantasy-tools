@@ -231,10 +231,26 @@ class FingerprintTest(unittest.TestCase):
         r = self.fp("fantasycalc", {"fantasycalc": fc_body({1: 5})})
         self.assertFalse(r["ok"])
 
+    @staticmethod
+    def article_probe(source, pages, week=5, found=None):
+        """Probe with a stub discovery (the real one is the ingest's own,
+        pull_<source>.discover_url, tested by the discovery lane)."""
+        def discover(wk, fetch_fn):
+            url = found or f"https://example.test/{source}-week-{wk}/"
+            st, _ = fetch_fn(url)
+            if st != 200:
+                raise RuntimeError("not found")
+            return url
+        fn = sp.probe_cbs if source == "cbs" else sp.probe_fantasypros
+        try:
+            return {"ok": True, **fn(FakeFetch(pages), week, discover=discover)}
+        except sp.ProbeError as e:
+            return {"ok": False, "error": str(e)}
+
     def test_article_chrome_does_not_move_the_fingerprint_tables_do(self):
-        base = self.fp("fantasypros", {"week-5": article("Bijan 70")})
-        chrome = self.fp("fantasypros", {"week-5": article("Bijan 70", chrome="ad-2")})
-        edited = self.fp("fantasypros", {"week-5": article("Bijan 68")})
+        base = self.article_probe("fantasypros", {"week-5": article("Bijan 70")})
+        chrome = self.article_probe("fantasypros", {"week-5": article("Bijan 70", chrome="ad-2")})
+        edited = self.article_probe("fantasypros", {"week-5": article("Bijan 68")})
         self.assertTrue(base["ok"], base)
         self.assertEqual(base["fingerprint"], chrome["fingerprint"])
         self.assertNotEqual(base["fingerprint"], edited["fingerprint"])
@@ -245,33 +261,48 @@ class FingerprintTest(unittest.TestCase):
         self.assertNotEqual(sp.digest(a), sp.digest(b))
         self.assertEqual(sp.tables_hash(a), sp.tables_hash(b))
 
-    def test_fantasypros_falls_back_to_last_week_until_the_new_article_exists(self):
-        r = self.fp("fantasypros", {"week-4": article("x", title="Week 4 trade chart")})
-        self.assertEqual(r["signals"]["week"], 4)
-        new = self.fp("fantasypros", {"week-4": article("x", title="Week 4 trade chart"),
-                                      "week-5": article("y")})
-        self.assertNotEqual(r["fingerprint"], new["fingerprint"])
+    def test_a_new_week_article_moves_the_fingerprint(self):
+        # Discovery returns last week's article until the new one is up; the
+        # week is read from the page headline, not the slug.
+        old = self.article_probe("cbs", {"cbs-week-4": article("x", title="Week 4 trade chart")},
+                                 found="https://example.test/cbs-week-4/")
+        new = self.article_probe("cbs", {"2026-week-5": article("y")},
+                                 found="https://example.test/dave-richards-2026-week-5-trade-chart/")
+        self.assertEqual((old["signals"]["week"], new["signals"]["week"]), (4, 5))
+        self.assertNotEqual(old["fingerprint"], new["fingerprint"])
 
-    def test_fantasypros_slug_title_mismatch_is_not_accepted(self):
-        r = self.fp("fantasypros", {"week-5": article("x", title="Week 4 trade chart")})
+    def test_probes_use_the_ingests_own_discovery(self):
+        # A probe that guessed slugs fingerprinted CBS Week 4 while Week 5 was
+        # up under a new slug (2026-10-08). The default discovery must be the
+        # ingest's discover_url.
+        import inspect
+        src = inspect.getsource(sp._article_probe)
+        self.assertIn("_watchdog_module(module).discover_url", src)
+        self.assertFalse(hasattr(sp, "CBS_SLUG") or hasattr(sp, "FP_SLUG"))
+
+    def test_discovery_failure_is_a_failed_probe(self):
+        self.assertFalse(self.article_probe("fantasypros", {})["ok"])
+
+    def test_page_without_a_week_in_the_headline_is_not_accepted(self):
+        r = self.article_probe("fantasypros", {"week-5": article("x", title="Trade chart")})
         self.assertFalse(r["ok"])
 
     def test_cbs_revision_moves_the_fingerprint_and_etag_alone_does_not(self):
         page = article("Zay Flowers 26")
-        a = self.fp("cbs", {"week-5": page})
-        b = self.fp("cbs", {"week-5": sp.Resp(200, {"ETag": 'W/"other"'}, page)})
-        c = self.fp("cbs", {"week-5": article("Zay Flowers 27", modified="2026-09-30T17:33:52+00:00")})
+        a = self.article_probe("cbs", {"week-5": page})
+        b = self.article_probe("cbs", {"week-5": sp.Resp(200, {"ETag": 'W/"other"'}, page)})
+        c = self.article_probe("cbs", {"week-5": article("Zay Flowers 27",
+                                                         modified="2026-09-30T17:33:52+00:00")})
         self.assertEqual(a["fingerprint"], b["fingerprint"])
         self.assertNotEqual(a["fingerprint"], c["fingerprint"])
 
     def test_cbs_probe_and_ingest_read_www_not_the_cdn_mirror(self):
         # sportsfly.cbsistatic.com served a day-old Week-4 revision on 2026-10-08.
         import pull_cbs
-        self.assertIn("://www.cbssports.com/", sp.CBS_SLUG)
-        self.assertIn("://www.cbssports.com/", pull_cbs.SLUG)
         self.assertNotIn("sportsfly", pull_cbs.SLUG)
         f = FakeFetch({"week-5": article("x")})
-        sp.run_probe("cbs", f, 5)
+        sp.probe_cbs(f, 5, discover=lambda wk, fetch_fn: (fetch_fn("https://example.test/week-5/"),
+                                                         "https://example.test/week-5/")[1])
         self.assertEqual(f.calls[0][1].get("Accept-Encoding"), "identity")
 
     def test_usatoday_uses_sitemap_lastmod(self):
