@@ -36,6 +36,7 @@ import sys
 import threading
 import unittest
 from pathlib import Path
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -198,13 +199,20 @@ def rendered_state(sources_edit=None, text_mutations=None):
                     page.route("**/assets/comparison-sources-data.json*", lambda route: route.fulfill(
                         status=200, content_type="application/json", body=json.dumps(data)))
                     for pattern, pairs in (text_mutations or {}).items():
-                        def mutate(route, _request=None, pairs=pairs):
+                        is_page = pattern == "/"
+
+                        def mutate(route, _request=None, pairs=pairs, is_page=is_page):
                             body = route.fetch().text()
                             for old, new in pairs:
                                 assert old in body, f"mutation target missing: {old[:60]}"
                                 body = body.replace(old, new)
-                            route.fulfill(status=200, body=body, headers={"content-type": "text/html" if pattern.endswith("/") else "application/javascript"})
-                        page.route(pattern, mutate)
+                            route.fulfill(status=200, body=body, headers={"content-type": "text/html" if is_page else "application/javascript"})
+                        # "/" means the page document only. The glob "**/" it
+                        # replaced matches every URL under the CI-pinned
+                        # Playwright 1.49.1, so the HTML mutation hit each
+                        # asset and failed with "mutation target missing".
+                        matcher = (lambda url: urlsplit(url).path == "/") if is_page else pattern
+                        page.route(matcher, mutate)
                     page.goto(url, wait_until="networkidle")
                     page.wait_for_function(
                         "() => document.querySelectorAll('#datasetHealthRows .dataset-card').length"
@@ -217,7 +225,8 @@ def rendered_state(sources_edit=None, text_mutations=None):
 
 
 # Simulated broken states (negative tests).
-CONSTANT_LIVE_BADGE = {"**/": [
+# Keys: "/" is the page document (exact path); anything else is a Playwright glob.
+CONSTANT_LIVE_BADGE = {"/": [
     ('<span class="dataset-badge">${esc(badgeText[fresh.status])}</span>', '<span class="dataset-badge">Live</span>'),
 ]}
 IGNORES_SOURCE_WEEK = {"**/assets/product-data.js*": [

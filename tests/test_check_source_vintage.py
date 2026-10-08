@@ -8,7 +8,9 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
+import io
+import unittest
+from contextlib import redirect_stdout
 
 # Add pipelines to path for imports
 ROOT = Path(__file__).resolve().parents[1]
@@ -18,7 +20,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 import check_source_vintage
 
 
-class TestGetFixtureVintage:
+class TestGetFixtureVintage(unittest.TestCase):
     """Tests for get_fixture_vintage function."""
 
     def test_fantasycalc_uses_content_vintage(self):
@@ -32,7 +34,7 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("fantasycalc", fixture_data)
-        assert result == "Week 4"
+        self.assertEqual(result, "Week 4")
 
     def test_usatoday_uses_content_vintage(self):
         """usatoday should read content_vintage key."""
@@ -45,7 +47,7 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("usatoday", fixture_data)
-        assert result == "2026-09-29"
+        self.assertEqual(result, "2026-09-29")
 
     def test_fantasypros_uses_content_vintage(self):
         """fantasypros should read content_vintage key."""
@@ -58,7 +60,7 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("fantasypros", fixture_data)
-        assert result == "2026-09-29"
+        self.assertEqual(result, "2026-09-29")
 
     def test_espn_uses_espn_snapshot(self):
         """ESPN should read espn_snapshot key."""
@@ -71,7 +73,7 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("espn", fixture_data)
-        assert result == "2026-09-30"
+        self.assertEqual(result, "2026-09-30")
 
     def test_cbs_uses_content_vintage(self):
         """CBS should read content_vintage key."""
@@ -84,7 +86,7 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("cbs", fixture_data)
-        assert result == "Week 4"
+        self.assertEqual(result, "Week 4")
 
     def test_cbsros_uses_vintage(self):
         """CBSROS should read vintage key."""
@@ -97,7 +99,7 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("cbsros", fixture_data)
-        assert result == "2026-09-30"
+        self.assertEqual(result, "2026-09-30")
 
     def test_razzball_uses_vintage(self):
         """Razzball should read vintage key."""
@@ -110,13 +112,13 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("razzball", fixture_data)
-        assert result == "2026-10-01"
+        self.assertEqual(result, "2026-10-01")
 
     def test_missing_source_returns_none(self):
         """Missing source should return None."""
         fixture_data = {"sources": {}}
         result = check_source_vintage.get_fixture_vintage("fantasycalc", fixture_data)
-        assert result is None
+        self.assertIsNone(result)
 
     def test_fallback_to_vintage_key(self):
         """Should fallback to vintage key if preferred key is missing."""
@@ -129,10 +131,10 @@ class TestGetFixtureVintage:
             }
         }
         result = check_source_vintage.get_fixture_vintage("fantasycalc", fixture_data)
-        assert result == "Week 3"
+        self.assertEqual(result, "Week 3")
 
 
-class TestCheckAllSources:
+class TestCheckAllSources(unittest.TestCase):
     """Tests for check_all_sources function."""
 
     @patch.object(check_source_vintage, "DEFAULT_FIXTURE_PATH")
@@ -154,10 +156,10 @@ class TestCheckAllSources:
 
         result = check_source_vintage.check_all_sources()
 
-        assert result["changed"] is True
-        assert result["sources"]["fantasycalc"]["changed"] is True
-        assert result["sources"]["fantasycalc"]["current_vintage"] == "Week 5"
-        assert result["sources"]["fantasycalc"]["fixture_vintage"] == "Week 3"
+        self.assertIs(result["changed"], True)
+        self.assertIs(result["sources"]["fantasycalc"]["changed"], True)
+        self.assertEqual(result["sources"]["fantasycalc"]["current_vintage"], "Week 5")
+        self.assertEqual(result["sources"]["fantasycalc"]["fixture_vintage"], "Week 3")
 
     @patch.object(check_source_vintage, "DEFAULT_FIXTURE_PATH")
     @patch.object(check_source_vintage, "get_current_vintage")
@@ -185,10 +187,10 @@ class TestCheckAllSources:
 
         result = check_source_vintage.check_all_sources()
 
-        assert result["changed"] is False
-        assert result["sources"]["fantasycalc"]["changed"] is False
-        assert result["sources"]["fantasycalc"]["current_vintage"] == "Week 4"
-        assert result["sources"]["fantasycalc"]["fixture_vintage"] == "Week 4"
+        self.assertIs(result["changed"], False)
+        self.assertIs(result["sources"]["fantasycalc"]["changed"], False)
+        self.assertEqual(result["sources"]["fantasycalc"]["current_vintage"], "Week 4")
+        self.assertEqual(result["sources"]["fantasycalc"]["fixture_vintage"], "Week 4")
 
     @patch.object(check_source_vintage, "DEFAULT_FIXTURE_PATH")
     @patch.object(check_source_vintage, "get_current_vintage")
@@ -212,21 +214,21 @@ class TestCheckAllSources:
 
         result = check_source_vintage.check_all_sources()
 
-        assert result["changed"] is True
-        assert result["sources"]["fantasycalc"]["changed"] is True
-        assert result["sources"]["fantasycalc"]["error"] is not None
-        assert result["sources"]["fantasycalc"]["current_vintage"] is None
+        self.assertIs(result["changed"], True)
+        self.assertIs(result["sources"]["fantasycalc"]["changed"], True)
+        self.assertIsNotNone(result["sources"]["fantasycalc"]["error"])
+        self.assertIsNone(result["sources"]["fantasycalc"]["current_vintage"])
 
     @patch.object(check_source_vintage, "DEFAULT_FIXTURE_PATH")
     def test_missing_fixture_raises(self, mock_fixture_path):
         """Should raise SystemExit when fixture is missing."""
         mock_fixture_path.exists.return_value = False
 
-        with pytest.raises(SystemExit, match="Fixture not found"):
+        with self.assertRaisesRegex(SystemExit, "Fixture not found"):
             check_source_vintage.check_all_sources()
 
 
-class TestDeriveDbVintage:
+class TestDeriveDbVintage(unittest.TestCase):
     """Tests for _derive_db_vintage function."""
 
     def test_derives_date_from_source_content_date(self):
@@ -236,7 +238,7 @@ class TestDeriveDbVintage:
             {"source_content_date": "2026-09-29"},
         ]
         result = check_source_vintage._derive_db_vintage(rows, "fantasycalc")
-        assert result == "2026-09-29"
+        self.assertEqual(result, "2026-09-29")
 
     def test_derives_date_from_espn_snapshot_date(self):
         """Should derive vintage from espn_snapshot_date for ESPN."""
@@ -245,7 +247,7 @@ class TestDeriveDbVintage:
             {"espn_snapshot_date": "2026-09-30"},
         ]
         result = check_source_vintage._derive_db_vintage(rows, "espn")
-        assert result == "2026-09-30"
+        self.assertEqual(result, "2026-09-30")
 
     def test_derives_week_from_week_column(self):
         """Should derive vintage from week column."""
@@ -254,7 +256,7 @@ class TestDeriveDbVintage:
             {"week": "4"},
         ]
         result = check_source_vintage._derive_db_vintage(rows, "fantasycalc")
-        assert result == "Week 4"
+        self.assertEqual(result, "Week 4")
 
     def test_mixed_dates_fails_closed(self):
         """Should raise SystemExit on mixed dates."""
@@ -262,7 +264,7 @@ class TestDeriveDbVintage:
             {"source_content_date": "2026-09-29"},
             {"source_content_date": "2026-09-30"},
         ]
-        with pytest.raises(SystemExit, match="Fail closed: mixed"):
+        with self.assertRaisesRegex(SystemExit, "Fail closed: mixed"):
             check_source_vintage._derive_db_vintage(rows, "fantasycalc")
 
     def test_mixed_weeks_fails_closed(self):
@@ -271,21 +273,21 @@ class TestDeriveDbVintage:
             {"week": "3"},
             {"week": "4"},
         ]
-        with pytest.raises(SystemExit, match="Fail closed: mixed"):
+        with self.assertRaisesRegex(SystemExit, "Fail closed: mixed"):
             check_source_vintage._derive_db_vintage(rows, "fantasycalc")
 
     def test_no_vintage_fails_closed(self):
         """Should raise SystemExit when vintage is undeterminable."""
         rows = [{}, {}]
-        with pytest.raises(SystemExit, match="Fail closed: vintage undeterminable"):
+        with self.assertRaisesRegex(SystemExit, "Fail closed: vintage undeterminable"):
             check_source_vintage._derive_db_vintage(rows, "fantasycalc")
 
 
-class TestMain:
+class TestMain(unittest.TestCase):
     """Tests for main function."""
 
     @patch("check_source_vintage.check_all_sources")
-    def test_json_output(self, mock_check, capsys):
+    def test_json_output(self, mock_check):
         """Should output JSON when --json flag is provided."""
         mock_check.return_value = {
             "changed": True,
@@ -301,15 +303,15 @@ class TestMain:
         # argparse reads the real sys.argv via its own sys import, so patch
         # the real argv (patching check_source_vintage.sys does not affect it).
         with patch.object(sys, "argv", ["check_source_vintage.py", "--json"]):
-            with pytest.raises(SystemExit) as exc:
+            with self.assertRaises(SystemExit) as exc, redirect_stdout(io.StringIO()) as out:
                 check_source_vintage.main()
 
         # changed=True -> exit 1
-        assert exc.value.code == 1
-        printed = capsys.readouterr().out
-        assert '"changed": true' in printed
-        assert '"fantasycalc"' in printed
+        self.assertEqual(exc.exception.code, 1)
+        printed = out.getvalue()
+        self.assertIn('"changed": true', printed)
+        self.assertIn('"fantasycalc"', printed)
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    unittest.main()
