@@ -3587,7 +3587,7 @@
       playerOf: playerKey => canonicalByKey.get(playerKey)
     });
     return {values: historyDisplayValues(series, map, entry, ppg),
-      method: "buildVorpRows on the saved projections + scaleToSharedTotal"};
+      method: "VORP vs waivers rebuilt from the saved projections, then scaled to the shared total"};
   }
   // Adjusted: the saved chart priced as above, then the CURRENT fit's cells
   // (the same correction the served Adjusted series uses), so Δ is the
@@ -4180,7 +4180,7 @@
     [...AS_PUBLISHED_KEYS].filter(sourceAvailable).forEach(key => {
       const vorp = measuredPublishedView(key, "vorp");
       if (vorp.size) out.vorp.sources[key] = {...viewTotalsRow(vorp, anchor), gated: false,
-        mode: savedViewApplies(key) ? "saved vorp_views" : "derived"};
+        mode: savedViewApplies(key) ? "saved" : "derived"};
       const adj = measuredPublishedView(key, "adj_values");
       const info = derivedViewBatch().sources[key]?.roles;
       const roles = info ? new Map([...info].map(([k, row]) => [Number(k), row.role])) : null;
@@ -4196,7 +4196,7 @@
           ratio: ratio === null ? null : Number(ratio.toFixed(6)), unfunded: row.players === 0 && row.anchor > 0};
       });
       const spread = ratios.length ? Math.max(...ratios) / Math.min(...ratios) : null;
-      out.adjusted.sources[key] = {groups: rows, mode: savedViewApplies(key) ? "saved vorp_views" : "derived",
+      out.adjusted.sources[key] = {groups: rows, mode: savedViewApplies(key) ? "saved" : "derived",
         spread: spread === null ? null : Number(spread.toFixed(6)),
         level: budget > 0 ? Number((source / budget).toFixed(6)) : null,
         holds: spread !== null && Math.abs(spread - 1) <= VIEW_INVARIANT_REL_TOL && budget > 0 && Math.abs(source / budget - 1) <= VIEW_INVARIANT_REL_TOL,
