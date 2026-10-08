@@ -14,3 +14,10 @@ select cron.alter_job(
     (select jobid from cron.job where jobname = 'live-page-synthetic-live'),
     schedule := '15 12 * * *',
     active := true);
+
+-- Keep the monitor's description of the check in step with the schedule.
+update monitoring.check_config
+   set alert_policy = alert_policy || jsonb_build_object('what',
+         'rendered check of the live site passed with the expected build tag (daily 12:15 UTC via pg_cron live-page-synthetic-live)'),
+       updated_at = now()
+ where check_id = 'live_page_synthetic';
