@@ -6,8 +6,14 @@ Each rule is negative-tested: the state it names must alert, the neighbouring
 benign state must not, and a mutated rule (threshold removed, dedup removed)
 must be caught by the same assertions.
 """
+import contextlib
+import io
+import json
+import tempfile
 import unittest
+import urllib.error
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from unittest import mock
 
 from pipelines import monitor_alerts as ma
@@ -160,6 +166,97 @@ class DeliveryTest(unittest.TestCase):
         with mock.patch.object(ma, "reconcile") as rec:
             self.assertEqual(0, ma.main(["--summary", "/nonexistent.json", "--import-health", "/x", "--dry-run"]))
             rec.assert_not_called()
+
+
+class FakeResponse:
+    def __init__(self, payload):
+        self.raw = json.dumps(payload).encode()
+
+    def read(self):
+        return self.raw
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+def fake_github(has_issues):
+    """urlopen stand-in for a repo with Issues on/off. With Issues off GitHub
+    still answers GET /issues with 200 [] and rejects the create with 410
+    (observed on JB-barrel-droid/fantasy-tools, 2026-10-08)."""
+    calls = []
+
+    def urlopen(req, timeout=None):
+        method, url = req.get_method(), req.full_url
+        calls.append((method, url))
+        if method == "GET" and url.endswith("/repos/o/r"):
+            return FakeResponse({"has_issues": has_issues})
+        if method == "GET":
+            return FakeResponse([])
+        if method == "POST" and url.endswith("/labels"):
+            return FakeResponse({})
+        if method == "POST" and url.endswith("/issues") and not has_issues:
+            raise urllib.error.HTTPError(url, 410, "Issues has been disabled in this repository.", {}, None)
+        return FakeResponse({"number": 1, "html_url": "u"})
+    return urlopen, calls
+
+
+class IssuesDisabledTest(unittest.TestCase):
+    """2026-10-08: the repo has GitHub Issues disabled, so the default
+    channel cannot open an ops-alert issue. A firing alert must still be
+    visible: a named warning and the alert in the job summary."""
+
+    def run_main(self, urlopen, td):
+        out = io.StringIO()
+        summary_path = Path(td) / "summary.md"
+        summary_file = Path(td) / "monitoring-summary.json"
+        summary_file.write_text(json.dumps(summary("error", 20)))
+        health_file = Path(td) / "health.json"
+        health_file.write_text(json.dumps(health()))
+        env = {"GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "t", "GITHUB_STEP_SUMMARY": str(summary_path)}
+        with mock.patch.dict("os.environ", env), \
+             mock.patch.object(ma.urllib.request, "urlopen", urlopen), \
+             contextlib.redirect_stdout(out):
+            rc = ma.main(["--summary", str(summary_file), "--import-health", str(health_file)])
+        text = summary_path.read_text() if summary_path.exists() else ""
+        return rc, out.getvalue(), text
+
+    def test_disabled_issues_put_the_alert_in_the_job_summary(self):
+        urlopen, calls = fake_github(has_issues=False)
+        with tempfile.TemporaryDirectory() as td:
+            rc, out, text = self.run_main(urlopen, td)
+        self.assertEqual(0, rc, "alert delivery never fails the run")
+        self.assertIn("GitHub Issues are disabled", out)
+        self.assertIn("Rebuild chain is failing", text)
+        self.assertIn("GitHub Issues are disabled", text)
+        self.assertFalse(any(m == "POST" and u.endswith("/issues") for m, u in calls),
+                         "with has_issues=false no create is attempted")
+
+    def test_a_410_on_create_is_named_not_swallowed(self):
+        # The repo flag can lag the API; the 410 itself must map to the same
+        # visible fallback, not a generic "delivery failed".
+        urlopen, _ = fake_github(has_issues=False)
+
+        def flag_says_on(req, timeout=None):
+            if req.get_method() == "GET" and req.full_url.endswith("/repos/o/r"):
+                return FakeResponse({"has_issues": True})
+            return urlopen(req, timeout)
+        with tempfile.TemporaryDirectory() as td:
+            rc, out, text = self.run_main(flag_says_on, td)
+        self.assertEqual(0, rc)
+        self.assertIn("HTTP 410", out)
+        self.assertIn("Rebuild chain is failing", text)
+
+    def test_enabled_issues_still_open_the_issue(self):
+        urlopen, calls = fake_github(has_issues=True)
+        with tempfile.TemporaryDirectory() as td:
+            rc, out, text = self.run_main(urlopen, td)
+        self.assertEqual(0, rc)
+        self.assertTrue(any(m == "POST" and u.endswith("/issues") for m, u in calls))
+        self.assertNotIn("disabled", out)
+        self.assertIn("Rebuild chain is failing", text)
 
 
 if __name__ == "__main__":

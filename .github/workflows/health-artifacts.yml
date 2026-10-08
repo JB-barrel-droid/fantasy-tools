@@ -38,6 +38,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Branch tip at job start, not the dispatch-time SHA: a run queued
+          # behind another in the group must not publish onto a stale tree
+          # (same fix as rebuild-chain.yml, 2026-10-08).
+          ref: ${{ github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -144,10 +149,18 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PUBLISHED: ${{ steps.publish.outputs.pushed }}
+        # When this run just published, wait for the dispatched Pages deploy
+        # to serve it before judging freshness. Measuring at once judged the
+        # previous deploy's copy and failed 3 runs in a row (2026-10-07/08,
+        # e.g. 37779712658: served checkpoints 1269 min old, this run's fresh
+        # copy still deploying).
         run: |
           set -o pipefail
           producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
-          python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" 2>&1 | tee /tmp/watch.log
+          await=()
+          if [ "$PUBLISHED" = "true" ]; then await=(--await-published dist/modules); fi
+          python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" "${await[@]}" 2>&1 | tee /tmp/watch.log
 
       # "Is everything working?" banner source: public.monitoring_refresh_summary()
       # records pg_cron history, runs the evaluator over

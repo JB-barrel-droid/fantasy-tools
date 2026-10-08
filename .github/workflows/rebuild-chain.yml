@@ -36,11 +36,24 @@ on:
         description: "Refresh the ESPN anchor and re-bake players.json before the chain"
         required: false
         default: "false"
+      # Handoff counter (2026-10-08). The commit step re-dispatches the chain
+      # with attempt+1 when its push conflicts with newer generated outputs on
+      # main; it stops at MAX_CHAIN_ATTEMPTS and fails loudly.
+      attempt:
+        description: "Regeneration attempt (set by the conflict handoff; leave at 1)"
+        required: false
+        default: "1"
 
 # One run at a time, queued, never cancelled mid-publish (refresh-cadence,
 # 2026-10-08). Two dispatches 24 s apart (12:59:55 and 13:00:19 UTC on
 # 2026-10-08) both rebuilt and the second push hit rebase conflicts on
-# generated files (run 37780929856). Change-driven dispatches go through
+# generated files (run 37780929856). The group did serialize them (and again
+# for 37802033901 / 37802134747 at 15:35/15:36: the second job started 4 s
+# after the first ended). The conflict came from the checkout: a queued run
+# checked out the SHA main had when it was DISPATCHED, i.e. before the run
+# ahead of it pushed, so it rebuilt on a stale tree. The checkout now takes
+# the branch tip at job start, and the commit step hands off to a fresh run
+# instead of failing if main still moves under it. Change-driven dispatches go through
 # `source_probe.py dispatch-chain`, which skips when a run is already waiting,
 # so a burst of changes coalesces into one queued run and never replaces a
 # waiting one (GitHub cancels an older *pending* run in the group).
@@ -58,6 +71,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Build on the branch tip at job start, not the dispatch-time SHA
+          # (github.sha): a run that waited in the concurrency queue would
+          # otherwise rebuild on the tree from before the previous run's push
+          # and conflict with it (run 37802134747, 2026-10-08).
+          ref: ${{ github.ref }}
           # Full history so the promote step's git-revision stamping works.
           fetch-depth: 0
 
@@ -395,6 +413,10 @@ jobs:
         env:
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
           BAKE_OUTCOME: ${{ steps.bake.outcome }}
+          CHAIN_ATTEMPT: ${{ inputs.attempt || '1' }}
+          MAX_CHAIN_ATTEMPTS: "3"
+          BAKE_PLAYERS: ${{ inputs.bake_players || 'false' }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -446,19 +468,53 @@ jobs:
             echo "pushed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "$MESSAGE"
-            # JEG-299: main is hot (30-min health pushes + lane merges move it
-            # during the chain run). Rebase onto the latest tip before pushing
-            # so a non-fast-forward rejection doesn't silently drop the rebuild.
-            # --autostash: a failed chain leaves the partial fixture unstaged
-            # by design; stash it across the rebase instead of refusing.
-            # On rebase conflict: abort and fail loudly -- never force-push.
-            git pull --rebase --autostash origin main || {
-              echo "::error::Rebase onto origin/main failed; rebuild output preserved in run artifacts, manual push needed."
-              git rebase --abort || true
-              exit 1
-            }
-            git push
-            echo "pushed=true" >> $GITHUB_OUTPUT
+            # JEG-299: main is hot (health pushes + lane merges move it during
+            # the chain run). Rebase onto the latest tip before pushing so a
+            # non-fast-forward rejection doesn't drop the rebuild; retry when
+            # main moves again between pull and push. --autostash: a failed
+            # chain leaves the partial fixture unstaged by design.
+            #
+            # A rebase CONFLICT means main received newer generated outputs
+            # while this run built (2026-10-08, run 37802134747). Neither side
+            # of that merge is the newest data, so it is never resolved here
+            # and never force-pushed: this run's output is dropped and a fresh
+            # chain run is dispatched; it checks out the new main and
+            # regenerates everything from the newest data. Bounded by
+            # MAX_CHAIN_ATTEMPTS, after which the job fails loudly.
+            outcome=rejected
+            for try in 1 2 3; do
+              if git pull --rebase --autostash origin main; then
+                if git push; then outcome=pushed; break; fi
+              elif [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
+                git rebase --abort || true
+                outcome=conflict; break
+              fi
+              sleep 10
+            done
+            case "$outcome" in
+              pushed)
+                echo "pushed=true" >> $GITHUB_OUTPUT
+                ;;
+              conflict)
+                echo "pushed=false" >> $GITHUB_OUTPUT
+                if [ "$CHAIN_ATTEMPT" -ge "$MAX_CHAIN_ATTEMPTS" ]; then
+                  echo "::error::Rebase onto origin/main conflicted on generated files on attempt $CHAIN_ATTEMPT of $MAX_CHAIN_ATTEMPTS; not retrying. Rebuild output preserved in run artifacts."
+                  exit 1
+                fi
+                next=$((CHAIN_ATTEMPT + 1))
+                python3 pipelines/source_probe.py dispatch-chain --reason "regenerate-after-conflict" \
+                  --field "attempt=$next" --field "bake_players=$BAKE_PLAYERS"
+                echo "handoff=true" >> $GITHUB_OUTPUT
+                MSG="main received newer generated outputs during this run; dropped this run's output and dispatched a fresh chain run (attempt $next of $MAX_CHAIN_ATTEMPTS) to regenerate on top of it."
+                echo "::warning title=rebuild-chain handoff::$MSG"
+                echo "### Rebuild chain handoff" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+                echo "$MSG" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
+                ;;
+              *)
+                echo "::error::push to main rejected 3 times without a conflict; not force-pushing."
+                exit 1
+                ;;
+            esac
           fi
 
       # JEG-274: GitHub's no-cascade rule means pushes made with GITHUB_TOKEN

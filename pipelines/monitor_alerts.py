@@ -34,6 +34,12 @@ by the workflow mention the repository owner, so GitHub emails Jeremy with no
 new account or secret. Set ALERT_WEBHOOK_URL (a Slack- or Discord-compatible
 incoming webhook) to also post each open/close transition there.
 
+If GitHub Issues are disabled for the repository (the API answers 410, or the
+repo reports has_issues=false), the issue channel cannot deliver. That is never
+silent: the step prints a warning annotation naming the cause, every alert that
+holds is written to the job summary ($GITHUB_STEP_SUMMARY), and the webhook (if
+set) gets every holding alert, since there is no issue to dedupe against.
+
     python3 pipelines/monitor_alerts.py --summary output/monitoring-summary.json \
         --import-health output/source-import-health.json [--dry-run]
 """
@@ -209,6 +215,10 @@ def plan(alerts, open_issues):
     return to_open, to_update, to_close
 
 
+class IssuesDisabled(RuntimeError):
+    """The repository has GitHub Issues turned off (HTTP 410 / has_issues=false)."""
+
+
 class GitHubIssues:
     """Minimal REST client (GITHUB_TOKEN with issues: write)."""
 
@@ -220,11 +230,20 @@ class GitHubIssues:
                                      data=json.dumps(body).encode() if body is not None else None)
         req.add_header("Authorization", f"Bearer {self.token}")
         req.add_header("Accept", "application/vnd.github+json")
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            raw = resp.read()
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                raw = resp.read()
+        except urllib.error.HTTPError as e:
+            if e.code == 410:  # "Issues has been disabled in this repository."
+                raise IssuesDisabled(f"{method} {path or '/'}: HTTP 410") from e
+            raise
         return json.loads(raw) if raw else None
 
     def ensure_label(self):
+        # With Issues off, GET /issues still answers 200 [] and only the create
+        # fails (410), so check the repo flag first: no partial reconcile.
+        if (self._call("GET", "") or {}).get("has_issues") is False:
+            raise IssuesDisabled("repository has_issues=false")
         try:
             self._call("POST", "/labels", {"name": LABEL, "color": "d73a4a",
                                            "description": "Automated monitoring alert (health-artifacts.yml)"})
@@ -273,6 +292,25 @@ def reconcile(alerts, client, now, mention=None, webhook=None, log=print):
     return to_open, to_update, to_close
 
 
+def write_step_summary(alerts, note=None, path=None):
+    """Append the alerts that hold to the job summary, so a run whose delivery
+    channel is down still shows them. No-op outside Actions."""
+    path = path or os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return False
+    lines = ["## Ops alerts", ""]
+    if note:
+        lines += [f"> **{note}**", ""]
+    if alerts:
+        for a in alerts:
+            lines += [f"### {a.title}", f"`{a.key}`", "", a.body, ""]
+    else:
+        lines.append("No alert condition holds.")
+    with open(path, "a", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    return True
+
+
 def _load(path):
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
@@ -300,12 +338,27 @@ def main(argv=None) -> int:
     if args.dry_run or not (repo and token):
         print("dry run: no issues touched" if args.dry_run else "GITHUB_REPOSITORY/GITHUB_TOKEN not set: no issues touched")
         return 0
+    webhook = os.environ.get("ALERT_WEBHOOK_URL") or None
+    note = None
     try:
         reconcile(alerts, GitHubIssues(repo, token), now,
                   mention=os.environ.get("ALERT_MENTION") or os.environ.get("GITHUB_REPOSITORY_OWNER"),
-                  webhook=os.environ.get("ALERT_WEBHOOK_URL") or None)
+                  webhook=webhook)
+    except IssuesDisabled as exc:
+        note = (f"GitHub Issues are disabled for {repo} ({exc}): {len(alerts)} alert(s) were NOT "
+                "delivered as ops-alert issues; they are listed in this job summary. "
+                "Enable Issues or set ALERT_WEBHOOK_URL to restore delivery.")
+        print(f"::warning title=ops-alert channel down::{note}")
+        if webhook:
+            for a in alerts:
+                try:
+                    post_webhook(webhook, f"ALERT {a.title}")
+                except Exception as wexc:  # noqa: BLE001
+                    print(f"::warning title=ops-alert::webhook failed: {type(wexc).__name__}")
     except Exception as exc:  # noqa: BLE001 - alert delivery never fails the run
-        print(f"::warning title=ops-alert::delivery failed: {type(exc).__name__}: {str(exc)[:300]}")
+        note = f"Alert delivery failed: {type(exc).__name__}: {str(exc)[:300]}"
+        print(f"::warning title=ops-alert::{note}")
+    write_step_summary(alerts, note)
     return 0
 
 
