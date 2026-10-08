@@ -232,15 +232,22 @@ TABLE_VS_ENGINE_JS = """() => {
     const k = id(r.name, r.pos, r.team);
     if (engine.has(k)) dup.add(k); engine.set(k, r);
   });
-  const heads = [...document.querySelectorAll('#v2Table thead th')].map(th => th.textContent.replace(/[↕↓↑]/g, '').trim());
+  // The column header row is the last one (a group-header row may sit above it).
+  const heads = [...document.querySelectorAll('#v2Table thead tr:last-child th')].map(th => th.textContent.replace(/[↕↓↑]/g, '').trim());
   const meta = heads.indexOf("Player");
+  // Pos and Team are their own columns at some widths and only the player
+  // sub-line ("RB · DET · Starter") at others (JEG-456 table fit).
+  const posCol = heads.indexOf("Pos"), teamCol = heads.indexOf("Team");
   const first = heads.length - keys.length - (/spread/i.test(heads[heads.length - 1]) ? 1 : 0);
   const text = td => (td && td.firstChild ? td.firstChild.textContent : "").trim();
   const problems = [];
   let compared = 0, skipped = 0;
   [...document.querySelectorAll('#v2Table tbody tr')].forEach(tr => {
     const cells = [...tr.cells];
-    const k = id(text(cells[meta]), text(cells[meta + 1]), text(cells[meta + 2]));
+    const sub = (cells[meta]?.querySelector('.player-sub')?.textContent || "").split("·").map(s => s.trim());
+    const pos = posCol >= 0 ? text(cells[posCol]) : sub[0];
+    const team = teamCol >= 0 ? text(cells[teamCol]) : sub[1];
+    const k = id(text(cells[meta]), pos, team);
     const row = engine.get(k);
     if (!row || dup.has(k)) { skipped++; return; }
     compared++;
