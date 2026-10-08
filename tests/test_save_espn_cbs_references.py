@@ -228,7 +228,10 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
                           ["Josh Allen", "BUF", "20", "20", "44"]]},
             ],
         )
-        self.assertEqual(result["written"], 3)  # Allen only
+        # Allen only: 3 1QB-4 rows + 3 2QB rows (qb_slots = 2; the 2QB column
+        # is saved since GAP-SUPERFLEX-PUBLISHER-VALUES, 2026-10-08 -- this pin
+        # was 3 while only the 1QB-4 column was saved).
+        self.assertEqual(result["written"], 6)
         self.assertEqual(result["review_count"], 1)
         self.assertEqual(result["review"][0]["reason"], "unresolved_name")
         _, rows, _ = self.writes[0]
@@ -243,7 +246,7 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
                  "rows": [["Alex Smith", "KC", "10", "10", "20"]]},
             ],
         )
-        self.assertEqual(result["written"], 3)
+        self.assertEqual(result["written"], 6)  # 1QB-4 x3 + 2QB x3 (superflex, 2026-10-08)
         _, rows, _ = self.writes[0]
         self.assertTrue(all(r["player_key"] == 9991 for r in rows))
 
@@ -284,11 +287,18 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
                  "rows": [["Josh Allen", "BUF", "20", "20", "44"]]},
             ],
         )
-        self.assertEqual(result["written"], 3)
+        # 3 1QB-4 rows + 3 2QB rows (superflex; this pin was 3 while only the
+        # 1QB-4 column was saved, GAP-SUPERFLEX-PUBLISHER-VALUES 2026-10-08).
+        self.assertEqual(result["written"], 6)
         table, rows, conflict = self.writes[0]
         self.assertEqual(table, "cbs_trade_values")
         self.assertIn("scoring", conflict)
-        by_scoring = {r["scoring"]: r for r in rows}
+        self.assertIn("qb_slots", conflict)
+        superflex = {r["scoring"]: r for r in rows if r["qb_slots"] == 2}
+        self.assertEqual(set(superflex), {"standard", "half_ppr", "ppr"})
+        for scoring, row in superflex.items():
+            self.assertEqual((row["value"], row["native_value"]), (44.0, 44.0), scoring)
+        by_scoring = {r["scoring"]: r for r in rows if r["qb_slots"] == 1}
         self.assertEqual(set(by_scoring), {"standard", "half_ppr", "ppr"})
         for scoring, row in by_scoring.items():
             self.assertEqual(row["value"], 20.0, scoring)  # the 1QB-4 column, not 2QB
@@ -323,10 +333,16 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
                           ["Brock Purdy", "SF", "--", "--", "38"]]},
             ],
         )
-        self.assertEqual(result["written"], 3)  # Allen only, all three scorings
+        # Allen: 1QB-4 and 2QB rows, all three scorings. Purdy: his 2QB rows
+        # only (qb_slots = 2) -- CBS prices him for superflex leagues alone.
+        # This pin was 3 written / Allen only while only 1QB-4 was saved
+        # (GAP-SUPERFLEX-PUBLISHER-VALUES, 2026-10-08).
+        self.assertEqual(result["written"], 9)
         self.assertEqual(result["review_count"], 3)  # Purdy's 3 implied cells
         _, rows, _ = self.writes[0]
-        self.assertTrue(all(r["player_key"] == 869 for r in rows))
+        self.assertTrue(all(r["player_key"] == 869 for r in rows if r["qb_slots"] == 1))
+        self.assertEqual({r["native_value"] for r in rows if r["qb_slots"] == 2
+                          and r["player_key"] != 869}, {38.0})
         self.assertTrue(all(r["reason"] == "missing_or_non_numeric_value" for r in result["review"]))
 
     # -- dry run writes nothing ------------------------------------------------------

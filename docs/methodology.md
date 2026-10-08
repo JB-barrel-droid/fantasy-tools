@@ -331,11 +331,34 @@ players the publisher prices differently) replaces the 1-QB native for those
 players when the roster has a superflex slot (`savedPublishedNative`). Where a
 publisher's superflex values are not saved, its 1-QB values go through the
 league math above unchanged ("derived from 1-QB values" in
-`publishedDerivation[src].superflex`). **As of 2026-10-08 no superflex values
-are saved for any publisher** (Supabase `source_trade_values` and
-`api.source_inputs_weekly` hold only `qb_slots = 1`; the pullers keep only the
-1-QB columns), so every published chart is derived from its 1-QB values until
-a producer saves them.
+`publishedDerivation[src].superflex`).
+
+**How the publisher superflex values are saved** (GAP-SUPERFLEX-PUBLISHER-VALUES,
+2026-10-08). Each producer saves them as `qb_slots = 2` rows beside the 1-QB
+rows, in the same bake, `native_value` = the published number:
+
+| Publisher | Column | Positions | Scorings |
+| --- | --- | --- | --- |
+| FantasyCalc | `numQbs=2`, 12 teams (`pull_fantasycalc_12team.py`) | every position (the whole list is repriced) | its own standard / half / full lists |
+| CBS | QB table "2QB" | QB only | one column, reused for the three scorings (IMPLIED, like 1QB-4) |
+| USA Today | QB table "SFLEX" | QB only | one column, reused for the three scorings (IMPLIED, like 1QB) |
+| FantasyPros | QB table "2QB Value" | QB only | one column, reused for the three scorings (like its base value) |
+
+QB only means the publisher prices no RB/WR/TE differently in superflex: those
+players keep their 1-QB numbers from the same chart. A QB the chart prices in
+its 2-QB column only (CBS shows "--" in the 1QB columns) has a superflex value
+and no 1-QB value. The superflex rows are never reindexed (`value` is NULL
+for the reindexed savers; the chart-scale reindex is defined against the 1-QB
+ESPN anchor), never counted or dated with the 1-QB rows (the import health and
+source-vintage reads take `qb_slots = 1`), and never picked as a week's bake:
+the importer carries the superflex rows of the 1-QB snapshot's own week and
+bake as `superflex_rows`, the chain carries them (match -> reference ->
+section -> reindex -> promote) to the 12-team combo's `native_superflex`, and
+a promotion whose publication has none removes the previous one, so an older
+superflex column never sits beside a newer week's 1-QB values. With no
+superflex slot nothing changes (12-combo sweep, 0 values moved with
+`native_superflex` present). Open questions on how the views use them:
+`docs/math-review-agenda.md` MR-15.
 
 Saved setup: a roster with a superflex slot is never the saved setup; the
 saved 12-team values apply only at SUPERFLEX 0, which reproduces the

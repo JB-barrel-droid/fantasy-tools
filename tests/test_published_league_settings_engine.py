@@ -107,13 +107,20 @@ def expected_max(scoring, teams, shape, pos_of=None):
                                             superflex_count=shape.get("SUPERFLEX", 0))
 
 
-def browser_inputs(fixture, pos_of, source, scoring):
-    """(native, saved, index_total) for the saved 12-team setup, browser-mapped."""
+def browser_inputs(fixture, pos_of, source, scoring, superflex=False):
+    """(native, saved, index_total) for the saved 12-team setup, browser-mapped.
+    superflex=True overlays the publisher's own superflex values
+    (`native_superflex`) on the natives, as curve-widget.js
+    savedPublishedNative does when the roster has a superflex slot
+    (GAP-SUPERFLEX-PUBLISHER-VALUES)."""
     pk = fixture["player_keys"]
     combo_key = unified.resolve_combo_key(fixture["sources"][source], scoring, 12)
     combo = fixture["sources"][source]["combos"][combo_key]
+    natives = combo["native"]
+    if superflex and natives and combo.get("native_superflex"):
+        natives = {**natives, **combo["native_superflex"]}
     native, saved = [], []
-    for slug, value in combo["native"].items():
+    for slug, value in natives.items():
         key = pk.get(slug)
         if isinstance(key, int) and key in pos_of and value is not None:
             native.append((key, float(value)))
@@ -124,10 +131,10 @@ def browser_inputs(fixture, pos_of, source, scoring):
     return native, saved, combo.get("index_total") or {}
 
 
-def browser_peers(fixture, pos_of, source, scoring):
+def browser_peers(fixture, pos_of, source, scoring, superflex=False):
     """V2-WAIVER-COVERAGE: the OTHER published charts' saved 12-team natives,
     browser-mapped ({peer: [(key, value)]}), as the widget passes them."""
-    return {peer: browser_inputs(fixture, pos_of, peer, scoring)[0]
+    return {peer: browser_inputs(fixture, pos_of, peer, scoring, superflex)[0]
             for peer in SOURCES if peer != source
             and _has_combo(fixture, peer, scoring)}
 
@@ -155,7 +162,8 @@ def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     """Independent reference for the derived published chart (key -> value)."""
     fixture = fixture or json.loads(FIXTURE.read_text())
     pos_of = pos_of or browser_players()
-    ranked, key_by_name = unified.load_native_values(source, scoring, 12)
+    superflex = shape.get("SUPERFLEX", 0) > 0
+    ranked, key_by_name = unified.load_native_values(source, scoring, 12, superflex=superflex)
     ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
                     for pos, rows in ranked.items()}
     native, saved, index_total = browser_inputs(fixture, pos_of, source, scoring)
@@ -165,7 +173,8 @@ def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots,
                                   superflex_count=shape.get("SUPERFLEX", 0),
                                   our_max=expected_max(scoring, teams, shape, pos_of),
-                                  peers=peers_ranked(browser_peers(fixture, pos_of, source, scoring),
+                                  peers=peers_ranked(browser_peers(fixture, pos_of, source, scoring,
+                                                                   superflex),
                                                      pos_of))
     out = {}
     for key, _value in saved:

@@ -246,18 +246,28 @@ class SaveUsatodayTest(unittest.TestCase):
                             # reindex's >=10 anchor-pair floor (tested below)
         )
         self.assertFalse(result["dry_run"])
-        # Josh Allen: 3 scorings (1QB reused). Gibbs: 3 scorings.
-        # Jordan Davis: ambiguous -> review, not written.
-        self.assertEqual(result["written"], 6)
-        self.assertEqual(result["review_count"], 3)
+        # Josh Allen: 3 scorings (1QB reused) + 3 superflex rows (SFLEX
+        # reused; GAP-SUPERFLEX-PUBLISHER-VALUES, Jeremy 2026-10-08 -- this
+        # pin was 6 written / 3 review while only the 1QB column was saved).
+        # Gibbs: 3 scorings. Jordan Davis: ambiguous -> review (1QB and
+        # SFLEX rows), not written.
+        self.assertEqual(result["written"], 9)
+        self.assertEqual(result["review_count"], 6)
         table, rows, conflict = self.writes[0]
         self.assertEqual(table, "source_trade_values")
         self.assertIn("player_key", conflict)
-        allen = [r for r in rows if r["player_key"] == 869]
+        self.assertIn("qb_slots", conflict)
+        allen = [r for r in rows if r["player_key"] == 869 and r["qb_slots"] == 1]
         self.assertEqual(len(allen), 3)
         self.assertEqual({r["scoring"] for r in allen}, {"std", "half", "full"})
         # QB 1QB column reused across scorings (documented implication).
         self.assertTrue(all(r["value"] == 36 for r in allen))
+        # The SFLEX column: qb_slots = 2, published number in native_value,
+        # never the 6/TD column, QB only.
+        allen_sf = [r for r in rows if r["player_key"] == 869 and r["qb_slots"] == 2]
+        self.assertEqual({r["scoring"] for r in allen_sf}, {"std", "half", "full"})
+        self.assertTrue(all(r["native_value"] == 69 for r in allen_sf))
+        self.assertEqual({r["position"] for r in rows if r["qb_slots"] == 2}, {"QB"})
         # Published values preserved as native.
         gibbs_full = next(
             r for r in rows if r["player_key"] == 2227 and r["scoring"] == "full"

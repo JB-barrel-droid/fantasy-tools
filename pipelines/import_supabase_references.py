@@ -398,6 +398,79 @@ def vintage_dir_slug(content_vintage: str) -> str:
     return slug(content_vintage)
 
 
+# GAP-SUPERFLEX-PUBLISHER-VALUES: the trade-value tables hold the publisher's
+# own superflex / 2-QB values as qb_slots = 2 rows beside the 1-QB rows
+# (qb_slots = 1, the column default). They are a separate grain: the 1-QB
+# snapshot never sees them (one (player, scoring) per row, or the matcher
+# would review every QB as a duplicate), and they never pick the week or the
+# bake. They ride along as `superflex_rows` priced from the SAME week and
+# bake as the 1-QB rows (one publication), and the chain carries them to the
+# fixture as `native_superflex` (build_comparison_source_section).
+SUPERFLEX_QB_SLOTS = 2
+
+
+def split_qb_slots(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """-> (1-QB rows, superflex rows). qb_slots NULL/absent counts as 1 (the
+    column default); any other value is neither and is left out."""
+    one_qb: list[dict[str, Any]] = []
+    superflex: list[dict[str, Any]] = []
+    for row in rows:
+        slots = parse_int(row.get("qb_slots"))
+        if slots in (None, 1):
+            one_qb.append(row)
+        elif slots == SUPERFLEX_QB_SLOTS:
+            superflex.append(row)
+    return one_qb, superflex
+
+
+def scope_superflex_rows(
+    rows: list[dict[str, Any]], *, week: Any, bake_id: Any
+) -> list[dict[str, Any]]:
+    """The superflex rows of the 1-QB snapshot's own week and bake.
+
+    Never another bake's: a superflex column from an older publication would
+    sit beside this week's 1-QB values. A bake with no superflex rows yields
+    none (the engine then derives superflex from the 1-QB values)."""
+    return [r for r in rows if r.get("week") == week and r.get("bake_id") == bake_id]
+
+
+def normalize_superflex_rows(
+    rows: list[dict[str, Any]], names: dict[int, str]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Clean/review superflex rows like the 1-QB rows, priced by native_value.
+
+    The `value` column of a superflex row is NULL for the reindexed savers
+    (the chart-scale reindex is defined against the 1-QB ESPN anchor only), so
+    the published number in native_value is the value; the chain reads
+    native_value for every row anyway."""
+    clean: list[dict[str, Any]] = []
+    review: list[dict[str, Any]] = []
+    for row in rows:
+        priced = dict(row, value=row.get("native_value"))
+        row_clean, row_review = normalize_db_row(priced, names)
+        if row_clean is not None:
+            row_clean["qb_slots"] = SUPERFLEX_QB_SLOTS
+            clean.append(row_clean)
+        else:
+            review.append({**row_review, "qb_slots": SUPERFLEX_QB_SLOTS})
+    return clean, review
+
+
+def attach_superflex(
+    snapshot: dict[str, Any], clean: list[dict[str, Any]], review: list[dict[str, Any]]
+) -> str:
+    """Add the superflex keys to a snapshot only when there are any (a source
+    without superflex rows keeps byte-identical snapshots). -> filter note."""
+    if not clean and not review:
+        return ""
+    snapshot["superflex_rows"] = clean
+    snapshot["superflex_review_rows"] = review
+    return (
+        f"; superflex (qb_slots=2) rows of the same week and bake carried apart "
+        f"as superflex_rows ({len(clean)} clean, {len(review)} review)"
+    )
+
+
 def build_db_snapshot(source: str) -> tuple[dict[str, Any], dict[str, Any]]:
     """Pull a DB-backed source and return (snapshot, manifest_fields)."""
     if source in ("fantasycalc", "usatoday", "fantasypros"):
@@ -428,6 +501,14 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
             f"({len(ecr_dropped)} ECR-flavored rows dropped). Never writing an empty snapshot."
         )
 
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: qb_slots = 2 rows are a separate grain.
+    rows, superflex_all = split_qb_slots(rows)
+    if not rows:
+        raise SystemExit(
+            f"Fail closed: source '{source}' has no 1-QB (qb_slots = 1) rows. "
+            "Never writing an empty snapshot."
+        )
+
     # Multi-week tables: prior weeks are retained, but the snapshot is one
     # vintage -- select the latest week deterministically (never blended).
     rows, scoped_week = _select_latest_week(rows)
@@ -443,10 +524,13 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
         f" scoped to latest bake present (bake_id={scoped_bake})"
         if scoped_bake is not None else ""
     )
+    superflex_rows = scope_superflex_rows(
+        superflex_all, week=rows[0].get("week"), bake_id=rows[0].get("bake_id"))
 
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 
-    keys = sorted({k for k in (canonical_player_key(r.get("player_key")) for r in rows) if k is not None})
+    keys = sorted({k for k in (canonical_player_key(r.get("player_key"))
+                               for r in rows + superflex_rows) if k is not None})
     names = fetch_player_names(keys)
 
     clean_rows: list[dict[str, Any]] = []
@@ -482,6 +566,7 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
         "review_rows": review_rows,
         "review_count": len(review_rows),
     }
+    superflex_note = attach_superflex(snapshot, *normalize_superflex_rows(superflex_rows, names))
     manifest_fields = {
         "supabase_table": SUPABASE_TABLE,
         "from_file": None,
@@ -489,7 +574,7 @@ def build_source_trade_values_snapshot(source: str) -> tuple[dict[str, Any], dic
             f"select=*&source=eq.{source}&variant=eq.as_published "
             f"(as_published only: the source's own scraped value); "
             f"python backstop dropped {len(ecr_dropped)} ECR-flavored row(s)"
-            f"{week_scope_note}{bake_scope_note}"
+            f"{week_scope_note}{bake_scope_note}{superflex_note}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,
@@ -646,6 +731,15 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             f"({len(ecr_dropped)} ECR-flavored rows dropped). Never writing an empty snapshot."
         )
 
+    # GAP-SUPERFLEX-PUBLISHER-VALUES: the 2QB column's qb_slots = 2 rows are
+    # a separate grain (see split_qb_slots).
+    rows, superflex_all = split_qb_slots(rows)
+    if not rows:
+        raise SystemExit(
+            "Fail closed: source 'cbs' has no 1-QB (qb_slots = 1) rows. "
+            "Never writing an empty snapshot."
+        )
+
     # Multi-week tables: prior weeks are retained, but the snapshot is one
     # vintage -- select the latest week deterministically (never blended).
     rows, scoped_week = _select_latest_week(rows)
@@ -657,10 +751,13 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
     # Single-bake scoping: CBS weeks are versioned (GAP-CBS-WEEK-OVERWRITE,
     # 2026-10-08), so a revised week holds several bakes; read the latest.
     rows, scoped_bake = _select_latest_bake(rows)
+    superflex_rows = scope_superflex_rows(
+        superflex_all, week=rows[0].get("week"), bake_id=rows[0].get("bake_id"))
 
     content_vintage, vintage_note, week = derive_db_vintage(rows)
 
-    keys = sorted({k for k in (canonical_player_key(r.get("player_key")) for r in rows) if k is not None})
+    keys = sorted({k for k in (canonical_player_key(r.get("player_key"))
+                               for r in rows + superflex_rows) if k is not None})
     names = fetch_player_names(keys)
 
     clean_rows: list[dict[str, Any]] = []
@@ -694,6 +791,7 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
         "review_rows": review_rows,
         "review_count": len(review_rows),
     }
+    superflex_note = attach_superflex(snapshot, *normalize_superflex_rows(superflex_rows, names))
     manifest_fields = {
         "supabase_table": SOURCE_TABLES["cbs"],
         "from_file": None,
@@ -706,6 +804,7 @@ def build_cbs_snapshot() -> tuple[dict[str, Any], dict[str, Any]]:
             f"python backstop dropped {len(ecr_dropped)} ECR-flavored row(s)"
             f"{week_scope_note}"
             f"{f' scoped to latest bake present (bake_id={scoped_bake})' if scoped_bake else ''}"
+            f"{superflex_note}"
         ),
         "content_vintage": content_vintage,
         "content_vintage_derived_from": vintage_note,

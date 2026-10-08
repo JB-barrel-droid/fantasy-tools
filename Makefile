@@ -351,6 +351,7 @@ test-core:
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_two_tier_frontend
 	python3 -m unittest tests.test_superflex
+	python3 -m unittest tests.test_superflex_publisher_values
 	python3 -m unittest tests.test_cbsros_8t_qb
 	python3 -m unittest tests.test_projection_total_only
 	python3 -m unittest tests.test_cbsros_bake_identity

@@ -89,7 +89,7 @@ def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
         return None
     new: dict[tuple[int, str], float] = {}
     for r in clean:
-        new[(int(r["player_key"]), str(r["scoring"]))] = float(r["native_value"])
+        new[ic.grain_key(r)] = float(r["native_value"])
     if set(new) == set(existing) and all(
             abs(existing[k] - new[k]) <= 1e-9 for k in new):
         print(f"[cbs] same-week content unchanged in DB ({len(new)} keys); "
