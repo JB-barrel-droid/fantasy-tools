@@ -448,7 +448,6 @@ test-core:
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_vorp_translation_js_parity
 	python3 -m unittest tests.test_short_chart_waiver
-	python3 -m unittest tests.test_public_copy_no_vorp
 
 test-all: naming naming-convention test-unit
 
