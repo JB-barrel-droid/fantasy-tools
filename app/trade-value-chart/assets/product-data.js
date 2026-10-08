@@ -657,6 +657,12 @@
     let cellField = null;
     if (view === "combo_reindexed") cellField = combo.values || combo.reindexed || null;
     else if (view === "native") cellField = combo.native || null;
+    // JEG332-SUPERFLEX-FLEX: the publisher's OWN superflex / 2-QB values
+    // (FantasyCalc numQbs=2; the CBS 2QB, USA Today Superflex and FantasyPros
+    // 2QB Value QB columns), same units as `native`, only for the players the
+    // publisher prices differently. Absent until a producer saves them; the
+    // engine then derives superflex from the 1-QB natives.
+    else if (view === "native_superflex") cellField = combo.native_superflex || null;
     else if (view === "vorp" || view === "vorp_indexed" || view === "adj_values") {
       // Legacy fixture does not yet separate these views; collapse to the
       // reindexed cell until the bake ships them.
@@ -689,7 +695,7 @@
     let modelVsPublished = "published";
     if (["espn", "cbsros", "razzball"].includes(sourceKey)) modelVsPublished = "model";
 
-    const detailLocator = `sources.${sourceKey}.combos.${comboKeyStr}.${cellField === combo.native ? "native" : "values"}`;
+    const detailLocator = `sources.${sourceKey}.combos.${comboKeyStr}.${cellField === combo.native ? "native" : cellField === combo.native_superflex ? "native_superflex" : "values"}`;
 
     return Object.freeze({
       values,

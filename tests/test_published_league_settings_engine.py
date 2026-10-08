@@ -57,6 +57,8 @@ SHAPES = [
     ("bench8-flex2-rb3", {**SAVED_SHAPE, "RB": 3, "FLEX": 2, "BENCH": 8}),
     ("bench0", {**SAVED_SHAPE, "BENCH": 0}),
     ("qb2-te2", {**SAVED_SHAPE, "QB": 2, "TE": 2}),
+    # JEG332-SUPERFLEX-FLEX option A: one dedicated superflex slot.
+    ("superflex", {**SAVED_SHAPE, "SUPERFLEX": 1}),
 ]
 
 
@@ -100,10 +102,9 @@ def expected_max(scoring, teams, shape, pos_of=None):
         proj[pos_of[key]].append((str(key), str(key), val))
     for rows in proj.values():
         rows.sort(key=lambda r: -r[2])
-    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
     return unified.positional_max_for_setup(proj, teams, shape["BENCH"], shape["FLEX"],
                                             slots={p: shape[p] for p in POSITIONS},
-                                            flex_eligible=elig)
+                                            superflex_count=shape.get("SUPERFLEX", 0))
 
 
 def browser_inputs(fixture, pos_of, source, scoring):
@@ -161,9 +162,8 @@ def expected_derived(source, scoring, teams, shape, fixture=None, pos_of=None):
     if teams == 12 and shape == SAVED_SHAPE:
         return dict(saved)
     slots = {p: shape[p] for p in POSITIONS}
-    elig = ["QB", "RB", "WR", "TE"] if shape.get("SUPERFLEX") else None
     at = unified.translate_ranked(ranked_keyed, teams, shape["BENCH"], shape["FLEX"], slots=slots,
-                                  flex_eligible=elig,
+                                  superflex_count=shape.get("SUPERFLEX", 0),
                                   our_max=expected_max(scoring, teams, shape, pos_of),
                                   peers=peers_ranked(browser_peers(fixture, pos_of, source, scoring),
                                                      pos_of))
@@ -273,7 +273,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         self.assertEqual(failures, [], "\n".join(failures[:20]))
         self.assertLessEqual(max_diff, TOL)
         self.assertGreater(n, 20000)
-        self.assertEqual({r["version"] for r in results}, {"league-settings-001/4"})
+        self.assertEqual({r["version"] for r in results}, {"league-settings-001/5"})
         self.assertEqual({r["positionalMax"] for r in results}, {unified.POSITIONAL_MAX_VERSION})
         # Every value the chart would plot is finite and non-negative.
         for r in results:
@@ -283,7 +283,7 @@ class PublishedLeagueSettingsEngine(unittest.TestCase):
         fixture = json.loads(FIXTURE.read_text())
         pos_of = browser_players()
         probe = [("cbs", "ppr", t, label, shape) for t in (8, 12, 14)
-                 for label, shape in SHAPES + [("superflex", {**SAVED_SHAPE, "SUPERFLEX": 1})]]
+                 for label, shape in SHAPES]
         res = run_js(_cases(fixture, pos_of, probe))
         flags = {(t, label): r["savedSetup"] for (_, _, t, label, _), r in zip(probe, res)}
         self.assertEqual([k for k, v in flags.items() if v], [(12, "std")])

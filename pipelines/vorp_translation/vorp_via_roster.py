@@ -95,11 +95,56 @@ def apportion(weights: dict[str, float], total: int) -> dict[str, int]:
     return result
 
 
+def allocate_superflex(ranked: dict[str, list[tuple[str, float]]] | None,
+                       teams: int, superflex_count: int = 0,
+                       slots: dict[str, int] = None) -> dict[str, int]:
+    """Who fills the superflex slots (JEG332-SUPERFLEX-FLEX, option A).
+
+    Jeremy 2026-10-08: a superflex league has a DEDICATED superflex slot,
+    filled by the best value with QBs eligible -- no per-position slot
+    weighting (the slots[pos] weight in allocate_flex_vorp_weighted is what
+    kept QBs out of a QB-eligible flex). Order of filling: dedicated slots,
+    then superflex, then flex, then bench.
+
+    With ranked values: the teams x superflex_count best players left after
+    the dedicated starters, across QB/RB/WR/TE, by value (ties: position
+    order QB, RB, WR, TE, then rank). Without ranked values (the
+    slot-proportional baseline that only seeds waiver estimates):
+    apportioned by dedicated slots, like the flex baseline.
+
+    superflex_count 0 returns all zeros, so every default roster is
+    unchanged. Mirrored exactly by value-model.js translationSuperflex.
+    """
+    if slots is None:
+        slots = REF_SLOTS
+    if superflex_count < 0 or int(superflex_count) != superflex_count:
+        raise ValueError("superflex count must be a nonnegative integer")
+    total = teams * int(superflex_count)
+    if not total:
+        return {pos: 0 for pos in POSITIONS}
+    if ranked is None:
+        return apportion({pos: slots.get(pos, 0) for pos in POSITIONS}, total)
+    candidates = []
+    for pos_idx, pos in enumerate(POSITIONS):
+        players = ranked.get(pos, [])
+        if any(not math.isfinite(val) for _, val in players):
+            raise ValueError(f"{pos}: publisher values must be finite")
+        n_ded = teams * slots.get(pos, 0)
+        for i, (_pid, val) in enumerate(players[n_ded:]):
+            candidates.append((-val, pos_idx, i, pos))
+    candidates.sort()
+    out = {pos: 0 for pos in POSITIONS}
+    for _neg, _pi, _i, pos in candidates[:total]:
+        out[pos] += 1
+    return out
+
+
 def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
                                teams: int, flex_count: int = None,
                                waiver_estimates: dict[str, float] = None,
                                slots: dict[str, int] = None,
-                               flex_eligible: list[str] = None) -> dict[str, int]:
+                               flex_eligible: list[str] = None,
+                               superflex_alloc: dict[str, int] = None) -> dict[str, int]:
     """Allocate flex slots weighted by VORP at the margin.
     
     VORP-extended logic: positions with higher VORP at the flex margin
@@ -123,6 +168,9 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
                translatePublishedVorp) passes the chart's roster steppers;
                the default keeps server output unchanged.
         flex_eligible: flex-eligible positions (default REF_FLEX_ELIGIBLE)
+        superflex_alloc: {pos: superflex starters} already taken
+               (allocate_superflex); flex candidates start after them.
+               Default none, so the window is unchanged.
 
     Returns:
         {pos: flex_slots}
@@ -146,6 +194,7 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
     weights = {}
     for pos in flex_eligible:
         n_ded = teams * slots.get(pos, 0)
+        n_taken = n_ded + (superflex_alloc or {}).get(pos, 0)
         players = ranked.get(pos, [])
         waiver = waiver_estimates.get(pos, 0.0)
         if not math.isfinite(waiver) or any(not math.isfinite(val) for _, val in players):
@@ -153,8 +202,8 @@ def allocate_flex_vorp_weighted(ranked: dict[str, list[tuple[str, float]]],
         
         # Only non-dedicated players can fill flex; the league's total flex
         # capacity bounds the candidate window at every eligible position.
-        start_idx = n_ded
-        end_idx = min(len(players), n_ded + total_flex)
+        start_idx = n_taken
+        end_idx = min(len(players), n_taken + total_flex)
         candidates = players[start_idx:end_idx]
         
         if not candidates:
@@ -202,7 +251,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
                        ranked: dict[str, list[tuple[str, float]]] = None,
                        use_vorp_weighting: bool = True,
                        slots: dict[str, int] = None,
-                       flex_eligible: list[str] = None) -> dict[str, dict[str, int]]:
+                       flex_eligible: list[str] = None,
+                       superflex_count: int = 0) -> dict[str, dict[str, int]]:
     """Compute rostered players per position with flexible math.
     
     VORP-extended logic: if ranked values are provided, flex is allocated
@@ -221,9 +271,12 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
         use_vorp_weighting: if False, use pure slot-proportional
         slots: dedicated starters per team by position (default REF_SLOTS)
         flex_eligible: flex-eligible positions (default REF_FLEX_ELIGIBLE)
+        superflex_count: dedicated superflex slots per team (default 0;
+               JEG332-SUPERFLEX-FLEX option A, see allocate_superflex)
 
     Returns:
-        {pos: {'dedicated': int, 'flex': int, 'bench': int, 'rostered': int}}
+        {pos: {'dedicated': int, 'superflex': int, 'flex': int, 'bench': int,
+               'rostered': int}}
     """
     if flex_count is None:
         flex_count = REF_FLEX_COUNT
@@ -239,7 +292,8 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
         # First, estimate waiver lines via slot-proportional baseline
         baseline = rostered_for_teams(teams, bench_per_team, flex_count,
                                       ranked=None, use_vorp_weighting=False,
-                                      slots=slots, flex_eligible=flex_eligible)
+                                      slots=slots, flex_eligible=flex_eligible,
+                                      superflex_count=superflex_count)
         waiver_est = {}
         for pos in POSITIONS:
             players = ranked.get(pos, [])
@@ -251,9 +305,12 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
             else:
                 waiver_est[pos] = 0.0
         
+        sf_alloc = allocate_superflex(ranked, teams, superflex_count, slots)
         flex_alloc = allocate_flex_vorp_weighted(ranked, teams, flex_count, waiver_est,
-                                                 slots=slots, flex_eligible=flex_eligible)
+                                                 slots=slots, flex_eligible=flex_eligible,
+                                                 superflex_alloc=sf_alloc)
     else:
+        sf_alloc = allocate_superflex(None, teams, superflex_count, slots)
         # Slot-proportional fallback
         flex_alloc = apportion({pos: slots.get(pos, 0) for pos in flex_eligible},
                               teams * flex_count)
@@ -263,13 +320,15 @@ def rostered_for_teams(teams: int, bench_per_team: float = 6.0,
     result = {}
     for pos in POSITIONS:
         dedicated = teams * slots.get(pos, 0)
+        superflex = sf_alloc.get(pos, 0)
         flex = flex_alloc.get(pos, 0)
         bench = bench_alloc.get(pos, 0)
         result[pos] = {
             'dedicated': dedicated,
+            'superflex': superflex,
             'flex': flex,
             'bench': bench,
-            'rostered': dedicated + flex + bench,
+            'rostered': dedicated + superflex + flex + bench,
         }
     
     return result

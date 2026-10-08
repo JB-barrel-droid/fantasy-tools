@@ -244,6 +244,62 @@ legitimately round to identical allocations; they are never forced apart.
 Custom bench/flex settings are calculation-only until storage grain includes
 those settings; database writes with nondefault settings fail closed.
 
+## Superflex (JEG332-SUPERFLEX-FLEX, Jeremy 2026-10-08, option A)
+
+A superflex league has a **dedicated superflex slot**: roster key `SUPERFLEX`
+(slots per team; the page offers 0 or 1, default 0). It is filled after the
+dedicated QB/RB/WR/TE slots and before FLEX, by the best remaining player with
+QBs eligible. FLEX stays RB/WR/TE. There is no per-position slot weighting in
+the superflex fill -- the `slots[pos] x surplus` flex weight is what kept QBs
+out of a QB-eligible flex before (risk register JEG332-SUPERFLEX-FLEX). "Best"
+means, per context:
+
+- *Projection series and roles* (ESPN, CBS ROS, Razzball; `projectionRoles`,
+  `allocationCounts`): projected points per game, like ordinary FLEX. A lineup
+  starts whoever scores more, so on ESPN's 2026 projections every superflex
+  slot goes to a quarterback (24 QB starters at 12 teams, 20 at 10).
+- *Value-ordered roles* (`roleMap`, the anchor's starter/bench groups): the
+  values being split.
+- *Published-chart translation* (`vorp_via_roster.allocate_superflex`,
+  mirrored by `ValueModel.translatePublishedVorp({superflexCount})`): the
+  teams x slots best players left after the dedicated starters by the
+  chart's own values (ties: QB, RB, WR, TE, then rank); flex candidates start
+  after them. The league-following positional maxes
+  (`positionalMaxForSetup`) run the same allocation on our ESPN projections,
+  which is where the quarterback scarcity of a superflex league enters every
+  derived chart.
+
+**Whose values.** The Three Views say the ranker's assumed setting is the
+standard default unless the publisher states otherwise. Where a publisher
+publishes superflex / 2-QB values -- FantasyCalc (`numQbs=2`), CBS (2QB QB
+column), USA Today (Superflex QB column), FantasyPros (2QB Value for QBs) --
+those are the publisher's own superflex numbers and the engine uses them: the
+saved 12-team combo's `native_superflex` (same units as `native`, only the
+players the publisher prices differently) replaces the 1-QB native for those
+players when the roster has a superflex slot (`savedPublishedNative`). Where a
+publisher's superflex values are not saved, its 1-QB values go through the
+league math above unchanged ("derived from 1-QB values" in
+`publishedDerivation[src].superflex`). **As of 2026-10-08 no superflex values
+are saved for any publisher** (Supabase `source_trade_values` and
+`api.source_inputs_weekly` hold only `qb_slots = 1`; the pullers keep only the
+1-QB columns), so every published chart is derived from its 1-QB values until
+a producer saves them.
+
+Saved setup: a roster with a superflex slot is never the saved setup; the
+saved 12-team values apply only at SUPERFLEX 0, which reproduces the
+pre-superflex engine exactly (`tests/test_superflex.py`, and a 12-combo x
+three-view sweep with zero moved values). Versions: `unified-py-jeg62/3`,
+`league-settings-001/5`, `published-views-001/3`.
+
+**Not repriced by superflex (open, same as the QB stepper).** The ESPN anchor
+is the pipeline's built leg at the reference roster; a roster change reaches
+it only through `applyRosterShape`'s top-N average factor, and the raw
+value-above-waivers series keep each position's pie at the reference roster.
+So with a superflex slot the anchor's QB values barely move (12 teams, full
+PPR: QB1 29.5 -> 30.9) while the derived published charts' QB1 reaches 70.
+Re-pricing the anchor for roster shape is the open decision in
+JEG332-SUPERFLEX-FLEX.
+
 ## Detailed Rule Owners
 
 - `docs/pipeline-rules.md` owns fail-closed identity, null/zero handling,

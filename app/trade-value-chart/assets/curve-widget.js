@@ -98,7 +98,13 @@
   // Matches the engine's reference shape (REF_SLOTS/REF_FLEX_COUNT in both
   // TwoTier below and build_ddf_two_tier_leg.py). The previous WR:2/FLEX:2
   // default disagreed with the shape every published number was priced under.
-  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6, K:0, DST:0});
+  // SUPERFLEX (JEG332-SUPERFLEX-FLEX option A, Jeremy 2026-10-08): dedicated
+  // superflex slots per team (0 or 1), QB-eligible, filled after the
+  // dedicated slots and before FLEX (value-model.js superflexCount).
+  const DEFAULT_ROSTER = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, SUPERFLEX:0, BENCH:6, K:0, DST:0});
+  // Stepper bounds per roster key (setRosterSpot clamps to them).
+  const ROSTER_BOUNDS = Object.freeze({BENCH: [0, 14], SUPERFLEX: [0, 1]});
+  const rosterBounds = key => ROSTER_BOUNDS[key] || [1, 5];
   const DEFAULT_FLEX_ELIGIBLE = Object.freeze(["RB", "WR", "TE"]);
   const DEFAULT_BENCH_SHARE = 0.15;
   // Minimum plausible peak for an indexed curve. See the collapse guard in
@@ -939,7 +945,7 @@
     return `${base} Wk ${week}`;
   }
   const lockLabel = key => key === "disagreement" ? "Largest disagreement" : `${sourceLabel(key)} value`;
-  const flexEligiblePositions = (shape = rosterShape) => shape.SUPERFLEX ? ["QB", ...DEFAULT_FLEX_ELIGIBLE] : [...DEFAULT_FLEX_ELIGIBLE];
+  const flexEligiblePositions = () => [...DEFAULT_FLEX_ELIGIBLE];
   const isPosition = player => position === "ALL" || (position === "FLEX" ? flexEligiblePositions().includes(player.pos) : player.pos === position);
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
@@ -1134,14 +1140,26 @@
     });
   }
 
-  // A published chart's saved 12-team native values at this scoring.
+  // A published chart's saved 12-team native values at this scoring. With a
+  // superflex slot on the roster, the publisher's own superflex / 2-QB values
+  // (saved as `native_superflex`, same units) replace its 1-QB values where it
+  // publishes them -- the ranker's stated setting (methodology, The Three
+  // Views). Where it publishes none, the 1-QB values go through the league
+  // math unchanged (JEG332-SUPERFLEX-FLEX).
   function savedPublishedNative(key) {
     const native = new Map();
-    savedPublishedRow(key, "native")?.values?.forEach((rawValue, playerKey) => {
+    const take = row => row?.values?.forEach((rawValue, playerKey) => {
       const value = Number(rawValue);
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
+    take(savedPublishedRow(key, "native"));
+    if (native.size && ValueModel.superflexCount(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
     return native;
+  }
+
+  // Which published charts carry their own superflex values (for the note).
+  function publishesSuperflex(key) {
+    return Boolean(savedPublishedRow(key, "native_superflex")?.values?.size);
   }
 
   // V2-WAIVER-COVERAGE (Jeremy 2026-10-07): the OTHER published charts' saved
@@ -1201,10 +1219,7 @@
       const value = clampValue(rawValue);
       if (canonicalByKey.has(playerKey) && value !== null) saved.set(playerKey, value);
     });
-    nativeRow?.values?.forEach((rawValue, playerKey) => {
-      const value = Number(rawValue);
-      if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
-    });
+    if (nativeRow?.values?.size) savedPublishedNative(key).forEach((value, playerKey) => native.set(playerKey, value));
     let values = new Map();
     let info = {mode: "unavailable", reason: "no saved 12-team setup for this scoring"};
     if (saved.size && native.size) {
@@ -1225,7 +1240,10 @@
       info = {mode: "derived", version: derived.version,
         positionalMax: derived.positionalMax, ourMax: derived.ourMax,
         translationVersion: derived.translationVersion, translated: derived.translated,
-        belowWaiver: derived.belowWaiver, waiver: derived.waiver};
+        belowWaiver: derived.belowWaiver, waiver: derived.waiver,
+        superflex: ValueModel.superflexCount(rosterShape)
+          ? (publishesSuperflex(key) ? "publisher superflex values" : "derived from 1-QB values")
+          : null};
     }
     derivedPublishedCache.set(cacheKey, {values, info});
     lastPublishedDerivation[key] = info;
@@ -1311,13 +1329,8 @@
     const inputs = {};
     [...AS_PUBLISHED_KEYS].forEach(key => {
       const savedRow = savedPublishedRow(key, "combo_reindexed");
-      const nativeRow = savedPublishedRow(key, "native");
-      const native = new Map();
+      const native = savedPublishedNative(key);
       const keys = [];
-      nativeRow?.values?.forEach((rawValue, playerKey) => {
-        const value = Number(rawValue);
-        if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
-      });
       savedRow?.values?.forEach((rawValue, playerKey) => {
         if (canonicalByKey.has(playerKey) && clampValue(rawValue) !== null) keys.push(playerKey);
       });
@@ -2121,7 +2134,8 @@
     const referenceWeek = freshness?.first_load_reference_week;
     const weekLabel = referenceWeek ? `Week ${referenceWeek} references` : "references of unknown week";
     const espnText = freshnessText("espn");
-    const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/${rosterShape.BENCH}BN`;
+    const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/` +
+      `${rosterShape.SUPERFLEX ? `${rosterShape.SUPERFLEX}SF/` : ""}${rosterShape.BENCH}BN`;
     const staleLabel = activeSourceKeys().filter(sourceIsStale)
       .map(key => ` · ${SOURCE_LABELS[key] || key}: ${freshnessText(key)}`).join("");
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
@@ -2781,6 +2795,7 @@
       ["WR", "WR"],
       ["TE", "TE"],
       ["FLEX", "Flex"],
+      ["SUPERFLEX", "Superflex"],
       ["BENCH", "Bench"]
       // JEG-298: K/DST inputs removed — JEG-211 excluded K/DST from the chart
       // entirely, and these inputs were no-ops (POSITION_ORDER has no K/DST).
@@ -2793,8 +2808,8 @@
       text.textContent = label;
       const input = document.createElement("input");
       input.type = "number";
-      input.min = key === "BENCH" ? "0" : "1";
-      input.max = key === "BENCH" ? "14" : "5";
+      input.min = String(rosterBounds(key)[0]);
+      input.max = String(rosterBounds(key)[1]);
       input.step = "1";
       input.value = rosterShape[key];
       input.dataset.rosterKey = key;
@@ -3216,8 +3231,7 @@
 
   function setRosterSpot(key, raw, publish = true) {
     if (!Object.prototype.hasOwnProperty.call(rosterShape, key)) return;
-    const min = key === "BENCH" ? 0 : 1;
-    const max = key === "BENCH" ? 14 : 5;
+    const [min, max] = rosterBounds(key);
     const next = Math.max(min, Math.min(max, Math.round(Number(raw))));
     if (!Number.isFinite(next) || next === rosterShape[key]) {
       makeRosterControls();
@@ -3716,8 +3730,8 @@
   function rosterOrdinals() {
     const counts = allocationCounts();
     if (position === "ALL") return {
-      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX),
-      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + rosterShape.BENCH)
+      starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (rosterShape.SUPERFLEX || 0)),
+      bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (rosterShape.SUPERFLEX || 0) + rosterShape.BENCH)
     };
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,

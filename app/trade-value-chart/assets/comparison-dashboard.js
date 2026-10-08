@@ -65,7 +65,7 @@
   // published setup (ValueModel.SAVED_SETUP_SHAPE). The table used to default
   // to WR2/FLEX2, so on first load it derived every published column instead
   // of showing the saved values the chart above it showed (JEG332-VORP-VIEWS).
-  const DEFAULT_ROSTER_SHAPE = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, BENCH:6});
+  const DEFAULT_ROSTER_SHAPE = Object.freeze({QB:1, RB:2, WR:3, TE:1, FLEX:1, SUPERFLEX:0, BENCH:6});
   const state = {
     scoring: "full",
     teams: 12,
