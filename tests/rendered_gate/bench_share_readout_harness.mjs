@@ -17,6 +17,7 @@
 //     mismatch: string | null,          // which assertion failed
 //   }
 import { chromium } from "playwright-core";
+import { enginePageFor } from "./engine_page.mjs";
 import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
@@ -86,8 +87,9 @@ function check(label, expectedPct, snap, mismatchSink) {
 function serve(dir) {
   const server = http.createServer((req, res) => {
     const rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
-    let file = path.join(dir, rel.endsWith("/") ? rel + "index.html" : rel);
-    if (!file.startsWith(dir) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
+    const engine = enginePageFor(rel);
+    let file = engine || path.join(dir, rel.endsWith("/") ? rel + "index.html" : rel);
+    if ((!engine && !file.startsWith(dir)) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) {
       res.writeHead(404).end("not found"); return;
     }
     res.writeHead(200, { "content-type": MIME[path.extname(file)] || "application/octet-stream" });

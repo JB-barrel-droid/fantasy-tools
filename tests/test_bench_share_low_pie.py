@@ -40,7 +40,7 @@ import json
 import subprocess
 import unittest
 
-from tests._dist_server import DIST, ROOT, chromium_executable, serve
+from tests._dist_server import DIST, ENGINE_PAGE, ROOT, chromium_executable, serve
 from tests import _render_env  # noqa: E402
 
 
@@ -182,7 +182,7 @@ def recovered(state) -> bool:
 class BenchShareLowPieTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not (DIST / "classic" / "index.html").exists():
+        if not ENGINE_PAGE.exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_anchor_pie_holds_across_the_slider(self):

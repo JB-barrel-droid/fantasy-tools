@@ -28,7 +28,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from tests._dist_server import DIST, ROOT, chromium_executable, serve
+from tests._dist_server import DIST, ENGINE_PAGE, ROOT, chromium_executable, serve
 from tests import _render_env  # noqa: E402
 
 
@@ -110,7 +110,7 @@ def git_show(path):
 class MissingSectionRenderTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not (DIST / "classic" / "index.html").exists():
+        if not ENGINE_PAGE.exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
 
     def test_missing_source_is_dropped_and_the_rest_renders(self):

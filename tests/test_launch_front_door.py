@@ -1,12 +1,22 @@
 """Launch front door (Jeremy, 2026-10-08).
 
 - v2 is the front door: the site root serves the v2 page itself (no redirect
-  hop); /v2/ keeps working as the same page with a canonical to the root; the
-  chart dashboard moves to /classic/ with a canonical to itself.
+  hop); /v2/ keeps working as the same page with a canonical to the root.
+- JEG-453 (2026-10-08): the old chart dashboard is retired. Its page is built
+  only as the engine page v2 runs hidden (build/engine/index.html, never in
+  dist/); /classic/ is a static redirect to the root (meta refresh, canonical
+  to the root, noindex), so old links keep working.
 - The "Dashboard health" box is hidden on public pages (its checks still run).
 - Monitor pages under modules/ are deployed but linked from no public page.
 - The "Chart build" stamp sits in the footer.
-- Titles carry the brand: v2 is "Data Driven Football"; the classic dashboard is "Trade Value · Data Driven Football".
+- Titles carry the brand: v2 is "Data Driven Football"; the engine page keeps "Trade Value · Data Driven Football".
+
+Engine-only check (replaces the classic-rows == v2-rows check, the one
+cross-check between the two renderers): every value v2's Player values table
+shows equals the engine's own value for that player and series, read from
+TradeValueCurveControls in the same page; and v2's engine rows equal the rows
+the engine page computes on its own (no v2 around it). Discrimination: a v2.js
+whose table drifts 2% from the engine must fail the table check.
 
 The static tests run against the builders and sources; the rendered test
 serves the built dist/ under /fantasy-tools/ (as GitHub Pages does) and needs
@@ -103,19 +113,41 @@ class FrontDoorBuildTests(unittest.TestCase):
         self.assertNotIn('name="robots"', head)
         self.assertIn('href="v2/#trade-targets"', self.v2)
 
-    def test_classic_page_head_and_links(self):
+    def test_engine_page_head_and_links(self):
         head = head_of(self.classic)
         self.assertIn('<base href="../">', head)
-        self.assertIn(f'<link rel="canonical" href="{SITE}classic/">', head)
         self.assertIn('<meta name="robots" content="noindex, follow">', head)
         # A bare "#x" link under <base href="../"> would jump to the root page.
         self.assertNotRegex(self.classic, r'href="#')
 
-    def test_build_reads_classic_and_writes_root(self):
+    def test_classic_is_a_redirect_to_the_root(self):
+        html = _sync_module().classic_redirect_html()
+        head = head_of(html)
+        self.assertIn('<meta http-equiv="refresh" content="0; url=../">', head)
+        self.assertIn(f'<link rel="canonical" href="{SITE}">', head)
+        self.assertIn('<meta name="robots" content="noindex">', head)
+        self.assertIn('href="../"', html)
+        # No dashboard left at /classic/: no engine, no data islands.
+        for marker in ("assets/", "<script id=", "trade-chart-build"):
+            self.assertNotIn(marker, html)
+
+    def test_build_reads_engine_page_and_writes_root(self):
         sync_src = (ROOT / "pipelines" / "sync_dashboard_artifacts.py").read_text(encoding="utf-8")
         self.assertNotRegex(sync_src, r'for name in \([^)]*"index\.html"',
                             "sync must not publish the chart dashboard at the site root")
-        self.assertEqual(Path("classic") / "index.html", build_v2_page.CLASSIC_INPUT)
+        # The engine page is built outside dist/, so Pages never serves it.
+        self.assertEqual(ROOT / "build" / "engine" / "index.html", build_v2_page.ENGINE_PAGE)
+        self.assertNotIn(DIST, build_v2_page.ENGINE_PAGE.parents)
+
+    def test_built_dist_has_no_dashboard_at_classic(self):
+        built = DIST / "classic" / "index.html"
+        if not built.exists():
+            raise _render_env.unavailable("dist/classic/index.html is not built (run make sync)")
+        self.assertEqual(_sync_module().classic_redirect_html(), built.read_text(encoding="utf-8"))
+        self.assertTrue(build_v2_page.ENGINE_PAGE.exists(), "make sync did not build the engine page")
+        # Nothing else in the published tree is the old dashboard.
+        for page in DIST.rglob("*.html"):
+            self.assertNotIn(BRAND_TITLE, page.read_text(encoding="utf-8"), str(page))
 
     def test_main_page_title_health_box_and_footer(self):
         self.assertIn(BRAND_TITLE, self.app_html)
@@ -144,8 +176,11 @@ def _chromium_executable(playwright):
 
 
 @contextlib.contextmanager
-def _pages_server(dist: Path):
-    """Serve dist/ under /fantasy-tools/ with dist/404.html for misses, like Pages."""
+def _pages_server(dist: Path, engine_at: str | None = None):
+    """Serve dist/ under /fantasy-tools/ with dist/404.html for misses, like Pages.
+
+    engine_at (e.g. "_engine/"): also serve the build-only engine page there.
+    Pages never serves it; this is for checks that read the engine alone."""
     class Handler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, *args):
             pass
@@ -165,6 +200,8 @@ def _pages_server(dist: Path):
             prefix = "/fantasy-tools/"
             if not path.startswith(prefix):
                 return str(dist / "__outside_project__")
+            if engine_at and path.split("?", 1)[0] in (prefix + engine_at, prefix + engine_at + "index.html"):
+                return str(build_v2_page.ENGINE_PAGE)
             return super().translate_path("/" + path[len(prefix):])
 
     handler = functools.partial(Handler, directory=str(dist))
@@ -180,16 +217,96 @@ def _pages_server(dist: Path):
 ROWS_JS = """() => window.TradeValueCurveControls.getAllRows()
   .map(r => [r.key || r.player_key || r.name, JSON.stringify(r.values)]).sort()"""
 
+# Engine-only check of v2's Player values table (JEG-453). Every shown row is
+# matched to the engine row with the same name, position and team (ambiguous
+# keys are skipped and counted); every value column must show the engine's
+# value for that series to one decimal, "—" where the engine has none. The
+# column order (meta columns, then plotted series, then VORP series, then an
+# optional spread) is v2's choice; the numbers must be the engine's.
+TABLE_VS_ENGINE_JS = """() => {
+  const V = window.TradeValueV2.view();
+  const keys = V.plotKeys.concat(V.vorpKeys);
+  const id = (name, pos, team) => [name, pos, team || "FA"].join("|");
+  const engine = new Map(), dup = new Set();
+  window.TradeValueCurveControls.getRows().forEach(r => {
+    const k = id(r.name, r.pos, r.team);
+    if (engine.has(k)) dup.add(k); engine.set(k, r);
+  });
+  const heads = [...document.querySelectorAll('#v2Table thead th')].map(th => th.textContent.replace(/[↕↓↑]/g, '').trim());
+  const meta = heads.indexOf("Player");
+  const first = heads.length - keys.length - (/spread/i.test(heads[heads.length - 1]) ? 1 : 0);
+  const text = td => (td && td.firstChild ? td.firstChild.textContent : "").trim();
+  const problems = [];
+  let compared = 0, skipped = 0;
+  [...document.querySelectorAll('#v2Table tbody tr')].forEach(tr => {
+    const cells = [...tr.cells];
+    const k = id(text(cells[meta]), text(cells[meta + 1]), text(cells[meta + 2]));
+    const row = engine.get(k);
+    if (!row || dup.has(k)) { skipped++; return; }
+    compared++;
+    keys.forEach((key, i) => {
+      const v = row.values[key];
+      const want = Number.isFinite(v) ? v.toFixed(1) : "—";
+      const got = text(cells[first + i]);
+      if (got !== want) problems.push(`${k} ${key}: table ${got}, engine ${want}`);
+    });
+  });
+  return {compared, skipped, columns: keys.length, problems};
+}"""
+
 
 class FrontDoorRenderedTests(unittest.TestCase):
-    def test_rendered_front_door(self):
-        if not (DIST / "classic" / "index.html").exists():
-            raise _render_env.unavailable("dist/classic/index.html is not built (run make sync)")
+    def _browser(self, playwright):
+        executable = _chromium_executable(playwright)
+        if not executable:
+            raise _render_env.unavailable("Chromium is not available")
+        return playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=executable)
+
+    def _table_vs_engine(self, browser, url, v2_body=None):
+        page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+        if v2_body is not None:
+            page.route("**/v2/v2.js*", lambda route: route.fulfill(
+                status=200, content_type="text/javascript", body=v2_body))
+        try:
+            page.goto(url + "#player-values", wait_until="networkidle", timeout=120000)
+            page.wait_for_function("() => window.TradeValueV2 && window.TradeValueCurveControls"
+                                   " && document.querySelector('#v2Table tbody tr')", timeout=60000)
+            return page.evaluate(TABLE_VS_ENGINE_JS)
+        finally:
+            page.close()
+
+    def test_v2_table_equals_engine_and_guard_fails_on_drift(self):
+        if not (DIST / "index.html").exists():
+            raise _render_env.unavailable("dist/index.html is not built (run make sync)")
         try:
             from playwright.sync_api import sync_playwright
         except Exception as exc:
             raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+        v2_js = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
+        fmt = 'const fmt = v => Number.isFinite(v) ? v.toFixed(1) : "—";'
+        self.assertIn(fmt, v2_js, "mutation anchor for v2's number format is stale")
+        drifted = v2_js.replace(fmt, 'const fmt = v => Number.isFinite(v) ? (v * 1.02).toFixed(1) : "—";', 1)
         with _pages_server(DIST) as base, sync_playwright() as playwright:
+            browser = self._browser(playwright)
+            try:
+                good = self._table_vs_engine(browser, base)
+                self.assertGreaterEqual(good["compared"], 25, good)
+                self.assertGreaterEqual(good["columns"], 3, good)
+                self.assertEqual([], good["problems"][:10], f"{len(good['problems'])} cells differ")
+                bad = self._table_vs_engine(browser, base, drifted)
+                self.assertNotEqual([], bad["problems"], "the table check did not catch a 2% drift")
+            finally:
+                browser.close()
+
+    def test_rendered_front_door(self):
+        if not (DIST / "classic" / "index.html").exists() or not build_v2_page.ENGINE_PAGE.exists():
+            raise _render_env.unavailable("dist/classic and build/engine are not built (run make sync)")
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:
+            raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+        with _pages_server(DIST, engine_at="_engine/") as base, sync_playwright() as playwright:
             executable = _chromium_executable(playwright)
             if not executable:
                 raise _render_env.unavailable("Chromium is not available")
@@ -243,23 +360,23 @@ class FrontDoorRenderedTests(unittest.TestCase):
                     self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
                     page.close()
 
-                # /classic/: the chart dashboard, same engine rows as v2.
-                page, errors, response = open_page(base + "classic/")
-                self.assertEqual(200, response.status)
+                # /classic/ (JEG-453): retired; old links land on the root page.
+                for url in (base + "classic/", base + "classic/#weightsSection"):
+                    page = browser.new_page()
+                    page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                    response = page.goto(url, wait_until="commit", timeout=60000)
+                    self.assertEqual(200, response.status, url)
+                    page.wait_for_url(lambda u: u.split("#")[0] == base, timeout=30000)
+                    page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
+                    self.assertEqual(V2_TITLE, page.title())
+                    page.close()
+
+                # The engine alone (the build-only engine page, no v2 around
+                # it) computes the same rows v2's hidden engine does.
+                page, errors, _ = open_page(base + "_engine/")
                 engine_ready(page)
                 self.assertEqual([], errors)
-                self.assertEqual("Trade Value · Data Driven Football", page.title())
-                self.assertTrue(page.is_visible("#curvePlayerSearch") or page.is_visible(".topbar"))
-                self.assertFalse(page.is_visible(".health-cluster"), "Dashboard health box is visible")
-                self.assertFalse(page.is_visible("#chartHealthBtn"))
-                self.assertTrue(page.is_visible("footer #asOfDate"))
-                self.assertRegex(page.inner_text("footer"), r"Chart build .*Build tv-")
-                self.assertEqual(v2_rows, page.evaluate(ROWS_JS), "classic rows differ from v2's engine rows")
-                # The in-page link stays on /classic/.
-                href = page.eval_on_selector('a[href$="#weightsSection"]', "e => e.href")
-                self.assertEqual(base + "classic/#weightsSection", href)
-                self.assertEqual([], page.eval_on_selector_all(
-                    'a[href*="modules/"]', "els => els.map(e => e.href)"))
+                self.assertEqual(v2_rows, page.evaluate(ROWS_JS), "v2's engine rows differ from the engine page's")
                 page.close()
 
                 # Retired pages and the 404 page lead back to the front door.

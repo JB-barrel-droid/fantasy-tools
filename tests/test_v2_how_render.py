@@ -144,7 +144,7 @@ def _built_dist(shell_html=None):
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
         out = build_v2_page.build(dist)
         if shell_html is not None:
-            out.write_text(build_v2_page.build_v2_html((dist / "classic" / "index.html").read_text(encoding="utf-8"), shell_html),
+            out.write_text(build_v2_page.build_v2_html(build_v2_page.ENGINE_PAGE.read_text(encoding="utf-8"), shell_html),
                            encoding="utf-8")
 
         class QuietHandler(http.server.SimpleHTTPRequestHandler):

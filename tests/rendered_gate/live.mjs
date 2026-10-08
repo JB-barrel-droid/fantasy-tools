@@ -6,7 +6,7 @@
 // GAP-038 (2026-10-08): after the root build-tag check, the same run renders
 // every page a reader can reach: each v2 tab on the root (Player values, Trade
 // targets, Risers & fallers, Compare a trade, How values work), the /v2/ copy,
-// the chart dashboard at /classic/, and the 404 page. Each page must answer 200, carry the
+// /classic/ (a redirect to the root since JEG-453), and the 404 page. Each page must answer 200, carry the
 // root's build tag, show its section with content, and raise no uncaught page
 // error. Results land in report.pages[]; any failing page fails the run.
 //
@@ -207,11 +207,34 @@ async function checkPages(browser, url, rootTag) {
     pages.push(finish(result));
   }
   {
-    const { page, result } = await loadPage(browser, new URL("classic/", base).toString(), rootTag);
-    result.name = "classic";
-    if (!result.problems.length) {
-      const readout = await page.evaluate(() => (document.querySelector("#weightsReadout")?.textContent || "").trim());
-      if (!readout) result.problems.push("#weightsReadout is empty (chart did not render)");
+    // JEG-453: the old chart dashboard is retired. /classic/ must answer 200
+    // and send the reader on to the root page, which must carry the root's
+    // build (an old dashboard still served there fails here).
+    const classicUrl = new URL("classic/", base).toString();
+    const result = { name: "classic-redirect", url: classicUrl, httpStatus: null, liveTag: null,
+                     landedAt: null, pageErrors: [], problems: [] };
+    const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+    page.on("pageerror", (e) => result.pageErrors.push(String(e).slice(0, 240)));
+    try {
+      const response = await page.goto(classicUrl, { waitUntil: "commit", timeout: 60000 });
+      result.httpStatus = response ? response.status() : null;
+      if (result.httpStatus !== 200) result.problems.push(`HTTP ${result.httpStatus} (expected 200)`);
+      const atRoot = (u) => String(u).split("#")[0] === base;
+      await page.waitForURL(atRoot, { timeout: 15000 }).catch(() => {});
+      result.landedAt = page.url();
+      if (!atRoot(result.landedAt)) {
+        result.problems.push(`stayed at ${result.landedAt} (expected a redirect to ${base})`);
+      } else {
+        await page.waitForLoadState("networkidle", { timeout: 60000 }).catch(() => {});
+        await page.waitForTimeout(2000);
+        result.liveTag = await page.evaluate(() =>
+          document.querySelector('meta[name="trade-chart-build"]')?.getAttribute("content") || null);
+        if (result.liveTag !== rootTag) {
+          result.problems.push(`landed on build ${result.liveTag}, not the root's ${rootTag}`);
+        }
+      }
+    } catch (e) {
+      result.problems.push(`did not load: ${String(e).slice(0, 200)}`);
     }
     await page.close();
     pages.push(finish(result));

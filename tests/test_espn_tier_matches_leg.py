@@ -30,7 +30,7 @@ import subprocess
 import sys
 import unittest
 
-from tests._dist_server import DIST, ROOT, chromium_executable, serve
+from tests._dist_server import DIST, ENGINE_PAGE, ROOT, chromium_executable, serve
 
 sys.path.insert(0, str(ROOT / "pipelines"))
 from build_ddf_two_tier_leg import (  # noqa: E402
@@ -111,7 +111,7 @@ def read_all(overrides=None):
 class EspnTierMatchesLegTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        if not (DIST / "classic" / "index.html").exists():
+        if not ENGINE_PAGE.exists():
             raise _render_env.unavailable("dist/ not built (run make sync)")
         cls.players = json.loads((ROOT / "data" / "fixtures" / "current" / "players.json")
                                  .read_text(encoding="utf-8"))["players"]

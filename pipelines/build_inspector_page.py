@@ -7,11 +7,12 @@ input and intermediate number from the engine's read-only accessor
 TradeValueCurveControls.getInspection(), so every number it shows is the
 number the chart computes.
 
-Input is the already-synced chart page, dist/classic/index.html. Output is
+Input is the already-synced engine page, build/engine/index.html (the old
+chart dashboard; build-only since JEG-453). Output is
 dist/modules/math-inspector.html: internal, noindex, nofollow, linked from no
 public page (launch decision 2026-10-08). It sits one directory down from the
-site root like /classic/, so the classic page's <base href="../"> keeps every
-asset and data path working.
+site root, so the engine page's <base href="../"> keeps every asset and data
+path working.
 """
 from __future__ import annotations
 
@@ -20,11 +21,12 @@ import shutil
 import sys
 from pathlib import Path
 
+from build_v2_page import ENGINE_PAGE  # build-only engine page (JEG-453)
+
 ROOT = Path(__file__).resolve().parents[1]
 APP_INSPECTOR = ROOT / "app" / "inspector"
 DIST = ROOT / "dist"
 
-CLASSIC_INPUT = Path("classic") / "index.html"
 OUTPUT = Path("modules") / "math-inspector.html"
 ASSETS = ("math-inspector.js", "math-inspector.css")
 TITLE = "Math Inspector · Data Driven Football (internal)"
@@ -65,8 +67,8 @@ def build_inspector_html(classic_html: str, shell_html: str) -> str:
     return html
 
 
-def build(dist: Path = DIST) -> Path:
-    classic_html = (dist / CLASSIC_INPUT).read_text(encoding="utf-8")
+def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE) -> Path:
+    classic_html = engine_page.read_text(encoding="utf-8")
     shell_html = (APP_INSPECTOR / "shell.html").read_text(encoding="utf-8")
     out = dist / OUTPUT
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -590,7 +590,7 @@ function renderSynthetic(feeds) {
       <td>${esc(p.httpStatus ?? "—")}</td><td>${esc(p.pageErrors?.length ?? 0)}</td><td class="why">${tabs || "—"}</td>
       <td class="why">${esc([...(p.problems || []), ...(p.pageErrors || [])].join(" · ") || "—")}</td></tr>`;
   });
-  card("frontend", "synthetic", "Live synthetic check (root, v2 tabs, classic, 404)", st,
+  card("frontend", "synthetic", "Live synthetic check (root, v2 tabs, /classic/ redirect, 404)", st,
     `<div class="asof">Last run ${when(b.run.created_at)} · ${esc(b.run.conclusion)} · <a href="${esc(b.run.html_url)}">run</a> (amber after 30 h)</div>` +
     (rep ? `<p class="why">Root: live tag <code>${esc(rep.liveTag)}</code> · ${rep.passed ? "passed" : "failed"} · ${esc(rep.pageErrors?.length ?? 0)} uncaught page errors${rep.problems?.length ? " · " + esc(rep.problems.join(" · ")) : ""}</p>` : "") +
     (why.length ? `<p class="why">${esc(why.join(" · "))}</p>` : "") +

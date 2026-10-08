@@ -220,21 +220,26 @@ def replace_inline_methodology(index_html: str, payload: dict) -> str:
 
 
 SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
-# Launch 2026-10-08 (Jeremy): the v2 page is the front door at the site root;
-# the chart dashboard moves to /classic/. build_v2_page reads this page as its
-# engine input and writes dist/index.html (root) and dist/v2/index.html.
+# Launch 2026-10-08 (Jeremy): the v2 page is the front door at the site root.
+# JEG-453 (2026-10-08): the old chart dashboard is no longer published. Its page
+# is still built, as the engine page v2 runs hidden: build_v2_page and
+# build_inspector_page read it from build/engine/index.html (gitignored, never
+# uploaded to Pages), and the render harnesses serve it at /classic/ on their
+# own local servers. The published /classic/ redirects to the root, so old
+# links keep working.
 CLASSIC_DIR = "classic"
 
 
 def classic_page_html(index_html: str) -> str:
-    """The chart dashboard as served from dist/classic/index.html.
+    """The engine page: the old chart dashboard, as the harnesses serve it at /classic/.
 
-    One directory down from the site root, so a <base href="../"> keeps every
-    relative asset, fetch and data path pointing where it always has. A base
-    also re-targets in-page "#x" links at the base URL (the root, now v2), so
-    those are rewritten to "classic/#x", which is this same document.
-    Canonical to itself; noindex so search results land on the front door
-    rather than the secondary chart view.
+    Build-only since JEG-453 (written to build/engine/index.html, never to
+    dist/). Laid out for one directory below a site root, so a
+    <base href="../"> keeps every relative asset, fetch and data path pointing
+    where it always has. A base also re-targets in-page "#x" links at the base
+    URL, so those are rewritten to "classic/#x", this same document wherever a
+    harness serves it. v2 and the inspector strip the canonical and noindex;
+    the body goes into v2 (hidden) unchanged.
     """
     if "<head>" not in index_html or "</title>" not in index_html:
         raise SystemExit("classic page: <head> or <title> missing from app/trade-value-chart/index.html")
@@ -246,6 +251,31 @@ def classic_page_html(index_html: str) -> str:
     )
     title_end = html.index("</title>") + len("</title>")
     return html[:title_end] + head_extra + html[title_end:]
+
+
+def classic_redirect_html() -> str:
+    """dist/classic/index.html since JEG-453: old /classic/ links land on the root.
+
+    Pages has no server-side redirects, so: a meta refresh, a script that
+    replaces this history entry, and a plain link. Canonical to the root and
+    noindex, so search engines drop /classic/.
+    """
+    return (
+        "<!doctype html>\n"
+        '<html lang="en">\n'
+        "<head>\n"
+        '  <meta charset="utf-8">\n'
+        "  <title>Data Driven Football</title>\n"
+        '  <meta name="robots" content="noindex">\n'
+        f'  <link rel="canonical" href="{SITE_URL}">\n'
+        '  <meta http-equiv="refresh" content="0; url=../">\n'
+        '  <script>location.replace("../");</script>\n'
+        "</head>\n"
+        "<body>\n"
+        '  <p>This page has moved to <a href="../">Data Driven Football</a>.</p>\n'
+        "</body>\n"
+        "</html>\n"
+    )
 
 
 def copy_tree(source: Path, target: Path) -> None:
@@ -439,8 +469,12 @@ def main() -> int:
     DIST.mkdir(parents=True, exist_ok=True)
     for name in ("icon.jpg", "404.html"):
         shutil.copy2(APP / name, DIST / name)
+    # JEG-453: the engine page is build-only; /classic/ publishes a redirect.
+    from build_v2_page import ENGINE_PAGE
+    ENGINE_PAGE.parent.mkdir(parents=True, exist_ok=True)
+    ENGINE_PAGE.write_text(classic_page_html(index_html), encoding="utf-8")
     (DIST / CLASSIC_DIR).mkdir(parents=True, exist_ok=True)
-    (DIST / CLASSIC_DIR / "index.html").write_text(classic_page_html(index_html), encoding="utf-8")
+    (DIST / CLASSIC_DIR / "index.html").write_text(classic_redirect_html(), encoding="utf-8")
     copy_tree(APP / "assets", DIST / "assets")
 
     # The module monitor and the health artifact it reads. Previously both
@@ -505,7 +539,7 @@ def main() -> int:
 
     # v2 front end: the new layout over the same engine and data (app/v2/).
     # It is the site's front door: written to dist/index.html (root) and
-    # dist/v2/index.html (old links), both from dist/classic/index.html.
+    # dist/v2/index.html (old links), both from the build-only engine page.
     from build_v2_page import build as build_v2_page
     build_v2_page(DIST)
 
