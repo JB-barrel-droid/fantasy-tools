@@ -16,18 +16,18 @@
       "tau": 0.6461249999999996
     },
     "RB": {
-      "bench_raw": 30.464249999999993,
+      "bench_raw": 30.53354999999999,
       "bench_share_used": 0.15,
       "n_bench": 18,
       "n_pool": 93,
       "n_starters": 22,
-      "pb": 0.9043409093027851,
-      "pie": 203.0949999999999,
-      "ps": 1.0969544734987555,
-      "rs": 9.823,
+      "pb": 0.90191825096385,
+      "pie": 203.55699999999996,
+      "ps": 1.1042104178258656,
+      "rs": 9.938500000000001,
       "rw": 6.473,
-      "starter_raw": 172.63074999999998,
-      "tau": 0.8375000000000001
+      "starter_raw": 173.02345,
+      "tau": 0.8663750000000003
     },
     "TE": {
       "bench_raw": 4.825499999999998,
@@ -44,21 +44,21 @@
       "tau": 0.4317500000000003
     },
     "WR": {
-      "bench_raw": 14.511991529273983,
-      "bench_share_used": 0.10002061843872069,
+      "bench_raw": 13.973987702178961,
+      "bench_share_used": 0.09667100906372071,
       "n_bench": 22,
       "n_pool": 99,
       "n_starters": 26,
-      "pb": 0.9999993422995085,
-      "pie": 145.09000000000003,
-      "ps": 1.000000449962693,
+      "pb": 0.9999990075266746,
+      "pie": 144.55200000000005,
+      "ps": 1.0000006733075184,
       "rs": 9.896,
       "rw": 8.108,
-      "starter_raw": 130.57800847072602,
+      "starter_raw": 130.5780122978211,
       "tau": 0.44700000000000006
     }
   },
-  "generated_at": "2026-10-08T14:50:20Z",
+  "generated_at": "2026-10-08T15:26:54Z",
   "identity": {
     "alias_note": "Shared verified alias map with the ESPN DDF leg (data/inputs/player_aliases.json); suffix, punctuation and nickname spellings match through norm_player_name (FixtureIdentity). Unresolvable identities are excluded, never guessed.",
     "aliases_used": [
@@ -78,16 +78,16 @@
     "bench_share": 0.15,
     "cbsros_snapshot": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/cbsros/2026-10-08/snapshot.json",
     "cbsros_snapshot_date": "2026-10-08",
-    "cbsros_snapshot_id": "sha256:ca28dccde34d4a3a83698a3949ffbda1c49c128795f42a114e8f8d22d9ed1dbc",
+    "cbsros_snapshot_id": "sha256:5d7687928eb91f6a0ff5a04c36bb5177165ef9f630c4669d047fde38e5372e5a",
     "cbsros_snapshot_rows": 367,
-    "cbsros_snapshot_sha256": "bb8848765ef13aa8fed16371c3c2a16f86afe0d1d71f2692af1c27f8b2a8add9",
+    "cbsros_snapshot_sha256": "891352d275b0798b9ced24582c7a80686e0887cdfe569007c1beb02924a70d80",
     "per_game_note": "per-game = CBS ROS total / gp (per-player games). CBS publishes nonppr totals only; half_ppr/ppr add 0.5/1.0 per reception (reception points are the only scoring difference). Arithmetic on CBS components only; no expert blending.",
     "pies_note": "Positional pies measured from the current CBS data (tier surplus). No pies file: a static file goes stale when the player pool changes.",
     "scoring": "half_ppr",
     "source_tag": "cbsros",
     "teams": 8
   },
-  "max_raw_value": 17.033625921901614,
+  "max_raw_value": 17.094543327980702,
   "reference_shape": {
     "bench_mix": {
       "QB": 7,
@@ -212,11 +212,11 @@
       "reason": "unresolved_identity"
     }
   ],
-  "scale_70_over_max": 4.109518450208239,
+  "scale_70_over_max": 4.094873940587963,
   "schema": "trade-value-ddf-leg-v1",
   "summary": {
     "calibration_notes": [
-      "WR: bench share 0.15 infeasible, using 0.100"
+      "WR: bench share 0.15 infeasible, using 0.097"
     ],
     "n_bench": 54,
     "n_review": 17,
@@ -231,10 +231,10 @@
       "player_norm": "jahmyr gibbs",
       "pos": "RB",
       "ppg": 22.592,
-      "raw_value": 17.033625921901614,
+      "raw_value": 17.094543327980702,
       "team": "DET",
       "tier": "starter",
-      "value": 70.00000000000001
+      "value": 70.0
     },
     {
       "player": "Bijan Robinson",
@@ -242,10 +242,10 @@
       "player_norm": "bijan robinson",
       "pos": "RB",
       "ppg": 20.523,
-      "raw_value": 14.7640275337831,
+      "raw_value": 14.809932760707756,
       "team": "ATL",
       "tier": "starter",
-      "value": 60.6730435494641
+      "value": 60.644807723682135
     },
     {
       "player": "Jonathan Taylor",
@@ -253,10 +253,10 @@
       "player_norm": "jonathan taylor",
       "pos": "RB",
       "ppg": 19.108,
-      "raw_value": 13.211838968445107,
+      "raw_value": 13.247478590969408,
       "team": "IND",
       "tier": "starter",
-      "value": 54.29429600200536
+      "value": 54.246754860657575
     },
     {
       "player": "Jaxon Smith-Njigba",
@@ -264,10 +264,10 @@
       "player_norm": "jaxon smithnjigba",
       "pos": "WR",
       "ppg": 19.1,
-      "raw_value": 10.99200295650166,
+      "raw_value": 10.992004409065586,
       "team": "SEA",
       "tier": "starter",
-      "value": 45.17183895448708
+      "value": 45.01087240951066
     },
     {
       "player": "Derrick Henry",
@@ -275,10 +275,10 @@
       "player_norm": "derrick henry",
       "pos": "RB",
       "ppg": 16.862,
-      "raw_value": 10.748112847530741,
+      "raw_value": 10.767476848878104,
       "team": "BAL",
       "tier": "starter",
-      "value": 44.1695680518478
+      "value": 44.09146035435514
     },
     {
       "player": "Kenneth Walker III",
@@ -286,10 +286,10 @@
       "player_norm": "kenneth walker iii",
       "pos": "RB",
       "ppg": 16.1,
-      "raw_value": 9.912287090553518,
+      "raw_value": 9.926152067551843,
       "team": "KC",
       "tier": "starter",
-      "value": 40.73472668239063
+      "value": 40.64634143173137
     },
     {
       "player": "Kyren Williams",
@@ -297,10 +297,10 @@
       "player_norm": "kyren williams",
       "pos": "RB",
       "ppg": 15.815,
-      "raw_value": 9.599691392237883,
+      "raw_value": 9.611507710260856,
       "team": "LA",
       "tier": "starter",
-      "value": 39.4501088927068
+      "value": 39.357912452507456
     },
     {
       "player": "Puka Nacua",
@@ -308,10 +308,10 @@
       "player_norm": "puka nacua",
       "pos": "WR",
       "ppg": 17.623,
-      "raw_value": 9.515002291906775,
+      "raw_value": 9.515003414590403,
       "team": "LA",
       "tier": "starter",
-      "value": 39.10207747236458
+      "value": 38.96273952701173
     },
     {
       "player": "CeeDee Lamb",
@@ -319,10 +319,10 @@
       "player_norm": "ceedee lamb",
       "pos": "WR",
       "ppg": 17.423,
-      "raw_value": 9.315002201914243,
+      "raw_value": 9.31500327992891,
       "team": "DAL",
       "tier": "starter",
-      "value": 38.28017341249696
+      "value": 38.14376418747229
     },
     {
       "player": "Chase Brown",
@@ -330,10 +330,10 @@
       "player_norm": "chase brown",
       "pos": "RB",
       "ppg": 15.185,
-      "raw_value": 8.908751269667496,
+      "raw_value": 8.916067098203794,
       "team": "CIN",
       "tier": "starter",
-      "value": 36.61067771101465
+      "value": 36.510170812968454
     },
     {
       "player": "Josh Allen",
@@ -344,7 +344,7 @@
       "raw_value": 8.82663326508654,
       "team": "BUF",
       "tier": "starter",
-      "value": 36.27321225609493
+      "value": 36.14395054032972
     },
     {
       "player": "Christian McCaffrey",
@@ -352,10 +352,10 @@
       "player_norm": "christian mccaffrey",
       "pos": "RB",
       "ppg": 14.746,
-      "raw_value": 8.427372098981557,
+      "raw_value": 8.431588999113512,
       "team": "SF",
       "tier": "starter",
-      "value": 34.63244112753485
+      "value": 34.526294070218064
     },
     {
       "player": "Ashton Jeanty",
@@ -363,10 +363,10 @@
       "player_norm": "ashton jeanty",
       "pos": "RB",
       "ppg": 14.485,
-      "raw_value": 8.141231587533746,
+      "raw_value": 8.14362875247529,
       "team": "LV",
       "tier": "starter",
-      "value": 33.45654141638804
+      "value": 33.34713316033393
     },
     {
       "player": "Javonte Williams",
@@ -374,10 +374,10 @@
       "player_norm": "javonte williams",
       "pos": "RB",
       "ppg": 14.469,
-      "raw_value": 8.123692167072129,
+      "raw_value": 8.125978476376329,
       "team": "DAL",
       "tier": "starter",
-      "value": 33.38446284439507
+      "value": 33.27485750469211
     },
     {
       "player": "Amon-Ra St. Brown",
@@ -385,10 +385,10 @@
       "player_norm": "amonra st brown",
       "pos": "WR",
       "ppg": 15.692,
-      "raw_value": 7.584001423029956,
+      "raw_value": 7.584002114435301,
       "team": "DET",
       "tier": "starter",
-      "value": 31.166593774347145
+      "value": 31.055532623765124
     },
     {
       "player": "Chris Olave",
@@ -396,10 +396,10 @@
       "player_norm": "chris olave",
       "pos": "WR",
       "ppg": 15.623,
-      "raw_value": 7.515001391982723,
+      "raw_value": 7.515002067977373,
       "team": "NO",
       "tier": "starter",
-      "value": 30.8830368736936
+      "value": 30.772986131625196
     },
     {
       "player": "James Cook",
@@ -407,10 +407,10 @@
       "player_norm": "james cook",
       "pos": "RB",
       "ppg": 13.877,
-      "raw_value": 7.474937392535301,
+      "raw_value": 7.473199189298662,
       "team": "BUF",
       "tier": "starter",
-      "value": 30.718393128775286
+      "value": 30.60180861308218
     },
     {
       "player": "Bhayshul Tuten",
@@ -418,10 +418,10 @@
       "player_norm": "bhayshul tuten",
       "pos": "RB",
       "ppg": 13.769,
-      "raw_value": 7.356640296285686,
+      "raw_value": 7.354188573621778,
       "team": "JAX",
       "tier": "starter",
-      "value": 30.232249029131435
+      "value": 30.114475144293582
     },
     {
       "player": "Drake London",
@@ -429,10 +429,10 @@
       "player_norm": "drake london",
       "pos": "WR",
       "ppg": 14.892,
-      "raw_value": 6.784001063065574,
+      "raw_value": 6.784001575797967,
       "team": "ATL",
       "tier": "starter",
-      "value": 27.878977534900283
+      "value": 27.77963126564277
     },
     {
       "player": "Nico Collins",
@@ -440,10 +440,10 @@
       "player_norm": "nico collins",
       "pos": "WR",
       "ppg": 14.854,
-      "raw_value": 6.746001045967606,
+      "raw_value": 6.746001550213205,
       "team": "HOU",
       "tier": "starter",
-      "value": 27.722815763527958
+      "value": 27.624025951134055
     },
     {
       "player": "Trey McBride",
@@ -454,7 +454,7 @@
       "raw_value": 6.471187271030216,
       "team": "ARI",
       "tier": "starter",
-      "value": 26.593463485051377
+      "value": 26.498696120806166
     },
     {
       "player": "Brock Bowers",
@@ -465,7 +465,7 @@
       "raw_value": 6.412583443797502,
       "team": "LV",
       "tier": "starter",
-      "value": 26.35262997578572
+      "value": 26.258720835852206
     },
     {
       "player": "Chuba Hubbard",
@@ -473,10 +473,10 @@
       "player_norm": "chuba hubbard",
       "pos": "RB",
       "ppg": 12.838,
-      "raw_value": 6.338280501559591,
+      "raw_value": 6.330137956313633,
       "team": "CAR",
       "tier": "starter",
-      "value": 26.04728066375427
+      "value": 25.92111695763544
     },
     {
       "player": "Zay Flowers",
@@ -484,10 +484,10 @@
       "player_norm": "zay flowers",
       "pos": "WR",
       "ppg": 14.438,
-      "raw_value": 6.330000858794716,
+      "raw_value": 6.330001270134709,
       "team": "BAL",
       "tier": "starter",
-      "value": 26.013255319050884
+      "value": 25.920557244963323
     },
     {
       "player": "Jaylen Warren",
@@ -495,10 +495,10 @@
       "player_norm": "jaylen warren",
       "pos": "RB",
       "ppg": 12.8,
-      "raw_value": 6.296795264511004,
+      "raw_value": 6.288444960770839,
       "team": "PIT",
       "tier": "starter",
-      "value": 25.876796316691838
+      "value": 25.750389396682202
     },
     {
       "player": "Ja'Marr Chase",
@@ -506,10 +506,10 @@
       "player_norm": "jamarr chase",
       "pos": "WR",
       "ppg": 14.138,
-      "raw_value": 6.030000723824209,
+      "raw_value": 6.030001068169974,
       "team": "CIN",
       "tier": "starter",
-      "value": 24.780399229324622
+      "value": 24.692094235766806
     },
     {
       "player": "Tee Higgins",
@@ -517,10 +517,10 @@
       "player_norm": "tee higgins",
       "pos": "WR",
       "ppg": 14.015,
-      "raw_value": 5.907000668490655,
+      "raw_value": 5.90700098537098,
       "team": "CIN",
       "tier": "starter",
-      "value": 24.27492823255475
+      "value": 24.188424402023045
     },
     {
       "player": "Cam Skattebo",
@@ -528,21 +528,10 @@
       "player_norm": "cam skattebo",
       "pos": "RB",
       "ppg": 12.192,
-      "raw_value": 5.634560727262583,
+      "raw_value": 5.623298483726131,
       "team": "NYG",
       "tier": "starter",
-      "value": 23.15533126750434
-    },
-    {
-      "player": "D'Andre Swift",
-      "player_key": 2606,
-      "player_norm": "dandre swift",
-      "pos": "RB",
-      "ppg": 12.046,
-      "raw_value": 5.476110448885047,
-      "team": "CHI",
-      "tier": "starter",
-      "value": 22.50417692507122
+      "value": 23.02669842115794
     },
     {
       "player": "Christian Watson",
@@ -550,10 +539,10 @@
       "player_norm": "christian watson",
       "pos": "WR",
       "ppg": 13.523,
-      "raw_value": 5.415000447207881,
+      "raw_value": 5.415000654252372,
       "team": "GB",
       "tier": "starter",
-      "value": 22.253044245686656
+      "value": 22.17374506736481
     },
     {
       "player": "Jeremiyah Love",
@@ -561,10 +550,21 @@
       "player_norm": "jeremiyah love",
       "pos": "RB",
       "ppg": 11.985,
-      "raw_value": 5.409995265727522,
+      "raw_value": 5.3979638717335385,
       "team": "ARI",
       "tier": "starter",
-      "value": 22.23247536004648
+      "value": 22.103981590596973
+    },
+    {
+      "player": "D'Andre Swift",
+      "player_key": 2606,
+      "player_norm": "dandre swift",
+      "pos": "RB",
+      "ppg": 11.946,
+      "raw_value": 5.35559313428813,
+      "team": "CHI",
+      "tier": "starter",
+      "value": 21.930478761988272
     },
     {
       "player": "Davante Adams",
@@ -572,10 +572,10 @@
       "player_norm": "davante adams",
       "pos": "WR",
       "ppg": 13.331,
-      "raw_value": 5.223000360894521,
+      "raw_value": 5.223000525096853,
       "team": "LA",
       "tier": "starter",
-      "value": 21.464016348540326
+      "value": 21.38752874189635
     },
     {
       "player": "Bucky Irving",
@@ -583,10 +583,10 @@
       "player_norm": "bucky irving",
       "pos": "RB",
       "ppg": 11.754,
-      "raw_value": 5.160162952094462,
+      "raw_value": 5.147442759449896,
       "team": "TB",
       "tier": "starter",
-      "value": 21.205784857713205
+      "value": 21.078129216339573
     },
     {
       "player": "Joe Burrow",
@@ -597,7 +597,7 @@
       "raw_value": 5.055045441695167,
       "team": "CIN",
       "tier": "starter",
-      "value": 20.773802509287346
+      "value": 20.69977384768551
     },
     {
       "player": "Brock Purdy",
@@ -608,7 +608,7 @@
       "raw_value": 4.961830584059693,
       "team": "SF",
       "tier": "starter",
-      "value": 20.390734332000832
+      "value": 20.318070756278388
     },
     {
       "player": "Justin Jefferson",
@@ -616,10 +616,10 @@
       "player_norm": "justin jefferson",
       "pos": "WR",
       "ppg": 12.962,
-      "raw_value": 4.854000195150205,
+      "raw_value": 4.854000277085385,
       "team": "MIN",
       "tier": "starter",
-      "value": 19.947603359284162
+      "value": 19.876519242243695
     },
     {
       "player": "Parker Washington",
@@ -627,10 +627,10 @@
       "player_norm": "parker washington",
       "pos": "WR",
       "ppg": 12.815,
-      "raw_value": 4.70700012920785,
+      "raw_value": 4.707000178413201,
       "team": "JAX",
       "tier": "starter",
-      "value": 19.343503876112223
+      "value": 19.27457236892711
     },
     {
       "player": "Tetairoa McMillan",
@@ -638,10 +638,10 @@
       "player_norm": "tetairoa mcmillan",
       "pos": "WR",
       "ppg": 12.423,
-      "raw_value": 4.3149999538336905,
+      "raw_value": 4.314999915997392,
       "team": "CAR",
       "tier": "starter",
-      "value": 17.732571922927253
+      "value": 17.66938070965697
     },
     {
       "player": "Dak Prescott",
@@ -652,7 +652,7 @@
       "raw_value": 4.272774789068395,
       "team": "DAL",
       "tier": "starter",
-      "value": 17.559046829261185
+      "value": 17.4964741377574
     },
     {
       "player": "A.J. Brown",
@@ -660,10 +660,10 @@
       "player_norm": "aj brown",
       "pos": "WR",
       "ppg": 12.38,
-      "raw_value": 4.271999934659943,
+      "raw_value": 4.271999887307817,
       "team": "NE",
       "tier": "starter",
-      "value": 17.55586255077343
+      "value": 17.493301012731493
     },
     {
       "player": "Saquon Barkley",
@@ -671,10 +671,10 @@
       "player_norm": "saquon barkley",
       "pos": "RB",
       "ppg": 10.877,
-      "raw_value": 4.223139260450737,
+      "raw_value": 4.209814641999932,
       "team": "PHI",
       "tier": "starter",
-      "value": 17.355068708621083
+      "value": 17.238660272231165
     },
     {
       "player": "Breece Hall",
@@ -682,10 +682,10 @@
       "player_norm": "breece hall",
       "pos": "RB",
       "ppg": 10.55,
-      "raw_value": 3.8806392545198896,
+      "raw_value": 3.8679666613254966,
       "team": "NYJ",
       "tier": "starter",
-      "value": 15.947558615051832
+      "value": 15.838835884524803
     },
     {
       "player": "Trevor Lawrence",
@@ -696,7 +696,7 @@
       "raw_value": 3.726628742410953,
       "team": "JAX",
       "tier": "starter",
-      "value": 15.314649574014139
+      "value": 15.260074923544703
     },
     {
       "player": "George Pickens",
@@ -704,10 +704,21 @@
       "player_norm": "george pickens",
       "pos": "WR",
       "ppg": 11.831,
-      "raw_value": 3.7229996922072237,
+      "raw_value": 3.722999524544898,
       "team": "DAL",
       "tier": "starter",
-      "value": 15.299735925245182
+      "value": 15.245213733880279
+    },
+    {
+      "player": "Kyle Monangai",
+      "player_key": 3482,
+      "player_norm": "kyle monangai",
+      "pos": "RB",
+      "ppg": 10.308,
+      "raw_value": 3.6184855912803795,
+      "team": "CHI",
+      "tier": "starter",
+      "value": 14.817242352127053
     },
     {
       "player": "Garrett Wilson",
@@ -715,10 +726,10 @@
       "player_norm": "garrett wilson",
       "pos": "WR",
       "ppg": 11.5,
-      "raw_value": 3.391999550286397,
+      "raw_value": 3.391999312232498,
       "team": "NYJ",
       "tier": "starter",
-      "value": 13.939484734999999
+      "value": 13.889809590153147
     },
     {
       "player": "Quinshon Judkins",
@@ -726,10 +737,10 @@
       "player_norm": "quinshon judkins",
       "pos": "RB",
       "ppg": 9.977,
-      "raw_value": 3.293209039106043,
+      "raw_value": 3.282559543673977,
       "team": "CLE",
       "tier": "starter",
-      "value": 13.53350330659883
+      "value": 13.441667533818883
     },
     {
       "player": "Rhamondre Stevenson",
@@ -737,10 +748,10 @@
       "player_norm": "rhamondre stevenson",
       "pos": "RB",
       "ppg": 9.9,
-      "raw_value": 3.215648719355239,
+      "raw_value": 3.2053235899255728,
       "team": "NE",
-      "tier": "starter",
-      "value": 13.214767741578852
+      "tier": "bench",
+      "value": 13.125396039538085
     },
     {
       "player": "Tyler Warren",
@@ -751,7 +762,7 @@
       "raw_value": 3.1873101610858887,
       "team": "IND",
       "tier": "starter",
-      "value": 13.098309913518655
+      "value": 13.051633319201828
     },
     {
       "player": "Jayden Daniels",
@@ -762,18 +773,7 @@
       "raw_value": 3.1551814834840375,
       "team": "WAS",
       "tier": "starter",
-      "value": 12.966276520133055
-    },
-    {
-      "player": "Kyle Monangai",
-      "player_key": 3482,
-      "player_norm": "kyle monangai",
-      "pos": "RB",
-      "ppg": 9.746,
-      "raw_value": 3.0615489748795204,
-      "team": "CHI",
-      "tier": "bench",
-      "value": 12.581491998483509
+      "value": 12.920070434544455
     },
     {
       "player": "Travis Etienne",
@@ -781,10 +781,10 @@
       "player_norm": "travis etienne",
       "pos": "RB",
       "ppg": 9.71,
-      "raw_value": 3.0257220782030037,
+      "raw_value": 3.016217608616356,
       "team": "NO",
       "tier": "bench",
-      "value": 12.43426070557766
+      "value": 12.35103088466566
     },
     {
       "player": "Caleb Williams",
@@ -795,7 +795,7 @@
       "raw_value": 2.9792183075901564,
       "team": "CHI",
       "tier": "starter",
-      "value": 12.243152602239913
+      "value": 12.199523411073505
     },
     {
       "player": "Rashee Rice",
@@ -803,10 +803,10 @@
       "player_norm": "rashee rice",
       "pos": "WR",
       "ppg": 10.977,
-      "raw_value": 2.8689993437003656,
+      "raw_value": 2.8689990033205772,
       "team": "KC",
       "tier": "starter",
-      "value": 11.790205736571982
+      "value": 11.74818925427027
     },
     {
       "player": "Harold Fannin Jr.",
@@ -817,7 +817,7 @@
       "raw_value": 2.819793311128959,
       "team": "CLE",
       "tier": "starter",
-      "value": 11.587992637858237
+      "value": 11.54669814758622
     },
     {
       "player": "Tony Pollard",
@@ -825,10 +825,10 @@
       "player_norm": "tony pollard",
       "pos": "RB",
       "ppg": 9.369,
-      "raw_value": 2.6899887273154444,
+      "raw_value": 2.6819535880866083,
       "team": "TEN",
       "tier": "bench",
-      "value": 11.054558305754998
+      "value": 10.982261857722236
     },
     {
       "player": "David Montgomery",
@@ -836,10 +836,10 @@
       "player_norm": "david montgomery",
       "pos": "RB",
       "ppg": 9.269,
-      "raw_value": 2.592736622633156,
+      "raw_value": 2.585115933366211,
       "team": "HOU",
       "tier": "bench",
-      "value": 10.654898987241552
+      "value": 10.585723868940025
     },
     {
       "player": "Michael Wilson",
@@ -847,10 +847,10 @@
       "player_norm": "michael wilson",
       "pos": "WR",
       "ppg": 10.638,
-      "raw_value": 2.5299992351074176,
+      "raw_value": 2.5299988411559773,
       "team": "ARI",
       "tier": "starter",
-      "value": 10.397078535686665
+      "value": 10.360026324367356
     },
     {
       "player": "Terry McLaurin",
@@ -858,10 +858,10 @@
       "player_norm": "terry mclaurin",
       "pos": "WR",
       "ppg": 10.569,
-      "raw_value": 2.46099921709075,
+      "raw_value": 2.4609988142943173,
       "team": "WAS",
       "tier": "starter",
-      "value": 10.113521688582468
+      "value": 10.077479912471675
     },
     {
       "player": "Aaron Jones",
@@ -869,10 +869,10 @@
       "player_norm": "aaron jones",
       "pos": "RB",
       "ppg": 9.108,
-      "raw_value": 2.4372364305256466,
+      "raw_value": 2.430257636409748,
       "team": "MIN",
       "tier": "bench",
-      "value": 10.015868078764816
+      "value": 9.951598664249174
     },
     {
       "player": "Matthew Stafford",
@@ -883,7 +883,7 @@
       "raw_value": 2.3894873866050377,
       "team": "LA",
       "tier": "starter",
-      "value": 9.81964250179327
+      "value": 9.784649630772604
     },
     {
       "player": "DeVonta Smith",
@@ -891,10 +891,10 @@
       "player_norm": "devonta smith",
       "pos": "WR",
       "ppg": 10.415,
-      "raw_value": 2.306999183462011,
+      "raw_value": 2.3069987642412406,
       "team": "PHI",
       "tier": "starter",
-      "value": 9.480655709052478
+      "value": 9.44686912066009
     },
     {
       "player": "George Kittle",
@@ -905,7 +905,7 @@
       "raw_value": 2.285597717987356,
       "team": "SF",
       "tier": "starter",
-      "value": 9.392705991822886
+      "value": 9.359234534053739
     },
     {
       "player": "Sam LaPorta",
@@ -916,7 +916,7 @@
       "raw_value": 2.178353419806852,
       "team": "DET",
       "tier": "starter",
-      "value": 8.951983569770471
+      "value": 8.920082652157749
     },
     {
       "player": "Juwan Johnson",
@@ -927,7 +927,7 @@
       "raw_value": 2.1252361426723136,
       "team": "NO",
       "tier": "starter",
-      "value": 8.733697139361263
+      "value": 8.702574098224538
     },
     {
       "player": "Mike Evans",
@@ -935,10 +935,10 @@
       "player_norm": "mike evans",
       "pos": "WR",
       "ppg": 10.154,
-      "raw_value": 2.0459991517798093,
+      "raw_value": 2.045998717476908,
       "team": "SF",
       "tier": "starter",
-      "value": 8.408071263349534
+      "value": 8.378106830672584
     },
     {
       "player": "Alec Pierce",
@@ -946,10 +946,10 @@
       "player_norm": "alec pierce",
       "pos": "WR",
       "ppg": 10.055,
-      "raw_value": 1.9469991495145111,
+      "raw_value": 1.946998714404581,
       "team": "IND",
       "tier": "starter",
-      "value": 8.001228927469633
+      "value": 7.972714297973584
     },
     {
       "player": "Jameson Williams",
@@ -957,10 +957,10 @@
       "player_norm": "jameson williams",
       "pos": "WR",
       "ppg": 10.023,
-      "raw_value": 1.9149991500277157,
+      "raw_value": 1.914998715284458,
       "team": "DET",
       "tier": "starter",
-      "value": 7.869724339171993
+      "value": 7.841678335477755
     },
     {
       "player": "Zach Charbonnet",
@@ -968,10 +968,10 @@
       "player_norm": "zach charbonnet",
       "pos": "RB",
       "ppg": 8.533,
-      "raw_value": 1.8913386660094058,
+      "raw_value": 1.8863514372898933,
       "team": "SEA",
       "tier": "bench",
-      "value": 7.772491143557891
+      "value": 7.724371343349032
     },
     {
       "player": "Malik Nabers",
@@ -979,10 +979,10 @@
       "player_norm": "malik nabers",
       "pos": "WR",
       "ppg": 9.992,
-      "raw_value": 1.8839991511176009,
+      "raw_value": 1.883998717028209,
       "team": "NYG",
       "tier": "starter",
-      "value": 7.742329271694441
+      "value": 7.714737250459969
     },
     {
       "player": "Travis Kelce",
@@ -993,7 +993,7 @@
       "raw_value": 1.8644385324909072,
       "team": "KC",
       "tier": "starter",
-      "value": 7.661944548550556
+      "value": 7.6346407605250795
     },
     {
       "player": "TreVeyon Henderson",
@@ -1001,10 +1001,10 @@
       "player_norm": "treveyon henderson",
       "pos": "RB",
       "ppg": 8.346,
-      "raw_value": 1.7164265667300975,
+      "raw_value": 1.7119905967556601,
       "team": "NE",
       "tier": "bench",
-      "value": 7.0536866444049195
+      "value": 7.010385681186388
     },
     {
       "player": "Carnell Tate",
@@ -1012,10 +1012,10 @@
       "player_norm": "carnell tate",
       "pos": "WR",
       "ppg": 9.8,
-      "raw_value": 1.691999171060429,
+      "raw_value": 1.6919987476681264,
       "team": "TEN",
       "tier": "bench",
-      "value": 6.9533018112098794
+      "value": 6.928521579333679
     },
     {
       "player": "Omarion Hampton",
@@ -1023,10 +1023,10 @@
       "player_norm": "omarion hampton",
       "pos": "RB",
       "ppg": 8.3,
-      "raw_value": 1.67356026560173,
+      "raw_value": 1.669253845420707,
       "team": "LAC",
       "tier": "bench",
-      "value": 6.877526789025711
+      "value": 6.835384071839501
     },
     {
       "player": "Josh Jacobs",
@@ -1034,10 +1034,10 @@
       "player_norm": "josh jacobs",
       "pos": "RB",
       "ppg": 8.282,
-      "raw_value": 1.6568025369740977,
+      "raw_value": 1.6525462123874095,
       "team": "GB",
       "tier": "bench",
-      "value": 6.808660594046873
+      "value": 6.766968420722544
     },
     {
       "player": "J.K. Dobbins",
@@ -1045,10 +1045,10 @@
       "player_norm": "jk dobbins",
       "pos": "RB",
       "ppg": 8.238,
-      "raw_value": 1.6158760244407135,
+      "raw_value": 1.6117407954074898,
       "team": "DEN",
       "tier": "bench",
-      "value": 6.640472335688252
+      "value": 6.599875382096646
     },
     {
       "player": "Lamar Jackson",
@@ -1059,7 +1059,7 @@
       "raw_value": 1.5871435748103302,
       "team": "BAL",
       "tier": "bench",
-      "value": 6.522395803812513
+      "value": 6.499152864462443
     },
     {
       "player": "Jordan Mason",
@@ -1067,10 +1067,10 @@
       "player_norm": "jordan mason",
       "pos": "RB",
       "ppg": 8.15,
-      "raw_value": 1.5341730858974436,
+      "raw_value": 1.5302745836642573,
       "team": "MIN",
       "tier": "bench",
-      "value": 6.304712602308454
+      "value": 6.266281514590862
     },
     {
       "player": "Tyler Shough",
@@ -1081,7 +1081,7 @@
       "raw_value": 1.4393585005307001,
       "team": "NO",
       "tier": "bench",
-      "value": 5.915070314394978
+      "value": 5.89399161498693
     },
     {
       "player": "Patrick Mahomes",
@@ -1092,7 +1092,7 @@
       "raw_value": 1.3390698876615454,
       "team": "KC",
       "tier": "bench",
-      "value": 5.502932409463395
+      "value": 5.483322387611313
     },
     {
       "player": "Rico Dowdle",
@@ -1100,10 +1100,10 @@
       "player_norm": "rico dowdle",
       "pos": "RB",
       "ppg": 7.915,
-      "raw_value": 1.3168680700800315,
+      "raw_value": 1.3135711915041892,
       "team": "PIT",
       "tier": "bench",
-      "value": 5.411693630484006
+      "value": 5.378908441197585
     },
     {
       "player": "DK Metcalf",
@@ -1111,10 +1111,10 @@
       "player_norm": "dk metcalf",
       "pos": "WR",
       "ppg": 9.408,
-      "raw_value": 1.2999992792966044,
+      "raw_value": 1.2999989117652397,
       "team": "PIT",
       "tier": "bench",
-      "value": 5.34237102352681
+      "value": 5.323331666580191
     },
     {
       "player": "Jaylen Waddle",
@@ -1122,10 +1122,10 @@
       "player_norm": "jaylen waddle",
       "pos": "WR",
       "ppg": 9.377,
-      "raw_value": 1.2689992912779302,
+      "raw_value": 1.268998929888296,
       "team": "DEN",
       "tier": "bench",
-      "value": 5.214976000807834
+      "value": 5.196390648633595
     },
     {
       "player": "Isaiah Likely",
@@ -1136,7 +1136,7 @@
       "raw_value": 1.2363824110014385,
       "team": "NYG",
       "tier": "bench",
-      "value": 5.080936329523357
+      "value": 5.062830115411107
     },
     {
       "player": "Jacory Croskey-Merritt",
@@ -1144,10 +1144,10 @@
       "player_norm": "jacory croskeymerritt",
       "pos": "RB",
       "ppg": 7.815,
-      "raw_value": 1.2247376157231988,
+      "raw_value": 1.2216857751848937,
       "team": "WAS",
       "tier": "bench",
-      "value": 5.033081828478534
+      "value": 5.002649244391626
     },
     {
       "player": "Jared Goff",
@@ -1158,7 +1158,7 @@
       "raw_value": 1.2012964556067232,
       "team": "DET",
       "tier": "bench",
-      "value": 4.936749948485592
+      "value": 4.9191575509846555
     },
     {
       "player": "Ladd McConkey",
@@ -1166,10 +1166,10 @@
       "player_norm": "ladd mcconkey",
       "pos": "WR",
       "ppg": 9.3,
-      "raw_value": 1.191999322875322,
+      "raw_value": 1.1919989776667275,
       "team": "LAC",
       "tier": "bench",
-      "value": 4.898543209991864
+      "value": 4.8810855508549755
     },
     {
       "player": "Ollie Gordon II",
@@ -1177,10 +1177,10 @@
       "player_norm": "ollie gordon ii",
       "pos": "RB",
       "ppg": 7.738,
-      "raw_value": 1.1539178909233685,
+      "raw_value": 1.1510511869785172,
       "team": "MIA",
       "tier": "bench",
-      "value": 4.742046862774961
+      "value": 4.713409509841172
     },
     {
       "player": "Mike Washington Jr.",
@@ -1188,10 +1188,10 @@
       "player_norm": "mike washington jr",
       "pos": "RB",
       "ppg": 7.615,
-      "raw_value": 1.040987409887629,
+      "raw_value": 1.0384111335266235,
       "team": "LV",
       "tier": "bench",
-      "value": 4.2779569673676985
+      "value": 4.252162690294578
     },
     {
       "player": "RJ Harvey",
@@ -1199,10 +1199,10 @@
       "player_norm": "rj harvey",
       "pos": "RB",
       "ppg": 7.6,
-      "raw_value": 1.0272308129172227,
+      "raw_value": 1.0246895682356356,
       "team": "DEN",
       "tier": "bench",
-      "value": 4.221423978305735
+      "value": 4.195974610160436
     },
     {
       "player": "Matthew Golden",
@@ -1210,10 +1210,10 @@
       "player_norm": "matthew golden",
       "pos": "WR",
       "ppg": 9.131,
-      "raw_value": 1.022999400392649,
+      "raw_value": 1.0229990948134893,
       "team": "GB",
       "tier": "bench",
-      "value": 4.204034910465557
+      "value": 4.189052334596832
     },
     {
       "player": "Tucker Kraft",
@@ -1224,7 +1224,7 @@
       "raw_value": 1.0199400078142018,
       "team": "GB",
       "tier": "bench",
-      "value": 4.191462280217998
+      "value": 4.176525758961458
     },
     {
       "player": "Dalton Kincaid",
@@ -1235,7 +1235,7 @@
       "raw_value": 0.9644290745450432,
       "team": "BUF",
       "tier": "bench",
-      "value": 3.9633390757601124
+      "value": 3.9492154848998635
     },
     {
       "player": "Dallas Goedert",
@@ -1246,7 +1246,7 @@
       "raw_value": 0.8951971595583649,
       "team": "PHI",
       "tier": "bench",
-      "value": 3.6788292437791092
+      "value": 3.665719520363913
     },
     {
       "player": "Jalen Coker",
@@ -1254,10 +1254,10 @@
       "player_norm": "jalen coker",
       "pos": "WR",
       "ppg": 8.962,
-      "raw_value": 0.8539994871045709,
+      "raw_value": 0.8539992257877221,
       "team": "CAR",
       "tier": "bench",
-      "value": 3.509526648724607
+      "value": 3.4970191749604393
     },
     {
       "player": "Wan'Dale Robinson",
@@ -1265,10 +1265,10 @@
       "player_norm": "wandale robinson",
       "pos": "WR",
       "ppg": 8.931,
-      "raw_value": 0.8229995038265284,
+      "raw_value": 0.8229992510400707,
       "team": "TEN",
       "tier": "bench",
-      "value": 3.3821316454873447
+      "value": 3.370078186207396
     },
     {
       "player": "Luther Burden III",
@@ -1276,21 +1276,10 @@
       "player_norm": "luther burden iii",
       "pos": "WR",
       "ppg": 8.908,
-      "raw_value": 0.799999516376634,
+      "raw_value": 0.7999992699914767,
       "team": "CHI",
       "tier": "bench",
-      "value": 3.287612772707446
-    },
-    {
-      "player": "DJ Moore",
-      "player_key": 325,
-      "player_norm": "dj moore",
-      "pos": "WR",
-      "ppg": 8.815,
-      "raw_value": 0.7069995682649252,
-      "team": "BUF",
-      "tier": "bench",
-      "value": 2.9054277700739695
+      "value": 3.275896163177492
     },
     {
       "player": "Alvin Kamara",
@@ -1298,10 +1287,10 @@
       "player_norm": "alvin kamara",
       "pos": "RB",
       "ppg": 7.246,
-      "raw_value": 0.7033974203482799,
+      "raw_value": 0.7016659906847934,
       "team": "NO",
       "tier": "bench",
-      "value": 2.8906246767501367
+      "value": 2.8732337802519967
     },
     {
       "player": "Jordan Addison",
@@ -1309,10 +1298,10 @@
       "player_norm": "jordan addison",
       "pos": "WR",
       "ppg": 8.746,
-      "raw_value": 0.6379996078199685,
+      "raw_value": 0.6379994080574922,
       "team": "MIN",
       "tier": "bench",
-      "value": 2.621871159561781
+      "value": 2.612527150165171
     },
     {
       "player": "Emeka Egbuka",
@@ -1320,10 +1309,10 @@
       "player_norm": "emeka egbuka",
       "pos": "WR",
       "ppg": 8.738,
-      "raw_value": 0.6299996124583633,
+      "raw_value": 0.6299994150600541,
       "team": "TB",
       "tier": "bench",
-      "value": 2.5889950310216845
+      "value": 2.579768187315075
     },
     {
       "player": "Jordyn Tyson",
@@ -1331,10 +1320,10 @@
       "player_norm": "jordyn tyson",
       "pos": "WR",
       "ppg": 8.664,
-      "raw_value": 0.5559996558312646,
+      "raw_value": 0.5559994805371813,
       "team": "NO",
       "tier": "bench",
-      "value": 2.284890843948013
+      "value": 2.276747783832148
     },
     {
       "player": "Josh Downs",
@@ -1342,10 +1331,10 @@
       "player_norm": "josh downs",
       "pos": "WR",
       "ppg": 8.662,
-      "raw_value": 0.5539996570146009,
+      "raw_value": 0.5539994823235191,
       "team": "IND",
       "tier": "bench",
-      "value": 2.2766718119105387
+      "value": 2.2685580432658004
     },
     {
       "player": "Deebo Samuel Sr.",
@@ -1353,10 +1342,10 @@
       "player_norm": "deebo samuel sr",
       "pos": "WR",
       "ppg": 8.638,
-      "raw_value": 0.5299996712572592,
+      "raw_value": 0.529999503823682,
       "team": "SF",
       "tier": "bench",
-      "value": 2.178043427636008
+      "value": 2.1702811567321456
     },
     {
       "player": "Romeo Doubs",
@@ -1364,10 +1353,10 @@
       "player_norm": "romeo doubs",
       "pos": "WR",
       "ppg": 8.631,
-      "raw_value": 0.5229996754258773,
+      "raw_value": 0.5229995101163828,
       "team": "NE",
       "tier": "bench",
-      "value": 2.1492768156155635
+      "value": 2.1416170649158466
     },
     {
       "player": "Stefon Diggs",
@@ -1375,10 +1364,10 @@
       "player_norm": "stefon diggs",
       "pos": "WR",
       "ppg": 8.6,
-      "raw_value": 0.4919996939624956,
+      "raw_value": 0.49199953809774405,
       "team": "WAS",
       "tier": "bench",
-      "value": 2.021881819835683
+      "value": 2.014676087337767
     },
     {
       "player": "Brian Thomas Jr.",
@@ -1386,10 +1375,10 @@
       "player_norm": "brian thomas jr",
       "pos": "WR",
       "ppg": 8.538,
-      "raw_value": 0.42999973138208125,
+      "raw_value": 0.42999959458132964,
       "team": "JAX",
       "tier": "bench",
-      "value": 1.7670918296992497
+      "value": 1.7607941343144757
     },
     {
       "player": "Mike Gesicki",
@@ -1400,7 +1389,7 @@
       "raw_value": 0.3779329074552518,
       "team": "CIN",
       "tier": "bench",
-      "value": 1.5531222561282003
+      "value": 1.547587614029153
     },
     {
       "player": "Jordan Love",
@@ -1411,7 +1400,7 @@
       "raw_value": 0.266094634401948,
       "team": "GB",
       "tier": "bench",
-      "value": 1.0935208095762214
+      "value": 1.0896239841428181
     },
     {
       "player": "Jalen Hurts",
@@ -1422,7 +1411,7 @@
       "raw_value": 0.25741933090003,
       "team": "PHI",
       "tier": "bench",
-      "value": 1.0578694897739331
+      "value": 1.0540997099061227
     },
     {
       "player": "Brenton Strange",
@@ -1433,7 +1422,7 @@
       "raw_value": 0.2173428154946858,
       "team": "JAX",
       "tier": "bench",
-      "value": 0.8931743102956164
+      "value": 0.8899914313432066
     },
     {
       "player": "Devaughn Vele",
@@ -1441,10 +1430,10 @@
       "player_norm": "devaughn vele",
       "pos": "WR",
       "ppg": 8.3,
-      "raw_value": 0.1919998784766776,
+      "raw_value": 0.1919998165962794,
       "team": "NO",
       "tier": "bench",
-      "value": 0.7890270430376464
+      "value": 0.7862150455777728
     },
     {
       "player": "Jakobi Meyers",
@@ -1452,10 +1441,21 @@
       "player_norm": "jakobi meyers",
       "pos": "WR",
       "ppg": 8.285,
-      "raw_value": 0.176999887894739,
+      "raw_value": 0.1769998308104792,
       "team": "JAX",
       "tier": "bench",
-      "value": 0.7273843049882199
+      "value": 0.7247919946743097
+    },
+    {
+      "player": "Keon Coleman",
+      "player_key": 3835,
+      "player_norm": "keon coleman",
+      "pos": "WR",
+      "ppg": 8.277,
+      "raw_value": 0.1689998384002718,
+      "team": "BUF",
+      "tier": "bench",
+      "value": 0.6920330342288499
     },
     {
       "player": "Drake Maye",
@@ -1466,7 +1466,7 @@
       "raw_value": 0.1508176160887193,
       "team": "NE",
       "tier": "bench",
-      "value": 0.6197877759330149
+      "value": 0.6175791259032966
     },
     {
       "player": "Mark Andrews",
@@ -1477,7 +1477,7 @@
       "raw_value": 0.11427562413101232,
       "team": "BAL",
       "tier": "bench",
-      "value": 0.469617785775457
+      "value": 0.4679442752985073
     },
     {
       "player": "Chris Rodriguez Jr.",
@@ -1485,10 +1485,10 @@
       "player_norm": "chris rodriguez jr",
       "pos": "RB",
       "ppg": 6.585,
-      "raw_value": 0.10170080091000856,
+      "raw_value": 0.10144932655543157,
       "team": "JAX",
       "tier": "bench",
-      "value": 0.4179413177406351
+      "value": 0.41542220360203513
     },
     {
       "player": "Denzel Boston",
@@ -1496,10 +1496,10 @@
       "player_norm": "denzel boston",
       "pos": "WR",
       "ppg": 8.185,
-      "raw_value": 0.07699995102833523,
+      "raw_value": 0.07699992609293053,
       "team": "CLE",
       "tier": "bench",
-      "value": 0.31643271941607454
+      "value": 0.31530499078514035
     },
     {
       "player": "Rome Odunze",
@@ -1507,10 +1507,10 @@
       "player_norm": "rome odunze",
       "pos": "WR",
       "ppg": 8.154,
-      "raw_value": 0.04599997071009435,
+      "raw_value": 0.04599995579643419,
       "team": "CHI",
       "tier": "bench",
-      "value": 0.18903772834217134
+      "value": 0.18836402025901658
     },
     {
       "player": "Chris Godwin",
@@ -1518,10 +1518,10 @@
       "player_norm": "chris godwin",
       "pos": "WR",
       "ppg": 8.115,
-      "raw_value": 0.006999995536632605,
+      "raw_value": 0.006999993264034754,
       "team": "TB",
       "tier": "bench",
-      "value": 0.028766610809167013
+      "value": 0.02866409000118719
     },
     {
       "player": "Aaron Rodgers",
@@ -1689,6 +1689,17 @@
       "value": 0.0
     },
     {
+      "player": "DJ Moore",
+      "player_key": 325,
+      "player_norm": "dj moore",
+      "pos": "WR",
+      "ppg": 7.938,
+      "raw_value": 0.0,
+      "team": "BUF",
+      "tier": "waiver",
+      "value": 0.0
+    },
+    {
       "player": "Baker Mayfield",
       "player_key": 327,
       "player_norm": "baker mayfield",
@@ -1759,7 +1770,7 @@
       "player_key": 487,
       "player_norm": "dawson knox",
       "pos": "TE",
-      "ppg": 4.115,
+      "ppg": 4.077,
       "raw_value": 0.0,
       "team": "BUF",
       "tier": "waiver",
@@ -3035,7 +3046,7 @@
       "player_key": 2772,
       "player_norm": "dontayvion wicks",
       "pos": "WR",
-      "ppg": 6.323,
+      "ppg": 6.223,
       "raw_value": 0.0,
       "team": "PHI",
       "tier": "waiver",
@@ -3343,7 +3354,7 @@
       "player_key": 3376,
       "player_norm": "marshawn lloyd",
       "pos": "RB",
-      "ppg": 4.254,
+      "ppg": 4.392,
       "raw_value": 0.0,
       "team": "GB",
       "tier": "waiver",
@@ -3599,17 +3610,6 @@
       "ppg": 1.092,
       "raw_value": 0.0,
       "team": "ARI",
-      "tier": "waiver",
-      "value": 0.0
-    },
-    {
-      "player": "Keon Coleman",
-      "player_key": 3835,
-      "player_norm": "keon coleman",
-      "pos": "WR",
-      "ppg": 6.708,
-      "raw_value": 0.0,
-      "team": "BUF",
       "tier": "waiver",
       "value": 0.0
     },
