@@ -18,16 +18,18 @@ from collections import defaultdict
 
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "pipelines"))
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+from canonical_players import norm_player_name  # noqa: E402 -- the single normalization rule
+import player_aliases  # noqa: E402 -- the one verified alias list
 
 # Sources to trace (the main ones, not _adjusted)
 SOURCES = ["espn", "fantasycalc", "fantasypros", "usatoday", "cbs", "cbsros"]
 
 
-def norm_name(n):
-    """Normalize a name for matching: lowercase, underscores/hyphens to spaces, strip."""
-    if not isinstance(n, str):
-        return str(n)
-    return n.lower().replace("_", " ").replace("-", " ").strip()
+def match_form(n):
+    """The one way to match a name (JEG-438): a verified alias becomes its
+    public.players spelling, then canonical_players.norm_player_name."""
+    return norm_player_name(player_aliases.canonical_spelling(n))
 
 
 def load_fixture():
@@ -156,10 +158,10 @@ def build_trace():
             name_to_pkey = {}
             for ckey, cdata in sdata.get("combos", {}).items():
                 for sid, pkey in cdata.get("player_keys", {}).items():
-                    name_to_pkey[norm_name(sid)] = pkey
+                    name_to_pkey[match_form(sid)] = pkey
             # Fall back to global player names
             for pkey, pdata in all_players.items():
-                name_to_pkey.setdefault(norm_name(pdata["name"]), pkey)
+                name_to_pkey.setdefault(match_form(pdata["name"]), pkey)
 
             for combo_key, combo in sdata.get("combos", {}).items():
                 value_dict = combo.get("reindexed") or combo.get("values") or {}
@@ -175,7 +177,7 @@ def build_trace():
                         pkey = pk[vname]
                         sid = vname
                     else:
-                        pkey = name_to_pkey.get(norm_name(vname))
+                        pkey = name_to_pkey.get(match_form(vname))
                         sid = vname
                     if pkey is None or pkey not in all_players:
                         continue

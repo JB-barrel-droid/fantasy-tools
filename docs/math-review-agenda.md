@@ -65,7 +65,7 @@ measured" means nobody has run that option yet.
 | 2. The anchor | MR-02 (roster shape), MR-11 (bench share), MR-12 (ESPN display rules), MR-16 (reader position shares) | The anchor feeds every view. Decide how it moves before deciding what is scaled to it. |
 | 3. Published-chart inputs | MR-09 (translation assumptions), MR-08 (short charts), MR-15 (publisher superflex values) | These set each chart's value above waivers, which VORP vs waivers and Adjusted values both use. |
 | 4. The other two views | MR-04 (VORP vs waivers), MR-05 (Adjusted values) | Both need stages 1-3. |
-| 5. Derived series | MR-06 (`*_adjusted` series), MR-10 (projection sources, option C) | Their role depends on what the views became. |
+| 5. Derived series | MR-06 (`*_adjusted` series), MR-10 (projection sources, option C), MR-17 (DDF Composite Value) | Their role depends on what the views became. |
 | 6. Time | MR-07 (prior week) | Δ is a difference of two values made by the rules above. |
 | 7. Consumers and guards | MR-13 (deploy gate), MR-14 (spreads and trade targets) | Pin the decided rules, then check what reads them. |
 
@@ -688,6 +688,56 @@ teams, QB 6.4% -> 16.4%, the other three scaled down in proportion):
 **Depends on:** MR-01, MR-03, MR-05, MR-11.
 **Sources:** JEG-452, `docs/v2-design-notes.md` BE-2,
 `tests/test_position_weights_setter.py`.
+
+## MR-17 - DDF Composite Value: what the blend averages
+
+**Question.** The DDF Composite Value (JEG-455 / JEG-471) is the per-player
+equal-weight mean of the adjusted series. Jeremy decided the inputs (adjusted,
+not as-published or VORP), the missing-value rule, the current-week default,
+no leave-one-out, and tiers by slot count (2026-10-08). The points below were
+not decided; the engine took the reading most consistent with those decisions.
+Which should stand?
+
+**Why it matters.** DDF Value is the default rank, Δ, tier and "our value" on
+every v2 tab, so each choice below moves the headline number.
+
+**Current behaviour** (engine, JEG-471; no existing series changed):
+- *Which series count as "trade charts".* The four bias-adjusted charts
+  (`fantasycalc_adjusted`, `usatoday_adjusted`, `fantasypros_adjusted`,
+  `cbs_adjusted`). CBS ROS is a projection and is already one of the three
+  projection inputs. So with all seven in, the trade charts carry 4/7 of the
+  weight and our projections 3/7.
+- *Mixed coverage.* A player gets the mean of the series that price him, so a
+  deep player whom the short charts do not list is averaged mostly or only
+  over our projections, while a top player includes all seven. The count is
+  on every row (`ddfCount`). The inputs share one scale (MR-06, MR-10), so the
+  mean is not unit-mixed, but the mix of inputs changes down the board.
+- *Zeros.* ESPN's 0 for a player it lists at 0 (GAP-025) and a leg's 0 below
+  its lowest priced projection (GAP-ESPN-BELOW-LEG) count as values, so they
+  pull the mean down. A player only ESPN lists at 0 gets a DDF Value of 0
+  from one input.
+- *Superflex.* No separate rule: each input enters with its own superflex
+  pricing at the active roster (MR-02, MR-15). FantasyCalc's publisher basis
+  is 1 QB.
+- *Tiers.* `ValueModel.roleMap` on the DDF Values (dedicated slots, then
+  superflex, then flex, then bench). A DDF Value of 0 is waiver; no DDF Value
+  is no tier. In a single-position view the zones are that position's DDF
+  tier counts; in All they stay teams x slots, as for every other series.
+- *Views.* The adjusted inputs do not change with the Indexed / VORP vs
+  waivers / Adjusted values tab, so neither does DDF Value. Their prior weeks
+  exist in Indexed only, so in the other tabs the Δ drops the four charts.
+- *Δ pair.* The newest served week among the inputs and the week before it.
+  An input serving an older week, or lacking that prior week, is dropped from
+  both sides (JEG-465).
+
+**Options.** Weight the two families equally (1/2 projections, 1/2 charts)
+instead of each series; require a minimum count before showing a DDF Value;
+leave zeros out of the mean; per-view inputs. Not measured.
+
+**Depends on:** MR-06, MR-10, MR-12, MR-07.
+**Sources:** JEG-455, JEG-471, JEG-456, JEG-465,
+`tests/test_ddf_composite_value.py`, `docs/methodology.md` "DDF Composite
+Value".
 
 ---
 

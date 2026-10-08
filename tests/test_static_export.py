@@ -194,7 +194,9 @@ def adjusted_recompute_problems(fixture, inputs, players):
 # health-panel role text. The copy rules name the brand Data Driven Football only and
 # allow no abbreviations in user-facing copy, so the label now reads "Data Driven
 # Football methodology" and no visible "DDF" is allowed at all.
-APPROVED_VISIBLE_PHRASES = ()
+# JEG-455 (Jeremy, 2026-10-08) names the blended value "DDF Composite Value",
+# "DDF Value" for short, in user-facing copy: those two phrases, and only they, are allowed.
+APPROVED_VISIBLE_PHRASES = ("DDF Composite Value", "DDF Value")
 
 _REGEX_PRECEDERS = set("(,=:[!&|?{};+-*%<>~^")
 _REGEX_KEYWORDS = {"return", "typeof", "case", "do", "else", "in", "of", "void",

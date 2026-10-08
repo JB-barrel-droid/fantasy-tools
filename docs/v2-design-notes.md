@@ -104,9 +104,9 @@ pair per column, not a spread across sources:
   to filter: it comes from a different roster model than the ESPN line (risk row
   V2-TIER-VS-ESPN-LEG).
 - Methods row stays hidden on this tab.
-- Default charts: available, current-week ones. Older-week charts are listed as not compared until
-  "Include older-week charts" is ticked. Position is the engine's shared setting, so it carries
-  across tabs.
+- Charts compared: every available one (JEG-459, 2026-10-08; the "Include older-week charts" opt-in
+  is gone). A chart that has not published the current week yet is compared on its latest week and
+  carries a "Wk N" badge. Position is the engine's shared setting, so it carries across tabs.
 - Fails closed if the picked series is unavailable, or if the engine is not in its Indexed view (where the
   published series would be in a different unit).
 
@@ -637,6 +637,45 @@ Cadence"):
 - Projections (ESPN, CBS ROS, Razzball): probed every 4 h with the last slot at 23:25 UTC, so a
   Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
 
+## Back-end contract: DDF Value (JEG-471 part 1, 2026-10-08)
+
+The DDF Composite Value (rule: `docs/methodology.md` "DDF Composite Value") is an engine series,
+key `ddf_value`. v2 reads it; it does no blend math. Inputs are the seven adjusted series
+`espn, cbsros, razzball, fantasycalc_adjusted, usatoday_adjusted, fantasypros_adjusted, cbs_adjusted`.
+
+- **Rows.** Every `getRows()` / `getAllRows()` row has `values.ddf_value` (number, or `null` when no
+  included input prices the player), `ddfCount` (inputs averaged), `ddfSources` (their keys) and
+  `ddfTier` (`"starter" | "bench" | "waiver"`, `null` with no DDF Value). `getPlayerValues()` also
+  carries `values.ddf_value`.
+- **Rank and zones.** `setLockOrder("ddf_value")` ranks by it and `getRankSource()` returns
+  `"ddf_value"`; the lock survives scoring and team changes. `getZones()` then sits at the DDF
+  tier counts in a position view (All: teams × slots, as for every series).
+- **Source info.** `getSourceInfo()` is unchanged (plotted series only).
+  `getSourceInfo({includeComposite: true})` appends `{key: "ddf_value", label: "DDF Value",
+  longLabel: "DDF Composite Value", composite: true, inputs, isDefault, week, stale, available,
+  active: false, ...}`. It is never in `getActiveSources()` and is not drawn on the chart.
+- **Inputs.** `getCompositeInputs()` → `{inputs, requested, isDefault, defaults, allowed, excluded:
+  [{key, reason}]}`; `inputs` are the series averaged at this setting. `setCompositeInputs(keys,
+  publish = true)`: `keys` is an array of the seven keys (order and duplicates ignored), `null` or
+  `"default"` restores the defaults (choosing exactly the defaults is the default). Returns `{ok:
+  true, ...getCompositeInputs()}`; an empty array, an unknown key, a non-array or a set with no
+  input available at this setting returns `{ok: false, error}` and changes nothing. It recomputes
+  only the DDF fields, redraws, fires `trade-value-rows-change`, and (unless `publish` is false)
+  `trade-value-shared-change` whose detail carries `compositeInputs` (`null` = defaults).
+  `resetCompositeInputs(publish = true)` = `setCompositeInputs(null)`. Chosen inputs persist
+  across league changes; one unavailable at a setting is skipped there.
+- **Recompute.** Every rebuild (scoring, teams, roster, bench share, position shares, position
+  tab, view) recomputes it from the rebuilt series.
+- **History.** `getPriorWeek("ddf_value"[, week])` resolves to `{source, week, available, reason?,
+  values, counts, currentValues, currentCounts, sources, dropped: [{source, reason}], inputs,
+  currentWeek, priorWeek, setting, method}`. The pair is the newest served week among the inputs
+  (`currentWeek`) and the week before (`priorWeek`). `sources` are the inputs that have that pair;
+  the rest are in `dropped`. Both sides average exactly `sources`, so
+  **Δ = `currentValues[pk]` − `values[pk]`** (not `row.values.ddf_value`, which may average more
+  inputs). Label it e.g. "DDF Value · 5 of 7 sources have a prior week" from `sources.length` and
+  `inputs.length`. `getWeekValues("ddf_value", week)` gives `{values, counts, sources, dropped, ...}`
+  for any saved week; `getHistoryWeeks("ddf_value")` the saved weeks any input has.
+
 ## Multi-device pass (2026-10-08)
 
 Swept every tab at 390, 768, 820, 1024 and 1440 in light and dark (`tests/test_v2_ux_render.py`).
@@ -677,3 +716,140 @@ with frames 05/06 (see "Aligned with the frames" below; the table became two car
   listed and turns every row it touches into —; a repeated key is read once.
 - `build_v2_page.py` sets `color-scheme: light dark` (v1's `light` kept selects light inside v2's dark
   theme) and the v2 nav colour as `theme-color`.
+
+## Compare a trade: waterfall and verdict (JEG-468/469)
+
+Built 2026-10-08. Supersedes the "no overall verdict" line of the frame 07/08 section: there is still
+no blended score, but one series now gives a verdict.
+
+- **Verdict (Jeremy, 2026-10-08).** "Primary thing that matters is that DDF thinks you win, and it can
+  be better if the other sources DON'T agree." The card reads ONE series, `verdictKey()` in v2.js,
+  which is "Player values shown" (`TR.shown`) until the engine exposes DDF Value; swapping that one
+  line is the whole change. Headline: "<series>: you win by +6.2" / "you lose by −3.1" / "an even
+  trade, 0.0", with ▲ / ▼ / = and the card edge colour. Text: on a win, the complete series that call
+  it a loss, as the selling point ("A and B think you lose this trade. A manager who trades off A or B
+  is the likeliest to accept."); every source agreeing is said as harder to get accepted; on a loss,
+  the sources that think you win are named and the reader is told to rework the offer. Incomplete
+  rows never count and are listed as not counted. Logic: `TradeValueTrade.tradeVerdict` (pure, in
+  trade.js, `tests/test_v2_waterfall.py`).
+- **Story card** (`tradeStory`) is folded into the verdict card as a disclosure, open by default only
+  for the same-publisher contrast (the one thing the verdict does not say). Same ids and logic.
+- **Waterfall (JEG-468).** Each row of "Difference by source & method" replaces the diverging net bar
+  with three lanes on one shared scale: give steps (largest first, "Henry −47.5", give colour) down
+  from 0; receive steps (largest first, "+55.1", receive colour) up from where the give steps ended
+  (a dashed link marks the turn); a landing bar from 0 to the net, coloured by sign with ▲ / ▼ and
+  the signed net. A 2px tick marks 0. The scale is the largest cumulative extent across rows (0
+  included), so a big 2-for-2 with a small net reads as a small net. A player without a value is a
+  hatched "— Name" step that moves nothing, later steps are partial, and the row has no landing
+  ("No result: a value is missing"). Every step is focusable (`role="img"`, aria-label "Give Henry
+  −47.5, running −47.5") and shows the shared tooltip on hover or focus (player, series, value,
+  running total). Labels shorten to the value, then to nothing, on narrow steps; the tooltip and
+  text alternative always carry everything. Steps come from `TradeValueTrade.waterfall` /
+  `waterfallScale` (pure). VORP vs waivers rows get the same waterfall, each on its own scale (those
+  scales are not comparable). "Show players ▾" is kept as the table fallback.
+- **Verdict waterfall.** The verdict card repeats the verdict series' waterfall on the table's scale,
+  so the deciding series' steps are above the fold at 1366×768 even though the table starts below.
+- **Layout (JEG-469).** ≥1280: You give | You receive | Verdict. 768–1279: two input columns, verdict
+  as a full-width strip under them. <768: stacked; once both sides have a player, a fixed bar at the
+  bottom carries the verdict headline (hidden while the verdict card itself is on screen; tapping it
+  scrolls to the card). Header: H1 27px, subtitle one line and dropped once a player is added; picker
+  and Swap / Clear inline in the header row; `#v2Compare` padding-top 16px (scoped, other tabs keep
+  28px). Cards: padding clamp(14–16px), h2 16px, title and search on one row from 1024, 36px inputs
+  (44px hit area through the label), side total pinned to the card foot. Spacing uses
+  clamp(10px, 1.1vw, 16px).
+- **Deviation:** player rows are 44px, not ~36px: the 44 px target rule wins over the ticket's ~36.
+- **Example empty state.** With no player added, `TradeValueTrade.pickExample` picks a 2-for-2 from
+  the top 12 players by the verdict series that every selected series prices, preferring one the
+  verdict series calls a win and the most other series call a loss (then the smallest such win).
+  Marked "Example" in a banner, the verdict eyebrow and the table meta; side cards dashed; no remove
+  buttons, no share link, nothing in the address. "Use this example" copies it onto the sides.
+- **Not done:** switching the verdict to DDF Value (waits for the engine series).
+
+## Trade targets: review fixes (JEG-456/458/459/461/464, 2026-10-08)
+
+- Copy (JEG-464): H1 "Where the trade market is wrong this week"; subtitle "We check four published
+  trade charts against our projection-based values for your league. Sell the players they overpay
+  for; buy the ones they undervalue." Nav label unchanged ("Trade targets", "Targets" on phones).
+- Both lists at once (JEG-461): the Sell/Buy toggle is gone. Sell and Buy are two cards
+  (`#v2TSell` / `#v2TBuy`), side by side from 1280 px, stacked (Sell, then Buy) below; phone cards
+  stack the same way. Each list opens on its top 5 by largest gap with a full-width
+  "Show all N sell targets ▾"; that shows 25, then "Show more (25 of N)" adds 25 at a time, and
+  "Show top 5" collapses. State is per list (`T.shown.sell` / `T.shown.buy`) and resets when a filter
+  changes. Filters are one row (search, position, our value, compare against + caption + ⓘ); the
+  "players left out" note moved below the lists. At 1440 × 900 and 1366 × 768 the H1, subtitle and
+  the top 5 of both lists are above the fold.
+- Two-column rows are compact: Player (with Pos · Team · Tier), Our value, Largest gap with the chart
+  it came from, and a 44 px ▾ that opens the row's per-chart values (value, gap, badge) underneath.
+  The per-chart cells stay in the DOM but are hidden at ≥1280 px. The player drawer is unchanged.
+- Fits the window (JEG-456 part 1): the Pos / Team / Tier columns are gone at every width (they were
+  already in the player sub-line, which now always shows); headers wrap to two lines; cell padding
+  and number size use clamp(). No sideways scroll from 1024 px (checked at 1024, 1100, 1279).
+  Part 2 (tier from the composite) waits on an engine series.
+- Indexed label (JEG-458): chart headers read "Wk 5 · indexed"; "Compare against" has the caption
+  "Indexed to our scale". An ⓘ (`indexedInfoButton()`, 44 px, `aria-expanded`, Enter opens, Esc or a
+  click outside closes and returns focus) sits beside "Compare against", in each chart column header
+  and in the Largest gap header; it opens the explanation with a link to How values work. It stops
+  propagation, so it never opens a player. The per-value hover math is JEG-457 (not built).
+  `closePopover()` now resets `aria-expanded` on any anchor that set it to true.
+- Prior-week badge (JEG-459): `priorWeekInfo(key, item, refWeek)` / `priorWeekBadge(...)` in v2.js
+  are shared helpers for any tab. Badge text "Wk 4" in the older-week colour, tooltip and accessible
+  name "FantasyPros has not published Week 5 yet; showing Week 4." (refWeek = freshness
+  `current_content_week`, else the engine reference week). Current-week sources get none. On this
+  tab it appears in the #v2TChart option text (and beside the caption when that chart is picked),
+  column headers, Largest gap attribution, opened rows, phone cards and the footnote.
+  `chartsToCompare()` in targets.js now returns `{used, skipped, prior}`.
+- Compatibility hook: the two list headings carry `data-side="sell"` / `data-side="buy"`, and the sell
+  list keeps the ids `#v2TTable` / `#v2TCards`; the ESPN-0 and below-waiver-line render suites click
+  `#v2Targets [data-side=sell]` and read `#v2TTable`.
+- Tests: tests/test_v2_targets_render.py (numbers for both lists, opened rows and cards; layout,
+  fold, paging, popover, simulated prior week; 12 broken-build mutations) and tests/test_v2_targets.py
+  (prior-week charts compared and flagged).
+
+## Player values: toolbar, brushes, table fit (JEG-470/472/473/475)
+
+Supersedes the Player values parts of "Chart options (21)" and "Navigator and value range (24)" above.
+
+- **One toolbar (JEG-475).** Search · Position · Show · Rank by · Δ Prior week · More · Reset, in that order,
+  sticky at 768 px and up. "Show" is one range control (All / Top 25 / 50 / 100 / Starters / Bench / Waiver;
+  the last three are the engine's `getZones()` boundaries as before). A brush drag, zoom or exact ranks turn it
+  into "Custom lo–hi" (the ranks actually shown). More holds only exact From / To ranks. Reset clears search,
+  position, Show (back to Top 100), value range, sort and Δ; rank by, sources, columns and league stay (they are
+  selections, not filters). Removed: the chart-card rank-window buttons, the Chart options button and panel,
+  Reset to all, Reset zoom, Clear filters and the Value range button. Y-axis custom bounds and Hide zero-value
+  tail were dropped (the Y brush covers the first; nothing used the second). The empty state keeps its per-filter
+  buttons; "Clear all filters" there runs Reset.
+- **Show drives the chart and the table.** Shown players = rank window ∩ value range. Before, the window was
+  chart-only and the table listed everyone; the table now lists the shown players (Show more pages by 50).
+- **Y value brush (JEG-472).** A vertical brush beside the plot, styled like the X brush, over the ranking
+  series' full spread for the listed players, with a value histogram (square-root scaled) as its overview and
+  labels at the thumbs. Two `input[type=range]` with `aria-orientation="vertical"` and `aria-valuetext`
+  "Value 12.5"; arrows step 0.5, PageUp / PageDown jump a tenth of the scale; the track ends mean open ended.
+  It writes the same `state.range` as "Set exact values" (the frame 24 popover, now a small link in the plot's
+  corner under the brush). Below 768 px the brush is hidden and the link is the control. The "N players
+  omitted: no … value" count still shows.
+- **Inside the chart** only direct manipulation: Y brush, X brush (labels at its thumbs) and zoom − / + as 44 px
+  overlay buttons in the plot corner. The legend sits inline after the chart title; it names publishers (the line
+  style carries the method) and ends with the line-style key for the styles drawn ("Solid = our value · Dashed =
+  published chart"; short forms below 768).
+- **Table (JEG-473).** A grouped top row by each series' existing method (Projections = DDA of a projection
+  publisher in `KIND`; Trade charts adjusted = other DDA; Trade charts as published = Indexed; VORP vs waivers;
+  Spread) plus "Ranking" over the ranking column. Headers: publisher on line 1, method in small caps on line 2
+  (week only for an older series); sort arrows show on the sorted column and on hover. Pos / Team / Tier fold into
+  the player sub-line below 1600 px; at 1600 px and up they get columns only while the table still fits (otherwise
+  they stay folded, so the table never scrolls sideways). Numbers 13 px tabular, right, one decimal, 6–8 px padding;
+  rows about 34 px. Sticky header rows and sticky # / Player columns inside the table's own scroll box. Heat tint:
+  three pale steps above (green) or below (red) the same row's ranking value (5 / 15 / 30 % apart), DDA and Indexed
+  only, never against VORP; colour only, and every cell's title and screen-reader text says above / below /
+  about level. Missing = "—" with the reason in its title. Columns menu: hide value groups (never the ranking
+  series) and Position / Team / Tier.
+- **Above the fold (JEG-470).** From 1280 px the chart card and the table card sit side by side
+  (`minmax(420px, 1fr) fit-content(64%)`); the table card takes the chart card's height and scrolls inside. Below
+  1280 they stack and the table box is capped at the viewport. Measured (default selection): 1440 × 900 chart card
+  ends at 817 px with 9 rows visible; 1366 × 768 ends at 761 px with 6 rows; 1280 × 800 no sideways scroll.
+  H1 26–28 px; the slogan is "Trade values for every player, tuned to your league · Week N" (week from the
+  freshness data, else `getReferenceWeek()`).
+- **Density tokens** in `:root` for every tab: `--v2-pad-card`, `--v2-pad-card-x`, `--v2-pad-section`, `--v2-gap`,
+  `--v2-title-1`, `--v2-title-2`, `--v2-row-h`, `--v2-cell-pad-x`, `--v2-group-h`, `--v2-chart-h`, plus
+  `--v2-heat-*` (light and dark). `--v2-chart-h` = `clamp(280px, calc(100vh - 490px), 42vh)`: the 490 px is the
+  shared header plus the toolbar at 1366 × 768; if the Methods bar merge makes the header shorter, the chart
+  simply grows. Stacked layouts (768–1279) use `clamp(280px, 36vh, 400px)`.

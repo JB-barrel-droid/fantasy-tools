@@ -24,6 +24,19 @@ Then re-wire any references (see the "What was changed" note for each item).
 | `tests/test_weekly_chain_espn_gate.py` | Tests `weekly_vegas/pipeline/bin/weekly_chain.py` which is archived. Not in Makefile test-unit. |
 | `tests/test_game_day_espn_gate.py` | Tests `weekly_vegas/pipeline/bin/game_day.py` which is archived. Not in Makefile test-unit. |
 
+## 2026-10-08 — JEG-438 legacy name matchers (GAP-IDENTITY-LEGACY-MATCHERS)
+
+Each kept its own name normalizer (tests/test_one_name_resolver.py LEGACY
+list). None is called by the Makefile, a workflow, a test or another module,
+so they were archived rather than migrated; a migration could not be checked
+against their inputs anyway.
+
+| Path archived | Why |
+|---|---|
+| `pipelines/rebuild_fp_fixture_section.py` | One-off 2026-09-30 repair of the FantasyPros fixture natives. Hard-codes `data/raw/sources/fantasypros/2026-09-29/snapshot.json` (not in the repo) and writes the fixture directly, outside the chain. |
+| `pipelines/rebuild_fp_natives_from_snapshot.py` | Second version of the same one-off repair; same hard-coded snapshot, same direct fixture write. |
+| `pipelines/refresh_players_espn_fields.py` | Manual players.json ESPN-field patcher, retired by JEG-402 (bake_players.py is the sole players.json writer; see its docstring). Matched on a private `" ".join(name.lower().split())` key against the ESPN CSV's `player_norm`. |
+
 ## What was changed (not just moved)
 
 - `pipelines/lib/legacy_identity.py` created: drop-in copy of the archived

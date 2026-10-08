@@ -1,8 +1,8 @@
-"""v2 settings panels, chart options and navigator (frames 09–12, 20, 21, 24), rendered.
+"""v2 settings panels and the Player values toolbar, brushes and table (frames 09–12, 20, 24; JEG-470/472/473/475), rendered.
 
 Builds dist/v2 into a temp copy of the built dist/ and loads Player values
-headless at 1440 and 390. Every check reads the engine back
-(TradeValueCurveControls), so a panel that only looks right fails:
+headless at 1440 × 900, 1366 × 768 and 390. Every check reads the engine back
+(TradeValueCurveControls), so a control that only looks right fails:
 
   * Choose your sources (09 / 20): toggling a pair changes nothing until
     Apply; Apply adds exactly that pair to getActiveSources(); Cancel
@@ -18,25 +18,43 @@ headless at 1440 and 390. Every check reads the engine back
     getDefaultPositionWeights(); Apply sets getBenchShare() to the slider;
   * Source freshness (10): one row per getSourceInfo() series, with
     "Older" for older-week series and the engine's unavailability;
-  * Chart options (21): Bench shows exactly the ranks between the engine's
-    getZones() boundaries; unticking Team removes the Team column; custom Y
-    bounds set the axis;
-  * navigator (24): From / To fields set the chart window; Reset to all
-    shows every rank;
-  * value range (24): names its basis series; every remaining row's ranking
-    value is inside the bounds; minimum above maximum is refused;
+  * toolbar (JEG-475): Search · Position · Show · Rank by · Δ · More · Reset,
+    each exactly once, left to right, sticky; the chart-options box, rank
+    window buttons, Reset to all / Reset zoom / Clear filters are gone; only
+    brushes and zoom sit inside the chart; Show Top 25 / Starters / Bench /
+    Waiver follow getZones(); a brush drag sets Show to "Custom lo–hi"; More
+    holds exact From / To ranks; one Reset restores every default;
+  * Y value brush (JEG-472): two labelled vertical range inputs with
+    "Value x.x" text; mouse drag and PageDown / arrows move it; it keeps only
+    players whose ranking-series value is inside the bounds AND whose rank is
+    inside the rank window; players without a basis value are counted; the
+    "Set exact values" popover names its basis and refuses min > max; below
+    768 px the popover replaces the brush;
+  * table (JEG-473): no sideways scroll at the default selection, headers at
+    most two lines under a method-group row that matches each series' method,
+    sticky header row and Player column, compact rows, right-aligned
+    one-decimal numbers with 6–8 px padding, heat tint direction matching the
+    two shown values and named in the title, "—" with a reason; the Columns
+    menu hides a group but never the ranking series;
+  * above the fold (JEG-470): at 1440 × 900 and 1366 × 768 the chart card and
+    at least six table rows are visible without scrolling; h1 26–28 px; the
+    value line names the engine's week;
   * no page errors, no horizontal overflow at 390.
 
-Discrimination: test_guard_fails_on_broken_builds serves v2.js where a pair
-toggle reaches the engine at once, the zone preset is ignored, the Team
-column ignores its box, the From / To fields are ignored, and league Apply
-does nothing, and requires each to fail.
+Discrimination: test_guard_fails_on_broken_builds serves v2.js / v2.css with
+one fault each (pair toggle applied at once, zone preset ignored, Team box
+ignored, From / To ignored, brush drag keeps the preset, value range ignores
+the rank window, Y brush does nothing, Reset keeps the value range, Columns
+menu ignored, no SUPERFLEX stepper, bench move not reported, shares not
+applied, league Apply does nothing, no chart-and-table split, header not
+sticky, cells wide enough to scroll sideways) and requires each to fail.
 """
 from __future__ import annotations
 
 import contextlib
 import functools
 import http.server
+import re
 import shutil
 import socketserver
 import sys
@@ -61,11 +79,16 @@ def setUpModule():
 
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
+V2_CSS = ROOT / "app" / "v2" / "v2.css"
 ACTIVE = "() => window.TradeValueCurveControls.getActiveSources()"
 
 
 def _serve(body, route, *_):
     route.fulfill(status=200, content_type="text/javascript", body=body)
+
+
+def _serve_css(body, route, *_):
+    route.fulfill(status=200, content_type="text/css", body=body)
 
 
 @contextlib.contextmanager
@@ -233,73 +256,357 @@ def check_freshness(page) -> list[str]:
     return errors
 
 
-def check_chart(page) -> list[str]:
+VIEW = "window.TradeValueV2"
+SNAP = """() => { const v = window.TradeValueV2.view(); const s = window.TradeValueV2.state;
+  return {window: s.window, preset: s.windowPreset, range: s.range, rankKey: v.rankKey, n: v.rows.length,
+    visible: v.visible.map(r => ({rank: r.rank, fullRank: r.fullRank, value: r.values[v.rankKey] ?? null})),
+    show: document.getElementById('v2Show').selectedOptions[0]?.textContent || '',
+    showValue: document.getElementById('v2Show').value,
+    firstRow: document.querySelector('#v2Table tbody tr td.rank')?.textContent || '',
+    zones: window.TradeValueCurveControls.getZones()}; }"""
+TOOLBAR_ORDER = ["v2Search", "v2Position", "v2Show", "v2RankBy", "v2DeltaBtn", "v2More", "v2Reset"]
+REMOVED = ["#v2ChartOptions", "#v2RangeBtn", "#v2ClearFilters", "#v2ResetAll", "#v2ZoomReset", "#v2FromRank",
+           "#v2Main .v2-seg [data-window]"]
+
+
+def _settle(page):
+    page.wait_for_timeout(120)   # brushes redraw on the next animation frame
+
+
+def _set_range_input(page, element_id, value):
+    page.evaluate("""([id, v]) => { const s = document.getElementById(id); s.value = String(v);
+      s.dispatchEvent(new Event('input', {bubbles: true})); }""", [element_id, value])
+    _settle(page)
+
+
+def check_toolbar(page) -> list[str]:
+    """JEG-475: one toolbar, every control once, in order; Show presets follow getZones()."""
     errors = []
-    page.click("#v2ChartOptions")
-    page.click('#v2Popover .v2-pseg button[data-value="bench"]')
-    page.click('#v2Popover input[data-meta="team"]')
-    page.click('#v2Popover .v2-pseg button[data-value="custom"]')
-    page.fill("#v2Popover .row2 label:nth-child(2) input", "50")
-    page.click('#v2Popover [data-apply="chart"]')
-    got = page.evaluate("""() => { const v = window.TradeValueV2.view(); const s = window.TradeValueV2.state;
-      return {window: s.window, ranks: v.rows.slice(s.window[0] - 1, s.window[1]).map(r => r.fullRank), zones: window.TradeValueCurveControls.getZones(),
-        heads: [...document.querySelectorAll('#v2Table thead th')].map(th => th.textContent.replace(/[↕↓↑]/g, '').trim()),
-        top: Math.max(...[...document.querySelectorAll('#v2Chart .axis text[text-anchor="end"]')].map(t => Number(t.textContent)).filter(Number.isFinite))}; }""")
-    sb, bw = got["zones"]["starter_to_bench"], got["zones"]["bench_to_waiver"]
-    if not got["ranks"] or min(got["ranks"]) < sb or max(got["ranks"]) > bw:
-        errors.append(f"chart options: Bench window ranks {got['ranks'][:3]}…{got['ranks'][-3:]} outside {sb}–{bw}")
-    if "Team" in got["heads"]:
-        errors.append("chart options: Team column still shown after unticking it")
-    if got["top"] != 50:
-        errors.append(f"chart options: custom upper bound 50, axis tops out at {got['top']}")
-    # Restore.
-    page.click("#v2ChartOptions")
-    page.click('#v2Popover .v2-pseg button[data-value="100"]')
-    page.click('#v2Popover input[data-meta="team"]')
-    page.click('#v2Popover .v2-pseg button[data-value="auto"]')
-    page.click('#v2Popover [data-apply="chart"]')
+    found = page.evaluate("""(ids) => ids.map(id => ({id, count: document.querySelectorAll('#' + id).length,
+      inToolbar: Boolean(document.querySelector('#v2Toolbar #' + id)),
+      left: document.getElementById(id)?.getBoundingClientRect().left ?? null,
+      top: document.getElementById(id)?.getBoundingClientRect().top ?? null}))""", TOOLBAR_ORDER)
+    for item in found:
+        if item["count"] != 1 or not item["inToolbar"]:
+            errors.append(f"toolbar: #{item['id']} count {item['count']}, in toolbar {item['inToolbar']}")
+    lefts = [(round(i["top"] or 0), i["left"] or 0) for i in found]
+    if lefts != sorted(lefts):
+        errors.append(f"toolbar: controls are not left to right in ticket order: {[i['id'] for i in found]}")
+    for selector in REMOVED:
+        if page.locator(selector).count():
+            errors.append(f"toolbar: removed control still present: {selector}")
+    text = page.text_content("#v2Main")
+    for gone in ("Chart options", "Reset to all", "Reset zoom", "Clear filters"):
+        if gone in text:
+            errors.append(f"toolbar: {gone!r} is still on Player values")
+    resets = page.evaluate("() => [...document.querySelectorAll('#v2Main button')].filter(b => /^Reset$/.test(b.textContent.trim()) && b.offsetParent).length")
+    if resets != 1:
+        errors.append(f"toolbar: {resets} visible Reset buttons, want 1")
+    sticky = page.evaluate("() => getComputedStyle(document.getElementById('v2Toolbar')).position")
+    if sticky != "sticky":
+        errors.append(f"toolbar: position {sticky}, want sticky")
+    # Chart: only direct manipulation inside (brushes, zoom), no rank-window buttons.
+    inside = page.evaluate("""() => [...document.querySelectorAll('.v2-chart-card button, .v2-chart-card select, .v2-chart-card input')]
+      .filter(n => n.offsetParent).map(n => n.id || n.textContent.trim())""")
+    allowed = {"v2ZoomIn", "v2ZoomOut", "v2YExact", "v2BrushLo", "v2BrushHi", "v2YBrushLo", "v2YBrushHi"}
+    extra = [n for n in inside if n not in allowed]
+    if extra:
+        errors.append(f"chart: controls other than brushes and zoom inside the chart: {extra}")
+    # Show presets.
+    page.select_option("#v2Show", "25")
+    snap = page.evaluate(SNAP)
+    if [r["rank"] for r in snap["visible"]] != list(range(1, 26)):
+        errors.append(f"Show Top 25: visible ranks {[r['rank'] for r in snap['visible']][:5]}… ({len(snap['visible'])})")
+    for preset, test in (("starter", lambda r, sb, bw: r < sb), ("bench", lambda r, sb, bw: sb < r < bw),
+                         ("waiver", lambda r, sb, bw: r > bw)):
+        page.select_option("#v2Show", preset)
+        snap = page.evaluate(SNAP)
+        sb, bw = snap["zones"]["starter_to_bench"], snap["zones"]["bench_to_waiver"]
+        ranks = [r["fullRank"] for r in snap["visible"]]
+        if not ranks or not all(test(r, sb, bw) for r in ranks):
+            errors.append(f"Show {preset}: ranks {ranks[:3]}…{ranks[-3:]} outside the engine zones {sb}/{bw}")
+        rows = page.evaluate("() => document.querySelectorAll('#v2Table tbody tr').length")
+        if rows != min(len(ranks), 50):
+            errors.append(f"Show {preset}: table has {rows} rows, chart window {len(ranks)}")
+    page.click("#v2Reset")
     return errors
 
 
-def check_navigator(page) -> list[str]:
+def check_x_brush(page) -> list[str]:
+    """Dragging the rank brush sets Show to "Custom lo–hi"; More holds the exact From / To ranks."""
     errors = []
+    track = page.locator("#v2Brush").bounding_box()
+    snap = page.evaluate(SNAP)
+    n, hi = snap["n"], snap["window"][1]
+    thumb_x = track["x"] + 7 + (hi - 1) / max(1, n - 1) * (track["width"] - 14)
+    y = track["y"] + track["height"] / 2
+    page.mouse.move(thumb_x, y)
+    page.mouse.down()
+    page.mouse.move(thumb_x - track["width"] * 0.08, y, steps=6)
+    page.mouse.up()
+    _settle(page)
+    snap = page.evaluate(SNAP)
+    lo, hi2 = snap["window"]
+    if snap["preset"] != "custom" or snap["showValue"] != "custom" or snap["show"] != f"Custom {lo}–{hi2}" or hi2 >= hi:
+        errors.append(f"X brush drag: window {snap['window']} preset {snap['preset']} Show {snap['show']!r} (was …{hi})")
+    if [r["rank"] for r in snap["visible"]] != list(range(lo, hi2 + 1)):
+        errors.append("X brush drag: the table / chart rows do not follow the brushed window")
+    # More: exact ranks.
+    page.click("#v2More")
+    if page.get_attribute("#v2More", "aria-expanded") != "true":
+        errors.append("More: aria-expanded not set")
     page.fill("#v2FromRank", "20")
     page.fill("#v2ToRank", "60")
-    page.press("#v2ToRank", "Enter")
     page.evaluate("() => document.getElementById('v2ToRank').dispatchEvent(new Event('change'))")
-    win = page.evaluate("() => window.TradeValueV2.state.window")
-    if win != [20, 60]:
-        errors.append(f"navigator: From 20 To 60 gave window {win}")
-    page.click("#v2ResetAll")
-    win = page.evaluate("() => [window.TradeValueV2.state.window, window.TradeValueV2.view().rows.length]")
-    if win[0] != [1, win[1]]:
-        errors.append(f"navigator: Reset to all gave {win[0]} of {win[1]}")
+    _settle(page)
+    snap = page.evaluate(SNAP)
+    if snap["window"] != [20, 60] or snap["show"] != "Custom 20–60" or snap["firstRow"] != "20":
+        errors.append(f"More From 20 To 60: window {snap['window']} Show {snap['show']!r} first row {snap['firstRow']!r}")
+    page.keyboard.press("Escape")
+    page.click("#v2Reset")
     return errors
 
 
-def check_range(page) -> list[str]:
+def check_y_brush(page) -> list[str]:
+    """JEG-472: the value brush filters to the ranking series' value window, composed with the rank window."""
     errors = []
-    page.click("#v2RangeBtn")
+    attrs = page.evaluate("""() => ['v2YBrushLo', 'v2YBrushHi'].map(id => { const s = document.getElementById(id);
+      return {type: s.type, orient: s.getAttribute('aria-orientation'), text: s.getAttribute('aria-valuetext'), label: s.getAttribute('aria-label')}; })""")
+    for a in attrs:
+        if a["type"] != "range" or a["orient"] != "vertical" or not re.fullmatch(r"Value -?\d+\.\d", a["text"] or "") or not a["label"]:
+            errors.append(f"Y brush: input not a labelled vertical range with 'Value x.x' text: {a}")
+    # Mouse: drag the top handle down.
+    box = page.locator("#v2YBrushHi").bounding_box()
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + 4)
+    page.mouse.down()
+    page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] * 0.45, steps=8)
+    page.mouse.up()
+    _settle(page)
+    snap = page.evaluate(SNAP)
+    if snap["range"]["max"] is None or snap["preset"] != "custom" or not snap["show"].startswith("Custom "):
+        errors.append(f"Y brush drag: range {snap['range']} preset {snap['preset']} Show {snap['show']!r}")
+    # Keyboard: PageDown on the top handle jumps; arrows step.
+    before = page.evaluate("() => Number(document.getElementById('v2YBrushHi').value)")
+    page.focus("#v2YBrushHi")
+    page.keyboard.press("PageDown")
+    page.keyboard.press("ArrowDown")
+    _settle(page)
+    after = page.evaluate("() => Number(document.getElementById('v2YBrushHi').value)")
+    if not after < before - 0.5:
+        errors.append(f"Y brush keys: PageDown + ArrowDown moved {before} → {after}")
+    page.click("#v2Reset")
+    # Exact bounds through the handles; rank ∩ value against a narrowed rank window.
+    page.select_option("#v2Show", "50")
+    _set_range_input(page, "v2YBrushLo", 12)
+    _set_range_input(page, "v2YBrushHi", 30)
+    snap = page.evaluate(SNAP)
+    rng = snap["range"]
+    lo_v, hi_v = rng["min"] if rng["min"] is not None else float("-inf"), rng["max"] if rng["max"] is not None else float("inf")
+    bad = [r for r in snap["visible"] if r["value"] is None or r["value"] < lo_v or r["value"] > hi_v]
+    if rng != {"min": 12, "max": 30} or not snap["visible"] or bad:
+        errors.append(f"Y brush 12–30: range {rng}, {len(snap['visible'])} rows, outside: {bad[:3]}")
+    outside_window = [r["rank"] for r in snap["visible"] if not 1 <= r["rank"] <= 50]
+    if outside_window:
+        errors.append(f"Y brush: rows outside the rank window 1–50 shown (rank ∩ value broken): {outside_window[:5]}")
+    table_vals = page.evaluate("""(key) => [...document.querySelectorAll('#v2Table tbody td.is-rank')].map(td => Number(td.firstChild.textContent))""", snap["rankKey"])
+    if not table_vals or any(v < 12 - 0.05 or v > 30 + 0.05 for v in table_vals):
+        errors.append(f"Y brush: table ranking values outside 12–30: {table_vals[:5]}")
+    labels = page.evaluate("() => [document.getElementById('v2YLoLabel').textContent, document.getElementById('v2YHiLabel').textContent]")
+    if labels != ["12.0", "30.0"]:
+        errors.append(f"Y brush: thumb labels {labels}, want 12.0 / 30.0")
+    page.click("#v2Reset")
+    # Players with no value in the basis series are left out and counted (frame 22).
+    missing = page.evaluate("""() => { const C = window.TradeValueCurveControls; const keys = C.getActiveSources();
+      const rows = C.getRows(); const counts = keys.map(k => [k, rows.filter(r => !Number.isFinite(r.values[k])).length]);
+      return counts.filter(c => c[1] > 0).map(c => c[0]); }""")
+    if missing:
+        key = missing[0]
+        before_rank = page.evaluate("() => window.TradeValueCurveControls.getRankSource()")
+        page.select_option("#v2RankBy", key)
+        page.select_option("#v2Show", "all")
+        _set_range_input(page, "v2YBrushLo", 1)
+        expect = page.evaluate("(k) => window.TradeValueCurveControls.getRows().filter(r => !Number.isFinite(r.values[k])).length", key)
+        note = page.evaluate("() => document.getElementById('v2FilterNote').hidden ? '' : document.getElementById('v2FilterNote').textContent")
+        if f"{expect} player" not in note or "omitted" not in note:
+            errors.append(f"Y brush: no visible count of the {expect} players without a {key} value: {note!r}")
+        page.click("#v2Reset")
+        page.select_option("#v2RankBy", before_rank)
+    # Set exact values (frame 24 popover) still works, names its basis and refuses min > max.
+    page.click("#v2YExact")
     sub = page.text_content("#v2Popover .v2-panel-head .v2-meta")
-    rank = page.evaluate("() => window.TradeValueV2.view().rankKey")
     if "Basis" not in sub:
-        errors.append(f"value range: no basis series named: {sub!r}")
+        errors.append(f"Set exact values: no basis series named: {sub!r}")
     inputs = page.locator("#v2Popover .row2 input")
     inputs.nth(0).fill("30")
     inputs.nth(1).fill("10")
     page.click('#v2Popover [data-apply="range"]')
     if page.evaluate("() => document.getElementById('v2Popover').hidden"):
-        errors.append("value range: minimum above maximum was accepted")
+        errors.append("Set exact values: minimum above maximum was accepted")
     inputs.nth(1).fill("40")
     page.click('#v2Popover [data-apply="range"]')
-    vals = page.evaluate(f"() => window.TradeValueV2.view().rows.map(r => r.values['{rank}'])")
-    if not vals or any(v is None or v < 30 or v > 40 for v in vals):
-        errors.append(f"value range: rows outside 30–40 in {rank}: {[v for v in vals if v is None or v < 30 or v > 40][:5]}")
-    page.click("#v2ClearFilters")
+    _settle(page)
+    snap = page.evaluate(SNAP)
+    vals = [r["value"] for r in snap["visible"]]
+    if not vals or any(v is None or v < 30 or v > 40 for v in vals) or snap["show"][:6] != "Custom":
+        errors.append(f"Set exact values 30–40: {vals[:5]} Show {snap['show']!r}")
+    page.click("#v2Reset")
     return errors
 
 
-def run_checks(v2_js=None, viewports=((1440, 1000), (390, 844))) -> list[str]:
+def check_reset(page) -> list[str]:
+    """One Reset clears search, position, Show, value range, sort and Δ."""
+    errors = []
+    page.fill("#v2Search", "a")
+    page.wait_for_timeout(250)
+    page.select_option("#v2Position", "RB")
+    page.select_option("#v2Show", "25")
+    _set_range_input(page, "v2YBrushLo", 5)
+    page.click("#v2Table thead .v2-head-row th[data-col='name'] button")
+    page.click("#v2DeltaBtn")
+    page.click("#v2Reset")
+    page.wait_for_timeout(200)
+    got = page.evaluate("""() => { const s = window.TradeValueV2.state; return {search: s.search, input: document.getElementById('v2Search').value,
+      position: window.TradeValueCurveControls.getState().position, preset: s.windowPreset, window: s.window, range: s.range, sort: s.sort,
+      delta: s.delta, show: document.getElementById('v2Show').value}; }""")
+    want = {"search": "", "input": "", "position": "ALL", "preset": "100", "window": [1, 100], "range": {"min": None, "max": None},
+            "sort": None, "delta": False, "show": "100"}
+    if got != want:
+        errors.append(f"Reset: {got} != defaults {want}")
+    return errors
+
+
+def check_columns(page) -> list[str]:
+    """JEG-473 Columns menu: hiding a method group removes its columns; the ranking series stays."""
+    errors = []
+    heads = lambda: page.evaluate("() => [...document.querySelectorAll('#v2Table .v2-head-row th[data-group]')].map(th => [th.dataset.col, th.dataset.group])")
+    rank = page.evaluate("() => window.TradeValueV2.view().rankKey")
+    groups = sorted({g for _, g in heads()})
+    page.click("#v2Columns")
+    target = next((g for g in groups if g != "spread" and any(c != rank and gg == g for c, gg in heads())), None)
+    if not target:
+        return errors + [f"columns: no hideable group in {groups}"]
+    page.click(f'#v2Popover input[data-group="{target}"]')
+    now = heads()
+    if any(g == target and c != rank for c, g in now) or not any(c == rank for c, _ in now):
+        errors.append(f"columns: hiding {target} left {now}")
+    page.click(f'#v2Popover input[data-group="{target}"]')
+    if sorted({g for _, g in heads()}) != groups:
+        errors.append("columns: showing the group again did not restore it")
+    # Team: below 1600 px it is part of the player sub-line.
+    page.click('#v2Popover input[data-meta="team"]')
+    sub = page.evaluate("""() => { const v = window.TradeValueV2.view(); const r = v.visible[0];
+      return {sub: document.querySelector('#v2Table tbody .player-sub')?.textContent || '', team: r.team || 'FA'}; }""")
+    if f"· {sub['team']} ·" in f"· {sub['sub']} ·":
+        errors.append(f"columns: Team unticked but the player line still reads {sub['sub']!r}")
+    page.click('#v2Popover input[data-meta="team"]')
+    page.keyboard.press("Escape")
+    return errors
+
+
+TABLE_FIT = """() => { const wrap = document.getElementById('v2TableWrap'); const out = {scroll: wrap.scrollWidth - wrap.clientWidth};
+  out.headLines = [...document.querySelectorAll('#v2Table .v2-head-row th button')].map(b =>
+    [...b.children].map(c => Math.round(c.getBoundingClientRect().height / parseFloat(getComputedStyle(c).lineHeight || 14)))
+      .reduce((a, x) => a + x, 0));
+  out.headSticky = [...document.querySelectorAll('#v2Table thead th')].every(th => getComputedStyle(th).position === 'sticky');
+  out.playerSticky = getComputedStyle(document.querySelector('#v2Table tbody td.player')).position;
+  const rows = [...document.querySelectorAll('#v2Table tbody tr')];
+  out.rowH = Math.max(...rows.slice(0, 10).map(r => r.getBoundingClientRect().height));
+  out.nums = [...document.querySelectorAll('#v2Table tbody td.num')].slice(0, 60).map(td => ({text: td.firstChild?.textContent || '',
+    align: getComputedStyle(td).textAlign, pad: parseFloat(getComputedStyle(td).paddingRight)}));
+  const v = window.TradeValueV2.view();
+  out.heat = [...document.querySelectorAll('#v2Table tbody td[data-vs]')].slice(0, 80).map(td => {
+    const tr = td.closest('tr'); const rankTd = tr.querySelector('td.is-rank');
+    return {vs: td.dataset.vs, title: td.title, value: Number(td.firstChild.textContent), rank: Number(rankTd.firstChild.textContent),
+      tinted: /heat-/.test(td.className)}; });
+  out.missing = [...document.querySelectorAll('#v2Table tbody .missing')].slice(0, 20).map(m => ({text: m.firstChild.textContent, title: m.title}));
+  // Grouped header: each value column sits under its method group.
+  const groupRow = [...document.querySelectorAll('#v2Table .v2-group-row th')];
+  const cells = []; groupRow.forEach(th => { for (let i = 0; i < th.colSpan; i++) cells.push(th.dataset.group || ''); });
+  out.groups = [...document.querySelectorAll('#v2Table .v2-head-row th')].map((th, i) => [th.dataset.col, cells[i], th.dataset.group || '']);
+  out.groupLabels = groupRow.map(th => th.textContent);
+  // Scroll the body: the header rows stay in view.
+  const head = document.querySelector('#v2Table .v2-head-row th.num');
+  const before = head.getBoundingClientRect().top; wrap.scrollTop = 200; const after = head.getBoundingClientRect().top; wrap.scrollTop = 0;
+  out.stickyMoved = Math.abs(after - before);
+  out.scrolls = wrap.scrollHeight > wrap.clientHeight;
+  return out; }"""
+
+
+def _group_of(key):
+    if key.endswith("_vorp"):
+        return "vorp"
+    if key.endswith("_adjusted"):
+        return "adjusted"
+    if key in ("espn", "cbsros", "razzball"):
+        return "projections"
+    return "published"
+
+
+def check_table_fit(page, width) -> list[str]:
+    errors = []
+    fit = page.evaluate(TABLE_FIT)
+    tag = f"table fit {width}: "
+    if fit["scroll"] > 0:
+        errors.append(tag + f"horizontal scroll {fit['scroll']}px with the default selection")
+    if not fit["headLines"] or max(fit["headLines"]) > 2:
+        errors.append(tag + f"headers over two lines: {fit['headLines']}")
+    if fit["headSticky"] is not True or fit["playerSticky"] != "sticky":
+        errors.append(tag + f"header {fit['headSticky']}, player column {fit['playerSticky']}; both must be sticky")
+    if fit["scrolls"] and fit["stickyMoved"] > 1:
+        errors.append(tag + f"header row moved {fit['stickyMoved']}px when the table body scrolled")
+    if fit["rowH"] > 37:
+        errors.append(tag + f"rows {fit['rowH']}px tall; compact rows are about 32 px")
+    for cell in fit["nums"]:
+        if not re.fullmatch(r"-?\d+\.\d", cell["text"]) or cell["align"] != "right" or not 6 <= cell["pad"] <= 8:
+            errors.append(tag + f"number cell {cell}")
+            break
+    for cell in fit["heat"]:
+        want = "above" if cell["value"] > cell["rank"] else "below" if cell["value"] < cell["rank"] else None
+        if cell["vs"] not in ("above", "below", "same") or (cell["tinted"] and cell["vs"] != want) or cell["vs"] not in cell["title"].replace("about level with", "same"):
+            errors.append(tag + f"heat cell {cell}")
+            break
+    for m in fit["missing"]:
+        if m["text"] != "—" or not m["title"]:
+            errors.append(tag + f"missing cell without a reason: {m}")
+            break
+    for col, group_cell, group in fit["groups"]:
+        if group and group != "spread" and group != _group_of(col):
+            errors.append(tag + f"{col} is in group {group}, its method says {_group_of(col)}")
+        if group and group_cell not in (group, "rank-series"):
+            errors.append(tag + f"{col} sits under group cell {group_cell!r}, not {group!r}")
+    if not set(fit["groupLabels"]) & {"Projections", "Trade charts adjusted", "Trade charts as published", "VORP vs waivers"}:
+        errors.append(tag + f"no method group header: {fit['groupLabels']}")
+    return errors
+
+
+FOLD = """() => { const card = document.querySelector('.v2-chart-card').getBoundingClientRect();
+  const wrap = document.getElementById('v2TableWrap').getBoundingClientRect();
+  const rows = [...document.querySelectorAll('#v2Table tbody tr')].filter(r => { const b = r.getBoundingClientRect();
+    return b.top >= wrap.top - 0.5 && b.bottom <= Math.min(innerHeight, wrap.bottom) + 0.5; }).length;
+  return {scrollY: window.scrollY, chartBottom: card.bottom, h: innerHeight, rows,
+    h1: parseFloat(getComputedStyle(document.querySelector('#v2Main h1')).fontSize),
+    line: document.getElementById('v2ValueLine').textContent}; }"""
+
+
+def check_fold(page, width, height) -> list[str]:
+    """JEG-470: chart and at least six table rows visible without scrolling."""
+    errors = []
+    page.evaluate("() => window.scrollTo(0, 0)")
+    f = page.evaluate(FOLD)
+    tag = f"above the fold {width}×{height}: "
+    if f["chartBottom"] > f["h"] + 0.5:
+        errors.append(tag + f"chart card ends at {f['chartBottom']:.0f}px")
+    if f["rows"] < 6:
+        errors.append(tag + f"{f['rows']} table rows visible, want 6")
+    if not 26 <= f["h1"] <= 28.5:
+        errors.append(tag + f"h1 {f['h1']}px, want 26–28")
+    week = page.evaluate("() => window.TradeValueProductData?.getSourceFreshness?.()?.current_content_week || window.TradeValueCurveControls.getReferenceWeek()")
+    if not f["line"].startswith("Trade values for every player") or (week and f"Week {week}" not in f["line"]):
+        errors.append(tag + f"value line {f['line']!r} (engine week {week})")
+    return errors
+
+
+def run_checks(v2_js=None, v2_css=None, viewports=((1440, 900), (1366, 768), (390, 844)), full=True) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -319,13 +626,30 @@ def run_checks(v2_js=None, viewports=((1440, 1000), (390, 844))) -> list[str]:
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 if v2_js is not None:
                     page.route("**/v2/v2.js*", functools.partial(_serve, v2_js))
+                if v2_css is not None:
+                    page.route("**/v2/v2.css*", functools.partial(_serve_css, v2_css))
                 page.goto(url, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=40000)
+                page.wait_for_timeout(150)
                 tag = f"[{width}px] "
-                errors += [tag + e for e in check_sources(page, width)]
+                if width >= 1280:
+                    errors += [tag + e for e in check_fold(page, width, height)]
+                    errors += [tag + e for e in check_table_fit(page, width)]
                 if width == 1440:
-                    for check in (check_league, check_weights, check_freshness, check_chart, check_navigator, check_range):
+                    errors += [tag + e for e in check_toolbar(page)]
+                    for check in (check_x_brush, check_y_brush, check_reset, check_columns):
                         errors += [tag + e for e in check(page)]
+                if full and width == 1440:
+                    errors += [tag + e for e in check_sources(page, width)]
+                    for check in (check_league, check_weights, check_freshness):
+                        errors += [tag + e for e in check(page)]
+                if width <= 390:
+                    if full:
+                        errors += [tag + e for e in check_sources(page, width)]
+                    mobile = page.evaluate("""() => ({ybrush: getComputedStyle(document.getElementById('v2YBrush')).display,
+                      exact: Boolean(document.getElementById('v2YExact').offsetParent)})""")
+                    if mobile["ybrush"] != "none" or not mobile["exact"]:
+                        errors.append(tag + f"below 768 px the numeric value range replaces the Y brush: {mobile}")
                 overflow = page.evaluate("() => document.documentElement.scrollWidth - innerWidth")
                 if width <= 390 and overflow > 0:
                     errors.append(tag + f"horizontal overflow {overflow}px")
@@ -343,28 +667,50 @@ class PanelsRenderTest(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         v2 = V2_JS.read_text(encoding="utf-8")
+        css = V2_CSS.read_text(encoding="utf-8")
+        desktop = ((1440, 900),)
         broken = {
-            "pair toggle applied at once": v2.replace(
+            "pair toggle applied at once": {"v2_js": v2.replace(
                 "              if (draft.has(item.key)) draft.delete(item.key);\n              else draft.add(item.key);",
-                "              if (draft.has(item.key)) draft.delete(item.key);\n              else draft.add(item.key);\n              toggleEngineSource(item.key);", 1),
-            "zone preset ignored": v2.replace("    const zone = zoneWindow(rows, state.windowPreset);", "    const zone = null;", 1),
-            "Team box ignored": v2.replace("].filter(col => state.metaCols[col.id] !== false);", "];", 1),
-            "From / To ignored": v2.replace('$("v2ToRank").addEventListener("change", onBounds);', "", 1),
-            "no SUPERFLEX stepper": v2.replace(
-                '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1),
-            "bench move not reported": v2.replace(
+                "              if (draft.has(item.key)) draft.delete(item.key);\n              else draft.add(item.key);\n              toggleEngineSource(item.key);", 1)},
+            "zone preset ignored": {"v2_js": v2.replace("    const zone = zoneWindow(rows, state.windowPreset);", "    const zone = null;", 1)},
+            "Team box ignored": {"v2_js": v2.replace("state.metaCols.team !== false && (row.team || \"FA\")", "(row.team || \"FA\")", 1)},
+            "From / To ignored": {"v2_js": v2.replace(
+                '      from.addEventListener("change", onBounds);\n      to.addEventListener("change", onBounds);\n', "", 1)},
+            "brush drag keeps the preset": {"v2_js": v2.replace(
+                '    state.window = win;\n    state.windowPreset = "custom";', "    state.window = win;", 1)},
+            "value range ignores the rank window": {"v2_js": v2.replace(
+                "    const visible = rows.slice(state.window[0] - 1, state.window[1]).filter(row => {",
+                "    const visible = rows.filter(row => {", 1)},
+            "Y brush does nothing": {"v2_js": v2.replace('      $(id).addEventListener("input", onYBrush);', "", 1)},
+            "Reset keeps the value range": {"v2_js": v2.replace(
+                "    state.range = {min: null, max: null};\n    state.windowPreset = SHOW_DEFAULT;", "    state.windowPreset = SHOW_DEFAULT;", 1)},
+            "Columns menu ignored": {"v2_js": v2.replace(
+                "      .filter(key => key === view.rankKey || !state.hiddenGroups.has(tableGroup(key)));", ";", 1)},
+            "no SUPERFLEX stepper": {"v2_js": v2.replace(
+                '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1)},
+            "bench move not reported": {"v2_js": v2.replace(
                 "    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {",
-                "    if (false) {", 1),
-            "shares not applied": v2.replace(
-                "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1),
-            "league Apply does nothing": v2.replace(
+                "    if (false) {", 1)},
+            "shares not applied": {"v2_js": v2.replace(
+                "          const result = C.setPositionWeights(edited);", "          const result = {ok: true};", 1)},
+            "league Apply does nothing": {"v2_js": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
-                "", 1),
+                "", 1)},
+            # Table fit and above the fold (CSS).
+            "no chart-and-table split": {"v2_css": css.replace(
+                "@media (min-width: 1280px) {\n  .v2-values-grid", "@media (min-width: 99999px) {\n  .v2-values-grid", 1),
+                "viewports": ((1366, 768),), "full": False},
+            "header not sticky": {"v2_css": css.replace(
+                "  .v2-vtable thead th { position: sticky;", "  .v2-vtable thead th { position: static;", 1), "full": False},
+            "wide cells scroll sideways": {"v2_css": css + "\n.v2-vtable td.num { min-width: 120px; }\n", "full": False},
         }
-        for name, body in broken.items():
+        for name, kwargs in broken.items():
             with self.subTest(mutation=name):
-                self.assertNotEqual(body, v2, f"mutation anchor for {name!r} is stale")
-                self.assertNotEqual(run_checks(v2_js=body, viewports=((1440, 1000),)), [], f"render checks did not catch: {name}")
+                body = kwargs.get("v2_js") or kwargs.get("v2_css")
+                self.assertNotIn(body, (v2, css), f"mutation anchor for {name!r} is stale")
+                args = {"viewports": desktop, **kwargs}
+                self.assertNotEqual(run_checks(**args), [], f"render checks did not catch: {name}")
 
 
 if __name__ == "__main__":

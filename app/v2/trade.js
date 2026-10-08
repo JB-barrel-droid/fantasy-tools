@@ -7,7 +7,8 @@
 //   net = sum(receive) − sum(give)        for that exact series only
 //
 // Frame 22 rule: each row is one exact series (publisher × method); there is no
-// blended score across series and no overall win/lose verdict. A player with
+// blended score across series. The verdict (JEG-469) reads ONE series and only
+// names which other complete series point the other way. A player with
 // no value in a series makes that series' row incomplete: no sums, no net,
 // "—" plus a reason, never a 0 standing in for the missing value. A real 0
 // (at or below that series' waiver line) is a value and counts.
@@ -86,7 +87,94 @@
     return {kind: "split", ...counts};
   }
 
-  const api = {compareTrade, sideTotal, tradeStory};
+  const signOf = net => (Math.abs(net) < 0.05 ? 0 : net > 0 ? 1 : -1);   // 0.0 as shown points neither way
+
+  // JEG-468 waterfall for one series: the same sums as compareTrade, shown as steps.
+  // 0 → one step down per player given (largest first) → one step up per player
+  // received (largest first). A player without a value is a "missing" step that
+  // moves nothing; every step after it is a partial running total, and the row
+  // has no net (no landing). lo / hi: the cumulative extent, 0 included.
+  function waterfall(giveRows, receiveRows, key) {
+    const valueOf = row => (row.values ? row.values[key] : null);
+    const ordered = rows => {
+      const priced = rows.map((row, i) => ({row, i, value: valueOf(row)})).filter(s => finite(s.value));
+      priced.sort((a, b) => b.value - a.value || a.i - b.i);
+      return {priced, missing: rows.filter(row => !finite(valueOf(row)))};
+    };
+    const steps = [];
+    let running = 0;
+    let partial = false;
+    [["give", giveRows, -1], ["receive", receiveRows, 1]].forEach(([side, rows, dir]) => {
+      const {priced, missing} = ordered(rows);
+      priced.forEach(({row, value}) => {
+        const start = running;
+        running += dir * value;
+        steps.push({side, row, value, delta: dir * value, start, end: running, running, partial, missing: false});
+      });
+      missing.forEach(row => {
+        partial = true;
+        steps.push({side, row, value: null, delta: null, start: running, end: running, running: null, partial, missing: true});
+      });
+    });
+    const sums = compareTrade(giveRows, receiveRows, [key]).rows[0];
+    const marks = [0].concat(...steps.map(s => [s.start, s.end]), sums.net === null ? [] : [sums.net]);
+    return {key, steps, give: sums.give, receive: sums.receive, net: sums.net, complete: sums.net !== null,
+      lo: Math.min(...marks), hi: Math.max(...marks)};
+  }
+
+  // One shared scale for a table of waterfalls: the largest cumulative extent across rows.
+  function waterfallScale(waterfalls) {
+    const lo = Math.min(0, ...waterfalls.map(w => w.lo));
+    const hi = Math.max(0, ...waterfalls.map(w => w.hi));
+    return {lo, hi: hi > lo ? hi : lo + 1};
+  }
+
+  // JEG-469 verdict (Jeremy, 2026-10-08): one series decides win / lose; the other
+  // complete series that see it the other way are the selling point. Incomplete
+  // rows never count. rows: compareTrade rows; key: the verdict series.
+  function tradeVerdict(rows, key) {
+    const head = rows.find(row => row.key === key);
+    if (!head) return {kind: null, key};
+    const others = rows.filter(row => row.key !== key);
+    const complete = others.filter(row => row.net !== null);
+    const incompleteKeys = others.filter(row => row.net === null).map(row => row.key);
+    const keysWhere = want => complete.filter(row => signOf(row.net) === want).map(row => row.key);
+    const base = {key, upKeys: keysWhere(1), downKeys: keysWhere(-1), evenKeys: keysWhere(0), incompleteKeys, others: complete.length};
+    if (head.net === null) return {kind: "incomplete", net: null, missing: head.missing, againstKeys: [], agreeKeys: [], ...base};
+    const s = signOf(head.net);
+    const kind = s > 0 ? "win" : s < 0 ? "lose" : "even";
+    const againstKeys = s > 0 ? base.downKeys : s < 0 ? base.upKeys : [];
+    const agreeKeys = s > 0 ? base.upKeys : s < 0 ? base.downKeys : base.evenKeys;
+    return {kind, net: head.net, againstKeys, agreeKeys, missing: [],
+      allAgree: complete.length > 0 && agreeKeys.length === complete.length, ...base};
+  }
+
+  // JEG-469 empty state: a sample 2-for-2 from the top `pool` players (by the verdict
+  // series) that every series prices. Prefers a trade the verdict series calls a win
+  // that the most other series call a loss (the page's point), then the smallest win.
+  // Deterministic for the same rows. Returns {give, receive} rows or null.
+  function pickExample(rows, keys, key, pool = 12) {
+    const all = keys.includes(key) ? keys : keys.concat(key);
+    const top = rows.filter(row => row.values && all.every(k => finite(row.values[k])))
+      .sort((a, b) => b.values[key] - a.values[key] || String(a.player_key).localeCompare(String(b.player_key)))
+      .slice(0, pool);
+    if (top.length < 4) return null;
+    let best = null;
+    for (let a = 0; a < top.length; a++) for (let b = a + 1; b < top.length; b++) {
+      for (let c = 0; c < top.length; c++) for (let d = c + 1; d < top.length; d++) {
+        if (c === a || c === b || d === a || d === b) continue;
+        const give = [top[a], top[b]];
+        const receive = [top[c], top[d]];
+        const v = tradeVerdict(compareTrade(give, receive, all).rows, key);
+        if (v.kind !== "win" || v.net < 1) continue;
+        const score = [v.againstKeys.length, -v.net];
+        if (!best || score[0] > best.score[0] || (score[0] === best.score[0] && score[1] > best.score[1])) best = {give, receive, score};
+      }
+    }
+    return best ? {give: best.give, receive: best.receive} : {give: [top[1], top[3]], receive: [top[0], top[2]]};
+  }
+
+  const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, pickExample};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);

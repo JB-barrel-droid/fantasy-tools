@@ -54,12 +54,13 @@
   </div>
 
   <main class="v2-wrap v2-main" id="v2Main" hidden>
-    <div class="v2-title">
+    <div class="v2-title v2-title-row">
       <h1>Every value. Your league.</h1>
-      <p>Compare the sources. Keep the context.</p>
+      <p id="v2ValueLine">Trade values for every player, tuned to your league</p>
     </div>
 
-    <div class="v2-filters" role="search">
+    <!-- JEG-475: one toolbar for every Player values control, sticky above the chart. -->
+    <div class="v2-filters v2-toolbar" id="v2Toolbar" role="search" aria-label="Player values controls">
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2Search" placeholder="Search players…" autocomplete="off">
       </label>
@@ -71,12 +72,24 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
-      <button type="button" class="v2-select" id="v2RangeBtn" aria-haspopup="dialog">Value range</button>
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank / range by:</span>
+      <label class="v2-field v2-field-show"><span class="v2-field-label">Show</span>
+        <select id="v2Show">
+          <option value="all">All</option>
+          <option value="25">Top 25</option>
+          <option value="50">Top 50</option>
+          <option value="100">Top 100</option>
+          <option value="starter">Starters</option>
+          <option value="bench">Bench</option>
+          <option value="waiver">Waiver</option>
+          <option value="custom" id="v2ShowCustom" hidden>Custom</option>
+        </select>
+      </label>
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank by</span>
         <select id="v2RankBy"></select>
       </label>
       <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Δ Prior week · Off</button>
-      <button type="button" class="v2-link" id="v2ClearFilters">Clear filters</button>
+      <button type="button" class="v2-select" id="v2More" aria-haspopup="dialog" aria-expanded="false">More</button>
+      <button type="button" class="v2-btn v2-reset" id="v2Reset">Reset</button>
     </div>
     <p class="v2-filter-note" id="v2FilterNote" hidden></p>
     <div class="v2-notice" id="v2Notice" role="status" hidden>
@@ -84,22 +97,11 @@
       <button type="button" class="v2-btn" id="v2NoticeBtn">Choose sources</button>
     </div>
 
+    <div class="v2-values-grid">
     <section class="v2-card v2-chart-card" aria-labelledby="v2ChartTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2ChartTitle">Trade value by player rank</h2>
-          <div class="v2-legend" id="v2Legend"></div>
-        </div>
-        <div class="v2-card-tools">
-          <div class="v2-seg" role="group" aria-label="Rank window">
-            <button type="button" data-window="all">All</button>
-            <button type="button" data-window="100" class="is-on">Top 100</button>
-            <button type="button" data-window="50">Top 50</button>
-            <button type="button" data-window="25">Top 25</button>
-            <button type="button" class="v2-chart-options" id="v2ChartOptions" aria-haspopup="dialog" aria-label="Chart options"><span class="v2-wide">Chart options ⌄</span><span class="v2-narrow" aria-hidden="true">···</span></button>
-          </div>
-          <span class="v2-meta"><span class="v2-wide">Solid = our value · Dashed = published chart</span><span class="v2-narrow">Solid = DDA · Dashed = Indexed</span></span>
-        </div>
+      <div class="v2-card-head v2-chart-head">
+        <h2 id="v2ChartTitle">Trade value by player rank</h2>
+        <div class="v2-legend" id="v2Legend"></div>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
         <p><span aria-hidden="true">∅</span> <b id="v2EmptyTitle">No players match.</b></p>
@@ -112,26 +114,51 @@
         </div>
         <p class="v2-meta">Source selections, weights and league settings stay as they are.</p>
       </div>
-      <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
-      <div class="v2-brush">
-        <div class="v2-brush-labels"><span id="v2RangeLabel">Ranks —</span>
-          <span><button type="button" class="v2-link" id="v2ZoomOut" aria-label="Zoom out">−</button>
-          <button type="button" class="v2-link" id="v2ZoomIn" aria-label="Zoom in">+</button>
-          <button type="button" class="v2-link" id="v2ZoomReset">Reset zoom ↺</button></span>
+      <!-- Inside the plot: direct manipulation only. Y value brush (JEG-472), the plot, zoom, X rank brush. -->
+      <div class="v2-plot" id="v2Plot">
+        <div class="v2-ybrush" id="v2YBrush">
+          <svg class="v2-ybrush-overview" id="v2YBrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
+          <div class="v2-ybrush-fill" id="v2YBrushFill"></div>
+          <span class="v2-thumb-label v2-ylabel" id="v2YHiLabel" aria-hidden="true"></span>
+          <span class="v2-thumb-label v2-ylabel" id="v2YLoLabel" aria-hidden="true"></span>
+          <input type="range" id="v2YBrushHi" aria-label="Highest value shown" aria-orientation="vertical" min="0" max="100" step="0.5" value="100">
+          <input type="range" id="v2YBrushLo" aria-label="Lowest value shown" aria-orientation="vertical" min="0" max="100" step="0.5" value="0">
         </div>
-        <div class="v2-brush-track" id="v2Brush">
-          <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
-          <div class="v2-brush-fill" id="v2BrushFill"></div>
-          <input type="range" id="v2BrushLo" aria-label="First rank shown" min="1" max="100" value="1">
-          <input type="range" id="v2BrushHi" aria-label="Last rank shown" min="1" max="100" value="100">
+        <div class="v2-plot-main">
+          <div class="v2-chart" id="v2Chart" tabindex="0" aria-label="Trade value chart. Use arrow keys to move between players, Enter for details."></div>
+          <div class="v2-zoom" role="group" aria-label="Zoom">
+            <button type="button" id="v2ZoomOut" aria-label="Zoom out">−</button>
+            <button type="button" id="v2ZoomIn" aria-label="Zoom in">+</button>
+          </div>
         </div>
-        <div class="v2-brush-bounds">
-          <label>From <input type="number" id="v2FromRank" min="1" step="1" inputmode="numeric"></label>
-          <label>To <input type="number" id="v2ToRank" min="1" step="1" inputmode="numeric"></label>
-          <button type="button" class="v2-btn" id="v2ResetAll">Reset to all</button>
+        <button type="button" class="v2-link v2-yexact" id="v2YExact" aria-haspopup="dialog">Set exact values</button>
+        <div class="v2-brush">
+          <div class="v2-brush-track" id="v2Brush">
+            <svg class="v2-brush-overview" id="v2BrushOverview" aria-hidden="true" preserveAspectRatio="none"></svg>
+            <div class="v2-brush-fill" id="v2BrushFill"></div>
+            <span class="v2-thumb-label" id="v2XLoLabel" aria-hidden="true"></span>
+            <span class="v2-thumb-label" id="v2XHiLabel" aria-hidden="true"></span>
+            <input type="range" id="v2BrushLo" aria-label="First rank shown" min="1" max="100" value="1">
+            <input type="range" id="v2BrushHi" aria-label="Last rank shown" min="1" max="100" value="100">
+          </div>
         </div>
       </div>
     </section>
+
+    <section class="v2-card v2-table-card" id="v2TableCard" aria-labelledby="v2TableTitle">
+      <div class="v2-card-head v2-table-head">
+        <h2 id="v2TableTitle">All selected values</h2>
+        <p class="v2-meta" id="v2TableMeta">—</p>
+        <button type="button" class="v2-select" id="v2Columns" aria-haspopup="dialog" aria-expanded="false">Columns</button>
+      </div>
+      <div class="v2-table-wrap" id="v2TableWrap">
+        <table class="v2-table v2-vtable" id="v2Table"></table>
+        <div class="v2-table-foot">
+          <button type="button" class="v2-btn" id="v2ShowMore" hidden>Show more players</button>
+        </div>
+      </div>
+    </section>
+    </div>
 
     <section class="v2-card v2-vorp-card" id="v2VorpCard" hidden aria-labelledby="v2VorpTitle">
       <div class="v2-card-head">
@@ -143,37 +170,18 @@
       <div class="v2-chart v2-chart-small" id="v2VorpChart"></div>
     </section>
 
-    <section class="v2-card v2-table-card" aria-labelledby="v2TableTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2TableTitle">All selected values</h2>
-          <p class="v2-meta" id="v2TableMeta">—</p>
-        </div>
-      </div>
-      <div class="v2-table-wrap">
-        <table class="v2-table" id="v2Table"></table>
-      </div>
-      <div class="v2-table-foot">
-        <button type="button" class="v2-btn" id="v2ShowMore" hidden>Show more players</button>
-      </div>
-    </section>
-
     <p class="v2-footnote">Values keep each source's identity. No blended or consensus score is shown. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
 
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
-    <div class="v2-title">
-      <h1 id="v2TargetsTitle">Sell high. Buy low.</h1>
-      <p>Players a published trade chart pays more for than we would, and players it pays less for.</p>
+    <div class="v2-title v2-ttitle">
+      <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
+      <p>We check four published trade charts against our projection-based values for your league. Sell the players they overpay for; buy the ones they undervalue.</p>
     </div>
 
-    <div class="v2-filters" role="search">
-      <div class="v2-seg" role="group" aria-label="Trade direction">
-        <button type="button" data-side="sell" class="is-on" aria-pressed="true">Sell targets</button>
-        <button type="button" data-side="buy" aria-pressed="false">Buy targets</button>
-      </div>
+    <div class="v2-filters v2-tfilters" role="search">
       <label class="v2-search"><span class="v2-sr">Search players</span>
         <input type="search" id="v2TSearch" placeholder="Search players…" autocomplete="off">
       </label>
@@ -188,31 +196,50 @@
       <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">Our value:</span>
         <select id="v2TOurs"></select>
       </label>
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Compare against:</span>
-        <select id="v2TChart"></select>
-      </label>
-      <label class="v2-check"><input type="checkbox" id="v2TOlder"> Include older-week charts</label>
+      <div class="v2-tcompare">
+        <label class="v2-field v2-field-rank"><span class="v2-field-label">Compare against:</span>
+          <select id="v2TChart" aria-describedby="v2TChartCaption"></select>
+        </label>
+        <span class="v2-tcaption" id="v2TChartCaption">Indexed to our scale <span id="v2TChartBadge"></span></span>
+        <span id="v2TChartInfoSlot"></span>
+      </div>
     </div>
-    <p class="v2-filter-note" id="v2TNote" hidden></p>
 
-    <section class="v2-card v2-table-card" aria-labelledby="v2TCardTitle">
-      <div class="v2-card-head">
-        <div>
-          <h2 id="v2TCardTitle">Sell: the charts pay more than we would</h2>
-          <p class="v2-meta" id="v2TMeta">—</p>
+    <div class="v2-tlists">
+      <section class="v2-card v2-tlist" id="v2TSell" aria-labelledby="v2TSellTitle">
+        <div class="v2-tlist-head">
+          <h2 id="v2TSellTitle" data-side="sell"><span aria-hidden="true">▲</span> Sell: the charts pay more than we would</h2>
+          <p class="v2-meta" id="v2TSellMeta">—</p>
         </div>
-      </div>
-      <div class="v2-table-wrap v2-t-desktop">
-        <table class="v2-table v2-ttable" id="v2TTable"></table>
-      </div>
-      <ol class="v2-tcards" id="v2TCards"></ol>
-      <p class="v2-meta v2-t-empty" id="v2TEmpty" hidden></p>
-      <div class="v2-table-foot">
-        <button type="button" class="v2-btn" id="v2TShowMore" hidden>Show more players</button>
-      </div>
-    </section>
+        <div class="v2-table-wrap v2-t-desktop">
+          <table class="v2-table v2-ttable" id="v2TTable" aria-labelledby="v2TSellTitle"></table>
+        </div>
+        <ol class="v2-tcards" id="v2TCards" aria-labelledby="v2TSellTitle"></ol>
+        <p class="v2-meta v2-t-empty" id="v2TSellEmpty" hidden></p>
+        <div class="v2-tlist-foot">
+          <button type="button" class="v2-btn v2-tmore" id="v2TSellMore" data-more="sell" hidden>Show all</button>
+          <button type="button" class="v2-btn v2-tless" id="v2TSellLess" data-less="sell" hidden>Show top 5</button>
+        </div>
+      </section>
+      <section class="v2-card v2-tlist" id="v2TBuy" aria-labelledby="v2TBuyTitle">
+        <div class="v2-tlist-head">
+          <h2 id="v2TBuyTitle" data-side="buy"><span aria-hidden="true">▼</span> Buy: the charts pay less than we would</h2>
+          <p class="v2-meta" id="v2TBuyMeta">—</p>
+        </div>
+        <div class="v2-table-wrap v2-t-desktop">
+          <table class="v2-table v2-ttable" id="v2TBuyTable" aria-labelledby="v2TBuyTitle"></table>
+        </div>
+        <ol class="v2-tcards" id="v2TBuyCards" aria-labelledby="v2TBuyTitle"></ol>
+        <p class="v2-meta v2-t-empty" id="v2TBuyEmpty" hidden></p>
+        <div class="v2-tlist-foot">
+          <button type="button" class="v2-btn v2-tmore" id="v2TBuyMore" data-more="buy" hidden>Show all</button>
+          <button type="button" class="v2-btn v2-tless" id="v2TBuyLess" data-less="buy" hidden>Show top 5</button>
+        </div>
+      </section>
+    </div>
 
-    <p class="v2-footnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-filter-note v2-tnote" id="v2TNote" hidden></p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = chart value − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">ESPN projections</span> with Data Driven Adjustments; each published chart is indexed to the same point scale. <span id="v2TPriorNote"></span>VORP vs waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -267,20 +294,22 @@
   </main>
 
   <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
-    <div class="v2-title">
-      <h1 id="v2CompareTitle">Build a better offer.</h1>
-      <p>See the deal through every selected source.</p>
-    </div>
-
-    <div class="v2-ctoolbar">
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Player values shown:</span>
-        <select id="v2CShown"></select>
-      </label>
-      <div class="v2-ctools">
-        <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
-        <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+    <div class="v2-chead">
+      <div class="v2-title">
+        <h1 id="v2CompareTitle">Build a better offer.</h1>
+        <p id="v2CSub">See the deal through every selected source.</p>
+      </div>
+      <div class="v2-ctoolbar">
+        <label class="v2-field v2-field-rank"><span class="v2-field-label">Player values shown:</span>
+          <select id="v2CShown"></select>
+        </label>
+        <div class="v2-ctools">
+          <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
+          <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+        </div>
       </div>
     </div>
+    <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values, so you can see how the page reads it. Search either side to start your own.</span> <button type="button" class="v2-link" id="v2CUseExample">Use this example</button></p>
 
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
@@ -301,13 +330,23 @@
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
+      <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
+        <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
+        <div aria-live="polite">
+          <h2 id="v2CVerdictTitle">No verdict yet</h2>
+          <p id="v2CVerdictText"></p>
+        </div>
+        <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
+          <p class="v2-meta" id="v2CVerdictFallNote"></p>
+        </div>
+        <details class="v2-cstory" id="v2CStory" hidden>
+          <summary id="v2CStoryTitle"></summary>
+          <p id="v2CStoryText"></p>
+        </details>
+      </section>
     </div>
+    <button type="button" class="v2-cverdict-bar" id="v2CVerdictBar" hidden></button>
     <p class="v2-filter-note" id="v2CNote" hidden></p>
-
-    <section class="v2-card v2-cstory" id="v2CStory" hidden aria-labelledby="v2CStoryTitle" aria-live="polite">
-      <h2 id="v2CStoryTitle"></h2>
-      <p id="v2CStoryText"></p>
-    </section>
 
     <section class="v2-card v2-table-card" aria-labelledby="v2CResultTitle">
       <div class="v2-card-head">
@@ -330,7 +369,7 @@
       <div class="v2-card-head">
         <div>
           <h2 id="v2CVorpTitle">VORP vs waivers</h2>
-          <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other.</p>
+          <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other. Each row's steps are drawn on that source's own scale.</p>
         </div>
       </div>
       <div class="v2-table-wrap">
@@ -338,7 +377,7 @@
       </div>
     </section>
 
-    <p class="v2-footnote">Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league. Rows are never combined into one score, and there is no overall verdict: where the sources disagree, that is the trade target. If a player has no value in a source, that row is incomplete and shows —, never zero. Open a row for the player-by-player arithmetic.</p>
+    <p class="v2-footnote">Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league. Rows are never combined into one score. The verdict reads one series, the one in Player values shown, and names the sources that see the trade the other way: where the sources disagree, that is the trade target. The steps in each row go from 0 down by each player you give (largest first), then up by each player you receive, and land on Receive − give; every row shares one scale. If a player has no value in a source, that row is incomplete and shows —, never zero. Open a row for the player-by-player arithmetic.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 

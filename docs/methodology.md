@@ -296,6 +296,30 @@ the week; projection sources use the newest snapshot dated in the week. A closed
 never changes; other versions are kept, not used. Full rule and contract: docs/v2-design-notes.md
 "Back-end contract: history".
 
+## DDF Composite Value (JEG-455 / JEG-471, Jeremy 2026-10-08)
+
+The **DDF Composite Value** ("DDF Value" in compact spots) is, per player, the
+equal-weight mean of the **adjusted** values: our projections (ESPN, CBS ROS,
+Razzball, DDF-adjusted) and the bias-adjusted trade charts (`*_adjusted`).
+It never averages the as-published (Indexed) charts or VORP vs waivers.
+
+- Only series that price the player count; a missing series is left out, never
+  counted as 0. ESPN's 0 for a player it lists at 0 counts (GAP-025). Each
+  value carries its source count.
+- Default inputs: every one of those series that is available and in the
+  current week (a weekly chart older than the newest week is left out, the
+  first-load rule). The reader can choose the inputs.
+- One DDF Value for every comparison column (no leave-one-out).
+- Tier: rank by DDF Value and cut at the league's slot counts (the engine's
+  value-based slot fill).
+- Δ: this week's DDF Value minus last week's, both over the same inputs; an
+  input without the prior week is dropped from both.
+
+The engine computes it in the browser (`curve-widget.js`,
+`ValueModel.compositeValue`); the API is in `docs/v2-design-notes.md`
+"Back-end contract: DDF Value". Open points are `docs/math-review-agenda.md`
+MR-17.
+
 ## Superflex (JEG332-SUPERFLEX-FLEX, Jeremy 2026-10-08, option A)
 
 A superflex league has a **dedicated superflex slot**: roster key `SUPERFLEX`

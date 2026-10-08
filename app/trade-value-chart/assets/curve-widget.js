@@ -34,7 +34,8 @@
     cbs_adjusted: "CBS Adjusted",
     espn_vorp: "ESPN raw VORP vs waivers",
     cbsros_vorp: "CBS ROS raw VORP vs waivers",
-    razzball_vorp: "Razzball raw VORP vs waivers"
+    razzball_vorp: "Razzball raw VORP vs waivers",
+    ddf_value: "DDF Value"
   };
   const WEEKED_SOURCE_KEYS = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs", "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]);
   const SOURCE_KEYS = [
@@ -81,6 +82,18 @@
     razzball_vorp: {ppgField: "rz_ppg", short: "Razzball"},
   };
   const PURE_VORP_KEYS = ["espn_vorp", "cbsros_vorp", "razzball_vorp"];
+  // DDF Composite Value, "DDF Value" for short (JEG-455 / JEG-471, Jeremy
+  // 2026-10-08): per player, the equal-weight mean of the finite ADJUSTED
+  // values -- our projections (ESPN, CBS ROS, Razzball, DDF-adjusted) and the
+  // bias-adjusted trade charts (*_adjusted). Never the as-published/indexed
+  // charts, never VORP vs waivers. Default inputs: every one of those series
+  // that is available and in the current week. One value for every
+  // comparison column (no leave-one-out). It is a derived series: it lives
+  // on the rows (values.ddf_value, ddfCount, ddfSources, ddfTier), never in
+  // sourceMaps, so no guard, pie, spread or existing series reads it.
+  const COMPOSITE_KEY = "ddf_value";
+  const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball",
+    "fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"];
   const EXTRA_SOURCE_KEYS = [];
   // Fixture-transition Option B (staged 2026-09-22): the *_adjusted curves
   // return to the default active set only when their sources carry live
@@ -950,7 +963,7 @@
   const visibleSourceKeys = () => [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS];
   const sourceAvailable = key => sourceMaps.get(key)?.size > 0 && sourceComboExists(key);
   const activeSourceKeys = () => visibleSourceKeys().filter(key => activeSources.has(key) && sourceAvailable(key) && !isAdjustedCurvePaused(key));
-  const isLockKey = key => ["disagreement", ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
+  const isLockKey = key => ["disagreement", COMPOSITE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(key);
   const defaultValueLock = () => "espn";
   const sourceValidationStatus = key => {
     // JEG-363: source validation lives on api.product_snapshot.source_validation.
@@ -2069,6 +2082,96 @@
     return null;
   }
 
+  // ---- DDF Composite Value (see COMPOSITE_KEY) ----
+  // null = the defaults (every usable current-week input, re-evaluated at each
+  // setting); otherwise the reader's chosen inputs (setCompositeInputs), kept
+  // across league changes. A chosen input that is unusable at a setting is
+  // skipped there, never priced as 0.
+  let compositeInputs = null;
+  let compositeMap = new Map();
+  let ddfRoleByKey = new Map();
+  const compositeKeyUsable = key => sourceAvailable(key) && !isAdjustedCurvePaused(key) && !sourceMissingFromData(key);
+  // "Current week" is the same rule as the first-load source set (JEG-432 R5)
+  // and the stale flag: a weekly chart older than the newest week on the board
+  // is left out by default. Projections carry no week and are always current.
+  const compositeKeyOlderWeek = key => sourceIsStale(key) || firstLoadExcluded.has(key);
+  function defaultCompositeInputKeys() {
+    return COMPOSITE_INPUT_KEYS.filter(key => compositeKeyUsable(key) && !compositeKeyOlderWeek(key));
+  }
+  function compositeInputKeys() {
+    return compositeInputs ? compositeInputs.filter(compositeKeyUsable) : defaultCompositeInputKeys();
+  }
+  const compositeAvailable = () => compositeMap.size > 0;
+  function compositeExclusionReason(key) {
+    if (sourceMissingFromData(key)) return "missing from this build";
+    if (isAdjustedCurvePaused(key)) return "paused while it waits on fresh adjustment inputs";
+    if (!sourceAvailable(key)) return `not available for ${scoreLabel()} / ${teams} teams`;
+    if (compositeInputs) return "not selected";
+    if (compositeKeyOlderWeek(key)) return "older week";
+    return "not selected";
+  }
+  function compositeInputsInfo() {
+    const inputs = compositeInputKeys();
+    return {
+      inputs,
+      requested: compositeInputs ? [...compositeInputs] : null,
+      isDefault: compositeInputs === null,
+      defaults: defaultCompositeInputKeys(),
+      allowed: [...COMPOSITE_INPUT_KEYS],
+      excluded: COMPOSITE_INPUT_KEYS.filter(key => !inputs.includes(key))
+        .map(key => ({key, reason: compositeExclusionReason(key)}))
+    };
+  }
+  // Writes values.ddf_value, ddfCount, ddfSources and ddfTier on every row.
+  // Tier: rank by DDF Value and cut at the league's slot counts -- the
+  // engine's value-based slot fill (ValueModel.roleMap: dedicated slots, then
+  // superflex, then flex, then bench), the same rule as every other role map.
+  // A player no included series prices has no DDF Value and no tier (null).
+  function applyComposite(rows) {
+    const keys = compositeInputKeys();
+    compositeMap = new Map();
+    rows.forEach(row => {
+      const blend = ValueModel.compositeValue(row.values, keys);
+      row.values[COMPOSITE_KEY] = blend.value;
+      row.ddfCount = blend.count;
+      row.ddfSources = blend.used;
+      if (blend.value !== null) compositeMap.set(row.player_key, blend.value);
+    });
+    ddfRoleByKey = ValueModel.roleMap({values: compositeMap, playerOf: playerKey => canonicalByKey.get(playerKey),
+      teams, shape: rosterShape});
+    rows.forEach(row => {
+      row.ddfTier = row.values[COMPOSITE_KEY] === null ? null : (ddfRoleByKey.get(row.player_key) || "waiver");
+    });
+  }
+  // getSourceInfo({includeComposite: true}) entry. week: the newest week
+  // among the weekly inputs (the content week when only projections are in);
+  // stale: an input is an older week (only when the reader chose one).
+  function compositeSourceInfo() {
+    const inputs = compositeInputKeys();
+    const weeks = inputs.map(weekForSource).filter(Number.isFinite);
+    return {
+      key: COMPOSITE_KEY,
+      label: sourceLabel(COMPOSITE_KEY),
+      longLabel: "DDF Composite Value",
+      composite: true,
+      inputs,
+      isDefault: compositeInputs === null,
+      week: weeks.length ? Math.max(...weeks) : activeReferenceWeek(),
+      stale: inputs.some(compositeKeyOlderWeek),
+      available: compositeAvailable(),
+      paused: false,
+      unavailable: false,
+      active: false,
+      color: null,
+      waiverNote: null,
+      waiver: null
+    };
+  }
+  const lockSourceAvailable = key => key === COMPOSITE_KEY ? compositeAvailable()
+    : sourceAvailable(key) && !isAdjustedCurvePaused(key);
+  // A copy of an engine row for the read-only accessors.
+  const rowCopy = row => ({...row, values: {...row.values}, ddfSources: [...(row.ddfSources || [])]});
+
   function rebuildDomain() {
     // Live cells first: the two-tier-native curves (espn/cbsros/razzball) and the
     // _adjusted family re-price on the bench-share slider via the refit cells.
@@ -2136,6 +2239,7 @@
       const values = Object.fromEntries(visibleSourceKeys().map(key => [key, rowValue(key, player)]));
       return {...player, espnRole:espnRoleByKey.get(playerKey) || "waiver", values};
     }).filter(Boolean);
+    applyComposite(universe);
     orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
     syncPlayerOptions();
     syncContext();
@@ -2161,6 +2265,7 @@
   }
 
   function selectedRankSourceKey() {
+    if (lockOrder === COMPOSITE_KEY && compositeAvailable()) return COMPOSITE_KEY;
     if (visibleSourceKeys().includes(lockOrder) && sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder)) return lockOrder;
     if (!isAdjustedCurvePaused("fantasycalc_adjusted") && sourceAvailable("fantasycalc_adjusted")) return "fantasycalc_adjusted";
     if (sourceAvailable("espn")) return "espn";
@@ -3264,6 +3369,7 @@
     if (!select) return;
     const options = [
       ["disagreement", "Largest disagreement"],
+      ...(compositeAvailable() ? [[COMPOSITE_KEY, sourceLabel(COMPOSITE_KEY)]] : []),
       ...visibleSourceKeys().filter(sourceAvailable).map(key => [key, sourceLabel(key)])
     ];
     select.innerHTML = options.map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
@@ -3277,7 +3383,7 @@
     if (select) select.value = lockOrder;
     const note = $("#curveLockNote");
     if (!note) return;
-    note.textContent = [...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
+    note.textContent = [COMPOSITE_KEY, ...SOURCE_KEYS, ...EXTRA_SOURCE_KEYS, ...PURE_VORP_KEYS].includes(lockOrder)
       ? `Every curve uses the ${sourceLabel(lockOrder)} player order, so each x-position is the same player across all visible lines.`
       : lockOrder === "disagreement"
         ? `Every curve shares one player axis; cutoff lines use ${sourceLabel(selectedRankSourceKey())} as the roster-rank reference.`
@@ -3336,7 +3442,8 @@
   }
 
   function publishShared() {
-    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare, positionWeights: activePositionWeights()};
+    const detail = {scoring, teams, position, model: "monday", lockOrder, rosterShape:{...rosterShape}, benchShare, absenceRate:benchShare, positionWeights: activePositionWeights(),
+      compositeInputs: compositeInputs ? [...compositeInputs] : null};
     window.TradeValueSharedState = detail;
     window.dispatchEvent(new CustomEvent("trade-value-shared-change", {detail}));
   }
@@ -3434,7 +3541,7 @@
     positionWeights = null;
     rebuildDomain();
     // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
-    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
+    if (!["disagreement"].includes(lockOrder) && !lockSourceAvailable(lockOrder)) {
       const prevLock = lockOrder;
       lockOrder = defaultValueLock();
       if (prevLock !== lockOrder) notifyLockRevert(prevLock, "scoring change");
@@ -3467,7 +3574,7 @@
     positionWeights = null;
     rebuildDomain();
     // QA-003: Notify user when lock order is force-reverted. Silent reverts erode trust.
-    if (!["disagreement"].includes(lockOrder) && !(sourceAvailable(lockOrder) && !isAdjustedCurvePaused(lockOrder))) {
+    if (!["disagreement"].includes(lockOrder) && !lockSourceAvailable(lockOrder)) {
       const prevLock = lockOrder;
       lockOrder = defaultValueLock();
       if (prevLock !== lockOrder) notifyLockRevert(prevLock, "team size change");
@@ -3502,6 +3609,52 @@
     resetZoom();
     draw();
     if (publish) window.dispatchEvent(new CustomEvent("trade-value-lock-order-change", {detail: {lockOrder:value}}));
+  }
+
+  // JEG-471: choose the DDF Value inputs. keys: an array of
+  // COMPOSITE_INPUT_KEYS (any order, duplicates ignored); null (or "default")
+  // restores the defaults. Choosing exactly the current defaults IS the
+  // default state, so it keeps following the current-week rule. Only the
+  // DDF Value fields move: every other series is untouched. Recomputes, redraws
+  // and fires trade-value-rows-change, then trade-value-shared-change (with
+  // compositeInputs) unless publish is false. Invalid input changes nothing.
+  function setCompositeInputs(keys, publish = true) {
+    let next = null;
+    if (!(keys === null || keys === undefined || keys === "default")) {
+      if (!Array.isArray(keys)) return {ok: false, error: "expected an array of series keys, or null for the defaults"};
+      if (!keys.length) return {ok: false, error: "no sources given: DDF Value needs at least one"};
+      const unknown = keys.filter(key => !COMPOSITE_INPUT_KEYS.includes(key));
+      if (unknown.length) {
+        return {ok: false, error: `not a DDF Value input: ${unknown.map(String).join(", ")} (expected ${COMPOSITE_INPUT_KEYS.join(", ")})`};
+      }
+      if (!engineReady) return {ok: false, error: "DDF Value inputs cannot be set until the engine has loaded"};
+      next = COMPOSITE_INPUT_KEYS.filter(key => keys.includes(key));
+      if (!next.some(compositeKeyUsable)) {
+        return {ok: false, error: `none of ${next.join(", ")} is available for ${scoreLabel()} / ${teams} teams`};
+      }
+      const defaults = defaultCompositeInputKeys();
+      if (next.length === defaults.length && next.every(key => defaults.includes(key))) next = null;
+    }
+    const before = JSON.stringify(compositeInputs);
+    compositeInputs = next;
+    if (engineReady && JSON.stringify(compositeInputs) !== before) refreshComposite(publish);
+    return {ok: true, ...compositeInputsInfo()};
+  }
+
+  // Only the DDF Value fields depend on the inputs, so recompute them on the
+  // current rows rather than rebuilding every series.
+  function refreshComposite(publish = true) {
+    crossRank = null;
+    applyComposite(universe);
+    orderedRows = universe.filter(row => isPosition(row)).sort(orderComparator);
+    syncContext();
+    makeLockControl();
+    resetZoom();
+    runRegressionGuards();
+    draw();
+    syncCurveStatus();
+    notifyRowsChanged();
+    if (publish) publishShared();
   }
 
   // ---------------------------------------------------------------------
@@ -3717,6 +3870,7 @@
   // (players the saved week does not price are absent), setting, origin,
   // fingerprint, method}.
   async function getWeekValues(source, week) {
+    if (source === COMPOSITE_KEY) return compositeWeekValues(week);
     week = Number(week);
     if (!Number.isInteger(week)) return historyUnavailable(source, week, "no week given");
     const base = historyBaseSource(source);
@@ -3773,6 +3927,7 @@
   // The served week comes from the history index, which matches the served
   // inputs to a saved week by content fingerprint, not by the section label.
   async function getPriorWeek(source, week) {
+    if (source === COMPOSITE_KEY) return compositePriorWeek(week);
     let index;
     try {
       index = await historyIndex();
@@ -3798,6 +3953,7 @@
   // Read-only: which saved weeks exist for a series, and the week served now.
   // Lets a page offer week pairs (N−1 → N) without reading the history files itself.
   async function getHistoryWeeks(source) {
+    if (source === COMPOSITE_KEY) return compositeHistoryWeeks();
     let index;
     try {
       index = await historyIndex();
@@ -3808,6 +3964,94 @@
       && index.weeks[String(week)]?.sources?.[source]).sort((a, b) => a - b);
     const served = index?.served?.[source];
     return {source, servedWeek: Number.isInteger(served?.week) ? served.week : null, weeks};
+  }
+
+  // ---- DDF Value history (JEG-465 / JEG-471) ----
+  // Built only from the per-series accessors above, so each input is priced
+  // exactly as its own Δ is. The composite is the same equal-weight mean over
+  // finite values (ValueModel.compositeValue).
+  function compositeOfMaps(series) {
+    const keys = series.map(item => item.key);
+    const players = new Set(series.flatMap(item => Object.keys(item.values)));
+    const values = {}, counts = {};
+    players.forEach(playerKey => {
+      const blend = ValueModel.compositeValue(
+        Object.fromEntries(series.map(item => [item.key, item.values[playerKey]])), keys);
+      if (blend.value === null) return;
+      values[playerKey] = blend.value;
+      counts[playerKey] = blend.count;
+    });
+    return {values, counts};
+  }
+  const COMPOSITE_HISTORY_METHOD = "equal-weight mean of the included inputs' finite values (ValueModel.compositeValue)";
+  // One saved week of the DDF Value: every current input that has that week
+  // (the others are listed in `dropped` with their reason).
+  async function compositeWeekValues(week) {
+    const inputs = compositeInputKeys();
+    week = Number(week);
+    if (!Number.isInteger(week)) return historyUnavailable(COMPOSITE_KEY, week, "no week given", {inputs});
+    if (!inputs.length) return historyUnavailable(COMPOSITE_KEY, week, "no DDF Value input is available at this setting", {inputs});
+    const results = await Promise.all(inputs.map(key => getWeekValues(key, week)));
+    const included = results.filter(result => result.available);
+    const dropped = results.filter(result => !result.available).map(result => ({source: result.source, reason: result.reason}));
+    if (!included.length) {
+      return historyUnavailable(COMPOSITE_KEY, week, `no DDF Value input has Week ${week} saved`, {inputs, sources: [], dropped});
+    }
+    const blend = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
+    return {source: COMPOSITE_KEY, week, available: true, values: blend.values, counts: blend.counts,
+      inputs, sources: included.map(result => result.source), dropped, setting: historySetting(),
+      method: COMPOSITE_HISTORY_METHOD};
+  }
+  // Δ pair for the DDF Value (JEG-465): both weeks use the same rule and the
+  // SAME inputs. The pair is the newest served week among the inputs and the
+  // week before it; an input without that prior week (or serving another
+  // week) is dropped from BOTH sides and listed in `dropped`. The served side
+  // is returned as currentValues/currentCounts, computed from the rows'
+  // served values over exactly `sources`, so
+  //   Δ = currentValues[player] − values[player]
+  // (row.values.ddf_value can include inputs the prior side lacks).
+  async function compositePriorWeek(week) {
+    const inputs = compositeInputKeys();
+    const asked = week === undefined || week === null ? null : Number(week);
+    if (!inputs.length) return historyUnavailable(COMPOSITE_KEY, asked, "no DDF Value input is available at this setting", {inputs});
+    const results = await Promise.all(inputs.map(key => getPriorWeek(key)));
+    const servedWeeks = results.map(result => result.currentWeek).filter(Number.isInteger);
+    if (!servedWeeks.length) {
+      return historyUnavailable(COMPOSITE_KEY, asked, "no DDF Value input matches a saved week", {inputs, sources: [],
+        dropped: results.map(result => ({source: result.source, reason: result.reason}))});
+    }
+    const currentWeek = Math.max(...servedWeeks);
+    const priorWeek = currentWeek - 1;
+    const extra = {inputs, currentWeek, priorWeek};
+    if (asked !== null && asked !== priorWeek) {
+      return historyUnavailable(COMPOSITE_KEY, asked, `Week ${week} is not the week before the served Week ${currentWeek}`, extra);
+    }
+    const isIncluded = result => result.available && result.currentWeek === currentWeek;
+    const included = results.filter(isIncluded);
+    const dropped = results.filter(result => !isIncluded(result)).map(result => ({source: result.source,
+      reason: result.available ? `serves Week ${result.currentWeek}, not Week ${currentWeek}` : result.reason}));
+    if (!included.length) {
+      return historyUnavailable(COMPOSITE_KEY, priorWeek, `no DDF Value input has Week ${priorWeek}`, {...extra, sources: [], dropped});
+    }
+    const sources = included.map(result => result.source);
+    const prior = compositeOfMaps(included.map(result => ({key: result.source, values: result.values})));
+    const currentValues = {}, currentCounts = {};
+    universe.forEach(row => {
+      const blend = ValueModel.compositeValue(row.values, sources);
+      if (blend.value === null) return;
+      currentValues[row.player_key] = blend.value;
+      currentCounts[row.player_key] = blend.count;
+    });
+    return {source: COMPOSITE_KEY, week: priorWeek, available: true, values: prior.values, counts: prior.counts,
+      currentValues, currentCounts, sources, dropped, ...extra, setting: historySetting(), method: COMPOSITE_HISTORY_METHOD};
+  }
+  // Saved weeks any current input has, and the newest served week among them.
+  async function compositeHistoryWeeks() {
+    const inputs = compositeInputKeys();
+    const results = await Promise.all(inputs.map(key => getHistoryWeeks(historyBaseSource(key))));
+    const served = results.map(result => result.servedWeek).filter(Number.isInteger);
+    const weeks = [...new Set(results.flatMap(result => result.weeks))].sort((a, b) => a - b);
+    return {source: COMPOSITE_KEY, servedWeek: served.length ? Math.max(...served) : null, weeks, inputs};
   }
 
   // Math inspector (internal page, read-only). Every input and intermediate
@@ -3921,15 +4165,18 @@
         team: row.team,
         pos: row.pos,
         espnRole: row.espnRole,
-        values: Object.fromEntries(visibleSourceKeys().map(key => [key, row.values[key] ?? null]))
+        values: Object.fromEntries([...visibleSourceKeys(), COMPOSITE_KEY].map(key => [key, row.values[key] ?? null]))
       }));
     },
     // v2 front end (read-only): the ranked rows and source metadata the new
     // layout renders, straight from the same maps this chart draws.
-    getRows: () => displayRows().map(row => ({...row, values: {...row.values}})),
+    // JEG-471: each row also carries the DDF Composite Value: values.ddf_value
+    // (null when no included series prices him), ddfCount, ddfSources and
+    // ddfTier ("starter" | "bench" | "waiver", null without a DDF Value).
+    getRows: () => displayRows().map(rowCopy),
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
-    getAllRows: () => universe.map(row => ({...row, values: {...row.values}})),
+    getAllRows: () => universe.map(rowCopy),
     isReady: () => engineReady,
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),
@@ -3952,7 +4199,10 @@
     resetPositionWeights: (publish = true) => setPositionWeights(null, publish),
     getDefaultPositionWeights: () => bakedPositionWeights(),
     getPositionWeightBounds: () => positionWeightBounds(),
-    getSourceInfo: () => visibleSourceKeys().map(key => ({
+    // JEG-471: getSourceInfo({includeComposite: true}) appends the DDF Value
+    // entry (key "ddf_value", composite: true). Without the option the list
+    // is the plotted series only, as before.
+    getSourceInfo: options => [...visibleSourceKeys().map(key => ({
       key,
       label: sourceLabel(key),
       week: weekForSource(key),
@@ -3968,7 +4218,11 @@
       // line extrapolated from the other charts (or on the end of its list).
       waiverNote: waiverNote(key),
       waiver: publishedWaiver(key)
-    })),
+    })), ...(options && options.includeComposite ? [compositeSourceInfo()] : [])],
+    // JEG-471: the DDF Value inputs; see setCompositeInputs.
+    getCompositeInputs: () => compositeInputsInfo(),
+    setCompositeInputs,
+    resetCompositeInputs: (publish = true) => setCompositeInputs(null, publish),
     getAdjustmentWeights: () => ({allocation: adjustmentAllocationRows(), cells: adjustmentWeightRows()}),
     getZones: () => Object.fromEntries(boundaryMarkers().map(marker => [marker.key, marker.value])),
     // Internal math inspector (read-only): see getInspection above.
@@ -4102,6 +4356,14 @@
       starter: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (rosterShape.SUPERFLEX || 0)),
       bench: teams * (rosterShape.QB + rosterShape.RB + rosterShape.WR + rosterShape.TE + rosterShape.FLEX + (rosterShape.SUPERFLEX || 0) + rosterShape.BENCH)
     };
+    // JEG-471: ranked by DDF Value, a position's zones are its DDF tiers
+    // (cut at the league's slot counts by DDF Value), so the boundaries and
+    // row.ddfTier always agree.
+    if (selectedRankSourceKey() === COMPOSITE_KEY) {
+      const rows = universe.filter(isPosition);
+      const starter = rows.filter(row => row.ddfTier === "starter").length;
+      return {starter, bench: starter + rows.filter(row => row.ddfTier === "bench").length};
+    }
     if (position === "FLEX") return {
       starter: counts.lineup.RB + counts.lineup.WR + counts.lineup.TE,
       bench: counts.rostered.RB + counts.rostered.WR + counts.rostered.TE

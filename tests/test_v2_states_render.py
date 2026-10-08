@@ -180,7 +180,7 @@ def run_checks(v2_js=None, v2_css=None, with_failure=True) -> list[str]:
                 if empty["shown"]:
                     page.click("#v2EmptyActions [data-clear=search]")
                 else:
-                    page.click("#v2ClearFilters")
+                    page.click("#v2Reset")   # JEG-475: one Reset replaced Clear filters
                 page.wait_for_timeout(400)
                 if not page.evaluate("() => document.querySelectorAll('#v2Table tbody tr').length > 0 && document.getElementById('v2Empty').hidden"):
                     errors.append(f"{width}px: Clear filters did not bring the players back")

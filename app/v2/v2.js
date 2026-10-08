@@ -38,6 +38,9 @@
   const PLAIN_NAMES = {espn: "ESPN", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", usatoday: "USA Today",
     cbs: "CBS Sports", cbsros: "CBS rest of season", razzball: "Razzball"};
   const narrowQuery = window.matchMedia ? window.matchMedia("(max-width: 767px)") : null;
+  const metaWideQuery = window.matchMedia ? window.matchMedia("(min-width: 1600px)") : null;   // JEG-473
+  let metaNoRoom = false;   // set when the expanded columns would make the table scroll sideways
+  const metaColumnsShown = () => Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom;
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   const SHORT_METHOD = {dda: "DDA", indexed: "Index", vorp: "VORP vs waivers"};
   const PLAIN_METHOD = {dda: "Our value", indexed: "Published chart", vorp: "VORP vs waivers"};
@@ -60,19 +63,19 @@
       short: isNarrow() ? `${pub.label} · ${SHORT_METHOD[method]}` : plainSeries(publisher, method)};
   }
 
+  const SHOW_DEFAULT = "100";
   const state = {
     search: "",
     range: {min: null, max: null},
     delta: false,
-    window: null,          // [lo, hi] 1-based rank window for the chart
-    windowPreset: "100",
+    window: null,          // [lo, hi] 1-based rank window (chart and table)
+    windowPreset: SHOW_DEFAULT,   // the toolbar's "Show" (JEG-475); "custom" after a brush, zoom or exact ranks
     sort: null,            // {key, dir}; null = rank-series order
     shown: PAGE_SIZE,
     hoverIndex: null,
     focusIndex: 0,
-    hideZeroTail: false,   // frame 21: chart only
-    yBounds: null,         // frame 21: {lo, hi} custom Y axis, null = auto
-    metaCols: {pos: true, team: true, tier: true}
+    metaCols: {pos: true, team: true, tier: true},
+    hiddenGroups: new Set()   // JEG-473 Columns menu: method groups the reader hid
   };
   let C = null;            // TradeValueCurveControls
   let view = null;         // derived snapshot for rendering
@@ -177,38 +180,36 @@
     const allRows = C.getRows();
     allRows.forEach((row, index) => { row.fullRank = index + 1; });
     const needle = state.search.trim().toLowerCase();
-    const {min, max} = state.range;
-    let omittedMissing = 0;
-    const rows = allRows.filter(row => {
-      if (needle && !String(row.name || "").toLowerCase().includes(needle)) return false;
-      if (min !== null || max !== null) {
-        const v = row.values[rankKey];
-        if (!Number.isFinite(v)) { omittedMissing += 1; return false; }
-        if (min !== null && v < min) return false;
-        if (max !== null && v > max) return false;
-      }
-      return true;
-    });
+    // Search narrows the list and renumbers it; the rank window (Show / X brush) and the value range
+    // (Y brush) then compose: shown = ranks lo..hi ∩ ranking-series value in [min, max] (JEG-472).
+    const rows = needle ? allRows.filter(row => String(row.name || "").toLowerCase().includes(needle)) : allRows;
     rows.forEach((row, index) => { row.rank = index + 1; });
     const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
     const refWeek = freshness?.current_content_week || C.getReferenceWeek();
-    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, totalRows: allRows.length, omittedMissing,
-      refWeek, state: C.getState(), roster: C.getRosterShape()};
     const n = rows.length;
-    // Frame 21 "Hide zero-value tail": the chart stops at the last player with a ranking value above 0.
-    let last = n;
-    if (state.hideZeroTail) {
-      while (last > 1 && !(rows[last - 1].values[rankKey] > 0)) last -= 1;
-    }
     const zone = zoneWindow(rows, state.windowPreset);
     if (zone) {
-      state.window = [Math.min(zone[0], last), Math.max(1, Math.min(zone[1], last))];
+      state.window = [Math.min(zone[0], Math.max(1, n)), Math.max(1, Math.min(zone[1], n))];
     } else if (!state.window || state.windowPreset !== "custom") {
-      const hi = state.windowPreset === "all" ? last : Number(state.windowPreset) || last;
-      state.window = [1, Math.max(1, Math.min(last, hi))];
+      const hi = state.windowPreset === "all" ? n : Number(state.windowPreset) || n;
+      state.window = [1, Math.max(1, Math.min(n, hi))];
     } else {
       state.window = [Math.max(1, Math.min(state.window[0], n)), Math.max(1, Math.min(state.window[1], n))];
     }
+    const {min, max} = state.range;
+    const rangeOn = min !== null || max !== null;
+    let omittedMissing = 0;
+    const visible = rows.slice(state.window[0] - 1, state.window[1]).filter(row => {
+      if (!rangeOn) return true;
+      const v = row.values[rankKey];
+      if (!Number.isFinite(v)) { omittedMissing += 1; return false; }
+      return (min === null || v >= min) && (max === null || v <= max);
+    });
+    // The Y brush's scale: the ranking series' own spread over the listed players (display only).
+    const rankValues = rows.map(row => row.values[rankKey]).filter(Number.isFinite);
+    const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
+    view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible, totalRows: allRows.length, omittedMissing,
+      rangeOn, yScale, rankValues, refWeek, state: C.getState(), roster: C.getRosterShape()};
   }
 
   // Frame 21 Starter / Bench / Waiver: the engine's roster boundaries (getZones, in
@@ -248,6 +249,18 @@
     const item = view.infoByKey[key];
     const week = item && item.week ? (isNarrow() ? ` · W${item.week}` : ` · Week ${item.week}`) : "";
     return `${meta.short}${week}`;
+  }
+
+  // JEG-475 "Show": one range control. A brush, zoom or exact ranks make it "Custom 12–48", naming the
+  // ranks actually shown (rank window ∩ value range).
+  function renderShow() {
+    const custom = $("v2ShowCustom");
+    const isCustom = state.windowPreset === "custom";
+    custom.hidden = !isCustom;
+    const first = view.visible[0];
+    const last = view.visible[view.visible.length - 1];
+    custom.textContent = first ? `Custom ${first.rank}–${last.rank}` : `Custom ${state.window[0]}–${state.window[1]}`;
+    $("v2Show").value = state.windowPreset;
   }
 
   // ---------- header, league, methods ----------
@@ -308,15 +321,13 @@
     });
 
     $("v2Position").value = view.state.position;
-    const rangeOn = state.range.min !== null || state.range.max !== null;
-    $("v2RangeBtn").textContent = rangeOn
-      ? `Value ${state.range.min ?? "…"}–${state.range.max ?? "…"}`
-      : "Value range";
+    renderShow();
+    $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${view.refWeek ? ` · Week ${view.refWeek}` : ""}`;
     $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
     const notes = [];
-    if (rangeOn && view.omittedMissing) {
+    if (view.rangeOn && view.omittedMissing) {
       notes.push(`${view.omittedMissing} player${view.omittedMissing === 1 ? "" : "s"} omitted: no ${sourceMeta(view.rankKey).short} value to compare against the range.`);
     }
     if (state.delta) {
@@ -349,16 +360,27 @@
   function renderLegend() {
     const legend = $("v2Legend");
     legend.replaceChildren();
-    view.plotKeys.concat(view.vorpKeys).forEach(key => {
+    const keys = view.plotKeys.concat(view.vorpKeys);
+    keys.forEach(key => {
       const meta = sourceMeta(key);
       const span = document.createElement("span");
       const swatch = el("svg", {width: 22, height: 8, "aria-hidden": "true"});
       el("line", {x1: 0, y1: 4, x2: 22, y2: 4, stroke: meta.color, "stroke-width": 2,
         "stroke-dasharray": meta.method === "indexed" ? "6 4" : meta.method === "vorp" ? "1.5 4" : ""}, swatch);
       span.appendChild(swatch);
-      span.append(document.createTextNode(`${meta.symbol} ${meta.short}`));
+      const twice = keys.filter(k => sourceMeta(k).publisher === meta.publisher).length > 1;
+      const name = meta.method === "vorp" || twice || isNarrow() ? meta.short : (PLAIN_NAMES[meta.publisher] || meta.label);
+      span.append(document.createTextNode(`${meta.symbol} ${name}`));
+      span.title = plainSeries(meta.publisher, meta.method);
       legend.appendChild(span);
     });
+    // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
+    const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: "Dashed = Indexed"} : {dda: "Solid = our value", indexed: "Dashed = published chart"};
+    const key = document.createElement("span");
+    key.className = "v2-legend-key";
+    key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
+    if (key.textContent) legend.appendChild(key);
   }
 
   function drawSeriesChart(container, keys, opts) {
@@ -366,10 +388,14 @@
     const rect = container.getBoundingClientRect();
     const width = Math.max(280, rect.width);
     const height = Math.max(160, rect.height);
-    const pad = {l: 40, r: 12, t: 12, b: opts.names ? 46 : 30};
-    const [lo, hi] = state.window;
-    const slice = view.rows.slice(lo - 1, hi);
+    // The rows shown: rank window ∩ value range (collect). X labels are each player's rank.
+    const slice = view.visible;
     const n = slice.length;
+    const names = opts.names && (n > 1 ? (width - 52) / (n - 1) : width) >= 64;
+    const pad = {l: 40, r: 12, t: 12, b: names ? 46 : 30};
+    if (opts.plot) opts.plot.style.setProperty("--v2-plot-pad-b", `${pad.b}px`);   // the Y brush lines up with the axis
+    const lo = n ? slice[0].rank : state.window[0];
+    const hi = n ? slice[n - 1].rank : state.window[1];
     const svg = el("svg", {viewBox: `0 0 ${width} ${height}`, role: "img",
       "aria-label": `${opts.label}: ranks ${lo} to ${hi}`}, container);
     let vmax = 0;
@@ -377,13 +403,8 @@
       const v = row.values[key];
       if (Number.isFinite(v) && v > vmax) vmax = v;
     }));
-    let {max: ymax, step: ystep} = niceScale(vmax);
-    let ymin = 0;
-    if (opts.yBounds) {
-      ymin = Number.isFinite(opts.yBounds.lo) ? opts.yBounds.lo : 0;
-      if (Number.isFinite(opts.yBounds.hi)) ymax = opts.yBounds.hi;
-      ystep = niceScale(ymax - ymin).step;
-    }
+    const {max: ymax, step: ystep} = niceScale(vmax);
+    const ymin = 0;
     const x = i => pad.l + (n <= 1 ? (width - pad.l - pad.r) / 2 : (i / (n - 1)) * (width - pad.l - pad.r));
     const y = v => pad.t + (1 - (Math.min(ymax, Math.max(ymin, v)) - ymin) / (ymax - ymin)) * (height - pad.t - pad.b);
     const grid = el("g", {class: "grid"}, svg);
@@ -396,12 +417,11 @@
     const xTicks = Math.min(5, n);
     for (let t = 0; t < xTicks; t += 1) {
       const i = xTicks === 1 ? 0 : Math.round((t / (xTicks - 1)) * (n - 1));
-      const label = el("text", {x: x(i), y: height - (opts.names ? 30 : 10), "text-anchor": "middle"}, axis);
-      label.textContent = lo + i;
+      const label = el("text", {x: x(i), y: height - (names ? 30 : 10), "text-anchor": "middle"}, axis);
+      label.textContent = slice[i].rank;
     }
-    if (opts.names) {
-      const pxPer = n > 1 ? (width - pad.l - pad.r) / (n - 1) : width;
-      if (pxPer >= 64) {
+    if (names) {
+      {
         slice.forEach((row, i) => {
           const label = el("text", {x: x(i), y: height - 8, "text-anchor": "middle", class: "name-label"}, svg);
           const last = String(row.name || "").split(" ").slice(-1)[0];
@@ -435,30 +455,75 @@
 
   function renderCharts() {
     renderLegend();
-    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, yBounds: state.yBounds});
+    mainChart = drawSeriesChart($("v2Chart"), view.plotKeys, {label: "Trade value by player rank", names: true, plot: $("v2Plot")});
     const vorpCard = $("v2VorpCard");
     vorpCard.hidden = !view.vorpKeys.length;
     vorpChart = view.vorpKeys.length
       ? drawSeriesChart($("v2VorpChart"), view.vorpKeys, {label: "VORP vs waivers by player rank"})
       : null;
     const [lo, hi] = state.window;
-    $("v2RangeLabel").textContent = `Ranks ${lo}–${hi} of ${view.rows.length}`;
     const n = Math.max(1, view.rows.length);
+    // X rank brush: the whole list under two handles, an overview line, labels at the thumbs.
     ["v2BrushLo", "v2BrushHi"].forEach(id => { $(id).max = String(n); });
     $("v2BrushLo").value = String(lo);
     $("v2BrushHi").value = String(hi);
+    const xAt = v => ((v - 1) / Math.max(1, n - 1)) * 100;
     const fill = $("v2BrushFill");
-    fill.style.left = `${((lo - 1) / Math.max(1, n - 1)) * 100}%`;
-    fill.style.width = `${((hi - lo) / Math.max(1, n - 1)) * 100}%`;
-    // Frame 24: numeric bounds and an overview line of the ranking series under the handles.
-    ["v2FromRank", "v2ToRank"].forEach(id => { $(id).max = String(n); });
-    if (document.activeElement !== $("v2FromRank")) $("v2FromRank").value = String(lo);
-    if (document.activeElement !== $("v2ToRank")) $("v2ToRank").value = String(hi);
+    fill.style.left = `${xAt(lo)}%`;
+    fill.style.width = `${xAt(hi) - xAt(lo)}%`;
+    $("v2XLoLabel").textContent = String(lo);
+    $("v2XHiLabel").textContent = String(hi);
+    $("v2XLoLabel").style.left = `${xAt(lo)}%`;
+    $("v2XHiLabel").style.left = `${xAt(hi)}%`;
+    $("v2BrushLo").setAttribute("aria-valuetext", `Rank ${lo}`);
+    $("v2BrushHi").setAttribute("aria-valuetext", `Rank ${hi}`);
     drawOverview();
-    document.querySelectorAll("#v2Main .v2-seg button[data-window]").forEach(button => {
-      button.classList.toggle("is-on", button.dataset.window === state.windowPreset);
-    });
+    renderYBrush();
     drawHover();
+  }
+
+  // JEG-472 Y value brush: the ranking series' values on a vertical track beside the plot. The
+  // handles set state.range (the same filter as "Set exact values"); full extent = no filter.
+  function renderYBrush() {
+    const {lo: ylo, hi: yhi} = view.yScale;
+    const loV = Math.max(ylo, Math.min(yhi, state.range.min ?? ylo));
+    const hiV = Math.max(ylo, Math.min(yhi, state.range.max ?? yhi));
+    const yAt = v => (1 - (v - ylo) / Math.max(1e-9, yhi - ylo)) * 100;
+    ["v2YBrushLo", "v2YBrushHi"].forEach(id => { $(id).min = String(ylo); $(id).max = String(yhi); });
+    if (document.activeElement !== $("v2YBrushLo")) $("v2YBrushLo").value = String(loV);
+    if (document.activeElement !== $("v2YBrushHi")) $("v2YBrushHi").value = String(hiV);
+    $("v2YBrushLo").setAttribute("aria-valuetext", `Value ${fmt(loV)}`);
+    $("v2YBrushHi").setAttribute("aria-valuetext", `Value ${fmt(hiV)}`);
+    const fill = $("v2YBrushFill");
+    fill.style.top = `${yAt(hiV)}%`;
+    fill.style.height = `${yAt(loV) - yAt(hiV)}%`;
+    $("v2YHiLabel").textContent = fmt(hiV);
+    $("v2YLoLabel").textContent = fmt(loV);
+    $("v2YHiLabel").style.top = `${yAt(hiV)}%`;
+    $("v2YLoLabel").style.top = `${yAt(loV)}%`;
+    $("v2YBrush").classList.toggle("is-on", view.rangeOn);
+    drawYOverview();
+  }
+
+  // Mini overview of the Y brush: how many listed players sit at each value (ranking series).
+  function drawYOverview() {
+    const svg = $("v2YBrushOverview");
+    svg.replaceChildren();
+    const {lo: ylo, hi: yhi} = view.yScale;
+    const bins = 24;
+    const counts = new Array(bins).fill(0);
+    view.rankValues.forEach(v => {
+      const b = Math.min(bins - 1, Math.max(0, Math.floor(((v - ylo) / Math.max(1e-9, yhi - ylo)) * bins)));
+      counts[b] += 1;
+    });
+    const most = Math.max(1, ...counts);
+    svg.setAttribute("viewBox", `0 0 100 ${bins}`);
+    counts.forEach((count, b) => {
+      if (!count) return;
+      const w = Math.max(14, Math.sqrt(count / most) * 100);   // square root: the long tail near zero stays readable
+      el("rect", {x: 100 - w, y: bins - b - 1 + 0.12, width: w, height: 0.76, class: "overview-bar",
+        fill: sourceMeta(view.rankKey).color}, svg);
+    });
   }
 
   function drawOverview() {
@@ -625,20 +690,36 @@
   }
 
   // ---------- table ----------
+  // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
+  // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
+  const TABLE_GROUPS = [["projections", "Projections"], ["adjusted", "Trade charts adjusted"],
+    ["published", "Trade charts as published"], ["vorp", "VORP vs waivers"], ["spread", "Spread"]];
+  function tableGroup(key) {
+    const meta = sourceMeta(key);
+    if (meta.method === "vorp") return "vorp";
+    if (meta.method === "indexed") return "published";
+    return KIND[meta.publisher] === "Projection-based" ? "projections" : "adjusted";
+  }
+  const groupOrder = id => TABLE_GROUPS.findIndex(([g]) => g === id);
+
   function tableColumns() {
-    const valueKeys = view.plotKeys.concat(view.vorpKeys);
+    const valueKeys = view.plotKeys.concat(view.vorpKeys)
+      .filter(key => key === view.rankKey || !state.hiddenGroups.has(tableGroup(key)));
     const cols = [
       {id: "rank", label: "#", cls: "rank", get: row => row.rank},
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
       {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
       {id: "tier", label: "Tier", cls: "col-meta", get: row => tierLabel(row.espnRole), text: true}
-    ].filter(col => state.metaCols[col.id] !== false);
-    valueKeys.forEach(key => cols.push({id: key, label: sourceLabelFor(key), source: key, cls: "num",
-      get: row => row.values[key]}));
+    ].filter(col => state.metaCols[col.id] !== false)
+      .filter(col => col.cls !== "col-meta" || metaColumnsShown());
+    // Ranking series first (it is the sort basis), then the groups in their fixed order.
+    valueKeys.slice().sort((a, b) => (b === view.rankKey) - (a === view.rankKey) || groupOrder(tableGroup(a)) - groupOrder(tableGroup(b)))
+      .forEach(key => cols.push({id: key, label: sourceLabelFor(key), source: key, cls: "num", group: tableGroup(key),
+        get: row => row.values[key]}));
     const ddaKeys = view.plotKeys.filter(key => sourceMeta(key).method === "dda");
-    if (ddaKeys.length >= 2) {
-      cols.push({id: "spread", label: isNarrow() ? "DDA spread" : "Spread of our values", cls: "num", get: row => {
+    if (ddaKeys.length >= 2 && !state.hiddenGroups.has("spread")) {
+      cols.push({id: "spread", label: isNarrow() ? "DDA spread" : "Spread of our values", cls: "num", group: "spread", get: row => {
         const values = ddaKeys.map(key => row.values[key]).filter(Number.isFinite);
         return values.length >= 2 ? Math.max(...values) - Math.min(...values) : null;
       }});
@@ -647,7 +728,7 @@
   }
 
   function sortedRows(cols) {
-    const rows = view.rows.slice();
+    const rows = view.visible.slice();
     if (!state.sort) return rows;
     const col = cols.find(c => c.id === state.sort.key);
     if (!col) return rows;
@@ -665,15 +746,88 @@
     });
   }
 
-  function renderTable() {
+  // Two-line header: publisher on line 1, method in small caps on line 2 (week only when older).
+  function headerLabel(button, col) {
+    const line1 = document.createElement("span");
+    line1.className = "th-1";
+    const line2 = document.createElement("span");
+    line2.className = "th-2";
+    if (col.source) {
+      const meta = sourceMeta(col.source);
+      const item = view.infoByKey[col.source];
+      line1.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
+      line1.append(document.createTextNode(PLAIN_NAMES[meta.publisher] || meta.label));
+      line2.textContent = METHOD_LABEL[meta.method];
+      if (item?.stale && item.week) {
+        const older = document.createElement("span");
+        older.className = "is-older";
+        older.textContent = ` · Week ${item.week}`;
+        line2.appendChild(older);
+      }
+      button.title = `${plainSeries(meta.publisher, meta.method)}${item?.week ? ` · Week ${item.week}` : ""}`;
+    } else if (col.id === "spread") {
+      line1.textContent = "Spread";
+      line2.textContent = isNarrow() ? "DDA" : "of our values";
+    } else {
+      line1.textContent = col.label;
+    }
+    button.append(line1);
+    if (line2.textContent) button.append(line2);
+  }
+
+  // Heatmap tint (presentational): a cell against the same row's ranking-series value, both shown in
+  // the row. Colour only, never a number; the direction is also in the cell's title and screen-reader text.
+  function heatFor(row, key) {
+    if (key === view.rankKey || sourceMeta(key).method === "vorp" || sourceMeta(view.rankKey).method === "vorp") return null;
+    const v = row.values[key];
+    const r = row.values[view.rankKey];
+    if (!Number.isFinite(v) || !Number.isFinite(r)) return null;
+    const ratio = Math.abs(v - r) / Math.max(Math.abs(r), 1);
+    const level = ratio >= 0.3 ? 3 : ratio >= 0.15 ? 2 : ratio >= 0.05 ? 1 : 0;
+    return {dir: level === 0 ? "same" : v > r ? "above" : "below", level, rankValue: r};
+  }
+  const HEAT_WORDS = {above: "above", below: "below", same: "about level with"};
+
+  function missingReason(key) {
+    const item = view.infoByKey[key];
+    const name = sourceMeta(key).short;
+    if (item && !item.available) return `${name} is unavailable right now, so no player has a value from it`;
+    return `${name} has no value for this player`;
+  }
+
+  function renderTable(retry) {
+    if (!retry) metaNoRoom = false;
     const cols = tableColumns();
     const table = $("v2Table");
     table.replaceChildren();
     const thead = document.createElement("thead");
+    // Grouped top row (JEG-473): one cell per run of columns in the same group.
+    const gr = document.createElement("tr");
+    gr.className = "v2-group-row";
+    const runs = [];
+    cols.forEach(col => {
+      const id = col.source === view.rankKey ? "rank-series" : col.group || "";
+      const last = runs[runs.length - 1];
+      if (last && last.id === id) last.span += 1;
+      else runs.push({id, span: 1});
+    });
+    runs.forEach(run => {
+      const th = document.createElement("th");
+      th.scope = "colgroup";
+      th.colSpan = run.span;
+      th.className = run.id ? `grp grp-${run.id}` : "grp";
+      if (run.id) th.dataset.group = run.id;
+      if (run.id === "rank-series") { th.textContent = "Ranking"; th.classList.add("is-rank"); }
+      else if (run.id) th.textContent = TABLE_GROUPS.find(([g]) => g === run.id)[1];
+      gr.appendChild(th);
+    });
     const hr = document.createElement("tr");
+    hr.className = "v2-head-row";
     cols.forEach(col => {
       const th = document.createElement("th");
       th.scope = "col";
+      th.dataset.col = col.id;
+      if (col.group) th.dataset.group = col.group;
       if (col.cls) th.className = col.cls;
       if (col.source === view.rankKey) th.classList.add("is-rank");
       const sortKey = state.sort ? state.sort.key : view.rankKey;
@@ -682,11 +836,7 @@
       else {
         const button = document.createElement("button");
         button.type = "button";
-        if (col.source) {
-          const meta = sourceMeta(col.source);
-          button.innerHTML = `<span class="v2-sym" style="color:${meta.color}" aria-hidden="true">${meta.symbol}</span> `;
-        }
-        button.append(document.createTextNode(col.label));
+        headerLabel(button, col);
         button.addEventListener("click", () => {
           const current = state.sort ? state.sort.key : view.rankKey;
           const dir = current === col.id && (!state.sort || state.sort.dir === "desc") ? "asc" : "desc";
@@ -697,22 +847,35 @@
       }
       hr.appendChild(th);
     });
-    thead.appendChild(hr);
+    thead.append(gr, hr);
     const tbody = document.createElement("tbody");
     const rows = sortedRows(cols);
+    const rankName = sourceMeta(view.rankKey).short;
     rows.slice(0, state.shown).forEach(row => {
       const tr = document.createElement("tr");
       tr.tabIndex = 0;
+      tr.dataset.playerKey = String(row.player_key);
       tr.addEventListener("click", () => openDrawer(row));
       tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(row); });
       cols.forEach(col => {
         const td = document.createElement("td");
         if (col.cls) td.className = col.cls;
         if (col.source === view.rankKey) td.classList.add("is-rank");
+        if (col.source) td.dataset.source = col.source;
         const v = col.get(row);
         if (col.cls === "num") {
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
+            const heat = col.source ? heatFor(row, col.source) : null;
+            if (heat) {
+              if (heat.level) td.classList.add(`heat-${heat.dir === "above" ? "up" : "down"}-${heat.level}`);
+              td.dataset.vs = heat.dir;
+              td.title = `${fmt(v)}: ${HEAT_WORDS[heat.dir]} the ranking value (${rankName} ${fmt(heat.rankValue)})`;
+              const sr = document.createElement("span");
+              sr.className = "v2-sr";
+              sr.textContent = `, ${HEAT_WORDS[heat.dir]} the ranking value`;
+              td.appendChild(sr);
+            }
             if (state.delta && col.source) {
               const info = deltaInfo(row, col.source);
               const d = document.createElement("span");
@@ -723,16 +886,30 @@
               td.appendChild(d);
             }
           } else {
-            td.innerHTML = '<span class="missing" title="No value from this source for this player">—</span>';
+            const reason = col.source ? missingReason(col.source) : "Needs at least two of our values for this player";
+            const dash = document.createElement("span");
+            dash.className = "missing";
+            dash.title = reason;
+            dash.textContent = "—";
+            const sr = document.createElement("span");
+            sr.className = "v2-sr";
+            sr.textContent = `: ${reason}`;
+            dash.appendChild(sr);
+            td.appendChild(dash);
           }
         } else {
           td.textContent = v;
           if (col.id === "name") {
             appendEspnZero(td, row);
-            const sub = document.createElement("span");
-            sub.className = "player-sub";
-            sub.textContent = `${row.pos} · ${row.team || "FA"} · ${tierLabel(row.espnRole)}`;
-            td.appendChild(sub);
+            // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
+            const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
+              state.metaCols.tier !== false && tierLabel(row.espnRole)].filter(Boolean);
+            if (parts.length) {
+              const sub = document.createElement("span");
+              sub.className = "player-sub";
+              sub.textContent = parts.join(" · ");
+              td.appendChild(sub);
+            }
           }
         }
         tr.appendChild(td);
@@ -740,10 +917,21 @@
       tbody.appendChild(tr);
     });
     table.append(thead, tbody);
+    if (metaColumnsShown() && cols.some(col => col.cls === "col-meta")) {
+      const wrap = $("v2TableWrap");
+      if (wrap.scrollWidth > wrap.clientWidth + 1) { metaNoRoom = true; renderTable(true); return; }
+    }
     const more = $("v2ShowMore");
     more.hidden = rows.length <= state.shown;
     more.textContent = `Show more players (${Math.min(state.shown, rows.length)} of ${rows.length})`;
-    $("v2TableMeta").textContent = `${rows.length} players · ranked by ${sourceMeta(view.rankKey).short}. Every plotted series has a sortable column; the ranking series is highlighted.`;
+    const weeks = [...new Set(cols.filter(col => col.source && !view.infoByKey[col.source]?.stale)
+      .map(col => view.infoByKey[col.source]?.week).filter(Boolean))];
+    const hidden = TABLE_GROUPS.filter(([g]) => state.hiddenGroups.has(g)).length;
+    const [lo, hi] = state.window;
+    const valueText = view.rangeOn ? ` · values ${fmt(state.range.min ?? view.yScale.lo)}–${fmt(state.range.max ?? view.yScale.hi)}` : "";
+    $("v2TableMeta").textContent = `${rows.length} of ${view.rows.length} players · ranks ${lo}–${hi}${valueText}`
+      + `${weeks.length === 1 ? ` · Week ${weeks[0]}` : ""}${hidden ? ` · ${hidden} column group${hidden === 1 ? "" : "s"} hidden` : ""}`
+      + " · tint = above or below the ranking value";
   }
 
   // ---------- player detail (frame 13 drawer, frame 14 full screen) ----------
@@ -1046,6 +1234,7 @@
   function openPopover(anchor, build) {
     const pop = $("v2Popover");
     pop.replaceChildren();
+    pop.classList.remove("v2-info-pop");
     build(pop);
     pop.hidden = false;
     popoverAnchor = anchor;
@@ -1067,6 +1256,8 @@
       panelOpen = false;
       $("v2Scrim").hidden = $("v2Drawer").hidden;
     }
+    // An anchor that announces its state (the ⓘ buttons) reads collapsed again.
+    if (popoverAnchor && popoverAnchor.getAttribute("aria-expanded") === "true") popoverAnchor.setAttribute("aria-expanded", "false");
     if (popoverAnchor && popoverAnchor.focus) popoverAnchor.focus();
     popoverAnchor = null;
   }
@@ -1602,7 +1793,7 @@
     const values = C.getRows().map(row => row.values[key]).filter(Number.isFinite);
     const lo = values.length ? Math.floor(Math.min(...values)) : 0;
     const hi = values.length ? Math.ceil(Math.max(...values)) : 100;
-    openPanel($("v2RangeBtn"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
+    openPanel($("v2YExact"), "Value range", `Basis ${sourceMeta(key).short}${item?.week ? ` · Week ${item.week}` : ""}`, pop => {
       const body = panelBody(pop);
       const lead = document.createElement("p");
       lead.textContent = "Keep players with values between";
@@ -1645,7 +1836,7 @@
       err.textContent = "Inclusive. Blank = open ended. Missing values are excluded with a visible count.";
       body.appendChild(err);
       panelActions(pop, [
-        ["Clear range", false, () => { state.range = {min: null, max: null}; closePopover(); refresh(); }],
+        ["Clear range", false, () => { setRange({min: null, max: null}); closePopover(); }],
         ["Apply", true, () => {
           const min = minI.value === "" ? null : Number(minI.value);
           const max = maxI.value === "" ? null : Number(maxI.value);
@@ -1654,98 +1845,230 @@
             err.classList.add("v2-perror");
             return;
           }
-          state.range = {min, max};
-          state.windowPreset = "100";
           closePopover();
-          refresh();
+          setRange({min, max});
         }, {"data-apply": "range"}]
       ]);
     });
   }
 
-  // ---------- 21 Chart options ----------
-  function openChartOptions() {
-    const draft = {preset: state.windowPreset, hideZeroTail: state.hideZeroTail, y: state.yBounds ? {...state.yBounds} : null,
-      meta: {...state.metaCols}};
-    openPanel($("v2ChartOptions"), "Chart options", "Player range, axis and table columns for Player values.", pop => {
-      const body = panelBody(pop);
-      eyebrow(body, "Player range");
-      body.appendChild(segmented("Player range", [["all", "Full"], ["100", "Top 100"], ["50", "Top 50"], ["25", "Top 25"],
-        ["starter", "Starter"], ["bench", "Bench"], ["waiver", "Waiver"]], draft.preset, v => { draft.preset = v; }));
-      const tail = document.createElement("label");
-      tail.className = "v2-check";
-      const tailBox = document.createElement("input");
-      tailBox.type = "checkbox";
-      tailBox.checked = draft.hideZeroTail;
-      tailBox.addEventListener("change", () => { draft.hideZeroTail = tailBox.checked; });
-      tail.append(tailBox, document.createTextNode(" Hide zero-value tail"));
-      body.appendChild(tail);
-      eyebrow(body, "Y axis");
-      const yRow = document.createElement("div");
-      yRow.className = "row2";
-      const mk = (text, value) => {
+  // ---------- JEG-475 "More": exact From / To ranks ----------
+  function setExpanded(id, open) { $(id).setAttribute("aria-expanded", String(open)); }
+  function openMore() {
+    const button = $("v2More");
+    if (!$("v2Popover").hidden && popoverAnchor === button) { closePopover(); return; }
+    openPopover(button, pop => {
+      pop.classList.remove("is-panel");
+      pop.setAttribute("aria-label", "Exact ranks");
+      pop.setAttribute("aria-modal", "false");
+      pop.removeAttribute("aria-labelledby");
+      const h = document.createElement("h2");
+      h.textContent = "Exact ranks";
+      pop.appendChild(h);
+      const lead = document.createElement("p");
+      lead.className = "v2-meta";
+      lead.textContent = `Show players ranked between (1–${view.rows.length}). Arrow keys on the rank brush move one rank.`;
+      pop.appendChild(lead);
+      const row = document.createElement("div");
+      row.className = "row2";
+      const mk = (text, id, value) => {
         const label = document.createElement("label");
         label.textContent = text;
         const input = document.createElement("input");
-        input.type = "number"; input.step = "1";
-        input.value = value === null || value === undefined ? "" : String(value);
+        input.type = "number"; input.id = id; input.min = "1"; input.max = String(view.rows.length); input.step = "1";
+        input.inputMode = "numeric";
+        input.value = String(value);
         label.appendChild(input);
-        yRow.appendChild(label);
+        row.appendChild(label);
         return input;
       };
-      body.appendChild(segmented("Y axis", [["auto", "Auto"], ["custom", "Custom bounds"]], draft.y ? "custom" : "auto", v => {
-        draft.y = v === "custom" ? (draft.y || {lo: 0, hi: null}) : null;
-        yRow.hidden = !draft.y;
-      }));
-      const yLo = mk("Lower value", draft.y?.lo ?? 0);
-      const yHi = mk("Upper value", draft.y?.hi ?? "");
-      yRow.hidden = !draft.y;
-      body.appendChild(yRow);
-      eyebrow(body, "Table metadata");
-      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, text]) => {
-        const label = document.createElement("label");
-        label.className = "v2-check v2-pcheck";
-        const box = document.createElement("input");
-        box.type = "checkbox";
-        box.checked = draft.meta[id];
-        box.dataset.meta = id;
-        box.addEventListener("change", () => { draft.meta[id] = box.checked; });
-        label.append(box, document.createTextNode(` ${text}`));
-        body.appendChild(label);
-      });
-      const notes = document.createElement("p");
-      notes.className = "v2-meta";
-      notes.textContent = "Presets use the chosen ranking source. Starter / Bench / Waiver use your league's roster boundaries. These options affect this chart and table only; value filters affect the player list.";
-      body.appendChild(notes);
-      const err = document.createElement("p");
-      err.className = "v2-perror";
-      err.hidden = true;
-      body.appendChild(err);
-      panelActions(pop, [["Cancel", false, closePopover], ["Apply chart options", true, () => {
-        if (draft.y) {
-          const lo = yLo.value === "" ? 0 : Number(yLo.value);
-          const hi = yHi.value === "" ? null : Number(yHi.value);
-          if (hi !== null && !(hi > lo)) { err.hidden = false; err.textContent = "The upper value must be above the lower value."; return; }
-          draft.y = {lo, hi};
-        }
-        state.windowPreset = draft.preset;
-        state.hideZeroTail = draft.hideZeroTail;
-        state.yBounds = draft.y;
-        state.metaCols = draft.meta;
-        closePopover();
-        refresh();
-      }, {"data-apply": "chart"}]]);
+      const from = mk("From", "v2FromRank", state.window[0]);
+      const to = mk("To", "v2ToRank", state.window[1]);
+      pop.appendChild(row);
+      const onBounds = () => {
+        const n = view.rows.length;
+        let lo = Math.round(Number(from.value));
+        let hi = Math.round(Number(to.value));
+        if (!Number.isFinite(lo) || !Number.isFinite(hi) || from.value === "" || to.value === "") return;
+        lo = Math.max(1, Math.min(n, lo));
+        hi = Math.max(1, Math.min(n, hi));
+        if (lo > hi) [lo, hi] = [hi, lo];
+        setWindow([lo, hi]);
+      };
+      from.addEventListener("change", onBounds);
+      to.addEventListener("change", onBounds);
+      const done = document.createElement("div");
+      done.className = "actions";
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "v2-btn";
+      doneBtn.textContent = "Done";
+      doneBtn.addEventListener("click", closePopover);
+      done.appendChild(doneBtn);
+      pop.appendChild(done);
     });
+    setExpanded("v2More", true);
+  }
+
+  // ---------- JEG-473 "Columns": hide method groups (and Pos / Team / Tier) ----------
+  function openColumns() {
+    const button = $("v2Columns");
+    if (!$("v2Popover").hidden && popoverAnchor === button) { closePopover(); return; }
+    openPopover(button, pop => {
+      pop.classList.remove("is-panel");
+      pop.setAttribute("aria-label", "Table columns");
+      pop.setAttribute("aria-modal", "false");
+      pop.removeAttribute("aria-labelledby");
+      const h = document.createElement("h2");
+      h.textContent = "Table columns";
+      pop.appendChild(h);
+      const present = new Set(view.plotKeys.concat(view.vorpKeys).map(tableGroup));
+      if (view.plotKeys.filter(key => sourceMeta(key).method === "dda").length >= 2) present.add("spread");
+      const box = (label, checked, attrs, onChange) => {
+        const wrap = document.createElement("label");
+        wrap.className = "v2-check v2-pcheck";
+        const input = document.createElement("input");
+        input.type = "checkbox";
+        input.checked = checked;
+        Object.entries(attrs).forEach(([k, v]) => { input.dataset[k] = v; });
+        input.addEventListener("change", () => { onChange(input.checked); renderTable(); });
+        wrap.append(input, document.createTextNode(` ${label}`));
+        pop.appendChild(wrap);
+      };
+      eyebrow(pop, "Value groups");
+      TABLE_GROUPS.filter(([g]) => present.has(g)).forEach(([g, label]) => {
+        box(g === "spread" ? "Spread of our values" : label, !state.hiddenGroups.has(g), {group: g}, on => {
+          if (on) state.hiddenGroups.delete(g); else state.hiddenGroups.add(g);
+        });
+      });
+      const note = document.createElement("p");
+      note.className = "v2-meta";
+      note.textContent = `The ranking series (${sourceMeta(view.rankKey).short}) always shows.`;
+      pop.appendChild(note);
+      eyebrow(pop, "Player details");
+      [["pos", "Position"], ["team", "Team"], ["tier", "Tier"]].forEach(([id, label]) => {
+        box(label, state.metaCols[id] !== false, {meta: id}, on => { state.metaCols = {...state.metaCols, [id]: on}; });
+      });
+      const done = document.createElement("div");
+      done.className = "actions";
+      const doneBtn = document.createElement("button");
+      doneBtn.type = "button";
+      doneBtn.className = "v2-btn";
+      doneBtn.textContent = "Done";
+      doneBtn.addEventListener("click", closePopover);
+      done.appendChild(doneBtn);
+      pop.appendChild(done);
+    });
+    setExpanded("v2Columns", true);
   }
 
   // ---------- trade targets (frames 03 / 04) ----------
   // Every number here is read from the engine's rows; the one piece of
   // arithmetic (chart value − our value) lives in targets.js.
+  //
+  // Review fixes (JEG-456/458/459/461/464): both lists show at once (side by
+  // side from 1280 px, stacked below), each collapsed to its top 5 with its own
+  // "Show all"; every available chart is compared, and a chart still on an
+  // earlier week carries a "Wk N" badge; chart values are labeled as indexed.
+  const TARGETS_TOP = 5;
   const TARGETS_PAGE = 25;
+  const TARGET_SIDES = ["sell", "buy"];
+  const TARGET_IDS = {
+    sell: {section: "v2TSell", table: "v2TTable", cards: "v2TCards", meta: "v2TSellMeta", empty: "v2TSellEmpty", more: "v2TSellMore", less: "v2TSellLess"},
+    buy: {section: "v2TBuy", table: "v2TBuyTable", cards: "v2TBuyCards", meta: "v2TBuyMeta", empty: "v2TBuyEmpty", more: "v2TBuyMore", less: "v2TBuyLess"}
+  };
   // ours: which projection-derived series is "our value". Module state, so the
   // choice survives switching tabs like the engine-held selections do.
-  const T = {side: "sell", search: "", chart: "all", includeOlder: false, shown: TARGETS_PAGE, ours: "espn"};
+  // shown / expanded are per list: each list opens and collapses on its own.
+  const T = {search: "", chart: "all", ours: "espn",
+    shown: {sell: TARGETS_TOP, buy: TARGETS_TOP}, expanded: {sell: new Set(), buy: new Set()}};
   let targetsView = null;
+
+  // Shared (any tab may use these). JEG-459: a published source that has not
+  // posted the current week yet is shown on its latest week with a small
+  // "Wk N" badge in the older-week colour; its reason is the badge's tooltip
+  // and accessible name. A current-week source gets no badge (null).
+  function priorWeekInfo(key, item, refWeek) {
+    if (!item || !item.stale) return null;
+    const name = PUBLISHER_NAMES[key] || key;
+    const week = Number.isFinite(item.week) ? item.week : null;
+    const short = week ? `Wk ${week}` : "Earlier week";
+    const label = week && Number.isFinite(refWeek) && refWeek !== week
+      ? `${name} has not published Week ${refWeek} yet; showing Week ${week}.`
+      : `${name} has not published this week yet; showing ${week ? `Week ${week}` : "an earlier week"}.`;
+    return {short, label, week};
+  }
+  function priorWeekBadge(key, item, refWeek) {
+    const info = priorWeekInfo(key, item, refWeek);
+    if (!info) return null;
+    const badge = document.createElement("span");
+    badge.className = "v2-prior-badge";
+    badge.dataset.priorWeek = key;
+    badge.title = info.label;
+    badge.setAttribute("role", "img");
+    badge.setAttribute("aria-label", info.label);
+    badge.textContent = info.short;
+    return badge;
+  }
+
+  // Shared ⓘ (JEG-458): why published chart values are "indexed". A 44 px
+  // target that opens a small popover (Esc or a click outside closes it); it
+  // never reaches a row or column-header handler behind it.
+  const INDEXED_INFO = "Published charts use their own point scales. We rescale each chart so its total value "
+    + "matches our ESPN-based scale for your league, which makes the numbers comparable. Rankings within a chart "
+    + "don't change; only the scale does.";
+  function indexedInfoButton(context) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "v2-info";
+    button.dataset.info = "indexed";
+    button.setAttribute("aria-label", `What indexed means${context ? ` (${context})` : ""}`);
+    button.setAttribute("aria-haspopup", "dialog");
+    button.setAttribute("aria-expanded", "false");
+    const glyph = document.createElement("span");
+    glyph.setAttribute("aria-hidden", "true");
+    glyph.textContent = "ⓘ";
+    button.appendChild(glyph);
+    ["keydown", "keyup"].forEach(type => button.addEventListener(type, event => {
+      if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+    }));
+    button.addEventListener("click", event => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (popoverAnchor === button && !$("v2Popover").hidden) { closePopover(); return; }
+      closePopover();
+      openPopover(button, pop => {
+        pop.classList.remove("is-panel");
+        pop.classList.add("v2-info-pop");
+        pop.setAttribute("aria-modal", "false");
+        pop.setAttribute("aria-labelledby", "v2InfoTitle");
+        const h = document.createElement("h2");
+        h.id = "v2InfoTitle";
+        h.textContent = "Indexed values";
+        const text = document.createElement("p");
+        text.className = "v2-info-text";
+        text.textContent = INDEXED_INFO;
+        const foot = document.createElement("div");
+        foot.className = "v2-info-foot";
+        const link = document.createElement("a");
+        link.className = "v2-link";
+        link.href = "v2/#how-values";
+        link.textContent = "How values work ↗";
+        link.addEventListener("click", () => closePopover());
+        const close = document.createElement("button");
+        close.type = "button";
+        close.className = "v2-btn";
+        close.textContent = "Close";
+        close.addEventListener("click", closePopover);
+        foot.append(link, close);
+        pop.append(h, text, foot);
+      });
+      button.setAttribute("aria-expanded", "true");
+      const link = $("v2Popover").querySelector("a");
+      if (link) link.focus();
+    });
+    return button;
+  }
 
   const fmtGap = gap => {
     if (!Number.isFinite(gap)) return "—";
@@ -1754,11 +2077,7 @@
     return `${gap > 0 ? "+" : "−"}${text}`;
   };
 
-  function chartHeading(key) {
-    const item = targetsView.infoByKey[key];
-    const week = item && item.week ? `Week ${item.week}${item.stale ? " · older" : ""}` : "";
-    return {name: PUBLISHER_NAMES[key] || key, week};
-  }
+  const targetBadge = key => priorWeekBadge(key, targetsView.infoByKey[key], targetsView.refWeek);
 
   function collectTargets() {
     const TT = window.TradeValueTargets;
@@ -1767,10 +2086,12 @@
     const ourKey = TT.OUR_KEYS.includes(T.ours) ? T.ours : TT.OUR_KEY;
     const ours = infoByKey[ourKey];
     const choices = TT.ourChoices(info);
+    const freshness = window.TradeValueProductData?.getSourceFreshness?.() || null;
+    const refWeek = freshness?.current_content_week || C.getReferenceWeek();
     // The published series are on the trade-value point scale only in the
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
-    const {used, skipped} = TT.chartsToCompare(info, {only: T.chart === "all" ? null : T.chart, includeOlder: T.includeOlder});
+    const {used, skipped, prior} = TT.chartsToCompare(info, {only: T.chart === "all" ? null : T.chart});
     const needle = T.search.trim().toLowerCase();
     const rows = C.getRows();
     rows.forEach((row, index) => { row.rank = index + 1; });
@@ -1781,7 +2102,8 @@
       : null;
     const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
       : TT.buildTargets(searched, used, {ours: ourKey});
-    targetsView = {...result, ours: ourKey, choices, used, skipped, info, infoByKey, blocked, position: C.getState().position};
+    targetsView = {...result, ours: ourKey, choices, used, skipped, prior: prior || [], info, infoByKey, refWeek, blocked,
+      position: C.getState().position};
   }
 
   function renderTargetControls() {
@@ -1797,10 +2119,22 @@
       const option = document.createElement("option");
       option.value = key;
       option.disabled = !item || !item.available;
-      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : item.stale ? ` · Week ${item.week} (older)` : ""}`;
+      const prior = option.disabled ? null : priorWeekInfo(key, item, targetsView.refWeek);
+      option.textContent = `${PUBLISHERS[key].symbol} ${PUBLISHER_NAMES[key]}${option.disabled ? " — not available" : prior ? ` · ${prior.short} (prior week)` : ""}`;
+      if (prior) {
+        option.dataset.priorWeek = key;
+        option.title = prior.label;
+      }
       select.appendChild(option);
     });
     select.value = T.chart;
+    // The picked chart's own badge sits beside the caption (an <option> cannot hold one).
+    const slot = $("v2TChartBadge");
+    slot.replaceChildren();
+    if (T.chart !== "all") {
+      const badge = targetBadge(T.chart);
+      if (badge) slot.appendChild(badge);
+    }
     const oursSelect = $("v2TOurs");
     oursSelect.replaceChildren();
     targetsView.choices.forEach(choice => {
@@ -1811,16 +2145,7 @@
       oursSelect.appendChild(option);
     });
     oursSelect.value = targetsView.ours;
-    $("v2TOlder").checked = T.includeOlder;
     $("v2TPosition").value = targetsView.position;
-    document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
-      const on = button.dataset.side === T.side;
-      button.classList.toggle("is-on", on);
-      button.setAttribute("aria-pressed", String(on));
-    });
-    $("v2TCardTitle").textContent = T.side === "sell"
-      ? "Sell: the charts pay more than we would"
-      : "Buy: the charts pay less than we would";
   }
 
   function gapNode(cell, tag) {
@@ -1851,52 +2176,105 @@
     return span;
   }
 
-  function renderTargetTable(list) {
-    const table = $("v2TTable");
+  const targetBest = (side, p) => (side === "sell" ? p.bestSell : p.bestBuy);
+
+  // One chart's value for a player as a labeled run: "◆ USAT [Wk 4] 17.4 +9.8".
+  // Used by the phone cards and by an expanded row in the two-column layout.
+  function chartValueSpan(p, key) {
+    const cell = p.cells[key];
+    const span = document.createElement("span");
+    span.dataset.chart = key;
+    const label = document.createElement("span");
+    label.className = "lbl";
+    label.title = PUBLISHER_NAMES[key];
+    const sym = document.createElement("span");
+    sym.setAttribute("aria-hidden", "true");
+    sym.style.color = pubColor(key);
+    sym.textContent = `${PUBLISHERS[key].symbol} `;
+    label.append(sym, document.createTextNode(PUBLISHERS[key].label));
+    span.appendChild(label);
+    const badge = targetBadge(key);
+    if (badge) span.appendChild(badge);
+    if (cell.value === null) {
+      span.appendChild(missingNode(cell.reason, "not on chart"));
+      return span;
+    }
+    const val = document.createElement("span");
+    val.className = "val";
+    val.textContent = fmt(cell.value);
+    span.appendChild(val);
+    span.appendChild(cell.atWaiver ? waiverNode(cell.reason) : gapNode(cell));
+    return span;
+  }
+
+  // "Largest gap" attribution: the chart's name, plus its badge when it is on an earlier week.
+  function bestChartNode(chart, verb, cls) {
+    const who = document.createElement("span");
+    who.className = cls || "th-sub t-who";
+    who.append(document.createTextNode(verb ? `${PUBLISHER_NAMES[chart]} ${verb}` : PUBLISHER_NAMES[chart]));
+    const badge = targetBadge(chart);
+    if (badge) who.append(document.createTextNode(" "), badge);
+    return who;
+  }
+
+  function renderTargetTable(side, list) {
+    const ids = TARGET_IDS[side];
+    const table = $(ids.table);
     table.replaceChildren();
-    const best = p => (T.side === "sell" ? p.bestSell : p.bestBuy);
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    const head = (text, cls, sub, key) => {
+    const head = (text, cls, sub, key, info) => {
       const th = document.createElement("th");
       th.scope = "col";
       if (cls) th.className = cls;
+      const line = document.createElement("span");
+      line.className = "th-line";
       if (key) {
         const sym = document.createElement("span");
         sym.className = "v2-sym";
         sym.style.color = pubColor(key);
         sym.setAttribute("aria-hidden", "true");
         sym.textContent = `${PUBLISHERS[key].symbol} `;
-        th.appendChild(sym);
+        line.appendChild(sym);
       }
-      th.append(document.createTextNode(text));
+      line.append(document.createTextNode(text));
+      if (info) line.appendChild(indexedInfoButton(text));
+      th.appendChild(line);
       if (sub) {
         const s = document.createElement("span");
         s.className = "th-sub";
-        s.textContent = sub;
+        if (typeof sub === "string") s.textContent = sub;
+        else s.append(...sub);
         th.appendChild(s);
       }
       if (key) th.dataset.chart = key;
       hr.appendChild(th);
+      return th;
     };
     head("Player", "player");
-    head("Pos", "col-meta");
-    head("Team", "col-meta");
-    head("Tier", "col-meta");
     head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
     targetsView.used.forEach(key => {
-      const h = chartHeading(key);
-      head(h.name, "num", h.week ? `${h.week} · gap vs ours` : "gap vs ours", key);
+      // JEG-458: "Wk 5 · indexed"; a chart on an earlier week shows its badge in place of the week.
+      const item = targetsView.infoByKey[key];
+      const week = targetBadge(key) || document.createTextNode(item && item.week ? `Wk ${item.week}` : "");
+      head(PUBLISHER_NAMES[key] || key, "num t-chart", [week, document.createTextNode(`${week.textContent ? " · " : ""}indexed`)], key, true);
     });
-    head("Largest gap", "num", T.side === "sell" ? "chart pays more" : "chart pays less");
+    head("Largest gap", "num t-best", side === "sell" ? "chart pays more" : "chart pays less", null, true);
+    const expandHead = head("", "t-expand");
+    const sr = document.createElement("span");
+    sr.className = "v2-sr";
+    sr.textContent = "Each chart";
+    expandHead.appendChild(sr);
     thead.appendChild(hr);
+    const columns = hr.children.length;
     const tbody = document.createElement("tbody");
-    list.slice(0, T.shown).forEach(p => {
+    list.slice(0, T.shown[side]).forEach(p => {
+      const key = String(p.row.player_key);
       const tr = document.createElement("tr");
       tr.tabIndex = 0;
-      tr.dataset.playerKey = String(p.row.player_key);
+      tr.dataset.playerKey = key;
       tr.addEventListener("click", () => openDrawer(p.row));
-      tr.addEventListener("keydown", event => { if (event.key === "Enter") openDrawer(p.row); });
+      tr.addEventListener("keydown", event => { if (event.key === "Enter" && event.target === tr) openDrawer(p.row); });
       const td = (cls, text) => {
         const cell = document.createElement("td");
         if (cls) cell.className = cls;
@@ -1910,15 +2288,12 @@
       sub.className = "player-sub";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
       name.appendChild(sub);
-      td("col-meta", p.row.pos);
-      td("col-meta", p.row.team || "FA");
-      td("col-meta", tierLabel(p.row.espnRole));
       const ours = td("num is-rank", fmt(p.ours));
       ours.dataset.ours = "";
-      targetsView.used.forEach(key => {
-        const cell = p.cells[key];
-        const c = td("num");
-        c.dataset.chart = key;
+      targetsView.used.forEach(chart => {
+        const cell = p.cells[chart];
+        const c = td("num t-chart");
+        c.dataset.chart = chart;
         if (cell.value === null) {
           c.appendChild(missingNode(cell.reason, "not on chart"));
         } else if (cell.atWaiver) {
@@ -1929,24 +2304,56 @@
           c.appendChild(gapNode(cell));
         }
       });
-      const b = best(p);
-      const bc = td("num best");
+      const b = targetBest(side, p);
+      const bc = td(`num best ${b.gap > 0 ? "up" : "down"}`);
       bc.dataset.best = b.chart;
       bc.append(document.createTextNode(fmtGap(b.gap)));
-      const who = document.createElement("span");
-      who.className = "th-sub";
-      who.textContent = PUBLISHER_NAMES[b.chart];
-      bc.appendChild(who);
+      bc.appendChild(bestChartNode(b.chart));
+      // Two-column layout (≥1280 px) hides the per-chart cells; this opens them under the row.
+      const open = T.expanded[side].has(key);
+      const ec = td("t-expand");
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "v2-texpand";
+      toggle.dataset.expand = key;
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", `Each chart's value for ${p.row.name}`);
+      const glyph = document.createElement("span");
+      glyph.setAttribute("aria-hidden", "true");
+      glyph.textContent = open ? "▴" : "▾";
+      toggle.appendChild(glyph);
+      toggle.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") event.stopPropagation(); });
+      toggle.addEventListener("click", event => {
+        event.stopPropagation();
+        if (T.expanded[side].has(key)) T.expanded[side].delete(key);
+        else T.expanded[side].add(key);
+        renderTargetTable(side, list);
+        const again = $(ids.table).querySelector(`[data-expand="${CSS.escape(key)}"]`);
+        if (again) again.focus();
+      });
+      ec.appendChild(toggle);
       tbody.appendChild(tr);
+      if (open) {
+        const detail = document.createElement("tr");
+        detail.className = "t-detail";
+        detail.dataset.detailFor = key;
+        const cell = document.createElement("td");
+        cell.colSpan = columns;
+        const line = document.createElement("div");
+        line.className = "vals";
+        targetsView.used.forEach(chart => line.appendChild(chartValueSpan(p, chart)));
+        cell.appendChild(line);
+        detail.appendChild(cell);
+        tbody.appendChild(detail);
+      }
     });
     table.append(thead, tbody);
   }
 
-  function renderTargetCards(list) {
-    const ol = $("v2TCards");
+  function renderTargetCards(side, list) {
+    const ol = $(TARGET_IDS[side].cards);
     ol.replaceChildren();
-    const best = p => (T.side === "sell" ? p.bestSell : p.bestBuy);
-    list.slice(0, T.shown).forEach(p => {
+    list.slice(0, T.shown[side]).forEach(p => {
       const li = document.createElement("li");
       li.tabIndex = 0;
       li.dataset.playerKey = String(p.row.player_key);
@@ -1962,14 +2369,12 @@
       sub.className = "v2-meta";
       sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierLabel(p.row.espnRole)}`;
       who.append(name, sub);
-      const b = best(p);
+      const b = targetBest(side, p);
       const big = document.createElement("div");
       big.className = `big ${b.gap > 0 ? "up" : "down"}`;
-      big.textContent = fmtGap(b.gap);
-      const by = document.createElement("span");
-      by.className = "v2-meta";
-      by.textContent = `${PUBLISHER_NAMES[b.chart]} pays ${b.gap > 0 ? "more" : "less"}`;
-      big.appendChild(by);
+      big.dataset.best = b.chart;
+      big.append(document.createTextNode(fmtGap(b.gap)));
+      big.appendChild(bestChartNode(b.chart, `pays ${b.gap > 0 ? "more" : "less"}`, "v2-meta t-who"));
       top.append(who, big);
       const line = document.createElement("div");
       line.className = "vals";
@@ -1977,24 +2382,29 @@
       ours.className = "ours";
       ours.textContent = `Ours ${fmt(p.ours)}`;
       line.appendChild(ours);
-      targetsView.used.forEach(key => {
-        const cell = p.cells[key];
-        const span = document.createElement("span");
-        span.dataset.chart = key;
-        span.append(document.createTextNode(`${PUBLISHERS[key].label} `));
-        if (cell.value === null) span.appendChild(missingNode(cell.reason, "not on chart"));
-        else if (cell.atWaiver) {
-          span.append(document.createTextNode(fmt(cell.value)));
-          span.appendChild(waiverNode(cell.reason));
-        } else {
-          span.append(document.createTextNode(fmt(cell.value)));
-          span.appendChild(gapNode(cell));
-        }
-        line.appendChild(span);
-      });
+      targetsView.used.forEach(key => line.appendChild(chartValueSpan(p, key)));
       li.append(top, line);
       ol.appendChild(li);
     });
+  }
+
+  // JEG-461: each list opens on its top 5; "Show all N" then pages of 25; "Show top 5" collapses.
+  function renderTargetFoot(side, list) {
+    const ids = TARGET_IDS[side];
+    const more = $(ids.more);
+    const less = $(ids.less);
+    const shown = Math.min(T.shown[side], list.length);
+    const label = text => {
+      const arrow = document.createElement("span");
+      arrow.setAttribute("aria-hidden", "true");
+      arrow.textContent = " ▾";
+      more.replaceChildren(document.createTextNode(text), arrow);
+    };
+    more.hidden = list.length <= shown;
+    less.hidden = T.shown[side] <= TARGETS_TOP || list.length <= TARGETS_TOP;
+    if (T.shown[side] <= TARGETS_TOP) label(`Show all ${list.length} ${side} targets`);
+    else label(`Show more (${shown} of ${list.length})`);
+    more.setAttribute("aria-controls", `${ids.table} ${ids.cards}`);
   }
 
   function renderTargets() {
@@ -2002,17 +2412,23 @@
     collectTargets();
     renderHeader();
     renderTargetControls();
-    const list = T.side === "sell" ? targetsView.sell : targetsView.buy;
-    renderTargetTable(list);
-    renderTargetCards(list);
-    const empty = $("v2TEmpty");
     const blocked = targetsView.blocked;
     const noCharts = !targetsView.used.length;
-    empty.hidden = !(blocked || noCharts || !list.length);
-    empty.textContent = blocked || (noCharts
-      ? "No published chart is available to compare for this selection."
-      : `No player has a ${T.side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
-    $("v2TTable").hidden = !list.length;
+    TARGET_SIDES.forEach(side => {
+      const ids = TARGET_IDS[side];
+      const list = targetsView[side];
+      renderTargetTable(side, list);
+      renderTargetCards(side, list);
+      renderTargetFoot(side, list);
+      const empty = $(ids.empty);
+      empty.hidden = !(blocked || noCharts || !list.length);
+      empty.textContent = blocked || (noCharts
+        ? "No published chart is available to compare for this selection."
+        : `No player has a ${side === "sell" ? "chart paying more" : "chart paying less"} than our value for this selection.`);
+      $(ids.table).hidden = !list.length;
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · largest gap first. `
+        + (side === "sell" ? "Offer them to managers who trade off that chart." : "Ask for them from managers who trade off that chart.");
+    });
     const notes = [];
     if (targetsView.skipped.length) {
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
@@ -2026,37 +2442,61 @@
     const note = $("v2TNote");
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
-    const more = $("v2TShowMore");
-    more.hidden = list.length <= T.shown;
-    more.textContent = `Show more players (${Math.min(T.shown, list.length)} of ${list.length})`;
     $("v2TOursNote").textContent = window.TradeValueTargets.OUR_NAMES[targetsView.ours];
-    $("v2TMeta").textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · `
-      + `gap = chart value − our value · largest gap first. `
-      + (T.side === "sell" ? "Offer these players to managers who trade off that chart." : "Ask for these players from managers who trade off that chart.");
+    // Footnote: each compared chart that is still on an earlier week, with its badge.
+    const priorNote = $("v2TPriorNote");
+    priorNote.replaceChildren();
+    targetsView.prior.filter(key => targetsView.used.includes(key)).forEach(key => {
+      const badge = targetBadge(key);
+      if (!badge) return;
+      priorNote.append(badge, document.createTextNode(` ${priorWeekInfo(key, targetsView.infoByKey[key], targetsView.refWeek).label} `));
+    });
   }
 
   function bindTargets() {
     let timer = null;
+    const resetLists = () => {
+      T.shown = {sell: TARGETS_TOP, buy: TARGETS_TOP};
+      T.expanded = {sell: new Set(), buy: new Set()};
+    };
     $("v2TSearch").addEventListener("input", event => {
       clearTimeout(timer);
-      timer = setTimeout(() => { T.search = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); }, 120);
+      timer = setTimeout(() => { T.search = event.target.value; resetLists(); renderTargets(); }, 120);
     });
-    $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); T.shown = TARGETS_PAGE; renderTargets(); });
-    $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
-    $("v2TOlder").addEventListener("change", event => { T.includeOlder = event.target.checked; renderTargets(); });
-    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
-    document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
-      button.addEventListener("click", () => { T.side = button.dataset.side; T.shown = TARGETS_PAGE; renderTargets(); });
+    $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
+    $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
+    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; resetLists(); renderTargets(); });
+    $("v2TChartInfoSlot").replaceWith(indexedInfoButton("Compare against"));
+    TARGET_SIDES.forEach(side => {
+      const ids = TARGET_IDS[side];
+      // Keep focus on a control that is still on screen after the list redraws.
+      const refocus = () => ($(ids.more).hidden ? $(ids.less) : $(ids.more)).focus();
+      $(ids.more).addEventListener("click", () => {
+        T.shown[side] = T.shown[side] <= TARGETS_TOP ? TARGETS_PAGE : T.shown[side] + TARGETS_PAGE;
+        renderTargets();
+        refocus();
+      });
+      $(ids.less).addEventListener("click", () => {
+        T.shown[side] = TARGETS_TOP;
+        T.expanded[side] = new Set();
+        renderTargets();
+        const section = $(ids.section);
+        if (section.getBoundingClientRect().top < 0) section.scrollIntoView({block: "start"});
+        refocus();
+      });
     });
-    $("v2TShowMore").addEventListener("click", () => { T.shown += TARGETS_PAGE; renderTargets(); });
   }
 
   // ---------- Compare a trade (frames 07 / 08, 24) ----------
   // Each row is one exact series: sum(receive) − sum(give) in that series'
-  // values (app/v2/trade.js). No blended score, no overall verdict (frame 22).
-  // The sides are v2 module state, so they survive switching tabs.
+  // values (app/v2/trade.js). No blended score (frame 22); the verdict reads one
+  // series (JEG-469). The sides are v2 module state, so they survive switching tabs.
   const TR = {give: [], receive: [], shown: null, open: new Set()};   // give/receive: [{key, name}]
   let compareView = null;
+  // JEG-469: the series the verdict reads. "Player values shown" for now; swap this one
+  // line to the DDF Value series key once the engine exposes it.
+  const verdictKey = () => TR.shown;
+  let exampleCache = null;   // {signature, pick}: the empty-state sample trade
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
@@ -2070,9 +2510,6 @@
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
-    const giveRows = resolve(TR.give);
-    const receiveRows = resolve(TR.receive);
-    const ready = giveRows.length > 0 && receiveRows.length > 0;
     const usable = keys => keys.filter(key => view.infoByKey[key]?.available);
     const pointKeys = usable(view.plotKeys);
     const vorpKeys = usable(view.vorpKeys);
@@ -2081,12 +2518,35 @@
     const shownChoices = pointKeys.concat(vorpKeys);
     if (!shownChoices.includes(TR.shown)) TR.shown = shownChoices.includes(view.rankKey) ? view.rankKey : shownChoices[0] || null;
     const TC = window.TradeValueTrade;
+    // JEG-469 empty state: before any player is added, a sample trade marked "Example".
+    const example = !TR.give.length && !TR.receive.length && verdictKey() ? exampleTrade(pointKeys) : null;
+    const giveRows = example ? example.give : resolve(TR.give);
+    const receiveRows = example ? example.receive : resolve(TR.receive);
+    const ready = giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
+    const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
-    compareView = {rowsByKey, giveRows, receiveRows, ready, pointKeys, vorpKeys, unavailable, shownChoices,
+    // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
+    // series keeps its own (those scales are not comparable).
+    const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
+    const pointFalls = falls(pointKeys);
+    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
+      verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
-      vorp: ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : []};
+      vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
+  }
+
+  // The example trade, recomputed only when the series or the values change.
+  function exampleTrade(pointKeys) {
+    const key = verdictKey();
+    const rows = C.getAllRows();
+    const keys = pointKeys.concat(key);
+    const signature = `${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
+    if (!exampleCache || exampleCache.signature !== signature) {
+      exampleCache = {signature, pick: window.TradeValueTrade.pickExample(rows, pointKeys, key)};
+    }
+    return exampleCache.pick;
   }
 
   function sourceCell(td, key) {
@@ -2102,6 +2562,7 @@
     const sub = document.createElement("span");
     sub.className = "th-sub";
     sub.textContent = item?.week ? `Week ${item.week}${item.stale ? " · older week" : ""}` : "week unknown";
+    td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
 
@@ -2157,11 +2618,160 @@
     return tr;
   }
 
-  function renderCompareTable(table, keys, rows) {
+  // JEG-468: short names for the step labels; a shared last name gets an initial.
+  function shortNames(rows) {
+    const suffix = /^(jr\.?|sr\.?|ii|iii|iv|v)$/i;
+    const last = row => {
+      const parts = String(row.name || "").split(/\s+/).filter(Boolean);
+      while (parts.length > 1 && suffix.test(parts[parts.length - 1])) parts.pop();
+      return {first: parts[0] || "", last: parts[parts.length - 1] || String(row.name || "Player")};
+    };
+    const names = rows.map(last);
+    const count = new Map();
+    names.forEach(n => count.set(n.last, (count.get(n.last) || 0) + 1));
+    return new Map(rows.map((row, i) => [String(row.player_key),
+      count.get(names[i].last) > 1 && names[i].first !== names[i].last ? `${names[i].first.charAt(0)}. ${names[i].last}` : names[i].last]));
+  }
+
+  // JEG-468 waterfall: 0 → a step down per player given → a step up per player received →
+  // a landing bar from 0 to the net. Three lanes (give, receive, result) on the table's
+  // scale. Each step is focusable, with a text alternative and the shared tooltip.
+  function renderWaterfall(cell, fall, scale) {
+    const name = seriesName(fall.key);
+    const span = scale.hi - scale.lo;
+    const x = v => Math.max(0, Math.min(100, ((v - scale.lo) / span) * 100));
+    const short = shortNames(compareView.giveRows.concat(compareView.receiveRows));
+    const box = document.createElement("div");
+    box.className = "v2-wf";
+    box.setAttribute("role", "group");
+    box.setAttribute("aria-label", `${name}, step by step from 0`);
+    box.dataset.lo = String(scale.lo);
+    box.dataset.hi = String(scale.hi);
+    const zero = document.createElement("span");
+    zero.className = "v2-wf-zero";
+    zero.setAttribute("aria-hidden", "true");
+    zero.style.left = `${x(0)}%`;
+    box.appendChild(zero);
+    const lanes = {};
+    ["give", "receive", "net"].forEach(lane => {
+      const div = document.createElement("div");
+      div.className = "v2-wf-lane";
+      div.dataset.lane = lane;
+      lanes[lane] = div;
+      box.appendChild(div);
+    });
+    const runningText = step => (step.partial ? `running ${fmtGap(step.running)} so far, row incomplete` : `running ${fmtGap(step.running)}`);
+    fall.steps.forEach(step => {
+      const who = short.get(String(step.row.player_key)) || step.row.name;
+      const verb = step.side === "give" ? "Give" : "Receive";
+      const el = document.createElement("span");
+      el.className = `v2-wf-step ${step.side}${step.missing ? " is-missing" : ""}`;
+      el.tabIndex = 0;
+      el.setAttribute("role", "img");
+      el.dataset.playerKey = String(step.row.player_key);
+      el.dataset.side = step.side;
+      if (step.missing) {
+        const reason = `No ${name} value for ${step.row.name}`;
+        const w = 14;
+        const at = x(step.start);
+        const left = step.side === "give" ? Math.max(0, at - w) : Math.min(at, 100 - w);
+        el.style.left = `${left}%`;
+        el.style.width = `${w}%`;
+        el.dataset.missing = "true";
+        el.setAttribute("aria-label", `${verb} ${who}: no value. ${reason}; this row is incomplete and has no result`);
+        const label = document.createElement("span");
+        label.className = "v2-wf-label";
+        label.setAttribute("aria-hidden", "true");
+        label.textContent = `— ${who}`;
+        el.appendChild(label);
+        el._tip = {title: step.row.name, lines: [name, `${verb}: — no value`, reason, "Row incomplete: a missing value is never counted as zero"]};
+      } else {
+        const from = Math.min(x(step.start), x(step.end));
+        const width = Math.abs(x(step.end) - x(step.start));
+        el.style.left = `${from}%`;
+        el.style.width = `${width}%`;
+        el.dataset.value = fmtGap(step.delta);
+        el.dataset.running = fmtGap(step.running);
+        el.setAttribute("aria-label", `${verb} ${who} ${fmtGap(step.delta)}, ${runningText(step)}`);
+        const label = document.createElement("span");
+        label.className = "v2-wf-label";
+        label.setAttribute("aria-hidden", "true");
+        label.textContent = width >= 16 ? `${who} ${fmtGap(step.delta)}` : width >= 7 ? fmtGap(step.delta) : "";
+        el.appendChild(label);
+        el._tip = {title: step.row.name, lines: [name, `${verb} ${fmtGap(step.delta)}`, runningText(step).replace(/^running/, "Running total")]};
+      }
+      lanes[step.side].appendChild(el);
+    });
+    // A dashed link where the give steps end and the receive steps start.
+    const turn = fall.steps.filter(st => st.side === "give").pop();
+    if (turn) {
+      const link = document.createElement("span");
+      link.className = "v2-wf-link";
+      link.setAttribute("aria-hidden", "true");
+      link.style.left = `${x(turn.end)}%`;
+      box.appendChild(link);
+    }
+    if (fall.complete) {
+      const n = netLabel(fall.net);
+      const land = document.createElement("span");
+      land.className = `v2-wf-land ${n.cls}`;
+      land.tabIndex = 0;
+      land.setAttribute("role", "img");
+      land.dataset.net = n.text;
+      land.setAttribute("aria-label", `Result ${n.text}: ${n.label.replace(/^[▲▼=] /, "")}`);
+      const a = x(0);
+      const b = x(fall.net);
+      land.style.left = `${Math.min(a, b)}%`;
+      land.style.width = `${Math.abs(b - a)}%`;
+      land._tip = {title: `${name}: Receive − give`, lines: [`${fmt(fall.receive)} receive − ${fmt(fall.give)} give`, `= ${n.text}`, n.label]};
+      const tag = document.createElement("span");
+      tag.className = `v2-wf-net ${n.cls}`;
+      tag.setAttribute("aria-hidden", "true");
+      tag.textContent = `${n.cls === "up" ? "▲" : n.cls === "down" ? "▼" : "="} ${n.text}`;
+      // Beside the bar's far end, or on the other side of 0 when the end is near the edge.
+      if (fall.net >= 0) {
+        if (b < 84) tag.style.left = `calc(${b}% + 6px)`;
+        else tag.style.right = `calc(${100 - a}% + 6px)`;
+      } else if (b > 16) tag.style.right = `calc(${100 - b}% + 6px)`;
+      else tag.style.left = `calc(${a}% + 6px)`;
+      lanes.net.append(land, tag);
+    } else {
+      const none = document.createElement("span");
+      none.className = "v2-wf-none";
+      none.textContent = "No result: a value is missing";
+      lanes.net.appendChild(none);
+    }
+    cell.appendChild(box);
+  }
+
+  function showStepTip(el) {
+    const tip = $("v2Tip");
+    if (!el || !el._tip) { tip.hidden = true; return; }
+    tip.replaceChildren();
+    const h = document.createElement("h3");
+    h.textContent = el._tip.title;
+    tip.appendChild(h);
+    el._tip.lines.forEach((text, i) => {
+      const line = document.createElement(i === 0 ? "span" : "div");
+      line.className = i === 0 ? "v2-meta" : "row";
+      line.textContent = text;
+      tip.appendChild(line);
+    });
+    tip.hidden = false;
+    const box = el.getBoundingClientRect();
+    const tipBox = tip.getBoundingClientRect();
+    const left = Math.min(box.left, window.innerWidth - tipBox.width - 8);
+    let top = box.bottom + 8;
+    if (top + tipBox.height > window.innerHeight - 8) top = box.top - tipBox.height - 8;
+    tip.style.left = `${Math.max(8, left)}px`;
+    tip.style.top = `${Math.max(8, top)}px`;
+  }
+
+  function renderCompareTable(table, keys, rows, falls, sharedScale) {
     table.replaceChildren();
     const thead = document.createElement("thead");
     const hr = document.createElement("tr");
-    [["Source", "player"], ["Give", "num"], ["Receive", "num"], ["Less value · More value", "bar"], ["Receive − give", "num"]].forEach(([text, cls]) => {
+    [["Source", "player"], ["Give", "num"], ["Receive", "num"], ["From 0: give ↓ · receive ↑ · result", "bar"], ["Receive − give", "num"]].forEach(([text, cls]) => {
       const th = document.createElement("th");
       th.scope = "col";
       th.className = cls;
@@ -2170,8 +2780,7 @@
     });
     thead.appendChild(hr);
     const tbody = document.createElement("tbody");
-    // Frame 24: empty or incomplete rows draw no bar; one scale per table.
-    const scale = rows.reduce((max, r) => (r.net === null ? max : Math.max(max, Math.abs(r.net))), 0);
+    const fallByKey = new Map((falls || []).map(f => [f.key, f]));
     rows.forEach(result => {
       const tr = document.createElement("tr");
       tr.dataset.source = result.key;
@@ -2227,17 +2836,10 @@
         why.className = `delta ${n.cls}`;
         why.textContent = n.label;
         net.appendChild(why);
-        const track = document.createElement("span");
-        track.className = "v2-dbar";
-        track.setAttribute("aria-hidden", "true");
-        const fill = document.createElement("span");
-        fill.className = `v2-dbar-fill ${n.cls}`;
-        const half = scale > 0 ? Math.min(50, (Math.abs(result.net) / scale) * 50) : 0;
-        fill.style.width = `${half}%`;
-        fill.style.left = result.net < 0 ? `${50 - half}%` : "50%";
-        track.appendChild(fill);
-        bar.appendChild(track);
       }
+      // JEG-468: incomplete rows draw their steps too (hatched "no value"), but no landing.
+      const fall = fallByKey.get(result.key);
+      if (fall) renderWaterfall(bar, fall, sharedScale || window.TradeValueTrade.waterfallScale([fall]));
       tbody.appendChild(tr);
       if (open) tbody.appendChild(breakdownRow(result, 5));
     });
@@ -2273,6 +2875,12 @@
       const v = shown && row.values ? row.values[shown] : null;
       if (Number.isFinite(v)) value.textContent = fmt(v);
       else value.appendChild(missingNode(`No ${shown ? seriesName(shown) : ""} value for ${row.name}`, "no value"));
+      if (compareView.example) {
+        li.classList.add("is-example");
+        li.append(who, value, document.createElement("span"));
+        list.appendChild(li);
+        return;
+      }
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "v2-link v2-remove";
@@ -2398,6 +3006,9 @@
     const box = $("v2CStory");
     const s = compareView.story;
     box.hidden = !s.kind || s.kind === "single";
+    // Folded into the verdict card (JEG-469): open for a same-publisher contrast, which the
+    // verdict does not say; otherwise one click away. A reader's own toggle is kept.
+    if (box.dataset.story !== (s.kind || "")) box.open = s.kind === "contrast";
     box.dataset.story = s.kind || "";
     if (box.hidden) return;
     const title = $("v2CStoryTitle");
@@ -2428,6 +3039,99 @@
     }
   }
 
+  // JEG-469 verdict (Jeremy, 2026-10-08): "Primary thing that matters is that DDF thinks you
+  // win, and it can be better if the other sources DON'T agree." One series decides (verdictKey);
+  // the complete series that see it the other way are named as the selling point.
+  function verdictCopy() {
+    const v = compareView.verdict;
+    const key = v.key || verdictKey();
+    const name = key ? seriesName(key) : "";
+    const thinks = keys => (keys.length === 1 ? "thinks" : "think");
+    if (!key) return {kind: "none", title: "No verdict yet", text: "Pick a series in Player values shown."};
+    if (!compareView.ready || !v.kind) {
+      return {kind: "none", title: "No verdict yet", text: `Add a player to both sides. The verdict reads ${name}, then names the sources that see it the other way.`};
+    }
+    const notCounted = v.incompleteKeys.length
+      ? ` Not counted, a value is missing: ${listSeries(v.incompleteKeys)}.` : "";
+    if (v.kind === "incomplete") {
+      const names = v.missing.map(m => m.row.name || "a player").join(", ");
+      return {kind: v.kind, title: `${name}: no verdict yet`,
+        text: `No ${name} value for ${names}, so this series cannot score the trade (a missing value is never counted as zero). Pick another series in Player values shown.`};
+    }
+    const net = fmtGap(v.net);
+    if (v.kind === "win") {
+      let text;
+      if (v.againstKeys.length) {
+        text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade. A manager who trades off ${listSeries(v.againstKeys, "or")} is the likeliest to accept.`;
+        if (v.evenKeys.length) text += ` Even by ${listSeries(v.evenKeys)}.`;
+      } else if (!v.others) {
+        text = "No other complete source to compare with yet.";
+      } else if (v.allAgree) {
+        text = `Every source agrees you win: ${listSeries(v.agreeKeys)}. A fair-looking deal to them, so harder to get accepted.`;
+      } else {
+        text = `No source thinks you lose. ${v.agreeKeys.length ? `${listSeries(v.agreeKeys)} also ${thinks(v.agreeKeys)} you win; ` : ""}even by ${listSeries(v.evenKeys)}.`;
+      }
+      return {kind: v.kind, sym: "▲", title: `${name}: you win by ${net}`, text: text + notCounted};
+    }
+    if (v.kind === "lose") {
+      const text = v.againstKeys.length
+        ? `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you win, but ${name} has you giving more value than you get. Rework the offer before you send it.`
+        : !v.others ? "No other complete source to compare with yet."
+          : `Every complete source agrees you lose: ${listSeries(v.agreeKeys.concat(v.evenKeys))}.`;
+      return {kind: v.kind, sym: "▼", title: `${name}: you lose by ${net}`, text: text + notCounted};
+    }
+    const parts = [];
+    if (v.upKeys.length) parts.push(`${listSeries(v.upKeys)} ${thinks(v.upKeys)} you win.`);
+    if (v.downKeys.length) parts.push(`${listSeries(v.downKeys)} ${thinks(v.downKeys)} you lose.`);
+    if (!parts.length) parts.push(v.others ? "Every complete source calls it even too." : "No other complete source to compare with yet.");
+    return {kind: v.kind, sym: "=", title: `${name}: an even trade, 0.0`, text: parts.join(" ") + notCounted};
+  }
+
+  function renderVerdict() {
+    const copy = verdictCopy();
+    const card = $("v2CVerdict");
+    card.dataset.verdict = copy.kind;
+    card.classList.toggle("is-example", compareView.example);
+    $("v2CVerdictEyebrow").textContent = compareView.example ? "Example · Verdict" : "Verdict";
+    const title = $("v2CVerdictTitle");
+    title.replaceChildren();
+    if (copy.sym) {
+      const sym = document.createElement("span");
+      sym.className = "v2-cverdict-sym";
+      sym.setAttribute("aria-hidden", "true");
+      sym.textContent = `${copy.sym} `;
+      title.appendChild(sym);
+    }
+    title.append(document.createTextNode(copy.title));
+    $("v2CVerdictText").textContent = copy.text;
+    // JEG-468/469: the verdict series' own waterfall, on the table's shared scale, above the fold.
+    const holder = $("v2CVerdictFall");
+    holder.querySelectorAll(".v2-wf").forEach(node => node.remove());
+    const key = verdictKey();
+    const isPoint = compareView.pointKeys.includes(key);
+    const fall = (isPoint ? compareView.falls.points : compareView.falls.vorp).find(f => f.key === key);
+    holder.hidden = !compareView.ready || !fall;
+    if (fall) {
+      $("v2CVerdictFallNote").textContent = "From 0: down by each player you give, up by each you receive, then the result"
+        + (isPoint ? " · same scale as the table below." : " · this series' own scale.");
+      renderWaterfall(holder, fall, isPoint ? compareView.scale : window.TradeValueTrade.waterfallScale([fall]));
+    }
+    // Phone: once both sides have a player, the verdict headline stays at the bottom.
+    const bar = $("v2CVerdictBar");
+    bar.dataset.verdict = copy.kind;
+    bar.textContent = `${copy.sym ? `${copy.sym} ` : ""}${copy.title}`;
+    bar.setAttribute("aria-label", `${copy.title}. Show the verdict`);
+    TR.barWanted = compareView.ready && !compareView.example && copy.kind !== "none";
+    syncVerdictBar();
+  }
+
+  function syncVerdictBar() {
+    const bar = $("v2CVerdictBar");
+    const show = Boolean(TR.barWanted) && isNarrow() && !TR.verdictInView && currentView() === "compare";
+    bar.hidden = !show;
+    $("v2Compare").classList.toggle("has-verdict-bar", Boolean(TR.barWanted) && isNarrow());
+  }
+
   function renderShownPicker() {
     const select = $("v2CShown");
     select.replaceChildren();
@@ -2449,14 +3153,18 @@
     renderSidePlayers("give");
     renderSidePlayers("receive");
     const ready = compareView.ready;
+    renderVerdict();
+    $("v2CExample").hidden = !compareView.example;
+    $("v2Compare").classList.toggle("has-trade", Boolean(TR.give.length || TR.receive.length));
+    $("v2Compare").classList.toggle("is-example", compareView.example);
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
     $("v2CEmpty").textContent = !ready ? "No result until both sides have at least one player."
       : "No trade-value source is selected. Use Edit sources to pick one.";
     const table = $("v2CTable");
     table.hidden = !ready || !compareView.pointKeys.length;
-    renderCompareTable(table, compareView.pointKeys, compareView.points);
+    renderCompareTable(table, compareView.pointKeys, compareView.points, compareView.falls.points, compareView.scale);
     $("v2CVorpCard").hidden = !ready || !compareView.vorpKeys.length;
-    renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp);
+    renderCompareTable($("v2CVorpTable"), compareView.vorpKeys, compareView.vorp, compareView.falls.vorp, null);
     renderStory();
     const notes = [];
     if (compareView.unavailable.length) {
@@ -2466,12 +3174,14 @@
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
     const count = compareView.giveRows.length + compareView.receiveRows.length;
+    const sc = compareView.scale;
     $("v2CMeta").textContent = ready
-      ? `Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, not a blended verdict.`
+      ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points, never blended. `
+        + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
     $("v2CClear").hidden = !count;
     $("v2CSwap").hidden = !count;
-    $("v2CShare").hidden = !ready;
+    $("v2CShare").hidden = !ready || compareView.example;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
   }
@@ -2568,6 +3278,35 @@
 
   function bindCompare() {
     $("v2CShare").addEventListener("click", copyTradeLink);
+    // JEG-468: hover / focus tooltip for every waterfall step.
+    const compare = $("v2Compare");
+    const stepOf = event => event.target.closest && event.target.closest(".v2-wf-step, .v2-wf-land");
+    compare.addEventListener("mouseover", event => { const el = stepOf(event); if (el) showStepTip(el); });
+    compare.addEventListener("mouseout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
+    compare.addEventListener("focusin", event => { const el = stepOf(event); if (el) showStepTip(el); });
+    compare.addEventListener("focusout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
+    compare.addEventListener("keydown", event => { if (event.key === "Escape" && stepOf(event)) $("v2Tip").hidden = true; });
+    $("v2CUseExample").addEventListener("click", () => {
+      if (!compareView || !compareView.example) return;
+      const pick = list => list.map(row => ({key: String(row.player_key), name: row.name}));
+      TR.give = pick(compareView.giveRows);
+      TR.receive = pick(compareView.receiveRows);
+      renderCompare();
+      $("v2GiveSearch").focus();
+    });
+    $("v2CVerdictBar").addEventListener("click", () => {
+      const card = $("v2CVerdict");
+      card.scrollIntoView({block: "center"});
+      card.setAttribute("tabindex", "-1");
+      card.focus({preventScroll: true});
+    });
+    if (window.IntersectionObserver) {
+      new IntersectionObserver(entries => {
+        TR.verdictInView = entries[entries.length - 1].isIntersecting;
+        syncVerdictBar();
+      }).observe($("v2CVerdict"));
+    }
+    if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", syncVerdictBar);
     ["give", "receive"].forEach(side => {
       const input = $(SIDE_IDS[side].search);
       input.addEventListener("input", () => renderSearch(side));
@@ -2866,17 +3605,17 @@
     renderHeader();
     renderEmpty();
     renderNotice();
-    renderCharts();
     renderTable();
+    renderCharts();
   }
 
   // Frame 18: filters that leave no player say which filter did it.
   function renderEmpty() {
-    const empty = !view.rows.length;
+    const empty = !view.visible.length;
     $("v2Empty").hidden = !empty;
+    $("v2Plot").hidden = empty;
     $("v2Chart").hidden = empty;
-    document.querySelector("#v2Main .v2-brush").hidden = empty;
-    document.querySelector("#v2Main .v2-table-card").hidden = empty;
+    $("v2TableCard").hidden = empty;
     if (!empty) return;
     const why = [];
     if (state.search.trim()) why.push(`no player name contains “${state.search.trim()}”`);
@@ -2884,6 +3623,7 @@
       why.push(`no ${sourceMeta(view.rankKey).short} value is in ${state.range.min ?? "…"}–${state.range.max ?? "…"}`);
     }
     if (view.state.position !== "ALL") why.push(`the position filter is ${view.state.position}`);
+    if (view.rows.length && state.windowPreset !== SHOW_DEFAULT) why.push(`Show is set to ${$("v2Show").selectedOptions[0]?.textContent || state.windowPreset}`);
     $("v2EmptyText").textContent = why.length ? `With these filters, ${why.join("; ")}.` : "No player is priced for this selection.";
     const active = {search: Boolean(state.search.trim()), range: state.range.min !== null || state.range.max !== null,
       position: view.state.position !== "ALL"};
@@ -2913,21 +3653,61 @@
     else refreshValues();
   }
 
+  // Brushes and drags redraw once per frame.
+  let valuesFrame = 0;
+  function scheduleValues() {
+    if (valuesFrame) return;
+    valuesFrame = requestAnimationFrame(() => { valuesFrame = 0; if (currentView() === "values") refreshValues(); });
+  }
+  // A brush, zoom or exact ranks: Show becomes "Custom lo–hi".
+  function setWindow(win) {
+    state.window = win;
+    state.windowPreset = "custom";
+    state.shown = PAGE_SIZE;
+    scheduleValues();
+  }
+  // The value range (Y brush or "Set exact values") composes with the rank window; Show reads Custom.
+  function setRange(range) {
+    state.range = range;
+    if (range.min !== null || range.max !== null) state.windowPreset = "custom";
+    state.shown = PAGE_SIZE;
+    scheduleValues();
+  }
+  // JEG-475: one Reset for search, position, Show, value range, sort and Δ. Rank by, sources,
+  // columns and league settings are selections, not filters, and stay.
+  function resetValues() {
+    state.search = ""; $("v2Search").value = "";
+    state.range = {min: null, max: null};
+    state.windowPreset = SHOW_DEFAULT; state.window = null;
+    state.sort = null; state.shown = PAGE_SIZE; state.delta = false;
+    if (view && view.state.position !== "ALL") C.setPosition("ALL");
+    refresh();
+  }
+
   function bind() {
     let searchTimer = null;
     $("v2Search").addEventListener("input", event => {
       clearTimeout(searchTimer);
       searchTimer = setTimeout(() => { state.search = event.target.value; state.shown = PAGE_SIZE; refresh(); }, 120);
     });
-    $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); state.windowPreset = "100"; refresh(); });
+    $("v2Position").addEventListener("change", event => { C.setPosition(event.target.value); refresh(); });
     $("v2RankBy").addEventListener("change", event => { C.setLockOrder(event.target.value); state.sort = null; refresh(); });
     $("v2DeltaBtn").addEventListener("click", () => {
       state.delta = !state.delta;
       refresh();
       if (state.delta) priorsFor(view.plotKeys.concat(view.vorpKeys)).then(() => { if (state.delta) refresh(); });
     });
-    $("v2RangeBtn").addEventListener("click", openRange);
-    $("v2EmptyClear").addEventListener("click", () => $("v2ClearFilters").click());
+    $("v2Show").addEventListener("change", event => {
+      if (event.target.value === "custom") return;
+      state.windowPreset = event.target.value;
+      state.shown = PAGE_SIZE;
+      refresh();
+    });
+    $("v2More").addEventListener("click", openMore);
+    $("v2Columns").addEventListener("click", openColumns);
+    $("v2YExact").addEventListener("click", openRange);
+    $("v2Reset").addEventListener("click", resetValues);
+    $("v2EmptyClear").addEventListener("click", resetValues);
     $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));
     document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => {
       button.addEventListener("click", () => {
@@ -2938,13 +3718,6 @@
         state.shown = PAGE_SIZE;
         refresh();
       });
-    });
-    $("v2ClearFilters").addEventListener("click", () => {
-      state.search = ""; $("v2Search").value = "";
-      state.range = {min: null, max: null};
-      state.sort = null; state.windowPreset = "100"; state.shown = PAGE_SIZE;
-      if (view.state.position !== "ALL") C.setPosition("ALL");
-      refresh();
     });
     $("v2EditSources").addEventListener("click", event => openSources(event.currentTarget));
     $("v2EditLeague").addEventListener("click", openLeague);
@@ -2959,49 +3732,50 @@
       main.focus();
     });
     $("v2ShowMore").addEventListener("click", () => { state.shown += PAGE_SIZE; renderTable(); });
-    document.querySelectorAll(".v2-seg button[data-window]").forEach(button => {
-      button.addEventListener("click", () => { state.windowPreset = button.dataset.window; refresh(); });
-    });
+    // X rank brush: dragging sets Show to "Custom lo–hi" (JEG-475).
     const onBrush = () => {
       let lo = Number($("v2BrushLo").value);
       let hi = Number($("v2BrushHi").value);
       if (lo > hi) [lo, hi] = [hi, lo];
-      state.window = [lo, hi];
-      state.windowPreset = "custom";
-      renderCharts();
+      setWindow([lo, hi]);
     };
     $("v2BrushLo").addEventListener("input", onBrush);
     $("v2BrushHi").addEventListener("input", onBrush);
+    // Y value brush (JEG-472): live filter on the ranking series; the ends of the track mean open ended.
+    const onYBrush = event => {
+      const {lo: ylo, hi: yhi} = view.yScale;
+      let lo = Number($("v2YBrushLo").value);
+      let hi = Number($("v2YBrushHi").value);
+      if (lo > hi) {
+        if (event.target.id === "v2YBrushLo") lo = hi; else hi = lo;
+        event.target.value = String(event.target.id === "v2YBrushLo" ? lo : hi);
+      }
+      setRange({min: lo <= ylo ? null : lo, max: hi >= yhi ? null : hi});
+    };
+    ["v2YBrushLo", "v2YBrushHi"].forEach(id => {
+      $(id).addEventListener("input", onYBrush);
+      // PageUp / PageDown jump a tenth of the scale; arrows step 0.5 (native).
+      $(id).addEventListener("keydown", event => {
+        if (event.key !== "PageUp" && event.key !== "PageDown") return;
+        event.preventDefault();
+        const input = event.currentTarget;
+        const {lo: ylo, hi: yhi} = view.yScale;
+        const jump = Math.max(0.5, Math.round((yhi - ylo) / 10 * 2) / 2);
+        input.value = String(Math.max(ylo, Math.min(yhi, Number(input.value) + (event.key === "PageUp" ? jump : -jump))));
+        onYBrush({target: input});
+      });
+    });
     const zoom = factor => {
       const n = view.rows.length;
       const [lo, hi] = state.window;
-      const center = state.hoverIndex !== null ? lo + state.hoverIndex : (lo + hi) / 2;
+      const center = state.hoverIndex !== null && view.visible[state.hoverIndex] ? view.visible[state.hoverIndex].rank : (lo + hi) / 2;
       const span = Math.max(5, Math.min(n, Math.round((hi - lo + 1) * factor)));
       let nlo = Math.round(center - span / 2);
       nlo = Math.max(1, Math.min(n - span + 1, nlo));
-      state.window = [nlo, Math.min(n, nlo + span - 1)];
-      state.windowPreset = "custom";
-      renderCharts();
+      setWindow([nlo, Math.min(n, nlo + span - 1)]);
     };
     $("v2ZoomIn").addEventListener("click", () => zoom(0.5));
     $("v2ZoomOut").addEventListener("click", () => zoom(2));
-    $("v2ZoomReset").addEventListener("click", () => { state.windowPreset = "100"; refresh(); });
-    $("v2ResetAll").addEventListener("click", () => { state.windowPreset = "all"; refresh(); });
-    const onBounds = () => {
-      const n = view.rows.length;
-      let lo = Math.round(Number($("v2FromRank").value));
-      let hi = Math.round(Number($("v2ToRank").value));
-      if (!Number.isFinite(lo) || !Number.isFinite(hi)) return;
-      lo = Math.max(1, Math.min(n, lo));
-      hi = Math.max(1, Math.min(n, hi));
-      if (lo > hi) [lo, hi] = [hi, lo];
-      state.window = [lo, hi];
-      state.windowPreset = "custom";
-      renderCharts();
-    };
-    $("v2FromRank").addEventListener("change", onBounds);
-    $("v2ToRank").addEventListener("change", onBounds);
-    $("v2ChartOptions").addEventListener("click", openChartOptions);
     bindChart("v2Chart", () => mainChart);
     bindChart("v2VorpChart", () => vorpChart);
     bindChartKeys();
@@ -3037,6 +3811,7 @@
     window.addEventListener("hashchange", () => { readTradeHash(); applyRoute(); });
     if (darkQuery && darkQuery.addEventListener) darkQuery.addEventListener("change", () => { if (C) refresh(); });
     if (narrowQuery && narrowQuery.addEventListener) narrowQuery.addEventListener("change", () => { if (C) refresh(); });
+    if (metaWideQuery && metaWideQuery.addEventListener) metaWideQuery.addEventListener("change", () => { if (C && currentView() === "values") renderTable(); });
     bindTargets();
     bindCompare();
     window.addEventListener("trade-value-shared-change", () => { if (C) refresh(); });
