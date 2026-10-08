@@ -96,6 +96,8 @@ def check(snap) -> list[str]:
                 errors.append(f"{view}/{w['key']}: available {g['available']} != engine {w['available']}")
             if not w["available"] and "not available" not in g["text"] and "waiting" not in g["text"]:
                 errors.append(f"{view}/{w['key']}: unavailable with no reason: {g['text']!r}")
+            if w["available"] and w.get("waiverNote") and w["waiverNote"] not in g["text"]:
+                errors.append(f"{view}/{w['key']}: missing the engine's waiver note {w['waiverNote']!r}")
             if w["available"] and bool(w.get("stale")) != ("older week" in g["text"]):
                 errors.append(f"{view}/{w['key']}: older-week label {g['text']!r} vs engine stale={w.get('stale')}")
     if re.search(r"vegas", snap["text"], re.I):

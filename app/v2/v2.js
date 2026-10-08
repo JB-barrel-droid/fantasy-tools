@@ -1585,6 +1585,8 @@
         why.textContent = !item.available
           ? (item.paused ? " — waiting on fresh inputs" : " — not available for this league")
           : item.stale ? " · older week" : "";
+        // V2-WAIVER-COVERAGE: a short chart's waiver line is extrapolated; say so here too.
+        if (item.available && item.waiverNote) why.textContent += ` · ${item.waiverNote}`;
         if (why.textContent) li.appendChild(why);
         list.appendChild(li);
       });
