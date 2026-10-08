@@ -344,6 +344,7 @@ validate: reference sync guard-harness test-core
 
 test-core:
 	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_curve_default_guard

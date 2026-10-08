@@ -262,7 +262,10 @@ def visible_ddf_lines(name, text):
 # and froze the anchor -- the same class as GAP-MAIN-STATIC-PIN. They are
 # replaced by checks re-derived from the committed inputs.
 ESPN_CSV = ROOT / "data" / "inputs" / "espn_projections.csv"
-ESPN_GAMES_DIVISOR = 16  # weeks 3-18, the DDF two-tier leg's per-game divisor
+# Per-game divisor: the games each team plays inside ESPN's ROS window
+# (weeks_covered, bye excluded), the leg's and players.json's shared count
+# (pipelines/lib/games_remaining.py). Was a flat 16 until 2026-10-08
+# (GAP-GAMES-REMAINING-STALE).
 ESPN_NATIVE_COMBOS = {"full_12": 0.5, "half_12": 0.0, "standard_12": -0.5}
 
 
@@ -274,8 +277,12 @@ def load_espn_csv():
 
 def espn_anchor_problems(players_doc, comparison, csv_rows):
     """The ESPN anchor is one vintage everywhere, and the section's per-game
-    natives are the committed CSV's rest-of-season points / 16."""
+    natives are the committed CSV's rest-of-season points / the team's games
+    in ESPN's ROS window."""
     from pipelines.build_ddf_two_tier_leg import ALIASES
+    from games_remaining import load_byes, window_from_rows, games_in_window
+    byes, _ = load_byes()
+    window = window_from_rows(csv_rows)
     problems = []
     section = comparison["sources"]["espn"]
     csv_dates = {r.get("espn_snapshot_date") for r in csv_rows}
@@ -292,8 +299,11 @@ def espn_anchor_problems(players_doc, comparison, csv_rows):
             if row is None:
                 problems.append(f"espn/{combo}: {slug} has a native but no CSV row")
                 continue
+            team = (row.get("team") or "").strip()
+            games = (games_in_window(team, window, byes) if team
+                     else window[1] - window[0] + 1)
             expected = (float(row["ros_half_ppr"])
-                        + rec_weight * float(row["r_receptions"])) / ESPN_GAMES_DIVISOR
+                        + rec_weight * float(row["r_receptions"])) / games
             if abs(round(expected, 2) - value) > 0.0051:
                 problems.append(f"espn/{combo}: {slug} native {value} != CSV {expected:.4f}")
     return problems

@@ -14,7 +14,11 @@ Locked decisions (Jeremy, 2026-09-21/22):
   - ESPN-purity: every number labeled ESPN comes from ESPN projections only.
     Per-game projections are the CSV's ROS components rescored per scoring
     (arithmetic on ESPN components only -- never expert blending), divided
-    by 16 (weeks 3-18, the same divisor the pie measurement used).
+    by the games the player's team plays inside ESPN's ROS window
+    (weeks_covered, minus the bye when it falls inside;
+    pipelines/lib/games_remaining.py, shared with bake_players.py so the
+    browser's espn_ppg and this leg use the same count). Until 2026-10-08
+    this was a flat 16 (weeks 3-18), stale from week 5 on.
   - Positional pies: ESPN-measured pools (lottery/bin/espn_pies.json),
     vintage-recorded. Never guessed.
   - bench_share: 0.15 default (the UI parameter; the leg is built at the
@@ -70,7 +74,10 @@ _ROSTER_CFG = _load_roster_config()
 POSITIONS = _ROSTER_CFG["positions"]
 DEFAULT_BENCH_SHARE = _ROSTER_CFG["bench_share"]
 GLIDE_WIDTH_FRAC = 0.25
-GAMES_DIVISOR = 16  # weeks 3-18; the same divisor the pie measurement used
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+from games_remaining import (  # noqa: E402
+    load_byes, window_from_rows, games_in_window, BYES_PATH,
+)
 
 # Reference league shape (mirrors the widget's TwoTier constants exactly).
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
@@ -268,7 +275,9 @@ def load_espn_lists(csv_path: Path, scoring: str) -> tuple[dict[str, list[dict[s
     """Return (lists, input_meta, review_rows).
 
     lists: {pos: [{id: player_norm, name, team, x: per-game}]}.
-    Per-game = ROS components rescored per scoring / 16 (weeks 3-18).
+    Per-game = ROS components rescored per scoring / the team's games in
+    ESPN's ROS window (pipelines/lib/games_remaining.py). A row with no team
+    (free agent) divides by the window length: ESPN projects every week.
     Rescoring is arithmetic on ESPN components only (reception points are
     the only scoring difference): ppr = half_ppr + 0.5*receptions,
     standard = half_ppr - 0.5*receptions. ESPN-pure by construction.
@@ -283,6 +292,9 @@ def load_espn_lists(csv_path: Path, scoring: str) -> tuple[dict[str, list[dict[s
             f"Fail closed: ESPN content vintage undeterminable "
             f"(espn_snapshot_date values: {sorted(dates)[:5]}).")
     vintage = next(iter(dates))
+    window = window_from_rows(raw_rows)
+    byes, _ = load_byes()
+    window_len = window[1] - window[0] + 1
     lists: dict[str, list[dict[str, Any]]] = {pos: [] for pos in POSITIONS}
     review_rows: list[dict[str, Any]] = []
     for row in raw_rows:
@@ -312,13 +324,20 @@ def load_espn_lists(csv_path: Path, scoring: str) -> tuple[dict[str, list[dict[s
             ros = ros_half - 0.5 * receptions
         else:
             ros = ros_half
+        team = str(row.get("team") or "").strip() or None
+        games = games_in_window(team, window, byes) if team else window_len
+        if not games:
+            review_rows.append({"reason": "unknown_team", "player": name, "team": team})
+            continue
         lists[pos].append({
             "id": norm,
             "name": name,
-            "team": str(row.get("team") or "").strip() or None,
-            "x": ros / GAMES_DIVISOR,
+            "team": team,
+            "games": games,
+            "x": ros / games,
         })
-    meta = {"espn_snapshot_date": vintage, "csv_rows": len(raw_rows)}
+    meta = {"espn_snapshot_date": vintage, "csv_rows": len(raw_rows),
+            "ros_weeks": f"{window[0]}-{window[1]}"}
     return lists, meta, review_rows
 
 
@@ -523,9 +542,12 @@ def build_leg(csv_path: Path, pies_path: Path, fixture_path: Path,
             "espn_csv_sha256": sha256_file(csv_path),
             "espn_snapshot_date": csv_meta["espn_snapshot_date"],
             "espn_csv_rows": csv_meta["csv_rows"],
-            "games_divisor": GAMES_DIVISOR,
-            "rescoring_note": ("per-game = ROS components rescored per scoring / 16 "
-                               "(weeks 3-18). Reception points are the only scoring "
+            "ros_weeks": csv_meta.get("ros_weeks"),
+            "games_divisor": "per team: games inside ros_weeks (bye excluded)",
+            "byes_sha256": sha256_file(BYES_PATH),
+            "rescoring_note": ("per-game = ROS components rescored per scoring / the "
+                               "team's games inside ESPN's ROS window (bye excluded). "
+                               "Reception points are the only scoring "
                                "difference: ppr = half_ppr + 0.5*receptions, "
                                "standard = half_ppr - 0.5*receptions. Arithmetic on "
                                "ESPN components only; no expert blending."),

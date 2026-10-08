@@ -177,7 +177,8 @@ def load_cbsros_db_natives(sbclient=None):
 def load_snapshot_natives(src):
     """Load source native values for fidelity comparison.
 
-    For ESPN: uses the CSV input (ros_half_ppr / 16) which is the actual
+    For ESPN: uses the CSV input (ros_half_ppr / team games in the ROS
+    window, the leg's own divisor via pipelines/lib/games_remaining.py) which is the actual
     source the DDF leg reads. The snapshot has full-season totals which
     are not comparable to the ROS per-game natives.
 
@@ -210,29 +211,38 @@ def load_snapshot_natives(src):
         out = {}
         vintage = None
         ineligible = set()
+        import sys as _sys
+        _sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+        from games_remaining import load_byes, window_from_rows, games_in_window
         with csv_path.open(newline="", encoding="utf-8") as f:
-            for row in csv_mod.DictReader(f):
-                norm = str(row.get("player_norm", "")).strip().lower()
-                if not norm:
-                    continue
-                # Track ineligible players (IR/inactive) - they use ECR fill, not ESPN
-                eligible = str(row.get("eligible", "")).strip().lower() in ("true", "1", "yes")
-                if not eligible:
-                    ineligible.add(norm)
-                ros_half = row.get("ros_half_ppr")
-                if ros_half:
-                    try:
-                        # DDF uses ROS / 16 (GAMES_DIVISOR)
-                        per_game = float(ros_half) / 16
-                        out[(norm, "half_ppr")] = per_game
-                        # Also compute ppr and standard
-                        rec = float(row.get("r_receptions", 0) or 0)
-                        out[(norm, "ppr")] = (float(ros_half) + 0.5 * rec) / 16
-                        out[(norm, "standard")] = (float(ros_half) - 0.5 * rec) / 16
-                    except (ValueError, TypeError):
-                        pass
-                if not vintage:
-                    vintage = row.get("espn_snapshot_date")
+            rows = list(csv_mod.DictReader(f))
+        window = window_from_rows(rows)
+        byes, _ = load_byes()
+        for row in rows:
+            norm = str(row.get("player_norm", "")).strip().lower()
+            if not norm:
+                continue
+            # Track ineligible players (IR/inactive) - they use ECR fill, not ESPN
+            eligible = str(row.get("eligible", "")).strip().lower() in ("true", "1", "yes")
+            if not eligible:
+                ineligible.add(norm)
+            ros_half = row.get("ros_half_ppr")
+            if ros_half:
+                try:
+                    # Same per-team divisor as the DDF leg.
+                    team = (row.get("team") or "").strip()
+                    games = (games_in_window(team, window, byes) if team
+                             else window[1] - window[0] + 1)
+                    if not games:
+                        continue
+                    out[(norm, "half_ppr")] = float(ros_half) / games
+                    rec = float(row.get("r_receptions", 0) or 0)
+                    out[(norm, "ppr")] = (float(ros_half) + 0.5 * rec) / games
+                    out[(norm, "standard")] = (float(ros_half) - 0.5 * rec) / games
+                except (ValueError, TypeError):
+                    pass
+            if not vintage:
+                vintage = row.get("espn_snapshot_date")
         # Store ineligible set for filtering
         out["_ineligible"] = ineligible
         return out, vintage
