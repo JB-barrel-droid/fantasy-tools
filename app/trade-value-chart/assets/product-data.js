@@ -6,8 +6,9 @@
 // module and never reads a legacy fixture path directly.
 //
 // Contract spec: docs/contract/fe-read-contract-v1.md §8
-//   - Five semantic methods: getPlayerValues(), getPlayers(),
-//     getPlayerContext(), getProductOptions(), getSnapshot().
+//   - Semantic methods: getPlayerValues(), getPlayers(),
+//     getProductOptions(), getSnapshot(). (getPlayerContext(), the player
+//     news/adjustment context, was retired 2026-10-08 with the news artifact.)
 //   - initProductData() is fail-closed (contract_version mismatch,
 //     source_map_coverage failure, empty players, missing active snapshot).
 //
@@ -15,17 +16,17 @@
 // materialised (Roman applies the DDL in sql/contract/api_v1.sql separately
 // and runs `NOTIFY pgrst, 'reload schema'`). To keep the chart rendering
 // during the strangler-fig window, this adapter reads the legacy fixtures
-// (assets/comparison-sources-data.json, assets/player-news.json,
+// (assets/comparison-sources-data.json,
 // assets/adjustment-inputs.json, the #players-data inline island) and
 // projects them into the contract's frozen surface shapes. The fixture
-// paths remain ONLY here; consumers call into the five semantic methods.
+// paths remain ONLY here; consumers call into the semantic methods.
 //
 // Alignment with JEG-325 (consolidation-index.js): the per-cell value
 // lookups that JEG-325 already indexes are reused via the
 // window.TradeValueConsolidation.handle. This module owns the fixture
 // fetch + projection; consolidation-index owns the per-cell O(1) lookup.
 // When the contract api.* materialises, this module's reader swaps to PostgREST
-// without changing the five public methods.
+// without changing the public methods.
 
 (() => {
   "use strict";
@@ -39,7 +40,6 @@
   // strings must NOT appear anywhere in app/trade-value-chart/ except here.
   const LEGACY_PATHS = Object.freeze({
     detail: "assets/comparison-sources-data.json",
-    news: "assets/player-news.json",
     adjustments: "assets/adjustment-inputs.json",
     playersInlineId: "players-data",
   });
@@ -93,7 +93,6 @@
     initialized: false,
     initError: null,
     detail: null,            // raw legacy comparison-sources-data.json
-    news: null,              // raw legacy player-news.json
     adjustments: null,       // raw legacy adjustment-inputs.json
     players: [],             // canonical players from inline island
     playerByKey: new Map(),  // player_key -> player record
@@ -157,7 +156,7 @@
   // ---------- Contract-shape projection ----------
 
   // Build api.product_snapshot (frozen). Field shape per contract §3.5.2.
-  function buildSnapshot(detail, news) {
+  function buildSnapshot(detail) {
     const sources = detail && typeof detail.sources === "object" ? detail.sources : {};
     return Object.freeze({
       snapshot_id: String(detail?.bake_id || "legacy-fixture"),
@@ -174,7 +173,6 @@
       // here as "not published yet, fall back to bake_id".
       pie_vintage_per_source: detail?.pie_vintage_per_source || null,
       players_snapshot_at: detail?.built_at || null,
-      context_meta: news?.meta || null,
       bake_id: detail?.bake_id || null,
       // Marker so callers can tell the v1-fixture projection from a real
       // api.* surface (the v1 cutover will flip it false).
@@ -623,7 +621,7 @@
     };
   }
 
-  // ---------- Public surface (the five semantic methods) ----------
+  // ---------- Public surface (the semantic methods) ----------
 
   // getPlayerValues({source, scoring, teams, qbVariant, view}) — contract §8.1.
   // Returns a frozen per-cell object, or null when the cell is not on the
@@ -722,24 +720,6 @@
     return state.players;
   }
 
-  // getPlayerContext(playerKey) — contract §8.1. Returns a frozen
-  // {news[], adjustments[], as_of} or null when the player has no context.
-  function getPlayerContext(playerKey) {
-    if (!state.initialized) {
-      throw new Error("product-data.js: getPlayerContext() called before initProductData() resolved. Render refused.");
-    }
-    if (!state.news) return null;
-    const key = String(playerKey);
-    const news = state.news.news_by_player_key?.[key] || [];
-    const adjustments = state.news.adjustments_by_player_key?.[key] || [];
-    if (!news.length && !adjustments.length) return null;
-    return Object.freeze({
-      news: Object.freeze([...news]),
-      adjustments: Object.freeze([...adjustments]),
-      as_of: state.news.meta?.trade_values_published_at || null,
-    });
-  }
-
   // getProductOptions() — contract §8.1. Returns the singleton.
   function getProductOptions() {
     if (!state.initialized) {
@@ -824,7 +804,6 @@
       contractVersion: CONTRACT_VERSION,
       bakeId: state.snapshot?.bake_id || null,
       playersLoaded: state.players.length,
-      newsLoaded: !!state.news,
       adjustmentsLoaded: !!state.adjustments,
       consolidationProvider: state.consolidation?.providerInfo?.() || null,
       initError: state.initError,
@@ -862,20 +841,14 @@
       throw new Error("Data contract payload is empty. Render refused.");
     }
 
-    // News + adjustment inputs are best-effort: contract §5.2 fail-open
-    // semantics. We log a warning when they are absent and continue.
-    const newsP = fetchJSON(LEGACY_PATHS.news, FETCH_TIMEOUT_MS).catch(() => null);
-    const adjustmentsP = fetchJSON(LEGACY_PATHS.adjustments, FETCH_TIMEOUT_MS).catch(() => null);
-    const [news, adjustments] = await Promise.all([newsP, adjustmentsP]);
-    if (!news) {
-      console.warn("[product-data] assets/player-news.json absent; news columns will render empty.");
-    }
+    // Adjustment inputs are best-effort: contract §5.2 fail-open semantics.
+    // We log a warning when they are absent and continue.
+    const adjustments = await fetchJSON(LEGACY_PATHS.adjustments, FETCH_TIMEOUT_MS).catch(() => null);
     if (!adjustments) {
       console.warn("[product-data] assets/adjustment-inputs.json absent; *_adjusted columns will pause per runRegressionGuards.");
     }
 
     state.detail = detail;
-    state.news = news;
     state.adjustments = adjustments;
 
     // Players from the inline island; throw on missing (contract §8.2).
@@ -894,7 +867,7 @@
     });
 
     // Build contract-shaped snapshot + options.
-    state.snapshot = buildSnapshot(detail, news);
+    state.snapshot = buildSnapshot(detail);
     state.options = buildOptions();
     state.freshness = Object.freeze(buildSourceFreshness(state.snapshot.sources, {}));
     state.activeSnapshotId = state.snapshot.snapshot_id;
@@ -946,13 +919,12 @@
 
   // ---------- Public handle (frozen) ----------
 
-  // The five semantic methods + transitional helpers. Consumers hold this
+  // The semantic methods + transitional helpers. Consumers hold this
   // handle and never read window.TradeValueProductData internals.
   const publicHandle = Object.freeze({
-    // The five contract surfaces (spec §8.1).
+    // The contract surfaces (spec §8.1; getPlayerContext retired 2026-10-08).
     getPlayerValues,
     getPlayers,
-    getPlayerContext,
     getProductOptions,
     getSnapshot,
     // Contract v1.1 additive (JEG-432 R5/R1).
@@ -978,11 +950,10 @@
 
   const api = {
     initProductData,
-    // Re-export the five semantic methods at the top level so callers can
+    // Re-export the semantic methods at the top level so callers can
     // import the module as a flat namespace without the handle.
     getPlayerValues,
     getPlayers,
-    getPlayerContext,
     getProductOptions,
     getSnapshot,
     getSourceFreshness,

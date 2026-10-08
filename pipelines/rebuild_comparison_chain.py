@@ -237,13 +237,11 @@ def process_section(section, repo, run_fn, nfl_week=None):
     # Supabase grain is written after promotion (run_vorp_refresh) from the
     # previous natives, so reading it here promoted a stale translation on
     # every native refresh (USA Today, 2026-10-02).
-    # build-lag-001: this stays the CHAIN week even for a source lagging one
-    # week. The grain's `week` is a refresh-cycle label: Stage 9
-    # (refresh_vorp_translation --week <chain week>) computes every grain
-    # from the promoted fixture's natives, whatever week each source's
-    # content is, and labels it with the chain week. Fetching a lagging
-    # source at its own content week would read LAST cycle's grain (older
-    # natives). The source's real week is carried by its content_vintage.
+    # GAP-VORP-GRAIN-WEEK-LABEL (2026-10-08): --week is only the fallback.
+    # The provenance grain is labelled with the SECTION's content week
+    # (translate_via_vorp.section_content_week), as are the stored grains
+    # (refresh_vorp_translation), so a lagging source's Week-4 natives are
+    # recorded as Week 4, never under the chain week.
     vorp_cmd = [
         "python3", "pipelines/translate_via_vorp.py",
         "--section", str(reindexed), "--translation", "natives",
@@ -1319,8 +1317,8 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
         # builder needs the gitignored data/raw Week 4 source snapshots and a
         # live-page scrape of the Week 4 article URLs, and the chain never
         # committed its output. It logged a failure every run and changed
-        # nothing. The lineage card is a manual audit (`make monitor-lineage`
-        # on a machine with data/raw); the monitor shows it stale by age.
+        # nothing. The lineage audit itself was then retired the same day
+        # (chore/retire-extras); git history before aefb8f7 keeps it.
 
         print("\n" + "=" * 60)
         print("CHAIN COMPLETE")

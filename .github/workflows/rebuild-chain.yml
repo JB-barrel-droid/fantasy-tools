@@ -158,8 +158,11 @@ jobs:
 
       # Week history (docs/v2-design-notes.md "Back-end contract: history"):
       # append each source's saved inputs per content week to data/history/
-      # (published charts from api.source_inputs_weekly, projections from the
-      # served players.json and the Supabase projection tables). Past weeks are
+      # (published charts: every saved bake in public.source_trade_values /
+      # cbs_trade_values; projections: the served players.json and the
+      # Supabase projection tables). One snapshot per source and week by the
+      # week-over-week rule; other versions go to data/history/superseded/.
+      # Past weeks are
       # frozen; the no-relabel guard refuses any entry whose content evidence
       # is another week. Non-blocking: a failed capture restores the committed
       # history and the chain publishes without it (Risers & fallers then
@@ -224,6 +227,21 @@ jobs:
             python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
             exit 1
           fi
+
+      # Capture again AFTER promotion (weeks lane, 2026-10-08): the first
+      # capture ran before the chain, so a source the chain just promoted was
+      # indexed against the old fixture. This one indexes the saved weeks
+      # against the fixture being committed. Append-only and validated before
+      # it writes; a failure keeps the pre-chain capture (warning only).
+      - name: Capture week history after promotion
+        if: steps.chain.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 pipelines/build_week_history.py --supabase \
+            || echo "::warning title=week-history::post-promotion capture failed; the pre-chain capture is kept"
 
       - name: Sync rebuilt fixture into dist (chain succeeded)
         if: steps.chain.outcome == 'success'

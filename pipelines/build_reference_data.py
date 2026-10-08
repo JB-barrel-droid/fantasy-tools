@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FIXTURES = ROOT / "data" / "fixtures" / "current"
 DEFAULT_OUTPUT = ROOT / "output" / "reference-build-report.json"
 DEFAULT_FRESHNESS = ROOT / "output" / "reference-freshness.json"
-REQUIRED_FILES = ("players.json", "comparison-sources-data.json", "player-news.json")
+REQUIRED_FILES = ("players.json", "comparison-sources-data.json")
 REQUIRED_LIVE_SOURCES = (
     "usatoday",
     "fantasycalc",
@@ -114,25 +114,6 @@ def validate_comparison(payload: dict[str, Any], player_keys: set[int]) -> dict[
     }
 
 
-def validate_news(payload: dict[str, Any], player_keys: set[int]) -> dict[str, Any]:
-    meta = payload.get("meta", {})
-    news_by_player = payload.get("news_by_player_key", {})
-    require(isinstance(meta, dict), "player-news.json must contain meta{}")
-    require(isinstance(news_by_player, dict), "player-news.json must contain news_by_player_key{}")
-    orphaned = sorted(
-        int(key) for key in news_by_player
-        if str(key).isdigit() and int(key) not in player_keys
-    )
-    require(not orphaned, f"player-news artifact references unknown player_key values: {orphaned[:5]}")
-    return {
-        "generated_at": meta.get("generated_at"),
-        "source_refresh_at": meta.get("source_refresh_at"),
-        "matched_item_count": meta.get("matched_item_count"),
-        "unmatched_item_count": meta.get("unmatched_item_count"),
-        "review_queue_count": meta.get("review_queue_count"),
-    }
-
-
 def build_reference_report(
     fixtures: Path,
     freshness_output: Path,
@@ -145,7 +126,6 @@ def build_reference_report(
 
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
-    news = load_json(fixtures / "player-news.json")
 
     player_summary = validate_players(players)
     player_keys = {
@@ -154,7 +134,6 @@ def build_reference_report(
         if isinstance(player.get("player_key"), int)
     }
     comparison_summary = validate_comparison(comparison, player_keys)
-    news_summary = validate_news(news, player_keys)
     freshness = build_report(fixtures, freshness_output, today, max_age_days, enforced_keys)
 
     return {
@@ -163,7 +142,6 @@ def build_reference_report(
         "status": "ok",
         "players": player_summary,
         "comparison": comparison_summary,
-        "news": news_summary,
         "freshness_summary": freshness["summary"],
         "artifact_hashes": freshness["artifact_hashes"],
     }, freshness

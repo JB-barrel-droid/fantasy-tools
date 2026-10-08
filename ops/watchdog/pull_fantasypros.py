@@ -31,7 +31,7 @@ from datetime import date, datetime, timezone
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import article_discovery as ad
-from _common import content_week, fetch, nfl_week, today_ct, REPO
+from _common import content_week, fetch, today_ct, REPO
 
 # Auto-discovery: FantasyPros trade-value-chart article slug embeds the week.
 # Candidate template (newest week first); discovery walks week N, N-1, N-2

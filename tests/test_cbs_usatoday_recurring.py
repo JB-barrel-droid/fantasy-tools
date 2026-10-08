@@ -543,13 +543,15 @@ class SaveCbsWeekTest(unittest.TestCase):
         self.assertNotIn("week=eq.2", self.count_params_seen[0])
         self.assertEqual(result["vintage"], "Week 3")
 
-    def test_default_week_is_current_nfl_week(self):
+    def test_default_week_is_the_content_week(self):
+        # The saver labels a save with the content week (Tuesday flip), not
+        # the Thursday-flip game week (GAP-WEEK-CALENDARS).
         save_cbs.save_source(
             "cbs", dry_run=False, espn_csv=Path("/dev/null"),
             espn_meta=Path("/dev/null"), cbs_json=self.json_path, week=None,
         )
         table, rows, _ = self.writes[0]
-        self.assertTrue(all(r["week"] == _common.nfl_week() for r in rows))
+        self.assertTrue(all(r["week"] == _common.content_week() for r in rows))
 
 
 # ---------------------------------------------------------------------------
@@ -774,6 +776,79 @@ class WrapperTableValidationTest(unittest.TestCase):
             self._run_with_tables(tables)
 
 
+class CbsVersionedBakeTest(unittest.TestCase):
+    """GAP-CBS-WEEK-OVERWRITE: a same-week CBS revision is a new immutable
+    bake, never an in-place overwrite of the week."""
+
+    def setUp(self):
+        self.tmp = Path(__import__("tempfile").mkdtemp())
+
+    def test_cbs_ingest_writes_a_bake(self):
+        h = WrapperHarness(self, ingest_cbs, CBS_URL_W2,
+                           ("standard", "half_ppr", "ppr"), "cbs",
+                           "as_published")
+        res = h.run(week=2, tmp=self.tmp)
+        self.assertEqual(res["status"], "ok")
+        self.assertTrue(res["bake_id"].startswith("cbswk2_"), res["bake_id"])
+        self.assertTrue(ingest_cbs.CFG.get("verify_bake_id"))
+
+    def test_two_revisions_on_one_day_get_two_bakes(self):
+        # A CI runner keeps no state, so a date-only id would let the second
+        # same-day revision overwrite the first bake.
+        a = save_cbs.cbs_bake_id(4, stamp="2026-10-07t1207")
+        b = save_cbs.cbs_bake_id(4, stamp="2026-10-07t1507")
+        self.assertNotEqual(a, b)
+        self.assertRegex(save_cbs.cbs_bake_id(4), r"^cbswk4_\d{4}-\d{2}-\d{2}t\d{4}_v1$")
+
+    def test_usatoday_bake_ids_carry_the_minute(self):
+        # USAT-BAKE-SAMEDAY: a date-only id let a second same-day revision
+        # overwrite the first on a stateless runner.
+        self.assertRegex(ingest_usat.bake_id_fn(5, {}), r"^usatwk5_\d{4}-\d{2}-\d{2}t\d{4}_v1$")
+
+    def test_saver_keys_the_upsert_on_bake_id(self):
+        # The broken state: the week-grain conflict key overwrote the week.
+        self.assertIn("bake_id", save_cbs.CBS_UPSERT_CONFLICT.split(","))
+        self.assertNotEqual(save_cbs.CBS_UPSERT_CONFLICT,
+                            "source,variant,scoring,league_teams,qb_slots,season,week,player_key")
+
+    def test_guard_compares_against_the_latest_bake(self):
+        """Two bakes of week 4 for one player: the guard must compare the
+        new pull with the LATEST bake. Blending (the old read) let the older
+        bake's value win half the time and skipped a real revision."""
+        old_rows = [{"player_key": 1, "scoring": "ppr", "native_value": 10.0,
+                     "bake_id": "cbswk4_2026-09-29_v1", "created_at": "2026-09-29T12:00:00Z"}]
+        new_rows = [{"player_key": 1, "scoring": "ppr", "native_value": 12.0,
+                     "bake_id": "cbswk4_2026-10-07_v1", "created_at": "2026-10-07T12:00:00Z"}]
+        for order in (old_rows + new_rows, new_rows + old_rows):
+            db = ingest_common.Db(count_fn=lambda t, p: 0, rows_fn=lambda t, p, o=order: o)
+            got = db.grain_native_values("cbs_trade_values", "cbs", "as_published", 2026, 4)
+            self.assertEqual(got, {(1, "ppr"): 12.0})
+        # Same content as the latest bake -> unchanged; as the older -> write.
+        db = ingest_common.Db(count_fn=lambda t, p: 0, rows_fn=lambda t, p: old_rows + new_rows)
+        latest = [{"player_key": 1, "scoring": "ppr", "native_value": 12.0}]
+        older = [{"player_key": 1, "scoring": "ppr", "native_value": 10.0}]
+        self.assertEqual(ingest_cbs.pre_write_guard(db, 4, {}, latest), "unchanged")
+        self.assertIsNone(ingest_cbs.pre_write_guard(db, 4, {}, older))
+
+
+class SaveCbsBakeTest(SaveCbsWeekTest):
+    def test_rows_carry_bake_and_reader_url(self):
+        pull = dict(CBS_PULL, url="https://sportsfly.cbsistatic.com/fantasy/football/news/"
+                                  "dave-richards-week-3-trade-chart/")
+        self.json_path.write_text(json.dumps(pull))
+        result = save_cbs.save_source(
+            "cbs", dry_run=False, espn_csv=Path("/dev/null"),
+            espn_meta=Path("/dev/null"), cbs_json=self.json_path, week=3,
+            bake_id="cbswk3_2026-09-25_v2")
+        _table, rows, conflict = self.writes[0]
+        self.assertTrue(conflict.endswith(",bake_id"))
+        self.assertEqual({r["bake_id"] for r in rows}, {"cbswk3_2026-09-25_v2"})
+        self.assertEqual({r["source_url"] for r in rows},
+                         {"https://www.cbssports.com/fantasy/football/news/dave-richards-week-3-trade-chart/"})
+        self.assertIn("bake_id=eq.cbswk3_2026-09-25_v2", self.count_params_seen[0])
+        self.assertEqual(result["bake_id"], "cbswk3_2026-09-25_v2")
+
+
 class WrapperHappyPathTest(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(__import__("tempfile").mkdtemp())
@@ -859,7 +934,10 @@ class WrapperVerificationTest(unittest.TestCase):
         def corrupting_save(path, dry_run, week, bake_id):
             res = h.save_fn(path, dry_run, week, bake_id)
             if not dry_run:
-                h.fakedb.set("cbs", "as_published", "ppr", 2026, week, 1)
+                # CBS writes are versioned (GAP-CBS-WEEK-OVERWRITE), so the
+                # verifier counts the new bake: short-write that bake.
+                h.fakedb.set("cbs", "as_published", "ppr", 2026, week, 1,
+                             bake_id=bake_id)
             return res
 
         with self.assertRaises(ingest_common.IngestError) as ctx:

@@ -67,7 +67,7 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 from match_source_snapshot import normalize_name  # noqa: E402
 from import_source_snapshot import parse_float  # noqa: E402
 sys.path.insert(0, str(ROOT / "ops" / "watchdog"))
-from _common import nfl_week  # noqa: E402
+from _common import content_week  # noqa: E402
 # Reuse the Supabase plumbing, the fail-closed identity resolution, and the
 # shared isotonic reindex (same chart-scale contract as USA Today).
 from save_espn_cbs_references import (  # noqa: E402
@@ -208,7 +208,7 @@ def save_fantasycalc(
     bake_id: str | None = None,
     reindex: bool = True,
 ) -> dict[str, Any]:
-    week = week or nfl_week()
+    week = week or content_week()
     today = datetime.now(timezone.utc).date().isoformat()
     bake_id = bake_id or f"fcwk{week}_{today}_v1"
 
@@ -267,7 +267,7 @@ def main() -> int:
         "--week",
         type=int,
         default=None,
-        help="NFL week for the save grain (default: current week from ops/watchdog/_common.nfl_week).",
+        help="NFL week for the save grain (default: the content week, pipelines/nfl_week.py).",
     )
     parser.add_argument(
         "--bake-id",

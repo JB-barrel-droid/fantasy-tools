@@ -28,18 +28,6 @@ class ReferenceFreshnessTest(unittest.TestCase):
             json.dumps({"built_at": f"{comparison_date}T12:00:00Z", "source_validation": {}}),
             encoding="utf-8",
         )
-        (root / "player-news.json").write_text(
-            json.dumps(
-                {
-                    "meta": {
-                        "generated_at": f"{value_date}T12:00:00Z",
-                        "trade_values_published_at": f"{value_date}T12:00:00Z",
-                    },
-                    "news_by_player_key": {},
-                }
-            ),
-            encoding="utf-8",
-        )
 
     def test_freshness_gate_fails_for_expired_reference_dates(self):
         with TemporaryDirectory() as tmp:
@@ -69,9 +57,10 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertNotEqual(0, result.returncode)
             self.assertIn("Freshness gate failed", result.stdout)
             payload = json.loads(output.read_text(encoding="utf-8"))
-            # 5, was 7: players.pm_snapshot (prediction-markets leg retired)
-            # and players.kdst_snapshot (K/DST not carried, GAP-029) are gone.
-            self.assertEqual(5, payload["summary"]["expired_count"])
+            # 3, was 7: players.pm_snapshot (prediction-markets leg retired),
+            # players.kdst_snapshot (K/DST not carried, GAP-029) and the two
+            # news.* rows (player news retired, chore/retire-extras) are gone.
+            self.assertEqual(3, payload["summary"]["expired_count"])
             self.assertEqual(1, payload["summary"]["enforced_expired_count"])
 
     def test_freshness_gate_passes_for_current_reference_dates(self):
@@ -131,9 +120,10 @@ class ReferenceFreshnessTest(unittest.TestCase):
             )
 
             payload = json.loads(output.read_text(encoding="utf-8"))
-            # 4, was 6: the players.pm_snapshot and players.kdst_snapshot rows
-            # are gone (prediction markets retired; K/DST GAP-029).
-            self.assertEqual(4, payload["summary"]["expired_count"])
+            # 2, was 6: players.pm_snapshot, players.kdst_snapshot and the two
+            # news.* rows are gone (prediction markets, K/DST GAP-029, player
+            # news retired in chore/retire-extras).
+            self.assertEqual(2, payload["summary"]["expired_count"])
             self.assertEqual(0, payload["summary"]["enforced_expired_count"])
 
     def test_l1_import_health_is_reported_as_source_freshness(self):
@@ -185,6 +175,43 @@ class ReferenceFreshnessTest(unittest.TestCase):
             self.assertEqual("Week 2", item["value"])
             self.assertEqual("stale", item["l1_status"])
             self.assertFalse(item["freshness_ok"])
+
+    def test_fresh_built_at_does_not_hide_a_stale_source(self):
+        """GAP-034: built_at is reset by any one promotion, so a fixture
+        rebuilt today can still serve a source weeks old. Each source gets a
+        published/saved week row; the summary names the sources behind and
+        those saved but not yet published (GAP-FRESH-SAVED-VS-PUBLISHED)."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("crf", ROOT / "pipelines" / "check_reference_freshness.py")
+        crf = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(crf)
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp) / "fixtures"
+            self.write_fixtures(root, "2026-10-08")
+            comparison = json.loads((root / "comparison-sources-data.json").read_text())
+            comparison["sources"] = {"usatoday": {"week_designated": "Week 5"},
+                                     "cbs": {"week_designated": "Week 3"},
+                                     "fantasycalc": {"week_designated": "Week 4"}}
+            (root / "comparison-sources-data.json").write_text(json.dumps(comparison))
+            health = root / "source-import-health.json"
+            health.write_text(json.dumps({"schema": "trade-value-import-health-v1", "checked_at": "2026-10-08T10:00:00Z",
+                                          "sources": {"fantasycalc": {"content_vintage": "Week 5", "status": "ok"},
+                                                      "cbs": {"content_vintage": "Week 3", "status": "ok"}}}))
+            from datetime import date
+            report = crf.build_report(root, Path(tmp) / "out.json", date(2026, 10, 8), import_health_path=health)
+        built = next(i for i in report["items"] if i["key"] == "comparison.built_at")
+        self.assertTrue(built["freshness_ok"])  # the build time alone says "fresh"
+        rows = {i["key"]: i for i in report["items"] if i["key"].startswith("comparison.source.")}
+        self.assertEqual(rows["comparison.source.cbs"]["status"], "stale")
+        self.assertEqual(rows["comparison.source.cbs"]["weeks_behind"], 2)
+        self.assertEqual(rows["comparison.source.fantasycalc"]["saved_week"], 5)
+        self.assertTrue(rows["comparison.source.fantasycalc"]["pending_promotion"])
+        self.assertFalse(any(i["enforced"] for i in rows.values()))  # warn, never block
+        summary = report["summary"]
+        self.assertEqual(summary["comparison_oldest_published_week"], 3)
+        self.assertEqual(summary["comparison_sources_behind"], ["cbs", "fantasycalc"])
+        self.assertEqual(summary["comparison_sources_pending_promotion"], ["fantasycalc"])
+        self.assertEqual(summary["enforced_expired_count"], 0)
 
     def test_jeg_407_no_ecr_content_date_in_players_meta(self):
         """JEG-407: Ensure ecr_content_date is not read from players meta and content_vintage is used instead."""
@@ -280,11 +307,12 @@ class ReferenceFreshnessTest(unittest.TestCase):
 
             payload = json.loads(output.read_text(encoding="utf-8"))
             chart_inputs = payload.get("chart_inputs") or []
-            # GAP-029 (2026-10-08): K/DST are no longer carried, so
-            # players.kdst_snapshot is no longer a chart input.
-            self.assertEqual(2, payload["summary"]["chart_input_count"])
+            # GAP-029: players.kdst_snapshot is no longer a chart input;
+            # news.generated_at left with the player-news artifact (retired
+            # 2026-10-08, chore/retire-extras).
+            self.assertEqual(1, payload["summary"]["chart_input_count"])
             self.assertEqual(
-                ["players.as_of", "news.generated_at"],
+                ["players.as_of"],
                 payload["summary"]["chart_input_keys"],
             )
             as_of = next(
@@ -328,6 +356,28 @@ class ReferenceFreshnessTest(unittest.TestCase):
         self.assertEqual("unknown", color_for(None, 2))
         # Future-dated or negative ages are also unknown.
         self.assertEqual("unknown", color_for(-1, 2))
+
+
+    def test_retired_news_items_are_not_reported(self):
+        # chore/retire-extras (2026-10-08): the player-news artifact has no
+        # producer and was retired. Its two rows (news.generated_at,
+        # news.trade_values_published_at) sat on the monitor as permanent
+        # stale/unknown items. With no player-news.json present the report
+        # must carry no news.* row and no player-news hash.
+        with TemporaryDirectory() as tmp:
+            fixtures = Path(tmp) / "fixtures"
+            output = Path(tmp) / "freshness.json"
+            self.write_fixtures(fixtures, "2026-09-27")
+            subprocess.run(
+                ["python3", "pipelines/check_reference_freshness.py", "--fixtures", str(fixtures),
+                 "--output", str(output), "--today", "2026-09-27", "--max-age-days", "2"],
+                cwd=ROOT, check=True, capture_output=True, text=True,
+            )
+            payload = json.loads(output.read_text(encoding="utf-8"))
+            keys = [item["key"] for item in payload["items"]]
+            self.assertEqual([], [k for k in keys if k.startswith("news.")], keys)
+            self.assertNotIn("player-news.json", json.dumps(payload))
+            self.assertEqual(0, payload["summary"]["unknown_count"], payload["summary"])
 
 
 if __name__ == "__main__":

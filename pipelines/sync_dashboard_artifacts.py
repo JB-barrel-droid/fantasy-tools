@@ -380,7 +380,7 @@ def sync_week_history(target: Path) -> None:
     the index against the fixture being published (which saved week each
     source serves) and copy the week files beside the page. Every week file
     is validated (no-relabel guard); a bad file stops the sync."""
-    from build_week_history import HISTORY_DIR, main as build_history
+    from build_week_history import HISTORY_DIR, PLAYERS, load_weeks, main as build_history, write_espn_legs
     if not HISTORY_DIR.exists():
         return
     build_history(["--served-only"])
@@ -389,6 +389,9 @@ def sync_week_history(target: Path) -> None:
     target.mkdir(parents=True)
     for path in sorted(HISTORY_DIR.glob("*.json")):
         shutil.copy2(path, target / path.name)
+    # Prior ESPN legs, rebuilt from the saved projections with today's
+    # pipeline code (HISTORY-ESPN-PRIOR); derived, so served but not stored.
+    write_espn_legs(load_weeks(HISTORY_DIR), json.loads(PLAYERS.read_text()), target / "espn-legs.json")
 
 
 def main() -> int:
@@ -404,7 +407,6 @@ def main() -> int:
 
     (APP / "assets").mkdir(parents=True, exist_ok=True)
     shutil.copy2(FIXTURES / "comparison-sources-data.json", APP / "assets" / "comparison-sources-data.json")
-    shutil.copy2(FIXTURES / "player-news.json", APP / "assets" / "player-news.json")
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
     # JEG-137 R10: the per-source dataset cards read assets/deadline-checker.json
     # for the slip measurement behind the Grace/Slip rows. Only copied when a
@@ -487,30 +489,6 @@ def main() -> int:
         # a leg to read.
         print(f"WARNING: skipping ddf-group-vorps.json rebuild: {e}", file=sys.stderr)
 
-    # JEG-265: per-view addressable artifacts (vorp-view.json, adj-view.json).
-    # Reads dist/modules/source-value-lineage.json and writes a slim per-view
-    # JSON for the dashboard's VORP / Adj cards. Skip with a warning when the
-    # lineage artifact is missing (CI may run sync before a lineage build has
-    # happened) -- the dashboard's renderers fail closed with an explicit badge.
-    try:
-        from build_view_artifacts import build_vorp_view, build_adj_view
-        lineage_path = DIST / "modules" / "source-value-lineage.json"
-        if lineage_path.exists():
-            lineage = json.loads(lineage_path.read_text(encoding="utf-8"))
-            v = build_vorp_view(lineage)
-            a = build_adj_view(lineage)
-            (dist_modules / "vorp-view.json").write_text(
-                json.dumps(v, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            (dist_modules / "adj-view.json").write_text(
-                json.dumps(a, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-            print(f"Wrote per-view artifacts -> vorp-view.json (status={v['status']}), "
-                  f"adj-view.json (status={a['status']})")
-        else:
-            print(f"WARNING: skipping vorp-view.json / adj-view.json rebuild: "
-                  f"source-value-lineage.json missing at {lineage_path}",
-                  file=sys.stderr)
-    except SystemExit as e:
-        print(f"WARNING: skipping per-view artifacts: {e}", file=sys.stderr)
 
     # Each dashboard publishes from its own segmented source tree:
     # weekly_vegas/ (Vegas-vs-ECR signals) and waiver_wire/ (waiver board).

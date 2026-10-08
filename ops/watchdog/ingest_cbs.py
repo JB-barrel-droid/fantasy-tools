@@ -1,5 +1,8 @@
 """Weekly CBS trade-chart ingestion: discover -> pull -> save -> verify.
 
+Each write is an immutable bake (bake_id cbswk<week>_<date>_v<n>), like USA
+Today: a same-week revision adds a version instead of overwriting the week.
+
 Fails closed on: article not matching the requested week (never ingests a
 stale fallback), fewer than 4 nonempty QB/RB/WR/TE tables, zero clean rows,
 saver count mismatch, post-write grain mismatch, or prior-week clobbering.
@@ -38,21 +41,32 @@ def _pull_fn(url: str) -> list[dict[str, Any]]:
     return tables
 
 
-def _build_fn(json_path: str, week: int, _bake_id: str | None):
+def _build_fn(json_path: str, week: int, bake_id: str | None):
     from pathlib import Path
 
     from save_espn_cbs_references import build_cbs_rows
 
-    return build_cbs_rows(Path(json_path), week)
+    return build_cbs_rows(Path(json_path), week, bake_id)
 
 
-def _save_fn(json_path: str, dry_run: bool, week: int, _bake_id: str | None):
+def _save_fn(json_path: str, dry_run: bool, week: int, bake_id: str | None):
     from pathlib import Path
 
     from save_espn_cbs_references import save_source
 
     return save_source("cbs", dry_run=dry_run, espn_csv=None, espn_meta=None,
-                       cbs_json=Path(json_path), week=week)
+                       cbs_json=Path(json_path), week=week, bake_id=bake_id)
+
+
+def bake_id_fn(week: int, state: dict[str, Any]) -> str:
+    """cbswk<week>_<exec-date>_v<seq> (GAP-CBS-WEEK-OVERWRITE): a same-week
+    revision is a new immutable bake, never an in-place overwrite."""
+    from save_espn_cbs_references import cbs_bake_id
+
+    seq = 1
+    if state.get("week") == week:
+        seq = int(state.get("bake_seq", 0)) + 1
+    return cbs_bake_id(week, seq)
 
 
 def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
@@ -64,8 +78,10 @@ def pre_write_guard(db: "ic.Db", week: int, per_scoring: dict[str, int],
     with no state, so without this guard every daily run would re-upsert the
     same week and bump `pulled_at` on unchanged rows (making stale content
     look freshly pulled). Identical (player_key, scoring) -> native_value
-    sets mean nothing to write. Any difference proceeds to the saver's
-    normal week-grain upsert (CBS has no bake_id; unchanged behaviour).
+    sets mean nothing to write. Any difference proceeds to a NEW versioned
+    bake (GAP-CBS-WEEK-OVERWRITE, 2026-10-08): the week's earlier bake stays
+    in the table, and readers select the latest one. The comparison is
+    against the latest bake (Db.grain_native_values).
     """
     existing = db.grain_native_values(CFG["table"], CFG["source"],
                                       CFG["variant"], CFG["season"], week)
@@ -110,6 +126,8 @@ CFG: dict[str, Any] = {
     "build_fn": _build_fn,
     "save_fn": _save_fn,
     "pre_write_guard": pre_write_guard,
+    "bake_id_fn": bake_id_fn,
+    "verify_bake_id": True,
 }
 
 

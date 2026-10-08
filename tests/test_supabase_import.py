@@ -205,6 +205,35 @@ class ImportSupabaseReferencesTest(unittest.TestCase):
         self.assertEqual(manifest["week_designated"], 3)
         self.assertIn("latest week present (week=3)", manifest["filter"])
 
+    def test_cbs_revised_week_imports_the_latest_bake_and_its_url(self):
+        # GAP-CBS-WEEK-OVERWRITE / GAP-SOURCE-URL-WEEK2: a revised CBS week
+        # holds two bakes; the import takes the latest and its article URL.
+        old = "https://www.cbssports.com/x/dave-richards-week-4-old/"
+        new = "https://www.cbssports.com/x/dave-richards-week-4-trade-chart/"
+        rows = [cbs_row(week=4, native_value=20.0, bake_id="cbswk4_legacy",
+                        created_at="2026-09-29T22:44:26Z", source_url=old),
+                cbs_row(week=4, native_value=21.0, bake_id="cbswk4_2026-10-07_v1",
+                        created_at="2026-10-07T12:07:11Z", source_url=new)]
+        result = self.import_with(rows, source="cbs")
+        snapshot = json.loads(result["snapshot_path"].read_text())
+        self.assertEqual(snapshot["row_count"], 1)
+        self.assertEqual(snapshot["source_url"], new)
+        self.assertIn("bake_id=cbswk4_2026-10-07_v1", result["manifest"]["filter"])
+
+    def test_source_provenance_carries_the_article_url(self):
+        spec2 = importlib.util.spec_from_file_location("match_source_snapshot", PIPELINES / "match_source_snapshot.py")
+        msm = importlib.util.module_from_spec(spec2)
+        spec2.loader.exec_module(msm)
+        with tempfile.TemporaryDirectory() as tmp:
+            prov = msm.source_provenance(Path(tmp) / "snapshot.json",
+                                         {"source": "cbs", "source_url": "https://www.cbssports.com/a/"})
+        self.assertEqual(prov["source_url"], "https://www.cbssports.com/a/")
+
+    def test_source_url_only_when_unanimous(self):
+        self.assertEqual(mod.unanimous_source_url([{"source_url": "https://a/"}] * 3), "https://a/")
+        self.assertIsNone(mod.unanimous_source_url([{"source_url": "https://a/"}, {"source_url": "https://b/"}]))
+        self.assertIsNone(mod.unanimous_source_url([{}, {"source_url": None}]))
+
     def test_multi_week_snapshot_never_blends(self):
         # defect: two published weeks merged into one snapshot and stamped
         # as a single vintage. The latest week wins; older-week rows are

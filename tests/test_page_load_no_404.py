@@ -22,7 +22,10 @@ PAGES = ("/", "/classic/", "/v2/")
 
 
 def failed_requests(overrides=None):
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
     bad = []
     with sync_playwright() as p:
         exe = chromium_executable(p)

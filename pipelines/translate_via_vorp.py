@@ -59,6 +59,15 @@ def parse_combo(combo_name):
     return SCORING_PREFIX[m.group(1)], int(m.group(2))
 
 
+def section_content_week(section):
+    """The content week of a source section (GAP-VORP-GRAIN-WEEK-LABEL): the
+    translation grain is labelled with it, never the chain week. Defined once
+    in pipelines/nfl_week.py."""
+    sys.path.insert(0, str(REPO / "pipelines"))
+    from nfl_week import section_content_week as _week
+    return _week(section)
+
+
 def _sb():
     """Supabase REST client via the stored credential (surrogate flow)."""
     bin_dir = Path.home() / "workspace" / "skills" / "supabase-football-signal" / "bin"
@@ -338,9 +347,12 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False,
     reports = []
     peer_doc = None
     sources = doc["sources"] if "sources" in doc else {doc.get("source_key"): doc}
+    chain_week = week
     for source, sdata in (sources or {}).items():
         if source not in AS_PUBLISHED_SOURCES or not isinstance(sdata, dict):
             continue
+        # GAP-VORP-GRAIN-WEEK-LABEL: grain = the source's content week.
+        grain_week = section_content_week(sdata) or chain_week
         qb_guarded = _qb_divergent_siblings(source, sdata)
         for combo_name, combo in (sdata.get("combos") or {}).items():
             grain = parse_combo(combo_name)
@@ -354,7 +366,7 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False,
                           "n_translated": 0,
                           "n_fallback_reindex": len(combo.get("reindexed") or {}),
                           "n_total": len(combo.get("reindexed") or {}),
-                          "week": week, "season": season,
+                          "week": grain_week, "season": season,
                           "reason": qb_guarded[combo_name]}
                 combo["translation"] = _provenance(report, grain)
                 combo["translation"]["note"] = (
@@ -370,18 +382,18 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False,
                     peer_doc = _peer_fixture(doc)
                 peers = _unified().peer_natives(peer_doc, source, scoring)
                 run = _natives_run(combo, teams, peers=peers)
-                jobs.append((source, combo_name, combo, run))
+                jobs.append((source, combo_name, combo, run, grain_week))
                 continue
             try:
-                translated = fetch_translated(source, scoring, teams, week, season, sb=sb)
+                translated = fetch_translated(source, scoring, teams, grain_week, season, sb=sb)
             except Exception as e:  # fail-safe: fall back, never halt
                 if strict:
                     raise
-                jobs.append((source, combo_name, combo, e))
+                jobs.append((source, combo_name, combo, e, grain_week))
                 continue
-            jobs.append((source, combo_name, combo, translated))
+            jobs.append((source, combo_name, combo, translated, grain_week))
 
-    for source, combo_name, combo, translated in jobs:
+    for source, combo_name, combo, translated, week in jobs:
         if isinstance(translated, Exception):
             report = {"source": source, "combo": combo_name,
                       "method": "reindex-fallback",
@@ -408,7 +420,7 @@ def translate_document(doc, week=4, season=2026, sb=None, strict=False,
     translated_total = sum(r["n_translated"] for r in reports)
     combos_vorp = sum(1 for r in reports if r["method"] == "vorp-supabase")
     combos_fallback = sum(1 for r in reports if r["method"] == "reindex-fallback")
-    return {"week": week, "season": season, "reports": reports,
+    return {"week": chain_week, "season": season, "reports": reports,
             "values_translated": translated_total,
             "combos_vorp_supabase": combos_vorp,
             "combos_reindex_fallback": combos_fallback}

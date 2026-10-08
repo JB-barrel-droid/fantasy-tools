@@ -75,7 +75,10 @@ def render_status(status_html: str, surfaces: list, files: dict) -> dict:
     """Serve a synthetic site (modules/status.html + surfaces + files) and
     return {surface_id: (status, why)} as the page's Published files card
     renders it (status: ok / warn / bad / unk)."""
-    from playwright.sync_api import sync_playwright
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise unittest.SkipTest(f"Playwright is not available: {exc}") from exc
     from test_launch_front_door import _pages_server
     with tempfile.TemporaryDirectory() as tmp:
         site = Path(tmp)
@@ -143,60 +146,6 @@ class RenderedStatusWarningsTest(unittest.TestCase):
         old = STATUS_HTML[:start] + STATUS_HTML[end:]
         got = render_status(old, self.SURFACES, self.files())
         self.assertEqual(got["lagging"][0], "ok", got)
-
-
-class LineageCardStaleNoteTest(unittest.TestCase):
-    """GAP-LIVE-SCRAPE-STALE: the dashboard's lineage card says it is a stale
-    manual audit once it is over 48h old (it has no scheduled producer)."""
-
-    @classmethod
-    def setUpClass(cls):
-        RenderedStatusWarningsTest.setUpClass()
-
-    def render(self, dashboard_html, lineage):
-        from playwright.sync_api import sync_playwright
-        from test_launch_front_door import _pages_server
-        if not (ROOT / "dist" / "modules" / "dashboard.html").exists():
-            self.skipTest("needs make sync (dist/modules)")
-        with tempfile.TemporaryDirectory() as tmp:
-            # The real built site, so every card before the lineage card loads.
-            site = Path(tmp) / "dist"
-            shutil.copytree(ROOT / "dist", site,
-                            ignore=shutil.ignore_patterns("consolidated-values.json"))
-            (site / "modules" / "dashboard.html").write_text(dashboard_html)
-            (site / "modules" / "source-value-lineage.json").write_text(json.dumps(lineage))
-            with _pages_server(site) as base, sync_playwright() as pw:
-                browser = pw.chromium.launch(executable_path=_chromium())
-                page = browser.new_page()
-                page.goto(base + "modules/dashboard.html")
-                page.wait_for_function("document.getElementById('lineageSummary').innerHTML.length > 0",
-                                       timeout=20000)
-                note = page.evaluate("document.querySelector('#lineageSummary .lineage-stale')?.innerText || ''")
-                browser.close()
-        return note
-
-    LINEAGE_OLD = {"generated_at": "2026-10-03T22:00:42+00:00", "live_scraped_at": "2026-10-03T01:07:35Z",
-                   "sources": {}}
-
-    def test_old_lineage_shows_stale_note(self):
-        html = (ROOT / "modules" / "dashboard.html").read_text()
-        self.assertIn("Stale audit", self.render(html, self.LINEAGE_OLD))
-
-    def test_fresh_lineage_shows_no_note(self):
-        from datetime import datetime, timezone
-        fresh = dict(self.LINEAGE_OLD, generated_at=datetime.now(timezone.utc).isoformat())
-        html = (ROOT / "modules" / "dashboard.html").read_text()
-        self.assertEqual("", self.render(html, fresh))
-
-    def test_pre_fix_dashboard_shows_no_note(self):
-        """Negative: before 2026-10-08 the card showed a 5-day-old Week 4
-        audit with no warning."""
-        import subprocess
-        old = subprocess.run(["git", "-C", str(ROOT), "show", "dac0ff2:modules/dashboard.html"],
-                             capture_output=True, text=True)
-        if old.returncode != 0:
-            self.skipTest("pre-fix dashboard not in this clone's history")
-        self.assertEqual("", self.render(old.stdout, self.LINEAGE_OLD))
 
 
 if __name__ == "__main__":

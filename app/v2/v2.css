@@ -18,6 +18,9 @@
   --v2-index-bg: #EAF1FB;
   --v2-index-border: #C9D9F1;
   --v2-index-ink: #1F5FBF;
+  --v2-action-strong: #066B4C;   /* action text on a tint: 4.5:1 on --v2-positive */
+  --v2-tint-border: #CFE7DB;
+  --v2-brush-fill: #D7EEE3;
   --v2-radius-card: 12px;
   --v2-radius-btn: 8px;
 }
@@ -27,6 +30,7 @@
     --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
     --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
+    --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
   }
 }
 :root[data-theme="dark"] {
@@ -34,6 +38,7 @@
   --v2-border: #2A3833; --v2-action: #2FA57B; --v2-positive: #183329; --v2-negative: #E07A8A;
   --v2-older: #D9944E; --v2-nav: #0A110F; --v2-rank-tint: #1A2E26;
     --v2-hover: #1B2A25; --v2-hover-rank: #21382F; --v2-index-bg: #17253A; --v2-index-border: #2C4466; --v2-index-ink: #8DB4F0;
+    --v2-action-ink: #06140F; --v2-action-strong: #5CCB9F; --v2-tint-border: #2C5A47; --v2-brush-fill: #1F4536;
 }
 
 body.v2 { margin: 0; background: var(--v2-canvas); color: var(--v2-ink); }
@@ -88,7 +93,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-select[aria-pressed="true"] { background: var(--v2-positive); border-color: var(--v2-action); color: var(--v2-action); }
 .v2-search input { cursor: text; width: 100%; }
 .v2-field { display: inline-flex; align-items: center; }
-.v2-field-rank { background: var(--v2-positive); border: 1px solid #CFE7DB; border-radius: var(--v2-radius-btn); padding-left: 14px; color: var(--v2-action); }
+.v2-field-rank { background: var(--v2-positive); border: 1px solid var(--v2-tint-border); border-radius: var(--v2-radius-btn); padding-left: 14px; color: var(--v2-action); }
 .v2-field-rank select { border: 0; background: transparent; color: var(--v2-action); font-weight: 600; }
 .v2-field-label { font-size: 13px; white-space: nowrap; }
 
@@ -98,7 +103,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-chip-row { display: flex; gap: 8px; flex-wrap: wrap; }
 .v2-source-chips { flex: 1; }
 .v2-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: 999px; padding: 5px 14px; font-size: 12px; min-height: 32px; cursor: pointer; white-space: nowrap; }
-.v2-chip.is-on { background: var(--v2-positive); border-color: #BFDFCF; color: var(--v2-action); }
+.v2-chip.is-on { background: var(--v2-positive); border-color: var(--v2-tint-border); color: var(--v2-action); }
 .v2-chip.is-indexed.is-on { background: var(--v2-index-bg); border-color: var(--v2-index-border); color: var(--v2-index-ink); }
 .v2-chip.is-older { border-color: var(--v2-older); color: var(--v2-older); }
 .v2-chip[disabled] { opacity: .5; cursor: not-allowed; }
@@ -123,7 +128,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-legend svg { overflow: visible; }
 .v2-seg { display: inline-flex; gap: 6px; }
 .v2-seg button { border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 8px 16px; min-height: 40px; cursor: pointer; }
-.v2-seg button.is-on { background: var(--v2-action); border-color: var(--v2-action); color: #fff; font-weight: 600; }
+.v2-seg button.is-on { background: var(--v2-action); border-color: var(--v2-action); color: var(--v2-action-ink); font-weight: 600; }
 
 .v2-chart { position: relative; height: 340px; margin-top: 8px; outline: none; }
 .v2-chart-small { height: 220px; }
@@ -142,7 +147,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-brush-labels { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--v2-muted); }
 .v2-brush-track { position: relative; height: 44px; }
 .v2-brush-track::before { content: ""; position: absolute; left: 0; right: 0; top: 14px; height: 16px; background: var(--v2-canvas); border: 1px solid var(--v2-border); border-radius: 4px; }
-.v2-brush-fill { position: absolute; top: 14px; height: 16px; background: #D7EEE3; border: 1px solid var(--v2-action); border-radius: 4px; }
+.v2-brush-fill { position: absolute; top: 14px; height: 16px; background: var(--v2-brush-fill); border: 1px solid var(--v2-action); border-radius: 4px; }
 .v2-brush-track input[type=range] { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 44px; margin: 0; background: none; pointer-events: none; -webkit-appearance: none; appearance: none; }
 .v2-brush-track input[type=range]::-webkit-slider-thumb { pointer-events: auto; -webkit-appearance: none; width: 14px; height: 30px; border-radius: 4px; background: var(--v2-action); border: 2px solid var(--v2-surface); cursor: ew-resize; }
 .v2-brush-track input[type=range]::-moz-range-thumb { pointer-events: auto; width: 12px; height: 28px; border-radius: 4px; background: var(--v2-action); border: 2px solid var(--v2-surface); cursor: ew-resize; }
@@ -353,7 +358,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-dhead { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; padding-bottom: 16px; border-bottom: 1px solid var(--v2-border); }
 .v2-dhead .v2-meta { font-size: 13px; margin-top: 4px !important; }
 .v2-app .v2-drawer .close { position: static; flex: none; width: 44px; padding: 0; font-size: 16px; }
-.v2-dhero { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--v2-positive); border: 1px solid #CFE7DB; border-radius: var(--v2-radius-card); padding: 16px; margin-top: 16px; }
+.v2-dhero { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; background: var(--v2-positive); border: 1px solid var(--v2-tint-border); border-radius: var(--v2-radius-card); padding: 16px; margin-top: 16px; }
 .v2-dhero .v2-eyebrow { color: var(--v2-action); }
 .v2-app .v2-dhero-value { font-size: 40px; font-weight: 800; line-height: 1.1; color: var(--v2-action); font-variant-numeric: tabular-nums; margin-top: 4px !important; }
 .v2-dhero-value .missing { font-size: 20px; color: var(--v2-muted); }
@@ -550,7 +555,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-pseg { display: flex; flex-wrap: wrap; gap: 8px; }
 .v2-pseg button { flex: 1 1 0; min-width: 88px; min-height: 44px; border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); cursor: pointer; padding: 8px 12px; }
 .v2-pseg button.is-on { background: var(--v2-positive); border-color: var(--v2-action); color: var(--v2-action); font-weight: 700; }
-.v2-psummary { display: flex; flex-direction: column; gap: 2px; background: var(--v2-positive); border: 1px solid #CFE7DB; border-radius: var(--v2-radius-btn); padding: 12px 14px; margin-top: 10px; color: var(--v2-action); }
+.v2-psummary { display: flex; flex-direction: column; gap: 2px; background: var(--v2-positive); border: 1px solid var(--v2-tint-border); border-radius: var(--v2-radius-btn); padding: 12px 14px; margin-top: 10px; color: var(--v2-action); }
 .v2-pblock { border-bottom: 1px solid var(--v2-border); padding: 14px 0; }
 .v2-pblock-top { display: grid; grid-template-columns: 1fr auto; gap: 0 12px; align-items: baseline; }
 .v2-pblock-top h3 { margin: 0; font-size: 16px; font-weight: 700; }
@@ -612,3 +617,9 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-brush-bounds .v2-btn { margin-left: auto; }
 .v2-seg .v2-chart-options { min-width: 44px; }
 .v2-popover .row2[hidden] { display: none; }
+
+/* UX pass 2 (2026-10-08): action text on tints uses the stronger green (4.5:1 in both themes). */
+.v2-chip.is-on, .v2-field-rank, .v2-field-rank select, .v2-psummary, .v2-psplit, .v2-dhero .v2-eyebrow, .v2-pseg button.is-on,
+.v2-app .v2-btn-soft, .v2-added, .v2-pill, .v2-app .v2-dhero-value, .v2-pbig { color: var(--v2-action-strong); }
+.v2-skip { position: absolute; left: 16px; top: -60px; z-index: 80; background: var(--v2-surface); color: var(--v2-ink); border: 2px solid var(--v2-focus); border-radius: var(--v2-radius-btn); padding: 10px 16px; font-weight: 600; text-decoration: none; }
+.v2-skip:focus { top: 8px; }

@@ -30,7 +30,7 @@ from datetime import date
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import article_discovery as ad
-from _common import fetch, nfl_week, today_ct, REPO
+from _common import content_week, fetch, today_ct, REPO
 
 SECTION_SLUG = "trade-value-chart-week-%d-ros-rankings"
 # NOTE (2026-10-02): USA Today changed the article slug between week 3 and
@@ -96,7 +96,7 @@ def discover_url(week=None, fetch_fn=fetch, llm_fn=None):
     week-N slug, newest week first. Raises DiscoveryFailed (fail closed)
     when nothing is found — never silently reuses a stale pinned URL.
     """
-    week = week or nfl_week()
+    week = week or content_week()
     today = today_ct()
     tried = []
     months = ((today.year, today.month),

@@ -39,7 +39,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
-from nfl_week import current_nfl_week as nfl_week  # noqa: E402  -- content week
+from nfl_week import content_week  # noqa: E402
 
 API = "https://api.fantasycalc.com/values/current?isDynasty=false&numQbs={qbs}&numTeams=12&ppr={ppr}"
 QB_SLOTS = (1, 2)  # 1 = the saved 1-QB setup; 2 = FantasyCalc's superflex lists
@@ -83,7 +83,7 @@ def main(argv: list[str] | None = None, fetch_fn=fetch) -> int:
     ap.add_argument("--cache-dir", type=Path, required=True)
     ap.add_argument("--week", type=int, default=None, help="default: content week (pipelines/nfl_week.py)")
     args = ap.parse_args(argv)
-    week = args.week or nfl_week()
+    week = args.week or content_week()
     fetched_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
 
     lists = {s: to_rows(fetch_fn(fantasycalc_url(s))) for s in SCORINGS}

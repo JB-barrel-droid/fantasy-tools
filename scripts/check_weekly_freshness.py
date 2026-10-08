@@ -23,9 +23,13 @@ if os.path.isdir(SKILL_BIN):
 sys.path.insert(0, "/opt/hatch/skills/skill-creator/bin")
 import sbclient  # noqa: E402
 
-# 2026 season anchor: Thursday of week 1. BUMP EVERY AUGUST (runbook).
-SEASON = 2026
-WEEK1_THURSDAY = dt.date(2026, 9, 10)
+# The calendar is pipelines/nfl_week.py (one week rule). This dashboard is
+# labelled by GAME week (Thursday flip): the week whose games it covers.
+# BUMP the season there every August (runbook).
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipelines"))
+import nfl_week  # noqa: E402
+
+SEASON = nfl_week.SEASON
 RUN_MAX_AGE_DAYS = 8
 BUNDLE_MAX_AGE_DAYS = 8
 
@@ -43,7 +47,7 @@ def expected_week(today):
     the prior week (Monday-night games may just have concluded); from
     Wednesday the current week must be published.
     """
-    raw = 1 + (today - WEEK1_THURSDAY).days // 7
+    raw = nfl_week.game_week(today)
     if today.weekday() in (0, 1):  # Mon, Tue
         return {raw - 1, raw}
     return {raw}
