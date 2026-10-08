@@ -390,6 +390,15 @@ Measured on a local `make sync` build, headless Chromium, CPU slowed 4×:
 - Not changed (back-end lane): the 1 MB inline `players-data` island (129 KB gzipped) and the 2.3 MB
   comparison file itself.
 
+## League panel follow-ups (2026-10-08, JEG-442 / JEG-444)
+
+- SUPERFLEX stepper (0–1) in Your league, on the engine's own `SUPERFLEX` roster slot (added by the
+  superflex merge); the roster line names it when it is set. BE-2 now asks only for a position-share
+  setter (JEG-452).
+- A league change that moves the bench share says so ("Bench share moved from X% to Y% …"). Today the
+  engine's feasible range is 1–30% at every roster, so this does not fire with real settings; the test
+  simulates a re-clamp.
+
 ## Back-end requests
 
 **BE-1 · Prior-week values (blocks Risers & fallers, frames 05/06, and every Δ prior week).**

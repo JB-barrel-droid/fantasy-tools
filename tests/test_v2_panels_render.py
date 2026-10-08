@@ -9,7 +9,8 @@ headless at 1440 and 390. Every check reads the engine back
     discards; an empty draft cannot be applied ("Choose at least one");
     an unavailable pair is disabled; full screen at 390;
   * Your league (12): steppers and segmented buttons are a draft; Apply sets
-    getRosterShape() / getState().teams; Reset defaults returns to the
+    getRosterShape() / getState().teams, SUPERFLEX included; a change that
+    moves the bench share says so (JEG-444); Reset defaults returns to the
     first-load league;
   * Weights & bench (11): position shares equal getPositionWeights(); Apply
     sets getBenchShare() to the slider's value;
@@ -148,6 +149,25 @@ def check_league(page) -> list[str]:
     line = page.text_content("#v2RosterLine")
     if f"{now['shape']['WR']} WR" not in line:
         errors.append(f"league: roster line {line!r} does not follow the engine")
+    # SUPERFLEX (engine slot 0–1): the stepper reaches setRosterSpot on Apply, the roster line names it.
+    page.click("#v2EditLeague")
+    if page.locator('#v2Popover [aria-label="More SUPERFLEX"]').count():
+        page.click('#v2Popover [aria-label="More SUPERFLEX"]')
+    page.click('#v2Popover [data-apply="league"]')
+    sf = page.evaluate("() => window.TradeValueCurveControls.getRosterShape().SUPERFLEX")
+    if sf != 1 or "1 SUPERFLEX" not in page.text_content("#v2RosterLine"):
+        errors.append(f"league: SUPERFLEX stepper gave engine {sf}, roster line {page.text_content('#v2RosterLine')!r}")
+    # JEG-444: a league change that moves the bench share says so. Today's feasible range does not
+    # depend on the roster, so the test makes the engine re-clamp on the next team change.
+    page.evaluate("""() => { const C = window.TradeValueCurveControls; const setTeams = C.setTeams;
+      C.setTeams = t => { setTeams(t); C.setBenchShareFraction(0.2); }; }""")
+    page.click("#v2EditLeague")
+    page.click('#v2Popover .v2-pseg button[data-value="14"]')
+    page.click('#v2Popover [data-apply="league"]')
+    toast = page.evaluate("() => document.getElementById('v2Status').hidden ? '' : document.getElementById('v2Status').textContent")
+    if "Bench share moved from 15.0% to 20.0%" not in toast:
+        errors.append(f"league: bench re-clamp not reported: {toast!r}")
+    page.evaluate("() => window.TradeValueCurveControls.setBenchShareFraction(0.15)")
     page.click("#v2EditLeague")
     page.click("#v2Popover .v2-preset")
     page.click('#v2Popover [data-apply="league"]')
@@ -314,6 +334,11 @@ class PanelsRenderTest(unittest.TestCase):
             "zone preset ignored": v2.replace("    const zone = zoneWindow(rows, state.windowPreset);", "    const zone = null;", 1),
             "Team box ignored": v2.replace("].filter(col => state.metaCols[col.id] !== false);", "];", 1),
             "From / To ignored": v2.replace('$("v2ToRank").addEventListener("change", onBounds);', "", 1),
+            "no SUPERFLEX stepper": v2.replace(
+                '    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];', '    ["BENCH", "Bench slots", 0, 14]];', 1),
+            "bench move not reported": v2.replace(
+                "    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {",
+                "    if (false) {", 1),
             "league Apply does nothing": v2.replace(
                 "          ROSTER_SLOTS.forEach(([key]) => { if (draft.roster[key] !== shape[key]) C.setRosterSpot(key, draft.roster[key]); });",
                 "", 1),

@@ -94,7 +94,8 @@ def check(snap) -> list[str]:
     league = f"{SCORING.get(state['scoring'], state['scoring'])} · {state['teams']} teams"
     if snap["league"] != league:
         errors.append(f"league line {snap['league']!r} != engine {league!r}")
-    line = f"{roster['QB']} QB · {roster['RB']} RB · {roster['WR']} WR · {roster['TE']} TE · {roster['FLEX']} FLEX · {roster['BENCH']} BN"
+    superflex = f"{roster['SUPERFLEX']} SUPERFLEX · " if roster.get("SUPERFLEX") else ""
+    line = f"{roster['QB']} QB · {roster['RB']} RB · {roster['WR']} WR · {roster['TE']} TE · {roster['FLEX']} FLEX · {superflex}{roster['BENCH']} BN"
     if snap["rosterLine"] != line:
         errors.append(f"roster line {snap['rosterLine']!r} != engine {line!r}")
     want_weights = " · ".join(f"{p} {float(snap['weights'][p]) * 100:.1f}%" for p in ("QB", "RB", "WR", "TE"))

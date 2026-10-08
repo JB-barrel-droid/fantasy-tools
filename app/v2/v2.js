@@ -256,7 +256,8 @@
     const scoring = {standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"}[s.scoring] || s.scoring;
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
     const r = view.roster;
-    $("v2RosterLine").textContent = `${r.QB} QB · ${r.RB} RB · ${r.WR} WR · ${r.TE} TE · ${r.FLEX} FLEX · ${r.BENCH} BN`;
+    $("v2RosterLine").textContent = `${r.QB} QB · ${r.RB} RB · ${r.WR} WR · ${r.TE} TE · ${r.FLEX} FLEX · `
+      + `${r.SUPERFLEX ? `${r.SUPERFLEX} SUPERFLEX · ` : ""}${r.BENCH} BN`;
     const older = view.active.some(key => view.infoByKey[key]?.stale);
     // Frame 18 "partial source failure": a selected series the engine cannot price right now.
     const failing = view.active.filter(key => !view.infoByKey[key]?.available);
@@ -1290,21 +1291,30 @@
 
   // Frame 18: when a league change makes a selected series unavailable, say which one was dropped.
   let statusTimer = null;
+  // JEG-444: when the new league's feasible bench range moves the bench share, say so too.
   function leagueChange(apply) {
     const before = C.getActiveSources();
+    const benchBefore = C.getBenchShare();
     apply();
     refresh();
     const after = new Set(C.getActiveSources());
     const dropped = before.filter(key => !after.has(key));
-    if (!dropped.length) return;
-    setStatus(`Removed ${dropped.map(key => sourceMeta(key).short).join(", ")}: not available for this league.`);
+    const benchAfter = C.getBenchShare();
+    const notes = [];
+    if (dropped.length) notes.push(`Removed ${dropped.map(key => sourceMeta(key).short).join(", ")}: not available for this league.`);
+    if (Number.isFinite(benchBefore) && Number.isFinite(benchAfter) && Math.abs(benchAfter - benchBefore) > 1e-9) {
+      notes.push(`Bench share moved from ${(benchBefore * 100).toFixed(1)}% to ${(benchAfter * 100).toFixed(1)}% to stay inside this league's feasible range.`);
+    }
+    if (!notes.length) return;
+    setStatus(notes.join(" "));
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 6000);
   }
 
   // ---------- 12 Your league ----------
   let leagueDefaults = null;   // the engine's state at first load: what "Reset defaults" returns to
-  const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5], ["BENCH", "Bench slots", 0, 14]];
+  const ROSTER_SLOTS = [["QB", "QB", 1, 5], ["RB", "RB", 1, 5], ["WR", "WR", 1, 5], ["TE", "TE", 1, 5], ["FLEX", "FLEX", 1, 5],
+    ["SUPERFLEX", "SUPERFLEX", 0, 1], ["BENCH", "Bench slots", 0, 14]];
   function openLeague() {
     const s = view.state;
     const draft = {scoring: s.scoring, teams: s.teams, roster: {...C.getRosterShape()}};
@@ -1351,7 +1361,7 @@
         });
         const note = document.createElement("p");
         note.className = "v2-meta";
-        note.textContent = "Position weights and bench allocation live in Weights & bench. Superflex leagues are not supported yet.";
+        note.textContent = "SUPERFLEX is a QB-eligible slot filled after the dedicated slots. Position weights and bench allocation live in Weights & bench.";
         content.appendChild(note);
       }
       render();
