@@ -7,11 +7,17 @@ DDA), per player per chart, on the engine's own rows. These checks pin:
   * a missing value on either side gives no gap (null + reason), never 0, and a
     player without our value is left out and counted;
   * VORP vs waivers (a different unit) is never paired with anything;
-  * older-week charts are left out unless asked for.
+  * older-week charts are left out unless asked for;
+  * our value can be any projection-derived series (ESPN default, CBS
+    rest-of-season, Razzball), read from that series only; an unavailable one
+    is offered disabled with a reason (Jeremy, 2026-10-07);
+  * a chart value at or below that chart's waiver line (0 after indexing) is
+    never a buy target and gets no gap (Jeremy, 2026-10-07).
 
 Discrimination: test_checks_fail_on_broken_builds runs the same checks against
 mutated copies of targets.js (sign flipped, missing read as 0, older weeks
-included by default) and requires every one to fail.
+included by default, missing ours read as 0, waiver rule removed, chosen series
+ignored, unavailable series offered as available) and requires every one to fail.
 """
 from __future__ import annotations
 
@@ -27,11 +33,15 @@ TARGETS_JS = ROOT / "app" / "v2" / "targets.js"
 CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 
 ROWS = [
-    {"player_key": 1, "name": "A", "values": {"espn": 10.0, "usatoday": 15.0, "fantasycalc": 8.0, "fantasypros": None, "cbs": 12.0}},
+    {"player_key": 1, "name": "A", "values": {"espn": 10.0, "cbsros": 14.0, "usatoday": 15.0, "fantasycalc": 8.0, "fantasypros": None, "cbs": 12.0}},
     {"player_key": 2, "name": "B", "values": {"espn": None, "usatoday": 30.0}},
     {"player_key": 3, "name": "C", "values": {"espn": 20.0, "usatoday": 20.0}},
     {"player_key": 4, "name": "D", "values": {"espn": 5.0, "fantasycalc": 25.0, "espn_vorp": 99.0}},
-    {"player_key": 5, "name": "E", "values": {"espn": 30.0, "usatoday": 10.0, "espn_vorp": 1.0}},
+    {"player_key": 5, "name": "E", "values": {"espn": 30.0, "cbsros": 5.0, "usatoday": 10.0, "espn_vorp": 1.0}},
+    # F: USA Today puts F at its waiver line (0); FantasyCalc still pays 9 < 12.
+    {"player_key": 6, "name": "F", "values": {"espn": 12.0, "usatoday": 0.0, "fantasycalc": 9.0}},
+    # G: the only chart has G at its waiver line: never a buy target.
+    {"player_key": 7, "name": "G", "values": {"espn": 8.0, "usatoday": 0.0}},
 ]
 INFO = [
     {"key": "espn", "available": True, "stale": False},
@@ -39,6 +49,8 @@ INFO = [
     {"key": "fantasycalc", "available": True, "stale": False, "week": 5},
     {"key": "fantasypros", "available": False, "stale": False, "paused": True},
     {"key": "cbs", "available": True, "stale": True, "week": 4},
+    {"key": "cbsros", "available": True, "stale": False},
+    {"key": "razzball", "available": False, "stale": False},
 ]
 
 HARNESS = """
@@ -47,8 +59,11 @@ const input = JSON.parse(process.argv[2]);
 const r = T.buildTargets(input.rows, input.charts);
 const brief = p => ({key: p.row.player_key, ours: p.ours, cells: p.cells,
   bestSell: p.bestSell, bestBuy: p.bestBuy});
+const c = T.buildTargets(input.rows, input.charts, {ours: "cbsros"});
 console.log(JSON.stringify({
   sell: r.sell.map(brief), buy: r.buy.map(brief), compared: r.compared, omitted: r.omittedNoOurs,
+  cbsros: {ours: c.ours, sell: c.sell.map(brief), buy: c.buy.map(brief), omitted: c.omittedNoOurs},
+  choices: T.ourChoices(input.info), ourKeys: T.OUR_KEYS,
   defaultCharts: T.chartsToCompare(input.info, {}),
   olderCharts: T.chartsToCompare(input.info, {includeOlder: true}),
   onlyCharts: T.chartsToCompare(input.info, {only: "fantasycalc"}),
@@ -75,8 +90,19 @@ def check(result: dict) -> list[str]:
     buy = [(p["key"], p["bestBuy"]) for p in result["buy"]]
     if sell != [(4, {"chart": "fantasycalc", "gap": 20.0}), (1, {"chart": "usatoday", "gap": 5.0})]:
         errors.append(f"sell list wrong (chart pays more = positive gap, largest first): {sell}")
-    if buy != [(5, {"chart": "usatoday", "gap": -20.0}), (1, {"chart": "fantasycalc", "gap": -2.0})]:
-        errors.append(f"buy list wrong (chart pays less = negative gap, most negative first): {buy}")
+    if buy != [(5, {"chart": "usatoday", "gap": -20.0}), (6, {"chart": "fantasycalc", "gap": -3.0}),
+               (1, {"chart": "fantasycalc", "gap": -2.0})]:
+        errors.append(f"buy list wrong (chart pays less = negative gap, most negative first; "
+                      f"a chart at its waiver line is never a buy): {buy}")
+    for p in result["buy"]:
+        for chart, cell in p["cells"].items():
+            if cell["value"] is not None and cell["value"] <= 0 and (cell["gap"] is not None or not cell.get("atWaiver")):
+                errors.append(f"{p['key']}/{chart}: chart value at the waiver line must have no gap: {cell}")
+        best = p["cells"][p["bestBuy"]["chart"]]["value"]
+        if best is None or best <= 0:
+            errors.append(f"{p['key']}: buy target from a chart at its waiver line ({best})")
+    if 7 in {p["key"] for p in result["buy"] + result["sell"]}:
+        errors.append("G is at the only chart's waiver line: never a target")
     a = next((p for p in result["sell"] if p["key"] == 1), None)
     if a is None:
         errors.append("player A missing from sell list")
@@ -86,7 +112,7 @@ def check(result: dict) -> list[str]:
             errors.append(f"missing chart value must be null gap + reason, never 0: {cell}")
         if a["cells"]["cbs"]["gap"] != 2.0 or a["cells"]["usatoday"]["gap"] != 5.0:
             errors.append(f"per-chart gaps wrong for A: {a['cells']}")
-    if result["omitted"] != 1 or result["compared"] != 4:
+    if result["omitted"] != 1 or result["compared"] != 6:
         errors.append(f"player without our value must be left out and counted: omitted={result['omitted']} compared={result['compared']}")
     every = result["sell"] + result["buy"]
     if any("espn_vorp" in p["cells"] for p in every):
@@ -102,6 +128,20 @@ def check(result: dict) -> list[str]:
         errors.append(f"older-week opt-in wrong: {result['olderCharts']}")
     if result["onlyCharts"]["used"] != ["fantasycalc"]:
         errors.append(f"single-chart filter wrong: {result['onlyCharts']}")
+    if result["ourKeys"] != ["espn", "cbsros", "razzball"]:
+        errors.append(f"our value choices must be the three projection-derived series: {result['ourKeys']}")
+    cb = result["cbsros"]
+    cb_sell = [(p["key"], p["ours"], p["bestSell"]) for p in cb["sell"]]
+    cb_buy = [(p["key"], p["ours"], p["bestBuy"]) for p in cb["buy"]]
+    if (cb["ours"] != "cbsros" or cb_sell != [(5, 5.0, {"chart": "usatoday", "gap": 5.0}), (1, 14.0, {"chart": "usatoday", "gap": 1.0})]
+            or cb_buy != [(1, 14.0, {"chart": "fantasycalc", "gap": -6.0})] or cb["omitted"] != 5):
+        errors.append(f"our value = CBS rest-of-season must read the cbsros series only: {cb}")
+    choices = {c["key"]: c for c in result["choices"]}
+    if not choices.get("espn", {}).get("available") or not choices.get("cbsros", {}).get("available"):
+        errors.append(f"available series must be offered: {choices}")
+    rz = choices.get("razzball", {})
+    if rz.get("available") is not False or not rz.get("reason"):
+        errors.append(f"an unavailable series must be offered disabled with a reason: {rz}")
     return errors
 
 
@@ -109,8 +149,11 @@ MUTATIONS = {
     "sign flipped": ("const gap = value - ours;", "const gap = ours - value;"),
     "missing read as zero": ("const value = row.values[chart];", "const value = row.values[chart] ?? 0;"),
     "older weeks by default": ("else if (item.stale && !includeOlder)", "else if (false)"),
-    "missing ours read as zero": ("const ours = row.values ? row.values[OUR_KEY] : null;",
-                                  "const ours = (row.values && row.values[OUR_KEY]) || 0;"),
+    "missing ours read as zero": ("const ours = row.values ? row.values[ourKey] : null;",
+                                  "const ours = (row.values && row.values[ourKey]) || 0;"),
+    "waiver rule removed": ("if (value <= 0) {", "if (false) {"),
+    "chosen series ignored": ("const ourKey = (opts && opts.ours) || OUR_KEY;", "const ourKey = OUR_KEY;"),
+    "unavailable series offered": ("const available = Boolean(item && item.available);", "const available = true;"),
 }
 
 

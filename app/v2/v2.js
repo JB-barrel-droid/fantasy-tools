@@ -920,7 +920,9 @@
   // Every number here is read from the engine's rows; the one piece of
   // arithmetic (chart value − our value) lives in targets.js.
   const TARGETS_PAGE = 25;
-  const T = {side: "sell", search: "", chart: "all", includeOlder: false, shown: TARGETS_PAGE};
+  // ours: which projection-derived series is "our value". Module state, so the
+  // choice survives switching tabs like the engine-held selections do.
+  const T = {side: "sell", search: "", chart: "all", includeOlder: false, shown: TARGETS_PAGE, ours: "espn"};
   let targetsView = null;
 
   const fmtGap = gap => {
@@ -940,7 +942,9 @@
     const TT = window.TradeValueTargets;
     const info = sourceInfoWithFreshness();
     const infoByKey = Object.fromEntries(info.map(item => [item.key, item]));
-    const ours = infoByKey[TT.OUR_KEY];
+    const ourKey = TT.OUR_KEYS.includes(T.ours) ? T.ours : TT.OUR_KEY;
+    const ours = infoByKey[ourKey];
+    const choices = TT.ourChoices(info);
     // The published series are on the trade-value point scale only in the
     // engine's Indexed view; any other view would pair unlike units.
     const engineView = window.TradeValueCurveDiagnostics?.viewMode;
@@ -949,11 +953,13 @@
     const rows = C.getRows();
     rows.forEach((row, index) => { row.rank = index + 1; });
     const searched = rows.filter(row => !needle || String(row.name || "").toLowerCase().includes(needle));
-    const blocked = !ours || !ours.available ? "Our value (ESPN projections) is not available for this league right now."
+    // Fails closed: an unavailable choice is never swapped for another series.
+    const blocked = !ours || !ours.available ? `Our value (${TT.OUR_NAMES[ourKey]}) is not available for this league right now.`
       : engineView && engineView !== "indexed" ? "Published charts are not on the trade-value point scale in this view, so no gaps are shown."
       : null;
-    const result = blocked ? {sell: [], buy: [], compared: 0, omittedNoOurs: 0} : TT.buildTargets(searched, used);
-    targetsView = {...result, used, skipped, info, infoByKey, blocked, position: C.getState().position};
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0}
+      : TT.buildTargets(searched, used, {ours: ourKey});
+    targetsView = {...result, ours: ourKey, choices, used, skipped, info, infoByKey, blocked, position: C.getState().position};
   }
 
   function renderTargetControls() {
@@ -973,6 +979,16 @@
       select.appendChild(option);
     });
     select.value = T.chart;
+    const oursSelect = $("v2TOurs");
+    oursSelect.replaceChildren();
+    targetsView.choices.forEach(choice => {
+      const option = document.createElement("option");
+      option.value = choice.key;
+      option.disabled = !choice.available;
+      option.textContent = `${PUBLISHERS[choice.key].symbol} ${TT.OUR_NAMES[choice.key]}${choice.available ? "" : ` — ${choice.reason}`}`;
+      oursSelect.appendChild(option);
+    });
+    oursSelect.value = targetsView.ours;
     $("v2TOlder").checked = T.includeOlder;
     $("v2TPosition").value = targetsView.position;
     document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
@@ -1001,6 +1017,15 @@
     why.className = "why";
     why.textContent = short || reason;
     span.appendChild(why);
+    return span;
+  }
+
+  // A chart value at or below that chart's waiver line: shown, but no gap.
+  function waiverNode(reason) {
+    const span = document.createElement("span");
+    span.className = "why at-waiver";
+    span.title = reason;
+    span.textContent = "waiver line";
     return span;
   }
 
@@ -1036,7 +1061,7 @@
     head("Pos", "col-meta");
     head("Team", "col-meta");
     head("Tier", "col-meta");
-    head("Our value", "num is-rank", "ESPN · DDA");
+    head("Our value", "num is-rank", window.TradeValueTargets.OUR_SHORT[targetsView.ours]);
     targetsView.used.forEach(key => {
       const h = chartHeading(key);
       head(h.name, "num", h.week ? `${h.week} · gap vs ours` : "gap vs ours", key);
@@ -1074,6 +1099,9 @@
         c.dataset.chart = key;
         if (cell.value === null) {
           c.appendChild(missingNode(cell.reason, "not on chart"));
+        } else if (cell.atWaiver) {
+          c.append(document.createTextNode(fmt(cell.value)));
+          c.appendChild(waiverNode(cell.reason));
         } else {
           c.append(document.createTextNode(fmt(cell.value)));
           c.appendChild(gapNode(cell));
@@ -1133,7 +1161,10 @@
         span.dataset.chart = key;
         span.append(document.createTextNode(`${PUBLISHERS[key].label} `));
         if (cell.value === null) span.appendChild(missingNode(cell.reason, "not on chart"));
-        else {
+        else if (cell.atWaiver) {
+          span.append(document.createTextNode(fmt(cell.value)));
+          span.appendChild(waiverNode(cell.reason));
+        } else {
           span.append(document.createTextNode(fmt(cell.value)));
           span.appendChild(gapNode(cell));
         }
@@ -1150,7 +1181,7 @@
   function renderEspnZeroPaid() {
     const box = $("v2TEspnZero");
     const list = $("v2TEspnZeroList");
-    const items = T.side === "sell" && !targetsView.blocked ? (targetsView.espnZeroPaid || []) : [];
+    const items = T.side === "sell" && !targetsView.blocked && targetsView.ours === "espn" ? (targetsView.espnZeroPaid || []) : [];
     list.replaceChildren();
     items.forEach(item => {
       const li = document.createElement("li");
@@ -1200,7 +1231,10 @@
       notes.push(`Not compared: ${targetsView.skipped.map(s => `${PUBLISHER_NAMES[s.key]}, ${s.reason}`).join("; ")}.`);
     }
     if (targetsView.omittedNoOurs) {
-      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ESPN · DDA value for them.`);
+      notes.push(`${targetsView.omittedNoOurs} player${targetsView.omittedNoOurs === 1 ? "" : "s"} left out: we have no ${window.TradeValueTargets.OUR_SHORT[targetsView.ours]} value for them.`);
+    }
+    if (targetsView.atWaiverCells && !blocked) {
+      notes.push("A chart value of 0.0 is at that chart's waiver line for your league: never a buy, no gap.");
     }
     const note = $("v2TNote");
     note.hidden = !notes.length;
@@ -1208,6 +1242,7 @@
     const more = $("v2TShowMore");
     more.hidden = list.length <= T.shown;
     more.textContent = `Show more players (${Math.min(T.shown, list.length)} of ${list.length})`;
+    $("v2TOursNote").textContent = window.TradeValueTargets.OUR_NAMES[targetsView.ours];
     $("v2TMeta").textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · `
       + `gap = chart value − our value · largest gap first. `
       + (T.side === "sell" ? "Offer these players to managers who trade off that chart." : "Ask for these players from managers who trade off that chart.");
@@ -1222,6 +1257,7 @@
     $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); T.shown = TARGETS_PAGE; renderTargets(); });
     $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
     $("v2TOlder").addEventListener("change", event => { T.includeOlder = event.target.checked; renderTargets(); });
+    $("v2TOurs").addEventListener("change", event => { T.ours = event.target.value; T.shown = TARGETS_PAGE; renderTargets(); });
     document.querySelectorAll("#v2Targets [data-side]").forEach(button => {
       button.addEventListener("click", () => { T.side = button.dataset.side; T.shown = TARGETS_PAGE; renderTargets(); });
     });

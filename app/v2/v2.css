@@ -216,6 +216,8 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-ttable th { vertical-align: bottom; }
 .v2-table .missing .why, .v2-tcards .missing .why { display: block; font-size: 11px; font-weight: 400; }
 .v2-table td.best { font-size: 16px; }
+.v2-table .at-waiver { display: block; font-size: 11px; font-weight: 400; color: var(--v2-muted); }
+.v2-tcards .at-waiver { color: var(--v2-muted); }
 .v2-tcards { display: none; list-style: none; margin: 12px 0 0; padding: 0; }
 .v2-tcards li { border-top: 1px solid var(--v2-border); padding: 12px 0; cursor: pointer; }
 .v2-tcards .top { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
