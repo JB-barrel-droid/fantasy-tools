@@ -34,11 +34,9 @@ Locked decisions (Jeremy, 2026-09-21/22):
     never zero-filled or guessed.
 
 Identity: numeric player_key via the fixture's player_keys map
-(source-id -> canonical key). Four CSV spellings are verified aliases of
-canonical chart names (2026-09-19 waiver investigation, confirmed against
-Supabase players.full_name 2026-09-22): c Cameron Ward (697),
-'cameron skattebo' -> 'cam skattebo' (3664), 'travis etienne jr' ->
-'travis etienne' (810), 'michael pittman jr' -> 'michael pittman' (561).
+(source-id -> canonical key). Verified spelling aliases ('cameron ward' ->
+Cam Ward 697, 'mitch trubisky' -> Mitchell Trubisky 4214, ...) come from the
+one shared list, data/inputs/player_aliases.json (lib/player_aliases.py).
 Generational suffixes, punctuation and first-name nicknames are matched
 through the repo's single normalization rule (lib/canonical_players.
 norm_player_name) by FixtureIdentity below: 'kenneth walker' (CBS ROS,
@@ -86,6 +84,7 @@ from games_remaining import (  # noqa: E402
     load_byes, window_from_rows, games_in_window, BYES_PATH,
 )
 from canonical_players import norm_player_name  # noqa: E402 -- the single normalization rule
+import player_aliases  # noqa: E402 -- the single verified alias list
 
 # Reference league shape (mirrors the widget's TwoTier constants exactly).
 REF_SLOTS = {"QB": 1, "RB": 2, "WR": 3, "TE": 1}
@@ -96,27 +95,9 @@ BENCH_MIX_12 = {"QB": 10, "RB": 27, "WR": 33, "TE": 10}
 # Backward-compatible alias for the pre-rename constant name.
 REF_BENCH_SLOTS = BENCH_MIX_12
 
-# Verified spelling aliases: csv player_norm -> fixture player_keys id.
-# (Same humans; verified 2026-09-19, re-confirmed vs players.full_name.)
-ALIASES = {
-    "cameron ward": "cam ward",
-    "cameron skattebo": "cam skattebo",
-    "travis etienne jr": "travis etienne",
-    "michael pittman jr": "michael pittman",
-    # FantasyPros Week 5 chart spells him "Kenny Gainwell"; players table has a
-    # single "Kenneth Gainwell" (player_key 785, RB), verified 2026-10-07.
-    "kenny gainwell": "kenneth gainwell",
-    # Razzball ROS spellings (2026-10-06 save review rows). Each target is the
-    # only public.players row of that surname at that position (exact
-    # full_name check, read-only, 2026-10-08) and is the fixture slug:
-    # Josh Palmer 822 WR, Andrew Ogletree 920 TE, Chig Okonkwo 4247 TE,
-    # Mitchell Trubisky 4214 QB. No Joshua Palmer / Drew Ogletree /
-    # Chigoziem Okonkwo / Mitch Trubisky row exists.
-    "joshua palmer": "josh palmer",
-    "drew ogletree": "andrew ogletree",
-    "chigoziem okonkwo": "chig okonkwo",
-    "mitch trubisky": "mitchell trubisky",
-}
+# Verified spelling aliases live in ONE list, data/inputs/player_aliases.json,
+# read through lib/player_aliases.py by every resolver (savers, legs, bake,
+# matcher). Do not add a private map here (GAP-CBSROS-BAKE-IDENTITY).
 
 
 # A trailing generational suffix on a source spelling: the spelling itself
@@ -134,7 +115,7 @@ class FixtureIdentity:
     and slug disagreed (GAP-CBSROS-LIVE-POOL), while bake_players.py, which
     feeds the browser, resolves through norm_player_name and priced them.
 
-    Order: verified ALIASES, then the exact slug, then the slug's
+    Order: the shared verified alias list (lib/player_aliases), then the exact slug, then the slug's
     norm_player_name form (suffixes, punctuation and nicknames removed).
     Fail-closed: when the normalized form maps to more than one player_key
     in the row's position (or in any position when the fixture has no
@@ -188,19 +169,50 @@ class FixtureIdentity:
         return out
 
     def resolve(self, norm: str, pos: str | None = None) -> tuple[int | None, str, str | None]:
-        alias = ALIASES.get(norm)
-        target = alias or norm
-        exact = self.player_keys.get(target)
-        cands = self.candidates(target, pos)
+        hit = player_aliases.lookup(norm)
+        if hit is not None:
+            # A verified alias names one public.players row: price that key
+            # or nothing (never fall back to a name match on the alias).
+            key = hit["player_key"]
+            key_pos = self.key_pos.get(key)
+            if key in self.slug_by_key and (not pos or key_pos in (None, pos.upper())):
+                slug = self.slug_by_key[key]
+                return key, ("exact" if slug == norm else "alias"), (None if slug == norm else slug)
+            return None, "unresolved", None
+        exact = self.player_keys.get(norm)
+        cands = self.candidates(norm, pos)
         if len(cands) > 1:
-            if exact in cands and _GENERATIONAL_SUFFIX.search(target):
-                return exact, ("alias" if alias else "exact"), alias
-            return None, "ambiguous", alias
+            if exact in cands and _GENERATIONAL_SUFFIX.search(norm):
+                return exact, "exact", None
+            return None, "ambiguous", None
         if exact is not None and (not cands or exact in cands):
-            return exact, ("alias" if alias else "exact"), alias
+            return exact, "exact", None
         if len(cands) == 1:
-            return next(iter(cands)), ("alias" if alias else "normalized"), alias
-        return None, "unresolved", alias
+            return next(iter(cands)), "normalized", None
+        return None, "unresolved", None
+
+
+def write_leg_json(out_path: Path, leg: dict[str, Any]) -> dict[str, Any]:
+    """Write a DDF leg, keeping the file untouched when only generated_at differs.
+
+    The chain rebuilds every leg hourly and commits data/ddf-two-tier
+    (GAP-RAZZBALL-REFRESH-FOLLOWUPS (1)). An unchanged rebuild must not
+    rewrite the file: the commit stays empty and the section's lineage
+    (raw_built_at = the leg's generated_at) still names the committed leg.
+    Returns the leg as it is on disk.
+    """
+    out_path = Path(out_path)
+    if out_path.is_file():
+        try:
+            prior = json.loads(out_path.read_text(encoding="utf-8"))
+        except ValueError:
+            prior = None
+        if isinstance(prior, dict) and "generated_at" in prior and \
+                {k: v for k, v in prior.items() if k != "generated_at"} == \
+                {k: v for k, v in json.loads(json.dumps(leg)).items() if k != "generated_at"}:
+            return prior
+    out_path.write_text(json.dumps(leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    return leg
 
 
 def drop_duplicate_keys(resolved: dict[str, list[dict[str, Any]]],
@@ -739,7 +751,7 @@ def main() -> int:
     out_dir = args.output_dir / leg["bake_id"]
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "ddf_leg.json"
-    out_path.write_text(json.dumps(leg, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    leg = write_leg_json(out_path, leg)
     summary = leg["summary"]
     print(f"Built DDF leg {leg['bake_id']}: {summary['n_values']} values "
           f"({summary['n_starters']} starters / {summary['n_bench']} bench / "

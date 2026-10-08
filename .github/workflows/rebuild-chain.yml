@@ -320,6 +320,12 @@ jobs:
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true
+            # The DDF legs the published espn/cbsros/razzball sections were
+            # built from (held sources' legs were restored by the chain). An
+            # unchanged rebuild leaves the files untouched (write_leg_json), so
+            # this adds only new vintages / real changes
+            # (GAP-RAZZBALL-REFRESH-FOLLOWUPS (1)).
+            git add data/ddf-two-tier || true
             # The baked ESPN anchor ships only here: after the chain and its
             # `make validate` passed on it. Unchanged when no bake ran (or a
             # failed bake was restored), so these adds are then no-ops.
