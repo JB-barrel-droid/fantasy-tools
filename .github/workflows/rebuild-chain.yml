@@ -34,6 +34,17 @@ on:
         required: false
         default: "false"
 
+# One run at a time, queued, never cancelled mid-publish (refresh-cadence,
+# 2026-10-08). Two dispatches 24 s apart (12:59:55 and 13:00:19 UTC on
+# 2026-10-08) both rebuilt and the second push hit rebase conflicts on
+# generated files (run 37780929856). Change-driven dispatches go through
+# `source_probe.py dispatch-chain`, which skips when a run is already waiting,
+# so a burst of changes coalesces into one queued run and never replaces a
+# waiting one (GitHub cancels an older *pending* run in the group).
+concurrency:
+  group: rebuild-chain
+  cancel-in-progress: false
+
 permissions:
   contents: write  # needed to commit and push the rebuilt fixture
   actions: write  # needed to dispatch pages.yml via API (JEG-274)

@@ -67,7 +67,9 @@ jobs:
         if: steps.check.outputs.changed == 'True' || steps.check.outputs.code_changed == 'True'
         run: |
           echo "Changes detected - dispatching rebuild-chain.yml"
-          gh workflow run rebuild-chain.yml -f source="source-vintage-check"
+          # Coalesce: skip when a chain run is already waiting to start (it
+          # reads the latest data and code); see source_probe.dispatch_chain.
+          python3 pipelines/source_probe.py dispatch-chain --reason "source-vintage-check"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

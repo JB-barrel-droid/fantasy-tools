@@ -367,9 +367,12 @@ class OneQbReaders(unittest.TestCase):
 
     def test_source_vintage_reads_one_qb_rows(self):
         seen = []
-        saved = vintage_mod._get_supabase_rows
+        saved = vintage_mod._get_supabase_rows, vintage_mod._get_supabase_page
         vintage_mod._get_supabase_rows = lambda table, params: seen.append(params) or [
             {"week": 5, "bake_id": None, "source_content_date": None, "created_at": "x"}]
+        # The latest-week lookup (refresh-cadence) is a second read; it must
+        # carry the 1-QB filter too.
+        vintage_mod._get_supabase_page = lambda table, params: seen.append(params) or [{"week": 5}]
         try:
             for source in ("fantasycalc", "cbs"):
                 try:
@@ -377,7 +380,7 @@ class OneQbReaders(unittest.TestCase):
                 except SystemExit:
                     pass
         finally:
-            vintage_mod._get_supabase_rows = saved
+            vintage_mod._get_supabase_rows, vintage_mod._get_supabase_page = saved
         self.assertTrue(seen and all("qb_slots=eq.1" in p for p in seen), seen)
 
 

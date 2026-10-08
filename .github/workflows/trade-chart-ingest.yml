@@ -30,6 +30,10 @@ on:
         description: "NFL week (blank = the ingest's own week rule)"
         required: false
         default: ""
+      probe_fp:
+        description: "Set by source-probe.yml: the fingerprint to acknowledge on success (blank = manual run)"
+        required: false
+        default: ""
       url:
         description: "Explicit article URL (skips discovery; needs a single source; the exact-week gate still applies)"
         required: false
@@ -39,6 +43,7 @@ on:
 
 permissions:
   contents: read
+  actions: write  # dispatch the rebuild chain after a probe-driven change
 
 concurrency:
   group: trade-chart-ingest
@@ -151,3 +156,23 @@ jobs:
           })
           print("recorded ok=%s" % ok)
           PY
+
+      # Refresh cadence (source-probe.yml, pipelines/source_probe.py): acknowledge
+      # the probe fingerprint this run was dispatched for, so the probe stops
+      # re-dispatching it, and run the rebuild chain when the content is new.
+      # After the monitored-check step on purpose: an ack failure must not
+      # record the ingest itself as failed.
+      - name: Acknowledge probe fingerprint
+        id: ack
+        if: success() && github.event.inputs.probe_fp != '' && steps.cfg.outputs.mode == 'write' && github.event.inputs.source == matrix.source
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PROBE_FP: ${{ github.event.inputs.probe_fp }}
+        run: python3 pipelines/source_probe.py ack --supabase --source ${{ matrix.source }} --fingerprint "$PROBE_FP"
+
+      - name: Dispatch the rebuild chain on new content
+        if: success() && steps.ack.outputs.new_content == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 pipelines/source_probe.py dispatch-chain --reason "source-probe-${{ matrix.source }}"

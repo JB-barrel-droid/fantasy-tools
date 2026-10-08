@@ -407,3 +407,32 @@ parity, 2026-10-08):
   share used is one percentage point inside the window's lower edge (halving
   if the window is narrower), never the edge itself, where the bench rate is
   0 and the top starter takes an outsized share of the position pie.
+
+## Refresh Cadence (2026-10-08)
+
+Sources are re-read as often as they change, not on a blind timer. A cheap
+probe (`pipelines/source_probe.py`, `source-probe.yml`) fingerprints each source
+and the full scrape plus numbers check runs only when the fingerprint moved,
+when the last successful scrape is older than the source's max age (20 h;
+FantasyCalc 24 h), or when the probe could not read the source. The probe never
+changes a number itself: every value still comes from the full, fail-closed
+ingest and the rebuild chain's review and `make validate`.
+
+| Source | Change signal | Probe cadence (UTC) | Full ingest when |
+| --- | --- | --- | --- |
+| FantasyCalc | hash of the three 12-team 1-QB lists (API has no ETag) | hourly | changed and ≥ 6 h since the last save, or 24 h; plus fixed Tue + Fri 13:07 saves |
+| USA Today | the week's article, found by the ingest's own discovery, and its `<lastmod>` in USA Today's monthly sitemap | every 3 h Mon–Thu, 00:35 + 12:35 Fri–Sun | changed, or 20 h |
+| FantasyPros | the week's article, found by the ingest's own discovery: JSON-LD `dateModified` + tables hash | as USA Today | changed, or 20 h |
+| CBS | the week's article, found by the ingest's own discovery, on www.cbssports.com: `dateModified` + tables hash | as USA Today | changed, or 20 h |
+| ESPN | hash of the weekly projection blocks the puller sums | every 4 h, 03:25–23:25 | changed, or 20 h |
+| CBS rest of season | tables hash of the four stats pages | every 4 h | changed, or 20 h |
+| Razzball | the four pages' own "Updated:" stamps + tables hash | every 4 h | changed, or 20 h |
+
+An ingest the probe dispatched acknowledges its fingerprint on success; one
+that fails is retried at the next probe slot (after 50 min), at most four times
+per fingerprint, then once per max age. When an acknowledged fingerprint is new,
+the ingest dispatches the rebuild chain; the chain also runs when the hourly
+vintage check sees a new content date and once a day (11:45, with the ESPN
+anchor bake). Which saved version is a source's week-N snapshot for Δ is the
+week-over-week rule
+("Week-Over-Week Snapshots").

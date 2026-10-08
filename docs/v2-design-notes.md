@@ -532,6 +532,22 @@ value.
 | CBS ROS | — | — | 10-02 | — | W4 → no W3 saved |
 | Razzball | — | 09-22 | 10-01 | 10-06 | W3 (labelled W4) → no W2 saved |
 
+### Capture cadence (refresh-cadence lane, 2026-10-08)
+
+How the versions the week-N snapshot rule chooses from get saved (docs/methodology.md "Refresh
+Cadence"):
+
+- FantasyCalc: probed hourly; a changed list is saved at most every 6 h, plus the fixed Tuesday and
+  Friday 13:07 UTC saves. Every save is its own bake, `fcwk<N>_<YYYY-MM-DD>t<HHMM>_v1` (it was one
+  bake per UTC day, so a later same-day save overwrote the earlier one). The Tuesday 13:07 save
+  guarantees a pull at or after the 12:00 UTC cut; a probe-driven save between 12:00 and 13:07
+  can be the cut instead. `pulled_at` is set on every row.
+- Articles (USA Today, FantasyPros, CBS): probed every 3 h Monday to Thursday and every 12 h Friday
+  to Sunday, so a revision is saved within 3 h midweek. CBS is read from www.cbssports.com: the
+  sportsfly.cbsistatic.com mirror served a day-old revision on 2026-10-08.
+- Projections (ESPN, CBS ROS, Razzball): probed every 4 h with the last slot at 23:25 UTC, so a
+  Monday change is saved inside week N, and re-scraped at least every 20 h even when unchanged.
+
 ## Multi-device pass (2026-10-08)
 
 Swept every tab at 390, 768, 820, 1024 and 1440 in light and dark (`tests/test_v2_ux_render.py`).
