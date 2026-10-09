@@ -423,9 +423,12 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["keys"]["ddf_value_projections"], PROJECTIONS)
         self.assertEqual(out["series"]["ddf_value_projections"], PROJECTIONS)
-        self.assertEqual(out["keys"]["ddf_value_charts"], CHARTS)
+        # At the load setting (Full PPR / 12) the charts with saved views have
+        # no prior week (#448, VA-3) and sit out both weeks: every chart is
+        # either averaged or excluded with "no prior week".
+        self.assertTrue(set(out["keys"]["ddf_value_charts"]) <= set(CHARTS))
         self.assertEqual(out["series"]["ddf_value_charts"],
-                         ["fantasycalc_adj_values", "usatoday_adj_values", "fantasypros_adj_values", "cbs_adj_values"])
+                         [f"{k.replace('_adjusted', '')}_adj_values" for k in out["keys"]["ddf_value_charts"]])
         for version in VERSIONS:
             assert_pair_or_none(self, version, out["keys"][version], out["excluded"][version])
         self.assertTrue(set(PROJECTIONS) <= set(out["keys"]["ddf_value"]))
@@ -614,8 +617,12 @@ class DdfHeldSeriesTest(unittest.TestCase):
         base = self.unheld["loadByVersion"]
         members = {"ddf_value": INPUTS, "ddf_value_charts": CHARTS, "ddf_value_projections": PROJECTIONS}
         for version, info in out["loadByVersion"].items():
-            want = [k for k in base[version]["inputs"] if k != key]
-            self.assertEqual(info["inputs"], want, version)
+            self.assertNotIn(key, info["inputs"], version)
+            # The other inputs: as without the hold, unless the hold removed
+            # the only input with a prior week (then the version has none and
+            # averages every eligible input, methodology step 5).
+            if info["priorAvailable"]:
+                self.assertEqual(info["inputs"], [k for k in base[version]["inputs"] if k != key], version)
             if key in members[version]:
                 entry = {e["key"]: e for e in info["excluded"]}[key]
                 self.assertTrue(entry["reason"].startswith(reason_start), entry)
@@ -699,7 +706,10 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         self.assertEqual(out["load"]["held"], [])
         self.assertEqual(out["load"]["notPublished"], [])
-        self.assertIn("fantasycalc_adjusted", out["loadByVersion"]["ddf_value_charts"]["inputs"])
+        charts = out["loadByVersion"]["ddf_value_charts"]
+        reasons = {e["key"]: e["reason"] for e in charts["excluded"]}
+        for key in CHARTS:
+            self.assertTrue(key in charts["inputs"] or reasons.get(key, "").startswith("no prior week"), (key, reasons))
         self.assertNotIn("dropped", out["withHeld"])
 
 
