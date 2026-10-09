@@ -249,7 +249,12 @@ def resolve_identity(imap, name, pos, problems, registry=None):
     snapshot is a static file and missed active players ESPN projects
     (Joshua Palmer, Tyler Goodson, Austin Ekeler: GAP-USAT-SAVER-LEGACY-
     RESOLVER / JEG-480). The row is then labelled with the players table's
-    full_name, so every downstream resolver finds the same player_key."""
+    full_name, so every downstream resolver finds the same player_key, and
+    its player_norm is canonical_players.norm_plain(full_name), the label
+    convention the snapshot keys and the fixture slugs follow (suffix
+    dropped: "Anthony Tyus III" -> "anthony tyus"; the legacy norm_name kept
+    "iii" and broke tests.test_static_export's anchor join, chain run
+    37944395121)."""
     key = ident.norm_name(ident.shared_alias_spelling(name))
     canon = None
     if key in imap.alias_to_canonical:
@@ -270,7 +275,7 @@ def resolve_identity(imap, name, pos, problems, registry=None):
             full = registry.by_key[pkey]["full_name"]
             problems.append(f"canonical-identity: {name!r} ({pos}) -> "
                             f"player_key {pkey} {full!r}")
-            return ident.norm_name(full), full
+            return canonical_players.norm_plain(full), full
         problems.append(f"identity-unresolved: {name!r} ({pos}; canonical: {why})")
         return None
     if canon is None:
