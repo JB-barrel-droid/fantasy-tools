@@ -6,8 +6,9 @@
 // module and never reads a legacy fixture path directly.
 //
 // Contract spec: docs/contract/fe-read-contract-v1.md §8
-//   - Five semantic methods: getPlayerValues(), getPlayers(),
-//     getPlayerContext(), getProductOptions(), getSnapshot().
+//   - Semantic methods: getPlayerValues(), getPlayers(),
+//     getProductOptions(), getSnapshot(). (getPlayerContext(), the player
+//     news/adjustment context, was retired 2026-10-08 with the news artifact.)
 //   - initProductData() is fail-closed (contract_version mismatch,
 //     source_map_coverage failure, empty players, missing active snapshot).
 //
@@ -15,17 +16,17 @@
 // materialised (Roman applies the DDL in sql/contract/api_v1.sql separately
 // and runs `NOTIFY pgrst, 'reload schema'`). To keep the chart rendering
 // during the strangler-fig window, this adapter reads the legacy fixtures
-// (assets/comparison-sources-data.json, assets/player-news.json,
+// (assets/comparison-sources-data.json,
 // assets/adjustment-inputs.json, the #players-data inline island) and
 // projects them into the contract's frozen surface shapes. The fixture
-// paths remain ONLY here; consumers call into the five semantic methods.
+// paths remain ONLY here; consumers call into the semantic methods.
 //
 // Alignment with JEG-325 (consolidation-index.js): the per-cell value
 // lookups that JEG-325 already indexes are reused via the
 // window.TradeValueConsolidation.handle. This module owns the fixture
 // fetch + projection; consolidation-index owns the per-cell O(1) lookup.
 // When the contract api.* materialises, this module's reader swaps to PostgREST
-// without changing the five public methods.
+// without changing the public methods.
 
 (() => {
   "use strict";
@@ -39,12 +40,17 @@
   // strings must NOT appear anywhere in app/trade-value-chart/ except here.
   const LEGACY_PATHS = Object.freeze({
     detail: "assets/comparison-sources-data.json",
-    news: "assets/player-news.json",
     adjustments: "assets/adjustment-inputs.json",
     playersInlineId: "players-data",
   });
 
-  const FETCH_TIMEOUT_MS = 4000;
+  // JEG-484: same-origin static assets get no short timeout. A 4s timeout on
+  // a slow first load (backgrounded tab, slow network) silently dropped the
+  // adjustment inputs, and with them every *_adjusted series and 4 of DDF
+  // Value's 7 inputs. Each asset is retried with backoff instead; the
+  // per-attempt ceiling only guards against a connection that never ends.
+  const FETCH_ATTEMPT_TIMEOUT_MS = 60000;
+  const FETCH_RETRY_DELAYS_MS = Object.freeze([500, 1500]); // 3 attempts in all
 
   // Source keys verbatim from contract §3.4.2 (api.product_options.source_keys).
   const SOURCE_KEYS = Object.freeze([
@@ -76,6 +82,10 @@
   // Pure VORP keys (browser-computed from per-game projections).
   const PURE_VORP_KEYS = Object.freeze(["espn_vorp", "cbsros_vorp", "razzball_vorp"]);
 
+  // The anchor every other curve is indexed to; the only section whose absence
+  // refuses the render (GAP-MISSING-SECTION-REFUSES-RENDER).
+  const ANCHOR_SOURCE_KEY = "espn";
+
   // As-published sources (singleScale: true in normalizeToFixedPie).
   const AS_PUBLISHED_KEYS = Object.freeze(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
 
@@ -89,16 +99,17 @@
     initialized: false,
     initError: null,
     detail: null,            // raw legacy comparison-sources-data.json
-    news: null,              // raw legacy player-news.json
     adjustments: null,       // raw legacy adjustment-inputs.json
     players: [],             // canonical players from inline island
     playerByKey: new Map(),  // player_key -> player record
     playerKeysBySourceId: new Map(), // sourceId -> playerKey (legacy fixture)
     consolidation: null,     // reference to window.TradeValueConsolidation
+    missingSources: Object.freeze([]), // source sections absent from the fixture (dropped, not fatal)
     snapshot: null,          // contract-shaped api.product_snapshot
     options: null,           // contract-shaped api.product_options
     activeSnapshotId: null,
     freshness: null,         // JEG-432 R5 buildSourceFreshness() at load
+    loadStatus: {},          // JEG-484: asset name -> {ok, error, attempts}
   };
 
   // ---------- Fetch helpers ----------
@@ -139,6 +150,28 @@
     });
   }
 
+  const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+  // JEG-484: fetch a same-origin JSON asset with retry + backoff, recording
+  // the outcome in state.loadStatus[name] so a failure is never silent.
+  async function fetchAsset(name, path) {
+    const status = { ok: false, error: null, attempts: 0 };
+    state.loadStatus[name] = status;
+    for (let attempt = 0; attempt <= FETCH_RETRY_DELAYS_MS.length; attempt += 1) {
+      if (attempt > 0) await delay(FETCH_RETRY_DELAYS_MS[attempt - 1]);
+      status.attempts = attempt + 1;
+      try {
+        const payload = await fetchJSON(path, FETCH_ATTEMPT_TIMEOUT_MS);
+        status.ok = true;
+        status.error = null;
+        return payload;
+      } catch (err) {
+        status.error = err && err.message ? err.message : String(err);
+      }
+    }
+    throw new Error(status.error);
+  }
+
   function loadPlayersInline() {
     if (typeof document === "undefined") return {};
     try {
@@ -152,7 +185,7 @@
   // ---------- Contract-shape projection ----------
 
   // Build api.product_snapshot (frozen). Field shape per contract §3.5.2.
-  function buildSnapshot(detail, news) {
+  function buildSnapshot(detail) {
     const sources = detail && typeof detail.sources === "object" ? detail.sources : {};
     return Object.freeze({
       snapshot_id: String(detail?.bake_id || "legacy-fixture"),
@@ -169,7 +202,6 @@
       // here as "not published yet, fall back to bake_id".
       pie_vintage_per_source: detail?.pie_vintage_per_source || null,
       players_snapshot_at: detail?.built_at || null,
-      context_meta: news?.meta || null,
       bake_id: detail?.bake_id || null,
       // Marker so callers can tell the v1-fixture projection from a real
       // api.* surface (the v1 cutover will flip it false).
@@ -217,6 +249,29 @@
   // espn_ppg, rz_ppg, cbsros_ppg) and add the contract-mandated
   // canonical_name + kdst_excluded_from_chart + ir_zeroed so the cutover
   // does not change downstream semantics.
+  // GAP-025 (Jeremy, 2026-10-07): published charts keep their values as
+  // published; players ESPN projects at 0 get a visible badge, and (second
+  // decision, same day: "Yes, use 0") an ESPN value of 0.0 rather than none --
+  // see rowValue in curve-widget.js and sourceValue in comparison-dashboard.js. The
+  // flag reads the bake's own ESPN fields: espn_status "ineligible" means ESPN
+  // lists the player with a zero projection (injured or out), and an ESPN row
+  // whose per-game projection is 0 in every scoring is the same thing.
+  // espn_status "absent" means ESPN has no row at all; that is missing, not 0,
+  // and never gets the badge.
+  const ESPN_ZERO_BADGE = Object.freeze({
+    label: "ESPN: 0 (out)",
+    symbol: "\u2298",
+    title: "ESPN lists this player but projects 0 points for the rest of the season (injured or out), so our ESPN value for him is 0.0. Published charts are shown as published, so a chart that still pays for him is paying for a player ESPN expects to score nothing.",
+  });
+  function espnProjectsZero(player) {
+    if (player?.espn_status === "ineligible") return true;
+    if (player?.espn_status === "absent") return false;
+    const ppg = player?.espn_ppg;
+    if (!ppg || typeof ppg !== "object") return false;
+    const values = Object.values(ppg);
+    return values.length > 0 && values.every(value => typeof value === "number" && value === 0);
+  }
+
   function buildPlayers(playersPayload) {
     const raw = Array.isArray(playersPayload?.players) ? playersPayload.players : [];
     return Object.freeze(raw.map(player => {
@@ -230,6 +285,7 @@
         pos,
         team: String(player.team || "—"),
         ir_zeroed: Boolean(player.ir_zeroed),
+        espn_projects_zero: espnProjectsZero(player),
         kdst_excluded_from_chart: isKdst,
         espn_ppg: player.espn_ppg || null,
         rz_ppg: player.rz_ppg || null,
@@ -408,6 +464,26 @@
     };
   }
 
+  // One reader-facing freshness label per series (GAP-043). Every surface
+  // (health cards, header, chart toggles, table notes, v2) words a series'
+  // content week through this, from the buildSourceFreshness() row, so no
+  // surface can show a constant badge, a build time, or a stale `published`.
+  //   current: "Week 5"
+  //   older weekly chart: "Week 4 · newer week not yet published"
+  //   older projections: "Week 4 · projections dated Oct 3"
+  function freshnessLabel(row) {
+    if (!row || row.vintage_week === null || row.vintage_week === undefined) {
+      return {status: "unknown", text: "content week unknown"};
+    }
+    const week = `Week ${row.vintage_week}`;
+    if (row.status !== "older") return {status: "current", text: week};
+    if (row.cadence === "weekly") return {status: "older", text: `${week} · newer week not yet published`};
+    const iso = isoDay(row.vintage_date);
+    const dated = iso ? new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"})
+      .format(new Date(`${iso}T00:00:00Z`)) : null;
+    return {status: "older", text: dated ? `${week} · projections dated ${dated}` : `${week} · projections not refreshed this week`};
+  }
+
   // ---------- Source x method pair registry (JEG-432 R1) ----------
   //
   // One row per (source, method). The allowed pairs come from the Trade
@@ -574,7 +650,7 @@
     };
   }
 
-  // ---------- Public surface (the five semantic methods) ----------
+  // ---------- Public surface (the semantic methods) ----------
 
   // getPlayerValues({source, scoring, teams, qbVariant, view}) — contract §8.1.
   // Returns a frozen per-cell object, or null when the cell is not on the
@@ -608,6 +684,12 @@
     let cellField = null;
     if (view === "combo_reindexed") cellField = combo.values || combo.reindexed || null;
     else if (view === "native") cellField = combo.native || null;
+    // JEG332-SUPERFLEX-FLEX: the publisher's OWN superflex / 2-QB values
+    // (FantasyCalc numQbs=2; the CBS 2QB, USA Today Superflex and FantasyPros
+    // 2QB Value QB columns), same units as `native`, only for the players the
+    // publisher prices differently. Absent until a producer saves them; the
+    // engine then derives superflex from the 1-QB natives.
+    else if (view === "native_superflex") cellField = combo.native_superflex || null;
     else if (view === "vorp" || view === "vorp_indexed" || view === "adj_values") {
       // Legacy fixture does not yet separate these views; collapse to the
       // reindexed cell until the bake ships them.
@@ -640,7 +722,7 @@
     let modelVsPublished = "published";
     if (["espn", "cbsros", "razzball"].includes(sourceKey)) modelVsPublished = "model";
 
-    const detailLocator = `sources.${sourceKey}.combos.${comboKeyStr}.${cellField === combo.native ? "native" : "values"}`;
+    const detailLocator = `sources.${sourceKey}.combos.${comboKeyStr}.${cellField === combo.native ? "native" : cellField === combo.native_superflex ? "native_superflex" : "values"}`;
 
     return Object.freeze({
       values,
@@ -665,24 +747,6 @@
       throw new Error("product-data.js: getPlayers() called before initProductData() resolved. Render refused.");
     }
     return state.players;
-  }
-
-  // getPlayerContext(playerKey) — contract §8.1. Returns a frozen
-  // {news[], adjustments[], as_of} or null when the player has no context.
-  function getPlayerContext(playerKey) {
-    if (!state.initialized) {
-      throw new Error("product-data.js: getPlayerContext() called before initProductData() resolved. Render refused.");
-    }
-    if (!state.news) return null;
-    const key = String(playerKey);
-    const news = state.news.news_by_player_key?.[key] || [];
-    const adjustments = state.news.adjustments_by_player_key?.[key] || [];
-    if (!news.length && !adjustments.length) return null;
-    return Object.freeze({
-      news: Object.freeze([...news]),
-      adjustments: Object.freeze([...adjustments]),
-      as_of: state.news.meta?.trade_values_published_at || null,
-    });
   }
 
   // getProductOptions() — contract §8.1. Returns the singleton.
@@ -759,6 +823,17 @@
     return state.playerKeysBySourceId;
   }
 
+  // getLoadStatus(): JEG-484 read-only load outcome per asset, e.g.
+  // {assets: {detail: {ok, error, attempts}, adjustments: {...}},
+  //  adjustmentsLoaded}. Available before init finishes (and after it fails).
+  function getLoadStatus() {
+    const assets = {};
+    Object.entries(state.loadStatus).forEach(([name, status]) => {
+      assets[name] = { ok: status.ok, error: status.error, attempts: status.attempts };
+    });
+    return { assets, adjustmentsLoaded: !!state.adjustments };
+  }
+
   // getProviderInfo(): debug surface for the chart health panel.
   function getProviderInfo() {
     if (!state.initialized) {
@@ -769,7 +844,6 @@
       contractVersion: CONTRACT_VERSION,
       bakeId: state.snapshot?.bake_id || null,
       playersLoaded: state.players.length,
-      newsLoaded: !!state.news,
       adjustmentsLoaded: !!state.adjustments,
       consolidationProvider: state.consolidation?.providerInfo?.() || null,
       initError: state.initError,
@@ -796,10 +870,12 @@
       throw new Error(`Unknown contract version ${expectedVersion}. Render refused.`);
     }
 
-    // Detail is mandatory (the chart's primary data is here).
+    // Both assets load in parallel. Detail is mandatory (the chart's primary
+    // data is here).
+    const adjustmentsPromise = fetchAsset("adjustments", LEGACY_PATHS.adjustments).catch(() => null);
     let detail;
     try {
-      detail = await fetchJSON(LEGACY_PATHS.detail, FETCH_TIMEOUT_MS);
+      detail = await fetchAsset("detail", LEGACY_PATHS.detail);
     } catch (err) {
       throw new Error(`Data contract fetch failed (${LEGACY_PATHS.detail}): ${err && err.message ? err.message : err}. Render refused.`);
     }
@@ -807,20 +883,16 @@
       throw new Error("Data contract payload is empty. Render refused.");
     }
 
-    // News + adjustment inputs are best-effort: contract §5.2 fail-open
-    // semantics. We log a warning when they are absent and continue.
-    const newsP = fetchJSON(LEGACY_PATHS.news, FETCH_TIMEOUT_MS).catch(() => null);
-    const adjustmentsP = fetchJSON(LEGACY_PATHS.adjustments, FETCH_TIMEOUT_MS).catch(() => null);
-    const [news, adjustments] = await Promise.all([newsP, adjustmentsP]);
-    if (!news) {
-      console.warn("[product-data] assets/player-news.json absent; news columns will render empty.");
-    }
+    // Adjustment inputs: the chart still renders without them (contract
+    // §5.2), but only after retries, and the failure is exposed through
+    // getLoadStatus() so the page can say which inputs are missing and why.
+    const adjustments = await adjustmentsPromise;
     if (!adjustments) {
-      console.warn("[product-data] assets/adjustment-inputs.json absent; *_adjusted columns will pause per runRegressionGuards.");
+      const why = state.loadStatus.adjustments && state.loadStatus.adjustments.error;
+      console.warn(`[product-data] ${LEGACY_PATHS.adjustments} failed to load (${why || "empty payload"}); *_adjusted series are missing.`);
     }
 
     state.detail = detail;
-    state.news = news;
     state.adjustments = adjustments;
 
     // Players from the inline island; throw on missing (contract §8.2).
@@ -839,22 +911,32 @@
     });
 
     // Build contract-shaped snapshot + options.
-    state.snapshot = buildSnapshot(detail, news);
+    state.snapshot = buildSnapshot(detail);
     state.options = buildOptions();
     state.freshness = Object.freeze(buildSourceFreshness(state.snapshot.sources, {}));
     state.activeSnapshotId = state.snapshot.snapshot_id;
 
-    // Source map coverage: every key in api.product_options.source_keys must
-    // have a snapshot entry. cbs_adjusted is a derived column on cbs.
+    // Source map coverage (GAP-MISSING-SECTION-REFUSES-RENDER). The ESPN
+    // anchor is required: every other curve is indexed to it, so without it
+    // there is nothing honest to draw and the render is refused. Any other
+    // source whose section is absent is DROPPED, not fatal: its series reads
+    // as unavailable (no values, never zeros) and the rest of the chart
+    // renders. The dropped keys are exposed as getMissingSources() so the
+    // page can say which source is unavailable.
+    // cbs_adjusted is a derived column on cbs.
     const sourcesMap = state.snapshot.sources || {};
     const missing = SOURCE_KEYS.filter(k => {
       if (PURE_VORP_KEYS.includes(k)) return false; // pure VORP has no fixture entry
       if (k === "cbs_adjusted") return !sourcesMap.cbs;
       return !sourcesMap[k];
     });
-    if (missing.length) {
-      throw new Error(`sourceMapCoverage failed: missing ${missing.join(", ")}. Render refused.`);
+    if (missing.includes(ANCHOR_SOURCE_KEY)) {
+      throw new Error(`sourceMapCoverage failed: the ${ANCHOR_SOURCE_KEY} anchor section is missing. Render refused.`);
     }
+    if (missing.length) {
+      console.warn(`[product-data] sourceMapCoverage: ${missing.join(", ")} missing from the fixture; shown as unavailable, the rest renders.`);
+    }
+    state.missingSources = Object.freeze([...missing]);
 
     // Wire up the consolidation index (JEG-325 bridge) for per-cell O(1) lookups.
     // We pass the already-fetched detail so it does not refetch.
@@ -872,15 +954,21 @@
     return publicHandle;
   }
 
+  // Source sections absent from the fixture, dropped from the chart rather than
+  // refusing the render (the ESPN anchor is never in this list: its absence
+  // refuses the render instead).
+  function getMissingSources() {
+    return [...state.missingSources];
+  }
+
   // ---------- Public handle (frozen) ----------
 
-  // The five semantic methods + transitional helpers. Consumers hold this
+  // The semantic methods + transitional helpers. Consumers hold this
   // handle and never read window.TradeValueProductData internals.
   const publicHandle = Object.freeze({
-    // The five contract surfaces (spec §8.1).
+    // The contract surfaces (spec §8.1; getPlayerContext retired 2026-10-08).
     getPlayerValues,
     getPlayers,
-    getPlayerContext,
     getProductOptions,
     getSnapshot,
     // Contract v1.1 additive (JEG-432 R5/R1).
@@ -891,6 +979,8 @@
     getPlayerByKey,
     getPlayerKeysBySourceId,
     getProviderInfo,
+    getMissingSources,
+    getLoadStatus,
     // Constants exported so consumers stop redefining them locally.
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,
@@ -898,17 +988,17 @@
     AS_PUBLISHED_KEYS,
     QB_AWARE_SOURCES,
     CONTRACT_VERSION,
+    ESPN_ZERO_BADGE,
   });
 
   // ---------- Export ----------
 
   const api = {
     initProductData,
-    // Re-export the five semantic methods at the top level so callers can
+    // Re-export the semantic methods at the top level so callers can
     // import the module as a flat namespace without the handle.
     getPlayerValues,
     getPlayers,
-    getPlayerContext,
     getProductOptions,
     getSnapshot,
     getSourceFreshness,
@@ -917,6 +1007,7 @@
     contentWeekForDay,
     sourceVintage,
     buildSourceFreshness,
+    freshnessLabel,
     buildPairRegistry,
     PAIR_METHODS,
     PAIR_SOURCES,
@@ -925,6 +1016,8 @@
     getPlayerByKey,
     getPlayerKeysBySourceId,
     getProviderInfo,
+    getMissingSources,
+    getLoadStatus,
     handle: () => publicHandle,
     SOURCE_KEYS,
     ADJUSTED_INDEXED_KEYS,
@@ -932,6 +1025,8 @@
     AS_PUBLISHED_KEYS,
     QB_AWARE_SOURCES,
     CONTRACT_VERSION,
+    ESPN_ZERO_BADGE,
+    espnProjectsZero,
   };
   if (typeof window !== "undefined") {
     window.TradeValueProductData = api;

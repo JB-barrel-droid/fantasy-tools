@@ -1,0 +1,123 @@
+{
+ "schema": "rank-guard-v1",
+ "rule": "Indexed order equals native order for every published chart x combo (zero inversions beyond exact native ties); JEG-482",
+ "status": "pass",
+ "fixture_built_at": "2026-10-09T14:06:17.375830+00:00",
+ "totals": {
+  "checks": 12,
+  "failed": 0,
+  "inversions": 0
+ },
+ "checks": [
+  {
+   "source": "fantasycalc",
+   "combo": "full_12_qb1",
+   "ok": true,
+   "n": 196,
+   "pairs": 19097,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "fantasycalc",
+   "combo": "half_12_qb1",
+   "ok": true,
+   "n": 196,
+   "pairs": 19099,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "fantasycalc",
+   "combo": "standard_12_qb1",
+   "ok": true,
+   "n": 196,
+   "pairs": 19095,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "usatoday",
+   "combo": "full_12",
+   "ok": true,
+   "n": 252,
+   "pairs": 30179,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "usatoday",
+   "combo": "half_12",
+   "ok": true,
+   "n": 252,
+   "pairs": 30184,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "usatoday",
+   "combo": "standard_12",
+   "ok": true,
+   "n": 252,
+   "pairs": 30128,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "fantasypros",
+   "combo": "full_12",
+   "ok": true,
+   "n": 178,
+   "pairs": 15472,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "fantasypros",
+   "combo": "half_12",
+   "ok": true,
+   "n": 178,
+   "pairs": 15472,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "fantasypros",
+   "combo": "standard_12",
+   "ok": true,
+   "n": 178,
+   "pairs": 15472,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "cbs",
+   "combo": "full_12",
+   "ok": true,
+   "n": 117,
+   "pairs": 6481,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "cbs",
+   "combo": "half_12",
+   "ok": true,
+   "n": 113,
+   "pairs": 6124,
+   "inversions": 0,
+   "examples": []
+  },
+  {
+   "source": "cbs",
+   "combo": "standard_12",
+   "ok": true,
+   "n": 113,
+   "pairs": 5999,
+   "inversions": 0,
+   "examples": []
+  }
+ ],
+ "generated_at": "2026-10-09T16:42:18+00:00",
+ "fixture": "data/fixtures/current/comparison-sources-data.json"
+}
