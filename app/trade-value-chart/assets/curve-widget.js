@@ -2458,6 +2458,12 @@
     legFloors = buildLegFloors();
     const keys = new Set();
     visibleSourceKeys().forEach(key => sourceMaps.get(key)?.forEach((_, playerKey) => keys.add(playerKey)));
+    // JEG-496: the anchor map keeps only starter/bench players, so a player on
+    // ESPN's list at 0.0 whom no other source prices had no row. Every player
+    // ESPN lists gets one (JEG-486); rowValue shows his ESPN 0.
+    if (visibleSourceKeys().includes("espn") && sourceMaps.get("espn")?.size) {
+      espnFixtureLeg().forEach((_, playerKey) => keys.add(playerKey));
+    }
     universe = [...keys].map(playerKey => {
       const player = canonicalByKey.get(playerKey);
       if (!player) return null;
