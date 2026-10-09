@@ -92,7 +92,11 @@ DEFAULT_ROSTER = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "SUPERFLEX": 0,
 SAVED_TEAMS = 12
 SAVED_SHAPE = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 1, "BENCH": 6}
 BENCH_SHARE = tt.DEFAULT_BENCH_SHARE
-DDF_MIN_INPUTS = 2  # Jeremy 2026-10-08: a DDF Value needs at least 2 inputs
+# Inputs a DDF Value needs. The engine on main publishes a DDF Value from one
+# input; Jeremy's 2026-10-08 rule (at least 2) lands with the engine change
+# for JEG-479 item 4, and this constant moves to 2 in the same change, so the
+# two implementations change together.
+DDF_MIN_INPUTS = 1
 VIEW_SCORING = {"ppr": "ppr", "full": "ppr", "half_ppr": "half_ppr", "half": "half_ppr",
                 "standard": "standard"}
 
