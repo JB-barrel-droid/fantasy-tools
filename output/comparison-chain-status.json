@@ -1,21 +1,40 @@
 {
-  "run_at": "2026-10-09T02:01:55.675728+00:00",
+  "run_at": "2026-10-09T03:00:21.224296+00:00",
   "nfl_week": 5,
   "sources": {
     "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
-    "cbs": "promoted 3/3",
+    "cbs": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 5); candidate not promoted: cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows. A hold means a human must review first; the chain will not override it.",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
-  "held_detail": {},
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "published_with_holds",
+  "held": [
+    "cbs"
+  ],
+  "hold_severity": "amber",
+  "held_detail": {
+    "cbs": {
+      "detail": "cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows. A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber",
+      "rolled_back": 0
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -52,17 +71,30 @@
     },
     "cbs": {
       "source": "cbs",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3",
-      "promoted": 3,
-      "sections": 3
+      "status": "held",
+      "stage": "review",
+      "detail": "cbs-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: review_rows_triaged:fail -- 1 untriaged review rows. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 5",
+        "content_vintage": "Week 5",
+        "content_week": 5
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
     },
     "cbsros": {
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (4224 values)",
+      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (4428 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -70,7 +102,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (6036 values)",
+      "detail": "snapshot 2026-10-08 -> 12 DDF legs -> section; review passed (7704 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -126,5 +158,27 @@
       "health_status": "ok",
       "lagging_one_week": false
     }
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
+      "ERROR tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs"
+    ],
+    "assertions": [
+      "TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'"
+    ],
+    "make_targets": [
+      "Makefile:462: test-core"
+    ],
+    "detail": "ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; ERROR tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'",
+    "recorded_at": "2026-10-09T03:05:38.845259+00:00"
   }
 }
