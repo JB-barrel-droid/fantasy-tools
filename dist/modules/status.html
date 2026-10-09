@@ -68,13 +68,16 @@
   <p class="sub">Is everything working and fresh? Pipelines, back end and front end in one place. Internal page:
     every block states its own as-of time and turns amber when stale, red when failed or very stale.</p>
   <nav>
-    <a href="#alerts">Alerts</a><a href="#pipes">Pipelines</a><a href="#backend">Back end</a><a href="#frontend">Front end</a>
+    <a href="#alerts">Alerts</a><a href="#fidelity">Data fidelity</a><a href="#pipes">Pipelines</a><a href="#backend">Back end</a><a href="#frontend">Front end</a>
   </nav>
   <div id="banner" class="banner unk" data-overall="unk">Checking…</div>
   <div class="sources" id="feeds" aria-label="Data feeds this page read"></div>
 
   <h2 id="alerts">Alerts</h2>
   <div class="grid" id="sec-alerts"></div>
+
+  <h2 id="fidelity">Data fidelity</h2>
+  <div class="grid" id="sec-fidelity"></div>
 
   <h2 id="pipes">Pipelines</h2>
   <div class="grid" id="sec-pipes"></div>
@@ -86,7 +89,7 @@
   <div class="grid" id="sec-frontend"></div>
 
   <footer id="foot">
-    Detail pages: <a href="dashboard.html">data monitor</a> (value lineage, checkpoints, data accuracy) ·
+    Detail pages: <a href="dashboard.html">data monitor</a> (checkpoints, data accuracy) ·
     <a href="consolidation.html">consolidation watcher</a>. Producers: health-artifacts.yml (monitoring summary,
     import health, checkpoints, ops-status.json), rebuild-chain.yml (chain status, GitHub Actions), make sync (freshness, week history).
   </footer>
@@ -129,7 +132,8 @@ const FEEDS = {
   e2e:      { url: () => BASE + "e2e-fidelity.json", time: "generated_at", amberH: 36, redH: 74, label: "End-to-end fidelity" },
   accuracy: { url: () => BASE + "data-accuracy.json", time: "generated_at", amberH: 36, redH: 74, label: "Data accuracy" },
   lineage:  { url: () => BASE + "input-lineage.json", time: "generated_at", amberH: 8, redH: 25, label: "Input lineage" },
-  audit:    { url: () => BASE + "source-value-lineage.json", time: "generated_at", amberH: 48, redH: Infinity, label: "Lineage audit (manual)" },
+  // JEG-480: publisher site -> stored raw -> live chart, every 3 h and after each chain run.
+  pulse:    { url: () => BASE + "fidelity-pulse.json", time: "checked_at", amberH: 7, redH: 25, label: "Fidelity pulse" },
 };
 // Feeds written by health-artifacts.yml share its cadence. The monitoring
 // summary's own `producer` block says when they stop being trustworthy
@@ -302,6 +306,39 @@ function renderAlerts(feeds) {
      ${s.read_error ? `<dt>Read error</dt><dd>${esc(s.read_error)}</dd>` : ""}</dl>`);
 }
 
+// JEG-480 fidelity pulse: one row per source, one cell per stage.
+const PULSE_STATUS = { green: "ok", amber: "warn", red: "bad", unknown: "unk", "n/a": "unk" };
+const PULSE_STAGES = [["publisher_vs_stored", "Publisher vs stored"], ["stored_vs_chart", "Stored vs live chart"],
+                      ["freshness", "Freshness"], ["reference_vs_engine", "Reference vs engine"]];
+function renderFidelity(feeds) {
+  const d = feeds.pulse.doc;
+  if (!d) return card("fidelity", "pulse", "Data fidelity pulse", "bad", missing(feeds, "pulse"), { wide: true });
+  const sts = [];
+  const rows = (d.sources || []).map(r => {
+    const s = PULSE_STATUS[r.status] || "unk";
+    sts.push(s);
+    const cells = PULSE_STAGES.map(([k]) => {
+      const g = r.stages?.[k] || {};
+      const c = g.counts || {};
+      const n = c.compared != null ? `<div class="why">${esc(c.matched)}/${esc(c.compared)} exact</div>` : "";
+      return `<td data-stage="${k}" data-status="${PULSE_STATUS[g.status] || "unk"}">${pill(PULSE_STATUS[g.status] || "unk", g.status === "n/a" ? "n/a" : undefined)}${n}<div class="why">${esc(g.summary || "—")}</div></td>`;
+    }).join("");
+    const ex = (r.worst_examples || []).slice(0, 6).map(e =>
+      `<li><code>${esc(e.stage)}</code> ${esc(e.grain)} <strong>${esc(e.name)}</strong>: ${esc(e.left ?? "absent")} → ${esc(e.right ?? "absent")} <span class="why">(${esc(e.type)})</span></li>`).join("");
+    const out = [...new Set(PULSE_STAGES.flatMap(([k]) => (r.stages?.[k]?.outside_universe || []).map(p => p.name)))];
+    return `<tr data-source="${esc(r.source)}" data-status="${s}"><td>${pill(s)}</td><td><strong>${esc(r.label || r.source)}</strong>
+      <div class="why">stored week ${esc(r.stored_week ?? "—")} · chart week ${esc(r.chart_week ?? "—")}${r.stored_bake ? ` · bake <code>${esc(r.stored_bake)}</code>` : ""}</div></td>${cells}
+      <td>${ex ? `<ul class="why" style="margin:0;padding-left:16px">${ex}</ul>` : "—"}${out.length ? `<div class="why">Outside the page's player universe: ${esc(out.join(", "))}</div>` : ""}</td></tr>`;
+  });
+  for (const [key, why] of Object.entries(d.not_covered || {})) {
+    rows.push(`<tr data-source="${esc(key)}" data-status="unk"><td>${pill("unk", "Not covered")}</td><td><strong>${esc(key)}</strong></td><td colspan="5" class="why">${esc(why)}</td></tr>`);
+  }
+  const st = worst(feeds.pulse.status, sts);
+  card("fidelity", "pulse", "Data fidelity pulse (publisher site → stored raw → live chart)", st, feedLine(feeds.pulse) +
+    `<p class="why">Exact match on native values: ${esc(d.rules?.match || "")}. Red opens an <code>ops-alert</code> issue; amber is explained lag. Never blocks a deploy. History: Supabase <code>public.fidelity_pulse_history</code>.</p>` +
+    table(["Status", "Source", ...PULSE_STAGES.map(([, l]) => l), "Worst examples"], rows), { wide: true });
+}
+
 function renderJobs(feeds) {
   const s = feeds.summary.doc, gha = feeds.gha.doc;
   if (!s) return card("pipes", "jobs", "Scheduled jobs", "bad", missing(feeds, "summary"), { wide: true });
@@ -468,8 +505,8 @@ function renderHistory(feeds) {
 
 function renderDerived(feeds) {
   // Freshness lane signals: derived checks rebuilt on every deploy (e2e
-  // fidelity, data accuracy) or chain run (input lineage), and the manual
-  // lineage audit, which is a stale audit after 48 h by design.
+  // fidelity, data accuracy) or chain run (input lineage). The manual
+  // source-value lineage audit was retired 2026-10-08 (chore/retire-extras).
   const rows = [], sts = [];
   const row = (feed, st, detail) => {
     sts.push(st);
@@ -494,12 +531,7 @@ function renderDerived(feeds) {
     let st = gone(f) ? "bad" : d.generated_at ? worst(f.status, lag.length ? "warn" : "ok") : "unk";
     row(f, st, gone(f) || (!d.generated_at ? `not produced yet: ${d.note || "no generated_at"}`
         : lag.length ? `${lag.length} derived sections lag their input: ${lag.join(", ")}` : `${d.checked ?? "—"} sections checked, none lag`)); }
-  { const f = feeds.audit, d = f.doc;
-    const lags = d?.stale_relative_to_fixture === true;
-    const stale = f.status !== "ok" || lags;
-    row(f, gone(f) ? "bad" : stale ? "warn" : "ok",
-        gone(f) || (stale ? `Stale audit: built ${fmtAge(ageH(d.generated_at))}${lags ? ", older than the served fixture" : ""}; not refreshed automatically (make monitor-lineage where data/raw exists)` : "audit current")); }
-  card("backend", "derived", "Derived checks (fidelity, accuracy, input lineage, lineage audit)", worst(sts),
+  card("backend", "derived", "Derived checks (fidelity, accuracy, input lineage)", worst(sts),
     table(["Status", "Check", "Built", "Detail"], rows), { wide: true });
 }
 
@@ -596,7 +628,7 @@ function renderSynthetic(feeds) {
       <td>${esc(p.httpStatus ?? "—")}</td><td>${esc(p.pageErrors?.length ?? 0)}</td><td class="why">${tabs || "—"}</td>
       <td class="why">${esc([...(p.problems || []), ...(p.pageErrors || [])].join(" · ") || "—")}</td></tr>`;
   });
-  card("frontend", "synthetic", "Live synthetic check (root, v2 tabs, classic, 404)", st,
+  card("frontend", "synthetic", "Live synthetic check (root, v2 tabs, /classic/ redirect, 404)", st,
     `<div class="asof">Last run ${when(b.run.created_at)} · ${esc(b.run.conclusion)} · <a href="${esc(b.run.html_url)}">run</a> (amber after 30 h)</div>` +
     (rep ? `<p class="why">Root: live tag <code>${esc(rep.liveTag)}</code> · ${rep.passed ? "passed" : "failed"} · ${esc(rep.pageErrors?.length ?? 0)} uncaught page errors${rep.problems?.length ? " · " + esc(rep.problems.join(" · ")) : ""}</p>` : "") +
     (why.length ? `<p class="why">${esc(why.join(" · "))}</p>` : "") +
@@ -705,7 +737,7 @@ async function main() {
     }
   }
   renderFeeds(feeds);
-  const steps = [renderAlerts, renderJobs, renderIngest, renderChain, renderCheckpoints, renderBake, renderHistory,
+  const steps = [renderAlerts, renderFidelity, renderJobs, renderIngest, renderChain, renderCheckpoints, renderBake, renderHistory,
                  renderDerived, renderSecurity, renderIdentity, renderDeploy, renderSynthetic, renderSurfaces, renderFreshness];
   for (const step of steps) {
     try { await step(feeds); }

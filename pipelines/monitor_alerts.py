@@ -177,6 +177,47 @@ def identity_unmatched_alerts(summary):
     return out
 
 
+PULSE_PREFIX = "fidelity-"
+STATUS_PAGE = "https://jb-barrel-droid.github.io/fantasy-tools/modules/status.html#fidelity"
+
+
+def pulse_alerts(pulse):
+    """JEG-480: one alert per source the fidelity pulse marks red (wrong or
+    missing numbers between the publisher, Supabase and the live chart).
+    Amber (explained lag) stays a warning on the page. An unreadable pulse
+    raises nothing here: the status page shows the pulse feed as missing."""
+    if not isinstance(pulse, dict) or pulse.get("read_error"):
+        return []
+    out = []
+    for r in pulse.get("sources") or []:
+        if r.get("status") != "red":
+            continue
+        source = re.sub(r"[^a-z0-9_.-]", "-", str(r.get("source") or "unknown").lower())
+        lines = []
+        for name, s in (r.get("stages") or {}).items():
+            if s.get("status") == "red":
+                lines.append(f"- **{name}**: {s.get('summary', '')[:600]}")
+        ex = r.get("worst_examples") or []
+        table = ""
+        if ex:
+            table = ("\n\n| Stage | Column | Player | Publisher / stored | Stored / chart | Type |\n|---|---|---|---|---|---|\n"
+                     + "\n".join(f"| {e.get('stage')} | {e.get('grain')} | {e.get('name')} | {e.get('left')} | "
+                                 f"{e.get('right')} | {e.get('type')} |" for e in ex[:8]))
+        out.append(Alert(
+            f"{PULSE_PREFIX}red-{source}",
+            f"{r.get('label') or source}: data fidelity check is red",
+            f"The fidelity pulse ({pulse.get('checked_at')}) found wrong or missing numbers for "
+            f"**{r.get('label') or source}** (stored week {r.get('stored_week')}, chart week {r.get('chart_week')}).\n\n"
+            + "\n".join(lines) + table +
+            f"\n\nDetail: {STATUS_PAGE} and `dist/modules/fidelity-pulse.json`. Rules: the file's `rules` block "
+            "(pipelines/fidelity_pulse.py)."))
+    return out
+
+
+def in_pulse_scope(key):
+    return bool(key) and key.startswith(PULSE_PREFIX)
+
+
 def evaluate(summary, import_health, now, stuck_days=SOURCE_STUCK_DAYS, stale_hours=REBUILD_STALE_HOURS):
     """All alert conditions that hold now (list of Alert, unique keys)."""
     summary = summary or {}
@@ -195,18 +236,22 @@ def issue_key(issue):
     return m.group(1) if m else None
 
 
-def render_body(alert, now, mention):
+def render_body(alert, now, mention, by="health-artifacts.yml"):
     return (f"<!-- ops-alert-key: {alert.key} -->\n{alert.body}\n\n---\n"
-            f"Checked {_fmt(now)} by health-artifacts.yml. This issue closes itself when the condition clears."
+            f"Checked {_fmt(now)} by {by}. This issue closes itself when the condition clears."
             + (f"\n\ncc @{mention}" if mention else ""))
 
 
-def plan(alerts, open_issues):
-    """Return (to_open, to_update, to_close). Pure; one open issue per key."""
+def plan(alerts, open_issues, scope=lambda key: not in_pulse_scope(key)):
+    """Return (to_open, to_update, to_close). Pure; one open issue per key.
+
+    `scope` names the keys this run owns: health-artifacts.yml owns every key
+    except the fidelity pulse's (fidelity-*), fidelity-pulse.yml owns only
+    those, so neither run closes the other's issues."""
     by_key = {}
     for issue in open_issues:
         k = issue_key(issue)
-        if k and k not in by_key:
+        if k and k not in by_key and scope(k):
             by_key[k] = issue
     active = {a.key: a for a in alerts}
     to_open = [a for k, a in active.items() if k not in by_key]
@@ -273,16 +318,17 @@ def post_webhook(url, text):
         pass
 
 
-def reconcile(alerts, client, now, mention=None, webhook=None, log=print):
+def reconcile(alerts, client, now, mention=None, webhook=None, log=print,
+              scope=lambda key: not in_pulse_scope(key), source="health-artifacts.yml"):
     client.ensure_label()
-    to_open, to_update, to_close = plan(alerts, client.open_issues())
+    to_open, to_update, to_close = plan(alerts, client.open_issues(), scope)
     for a in to_open:
-        issue = client.create(a.title, render_body(a, now, mention))
+        issue = client.create(a.title, render_body(a, now, mention, source))
         log(f"opened #{(issue or {}).get('number')}: {a.key}")
         if webhook:
             post_webhook(webhook, f"ALERT {a.title} ({(issue or {}).get('html_url', '')})")
     for issue, a in to_update:
-        client.update(issue["number"], render_body(a, now, None))
+        client.update(issue["number"], render_body(a, now, None, source))
         log(f"still open #{issue['number']}: {a.key}")
     for issue in to_close:
         client.close(issue["number"], f"Cleared at {_fmt(now)}: the condition no longer holds.")
@@ -320,17 +366,29 @@ def _load(path):
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--summary", required=True)
-    ap.add_argument("--import-health", required=True)
+    ap.add_argument("--summary")
+    ap.add_argument("--import-health")
+    ap.add_argument("--pulse", help="fidelity-pulse.json: reconcile only the fidelity-* alerts (fidelity-pulse.yml)")
     ap.add_argument("--stuck-days", type=float, default=float(os.environ.get("ALERT_SOURCE_STUCK_DAYS", SOURCE_STUCK_DAYS)))
     ap.add_argument("--stale-hours", type=float, default=float(os.environ.get("ALERT_REBUILD_STALE_HOURS", REBUILD_STALE_HOURS)))
     ap.add_argument("--dry-run", action="store_true", help="print the plan; touch no issue")
     args = ap.parse_args(argv)
 
     now = datetime.now(timezone.utc)
-    health = _load(args.import_health)
-    alerts = evaluate(_load(args.summary), {} if health.get("read_error") else health, now,
-                      args.stuck_days, args.stale_hours)
+    if args.pulse:
+        pulse = _load(args.pulse)
+        if pulse.get("read_error"):
+            # Unknown is not "cleared": leave the open fidelity issues as they are.
+            print(f"::warning title=ops-alert::fidelity pulse unreadable ({pulse['read_error']}); issues untouched")
+            return 0
+        alerts, scope, by = pulse_alerts(pulse), in_pulse_scope, "fidelity-pulse.yml"
+    else:
+        if not (args.summary and args.import_health):
+            ap.error("--summary and --import-health are required without --pulse")
+        health = _load(args.import_health)
+        alerts = evaluate(_load(args.summary), {} if health.get("read_error") else health, now,
+                          args.stuck_days, args.stale_hours)
+        scope, by = (lambda key: not in_pulse_scope(key)), "health-artifacts.yml"
     for a in alerts:
         print(f"::warning title=ops-alert {a.key}::{a.title}")
     print(f"{len(alerts)} alert condition(s) hold: {', '.join(a.key for a in alerts) or 'none'}")
@@ -343,7 +401,7 @@ def main(argv=None) -> int:
     try:
         reconcile(alerts, GitHubIssues(repo, token), now,
                   mention=os.environ.get("ALERT_MENTION") or os.environ.get("GITHUB_REPOSITORY_OWNER"),
-                  webhook=webhook)
+                  webhook=webhook, scope=scope, source=by)
     except IssuesDisabled as exc:
         note = (f"GitHub Issues are disabled for {repo} ({exc}): {len(alerts)} alert(s) were NOT "
                 "delivered as ops-alert issues; they are listed in this job summary. "

@@ -1,0 +1,163 @@
+name: Fidelity pulse
+
+# JEG-480: data fidelity, end to end, per source (pipelines/fidelity_pulse.py):
+#   1. publisher site vs stored raw (independent re-read of the live page / API
+#      vs the newest Supabase bake, every scoring and the 2-QB columns)
+#   2. stored raw vs live chart (the deployed comparison-sources-data.json)
+#   3. freshness (publisher posted a newer week than the chart shows)
+#   4. reference vs engine (the JEG-479 value-check report, when published)
+# Publishes dist/modules/fidelity-pulse.json (read by modules/status.html),
+# appends the run to public.fidelity_runs / fidelity_divergences, and opens
+# one `ops-alert` issue per red source (fidelity-red-<source>; closed when it
+# clears). Red is a data state, not a job failure: this never blocks a deploy.
+#
+# Triggers:
+#   pg_cron `fidelity-pulse-live` (every 3 h at :40) -> workflow_dispatch
+#     (supabase/migrations/jeg480_fidelity_pulse.sql; no `schedule:` here)
+#   after every rebuild-chain run (workflow_run), once its Pages deploy is done
+#   push to pulse/**  -> run on that branch; publishes, writes and alerts nothing
+#
+# Politeness: one request per host per second, honest User-Agent; per run
+# about 2 USA Today sitemaps + 1 article (via the Supabase relay when
+# usatoday.com walls the runner), 1 FantasyPros sitemap + 1 article
+# (+ up to 2 week-N+1 probes), 2 CBS article URLs, 6 FantasyCalc API lists.
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: "comma-separated: usatoday,fantasycalc,fantasypros,cbs (blank = all)"
+        required: false
+        default: ""
+  workflow_run:
+    workflows: ["Rebuild comparison chain"]
+    types: [completed]
+  push:
+    branches: ["pulse/**"]
+
+permissions:
+  contents: write  # publish dist/modules/fidelity-pulse.json to main
+  actions: write   # dispatch pages.yml (GITHUB_TOKEN pushes don't trigger it)
+  issues: write    # ops-alert issues
+
+concurrency:
+  group: fidelity-pulse
+  cancel-in-progress: false
+
+jobs:
+  pulse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      IS_MAIN: ${{ github.event_name != 'push' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && github.ref || 'refs/heads/main' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      # After a chain run, check the chart readers actually get: wait for the
+      # Pages deploy the chain dispatched (it starts a few seconds after the
+      # chain ends) before reading the live chart file.
+      - name: Wait for the chain's Pages deploy
+        if: github.event_name == 'workflow_run'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sleep 90
+          for i in $(seq 1 40); do
+            busy=$(gh run list -R "$GITHUB_REPOSITORY" --workflow pages.yml --limit 5 --json status \
+                   --jq '[.[] | select(.status != "completed")] | length' || echo 0)
+            [ "$busy" = "0" ] && { echo "no Pages deploy in flight"; exit 0; }
+            echo "Pages deploy in flight ($busy); waiting"; sleep 30
+          done
+          echo "::warning title=fidelity pulse::Pages deploy still running after 20 min; checking the chart as served now"
+
+      - name: Run the fidelity pulse
+        id: pulse
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SOURCES: ${{ github.event.inputs.sources }}
+        run: |
+          args="--out output/fidelity-pulse.json"
+          [ -n "$SOURCES" ] && args="$args --sources $SOURCES"
+          [ "$IS_MAIN" = "true" ] && args="$args --write-supabase"
+          python3 pipelines/fidelity_pulse.py $args | tee /tmp/pulse.log
+          python3 - <<'PY'
+          import json
+          d = json.load(open("output/fidelity-pulse.json"))
+          for r in d["sources"]:
+              lvl = {"red": "error", "amber": "warning"}.get(r["status"], "notice")
+              bad = [f"{k}={v['status']}" for k, v in r["stages"].items()]
+              print(f"::{lvl} title=fidelity {r['source']}::{r['status']} ({', '.join(bad)})")
+          PY
+          { echo "## Fidelity pulse"; echo '```'; cat /tmp/pulse.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish to the status page
+        id: publish
+        if: env.IS_MAIN == 'true'
+        run: |
+          cp output/fidelity-pulse.json dist/modules/fidelity-pulse.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dist/modules/fidelity-pulse.json
+          if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
+          git commit -m "Fidelity pulse (CI, JEG-480)"
+          for attempt in 1 2 3; do
+            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+              echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep 10
+          done
+          echo "::error::could not push the fidelity pulse after 3 attempts"; exit 1
+
+      - name: Trigger Pages deploy
+        if: steps.publish.outputs.pushed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          code=$(curl -s -o /tmp/d.json -w "%{http_code}" -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}')
+          echo "pages dispatch HTTP $code"; cat /tmp/d.json || true
+          [ "$code" = "204" ]
+
+      # Red sources only (wrong or missing numbers); amber stays on the page.
+      # Owns only fidelity-* alert keys, so it never closes health-artifacts'
+      # issues (and that run never closes these). Never fails the run.
+      - name: Alert on red sources
+        if: always() && env.IS_MAIN == 'true' && hashFiles('output/fidelity-pulse.json') != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
+        run: python3 pipelines/monitor_alerts.py --pulse output/fidelity-pulse.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: fidelity-pulse
+          path: output/fidelity-pulse.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Monitoring: record this run in Supabase monitoring.check_observations,
+      # red or green (a red *source* is still a successful run). A run that
+      # never happens is flagged `missed` by the evaluator. Never fails the job.
+      # Declared in config/monitoring_coverage.json.
+      - name: Record monitored check
+        if: always() && env.IS_MAIN == 'true' && (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'schedule')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 pipelines/record_monitor_check.py --check-id fidelity_pulse --owner fidelity-pulse.yml --outcome "${{ job.status }}"
