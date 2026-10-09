@@ -27,7 +27,8 @@ The upsert conflict target is the table PK
 
 - Values must be numeric. `combo_reindexed` is rescaled per source to ≤ 70
   (`pipelines/caps/per_source_rescale.py`), then range-checked. The
-  DB CHECK `ck_combo_reindexed_cap` is the final backstop.
+  DB CHECK `ck_combo_reindexed_cap` was dropped 2026-10-09 (JEG-482:
+  Indexed has no cap); the consolidated builder no longer checks 70.
 - An anti-swap guard refuses a combo leg that looks like `raw_value`.
 - Every `player_key` must exist in `public.players`.
 - `bake_uuid` must exist in `public.bakes` (FK).

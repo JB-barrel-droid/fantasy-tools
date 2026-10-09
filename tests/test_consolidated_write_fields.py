@@ -5,8 +5,9 @@ Rebuild run 37641559947 (2026-10-07) failed at "Build consolidation layer":
 HTTP 400 23502 on public.consolidated_values, because the builder never wrote
 player_key, bake_uuid or source_generated_at (NOT NULL since the JEG-377/380
 hardening). FakeTable below enforces the live constraints (NOT NULL, FK on
-source and player_key, ck_combo_reindexed_cap); each guard is shown to fail on
-the broken state it names.
+source and player_key); each guard is shown to fail on the broken state it
+names. The 70 cap CHECK (ck_combo_reindexed_cap) was dropped (JEG-482, Jeremy
+2026-10-09): Indexed is an order-preserving rescale with no cap.
 """
 
 import copy
@@ -78,8 +79,6 @@ class FakeSb:
                 raise DbError("23503 fk_consolidated_values_bake_uuid")
             if r["player_key"] not in keys:
                 raise DbError("23503 consolidated_values_player_fk")
-            if r["view"] == "combo_reindexed" and r["value"] > 70:
-                raise DbError("23514 ck_combo_reindexed_cap")
         self.values.extend(rows)
 
 
@@ -89,8 +88,8 @@ def load_detail():
 
 
 def writable_detail():
-    """The real fixture. (Its adjusted sections exceed the cap; they are not
-    table rows, decision consol-adjusted-001.)"""
+    """The real fixture. (Its adjusted sections are not table rows, decision
+    consol-adjusted-001.)"""
     return load_detail()
 
 
@@ -178,19 +177,34 @@ class SourceGeneratedAtTest(unittest.TestCase):
 
 
 class PreflightTest(unittest.TestCase):
-    def test_over_cap_core_value_is_refused_whole_before_any_write(self):
-        # The 70 cap still holds for core sources: one over-cap cbs value
-        # refuses the whole write before anything lands (no partial 23514).
+    def test_indexed_value_above_70_is_written(self):
+        # JEG-482 (Jeremy 2026-10-09): Indexed has no cap. Week 5 FantasyCalc
+        # full PPR tops at 78.6; that value must reach the table unchanged.
         detail = load_detail()
         combo = detail["sources"]["cbs"]["combos"]["full_12"]["reindexed"]
-        combo["aaron jones"] = 75.0
+        combo["aaron jones"] = 78.6
         rows, _ = bcv.build_rows(detail)
+        self.assertEqual(bcv.preflight(bcv.split_for_table(rows)[0], detail["sources"]), [])
         sb = FakeSb(sorted(detail["sources"]), sorted(set(detail["player_keys"].values())))
-        with self.assertRaises(SystemExit) as cm:
+        bcv.write_supabase(rows, detail, "sha-test", sb=sb)
+        written = [r for r in sb.values if r["source"] == "cbs" and r["player"] == "aaron jones"
+                   and r["view"] == "combo_reindexed" and r["scoring"] == "full" and r["teams"] == 12]
+        self.assertEqual([r["value"] for r in written], [78.6])
+
+    def test_other_guards_still_refuse_the_whole_write_with_a_value_above_70(self):
+        # Dropping the cap must not loosen the FK pre-flight: an unknown source
+        # still refuses everything before any post.
+        detail = load_detail()
+        detail["sources"]["cbs"]["combos"]["full_12"]["reindexed"]["aaron jones"] = 78.6
+        rows, _ = bcv.build_rows(detail)
+        sources = [s for s in detail["sources"] if s != "cbs"]
+        sb = FakeSb(sources, sorted(set(detail["player_keys"].values())))
+        with self.assertRaisesRegex(SystemExit, r"source_config.*\['cbs'\]"):
             bcv.write_supabase(rows, detail, "sha-test", sb=sb)
-        self.assertIn("1 combo_reindexed value(s) > 70", str(cm.exception))
-        self.assertIn("ck_combo_reindexed_cap", str(cm.exception))
         self.assertEqual([c for c in sb.calls if c[0] == "post"], [], "wrote before failing")
+        rows_nokey = [dict(r, player_key=None) if i == 0 else r for i, r in enumerate(rows)]
+        self.assertTrue(any("without player_key" in e
+                            for e in bcv.preflight(rows_nokey, detail["sources"])))
 
 
 class AdjustedExcludedTest(unittest.TestCase):
