@@ -129,6 +129,54 @@ class NormalChangeDoesNotHold(unittest.TestCase):
         self.assertIsNone(fp.hold_decision(result, "b1", None, T.NOW))
 
 
+class FirstLiveHolds(unittest.TestCase):
+    """The first live pulse with holds (2026-10-09 23:40Z) held two sources on states that are not bad data."""
+
+    def test_a_player_printed_at_one_unit_and_not_stored_does_not_hold(self):
+        """Razzball: Scotty Miller printed 0.1 per game in every scoring, not stored. Absent means 0."""  # noqa
+        env = T.ProjEnv()
+        # a stored WR at 0.0 keeps the page's lowest WR value below Miller's (no row-cap churn)
+        env.pub[100] = ("Filler Player0", "WR", {"std": "0.0", "half": "0.0", "full": "0.0"})
+        env.stored.append({"player_key": 100, "snap": "2026-10-08", "created_at": "2026-10-08T12:00:00+00:00",
+                           "std": 0.0, "half": 0.0, "full": 0.0})
+        for combo in env.chart["sources"]["razzball"]["combos"].values():
+            combo["native"]["filler player0"] = 0.0
+        env.pub[101] = ("Filler Player1", "WR", {"std": "0.1", "half": "0.1", "full": "0.1"})
+        r, _ = env.run()
+        s1 = r["stages"]["publisher_vs_stored"]
+        self.assertEqual("amber", s1["status"], s1["summary"])
+        self.assertIsNone(r["hold"])
+        env.pub[101] = ("Filler Player1", "WR", {"std": "0.3", "half": "0.4", "full": "0.5"})  # a real value: held
+        r, _ = env.run()
+        self.assertEqual("fidelity: publisher_vs_stored", (r["hold"] or {}).get("reason"))
+
+    def resaved_env(self, written):
+        """The chart was built at 19:28 from the 10-08 rows; then the day was re-saved, dropping Josh Allen
+        and adding Tyreek Hill (the save replaces the day's set)."""
+        env = T.ProjEnv()
+        env.chart["sources"]["razzball"]["lineage"]["raw_built_at"] = "2026-10-08T19:28:12Z"
+        env.stored = [r for r in env.stored if r["player_key"] != 1]
+        env.stored.append({"player_key": 6, "snap": "2026-10-08", "created_at": "2026-10-08T12:00:00+00:00",
+                           "std": 3.0, "half": 3.5, "full": 4.0})
+        env.pub = {k: v for k, v in env.pub.items() if k != 1}
+        env.pub[6] = ("Tyreek Hill", "WR", {"std": "3.0", "half": "3.5", "full": "4.0"})
+        for row in env.stored:
+            row["_written_at"] = written
+        env.probe = {"acked_fp": "fp-saved", "acked_at": written}
+        return env
+
+    def test_a_player_swap_from_a_re_save_after_the_build_does_not_hold(self):
+        r, _ = self.resaved_env("2026-10-08T23:25:00+00:00").run()
+        s2 = r["stages"]["stored_vs_chart"]
+        self.assertEqual("amber", s2["status"], s2["summary"])
+        self.assertIsNone(r["hold"])
+
+    def test_the_same_swap_before_the_build_is_a_chart_fault_and_holds(self):
+        r, _ = self.resaved_env("2026-10-08T18:00:00+00:00").run()
+        self.assertEqual("red", r["stages"]["stored_vs_chart"]["status"])
+        self.assertEqual("fidelity: stored_vs_chart", (r["hold"] or {}).get("reason"))
+
+
 class HeldSourceInThePulse(unittest.TestCase):
     def held_env(self, stage="publisher_vs_stored", identity="bake_v1"):
         env = T.Env()
