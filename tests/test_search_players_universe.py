@@ -125,10 +125,13 @@ class SearchPlayersUniverseTest(unittest.TestCase):
         self.assertEqual(SQUAD["unpriced_reason"], hit["unpriced_reason"])
         self.assertTrue(hit["universe_only"])
         self.assertTrue(hit["materialized"])
-        # 0.0, not "not found": fully loaded charts price him at 0, and so does
-        # the DDF Value (zeros count).
-        self.assertTrue(out["zeros"], "no series prices him at 0")
-        self.assertEqual(0, hit["values"]["ddf_value"])
+        # 0.0, not "not found": the fully loaded charts price him at 0.
+        self.assertTrue({"usatoday", "fantasycalc", "fantasypros"} & set(out["zeros"]), out["zeros"])
+        # DDF Value (JEG-479 #465: Adjusted values only) follows the same rule
+        # as a computed row: 0 when an included input prices him at 0, else
+        # null with its reason (covered by `unexplained` below).
+        self.assertIn(hit["values"]["ddf_value"], (0, None))
+        self.assertIn("blended", hit["ddfByVersion"])
         # Every null has a reason (the v2 row contract).
         self.assertEqual([], out["unexplained"])
         self.assertEqual(out["one"]["values"], hit["values"])  # getPlayer == the search hit
