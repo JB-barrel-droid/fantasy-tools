@@ -290,6 +290,8 @@ def finite(value):
 
 def check_run(where, values, our_key, cell):
     """A per-chart run (opened row or phone card) against the engine."""
+    if not finite(values.get(our_key)):
+        return [f"{where}: listed without an engine {our_key} value"]
     for chart, run in cell.items():
         value = values.get(chart)
         if not finite(value):
