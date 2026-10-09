@@ -10,8 +10,12 @@ been retired. Optimize for getting fresh data live every week. Protect only what
 makes the numbers worth looking at. Methodology can be refined after launch.
 
 The live plan is the Linear ticket **JEG-440 (GO LIVE)**. Linear is the source
-of truth for status: at most 3 tickets In Progress, and Done means merged and
-live.
+of truth for status. In Progress means someone (an agent) is actively working
+on it now; Done means merged and live. There is no cap on parallel work
+(Jeremy, 2026-10-09): parallelize as much as possible with subagents, limited
+only by what can run without causing issues: no two agents editing the same
+code path, value changes paired with the Python reference on one branch, and
+merges ordered so main stays green.
 
 ## Linear (team Jegabee, project Trade Value Chart)
 
