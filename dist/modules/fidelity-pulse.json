@@ -1,11 +1,11 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-09T14:28:26.998313Z",
- "run_id": "41fbf013-1cdc-41f0-8342-45dbecd3d7f6",
+ "checked_at": "2026-10-09T14:50:37.863058Z",
+ "run_id": "3288fbfe-0a02-4a06-b018-0c7823605c47",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
-  "built_at": "2026-10-09T13:50:30.130374+00:00",
+  "built_at": "2026-10-09T14:06:17.375830+00:00",
   "error": null
  },
  "rules": {
@@ -112,7 +112,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T13:50:00Z",
+     "chart_imported_at": "2026-10-09T14:05:45Z",
      "bake_id": "usatwk5_2026-10-08t1535_v1",
      "bake_saved_at": "2026-10-08T15:35:30.873077Z",
      "behind": {
@@ -360,7 +360,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T13:49:58Z",
+     "chart_imported_at": "2026-10-09T14:05:42Z",
      "bake_id": "fcwk5_2026-10-09t1307_v1",
      "bake_saved_at": "2026-10-09T13:07:14.733447Z",
      "behind": null,
@@ -603,7 +603,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T13:50:01Z",
+     "chart_imported_at": "2026-10-09T14:05:46Z",
      "bake_id": "fpwk5_2026-10-09t1235_v1",
      "bake_saved_at": "2026-10-09T12:35:46.178513Z",
      "behind": null,
@@ -823,7 +823,7 @@
       "unresolved_names": 0
      },
      "chart_week": 5,
-     "chart_imported_at": "2026-10-09T13:50:03Z",
+     "chart_imported_at": "2026-10-09T14:05:49Z",
      "bake_id": "cbswk5_2026-10-08t1259_v1",
      "bake_saved_at": "2026-10-08T12:59:38.994744Z",
      "behind": null,
@@ -1164,13 +1164,13 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "red",
-     "summary": "1051/1101 values match exactly across 3 columns; 50 value mismatches, 0 publisher players not stored, 1 stored players not on the page; 3 players at the page's last listed value swapped in or out (ties at the row cap: Colbie Young, Justin Joly, Seydou Traore); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1046/1101 values match exactly across 3 columns; 55 value mismatches, 0 publisher players not stored, 1 stored players not on the page; 3 players at the page's last listed value swapped in or out (ties at the row cap: Colbie Young, Eli Stowers, Justin Joly); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Alec Ingold (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 369,
       "stored_players": 369,
       "compared": 1101,
-      "matched": 1051,
-      "mismatched": 50,
+      "matched": 1046,
+      "mismatched": 55,
       "missing_in_stored": 0,
       "extra_in_stored": 1,
       "outside_universe": 0,
@@ -1185,21 +1185,21 @@
       "full|1": {
        "left": 369,
        "right": 369,
-       "mismatched": 18,
+       "mismatched": 20,
        "missing": 2,
        "extra": 2
       },
       "half|1": {
        "left": 369,
        "right": 369,
-       "mismatched": 18,
+       "mismatched": 20,
        "missing": 2,
        "extra": 2
       },
       "std|1": {
        "left": 369,
        "right": 369,
-       "mismatched": 14,
+       "mismatched": 15,
        "missing": 2,
        "extra": 2
       }
@@ -1487,7 +1487,7 @@
   {
    "source": "razzball",
    "label": "Razzball",
-   "status": "amber",
+   "status": "red",
    "stored_week": null,
    "chart_week": null,
    "content_week": 5,
@@ -1496,8 +1496,8 @@
    "stored_bake": "2026-10-08",
    "stages": {
     "publisher_vs_stored": {
-     "status": "amber",
-     "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 0 publisher players not stored, 5 stored players not on the page; the change probe saw new publisher content at 2026-10-09T11:25:10.213536+00:00 that no ingest has saved yet (ingest pending); 1 publisher players are not stored because the page's player universe excludes them (Scotty Miller); 8 publisher names do not resolve to a canonical player; 3 players at the page's last listed value swapped in or out (ties at the row cap: Max Hurleman, Riley Nowakowski, Ty Pezza)",
+     "status": "red",
+     "summary": "2040/2040 values match exactly across 3 columns; 0 value mismatches, 0 publisher players not stored, 5 stored players not on the page; 1 publisher players are not stored because the page's player universe excludes them (Scotty Miller); 8 publisher names do not resolve to a canonical player; 3 players at the page's last listed value swapped in or out (ties at the row cap: Max Hurleman, Riley Nowakowski, Ty Pezza)",
      "counts": {
       "publisher_players": 681,
       "stored_players": 688,
@@ -1513,7 +1513,7 @@
      "url": "https://football.razzball.com/projections-qb-restofseason/",
      "publisher_vintage": "2026-10-08",
      "stored_snapshot": "2026-10-08",
-     "stored_saved_at": "2026-10-09T11:25:37.556611Z",
+     "stored_saved_at": "2026-10-09T14:30:52.599519Z",
      "grains": {
       "full|1": {
        "left": 681,
