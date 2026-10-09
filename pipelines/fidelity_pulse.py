@@ -118,6 +118,18 @@ LABEL = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "
 NOT_COVERED: dict[str, str] = {}
 PROJECTION_AMBER_DAYS = 1  # projections are re-read daily (ingest on change, at least every 20 h)
 PROJECTION_RED_DAYS = 3
+# JEG-520 / JEG-480 (2026-10-09): projections change during the day (ESPN moved
+# Pat Bryant to injured reserve at 20:17Z, after the 19:25Z save, and re-spread
+# Denver's receivers). A stage-1 difference is a fault only when the publisher
+# still serves the content the save was made from: the source probe's
+# fingerprint (pipelines/source_probe.py) recorded with the save (acked_fp)
+# equals the fingerprint read now. A changed fingerprint is a daily update
+# waiting for the next ingest (amber) while the save is younger than
+# PROJECTION_STALE_HOURS; after that the stored copy is stale (red).
+PROJECTION_STALE_HOURS = 24
+ACK_MATCH_MINUTES = 15     # an ack this close to the stored save names the content that save read
+BLOCK_SHARE = 0.10         # missing + extra players above this share of a position is a block, never an update
+BLOCK_MIN = 3              # ... and at least this many players
 DROP_AMBER = 0.85          # a position's player count below this share of the prior week is amber
 DROP_RED = 0.60            # ... below this share, red
 THIN_CELL = 5              # an adjustment cell fitted on fewer players is thin (amber)
@@ -156,9 +168,14 @@ RULES = {
                            "report is published",
     "projections": "ESPN, CBS rest of season, Razzball: stage 1 compares the publisher's own numbers with the "
                    "newest stored snapshot in the publisher's unit (ESPN and CBS rest-of-season totals, Razzball per "
-                   "game), exactly; a difference is amber while the publisher's own update stamp is newer than the "
-                   f"snapshot (inside {GRACE_HOURS} h) or the change probe has seen content no ingest saved yet, "
-                   "else red. Stage 2: the chart's per-game native equals the stored snapshot it was built from, "
+                   "game), exactly. A difference is red when the publisher still serves the content the save read "
+                   "(the source probe's fingerprint recorded with the save equals the one read now: stored != "
+                   "same-version publisher), or when a block of players is missing or extra (more than "
+                   f"{BLOCK_SHARE:.0%} of a position, at least {BLOCK_MIN}). It is amber while the publisher's own "
+                   f"update stamp is newer than the snapshot (inside {GRACE_HOURS} h), the change probe has seen "
+                   "content no ingest saved yet, or the fingerprint changed since the save (a daily update; red once "
+                   f"the save is older than {PROJECTION_STALE_HOURS} h: stale), and amber 'unconfirmed' when no "
+                   "fingerprint was recorded with the save or none can be read now. Stage 2: the chart's per-game native equals the stored snapshot it was built from, "
                    "rounded half-up to the chart's printed decimals. Stage 3: chart snapshot older than "
                    f"{PROJECTION_AMBER_DAYS} d amber, {PROJECTION_RED_DAYS} d red, or the publisher's own update "
                    "date is newer than the chart's",
@@ -577,6 +594,11 @@ class SupabaseStore:
         rows = self.sb.get("source_probe_state", f"?select=*&source=eq.{source}")
         return rows[0] if rows else None
 
+    def live_fingerprint(self, source: str) -> dict | None:
+        """The source probe's fingerprint of what the publisher serves now (same function the ingest acks)."""
+        import source_probe  # noqa: PLC0415
+        return source_probe.run_probe(source)
+
     def prior_pulse(self) -> dict:
         """{source: {week: tier_counts}} from earlier pulse runs (latest run per source and week)."""
         rows = self.sb.get("fidelity_runs", "?select=source,week,checks,finished_at&check_name=eq.fidelity_pulse"
@@ -620,6 +642,10 @@ class OfflineStore:
 
     def probe_state(self, source):
         p = self.dir / "probe_state.json"
+        return (json.loads(p.read_text(encoding="utf-8")).get(source) if p.exists() else None)
+
+    def live_fingerprint(self, source):
+        p = self.dir / "live_fingerprint.json"
         return (json.loads(p.read_text(encoding="utf-8")).get(source) if p.exists() else None)
 
 
@@ -1613,7 +1639,45 @@ class StoredRowIdentity:
         return key, reason
 
 
-def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident, now, universe, probe):
+def same_version(probe: dict | None, live: dict | None, saved_at: datetime | None) -> tuple[str, str]:
+    """Is the publisher still serving the content the stored save read?
+
+    ('same' | 'changed' | 'unconfirmed', detail). The save's content is named
+    by the probe fingerprint acknowledged with it (source_probe_state.acked_fp,
+    acked within ACK_MATCH_MINUTES of the save); `live` is a fresh
+    source_probe.run_probe() result."""
+    probe = probe or {}
+    acked_fp, acked_at = probe.get("acked_fp"), parse_ts(probe.get("acked_at"))
+    if not live or not live.get("ok") or not live.get("fingerprint"):
+        why = (live or {}).get("error") or "no probe result"
+        return "unconfirmed", f"the publisher's fingerprint could not be read now ({why})"
+    if (not acked_fp or acked_at is None or saved_at is None
+            or abs(acked_at - saved_at) > timedelta(minutes=ACK_MATCH_MINUTES)):
+        return "unconfirmed", (f"no publisher fingerprint was recorded with the save at {iso(saved_at)} "
+                               f"(last ack {iso(acked_at)})")
+    if live["fingerprint"] == acked_fp:
+        return "same", f"the publisher serves the content the save read (fingerprint {acked_fp})"
+    return "changed", (f"the publisher changed since the save (fingerprint {acked_fp} at the save, "
+                       f"{live['fingerprint']} now)")
+
+
+def player_blocks(cmp: dict, left: dict, ident: Identity) -> list[str]:
+    """Positions where the publisher and the stored copy disagree on a block of
+    players (missing + extra above BLOCK_SHARE of the publisher's count, at
+    least BLOCK_MIN): a truncated or padded save, never a daily update."""
+    listed: dict[str, set] = {}
+    for g in left.values():
+        for k, cell in g.items():
+            listed.setdefault(ident.pos(k) or cell.get("pos"), set()).add(k)
+    off: dict[str, set] = {}
+    for m in cmp["missing"] + cmp["extra"]:
+        off.setdefault(ident.pos(m["player_key"]) or m.get("pos"), set()).add(m["player_key"])
+    return sorted(f"{pos} {len(keys)} of {len(listed.get(pos, ()))}" for pos, keys in off.items()
+                  if len(keys) >= BLOCK_MIN and len(keys) > BLOCK_SHARE * len(listed.get(pos, ())))
+
+
+def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident, now, universe, probe,
+                               live_fingerprint: Callable[[], dict | None] | None = None):
     if pub.get("error"):
         return stage("unknown", f"publisher not read: {pub['error']}", url=pub.get("url")), {}
     if not rows:
@@ -1632,7 +1696,16 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
         reasons.append(f"{len(cmp['mismatches'])} value mismatches, {players(cmp['missing'])} publisher players not "
                        f"stored, {players(cmp['extra'])} stored players not on the page")
         newer = (vintage and str(vintage) > str(snapshot)) or (revised and saved_at and revised > saved_at)
-        if newer and (not revised or (now - revised) <= timedelta(hours=GRACE_HOURS)):
+        blocks = player_blocks(cmp, left, ident)
+        stale = saved_at is None or (now - saved_at) > timedelta(hours=PROJECTION_STALE_HOURS)
+        version = ("", "")
+        if not blocks and not (newer and (not revised or (now - revised) <= timedelta(hours=GRACE_HOURS))) \
+                and not probe_changed(probe):
+            version = same_version(probe, live_fingerprint() if live_fingerprint else None, saved_at)
+        if blocks:
+            status = "red"
+            reasons.append(f"a block of players is missing or extra ({', '.join(blocks)})")
+        elif newer and (not revised or (now - revised) <= timedelta(hours=GRACE_HOURS)):
             status = "amber"
             reasons.append(f"publisher updated ({vintage or iso(revised)}) after the stored snapshot {snapshot}; "
                            f"inside the {GRACE_HOURS} h grace window")
@@ -1640,8 +1713,18 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
             status = "amber"
             reasons.append(f"the change probe saw new publisher content at {probe.get('last_probe_at')} that no "
                            "ingest has saved yet (ingest pending)")
-        else:
+        elif version[0] == "same":
             status = "red"
+            reasons.append(f"stored values differ from the same publisher version: {version[1]}")
+        elif version[0] == "changed" and not stale:
+            status = "amber"
+            reasons.append(f"daily update, ingest pending: {version[1]}")
+        elif version[0] == "changed":
+            status = "red"
+            reasons.append(f"stale: {version[1]} and the save is older than {PROJECTION_STALE_HOURS} h")
+        else:
+            status = "amber"
+            reasons.append(f"unconfirmed: {version[1]}")
     if outside:
         status = worst(status, "amber")
         reasons.append(f"{len(outside)} publisher players are not stored because the page's player universe excludes "
@@ -1666,6 +1749,7 @@ def stage_projection_publisher(source, mod, pub, rows, snapshot, saved_at, ident
                + (f"; {'; '.join(reasons)}" if reasons else ""))
     return stage(status, summary, counts=counts, url=pub.get("url"), publisher_vintage=vintage,
                  stored_snapshot=snapshot, stored_saved_at=iso(saved_at), grains=cmp["grains"],
+                 publisher_version=(version[0] or None) if n_bad else None,
                  examples=worst_examples(cmp), outside_universe=outside[:EXAMPLES * 3],
                  unresolved=unresolved[:EXAMPLES]), dict(cmp, left_grains=left, right_grains=right)
 
@@ -1808,8 +1892,10 @@ def check_projection(source: str, *, fetch, store, ident, site_doc, site_error, 
     else:
         try:
             pub = read_projection_publisher(mod, fetch, latest_rows)
+            live = getattr(store, "live_fingerprint", None)
             stages["publisher_vs_stored"], cmp = stage_projection_publisher(
-                source, mod, pub, latest_rows, latest, saved_at, ident, now, chart_universe(site_doc), probe)
+                source, mod, pub, latest_rows, latest, saved_at, ident, now, chart_universe(site_doc), probe,
+                live_fingerprint=(lambda: live(source)) if live else None)
             divergences += [dict(d, stage="publisher_vs_stored", source_url=pub.get("url")) for d in divergence_items(cmp)]
         except Exception as e:  # noqa: BLE001
             stages["publisher_vs_stored"] = stage("unknown", f"check failed: {type(e).__name__}: {e}")
