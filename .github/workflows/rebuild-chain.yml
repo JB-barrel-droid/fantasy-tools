@@ -311,6 +311,13 @@ jobs:
           else
             echo "::warning title=value-check::engine vs reference comparison did not run; nothing held"
           fi
+          # JEG-520: a red in the latest fidelity pulse (dist/modules/fidelity-pulse.json,
+          # after its per-source tolerance) holds that source and its derived series:
+          # validationHold reason "fidelity: <stage>", kept out of DDF Value, a
+          # published chart served from its last good section. Per source, never
+          # the whole site; a source the pulse no longer holds is released.
+          python3 pipelines/fidelity_hold.py apply --week ${{ steps.week.outputs.nfl_week }} \
+            || echo "::warning title=fidelity-hold::the fidelity hold step failed; see the log"
           set +e
           env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
           rc=$?
