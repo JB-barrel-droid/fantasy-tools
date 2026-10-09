@@ -303,7 +303,7 @@ jobs:
           # the last published ones, marked validationHold {reason, week}, so
           # the page labels them and keeps them out of the DDF Value; the
           # other sources publish. A comparison that cannot run holds nothing
-          # and is a warning; `make validate` below stays the deploy gate.
+          # and is a warning; the validate run below stays the deploy gate.
           if env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY python3 pipelines/sync_dashboard_artifacts.py > output/value-check-sync.log 2>&1 \
              && python3 pipelines/value_check.py compare --report output/value-check-prehold.json; then
             python3 pipelines/value_check.py hold --report output/value-check-prehold.json \
