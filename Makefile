@@ -460,6 +460,7 @@ test-core:
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
+	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_tier_matches_leg
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_missing_section_render
