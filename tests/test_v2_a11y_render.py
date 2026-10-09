@@ -47,7 +47,7 @@ def setUpModule():
 
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
-TABS = ("player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values")
+TABS = ("manifesto", "player-values", "trade-targets", "risers-fallers", "compare-trade", "how-values")
 
 CONTRAST = r"""() => {
   const parse = c => { const m = c.match(/rgba?\(([^)]+)\)/); if (!m) return null; const p = m[1].split(',').map(Number);

@@ -1149,3 +1149,14 @@ removed" and the small "Set exact values" link in the JEG-470/472/473/475 sectio
   "Set exact values" stays on the chart card's title line; Tier follows the ranking series on every tab (done with
   `tierFor` / `tierText`; this branch's own `tierOf` was dropped). The Y axis
   is never capped at a fixed value: it scales from the largest value shown (indexed values can exceed 70).
+
+## Manifesto tab (Jeremy, 2026-10-09)
+
+- **What:** Jeremy's "Fantasy Football Manifesto" as a long-form page at `#manifesto`, first in the nav ("Manifesto"). The landing tab stays Trade targets; Manifesto is only first in nav order.
+- **Text:** in `app/v2/shell.html` (`#v2Manifesto`), verbatim from his Google Doc "Fantasy Football Manifesto V2" (read 2026-10-09). Only the HTML structure is ours: h1 = the doc title, 12 numbered h2 sections, paragraphs, bold, lists. Do not edit his sentences; replace the whole text from the doc when he revises it.
+- **Brand:** a small "Data Driven Football" eyebrow above the h1.
+- **Plain text only (Jeremy, 2026-10-09: "Why does manifesto need so many controls. Its text."):** no contents list, no links to the tool, no buttons. A first build had both; they were removed before shipping.
+- **Chrome:** the league bar and the Showing bar are hidden on this tab (no values on it). The nav freshness label still updates.
+- **No engine needed:** the page shows as soon as the script runs, without the loading card, and still shows if the engine fails (`applyStatic()` in v2.js).
+- **Layout:** one 70ch text column, 17 px / 1.7 (16 px / 1.65 below 768 px), v2 tokens and Inter. No horizontal scroll at 390 px; the six short tab labels still fit on one row.
+- **Tests:** `tests/test_v2_manifesto_render.py` (test-unit), with 4 deliberately broken builds (section 7 dropped, Manifesto not first, a link added to the text, Manifesto as landing). It also checks the tab has no links, buttons or form controls. `test_v2_nav_render` checks Manifesto is first; `test_v2_a11y_render` includes the tab in its contrast sweep.

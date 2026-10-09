@@ -209,6 +209,26 @@
     const retry = $("v2StateRetry");
     retry.hidden = false;
     retry.onclick = () => location.reload();
+    applyStatic();
+  }
+
+  // ---------- Manifesto (static text) ----------
+  // It needs no engine, so it shows at once, and still shows if the engine fails. The league bar and
+  // the loading / failure card belong to the value tabs; until the engine is ready they follow the hash here.
+  function applyStatic() {
+    const onManifesto = currentView() === "manifesto";
+    $("v2Manifesto").hidden = !onManifesto;
+    $("v2League").hidden = onManifesto;
+    if (!C) {
+      $("v2State").hidden = onManifesto;
+      if (onManifesto) $("v2Methods").hidden = true;
+    }
+  }
+
+  // Before the engine is ready, only the Manifesto can show; it follows the hash on its own.
+  function bindManifesto() {
+    window.addEventListener("hashchange", () => { if (!C) applyStatic(); });
+    applyStatic();
   }
 
   function setStatus(text, isError) {
@@ -4012,6 +4032,7 @@
     : hashBase() === "#risers-fallers" ? "risers"
     : hashBase() === "#compare-trade" ? "compare"
     : hashBase() === "#how-values" ? "how"
+    : hashBase() === "#manifesto" ? "manifesto"
     : hashBase() === "#player-values" ? "values" : "targets");   // landing: Trade targets (Jeremy, 2026-10-08)
 
   function applyRoute() {
@@ -4021,8 +4042,10 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2How").hidden = v !== "how";
+    applyStatic();
     // The source selection applies on Compare a trade too; Trade targets has its own pickers.
-    $("v2Methods").hidden = v === "targets" || v === "risers";
+    // The Manifesto is text only: no values, so no Showing bar.
+    $("v2Methods").hidden = v === "targets" || v === "risers" || v === "manifesto";
     document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
       const on = tab.dataset.view === v;
       tab.classList.toggle("is-active", on);
@@ -4087,6 +4110,7 @@
     else if (currentView() === "risers") renderRisers();
     else if (currentView() === "compare") renderCompare();
     else if (currentView() === "how") renderHow();
+    else if (currentView() === "manifesto") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -4421,6 +4445,7 @@
 
   async function start() {
     document.body.classList.add("v2");
+    bindManifesto();
     try {
       C = await waitForEngine();
     } catch (error) {
