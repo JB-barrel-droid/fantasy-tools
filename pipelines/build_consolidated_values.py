@@ -39,9 +39,10 @@ Bias-adjusted sources (*_adjusted) are not written to the table (decision
 consol-adjusted-001): they stay on the chart, served from the fixture, and the
 write logs each skipped source with its row count.
 Pre-flight (all before any write, fail closed with the list): every row has a
-key, a bake and a vintage; every source is in public.source_config (FK); no
-combo_reindexed value exceeds the table's cap (ck_combo_reindexed_cap, <= 70);
-every player_key exists in public.players (FK).
+key, a bake and a vintage; every source is in public.source_config (FK);
+every player_key exists in public.players (FK). Indexed (combo_reindexed) is an
+order-preserving rescale with no cap (JEG-482, Jeremy 2026-10-09); the table's
+old 70 CHECK was dropped by migration jeg482_drop_indexed_cap_70.
 
 Output modes:
   * --write-supabase : upsert rows into public.consolidated_values via the
@@ -82,7 +83,6 @@ VORP_VIEW_MAP = {
 QB_VARIANT_SOURCES = {"fantasycalc", "fantasycalc_adjusted"}
 
 VALID_SCORING = {"full", "half", "standard"}
-COMBO_VALUE_CAP = 70  # live CHECK ck_combo_reindexed_cap (view <> combo_reindexed OR value <= 70)
 CONTRACT_VERSION = "1.0.0"  # public.bakes.contract_version (pipelines/publish_gate.py)
 # Content-vintage fields, most specific first (JEG-380: truthful source_generated_at).
 SGA_FIELDS = (
@@ -94,7 +94,7 @@ SGA_FIELDS = (
 )
 # Bias-adjusted sections stay on the chart (served from the fixture) but are NOT
 # written to public.consolidated_values (decision consol-adjusted-001, Jeremy
-# 2026-10-07): they can exceed the table's 70 cap by construction.
+# 2026-10-07).
 TABLE_EXCLUDED_SUFFIX = "_adjusted"
 UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
 WRITE_REQUIRED = ("player_key", "bake_uuid", "source_generated_at", "created_at")
@@ -398,11 +398,6 @@ def preflight(rows, known_sources):
     unknown = sorted({r["source"] for r in rows} - set(known_sources))
     if unknown:
         errors.append(f"sources not in public.source_config (FK fk_consolidated_values_source): {unknown}")
-    over = [r for r in rows if r["view"] == "combo_reindexed" and r["value"] > COMBO_VALUE_CAP]
-    if over:
-        sample = ", ".join(f"{r['detail_locator']}={r['value']}" for r in over[:8])
-        errors.append(f"{len(over)} combo_reindexed value(s) > {COMBO_VALUE_CAP} "
-                      f"(CHECK ck_combo_reindexed_cap): {sample}")
     nokey = [r["detail_locator"] for r in rows if not isinstance(r.get("player_key"), int)]
     if nokey:
         errors.append(f"{len(nokey)} row(s) without player_key: {nokey[:5]}")
