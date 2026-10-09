@@ -51,6 +51,7 @@ async (opts) => {
   for (const view of ["indexed", "vorp", "adj"]) {
     await setView(view);
     rowsByView[view] = C.getAllRows();
+    base["composite_" + view] = clone(C.getCompositeInputs());
     if (view !== "indexed") base["viewInvariants_" + view] = clone(window.TradeValueCurveDiagnostics?.viewInvariants);
   }
   await setView("indexed");

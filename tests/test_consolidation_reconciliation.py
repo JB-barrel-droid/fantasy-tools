@@ -74,9 +74,9 @@ class TestRowBuilding(unittest.TestCase):
             locator = row["detail_locator"]
             if ".combos." in locator:
                 import re
-                m = re.match(r"sources\.(.+)\.combos\.(.+)\.reindexed\['(.*)'\]$",
+                m = re.match(r"sources\.(.+)\.combos\.(.+)\.(reindexed|values)\['(.*)'\]$",
                              locator)
-                expected = sources[m.group(1)]["combos"][m.group(2)]["reindexed"][m.group(3)]
+                expected = sources[m.group(1)]["combos"][m.group(2)][m.group(3)][m.group(4)]
             else:
                 import re
                 m = re.match(r"sources\.(.+)\.vorp_views\.views\.(.+)\['(.*)'\]$",

@@ -20,13 +20,14 @@ name: Fidelity pulse
 # Politeness: one request per host per second, honest User-Agent; per run
 # about 2 USA Today sitemaps + 1 article (via the Supabase relay when
 # usatoday.com walls the runner), 1 FantasyPros sitemap + 1 article
-# (+ up to 2 week-N+1 probes), 2 CBS article URLs, 6 FantasyCalc API lists.
+# (+ up to 2 week-N+1 probes), 2 CBS article URLs, 6 FantasyCalc API lists,
+# 4 ESPN API calls + 1 schedule call, 4 CBS rest-of-season pages, 4 Razzball pages.
 
 on:
   workflow_dispatch:
     inputs:
       sources:
-        description: "comma-separated: usatoday,fantasycalc,fantasypros,cbs (blank = all)"
+        description: "comma-separated: usatoday,fantasycalc,fantasypros,cbs,espn,cbsros,razzball (blank = all)"
         required: false
         default: ""
   workflow_run:

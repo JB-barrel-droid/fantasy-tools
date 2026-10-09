@@ -65,6 +65,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "pipelines"))
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 
 # Combo keys look like: full_12, half_10, standard_14, full_12_qb1, ...
@@ -110,20 +111,31 @@ def parse_combo_key(combo_key):
 
 
 def current_season_week(detail):
-    """Derive (season, week) from the detail fixture.
+    """(season, content week) of the build: the content week (Tuesday flip,
+    pipelines/nfl_week.py) of the fixture's built_at, the week the page served
+    these values in.
 
-    Prefers value_weeks (content week per source family); falls back to the
-    max across sources. Season is derived from built_at year.
+    JEG-479: this used to be the max of the fixture's `value_weeks`, a block
+    nothing has updated since Week 4, so every write from Week 5 on landed in
+    week 4 and api.player_values never showed the current week.
     """
-    value_weeks = detail.get("value_weeks") or {}
-    weeks = [w for w in value_weeks.values() if isinstance(w, int)]
-    week = max(weeks) if weeks else 1
-    built_at = detail.get("built_at") or ""
+    from nfl_week import current_nfl_week
+    built_at = str(detail.get("built_at") or "")
     try:
-        season = datetime.fromisoformat(built_at).year
+        built = datetime.fromisoformat(built_at.replace("Z", "+00:00"))
     except ValueError:
-        season = datetime.now(timezone.utc).year
-    return season, week
+        built = datetime.now(timezone.utc)
+    return built.year, current_nfl_week(built.date())
+
+
+def combo_cell_field(cdata):
+    """The combo's served values: `reindexed` for the reindexed sources,
+    `values` for the leg-priced ones (cbsros, razzball), as product-data.js
+    reads them (values || reindexed)."""
+    cdata = cdata or {}
+    if cdata.get("reindexed"):
+        return "reindexed"
+    return "values" if cdata.get("values") else "reindexed"
 
 
 def build_rows(detail):
@@ -166,7 +178,8 @@ def build_rows(detail):
             if qb_variant not in (None, "none") and source not in QB_VARIANT_SOURCES:
                 diagnostics["skipped_qb_violation"].append(f"{source}/{combo_key}")
                 continue
-            reindexed = (cdata or {}).get("reindexed", {}) or {}
+            field = combo_cell_field(cdata)
+            reindexed = (cdata or {}).get(field, {}) or {}
             for player, value in reindexed.items():
                 if value is None:
                     continue  # missing stays missing (no row)
@@ -181,7 +194,7 @@ def build_rows(detail):
                     "view": "combo_reindexed",
                     "value": value,  # exact; never rounded here
                     "detail_locator": (
-                        f"sources.{source}.combos.{combo_key}.reindexed[{player!r}]"
+                        f"sources.{source}.combos.{combo_key}.{field}[{player!r}]"
                     ),
                     "bake_id": bake_id,
                 })
@@ -253,9 +266,9 @@ def reconcile(rows, detail, review_locators=()):
             #         "sources.<s>.vorp_views.views.<v>['<p>']"
             if ".combos." in locator:
                 m = re.match(
-                    r"sources\.(.+)\.combos\.(.+)\.reindexed\['(.*)'\]$", locator)
+                    r"sources\.(.+)\.combos\.(.+)\.(reindexed|values)\['(.*)'\]$", locator)
                 s, c = m.group(1), m.group(2)
-                expected = sources[s]["combos"][c]["reindexed"][m.group(3)]
+                expected = sources[s]["combos"][c][m.group(3)][m.group(4)]
             else:
                 m = re.match(
                     r"sources\.(.+)\.vorp_views\.views\.(.+)\['(.*)'\]$", locator)
@@ -279,12 +292,13 @@ def reconcile(rows, detail, review_locators=()):
             scoring, teams, qb_variant = parsed
             if qb_variant not in (None, "none") and source not in QB_VARIANT_SOURCES:
                 continue
-            for player, value in ((cdata or {}).get("reindexed", {}) or {}).items():
+            field = combo_cell_field(cdata)
+            for player, value in ((cdata or {}).get(field, {}) or {}).items():
                 if value is None:
                     continue
                 # week/season are bake-level; recompute cheaply per row is
                 # wasteful, so compare on the week-independent projection.
-                if f"sources.{source}.combos.{combo_key}.reindexed[{player!r}]" in reviewed:
+                if f"sources.{source}.combos.{combo_key}.{field}[{player!r}]" in reviewed:
                     continue
                 expected_keys.add((player, source, scoring, teams,
                                    qb_variant or "none", "combo_reindexed"))

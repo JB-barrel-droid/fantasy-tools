@@ -116,6 +116,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
 	python3 -m unittest tests.test_bake_espn_zero_universe
+	python3 -m unittest tests.test_universe_chart_only
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
@@ -126,6 +127,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_gha_schedules_pg_cron
 	python3 -m unittest tests.test_monitor_alerts
 	python3 -m unittest tests.test_fidelity_pulse
+	python3 -m unittest tests.test_fidelity_espn
+	python3 -m unittest tests.test_fidelity_cbsros
+	python3 -m unittest tests.test_fidelity_razzball
 	python3 -m unittest tests.test_security_lockdown_migration
 	python3 -m unittest tests.test_source_probe
 	python3 -m unittest tests.test_source_snapshot_match
@@ -150,6 +154,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render
 	python3 -m unittest tests.test_v2_weight_render
+	python3 -m unittest tests.test_v2_bench_used_render
 	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
 	python3 -m unittest tests.test_verify_cbsros_legs
@@ -208,6 +213,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_published_views_engine
 	python3 -m unittest tests.test_published_views_render
 	python3 -m unittest tests.test_value_check
+	python3 -m unittest tests.test_load_value_check
+	python3 -m unittest tests.test_consolidated_current
 	python3 -m unittest tests.test_vorp_wiring
 	python3 -m unittest tests.test_three_view_pipeline_wiring
 	python3 -m unittest tests.test_review_batch70_views
@@ -219,7 +226,6 @@ test-unit-modules:
 	python3 -m unittest tests.test_transform_batch70_to_comparison
 	python3 -m unittest tests.test_backstop_hash_roundtrip
 	python3 -m unittest tests.test_vintage_trigger
-	python3 -m unittest tests.test_translate_via_vorp
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
@@ -424,6 +430,7 @@ validate: reference sync guard-harness test-core test-integration
 
 test-core:
 	python3 -m unittest tests.test_static_export
+	python3 -m unittest tests.test_rank_guard
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_ppg_tie_parity
 	python3 -m unittest tests.test_kdst_removed
@@ -459,12 +466,14 @@ test-core:
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
 	python3 -m unittest tests.test_week_history
+	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_tier_matches_leg
 	python3 -m unittest tests.test_page_load_no_404
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_position_weights_setter
 	python3 -m unittest tests.test_ddf_composite_value
+	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_vorp_translation_js_parity

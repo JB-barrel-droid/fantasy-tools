@@ -15,9 +15,11 @@ Inputs are the saved 12-team native values of every published source
 teams, bench 0-14, flex 0-5, non-default dedicated slots, superflex, plus
 synthetic edge vectors (exact rounding ties, thin coverage, empty position).
 
-The 12-team default must also reproduce what is SAVED in the fixture for
-every source (stored_drift_problems, JEG332-STORED-DRIFT): translated values
-exactly, 0 for players at/below the waiver line, matching provenance counts.
+JEG-482 (2026-10-08) removed the saved-value half of this file
+(stored_drift_problems, JEG332-STORED-DRIFT): the saved Indexed values are no
+longer this translation (they are the natives times one factor,
+tests/test_rank_guard.py). The translation is the VORP vs waivers view's math,
+and the browser must still run it exactly as the server does.
 
 Discrimination: test_guard_catches_broken_ports mutates a copy of
 value-model.js in three realistic ways and requires this comparison to fail
@@ -242,67 +244,6 @@ def run_parity(vectors, model_path=VALUE_MODEL):
     return failures, max_diff, numbers, js_results
 
 
-def stored_drift_problems(fixture):
-    """Saved 12-team published values vs a fresh translation of the saved natives.
-
-    For every published source x scoring the saved `reindexed` map must be:
-      * exactly the translation for every player above the waiver line;
-      * exactly 0 for every player the translation priced at/below the line;
-    and the combo's provenance (n_translated, n_below_waiver,
-    n_fallback_reindex, translated_from) must match. Players the translation
-    cannot identify may keep their fallback value but are counted.
-    Returns (problems, report lines).
-    """
-    pk = fixture["player_keys"]
-    problems, report = [], []
-    for source in SOURCES:
-        sdata = fixture["sources"][source]
-        for scoring in SCORINGS:
-            combo_key = unified.resolve_combo_key(sdata, scoring, 12)
-            combo = sdata["combos"][combo_key]
-            ranked, key_by_name = unified.rank_natives(combo["native"])
-            ranked_keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
-                            for pos, rows in ranked.items()}
-            # V2-WAIVER-COVERAGE: the saved values extrapolate a short chart's
-            # waiver line from the OTHER charts' saved natives in this fixture.
-            peers = unified.peers_ranked(unified.peer_natives(fixture, source, scoring))
-            core = unified.translate_ranked(ranked_keyed, 12, peers=peers)
-            run = core["translated"]
-            evaluated = {k for rows in ranked_keyed.values() for k, _n, _v in rows}
-            off, not_zero, hits, below, fallback = [], [], 0, 0, 0
-            for slug, value in combo["reindexed"].items():
-                key = str(pk.get(slug))
-                if key in run:
-                    hits += 1
-                    if run[key]["translated"] != value:
-                        off.append(f"{slug} saved {value} vs {run[key]['translated']}")
-                elif key in evaluated:
-                    below += 1
-                    if value != 0:
-                        not_zero.append(f"{slug} saved {value}")
-                else:
-                    fallback += 1
-            tr = combo.get("translation") or {}
-            tag = f"{source}/{combo_key}"
-            if off:
-                problems.append(f"{tag}: {len(off)} translated values differ, e.g. {off[:3]}")
-            if not_zero:
-                problems.append(f"{tag}: {len(not_zero)} at/below-waiver players not 0, "
-                                f"e.g. {not_zero[:3]}")
-            for field, want in (("n_translated", hits), ("n_below_waiver", below),
-                                ("n_fallback_reindex", fallback)):
-                if tr.get(field) != want:
-                    problems.append(f"{tag}: provenance {field}={tr.get(field)} but recomputed {want}")
-            if tr.get("translated_from") != "combo-natives":
-                problems.append(f"{tag}: provenance translated_from={tr.get('translated_from')!r}")
-            want_waiver = unified.waiver_summary(core["positions"])
-            if tr.get("waiver") != want_waiver:
-                problems.append(f"{tag}: provenance waiver={tr.get('waiver')} but recomputed {want_waiver}")
-            report.append(f"{tag}: translated={hits} below_waiver={below} fallback={fallback} "
-                          f"differ={len(off)} not_zero={len(not_zero)}")
-    return problems, report
-
-
 class VorpTranslationJsParity(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -322,8 +263,7 @@ class VorpTranslationJsParity(unittest.TestCase):
         self.assertTrue(any(str(t["translated"]).endswith(("2", "4", "6", "8", "0"))
                             for t in tie["translated"].values()))
 
-    def test_12_team_default_reproduces_saved_values(self):
-        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    def test_12_team_default_js_equals_python(self):
         vectors = [v for v in _real_vectors()
                    if v["teams"] == 12 and v["bench_per_team"] == 6
                    and v["flex_count"] == 1 and v["slots"] is None and v["flex_eligible"] is None
@@ -334,73 +274,6 @@ class VorpTranslationJsParity(unittest.TestCase):
             # The browser and the server translate the saved natives identically.
             problems, _d, _n = compare(_python(vec), js)
             self.assertEqual(problems, [], f"{vec['source']}/{vec['scoring']}")
-        problems, report = stored_drift_problems(fixture)
-        print("\n[JEG332-STORED-DRIFT saved-value check]")
-        for line in report:
-            print("  ", line)
-        self.assertEqual(problems, [], "\n".join(problems[:20]))
-        self.assertEqual(len(report), len(SOURCES) * len(SCORINGS))
-
-    def test_stored_drift_guard_catches_stale_values(self):
-        """Negative test: each way the saved values went stale must fail the check."""
-        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
-        self.assertEqual(stored_drift_problems(fixture)[0], [])
-        pk = fixture["player_keys"]
-
-        def combo(f, source, scoring):
-            key = unified.resolve_combo_key(f["sources"][source], scoring, 12)
-            return f["sources"][source]["combos"][key]
-
-        def split(source, scoring):
-            run = _python({"ranked_keyed": _load_ranked(source, scoring), "teams": 12,
-                           "bench_per_team": 6, "flex_count": 1, "slots": None,
-                           "flex_eligible": None, "peers": _load_peers(source, scoring)})
-            saved = combo(fixture, source, scoring)["reindexed"]
-            above = sorted((s for s in saved if str(pk.get(s)) in run["translated"]),
-                           key=lambda s: -saved[s])
-            below = [s for s in saved if str(pk.get(s)) not in run["translated"]]
-            return above, below
-
-        above, below = split("usatoday", "ppr")
-        fp_above, _ = split("fantasypros", "standard")
-
-        def off_by(f):
-            c = combo(f, "usatoday", "ppr")["reindexed"]
-            c[above[3]] = round(c[above[3]] + 1.5, 1)
-
-        def below_pie(f):
-            combo(f, "usatoday", "ppr")["reindexed"][below[0]] = 2.3
-
-        def whole_pie(f):
-            # The older quantile-pie values (what 899f23b wrote for FantasyCalc).
-            c = combo(f, "fantasycalc", "ppr")
-            c["reindexed"].update({s: round(float(c["native"][s]) * 0.0065, 2)
-                                   for s in c["reindexed"] if c["native"].get(s) is not None})
-
-        def count_lies(f):
-            combo(f, "cbs", "half_ppr")["translation"]["n_translated"] = 999
-
-        def natives_not_retranslated(f):
-            # One player's native moves (a refresh) but the saved values do not.
-            c = combo(f, "fantasypros", "standard")
-            c["native"][fp_above[4]] = float(c["native"][fp_above[4]]) + 10.0
-
-        def old_provenance(f):
-            combo(f, "fantasycalc", "half_ppr")["translation"].pop("translated_from")
-
-        import copy
-        cases = {"one-translated-value-off-by-1.5": off_by,
-                 "below-waiver-keeps-pie-value": below_pie,
-                 "whole-combo-pie-values": whole_pie,
-                 "provenance-count-lies": count_lies,
-                 "natives-refreshed-not-retranslated": natives_not_retranslated,
-                 "supabase-grain-provenance": old_provenance}
-        for name, mutate in cases.items():
-            broken = copy.deepcopy(fixture)
-            mutate(broken)
-            problems = stored_drift_problems(broken)[0]
-            print(f"\n[JEG332-STORED-DRIFT negative test] {name}: {len(problems)} problems")
-            self.assertGreater(len(problems), 0, f"stale state {name} was NOT caught")
 
     def test_guard_catches_broken_ports(self):
         """Negative test: each realistic port bug must make the comparison fail."""

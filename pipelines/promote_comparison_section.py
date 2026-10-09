@@ -306,7 +306,7 @@ def _merge_promoted_combo(new_combo, cand_combo):
 
     new_combo starts as a deepcopy of the existing fixture combo; every field
     the candidate pipeline recomputed is replaced wholesale. The candidate's
-    "translation" provenance block (stamped by pipelines/translate_via_vorp.py
+    "translation" provenance block (stamped by the retired translate_via_vorp.py;
     with method + week/season grain) MUST travel with the values it describes:
     without this the fixture kept a stale translation block (null grain) while
     the fresh fit["vorp_translation"] carried the real provenance (observed

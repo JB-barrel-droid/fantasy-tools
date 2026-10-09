@@ -999,60 +999,38 @@ def build_checkpoints():
     # headline counts it (a bad here must be impossible to hide).
     result["scale_agreement"] = build_scale_agreement_summary()
 
-    # VORP translation freshness (JEG-70): the as-published sources' chart
-    # values come from Supabase-translated grains wired through by
-    # translate_via_vorp.py. A stale grain or a fallback-as-steady-state
-    # silently reverts the chart to quantile-mapped values.
-    result["vorp_translation"] = build_vorp_translation_summary()
+    # Rank guard (JEG-482): every published chart's Indexed order equals its
+    # native order. Replaced the JEG-70 translation-freshness check: the
+    # saved Indexed values are no longer value-above-waivers translations.
+    result["rank_guard"] = build_rank_guard_summary()
 
     return result
 
 
-def _reindex_pipeline_method():
-    """Method string the reindex pipeline currently stamps into fixture fit
-    metadata for as-published sources. Parsed from
-    pipelines/reindex_comparison_section.py (the single source of truth) so
-    the methodology-consistency check follows intentional methodology
-    changes instead of flagging them. Fail-closed: raises if the pipeline
-    no longer carries an identifiable flex_aware_pie method."""
+def _reindex_module():
     # Resolved from this file's own location, NOT the module-level REPO
     # (which tests may point at a fixture-only sandbox).
-    pipelines_dir = Path(__file__).resolve().parent
-    src = (pipelines_dir / "reindex_comparison_section.py").read_text()
-    m = re.search(
-        r'\["fit"\]\["flex_aware_pie"\]\s*=\s*\{[^}]*"method":\s*"([a-z0-9_]+)"',
-        src,
-        re.S,
-    )
-    if not m:
-        raise RuntimeError(
-            "build_pipeline_checkpoints: could not determine as-published "
-            "reindex method from reindex_comparison_section.py"
-        )
-    return m.group(1)
+    pipelines_dir = str(Path(__file__).resolve().parent)
+    if pipelines_dir not in sys.path:
+        sys.path.insert(0, pipelines_dir)
+    import reindex_comparison_section
+    return reindex_comparison_section
+
+
+def _reindex_pipeline_method():
+    """Method string the reindex pipeline stamps into fixture fit metadata for
+    as-published sources (reindex_comparison_section.RESCALE_METHOD, the single
+    source of truth), so the methodology-consistency check follows intentional
+    methodology changes instead of flagging them (JEG-482: the one-factor
+    order_preserving_rescale replaced the flex_aware_pie buckets)."""
+    return _reindex_module().RESCALE_METHOD
 
 
 def _reindex_pipeline_fit_key():
-    """Fit-dict key the reindex pipeline writes for as-published sources.
-
-    Parsed from pipelines/reindex_comparison_section.py (the single source of
-    truth) alongside _reindex_pipeline_method(). The methodology-consistency
-    check scopes its reindex method/anchor expectation to this key only --
-    other fit keys (e.g. "vorp_translation", written by
-    pipelines/translate_via_vorp.py with its own method family) are separate
-    transformation steps with their own dedicated checks and must not be
-    held to the reindex method. Fail-closed: raises unless the pipeline
-    writes exactly one distinct fit key.
-    """
-    pipelines_dir = Path(__file__).resolve().parent
-    src = (pipelines_dir / "reindex_comparison_section.py").read_text()
-    keys = set(re.findall(r'\["fit"\]\["([a-z0-9_]+)"\]\s*=', src))
-    if len(keys) != 1:
-        raise RuntimeError(
-            "build_pipeline_checkpoints: expected exactly one fit key written "
-            f"by reindex_comparison_section.py, found {sorted(keys)}"
-        )
-    return keys.pop()
+    """Fit-dict key the reindex pipeline writes for as-published sources
+    (reindex_comparison_section.RESCALE_FIT_KEY). The methodology-consistency
+    check scopes its method/anchor expectation to this key only."""
+    return _reindex_module().RESCALE_FIT_KEY
 
 
 def build_scale_agreement_summary():
@@ -1088,112 +1066,36 @@ def build_scale_agreement_summary():
     }
 
 
-def build_vorp_translation_summary():
-    """VORP translation freshness for as-published sources (JEG-70).
+def build_rank_guard_summary():
+    """Published-chart rank guard (JEG-482) on the committed fixture.
 
-    Reads the translation provenance blocks stamped by
-    pipelines/translate_via_vorp.py into the fixture's as-published source
-    combos. This is the end-to-end wired-through signal: what the chart
-    actually serves, not what the pipeline claims.
-
-    Expected: every combo that is not a qb-divergent sibling (data-driven
-    guard in translate_via_vorp._qb_divergent_siblings, which pins those to
-    reindex-fallback by design) has translation.method == "vorp-supabase"
-    with grain.week == that source's content week (the week of its natives,
-    translate_via_vorp.section_content_week; GAP-VORP-GRAIN-WEEK-LABEL).
-    A source lagging the calendar is not a stale GRAIN; its lag is reported
-    by import health / freshness.
-
-    The fixture is read as COMMITTED on origin/main (committed_fixture_json),
-    not from the working tree: the shared checkout is routinely dirty with
-    other lanes' experiments, and working-tree reads false-red this check
-    while production serves the committed bytes.
-
-    Status:
-      ok   - all expected grains at the current week via vorp-supabase
-      warn - any expected grain week < current week (weekly refresh or chain
-             wiring pending), or grain week not recorded (pre-JEG-70
-             provenance; clears on the next chain run)
-      bad  - any expected combo on reindex-fallback (fallback is the steady
-             state -- JEG-70 acceptance criterion 3), or no provenance blocks
-             at all (wiring never ran)
-      unk  - fixture unreadable; never a failure claim
+    ok when every published chart x saved combo keeps its native order in its
+    Indexed values (pipelines/check_rank_guard.py); bad on any inversion;
+    unk when the fixture is unreadable (never a failure claim).
     """
-    from translate_via_vorp import (AS_PUBLISHED_SOURCES, _qb_divergent_siblings,
-                                    section_content_week)
+    pipelines_dir = str(Path(__file__).resolve().parent)
+    if pipelines_dir not in sys.path:
+        sys.path.insert(0, pipelines_dir)
+    from check_rank_guard import check_fixture
 
-    label = "VORP: legacy translation freshness (not Option C readiness)"
-    fixture, fixture_source = committed_fixture_json(
-        "data/fixtures/current/comparison-sources-data.json")
+    label = "Indexed keeps each published chart's own order (rank guard)"
+    fixture, _ = committed_fixture_json("data/fixtures/current/comparison-sources-data.json")
     if fixture is None:
-        return {
-            "label": label,
-            "status": "unk",
-            "reason": "comparison-sources-data.json unreadable "
-                      "(tried origin/main, HEAD, working tree)",
-            "timestamp": None,
-        }
-
-    week = expected_content_week()
-    sources = fixture.get("sources", {}) or {}
-    stale: list[str] = []
-    fallback: list[str] = []
-    unrecorded: list[str] = []
-    n_ok = 0
-    n_expected = 0
-    for source in AS_PUBLISHED_SOURCES:
-        sdata = sources.get(source, {}) or {}
-        combos = sdata.get("combos", {}) or {}
-        guarded = _qb_divergent_siblings(source, sdata)
-        source_week = section_content_week(sdata) or week
-        for combo_name, combo in combos.items():
-            if not isinstance(combo, dict):
-                continue
-            if combo_name in guarded:
-                continue  # pinned to reindex-fallback by design (JEG-70)
-            n_expected += 1
-            t = combo.get("translation") or {}
-            method = t.get("method")
-            grain_week = (t.get("grain") or {}).get("week")
-            tag = f"{source}/{combo_name}"
-            if not t or not method:
-                fallback.append(f"{tag}: no translation provenance (wiring never ran)")
-            elif method == "reindex-fallback":
-                fallback.append(f"{tag}: reindex-fallback is the steady state")
-            elif grain_week is None:
-                unrecorded.append(tag)
-            elif grain_week < source_week:
-                stale.append(f"{tag}: grain week {grain_week} < {source_week} (its content week)")
-            else:
-                n_ok += 1
-
-    timestamp = fixture.get("built_at")
-    if fallback:
-        return {
-            "label": label,
-            "status": "bad",
-            "reason": f"{len(fallback)} combo(s) on reindex-fallback: " + "; ".join(fallback[:5]),
-            "timestamp": timestamp,
-            "n_ok": n_ok,
-            "n_expected": n_expected,
-        }
-    problems = stale + [f"{t}: grain week not recorded" for t in unrecorded]
-    if problems:
-        return {
-            "label": label,
-            "status": "warn",
-            "reason": f"{len(problems)} combo(s) stale or unrecorded: " + "; ".join(problems[:5]),
-            "timestamp": timestamp,
-            "n_ok": n_ok,
-            "n_expected": n_expected,
-        }
+        return {"label": label, "status": "unk", "timestamp": None,
+                "reason": "comparison-sources-data.json unreadable (tried origin/main, HEAD, working tree)"}
+    result = check_fixture(fixture)
+    t = result["totals"]
+    failed = [f"{c['source']}/{c['combo']}: {c['inversions']} inversions"
+              for c in result["checks"] if not c["ok"]]
     return {
         "label": label,
-        "status": "ok",
-        "reason": f"All {n_expected} expected grains at week {week} via vorp-supabase.",
-        "timestamp": timestamp,
-        "n_ok": n_ok,
-        "n_expected": n_expected,
+        "status": "bad" if failed else "ok",
+        "reason": ("; ".join(failed[:5]) if failed else
+                   f"All {t['checks']} published chart x combo checks keep the native order."),
+        "timestamp": fixture.get("built_at"),
+        "n_checks": t["checks"],
+        "n_failed": t["failed"],
+        "inversions": t["inversions"],
     }
 
 
@@ -1217,9 +1119,8 @@ def build_methodology_consistency():
     Scope: M1/M3 apply ONLY to the reindex fit key (whatever key the reindex
     pipeline writes -- derived, not hardcoded). Other fit keys are separate
     transformation steps with their own dedicated checks: the
-    "vorp_translation" step (method vorp-supabase, written by
-    pipelines/translate_via_vorp.py) is covered by build_vorp_translation_summary,
-    and legacy position-scoped fits (e.g. isotonic_pava on non-12-team combos)
+    retired "vorp_translation" step (JEG-64, removed by JEG-482) and
+    legacy position-scoped fits (e.g. isotonic_pava on non-12-team combos)
     predate the current reindex contract. Holding them to the reindex method
     is a false bad (2026-10-03: the check flagged the intentional
     vorp-supabase translation step on all 12 combos).

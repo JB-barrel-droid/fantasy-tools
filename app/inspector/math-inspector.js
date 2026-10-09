@@ -367,8 +367,7 @@
           implied_weight: r.implied_weight,
           starter_above: groups[pos]?.starter, bench_above: groups[pos]?.bench,
           starter_weight: groupTotal > 0 ? (groups[pos]?.starter || 0) / groupTotal : null,
-          bench_weight: groupTotal > 0 ? (groups[pos]?.bench || 0) / groupTotal : null,
-          our_max: p.derivation.ourMax?.[pos], scale_factor: r.scale_factor});
+          bench_weight: groupTotal > 0 ? (groups[pos]?.bench || 0) / groupTotal : null});
       });
     });
     body.appendChild(table("translation-positions", "Rostered counts, waiver line and implied weights", [
@@ -381,9 +380,8 @@
       {key: "implied_weight", label: "Implied position weight", fmt: "pct"},
       {key: "starter_above", label: "Starter sum above waivers", fmt: "n3"}, {key: "bench_above", label: "Bench sum above waivers", fmt: "n3"},
       {key: "starter_weight", label: "Implied starter weight (share)", fmt: "pct"},
-      {key: "bench_weight", label: "Implied bench weight (share)", fmt: "pct"},
-      {key: "our_max", label: "Our positional max", fmt: "n3"}, {key: "scale_factor", label: "Indexed scale (our max / top)", fmt: "sci"}
-    ], posRows, {note: `Translation ${snap.versions.translation}; waiver imputation ${snap.versions.imputation}; positional maxes ${snap.versions.positionalMax}. Starter/bench sums use the chart's own order: the first (dedicated + flex) players at a position are starters.`}));
+      {key: "bench_weight", label: "Implied bench weight (share)", fmt: "pct"}
+    ], posRows, {note: `Translation ${snap.versions.translation} (the VORP vs waivers view's); waiver imputation ${snap.versions.imputation}. Starter/bench sums use the chart's own order: the first (dedicated + flex) players at a position are starters. Indexed does not use this translation: it is the natives times one factor (JEG-482).`}));
 
     selectedPublished().forEach(key => {
       const p = snap.published[key];
@@ -403,7 +401,7 @@
           const role = p.views?.roles?.[row.key]?.role || (tr ? "above waivers" : "at or below waivers");
           rows.push({_id: `${key}|${row.key}`, player_key: Number(row.key), player: playerName(row.key), pos, rank: i + 1,
             native: row.value, waiver_line: t.positions[pos]?.waiver_line_value,
-            above_native: tr ? tr.vorp : 0, role, translated: tr ? tr.translated : 0,
+            above_native: tr ? tr.vorp : 0, role,
             indexed: p.indexed.values[row.key] ?? null});
         });
       });
@@ -412,8 +410,8 @@
         {key: "rank", label: "Rank at pos", fmt: "int"},
         {key: "native", label: "Native", fmt: "n3"}, {key: "waiver_line", label: "Waiver line", fmt: "n3"},
         {key: "above_native", label: "Above waivers (native, rounded 0.1)", fmt: "n1"}, {key: "role", label: "Role"},
-        {key: "translated", label: "Onto our positional max", fmt: "n1"}, {key: "indexed", label: "Indexed (shown)", fmt: "n3"}
-      ], rows, {note: p.indexed.mode === "saved" ? "At the saved setup the Indexed column is the pipeline's saved value; the translation is shown for reference." : null}));
+        {key: "indexed", label: "Indexed (shown)", fmt: "n3"}
+      ], rows, {note: `Indexed = native x ${p.derivation?.factor ?? "the saved factor"} (${p.indexed.mode === "saved" ? "the pipeline's saved values at this setup" : `factor measured against the anchor here, basis ${p.derivation?.basis}`}); the chart's own order is kept.`}));
     });
   }
 
@@ -618,7 +616,7 @@
           native: p.native[k] ?? null, waiver_line: t?.positions?.[player.pos]?.waiver_line_value ?? null,
           waiver_method: t?.positions?.[player.pos]?.waiver_method ?? null,
           above_native: tr ? tr.vorp : (k in p.native ? 0 : null), role: role ? role.role : (k in p.native ? "at or below waivers" : null),
-          translated: tr ? tr.translated : (k in p.native ? 0 : null), saved_12: p.saved12[k] ?? null,
+          saved_12: p.saved12[k] ?? null, indexed_factor: p.derivation?.factor ?? null,
           indexed: p.indexed.values[k] ?? null, indexed_mode: p.indexed.mode,
           vorp_scale: p.views?.vorpScale ?? null, vorp: p.vorp.values[k] ?? null, vorp_mode: p.vorp.mode,
           group_budget: budget, group_native: groupTotal,
@@ -645,7 +643,7 @@
       {key: "label", label: "Source"}, {key: "native", label: "Input (native)", fmt: "n3"},
       {key: "waiver_line", label: "Waiver line", fmt: "n3"}, {key: "waiver_method", label: "Line from"},
       {key: "above_native", label: "Above waivers (native)", fmt: "n3"}, {key: "role", label: "Group role"},
-      {key: "translated", label: "Onto our positional max", fmt: "n3"},
+      {key: "indexed_factor", label: "Indexed factor (one per chart)", fmt: "sci"},
       {key: "saved_12", label: "Saved 12-team value", fmt: "n3"},
       {key: "indexed", label: "Indexed (shown)", fmt: "n3"}, {key: "indexed_mode", label: "Indexed from"},
       {key: "vorp_scale", label: "VORP vs waivers factor", fmt: "sci"}, {key: "vorp", label: "VORP vs waivers (shown)", fmt: "n3"},

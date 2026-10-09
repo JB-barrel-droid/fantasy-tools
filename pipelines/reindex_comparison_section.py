@@ -24,6 +24,11 @@ Two steps, run per (combo, position):
    mirroring the fixture shape. The dashboard applies the factor (or checks
    the pie) at display; reindexed values themselves are untouched.
 
+Published trade charts (fantasycalc, usatoday, fantasypros, cbs) skip both
+steps above: they are indexed with ONE factor per combo
+(order_preserving_rescale, JEG-482), so the chart's own ranking is kept
+exactly, across and within positions.
+
 Everything else is fail-closed: unknown combos, unknown positions (K/DST),
 non-numeric values, and unmatched anchor pairs go to review, never guessed.
 
@@ -177,6 +182,134 @@ def _round4(x):
     return round(float(x), 4)
 
 
+RESCALE_METHOD = "order_preserving_rescale"
+RESCALE_FIT_KEY = "order_preserving_rescale"  # fit[...] key the published branch writes
+
+
+def published_priced(native, key_by_slug, anchor_by_key, combo_name, not_on_espn=frozenset()):
+    """The players a published chart x combo is indexed over, its review rows,
+    and the chart-only players among them.
+
+    A player is priced when the anchor prices it (numeric key join) and both
+    values are numeric and non-negative. A player not on ESPN's list
+    (players.json espn_status "absent", GAP-UNIVERSE-CHART-ONLY / JEG-486) is
+    priced with anchor 0.0, like a player ESPN lists at 0: he gets the chart's
+    one factor like everyone else and is listed as not_on_espn. Any other
+    player the anchor does not price is skipped: silently when its native is
+    below ZERO_VORP_NATIVE_FRAC of the chart's top native (global max:
+    published charts are globally comparable across positions), else with a
+    review row (potential anchor omission).
+
+    Returns (priced, review, anchor_of, chart_only) where anchor_of is
+    {slug: anchor value} for every priced slug.
+    """
+    review = []
+    priced = []
+    anchor_of = {}
+    chart_only = []
+    # Zero-VORP threshold on native scale: 10% of max native value.
+    # Players below this with no anchor are auto-skipped (effectively zero).
+    native_vals = [float(v) for v in native.values()
+                   if isinstance(v, (int, float)) or
+                   (isinstance(v, str) and v.replace('.','',1).isdigit())]
+    max_native = max(native_vals) if native_vals else 0
+    # Global-max denominator: this branch serves as-published charts,
+    # whose values are globally comparable across positions.
+    zero_vorp_native_cutoff = max_native * ZERO_VORP_NATIVE_FRAC
+    for slug, val in native.items():
+        key = key_by_slug.get(slug)
+        anchor_v = anchor_by_key.get(key)
+        if anchor_v is None and key in not_on_espn:
+            chart_only.append(slug)
+            anchor_v = 0.0
+        if anchor_v is None:
+            # Zero-VORP policy: if native is also low, skip silently.
+            # Meaningful natives with no anchor still get review (potential omission).
+            try:
+                nv_check = float(val)
+            except (TypeError, ValueError):
+                nv_check = 0
+            if nv_check < zero_vorp_native_cutoff:
+                continue  # effectively zero-VORP, no review row
+            review.append(
+                {"player_key": key,
+                 "slug": slug, "combo": combo_name,
+                 "reason": f"no anchor value for this player_key (native {nv_check:.1f} >= cutoff {zero_vorp_native_cutoff:.1f}) -- skipped, never imputed"}
+            )
+            continue
+        try:
+            nv = float(val)
+            av = float(anchor_v)
+        except (TypeError, ValueError):
+            continue
+        if nv < 0 or av < 0:
+            continue
+        priced.append(slug)
+        anchor_of[slug] = av
+    return priced, review, anchor_of, chart_only
+
+
+def order_preserving_rescale(native, priced, anchor_of, pos_by_slug, uncalibrated=()):
+    """Index one published chart x combo with ONE factor (JEG-482).
+
+    native: {slug: native value}; priced: slugs to index; anchor_of: {slug:
+    anchor value} for every priced slug; pos_by_slug: {slug: position}. Only
+    QB/RB/WR/TE are indexed (others are review rows, as before).
+
+    factor = anchor_total(priced) / native_total(priced); every priced player
+    is native * factor, stored unrounded. A positive factor applied to every
+    player cannot reorder two of them, so the chart's own ranking survives
+    exactly (pipelines/check_rank_guard.py holds every saved combo to it).
+
+    index_total[pos]: target_total = the anchor's total over the chart's
+    players at that position (the pie the *_adjusted series is rescaled to),
+    pre_total = the chart's native total there, post_total = the stored
+    indexed total there (not equal to target_total: the chart keeps its own
+    split between positions), factor = the chart's single factor. Over the
+    calibrated players the chart's total is the anchor's.
+
+    uncalibrated: slugs indexed with the factor but left out of it -- the
+    chart-only players (not on ESPN's list, JEG-486), whom the anchor does not
+    price at all (the browser's live anchor has no entry for them either, so
+    the browser and the pipeline measure the factor on the same players).
+
+    Returns None when either total is not positive.
+    """
+    slugs = [s for s in priced if pos_by_slug.get(s) in POSITIONS]
+    skip = set(uncalibrated)
+    calib = [s for s in slugs if s not in skip]
+    native_total = sum(float(native[s]) for s in calib)
+    anchor_total = sum(max(0.0, float(anchor_of[s])) for s in calib)
+    if native_total <= 0 or anchor_total <= 0:
+        return None
+    factor = anchor_total / native_total
+    reindexed = {s: float(native[s]) * factor for s in slugs}
+    index_total = {}
+    for pos in POSITIONS:
+        at = [s for s in slugs if pos_by_slug.get(s) == pos]
+        if not at:
+            continue
+        index_total[pos] = {
+            "target_total": sum(max(0.0, float(anchor_of[s])) for s in at),
+            "pre_total": sum(float(native[s]) for s in at),
+            "post_total": sum(reindexed[s] for s in at),
+            "factor": factor,
+            "n_priced": len(at),
+        }
+    fit = {
+        "method": RESCALE_METHOD,
+        "anchor": "espn_leg",
+        "factor": factor,
+        "native_total": native_total,
+        "anchor_total": anchor_total,
+        "n_priced": len(slugs),
+        "n_uncalibrated": len(slugs) - len(calib),
+        "note": ("Indexed = native x one factor per chart and combo (JEG-482); "
+                 "the chart's own order is kept across and within positions."),
+    }
+    return {"reindexed": reindexed, "index_total": index_total, "fit": fit}
+
+
 def reindex_section(candidate_path, fixture_path=None, players_path=None):
     """Translate one candidate section to the anchor scale.
 
@@ -200,6 +333,12 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
     # candidate's own player_keys, pinned at collection) -> position from
     # players.json. Never by name normalization.
     pos_by_key = {p["player_key"]: p["pos"] for p in players["players"]}
+    # GAP-UNIVERSE-CHART-ONLY (JEG-486): players not on ESPN's list
+    # (espn_status "absent") have no ESPN anchor by definition. That is known,
+    # not a possible anchor omission: they never hold the chart and are listed
+    # under not_on_espn. A published chart indexes them with its one factor.
+    not_on_espn = {p["player_key"] for p in players["players"]
+                   if p.get("espn_status") == "absent"}
 
     espn = fixture["sources"].get("espn", {})
     espn_combos = espn.get("combos", {})
@@ -257,212 +396,38 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
         is_published = (source in AS_PUBLISHED_SOURCES and
                         cand.get("value_provenance") == "published")
         #
-        # Indexation logic (2026-09-30 refinement): players with VORP>0 should
-        # sum to the same total across sources. Different charts price to
-        # different depths, but they overlap on the top 50-150. We calibrate
-        # the scale on the VORP>0 overlap set, then apply relative values to
-        # the remainder of the chart.
+        # INDEXED = ONE ORDER-PRESERVING RESCALE (JEG-482). methodology.md,
+        # The Three Views #3: "the original published trade charts are indexed
+        # to match the value range of the other charts". One factor per chart
+        # x combo, so the chart keeps its own ranking across AND within
+        # positions (Jeremy, 2026-10-08: "There shouldn't be some secondary
+        # correction layer"). Per-position and starter/bench repricing belongs
+        # only to the VORP vs waivers and Adjusted views.
         #
-        # Formula: scale = sum(anchor_overlap) / sum(native_overlap)
-        #          indexed = native * scale for ALL priced players
-        # This preserves exact value ratios and cross-position order.
-        # No quantile mapping, no rounding in storage.
+        #   factor  = anchor_total(priced) / native_total(priced)
+        #   indexed = native * factor            (every priced player)
+        #
+        # so the chart's pie over the players it prices equals the anchor's
+        # over the same players. Removed: the per-(position, role) bucket
+        # scaling of 2026-10-01 (d4629423 per-position pie, 6a824749
+        # flex-aware buckets), which scaled each bucket to the anchor's total
+        # for it and so reordered players across positions and across the
+        # starter / flex / bench boundaries.
         if is_published:
-            priced = []
-            # Zero-VORP threshold on native scale: 10% of max native value.
-            # Players below this with no anchor are auto-skipped (effectively zero).
-            native_vals = [float(v) for v in native.values()
-                           if isinstance(v, (int, float)) or
-                           (isinstance(v, str) and v.replace('.','',1).isdigit())]
-            max_native = max(native_vals) if native_vals else 0
-            # Global-max denominator: this branch serves as-published charts,
-            # whose values are globally comparable across positions.
-            zero_vorp_native_cutoff = max_native * ZERO_VORP_NATIVE_FRAC
-            for slug, val in native.items():
-                key = combo.get("player_keys", {}).get(slug)
-                anchor_v = anchor_by_key.get(key)
-                if anchor_v is None:
-                    # Zero-VORP policy: if native is also low, skip silently.
-                    # Meaningful natives with no anchor still get review (potential omission).
-                    try:
-                        nv_check = float(val)
-                    except (TypeError, ValueError):
-                        nv_check = 0
-                    if nv_check < zero_vorp_native_cutoff:
-                        continue  # effectively zero-VORP, no review row
-                    review.append(
-                        {"player_key": key,
-                         "slug": slug, "combo": combo_name,
-                         "reason": f"no anchor value for this player_key (native {nv_check:.1f} >= cutoff {zero_vorp_native_cutoff:.1f}) -- skipped, never imputed"}
-                    )
-                    continue
-                try:
-                    nv = float(val)
-                    av = float(anchor_v)
-                except (TypeError, ValueError):
-                    continue
-                if nv < 0 or av < 0:
-                    continue
-                priced.append(slug)
-            # Calibrate on the VORP>0 overlap: players the anchor prices above
-            # zero. This is the high-confidence set (typically 50-150 players)
-            # where sources overlap; the deep tail varies in depth by source
-            # and shouldn't drive the scale.
-            overlap = [s for s in priced
-                       if float(anchor_by_key[combo.get("player_keys", {}).get(s)]) > 0]
-            if not overlap:
-                # Fallback: use all priced if no VORP>0 overlap (shouldn't happen)
-                overlap = priced
-            native_overlap = sum(float(native[s]) for s in overlap)
-            anchor_overlap = sum(float(anchor_by_key[combo.get("player_keys", {}).get(s)]) for s in overlap)
-            if native_overlap <= 0 or anchor_overlap <= 0:
+            priced, rows, anchor_of, chart_only = published_priced(
+                native, combo.get("player_keys", {}), anchor_by_key, combo_name, not_on_espn)
+            review.extend(rows)
+            if chart_only:
+                out_combo["not_on_espn"] = chart_only
+            rescaled = order_preserving_rescale(native, priced, anchor_of, pos_by_slug, chart_only)
+            if rescaled is None:
                 raise SystemExit(
-                    f"reindex: {source}/{combo_name} native_overlap={native_overlap} anchor_overlap={anchor_overlap} -- cannot scale"
-                )
-            # FLEX-AWARE PER-POSITION PIE ALLOCATION (2026-10-01):
-            # Run flex allocation on SOURCE rankings to preserve the source's
-            # opinions about who deserves flex spots. Then scale each
-            # (position, role) bucket independently to match the anchor.
-            #
-            # Roles: 'dedicated' (positional starters), 'flex' (flex starters),
-            # 'bench' (everyone else). Flex pool = remaining RB/WR/TE sorted
-            # by source native value; top flex_count per team win flex spots.
-            import math
-            teams = 12  # TODO: from league config
-            slots = ROSTER_SHAPE  # QB:1, RB:2, WR:2, TE:1, FLEX:2, BENCH:6
-            flex_count = slots.get("FLEX", 2)
-
-            # Rank source players by native value within each position.
-            # Zero-native players are excluded from bucket scaling (they get
-            # 0.0 directly); including them distorts bucket membership counts
-            # vs the ratio-based test grouping.
-            zero_native = {s for s in priced if float(native.get(s, 0)) <= 0}
-            for s in zero_native:
-                out_combo["reindexed"][s] = 0.0
-            by_pos = {}
-            for pos in POSITIONS:
-                rows = [(slug, float(native[slug])) for slug in priced
-                        if pos_by_slug.get(slug) == pos and slug not in zero_native]
-                rows.sort(key=lambda x: (-x[1], x[0]))
-                by_pos[pos] = rows
-
-            # Dedicated starters: top slots[pos] per position
-            dedicated = set()
-            role_of = {}
-            for pos in POSITIONS:
-                n_start = teams * slots.get(pos, 0)
-                for slug, _ in by_pos[pos][:n_start]:
-                    dedicated.add(slug)
-                    role_of[slug] = "dedicated"
-
-            # Flex pool: remaining flex-eligible, sorted by source value
-            flex_pool = []
-            for pos in FLEX_ELIGIBLE:
-                for slug, val in by_pos.get(pos, []):
-                    if slug not in dedicated:
-                        flex_pool.append((slug, val, pos))
-            flex_pool.sort(key=lambda x: (-x[1], x[0]))
-            n_flex = teams * flex_count
-            for slug, _, pos in flex_pool[:n_flex]:
-                role_of[slug] = "flex"
-            for slug, _, pos in flex_pool[n_flex:]:
-                if slug not in role_of:
-                    role_of[slug] = "bench"
-            # Non-flex-eligible remaining go to bench (zero-native players
-            # already have 0.0 and are excluded from buckets)
-            for slug in priced:
-                if slug not in role_of and slug not in zero_native:
-                    role_of[slug] = "bench"
-
-            # For each (pos, role) bucket, scale source total to anchor total
-            bucket_exact = {}
-            for pos in POSITIONS:
-                for role in ("dedicated", "flex", "bench"):
-                    bucket_slugs = [s for s in priced
-                                    if pos_by_slug.get(s) == pos and role_of.get(s) == role
-                                    and s not in zero_native]
-                    if not bucket_slugs:
-                        continue
-                    src_total = sum(float(native[s]) for s in bucket_slugs)
-                    # Anchor total for SAME players (not anchor's role assignment)
-                    anc_total = sum(
-                        float(anchor_by_key[combo.get("player_keys", {}).get(s)])
-                        for s in bucket_slugs
-                        if combo.get("player_keys", {}).get(s) in anchor_by_key
-                    )
-                    if src_total <= 0 or anc_total <= 0:
-                        # Zero-anchor bucket: the anchor prices every member at
-                        # 0 (e.g. below the positional waiver line). Reindex to
-                        # 0.0 explicitly -- skipping would leave them out of
-                        # reindexed while still counted in `priced`, breaking
-                        # the reconciliation below.
-                        bucket_exact[(pos, role)] = {
-                            "pre": src_total,
-                            "anchor": anc_total,
-                            "scale": 0.0,
-                            "post": 0.0,
-                            "n": len(bucket_slugs),
-                        }
-                        for slug in bucket_slugs:
-                            out_combo["reindexed"][slug] = 0.0
-                        continue
-                    scale = anc_total / src_total
-                    bucket_exact[(pos, role)] = {
-                        "pre": src_total,
-                        "anchor": anc_total,
-                        "scale": scale,
-                        "post": src_total * scale,
-                        "n": len(bucket_slugs),
-                    }
-                    for slug in bucket_slugs:
-                        out_combo["reindexed"][slug] = float(native[slug]) * scale
-
-            out_combo["fit"]["flex_aware_pie"] = {
-                "method": "proportional_scaling_flex_aware_per_position",
-                "anchor": "espn_leg",
-                "n_priced": len(priced),
-                "buckets": {f"{pos}/{role}": exact
-                            for (pos, role), exact in bucket_exact.items()},
-                "note": "Flex allocation run on SOURCE rankings; each (pos,role) bucket scaled independently",
-            }
-            # Exact reconciliation (no representative-bucket fiction): per-position
-            # and full-pie totals are the sums of the per-bucket exacts, and the
-            # stored reindexed values must sum to the bucket-sum post total.
-            out_combo["index_total"] = {}
-            out_combo["n"] = {}
-            pie_pre = pie_post = 0.0
-            for pos in POSITIONS:
-                pos_exact = [(r, e) for (p, r), e in bucket_exact.items() if p == pos]
-                if not pos_exact:
-                    continue
-                pre_total = sum(e["pre"] for _, e in pos_exact)
-                post_total = sum(e["post"] for _, e in pos_exact)
-                stored_total = sum(float(out_combo["reindexed"][s]) for s in priced
-                                   if pos_by_slug.get(s) == pos)
-                if abs(stored_total - post_total) > 1e-6 * max(1.0, post_total):
-                    raise SystemExit(
-                        f"reindex: {source}/{combo_name}/{pos} reconciliation failed: "
-                        f"stored reindexed total {stored_total} != bucket-sum {post_total}")
-                n_priced = sum(e["n"] for _, e in pos_exact)
-                out_combo["index_total"][pos] = {
-                    "target_total": post_total,
-                    "pre_total": pre_total,
-                    "post_total": post_total,
-                    "factor": post_total / pre_total if pre_total > 0 else 0.0,
-                    "n_priced": n_priced,
-                    "buckets": {role: {"pre": e["pre"], "anchor": e["anchor"],
-                                       "scale": e["scale"], "post": e["post"],
-                                       "n": e["n"]}
-                                for role, e in pos_exact},
-                }
-                out_combo["n"][pos] = n_priced
-                pie_pre += pre_total
-                pie_post += post_total
-            out_combo["fit"]["flex_aware_pie"]["pie"] = {
-                "pre_total": pie_pre,
-                "post_total": pie_post,
-                "factor": pie_post / pie_pre if pie_pre > 0 else 0.0,
-            }
+                    f"reindex: {source}/{combo_name} has no positive native or anchor total "
+                    "over its priced players -- cannot index")
+            out_combo["reindexed"].update(rescaled["reindexed"])
+            out_combo["fit"][RESCALE_FIT_KEY] = rescaled["fit"]
+            out_combo["index_total"] = rescaled["index_total"]
+            out_combo["n"] = {pos: t["n_priced"] for pos, t in rescaled["index_total"].items()}
         else:
                 for pos in POSITIONS:
                     pairs = []
@@ -473,6 +438,9 @@ def reindex_section(candidate_path, fixture_path=None, players_path=None):
                             continue
                         key = combo.get("player_keys", {}).get(slug)
                         anchor_v_raw = anchor_by_key.get(key)
+                        if anchor_v_raw is None and key in not_on_espn:
+                            out_combo.setdefault("not_on_espn", []).append(slug)
+                            continue
                         if anchor_v_raw is None:
                             # Zero-VORP policy: skip silently if native is low.
                             try:

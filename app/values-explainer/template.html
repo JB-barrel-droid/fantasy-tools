@@ -213,7 +213,7 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     </header>
     <div class="tablewrap"><table id="totalsTable"></table></div>
     <h3>Where each position's curve starts (Indexed view)</h3>
-    <p class="muted small">The top value at each position. Published charts are pinned to fixed starting points; projection series start wherever their own projections put them.</p>
+    <p class="muted small">The top value at each position. Published charts start where their own top player lands after the chart's one factor; projection series start wherever their own projections put them.</p>
     <div class="tablewrap"><table id="startsTable"></table></div>
   </section>
 
@@ -340,7 +340,13 @@ const weekOf = {};
 const S = D.setting;
 const R = D.setting.roster;
 const SCORING = {ppr: "Full PPR", half_ppr: "Half PPR", standard: "Standard"};
-const OUR_MAX = D.published.cbs?.ourMax || {QB: 25, RB: 70, WR: 55, TE: 30};
+// One Indexed factor per chart (JEG-482): the pipeline's saved factor at the
+// saved setup (reindex_comparison_section.order_preserving_rescale), else the
+// browser's derivePublishedSetup factor against the live anchor.
+const savedFactor = k => { const t = D.published[k]?.savedIndexTotal; const f = t && Object.values(t)[0]?.factor; return isFinite(f) ? f : null; };
+const savedTotals = k => { const t = D.published[k]?.savedIndexTotal || {}; return Object.values(t).reduce((a, x) => ({pre: a.pre + (x.pre_total || 0), target: a.target + (x.target_total || 0)}), {pre: 0, target: 0}); };
+const indexedFactor = k => { const pb = D.published[k]; return pb?.modes?.indexed === "saved" ? savedFactor(k) ?? pb?.factor : pb?.factor ?? savedFactor(k); };
+const CBV = D.compositeByView || {indexed: D.composite};
 const segmented = (host, options, current, onPick) => {
   host.innerHTML = options.map(([v, l]) => `<button type="button" data-v="${v}" aria-pressed="${v === current}">${esc(l)}</button>`).join("");
   host.addEventListener("click", e => {
@@ -386,11 +392,11 @@ const softplus = z => z > 30 ? z : Math.log1p(Math.exp(z));
   const rows = [
     {fam: "Published trade charts", who: PUB, cells: [
       "The publisher's own trade values, in its own units (FantasyCalc runs to about 10,000; the article charts to about 75). Saved once per scoring at 12 teams.",
-      `Waiver line = the chart's value at rank <i>rostered + 1</i> at each position, using a ${S.teams}-team roster with flex and bench filled by the chart's own values. Short charts extend their list from the other three charts. Example: FantasyCalc RB line ${fmtN(fc.RB?.waiver_line_value)} at rank ${(fc.RB?.n_rostered ?? 0) + 1}.`,
-      `Value above waivers scaled so each position's top player sits at a fixed start: QB ${OUR_MAX.QB} · RB ${OUR_MAX.RB} · WR ${OUR_MAX.WR} · TE ${OUR_MAX.TE}. No total factor.`,
+      `Used by the VORP vs waivers and Adjusted views only. Waiver line = the chart's value at rank <i>rostered + 1</i> at each position, using a ${S.teams}-team roster with flex and bench filled by the chart's own values. Short charts extend their list from the other three charts. Example: FantasyCalc RB line ${fmtN(fc.RB?.waiver_line_value)} at rank ${(fc.RB?.n_rostered ?? 0) + 1}.`,
+      `Published value × one factor per chart: the anchor's total ÷ the chart's total over the players both price (FantasyCalc ×${fmt(indexedFactor("fantasycalc"), 5)}). The chart keeps its own order and curve shape; no waiver line, no per-position repricing.`,
       "At the saved setup: the pipeline's saved view (published value × our group total ÷ the chart's group total). Elsewhere, and for CBS always: value above waivers × one factor so the chart's total equals the anchor's.",
       "Value above waivers shared out inside 8 groups (position × starter/bench) by the anchor's group totals, then one factor puts the top player across all charts at 70.",
-      "Indexed: no level match. VORP vs waivers and Adjusted: matched to the anchor total."
+      "All three views: one factor to the anchor's total (Indexed: fitted when the chart is saved, against the saved ESPN leg)."
     ]},
     {fam: "Projections, two-tier model", who: PROJ, cells: [
       "Per-game projections for the rest of the season, rescored for the scoring setting. ESPN is the anchor; CBS rest of season and Razzball run the same model on their own projections.",
@@ -415,10 +421,11 @@ const softplus = z => z > 30 ? z : Math.log1p(Math.exp(z));
       "Peak pin per position, then the total."
     ]},
     {fam: "DDF Value", who: [], cells: [
-      `The mean of the series in use: ${(D.composite?.inputs || []).map(nameOf).join(", ")}.`,
+      "Seven inputs: ESPN, CBS rest of season, Razzball and the four bias-adjusted charts. A held source, or a chart not yet published for the current week, is never an input.",
       "None of its own.",
-      "Equal-weight mean of the inputs that price the player. A missing input is left out, never counted as 0.",
-      "Not shown in this view.", "Not shown in this view.",
+      `Equal-weight mean of the series that price the player, published only when at least two do; a missing series is left out, never counted as 0. In use: ${(CBV.indexed?.series || CBV.indexed?.inputs || []).map(nameOf).join(", ")}.`,
+      `The same mean over each input's VORP vs waivers series. In use: ${(CBV.vorp?.series || []).map(nameOf).join(", ") || "—"}.`,
+      `The same mean over each input's Adjusted values series. In use: ${(CBV.adj?.series || []).map(nameOf).join(", ") || "—"}.`,
       "Inherits its inputs' scale."
     ]}
   ];
@@ -452,10 +459,9 @@ const GROUPS = [["Published trade charts", PUB], ["Projections", PROJ], ["Bias-a
   };
   const at = tops("espn");
   const rowsS = [`<tr class="anchor"><td>${label("espn")}</td>${POS.map(p => `<td class="r num">${fmt(at[p])}</td>`).join("")}<td class="muted small">the anchor</td></tr>`,
-    `<tr><td><span class="serieslabel"><span class="swatch" style="background:var(--ink-3)"></span>Fixed start for published charts</span></td>${POS.map(p => `<td class="r num">${fmt(OUR_MAX[p])}${Math.abs(OUR_MAX[p] - at[p]) >= 2 ? ` <span class="pill warn">${OUR_MAX[p] > at[p] ? "+" : ""}${fmt(OUR_MAX[p] - at[p])}</span>` : ""}</td>`).join("")}<td class="muted small">pill = gap to the anchor's own top</td></tr>`,
     ...[...PUB, "cbsros", "razzball", ...ADJ, ...RAWV].map(k => {
       const t = tops(k);
-      return `<tr><td>${label(k)}</td>${POS.map(p => `<td class="r num">${fmt(t[p])}</td>`).join("")}<td class="muted small">${PUB.includes(k) ? "pinned" : ADJ.includes(k) ? "pinned to the anchor's top" : "own projections × one factor"}</td></tr>`;
+      return `<tr><td>${label(k)}</td>${POS.map(p => `<td class="r num">${fmt(t[p])}</td>`).join("")}<td class="muted small">${PUB.includes(k) ? `published top × ${fmt(indexedFactor(k), 4)}` : ADJ.includes(k) ? "pinned to the anchor's top" : "own projections × one factor"}</td></tr>`;
     })];
   $("startsTable").innerHTML = `<thead><tr><th>Series</th>${POS.map(p => `<th class="r">${p}</th>`).join("")}<th>How it is set</th></tr></thead><tbody>${rowsS.join("")}</tbody>`;
 })();
@@ -601,29 +607,37 @@ const GROUPS = [["Published trade charts", PUB], ["Projections", PROJ], ["Bias-a
     const modes = pb.modes;
     const rows = POS.map(p => {
       const x = pos[p] || {};
-      return `<tr><td>${p}</td><td class="r num">${x.n_listed ?? "—"}</td><td class="r num">${x.n_dedicated ?? "—"} + ${x.n_flex ?? 0} + ${x.n_bench ?? 0} = ${x.n_rostered ?? "—"}</td><td class="r num">${fmtN(x.waiver_line_value)}</td><td>${methodPill(x.waiver_method)}${x.n_imputed ? ` <span class="muted small">${x.n_imputed} past the list</span>` : ""}</td><td class="r num">${fmtN(x.max_vorp)}</td><td class="r num" style="white-space:nowrap">${OUR_MAX[p]} ÷ ${fmtN(x.max_vorp)} = ${x.max_vorp > 0 ? Number((OUR_MAX[p] / x.max_vorp).toPrecision(3)) : "—"}</td><td class="r num">${pct(x.implied_weight)}</td><td class="r num">${pct(D.positionWeights?.[p])}</td></tr>`;
+      return `<tr><td>${p}</td><td class="r num">${x.n_listed ?? "—"}</td><td class="r num">${x.n_dedicated ?? "—"} + ${x.n_flex ?? 0} + ${x.n_bench ?? 0} = ${x.n_rostered ?? "—"}</td><td class="r num">${fmtN(x.waiver_line_value)}</td><td>${methodPill(x.waiver_method)}${x.n_imputed ? ` <span class="muted small">${x.n_imputed} past the list</span>` : ""}</td><td class="r num">${fmtN(x.max_vorp)}</td><td class="r num">${pct(x.implied_weight)}</td><td class="r num">${pct(D.positionWeights?.[p])}</td></tr>`;
     }).join("");
     const g = pb.groups || {}, bud = pb.budgets || {};
     const grows = POS.map(p => ["starter", "bench"].map(r => `<tr><td>${p} ${r}</td><td class="r num">${fmtN(g[p]?.[r])}</td><td class="r num">${fmt(bud[p]?.[r])}</td><td class="r num">${g[p]?.[r] > 0 ? fmt(bud[p][r] / g[p][r], 4) : "—"}</td></tr>`).join("")).join("");
     const savedNote = modes.vorp === "saved"
       ? `<p class="small"><span class="pill warn">saved view</span> At this setting the chart shows the pipeline's saved VORP vs waivers and Adjusted values (<span class="mono">build_imputed_vorps.py</span>, <span class="mono">build_reweighted_values.py</span>): published value × (our group VORP ÷ the chart's group total of published values), using the raw published value rather than value above waivers. At every other setting the browser recipe below is used. The two are compared in section 9.</p>`
       : `<p class="small"><span class="pill info">browser recipe</span> This chart has no saved views, so all three views come from the browser at every setting.</p>`;
+    const fac = indexedFactor(k), tot = savedTotals(k);
+    const facNote = modes.indexed === "saved"
+      ? `Saved by the pipeline at 12 teams: the anchor's total ÷ the chart's native total over the chart's priced players that ESPN lists (about ${fmt(tot.target, 1)} ÷ ${fmtN(tot.pre)}). Players ESPN does not list get the same factor but are left out of fitting it. At any other setting the browser refits the one factor against the live anchor (the saved factor if the anchor prices fewer than 40 of the chart's players).`
+      : `Fitted in the browser against the live anchor over ${pb.shared ?? "?"} shared players (basis: ${esc(pb.basis || "?")}).`;
     return `<div class="panel cards">
       <h3>${label(k)} <span class="muted small">Week ${weekOf[k] ?? "?"} · ${Object.keys(pb.native).length} players listed</span></h3>
+      <h3 class="small">Indexed (the default view)</h3>
       <ol class="recipe">
         <li><div><b>Take the published value</b><p class="muted small">Saved at 12 teams for ${SCORING[S.scoring]}. Units are the publisher's own.</p></div></li>
-        <li><div><b>Find each position's waiver line</b><p class="muted small">Fill a ${S.teams}-team roster from the chart's own order: dedicated starters, then flex (weighted by how much surplus the chart gives each flex position), then bench by the same rule. The line is the value of the next player. If the chart lists too few players, its tail is extended with the other charts' values mapped into its units.${pb.peers ? ` Peers: ${pb.peers.map(x => NAME[x]).join(", ")}.` : ""}</p></div></li>
-        <li><div><b>Subtract and scale to the fixed start</b><div class="formula">Indexed = max(0, published − waiver line) × start[pos] ÷ max above-waivers[pos]</div></div></li>
+        <li><div><b>Multiply by one factor for the whole chart</b><div class="formula">Indexed = published × ${fmt(fac, 6)}</div><p class="muted small">${facNote} Every position gets the same factor, so the chart's own ranking survives exactly, across and within positions; a rank guard fails the build if any pair flips.</p></div></li>
       </ol>
-      <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed</th><th class="r">Rostered (start + flex + bench)</th><th class="r">Waiver line</th><th>How the line was set</th><th class="r">Top above waivers</th><th class="r">Scale</th><th class="r">Implied weight</th><th class="r">Anchor weight</th></tr></thead><tbody>${rows}</tbody></table></div>
+      <h3 class="small">VORP vs waivers and Adjusted values views</h3>
+      <ol class="recipe">
+        <li><div><b>Find each position's waiver line</b><p class="muted small">Fill a ${S.teams}-team roster from the chart's own order: dedicated starters, then flex (weighted by how much surplus the chart gives each flex position), then bench by the same rule. The line is the value of the next player. If the chart lists too few players, its tail is extended with the other charts' values mapped into its units.${pb.peers ? ` Peers: ${pb.peers.map(x => NAME[x]).join(", ")}.` : ""}</p></div></li>
+      </ol>
+      <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed</th><th class="r">Rostered (start + flex + bench)</th><th class="r">Waiver line</th><th>How the line was set</th><th class="r">Top above waivers</th><th class="r">Implied weight</th><th class="r">Anchor weight</th></tr></thead><tbody>${rows}</tbody></table></div>
       <p class="muted small">Implied weight is this chart's share of total value above waivers by position. Anchor weight is the share of the ESPN two-tier pie.</p>
       ${savedNote}
-      <ol class="recipe" start="4">
+      <ol class="recipe" start="2">
         <li><div><b>VORP vs waivers (browser recipe)</b><div class="formula">value above waivers × ${fmt(pb.vorpScale, 5)}   (anchor total ${fmt(pb.total, 1)} ÷ chart total above waivers)</div></div></li>
         <li><div><b>Adjusted values (browser recipe)</b><div class="formula">anchor group total × (player above waivers ÷ chart group total) × ${fmt(D.batch.adjScale, 4)}   (70 ÷ top across all charts ${fmt(D.batch.batchMax, 2)})</div>
           <div class="tablewrap"><table><thead><tr><th>Group</th><th class="r">Chart total above waivers</th><th class="r">Anchor group total</th><th class="r">Factor</th></tr></thead><tbody>${grows}</tbody></table></div></div></li>
       </ol>
-      <p class="codepath">value-model.js · translatePublishedVorp, derivePublishedSetup, derivePublishedViews · server: vorp_translation/unified.py</p>
+      <p class="codepath">Indexed: value-model.js · derivePublishedSetup · server: reindex_comparison_section.py (order_preserving_rescale), check_rank_guard.py · Views: value-model.js · translatePublishedVorp, derivePublishedViews · server: vorp_translation/unified.py</p>
     </div>`;
   }
   function projection(k) {
@@ -699,10 +713,15 @@ const GROUPS = [["Published trade charts", PUB], ["Projections", PROJ], ["Bias-a
     const c = D.composite || {};
     return `<div class="panel cards">
       <h3>DDF Value</h3>
-      <div class="formula">DDF Value = mean of the inputs that price the player</div>
-      <p>Inputs in use: ${(c.inputs || []).map(label).join(" ")}.</p>
-      <p class="muted small">${c.isDefault ? "These are the defaults: every adjusted series available in the current week." : "The reader changed the inputs."} The published charts as shown (Indexed) and the raw VORP series are never averaged in. Its tier ranks DDF Value and cuts at the league's slot counts.</p>
-      <p class="codepath">value-model.js · compositeValue · curve-widget.js · compositeInputKeys</p>
+      <div class="formula">DDF Value = mean of the view's series that price the player   (at least ${c.minSources ?? 2}, else no value)</div>
+      <ol class="recipe">
+        <li><div><b>Inputs</b><p class="muted small">ESPN, CBS rest of season, Razzball and the four bias-adjusted charts. ${c.isDefault ? "These are the defaults." : "The reader changed the inputs."} Never an input, even when selected: a held source (or a series derived from one) and a chart not yet published for the current week.${(c.excluded || []).length ? ` Left out now: ${(c.excluded || []).map(x => esc(typeof x === "string" ? x : `${nameOf(x.key || x.series || "?")}: ${x.reason || ""}`)).join("; ")}.` : " None left out at this build."}</p></div></li>
+        <li><div><b>One series per input in each view</b><p class="muted small">Indexed: the input itself. VORP vs waivers: the projections' raw VORP series and each chart's value above waivers. Adjusted values: the projections themselves and each chart's Adjusted values.</p></div></li>
+        <li><div><b>Same inputs in both weeks</b><p class="muted small">An input without the prior week (Week ${c.priorWeek ?? "?"}) at this setting and view is left out of the current week (Week ${c.currentWeek ?? "?"}) too. The as-published charts are recomputed for earlier weeks in the Indexed view only, so the VORP vs waivers and Adjusted values DDF Values can end up averaging the projections alone (MR-17).</p></div></li>
+        <li><div><b>Equal-weight mean</b><p class="muted small">A series that does not price the player is left out, never counted as 0. Tier ranks the view's DDF Value and cuts at the league's slot counts.</p></div></li>
+      </ol>
+      <div class="tablewrap"><table><thead><tr><th>View</th><th>Series averaged at this build</th><th class="r">Players with a value</th></tr></thead><tbody>${VIEWS.map(([v, l]) => `<tr><td>${l}</td><td>${(CBV[v]?.series || []).map(label).join(" ") || "—"}</td><td class="r num">${Object.keys(V[v]?.ddf_value || {}).length}</td></tr>`).join("")}</tbody></table></div>
+      <p class="codepath">value-model.js · compositeValue · curve-widget.js · compositeInputKeys, getCompositeInputs, getCompositeValues</p>
     </div>`;
   }
   function render() {
@@ -743,15 +762,14 @@ const GROUPS = [["Published trade charts", PUB], ["Projections", PROJ], ["Bias-a
       const native = pb.native?.[k];
       let chain;
       if (native === undefined) chain = step("Published value", "not listed") + op("→") + `<span class="muted small">no value in any view</span>`;
-      else if (!t) chain = step("Published value", fmtN(native)) + op("−") + step(`Waiver line (${pos}${x.n_rostered + 1})`, fmtN(x.waiver_line_value)) + op("=") + step("Above waivers", "0") + op("→") + shownRow(k, src);
-      else chain = step("Published value", fmtN(t.native)) + op("−") + step(`Waiver line (${pos}${x.n_rostered + 1})`, fmtN(x.waiver_line_value)) + op("=") + step("Above waivers", fmtN(t.vorp))
-        + op("×") + step(`${OUR_MAX[pos]} ÷ ${fmtN(x.max_vorp)}`, Number((OUR_MAX[pos] / x.max_vorp).toPrecision(3))) + op("=") + step("Translated", fmt(t.translated))
-        + op("→") + shownRow(k, src)
+      else chain = step("Published value", fmtN(native)) + op("×") + step("Chart factor", fmt(indexedFactor(src), 6)) + op("=") + step("Indexed", fmt(V.indexed[src]?.[k]), true)
+        + `</div><div class="steps">` + step("Published value", fmtN(native)) + op("−") + step(`Waiver line (${pos}${x.n_rostered + 1})`, fmtN(x.waiver_line_value)) + op("=") + step("Above waivers", t ? fmtN(t.vorp) : "0")
+        + op("→") + VIEWS.filter(([v]) => v !== "indexed").map(([v, l]) => step(l, isFinite(V[v]?.[src]?.[k]) ? fmt(V[v][src][k]) : "—", true)).join("")
         + (pb.modes.vorp === "saved" ? `<span class="muted small">browser recipe would give ${fmt(pb.derivedVorp?.[k])} / ${fmt(pb.derivedAdj?.[k])}</span>` : "");
       const adj = V.indexed[src + "_adjusted"]?.[k];
       const cell = (D.adjustmentWeights?.cells || []).find(c => c.rawKey === src && c.position === pos && c.tier === p.r);
       let adjChain = "";
-      if (isFinite(adj) && t) {
+      if (isFinite(adj) && isFinite(V.indexed[src]?.[k])) {
         const fitted = cell ? Math.max(0, cell.alpha + cell.beta * V.indexed[src][k]) : V.indexed[src][k];
         adjChain = `<div class="steps">${sw(src + "_adjusted")}${step("Indexed", fmt(V.indexed[src][k]))}${cell ? op("→") + step(`α + β×x (${pos} ${p.r})`, `${fmt(cell.alpha, 2)} + ${fmt(cell.beta, 3)}×x = ${fmt(fitted, 2)}`) : ""}${op("× peak pin × total")}${step("factor", fitted > 0 ? fmt(adj / fitted, 3) : "—")}${op("=")}${step(nameOf(src + "_adjusted"), fmt(adj), true)}</div>`;
       }
@@ -837,19 +855,17 @@ const GROUPS = [["Published trade charts", PUB], ["Projections", PROJ], ["Bias-a
   const vi = D.viewInvariants?.indexed?.indexed?.sources || {};
   const off = PUB.filter(k => vi[k] && Math.abs(vi[k].ratio - 1) > 0.05);
   if (off.length) add("check", "Published charts spend different totals than the anchor in the Indexed view",
-    `${off.map(k => `${NAME[k]} ×${vi[k].ratio.toFixed(2)}`).join(", ")}. Indexed pins each position's top and keeps the chart's own curve below it, with no total factor, so a chart with a flatter curve spends more. Open as MR-01 and MR-03.`);
-  const tops = {};
-  POS.forEach(p => { tops[p] = Math.max(0, ...posKeys(p).map(k => V.indexed.espn?.[k]).filter(isFinite)); });
-  const gaps = POS.filter(p => Math.abs(OUR_MAX[p] - tops[p]) >= 2);
-  if (gaps.length) add("check", "The fixed starting points no longer match the anchor's own tops",
-    `Published charts start at ${POS.map(p => `${p} ${OUR_MAX[p]}`).join(", ")}; the ESPN anchor's tops are ${POS.map(p => `${p} ${fmt(tops[p])}`).join(", ")}. The gap is largest at ${gaps.sort((a, b) => Math.abs(OUR_MAX[b] - tops[b]) - Math.abs(OUR_MAX[a] - tops[a]))[0]}. The fixed values are a calibration from an earlier anchor.`);
+    `${off.map(k => `${NAME[k]} ×${vi[k].ratio.toFixed(2)}`).join(", ")}. Indexed is one factor per chart, fitted when the chart is saved against the saved ESPN leg over the players the chart prices. This check measures against the live anchor over the players both price, so a ratio away from 1.00 is the gap between those two totals, not a per-position repricing. Open as MR-01.`);
+  const topOf = (k, p) => Math.max(0, ...posKeys(p).map(x => V.indexed[k]?.[x]).filter(isFinite));
+  add("info", "Published charts start where their own shape puts them",
+    `Indexed has no fixed starting points (JEG-482): each chart's top at each position is its own top × the chart's one factor. ESPN anchor: ${POS.map(p => `${p} ${fmt(topOf("espn", p))}`).join(", ")}. ${PUB.map(k => `${NAME[k]}: ${POS.map(p => `${p} ${fmt(topOf(k, p))}`).join(", ")}`).join(". ")}.`);
   const sens = D.sensitivity || [];
   const s12 = sens.filter(s => s.teams === 12);
   if (s12.length > 1) {
     const pubSame = s12.every(s => POS.every(p => Math.abs((s.series?.fantasycalc?.[p]?.top ?? 0) - (s12[0].series?.fantasycalc?.[p]?.top ?? 0)) < 0.05));
     const espnQb = s12.map(s => `${SCORING[s.scoring]} ${fmt(s.series?.espn?.QB?.top)}`).join(", ");
     if (pubSame) add("check", "Scoring changes move the anchor's starting points but not the published charts'",
-      `At 12 teams the published charts start at the same QB/RB/WR/TE values in every scoring, while the ESPN QB top moves (${espnQb}). The starting points follow team count and roster but not scoring.`);
+      `At 12 teams the published charts start at the same QB/RB/WR/TE values in every scoring, while the ESPN QB top moves (${espnQb}). The saved charts are the same in every scoring, so only the anchor follows scoring.`);
   }
   PUB.forEach(k => {
     const imp = POS.filter(p => D.published[k].positions?.[p]?.waiver_method === "imputed_from_other_charts");

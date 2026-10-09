@@ -914,27 +914,25 @@
   //
   // The backend saves ONE setup per scoring: 12 teams, standard roster. At
   // that setup the chart shows the saved values untouched. At any other team
-  // count or roster the browser derives the published chart from the saved
-  // 12-team inputs, running the same recipe the server ran at 12 teams:
+  // count or roster the browser derives the published chart's Indexed values
+  // from the saved 12-team natives with the server's own recipe
+  // (pipelines/reindex_comparison_section.order_preserving_rescale):
   //
-  //   1. value above waivers, translated onto our positional maxes
-  //      (translatePublishedVorp) at the chosen teams/roster/bench, for every
-  //      player above that setting's waiver line. The maxes themselves follow
-  //      the setting (positionalMaxForSetup) when `projection` is passed;
-  //   2. every other player -- at or below that setting's waiver line, or
-  //      with no native value to rank -- is worth 0: value above waivers is
-  //      zero by definition.
+  //   factor  = anchor total / native total, over the saved players the
+  //             live anchor prices at this setting
+  //   indexed = native * factor, for every saved player with a native value
   //
-  // /3 (2026-10-07, Jeremy agreed): step 2 used to mirror the server's
-  // fail-safe (the saved value, or the 12-team flex-aware pie value) for
-  // below-waiver players. It now prices them at 0.
-  // /2 (2026-10-07): optional `projection` makes the positional maxes follow
-  // the setting (JEG332-DERIVED-PEAKS); both chart callers pass it.
-  // /4 (2026-10-07, V2-WAIVER-COVERAGE): `peers` -- a short position's waiver
-  // line is extrapolated from the other published charts; result `waiver`.
-  // /5 (2026-10-08, JEG332-SUPERFLEX-FLEX): shape.SUPERFLEX is a dedicated
-  // slot count passed to the translation; SUPERFLEX 0 reproduces /4 exactly.
-  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/5";
+  // One factor per chart, so the chart keeps its own ranking at every setting
+  // (methodology, The Three Views #3: "indexed to match the value range of
+  // the other charts"). Per-position and starter/bench repricing belongs to
+  // the VORP vs waivers and Adjusted views (derivePublishedViews).
+  //
+  // /6 (2026-10-08, JEG-482; Jeremy: "There shouldn't be some secondary
+  // correction layer, the math is clearly off"): replaced /1-/5, which priced
+  // Indexed as value above waivers translated onto our positional maxes
+  // (translatePublishedVorp) and so reordered players across positions
+  // (FantasyCalc Week 5: Smith-Njigba #3 on the chart, #5 here).
+  var PUBLISHED_DERIVATION_VERSION = "league-settings-001/6";
   var SAVED_SETUP_TEAMS = 12;
   var SAVED_SETUP_SHAPE = {QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, BENCH: 6};
 
@@ -1010,56 +1008,55 @@
     return ranked;
   }
 
-  // opts: native (Map key -> saved 12-team native value), saved (Map key ->
-  // saved 12-team chart value; only its KEY SET is used off the saved setup),
-  // indexTotal (unused since /3, accepted for callers), posOf(key), teams,
-  // shape ({QB,RB,WR,TE,FLEX,BENCH[,SUPERFLEX]}), projection (optional Map
-  // key -> ESPN per-game points for this scoring), peers (optional {source:
-  // Map key -> saved 12-team native} of the OTHER published charts at this
-  // scoring: a short position's waiver line is extrapolated from them).
-  // Returns {version, values: Map, ourMax, positionalMax, translated,
-  // belowWaiver, waiver}. The player set is the saved set, at every setting.
+  // opts: native (Map key -> saved 12-team native value at this scoring; the
+  // publisher's superflex values overlaid when the roster has a superflex
+  // slot), saved (Map key -> saved 12-team Indexed value; its KEY SET is the
+  // player set at every setting, and its values give the saved factor when no
+  // anchor is passed), anchor (Map key -> the live anchor's value at this
+  // setting), posOf(key). teams / shape / projection / peers / indexTotal are
+  // accepted for callers and unused (/6).
+  // Returns {version, values: Map, factor, basis: "anchor" | "saved", shared,
+  // nativeTotal, anchorTotal}. A saved player with no native value is left
+  // out (missing, never 0).
   function derivePublishedSetup(opts) {
     var native = opts.native;
     var saved = opts.saved;
-    var posOf = opts.posOf;
-    var shape = opts.shape || SAVED_SETUP_SHAPE;
-    var ranked = rankedByPosition(native, posOf);
-    var setting = settingForShape(opts.teams, shape);
-    // JEG332-DERIVED-PEAKS: with our projections supplied, the positional
-    // maxes follow the setting (positionalMaxForSetup); without them they stay
-    // at OUR_MAX (the pre-2026-10-07 behaviour).
-    var projection = null;
-    if (opts.projection && opts.projection.size) {
-      projection = {};
-      POSITION_ORDER.forEach(function (pos) { projection[pos] = []; });
-      opts.projection.forEach(function (value, key) {
-        var pos = posOf(key);
-        if (projection[pos] && typeof value === "number" && isFinite(value)) {
-          projection[pos].push({key: key, value: value});
-        }
+    var anchor = opts.anchor;
+    var posOf = opts.posOf || function () { return null; };
+    var keys = [];
+    saved.forEach(function (savedValue, key) {
+      var v = Number(native.get(key));
+      if (native.has(key) && isFinite(v) && POSITION_ORDER.indexOf(posOf(key)) !== -1) keys.push(key);
+    });
+    var nativeTotal = 0, anchorTotal = 0, shared = 0;
+    if (anchor && anchor.size) {
+      keys.forEach(function (key) {
+        var a = Number(anchor.get(key));
+        if (!anchor.has(key) || !isFinite(a)) return;
+        shared += 1;
+        anchorTotal += Math.max(0, a);
+        nativeTotal += Math.max(0, Number(native.get(key)));
       });
     }
-    var ourMax = projection
-      ? positionalMaxForSetup(Object.assign({projection: projection}, setting))
-      : TRANSLATION_OUR_MAX;
-    var at = translatePublishedVorp(Object.assign({ranked: ranked, ourMax: ourMax,
-      peers: peersByPosition(opts.peers, posOf)}, setting));
+    var basis = "anchor";
+    if (shared < MIN_SHARED_FOR_PIE || !(anchorTotal > 0) || !(nativeTotal > 0)) {
+      // Too few shared players to measure the anchor's range: keep the saved
+      // factor (the pipeline's, at 12 teams), measured on the saved values.
+      basis = "saved";
+      nativeTotal = 0; anchorTotal = 0; shared = 0;
+      keys.forEach(function (key) {
+        var s = Number(saved.get(key));
+        if (!isFinite(s)) return;
+        shared += 1;
+        anchorTotal += Math.max(0, s);
+        nativeTotal += Math.max(0, Number(native.get(key)));
+      });
+    }
+    var factor = nativeTotal > 0 && anchorTotal > 0 ? anchorTotal / nativeTotal : 0;
     var values = new Map();
-    var counts = {translated: 0, belowWaiver: 0};
-    saved.forEach(function (savedValue, key) {
-      var t = at.translated[String(key)];
-      if (t) { values.set(key, t.translated); counts.translated += 1; return; }
-      values.set(key, 0); counts.belowWaiver += 1;
-    });
-    var maxes = {};
-    POSITION_ORDER.forEach(function (pos) { maxes[pos] = ourMax[pos]; });
-    return {version: PUBLISHED_DERIVATION_VERSION, translationVersion: at.version,
-            positionalMax: projection ? POSITIONAL_MAX_VERSION : "fixed", ourMax: maxes,
-            values: values, translated: counts.translated, belowWaiver: counts.belowWaiver,
-            waiver: waiverSummary(at),
-            // Read-only echo of the translation behind `values` (math inspector).
-            translation: at};
+    keys.forEach(function (key) { values.set(key, Math.max(0, Number(native.get(key))) * factor); });
+    return {version: PUBLISHED_DERIVATION_VERSION, values: values, factor: factor, basis: basis,
+            shared: shared, nativeTotal: nativeTotal, anchorTotal: anchorTotal};
   }
 
   // ---------------------------------------------------------------------
@@ -1070,7 +1067,7 @@
   // The saved `vorp_views` (pipelines/build_imputed_vorps.py +
   // build_reweighted_values.py) exist for one scoring at 12 teams. Everywhere
   // else the browser derives both views from the same league arithmetic as
-  // derivePublishedSetup, so all three views agree on who is above waivers
+  // the VORP translation, so the two views agree on who is above waivers
   // (everyone at or below the setting's waiver line is 0 in every view):
   //
   //   VORP vs waivers: each player's value above that setting's waiver line
